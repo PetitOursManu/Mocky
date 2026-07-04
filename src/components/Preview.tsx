@@ -120,6 +120,11 @@ function buildSrcDoc(
 </html>`
 }
 
+export interface CaptureRequest {
+  id: string
+  clientRect: { left: number; top: number; width: number; height: number }
+}
+
 export default function Preview({
   code,
   pickMode,
@@ -128,6 +133,8 @@ export default function Preview({
   onNavigate,
   hideScrollbars,
   radius,
+  captureRequest,
+  onCaptureRect,
 }: {
   code: string
   pickMode?: boolean
@@ -136,6 +143,8 @@ export default function Preview({
   onNavigate?: (target: string) => void
   hideScrollbars?: boolean
   radius?: string
+  captureRequest?: CaptureRequest | null
+  onCaptureRect?: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
 }) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -146,8 +155,10 @@ export default function Preview({
   // re-subscribe (and reset `ready`) every time the parent re-renders.
   const onPickRef = useRef(onPick)
   const onNavRef = useRef(onNavigate)
+  const onCaptureRectRef = useRef(onCaptureRect)
   onPickRef.current = onPick
   onNavRef.current = onNavigate
+  onCaptureRectRef.current = onCaptureRect
 
   const srcDoc = useMemo(() => {
     const previewCode = toPreviewModule(code)
@@ -172,6 +183,24 @@ export default function Preview({
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
   }, [srcDoc, frameId])
+
+  // When a capture is requested, translate the client-space rect into this
+  // screen's viewport coordinates (handles the device-frame inset + zoom) and
+  // hand it up — the actual snapshot happens in a same-origin capture iframe.
+  useEffect(() => {
+    if (!captureRequest) return
+    const iframe = iframeRef.current
+    if (!iframe) return
+    const ir = iframe.getBoundingClientRect()
+    const cr = captureRequest.clientRect
+    const clamp = (v: number) => Math.max(0, Math.min(1, v))
+    onCaptureRectRef.current?.(captureRequest.id, {
+      x: clamp((cr.left - ir.left) / ir.width),
+      y: clamp((cr.top - ir.top) / ir.height),
+      w: clamp(cr.width / ir.width),
+      h: clamp(cr.height / ir.height),
+    })
+  }, [captureRequest])
 
   // Push interaction commands to the iframe once it is mounted.
   const demoKey = JSON.stringify(demoLinks || [])

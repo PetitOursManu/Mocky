@@ -27,11 +27,21 @@ interface OllamaChatResponse {
   choices?: Array<{ message?: { content?: string } }>
 }
 
+interface ChatMessage {
+  role: string
+  content: string
+  /** base64 image data (no data-URL prefix) for vision-capable models. */
+  images?: string[]
+}
+
+/** Strip the `data:image/...;base64,` prefix so Ollama gets raw base64. */
+export function stripDataUrl(dataUrl: string): string {
+  const i = dataUrl.indexOf('base64,')
+  return i >= 0 ? dataUrl.slice(i + 'base64,'.length) : dataUrl
+}
+
 /** Shared chat call: posts messages and returns the assistant content. */
-async function chat(
-  s: Settings,
-  messages: Array<{ role: string; content: string }>,
-): Promise<string> {
+async function chat(s: Settings, messages: ChatMessage[]): Promise<string> {
   const body = JSON.stringify({ model: s.model, stream: false, messages, options: { temperature: 0.4 } })
 
   let res: Response
@@ -63,14 +73,22 @@ export async function generateComponent(
   s: Settings,
   userPrompt: string,
   extraSystem?: string,
+  images?: string[],
 ): Promise<GeneratedComponent> {
   const system = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
   const content = await chat(s, [
     { role: 'system', content: system },
-    { role: 'user', content: userPrompt },
+    { role: 'user', content: withImageNote(userPrompt, images), images: images?.map(stripDataUrl) },
   ])
   const code = extractCode(content)
   return { raw: content, code, componentName: detectComponentName(code) }
+}
+
+/** Prepend a note so the model knows the attached reference images are numbered. */
+function withImageNote(prompt: string, images?: string[]): string {
+  if (!images || images.length === 0) return prompt
+  const refs = images.map((_, i) => `[${i + 1}]`).join(', ')
+  return `I've attached ${images.length} reference screenshot${images.length === 1 ? '' : 's'} (numbered ${refs}). Use them as visual context; the user may refer to them by number.\n\n${prompt}`
 }
 
 export const EDIT_RULES = `You are EDITING an existing screen, not designing a new one. The single most important rule:
@@ -93,6 +111,7 @@ export async function editComponent(
   instruction: string,
   existingCode: string,
   extraSystem?: string,
+  images?: string[],
 ): Promise<GeneratedComponent> {
   const system = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
   const user = [
@@ -105,11 +124,11 @@ export async function editComponent(
     'Make ONLY the change described below. Keep everything else in the component exactly as it is now — do not alter any other text, styling, layout, or behaviour. Return the COMPLETE updated component.',
     '',
     'Requested change:',
-    instruction,
+    withImageNote(instruction, images),
   ].join('\n')
   const content = await chat(s, [
     { role: 'system', content: system },
-    { role: 'user', content: user },
+    { role: 'user', content: user, images: images?.map(stripDataUrl) },
   ])
   const code = extractCode(content)
   return { raw: content, code, componentName: detectComponentName(code) }

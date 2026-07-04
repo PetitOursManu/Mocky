@@ -4,6 +4,7 @@ import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
 import { editComponent, generateComponent } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
+import { captureRegion } from '../lib/capture'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
 import PresetPicker from './PresetPicker'
@@ -50,6 +51,35 @@ export default function ProjectView({
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
+  const [annotateMode, setAnnotateMode] = useState(false)
+  const [captureReq, setCaptureReq] = useState<
+    { screenId: string; id: string; clientRect: { left: number; top: number; width: number; height: number } } | null
+  >(null)
+  const [capturing, setCapturing] = useState(false)
+  const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
+
+  function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
+    setCapturing(true)
+    setCaptureReq({ screenId, id: newId(), clientRect })
+  }
+
+  async function onCaptureRect(id: string, rect: { x: number; y: number; w: number; h: number }) {
+    const screenId = captureReq?.screenId
+    setCaptureReq(null)
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen) {
+      setCapturing(false)
+      return
+    }
+    try {
+      const dataUrl = await captureRegion(screen.code, screen.w, screen.h, rect)
+      setAnnotations((a) => [...a, { id, dataUrl }])
+    } catch {
+      setError('Screenshot failed — try again or a smaller area.')
+    } finally {
+      setCapturing(false)
+    }
+  }
 
   const designActive = isDesignActive(loadDesign())
   const screens = project.screens
@@ -79,6 +109,7 @@ export default function ProjectView({
       return
     }
     const targets = screens.filter((s) => selectedIds.includes(s.id))
+    const images = annotations.map((a) => a.dataUrl)
     setBusy(true)
     setError(null)
     try {
@@ -90,15 +121,16 @@ export default function ProjectView({
         // keeping each screen in its existing form factor.
         for (const sc of targets) {
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
-          const res = await editComponent(settings, text, sc.code, extraSystem)
+          const res = await editComponent(settings, text, sc.code, extraSystem, images)
           onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName })
         }
         setPrompt('')
+        setAnnotations([])
       } else {
         // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
         const extraSystem = joinSystem([designPreamble, preset.hint])
-        const result = await generateComponent(settings, text, extraSystem)
+        const result = await generateComponent(settings, text, extraSystem, images)
         const screen: Omit<Screen, 'x' | 'y'> = {
           id: newId(),
           name: deriveName(text),
@@ -114,13 +146,14 @@ export default function ProjectView({
         onAddScreen(screen)
         setPrompt('')
         setSelectedIds([screen.id])
+        setAnnotations([])
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
-  }, [prompt, screens, selectedIds, presetId, onAddScreen, onUpdateScreen])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen])
 
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -180,6 +213,10 @@ export default function ProjectView({
         highlightedHotspotId={highlightHotspot}
         focusScreenId={focus?.screenId ?? null}
         focusNonce={focus?.nonce}
+        annotateMode={annotateMode}
+        onCaptureRegion={onCaptureRegion}
+        captureReq={captureReq}
+        onCaptureRect={onCaptureRect}
       />
 
       {/* Links panel (link mode) */}
@@ -269,6 +306,19 @@ export default function ProjectView({
         </button>
         <button
           type="button"
+          onClick={() => {
+            setAnnotateMode((v) => !v)
+            setLinkMode(false)
+          }}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+            annotateMode ? 'bg-amber-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
+          }`}
+          title="Snip a region of a screen into the chat as a numbered reference"
+        >
+          ✂ Annotate
+        </button>
+        <button
+          type="button"
           onClick={toggleFrame}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
             showFrame ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/60'
@@ -297,6 +347,37 @@ export default function ProjectView({
               <button type="button" className="btn-ghost shrink-0 px-2 py-1 text-xs" onClick={onOpenSettings}>
                 Settings
               </button>
+            </div>
+          )}
+
+          {/* Annotation thumbnails */}
+          {(annotations.length > 0 || capturing) && (
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              {annotations.map((a, i) => (
+                <div
+                  key={a.id}
+                  className="group relative h-14 w-14 overflow-hidden rounded-lg border border-amber-400/60 bg-white"
+                  title={`Reference [${i + 1}] — attached to the model`}
+                >
+                  <img src={a.dataUrl} alt={`ref ${i + 1}`} className="h-full w-full object-cover" />
+                  <span className="absolute left-0 top-0 rounded-br bg-amber-500 px-1 text-[10px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAnnotations((arr) => arr.filter((x) => x.id !== a.id))}
+                    className="absolute right-0 top-0 rounded-bl bg-black/60 px-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100"
+                    title="Remove reference"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              {capturing && (
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-amber-400/60">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-300/40 border-t-amber-400" />
+                </div>
+              )}
             </div>
           )}
 

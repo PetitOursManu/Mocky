@@ -27,6 +27,7 @@ type Gesture =
   | { type: 'move'; sx: number; sy: number; origins: Record<string, { x: number; y: number }> }
   | { type: 'resize'; id: string; handle: Handle; sx: number; sy: number; box: Box }
   | { type: 'marquee'; sx: number; sy: number; additive: boolean; base: string[] }
+  | { type: 'annotate'; screenId: string; sx: number; sy: number }
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 
@@ -77,6 +78,10 @@ export default function Canvas({
   highlightedHotspotId,
   focusScreenId,
   focusNonce,
+  annotateMode,
+  onCaptureRegion,
+  captureReq,
+  onCaptureRect,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -93,6 +98,10 @@ export default function Canvas({
   highlightedHotspotId?: string | null
   focusScreenId?: string | null
   focusNonce?: number
+  annotateMode: boolean
+  onCaptureRegion: (screenId: string, clientRect: { left: number; top: number; width: number; height: number }) => void
+  captureReq: { screenId: string; id: string; clientRect: { left: number; top: number; width: number; height: number } } | null
+  onCaptureRect: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
@@ -102,6 +111,7 @@ export default function Canvas({
   const [moveDelta, setMoveDelta] = useState<{ dx: number; dy: number } | null>(null)
   const [resizePreview, setResizePreview] = useState<(Box & { id: string }) | null>(null)
   const [marquee, setMarquee] = useState<Box | null>(null)
+  const [annotateRect, setAnnotateRect] = useState<Box | null>(null)
   const gesture = useRef<Gesture | null>(null)
 
   const local = (e: { clientX: number; clientY: number }) => {
@@ -184,7 +194,7 @@ export default function Canvas({
     if (gesture.current) return
     if (e.button === 1 || spaceDown) return startPan(e)
     if (e.button !== 0) return
-    if (linkMode) return // empty-canvas drag does nothing while linking
+    if (linkMode || annotateMode) return // empty-canvas drag does nothing in these modes
     const { lx, ly } = local(e)
     const additive = e.shiftKey || e.ctrlKey || e.metaKey
     gesture.current = { type: 'marquee', sx: lx, sy: ly, additive, base: selectedIds }
@@ -197,6 +207,12 @@ export default function Canvas({
     if (e.button === 1 || spaceDown) return startPan(e)
     if (e.button !== 0) return
     const { lx, ly } = local(e)
+    if (annotateMode) {
+      gesture.current = { type: 'annotate', screenId: s.id, sx: lx, sy: ly }
+      setAnnotateRect({ x: lx, y: ly, w: 0, h: 0 })
+      capture(containerRef.current, e.pointerId)
+      return
+    }
     // In link mode, the frame body is interactive so the preview iframe can pick
     // elements; the header still drives select/move here.
     if (e.ctrlKey || e.metaKey) {
@@ -237,6 +253,8 @@ export default function Canvas({
       setResizePreview({ id: g.id, ...computeResize(g.handle, g.box, (lx - g.sx) / view.scale, (ly - g.sy) / view.scale) })
     } else if (g.type === 'marquee') {
       setMarquee({ x: Math.min(g.sx, lx), y: Math.min(g.sy, ly), w: Math.abs(lx - g.sx), h: Math.abs(ly - g.sy) })
+    } else if (g.type === 'annotate') {
+      setAnnotateRect({ x: Math.min(g.sx, lx), y: Math.min(g.sy, ly), w: Math.abs(lx - g.sx), h: Math.abs(ly - g.sy) })
     }
   }
 
@@ -272,10 +290,23 @@ export default function Canvas({
           .map((s) => s.id)
         onSelectionChange(g.additive ? Array.from(new Set([...g.base, ...hit])) : hit)
       }
+    } else if (g?.type === 'annotate' && annotateRect) {
+      if (annotateRect.w > 6 && annotateRect.h > 6) {
+        const cr = containerRef.current?.getBoundingClientRect()
+        if (cr) {
+          onCaptureRegion(g.screenId, {
+            left: cr.left + annotateRect.x,
+            top: cr.top + annotateRect.y,
+            width: annotateRect.w,
+            height: annotateRect.h,
+          })
+        }
+      }
     }
     setMoveDelta(null)
     setResizePreview(null)
     setMarquee(null)
+    setAnnotateRect(null)
   }
 
   function onWheel(e: React.WheelEvent) {
@@ -317,7 +348,7 @@ export default function Canvas({
     backgroundImage: `radial-gradient(circle, var(--dot) 1.2px, transparent 1.2px)`,
     backgroundSize: `${gap}px ${gap}px`,
     backgroundPosition: `${view.x}px ${view.y}px`,
-    cursor: spaceDown ? 'grab' : linkMode ? 'crosshair' : 'default',
+    cursor: spaceDown ? 'grab' : linkMode || annotateMode ? 'crosshair' : 'default',
   }
   const hs = 11 / view.scale // handle size in world units (constant on screen)
   const inv = 1 / view.scale // scale-invariant unit for labels
@@ -340,8 +371,8 @@ export default function Canvas({
         {screens.map((s) => {
           const b = effBox(s)
           const selected = selectedIds.includes(s.id)
-          const interactive = interactAll && !linkMode && !spaceDown
-          const pickable = linkMode && !spaceDown
+          const interactive = interactAll && !linkMode && !annotateMode && !spaceDown
+          const pickable = linkMode && !annotateMode && !spaceDown
           const bw = b.w
           const bh = b.h
           const useFrame = s.device === 'iphone' && showFrame
@@ -409,10 +440,26 @@ export default function Canvas({
               >
                 {useFrame ? (
                   <DeviceChrome>
-                    <Preview code={s.code} pickMode={pickable} onPick={(info) => onPickElement(s.id, info)} hideScrollbars={s.device === 'iphone'} radius={SCREEN_RADIUS} />
+                    <Preview
+                      code={s.code}
+                      pickMode={pickable}
+                      onPick={(info) => onPickElement(s.id, info)}
+                      hideScrollbars={s.device === 'iphone'}
+                      radius={SCREEN_RADIUS}
+                      captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
+                      onCaptureRect={onCaptureRect}
+                    />
                   </DeviceChrome>
                 ) : (
-                  <Preview code={s.code} pickMode={pickable} onPick={(info) => onPickElement(s.id, info)} hideScrollbars={s.device === 'iphone'} radius="1rem" />
+                  <Preview
+                    code={s.code}
+                    pickMode={pickable}
+                    onPick={(info) => onPickElement(s.id, info)}
+                    hideScrollbars={s.device === 'iphone'}
+                    radius="1rem"
+                    captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
+                    onCaptureRect={onCaptureRect}
+                  />
                 )}
               </div>
 
@@ -507,6 +554,14 @@ export default function Canvas({
         />
       )}
 
+      {/* Annotation capture rectangle */}
+      {annotateRect && (annotateRect.w > 0 || annotateRect.h > 0) && (
+        <div
+          className="pointer-events-none absolute border-2 border-dashed border-amber-400 bg-amber-400/15"
+          style={{ left: annotateRect.x, top: annotateRect.y, width: annotateRect.w, height: annotateRect.h }}
+        />
+      )}
+
       {/* Zoom controls */}
       <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900/90 p-1 shadow-lg">
         <CtrlBtn onClick={() => zoomBy(1 / 1.2)} title="Zoom out">
@@ -536,6 +591,10 @@ export default function Canvas({
         {linkMode ? (
           <span className="text-indigo-300">
             🔗 Link mode — click a button/element inside a screen, then pick the target screen
+          </span>
+        ) : annotateMode ? (
+          <span className="text-amber-300">
+            ✂ Annotate — drag a rectangle over a screen to snip it into the chat as a numbered reference
           </span>
         ) : (
           <>Drag to select · Space/middle-drag to pan · scroll to zoom</>
