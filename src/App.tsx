@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useProjects } from './lib/project'
 import { THEMES, loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
+import { api, type AuthUser } from './lib/api'
+import { enableSync, reconcileOnLogin } from './lib/sync'
 import ProjectsHome from './components/ProjectsHome'
 import ProjectView from './components/ProjectView'
 import SettingsPanel from './components/SettingsPanel'
 import DesignPanel from './components/DesignPanel'
+import AuthModal from './components/AuthModal'
+import AdminPanel from './components/AdminPanel'
 
-type Route = 'home' | 'project' | 'design' | 'settings'
+type Route = 'home' | 'project' | 'design' | 'settings' | 'admin'
 
 export default function App() {
   const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen } =
@@ -16,6 +20,31 @@ export default function App() {
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [theme, setThemeState] = useState<Theme>(() => loadTheme())
+  const [account, setAccount] = useState<AuthUser | null>(null)
+  const [authOpen, setAuthOpen] = useState(false)
+
+  // On startup, restore the session and reconcile with the server.
+  useEffect(() => {
+    api
+      .me()
+      .then(async (user) => {
+        setAccount(user)
+        enableSync(true)
+        const changed = await reconcileOnLogin()
+        if (changed) window.location.reload()
+      })
+      .catch(() => setAccount(null))
+  }, [])
+
+  async function logout() {
+    try {
+      await api.logout()
+    } catch {
+      /* ignore */
+    }
+    enableSync(false)
+    setAccount(null)
+  }
 
   function toggleTheme() {
     const next: Theme = nextTheme(theme)
@@ -103,6 +132,11 @@ export default function App() {
             <HeaderTab active={route === 'settings'} onClick={() => setRoute('settings')}>
               Settings
             </HeaderTab>
+            {account?.role === 'admin' && (
+              <HeaderTab active={route === 'admin'} onClick={() => setRoute('admin')}>
+                Admin
+              </HeaderTab>
+            )}
             <button
               type="button"
               onClick={toggleTheme}
@@ -112,6 +146,28 @@ export default function App() {
               <span className="text-sm">{themeMeta.icon}</span>
               <span className="text-xs">{themeMeta.label}</span>
             </button>
+            {account ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Sign out of "${account.username}"? Your projects stay on this device.`)) logout()
+                }}
+                className="ml-1 flex h-8 items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700"
+                title="Signed in — click to sign out"
+              >
+                <span>👤</span>
+                <span className="max-w-[100px] truncate">{account.username}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAuthOpen(true)}
+                className="ml-1 flex h-8 items-center rounded-lg px-2.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+                title="Sign in to sync your projects across devices"
+              >
+                Sign in
+              </button>
+            )}
           </nav>
         </div>
       </header>
@@ -158,6 +214,16 @@ export default function App() {
           <SettingsPanel />
         </main>
       )}
+      {route === 'admin' &&
+        (account?.role === 'admin' ? (
+          <main className="px-6 py-10">
+            <AdminPanel currentUsername={account.username} />
+          </main>
+        ) : (
+          <div className="px-6 py-16 text-center text-sm text-slate-500">Admins only.</div>
+        ))}
+
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onSignedIn={setAccount} />}
     </div>
   )
 }

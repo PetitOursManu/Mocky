@@ -78,4 +78,10 @@ function providerProxy(): Plugin {
 
 export default defineConfig({
   plugins: [react(), providerProxy()],
+  server: {
+    // In dev, forward account/data API calls to the backend (npm run server).
+    proxy: {
+      '/api': { target: 'http://localhost:8787', changeOrigin: true },
+    },
+  },
 })

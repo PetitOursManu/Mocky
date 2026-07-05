@@ -20,3 +20,6 @@ pnpm-debug.log*
 
 # Claude Code local config (keep launch.json, ignore local settings)
 .claude/settings.local.json
+
+# Backend data (accounts + per-user projects) — never commit user data
+server/data/

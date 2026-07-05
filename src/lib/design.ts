@@ -5,6 +5,8 @@ export interface DesignConfig {
   enabled: boolean
 }
 
+import { scheduleSync } from './sync'
+
 const STORAGE_KEY = 'mocky.design.v1'
 
 export function defaultDesign(): DesignConfig {
@@ -24,6 +26,7 @@ export function loadDesign(): DesignConfig {
 
 export function saveDesign(d: DesignConfig): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d))
+  scheduleSync()
 }
 
 /** True when a design system is configured and switched on. */

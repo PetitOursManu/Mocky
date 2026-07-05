@@ -21,18 +21,39 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
 - 🎨 **Design system + style presets** — load/paste a `DESIGN.md` or pick a built-in visual style; it drives every generation.
-- 📦 **Projects, export & history** — multiple projects, per-screen `.tsx` download and `.zip` export, all persisted locally.
+- ✂️ **Screenshot annotations** — snip a region of a screen into the chat as numbered references, attached to (vision) generations.
+- 📦 **Projects, export & history** — multiple projects, per-screen `.tsx` download and `.zip` export.
+- 👤 **Optional accounts** — sign in to a Mocky instance and your projects + DESIGN.md sync across devices (self-hosted backend, no cloud). Without an account everything stays in your browser's `localStorage`.
 - 🌗 **Themes** — Dark, Beige, and a Mocky (teal) light theme.
 
 ## Tech stack
 
-React 18 · TypeScript · Vite · Tailwind CSS. No backend — everything runs in the browser, with a small dev-only Vite proxy so the browser can reach the model provider without CORS issues.
+React 18 · TypeScript · Vite · Tailwind CSS on the front, and an optional tiny **Node + Express** backend (JSON file store, no database, no native deps) for accounts + project sync and the production model proxy.
 
 ## Getting started
+
+**Frontend only** (projects saved in your browser):
 
 ```bash
 npm install
 npm run dev
+```
+
+**With accounts + cross-device sync** (also runs the backend):
+
+```bash
+npm install
+npm run dev:all        # Vite + backend together
+# or, in two terminals: `npm run server` and `npm run dev`
+```
+
+Then click **Sign in** (top-right) to create an account. Your projects and `DESIGN.md` sync to the instance; your **API key stays in the browser** and is never sent to the server.
+
+**Production:**
+
+```bash
+npm run build          # builds the frontend to dist/
+npm start              # backend serves dist/ + API + model proxy on :8787
 ```
 
 Then open the app, go to **Settings**, and configure your provider:
@@ -53,7 +74,8 @@ All traffic goes to the provider's `POST /api/chat` through a dev proxy:
 ## Notes
 
 - The API key never leaves your browser and is not committed anywhere.
-- The provider proxy is a **dev-only** Vite middleware; a production deployment would need a small backend proxy to keep the key off the client.
+- The provider proxy runs as a Vite middleware in dev and in the Express backend in production (so the browser never hits the provider cross-origin).
+- Backend storage lives in `server/data/` (JSON files, git-ignored) — accounts and per-user projects. It's a lightweight self-hosted store; for a hardened multi-user deployment you'd swap it for a real DB and add HTTPS.
 
 ---
 

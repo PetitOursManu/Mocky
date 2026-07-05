@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { scheduleSync } from './sync'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -139,6 +140,7 @@ function loadProjects(): Project[] {
 
 function saveProjects(projects: Project[]): void {
   localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects))
+  scheduleSync()
 }
 
 export function useProjects() {
