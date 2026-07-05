@@ -50,6 +50,35 @@ export interface Project {
 const PROJECTS_KEY = 'mocky.projects.v1'
 const LEGACY_HISTORY_KEY = 'mocky.history.v1'
 
+// Debounced localStorage persistence: we batch rapid edits (canvas drag,
+// typing-triggered re-renders…) and flush at most once per 300ms. A
+// `beforeunload` handler guarantees nothing is lost if the tab closes mid-debounce.
+let saveTimer: number | null = null
+let pendingProjects: Project[] | null = null
+let beforeunloadHooked = false
+
+function flushProjectsNow() {
+  if (pendingProjects === null) return
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(pendingProjects))
+  pendingProjects = null
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  scheduleSync()
+}
+
+function scheduleSaveProjects(projects: Project[]) {
+  pendingProjects = projects
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = window.setTimeout(flushProjectsNow, 300)
+  // Install the unload flush once, lazily, so we don't lose data on close.
+  if (!beforeunloadHooked) {
+    beforeunloadHooked = true
+    window.addEventListener('beforeunload', flushProjectsNow, { capture: true })
+  }
+}
+
 /** Default real frame size for a new screen (in canvas pixels). */
 export const DEFAULT_W = 1024
 export const DEFAULT_H = 720
@@ -139,8 +168,7 @@ function loadProjects(): Project[] {
 }
 
 function saveProjects(projects: Project[]): void {
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects))
-  scheduleSync()
+  scheduleSaveProjects(projects)
 }
 
 export function useProjects() {

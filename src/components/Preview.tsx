@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
+import { compileJsx } from '../lib/compile'
 
 export interface PickInfo {
   selector: string
@@ -12,22 +13,25 @@ export interface DemoLink {
 }
 
 /**
- * Builds a self-contained HTML document for the sandboxed iframe. Besides
- * compiling + mounting the component, it installs a small "interaction bridge"
- * that talks to the parent over postMessage:
- *   - pick mode: highlight hovered elements; on click, report a CSS selector
- *     for the element (so links can bind to real buttons, not rectangles).
+ * Builds a self-contained HTML document for the sandboxed iframe. The JSX is
+ * compiled once in the parent (see compileJsx) and injected as plain JS, so
+ * the iframe no longer ships Babel (~3 MB). React/ReactDOM are served locally
+ * (public/vendor) to avoid a CDN compromise reaching the iframe.
+ *
+ * The iframe installs a small "interaction bridge" that talks to the parent
+ * over postMessage:
+ *   - pick mode: highlight hovered elements; on click, report a CSS selector.
  *   - demo mode: given [{selector, target}], clicking those elements asks the
  *     parent to navigate. Other elements keep their normal behaviour.
  * Every message carries `frameId` so multiple previews don't cross-talk.
  */
 function buildSrcDoc(
-  previewCode: string,
+  compiledJs: string,
   componentName: string,
   frameId: string,
   hideScrollbars: boolean,
 ): string {
-  const safe = previewCode.replace(/<\/script>/gi, '<\\/script>')
+  const safe = compiledJs.replace(/<\/script>/gi, '<\\/script>')
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
@@ -36,10 +40,9 @@ function buildSrcDoc(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}</style>
 </head>
 <body>
@@ -49,15 +52,14 @@ function buildSrcDoc(
   (function () {
     var FID = ${JSON.stringify(frameId)};
     function post(type, extra) { var m = { __mocky: true, frameId: FID, type: type }; if (extra) { for (var k in extra) m[k] = extra[k]; } parent.postMessage(m, '*'); }
-    function fail(msg) { post('error', { message: String(msg) }); }
+    function fail(msg) { post('error', { message: String(msg) }); return false; }
     window.onerror = function (msg, _src, line) { fail(String(msg) + (line ? ' (line ' + line + ')' : '')); return false; };
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     try {
       var src = document.getElementById('mocky-src').textContent;
-      var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
       var run = new Function('React', 'ReactDOM',
-        out + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
+        src + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
       run(React, ReactDOM);
       post('ok');
     } catch (e) {
@@ -160,10 +162,26 @@ export default function Preview({
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
 
-  const srcDoc = useMemo(() => {
+  // Compile JSX once in the parent (async — Babel is dynamically imported)
+  // and build the iframe srcDoc from the compiled JS. Recompiles when the code
+  // changes; while compiling we show the "Rendering…" overlay.
+  const [srcDoc, setSrcDoc] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    setError(null)
+    setReady(false)
     const previewCode = toPreviewModule(code)
     const name = detectComponentName(code)
-    return buildSrcDoc(previewCode, name, frameId, !!hideScrollbars)
+    compileJsx(previewCode)
+      .then((compiled) => {
+        if (!cancelled) setSrcDoc(buildSrcDoc(compiled, name, frameId, !!hideScrollbars))
+      })
+      .catch((e) => {
+        if (!cancelled) setError((e as Error)?.message ? (e as Error).message : String(e))
+      })
+    return () => {
+      cancelled = true
+    }
   }, [code, frameId, hideScrollbars])
 
   useEffect(() => {
@@ -213,14 +231,16 @@ export default function Preview({
 
   return (
     <div className="relative h-full w-full bg-white" style={{ borderRadius: radius }}>
-      <iframe
-        ref={iframeRef}
-        title="preview"
-        className="h-full w-full border-0 bg-white"
-        sandbox="allow-scripts"
-        srcDoc={srcDoc}
-        style={{ borderRadius: radius }}
-      />
+      {srcDoc && (
+        <iframe
+          ref={iframeRef}
+          title="preview"
+          className="h-full w-full border-0 bg-white"
+          sandbox="allow-scripts"
+          srcDoc={srcDoc}
+          style={{ borderRadius: radius }}
+        />
+      )}
       {!ready && !error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white" style={{ borderRadius: radius }}>
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />

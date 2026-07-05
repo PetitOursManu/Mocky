@@ -27,7 +27,7 @@ export interface ServerData {
 }
 
 export const api = {
-  me: () => req('/api/me').then((d) => d.user as AuthUser),
+  me: () => req('/api/me').then((d) => (d.user ? (d.user as AuthUser) : null)),
   register: (username: string, password: string) =>
     req('/api/register', { method: 'POST', body: JSON.stringify({ username, password }) }).then((d) => d.user as AuthUser),
   login: (username: string, password: string) =>
@@ -38,7 +38,12 @@ export const api = {
     req('/api/data', { method: 'PUT', body: JSON.stringify({ projects, design }) }),
 
   /** Public config for the sign-in screen. */
-  config: () => req('/api/config') as Promise<{ allowRegistration: boolean; setup: boolean }>,
+  config: () =>
+    req('/api/config') as Promise<{
+      allowRegistration: boolean
+      setup: boolean
+      sso: { enabled: boolean; dashyUrl: string | null }
+    }>,
 
   admin: {
     getConfig: () => req('/api/admin/config') as Promise<{ allowRegistration: boolean }>,

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
 import { editComponent, generateComponent } from '../lib/generate'
@@ -42,6 +42,7 @@ export default function ProjectView({
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
   const [linkMode, setLinkMode] = useState(false)
@@ -110,6 +111,8 @@ export default function ProjectView({
     }
     const targets = screens.filter((s) => selectedIds.includes(s.id))
     const images = annotations.map((a) => a.dataUrl)
+    const ac = new AbortController()
+    abortRef.current = ac
     setBusy(true)
     setError(null)
     try {
@@ -121,7 +124,7 @@ export default function ProjectView({
         // keeping each screen in its existing form factor.
         for (const sc of targets) {
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
-          const res = await editComponent(settings, text, sc.code, extraSystem, images)
+          const res = await editComponent(settings, text, sc.code, extraSystem, images, ac.signal)
           onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName })
         }
         setPrompt('')
@@ -130,7 +133,7 @@ export default function ProjectView({
         // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
         const extraSystem = joinSystem([designPreamble, preset.hint])
-        const result = await generateComponent(settings, text, extraSystem, images)
+        const result = await generateComponent(settings, text, extraSystem, images, ac.signal)
         const screen: Omit<Screen, 'x' | 'y'> = {
           id: newId(),
           name: deriveName(text),
@@ -149,11 +152,19 @@ export default function ProjectView({
         setAnnotations([])
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
     } finally {
+      abortRef.current = null
       setBusy(false)
     }
   }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen])
+
+  function cancelGenerate() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setBusy(false)
+  }
 
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -452,6 +463,16 @@ export default function ProjectView({
               {busy && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
               {busy ? 'Generating…' : editing ? `Update ${selectedScreens.length}` : 'Generate'}
             </button>
+            {busy && (
+              <button
+                type="button"
+                className="btn-ghost mb-0.5 shrink-0 px-3 py-2 text-xs"
+                onClick={cancelGenerate}
+                title="Cancel the in-flight generation"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       </div>

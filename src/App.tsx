@@ -3,6 +3,7 @@ import { useProjects } from './lib/project'
 import { THEMES, loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
 import { enableSync, reconcileOnLogin } from './lib/sync'
+import { checkSsoReturn, cleanSsoQueryParams } from './lib/sso'
 import ProjectsHome from './components/ProjectsHome'
 import ProjectView from './components/ProjectView'
 import SettingsPanel from './components/SettingsPanel'
@@ -22,18 +23,36 @@ export default function App() {
   const [theme, setThemeState] = useState<Theme>(() => loadTheme())
   const [account, setAccount] = useState<AuthUser | null>(null)
   const [authOpen, setAuthOpen] = useState(false)
+  const [ssoError, setSsoError] = useState<string | null>(null)
 
-  // On startup, restore the session and reconcile with the server.
+  // On startup: if we're returning from a Dashy SSO redirect, validate the
+  // state, then restore the session (the backend just set the cookie) and
+  // reconcile with the server. Otherwise just restore any existing session.
   useEffect(() => {
+    const returned = checkSsoReturn()
+    const hadSsoReturn = returned.ok || (!returned.ok && returned.error !== 'no-sso-param')
+    if (hadSsoReturn) {
+      if (!returned.ok) setSsoError(returned.error)
+      cleanSsoQueryParams()
+    }
+
     api
       .me()
       .then(async (user) => {
         setAccount(user)
+        if (!user) return
         enableSync(true)
         const changed = await reconcileOnLogin()
         if (changed) window.location.reload()
       })
-      .catch(() => setAccount(null))
+      .catch(() => {
+        setAccount(null)
+        // SSO return but no session → surface the problem in the auth modal.
+        if (hadSsoReturn) {
+          if (returned.ok) setSsoError('session-not-set')
+          setAuthOpen(true)
+        }
+      })
   }, [])
 
   async function logout() {
@@ -223,7 +242,16 @@ export default function App() {
           <div className="px-6 py-16 text-center text-sm text-slate-500">Admins only.</div>
         ))}
 
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onSignedIn={setAccount} />}
+      {authOpen && (
+        <AuthModal
+          initialError={ssoError}
+          onClose={() => {
+            setSsoError(null)
+            setAuthOpen(false)
+          }}
+          onSignedIn={setAccount}
+        />
+      )}
     </div>
   )
 }

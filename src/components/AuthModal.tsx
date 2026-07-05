@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react'
 import { api, type AuthUser } from '../lib/api'
 import { enableSync, reconcileOnLogin } from '../lib/sync'
+import { startDashySso } from '../lib/sso'
 
 export default function AuthModal({
   onClose,
   onSignedIn,
+  initialError,
 }: {
   onClose: () => void
   onSignedIn: (user: AuthUser) => void
+  initialError?: string | null
 }) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [cfg, setCfg] = useState<{ allowRegistration: boolean; setup: boolean } | null>(null)
+  const [error, setError] = useState<string | null>(initialError ?? null)
+  const [cfg, setCfg] = useState<{
+    allowRegistration: boolean
+    setup: boolean
+    sso: { enabled: boolean; dashyUrl: string | null }
+  } | null>(null)
 
   useEffect(() => {
     api
@@ -23,10 +30,13 @@ export default function AuthModal({
         setCfg(c)
         if (c.setup) setMode('register')
       })
-      .catch(() => setCfg({ allowRegistration: true, setup: false }))
+      .catch(() =>
+        setCfg({ allowRegistration: true, setup: false, sso: { enabled: false, dashyUrl: null } }),
+      )
   }, [])
 
   const canRegister = cfg ? cfg.allowRegistration || cfg.setup : true
+  const ssoEnabled = cfg?.sso.enabled && cfg?.sso.dashyUrl
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -62,6 +72,24 @@ export default function AuthModal({
             : 'Sync your projects & DESIGN.md to this Mocky instance and access them from any device.'}
         </p>
 
+        {ssoEnabled && !cfg?.setup && (
+          <>
+            <button
+              type="button"
+              className="btn-primary mt-1 w-full"
+              onClick={() => startDashySso(cfg!.sso.dashyUrl!)}
+              disabled={busy}
+            >
+              Sign in with Dashy
+            </button>
+            <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
+              <span className="h-px flex-1 bg-slate-700" />
+              or
+              <span className="h-px flex-1 bg-slate-700" />
+            </div>
+          </>
+        )}
+
         <label className="mb-1.5 block text-sm font-medium text-slate-300">Username</label>
         <input
           className="input mb-3"
@@ -81,7 +109,11 @@ export default function AuthModal({
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        {error && <div className="mt-3 rounded-lg border border-rose-700/50 bg-rose-900/30 p-2 text-xs text-rose-200">{error}</div>}
+        {error && (
+          <div className="mt-3 rounded-lg border border-rose-700/50 bg-rose-900/30 p-2 text-xs text-rose-200">
+            {ssoErrorMessage(error)}
+          </div>
+        )}
 
         <button type="submit" className="btn-primary mt-4 w-full" disabled={busy || !username.trim() || !password}>
           {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
@@ -113,4 +145,19 @@ export default function AuthModal({
       </form>
     </div>
   )
+}
+
+/** Translate a raw SSO error code into a readable message. */
+function ssoErrorMessage(code: string): string {
+  const map: Record<string, string> = {
+    'state-mismatch': 'Sign-in with Dashy failed: the security check did not match. Please try again.',
+    'session-not-set': 'Sign-in with Dashy did not establish a session. Please try again.',
+    'Token expired': 'The Dashy sign-in token expired. Please try again.',
+    'Token already used': 'This Dashy sign-in link was already used. Please try again.',
+    'Invalid signature': 'The Dashy token signature was invalid. Check that SSO_SHARED_SECRET matches on both sides.',
+    'Wrong audience': 'The token audience did not match this Mocky instance. Check MOCKY_ORIGIN and SSO_ALLOWED_REDIRECTS.',
+    'Wrong issuer': 'The token was not issued by Dashy.',
+    'unknown-error': 'Sign-in with Dashy failed for an unknown reason.',
+  }
+  return map[code] ?? code
 }

@@ -1,7 +1,7 @@
 {
   "name": "mocky",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,6 +18,8 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@babel/standalone": "^7.29.7",
+    "@types/babel__standalone": "^7.1.9",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

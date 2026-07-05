@@ -1,7 +1,7 @@
 import type { Settings } from './settings'
 import { proxyFetch, truncate } from './proxy'
 
-export const SYSTEM_PROMPT = `You are an expert React + Tailwind CSS UI engineer. Given a description of a screen, you output a single self-contained React component that renders it.
+export const SYSTEM_PROMPT = `You are an expert React + Tailwind CSS UI engineer. Given a description of a screen, you output a single self-contained React component that renders a polished, production-ready interface — never a wireframe.
 
 STRICT OUTPUT RULES:
 - Respond with ONE fenced code block (\`\`\`jsx ... \`\`\`) and nothing else — no explanation before or after.
@@ -10,7 +10,16 @@ STRICT OUTPUT RULES:
 - Define exactly ONE top-level component named App, and end the file with: export default App
 - Style everything with Tailwind utility classes only. No external CSS files, no styled-components, no third-party UI/icon libraries.
 - Do not fetch from the network and do not use <img> with external URLs. Use inline SVG, emoji, or solid-color placeholder divs instead.
-- Make the result visually polished, responsive, and realistic, with sensible placeholder content.`
+
+VISUAL QUALITY REQUIREMENTS:
+- Build a REAL finished UI, not a wireframe or a gray box mock-up. Use a complete, modern color palette (slate/indigo/emerald/amber/rose as appropriate), subtle shadows, rounded corners, and clear visual hierarchy.
+- NEVER use generic placeholder text like "Lorem ipsum", "Sample text", "Content here", or repeated gray rectangles. Write realistic, context-aware copy (labels, values, names, numbers, taglines, CTA text).
+- Every interactive element MUST have visible states: hover, active/focus rings, disabled opacity, and cursor pointers.
+- Use appropriate whitespace: generous padding, consistent gaps, readable font sizes, and aligned grids. No crushed text or misaligned elements.
+- Cards, buttons, inputs, badges, and nav should look professional and on-brand. Use gradients or accent colors sparingly but deliberately.
+- Include realistic initial data: names, prices, stats, notifications, avatars (initials or emoji), chart bars, list items, etc.
+- Prefer inline SVG icons over emoji when they make the UI cleaner; keep emoji style consistent if used.
+- The result must look like a screenshot from a real SaaS/mobile/desktop app, ready to be dropped into a prototype or product demo.`
 
 export interface GeneratedComponent {
   /** Raw assistant message content. */
@@ -41,13 +50,14 @@ export function stripDataUrl(dataUrl: string): string {
 }
 
 /** Shared chat call: posts messages and returns the assistant content. */
-async function chat(s: Settings, messages: ChatMessage[]): Promise<string> {
+async function chat(s: Settings, messages: ChatMessage[], signal?: AbortSignal): Promise<string> {
   const body = JSON.stringify({ model: s.model, stream: false, messages, options: { temperature: 0.4 } })
 
   let res: Response
   try {
-    res = await proxyFetch(s, '/api/chat', { method: 'POST', body })
+    res = await proxyFetch(s, '/api/chat', { method: 'POST', body, signal })
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw err
     throw new Error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
   }
 
@@ -74,12 +84,13 @@ export async function generateComponent(
   userPrompt: string,
   extraSystem?: string,
   images?: string[],
+  signal?: AbortSignal,
 ): Promise<GeneratedComponent> {
   const system = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: withImageNote(userPrompt, images), images: images?.map(stripDataUrl) },
-  ])
+  ], signal)
   const code = extractCode(content)
   return { raw: content, code, componentName: detectComponentName(code) }
 }
@@ -112,6 +123,7 @@ export async function editComponent(
   existingCode: string,
   extraSystem?: string,
   images?: string[],
+  signal?: AbortSignal,
 ): Promise<GeneratedComponent> {
   const system = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
   const user = [
@@ -129,7 +141,7 @@ export async function editComponent(
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user, images: images?.map(stripDataUrl) },
-  ])
+  ], signal)
   const code = extractCode(content)
   return { raw: content, code, componentName: detectComponentName(code) }
 }

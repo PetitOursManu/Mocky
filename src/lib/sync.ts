@@ -18,12 +18,48 @@ export function scheduleSync() {
   timer = window.setTimeout(pushNow, 800)
 }
 
-export async function pushNow() {
+/**
+ * Push with a small exponential-backoff retry (up to ~30s). Surfaces transient
+ * network failures instead of silently dropping the sync. The `pending`
+ * promise lets the UI show a "syncing…" / "sync failed" indicator.
+ */
+let attempt = 0
+let pending: Promise<void> | null = null
+
+export function syncStatus(): Promise<void> | null {
+  return pending
+}
+
+export async function pushNow(): Promise<void> {
   if (!enabled) return
+  if (pending) return pending // already in flight — coalesce
+  pending = doPushWithRetry()
   try {
-    await api.putData(localStorage.getItem(PROJECTS_KEY), localStorage.getItem(DESIGN_KEY))
-  } catch {
-    /* offline / transient — will retry on the next change */
+    await pending
+  } finally {
+    pending = null
+  }
+}
+
+async function doPushWithRetry(): Promise<void> {
+  const projects = localStorage.getItem(PROJECTS_KEY)
+  const design = localStorage.getItem(DESIGN_KEY)
+  const maxAttempts = 5
+  while (attempt < maxAttempts) {
+    try {
+      await api.putData(projects, design)
+      attempt = 0
+      return
+    } catch {
+      attempt++
+      if (attempt >= maxAttempts) {
+        // Give up — the next user action will schedule a fresh sync.
+        attempt = 0
+        throw new Error('Sync failed after retries')
+      }
+      // Backoff: 1s, 2s, 4s, 8s…
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)))
+    }
   }
 }
 
