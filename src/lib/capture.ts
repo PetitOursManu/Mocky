@@ -28,9 +28,13 @@ export function captureRegion(
     const componentName = detectComponentName(code)
     compileJsx(previewCode)
       .then((compiled) => {
-        // Embed the compiled JS via JSON.stringify/parse so no special character
-        // (backtick, `${`, quotes, `</script>`) can break the srcDoc.
-        const encoded = JSON.stringify(compiled)
+        // Encode the compiled JS in base64 (UTF-8 safe) before embedding it
+        // into the srcDoc, so no character can break the HTML or parent template.
+        const b64 = window.btoa(
+          encodeURIComponent(compiled).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+            String.fromCharCode(parseInt(p1, 16))
+          )
+        )
 
         const srcdoc = `<!doctype html><html><head><meta charset="utf-8"/>
 <script crossorigin src="/vendor/react.production.min.js"></script>
@@ -39,12 +43,17 @@ export function captureRegion(
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
 </head><body><div id="root"></div>
-<script type="text/plain" id="mocky-src" data-src=${encoded}></script>
+<script type="text/plain" id="mocky-b64">${b64}</script>
 <script>(function(){
   function post(m){ var o={__mockyCap:true,id:${JSON.stringify(id)}}; for(var k in m) o[k]=m[k]; parent.postMessage(o,'*'); }
   ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'].forEach(function(k){ if(React[k]) window[k]=React[k]; });
   try {
-    var src = JSON.parse(document.getElementById('mocky-src').getAttribute('data-src'));
+    var raw = window.atob(document.getElementById('mocky-b64').textContent);
+    var src = decodeURIComponent(
+      Array.prototype.map.call(raw, function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join('')
+    );
     new Function('React','ReactDOM', src + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));')(React, ReactDOM);
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
   setTimeout(function(){

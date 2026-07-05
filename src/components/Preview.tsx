@@ -26,18 +26,25 @@ export interface DemoLink {
  * Every message carries `frameId` so multiple previews don't cross-talk.
  */
 /**
- * Embed compiled JS into the iframe srcDoc. We use JSON.stringify in the parent
- * and JSON.parse in the iframe: that escapes every character that could break
- * the srcDoc (backticks, `${`, quotes, newlines, `</script>`) and preserves
- * UTF-8 perfectly.
+ * Encode a UTF-8 string to base64 in the browser. We use this to embed the
+ * compiled JS inside the iframe srcDoc: it removes every character that could
+ * break the HTML/template (backticks, `${`, quotes, newlines, `</script>`).
  */
+function utf8ToBase64(str: string): string {
+  return window.btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16))
+    )
+  )
+}
+
 function buildSrcDoc(
   compiledJs: string,
   componentName: string,
   frameId: string,
   hideScrollbars: boolean,
 ): string {
-  const encoded = JSON.stringify(compiledJs)
+  const b64 = utf8ToBase64(compiledJs)
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
@@ -53,7 +60,7 @@ function buildSrcDoc(
 </head>
 <body>
 <div id="root"></div>
-<script type="text/plain" id="mocky-src" data-src=${encoded}></script>
+<script type="text/plain" id="mocky-b64">${b64}</script>
 <script>
   (function () {
     var FID = ${JSON.stringify(frameId)};
@@ -63,8 +70,13 @@ function buildSrcDoc(
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     try {
-      var el = document.getElementById('mocky-src');
-      var src = JSON.parse(el.getAttribute('data-src'));
+      var b64 = document.getElementById('mocky-b64').textContent;
+      var raw = window.atob(b64);
+      var src = decodeURIComponent(
+        Array.prototype.map.call(raw, function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join('')
+      );
       var run = new Function('React', 'ReactDOM',
         src + '\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
       run(React, ReactDOM);
