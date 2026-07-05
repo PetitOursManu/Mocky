@@ -25,13 +25,22 @@ export interface DemoLink {
  *     parent to navigate. Other elements keep their normal behaviour.
  * Every message carries `frameId` so multiple previews don't cross-talk.
  */
+/**
+ * Encode a string to base64 (UTF-8 safe). Used so the compiled JS can be
+ * embedded inside the iframe srcDoc without any character (backtick,
+ * `${`, quote, newline, `</script>`) breaking the parent template string.
+ */
+function b64Encode(str: string): string {
+  return window.btoa(unescape(encodeURIComponent(str)))
+}
+
 function buildSrcDoc(
   compiledJs: string,
   componentName: string,
   frameId: string,
   hideScrollbars: boolean,
 ): string {
-  const safe = compiledJs.replace(/<\/script>/gi, '<\\/script>')
+  const b64 = b64Encode(compiledJs)
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
@@ -47,7 +56,7 @@ function buildSrcDoc(
 </head>
 <body>
 <div id="root"></div>
-<script type="text/plain" id="mocky-src">${safe}</script>
+<script type="text/plain" id="mocky-b64">${b64}</script>
 <script>
   (function () {
     var FID = ${JSON.stringify(frameId)};
@@ -57,9 +66,10 @@ function buildSrcDoc(
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     try {
-      var src = document.getElementById('mocky-src').textContent;
+      var b64 = document.getElementById('mocky-b64').textContent;
+      var src = decodeURIComponent(escape(window.atob(b64)));
       var run = new Function('React', 'ReactDOM',
-        src + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
+        src + '\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
       run(React, ReactDOM);
       post('ok');
     } catch (e) {
