@@ -26,21 +26,18 @@ export interface DemoLink {
  * Every message carries `frameId` so multiple previews don't cross-talk.
  */
 /**
- * Encode a string to base64 (UTF-8 safe). Used so the compiled JS can be
- * embedded inside the iframe srcDoc without any character (backtick,
- * `${`, quote, newline, `</script>`) breaking the parent template string.
+ * Embed compiled JS into the iframe srcDoc. We use JSON.stringify in the parent
+ * and JSON.parse in the iframe: that escapes every character that could break
+ * the srcDoc (backticks, `${`, quotes, newlines, `</script>`) and preserves
+ * UTF-8 perfectly.
  */
-function b64Encode(str: string): string {
-  return window.btoa(unescape(encodeURIComponent(str)))
-}
-
 function buildSrcDoc(
   compiledJs: string,
   componentName: string,
   frameId: string,
   hideScrollbars: boolean,
 ): string {
-  const b64 = b64Encode(compiledJs)
+  const encoded = JSON.stringify(compiledJs)
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
@@ -56,7 +53,7 @@ function buildSrcDoc(
 </head>
 <body>
 <div id="root"></div>
-<script type="text/plain" id="mocky-b64">${b64}</script>
+<script type="text/plain" id="mocky-src" data-src=${encoded}></script>
 <script>
   (function () {
     var FID = ${JSON.stringify(frameId)};
@@ -66,8 +63,8 @@ function buildSrcDoc(
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     try {
-      var b64 = document.getElementById('mocky-b64').textContent;
-      var src = decodeURIComponent(escape(window.atob(b64)));
+      var el = document.getElementById('mocky-src');
+      var src = JSON.parse(el.getAttribute('data-src'));
       var run = new Function('React', 'ReactDOM',
         src + '\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
       run(React, ReactDOM);

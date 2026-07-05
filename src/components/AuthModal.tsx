@@ -57,7 +57,13 @@ export default function AuthModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4"
+      onClick={() => {
+        // If authentication is required, do not allow closing the modal.
+        if (onClose) onClose()
+      }}
+    >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}

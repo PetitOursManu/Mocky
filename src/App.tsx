@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useProjects } from './lib/project'
 import { THEMES, loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
@@ -24,6 +24,7 @@ export default function App() {
   const [account, setAccount] = useState<AuthUser | null>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const [ssoError, setSsoError] = useState<string | null>(null)
+  const authCheckedRef = useRef(false)
 
   // On startup: if we're returning from a Dashy SSO redirect, validate the
   // state, then restore the session (the backend just set the cookie) and
@@ -40,18 +41,24 @@ export default function App() {
       .me()
       .then(async (user) => {
         setAccount(user)
-        if (!user) return
-        enableSync(true)
-        const changed = await reconcileOnLogin()
-        if (changed) window.location.reload()
+        if (!user) {
+          setAuthOpen(true)
+        } else {
+          enableSync(true)
+          const changed = await reconcileOnLogin()
+          if (changed) window.location.reload()
+        }
       })
       .catch(() => {
         setAccount(null)
+        setAuthOpen(true)
         // SSO return but no session → surface the problem in the auth modal.
         if (hadSsoReturn) {
           if (returned.ok) setSsoError('session-not-set')
-          setAuthOpen(true)
         }
+      })
+      .finally(() => {
+        authCheckedRef.current = true
       })
   }, [])
 
@@ -63,6 +70,7 @@ export default function App() {
     }
     enableSync(false)
     setAccount(null)
+    setAuthOpen(true)
   }
 
   function toggleTheme() {
@@ -247,9 +255,19 @@ export default function App() {
           initialError={ssoError}
           onClose={() => {
             setSsoError(null)
-            setAuthOpen(false)
+            // Unauthenticated users are not allowed to close the modal and
+            // use Mocky without an account.
+            if (account) setAuthOpen(false)
           }}
-          onSignedIn={setAccount}
+          onSignedIn={(user) => {
+            setAccount(user)
+            setAuthOpen(false)
+            setSsoError(null)
+            enableSync(true)
+            reconcileOnLogin().then((changed) => {
+              if (changed) window.location.reload()
+            })
+          }}
         />
       )}
     </div>

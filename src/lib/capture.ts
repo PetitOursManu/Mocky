@@ -28,9 +28,9 @@ export function captureRegion(
     const componentName = detectComponentName(code)
     compileJsx(previewCode)
       .then((compiled) => {
-        // Encode the compiled JS in base64 so no character (backtick,
-        // template interpolation, quote, `</script>`) can break the srcDoc.
-        const b64 = window.btoa(unescape(encodeURIComponent(compiled)))
+        // Embed the compiled JS via JSON.stringify/parse so no special character
+        // (backtick, `${`, quotes, `</script>`) can break the srcDoc.
+        const encoded = JSON.stringify(compiled)
 
         const srcdoc = `<!doctype html><html><head><meta charset="utf-8"/>
 <script crossorigin src="/vendor/react.production.min.js"></script>
@@ -39,12 +39,12 @@ export function captureRegion(
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
 </head><body><div id="root"></div>
-<script type="text/plain" id="mocky-b64">${b64}</script>
+<script type="text/plain" id="mocky-src" data-src=${encoded}></script>
 <script>(function(){
   function post(m){ var o={__mockyCap:true,id:${JSON.stringify(id)}}; for(var k in m) o[k]=m[k]; parent.postMessage(o,'*'); }
   ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'].forEach(function(k){ if(React[k]) window[k]=React[k]; });
   try {
-    var src = decodeURIComponent(escape(window.atob(document.getElementById('mocky-b64').textContent)));
+    var src = JSON.parse(document.getElementById('mocky-src').getAttribute('data-src'));
     new Function('React','ReactDOM', src + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));')(React, ReactDOM);
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
   setTimeout(function(){
