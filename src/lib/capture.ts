@@ -9,9 +9,11 @@ import { compileJsx } from './compile'
  * same-origin capture iframe, render the component fresh, snapshot the region,
  * and destroy the iframe. `rect` is normalized (0..1) to the screen viewport.
  *
- * The JSX is compiled once in the parent (see compileJsx) so the iframe does
- * not ship Babel. React/ReactDOM/html2canvas are served locally (public/vendor)
- * to avoid a CDN compromise reaching this same-origin iframe.
+ * First, we try to compile the JSX in the parent and inject the compiled JS.
+ * If that fails at runtime inside the iframe, we fall back to loading Babel from
+ * a CDN inside the capture iframe and compiling there. React/ReactDOM/html2canvas
+ * are served locally (public/vendor) to avoid a CDN compromise reaching this
+ * same-origin iframe; Babel is only loaded as a fallback.
  *
  * NOTE: during the brief capture the component runs same-origin. Fine for a
  * self-hosted tool with your own model; a hardened deployment would isolate it.
@@ -28,18 +30,91 @@ export function captureRegion(
     const componentName = detectComponentName(code)
     compileJsx(previewCode)
       .then((compiled) => {
-        // Encode the compiled JS in base64 (UTF-8 safe) before embedding it
-        // into the srcDoc, so no character can break the HTML or parent template.
-        const b64 = window.btoa(
-          encodeURIComponent(compiled).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-            String.fromCharCode(parseInt(p1, 16))
-          )
+        mountCaptureIframe(
+          buildCompiledCaptureSrcDoc(compiled, componentName, id, rect),
+          id,
+          width,
+          height,
+          resolve,
+          () => {
+            // Fallback: compile JSX inside the iframe with Babel from CDN.
+            mountCaptureIframe(
+              buildBabelCaptureSrcDoc(previewCode, componentName, id, rect),
+              id + 'b',
+              width,
+              height,
+              resolve,
+              reject,
+            )
+          },
         )
+      })
+      .catch(() => {
+        // Parent-side compile failed entirely: still try Babel in the iframe.
+        mountCaptureIframe(
+          buildBabelCaptureSrcDoc(previewCode, componentName, id, rect),
+          id,
+          width,
+          height,
+          resolve,
+          reject,
+        )
+      })
+  })
+}
 
-        const srcdoc = `<!doctype html><html><head><meta charset="utf-8"/>
+function utf8ToBase64(str: string): string {
+  return window.btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16)),
+    ),
+  )
+}
+
+function buildCompiledCaptureSrcDoc(
+  compiled: string,
+  componentName: string,
+  id: string,
+  rect: { x: number; y: number; w: number; h: number },
+): string {
+  const b64 = utf8ToBase64(compiled)
+  return buildCaptureShell(id, rect, false, b64, componentName)
+}
+
+function buildBabelCaptureSrcDoc(
+  sourceCode: string,
+  componentName: string,
+  id: string,
+  rect: { x: number; y: number; w: number; h: number },
+): string {
+  const b64 = utf8ToBase64(sourceCode)
+  return buildCaptureShell(id, rect, true, b64, componentName)
+}
+
+function buildCaptureShell(
+  id: string,
+  rect: { x: number; y: number; w: number; h: number },
+  useBabel: boolean,
+  b64: string,
+  componentName: string,
+): string {
+  const babelScript = useBabel
+    ? '<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>'
+    : ''
+  const runner = useBabel
+    ? `var raw = window.atob(document.getElementById('mocky-b64').textContent);
+    var src = decodeURIComponent(Array.prototype.map.call(raw, function(c){ return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
+    var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
+    new Function('React','ReactDOM', out + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));')(React, ReactDOM);`
+    : `var raw = window.atob(document.getElementById('mocky-b64').textContent);
+    var src = decodeURIComponent(Array.prototype.map.call(raw, function(c){ return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
+    new Function('React','ReactDOM', src + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));')(React, ReactDOM);`
+
+  return `<!doctype html><html><head><meta charset="utf-8"/>
 <script crossorigin src="/vendor/react.production.min.js"></script>
 <script crossorigin src="/vendor/react-dom.production.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+${babelScript}
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
 </head><body><div id="root"></div>
@@ -48,13 +123,7 @@ export function captureRegion(
   function post(m){ var o={__mockyCap:true,id:${JSON.stringify(id)}}; for(var k in m) o[k]=m[k]; parent.postMessage(o,'*'); }
   ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'].forEach(function(k){ if(React[k]) window[k]=React[k]; });
   try {
-    var raw = window.atob(document.getElementById('mocky-b64').textContent);
-    var src = decodeURIComponent(
-      Array.prototype.map.call(raw, function (c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join('')
-    );
-    new Function('React','ReactDOM', src + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));')(React, ReactDOM);
+    ${runner}
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
   setTimeout(function(){
     var vw = window.innerWidth||1, vh = window.innerHeight||1, r = ${JSON.stringify(rect)};
@@ -66,16 +135,7 @@ export function captureRegion(
   }, 400);
 })();
 </script></body></html>`
-
-        mountCaptureIframe(srcdoc, id, width, height, resolve, reject)
-      })
-      .catch((e) => {
-        reject(new Error((e as Error)?.message ? (e as Error).message : String(e)))
-      })
-  })
 }
-
-/** Mount the offscreen capture iframe and wire up the message listener. */
 function mountCaptureIframe(
   srcdoc: string,
   id: string,
