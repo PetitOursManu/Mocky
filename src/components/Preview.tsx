@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
-import { compileJsx } from '../lib/compile'
 
 export interface PickInfo {
   selector: string
@@ -27,8 +26,9 @@ export interface DemoLink {
  */
 /**
  * Encode a UTF-8 string to base64 in the browser. We use this to embed the
- * compiled JS inside the iframe srcDoc: it removes every character that could
- * break the HTML/template (backticks, `${`, quotes, newlines, `</script>`).
+ * raw JSX source inside the iframe srcDoc: it removes every character that
+ * could break the HTML/template (backticks, `${`, quotes, newlines,
+ * `</script>`). Babel then compiles the JSX inside the iframe itself.
  */
 function utf8ToBase64(str: string): string {
   return window.btoa(
@@ -39,12 +39,12 @@ function utf8ToBase64(str: string): string {
 }
 
 function buildSrcDoc(
-  compiledJs: string,
+  sourceCode: string,
   componentName: string,
   frameId: string,
   hideScrollbars: boolean,
 ): string {
-  const b64 = utf8ToBase64(compiledJs)
+  const b64 = utf8ToBase64(sourceCode)
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
@@ -56,6 +56,7 @@ function buildSrcDoc(
 <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}</style>
 </head>
 <body>
@@ -77,8 +78,9 @@ function buildSrcDoc(
           return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join('')
       );
+      var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
       var run = new Function('React', 'ReactDOM',
-        src + '\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
+        out + '\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
       run(React, ReactDOM);
       post('ok');
     } catch (e) {
@@ -181,9 +183,10 @@ export default function Preview({
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
 
-  // Compile JSX once in the parent (async — Babel is dynamically imported)
-  // and build the iframe srcDoc from the compiled JS. Recompiles when the code
-  // changes; while compiling we show the "Rendering…" overlay.
+  // Transform the raw generated module into preview-ready source and pass the
+  // JSX source (not pre-compiled JS) into the iframe. The iframe loads Babel
+  // from CDN and compiles the code there, which avoids all srcDoc/escaping
+  // edge cases around complex generated code.
   const [srcDoc, setSrcDoc] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -191,13 +194,9 @@ export default function Preview({
     setReady(false)
     const previewCode = toPreviewModule(code)
     const name = detectComponentName(code)
-    compileJsx(previewCode)
-      .then((compiled) => {
-        if (!cancelled) setSrcDoc(buildSrcDoc(compiled, name, frameId, !!hideScrollbars))
-      })
-      .catch((e) => {
-        if (!cancelled) setError((e as Error)?.message ? (e as Error).message : String(e))
-      })
+    // Offload the actual Babel transform to the sandboxed iframe; just build
+    // the srcDoc synchronously so we never show "Rendering…" forever.
+    if (!cancelled) setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
     return () => {
       cancelled = true
     }

@@ -11,10 +11,15 @@
  * named export (no default export), so we use a namespace import.
  */
 export async function compileJsx(source: string): Promise<string> {
+  const cleaned = source
+    .replace(/^\s*```[a-zA-Z0-9]*\s*\n?/m, '')
+    .replace(/\n?\s*```\s*$/m, '')
+    .trim()
+  if (!cleaned) throw new Error('Empty component source')
   const Babel = await import('@babel/standalone')
   const transform = Babel.transform ?? Babel.default?.transform
   if (typeof transform !== 'function') throw new Error('Babel.transform is not available')
-  return transform(source, {
+  return transform(cleaned, {
     presets: [['react', { runtime: 'classic' }]],
     filename: 'mocky-component.jsx',
   }).code as string

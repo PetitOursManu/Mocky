@@ -148,13 +148,21 @@ export async function editComponent(
 
 /** Pull the largest fenced code block out of a markdown response, else use it whole. */
 export function extractCode(content: string): string {
-  const fence = /```(?:[a-zA-Z0-9]+)?\n([\s\S]*?)```/g
+  // Tolerant fence matcher: allows spaces after the language identifier and
+  // both leading/trailing whitespace around the fence.
+  const fence = /```(?:[a-zA-Z0-9]+)?\s*\n([\s\S]*?)\n\s*```/g
   let best = ''
   let m: RegExpExecArray | null
   while ((m = fence.exec(content))) {
     if (m[1].length > best.length) best = m[1]
   }
-  return (best || content).trim()
+  const cleaned = (best || content).trim()
+  // Final safety net: strip any remaining stray fence markers that the model
+  // may have left behind.
+  return cleaned
+    .replace(/^\s*```[a-zA-Z0-9]*\s*\n?/m, '')
+    .replace(/\n?\s*```\s*$/m, '')
+    .trim()
 }
 
 /** Find the identifier of the component to mount in the preview. */
@@ -175,7 +183,7 @@ export function detectComponentName(code: string): string {
 export function toPreviewModule(code: string): string {
   return code
     .replace(/^\s*import\s+[^\n]*\n/gm, '')
-    .replace(/^\s*export\s+default\s+function/gm, 'function')
+    .replace(/^\s*export\s+default\s+function\s+/gm, '')
     .replace(/^\s*export\s+default\s+/gm, 'const __mockyDefault = ')
     .replace(/^\s*export\s+(const|let|var|function|class)\b/gm, '$1')
 }
