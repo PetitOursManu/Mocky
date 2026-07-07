@@ -105,10 +105,14 @@ function buildCaptureShell(
     ? `var raw = window.atob(document.getElementById('mocky-b64').textContent);
     var src = decodeURIComponent(Array.prototype.map.call(raw, function(c){ return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
     var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
-    new Function('React','ReactDOM', out + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));')(React, ReactDOM);`
+    var scr = document.createElement('script');
+    scr.textContent = out + ';ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ' + ${JSON.stringify(componentName)} + ' + '));';
+    document.body.appendChild(scr);`
     : `var raw = window.atob(document.getElementById('mocky-b64').textContent);
     var src = decodeURIComponent(Array.prototype.map.call(raw, function(c){ return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
-    new Function('React','ReactDOM', src + '\\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));')(React, ReactDOM);`
+    var scr = document.createElement('script');
+    scr.textContent = src + ';ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ' + ${JSON.stringify(componentName)} + ' + '));';
+    document.body.appendChild(scr);`
 
   return `<!doctype html><html><head><meta charset="utf-8"/>
 <script crossorigin src="/vendor/react.production.min.js"></script>

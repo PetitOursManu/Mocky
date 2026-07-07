@@ -79,9 +79,12 @@ function buildSrcDoc(
         }).join('')
       );
       var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
-      var run = new Function('React', 'ReactDOM',
-        out + '\n;ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));');
-      run(React, ReactDOM);
+      // Inject the compiled JS as a new <script> element. textContent is not
+      // HTML-parsed, so backticks / template literals in the compiled output
+      // are preserved verbatim (unlike inline script bodies in the srcDoc).
+      var scr = document.createElement('script');
+      scr.textContent = out + ';ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ' + ${JSON.stringify(componentName)} + ' + '));';
+      document.body.appendChild(scr);
       post('ok');
     } catch (e) {
       fail((e && e.message) ? e.message : e);
