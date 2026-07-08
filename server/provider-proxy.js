@@ -111,8 +111,31 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch) {
     res.statusCode = upstream.status
     const ct = upstream.headers.get('content-type')
     if (ct) res.setHeader('content-type', ct)
-    const buf = Buffer.from(await upstream.arrayBuffer())
-    res.end(buf)
+
+    // Stream the response body through instead of buffering it all. This is
+    // essential for streaming chat responses (stream: true) where the model
+    // sends NDJSON line-by-line. Without piping, the entire response would be
+    // buffered and the client would see nothing until the model finishes.
+    if (upstream.body && typeof upstream.body.pipeTo === 'function') {
+      // Web ReadableStream (Node fetch) — pipe to the response
+      // Disable Nagle's algorithm for lower latency on small chunks
+      if (typeof res.socket?.setNoDelay === 'function') res.socket.setNoDelay(true)
+      // Flush headers immediately so the client starts receiving data
+      if (typeof res.flushHeaders === 'function') res.flushHeaders()
+      upstream.body.pipeTo(res)
+        .catch(() => { try { res.end() } catch {} })
+    } else if (upstream.body && typeof upstream.body[Symbol.asyncIterator] === 'function') {
+      // Async iterable (Node Readable) — pump chunks through
+      if (typeof res.flushHeaders === 'function') res.flushHeaders()
+      for await (const chunk of upstream.body) {
+        res.write(chunk)
+      }
+      res.end()
+    } else {
+      // Fallback: buffer the whole thing
+      const buf = Buffer.from(await upstream.arrayBuffer())
+      res.end(buf)
+    }
   } catch (err) {
     res.statusCode = 502
     res.setHeader('content-type', 'application/json')
