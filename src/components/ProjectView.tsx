@@ -121,35 +121,44 @@ export default function ProjectView({
 
       if (targets.length > 0) {
         // Edit mode: apply the instruction to each selected screen in place,
-        // keeping each screen in its existing form factor.
+        // keeping each screen in its existing form factor. Stream partial code
+        // so the preview updates live as the model writes.
         for (const sc of targets) {
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
-          const res = await editComponent(settings, text, sc.code, extraSystem, images, ac.signal)
+          const res = await editComponent(
+            settings, text, sc.code, extraSystem, images, ac.signal,
+            (partial) => onUpdateScreen(sc.id, { code: partial }),
+          )
           onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName })
         }
         setPrompt('')
         setAnnotations([])
       } else {
-        // Create a new screen using the selected format preset.
+        // Create a new screen using the selected format preset. Add it
+        // immediately with empty code, then stream the code in live.
         const preset = getPreset(presetId)
         const extraSystem = joinSystem([designPreamble, preset.hint])
-        const result = await generateComponent(settings, text, extraSystem, images, ac.signal)
-        const screen: Omit<Screen, 'x' | 'y'> = {
-          id: newId(),
+        const screenId = newId()
+        onAddScreen({
+          id: screenId,
           name: deriveName(text),
           prompt: text,
-          code: result.code,
-          componentName: result.componentName,
+          code: '',
+          componentName: 'App',
           createdAt: Date.now(),
           w: preset.w,
           h: preset.h,
           device: preset.device,
           links: [],
-        }
-        onAddScreen(screen)
+        })
+        setSelectedIds([screenId])
         setPrompt('')
-        setSelectedIds([screen.id])
         setAnnotations([])
+        const result = await generateComponent(
+          settings, text, extraSystem, images, ac.signal,
+          (partial) => onUpdateScreen(screenId, { code: partial }),
+        )
+        onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
+import { validateJsx } from '../lib/compile'
 
 export interface PickInfo {
   selector: string
@@ -190,16 +191,39 @@ export default function Preview({
   // JSX source (not pre-compiled JS) into the iframe. The iframe loads Babel
   // from CDN and compiles the code there, which avoids all srcDoc/escaping
   // edge cases around complex generated code.
+  //
+  // During streaming the code may be incomplete (and thus not valid JSX). We
+  // validate it in the parent first: only valid code is sent to the iframe.
+  // Invalid/partial code keeps the previous preview visible (or shows a
+  // "Generating…" hint if there is no preview yet).
   const [srcDoc, setSrcDoc] = useState<string | null>(null)
+  const [streaming, setStreaming] = useState(false)
   useEffect(() => {
     let cancelled = false
-    setError(null)
     setReady(false)
+    if (!code || !code.trim()) {
+      setStreaming(true)
+      setError(null)
+      return () => { cancelled = true }
+    }
+    // Quick check: does the code look complete enough to attempt compilation?
+    // During streaming, bail early on obviously incomplete code to avoid
+    // hammering Babel on every chunk.
     const previewCode = toPreviewModule(code)
     const name = detectComponentName(code)
-    // Offload the actual Babel transform to the sandboxed iframe; just build
-    // the srcDoc synchronously so we never show "Rendering…" forever.
-    if (!cancelled) setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
+    validateJsx(previewCode).then((err) => {
+      if (cancelled) return
+      if (err) {
+        // Code is not valid yet (probably still streaming). Don't clobber the
+        // existing preview; just mark that we're waiting for more.
+        setStreaming(true)
+        setError(null)
+      } else {
+        setStreaming(false)
+        setError(null)
+        setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
+      }
+    })
     return () => {
       cancelled = true
     }
@@ -262,10 +286,10 @@ export default function Preview({
           style={{ borderRadius: radius }}
         />
       )}
-      {!ready && !error && (
+      {(!ready || streaming) && !error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white" style={{ borderRadius: radius }}>
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-          <span className="text-xs text-slate-400">Rendering…</span>
+          <span className="text-xs text-slate-400">{streaming ? 'Generating…' : 'Rendering…'}</span>
         </div>
       )}
       {error && (

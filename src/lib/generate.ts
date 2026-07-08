@@ -11,6 +11,11 @@ STRICT OUTPUT RULES:
 - Style everything with Tailwind utility classes only. No external CSS files, no styled-components, no third-party UI/icon libraries.
 - Do not fetch from the network and do not use <img> with external URLs. Use inline SVG, emoji, or solid-color placeholder divs instead.
 
+SYNTAX VERIFICATION (CRITICAL):
+- Before sending your response, mentally re-read your entire code and verify it is syntactically valid JSX/JavaScript.
+- Pay special attention to: balanced braces {}, parentheses (), and brackets []; closed string literals (every quote and backtick must have a matching close); correct template literal syntax (every \` must be closed with a matching \`, and every \${ must be closed with }); no stray or missing characters around className expressions; all tags properly opened and closed.
+- If you find any syntax error, fix it before outputting. Your code MUST compile without errors on the first try.
+
 VISUAL QUALITY REQUIREMENTS:
 - Build a REAL finished UI, not a wireframe or a gray box mock-up. Use a complete, modern color palette (slate/indigo/emerald/amber/rose as appropriate), subtle shadows, rounded corners, and clear visual hierarchy.
 - NEVER use generic placeholder text like "Lorem ipsum", "Sample text", "Content here", or repeated gray rectangles. Write realistic, context-aware copy (labels, values, names, numbers, taglines, CTA text).
@@ -49,9 +54,22 @@ export function stripDataUrl(dataUrl: string): string {
   return i >= 0 ? dataUrl.slice(i + 'base64,'.length) : dataUrl
 }
 
-/** Shared chat call: posts messages and returns the assistant content. */
-async function chat(s: Settings, messages: ChatMessage[], signal?: AbortSignal): Promise<string> {
-  const body = JSON.stringify({ model: s.model, stream: false, messages, options: { temperature: 0.4 } })
+/** Shared chat call: posts messages and returns the assistant content.
+ *  If `onChunk` is provided, uses streaming mode (stream: true) and invokes
+ *  the callback with each incremental content piece as it arrives. */
+async function chat(
+  s: Settings,
+  messages: ChatMessage[],
+  signal?: AbortSignal,
+  onChunk?: (partial: string) => void,
+): Promise<string> {
+  const useStream = !!onChunk
+  const body = JSON.stringify({
+    model: s.model,
+    stream: useStream,
+    messages,
+    options: { temperature: 0.4 },
+  })
 
   let res: Response
   try {
@@ -69,10 +87,56 @@ async function chat(s: Settings, messages: ChatMessage[], signal?: AbortSignal):
     throw new Error(`HTTP ${res.status} from provider. ${truncate(text, 300)}`)
   }
 
-  const data = (await res.json()) as OllamaChatResponse
-  const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''
-  if (!content.trim()) throw new Error('The model returned an empty response.')
-  return content
+  if (!useStream) {
+    const data = (await res.json()) as OllamaChatResponse
+    const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''
+    if (!content.trim()) throw new Error('The model returned an empty response.')
+    return content
+  }
+
+  // --- Streaming: parse NDJSON (one JSON object per line) ---
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('Streaming not supported: no response body.')
+  const decoder = new TextDecoder()
+  let full = ''
+  let buffer = ''
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      try {
+        const obj = JSON.parse(trimmed)
+        const piece = obj.message?.content ?? obj.choices?.[0]?.delta?.content ?? ''
+        if (piece) {
+          full += piece
+          onChunk?.(full)
+        }
+      } catch {
+        // partial JSON — ignore, will be completed on next chunk
+      }
+    }
+  }
+  // flush remaining buffer
+  if (buffer.trim()) {
+    try {
+      const obj = JSON.parse(buffer.trim())
+      const piece = obj.message?.content ?? obj.choices?.[0]?.delta?.content ?? ''
+      if (piece) {
+        full += piece
+        onChunk?.(full)
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!full.trim()) throw new Error('The model returned an empty response.')
+  return full
 }
 
 /**
@@ -85,14 +149,21 @@ export async function generateComponent(
   extraSystem?: string,
   images?: string[],
   signal?: AbortSignal,
+  onChunk?: (partialCode: string) => void,
 ): Promise<GeneratedComponent> {
   const system = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
-  const content = await chat(s, [
-    { role: 'system', content: system },
-    { role: 'user', content: withImageNote(userPrompt, images), images: images?.map(stripDataUrl) },
-  ], signal)
+  const content = await chat(
+    s,
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: withImageNote(userPrompt, images), images: images?.map(stripDataUrl) },
+    ],
+    signal,
+    onChunk ? (full) => onChunk(extractCode(full)) : undefined,
+  )
   const code = extractCode(content)
-  return { raw: content, code, componentName: detectComponentName(code) }
+  const componentName = detectComponentName(code)
+  return { raw: content, code, componentName }
 }
 
 /** Prepend a note so the model knows the attached reference images are numbered. */
@@ -124,6 +195,7 @@ export async function editComponent(
   extraSystem?: string,
   images?: string[],
   signal?: AbortSignal,
+  onChunk?: (partialCode: string) => void,
 ): Promise<GeneratedComponent> {
   const system = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
   const user = [
@@ -138,12 +210,18 @@ export async function editComponent(
     'Requested change:',
     withImageNote(instruction, images),
   ].join('\n')
-  const content = await chat(s, [
-    { role: 'system', content: system },
-    { role: 'user', content: user, images: images?.map(stripDataUrl) },
-  ], signal)
+  const content = await chat(
+    s,
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: user, images: images?.map(stripDataUrl) },
+    ],
+    signal,
+    onChunk ? (full) => onChunk(extractCode(full)) : undefined,
+  )
   const code = extractCode(content)
-  return { raw: content, code, componentName: detectComponentName(code) }
+  const componentName = detectComponentName(code)
+  return { raw: content, code, componentName }
 }
 
 /** Pull the largest fenced code block out of a markdown response, else use it whole. */
