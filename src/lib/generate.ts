@@ -96,7 +96,14 @@ async function chat(
 
   // --- Streaming: parse NDJSON (one JSON object per line) ---
   const reader = res.body?.getReader()
-  if (!reader) throw new Error('Streaming not supported: no response body.')
+  if (!reader) {
+    // Streaming not supported by the transport — fall back to full JSON.
+    const data = (await res.json()) as OllamaChatResponse
+    const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''
+    if (!content.trim()) throw new Error('The model returned an empty response.')
+    onChunk(extractCode(content))
+    return content
+  }
   const decoder = new TextDecoder()
   let full = ''
   let buffer = ''
