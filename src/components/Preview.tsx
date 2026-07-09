@@ -193,40 +193,40 @@ export default function Preview({
   // edge cases around complex generated code.
   //
   // During streaming the code may be incomplete (and thus not valid JSX). We
-  // validate it in the parent first: only valid code is sent to the iframe.
-  // Invalid/partial code keeps the previous preview visible (or shows a
-  // "Generating…" hint if there is no preview yet).
+  // debounce validation: only attempt to validate after the code has been
+  // stable for 300ms. This avoids hammering Babel on every chunk and prevents
+  // validation races that would leave the preview stuck.
   const [srcDoc, setSrcDoc] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
   useEffect(() => {
-    let cancelled = false
-    setReady(false)
     if (!code || !code.trim()) {
       setStreaming(true)
       setError(null)
-      return () => { cancelled = true }
+      setReady(false)
+      return
     }
-    // Quick check: does the code look complete enough to attempt compilation?
-    // During streaming, bail early on obviously incomplete code to avoid
-    // hammering Babel on every chunk.
-    const previewCode = toPreviewModule(code)
-    const name = detectComponentName(code)
-    validateJsx(previewCode).then((err) => {
-      if (cancelled) return
-      if (err) {
-        // Code is not valid yet (probably still streaming). Don't clobber the
-        // existing preview; just mark that we're waiting for more.
-        setStreaming(true)
-        setError(null)
-      } else {
-        setStreaming(false)
-        setError(null)
-        setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
-      }
-    })
-    return () => {
-      cancelled = true
-    }
+    // Wait 300ms after the last change before validating. During streaming,
+    // chunks arrive rapidly; this debounce ensures we only validate once the
+    // code has settled (either the stream finished or there's a pause).
+    const timer = setTimeout(() => {
+      const previewCode = toPreviewModule(code)
+      const name = detectComponentName(code)
+      validateJsx(previewCode).then((err) => {
+        if (err) {
+          // Code is not valid yet (probably still streaming). Don't clobber
+          // the existing preview; just mark that we're waiting for more.
+          setStreaming(true)
+          setError(null)
+          setReady(false)
+        } else {
+          setStreaming(false)
+          setError(null)
+          setReady(false)
+          setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
+        }
+      })
+    }, 300)
+    return () => clearTimeout(timer)
   }, [code, frameId, hideScrollbars])
 
   useEffect(() => {
