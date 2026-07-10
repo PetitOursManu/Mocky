@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
-import { validateJsx } from '../lib/compile'
 
 export interface PickInfo {
   selector: string
@@ -54,10 +53,10 @@ function buildSrcDoc(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="/vendor/babel.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}</style>
 </head>
 <body>
@@ -187,56 +186,50 @@ export default function Preview({
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
 
-  // Transform the raw generated module into preview-ready source and pass the
-  // JSX source (not pre-compiled JS) into the iframe. The iframe loads Babel
-  // from CDN and compiles the code there, which avoids all srcDoc/escaping
-  // edge cases around complex generated code.
+  // Build the iframe srcDoc from the generated code. We debounce 500ms so
+  // rapid streaming chunks don't cause an iframe rebuild on every token. The
+  // iframe's own Babel handles compilation — if the code is incomplete, the
+  // iframe shows the error, but the spinner stays until a valid render ("ok"
+  // message) arrives.
   //
-  // During streaming the code may be incomplete (and thus not valid JSX). We
-  // debounce validation: only attempt to validate after the code has been
-  // stable for 300ms. This avoids hammering Babel on every chunk and prevents
-  // validation races that would leave the preview stuck.
+  // A 15s timeout guards against iframes that never respond (e.g. Babel CDN
+  // unreachable): instead of spinning forever, we show a timeout error.
   const [srcDoc, setSrcDoc] = useState<string | null>(null)
-  const [streaming, setStreaming] = useState(false)
   useEffect(() => {
-    if (!code || !code.trim()) {
-      setStreaming(true)
-      setError(null)
-      setReady(false)
-      return
-    }
-    // Wait 300ms after the last change before validating. During streaming,
-    // chunks arrive rapidly; this debounce ensures we only validate once the
-    // code has settled (either the stream finished or there's a pause).
+    if (!code || !code.trim()) return
     const timer = setTimeout(() => {
       const previewCode = toPreviewModule(code)
       const name = detectComponentName(code)
-      validateJsx(previewCode).then((err) => {
-        if (err) {
-          // Code is not valid yet (probably still streaming). Don't clobber
-          // the existing preview; just mark that we're waiting for more.
-          setStreaming(true)
-          setError(null)
-          setReady(false)
-        } else {
-          setStreaming(false)
-          setError(null)
-          setReady(false)
-          setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
-        }
-      })
-    }, 300)
+      setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
+    }, 500)
     return () => clearTimeout(timer)
   }, [code, frameId, hideScrollbars])
 
+  // Listen for messages from the iframe. The iframe posts 'ok' when the
+  // component rendered successfully, or 'error' when Babel or the component
+  // threw. We also set a 15s timeout: if no message arrives, show an error.
   useEffect(() => {
+    if (!srcDoc) return
     setError(null)
     setReady(false)
+    let timeoutHit = false
+    const timeout = setTimeout(() => {
+      if (!timeoutHit) {
+        timeoutHit = true
+        setError('Preview timed out — the component took too long to render. This may be a network issue with the Babel CDN.')
+      }
+    }, 15000)
     function onMsg(e: MessageEvent) {
       const d = e.data
       if (!d || !d.__mocky || d.frameId !== frameId) return
-      if (d.type === 'error') setError(d.message)
+      if (d.type === 'error') {
+        timeoutHit = true
+        clearTimeout(timeout)
+        setError(d.message)
+      }
       if (d.type === 'ok') {
+        timeoutHit = true
+        clearTimeout(timeout)
         setError(null)
         setReady(true)
       }
@@ -244,7 +237,10 @@ export default function Preview({
       if (d.type === 'navigate') onNavRef.current?.(d.target)
     }
     window.addEventListener('message', onMsg)
-    return () => window.removeEventListener('message', onMsg)
+    return () => {
+      clearTimeout(timeout)
+      window.removeEventListener('message', onMsg)
+    }
   }, [srcDoc, frameId])
 
   // When a capture is requested, translate the client-space rect into this
@@ -286,10 +282,10 @@ export default function Preview({
           style={{ borderRadius: radius }}
         />
       )}
-      {(!ready || streaming) && !error && (
+      {!ready && !error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white" style={{ borderRadius: radius }}>
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-          <span className="text-xs text-slate-400">{streaming ? 'Generating…' : 'Rendering…'}</span>
+          <span className="text-xs text-slate-400">Rendering…</span>
         </div>
       )}
       {error && (
