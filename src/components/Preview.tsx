@@ -199,12 +199,19 @@ export default function Preview({
   //
   // A 15s timeout guards against iframes that never respond (e.g. Babel CDN
   // unreachable): instead of spinning forever, we show a timeout error.
+  //
+  // We track the code that was used to build the current srcDoc. If an error
+  // arrives but the code has since changed (streaming in progress), the error
+  // is from stale code and is ignored — only errors from the CURRENT code are
+  // forwarded to the parent (for auto-retry).
   const [srcDoc, setSrcDoc] = useState<string | null>(null)
+  const srcCodeRef = useRef<string>('')
   useEffect(() => {
     if (!code || !code.trim()) return
     const timer = setTimeout(() => {
       const previewCode = toPreviewModule(code)
       const name = detectComponentName(code)
+      srcCodeRef.current = code
       setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
     }, 500)
     return () => clearTimeout(timer)
@@ -221,7 +228,7 @@ export default function Preview({
     const timeout = setTimeout(() => {
       if (!timeoutHit) {
         timeoutHit = true
-        setError('Preview timed out — the component took too long to render. This may be a network issue with the Babel CDN.')
+        setError('Preview timed out — the component took too long to render.')
       }
     }, 15000)
     function onMsg(e: MessageEvent) {
@@ -231,7 +238,12 @@ export default function Preview({
         timeoutHit = true
         clearTimeout(timeout)
         setError(d.message)
-        onErrorRef.current?.(d.message)
+        // Only forward the error if the code hasn't changed since we built
+        // the srcDoc. If it has, the error is from stale (incomplete) code
+        // and the current code is probably still streaming.
+        if (srcCodeRef.current === code) {
+          onErrorRef.current?.(d.message)
+        }
       }
       if (d.type === 'ok') {
         timeoutHit = true
@@ -247,7 +259,7 @@ export default function Preview({
       clearTimeout(timeout)
       window.removeEventListener('message', onMsg)
     }
-  }, [srcDoc, frameId])
+  }, [srcDoc, frameId, code])
 
   // When a capture is requested, translate the client-space rect into this
   // screen's viewport coordinates (handles the device-frame inset + zoom) and

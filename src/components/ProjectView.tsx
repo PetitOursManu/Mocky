@@ -91,7 +91,10 @@ export default function ProjectView({
   // Auto-retry when a preview reports a compile/runtime error. We send the
   // broken code + the error message back to the model for a one-shot fix.
   // Only one retry per screen to avoid infinite loops.
+  // IMPORTANT: do NOT retry while a generation is in progress (busy=true) —
+  // the code is still streaming and incomplete errors are expected.
   const onScreenError = useCallback(async (screenId: string, errorMessage: string) => {
+    if (busy) return
     if (retryRefs.current[screenId]) return
     retryRefs.current[screenId] = 1
     const screen = screens.find((s) => s.id === screenId)
@@ -108,7 +111,7 @@ export default function ProjectView({
     } finally {
       retryAbortRef.current = null
     }
-  }, [screens, onUpdateScreen])
+  }, [screens, onUpdateScreen, busy])
 
   function addHotspot(screenId: string, target: string) {
     const screen = screens.find((s) => s.id === screenId)
