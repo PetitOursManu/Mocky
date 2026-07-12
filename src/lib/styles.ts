@@ -321,6 +321,236 @@ export const STYLE_PRESETS: StylePreset[] = [
 
 ## Component patterns
 - Elegant, premium, dark. Deep blue-black with gold accents.
-- Serif headings for sophistication. Gold primary buttons, dark surfaces.`,
+  - Serif headings for sophistication. Gold primary buttons, dark surfaces.`,
+  },
+  {
+    id: 'constructivism',
+    name: 'Constructivism',
+    description: 'Geometry, asymmetry, motion',
+    swatches: ['#1a1a1a', '#ffffff', '#dc2626', '#fbbf24'],
+    preview: { bg: '#1a1a1a', cardBg: '#2a2a2a', cardBorder: '#dc2626', text: '#ffffff', mutedText: '#a3a3a3', accent: '#dc2626', accentText: '#ffffff', radius: '0px' },
+    markdown: `# Design System — Constructivism
+
+## Color tokens
+- Background: #1a1a1a (near-black)
+- Surface: #2a2a2a
+- Text: #ffffff
+- Muted text: #a3a3a3
+- Primary: #dc2626 (red-600)
+- Accent: #fbbf24 (amber-400)
+- Border: #404040
+
+## Typography
+- Font: Helvetica / Arial, bold sans-serif
+- Headings: heavy, tight, left-aligned, sans-serif
+- Body: 14px, clean
+
+## Spacing & radius
+- Sharp corners (rounded-none). No rounded shapes.
+- Asymmetric layouts: elements aligned to one side, offset blocks.
+- Use diagonal lines and geometric shapes (triangles, rectangles).
+
+## Component patterns
+- Functional, geometry-driven, energetic. Asymmetrical layouts convey motion.
+- Red and black dominate. Yellow accents for emphasis.
+- Collages: black-and-white photo cutouts over bold backgrounds.
+- No decorative flourishes. Every element serves a purpose.`,
+  },
+  {
+    id: 'swiss',
+    name: 'Swiss Style',
+    description: 'Grid, Helvetica, clarity',
+    swatches: ['#ffffff', '#000000', '#ef4444', '#f3f4f6'],
+    preview: { bg: '#ffffff', cardBg: '#f3f4f6', cardBorder: '#d1d5db', text: '#000000', mutedText: '#6b7280', accent: '#ef4444', accentText: '#ffffff', radius: '0px' },
+    markdown: `# Design System — Swiss Style
+
+## Color tokens
+- Background: #ffffff
+- Surface: #f3f4f6
+- Text: #000000
+- Muted text: #6b7280
+- Primary: #ef4444 (red-500)
+- Border: #d1d5db
+
+## Typography
+- Font: Helvetica, Univers, or Akzidenz-Grotesk
+- Headings: large, bold, sans-serif. Strong size contrast.
+- Body: 14–15px, clean sans-serif
+
+## Spacing & radius
+- Strict modular grid. Everything aligns.
+- Sharp corners (rounded-none or rounded-sm).
+- Generous gutters and margins.
+
+## Component patterns
+- Clarity, functionality, understated elegance.
+- Strong modular grid. Typography is king — large headings, small body.
+- Minimal decoration. Color photography used sparingly for emphasis.
+- Red accent on otherwise monochrome. Poster-inspired composition.`,
+  },
+  {
+    id: 'editorial',
+    name: 'Editorial',
+    description: 'Magazine layout, serif headlines',
+    swatches: ['#faf9f6', '#1a1a1a', '#9333ea', '#e5e7eb'],
+    preview: { bg: '#faf9f6', cardBg: '#ffffff', cardBorder: '#e5e7eb', text: '#1a1a1a', mutedText: '#6b7280', accent: '#9333ea', accentText: '#ffffff', radius: '0px' },
+    markdown: `# Design System — Editorial
+
+## Color tokens
+- Background: #faf9f6 (warm off-white)
+- Surface: #ffffff
+- Text: #1a1a1a
+- Muted text: #6b7280
+- Primary: #9333ea (purple-600)
+- Accent: #ec4899 (pink-500)
+- Border: #e5e7eb
+
+## Typography
+- Headings: large decorative serif (Playfair Display, Cormorant, DM Serif)
+- Body: small legible sans-serif (Inter, 14–15px)
+- Strong contrast between heading and body sizes
+
+## Spacing & radius
+- Magazine-spread composition. Multilayer layouts.
+- Minimal radius. Thin borders and dividing lines.
+- Generous whitespace around visual content.
+
+## Component patterns
+- Inspired by Vogue, GQ, Harper's Bazaar. Print magazine on the web.
+- Large bold visuals and photography dominate.
+- Decorative elements: lines, frames, pull quotes in large type.
+- Serif headlines overlaid on images or in dedicated blocks.`,
+  },
+  {
+    id: 'hand-drawn',
+    name: 'Hand-Drawn',
+    description: 'Sketchy, casual, imperfect',
+    swatches: ['#fefce8', '#3f3f46', '#f59e0b', '#84cc16'],
+    preview: { bg: '#fefce8', cardBg: '#fffbeb', cardBorder: '#d4d4d8', text: '#3f3f46', mutedText: '#71717a', accent: '#f59e0b', accentText: '#3f3f46', radius: '20px' },
+    markdown: `# Design System — Hand-Drawn
+
+## Color tokens
+- Background: #fefce8 (warm yellow-cream)
+- Surface: #fffbeb
+- Text: #3f3f46 (dark gray)
+- Muted text: #71717a
+- Primary: #f59e0b (amber-500)
+- Accent: #84cc16 (lime-500)
+- Border: #d4d4d8 (dashed or rough)
+
+## Typography
+- Headings: handwritten or script fonts (Caveat, Patrick Hand, Kalam)
+- Body: simple sans-serif, 15px
+- Use decorative fonts sparingly for charm, never in body copy
+
+## Spacing & radius
+- Loose, intentionally imperfect alignment. No strict grids.
+- Rounded organic shapes. Dashed borders, rough edges.
+- Scribbles, doodles, and sketchy accents throughout.
+
+## Component patterns
+- Casual, friendly, handmade. Imperfection is the point.
+- Hand-lettered headings, rough-cut photos with bright outlines.
+- Forget precise alignment — start with a grid, then shift things around.
+- Illustrated icons, sketchy shapes, brush strokes.`,
+  },
+  {
+    id: 'retro',
+    name: 'Retro',
+    description: 'Vintage, grainy, nostalgic',
+    swatches: ['#2d1b00', '#fef3c7', '#f97316', '#06b6d4'],
+    preview: { bg: '#2d1b00', cardBg: '#3d2b10', cardBorder: '#6b4d20', text: '#fef3c7', mutedText: '#d4a574', accent: '#f97316', accentText: '#2d1b00', radius: '8px' },
+    markdown: `# Design System — Retro
+
+## Color tokens
+- Background: #2d1b00 (dark brown)
+- Surface: #3d2b10
+- Text: #fef3c7 (warm cream)
+- Muted text: #d4a574
+- Primary: #f97316 (orange-500)
+- Accent: #06b6d4 (cyan-500)
+- Border: #6b4d20
+
+## Typography
+- Font: retro-inspired sans (Bebas Neue, Press Start 2P, VT323)
+- Headings: bold, slightly muted colors, vintage feel
+- Body: 14px, readable
+
+## Spacing & radius
+- Rounded buttons with drop shadows (tactile, physical feel).
+- Grainy textures, noise overlays, wear-and-tear effects.
+- Slightly muted shades to mimic old displays.
+
+## Component patterns
+- Vintage vibes, bold colors, nostalgic typography.
+- Grain/noise textures. Buttons with drop shadows echoing old-school tech.
+- Warm palette: orange, yellow, turquoise, pink, brown.
+- References to '80s and '90s: arcade, CRT, cassette, neon.`,
+  },
+  {
+    id: 'flat',
+    name: 'Flat',
+    description: 'No shadows, pastel, clean',
+    swatches: ['#fafafa', '#1f2937', '#3b82f6', '#f3f4f6'],
+    preview: { bg: '#fafafa', cardBg: '#ffffff', cardBorder: '#e5e7eb', text: '#1f2937', mutedText: '#6b7280', accent: '#3b82f6', accentText: '#ffffff', radius: '8px' },
+    markdown: `# Design System — Flat
+
+## Color tokens
+- Background: #fafafa
+- Surface: #ffffff
+- Text: #1f2937
+- Muted text: #6b7280
+- Primary: #3b82f6 (blue-500)
+- Accent: #10b981 (emerald-500)
+- Border: #e5e7eb
+
+## Typography
+- Font: Roboto, Open Sans, or Inter — clean sans-serif
+- Headings: bold, clear hierarchy, no decorative elements
+- Body: 15px, highly readable
+
+## Spacing & radius
+- Basic geometric shapes. No 3D, shadows, gloss, or bevels.
+- Small radius (rounded-md). Solid colors only, no gradients.
+- Clean blocks with clear headings and subheadings.
+
+## Component patterns
+- Simplicity and clarity above all. No depth effects.
+- Solid pastel and bold colors. Accent colors used sparingly.
+- Clean sans-serif typography. Content in digestible blocks.
+- Minimal animation. Function over form.`,
+  },
+  {
+    id: 'bento',
+    name: 'Bento',
+    description: 'Tidy tiles, modular, dense',
+    swatches: ['#0f0f0f', '#ffffff', '#a78bfa', '#f9a8d4'],
+    preview: { bg: '#0f0f0f', cardBg: '#1a1a1a', cardBorder: '#333333', text: '#ffffff', mutedText: '#a3a3a3', accent: '#a78bfa', accentText: '#0f0f0f', radius: '16px' },
+    markdown: `# Design System — Bento
+
+## Color tokens
+- Background: #0f0f0f (near-black)
+- Surface: #1a1a1a (dark tile)
+- Text: #ffffff
+- Muted text: #a3a3a3
+- Primary: #a78bfa (violet-400)
+- Accent: #f9a8d4 (pink-300)
+- Border: #333333
+
+## Typography
+- Font: Inter / DM Sans, clean sans-serif
+- Headings: medium weight, clear
+- Body: 14px, minimal decorative touches
+
+## Spacing & radius
+- Rectangular content cells with softly rounded corners (rounded-2xl).
+- Very little empty space — everything fits neatly.
+- Small gaps between tiles (gap-2 to gap-4).
+
+## Component patterns
+- Inspired by Japanese bento boxes. Each content piece in its own container.
+- Grid of tiles with rounded corners, minimal whitespace.
+- Soft or muted colors. Small illustrations or charts to enrich.
+- Popular in dashboards, e-commerce, and dense content layouts.`,
   },
 ]

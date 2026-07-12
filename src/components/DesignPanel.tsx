@@ -59,8 +59,8 @@ export default function DesignPanel() {
 
         {/* Built-in visual styles */}
         <div className="mb-4">
-          <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">Style presets</div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">Style presets ({STYLE_PRESETS.length})</div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STYLE_PRESETS.map((s) => {
               const isActive = design.markdown.trim() === s.markdown.trim()
               const p = s.preview
@@ -71,40 +71,76 @@ export default function DesignPanel() {
                   onClick={() => setDesign((d) => ({ ...d, markdown: s.markdown, enabled: true }))}
                   className={`overflow-hidden rounded-xl border p-0 text-left transition ${
                     isActive
-                      ? 'border-indigo-500 ring-2 ring-indigo-500/40'
-                      : 'border-slate-700 hover:border-slate-600'
+                      ? 'border-indigo-500 ring-2 ring-indigo-500/50'
+                      : 'border-slate-700 hover:border-slate-500'
                   }`}
                   title={`Apply "${s.name}"`}
                 >
-                  {/* Mini mockup preview */}
+                  {/* Large mockup preview */}
                   <div
-                    className="flex h-24 flex-col gap-1.5 p-2.5"
-                    style={{ background: p.bg, borderRadius: 0 }}
+                    className="flex h-40 flex-col gap-2 p-3"
+                    style={{ background: p.bg }}
                   >
+                    {/* Top bar / nav */}
+                    <div className="flex items-center justify-between" style={{ height: 14 }}>
+                      <div className="flex gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.accent }} />
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.mutedText, opacity: 0.5 }} />
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.mutedText, opacity: 0.3 }} />
+                      </div>
+                      <span style={{ color: p.mutedText, fontSize: 6 }}>≡</span>
+                    </div>
+
+                    {/* Hero card */}
                     <div
-                      className="flex items-center gap-1.5 rounded-lg px-2 py-1"
+                      className="flex flex-col gap-1 px-2.5 py-2"
                       style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}`, borderRadius: p.radius }}
                     >
-                      <span style={{ color: p.text, fontSize: 9, fontWeight: 700 }}>{s.name}</span>
+                      <span style={{ color: p.text, fontSize: 11, fontWeight: 800, lineHeight: 1.1 }}>{s.name}</span>
+                      <span style={{ color: p.mutedText, fontSize: 7 }}>Subtitle text here</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="rounded px-1.5 py-0.5"
-                        style={{ background: p.accent, color: p.accentText, fontSize: 7, fontWeight: 600, borderRadius: '6px' }}
+
+                    {/* Two small cards */}
+                    <div className="flex gap-1.5">
+                      <div
+                        className="flex flex-1 flex-col gap-1 px-2 py-1.5"
+                        style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}`, borderRadius: p.radius }}
                       >
-                        Button
-                      </span>
-                      <span style={{ color: p.mutedText, fontSize: 7 }}>muted</span>
+                        <span style={{ color: p.text, fontSize: 7, fontWeight: 700 }}>Stat</span>
+                        <span style={{ color: p.accent, fontSize: 10, fontWeight: 800 }}>42%</span>
+                      </div>
+                      <div
+                        className="flex flex-1 flex-col gap-1 px-2 py-1.5"
+                        style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}`, borderRadius: p.radius }}
+                      >
+                        <span style={{ color: p.text, fontSize: 7, fontWeight: 700 }}>Rate</span>
+                        <span style={{ color: p.accent, fontSize: 10, fontWeight: 800 }}>9.8</span>
+                      </div>
                     </div>
-                    <div className="flex gap-0.5">
-                      {s.swatches.map((c, i) => (
-                        <span key={i} className="h-2.5 w-2.5 rounded-full" style={{ background: c, border: '1px solid rgba(0,0,0,0.1)' }} />
-                      ))}
+
+                    {/* Button + swatches */}
+                    <div className="mt-auto flex items-center justify-between">
+                      <span
+                        className="rounded px-2 py-0.5"
+                        style={{ background: p.accent, color: p.accentText, fontSize: 8, fontWeight: 700, borderRadius: p.radius === '0px' ? '0' : '8px' }}
+                      >
+                        Action
+                      </span>
+                      <div className="flex gap-1">
+                        {s.swatches.map((c, i) => (
+                          <span key={i} className="h-3 w-3 rounded-full" style={{ background: c, border: '1px solid rgba(0,0,0,0.15)' }} />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-slate-800/60 px-2.5 py-1.5">
-                    <div className="text-xs font-medium text-slate-200">{s.name}</div>
-                    <div className="text-[10px] text-slate-500">{s.description}</div>
+
+                  {/* Label */}
+                  <div className={`flex items-center justify-between px-3 py-2 ${isActive ? 'bg-indigo-500/10' : 'bg-slate-800/60'}`}>
+                    <div>
+                      <div className="text-sm font-medium text-slate-100">{s.name}</div>
+                      <div className="text-[11px] text-slate-500">{s.description}</div>
+                    </div>
+                    {isActive && <span className="text-xs text-indigo-400">✓</span>}
                   </div>
                 </button>
               )
