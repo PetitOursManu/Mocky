@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
-import { editComponent, fixComponent, generateComponent } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
@@ -31,6 +31,7 @@ export default function ProjectView({
   onRemoveScreen,
   onOpenSettings,
   onOpenDesign,
+  onBack,
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -38,6 +39,7 @@ export default function ProjectView({
   onRemoveScreen: (screenId: string) => void
   onOpenSettings: () => void
   onOpenDesign: () => void
+  onBack: () => void
 }) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
@@ -87,6 +89,18 @@ export default function ProjectView({
   const designActive = isDesignActive(loadDesign())
   const screens = project.screens
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
+
+  // Revert a screen to its previousCode (saved before the last edit).
+  function onRevertScreen(screenId: string) {
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.previousCode) return
+    // Swap: current code becomes the new previousCode, old code becomes current
+    onUpdateScreen(screenId, {
+      code: screen.previousCode,
+      previousCode: undefined,
+      componentName: detectComponentName(screen.previousCode),
+    })
+  }
 
   // Auto-retry when a preview reports a compile/runtime error. We send the
   // broken code + the error message back to the model for a one-shot fix.
@@ -151,13 +165,16 @@ export default function ProjectView({
         // Edit mode: apply the instruction to each selected screen in place,
         // keeping each screen in its existing form factor. Stream partial code
         // so the preview updates live as the model writes.
+        // Save the current code as previousCode so the user can revert.
         for (const sc of targets) {
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
+          // Snapshot the old code before overwriting
+          const oldCode = sc.code
           const res = await editComponent(
             settings, text, sc.code, extraSystem, images, ac.signal,
             (partial) => onUpdateScreen(sc.id, { code: partial }),
           )
-          onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName })
+          onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode })
         }
         setPrompt('')
         setAnnotations([])
@@ -266,6 +283,7 @@ export default function ProjectView({
         captureReq={captureReq}
         onCaptureRect={onCaptureRect}
         onError={onScreenError}
+        onRevertScreen={onRevertScreen}
       />
 
       {/* Links panel (link mode) */}
@@ -333,6 +351,15 @@ export default function ProjectView({
 
       {/* Top-left toolbar */}
       <div className="absolute left-4 top-3 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900/90 p-1 shadow-lg">
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-slate-700/60"
+          title="Back to projects"
+        >
+          ← Back
+        </button>
+        <div className="mx-1 h-5 w-px bg-slate-700" />
         <button
           type="button"
           onClick={() => setLinkMode((v) => !v)}

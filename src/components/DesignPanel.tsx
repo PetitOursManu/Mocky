@@ -63,29 +63,49 @@ export default function DesignPanel() {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {STYLE_PRESETS.map((s) => {
               const isActive = design.markdown.trim() === s.markdown.trim()
+              const p = s.preview
               return (
                 <button
                   key={s.id}
                   type="button"
                   onClick={() => setDesign((d) => ({ ...d, markdown: s.markdown, enabled: true }))}
-                  className={`rounded-xl border p-3 text-left transition ${
+                  className={`overflow-hidden rounded-xl border p-0 text-left transition ${
                     isActive
-                      ? 'border-indigo-500 bg-indigo-500/10'
-                      : 'border-slate-700 bg-slate-800/40 hover:border-slate-600 hover:bg-slate-800'
+                      ? 'border-indigo-500 ring-2 ring-indigo-500/40'
+                      : 'border-slate-700 hover:border-slate-600'
                   }`}
                   title={`Apply "${s.name}"`}
                 >
-                  <div className="mb-2 flex gap-1">
-                    {s.swatches.map((c, i) => (
+                  {/* Mini mockup preview */}
+                  <div
+                    className="flex h-24 flex-col gap-1.5 p-2.5"
+                    style={{ background: p.bg, borderRadius: 0 }}
+                  >
+                    <div
+                      className="flex items-center gap-1.5 rounded-lg px-2 py-1"
+                      style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}`, borderRadius: p.radius }}
+                    >
+                      <span style={{ color: p.text, fontSize: 9, fontWeight: 700 }}>{s.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
                       <span
-                        key={i}
-                        className="h-5 w-5 rounded-full ring-1 ring-black/10"
-                        style={{ background: c }}
-                      />
-                    ))}
+                        className="rounded px-1.5 py-0.5"
+                        style={{ background: p.accent, color: p.accentText, fontSize: 7, fontWeight: 600, borderRadius: '6px' }}
+                      >
+                        Button
+                      </span>
+                      <span style={{ color: p.mutedText, fontSize: 7 }}>muted</span>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {s.swatches.map((c, i) => (
+                        <span key={i} className="h-2.5 w-2.5 rounded-full" style={{ background: c, border: '1px solid rgba(0,0,0,0.1)' }} />
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-sm font-medium text-slate-100">{s.name}</div>
-                  <div className="text-xs text-slate-500">{s.description}</div>
+                  <div className="bg-slate-800/60 px-2.5 py-1.5">
+                    <div className="text-xs font-medium text-slate-200">{s.name}</div>
+                    <div className="text-[10px] text-slate-500">{s.description}</div>
+                  </div>
                 </button>
               )
             })}

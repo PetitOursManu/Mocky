@@ -221,6 +221,7 @@ export default function App() {
             onRemoveScreen={(sid) => removeScreen(activeProject.id, sid)}
             onOpenSettings={() => setRoute('settings')}
             onOpenDesign={() => setRoute('design')}
+            onBack={goHome}
           />
         ) : (
           <div className="px-6 py-16 text-center text-sm text-slate-500">

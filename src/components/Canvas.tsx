@@ -83,6 +83,7 @@ export default function Canvas({
   captureReq,
   onCaptureRect,
   onError,
+  onRevertScreen,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -104,6 +105,7 @@ export default function Canvas({
   captureReq: { screenId: string; id: string; clientRect: { left: number; top: number; width: number; height: number } } | null
   onCaptureRect: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   onError?: (screenId: string, error: string) => void
+  onRevertScreen?: (screenId: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
@@ -430,6 +432,9 @@ export default function Canvas({
                   >
                     <LabelBtn inv={inv} title="Rename" onClick={() => { setDraftLabel(s.name); setEditingLabelId(s.id) }}>✎</LabelBtn>
                     <LabelBtn inv={inv} title="Download .tsx" onClick={() => downloadTsx(s)}>⬇</LabelBtn>
+                    {s.previousCode && (
+                      <LabelBtn inv={inv} title="Revert to previous version" onClick={() => onRevertScreen?.(s.id)}>↺</LabelBtn>
+                    )}
                     <LabelBtn inv={inv} title="Delete screen" danger onClick={() => onDeleteScreen(s.id)}>🗑</LabelBtn>
                   </span>
                 )}

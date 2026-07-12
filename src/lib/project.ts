@@ -24,6 +24,8 @@ export interface Screen {
   code: string
   componentName: string
   createdAt: number
+  /** Previous code before the last edit — used for "revert" if the new version has errors. */
+  previousCode?: string
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
