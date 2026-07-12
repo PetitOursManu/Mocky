@@ -268,7 +268,7 @@ export function detectComponentName(code: string): string {
 export function toPreviewModule(code: string): string {
   return code
     .replace(/^\s*import\s+[^\n]*\n/gm, '')
-    .replace(/^\s*export\s+default\s+function\s+/gm, '')
+    .replace(/^\s*export\s+default\s+function\s+/gm, 'function ')
     .replace(/^\s*export\s+default\s+/gm, 'const __mockyDefault = ')
     .replace(/^\s*export\s+(const|let|var|function|class)\b/gm, '$1')
 }
