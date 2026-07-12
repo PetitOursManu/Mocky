@@ -161,6 +161,7 @@ export default function Preview({
   radius,
   captureRequest,
   onCaptureRect,
+  onError,
 }: {
   code: string
   pickMode?: boolean
@@ -171,6 +172,8 @@ export default function Preview({
   radius?: string
   captureRequest?: CaptureRequest | null
   onCaptureRect?: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
+  /** Called when the iframe reports a compile or runtime error. */
+  onError?: (error: string) => void
 }) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -182,9 +185,11 @@ export default function Preview({
   const onPickRef = useRef(onPick)
   const onNavRef = useRef(onNavigate)
   const onCaptureRectRef = useRef(onCaptureRect)
+  const onErrorRef = useRef(onError)
   onPickRef.current = onPick
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
+  onErrorRef.current = onError
 
   // Build the iframe srcDoc from the generated code. We debounce 500ms so
   // rapid streaming chunks don't cause an iframe rebuild on every token. The
@@ -226,6 +231,7 @@ export default function Preview({
         timeoutHit = true
         clearTimeout(timeout)
         setError(d.message)
+        onErrorRef.current?.(d.message)
       }
       if (d.type === 'ok') {
         timeoutHit = true

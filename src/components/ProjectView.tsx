@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
-import { editComponent, generateComponent } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
@@ -58,6 +58,8 @@ export default function ProjectView({
   >(null)
   const [capturing, setCapturing] = useState(false)
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
+  const retryRefs = useRef<Record<string, number>>({})
+  const retryAbortRef = useRef<AbortController | null>(null)
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
     setCapturing(true)
@@ -85,6 +87,28 @@ export default function ProjectView({
   const designActive = isDesignActive(loadDesign())
   const screens = project.screens
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
+
+  // Auto-retry when a preview reports a compile/runtime error. We send the
+  // broken code + the error message back to the model for a one-shot fix.
+  // Only one retry per screen to avoid infinite loops.
+  const onScreenError = useCallback(async (screenId: string, errorMessage: string) => {
+    if (retryRefs.current[screenId]) return
+    retryRefs.current[screenId] = 1
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) return
+    const ac = new AbortController()
+    retryAbortRef.current = ac
+    try {
+      const res = await fixComponent(settings, screen.code, errorMessage, ac.signal)
+      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName })
+    } catch {
+      // Retry failed — leave the error visible to the user.
+    } finally {
+      retryAbortRef.current = null
+    }
+  }, [screens, onUpdateScreen])
 
   function addHotspot(screenId: string, target: string) {
     const screen = screens.find((s) => s.id === screenId)
@@ -115,6 +139,7 @@ export default function ProjectView({
     abortRef.current = ac
     setBusy(true)
     setError(null)
+    retryRefs.current = {} // reset retry counters for new generation
     try {
       const design = loadDesign()
       const designPreamble = isDesignActive(design) ? buildDesignPreamble(design.markdown) : undefined
@@ -237,6 +262,7 @@ export default function ProjectView({
         onCaptureRegion={onCaptureRegion}
         captureReq={captureReq}
         onCaptureRect={onCaptureRect}
+        onError={onScreenError}
       />
 
       {/* Links panel (link mode) */}

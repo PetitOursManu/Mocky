@@ -272,3 +272,35 @@ export function toPreviewModule(code: string): string {
     .replace(/^\s*export\s+default\s+/gm, 'const __mockyDefault = ')
     .replace(/^\s*export\s+(const|let|var|function|class)\b/gm, '$1')
 }
+
+const FIX_PROMPT = `You are a code reviewer. The following React component has a syntax or runtime error. Fix ONLY the error — do not redesign, restyle, or change anything else. Return the COMPLETE corrected component in a single fenced jsx code block.`
+
+/**
+ * Asks the model to fix a broken component given the code + the error message.
+ * Used for auto-retry when the preview iframe reports a compile/runtime error.
+ * Returns the fixed code. Does NOT stream (the fix is usually small and fast).
+ */
+export async function fixComponent(
+  s: Settings,
+  brokenCode: string,
+  errorMessage: string,
+  signal?: AbortSignal,
+): Promise<GeneratedComponent> {
+  const user = [
+    'The following component has an error:',
+    '',
+    '```jsx',
+    brokenCode,
+    '```',
+    '',
+    `Error: ${errorMessage}`,
+    '',
+    'Fix the error and return the COMPLETE corrected component. Do not change anything that is not broken.',
+  ].join('\n')
+  const content = await chat(s, [
+    { role: 'system', content: FIX_PROMPT },
+    { role: 'user', content: user },
+  ], signal)
+  const code = extractCode(content)
+  return { raw: content, code, componentName: detectComponentName(code) }
+}
