@@ -84,6 +84,7 @@ export default function Canvas({
   onCaptureRect,
   onError,
   onRevertScreen,
+  generatingIds,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -106,6 +107,7 @@ export default function Canvas({
   onCaptureRect: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   onError?: (screenId: string, error: string) => void
   onRevertScreen?: (screenId: string) => void
+  generatingIds?: Set<string>
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
@@ -456,6 +458,7 @@ export default function Canvas({
                       captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
                       onCaptureRect={onCaptureRect}
                       onError={(err) => onError?.(s.id, err)}
+                      generating={generatingIds?.has(s.id)}
                     />
                   </DeviceChrome>
                 ) : (
@@ -468,6 +471,7 @@ export default function Canvas({
                     captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
                     onCaptureRect={onCaptureRect}
                     onError={(err) => onError?.(s.id, err)}
+                    generating={generatingIds?.has(s.id)}
                   />
                 )}
               </div>
@@ -632,7 +636,7 @@ function LabelBtn({
       title={title}
       onClick={onClick}
       className={`rounded hover:bg-white/10 ${danger ? 'text-rose-300' : 'text-slate-200'}`}
-      style={{ padding: `${1 * inv}px ${3 * inv}px`, lineHeight: 1 }}
+      style={{ padding: `${2 * inv}px ${4 * inv}px`, lineHeight: 1, fontSize: `${13 * inv}px` }}
     >
       {children}
     </button>

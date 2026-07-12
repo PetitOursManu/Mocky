@@ -162,6 +162,7 @@ export default function Preview({
   captureRequest,
   onCaptureRect,
   onError,
+  generating,
 }: {
   code: string
   pickMode?: boolean
@@ -172,8 +173,10 @@ export default function Preview({
   radius?: string
   captureRequest?: CaptureRequest | null
   onCaptureRect?: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
-  /** Called when the iframe reports a compile or runtime error. */
+  /** Called when the iframe reports a compile or runtime error (only when not generating). */
   onError?: (error: string) => void
+  /** When true, the model is still streaming code. Shows a "Generating…" overlay and hides errors. */
+  generating?: boolean
 }) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -237,6 +240,8 @@ export default function Preview({
       if (d.type === 'error') {
         timeoutHit = true
         clearTimeout(timeout)
+        // Ignore errors while generating — the code is incomplete.
+        if (generating) return
         setError(d.message)
         // Only forward the error if the code hasn't changed since we built
         // the srcDoc. If it has, the error is from stale (incomplete) code
@@ -259,7 +264,7 @@ export default function Preview({
       clearTimeout(timeout)
       window.removeEventListener('message', onMsg)
     }
-  }, [srcDoc, frameId, code])
+  }, [srcDoc, frameId, code, generating])
 
   // When a capture is requested, translate the client-space rect into this
   // screen's viewport coordinates (handles the device-frame inset + zoom) and
@@ -300,10 +305,10 @@ export default function Preview({
           style={{ borderRadius: radius }}
         />
       )}
-      {!ready && !error && (
+      {(generating || (!ready && !error)) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white" style={{ borderRadius: radius }}>
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-          <span className="text-xs text-slate-400">Rendering…</span>
+          <span className="text-xs text-slate-400">{generating ? 'Generating…' : 'Rendering…'}</span>
         </div>
       )}
       {error && (

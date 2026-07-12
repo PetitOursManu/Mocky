@@ -62,6 +62,7 @@ export default function ProjectView({
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
   const retryRefs = useRef<Record<string, number>>({})
   const retryAbortRef = useRef<AbortController | null>(null)
+  const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set())
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
     setCapturing(true)
@@ -166,6 +167,8 @@ export default function ProjectView({
         // keeping each screen in its existing form factor. Stream partial code
         // so the preview updates live as the model writes.
         // Save the current code as previousCode so the user can revert.
+        const ids = new Set(targets.map((t) => t.id))
+        setGeneratingIds(ids)
         for (const sc of targets) {
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
           // Snapshot the old code before overwriting
@@ -176,6 +179,7 @@ export default function ProjectView({
           )
           onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode })
         }
+        setGeneratingIds(new Set())
         setPrompt('')
         setAnnotations([])
       } else {
@@ -196,6 +200,7 @@ export default function ProjectView({
           device: preset.device,
           links: [],
         })
+        setGeneratingIds(new Set([screenId]))
         setSelectedIds([screenId])
         setPrompt('')
         setAnnotations([])
@@ -204,6 +209,7 @@ export default function ProjectView({
           (partial) => onUpdateScreen(screenId, { code: partial }),
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
+        setGeneratingIds(new Set())
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
@@ -211,6 +217,7 @@ export default function ProjectView({
     } finally {
       abortRef.current = null
       setBusy(false)
+      setGeneratingIds(new Set())
     }
   }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen])
 
@@ -284,6 +291,7 @@ export default function ProjectView({
         onCaptureRect={onCaptureRect}
         onError={onScreenError}
         onRevertScreen={onRevertScreen}
+        generatingIds={generatingIds}
       />
 
       {/* Links panel (link mode) */}
