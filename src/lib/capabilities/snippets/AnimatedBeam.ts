@@ -1,7 +1,8 @@
 // Vendored and rewritten from MagicUI (https://magicui.design) — MIT License.
 // Exported as a STRING (source code) for injection into the prelude.
 
-export const AnimatedBeamSource = `var AnimatedBeam = function(props) {
+export const ANIMATED_BEAM_EXPORTS = ['AnimatedBeam'] as const
+export const AnimatedBeamSource = `function AnimatedBeam(props) {
   var className = props.className;
   return React.createElement('svg', {
     width: '100%',

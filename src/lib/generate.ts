@@ -174,13 +174,7 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
       items.push(`- Library "${cap.id}": ${names} are ALREADY DEFINED as globals. Use them directly by name.`)
     } else if (cap.kind === 'snippet-pack' && cap.components) {
       for (const comp of cap.components) {
-        if (comp.source) {
-          items.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
-        } else {
-          // Components with empty source are included in the same pack —
-          // mention them but note they're defined alongside the first component.
-          items.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
-        }
+        items.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
       }
     }
   }

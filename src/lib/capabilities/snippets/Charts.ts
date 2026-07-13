@@ -1,10 +1,12 @@
 // Plain-JSX chart components — no external library, inline SVG + Tailwind only.
 // Exported as STRING source for injection into the prelude.
 
+export const CHARTS_EXPORTS = ['BarChart', 'LineChart', 'DonutChart', 'Sparkline', 'ProgressRing'] as const
+
 export const ChartsSource = `// --- Charts (inline SVG, no dependencies) ---
 var DEFAULT_COLORS = ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
-var BarChart = function(props) {
+function BarChart(props) {
   var data = props.data || [];
   var colors = props.colors || DEFAULT_COLORS;
   var height = props.height || 200;
@@ -29,7 +31,7 @@ var BarChart = function(props) {
   );
 };
 
-var LineChart = function(props) {
+function LineChart(props) {
   var data = props.data || [];
   var colors = props.colors || DEFAULT_COLORS;
   var height = props.height || 200;
@@ -57,7 +59,7 @@ var LineChart = function(props) {
   );
 };
 
-var DonutChart = function(props) {
+function DonutChart(props) {
   var data = props.data || [];
   var colors = props.colors || DEFAULT_COLORS;
   var size = props.size || 160;
@@ -98,7 +100,7 @@ var DonutChart = function(props) {
   );
 };
 
-var Sparkline = function(props) {
+function Sparkline(props) {
   var data = props.data || [];
   var colors = props.colors || DEFAULT_COLORS;
   var height = props.height || 40;
@@ -118,7 +120,7 @@ var Sparkline = function(props) {
   );
 };
 
-var ProgressRing = function(props) {
+function ProgressRing(props) {
   var value = props.value || 0;
   var colors = props.colors || DEFAULT_COLORS;
   var size = props.size || 120;

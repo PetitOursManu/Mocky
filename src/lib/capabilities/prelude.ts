@@ -4,12 +4,11 @@ import { cnSource } from './snippets/cn'
 /**
  * Builds the prelude source string that is prepended to the generated code
  * before Babel.transform. For snippet-pack capabilities, this includes the
- * `cn` helper and ALL component sources. For CDN capabilities, nothing is
+ * `cn` helper and ALL snippet sources. For CDN capabilities, nothing is
  * prepended (they are loaded via <script>/<link> tags in the iframe HTML).
  *
- * Snippet-packs are ATOMIC: when a pack is selected, ALL of its components are
- * injected — never a subset. Sources are deduplicated so that a shared source
- * (e.g. all chart components in one file) is injected only once.
+ * Snippet-packs are ATOMIC: when a pack is selected, ALL of its snippet
+ * sources are injected — never a subset, never filtered per-component.
  */
 export function buildPrelude(caps: Capability[]): string {
   const parts: string[] = []
@@ -21,17 +20,14 @@ export function buildPrelude(caps: Capability[]): string {
     parts.push(cnSource)
   }
 
-  // Include component sources from snippet-pack capabilities.
-  // Deduplicate by source string so shared sources are injected only once.
-  const seenSources = new Set<string>()
+  // Inject ALL snippet sources from each selected snippet-pack.
+  // No per-component filtering — the whole pack is injected.
   for (const cap of caps) {
-    if (cap.kind !== 'snippet-pack' || !cap.components) continue
-    const names = cap.components.map((c) => c.name).join(', ')
-    for (const comp of cap.components) {
-      if (!comp.source || seenSources.has(comp.source)) continue
-      seenSources.add(comp.source)
-      parts.push(`// --- ${names} (from ${cap.id}) ---`)
-      parts.push(comp.source)
+    if (cap.kind !== 'snippet-pack' || !cap.snippets) continue
+    const allExports = cap.snippets.flatMap((s) => s.exports).join(', ')
+    parts.push(`// --- ${allExports} (from ${cap.id}) ---`)
+    for (const snippet of cap.snippets) {
+      parts.push(snippet.source)
     }
   }
 
@@ -40,14 +36,17 @@ export function buildPrelude(caps: Capability[]): string {
 
 /**
  * Returns the set of component names that buildPrelude would inject for the
- * given caps. Used by tests to assert advertisedNames === injectedNames.
+ * given caps. Derived from each snippet's explicit `exports` array — never
+ * from parsing source code.
  */
 export function injectedNames(caps: Capability[]): Set<string> {
   const names = new Set<string>()
   for (const cap of caps) {
-    if (cap.kind !== 'snippet-pack' || !cap.components) continue
-    for (const comp of cap.components) {
-      if (comp.source) names.add(comp.name)
+    if (cap.kind !== 'snippet-pack' || !cap.snippets) continue
+    for (const snippet of cap.snippets) {
+      for (const name of snippet.exports) {
+        names.add(name)
+      }
     }
   }
   return names

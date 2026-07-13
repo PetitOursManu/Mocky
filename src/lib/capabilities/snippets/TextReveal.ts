@@ -2,7 +2,8 @@
 // Exported as a STRING (source code) for injection into the prelude.
 // Uses React hooks as globals.
 
-export const TextRevealSource = `var TextReveal = function(props) {
+export const TEXT_REVEAL_EXPORTS = ['TextReveal'] as const
+export const TextRevealSource = `function TextReveal(props) {
   var text = props.text;
   var className = props.className;
   var words = text.split(' ');

@@ -10,7 +10,13 @@ export interface CapabilityComponent {
   signature: string
   description: string
   tags: string[]
+}
+
+export interface SnippetSource {
+  /** The plain-JSX source string injected into the prelude. */
   source: string
+  /** Explicit, hand-written list of global names this source defines. */
+  exports: string[]
 }
 
 export interface Capability {
@@ -22,5 +28,8 @@ export interface Capability {
   triggers: { keywords: string[]; intents: string[] }
   conflictsWith?: string[]
   requires?: string[]
+  /** For snippet-packs: metadata for the CAPABILITIES prompt section. */
   components?: CapabilityComponent[]
+  /** For snippet-packs: one or more source blocks, each with an explicit exports list. */
+  snippets?: SnippetSource[]
 }

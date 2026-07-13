@@ -1,7 +1,8 @@
 // Vendored and rewritten from MagicUI (https://magicui.design) — MIT License.
 // Exported as a STRING (source code) for injection into the prelude.
 
-export const BentoGridSource = `var BentoGrid = function(props) {
+export const BENTO_GRID_EXPORTS = ['BentoGrid', 'BentoCard'] as const
+export const BentoGridSource = `function BentoGrid(props) {
   var children = props.children;
   var className = props.className;
   return React.createElement('div', {
@@ -9,7 +10,7 @@ export const BentoGridSource = `var BentoGrid = function(props) {
   }, children);
 }
 
-var BentoCard = function(props) {
+function BentoCard(props) {
   var name = props.name;
   var description = props.description;
   var href = props.href;

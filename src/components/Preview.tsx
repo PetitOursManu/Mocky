@@ -82,12 +82,16 @@ function buildSrcDoc(
   const prelude = buildPrelude(caps)
   const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
 
-  // Build the list of snippet-pack component names for the readiness check
+  // Build the list of snippet-pack exports for the readiness check.
+  // Names come from the explicit `exports` array on each snippet — never
+  // from parsing source code.
   const snippetNames: string[] = []
   for (const cap of caps) {
-    if (cap.kind === 'snippet-pack' && cap.components) {
-      for (const comp of cap.components) {
-        if (comp.source) snippetNames.push(comp.name)
+    if (cap.kind === 'snippet-pack' && cap.snippets) {
+      for (const snippet of cap.snippets) {
+        for (const name of snippet.exports) {
+          snippetNames.push(name)
+        }
       }
     }
   }

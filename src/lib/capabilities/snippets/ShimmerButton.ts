@@ -1,7 +1,8 @@
 // Vendored and rewritten from MagicUI (https://magicui.design) — MIT License.
 // Exported as a STRING (source code) for injection into the prelude.
 
-export const ShimmerButtonSource = `var ShimmerButton = function(props) {
+export const SHIMMER_BUTTON_EXPORTS = ['ShimmerButton'] as const
+export const ShimmerButtonSource = `function ShimmerButton(props) {
   var shimmerColor = props.shimmerColor || '#ffffff';
   var shimmerDuration = props.shimmerDuration || '3s';
   var borderRadius = props.borderRadius || '100px';

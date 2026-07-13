@@ -1,7 +1,8 @@
 // Vendored and rewritten from MagicUI (https://magicui.design) — MIT License.
 // Exported as a STRING (source code) for injection into the prelude.
 
-export const MeteorsSource = `var Meteors = function(props) {
+export const METEORS_EXPORTS = ['Meteors'] as const
+export const MeteorsSource = `function Meteors(props) {
   var number = props.number || 20;
   var className = props.className;
   return React.createElement('div', {

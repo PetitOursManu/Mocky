@@ -2,7 +2,8 @@
 // Plain JSX, no TypeScript, no imports — uses the `motion` global from framer-motion.
 // Exported as a STRING (source code) for injection into the prelude.
 
-export const MarqueeSource = `var Marquee = function(props) {
+export const MARQUEE_EXPORTS = ['Marquee'] as const
+export const MarqueeSource = `function Marquee(props) {
   var children = props.children;
   var reverse = props.reverse || false;
   var pauseOnHover = props.pauseOnHover || false;

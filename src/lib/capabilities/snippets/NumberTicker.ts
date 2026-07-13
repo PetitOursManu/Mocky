@@ -2,7 +2,8 @@
 // Exported as a STRING (source code) for injection into the prelude.
 // Uses React hooks (useState, useEffect, useRef) as globals.
 
-export const NumberTickerSource = `var NumberTicker = function(props) {
+export const NUMBER_TICKER_EXPORTS = ['NumberTicker'] as const
+export const NumberTickerSource = `function NumberTicker(props) {
   var value = props.value;
   var direction = props.direction || 'up';
   var delay = props.delay || 0;
