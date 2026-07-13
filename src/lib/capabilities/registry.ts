@@ -7,6 +7,7 @@ import { NumberTickerSource } from './snippets/NumberTicker'
 import { BorderBeamSource } from './snippets/BorderBeam'
 import { TextRevealSource } from './snippets/TextReveal'
 import { MeteorsSource } from './snippets/Meteors'
+import { ChartsSource } from './snippets/Charts'
 
 export const CAPABILITIES: Capability[] = [
   {
@@ -39,14 +40,49 @@ export const CAPABILITIES: Capability[] = [
     },
   },
   {
-    id: 'recharts',
-    kind: 'cdn-script',
-    cdn: { url: 'https://unpkg.com/recharts@2.13.3/dist/Recharts.min.js', global: 'Recharts' },
-    globals: ['ResponsiveContainer', 'PieChart', 'Pie', 'Cell', 'BarChart', 'Bar', 'LineChart', 'Line', 'XAxis', 'YAxis', 'CartesianGrid', 'Tooltip', 'Legend', 'AreaChart', 'Area', 'RadialBarChart', 'RadialBar', 'ComposedChart', 'ScatterChart', 'Scatter'],
+    id: 'charts',
+    kind: 'snippet-pack',
     triggers: {
-      keywords: ['chart', 'recharts', 'graph', 'bar chart', 'line chart', 'pie chart', 'area chart', 'data visualization'],
+      keywords: ['chart', 'recharts', 'graph', 'bar chart', 'line chart', 'pie chart', 'donut chart', 'area chart', 'data visualization', 'sparkline', 'progress ring'],
       intents: ['chart', 'dashboard', 'analytics', 'graph', 'data'],
     },
+    components: [
+      {
+        name: 'BarChart',
+        signature: '<BarChart data={[{label:"Jan", value:42}]} colors={["#4f46e5"]} height={200} />',
+        description: 'A bar chart rendered with inline SVG. Accepts data array of {label, value} and optional colors.',
+        tags: ['bar', 'chart', 'svg'],
+        source: ChartsSource,
+      },
+      {
+        name: 'LineChart',
+        signature: '<LineChart data={[{label:"Jan", value:30}]} colors={["#06b6d4"]} height={200} />',
+        description: 'A line chart with points, rendered with inline SVG. Accepts data array of {label, value}.',
+        tags: ['line', 'chart', 'svg'],
+        source: '',
+      },
+      {
+        name: 'DonutChart',
+        signature: '<DonutChart data={[{label:"A", value:42, color:"#4f46e5"}]} size={160} thickness={18} />',
+        description: 'A donut/pie chart with legend. Accepts data array of {label, value, color}.',
+        tags: ['donut', 'pie', 'chart', 'svg'],
+        source: '',
+      },
+      {
+        name: 'Sparkline',
+        signature: '<Sparkline data={[3, 5, 2, 8, 4, 9]} colors={["#10b981"]} height={40} width={120} />',
+        description: 'A small inline sparkline. Accepts a plain array of numbers.',
+        tags: ['sparkline', 'mini', 'chart'],
+        source: '',
+      },
+      {
+        name: 'ProgressRing',
+        signature: '<ProgressRing value={75} colors={["#f59e0b"]} size={120} thickness={8} />',
+        description: 'A circular progress ring showing a percentage (0-100).',
+        tags: ['progress', 'ring', 'circle'],
+        source: '',
+      },
+    ],
   },
   {
     id: 'magicui',

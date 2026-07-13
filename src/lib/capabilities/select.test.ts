@@ -11,9 +11,9 @@ describe('selectCapabilities', () => {
     expect(result).toContain('motion')
   })
 
-  it('selects recharts when prompt mentions chart', () => {
+  it('selects charts when prompt mentions chart', () => {
     const result = selectCapabilities('An analytics dashboard with a bar chart')
-    expect(result).toContain('recharts')
+    expect(result).toContain('charts')
   })
 
   it('selects lucide when prompt mentions icons', () => {
@@ -40,7 +40,7 @@ describe('selectCapabilities', () => {
   it('selects multiple capabilities from a rich prompt', () => {
     const result = selectCapabilities('An animated dashboard with charts and icons')
     expect(result).toContain('motion')
-    expect(result).toContain('recharts')
+    expect(result).toContain('charts')
     expect(result).toContain('lucide')
   })
 
@@ -50,7 +50,7 @@ describe('selectCapabilities', () => {
   })
 
   it('is case-insensitive', () => {
-    expect(selectCapabilities('A CHART with ANIMATION')).toContain('recharts')
+    expect(selectCapabilities('A CHART with ANIMATION')).toContain('charts')
     expect(selectCapabilities('A CHART with ANIMATION')).toContain('motion')
   })
 })
@@ -67,9 +67,9 @@ describe('resolveCapabilities', () => {
   })
 
   it('returns capabilities in order', () => {
-    const caps = resolveCapabilities(['recharts', 'motion'])
+    const caps = resolveCapabilities(['charts', 'motion'])
     expect(caps).toHaveLength(2)
-    expect(caps.map((c) => c.id)).toContain('recharts')
+    expect(caps.map((c) => c.id)).toContain('charts')
     expect(caps.map((c) => c.id)).toContain('motion')
   })
 })

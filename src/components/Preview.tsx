@@ -52,22 +52,25 @@ function buildSrcDoc(
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
-  // Build CDN tags for selected capabilities
+  // Build CDN tags for selected capabilities. crossorigin="anonymous" on EVERY
+  // script so the browser doesn't censor window.onerror into "Script error."
   const cdnScripts: string[] = []
   const cdnLinks: string[] = []
   const globalHoists: string[] = []
+  const readinessChecks: string[] = []
   for (const cap of caps) {
     if (cap.kind === 'cdn-script' && cap.cdn) {
-      cdnScripts.push(`<script src="${cap.cdn.url}"></script>`)
-      if (cap.cdn.global && cap.globals) {
-        // Hoist each named export onto window from the UMD global
-        const names = cap.globals.map((g) => JSON.stringify(g))
-        globalHoists.push(
-          `if (window.${cap.cdn.global}) { [${names.join(',')}].forEach(function(k){ if (window.${cap.cdn.global}[k]) window[k] = window.${cap.cdn.global}[k]; }); }`,
+      cdnScripts.push(`<script crossorigin="anonymous" src="${cap.cdn.url}"></script>`)
+      if (cap.cdn.global) {
+        if (cap.globals) {
+          const names = cap.globals.map((g) => JSON.stringify(g))
+          globalHoists.push(
+            `if (window.${cap.cdn.global}) { [${names.join(',')}].forEach(function(k){ if (window.${cap.cdn.global}[k]) window[k] = window.${cap.cdn.global}[k]; }); }`,
+          )
+        }
+        readinessChecks.push(
+          `if (typeof window.${cap.cdn.global} === 'undefined') { fail('Capability "${cap.id}" failed to load: window.${cap.cdn.global} is undefined (CDN script may have failed).'); return; }`,
         )
-      } else if (cap.cdn.global) {
-        // Fallback: just expose the UMD global itself
-        globalHoists.push(`if (window.${cap.cdn.global}) window.${cap.cdn.global.toLowerCase()} = window.${cap.cdn.global};`)
       }
     } else if (cap.kind === 'cdn-css' && cap.cdn) {
       cdnLinks.push(`<link rel="stylesheet" href="${cap.cdn.url}">`)
@@ -77,17 +80,30 @@ function buildSrcDoc(
   const prelude = buildPrelude(caps)
   const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
 
+  // Build the list of snippet-pack component names for the readiness check
+  const snippetNames: string[] = []
+  for (const cap of caps) {
+    if (cap.kind === 'snippet-pack' && cap.components) {
+      for (const comp of cap.components) {
+        snippetNames.push(comp.name)
+      }
+    }
+  }
+  const snippetChecks = snippetNames.map(
+    (n) => `if (typeof ${n} === 'undefined') { fail('Snippet component "${n}" was not injected into the prelude.'); return; }`,
+  ).join('\n      ')
+
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<script src="/vendor/react.production.min.js"></script>
-<script src="/vendor/react-dom.production.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin="anonymous" src="/vendor/react.production.min.js"></script>
+<script crossorigin="anonymous" src="/vendor/react-dom.production.min.js"></script>
+<script crossorigin="anonymous" src="https://cdn.tailwindcss.com"></script>
 ${cdnLinks.join('\n')}
 ${cdnScripts.join('\n')}
-<script src="/vendor/babel.min.js"></script>
+<script crossorigin="anonymous" src="/vendor/babel.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}</style>
 </head>
 <body>
@@ -99,11 +115,14 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     var FID = ${JSON.stringify(frameId)};
     function post(type, extra) { var m = { __mocky: true, frameId: FID, type: type }; if (extra) { for (var k in extra) m[k] = extra[k]; } parent.postMessage(m, '*'); }
     function fail(msg) { post('error', { message: String(msg) }); return false; }
-    window.onerror = function (msg, _src, line) { fail(String(msg) + (line ? ' (line ' + line + ')' : '')); return false; };
+    window.onerror = function (msg, _src, line, col) { fail(String(msg) + (line ? ' (line ' + line + ', col ' + col + ')' : '')); return false; };
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     ${globalHoists.join('\n    ')}
     try {
+      // --- Capability readiness guard ---
+      ${readinessChecks.join('\n      ')}
+      ${snippetChecks}
       function decodeB64(id) {
         var raw = window.atob(document.getElementById(id).textContent);
         return decodeURIComponent(
@@ -123,6 +142,8 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       document.body.appendChild(scr);
       post('ok');
     } catch (e) {
+      // Dev: log the full source so the error line maps to something inspectable
+      try { console.error('[Mocky iframe error]', e && e.message ? e.message : e, '\\n--- Source ---\\n', (preludeSrc || '') + src); } catch (_) {}
       fail((e && e.message) ? e.message : e);
     }
 

@@ -165,6 +165,7 @@ async function chat(
  */
 function buildCapabilitiesPrompt(caps: Capability[]): string {
   const items: string[] = []
+  const hasCharts = caps.some((c) => c.id === 'charts')
   for (const cap of caps) {
     if (cap.kind === 'cdn-css') {
       items.push(`- CSS library "${cap.id}" is loaded. Use its classes directly in className.`)
@@ -173,12 +174,18 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
       items.push(`- Library "${cap.id}": ${names} are ALREADY DEFINED as globals. Use them directly by name.`)
     } else if (cap.kind === 'snippet-pack' && cap.components) {
       for (const comp of cap.components) {
-        items.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
+        if (comp.source) {
+          items.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
+        } else {
+          // Components with empty source are included in the same pack —
+          // mention them but note they're defined alongside the first component.
+          items.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
+        }
       }
     }
   }
   if (items.length === 0) return ''
-  return [
+  const lines = [
     '',
     'CAPABILITIES — ALREADY IN SCOPE (read carefully):',
     'The following components and libraries are ALREADY DEFINED as globals in the runtime scope.',
@@ -186,7 +193,13 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     'Writing "import" will break the render. Use them directly by name.',
     '',
     ...items,
-  ].join('\n')
+  ]
+  if (hasCharts) {
+    lines.push('')
+    lines.push('IMPORTANT: Recharts is NOT available. Never write Recharts.xxx or import any chart library.')
+    lines.push('Use the chart components listed above (BarChart, LineChart, DonutChart, Sparkline, ProgressRing).')
+  }
+  return lines.join('\n')
 }
 
 /**
