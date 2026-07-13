@@ -9,6 +9,7 @@ import { TextRevealSource, TEXT_REVEAL_EXPORTS } from './snippets/TextReveal'
 import { MeteorsSource, METEORS_EXPORTS } from './snippets/Meteors'
 import { ChartsSource, CHARTS_EXPORTS } from './snippets/Charts'
 import { IconsSource, ICONS_EXPORTS } from './snippets/Icons'
+import { MotionSource, MOTION_EXPORTS } from './snippets/Motion'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
 function validatePack(id: string, components: { name: string }[], snippets: { exports: string[] }[]) {
@@ -47,13 +48,20 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: 'motion',
-    kind: 'cdn-script',
-    cdn: { url: 'https://unpkg.com/framer-motion@11.11.17/dist/framer-motion.js', global: 'Motion' },
-    globals: ['motion', 'AnimatePresence', 'useAnimation', 'useMotionValue', 'useTransform', 'useInView'],
+    kind: 'snippet-pack',
     triggers: {
-      keywords: ['animate', 'animation', 'motion', 'framer', 'transition', 'spring', 'animatepresence'],
+      keywords: ['animation', 'animate', 'animated', 'animé', 'motion', 'scroll', 'reveal', 'marquee', 'landing', 'hero', 'parallax', 'fade', 'counter', 'shimmer', 'stagger', 'transition'],
       intents: ['animation', 'interactive', 'playful', 'dynamic'],
     },
+    snippets: [{ source: MotionSource, exports: [...MOTION_EXPORTS] }],
+    components: [
+      { name: 'FadeIn', signature: '<FadeIn delay={0} y={16}>{children}</FadeIn>', description: 'Fade in + slide up on scroll into view. Accepts delay (ms) and y (px).', tags: ['fade', 'scroll', 'entrance'] },
+      { name: 'Stagger', signature: '<Stagger delay={80}>{children}</Stagger>', description: 'Stagger entrance of children with incremental delay.', tags: ['stagger', 'list', 'entrance'] },
+      { name: 'Marquee', signature: '<Marquee pauseOnHover reverse speed={20}>{children}</Marquee>', description: 'Infinite horizontal scroll. Duplicated track + CSS keyframes.', tags: ['marquee', 'scroll', 'loop'] },
+      { name: 'Counter', signature: '<Counter to={1234} duration={1200} prefix="" suffix="" />', description: 'Animated number counter on scroll. Uses requestAnimationFrame easing.', tags: ['counter', 'number', 'stat'] },
+      { name: 'Shimmer', signature: '<Shimmer>{children}</Shimmer>', description: 'Animated gradient sweep for CTA buttons.', tags: ['shimmer', 'button', 'shine'] },
+      { name: 'Reveal', signature: '<Reveal direction="up|left|right">{children}</Reveal>', description: 'Reveal content from a direction on scroll into view.', tags: ['reveal', 'scroll', 'direction'] },
+    ],
   },
   {
     id: 'lucide',
@@ -84,7 +92,6 @@ export const CAPABILITIES: Capability[] = [
   {
     id: 'magicui',
     kind: 'snippet-pack',
-    requires: ['motion'],
     triggers: {
       keywords: ['marquee', 'shimmer', 'bento grid', 'animated beam', 'number ticker', 'border beam', 'text reveal', 'meteors', 'magic ui', 'magicui'],
       intents: ['animation', 'playful', 'dynamic', 'showcase', 'landing page', 'hero'],

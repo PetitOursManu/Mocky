@@ -56,10 +56,10 @@ describe('selectCapabilities', () => {
 })
 
 describe('resolveCapabilities', () => {
-  it('resolves dependencies for magicui', () => {
+  it('resolves magicui without pulling motion (no longer a dependency)', () => {
     const caps = resolveCapabilities(['magicui'])
     expect(caps.map((c) => c.id)).toContain('magicui')
-    expect(caps.map((c) => c.id)).toContain('motion')
+    expect(caps.map((c) => c.id)).not.toContain('motion')
   })
 
   it('returns empty array for empty input', () => {

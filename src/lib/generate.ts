@@ -200,6 +200,12 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     lines.push('NEVER hand-write an inline <svg><path d="..."/></svg> — long path data gets truncated mid-string and breaks the render.')
     lines.push('If the icon you need is not in the list above, pick the closest one.')
   }
+  const hasMotion = caps.some((c) => c.id === 'motion')
+  if (hasMotion) {
+    lines.push('')
+    lines.push('ANIMATION: use <FadeIn>, <Reveal direction="up">, <Stagger>, <Marquee>, <Counter to={1234} />, <Shimmer>.')
+    lines.push('framer-motion is NOT available — never write <motion.div> or import any animation library.')
+  }
   return lines.join('\n')
 }
 
