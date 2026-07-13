@@ -26,6 +26,8 @@ export interface Screen {
   createdAt: number
   /** Previous code before the last edit — used for "revert" if the new version has errors. */
   previousCode?: string
+  /** Selected capability IDs (e.g. ['motion', 'magicui']) persisted for reload/edit. */
+  caps?: string[]
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -122,6 +124,7 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     h: typeof s.h === 'number' ? s.h : DEFAULT_H,
     device: s.device === 'iphone' ? 'iphone' : 'none',
     links: Array.isArray(s.links) ? s.links : [],
+    caps: Array.isArray(s.caps) ? s.caps : [],
   }
 }
 

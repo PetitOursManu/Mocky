@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
+import { resolveCapabilities } from '../lib/capabilities/select'
+import { buildPrelude } from '../lib/capabilities/prelude'
+import type { Capability } from '../lib/capabilities/types'
 
 export interface PickInfo {
   selector: string
@@ -43,25 +46,53 @@ function buildSrcDoc(
   componentName: string,
   frameId: string,
   hideScrollbars: boolean,
+  caps: Capability[] = [],
 ): string {
   const b64 = utf8ToBase64(sourceCode)
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
+  // Build CDN tags for selected capabilities
+  const cdnScripts: string[] = []
+  const cdnLinks: string[] = []
+  const globalExposures: string[] = []
+  for (const cap of caps) {
+    if (cap.kind === 'cdn-script' && cap.cdn) {
+      cdnScripts.push(`<script src="${cap.cdn.url}"></script>`)
+      if (cap.cdn.global) {
+        globalExposures.push(`if (window.${cap.cdn.global}) window.${cap.cdn.global.toLowerCase()} = window.${cap.cdn.global};`)
+      }
+    } else if (cap.kind === 'cdn-css' && cap.cdn) {
+      cdnLinks.push(`<link rel="stylesheet" href="${cap.cdn.url}">`)
+    }
+  }
+  // Build prelude source from snippet-pack caps
+  const prelude = buildPrelude(caps)
+  const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
+
+  // Special exposure for motion (framer-motion exposes Motion namespace)
+  const hasMotion = caps.some((c) => c.id === 'motion')
+  const motionExpose = hasMotion
+    ? "if (typeof Motion !== 'undefined') { window.motion = Motion.motion || Motion; window.AnimatePresence = Motion.AnimatePresence || Motion; }"
+    : ''
+
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="/vendor/react.production.min.js"></script>
+<script src="/vendor/react-dom.production.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+${cdnLinks.join('\n')}
+${cdnScripts.join('\n')}
 <script src="/vendor/babel.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}</style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/plain" id="mocky-b64">${b64}</script>
+${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</script>` : ''}
 <script>
   (function () {
     var FID = ${JSON.stringify(frameId)};
@@ -70,18 +101,23 @@ function buildSrcDoc(
     window.onerror = function (msg, _src, line) { fail(String(msg) + (line ? ' (line ' + line + ')' : '')); return false; };
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
+    ${globalExposures.join('\n')}
+    ${motionExpose}
     try {
-      var b64 = document.getElementById('mocky-b64').textContent;
-      var raw = window.atob(b64);
-      var src = decodeURIComponent(
-        Array.prototype.map.call(raw, function (c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join('')
-      );
-      var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
-      // Inject the compiled JS as a new <script> element. textContent is not
-      // HTML-parsed, so backticks and template literals in the compiled output
-      // are preserved verbatim (unlike inline script bodies in the srcDoc).
+      function decodeB64(id) {
+        var raw = window.atob(document.getElementById(id).textContent);
+        return decodeURIComponent(
+          Array.prototype.map.call(raw, function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join('')
+        );
+      }
+      var src = decodeB64('mocky-b64');
+      var preludeSrc = '';
+      var preEl = document.getElementById('mocky-prelude');
+      if (preEl) preludeSrc = decodeB64('mocky-prelude');
+      var combined = preludeSrc ? (preludeSrc + '\\n' + src) : src;
+      var out = Babel.transform(combined, { presets: [['react', { runtime: 'classic' }]] }).code;
       var scr = document.createElement('script');
       scr.textContent = out + ';ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));';
       document.body.appendChild(scr);
@@ -163,6 +199,7 @@ export default function Preview({
   onCaptureRect,
   onError,
   generating,
+  caps,
 }: {
   code: string
   pickMode?: boolean
@@ -177,6 +214,8 @@ export default function Preview({
   onError?: (error: string) => void
   /** When true, the model is still streaming code. Shows a "Generating…" overlay and hides errors. */
   generating?: boolean
+  /** Capability IDs to enable in the preview iframe (e.g. ['motion', 'magicui']). */
+  caps?: string[]
 }) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -209,16 +248,21 @@ export default function Preview({
   // forwarded to the parent (for auto-retry).
   const [srcDoc, setSrcDoc] = useState<string | null>(null)
   const srcCodeRef = useRef<string>('')
+  // Resolve caps once when they change, not on every code chunk
+  const resolvedCaps = useMemo(
+    () => (caps && caps.length ? resolveCapabilities(caps) : []),
+    [caps && caps.join(',')],
+  )
   useEffect(() => {
     if (!code || !code.trim()) return
     const timer = setTimeout(() => {
       const previewCode = toPreviewModule(code)
       const name = detectComponentName(code)
       srcCodeRef.current = code
-      setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars))
+      setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars, resolvedCaps))
     }, 500)
     return () => clearTimeout(timer)
-  }, [code, frameId, hideScrollbars])
+  }, [code, frameId, hideScrollbars, resolvedCaps])
 
   // Listen for messages from the iframe. The iframe posts 'ok' when the
   // component rendered successfully, or 'error' when Babel or the component

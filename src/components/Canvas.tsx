@@ -459,6 +459,7 @@ export default function Canvas({
                       onCaptureRect={onCaptureRect}
                       onError={(err) => onError?.(s.id, err)}
                       generating={generatingIds?.has(s.id)}
+                      caps={s.caps}
                     />
                   </DeviceChrome>
                 ) : (
@@ -472,6 +473,7 @@ export default function Canvas({
                     onCaptureRect={onCaptureRect}
                     onError={(err) => onError?.(s.id, err)}
                     generating={generatingIds?.has(s.id)}
+                    caps={s.caps}
                   />
                 )}
               </div>

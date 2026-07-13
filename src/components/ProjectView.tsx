@@ -5,6 +5,7 @@ import { editComponent, fixComponent, generateComponent, detectComponentName } f
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
+import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
 import PresetPicker from './PresetPicker'
@@ -161,23 +162,28 @@ export default function ProjectView({
     try {
       const design = loadDesign()
       const designPreamble = isDesignActive(design) ? buildDesignPreamble(design.markdown) : undefined
+      const designMd = isDesignActive(design) ? design.markdown : undefined
 
       if (targets.length > 0) {
         // Edit mode: apply the instruction to each selected screen in place,
         // keeping each screen in its existing form factor. Stream partial code
         // so the preview updates live as the model writes.
         // Save the current code as previousCode so the user can revert.
+        // Use existing caps from the screen (or re-select from prompt).
         const ids = new Set(targets.map((t) => t.id))
         setGeneratingIds(ids)
         for (const sc of targets) {
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
+          const capIds = sc.caps && sc.caps.length > 0 ? sc.caps : selectCapabilities(text, designMd)
+          const caps = resolveCapabilities(capIds)
           // Snapshot the old code before overwriting
           const oldCode = sc.code
           const res = await editComponent(
             settings, text, sc.code, extraSystem, images, ac.signal,
             (partial) => onUpdateScreen(sc.id, { code: partial }),
+            caps,
           )
-          onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode })
+          onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
         }
         setGeneratingIds(new Set())
         setPrompt('')
@@ -187,6 +193,8 @@ export default function ProjectView({
         // immediately with empty code, then stream the code in live.
         const preset = getPreset(presetId)
         const extraSystem = joinSystem([designPreamble, preset.hint])
+        const capIds = selectCapabilities(text, designMd)
+        const caps = resolveCapabilities(capIds)
         const screenId = newId()
         onAddScreen({
           id: screenId,
@@ -199,6 +207,7 @@ export default function ProjectView({
           h: preset.h,
           device: preset.device,
           links: [],
+          caps: capIds,
         })
         setGeneratingIds(new Set([screenId]))
         setSelectedIds([screenId])
@@ -207,6 +216,7 @@ export default function ProjectView({
         const result = await generateComponent(
           settings, text, extraSystem, images, ac.signal,
           (partial) => onUpdateScreen(screenId, { code: partial }),
+          caps,
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())

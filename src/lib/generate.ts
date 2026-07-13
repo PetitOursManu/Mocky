@@ -1,5 +1,6 @@
 import type { Settings } from './settings'
 import { proxyFetch, truncate } from './proxy'
+import type { Capability } from './capabilities/types'
 
 export const SYSTEM_PROMPT = `You are an expert React + Tailwind CSS UI engineer. Given a description of a screen, you output a single self-contained React component that renders a polished, production-ready interface — never a wireframe.
 
@@ -158,6 +159,33 @@ async function chat(
 }
 
 /**
+ * Builds the CAPABILITIES section for the system prompt. Lists only the
+ * selected components with their signature + description, and states that
+ * they are already in scope and MUST NOT be imported.
+ */
+function buildCapabilitiesPrompt(caps: Capability[]): string {
+  const components: string[] = []
+  for (const cap of caps) {
+    if (cap.kind === 'cdn-css') {
+      components.push(`- ${cap.id}: CSS library loaded. Use its classes directly.`)
+    } else if (cap.kind === 'cdn-script' && cap.cdn?.global) {
+      components.push(`- ${cap.id}: available as global "${cap.cdn.global}". Do NOT import it.`)
+    } else if (cap.kind === 'snippet-pack' && cap.components) {
+      for (const comp of cap.components) {
+        components.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
+      }
+    }
+  }
+  if (components.length === 0) return ''
+  return [
+    '',
+    'CAPABILITIES (already in scope — do NOT import these):',
+    ...components,
+    'These components and libraries are already available as globals in the runtime. Do NOT write import statements for them. Use them directly.',
+  ].join('\n')
+}
+
+/**
  * Calls the configured provider's chat endpoint asking for a single
  * self-contained React component. `extraSystem` carries the DESIGN.md preamble.
  */
@@ -168,8 +196,11 @@ export async function generateComponent(
   images?: string[],
   signal?: AbortSignal,
   onChunk?: (partialCode: string) => void,
+  caps?: Capability[],
 ): Promise<GeneratedComponent> {
-  const system = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
+  const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
+  const baseSystem = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
+  const system = capsPrompt ? `${baseSystem}\n${capsPrompt}` : baseSystem
   const content = await chat(
     s,
     [
@@ -215,8 +246,11 @@ export async function editComponent(
   images?: string[],
   signal?: AbortSignal,
   onChunk?: (partialCode: string) => void,
+  caps?: Capability[],
 ): Promise<GeneratedComponent> {
-  const system = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
+  const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
+  const baseSystem = [extraSystem, SYSTEM_PROMPT, EDIT_RULES].filter(Boolean).join('\n\n')
+  const system = capsPrompt ? `${baseSystem}\n${capsPrompt}` : baseSystem
   const user = [
     'Here is the current complete source of the screen to edit:',
     '',
