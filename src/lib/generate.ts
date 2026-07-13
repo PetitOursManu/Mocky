@@ -72,7 +72,7 @@ async function chat(
     model: s.model,
     stream: useStream,
     messages,
-    options: { temperature: 0.4, num_ctx: 32768, num_predict: -1 },
+    options: { temperature: 0.4, num_ctx: 32768, num_predict: 8192 },
   })
 
   let res: Response
@@ -88,7 +88,14 @@ async function chat(
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`HTTP ${res.status} from provider. ${truncate(text, 300)}`)
+    let detail = text
+    try {
+      const parsed = JSON.parse(text)
+      if (parsed && typeof parsed.error === 'string') detail = parsed.error
+    } catch {
+      // not JSON — use raw text
+    }
+    throw new Error(`HTTP ${res.status} from provider. ${truncate(detail, 300)}`)
   }
 
   if (!useStream) {
