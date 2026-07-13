@@ -55,12 +55,19 @@ function buildSrcDoc(
   // Build CDN tags for selected capabilities
   const cdnScripts: string[] = []
   const cdnLinks: string[] = []
-  const globalExposures: string[] = []
+  const globalHoists: string[] = []
   for (const cap of caps) {
     if (cap.kind === 'cdn-script' && cap.cdn) {
       cdnScripts.push(`<script src="${cap.cdn.url}"></script>`)
-      if (cap.cdn.global) {
-        globalExposures.push(`if (window.${cap.cdn.global}) window.${cap.cdn.global.toLowerCase()} = window.${cap.cdn.global};`)
+      if (cap.cdn.global && cap.globals) {
+        // Hoist each named export onto window from the UMD global
+        const names = cap.globals.map((g) => JSON.stringify(g))
+        globalHoists.push(
+          `if (window.${cap.cdn.global}) { [${names.join(',')}].forEach(function(k){ if (window.${cap.cdn.global}[k]) window[k] = window.${cap.cdn.global}[k]; }); }`,
+        )
+      } else if (cap.cdn.global) {
+        // Fallback: just expose the UMD global itself
+        globalHoists.push(`if (window.${cap.cdn.global}) window.${cap.cdn.global.toLowerCase()} = window.${cap.cdn.global};`)
       }
     } else if (cap.kind === 'cdn-css' && cap.cdn) {
       cdnLinks.push(`<link rel="stylesheet" href="${cap.cdn.url}">`)
@@ -69,12 +76,6 @@ function buildSrcDoc(
   // Build prelude source from snippet-pack caps
   const prelude = buildPrelude(caps)
   const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
-
-  // Special exposure for motion (framer-motion exposes Motion namespace)
-  const hasMotion = caps.some((c) => c.id === 'motion')
-  const motionExpose = hasMotion
-    ? "if (typeof Motion !== 'undefined') { window.motion = Motion.motion || Motion; window.AnimatePresence = Motion.AnimatePresence || Motion; }"
-    : ''
 
   return `<!doctype html>
 <html>
@@ -101,8 +102,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     window.onerror = function (msg, _src, line) { fail(String(msg) + (line ? ' (line ' + line + ')' : '')); return false; };
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
-    ${globalExposures.join('\n')}
-    ${motionExpose}
+    ${globalHoists.join('\n    ')}
     try {
       function decodeB64(id) {
         var raw = window.atob(document.getElementById(id).textContent);

@@ -22,6 +22,7 @@ export const CAPABILITIES: Capability[] = [
     id: 'motion',
     kind: 'cdn-script',
     cdn: { url: 'https://unpkg.com/framer-motion@11.11.17/dist/framer-motion.js', global: 'Motion' },
+    globals: ['motion', 'AnimatePresence', 'useAnimation', 'useMotionValue', 'useTransform', 'useInView', 'AnimatePresence'],
     triggers: {
       keywords: ['animate', 'animation', 'motion', 'framer', 'transition', 'spring', 'animatepresence'],
       intents: ['animation', 'interactive', 'playful', 'dynamic'],
@@ -31,6 +32,7 @@ export const CAPABILITIES: Capability[] = [
     id: 'lucide',
     kind: 'cdn-script',
     cdn: { url: 'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js', global: 'lucide' },
+    globals: ['lucide', 'createIcons'],
     triggers: {
       keywords: ['icon', 'icons', 'lucide', 'pictogram'],
       intents: ['icons'],
@@ -40,6 +42,7 @@ export const CAPABILITIES: Capability[] = [
     id: 'recharts',
     kind: 'cdn-script',
     cdn: { url: 'https://unpkg.com/recharts@2.13.3/dist/Recharts.min.js', global: 'Recharts' },
+    globals: ['ResponsiveContainer', 'PieChart', 'Pie', 'Cell', 'BarChart', 'Bar', 'LineChart', 'Line', 'XAxis', 'YAxis', 'CartesianGrid', 'Tooltip', 'Legend', 'AreaChart', 'Area', 'RadialBarChart', 'RadialBar', 'ComposedChart', 'ScatterChart', 'Scatter'],
     triggers: {
       keywords: ['chart', 'recharts', 'graph', 'bar chart', 'line chart', 'pie chart', 'area chart', 'data visualization'],
       intents: ['chart', 'dashboard', 'analytics', 'graph', 'data'],

@@ -17,6 +17,8 @@ export interface Capability {
   id: string
   kind: CapabilityKind
   cdn?: { url: string; global?: string }
+  /** Names to hoist onto window after the CDN script loads (e.g. ['PieChart', 'Bar', 'Tooltip']). */
+  globals?: string[]
   triggers: { keywords: string[]; intents: string[] }
   conflictsWith?: string[]
   requires?: string[]

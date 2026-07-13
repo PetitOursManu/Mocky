@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractCode } from './generate'
+import { extractCode, toPreviewModule } from './generate'
 
 describe('extractCode', () => {
   it('extracts code between <<<MOCKY>>> and <<<END>>> sentinels', () => {
@@ -71,5 +71,62 @@ describe('extractCode', () => {
     const content = '```jsx\nold code\n```\n\n<<<MOCKY>>>\nconst App = () => <div>new code</div>;\nexport default App;\n<<<END>>>'
     const result = extractCode(content)
     expect(result).toBe('const App = () => <div>new code</div>;\nexport default App;')
+  })
+})
+
+describe('toPreviewModule', () => {
+  it('strips single-line import', () => {
+    const code = `import { useState } from 'react'\nconst App = () => null;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;')
+  })
+
+  it('strips multi-line named import', () => {
+    const code = `import {\n  PieChart,\n  Pie,\n  Cell,\n  ResponsiveContainer\n} from 'recharts'\nconst App = () => null;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;')
+  })
+
+  it('strips default import', () => {
+    const code = `import React from 'react'\nconst App = () => null;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;')
+  })
+
+  it('strips mixed default + named import', () => {
+    const code = `import React, { useState, useEffect } from 'react'\nconst App = () => null;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;')
+  })
+
+  it('strips side-effect import', () => {
+    const code = `import 'tailwindcss'\nconst App = () => null;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;')
+  })
+
+  it('strips multiple imports', () => {
+    const code = `import { useState } from 'react'\nimport { motion } from 'framer-motion'\nconst App = () => null;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;')
+  })
+
+  it('strips require() leftover', () => {
+    const code = `const React = require('react')\nconst App = () => null;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;')
+  })
+
+  it('transforms export default function to function', () => {
+    const code = `export default function App() { return null; }`
+    expect(toPreviewModule(code)).toBe('function App() { return null; }')
+  })
+
+  it('transforms export default assignment', () => {
+    const code = `const App = () => null;\nexport default App;`
+    expect(toPreviewModule(code)).toBe('const App = () => null;\nconst __mockyDefault = App;')
+  })
+
+  it('strips export from named exports', () => {
+    const code = `export const foo = 1\nexport function bar() { return null; }`
+    expect(toPreviewModule(code)).toBe('const foo = 1\nfunction bar() { return null; }')
+  })
+
+  it('leaves code without imports unchanged (except exports)', () => {
+    const code = `const App = () => {\n  const [x, setX] = useState(0);\n  return null;\n}`
+    expect(toPreviewModule(code)).toBe(`const App = () => {\n  const [x, setX] = useState(0);\n  return null;\n}`)
   })
 })

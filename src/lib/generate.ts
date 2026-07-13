@@ -164,24 +164,28 @@ async function chat(
  * they are already in scope and MUST NOT be imported.
  */
 function buildCapabilitiesPrompt(caps: Capability[]): string {
-  const components: string[] = []
+  const items: string[] = []
   for (const cap of caps) {
     if (cap.kind === 'cdn-css') {
-      components.push(`- ${cap.id}: CSS library loaded. Use its classes directly.`)
+      items.push(`- CSS library "${cap.id}" is loaded. Use its classes directly in className.`)
     } else if (cap.kind === 'cdn-script' && cap.cdn?.global) {
-      components.push(`- ${cap.id}: available as global "${cap.cdn.global}". Do NOT import it.`)
+      const names = cap.globals ? cap.globals.join(', ') : cap.cdn.global
+      items.push(`- Library "${cap.id}": ${names} are ALREADY DEFINED as globals. Use them directly by name.`)
     } else if (cap.kind === 'snippet-pack' && cap.components) {
       for (const comp of cap.components) {
-        components.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
+        items.push(`- ${comp.name}: ${comp.signature} — ${comp.description}`)
       }
     }
   }
-  if (components.length === 0) return ''
+  if (items.length === 0) return ''
   return [
     '',
-    'CAPABILITIES (already in scope — do NOT import these):',
-    ...components,
-    'These components and libraries are already available as globals in the runtime. Do NOT write import statements for them. Use them directly.',
+    'CAPABILITIES — ALREADY IN SCOPE (read carefully):',
+    'The following components and libraries are ALREADY DEFINED as globals in the runtime scope.',
+    'You MUST NOT write any import statement for them — there is no module system in the sandbox.',
+    'Writing "import" will break the render. Use them directly by name.',
+    '',
+    ...items,
   ].join('\n')
 }
 
@@ -350,13 +354,37 @@ export function detectComponentName(code: string): string {
 /**
  * Strip imports/exports so the source can run inside the sandboxed preview
  * iframe (where React + hooks are provided as globals).
+ *
+ * Handles:
+ * - Multi-line named imports: `import { A, B } from 'lib'` (possibly across
+ *   several lines).
+ * - Default imports: `import X from 'lib'`
+ * - Mixed default+named: `import X, { A, B } from 'lib'`
+ * - Side-effect imports: `import 'lib'`
+ * - CommonJS require() leftovers after Babel transform
+ * - export default / export named
  */
 export function toPreviewModule(code: string): string {
-  return code
-    .replace(/^\s*import\s+[^\n]*\n/gm, '')
+  let out = code
+    // `import ... from '...'` — [^;] spans newlines so multi-line specifier
+    // lists are matched as a whole, including the closing `} from '...'`.
+    .replace(/^[ \t]*import\b[^;]*?from\s*['"][^'"]+['"]\s*;?[ \t]*\r?\n?/gm, '')
+    // side-effect import: `import 'x'`
+    .replace(/^[ \t]*import\s+['"][^'"]+['"]\s*;?[ \t]*\r?\n?/gm, '')
+    // dynamic/CJS leftovers: `const X = require('...')`
+    .replace(/^[ \t]*(?:const|let|var)\s+.*=\s*require\([^)]*\)\s*;?[ \t]*\r?\n?/gm, '')
     .replace(/^\s*export\s+default\s+function\s+/gm, 'function ')
     .replace(/^\s*export\s+default\s+/gm, 'const __mockyDefault = ')
     .replace(/^\s*export\s+(const|let|var|function|class)\b/gm, '$1')
+
+  // Guard: if any `import` statement survived (unusual regex edge case),
+  // strip it again. Never ship an import to the iframe.
+  if (/^\s*import\b/m.test(out)) {
+    out = out
+      .replace(/^[ \t]*import\b[^;]*?from\s*['"][^'"]+['"]\s*;?[ \t]*\r?\n?/gm, '')
+      .replace(/^[ \t]*import\s+['"][^'"]+['"]\s*;?[ \t]*\r?\n?/gm, '')
+  }
+  return out
 }
 
 const FIX_PROMPT = `You are a code reviewer. The following React component has a syntax or runtime error. Fix ONLY the error — do not redesign, restyle, or change anything else. Return the COMPLETE corrected component in a single fenced jsx code block.`
