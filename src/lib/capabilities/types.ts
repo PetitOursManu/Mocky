@@ -28,6 +28,8 @@ export interface Capability {
   triggers: { keywords: string[]; intents: string[] }
   conflictsWith?: string[]
   requires?: string[]
+  /** If true, always selected (baseline) regardless of keywords. */
+  baseline?: boolean
   /** For snippet-packs: metadata for the CAPABILITIES prompt section. */
   components?: CapabilityComponent[]
   /** For snippet-packs: one or more source blocks, each with an explicit exports list. */

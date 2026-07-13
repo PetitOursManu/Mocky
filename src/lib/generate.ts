@@ -166,6 +166,7 @@ async function chat(
 function buildCapabilitiesPrompt(caps: Capability[]): string {
   const items: string[] = []
   const hasCharts = caps.some((c) => c.id === 'charts')
+  const hasIcons = caps.some((c) => c.id === 'icons')
   for (const cap of caps) {
     if (cap.kind === 'cdn-css') {
       items.push(`- CSS library "${cap.id}" is loaded. Use its classes directly in className.`)
@@ -192,6 +193,12 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     lines.push('')
     lines.push('IMPORTANT: Recharts is NOT available. Never write Recharts.xxx or import any chart library.')
     lines.push('Use the chart components listed above (BarChart, LineChart, DonutChart, Sparkline, ProgressRing).')
+  }
+  if (hasIcons) {
+    lines.push('')
+    lines.push('ICONS: use <Icon.Search className="w-5 h-5" /> (or Icon.Home, Icon.Bell, Icon.User, Icon.Settings, etc.).')
+    lines.push('NEVER hand-write an inline <svg><path d="..."/></svg> — long path data gets truncated by the model.')
+    lines.push('If an icon you need is missing from the list, pick the closest one. Do NOT write raw SVG paths.')
   }
   return lines.join('\n')
 }

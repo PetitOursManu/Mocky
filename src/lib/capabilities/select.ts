@@ -15,7 +15,13 @@ export function selectCapabilities(userPrompt: string, designMarkdown?: string):
 
   const selected = new Set<string>()
 
+  // Always include baseline capabilities (e.g. icons)
   for (const cap of CAPABILITIES) {
+    if (cap.baseline) selected.add(cap.id)
+  }
+
+  for (const cap of CAPABILITIES) {
+    if (cap.baseline) continue
     const allTriggers = [...cap.triggers.keywords, ...cap.triggers.intents]
     const hit = allTriggers.some((kw) => text.includes(kw.toLowerCase()))
     if (hit) {

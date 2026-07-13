@@ -8,6 +8,7 @@ import { BorderBeamSource, BORDER_BEAM_EXPORTS } from './snippets/BorderBeam'
 import { TextRevealSource, TEXT_REVEAL_EXPORTS } from './snippets/TextReveal'
 import { MeteorsSource, METEORS_EXPORTS } from './snippets/Meteors'
 import { ChartsSource, CHARTS_EXPORTS } from './snippets/Charts'
+import { IconsSource, ICONS_EXPORTS } from './snippets/Icons'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
 function validatePack(id: string, components: { name: string }[], snippets: { exports: string[] }[]) {
@@ -25,6 +26,16 @@ function validatePack(id: string, components: { name: string }[], snippets: { ex
 }
 
 export const CAPABILITIES: Capability[] = [
+  {
+    id: 'icons',
+    kind: 'snippet-pack',
+    baseline: true,
+    triggers: { keywords: [], intents: [] },
+    snippets: [{ source: IconsSource, exports: [...ICONS_EXPORTS] }],
+    components: [
+      { name: 'Icon', signature: '<Icon.Home className="w-5 h-5" />', description: 'Icon namespace with 24 icons: Home, Search, Bell, User, Settings, ChevronRight, ChevronDown, Plus, X, Check, Trash, Edit, Download, Upload, Calendar, Clock, Mail, Filter, Menu, ArrowUp, ArrowDown, TrendingUp, TrendingDown, DollarSign. Usage: Icon.Search, Icon.Bell, etc.', tags: ['icon', 'svg'] },
+    ],
+  },
   {
     id: 'daisyui',
     kind: 'cdn-css',

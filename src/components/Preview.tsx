@@ -47,6 +47,7 @@ function buildSrcDoc(
   frameId: string,
   hideScrollbars: boolean,
   caps: Capability[] = [],
+  generating: boolean = false,
 ): string {
   const b64 = utf8ToBase64(sourceCode)
   const hideCss = hideScrollbars
@@ -81,6 +82,11 @@ function buildSrcDoc(
   // Build prelude source from snippet-pack caps
   const prelude = buildPrelude(caps)
   const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
+
+  // Dev diagnostic: only log when NOT generating (avoids console spam during streaming)
+  const devErrorLog = generating
+    ? ''
+    : `try { console.error('[Mocky iframe error]', e && e.message ? e.message : e, e && e.stack ? e.stack : '', '\\n--- Source ---\\n', (preludeSrc || '') + src); } catch (_) {}`
 
   return `<!doctype html>
 <html>
@@ -137,8 +143,10 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       document.body.appendChild(scr);
       post('ok');
     } catch (e) {
-      // Dev: log the full source so the error line maps to something inspectable
-      try { console.error('[Mocky iframe error]', e && e.message ? e.message : e, e && e.stack ? e.stack : '', '\\n--- Source ---\\n', (preludeSrc || '') + src); } catch (_) {}
+      // Dev: log the full source so the error line maps to something inspectable.
+      // Only log when NOT generating — during streaming, transient errors from
+      // incomplete code are expected and would spam the console.
+      ${devErrorLog}
       var errMsg = e && e.message ? (e.message + '\\n' + (e.stack || '')) : String(e);
       fail(errMsg);
     }
@@ -276,7 +284,7 @@ export default function Preview({
       const previewCode = toPreviewModule(code)
       const name = detectComponentName(code)
       srcCodeRef.current = code
-      setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars, resolvedCaps))
+      setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars, resolvedCaps, !!generating))
     }, 500)
     return () => clearTimeout(timer)
   }, [code, frameId, hideScrollbars, resolvedCaps])

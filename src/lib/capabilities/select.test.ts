@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { selectCapabilities, resolveCapabilities } from './select'
 
 describe('selectCapabilities', () => {
-  it('returns empty array for a prompt with no matching keywords', () => {
-    expect(selectCapabilities('A simple login screen')).toEqual([])
+  it('returns only baseline (icons) for a prompt with no matching keywords', () => {
+    expect(selectCapabilities('A simple login screen')).toEqual(['icons'])
   })
 
   it('selects motion when prompt mentions animation', () => {
