@@ -4,7 +4,11 @@ import { proxyFetch, truncate } from './proxy'
 export const SYSTEM_PROMPT = `You are an expert React + Tailwind CSS UI engineer. Given a description of a screen, you output a single self-contained React component that renders a polished, production-ready interface — never a wireframe.
 
 STRICT OUTPUT RULES:
-- Respond with ONE fenced code block (\`\`\`jsx ... \`\`\`) and nothing else — no explanation before or after.
+- Respond with EXACTLY the following format and NOTHING else:
+  <<<MOCKY>>>
+  ...your complete component code...
+  <<<END>>>
+- No markdown fences. No prose before the opening sentinel. No prose after the closing sentinel.
 - Write plain JavaScript with JSX. Do NOT use TypeScript type annotations.
 - Do NOT write any import statements and do NOT use named exports. React and all of its hooks (useState, useEffect, useRef, useMemo, useCallback, etc.) are available as globals — call them directly, e.g. const [open, setOpen] = useState(false).
 - Define exactly ONE top-level component named App, and end the file with: export default App
@@ -68,7 +72,7 @@ async function chat(
     model: s.model,
     stream: useStream,
     messages,
-    options: { temperature: 0.4 },
+    options: { temperature: 0.4, num_ctx: 32768, num_predict: -1 },
   })
 
   let res: Response
@@ -166,7 +170,7 @@ export async function generateComponent(
       { role: 'user', content: withImageNote(userPrompt, images), images: images?.map(stripDataUrl) },
     ],
     signal,
-    onChunk ? (full) => onChunk(extractCode(full)) : undefined,
+    onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
   )
   const code = extractCode(content)
   const componentName = detectComponentName(code)
@@ -188,7 +192,8 @@ PRESERVE EVERYTHING THAT THE USER DID NOT EXPLICITLY ASK TO CHANGE.
 - Do NOT redesign, refactor, rename, reformat, reorder, restyle, "clean up", "improve", or modernise anything that was not requested.
 - Do NOT add, remove, or rename features, sections, props, or imports beyond the requested change.
 - If the instruction is ambiguous, make the smallest possible change that satisfies it and leave the rest untouched.
-- Return the COMPLETE updated component (the whole file, not a diff), keeping the same component name and export.`
+- Return the COMPLETE updated component (the whole file, not a diff), keeping the same component name and export.
+- Use the same sentinel format: <<<MOCKY>>> ... <<<END>>>. No prose, no fences.`
 
 /**
  * Asks the model to modify an existing component and return the complete
@@ -224,26 +229,66 @@ export async function editComponent(
       { role: 'user', content: user, images: images?.map(stripDataUrl) },
     ],
     signal,
-    onChunk ? (full) => onChunk(extractCode(full)) : undefined,
+    onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
   )
   const code = extractCode(content)
   const componentName = detectComponentName(code)
   return { raw: content, code, componentName }
 }
 
-/** Pull the largest fenced code block out of a markdown response, else use it whole. */
-export function extractCode(content: string): string {
-  // Tolerant fence matcher: allows spaces after the language identifier and
-  // both leading/trailing whitespace around the fence.
+const SENTINEL_OPEN = '<<<MOCKY>>>'
+const SENTINEL_CLOSE = '<<<END>>>'
+
+/**
+ * Extract the component code from the model's response.
+ *
+ * Uses a sentinel protocol: the model emits <<<MOCKY>>> ...code... <<<END>>>.
+ * During streaming the closing sentinel may not be present yet — in that case
+ * we return the partial body after the opening sentinel as-is.
+ *
+ * Falls back to the legacy fenced-code-block regex for backward compat with
+ * older models, then to the raw content as a last resort.
+ *
+ * @param content  The full (or partial) assistant message.
+ * @param opts     { streaming?: boolean } — if true, allow missing close sentinel.
+ */
+export function extractCode(content: string, opts?: { streaming?: boolean }): string {
+  const streaming = opts?.streaming ?? false
+
+  // --- Sentinel protocol (preferred) ---
+  const openIdx = content.indexOf(SENTINEL_OPEN)
+  if (openIdx >= 0) {
+    const bodyStart = openIdx + SENTINEL_OPEN.length
+    const closeIdx = content.indexOf(SENTINEL_CLOSE, bodyStart)
+    if (closeIdx >= 0) {
+      // Both sentinels present — extract the body between them.
+      return content.slice(bodyStart, closeIdx).trim()
+    }
+    if (streaming) {
+      // Opening sentinel found but no closing one yet — return the partial body.
+      return content.slice(bodyStart).trim()
+    }
+    // Non-streaming and no close sentinel — treat the body after open as code.
+    // (The model may have forgotten the close sentinel; still try to use the code.)
+    return content.slice(bodyStart).trim()
+  }
+
+  // --- Legacy fenced code block (backward compat) ---
   const fence = /```(?:[a-zA-Z0-9]+)?\s*\n([\s\S]*?)\n\s*```/g
   let best = ''
   let m: RegExpExecArray | null
   while ((m = fence.exec(content))) {
     if (m[1].length > best.length) best = m[1]
   }
-  const cleaned = (best || content).trim()
-  // Final safety net: strip any remaining stray fence markers that the model
-  // may have left behind.
+  if (best) {
+    return best
+      .replace(/^\s*```[a-zA-Z0-9]*\s*\n?/m, '')
+      .replace(/\n?\s*```\s*$/m, '')
+      .trim()
+  }
+
+  // --- Raw fallback (no sentinels, no fences) ---
+  const cleaned = content.trim()
   return cleaned
     .replace(/^\s*```[a-zA-Z0-9]*\s*\n?/m, '')
     .replace(/\n?\s*```\s*$/m, '')
