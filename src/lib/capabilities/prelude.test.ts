@@ -97,3 +97,42 @@ describe('baseline (icons)', () => {
     expect(CAPABILITY_MAP['icons']?.baseline).toBe(true)
   })
 })
+
+describe('no export collisions across snippet-packs', () => {
+  const REACT_GLOBALS = [
+    'useState', 'useEffect', 'useRef', 'useMemo', 'useCallback', 'useReducer',
+    'useContext', 'useLayoutEffect', 'useImperativeHandle', 'useId',
+    'useTransition', 'createContext', 'memo', 'forwardRef', 'Fragment',
+    'React', 'ReactDOM', 'Babel', 'cn',
+  ]
+
+  it('no two snippet-packs export the same name', () => {
+    const seen = new Map<string, string>() // name -> pack id
+    for (const cap of CAPABILITIES) {
+      if (cap.kind !== 'snippet-pack' || !cap.snippets) continue
+      for (const snippet of cap.snippets) {
+        for (const name of snippet.exports) {
+          expect(
+            seen.has(name),
+            `"${name}" is exported by both "${seen.get(name)}" and "${cap.id}"`
+          ).toBe(false)
+          seen.set(name, cap.id)
+        }
+      }
+    }
+  })
+
+  it('no pack export collides with a React hook global or reserved name', () => {
+    for (const cap of CAPABILITIES) {
+      if (cap.kind !== 'snippet-pack' || !cap.snippets) continue
+      for (const snippet of cap.snippets) {
+        for (const name of snippet.exports) {
+          expect(
+            REACT_GLOBALS.includes(name),
+            `"${name}" (from "${cap.id}") collides with a React global or reserved name`
+          ).toBe(false)
+        }
+      }
+    }
+  })
+})

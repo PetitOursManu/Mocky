@@ -1,12 +1,4 @@
 import type { Capability } from './types'
-import { MarqueeSource, MARQUEE_EXPORTS } from './snippets/Marquee'
-import { ShimmerButtonSource, SHIMMER_BUTTON_EXPORTS } from './snippets/ShimmerButton'
-import { BentoGridSource, BENTO_GRID_EXPORTS } from './snippets/BentoGrid'
-import { AnimatedBeamSource, ANIMATED_BEAM_EXPORTS } from './snippets/AnimatedBeam'
-import { NumberTickerSource, NUMBER_TICKER_EXPORTS } from './snippets/NumberTicker'
-import { BorderBeamSource, BORDER_BEAM_EXPORTS } from './snippets/BorderBeam'
-import { TextRevealSource, TEXT_REVEAL_EXPORTS } from './snippets/TextReveal'
-import { MeteorsSource, METEORS_EXPORTS } from './snippets/Meteors'
 import { ChartsSource, CHARTS_EXPORTS } from './snippets/Charts'
 import { IconsSource, ICONS_EXPORTS } from './snippets/Icons'
 import { MotionSource, MOTION_EXPORTS } from './snippets/Motion'
@@ -47,23 +39,6 @@ export const CAPABILITIES: Capability[] = [
     },
   },
   {
-    id: 'motion',
-    kind: 'snippet-pack',
-    triggers: {
-      keywords: ['animation', 'animate', 'animated', 'animé', 'motion', 'scroll', 'reveal', 'marquee', 'landing', 'hero', 'parallax', 'fade', 'counter', 'shimmer', 'stagger', 'transition'],
-      intents: ['animation', 'interactive', 'playful', 'dynamic'],
-    },
-    snippets: [{ source: MotionSource, exports: [...MOTION_EXPORTS] }],
-    components: [
-      { name: 'FadeIn', signature: '<FadeIn delay={0} y={16}>{children}</FadeIn>', description: 'Fade in + slide up on scroll into view. Accepts delay (ms) and y (px).', tags: ['fade', 'scroll', 'entrance'] },
-      { name: 'Stagger', signature: '<Stagger delay={80}>{children}</Stagger>', description: 'Stagger entrance of children with incremental delay.', tags: ['stagger', 'list', 'entrance'] },
-      { name: 'Marquee', signature: '<Marquee pauseOnHover reverse speed={20}>{children}</Marquee>', description: 'Infinite horizontal scroll. Duplicated track + CSS keyframes.', tags: ['marquee', 'scroll', 'loop'] },
-      { name: 'Counter', signature: '<Counter to={1234} duration={1200} prefix="" suffix="" />', description: 'Animated number counter on scroll. Uses requestAnimationFrame easing.', tags: ['counter', 'number', 'stat'] },
-      { name: 'Shimmer', signature: '<Shimmer>{children}</Shimmer>', description: 'Animated gradient sweep for CTA buttons.', tags: ['shimmer', 'button', 'shine'] },
-      { name: 'Reveal', signature: '<Reveal direction="up|left|right">{children}</Reveal>', description: 'Reveal content from a direction on scroll into view.', tags: ['reveal', 'scroll', 'direction'] },
-    ],
-  },
-  {
     id: 'lucide',
     kind: 'cdn-script',
     cdn: { url: 'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js', global: 'lucide' },
@@ -90,32 +65,26 @@ export const CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'magicui',
+    id: 'motion',
     kind: 'snippet-pack',
     triggers: {
-      keywords: ['marquee', 'shimmer', 'bento grid', 'animated beam', 'number ticker', 'border beam', 'text reveal', 'meteors', 'magic ui', 'magicui'],
-      intents: ['animation', 'playful', 'dynamic', 'showcase', 'landing page', 'hero'],
+      keywords: ['animation', 'animate', 'animated', 'animé', 'motion', 'scroll', 'reveal', 'marquee', 'landing', 'hero', 'parallax', 'fade', 'counter', 'shimmer', 'stagger', 'transition', 'bento', 'meteors', 'border beam'],
+      intents: ['animation', 'interactive', 'playful', 'dynamic'],
     },
-    snippets: [
-      { source: MarqueeSource, exports: [...MARQUEE_EXPORTS] },
-      { source: ShimmerButtonSource, exports: [...SHIMMER_BUTTON_EXPORTS] },
-      { source: BentoGridSource, exports: [...BENTO_GRID_EXPORTS] },
-      { source: AnimatedBeamSource, exports: [...ANIMATED_BEAM_EXPORTS] },
-      { source: NumberTickerSource, exports: [...NUMBER_TICKER_EXPORTS] },
-      { source: BorderBeamSource, exports: [...BORDER_BEAM_EXPORTS] },
-      { source: TextRevealSource, exports: [...TEXT_REVEAL_EXPORTS] },
-      { source: MeteorsSource, exports: [...METEORS_EXPORTS] },
-    ],
+    snippets: [{ source: MotionSource, exports: [...MOTION_EXPORTS] }],
     components: [
-      { name: 'Marquee', signature: '<Marquee pauseOnHover reverse repeat={4}>{children}</Marquee>', description: 'A scrolling marquee that infinitely loops content horizontally.', tags: ['scroll', 'loop', 'carousel'] },
+      { name: 'FadeIn', signature: '<FadeIn delay={0} y={16}>{children}</FadeIn>', description: 'Fade in + slide up on scroll into view. Accepts delay (ms) and y (px).', tags: ['fade', 'scroll', 'entrance'] },
+      { name: 'Stagger', signature: '<Stagger delay={80}>{children}</Stagger>', description: 'Stagger entrance of children with incremental delay.', tags: ['stagger', 'list', 'entrance'] },
+      { name: 'Marquee', signature: '<Marquee pauseOnHover reverse speed={20}>{children}</Marquee>', description: 'Infinite horizontal scroll. Duplicated track + CSS keyframes.', tags: ['marquee', 'scroll', 'loop'] },
+      { name: 'Counter', signature: '<Counter to={1234} duration={1200} prefix="" suffix="" />', description: 'Animated number counter on scroll. Uses requestAnimationFrame easing.', tags: ['counter', 'number', 'stat'] },
+      { name: 'Reveal', signature: '<Reveal direction="up|left|right">{children}</Reveal>', description: 'Reveal content from a direction on scroll into view.', tags: ['reveal', 'scroll', 'direction'] },
       { name: 'ShimmerButton', signature: '<ShimmerButton shimmerColor="#ffffff" shimmerDuration="3s">{children}</ShimmerButton>', description: 'A button with a shimmering light effect sweeping across it.', tags: ['button', 'cta', 'shine', 'glow'] },
       { name: 'BentoGrid', signature: '<BentoGrid><BentoCard name="..." description="..." /></BentoGrid>', description: 'A modular bento-style grid layout with cards.', tags: ['grid', 'bento', 'layout', 'cards'] },
       { name: 'BentoCard', signature: '<BentoCard name="..." description="..." />', description: 'A card component for use inside BentoGrid.', tags: ['card', 'bento'] },
-      { name: 'AnimatedBeam', signature: '<AnimatedBeam className="..." />', description: 'An SVG beam with an animated particle travelling along a path.', tags: ['beam', 'svg', 'connection', 'flow'] },
-      { name: 'NumberTicker', signature: '<NumberTicker value={1000} />', description: 'Animates a number counting up when scrolled into view.', tags: ['counter', 'number', 'stat', 'count'] },
       { name: 'BorderBeam', signature: '<BorderBeam size={200} duration={15} colorFrom="#ff0028" colorTo="#ffaa00" />', description: 'A rotating gradient beam travelling along the border of a container.', tags: ['border', 'beam', 'glow', 'accent'] },
       { name: 'TextReveal', signature: '<TextReveal text="Your text here" />', description: 'Reveals words one by one when scrolled into view.', tags: ['text', 'reveal', 'animation', 'scroll'] },
       { name: 'Meteors', signature: '<Meteors number={20} />', description: 'Animated meteor shower effect for dark backgrounds.', tags: ['meteors', 'stars', 'dark', 'background'] },
+      { name: 'AnimatedBeam', signature: '<AnimatedBeam className="..." />', description: 'An SVG beam with an animated particle travelling along a path.', tags: ['beam', 'svg', 'connection', 'flow'] },
     ],
   },
 ]

@@ -26,15 +26,14 @@ describe('selectCapabilities', () => {
     expect(result).toContain('daisyui')
   })
 
-  it('selects magicui when prompt mentions marquee', () => {
+  it('selects motion when prompt mentions marquee', () => {
     const result = selectCapabilities('A landing page with a marquee')
-    expect(result).toContain('magicui')
+    expect(result).toContain('motion')
   })
 
-  it('pulls motion dependency when magicui is selected', () => {
+  it('does not select magicui (removed, merged into motion)', () => {
     const result = selectCapabilities('A page with a marquee component')
-    expect(result).toContain('magicui')
-    expect(result).toContain('motion')
+    expect(result).not.toContain('magicui')
   })
 
   it('selects multiple capabilities from a rich prompt', () => {
@@ -56,12 +55,6 @@ describe('selectCapabilities', () => {
 })
 
 describe('resolveCapabilities', () => {
-  it('resolves magicui without pulling motion (no longer a dependency)', () => {
-    const caps = resolveCapabilities(['magicui'])
-    expect(caps.map((c) => c.id)).toContain('magicui')
-    expect(caps.map((c) => c.id)).not.toContain('motion')
-  })
-
   it('returns empty array for empty input', () => {
     expect(resolveCapabilities([])).toEqual([])
   })
