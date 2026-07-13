@@ -82,23 +82,6 @@ function buildSrcDoc(
   const prelude = buildPrelude(caps)
   const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
 
-  // Build the list of snippet-pack exports for the readiness check.
-  // Names come from the explicit `exports` array on each snippet — never
-  // from parsing source code.
-  const snippetNames: string[] = []
-  for (const cap of caps) {
-    if (cap.kind === 'snippet-pack' && cap.snippets) {
-      for (const snippet of cap.snippets) {
-        for (const name of snippet.exports) {
-          snippetNames.push(name)
-        }
-      }
-    }
-  }
-  const snippetChecks = snippetNames.map(
-    (n) => `if (typeof ${n} === 'undefined') { fail('Snippet component "${n}" was not injected into the prelude.'); return; }`,
-  ).join('\n      ')
-
   return `<!doctype html>
 <html>
 <head>
@@ -133,9 +116,8 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     ${globalHoists.join('\n    ')}
     try {
-      // --- Capability readiness guard ---
+      // --- Capability readiness guard (CDN scripts only) ---
       ${readinessChecks.join('\n      ')}
-      ${snippetChecks}
       function decodeB64(id) {
         var raw = window.atob(document.getElementById(id).textContent);
         return decodeURIComponent(
