@@ -52,15 +52,17 @@ function buildSrcDoc(
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
-  // Build CDN tags for selected capabilities. crossorigin="anonymous" on EVERY
-  // script so the browser doesn't censor window.onerror into "Script error."
+  // Build CDN tags for selected capabilities. NO crossorigin attribute — the
+  // iframe is sandboxed (allow-scripts only, no allow-same-origin), so its
+  // origin is null. crossorigin would turn every script into a CORS request
+  // with Origin: null, which the server doesn't handle → script load fails.
   const cdnScripts: string[] = []
   const cdnLinks: string[] = []
   const globalHoists: string[] = []
   const readinessChecks: string[] = []
   for (const cap of caps) {
     if (cap.kind === 'cdn-script' && cap.cdn) {
-      cdnScripts.push(`<script crossorigin="anonymous" src="${cap.cdn.url}"></script>`)
+      cdnScripts.push(`<script src="${cap.cdn.url}"></script>`)
       if (cap.cdn.global) {
         if (cap.globals) {
           const names = cap.globals.map((g) => JSON.stringify(g))
@@ -69,7 +71,7 @@ function buildSrcDoc(
           )
         }
         readinessChecks.push(
-          `if (typeof window.${cap.cdn.global} === 'undefined') { fail('Capability "${cap.id}" failed to load: window.${cap.cdn.global} is undefined (CDN script may have failed).'); return; }`,
+          `if (!need(${JSON.stringify(cap.cdn.global)})) { fail('Capability "${cap.id}" failed to load: window.${cap.cdn.global} is undefined (CDN script may have failed).'); return; }`,
         )
       }
     } else if (cap.kind === 'cdn-css' && cap.cdn) {
@@ -85,7 +87,7 @@ function buildSrcDoc(
   for (const cap of caps) {
     if (cap.kind === 'snippet-pack' && cap.components) {
       for (const comp of cap.components) {
-        snippetNames.push(comp.name)
+        if (comp.source) snippetNames.push(comp.name)
       }
     }
   }
@@ -98,12 +100,12 @@ function buildSrcDoc(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<script crossorigin="anonymous" src="/vendor/react.production.min.js"></script>
-<script crossorigin="anonymous" src="/vendor/react-dom.production.min.js"></script>
-<script crossorigin="anonymous" src="https://cdn.tailwindcss.com"></script>
+<script src="/vendor/react.production.min.js"></script>
+<script src="/vendor/react-dom.production.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
 ${cdnLinks.join('\n')}
 ${cdnScripts.join('\n')}
-<script crossorigin="anonymous" src="/vendor/babel.min.js"></script>
+<script src="/vendor/babel.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}</style>
 </head>
 <body>
@@ -115,7 +117,14 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     var FID = ${JSON.stringify(frameId)};
     function post(type, extra) { var m = { __mocky: true, frameId: FID, type: type }; if (extra) { for (var k in extra) m[k] = extra[k]; } parent.postMessage(m, '*'); }
     function fail(msg) { post('error', { message: String(msg) }); return false; }
-    window.onerror = function (msg, _src, line, col) { fail(String(msg) + (line ? ' (line ' + line + ', col ' + col + ')' : '')); return false; };
+    function need(name) { if (!window[name]) { return false; } return true; }
+    // Last-resort net for errors that escape try/catch
+    window.onerror = function (msg, src, line, col) { fail(String(msg) + (line ? ' (line ' + line + ', col ' + col + ')' : '')); return false; };
+    window.addEventListener('unhandledrejection', function (e) { fail('Unhandled promise rejection: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
+    // --- Core script load guards ---
+    if (!need('React')) { fail('React failed to load from /vendor/react.production.min.js'); return; }
+    if (!need('ReactDOM')) { fail('ReactDOM failed to load from /vendor/react-dom.production.min.js'); return; }
+    if (!need('Babel')) { fail('Babel failed to load from /vendor/babel.min.js'); return; }
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     ${globalHoists.join('\n    ')}
@@ -143,8 +152,9 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       post('ok');
     } catch (e) {
       // Dev: log the full source so the error line maps to something inspectable
-      try { console.error('[Mocky iframe error]', e && e.message ? e.message : e, '\\n--- Source ---\\n', (preludeSrc || '') + src); } catch (_) {}
-      fail((e && e.message) ? e.message : e);
+      try { console.error('[Mocky iframe error]', e && e.message ? e.message : e, e && e.stack ? e.stack : '', '\\n--- Source ---\\n', (preludeSrc || '') + src); } catch (_) {}
+      var errMsg = e && e.message ? (e.message + '\\n' + (e.stack || '')) : String(e);
+      fail(errMsg);
     }
 
     // --- Interaction bridge ---
