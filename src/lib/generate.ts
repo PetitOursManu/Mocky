@@ -197,8 +197,8 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
   if (hasIcons) {
     lines.push('')
     lines.push('ICONS: use <Icon.Search className="w-5 h-5" /> (or Icon.Home, Icon.Bell, Icon.User, Icon.Settings, etc.).')
-    lines.push('NEVER hand-write an inline <svg><path d="..."/></svg> — long path data gets truncated by the model.')
-    lines.push('If an icon you need is missing from the list, pick the closest one. Do NOT write raw SVG paths.')
+    lines.push('NEVER hand-write an inline <svg><path d="..."/></svg> — long path data gets truncated mid-string and breaks the render.')
+    lines.push('If the icon you need is not in the list above, pick the closest one.')
   }
   return lines.join('\n')
 }

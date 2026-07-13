@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CAPABILITIES } from './registry'
+import { CAPABILITIES, CAPABILITY_MAP } from './registry'
 import { resolveCapabilities } from './select'
 import { buildPrelude, injectedNames } from './prelude'
 
@@ -80,4 +80,20 @@ describe('snippet-pack atomicity', () => {
       })
     })
   }
+})
+
+describe('baseline (icons)', () => {
+  it('buildPrelude with baseline caps contains var Icon =', () => {
+    const iconsCap = resolveCapabilities(['icons'])
+    const prelude = buildPrelude(iconsCap)
+    expect(prelude).toContain('var Icon =')
+    expect(prelude).toContain('Icon.Home')
+    expect(prelude).toContain('Icon.Search')
+    expect(prelude).toContain('Icon.ChevronLeft')
+    expect(prelude).toContain('Icon.MoreHorizontal')
+  })
+
+  it('icons is a baseline capability (always selected)', () => {
+    expect(CAPABILITY_MAP['icons']?.baseline).toBe(true)
+  })
 })

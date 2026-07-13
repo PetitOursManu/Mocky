@@ -33,7 +33,7 @@ export const CAPABILITIES: Capability[] = [
     triggers: { keywords: [], intents: [] },
     snippets: [{ source: IconsSource, exports: [...ICONS_EXPORTS] }],
     components: [
-      { name: 'Icon', signature: '<Icon.Home className="w-5 h-5" />', description: 'Icon namespace with 24 icons: Home, Search, Bell, User, Settings, ChevronRight, ChevronDown, Plus, X, Check, Trash, Edit, Download, Upload, Calendar, Clock, Mail, Filter, Menu, ArrowUp, ArrowDown, TrendingUp, TrendingDown, DollarSign. Usage: Icon.Search, Icon.Bell, etc.', tags: ['icon', 'svg'] },
+      { name: 'Icon', signature: '<Icon.Home className="w-5 h-5" strokeWidth={1.5} />', description: 'Icon namespace with 26 icons: Home, Search, Bell, User, Settings, ChevronLeft, ChevronRight, ChevronDown, Plus, X, Check, Trash, Edit, Download, Upload, Calendar, Clock, Mail, Filter, Menu, MoreHorizontal, ArrowUp, ArrowDown, TrendingUp, TrendingDown, DollarSign. Usage: Icon.Search, Icon.Bell, etc. Accepts className, size, strokeWidth props.', tags: ['icon', 'svg'] },
     ],
   },
   {
