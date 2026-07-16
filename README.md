@@ -23,7 +23,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - ▶️ **Interact mode** — click buttons, hover states and animations run live, right in the grid.
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
-- 🎨 **Design system + style presets** — load/paste a `DESIGN.md` or pick a built-in visual style; it drives every generation.
+- 🎨 **Design system + style presets** — load/paste a `DESIGN.md` or pick a built-in visual style (17 presets); it drives every generation.
 - ✂️ **Screenshot annotations** — snip a region of a screen into the chat as numbered references, attached to (vision) generations.
 - 📦 **Projects, export & history** — multiple projects, per-screen `.tsx` download and `.zip` export.
 - 👤 **Optional accounts + SSO** — sign in to a Mocky instance and your projects + DESIGN.md sync across devices (self-hosted backend, no cloud). With a [Dashy](https://github.com/PetitOursManu/Dashy) instance, users can also **"Sign in with Dashy"** and reuse their projects. Without an account everything stays in your browser's `localStorage`.
@@ -33,7 +33,28 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 
 React 18 · TypeScript · Vite · Tailwind CSS on the front, and an optional tiny **Node + Express** backend (JSON file store, no database, no native deps) for accounts + project sync and the production model proxy.
 
-## Getting started
+## Quick start
+
+### Docker (recommended)
+
+```bash
+git clone https://github.com/vigre2000/Mocky.git
+cd Mocky
+docker compose up -d --build
+```
+
+Mocky is now live on **http://localhost:8787**. Data (accounts, projects, sessions) persists in the `mocky-data` Docker volume.
+
+**Commands:**
+
+| Command | Description |
+|---|---|
+| `docker compose up -d --build` | Build image and start in background |
+| `docker compose logs -f` | Follow logs |
+| `docker compose down` | Stop and remove container (data preserved in volume) |
+| `docker compose down -v` | Stop and **delete all data** (volume removed) |
+
+### Local development
 
 **Frontend only** (projects saved in your browser):
 
@@ -47,40 +68,16 @@ npm run dev
 ```bash
 npm install
 npm run dev:all        # Vite + backend together
-# or, in two terminals: `npm run server` and `npm run dev`
 ```
 
-Then click **Sign in** (top-right) to create an account. Your projects and `DESIGN.md` sync to the instance; your **API key stays in the browser** and is never sent to the server.
-
-**Production:**
+**Production build:**
 
 ```bash
 npm run build          # builds the frontend to dist/
 npm start              # backend serves dist/ + API + model proxy on :8787
 ```
 
-**Docker (easiest):**
-
-```bash
-# Build and run in one command
-docker compose up -d --build
-
-# Mocky is now live on http://localhost:8787
-# Data (accounts, projects) persists in the mocky-data Docker volume.
-```
-
-To stop: `docker compose down`. To update after code changes: `docker compose up -d --build`.
-
-Optional SSO — uncomment the `SSO_*` env vars in `docker-compose.yml` and set your values:
-
-```yaml
-environment:
-  SSO_SHARED_SECRET: "your-shared-secret"
-  SSO_DASHY_URL: "https://dashy.example.com"
-  MOCKY_ORIGIN: "https://mocky.example.com"
-```
-
-**Then configure your provider** in the app:
+Then open the app, go to **Settings**, and configure your provider:
 
 1. **Provider** — Ollama Cloud
 2. **Base URL** — `https://ollama.com` (or your own Ollama host)
@@ -88,18 +85,140 @@ environment:
 4. **Model** — pick from the auto-loaded list (e.g. `gpt-oss:120b`)
 5. **Test connection**, then head to **Studio** and describe a screen.
 
+## Docker deployment
+
+### Architecture
+
+The Docker image is a **multi-stage build** based on `node:20-slim`:
+
+- **Stage 1 (builder)**: installs all dependencies, runs `npm run build` → produces `dist/`
+- **Stage 2 (runtime)**: installs only production dependencies, copies `dist/`, `server/`, and `public/` from the builder. Runs `node server/index.js`.
+
+The Express server serves the built frontend, the `/api` endpoints (auth, data sync), and the `/__provider` proxy (SSRF-guarded reverse proxy to the model provider).
+
+### Environment variables
+
+All environment variables are **optional**. Mocky works out of the box without any configuration — accounts are created via the sign-in screen, and the model provider is configured in the browser's Settings.
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8787` | Port the Express server listens on |
+| `NODE_ENV` | `production` | Set to `production` for secure cookies and optimized serving |
+| `SSO_SHARED_SECRET` | _(unset)_ | HS256 secret shared with Dashy for SSO. Must match Dashy's `SSO_SHARED_SECRET`. When set together with `SSO_DASHY_URL`, enables "Sign in with Dashy" |
+| `SSO_DASHY_URL` | _(unset)_ | Public origin of your Dashy instance (e.g. `https://dashy.example.com`) |
+| `MOCKY_ORIGIN` | _(auto-detected)_ | Mocky's own public origin, used as the SSO token's `aud` claim and to build the callback URL. In production: your Mocky domain. If unset, falls back to the request's `Origin` header or the server host |
+
+**Setting env vars in Docker:**
+
+```yaml
+# docker-compose.yml
+environment:
+  SSO_SHARED_SECRET: "your-shared-secret-here"
+  SSO_DASHY_URL: "https://dashy.example.com"
+  MOCKY_ORIGIN: "https://mocky.example.com"
+```
+
+Or via a `.env` file (see `.env.example`):
+
+```bash
+cp .env.example .env
+# Edit .env, then:
+docker compose up -d --build
+```
+
+### Volumes
+
+| Volume | Mount point | Description |
+|---|---|---|
+| `mocky-data` | `/app/server/data` | JSON file store: user accounts, sessions, and per-user project data. Named volume in docker-compose — persists across container rebuilds |
+
+**Backing up data:**
+
+```bash
+# Export the volume to a tarball
+docker run --rm -v mocky-data:/data -v $(pwd):/backup alpine tar czf /backup/mocky-data-backup.tar.gz -C /data .
+
+# Restore from backup
+docker run --rm -v mocky-data:/data -v $(pwd):/backup alpine tar xzf /backup/mocky-data-backup.tar.gz -C /data
+```
+
+### Ports
+
+| Port | Protocol | Description |
+|---|---|---|
+| `8787` | HTTP | Express server (frontend + API + provider proxy) |
+
+To change the exposed port, edit `ports` in `docker-compose.yml`:
+
+```yaml
+ports:
+  - "3000:8787"    # expose on host port 3000
+```
+
+### Health check
+
+The container includes a built-in health check that hits `GET /api/config` every 30 seconds. Check status with:
+
+```bash
+docker compose ps     # shows health status
+docker inspect --format='{{.State.Health.Status}}' mocky
+```
+
+### Reverse proxy / HTTPS
+
+For production deployments behind a reverse proxy (Nginx, Caddy, Traefik), set `NODE_ENV=production` and `MOCKY_ORIGIN` to your public HTTPS URL. The Express server does not handle TLS itself — use your reverse proxy for that.
+
+Example Caddyfile:
+
+```
+mocky.example.com {
+    reverse_proxy localhost:8787
+}
+```
+
+Example Nginx:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name mocky.example.com;
+
+    location / {
+        proxy_pass http://localhost:8787;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
 ## How generation works
 
-All traffic goes to the provider's `POST /api/chat` through a dev proxy:
+All traffic goes to the provider's `POST /api/chat` through a reverse proxy:
 
 - **New screen** — system prompt (output rules + `DESIGN.md` + format hint) + your description.
 - **Edit a selected screen** — the same rules **plus the full current component code** and a strict "change only what's asked, preserve everything else" instruction. The model returns the complete updated component.
+
+The model's response uses a **sentinel protocol** (`<<<MOCKY>>> ... <<<END>>>`) instead of markdown fences, so partial code can be extracted during streaming without waiting for a closing fence. The request uses `num_ctx: 32768` to avoid truncation on large components.
+
+### Runtime capabilities
+
+Mocky auto-detects what the prompt needs and injects capabilities into the sandboxed preview iframe:
+
+- **Icons** (baseline, always loaded): 26 inline SVG icons under the `Icon.*` namespace. The prompt bans hand-written `<svg><path d="...">` to prevent truncation.
+- **Charts** (conditional): 5 inline-SVG chart components (BarChart, LineChart, DonutChart, Sparkline, ProgressRing). No external chart library.
+- **Motion** (conditional): 12 CSS-only animation components (FadeIn, Stagger, Marquee, Counter, Reveal, ShimmerButton, BentoGrid, BentoCard, BorderBeam, TextReveal, Meteors, AnimatedBeam). No framer-motion.
+- **DaisyUI** (conditional): CDN CSS for semantic component classes.
+- **Lucide** (conditional): CDN script for Lucide icons.
+
+Capabilities are snippet-packs (vendored plain-JS source prepended to the generated code) or CDN CSS links. No CDN `<script>` tags are used for JS (they fail in the sandboxed null-origin iframe).
 
 ## SSO — "Sign in with Dashy"
 
 Mocky can delegate authentication to a [Dashy](https://github.com/PetitOursManu/Dashy) instance, so a user signed in to Dashy can sign in to Mocky with one click and find their projects — without creating a separate Mocky account.
 
-It's a standard **redirect OIDC-like flow**; the shared secret never touches the browser (the JWT is verified server-side). It is **disabled unless both env vars are set**, and it never interferes with the existing username/password login.
+It's a standard **redirect OIDC-like flow**; the shared secret never touches the browser (the JWT is verified server-side). It is **disabled unless both `SSO_SHARED_SECRET` and `SSO_DASHY_URL` are set**, and it never interferes with the existing username/password login.
 
 ### Enable it
 
