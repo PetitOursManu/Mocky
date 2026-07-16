@@ -59,7 +59,28 @@ npm run build          # builds the frontend to dist/
 npm start              # backend serves dist/ + API + model proxy on :8787
 ```
 
-Then open the app, go to **Settings**, and configure your provider:
+**Docker (easiest):**
+
+```bash
+# Build and run in one command
+docker compose up -d --build
+
+# Mocky is now live on http://localhost:8787
+# Data (accounts, projects) persists in the mocky-data Docker volume.
+```
+
+To stop: `docker compose down`. To update after code changes: `docker compose up -d --build`.
+
+Optional SSO — uncomment the `SSO_*` env vars in `docker-compose.yml` and set your values:
+
+```yaml
+environment:
+  SSO_SHARED_SECRET: "your-shared-secret"
+  SSO_DASHY_URL: "https://dashy.example.com"
+  MOCKY_ORIGIN: "https://mocky.example.com"
+```
+
+**Then configure your provider** in the app:
 
 1. **Provider** — Ollama Cloud
 2. **Base URL** — `https://ollama.com` (or your own Ollama host)

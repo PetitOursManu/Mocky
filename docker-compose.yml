@@ -1,0 +1,35 @@
+# Mocky — Docker Compose
+# Usage:
+#   docker compose up -d                    # start Mocky on http://localhost:8787
+#   docker compose up -d --build            # rebuild after code changes
+#   docker compose down                     # stop
+#
+# Data (accounts, sessions, projects) persists in the named volume mocky-data.
+# SSO env vars are optional — uncomment and set them to enable "Sign in with Dashy".
+
+services:
+  mocky:
+    build: .
+    image: mocky:latest
+    container_name: mocky
+    ports:
+      - "8787:8787"
+    volumes:
+      - mocky-data:/app/server/data
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      # --- SSO (optional) ---
+      # SSO_SHARED_SECRET: "your-shared-secret-here"
+      # SSO_DASHY_URL: "https://dashy.example.com"
+      # MOCKY_ORIGIN: "https://mocky.example.com"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/api/config').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  mocky-data:
