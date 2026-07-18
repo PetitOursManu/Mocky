@@ -39,16 +39,6 @@ export const CAPABILITIES: Capability[] = [
     },
   },
   {
-    id: 'lucide',
-    kind: 'cdn-script',
-    cdn: { url: 'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js', global: 'lucide' },
-    globals: ['lucide', 'createIcons'],
-    triggers: {
-      keywords: ['icon', 'icons', 'lucide', 'pictogram'],
-      intents: ['icons'],
-    },
-  },
-  {
     id: 'charts',
     kind: 'snippet-pack',
     triggers: {

@@ -16,9 +16,10 @@ describe('selectCapabilities', () => {
     expect(result).toContain('charts')
   })
 
-  it('selects lucide when prompt mentions icons', () => {
-    const result = selectCapabilities('A settings page with icons')
-    expect(result).toContain('lucide')
+  it('does not add a CDN script for an icons prompt (icons come from the baseline pack)', () => {
+    // Icons are served by the baseline inline-SVG `icons` pack, so an icons
+    // prompt must not pull in any extra (e.g. CDN) capability.
+    expect(selectCapabilities('A settings page with icons')).toEqual(['icons'])
   })
 
   it('selects daisyui when prompt mentions daisy', () => {
@@ -40,7 +41,7 @@ describe('selectCapabilities', () => {
     const result = selectCapabilities('An animated dashboard with charts and icons')
     expect(result).toContain('motion')
     expect(result).toContain('charts')
-    expect(result).toContain('lucide')
+    expect(result).toContain('icons')
   })
 
   it('reads keywords from design markdown', () => {

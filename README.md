@@ -211,9 +211,8 @@ Mocky auto-detects what the prompt needs and injects capabilities into the sandb
 - **Charts** (conditional): 5 inline-SVG chart components (BarChart, LineChart, DonutChart, Sparkline, ProgressRing). No external chart library.
 - **Motion** (conditional): 12 CSS-only animation components (FadeIn, Stagger, Marquee, Counter, Reveal, ShimmerButton, BentoGrid, BentoCard, BorderBeam, TextReveal, Meteors, AnimatedBeam). No framer-motion.
 - **DaisyUI** (conditional): CDN CSS for semantic component classes.
-- **Lucide** (conditional): CDN script for Lucide icons.
 
-Capabilities are snippet-packs (vendored plain-JS source prepended to the generated code) or CDN CSS links. No CDN `<script>` tags are used for JS (they fail in the sandboxed null-origin iframe).
+Capabilities are snippet-packs (vendored plain-JS source prepended to the generated code) or CDN CSS links. All JS is vendored — the only thing that may come from a CDN is CSS. There is no external JS `<script>` capability: an unreliable CDN would gate otherwise-valid previews behind a network fetch, so icons/charts/motion are all inline.
 
 ## SSO — "Sign in with Dashy"
 
