@@ -15,6 +15,7 @@ STRICT OUTPUT RULES:
 - Define exactly ONE top-level component named App, and end the file with: export default App
 - Style everything with Tailwind utility classes only. No external CSS files, no styled-components, no third-party UI/icon libraries.
 - Do not fetch from the network and do not use <img> with external URLs. Use inline SVG, emoji, or solid-color placeholder divs instead.
+- A JSX tag name must be a bare identifier (<Card />) or a dot path (<Icon.Home />). NEVER put bracket access, a call, or any other expression in the tag position: <Icon[item.icon] />, <icons[name] />, <getIcon() /> are all SYNTAX ERRORS. To pick a component dynamically, first assign it to a Capitalized variable (JSX treats lowercase names as HTML tags), then render that variable — e.g. const Ico = Icon[item.icon]; return <Ico className="w-6 h-6" />. Equivalently, use React.createElement(Icon[item.icon], { className: 'w-6 h-6' }).
 
 SYNTAX VERIFICATION (CRITICAL):
 - Before sending your response, mentally re-read your entire code and verify it is syntactically valid JSX/JavaScript.
