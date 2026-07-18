@@ -190,9 +190,11 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     ...items,
   ]
   if (hasCharts) {
+    const chartCap = caps.find((c) => c.id === 'charts')
+    const chartNames = chartCap?.components?.map((c) => c.name).join(', ') || ''
     lines.push('')
     lines.push('IMPORTANT: Recharts is NOT available. Never write Recharts.xxx or import any chart library.')
-    lines.push('Use the chart components listed above (BarChart, LineChart, DonutChart, Sparkline, ProgressRing).')
+    lines.push('Use the chart components listed above (' + chartNames + ').')
   }
   if (hasIcons) {
     lines.push('')
@@ -202,8 +204,10 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
   }
   const hasMotion = caps.some((c) => c.id === 'motion')
   if (hasMotion) {
+    const motionCap = caps.find((c) => c.id === 'motion')
+    const motionNames = motionCap?.components?.map((c) => c.name).join(', ') || ''
     lines.push('')
-    lines.push('ANIMATION: use <FadeIn>, <Reveal direction="up">, <Stagger>, <Marquee>, <Counter to={1234} />, <Shimmer>.')
+    lines.push('ANIMATION: use the components listed above (' + motionNames + ').')
     lines.push('framer-motion is NOT available — never write <motion.div> or import any animation library.')
   }
   return lines.join('\n')

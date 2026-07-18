@@ -13,7 +13,7 @@ import { buildPrelude, injectedNames } from './prelude'
 describe('snippet-pack atomicity', () => {
   const snippetPacks = CAPABILITIES.filter((c) => c.kind === 'snippet-pack')
 
-  it('there are at least 2 snippet-packs (charts + magicui)', () => {
+  it('there are at least 2 snippet-packs (charts + motion)', () => {
     expect(snippetPacks.length).toBeGreaterThanOrEqual(2)
   })
 
@@ -29,13 +29,13 @@ describe('snippet-pack atomicity', () => {
         expect(myPack!.components).toBeDefined()
       })
 
-      it('every name in exports appears in the source string', () => {
+      it('every name in exports is defined in the source as function or var', () => {
         for (const snippet of myPack!.snippets!) {
           for (const name of snippet.exports) {
             expect(
-              snippet.source.includes(name),
-              `"${name}" is in exports but not found in the source string`,
-            ).toBe(true)
+              snippet.source,
+              `"${name}" is in exports but not defined in source`,
+            ).toMatch(new RegExp(`(function|var)\\s+${name.replace('.', '\\.')}\\b`))
           }
         }
       })

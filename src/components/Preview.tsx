@@ -139,9 +139,8 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       var combined = preludeSrc ? (preludeSrc + '\\n' + src) : src;
       var out = Babel.transform(combined, { presets: [['react', { runtime: 'classic' }]] }).code;
       var scr = document.createElement('script');
-      scr.textContent = out + ';ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));';
+      scr.textContent = out + '\\n;try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));post("ok");}catch(re){fail((re&&re.message?re.message:String(re))+"\\n"+(re&&re.stack?re.stack:""));}';
       document.body.appendChild(scr);
-      post('ok');
     } catch (e) {
       // Dev: log the full source so the error line maps to something inspectable.
       // Only log when NOT generating — during streaming, transient errors from
