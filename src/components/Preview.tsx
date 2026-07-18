@@ -141,7 +141,13 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       // Execute the compiled JS via a Blob URL. This avoids DOM-insertion
       // quirks (textContent) and gives real error locations. Blob URLs are
       // same-origin to the iframe's null origin — no CORS needed (invariant 2).
-      var renderCode = out + '\\n;try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));post("ok");}catch(re){var line=(re&&re.lineNumber)||0;var msg=(re&&re.message?re.message:String(re))+"\\n"+(re&&re.stack?re.stack:"");if(line&&out){var ls=out.split("\\n");if(ls[line-1])msg+="\\n--- line "+line+" ---\\n"+ls[line-1].slice(0,120);}fail(msg);}';
+      //
+      // The blob runs as a separate <script> in the iframe's GLOBAL scope, so it
+      // cannot see post/fail/out (which live in this IIFE closure). Expose them
+      // on window under mocky-namespaced names so the render wrapper below can
+      // report success ("ok") and runtime errors from inside the blob.
+      window.__mockyPost = post; window.__mockyFail = fail; window.__mockyOut = out;
+      var renderCode = out + '\\n;try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));window.__mockyPost("ok");}catch(re){var line=(re&&re.lineNumber)||0;var msg=(re&&re.message?re.message:String(re))+"\\\\n"+(re&&re.stack?re.stack:"");var o=window.__mockyOut||"";if(line&&o){var ls=o.split("\\\\n");if(ls[line-1])msg+="\\\\n--- line "+line+" ---\\\\n"+ls[line-1].slice(0,120);}window.__mockyFail(msg);}';
       var blob = new Blob([renderCode], { type: 'text/javascript' });
       var blobUrl = URL.createObjectURL(blob);
       var scr = document.createElement('script');
