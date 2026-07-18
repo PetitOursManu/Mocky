@@ -15,10 +15,12 @@ export interface DemoLink {
 }
 
 /**
- * Builds a self-contained HTML document for the sandboxed iframe. The JSX is
- * compiled once in the parent (see compileJsx) and injected as plain JS, so
- * the iframe no longer ships Babel (~3 MB). React/ReactDOM are served locally
- * (public/vendor) to avoid a CDN compromise reaching the iframe.
+ * Builds a self-contained HTML document for the sandboxed iframe. React,
+ * ReactDOM and Babel are all served locally from public/vendor/ (never a CDN),
+ * so a CDN compromise can't reach the iframe and previews work offline. The JSX
+ * is compiled INSIDE the iframe by that vendored Babel (see below). The only
+ * thing loaded from a CDN is Tailwind's Play build (cdn.tailwindcss.com), which
+ * does its JIT compilation in-browser and has no local equivalent.
  *
  * The iframe installs a small "interaction bridge" that talks to the parent
  * over postMessage:
@@ -252,7 +254,7 @@ export default function Preview({
   onError?: (error: string) => void
   /** When true, the model is still streaming code. Shows a "Generating…" overlay and hides errors. */
   generating?: boolean
-  /** Capability IDs to enable in the preview iframe (e.g. ['motion', 'magicui']). */
+  /** Capability IDs to enable in the preview iframe (e.g. ['motion', 'charts']). */
   caps?: string[]
 }) {
   const [error, setError] = useState<string | null>(null)

@@ -26,7 +26,7 @@ export interface Screen {
   createdAt: number
   /** Previous code before the last edit — used for "revert" if the new version has errors. */
   previousCode?: string
-  /** Selected capability IDs (e.g. ['motion', 'magicui']) persisted for reload/edit. */
+  /** Selected capability IDs (e.g. ['motion', 'charts']) persisted for reload/edit. */
   caps?: string[]
   /** Position on the infinite canvas (canvas coordinates). */
   x: number

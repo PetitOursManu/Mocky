@@ -38,7 +38,7 @@ React 18 · TypeScript · Vite · Tailwind CSS on the front, and an optional tin
 ### Docker (recommended)
 
 ```bash
-git clone https://github.com/vigre2000/Mocky.git
+git clone https://github.com/PetitOursManu/Mocky.git
 cd Mocky
 docker compose up -d --build
 ```
