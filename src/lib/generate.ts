@@ -309,6 +309,37 @@ const SENTINEL_OPEN = '<<<MOCKY>>>'
 const SENTINEL_CLOSE = '<<<END>>>'
 
 /**
+ * Sanitize source code to remove characters that Babel tolerates but the
+ * browser's JS parser rejects when the compiled script is inserted via a
+ * Blob URL or script.textContent. The usual culprits:
+ *
+ * - U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR): valid in JS
+ *   string literals per ES2018+ but NOT in the script body — the browser
+ *   treats them as line terminators and throws "Invalid or unexpected token".
+ * - U+FEFF (BOM): invisible, breaks the parser at the start of a line.
+ * - C0 control characters (U+0000–U+001F) except \t \n \r.
+ * - Lone (unpaired) surrogates (U+D800–U+DFFF).
+ *
+ * Also normalizes \r\n and \r to \n.
+ */
+export function sanitizeSource(code: string): string {
+  return code
+    // Normalize line endings
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Replace U+2028 and U+2029 with \n
+    .replace(/\u2028/g, '\n')
+    .replace(/\u2029/g, '\n')
+    // Strip BOM anywhere
+    .replace(/\uFEFF/g, '')
+    // Strip C0 control chars except \t (\x09), \n (\x0A), \r (\x0D)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    // Strip lone (unpaired) surrogates
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+}
+
+/**
  * Extract the component code from the model's response.
  *
  * Uses a sentinel protocol: the model emits <<<MOCKY>>> ...code... <<<END>>>.
@@ -330,16 +361,12 @@ export function extractCode(content: string, opts?: { streaming?: boolean }): st
     const bodyStart = openIdx + SENTINEL_OPEN.length
     const closeIdx = content.indexOf(SENTINEL_CLOSE, bodyStart)
     if (closeIdx >= 0) {
-      // Both sentinels present — extract the body between them.
-      return content.slice(bodyStart, closeIdx).trim()
+      return sanitizeSource(content.slice(bodyStart, closeIdx).trim())
     }
     if (streaming) {
-      // Opening sentinel found but no closing one yet — return the partial body.
-      return content.slice(bodyStart).trim()
+      return sanitizeSource(content.slice(bodyStart).trim())
     }
-    // Non-streaming and no close sentinel — treat the body after open as code.
-    // (The model may have forgotten the close sentinel; still try to use the code.)
-    return content.slice(bodyStart).trim()
+    return sanitizeSource(content.slice(bodyStart).trim())
   }
 
   // --- Legacy fenced code block (backward compat) ---
@@ -350,18 +377,17 @@ export function extractCode(content: string, opts?: { streaming?: boolean }): st
     if (m[1].length > best.length) best = m[1]
   }
   if (best) {
-    return best
+    return sanitizeSource(best
       .replace(/^\s*```[a-zA-Z0-9]*\s*\n?/m, '')
       .replace(/\n?\s*```\s*$/m, '')
-      .trim()
+      .trim())
   }
 
   // --- Raw fallback (no sentinels, no fences) ---
-  const cleaned = content.trim()
-  return cleaned
+  return sanitizeSource(content.trim()
     .replace(/^\s*```[a-zA-Z0-9]*\s*\n?/m, '')
     .replace(/\n?\s*```\s*$/m, '')
-    .trim()
+    .trim())
 }
 
 /** Find the identifier of the component to mount in the preview. */

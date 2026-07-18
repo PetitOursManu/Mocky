@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractCode, toPreviewModule } from './generate'
+import { extractCode, toPreviewModule, sanitizeSource } from './generate'
 
 describe('extractCode', () => {
   it('extracts code between <<<MOCKY>>> and <<<END>>> sentinels', () => {
@@ -128,5 +128,60 @@ describe('toPreviewModule', () => {
   it('leaves code without imports unchanged (except exports)', () => {
     const code = `const App = () => {\n  const [x, setX] = useState(0);\n  return null;\n}`
     expect(toPreviewModule(code)).toBe(`const App = () => {\n  const [x, setX] = useState(0);\n  return null;\n}`)
+  })
+})
+
+describe('sanitizeSource', () => {
+  it('replaces U+2028 (LINE SEPARATOR) with \\n', () => {
+    const input = 'const x = 1;\u2028const y = 2;'
+    expect(sanitizeSource(input)).toBe('const x = 1;\nconst y = 2;')
+  })
+
+  it('replaces U+2029 (PARAGRAPH SEPARATOR) with \\n', () => {
+    const input = 'const x = 1;\u2029const y = 2;'
+    expect(sanitizeSource(input)).toBe('const x = 1;\nconst y = 2;')
+  })
+
+  it('strips U+FEFF (BOM) anywhere', () => {
+    const input = '\uFEFFconst x\uFEFF = 1;'
+    expect(sanitizeSource(input)).toBe('const x = 1;')
+  })
+
+  it('strips C0 control chars except \\t \\n \\r', () => {
+    const input = 'const\x00x\x01=\x02 1;\x0B\x0C'
+    expect(sanitizeSource(input)).toBe('constx= 1;')
+  })
+
+  it('preserves \\t \\n \\r', () => {
+    const input = 'const\tx = 1;\nconst y = 2;\r\n'
+    expect(sanitizeSource(input)).toBe('const\tx = 1;\nconst y = 2;\n')
+  })
+
+  it('strips lone (unpaired) surrogates', () => {
+    const input = 'const x = \uD800; const y = \uDC00;'
+    const result = sanitizeSource(input)
+    expect(result).not.toContain('\uD800')
+    expect(result).not.toContain('\uDC00')
+  })
+
+  it('preserves valid surrogate pairs (emoji)', () => {
+    const input = 'const emoji = \uD83D\uDE00;'
+    expect(sanitizeSource(input)).toBe('const emoji = \uD83D\uDE00;')
+  })
+
+  it('normalizes \\r\\n and \\r to \\n', () => {
+    expect(sanitizeSource('a\r\nb\rc')).toBe('a\nb\nc')
+  })
+
+  it('leaves clean code unchanged', () => {
+    const input = 'const App = () => {\n  return React.createElement("div", null, "hello");\n};'
+    expect(sanitizeSource(input)).toBe(input)
+  })
+
+  it('handles a string literal containing U+2028', () => {
+    const input = 'const s = "hello\u2028world";'
+    // U+2028 inside a string literal is replaced with \n — Babel tolerates it
+    // but the browser's script parser treats it as a line terminator.
+    expect(sanitizeSource(input)).toBe('const s = "hello\nworld";')
   })
 })

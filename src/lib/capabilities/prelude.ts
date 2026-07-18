@@ -1,5 +1,6 @@
 import type { Capability } from './types'
 import { cnSource } from './snippets/cn'
+import { sanitizeSource } from '../generate'
 
 /**
  * Builds the prelude source string that is prepended to the generated code
@@ -9,6 +10,7 @@ import { cnSource } from './snippets/cn'
  *
  * Snippet-packs are ATOMIC: when a pack is selected, ALL of its snippet
  * sources are injected — never a subset, never filtered per-component.
+ * Every source is sanitized to strip invisible/invalid characters.
  */
 export function buildPrelude(caps: Capability[]): string {
   const parts: string[] = []
@@ -17,7 +19,7 @@ export function buildPrelude(caps: Capability[]): string {
   const hasSnippets = caps.some((c) => c.kind === 'snippet-pack')
   if (hasSnippets) {
     parts.push('// --- cn() helper ---')
-    parts.push(cnSource)
+    parts.push(sanitizeSource(cnSource))
   }
 
   // Inject ALL snippet sources from each selected snippet-pack.
@@ -27,7 +29,7 @@ export function buildPrelude(caps: Capability[]): string {
     const allExports = cap.snippets.flatMap((s) => s.exports).join(', ')
     parts.push(`// --- ${allExports} (from ${cap.id}) ---`)
     for (const snippet of cap.snippets) {
-      parts.push(snippet.source)
+      parts.push(sanitizeSource(snippet.source))
     }
   }
 

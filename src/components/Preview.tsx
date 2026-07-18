@@ -138,8 +138,16 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       if (preEl) preludeSrc = decodeB64('mocky-prelude');
       var combined = preludeSrc ? (preludeSrc + '\\n' + src) : src;
       var out = Babel.transform(combined, { presets: [['react', { runtime: 'classic' }]] }).code;
+      // Execute the compiled JS via a Blob URL. This avoids DOM-insertion
+      // quirks (textContent) and gives real error locations. Blob URLs are
+      // same-origin to the iframe's null origin — no CORS needed (invariant 2).
+      var renderCode = out + '\\n;try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));post("ok");}catch(re){var line=(re&&re.lineNumber)||0;var msg=(re&&re.message?re.message:String(re))+"\\n"+(re&&re.stack?re.stack:"");if(line&&out){var ls=out.split("\\n");if(ls[line-1])msg+="\\n--- line "+line+" ---\\n"+ls[line-1].slice(0,120);}fail(msg);}';
+      var blob = new Blob([renderCode], { type: 'text/javascript' });
+      var blobUrl = URL.createObjectURL(blob);
       var scr = document.createElement('script');
-      scr.textContent = out + '\\n;try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));post("ok");}catch(re){fail((re&&re.message?re.message:String(re))+"\\n"+(re&&re.stack?re.stack:""));}';
+      scr.src = blobUrl;
+      scr.onload = function() { URL.revokeObjectURL(blobUrl); };
+      scr.onerror = function() { URL.revokeObjectURL(blobUrl); fail('Failed to execute compiled module (blob URL script error)'); };
       document.body.appendChild(scr);
     } catch (e) {
       // Dev: log the full source so the error line maps to something inspectable.
