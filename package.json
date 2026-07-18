@@ -11,7 +11,8 @@
     "start": "node server/index.js",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke": "vitest run registry"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

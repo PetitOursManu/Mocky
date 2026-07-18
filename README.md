@@ -6,6 +6,10 @@
 
 <p align="center">A self-hosted, chat-to-UI generator — describe a screen in natural language and get a real React + Tailwind component, live, on an infinite canvas.</p>
 
+<p align="center">
+  <a href="https://github.com/PetitOursManu/Mocky/actions/workflows/ci.yml"><img src="https://github.com/PetitOursManu/Mocky/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+</p>
+
 ---
 
 Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, built around two ideas:

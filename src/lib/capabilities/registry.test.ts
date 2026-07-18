@@ -59,15 +59,17 @@ describe('registry invariants', () => {
     expect(iconExporters).toEqual(['icons'])
   })
 
-  // The whole vendored prelude (every snippet-pack concatenated) must be valid
-  // JSX that Babel can compile — otherwise a generation that pulls several packs
-  // would fail to render even before the model's own code runs. compileJsx is
-  // the same compile path capture.ts uses.
-  it('the concatenated prelude of ALL snippet-packs compiles', async () => {
-    const allPackIds = CAPABILITIES
-      .filter((c) => c.kind === 'snippet-pack')
-      .map((c) => c.id)
-    const prelude = buildPrelude(resolveCapabilities(allPackIds))
+  // Every capability combination a real generation can pick must produce a
+  // prelude that is valid JSX Babel can compile — otherwise the screen fails to
+  // render before the model's own code even runs. compileJsx is the same
+  // compile path capture.ts uses. This is what `npm run smoke` exercises.
+  it.each([
+    ['baseline', ['icons']],
+    ['+charts', ['icons', 'charts']],
+    ['+motion', ['icons', 'motion']],
+    ['all', ['icons', 'charts', 'motion']],
+  ] as const)('prelude compiles for combo: %s', async (_label, ids) => {
+    const prelude = buildPrelude(resolveCapabilities([...ids]))
     expect(prelude.length).toBeGreaterThan(0)
     await expect(compileJsx(prelude)).resolves.toBeTypeOf('string')
   })
