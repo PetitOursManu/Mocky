@@ -103,6 +103,7 @@ All environment variables are **optional**. Mocky works out of the box without a
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `8787` | Port the Express server listens on |
+| `MOCKY_PORT` | _(unset)_ | Overrides `PORT` for the backend. Useful in dev: a tool that injects `PORT` to configure Vite won't push the backend onto Vite's port. Leave unset in production and use `PORT` |
 | `NODE_ENV` | `production` | Set to `production` for secure cookies and optimized serving |
 | `SSO_SHARED_SECRET` | _(unset)_ | HS256 secret shared with Dashy for SSO. Must match Dashy's `SSO_SHARED_SECRET`. When set together with `SSO_DASHY_URL`, enables "Sign in with Dashy" |
 | `SSO_DASHY_URL` | _(unset)_ | Public origin of your Dashy instance (e.g. `https://dashy.example.com`) |
