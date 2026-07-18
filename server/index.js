@@ -473,5 +473,8 @@ if (fs.existsSync(dist)) {
   })
 }
 
-const PORT = process.env.PORT || 8787
+// MOCKY_PORT wins over the generic PORT so a dev harness that injects PORT (to
+// tell Vite which port to use) can't accidentally push the backend onto the
+// Vite port and collide with it. Production hosts that set PORT still work.
+const PORT = process.env.MOCKY_PORT || process.env.PORT || 8787
 app.listen(PORT, () => console.log(`Mocky backend on http://localhost:${PORT}`))
