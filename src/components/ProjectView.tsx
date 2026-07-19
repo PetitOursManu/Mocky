@@ -6,6 +6,7 @@ import { deriveName, newId, type Hotspot, type Project, type Screen } from '../l
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
+import { planScreen, planToPromptSection } from '../lib/plan'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
 import PresetPicker from './PresetPicker'
@@ -44,6 +45,7 @@ export default function ProjectView({
 }) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
+  const [phase, setPhase] = useState<'planning' | 'generating' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -189,11 +191,30 @@ export default function ProjectView({
         setPrompt('')
         setAnnotations([])
       } else {
-        // Create a new screen using the selected format preset. Add it
-        // immediately with empty code, then stream the code in live.
+        // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
         const extraSystem = joinSystem([designPreamble, preset.hint])
-        const capIds = selectCapabilities(text, designMd)
+
+        // Deterministic shortlist first — this is the guaranteed fallback.
+        const shortlist = selectCapabilities(text, designMd)
+        // Optional planner pass. It runs first (so its capability choice and
+        // structure guide generation), but can NEVER block: on failure/timeout
+        // it returns null and we use the shortlist unchanged.
+        let capIds = shortlist
+        let planSection: string | undefined
+        if (settings.usePlanner) {
+          setPhase('planning')
+          const plan = await planScreen(
+            settings, text, shortlist,
+            { design: designMd, presetHint: preset.hint },
+            ac.signal,
+          )
+          if (plan) {
+            capIds = plan.capabilities
+            planSection = planToPromptSection(plan)
+          }
+        }
+        setPhase('generating')
         const caps = resolveCapabilities(capIds)
         const screenId = newId()
         onAddScreen({
@@ -216,7 +237,7 @@ export default function ProjectView({
         const result = await generateComponent(
           settings, text, extraSystem, images, ac.signal,
           (partial) => onUpdateScreen(screenId, { code: partial }),
-          caps,
+          caps, planSection,
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())
@@ -227,6 +248,7 @@ export default function ProjectView({
     } finally {
       abortRef.current = null
       setBusy(false)
+      setPhase(null)
       setGeneratingIds(new Set())
     }
   }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen])
@@ -544,7 +566,7 @@ export default function ProjectView({
               disabled={busy || !prompt.trim()}
             >
               {busy && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-              {busy ? 'Generating…' : editing ? `Update ${selectedScreens.length}` : 'Generate'}
+              {busy ? (phase === 'planning' ? 'Planning…' : 'Generating…') : editing ? `Update ${selectedScreens.length}` : 'Generate'}
             </button>
             {busy && (
               <button

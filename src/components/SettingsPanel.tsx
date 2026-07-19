@@ -186,6 +186,21 @@ export default function SettingsPanel() {
               />
             </div>
           </Field>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-800/40 p-3">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-indigo-500"
+              checked={settings.usePlanner}
+              onChange={(e) => update('usePlanner', e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium text-slate-200">Use planner (slower, better structure)</span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                A quick pre-generation pass that plans the screen's layout, sections and content before the code is written. Adds a few seconds; falls back automatically if it fails or times out.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="mt-6 flex items-center gap-3">

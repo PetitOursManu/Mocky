@@ -228,10 +228,11 @@ export async function generateComponent(
   signal?: AbortSignal,
   onChunk?: (partialCode: string) => void,
   caps?: Capability[],
+  planSection?: string,
 ): Promise<GeneratedComponent> {
   const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
   const baseSystem = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
-  const system = capsPrompt ? `${baseSystem}\n${capsPrompt}` : baseSystem
+  const system = [baseSystem, capsPrompt, planSection].filter(Boolean).join('\n')
   const content = await chat(
     s,
     [

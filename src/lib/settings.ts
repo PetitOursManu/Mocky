@@ -21,6 +21,8 @@ export interface Settings {
   baseUrl: string
   apiKey: string
   model: string
+  /** Run a cheap planner pass before generating (slower, better structure). */
+  usePlanner: boolean
 }
 
 const STORAGE_KEY = 'mocky.settings.v1'
@@ -32,6 +34,7 @@ export function defaultSettings(): Settings {
     baseUrl: p.defaultBaseUrl,
     apiKey: '',
     model: p.defaultModel,
+    usePlanner: true,
   }
 }
 
