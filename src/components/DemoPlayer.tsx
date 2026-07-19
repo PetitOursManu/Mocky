@@ -87,10 +87,10 @@ export default function DemoPlayer({
             <div className="absolute inset-0">
               {current.device === 'iphone' ? (
                 <DeviceChrome>
-                  <Preview code={current.code} demoLinks={demoLinks} onNavigate={navigate} hideScrollbars radius={SCREEN_RADIUS} />
+                  <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} hideScrollbars radius={SCREEN_RADIUS} />
                 </DeviceChrome>
               ) : (
-                <Preview code={current.code} demoLinks={demoLinks} onNavigate={navigate} />
+                <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} />
               )}
             </div>
             {/* Fallback overlays for legacy links without an element selector */}
