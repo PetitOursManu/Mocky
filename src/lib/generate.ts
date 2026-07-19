@@ -10,6 +10,7 @@ STRICT OUTPUT RULES:
   ...your complete component code...
   <<<END>>>
 - No markdown fences. No prose before the opening sentinel. No prose after the closing sentinel.
+- Output ONLY finished code — no "thinking out loud" or meta commentary inside it. Do NOT write comments like "// I will use…", "// Let's use…", "// Now I'll add…", or notes weighing options. Such comments derail the JSX structure and cause syntax errors. Decide, then write the clean code. A rare one-line comment labelling a section is fine; a running narration is not.
 - Write plain JavaScript with JSX. Do NOT use TypeScript type annotations.
 - Do NOT write any import statements and do NOT use named exports. React and all of its hooks (useState, useEffect, useRef, useMemo, useCallback, etc.) are available as globals — call them directly, e.g. const [open, setOpen] = useState(false).
 - Define exactly ONE top-level component named App, and end the file with: export default App
