@@ -1,5 +1,6 @@
 import type { Screen } from './project'
-import { makeZip, type ZipEntry } from './zip'
+import { makeZip } from './zip'
+import { buildProjectFiles, type ExportOptions } from './export/project'
 
 /** Turn an arbitrary name into a safe PascalCase identifier for a filename. */
 export function pascalCase(input: string): string {
@@ -51,32 +52,17 @@ export function downloadTsx(screen: Screen): void {
   triggerDownload(blob, `${fileBaseFor(screen)}.tsx`)
 }
 
-/** Bundle multiple screens into a .zip (one .tsx each + a README index). */
-export function downloadZip(screens: Screen[], zipName = 'mocky-screens.zip'): void {
-  const used = new Set<string>()
-  const entries: ZipEntry[] = []
-
-  for (const screen of screens) {
-    let base = fileBaseFor(screen)
-    let name = `${base}.tsx`
-    let i = 2
-    while (used.has(name.toLowerCase())) {
-      name = `${base}${i}.tsx`
-      i++
-    }
-    used.add(name.toLowerCase())
-    entries.push({ name, content: tsxFor(screen) })
-  }
-
-  const readme = [
-    '# Mocky export',
-    '',
-    `${screens.length} screen${screens.length === 1 ? '' : 's'}, exported ${new Date().toISOString()}.`,
-    '',
-    ...screens.map((s, idx) => `${idx + 1}. **${entries[idx].name}** — ${s.prompt.replace(/\s+/g, ' ').trim()}`),
-    '',
-  ].join('\n')
-  entries.push({ name: 'README.md', content: readme })
-
-  triggerDownload(makeZip(entries), zipName)
+/**
+ * Export the screens as a RUNNABLE Vite + React + Tailwind project (see
+ * export/project.ts). Async because rewriting each screen to explicit ESM uses
+ * Babel to analyze scope. `zipName` defaults to the project name.
+ */
+export async function downloadZip(
+  screens: Screen[],
+  opts: ExportOptions,
+  zipName?: string,
+): Promise<void> {
+  const files = await buildProjectFiles(screens, opts)
+  const name = (opts.projectName || 'mocky-app').replace(/[^a-zA-Z0-9-_]+/g, '-').toLowerCase() || 'mocky-app'
+  triggerDownload(makeZip(files), zipName ?? `${name}.zip`)
 }

@@ -7,6 +7,8 @@ import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection } from '../lib/plan'
+import { downloadZip } from '../lib/export'
+import type { StackTarget } from '../lib/export/project'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
 import PresetPicker from './PresetPicker'
@@ -55,6 +57,7 @@ export default function ProjectView({
   const [showFrame, setShowFrame] = useState(() => localStorage.getItem(FRAME_PREF_KEY) !== '0')
   const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
+  const [exportMenu, setExportMenu] = useState(false)
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
   const [annotateMode, setAnnotateMode] = useState(false)
@@ -259,6 +262,21 @@ export default function ProjectView({
     setBusy(false)
   }
 
+  async function handleExport(stack: StackTarget) {
+    setExportMenu(false)
+    if (!screens.length) {
+      setError('Add at least one screen before exporting.')
+      return
+    }
+    const design = loadDesign()
+    const md = isDesignActive(design) ? design.markdown : undefined
+    try {
+      await downloadZip(screens, { stack, designMarkdown: md, projectName: project.name })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -452,6 +470,38 @@ export default function ProjectView({
         >
           ▶ Demo
         </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setExportMenu((v) => !v)}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+              exportMenu ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
+            }`}
+            title="Export a runnable Vite + React + Tailwind project"
+          >
+            ⬇ Export
+          </button>
+          {exportMenu && (
+            <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-xl">
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">Runnable project (.zip)</div>
+              {([
+                ['shadcn', 'shadcn-ready', 'Theme tokens from DESIGN.md; npx shadcn add works'],
+                ['plain', 'Plain Tailwind', 'Tailwind + vendored UI components'],
+                ['daisyui', 'daisyUI', 'Tailwind + the daisyUI plugin'],
+              ] as [StackTarget, string, string][]).map(([stack, label, hint]) => (
+                <button
+                  key={stack}
+                  type="button"
+                  onClick={() => handleExport(stack)}
+                  className="block w-full rounded-md px-2.5 py-1.5 text-left text-xs text-slate-200 transition hover:bg-slate-700/60"
+                >
+                  <span className="font-medium">{label}</span>
+                  <span className="block text-[10px] text-slate-500">{hint}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Floating composer */}
