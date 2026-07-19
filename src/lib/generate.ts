@@ -254,6 +254,21 @@ function withImageNote(prompt: string, images?: string[]): string {
   return `I've attached ${images.length} reference screenshot${images.length === 1 ? '' : 's'} (numbered ${refs}). Use them as visual context; the user may refer to them by number.\n\n${prompt}`
 }
 
+/**
+ * Build a system section instructing the model to reproduce the shared
+ * navigation/layout from a pinned "reference" screen, so newly generated
+ * screens in a project stay visually consistent (same nav/header/sidebar).
+ */
+export function buildLayoutReference(referenceCode: string): string {
+  return [
+    'SHARED LAYOUT — the screens of this project share a common navigation/layout. A reference screen is pinned below.',
+    'Reproduce that shared chrome in THIS screen faithfully: the same top nav / sidebar / header / tab bar the reference uses — same items, labels, order, icons, colors and styling. Then build the requested content in the main area.',
+    'Do NOT invent a different navigation, rename its items, or omit it. Only the main content changes to match the request; the shared parts stay consistent. If the request names a destination that exists in the nav, mark it as the active item.',
+    'Reference screen source:',
+    referenceCode.trim(),
+  ].join('\n')
+}
+
 export const EDIT_RULES = `You are EDITING an existing screen, not designing a new one. The single most important rule:
 
 PRESERVE EVERYTHING THAT THE USER DID NOT EXPLICITLY ASK TO CHANGE.

@@ -85,6 +85,8 @@ export default function Canvas({
   onError,
   onRevertScreen,
   generatingIds,
+  referenceScreenId,
+  onPinScreen,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -108,6 +110,10 @@ export default function Canvas({
   onError?: (screenId: string, error: string) => void
   onRevertScreen?: (screenId: string) => void
   generatingIds?: Set<string>
+  /** The screen pinned as the project's shared-layout reference, if any. */
+  referenceScreenId?: string
+  /** Toggle a screen as the shared-layout reference. */
+  onPinScreen?: (id: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
@@ -424,7 +430,12 @@ export default function Canvas({
                     style={{ fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
                   />
                 ) : (
-                  <span className={`truncate ${selected ? 'text-indigo-300' : 'text-slate-400'}`}>{s.name}</span>
+                  <span className={`truncate ${selected ? 'text-indigo-300' : 'text-slate-400'}`}>
+                    {referenceScreenId === s.id && (
+                      <span title="Shared-layout reference for new screens" style={{ marginRight: 3 * inv }}>📌</span>
+                    )}
+                    {s.name}
+                  </span>
                 )}
                 {selected && singleSelected && editingLabelId !== s.id && (
                   <span
@@ -434,6 +445,12 @@ export default function Canvas({
                   >
                     <LabelBtn inv={inv} title="Rename" onClick={() => { setDraftLabel(s.name); setEditingLabelId(s.id) }}>✎</LabelBtn>
                     <LabelBtn inv={inv} title="Download .tsx" onClick={() => downloadTsx(s)}>⬇</LabelBtn>
+                    <LabelBtn
+                      inv={inv}
+                      active={referenceScreenId === s.id}
+                      title={referenceScreenId === s.id ? 'Unpin: stop reusing this layout for new screens' : 'Pin as shared layout: new screens reuse this nav/header'}
+                      onClick={() => onPinScreen?.(s.id)}
+                    >📌</LabelBtn>
                     {s.previousCode && (
                       <LabelBtn inv={inv} title="Revert to previous version" onClick={() => onRevertScreen?.(s.id)}>↺</LabelBtn>
                     )}
@@ -625,19 +642,21 @@ function LabelBtn({
   title,
   inv,
   danger,
+  active,
 }: {
   children: React.ReactNode
   onClick: () => void
   title: string
   inv: number
   danger?: boolean
+  active?: boolean
 }) {
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className={`rounded hover:bg-white/10 ${danger ? 'text-rose-300' : 'text-slate-200'}`}
+      className={`rounded hover:bg-white/10 ${active ? 'bg-amber-400/20 text-amber-300' : danger ? 'text-rose-300' : 'text-slate-200'}`}
       style={{ padding: `${2 * inv}px ${4 * inv}px`, lineHeight: 1, fontSize: `${13 * inv}px` }}
     >
       {children}

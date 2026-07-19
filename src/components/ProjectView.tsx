@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
@@ -36,6 +36,7 @@ export default function ProjectView({
   onOpenSettings,
   onOpenDesign,
   onBack,
+  onSetReference,
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -44,6 +45,7 @@ export default function ProjectView({
   onOpenSettings: () => void
   onOpenDesign: () => void
   onBack: () => void
+  onSetReference: (screenId: string | null) => void
 }) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
@@ -196,7 +198,14 @@ export default function ProjectView({
       } else {
         // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
-        const extraSystem = joinSystem([designPreamble, preset.hint])
+        // Pinned reference screen → reproduce its shared nav/layout in the new
+        // screen (skip if the reference is somehow the empty/only screen).
+        const refScreen = project.referenceScreenId
+          ? screens.find((s) => s.id === project.referenceScreenId)
+          : undefined
+        const referencePreamble =
+          refScreen && refScreen.code.trim() ? buildLayoutReference(refScreen.code) : undefined
+        const extraSystem = joinSystem([designPreamble, referencePreamble, preset.hint])
 
         // Deterministic shortlist first — this is the guaranteed fallback.
         const shortlist = selectCapabilities(text, designMd)
@@ -327,6 +336,8 @@ export default function ProjectView({
             setSelectedIds((ids) => ids.filter((i) => i !== id))
           }
         }}
+        referenceScreenId={project.referenceScreenId}
+        onPinScreen={(id) => onSetReference(project.referenceScreenId === id ? null : id)}
         linkMode={linkMode}
         interactAll={interactAll}
         showFrame={showFrame}

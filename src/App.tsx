@@ -14,7 +14,7 @@ import AdminPanel from './components/AdminPanel'
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin'
 
 export default function App() {
-  const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen } =
+  const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen, setReferenceScreen } =
     useProjects()
   const [route, setRoute] = useState<Route>('home')
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -222,6 +222,7 @@ export default function App() {
             onOpenSettings={() => setRoute('settings')}
             onOpenDesign={() => setRoute('design')}
             onBack={goHome}
+            onSetReference={(sid) => setReferenceScreen(activeProject.id, sid)}
           />
         ) : (
           <div className="px-6 py-16 text-center text-sm text-slate-500">

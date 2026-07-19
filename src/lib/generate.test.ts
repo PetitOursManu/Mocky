@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { extractCode, toPreviewModule, sanitizeSource } from './generate'
+import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference } from './generate'
+
+describe('buildLayoutReference', () => {
+  it('includes the reference code and a reproduce-the-nav instruction', () => {
+    const code = 'function App(){ return <nav>Home Users</nav> }'
+    const section = buildLayoutReference(code)
+    expect(section).toContain(code)
+    expect(section).toContain('SHARED LAYOUT')
+    expect(section.toLowerCase()).toContain('reproduce')
+    expect(section.toLowerCase()).toContain('navigation')
+  })
+  it('trims surrounding whitespace of the reference code', () => {
+    expect(buildLayoutReference('  \n  X  \n ')).toContain('\nX')
+  })
+})
 
 describe('extractCode', () => {
   it('extracts code between <<<MOCKY>>> and <<<END>>> sentinels', () => {

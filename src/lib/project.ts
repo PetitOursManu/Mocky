@@ -49,6 +49,11 @@ export interface Project {
   createdAt: number
   updatedAt: number
   screens: Screen[]
+  /**
+   * A screen pinned as the shared-layout reference. Its code is injected into
+   * every NEW generation so screens keep a consistent nav/header/sidebar.
+   */
+  referenceScreenId?: string
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -234,7 +239,24 @@ export function useProjects() {
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
-          ? { ...p, screens: p.screens.filter((s) => s.id !== screenId), updatedAt: Date.now() }
+          ? {
+              ...p,
+              screens: p.screens.filter((s) => s.id !== screenId),
+              // If the pinned reference screen is deleted, un-pin it.
+              referenceScreenId: p.referenceScreenId === screenId ? undefined : p.referenceScreenId,
+              updatedAt: Date.now(),
+            }
+          : p,
+      ),
+    )
+  }, [])
+
+  /** Pin (or, with null, un-pin) a screen as the project's shared-layout reference. */
+  const setReferenceScreen = useCallback((projectId: string, screenId: string | null) => {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? { ...p, referenceScreenId: screenId || undefined, updatedAt: Date.now() }
           : p,
       ),
     )
@@ -248,5 +270,6 @@ export function useProjects() {
     addScreen,
     updateScreen,
     removeScreen,
+    setReferenceScreen,
   }
 }
