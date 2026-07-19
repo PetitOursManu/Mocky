@@ -26,7 +26,7 @@ export const CAPABILITIES: Capability[] = [
     triggers: { keywords: [], intents: [] },
     snippets: [{ source: IconsSource, exports: [...ICONS_EXPORTS] }],
     components: [
-      { name: 'Icon', signature: '<Icon.Home className="w-5 h-5" strokeWidth={1.5} />', description: 'Icon namespace with 26 icons: Home, Search, Bell, User, Settings, ChevronLeft, ChevronRight, ChevronDown, Plus, X, Check, Trash, Edit, Download, Upload, Calendar, Clock, Mail, Filter, Menu, MoreHorizontal, ArrowUp, ArrowDown, TrendingUp, TrendingDown, DollarSign. Usage: <Icon.Search />, <Icon.Bell />, etc. Accepts className, size, strokeWidth props. For a DYNAMIC icon (e.g. from a list item), you MUST assign it to a Capitalized variable first — const Ico = Icon[item.icon]; <Ico className="w-6 h-6" /> — never <Icon[item.icon] /> (that is invalid JSX).', tags: ['icon', 'svg'] },
+      { name: 'Icon', signature: '<Icon.Home className="w-5 h-5" strokeWidth={1.5} />', description: 'Icon is a PRE-DEFINED global namespace with 33 icons: Home, Search, Bell, User, Settings, ChevronLeft, ChevronRight, ChevronDown, Plus, X, Check, Trash, Edit, Download, Upload, Calendar, Clock, Mail, Filter, Menu, MoreHorizontal, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, TrendingUp, TrendingDown, DollarSign, Eye, EyeOff, Lock, Heart, Star. Usage: <Icon.Search />, <Icon.Bell />, etc. Accepts className, size, strokeWidth props. NEVER declare your own `const Icon`/`var Icon` — it already exists and redeclaring it is a fatal error. For a DYNAMIC icon (e.g. from a list item), assign it to a Capitalized variable first — const Ico = Icon[item.icon] || Icon.MoreHorizontal; <Ico className="w-6 h-6" /> — never <Icon[item.icon] /> (that is invalid JSX).', tags: ['icon', 'svg'] },
     ],
   },
   {
