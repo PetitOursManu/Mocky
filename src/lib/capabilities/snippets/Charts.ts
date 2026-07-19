@@ -6,26 +6,31 @@ export const CHARTS_EXPORTS = ['BarChart', 'LineChart', 'DonutChart', 'Sparkline
 export const ChartsSource = `// --- Charts (inline SVG, no dependencies) ---
 var DEFAULT_COLORS = ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
+// NOTE: the bar/line SVGs use viewBox 0 0 100 100 + preserveAspectRatio:none,
+// which stretches the drawing to the (usually wide) container. That is fine for
+// the bars/line themselves, but would turn dots into ovals and squash text. So
+// markers and axis labels are rendered as NON-distorted HTML positioned in % —
+// the SVG only ever holds shapes that survive stretching.
 function BarChart(props) {
   var data = props.data || [];
   var colors = props.colors || DEFAULT_COLORS;
   var height = props.height || 200;
   var maxVal = Math.max.apply(null, data.map(function(d) { return d.value || 0; })) || 1;
-  var barW = 100 / Math.max(data.length, 1);
-  return React.createElement('div', { className: 'w-full', style: { height: height + 'px' } },
-    React.createElement('svg', { width: '100%', height: '100%', viewBox: '0 0 100 100', preserveAspectRatio: 'none', style: { overflow: 'visible' } },
+  var n = Math.max(data.length, 1);
+  var barW = 100 / n;
+  return React.createElement('div', { className: 'w-full flex flex-col', style: { height: height + 'px', paddingLeft: '6px', paddingRight: '6px' } },
+    React.createElement('div', { className: 'relative flex-1' },
+      React.createElement('svg', { width: '100%', height: '100%', viewBox: '0 0 100 100', preserveAspectRatio: 'none', style: { position: 'absolute', inset: 0 } },
+        data.map(function(d, i) {
+          var h = ((d.value || 0) / maxVal) * 100;
+          var color = d.color || colors[i % colors.length];
+          return React.createElement('rect', { key: i, x: i * barW + barW * 0.15, y: 100 - h, width: barW * 0.7, height: h, fill: color, rx: 0.6, style: { transition: 'all 0.3s ease' } });
+        })
+      )
+    ),
+    React.createElement('div', { className: 'relative', style: { height: '18px', marginTop: '4px' } },
       data.map(function(d, i) {
-        var h = ((d.value || 0) / maxVal) * 90;
-        var color = d.color || colors[i % colors.length];
-        return React.createElement('g', { key: i },
-          React.createElement('rect', {
-            x: i * barW + 1, y: 100 - h, width: barW - 2, height: h,
-            fill: color, rx: 0.5, style: { transition: 'all 0.3s ease' }
-          }),
-          React.createElement('text', {
-            x: i * barW + barW / 2, y: 99, fontSize: '3', textAnchor: 'middle', fill: 'currentColor', opacity: 0.6
-          }, d.label || '')
-        );
+        return React.createElement('span', { key: i, style: { position: 'absolute', left: (i * barW + barW / 2) + '%', transform: 'translateX(-50%)', fontSize: '11px', lineHeight: '16px', opacity: 0.6, color: 'currentColor', whiteSpace: 'nowrap' } }, d.label || '');
       })
     )
   );
@@ -39,21 +44,24 @@ function LineChart(props) {
   var maxVal = Math.max.apply(null, data.map(function(d) { return d.value || 0; })) || 1;
   var minVal = Math.min.apply(null, data.map(function(d) { return d.value || 0; }));
   var range = maxVal - minVal || 1;
-  var pts = data.map(function(d, i) {
+  var coords = data.map(function(d, i) {
     var x = data.length > 1 ? (i / (data.length - 1)) * 100 : 50;
-    var y = 95 - ((d.value - minVal) / range) * 85;
-    return x + ',' + y;
-  }).join(' ');
-  return React.createElement('div', { className: 'w-full', style: { height: height + 'px' } },
-    React.createElement('svg', { width: '100%', height: '100%', viewBox: '0 0 100 100', preserveAspectRatio: 'none' },
-      React.createElement('polyline', { points: pts, fill: 'none', stroke: stroke, strokeWidth: 1.5, strokeLinejoin: 'round', strokeLinecap: 'round', vectorEffect: 'non-scaling-stroke' }),
-      pts.split(' ').map(function(p, i) {
-        var xy = p.split(',');
-        return React.createElement('circle', { key: i, cx: xy[0], cy: xy[1], r: 1.5, fill: stroke });
-      }),
-      data.map(function(d, i) {
-        var x = data.length > 1 ? (i / (data.length - 1)) * 100 : 50;
-        return React.createElement('text', { key: i, x: x, y: 99, fontSize: '3', textAnchor: 'middle', fill: 'currentColor', opacity: 0.6 }, d.label || '');
+    var y = 95 - (((d.value || 0) - minVal) / range) * 90;
+    return { x: x, y: y, label: d.label || '' };
+  });
+  var pts = coords.map(function(c) { return c.x + ',' + c.y; }).join(' ');
+  return React.createElement('div', { className: 'w-full flex flex-col', style: { height: height + 'px', paddingLeft: '6px', paddingRight: '6px' } },
+    React.createElement('div', { className: 'relative flex-1' },
+      React.createElement('svg', { width: '100%', height: '100%', viewBox: '0 0 100 100', preserveAspectRatio: 'none', style: { position: 'absolute', inset: 0 } },
+        React.createElement('polyline', { points: pts, fill: 'none', stroke: stroke, strokeWidth: 2, strokeLinejoin: 'round', strokeLinecap: 'round', vectorEffect: 'non-scaling-stroke' })
+      ),
+      coords.map(function(c, i) {
+        return React.createElement('span', { key: i, style: { position: 'absolute', left: c.x + '%', top: c.y + '%', width: '8px', height: '8px', borderRadius: '50%', background: stroke, transform: 'translate(-50%, -50%)' } });
+      })
+    ),
+    React.createElement('div', { className: 'relative', style: { height: '18px', marginTop: '4px' } },
+      coords.map(function(c, i) {
+        return React.createElement('span', { key: i, style: { position: 'absolute', left: c.x + '%', transform: 'translateX(-50%)', fontSize: '11px', lineHeight: '16px', opacity: 0.6, color: 'currentColor', whiteSpace: 'nowrap' } }, c.label);
       })
     )
   );
