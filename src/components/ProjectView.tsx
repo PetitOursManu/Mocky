@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, type AnimationLevel } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
@@ -365,6 +365,54 @@ export default function ProjectView({
         caps,
       )
       onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capIds })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      setGeneratingIds(new Set())
+    }
+  }
+
+  /**
+   * Layer animations/transitions into a screen at a chosen intensity (Lot B).
+   * Runs an edit pass (EDIT_RULES preserve everything but motion) with the
+   * Motion capability pack unioned in, streams the result live, and saves the
+   * pre-animation code as previousCode so "Revert to previous" undoes it.
+   */
+  async function addAnimations(screenId: string, level: AnimationLevel) {
+    if (busy) return
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError('No model set. Open Settings and configure a model first.')
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setPhase('generating')
+    setGeneratingIds(new Set([screenId]))
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
+    try {
+      const design = loadDesign()
+      const designMd = isDesignActive(design) ? design.markdown : undefined
+      const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
+      const extraSystem = joinSystem([designPreamble, hintForDevice(screen.device)])
+      // Make the Motion pack available on top of whatever the screen already uses.
+      const capIds = Array.from(new Set([...(screen.caps ?? []), 'motion']))
+      const caps = resolveCapabilities(capIds)
+      const oldCode = screen.code
+      const res = await editComponent(
+        settings, buildAnimationInstruction(level), screen.code, extraSystem, undefined, ac.signal,
+        (partial) => onUpdateScreen(screenId, { code: partial }),
+        caps,
+      )
+      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -838,6 +886,23 @@ export default function ProjectView({
                       className="flex-1 rounded-md border border-slate-700 py-1.5 text-base transition hover:bg-slate-700/60"
                     >
                       {ic}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="my-1 border-t border-slate-700/70" />
+                <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-slate-500">Add animations</div>
+                <div className="flex gap-1 px-2 pb-1.5">
+                  {ANIMATION_LEVELS.map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      disabled={busy || !s.code.trim()}
+                      title={`Add ${ANIMATION_LEVEL_LABELS[lvl].toLowerCase()} motion (keeps content & layout; revertable)`}
+                      onClick={() => { close(); addAnimations(s.id, lvl) }}
+                      className="flex-1 rounded-md border border-slate-700 py-1 text-[11px] font-medium transition hover:bg-slate-700/60 disabled:opacity-40"
+                    >
+                      {ANIMATION_LEVEL_LABELS[lvl]}
                     </button>
                   ))}
                 </div>

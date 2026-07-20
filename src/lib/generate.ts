@@ -282,6 +282,59 @@ PRESERVE EVERYTHING THAT THE USER DID NOT EXPLICITLY ASK TO CHANGE.
 - Return the COMPLETE updated component (the whole file, not a diff), keeping the same component name and export.
 - Use the same sentinel format: <<<MOCKY>>> ... <<<END>>>. No prose, no fences.`
 
+/** Animation intensity offered by the "Add animations" screen action (Lot B). */
+export type AnimationLevel = 'subtle' | 'moderate' | 'rich'
+
+export const ANIMATION_LEVELS: AnimationLevel[] = ['subtle', 'moderate', 'rich']
+
+export const ANIMATION_LEVEL_LABELS: Record<AnimationLevel, string> = {
+  subtle: 'Subtle',
+  moderate: 'Moderate',
+  rich: 'Rich',
+}
+
+/**
+ * Build the edit instruction that layers motion into an existing screen.
+ *
+ * This is fed to `editComponent`, so EDIT_RULES still applies: the model must
+ * ADD animation/transition only and keep all content, copy, colors, layout and
+ * structure byte-for-byte. The Motion capability pack (FadeIn, Stagger, Reveal,
+ * Counter, ShimmerButton, …) is made available alongside so the model wraps the
+ * existing markup instead of hand-rolling keyframes. All Motion components
+ * already respect prefers-reduced-motion.
+ */
+export function buildAnimationInstruction(level: AnimationLevel): string {
+  const common = [
+    'Add tasteful animations and transitions to this screen WITHOUT changing any content, copy, colors, layout, sizing, structure, or behaviour. Motion is the ONLY thing you may add.',
+    'Wrap existing elements rather than rewriting them. Prefer the provided motion components (FadeIn, Stagger, Reveal, Counter, ShimmerButton, BorderBeam, Marquee) and plain Tailwind transition/hover utilities (transition, duration-*, ease-*, hover:scale-*, hover:shadow-*). Do NOT add any external library.',
+    'Keep it accessible and never block interaction: entrance effects must settle to a fully visible resting state; nothing should hide content if animations are disabled.',
+  ]
+  const perLevel: Record<AnimationLevel, string[]> = {
+    subtle: [
+      'Level: SUBTLE. Add only gentle polish:',
+      '- Smooth transitions on interactive elements (buttons, cards, links): color, background, shadow and a small hover lift (hover:scale-[1.02] / hover:shadow-lg with transition).',
+      '- One soft entrance (FadeIn) on the main heading or hero block.',
+      '- Nothing looping, no counters, no attention-grabbing effects.',
+    ],
+    moderate: [
+      'Level: MODERATE. Add clear but tasteful motion:',
+      '- Entrance animations on the major sections (FadeIn / Reveal) as they scroll into view.',
+      '- Staggered reveals for lists and card grids (Stagger).',
+      '- Animated number counters (Counter) for prominent stats/metrics if any exist.',
+      '- Hover lift + shadow on cards and smooth transitions on all interactive elements.',
+    ],
+    rich: [
+      'Level: RICH. Add expressive, high-end motion (still tasteful, never overwhelming):',
+      '- Everything from the moderate level: section entrances, staggered lists, animated counters, hover states.',
+      '- Use a ShimmerButton for the single primary call-to-action.',
+      '- Add a BorderBeam or subtle glow accent on one hero/feature card where it fits.',
+      '- Use a Marquee for any logo strip / testimonial row if present.',
+      '- Only use Meteors on an already-dark hero background. Do not overload the page — pick a few focal points.',
+    ],
+  }
+  return [...common, '', ...perLevel[level]].join('\n')
+}
+
 /**
  * Asks the model to modify an existing component and return the complete
  * updated source. Used when one or more screens are selected on the canvas.
