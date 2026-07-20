@@ -86,14 +86,19 @@ function DonutChart(props) {
     acc += len;
   });
   return React.createElement('div', { className: 'flex items-center gap-4' },
-    React.createElement('svg', { width: size, height: size, viewBox: '0 0 100 100', style: { transform: 'rotate(-90deg)' } },
-      segments.map(function(s, i) {
-        return React.createElement('circle', {
-          key: i, cx: 50, cy: 50, r: radius, fill: 'none', stroke: s.color,
-          strokeWidth: thickness / 2, strokeDasharray: s.dash, strokeDashoffset: s.offset
-        });
-      }),
-      React.createElement('text', { x: 50, y: 50, textAnchor: 'middle', dominantBaseline: 'central', fontSize: '10', fill: 'currentColor', style: { transform: 'rotate(90deg)', transformOrigin: '50px 50px' } }, total)
+    // Ring in a relative box; the center total is an HTML overlay so it is
+    // perfectly centered regardless of the SVG's -90deg rotation (a rotated
+    // <text> with transform-origin was misaligned).
+    React.createElement('div', { className: 'relative', style: { width: size, height: size } },
+      React.createElement('svg', { width: size, height: size, viewBox: '0 0 100 100', style: { transform: 'rotate(-90deg)' } },
+        segments.map(function(s, i) {
+          return React.createElement('circle', {
+            key: i, cx: 50, cy: 50, r: radius, fill: 'none', stroke: s.color,
+            strokeWidth: thickness / 2, strokeDasharray: s.dash, strokeDashoffset: s.offset
+          });
+        })
+      ),
+      React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center font-bold', style: { color: 'currentColor', fontSize: Math.round(size * 0.16) } }, total)
     ),
     React.createElement('div', { className: 'flex flex-col gap-1 text-xs' },
       data.map(function(d, i) {

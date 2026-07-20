@@ -199,6 +199,7 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     lines.push('')
     lines.push('IMPORTANT: Recharts is NOT available. Never write Recharts.xxx or import any chart library.')
     lines.push('Use the chart components listed above (' + chartNames + ').')
+    lines.push('DonutChart already renders the total in its center AND a legend beside it — do NOT add your own center label or a second legend, or they overlap.')
   }
   if (hasIcons) {
     lines.push('')
