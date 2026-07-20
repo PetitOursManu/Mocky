@@ -5,11 +5,12 @@ import {
   loadDesign,
   saveDesign,
 } from '../lib/design'
-import { STYLE_PRESETS } from '../lib/styles'
+import { STYLE_PRESETS, presetVariant, type ThemeMode } from '../lib/styles'
 
 export default function DesignPanel() {
   const [design, setDesign] = useState<DesignConfig>(() => loadDesign())
   const [savedFlash, setSavedFlash] = useState(false)
+  const [mode, setMode] = useState<ThemeMode>('auto')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -59,16 +60,37 @@ export default function DesignPanel() {
 
         {/* Built-in visual styles */}
         <div className="mb-4">
-          <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">Style presets ({STYLE_PRESETS.length})</div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Style presets ({STYLE_PRESETS.length})</div>
+            <div className="flex items-center rounded-lg border border-slate-700 bg-slate-900/60 p-0.5 text-xs" title="Preview & apply styles in light or dark mode">
+              {([
+                ['auto', 'Auto'],
+                ['light', '☀ Light'],
+                ['dark', '☾ Dark'],
+              ] as [ThemeMode, string][]).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`rounded-md px-2.5 py-1 font-medium transition ${
+                    mode === m ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STYLE_PRESETS.map((s) => {
-              const isActive = design.markdown.trim() === s.markdown.trim()
-              const p = s.preview
+              const variant = presetVariant(s, mode)
+              const isActive = design.markdown.trim() === variant.markdown.trim()
+              const p = variant.preview
               return (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setDesign((d) => ({ ...d, markdown: s.markdown, enabled: true }))}
+                  onClick={() => setDesign((d) => ({ ...d, markdown: variant.markdown, enabled: true }))}
                   className={`overflow-hidden rounded-xl border p-0 text-left transition ${
                     isActive
                       ? 'border-indigo-500 ring-2 ring-indigo-500/50'

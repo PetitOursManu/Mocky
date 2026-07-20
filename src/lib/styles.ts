@@ -554,3 +554,83 @@ export const STYLE_PRESETS: StylePreset[] = [
 - Popular in dashboards, e-commerce, and dense content layouts.`,
   },
 ]
+
+// --- Light / dark variants -------------------------------------------------
+// Each preset ships in its natural mode. `presetVariant` derives the opposite
+// mode on demand: it swaps the neutral colors (background/surface/text/…) to
+// the other family while KEEPING the accent + component character, and appends
+// a "Theme mode" directive so generation honors it too. Derived variants are
+// sensible starting points, not hand-tuned per style.
+
+export type ThemeMode = 'auto' | 'light' | 'dark'
+
+const DARK_NEUTRALS = { bg: '#0b1020', cardBg: '#131a2e', cardBorder: '#1e293b', text: '#e6e9f0', mutedText: '#94a3b8' }
+const LIGHT_NEUTRALS = { bg: '#ffffff', cardBg: '#f8fafc', cardBorder: '#e2e8f0', text: '#0f172a', mutedText: '#64748b' }
+
+/** Relative luminance (0..1) of a #rgb/#rrggbb color. */
+function luminance(hex: string): number {
+  const h = hex.replace('#', '')
+  const full = (h.length === 3 ? h.split('').map((c) => c + c).join('') : h).slice(0, 6).padEnd(6, '0')
+  const chan = [0, 2, 4].map((i) => {
+    const v = parseInt(full.slice(i, i + 2), 16) / 255
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * chan[0] + 0.7152 * chan[1] + 0.0722 * chan[2]
+}
+
+/** True if a color is dark enough to want light text on it. */
+export function isDarkColor(hex: string): boolean {
+  return luminance(hex) < 0.5
+}
+
+/** A readable foreground (#0f172a on light colors, white on dark). */
+function readableOn(hex: string): string {
+  return luminance(hex) > 0.5 ? '#0f172a' : '#ffffff'
+}
+
+/** Replace the neutral color-token lines in a DESIGN.md; leaves accents intact. */
+function flipMarkdownTokens(md: string, dark: boolean): string {
+  const N = dark ? DARK_NEUTRALS : LIGHT_NEUTRALS
+  const rules: Array<[RegExp, string]> = [
+    [/(^\s*[-*]\s*background\s*:\s*)#[0-9a-fA-F]{3,8}/im, '$1' + N.bg],
+    [/(^\s*[-*]\s*surface\s*:\s*)#[0-9a-fA-F]{3,8}/im, '$1' + N.cardBg],
+    [/(^\s*[-*]\s*text\s*:\s*)#[0-9a-fA-F]{3,8}/im, '$1' + N.text],
+    [/(^\s*[-*]\s*muted text\s*:\s*)#[0-9a-fA-F]{3,8}/im, '$1' + N.mutedText],
+    [/(^\s*[-*]\s*border\s*:\s*)#[0-9a-fA-F]{3,8}/im, '$1' + N.cardBorder],
+  ]
+  let out = md
+  for (const [re, rep] of rules) out = out.replace(re, rep)
+  return out
+}
+
+/**
+ * Return a preset in the requested mode. 'auto' (or the mode a preset already
+ * is) returns it unchanged; otherwise the opposite variant is derived. Never
+ * throws.
+ */
+export function presetVariant(
+  preset: StylePreset,
+  mode: ThemeMode,
+): { preview: StylePreset['preview']; markdown: string } {
+  const naturalDark = isDarkColor(preset.preview.bg)
+  const dark = mode === 'auto' ? naturalDark : mode === 'dark'
+  if (dark === naturalDark) return { preview: preset.preview, markdown: preset.markdown }
+
+  const N = dark ? DARK_NEUTRALS : LIGHT_NEUTRALS
+  const preview: StylePreset['preview'] = {
+    ...preset.preview,
+    bg: N.bg,
+    cardBg: N.cardBg,
+    cardBorder: N.cardBorder,
+    text: N.text,
+    mutedText: N.mutedText,
+    accentText: readableOn(preset.preview.accent),
+  }
+  const word = dark ? 'DARK' : 'LIGHT'
+  const directive =
+    `\n\n## Theme mode\n- Render this design in ${word} mode: ${dark ? 'dark backgrounds, light text' : 'light backgrounds, dark text'}. ` +
+    'Keep the accent color and the component style; only the neutral background/surface/text colors change.'
+  const markdown =
+    flipMarkdownTokens(preset.markdown, dark).replace(/^(#\s.*)$/m, `$1 (${dark ? 'Dark' : 'Light'})`) + directive
+  return { preview, markdown }
+}
