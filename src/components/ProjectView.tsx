@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference } from '../lib/generate'
@@ -7,13 +7,22 @@ import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection } from '../lib/plan'
-import { downloadZip } from '../lib/export'
+import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
 import PresetPicker from './PresetPicker'
 import DemoPlayer from './DemoPlayer'
+import CodeView from './CodeView'
 import { type PickInfo } from './Preview'
+
+/** Fixed viewport formats offered in the screen context menu. */
+type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
+const VIEWPORTS: Record<Exclude<ViewportFormat, 'full'>, { w: number; h: number; device: 'iphone' | 'none' }> = {
+  mobile: { w: 390, h: 844, device: 'iphone' },
+  tablet: { w: 768, h: 1024, device: 'none' },
+  desktop: { w: 1280, h: 1024, device: 'none' },
+}
 
 const FRAME_PREF_KEY = 'mocky.showFrame'
 
@@ -63,6 +72,22 @@ export default function ProjectView({
   const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
+  const [menu, setMenu] = useState<{ screenId: string; x: number; y: number } | null>(null)
+  const [codeScreen, setCodeScreen] = useState<Screen | null>(null)
+  const contentHeights = useRef<Record<string, number>>({})
+
+  // Esc closes the context menu / code viewer.
+  useEffect(() => {
+    if (!menu && !codeScreen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenu(null)
+        setCodeScreen(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menu, codeScreen])
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
   const [annotateMode, setAnnotateMode] = useState(false)
@@ -293,6 +318,64 @@ export default function ProjectView({
     }
   }
 
+  /** Resize a screen to a fixed viewport format, or to fit its content ('full'). */
+  function setFormat(screenId: string, fmt: ViewportFormat) {
+    if (fmt === 'full') {
+      const screen = screens.find((s) => s.id === screenId)
+      const measured = contentHeights.current[screenId]
+      if (screen) onUpdateScreen(screenId, { h: Math.max(400, Math.round(measured || screen.h)) })
+      return
+    }
+    onUpdateScreen(screenId, VIEWPORTS[fmt])
+  }
+
+  /** Re-run generation with the screen's own prompt to get a different variant. */
+  async function regenerate(screenId: string) {
+    if (busy) return
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.prompt.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError('No model set. Open Settings and configure a model first.')
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setPhase('generating')
+    setGeneratingIds(new Set([screenId]))
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
+    try {
+      const design = loadDesign()
+      const designMd = isDesignActive(design) ? design.markdown : undefined
+      const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
+      const refScreen =
+        project.referenceScreenId && project.referenceScreenId !== screenId
+          ? screens.find((s) => s.id === project.referenceScreenId)
+          : undefined
+      const referencePreamble = refScreen && refScreen.code.trim() ? buildLayoutReference(refScreen.code) : undefined
+      const extraSystem = joinSystem([designPreamble, referencePreamble, hintForDevice(screen.device)])
+      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      const caps = resolveCapabilities(capIds)
+      const oldCode = screen.code
+      const result = await generateComponent(
+        settings, screen.prompt, extraSystem, undefined, ac.signal,
+        (partial) => onUpdateScreen(screenId, { code: partial }),
+        caps,
+      )
+      onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capIds })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      setGeneratingIds(new Set())
+    }
+  }
+
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -344,7 +427,10 @@ export default function ProjectView({
           }
         }}
         referenceScreenId={project.referenceScreenId}
-        onPinScreen={(id) => onSetReference(project.referenceScreenId === id ? null : id)}
+        onScreenContextMenu={(id, x, y) => setMenu({ screenId: id, x, y })}
+        onContentHeight={(id, h) => {
+          contentHeights.current[id] = h
+        }}
         linkMode={linkMode}
         interactAll={interactAll}
         showFrame={showFrame}
@@ -358,7 +444,6 @@ export default function ProjectView({
         captureReq={captureReq}
         onCaptureRect={onCaptureRect}
         onError={onScreenError}
-        onRevertScreen={onRevertScreen}
         generatingIds={generatingIds}
       />
 
@@ -697,6 +782,134 @@ export default function ProjectView({
       {demoStartId && (
         <DemoPlayer screens={screens} startId={demoStartId} onExit={() => setDemoStartId(null)} />
       )}
+
+      {/* Per-screen context menu (right-click or ⋯) */}
+      {menu &&
+        (() => {
+          const s = screens.find((x) => x.id === menu.screenId)
+          if (!s) return null
+          const close = () => setMenu(null)
+          const isRef = project.referenceScreenId === s.id
+          return (
+            <>
+              <div
+                className="fixed inset-0 z-50"
+                onClick={close}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  close()
+                }}
+              />
+              <div
+                className="fixed z-50 w-60 overflow-hidden rounded-lg border border-slate-700 bg-slate-900 py-1 text-sm text-slate-200 shadow-2xl"
+                style={{ left: Math.min(menu.x, window.innerWidth - 250), top: Math.min(menu.y, window.innerHeight - 400) }}
+              >
+                <MenuItem icon="🔄" label="Regenerate (new variant)" disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
+                <MenuItem
+                  icon="✎"
+                  label="Rename"
+                  onClick={() => {
+                    close()
+                    const n = window.prompt('Screen name', s.name)
+                    if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
+                  }}
+                />
+                <MenuItem icon="⟨⟩" label="Show code" onClick={() => { close(); setCodeScreen(s) }} />
+                <MenuItem
+                  icon={isRef ? '📌' : '📍'}
+                  label={isRef ? 'Unpin as reference' : 'Pin as layout reference'}
+                  onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
+                />
+                <MenuItem icon="⬇" label="Download .tsx" onClick={() => { close(); downloadTsx(s) }} />
+                {s.previousCode && (
+                  <MenuItem icon="↺" label="Revert to previous" onClick={() => { close(); onRevertScreen(s.id) }} />
+                )}
+                <MenuItem icon="🎨" label="Edit DESIGN.md" onClick={() => { close(); onOpenDesign() }} />
+
+                <div className="my-1 border-t border-slate-700/70" />
+                <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-slate-500">Display format</div>
+                <div className="flex gap-1 px-2 pb-1.5">
+                  {([['mobile', '📱'], ['tablet', '▭'], ['desktop', '🖥'], ['full', '↕']] as [ViewportFormat, string][]).map(([f, ic]) => (
+                    <button
+                      key={f}
+                      type="button"
+                      title={f === 'full' ? 'Full height (fit content)' : f}
+                      onClick={() => { close(); setFormat(s.id, f) }}
+                      className="flex-1 rounded-md border border-slate-700 py-1.5 text-base transition hover:bg-slate-700/60"
+                    >
+                      {ic}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="my-1 border-t border-slate-700/70" />
+                <MenuItem
+                  icon="🗑"
+                  label="Delete screen"
+                  danger
+                  onClick={() => {
+                    close()
+                    if (confirm('Delete this screen?')) {
+                      onRemoveScreen(s.id)
+                      setSelectedIds((ids) => ids.filter((i) => i !== s.id))
+                    }
+                  }}
+                />
+              </div>
+            </>
+          )
+        })()}
+
+      {/* Code viewer modal */}
+      {codeScreen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setCodeScreen(null)}
+        >
+          <div
+            className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-700 px-4 py-2.5">
+              <span className="truncate text-sm font-semibold text-slate-100">{codeScreen.name} — code</span>
+              <button type="button" className="btn-ghost text-sm" onClick={() => setCodeScreen(null)}>
+                Close
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <CodeView code={codeScreen.code} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  danger,
+  disabled,
+}: {
+  icon: string
+  label: string
+  onClick: () => void
+  danger?: boolean
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition disabled:opacity-40 ${
+        danger ? 'text-rose-300 hover:bg-rose-500/10' : 'hover:bg-slate-700/60'
+      }`}
+    >
+      <span className="w-4 shrink-0 text-center text-[13px]">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
   )
 }

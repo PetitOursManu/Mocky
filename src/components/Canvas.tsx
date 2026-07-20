@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MIN_H, MIN_W, slotPosition, type Screen } from '../lib/project'
-import { downloadTsx } from '../lib/export'
 import Preview, { type PickInfo } from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 
@@ -83,10 +82,10 @@ export default function Canvas({
   captureReq,
   onCaptureRect,
   onError,
-  onRevertScreen,
   generatingIds,
   referenceScreenId,
-  onPinScreen,
+  onScreenContextMenu,
+  onContentHeight,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -108,12 +107,13 @@ export default function Canvas({
   captureReq: { screenId: string; id: string; clientRect: { left: number; top: number; width: number; height: number } } | null
   onCaptureRect: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   onError?: (screenId: string, error: string) => void
-  onRevertScreen?: (screenId: string) => void
   generatingIds?: Set<string>
   /** The screen pinned as the project's shared-layout reference, if any. */
   referenceScreenId?: string
-  /** Toggle a screen as the shared-layout reference. */
-  onPinScreen?: (id: string) => void
+  /** Open the per-screen context menu at client coords (right-click or ⋯). */
+  onScreenContextMenu?: (screenId: string, x: number, y: number) => void
+  /** Reports a screen's rendered content height (px) for the "Full height" format. */
+  onContentHeight?: (screenId: string, height: number) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
@@ -403,6 +403,10 @@ export default function Canvas({
                 borderRadius: useFrame ? '13% / 6%' : '1rem',
               }}
               onPointerDown={(e) => onFrameDown(e, s)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                onScreenContextMenu?.(s.id, e.clientX, e.clientY)
+              }}
             >
               {/* Floating name label + selection actions (also the move handle) */}
               <div
@@ -444,16 +448,16 @@ export default function Canvas({
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     <LabelBtn inv={inv} title="Rename" onClick={() => { setDraftLabel(s.name); setEditingLabelId(s.id) }}>✎</LabelBtn>
-                    <LabelBtn inv={inv} title="Download .tsx" onClick={() => downloadTsx(s)}>⬇</LabelBtn>
-                    <LabelBtn
-                      inv={inv}
-                      active={referenceScreenId === s.id}
-                      title={referenceScreenId === s.id ? 'Unpin: stop reusing this layout for new screens' : 'Pin as shared layout: new screens reuse this nav/header'}
-                      onClick={() => onPinScreen?.(s.id)}
-                    >📌</LabelBtn>
-                    {s.previousCode && (
-                      <LabelBtn inv={inv} title="Revert to previous version" onClick={() => onRevertScreen?.(s.id)}>↺</LabelBtn>
-                    )}
+                    <button
+                      type="button"
+                      title="More options (or right-click the screen)"
+                      onClick={(e) => {
+                        const r = e.currentTarget.getBoundingClientRect()
+                        onScreenContextMenu?.(s.id, r.left, r.bottom)
+                      }}
+                      className="rounded text-slate-200 hover:bg-white/10"
+                      style={{ padding: `${2 * inv}px ${5 * inv}px`, lineHeight: 1, fontSize: `${14 * inv}px` }}
+                    >⋯</button>
                     <LabelBtn inv={inv} title="Delete screen" danger onClick={() => onDeleteScreen(s.id)}>🗑</LabelBtn>
                   </span>
                 )}
@@ -477,6 +481,7 @@ export default function Canvas({
                       onError={(err) => onError?.(s.id, err)}
                       generating={generatingIds?.has(s.id)}
                       caps={s.caps}
+                      onContentHeight={(h) => onContentHeight?.(s.id, h)}
                     />
                   </DeviceChrome>
                 ) : (

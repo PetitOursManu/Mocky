@@ -157,7 +157,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       // and posts it to the parent (feeding the error box AND fixComponent). It
       // only ever fires on real errors — valid code mounts and posts "ok"
       // (invariant 5: never blocks valid code).
-      var renderCode = out + '\\n;(function(){function EB(p){React.Component.call(this,p);this.state={f:0};this.__f=0;}EB.prototype=Object.create(React.Component.prototype);EB.getDerivedStateFromError=function(){return {f:1};};EB.prototype.componentDidCatch=function(e,info){this.__f=1;var m=(e&&e.message?e.message:String(e));if(/Minified React error #130/.test(m)){m="Element type is invalid (React #130): a component or icon you rendered is undefined — likely a missing or misspelled name (e.g. an icon not in the Icon set). "+m;}if(info&&info.componentStack){m+=info.componentStack;}window.__mockyFail(m);};EB.prototype.componentDidMount=function(){var self=this;Promise.resolve().then(function(){if(!self.__f){window.__mockyPost("ok");}});};EB.prototype.render=function(){return this.state.f?null:this.props.children;};try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(EB,null,React.createElement(' + ${JSON.stringify(componentName)} + ')));}catch(re){window.__mockyFail(re&&re.message?re.message:String(re));}})();';
+      var renderCode = out + '\\n;(function(){function EB(p){React.Component.call(this,p);this.state={f:0};this.__f=0;}EB.prototype=Object.create(React.Component.prototype);EB.getDerivedStateFromError=function(){return {f:1};};EB.prototype.componentDidCatch=function(e,info){this.__f=1;var m=(e&&e.message?e.message:String(e));if(/Minified React error #130/.test(m)){m="Element type is invalid (React #130): a component or icon you rendered is undefined — likely a missing or misspelled name (e.g. an icon not in the Icon set). "+m;}if(info&&info.componentStack){m+=info.componentStack;}window.__mockyFail(m);};EB.prototype.componentDidMount=function(){var self=this;Promise.resolve().then(function(){if(!self.__f){window.__mockyPost("ok");setTimeout(function(){try{window.__mockyPost("size",{height:Math.ceil(document.documentElement.scrollHeight)});}catch(e){}},80);}});};EB.prototype.render=function(){return this.state.f?null:this.props.children;};try{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(EB,null,React.createElement(' + ${JSON.stringify(componentName)} + ')));}catch(re){window.__mockyFail(re&&re.message?re.message:String(re));}})();';
       var blob = new Blob([renderCode], { type: 'text/javascript' });
       var blobUrl = URL.createObjectURL(blob);
       var scr = document.createElement('script');
@@ -248,6 +248,7 @@ export default function Preview({
   onError,
   generating,
   caps,
+  onContentHeight,
 }: {
   code: string
   pickMode?: boolean
@@ -264,6 +265,8 @@ export default function Preview({
   generating?: boolean
   /** Capability IDs to enable in the preview iframe (e.g. ['motion', 'charts']). */
   caps?: string[]
+  /** Reports the rendered content height (px) — used by the "Full height" format. */
+  onContentHeight?: (height: number) => void
 }) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -276,10 +279,12 @@ export default function Preview({
   const onNavRef = useRef(onNavigate)
   const onCaptureRectRef = useRef(onCaptureRect)
   const onErrorRef = useRef(onError)
+  const onContentHeightRef = useRef(onContentHeight)
   onPickRef.current = onPick
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
   onErrorRef.current = onError
+  onContentHeightRef.current = onContentHeight
 
   // Build the iframe srcDoc from the generated code. We debounce 500ms so
   // rapid streaming chunks don't cause an iframe rebuild on every token. The
@@ -348,6 +353,7 @@ export default function Preview({
         setError(null)
         setReady(true)
       }
+      if (d.type === 'size' && typeof d.height === 'number') onContentHeightRef.current?.(d.height)
       if (d.type === 'picked') onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect })
       if (d.type === 'navigate') onNavRef.current?.(d.target)
     }
