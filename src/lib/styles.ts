@@ -18,6 +18,8 @@ export interface StylePreset {
     accent: string
     accentText: string
     radius: string
+    /** When true, the preview renders frosted (blur) panels over an accent glow. */
+    glass?: boolean
   }
   markdown: string
 }
@@ -150,7 +152,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     name: 'Glassmorphism',
     description: 'Frosted glass over gradients',
     swatches: ['#1e1b4b', '#ffffff', '#818cf8', '#f0abfc'],
-    preview: { bg: 'linear-gradient(135deg, #1e1b4b, #4c1d95)', cardBg: 'rgba(255,255,255,0.1)', cardBorder: 'rgba(255,255,255,0.2)', text: '#ffffff', mutedText: 'rgba(255,255,255,0.7)', accent: '#818cf8', accentText: '#1e1b4b', radius: '16px' },
+    preview: { bg: 'linear-gradient(135deg, #1e1b4b, #4c1d95)', cardBg: 'rgba(255,255,255,0.1)', cardBorder: 'rgba(255,255,255,0.2)', text: '#ffffff', mutedText: 'rgba(255,255,255,0.7)', accent: '#818cf8', accentText: '#1e1b4b', radius: '16px', glass: true },
     markdown: `# Design System — Glassmorphism
 
 ## Color tokens
@@ -633,4 +635,55 @@ export function presetVariant(
   const markdown =
     flipMarkdownTokens(preset.markdown, dark).replace(/^(#\s.*)$/m, `$1 (${dark ? 'Dark' : 'Light'})`) + directive
   return { preview, markdown }
+}
+
+// --- Accent variants ------------------------------------------------------
+// An orthogonal, per-card choice of accent color. Applies on top of the
+// mode-resolved style: swaps the accent in the preview + the "Primary" token in
+// the DESIGN.md. For glassy presets the accent also drives the background glow.
+
+export interface AccentVariant {
+  id: string
+  name: string
+  accent: string
+}
+
+/** Alternative accents offered on every preset card (first = keep original). */
+export const ACCENT_VARIANTS: AccentVariant[] = [
+  { id: 'indigo', name: 'Indigo', accent: '#6366f1' },
+  { id: 'violet', name: 'Violet', accent: '#8b5cf6' },
+  { id: 'cyan', name: 'Cyan', accent: '#06b6d4' },
+  { id: 'emerald', name: 'Emerald', accent: '#10b981' },
+  { id: 'amber', name: 'Amber', accent: '#f59e0b' },
+  { id: 'rose', name: 'Rose', accent: '#f43f5e' },
+]
+
+export function getAccentVariant(id?: string): AccentVariant | undefined {
+  return id ? ACCENT_VARIANTS.find((a) => a.id === id) : undefined
+}
+
+/** Apply an accent variant on top of a mode-resolved {preview, markdown}. */
+function applyAccent(
+  base: { preview: StylePreset['preview']; markdown: string },
+  accent?: AccentVariant,
+): { preview: StylePreset['preview']; markdown: string } {
+  if (!accent) return base
+  const preview = { ...base.preview, accent: accent.accent, accentText: readableOn(accent.accent) }
+  const markdown = base.markdown.replace(
+    /(^\s*[-*]\s*primary\s*:\s*)#[0-9a-fA-F]{3,8}[^\n]*/im,
+    `$1${accent.accent} (${accent.name})`,
+  )
+  return { preview, markdown }
+}
+
+/**
+ * Full resolution: preset + light/dark mode + optional accent variant →
+ * the preview config and the DESIGN.md to apply. Never throws.
+ */
+export function resolveStyle(
+  preset: StylePreset,
+  mode: ThemeMode,
+  accentId?: string,
+): { preview: StylePreset['preview']; markdown: string } {
+  return applyAccent(presetVariant(preset, mode), getAccentVariant(accentId))
 }

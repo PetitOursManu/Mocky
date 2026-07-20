@@ -1,5 +1,34 @@
 import { describe, it, expect } from 'vitest'
-import { STYLE_PRESETS, presetVariant, isDarkColor, type ThemeMode } from './styles'
+import { STYLE_PRESETS, presetVariant, resolveStyle, ACCENT_VARIANTS, isDarkColor, type ThemeMode } from './styles'
+
+describe('resolveStyle (accent variants)', () => {
+  const preset = STYLE_PRESETS[0]
+
+  it('no accent id resolves to the plain mode variant', () => {
+    expect(resolveStyle(preset, 'auto')).toEqual(presetVariant(preset, 'auto'))
+    expect(resolveStyle(preset, 'auto', '')).toEqual(presetVariant(preset, 'auto'))
+  })
+
+  it('an accent id swaps the preview accent and the Primary token', () => {
+    const cyan = ACCENT_VARIANTS.find((a) => a.id === 'cyan')!
+    const r = resolveStyle(preset, 'auto', 'cyan')
+    expect(r.preview.accent).toBe(cyan.accent)
+    expect(r.markdown).toMatch(new RegExp(`Primary:\\s*${cyan.accent}`, 'i'))
+  })
+
+  it('an unknown accent id is a no-op', () => {
+    expect(resolveStyle(preset, 'auto', 'does-not-exist')).toEqual(presetVariant(preset, 'auto'))
+  })
+
+  it('accent + light mode compose (both applied), never throws', () => {
+    for (const p of STYLE_PRESETS) {
+      for (const a of ACCENT_VARIANTS) {
+        expect(() => resolveStyle(p, 'light', a.id)).not.toThrow()
+        expect(resolveStyle(p, 'light', a.id).preview.accent).toBe(a.accent)
+      }
+    }
+  })
+})
 
 describe('presetVariant', () => {
   it("'auto' returns each preset unchanged", () => {
