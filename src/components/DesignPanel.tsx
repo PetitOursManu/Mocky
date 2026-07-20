@@ -12,6 +12,7 @@ export default function DesignPanel() {
   const [savedFlash, setSavedFlash] = useState(false)
   const [mode, setMode] = useState<ThemeMode>('auto')
   const [accentById, setAccentById] = useState<Record<string, string>>({})
+  const [preview, setPreview] = useState<{ preset: StylePreset; accentId: string } | null>(null)
 
   function applyStyle(preset: StylePreset, accentId: string) {
     const r = resolveStyle(preset, mode, accentId)
@@ -99,20 +100,33 @@ export default function DesignPanel() {
                     isActive ? 'border-indigo-500 ring-2 ring-indigo-500/50' : 'border-slate-700 hover:border-slate-500'
                   }`}
                 >
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className="cursor-pointer"
-                    title={`Apply "${s.name}"`}
-                    onClick={() => applyStyle(s, accentId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        applyStyle(s, accentId)
-                      }
-                    }}
-                  >
-                    <PresetMockup p={r.preview} name={s.name} />
+                  <div className="group relative">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="cursor-pointer"
+                      title={`Apply "${s.name}"`}
+                      onClick={() => applyStyle(s, accentId)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          applyStyle(s, accentId)
+                        }
+                      }}
+                    >
+                      <ScaledMockup p={r.preview} name={s.name} />
+                    </div>
+                    <button
+                      type="button"
+                      title="Preview larger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPreview({ preset: s, accentId })
+                      }}
+                      className="absolute right-2 top-2 rounded-md bg-black/45 px-2 py-1 text-xs text-white/90 opacity-0 backdrop-blur transition hover:bg-black/70 group-hover:opacity-100"
+                    >
+                      ⤢ Preview
+                    </button>
                   </div>
 
                   <div className={`px-3 py-2.5 ${isActive ? 'bg-indigo-500/10' : 'bg-slate-800/60'}`}>
@@ -228,6 +242,47 @@ export default function DesignPanel() {
           </div>
         </div>
       </div>
+
+      {/* Larger preview modal */}
+      {preview &&
+        (() => {
+          const s = preview.preset
+          const r = resolveStyle(s, mode, preview.accentId)
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+              onClick={() => setPreview(null)}
+            >
+              <div
+                className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScaledMockup p={r.preview} name={s.name} />
+                <div className="flex items-center justify-between gap-3 border-t border-slate-700 p-4">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-slate-100">{s.name}</div>
+                    <div className="truncate text-xs text-slate-500">{s.description}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button type="button" className="btn-ghost text-sm" onClick={() => setPreview(null)}>
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary text-sm"
+                      onClick={() => {
+                        applyStyle(s, preview.accentId)
+                        setPreview(null)
+                      }}
+                    >
+                      Apply this style
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
     </div>
   )
 }
@@ -242,7 +297,35 @@ function withAlpha(color: string, a: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
 }
 
-/** A realistic mini-dashboard mockup rendered in a preset's colors. */
+/**
+ * Renders PresetMockup (a fixed 460×300 canvas) scaled to fit its container
+ * width. Scaling the whole thing keeps text crisp and proportional at any
+ * size — small in the grid, large in the preview modal.
+ */
+function ScaledMockup({ p, name }: { p: PreviewCfg; name: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setW(el.clientWidth))
+    ro.observe(el)
+    setW(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+  const DW = 460
+  const DH = 300
+  const scale = w ? w / DW : 0.76
+  return (
+    <div ref={ref} style={{ width: '100%', height: DH * scale, overflow: 'hidden' }}>
+      <div style={{ width: DW, height: DH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <PresetMockup p={p} name={name} />
+      </div>
+    </div>
+  )
+}
+
+/** A realistic mini-dashboard mockup on a fixed 460×300 canvas (see ScaledMockup). */
 function PresetMockup({ p, name }: { p: PreviewCfg; name: string }) {
   const glass = !!p.glass
   const bg = glass
@@ -256,63 +339,76 @@ function PresetMockup({ p, name }: { p: PreviewCfg; name: string }) {
     WebkitBackdropFilter: glass ? 'blur(6px)' : undefined,
   }
   return (
-    <div className="flex h-52 gap-2 p-2.5" style={{ background: bg }}>
+    <div style={{ width: 460, height: 300, background: bg, display: 'flex', gap: 12, padding: 14, boxSizing: 'border-box' }}>
       {/* Sidebar */}
-      <div className="flex w-11 shrink-0 flex-col items-center gap-2 p-2" style={panel}>
-        <span className="h-3.5 w-3.5 rounded-md" style={{ background: p.accent }} />
-        {[0, 1, 2, 3].map((i) => (
-          <span
+      <div style={{ ...panel, width: 76, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 9, padding: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <span style={{ width: 22, height: 22, borderRadius: 7, background: p.accent, flexShrink: 0 }} />
+          <span style={{ height: 7, flex: 1, borderRadius: 4, background: p.text, opacity: 0.85 }} />
+        </div>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
             key={i}
-            className="h-2 w-full rounded"
-            style={{ background: i === 0 ? withAlpha(p.accent, 0.9) : p.mutedText, opacity: i === 0 ? 1 : 0.35 }}
-          />
+            className="transition-transform hover:translate-x-1"
+            style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+          >
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: i === 0 ? p.accent : p.mutedText, opacity: i === 0 ? 1 : 0.4, flexShrink: 0 }} />
+            <span style={{ height: 6, flex: 1, borderRadius: 3, background: i === 0 ? withAlpha(p.accent, 0.8) : p.mutedText, opacity: i === 0 ? 1 : 0.3 }} />
+          </div>
         ))}
       </div>
 
       {/* Main */}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {/* Top bar */}
-        <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-[10px] font-bold" style={{ color: p.text }}>{name}</span>
-          <span className="h-4 flex-1" style={{ ...panel, borderRadius: 999 }} />
-          <span className="h-4 w-4 rounded-full" style={{ background: p.accent }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: p.text, fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap' }}>{name}</span>
+          <span style={{ ...panel, flex: 1, height: 26, borderRadius: 999 }} />
+          <span
+            className="transition hover:brightness-125"
+            style={{ width: 26, height: 26, borderRadius: 999, background: p.accent, cursor: 'pointer', flexShrink: 0 }}
+          />
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-3 gap-1.5">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
           {([['Users', '76k'], ['Sales', '$3.6k'], ['Rate', '9.8']] as const).map(([label, val], i) => (
-            <div key={i} className="flex flex-col gap-0.5 p-1.5" style={panel}>
-              <span style={{ color: p.mutedText, fontSize: 6 }}>{label}</span>
-              <span style={{ color: i === 1 ? p.accent : p.text, fontSize: 11, fontWeight: 800 }}>{val}</span>
+            <div key={i} style={{ ...panel, padding: 10, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span style={{ color: p.mutedText, fontSize: 9 }}>{label}</span>
+              <span style={{ color: i === 1 ? p.accent : p.text, fontSize: 20, fontWeight: 800, lineHeight: 1 }}>{val}</span>
             </div>
           ))}
         </div>
 
-        {/* Chart + table */}
-        <div className="grid min-h-0 flex-1 grid-cols-2 gap-1.5">
-          <div className="flex flex-col justify-end p-2" style={panel}>
-            <div className="flex flex-1 items-end gap-1">
-              {[40, 70, 30, 90, 55, 78].map((h, i) => (
-                <span
-                  key={i}
-                  className="flex-1 rounded-sm"
-                  style={{ height: `${h}%`, background: i % 2 ? withAlpha(p.accent, 0.85) : p.mutedText, opacity: i % 2 ? 1 : 0.4 }}
-                />
+        {/* Chart + right panel */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, flex: 1, minHeight: 0 }}>
+          <div style={{ ...panel, padding: 10, display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+            {[45, 72, 33, 92, 58, 80].map((h, i) => (
+              <span
+                key={i}
+                className="transition-all hover:opacity-100"
+                style={{ flex: 1, height: `${h}%`, borderRadius: 4, background: i % 2 ? withAlpha(p.accent, 0.9) : p.mutedText, opacity: i % 2 ? 1 : 0.4 }}
+              />
+            ))}
+          </div>
+          <div style={{ ...panel, padding: 10, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <span style={{ height: 6, borderRadius: 3, background: p.mutedText, opacity: 0.4, width: `${55 - i * 8}%` }} />
+                  <span style={{ background: withAlpha(p.accent, 0.22), color: p.accent, fontSize: 8, fontWeight: 700, padding: '1px 6px', borderRadius: 6 }}>
+                    {['Live', 'New', 'Draft'][i]}
+                  </span>
+                </div>
               ))}
             </div>
-          </div>
-          <div className="flex flex-col justify-center gap-1.5 p-2" style={panel}>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-center justify-between gap-1">
-                <span className="h-1.5 rounded" style={{ background: p.mutedText, opacity: 0.4, width: `${52 - i * 8}%` }} />
-                <span
-                  className="rounded px-1"
-                  style={{ background: withAlpha(p.accent, 0.25), color: p.accent, fontSize: 6, fontWeight: 700 }}
-                >
-                  {['Live', 'New', 'Draft'][i]}
-                </span>
-              </div>
-            ))}
+            <button
+              type="button"
+              className="transition hover:-translate-y-px hover:brightness-110"
+              style={{ background: p.accent, color: p.accentText, fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: p.radius, border: 'none', cursor: 'pointer', alignSelf: 'flex-start' }}
+            >
+              Get started →
+            </button>
           </div>
         </div>
       </div>
