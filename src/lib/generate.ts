@@ -189,6 +189,7 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     'The following components and libraries are ALREADY DEFINED as globals in the runtime scope.',
     'You MUST NOT write any import statement for them — there is no module system in the sandbox.',
     'Writing "import" will break the render. Use them directly by name.',
+    'Do NOT redeclare or stub any of them. Writing "const LineChart = () => null", "function BarChart() {...}", "var Icon = {}" (etc.) collides with the built-in and is a fatal "Identifier already declared" error — they already work, just call them as-is.',
     '',
     ...items,
   ]
