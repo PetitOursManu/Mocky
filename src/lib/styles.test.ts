@@ -1,5 +1,35 @@
 import { describe, it, expect } from 'vitest'
-import { STYLE_PRESETS, presetVariant, resolveStyle, ACCENT_VARIANTS, isDarkColor, type ThemeMode } from './styles'
+import { STYLE_PRESETS, presetVariant, resolveStyle, ACCENT_VARIANTS, BG_VARIANTS, isDarkColor, type ThemeMode } from './styles'
+
+describe('resolveStyle (background variants)', () => {
+  const preset = STYLE_PRESETS[0]
+
+  it('a bg id overrides the preview background + the Background token', () => {
+    const midnight = BG_VARIANTS.find((b) => b.id === 'midnight')!
+    const r = resolveStyle(preset, 'auto', '', 'midnight')
+    expect(r.preview.bg).toBe(midnight.bg)
+    expect(r.preview.text).toBe(midnight.text)
+    expect(r.markdown).toMatch(new RegExp(`Background:\\s*${midnight.bg}`, 'i'))
+  })
+
+  it('bg + accent compose independently', () => {
+    const cyan = ACCENT_VARIANTS.find((a) => a.id === 'cyan')!
+    const paper = BG_VARIANTS.find((b) => b.id === 'paper')!
+    const r = resolveStyle(preset, 'auto', 'cyan', 'paper')
+    expect(r.preview.accent).toBe(cyan.accent)
+    expect(r.preview.bg).toBe(paper.bg)
+  })
+
+  it('unknown bg id is a no-op; every bg applies to every preset without throwing', () => {
+    expect(resolveStyle(preset, 'auto', '', 'nope')).toEqual(resolveStyle(preset, 'auto'))
+    for (const p of STYLE_PRESETS) {
+      for (const b of BG_VARIANTS) {
+        expect(() => resolveStyle(p, 'auto', '', b.id)).not.toThrow()
+        expect(resolveStyle(p, 'auto', '', b.id).preview.bg).toBe(b.bg)
+      }
+    }
+  })
+})
 
 describe('resolveStyle (accent variants)', () => {
   const preset = STYLE_PRESETS[0]

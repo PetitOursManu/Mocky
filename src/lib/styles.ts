@@ -590,9 +590,16 @@ function readableOn(hex: string): string {
   return luminance(hex) > 0.5 ? '#0f172a' : '#ffffff'
 }
 
+interface NeutralSet {
+  bg: string
+  cardBg: string
+  cardBorder: string
+  text: string
+  mutedText: string
+}
+
 /** Replace the neutral color-token lines in a DESIGN.md; leaves accents intact. */
-function flipMarkdownTokens(md: string, dark: boolean): string {
-  const N = dark ? DARK_NEUTRALS : LIGHT_NEUTRALS
+function setNeutralTokens(md: string, N: NeutralSet): string {
   const rules: Array<[RegExp, string]> = [
     [/(^\s*[-*]\s*background\s*:\s*)#[0-9a-fA-F]{3,8}/im, '$1' + N.bg],
     [/(^\s*[-*]\s*surface\s*:\s*)#[0-9a-fA-F]{3,8}/im, '$1' + N.cardBg],
@@ -603,6 +610,10 @@ function flipMarkdownTokens(md: string, dark: boolean): string {
   let out = md
   for (const [re, rep] of rules) out = out.replace(re, rep)
   return out
+}
+
+function flipMarkdownTokens(md: string, dark: boolean): string {
+  return setNeutralTokens(md, dark ? DARK_NEUTRALS : LIGHT_NEUTRALS)
 }
 
 /**
@@ -662,6 +673,45 @@ export function getAccentVariant(id?: string): AccentVariant | undefined {
   return id ? ACCENT_VARIANTS.find((a) => a.id === id) : undefined
 }
 
+// --- Background variants ---------------------------------------------------
+// A coherent neutral palette (bg/surface/border/text/muted) offered per card,
+// so the user can change the whole background mood independently of the accent.
+
+export interface BgVariant extends NeutralSet {
+  id: string
+  name: string
+}
+
+export const BG_VARIANTS: BgVariant[] = [
+  { id: 'slate', name: 'Slate', bg: '#0b1020', cardBg: '#131a2e', cardBorder: '#1e293b', text: '#e6e9f0', mutedText: '#94a3b8' },
+  { id: 'charcoal', name: 'Charcoal', bg: '#0f0f12', cardBg: '#1a1a1f', cardBorder: '#27272a', text: '#f4f4f5', mutedText: '#a1a1aa' },
+  { id: 'midnight', name: 'Midnight', bg: '#12091f', cardBg: '#1e1233', cardBorder: '#2e1d47', text: '#ede9fe', mutedText: '#a78bca' },
+  { id: 'paper', name: 'Paper', bg: '#ffffff', cardBg: '#f8fafc', cardBorder: '#e2e8f0', text: '#0f172a', mutedText: '#64748b' },
+  { id: 'cream', name: 'Cream', bg: '#faf7f0', cardBg: '#fffdf8', cardBorder: '#e7e0d5', text: '#1c1917', mutedText: '#78716c' },
+  { id: 'mist', name: 'Mist', bg: '#eef2f7', cardBg: '#ffffff', cardBorder: '#dbe3ec', text: '#0f172a', mutedText: '#64748b' },
+]
+
+export function getBgVariant(id?: string): BgVariant | undefined {
+  return id ? BG_VARIANTS.find((b) => b.id === id) : undefined
+}
+
+/** Override the neutral background palette on top of a resolved style. */
+function applyBg(
+  base: { preview: StylePreset['preview']; markdown: string },
+  bg?: BgVariant,
+): { preview: StylePreset['preview']; markdown: string } {
+  if (!bg) return base
+  const preview = {
+    ...base.preview,
+    bg: bg.bg,
+    cardBg: bg.cardBg,
+    cardBorder: bg.cardBorder,
+    text: bg.text,
+    mutedText: bg.mutedText,
+  }
+  return { preview, markdown: setNeutralTokens(base.markdown, bg) }
+}
+
 /** Apply an accent variant on top of a mode-resolved {preview, markdown}. */
 function applyAccent(
   base: { preview: StylePreset['preview']; markdown: string },
@@ -684,6 +734,11 @@ export function resolveStyle(
   preset: StylePreset,
   mode: ThemeMode,
   accentId?: string,
+  bgId?: string,
 ): { preview: StylePreset['preview']; markdown: string } {
-  return applyAccent(presetVariant(preset, mode), getAccentVariant(accentId))
+  // mode neutrals → background override (wins) → accent swap
+  let r = presetVariant(preset, mode)
+  r = applyBg(r, getBgVariant(bgId))
+  r = applyAccent(r, getAccentVariant(accentId))
+  return r
 }

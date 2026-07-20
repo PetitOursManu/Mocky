@@ -5,17 +5,18 @@ import {
   loadDesign,
   saveDesign,
 } from '../lib/design'
-import { STYLE_PRESETS, resolveStyle, ACCENT_VARIANTS, type ThemeMode, type StylePreset } from '../lib/styles'
+import { STYLE_PRESETS, resolveStyle, ACCENT_VARIANTS, BG_VARIANTS, type ThemeMode, type StylePreset } from '../lib/styles'
 
 export default function DesignPanel() {
   const [design, setDesign] = useState<DesignConfig>(() => loadDesign())
   const [savedFlash, setSavedFlash] = useState(false)
   const [mode, setMode] = useState<ThemeMode>('auto')
   const [accentById, setAccentById] = useState<Record<string, string>>({})
-  const [preview, setPreview] = useState<{ preset: StylePreset; accentId: string } | null>(null)
+  const [bgById, setBgById] = useState<Record<string, string>>({})
+  const [preview, setPreview] = useState<{ preset: StylePreset; accentId: string; bgId: string } | null>(null)
 
-  function applyStyle(preset: StylePreset, accentId: string) {
-    const r = resolveStyle(preset, mode, accentId)
+  function applyStyle(preset: StylePreset, accentId: string, bgId: string) {
+    const r = resolveStyle(preset, mode, accentId, bgId)
     setDesign((d) => ({ ...d, markdown: r.markdown, enabled: true }))
   }
   const fileRef = useRef<HTMLInputElement>(null)
@@ -49,7 +50,7 @@ export default function DesignPanel() {
   const active = design.enabled && chars > 0
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
       <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-100">DESIGN.md</h2>
@@ -88,10 +89,11 @@ export default function DesignPanel() {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5">
             {STYLE_PRESETS.map((s) => {
               const accentId = accentById[s.id] || ''
-              const r = resolveStyle(s, mode, accentId)
+              const bgId = bgById[s.id] || ''
+              const r = resolveStyle(s, mode, accentId, bgId)
               const isActive = design.markdown.trim() === r.markdown.trim()
               return (
                 <div
@@ -106,11 +108,11 @@ export default function DesignPanel() {
                       tabIndex={0}
                       className="cursor-pointer"
                       title={`Apply "${s.name}"`}
-                      onClick={() => applyStyle(s, accentId)}
+                      onClick={() => applyStyle(s, accentId, bgId)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
-                          applyStyle(s, accentId)
+                          applyStyle(s, accentId, bgId)
                         }
                       }}
                     >
@@ -121,7 +123,7 @@ export default function DesignPanel() {
                       title="Preview larger"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setPreview({ preset: s, accentId })
+                        setPreview({ preset: s, accentId, bgId })
                       }}
                       className="absolute right-2 top-2 rounded-md bg-black/45 px-2 py-1 text-xs text-white/90 opacity-0 backdrop-blur transition hover:bg-black/70 group-hover:opacity-100"
                     >
@@ -140,15 +142,15 @@ export default function DesignPanel() {
                       </div>
                     </div>
                     {/* Accent variants */}
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <span className="mr-0.5 text-[10px] uppercase tracking-wide text-slate-500">Accent</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="mr-0.5 w-14 shrink-0 text-[10px] uppercase tracking-wide text-slate-500">Accent</span>
                       <AccentPill
                         color={s.preview.accent}
                         active={!accentId}
                         title="Original accent"
                         onClick={() => {
                           setAccentById((m) => ({ ...m, [s.id]: '' }))
-                          applyStyle(s, '')
+                          applyStyle(s, '', bgId)
                         }}
                       />
                       {ACCENT_VARIANTS.map((a) => (
@@ -159,7 +161,32 @@ export default function DesignPanel() {
                           title={a.name}
                           onClick={() => {
                             setAccentById((m) => ({ ...m, [s.id]: a.id }))
-                            applyStyle(s, a.id)
+                            applyStyle(s, a.id, bgId)
+                          }}
+                        />
+                      ))}
+                    </div>
+                    {/* Background variants */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="mr-0.5 w-14 shrink-0 text-[10px] uppercase tracking-wide text-slate-500">Background</span>
+                      <AccentPill
+                        color={s.preview.bg}
+                        active={!bgId}
+                        title="Original background"
+                        onClick={() => {
+                          setBgById((m) => ({ ...m, [s.id]: '' }))
+                          applyStyle(s, accentId, '')
+                        }}
+                      />
+                      {BG_VARIANTS.map((b) => (
+                        <AccentPill
+                          key={b.id}
+                          color={b.bg}
+                          active={bgId === b.id}
+                          title={b.name}
+                          onClick={() => {
+                            setBgById((m) => ({ ...m, [s.id]: b.id }))
+                            applyStyle(s, accentId, b.id)
                           }}
                         />
                       ))}
@@ -247,7 +274,7 @@ export default function DesignPanel() {
       {preview &&
         (() => {
           const s = preview.preset
-          const r = resolveStyle(s, mode, preview.accentId)
+          const r = resolveStyle(s, mode, preview.accentId, preview.bgId)
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -271,7 +298,7 @@ export default function DesignPanel() {
                       type="button"
                       className="btn-primary text-sm"
                       onClick={() => {
-                        applyStyle(s, preview.accentId)
+                        applyStyle(s, preview.accentId, preview.bgId)
                         setPreview(null)
                       }}
                     >
