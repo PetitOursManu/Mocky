@@ -22,6 +22,9 @@ function joinSystem(parts: Array<string | undefined>): string | undefined {
   return joined || undefined
 }
 
+/** Max automatic fix attempts per screen before leaving the error visible. */
+const MAX_FIX_ATTEMPTS = 2
+
 const EXAMPLES = [
   'A SaaS pricing page with three tiers and a monthly/yearly toggle',
   'A mobile login screen with email, password and social sign-in',
@@ -68,7 +71,7 @@ export default function ProjectView({
   >(null)
   const [capturing, setCapturing] = useState(false)
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
-  const retryRefs = useRef<Record<string, number>>({})
+  const retryRefs = useRef<Record<string, { count: number; lastError: string }>>({})
   const retryAbortRef = useRef<AbortController | null>(null)
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set())
 
@@ -112,14 +115,18 @@ export default function ProjectView({
   }
 
   // Auto-retry when a preview reports a compile/runtime error. We send the
-  // broken code + the error message back to the model for a one-shot fix.
-  // Only one retry per screen to avoid infinite loops.
+  // broken code + the error message back to the model for a targeted fix.
+  // Up to MAX_FIX_ATTEMPTS per screen, and we bail early if the model made no
+  // progress (the new error is identical to the last) — both guards prevent an
+  // infinite loop while giving deterministic syntax slips a second chance.
   // IMPORTANT: do NOT retry while a generation is in progress (busy=true) —
   // the code is still streaming and incomplete errors are expected.
   const onScreenError = useCallback(async (screenId: string, errorMessage: string) => {
     if (busy) return
-    if (retryRefs.current[screenId]) return
-    retryRefs.current[screenId] = 1
+    const state = retryRefs.current[screenId] || { count: 0, lastError: '' }
+    if (state.count >= MAX_FIX_ATTEMPTS) return
+    if (state.count > 0 && errorMessage === state.lastError) return // no progress → stop
+    retryRefs.current[screenId] = { count: state.count + 1, lastError: errorMessage }
     const screen = screens.find((s) => s.id === screenId)
     if (!screen || !screen.code.trim()) return
     const settings = loadSettings()
