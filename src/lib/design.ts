@@ -53,6 +53,26 @@ export function buildDesignPreamble(markdown: string): string {
   ].join('\n')
 }
 
+/**
+ * Extract the hex colors declared in a DESIGN.md, in order of first appearance,
+ * deduped. Each captures the nearest preceding "Label:" token when present (e.g.
+ * "- Primary: #4f46e5" → { hex: '#4f46e5', label: 'Primary' }). Used to offer
+ * the project's own palette as one-tap recolor swatches in the Modify panel.
+ */
+export function extractDesignColors(markdown: string): { hex: string; label: string }[] {
+  const out: { hex: string; label: string }[] = []
+  const seen = new Set<string>()
+  const re = /(?:([A-Za-z][A-Za-z0-9 /_-]*?)\s*[:=]\s*)?(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))\b/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(markdown))) {
+    const hex = m[2].toLowerCase()
+    if (seen.has(hex)) continue
+    seen.add(hex)
+    out.push({ hex, label: (m[1] || '').trim() || hex })
+  }
+  return out
+}
+
 /** A minimal example so users without a DESIGN.md can see the expected shape. */
 export const STARTER_TEMPLATE = `# Design System
 

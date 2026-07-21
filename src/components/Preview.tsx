@@ -8,6 +8,10 @@ export interface PickInfo {
   selector: string
   label: string
   rect: { x: number; y: number; w: number; h: number }
+  /** Lowercase tag name of the picked element (e.g. 'button', 'div'). */
+  tag?: string
+  /** The element's literal class attribute — Tailwind classes here match the JSX verbatim, so it's the strongest anchor for a targeted edit. */
+  className?: string
 }
 export interface DemoLink {
   selector: string
@@ -212,7 +216,8 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
         e.preventDefault(); e.stopPropagation();
         var el = pickTarget(e.target), r = el.getBoundingClientRect(), vw = window.innerWidth || 1, vh = window.innerHeight || 1;
         var label = ((el.innerText || (el.getAttribute && el.getAttribute('aria-label')) || el.tagName || '') + '').replace(/\\s+/g, ' ').trim().slice(0, 40);
-        post('picked', { selector: cssPath(el), label: label, rect: { x: r.left / vw, y: r.top / vh, w: r.width / vw, h: r.height / vh } });
+        var cls = ((el.getAttribute && el.getAttribute('class')) || '').replace(/\\s+/g, ' ').trim().slice(0, 160);
+        post('picked', { selector: cssPath(el), label: label, tag: (el.tagName || '').toLowerCase(), className: cls, rect: { x: r.left / vw, y: r.top / vh, w: r.width / vw, h: r.height / vh } });
         return false;
       }
       if (mode === 'demo') {
@@ -361,7 +366,7 @@ export default function Preview({
         setReady(true)
       }
       if (d.type === 'size' && typeof d.height === 'number') onContentHeightRef.current?.(d.height)
-      if (d.type === 'picked') onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect })
+      if (d.type === 'picked') onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
       if (d.type === 'navigate') onNavRef.current?.(d.target)
     }
     window.addEventListener('message', onMsg)

@@ -346,18 +346,24 @@ export function buildAnimationInstruction(level: AnimationLevel): string {
  * tie-breaker when the same text appears more than once.
  */
 export function buildElementEditInstruction(
-  picked: { label: string; selector: string },
+  picked: { label: string; selector: string; tag?: string; className?: string },
   change: string,
 ): string {
   const target = picked.label
     ? `the element whose visible text is "${picked.label}"`
-    : 'the single element described by the DOM position below'
+    : picked.className
+      ? `a ${picked.tag || 'element'} with no visible text`
+      : 'the single element described by the DOM position below'
   return [
     `The user clicked ${target} in the rendered screen and wants to change ONLY that one element.`,
-    picked.selector
-      ? `Its position in the rendered DOM is: ${picked.selector} — use this only as a secondary hint; anchor primarily on the visible text/role above.`
+    picked.className
+      ? `That element renders with these exact CSS classes: "${picked.className}". The same class string appears verbatim in the JSX — use it as the STRONGEST anchor to locate the element.`
       : '',
-    'Find the single matching element in the JSX source and apply the change to it alone. If the same text appears more than once, change only the instance that best matches the DOM position hint; otherwise pick the most prominent one.',
+    picked.tag && !picked.className ? `It is a <${picked.tag}> element.` : '',
+    picked.selector
+      ? `Its position in the rendered DOM is: ${picked.selector} — use this only as a last-resort hint.`
+      : '',
+    'Find the single matching element in the JSX source and apply the change to it alone. If several elements match, change only the instance that best matches the class string and DOM position; otherwise pick the most prominent one.',
     'Do NOT change any other element, text, color, class, spacing, layout, or behaviour.',
     '',
     'Requested change to that element:',

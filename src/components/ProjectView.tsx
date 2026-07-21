@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
-import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
+import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, buildElementEditInstruction, tryDirectTextReplace, type AnimationLevel } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
@@ -37,6 +37,13 @@ const MODIFY_SWATCHES: { name: string; hex: string }[] = [
   { name: 'Indigo', hex: '#6366f1' },
   { name: 'Fuchsia', hex: '#d946ef' },
 ]
+
+/** Decisive recolor instruction: acts on bg for filled elements, text otherwise. */
+function recolorChange(hex: string): string {
+  return `Change this element's color to ${hex}. If it has a background color (a bg-* class or a background style), replace the background; otherwise change its text color. Prefer an arbitrary Tailwind value like bg-[${hex}] or text-[${hex}]. Keep any text readable (adjust the text color to contrast if needed). Change nothing else.`
+}
+
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
 function joinSystem(parts: Array<string | undefined>): string | undefined {
   const joined = parts.filter(Boolean).join('\n\n')
@@ -83,6 +90,7 @@ export default function ProjectView({
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
   const [modifyLabelDraft, setModifyLabelDraft] = useState('')
+  const [modifyHex, setModifyHex] = useState('')
   const [interactAll, setInteractAll] = useState(false)
   const [showFrame, setShowFrame] = useState(() => localStorage.getItem(FRAME_PREF_KEY) !== '0')
   const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
@@ -145,6 +153,7 @@ export default function ProjectView({
   }
 
   const designActive = isDesignActive(loadDesign())
+  const designColors = designActive ? extractDesignColors(loadDesign().markdown).slice(0, 10) : []
   const screens = project.screens
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
 
@@ -477,7 +486,10 @@ export default function ProjectView({
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
-      const instruction = buildElementEditInstruction({ label: info.label, selector: info.selector }, change)
+      const instruction = buildElementEditInstruction(
+        { label: info.label, selector: info.selector, tag: info.tag, className: info.className },
+        change,
+      )
       const res = await editComponent(
         settings, instruction, screen.code, extraSystem, undefined, ac.signal,
         (partial) => onUpdateScreen(screenId, { code: partial }),
@@ -582,6 +594,7 @@ export default function ProjectView({
             setPendingModify({ screenId, info })
             setModifyText('')
             setModifyLabelDraft(info.label)
+            setModifyHex('')
           } else {
             setPendingLink({ screenId, info })
           }
@@ -1003,24 +1016,66 @@ export default function ProjectView({
             {/* One-tap recolor */}
             <div className="mb-3">
               <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Recolor</label>
-              <div className="flex flex-wrap gap-1.5">
+
+              {designColors.length > 0 && (
+                <>
+                  <div className="mb-1 text-[9px] uppercase tracking-wide text-slate-600">From your design</div>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {designColors.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        disabled={busy}
+                        title={`${c.label} · ${c.hex}`}
+                        onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(c.hex))}
+                        className="h-7 w-7 rounded-full border border-white/20 shadow-sm transition hover:scale-110 disabled:opacity-40"
+                        style={{ background: c.hex }}
+                      />
+                    ))}
+                  </div>
+                  <div className="mb-1 text-[9px] uppercase tracking-wide text-slate-600">Basics</div>
+                </>
+              )}
+
+              <div className="flex flex-wrap items-center gap-1.5">
                 {MODIFY_SWATCHES.map((sw) => (
                   <button
                     key={sw.hex}
                     type="button"
                     disabled={busy}
                     title={sw.name}
-                    onClick={() =>
-                      applyModify(
-                        pendingModify.screenId,
-                        pendingModify.info,
-                        `Recolor this element to ${sw.hex}. Apply it to the element's most prominent color — the text color for text/labels, or the background for buttons, badges and cards — and keep the text readable. Change nothing else.`,
-                      )
-                    }
+                    onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(sw.hex))}
                     className="h-7 w-7 rounded-full border border-white/20 shadow-sm transition hover:scale-110 disabled:opacity-40"
                     style={{ background: sw.hex }}
                   />
                 ))}
+                {/* Custom hex */}
+                <span className="mx-0.5 h-5 w-px bg-slate-700" />
+                <span
+                  className="h-7 w-7 shrink-0 rounded-full border border-white/20 shadow-sm"
+                  style={{ background: HEX_RE.test(modifyHex.trim()) ? modifyHex.trim() : 'transparent' }}
+                />
+                <input
+                  className="input h-7 w-[74px] px-2 text-xs"
+                  placeholder="#hex"
+                  value={modifyHex}
+                  onChange={(e) => setModifyHex(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && HEX_RE.test(modifyHex.trim())) {
+                      e.preventDefault()
+                      applyModify(pendingModify.screenId, pendingModify.info, recolorChange(modifyHex.trim()))
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={busy || !HEX_RE.test(modifyHex.trim())}
+                  title="Apply this hex color"
+                  onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(modifyHex.trim()))}
+                  className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 transition hover:bg-slate-700/60 disabled:opacity-40"
+                >
+                  Go
+                </button>
               </div>
             </div>
 
