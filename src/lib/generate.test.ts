@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference } from './generate'
+import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference, tryDirectTextReplace } from './generate'
 
 describe('buildLayoutReference', () => {
   it('includes the reference code and a reproduce-the-nav instruction', () => {
@@ -85,6 +85,40 @@ describe('extractCode', () => {
     const content = '```jsx\nold code\n```\n\n<<<MOCKY>>>\nconst App = () => <div>new code</div>;\nexport default App;\n<<<END>>>'
     const result = extractCode(content)
     expect(result).toBe('const App = () => <div>new code</div>;\nexport default App;')
+  })
+})
+
+describe('tryDirectTextReplace', () => {
+  it('replaces a unique verbatim occurrence', () => {
+    const code = 'return <button>SIGN IN</button>'
+    expect(tryDirectTextReplace(code, 'SIGN IN', 'Log in')).toBe('return <button>Log in</button>')
+  })
+
+  it('trims the picked text before matching', () => {
+    const code = '<h1>WELCOME</h1>'
+    expect(tryDirectTextReplace(code, '  WELCOME  ', 'Hello')).toBe('<h1>Hello</h1>')
+  })
+
+  it('returns null when the text is absent', () => {
+    expect(tryDirectTextReplace('<h1>Hi</h1>', 'Bye', 'Yo')).toBeNull()
+  })
+
+  it('returns null when the text is ambiguous (more than one occurrence)', () => {
+    const code = '<span>Go</span><span>Go</span>'
+    expect(tryDirectTextReplace(code, 'Go', 'Stop')).toBeNull()
+  })
+
+  it('returns null when old and new are identical', () => {
+    expect(tryDirectTextReplace('<h1>Same</h1>', 'Same', 'Same')).toBeNull()
+  })
+
+  it('returns null for empty picked text', () => {
+    expect(tryDirectTextReplace('<h1>x</h1>', '   ', 'y')).toBeNull()
+  })
+
+  it('inserts $-sequences in the replacement literally', () => {
+    const code = '<p>Price</p>'
+    expect(tryDirectTextReplace(code, 'Price', '$5 & up')).toBe('<p>$5 & up</p>')
   })
 })
 

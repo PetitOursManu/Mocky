@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, buildElementEditInstruction, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, buildElementEditInstruction, tryDirectTextReplace, type AnimationLevel } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
@@ -25,6 +25,18 @@ const VIEWPORTS: Record<Exclude<ViewportFormat, 'full'>, { w: number; h: number;
 }
 
 const FRAME_PREF_KEY = 'mocky.showFrame'
+
+/** One-tap recolor swatches offered in the no-code Modify panel (Lot C.2). */
+const MODIFY_SWATCHES: { name: string; hex: string }[] = [
+  { name: 'Ink', hex: '#0f172a' },
+  { name: 'White', hex: '#ffffff' },
+  { name: 'Red', hex: '#ef4444' },
+  { name: 'Amber', hex: '#f59e0b' },
+  { name: 'Green', hex: '#10b981' },
+  { name: 'Blue', hex: '#3b82f6' },
+  { name: 'Indigo', hex: '#6366f1' },
+  { name: 'Fuchsia', hex: '#d946ef' },
+]
 
 function joinSystem(parts: Array<string | undefined>): string | undefined {
   const joined = parts.filter(Boolean).join('\n\n')
@@ -70,6 +82,7 @@ export default function ProjectView({
   const [modifyMode, setModifyMode] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
+  const [modifyLabelDraft, setModifyLabelDraft] = useState('')
   const [interactAll, setInteractAll] = useState(false)
   const [showFrame, setShowFrame] = useState(() => localStorage.getItem(FRAME_PREF_KEY) !== '0')
   const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
@@ -103,6 +116,10 @@ export default function ProjectView({
   const retryRefs = useRef<Record<string, { count: number; lastError: string }>>({})
   const retryAbortRef = useRef<AbortController | null>(null)
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set())
+  // Screens being regenerated: unlike generatingIds, we DON'T stream partial
+  // code into these — the existing iframe stays fully rendered until the new
+  // code is ready, then swaps in one clean step (no blank/flicker).
+  const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set())
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
     setCapturing(true)
@@ -347,8 +364,8 @@ export default function ProjectView({
     abortRef.current = ac
     setBusy(true)
     setError(null)
-    setPhase('generating')
-    setGeneratingIds(new Set([screenId]))
+    // Keep the current iframe rendered — no streaming, no spinner overlay.
+    setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
       const design = loadDesign()
@@ -363,9 +380,11 @@ export default function ProjectView({
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
+      // No onChunk: the new code is generated fully in the background, then
+      // swapped in at once, so the old design never disappears mid-stream.
       const result = await generateComponent(
         settings, screen.prompt, extraSystem, undefined, ac.signal,
-        (partial) => onUpdateScreen(screenId, { code: partial }),
+        undefined,
         caps,
       )
       onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capIds })
@@ -375,8 +394,7 @@ export default function ProjectView({
     } finally {
       abortRef.current = null
       setBusy(false)
-      setPhase(null)
-      setGeneratingIds(new Set())
+      setRegeneratingIds(new Set())
     }
   }
 
@@ -477,6 +495,29 @@ export default function ProjectView({
     }
   }
 
+  /**
+   * Change only the visible text of the picked element (Lot C.2). Tries a
+   * deterministic in-place swap first (instant, free, no model) and falls back
+   * to a targeted LLM edit when the text isn't a unique verbatim match.
+   */
+  async function applyTextChange(screenId: string, info: PickInfo, newText: string) {
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen) return
+    if (!newText.trim() || newText === info.label) {
+      setPendingModify(null)
+      return
+    }
+    const direct = tryDirectTextReplace(screen.code, info.label, newText)
+    if (direct) {
+      onUpdateScreen(screenId, { code: direct, componentName: detectComponentName(direct), previousCode: screen.code })
+      setPendingModify(null)
+      setModifyLabelDraft('')
+      return
+    }
+    // Ambiguous or non-verbatim → targeted edit through the model.
+    await applyModify(screenId, info, `Change the visible text of this element to exactly: "${newText}". Do not change anything else.`)
+  }
+
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -536,11 +577,15 @@ export default function ProjectView({
         modifyMode={modifyMode}
         interactAll={interactAll}
         showFrame={showFrame}
-        onPickElement={(screenId, info) =>
-          modifyMode
-            ? (setPendingModify({ screenId, info }), setModifyText(''))
-            : setPendingLink({ screenId, info })
-        }
+        onPickElement={(screenId, info) => {
+          if (modifyMode) {
+            setPendingModify({ screenId, info })
+            setModifyText('')
+            setModifyLabelDraft(info.label)
+          } else {
+            setPendingLink({ screenId, info })
+          }
+        }}
         onRemoveHotspot={removeHotspot}
         highlightedHotspotId={highlightHotspot}
         focusScreenId={focus?.screenId ?? null}
@@ -551,6 +596,7 @@ export default function ProjectView({
         onCaptureRect={onCaptureRect}
         onError={onScreenError}
         generatingIds={generatingIds}
+        regeneratingIds={regeneratingIds}
       />
 
       {/* Links panel (link mode) */}
@@ -925,11 +971,65 @@ export default function ProjectView({
                 {pendingModify.info.label ? `"${pendingModify.info.label}"` : pendingModify.info.selector.split('>').pop()?.trim() || 'element'}
               </span>
             </p>
+            {/* Quick text edit — deterministic in-place swap when unambiguous */}
+            {pendingModify.info.label && (
+              <div className="mb-3">
+                <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Text</label>
+                <div className="flex gap-2">
+                  <input
+                    autoFocus
+                    className="input flex-1"
+                    value={modifyLabelDraft}
+                    onChange={(e) => setModifyLabelDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        applyTextChange(pendingModify.screenId, pendingModify.info, modifyLabelDraft)
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary shrink-0 text-xs"
+                    disabled={busy || !modifyLabelDraft.trim() || modifyLabelDraft === pendingModify.info.label}
+                    onClick={() => applyTextChange(pendingModify.screenId, pendingModify.info, modifyLabelDraft)}
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* One-tap recolor */}
+            <div className="mb-3">
+              <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Recolor</label>
+              <div className="flex flex-wrap gap-1.5">
+                {MODIFY_SWATCHES.map((sw) => (
+                  <button
+                    key={sw.hex}
+                    type="button"
+                    disabled={busy}
+                    title={sw.name}
+                    onClick={() =>
+                      applyModify(
+                        pendingModify.screenId,
+                        pendingModify.info,
+                        `Recolor this element to ${sw.hex}. Apply it to the element's most prominent color — the text color for text/labels, or the background for buttons, badges and cards — and keep the text readable. Change nothing else.`,
+                      )
+                    }
+                    className="h-7 w-7 rounded-full border border-white/20 shadow-sm transition hover:scale-110 disabled:opacity-40"
+                    style={{ background: sw.hex }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Free-form change */}
+            <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Or describe any change</label>
             <textarea
-              autoFocus
               rows={2}
               className="input min-h-[52px] resize-none"
-              placeholder='Describe the change, e.g. "make this button green", "change the text to Sign up", "make it bigger and bold"…'
+              placeholder='e.g. "make it bigger and bold", "add a shadow", "round the corners"…'
               value={modifyText}
               onChange={(e) => setModifyText(e.target.value)}
               onKeyDown={(e) => {
@@ -952,7 +1052,7 @@ export default function ProjectView({
                 Apply change
               </button>
             </div>
-            <p className="mt-2 text-[10px] text-slate-500">⌘/Ctrl + Enter to apply · Esc to cancel · revertable from the ⋯ menu</p>
+            <p className="mt-2 text-[10px] text-slate-500">Text edits apply instantly when unique · other changes use the model · revertable from the ⋯ menu</p>
           </div>
         </div>
       )}

@@ -368,6 +368,30 @@ export function buildElementEditInstruction(
 }
 
 /**
+ * Deterministic, no-LLM text swap for the Modify panel (Lot C.2). If the picked
+ * element's visible text appears verbatim EXACTLY ONCE in the source, replace it
+ * in place — instant and free. Returns the new source, or null when the match is
+ * absent or ambiguous (0 or >1 occurrences), in which case the caller falls back
+ * to a targeted LLM edit. This never "discovers names" (invariant 1) — it only
+ * swaps a known literal the user is directly looking at.
+ */
+export function tryDirectTextReplace(code: string, oldText: string, newText: string): string | null {
+  const needle = oldText.trim()
+  if (!needle || needle === newText) return null
+  // Count non-overlapping verbatim occurrences, stopping early past 1.
+  let count = 0
+  let idx = code.indexOf(needle)
+  while (idx !== -1) {
+    count++
+    if (count > 1) return null
+    idx = code.indexOf(needle, idx + needle.length)
+  }
+  if (count !== 1) return null
+  // Function replacement so `$`-sequences in newText are inserted literally.
+  return code.replace(needle, () => newText)
+}
+
+/**
  * Asks the model to modify an existing component and return the complete
  * updated source. Used when one or more screens are selected on the canvas.
  * Strongly constrains the model to change ONLY what was requested.

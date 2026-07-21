@@ -84,6 +84,7 @@ export default function Canvas({
   onCaptureRect,
   onError,
   generatingIds,
+  regeneratingIds,
   referenceScreenId,
   onScreenContextMenu,
   onContentHeight,
@@ -111,6 +112,8 @@ export default function Canvas({
   onCaptureRect: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   onError?: (screenId: string, error: string) => void
   generatingIds?: Set<string>
+  /** Screens being regenerated: keep the existing render, show a small badge only. */
+  regeneratingIds?: Set<string>
   /** The screen pinned as the project's shared-layout reference, if any. */
   referenceScreenId?: string
   /** Open the per-screen context menu at client coords (right-click or ⋯). */
@@ -476,6 +479,7 @@ export default function Canvas({
                     <Preview
                       code={s.code}
                       pickMode={pickable}
+                      pickOutlineOnly={modifyMode}
                       onPick={(info) => onPickElement(s.id, info)}
                       hideScrollbars={s.device === 'iphone'}
                       radius={SCREEN_RADIUS}
@@ -491,6 +495,7 @@ export default function Canvas({
                   <Preview
                     code={s.code}
                     pickMode={pickable}
+                    pickOutlineOnly={modifyMode}
                     onPick={(info) => onPickElement(s.id, info)}
                     hideScrollbars={s.device === 'iphone'}
                     radius="1rem"
@@ -502,6 +507,20 @@ export default function Canvas({
                   />
                 )}
               </div>
+
+              {/* Regenerating badge — the existing preview stays visible underneath */}
+              {regeneratingIds?.has(s.id) && (
+                <div
+                  className="pointer-events-none absolute left-1/2 top-0 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-indigo-500 font-medium text-white shadow-lg"
+                  style={{ marginTop: 8 * inv, paddingLeft: 10 * inv, paddingRight: 12 * inv, paddingTop: 4 * inv, paddingBottom: 4 * inv, fontSize: 12 * inv, gap: 6 * inv }}
+                >
+                  <span
+                    className="animate-spin rounded-full border-white/40 border-t-white"
+                    style={{ width: 12 * inv, height: 12 * inv, borderWidth: 2 * inv }}
+                  />
+                  Regenerating…
+                </div>
+              )}
 
               {/* Interaction-link hotspots (shown while linking) */}
               {linkMode &&

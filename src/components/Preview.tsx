@@ -175,7 +175,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     }
 
     // --- Interaction bridge ---
-    var mode = null, links = [], hl = null;
+    var mode = null, links = [], hl = null, pickFill = true;
     function pickTarget(el) {
       var n = el;
       while (n && n.nodeType === 1 && n.tagName !== 'BODY') {
@@ -197,7 +197,11 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       return parts.length ? ('body > ' + parts.join(' > ')) : 'body';
     }
     function moveHl(el) {
-      if (!hl) { hl = document.createElement('div'); hl.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border:2px solid #6366f1;background:rgba(99,102,241,0.18);border-radius:4px'; document.body.appendChild(hl); }
+      if (!hl) { hl = document.createElement('div'); hl.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border-radius:4px'; document.body.appendChild(hl); }
+      // Link mode uses a violet fill; Modify mode a fuchsia outline only (no
+      // tint over the screen — a big container would otherwise look filtered).
+      hl.style.border = pickFill ? '2px solid #6366f1' : '2px solid #d946ef';
+      hl.style.background = pickFill ? 'rgba(99,102,241,0.18)' : 'transparent';
       var r = el.getBoundingClientRect();
       hl.style.display = 'block'; hl.style.left = r.left + 'px'; hl.style.top = r.top + 'px'; hl.style.width = r.width + 'px'; hl.style.height = r.height + 'px';
     }
@@ -221,7 +225,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     function markLinks() { for (var i = 0; i < links.length; i++) { var el = null; try { el = document.querySelector(links[i].selector); } catch (_) {} if (el) el.style.cursor = 'pointer'; } }
     window.addEventListener('message', function (e) {
       var d = e.data || {};
-      if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; } else if (mode === 'pick') { mode = null; hideHl(); } }
+      if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; } else if (mode === 'pick') { mode = null; hideHl(); } }
       if (d.__mockyCmd === 'demo') { mode = 'demo'; links = d.links || []; markLinks(); }
     });
   })();
@@ -238,6 +242,7 @@ export interface CaptureRequest {
 export default function Preview({
   code,
   pickMode,
+  pickOutlineOnly,
   onPick,
   demoLinks,
   onNavigate,
@@ -252,6 +257,8 @@ export default function Preview({
 }: {
   code: string
   pickMode?: boolean
+  /** In pick mode, use a fuchsia outline only (no violet fill) — used by Modify mode. */
+  pickOutlineOnly?: boolean
   onPick?: (info: PickInfo) => void
   demoLinks?: DemoLink[]
   onNavigate?: (target: string) => void
@@ -387,9 +394,9 @@ export default function Preview({
   useEffect(() => {
     const win = iframeRef.current?.contentWindow
     if (!win || !ready) return
-    win.postMessage({ __mockyCmd: 'pick', on: !!pickMode }, '*')
+    win.postMessage({ __mockyCmd: 'pick', on: !!pickMode, fill: !pickOutlineOnly }, '*')
     if (demoLinks && demoLinks.length) win.postMessage({ __mockyCmd: 'demo', links: demoLinks }, '*')
-  }, [ready, pickMode, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, pickMode, pickOutlineOnly, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative h-full w-full bg-white" style={{ borderRadius: radius }}>
