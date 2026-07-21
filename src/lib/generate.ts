@@ -336,6 +336,38 @@ export function buildAnimationInstruction(level: AnimationLevel): string {
 }
 
 /**
+ * Build the edit instruction for the no-code "Modify" mode (Lot C): the user
+ * clicked one element in the rendered preview and typed a plain-language change.
+ * Fed to `editComponent`, so EDIT_RULES keeps everything else byte-for-byte.
+ *
+ * Anchoring is intentionally text-first: the rendered DOM path (nth-of-type)
+ * cannot be reliably mapped to JSX, whereas the element's visible text/role is
+ * a strong, human-meaningful anchor. The selector is passed only as a secondary
+ * tie-breaker when the same text appears more than once.
+ */
+export function buildElementEditInstruction(
+  picked: { label: string; selector: string },
+  change: string,
+): string {
+  const target = picked.label
+    ? `the element whose visible text is "${picked.label}"`
+    : 'the single element described by the DOM position below'
+  return [
+    `The user clicked ${target} in the rendered screen and wants to change ONLY that one element.`,
+    picked.selector
+      ? `Its position in the rendered DOM is: ${picked.selector} — use this only as a secondary hint; anchor primarily on the visible text/role above.`
+      : '',
+    'Find the single matching element in the JSX source and apply the change to it alone. If the same text appears more than once, change only the instance that best matches the DOM position hint; otherwise pick the most prominent one.',
+    'Do NOT change any other element, text, color, class, spacing, layout, or behaviour.',
+    '',
+    'Requested change to that element:',
+    change.trim(),
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+/**
  * Asks the model to modify an existing component and return the complete
  * updated source. Used when one or more screens are selected on the canvas.
  * Strongly constrains the model to change ONLY what was requested.

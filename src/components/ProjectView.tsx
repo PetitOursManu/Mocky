@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, buildElementEditInstruction, type AnimationLevel } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
@@ -67,6 +67,9 @@ export default function ProjectView({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
   const [linkMode, setLinkMode] = useState(false)
+  const [modifyMode, setModifyMode] = useState(false)
+  const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
+  const [modifyText, setModifyText] = useState('')
   const [interactAll, setInteractAll] = useState(false)
   const [showFrame, setShowFrame] = useState(() => localStorage.getItem(FRAME_PREF_KEY) !== '0')
   const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
@@ -78,16 +81,17 @@ export default function ProjectView({
 
   // Esc closes the context menu / code viewer.
   useEffect(() => {
-    if (!menu && !codeScreen) return
+    if (!menu && !codeScreen && !pendingModify) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMenu(null)
         setCodeScreen(null)
+        setPendingModify(null)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [menu, codeScreen])
+  }, [menu, codeScreen, pendingModify])
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
   const [annotateMode, setAnnotateMode] = useState(false)
@@ -424,6 +428,55 @@ export default function ProjectView({
     }
   }
 
+  /**
+   * Apply a no-code, targeted change to a single clicked element (Lot C).
+   * Runs an edit pass anchored on the picked element's text/selector, keeping
+   * everything else intact, streaming live, and saving previousCode for revert.
+   */
+  async function applyModify(screenId: string, info: PickInfo, change: string) {
+    if (busy || !change.trim()) return
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError('No model set. Open Settings and configure a model first.')
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setPhase('generating')
+    setGeneratingIds(new Set([screenId]))
+    setPendingModify(null)
+    setModifyText('')
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
+    try {
+      const design = loadDesign()
+      const designMd = isDesignActive(design) ? design.markdown : undefined
+      const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
+      const extraSystem = joinSystem([designPreamble, hintForDevice(screen.device)])
+      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      const caps = resolveCapabilities(capIds)
+      const oldCode = screen.code
+      const instruction = buildElementEditInstruction({ label: info.label, selector: info.selector }, change)
+      const res = await editComponent(
+        settings, instruction, screen.code, extraSystem, undefined, ac.signal,
+        (partial) => onUpdateScreen(screenId, { code: partial }),
+        caps,
+      )
+      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      setGeneratingIds(new Set())
+    }
+  }
+
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -480,9 +533,14 @@ export default function ProjectView({
           contentHeights.current[id] = h
         }}
         linkMode={linkMode}
+        modifyMode={modifyMode}
         interactAll={interactAll}
         showFrame={showFrame}
-        onPickElement={(screenId, info) => setPendingLink({ screenId, info })}
+        onPickElement={(screenId, info) =>
+          modifyMode
+            ? (setPendingModify({ screenId, info }), setModifyText(''))
+            : setPendingLink({ screenId, info })
+        }
         onRemoveHotspot={removeHotspot}
         highlightedHotspotId={highlightHotspot}
         focusScreenId={focus?.screenId ?? null}
@@ -571,13 +629,32 @@ export default function ProjectView({
         <div className="mx-1 h-5 w-px bg-slate-700" />
         <button
           type="button"
-          onClick={() => setLinkMode((v) => !v)}
+          onClick={() => {
+            setLinkMode((v) => !v)
+            setModifyMode(false)
+            setAnnotateMode(false)
+          }}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
             linkMode ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
           }`}
           title="Draw links between screens"
         >
           🔗 Link
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setModifyMode((v) => !v)
+            setLinkMode(false)
+            setAnnotateMode(false)
+            setPendingModify(null)
+          }}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+            modifyMode ? 'bg-fuchsia-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
+          }`}
+          title="Click an element in a screen, then describe a change — no code needed"
+        >
+          ✎ Modify
         </button>
         <button
           type="button"
@@ -594,6 +671,8 @@ export default function ProjectView({
           onClick={() => {
             setAnnotateMode((v) => !v)
             setLinkMode(false)
+            setModifyMode(false)
+            setPendingModify(null)
           }}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
             annotateMode ? 'bg-amber-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
@@ -823,6 +902,57 @@ export default function ProjectView({
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* No-code element editor (Modify mode) */}
+      {pendingModify && (
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-4"
+          onClick={() => setPendingModify(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-fuchsia-700/50 bg-slate-800 p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <span className="text-fuchsia-400">✎</span> Modify element
+            </h3>
+            <p className="mb-3 text-xs text-slate-400">
+              Selected:{' '}
+              <span className="rounded bg-slate-900 px-1.5 py-0.5 font-medium text-fuchsia-200">
+                {pendingModify.info.label ? `"${pendingModify.info.label}"` : pendingModify.info.selector.split('>').pop()?.trim() || 'element'}
+              </span>
+            </p>
+            <textarea
+              autoFocus
+              rows={2}
+              className="input min-h-[52px] resize-none"
+              placeholder='Describe the change, e.g. "make this button green", "change the text to Sign up", "make it bigger and bold"…'
+              value={modifyText}
+              onChange={(e) => setModifyText(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  applyModify(pendingModify.screenId, pendingModify.info, modifyText)
+                }
+              }}
+            />
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button type="button" className="btn-ghost text-xs" onClick={() => setPendingModify(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary text-xs"
+                disabled={busy || !modifyText.trim()}
+                onClick={() => applyModify(pendingModify.screenId, pendingModify.info, modifyText)}
+              >
+                Apply change
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-slate-500">⌘/Ctrl + Enter to apply · Esc to cancel · revertable from the ⋯ menu</p>
           </div>
         </div>
       )}

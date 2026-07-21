@@ -70,6 +70,7 @@ export default function Canvas({
   onRenameScreen,
   onDeleteScreen,
   linkMode,
+  modifyMode,
   interactAll,
   showFrame,
   onPickElement,
@@ -95,6 +96,8 @@ export default function Canvas({
   onRenameScreen: (id: string, name: string) => void
   onDeleteScreen: (id: string) => void
   linkMode: boolean
+  /** No-code "Modify" mode (Lot C): clicking an element in a screen picks it for a targeted edit. */
+  modifyMode: boolean
   interactAll: boolean
   showFrame: boolean
   onPickElement: (screenId: string, info: PickInfo) => void
@@ -206,7 +209,7 @@ export default function Canvas({
     if (gesture.current) return
     if (e.button === 1 || spaceDown) return startPan(e)
     if (e.button !== 0) return
-    if (linkMode || annotateMode) return // empty-canvas drag does nothing in these modes
+    if (linkMode || annotateMode || modifyMode) return // empty-canvas drag does nothing in these modes
     const { lx, ly } = local(e)
     const additive = e.shiftKey || e.ctrlKey || e.metaKey
     gesture.current = { type: 'marquee', sx: lx, sy: ly, additive, base: selectedIds }
@@ -360,7 +363,7 @@ export default function Canvas({
     backgroundImage: `radial-gradient(circle, var(--dot) 1.2px, transparent 1.2px)`,
     backgroundSize: `${gap}px ${gap}px`,
     backgroundPosition: `${view.x}px ${view.y}px`,
-    cursor: spaceDown ? 'grab' : linkMode || annotateMode ? 'crosshair' : 'default',
+    cursor: spaceDown ? 'grab' : linkMode || annotateMode || modifyMode ? 'crosshair' : 'default',
   }
   const hs = 11 / view.scale // handle size in world units (constant on screen)
   const inv = 1 / view.scale // scale-invariant unit for labels
@@ -383,8 +386,8 @@ export default function Canvas({
         {screens.map((s) => {
           const b = effBox(s)
           const selected = selectedIds.includes(s.id)
-          const interactive = interactAll && !linkMode && !annotateMode && !spaceDown
-          const pickable = linkMode && !annotateMode && !spaceDown
+          const interactive = interactAll && !linkMode && !modifyMode && !annotateMode && !spaceDown
+          const pickable = (linkMode || modifyMode) && !annotateMode && !spaceDown
           const bw = b.w
           const bh = b.h
           const useFrame = s.device === 'iphone' && showFrame
@@ -628,6 +631,10 @@ export default function Canvas({
         {linkMode ? (
           <span className="text-indigo-300">
             🔗 Link mode — click a button/element inside a screen, then pick the target screen
+          </span>
+        ) : modifyMode ? (
+          <span className="text-fuchsia-300">
+            ✎ Modify mode — click any element inside a screen, then describe the change
           </span>
         ) : annotateMode ? (
           <span className="text-amber-300">
