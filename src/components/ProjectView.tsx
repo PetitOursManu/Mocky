@@ -128,6 +128,7 @@ export default function ProjectView({
   // code into these — the existing iframe stays fully rendered until the new
   // code is ready, then swaps in one clean step (no blank/flicker).
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set())
+  const [regenLabel, setRegenLabel] = useState('Regenerating…')
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
     setCapturing(true)
@@ -374,6 +375,7 @@ export default function ProjectView({
     setBusy(true)
     setError(null)
     // Keep the current iframe rendered — no streaming, no spinner overlay.
+    setRegenLabel('Regenerating…')
     setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
@@ -426,8 +428,9 @@ export default function ProjectView({
     abortRef.current = ac
     setBusy(true)
     setError(null)
-    setPhase('generating')
-    setGeneratingIds(new Set([screenId]))
+    // Keep the current render visible; generate fully, then swap once.
+    setRegenLabel('Adding motion…')
+    setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
       const design = loadDesign()
@@ -440,7 +443,7 @@ export default function ProjectView({
       const oldCode = screen.code
       const res = await editComponent(
         settings, buildAnimationInstruction(level), screen.code, extraSystem, undefined, ac.signal,
-        (partial) => onUpdateScreen(screenId, { code: partial }),
+        undefined,
         caps,
       )
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
@@ -450,8 +453,7 @@ export default function ProjectView({
     } finally {
       abortRef.current = null
       setBusy(false)
-      setPhase(null)
-      setGeneratingIds(new Set())
+      setRegeneratingIds(new Set())
     }
   }
 
@@ -473,8 +475,10 @@ export default function ProjectView({
     abortRef.current = ac
     setBusy(true)
     setError(null)
-    setPhase('generating')
-    setGeneratingIds(new Set([screenId]))
+    // Keep the current render visible; generate fully, then swap once (no
+    // streaming, so half-written code never flashes a broken/error preview).
+    setRegenLabel('Updating…')
+    setRegeneratingIds(new Set([screenId]))
     setPendingModify(null)
     setModifyText('')
     retryRefs.current[screenId] = { count: 0, lastError: '' }
@@ -492,7 +496,7 @@ export default function ProjectView({
       )
       const res = await editComponent(
         settings, instruction, screen.code, extraSystem, undefined, ac.signal,
-        (partial) => onUpdateScreen(screenId, { code: partial }),
+        undefined,
         caps,
       )
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
@@ -502,8 +506,7 @@ export default function ProjectView({
     } finally {
       abortRef.current = null
       setBusy(false)
-      setPhase(null)
-      setGeneratingIds(new Set())
+      setRegeneratingIds(new Set())
     }
   }
 
@@ -610,6 +613,7 @@ export default function ProjectView({
         onError={onScreenError}
         generatingIds={generatingIds}
         regeneratingIds={regeneratingIds}
+        regenLabel={regenLabel}
       />
 
       {/* Links panel (link mode) */}
@@ -978,12 +982,25 @@ export default function ProjectView({
             <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-100">
               <span className="text-fuchsia-400">✎</span> Modify element
             </h3>
-            <p className="mb-3 text-xs text-slate-400">
-              Selected:{' '}
-              <span className="rounded bg-slate-900 px-1.5 py-0.5 font-medium text-fuchsia-200">
-                {pendingModify.info.label ? `"${pendingModify.info.label}"` : pendingModify.info.selector.split('>').pop()?.trim() || 'element'}
+            <div className="mb-3 text-xs text-slate-400">
+              <span>Selected </span>
+              <span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[11px] text-fuchsia-200">
+                {pendingModify.info.tag ? `<${pendingModify.info.tag}>` : 'element'}
               </span>
-            </p>
+              {pendingModify.info.label && (
+                <span className="ml-1">
+                  “<span className="text-slate-200">{pendingModify.info.label}</span>”
+                </span>
+              )}
+              {pendingModify.info.className && (
+                <div
+                  className="mt-1 truncate font-mono text-[10px] text-slate-500"
+                  title={pendingModify.info.className}
+                >
+                  .{pendingModify.info.className.split(' ').filter(Boolean).join(' .')}
+                </div>
+              )}
+            </div>
             {/* Quick text edit — deterministic in-place swap when unambiguous */}
             {pendingModify.info.label && (
               <div className="mb-3">

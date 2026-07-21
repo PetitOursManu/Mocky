@@ -179,8 +179,11 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     }
 
     // --- Interaction bridge ---
-    var mode = null, links = [], hl = null, pickFill = true;
+    var mode = null, links = [], hl = null, pickFill = true, pickPrecise = false;
     function pickTarget(el) {
+      // Modify mode wants the exact element under the cursor. Link mode walks up
+      // to the nearest interactive ancestor (you link the whole button/anchor).
+      if (pickPrecise) return el;
       var n = el;
       while (n && n.nodeType === 1 && n.tagName !== 'BODY') {
         var tag = n.tagName;
@@ -230,7 +233,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     function markLinks() { for (var i = 0; i < links.length; i++) { var el = null; try { el = document.querySelector(links[i].selector); } catch (_) {} if (el) el.style.cursor = 'pointer'; } }
     window.addEventListener('message', function (e) {
       var d = e.data || {};
-      if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; } else if (mode === 'pick') { mode = null; hideHl(); } }
+      if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; pickPrecise = !!d.precise; } else if (mode === 'pick') { mode = null; hideHl(); } }
       if (d.__mockyCmd === 'demo') { mode = 'demo'; links = d.links || []; markLinks(); }
     });
   })();
@@ -248,6 +251,7 @@ export default function Preview({
   code,
   pickMode,
   pickOutlineOnly,
+  pickPrecise,
   onPick,
   demoLinks,
   onNavigate,
@@ -264,6 +268,8 @@ export default function Preview({
   pickMode?: boolean
   /** In pick mode, use a fuchsia outline only (no violet fill) — used by Modify mode. */
   pickOutlineOnly?: boolean
+  /** In pick mode, pick the exact element under the cursor (no walk-up) — used by Modify mode. */
+  pickPrecise?: boolean
   onPick?: (info: PickInfo) => void
   demoLinks?: DemoLink[]
   onNavigate?: (target: string) => void
@@ -304,7 +310,7 @@ export default function Preview({
   // iframe shows the error, but the spinner stays until a valid render ("ok"
   // message) arrives.
   //
-  // A 15s timeout guards against iframes that never respond (e.g. Babel CDN
+  // A 20s timeout guards against iframes that never respond (e.g. Babel CDN
   // unreachable): instead of spinning forever, we show a timeout error.
   //
   // We track the code that was used to build the current srcDoc. If an error
@@ -331,7 +337,7 @@ export default function Preview({
 
   // Listen for messages from the iframe. The iframe posts 'ok' when the
   // component rendered successfully, or 'error' when Babel or the component
-  // threw. We also set a 15s timeout: if no message arrives, show an error.
+  // threw. We also set a 20s timeout: if no message arrives, show an error.
   useEffect(() => {
     if (!srcDoc) return
     setError(null)
@@ -342,7 +348,7 @@ export default function Preview({
         timeoutHit = true
         setError('Preview timed out — the component took too long to render.')
       }
-    }, 15000)
+    }, 20000)
     function onMsg(e: MessageEvent) {
       const d = e.data
       if (!d || !d.__mocky || d.frameId !== frameId) return
@@ -399,9 +405,9 @@ export default function Preview({
   useEffect(() => {
     const win = iframeRef.current?.contentWindow
     if (!win || !ready) return
-    win.postMessage({ __mockyCmd: 'pick', on: !!pickMode, fill: !pickOutlineOnly }, '*')
+    win.postMessage({ __mockyCmd: 'pick', on: !!pickMode, fill: !pickOutlineOnly, precise: !!pickPrecise }, '*')
     if (demoLinks && demoLinks.length) win.postMessage({ __mockyCmd: 'demo', links: demoLinks }, '*')
-  }, [ready, pickMode, pickOutlineOnly, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, pickMode, pickOutlineOnly, pickPrecise, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative h-full w-full bg-white" style={{ borderRadius: radius }}>

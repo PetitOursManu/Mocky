@@ -85,6 +85,7 @@ export default function Canvas({
   onError,
   generatingIds,
   regeneratingIds,
+  regenLabel,
   referenceScreenId,
   onScreenContextMenu,
   onContentHeight,
@@ -112,8 +113,10 @@ export default function Canvas({
   onCaptureRect: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   onError?: (screenId: string, error: string) => void
   generatingIds?: Set<string>
-  /** Screens being regenerated: keep the existing render, show a small badge only. */
+  /** Screens with an in-place op running: keep the existing render, show a small badge only. */
   regeneratingIds?: Set<string>
+  /** Badge label for regeneratingIds frames (e.g. "Regenerating…", "Updating…"). */
+  regenLabel?: string
   /** The screen pinned as the project's shared-layout reference, if any. */
   referenceScreenId?: string
   /** Open the per-screen context menu at client coords (right-click or ⋯). */
@@ -480,6 +483,7 @@ export default function Canvas({
                       code={s.code}
                       pickMode={pickable}
                       pickOutlineOnly={modifyMode}
+                      pickPrecise={modifyMode}
                       onPick={(info) => onPickElement(s.id, info)}
                       hideScrollbars={s.device === 'iphone'}
                       radius={SCREEN_RADIUS}
@@ -496,6 +500,7 @@ export default function Canvas({
                     code={s.code}
                     pickMode={pickable}
                     pickOutlineOnly={modifyMode}
+                    pickPrecise={modifyMode}
                     onPick={(info) => onPickElement(s.id, info)}
                     hideScrollbars={s.device === 'iphone'}
                     radius="1rem"
@@ -518,7 +523,7 @@ export default function Canvas({
                     className="animate-spin rounded-full border-white/40 border-t-white"
                     style={{ width: 12 * inv, height: 12 * inv, borderWidth: 2 * inv }}
                   />
-                  Regenerating…
+                  {regenLabel || 'Regenerating…'}
                 </div>
               )}
 
