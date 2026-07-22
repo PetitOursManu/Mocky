@@ -40,6 +40,41 @@ body {
 }
 
 /*
+ * Animated multicolor ring drawn around a frame while it is regenerating /
+ * updating. The wrapper masks its content to a padding band (a border ring) so
+ * the center stays transparent and never covers the preview. Inside, an
+ * oversized conic-gradient element spins with transform:rotate — this sweeps the
+ * colors around the ring and works in every browser (no @property needed, which
+ * PostCSS does not reliably register from a CSS file).
+ */
+.mocky-regen-ring {
+  overflow: hidden;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  filter: drop-shadow(0 0 3px rgba(129, 140, 248, 0.45));
+}
+.mocky-regen-ring::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 250%;
+  height: 250%;
+  background: conic-gradient(
+    #6366f1, #ec4899, #f59e0b, #10b981, #22d3ee, #a855f7, #6366f1
+  );
+  animation: mocky-ring-spin 3s linear infinite;
+}
+@keyframes mocky-ring-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mocky-regen-ring::before { animation: none; }
+}
+
+/*
  * Light theme — remaps the slate utilities the app uses to a warm beige
  * palette. Written unlayered so it wins over Tailwind's utility layer.
  * Dark theme is the default (plain slate utilities).

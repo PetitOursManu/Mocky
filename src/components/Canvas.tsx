@@ -513,6 +513,14 @@ export default function Canvas({
                 )}
               </div>
 
+              {/* Animated multicolor ring while regenerating/updating this frame */}
+              {regeneratingIds?.has(s.id) && (
+                <div
+                  className="mocky-regen-ring pointer-events-none absolute z-10"
+                  style={{ inset: -2 * inv, padding: 3 * inv, borderRadius: useFrame ? '13% / 6%' : '1rem' }}
+                />
+              )}
+
               {/* Regenerating badge — the existing preview stays visible underneath */}
               {regeneratingIds?.has(s.id) && (
                 <div
