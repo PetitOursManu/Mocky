@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
-import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors } from '../lib/design'
+import { buildDesignPreamble, isDesignActive, loadDesign, saveDesign, extractDesignColors } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, buildElementEditInstruction, tryDirectTextReplace, type AnimationLevel } from '../lib/generate'
 import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
@@ -153,8 +153,17 @@ export default function ProjectView({
     }
   }
 
-  const designActive = isDesignActive(loadDesign())
-  const designColors = designActive ? extractDesignColors(loadDesign().markdown).slice(0, 10) : []
+  // Re-read DESIGN.md whenever we change it in-view (D.1 quick-style apply).
+  const [designVersion, setDesignVersion] = useState(0)
+  const design = useMemo(() => loadDesign(), [designVersion])
+  const designActive = isDesignActive(design)
+  const designColors = designActive ? extractDesignColors(design.markdown).slice(0, 10) : []
+
+  /** Apply a starter style's DESIGN.md from the Welcome quick-picker (D.1). */
+  function applyStyleMarkdown(markdown: string) {
+    saveDesign({ ...loadDesign(), markdown, enabled: true })
+    setDesignVersion((v) => v + 1)
+  }
   const screens = project.screens
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
 
@@ -564,6 +573,7 @@ export default function ProjectView({
         onPresetChange={setPresetId}
         onOpenSettings={onOpenSettings}
         onOpenDesign={onOpenDesign}
+        onApplyStyle={applyStyleMarkdown}
       />
     )
   }

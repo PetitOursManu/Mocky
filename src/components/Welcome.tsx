@@ -1,4 +1,5 @@
 import PresetPicker from './PresetPicker'
+import { STYLE_PRESETS } from '../lib/styles'
 
 type Props = {
   prompt: string
@@ -12,6 +13,7 @@ type Props = {
   onPresetChange: (id: string) => void
   onOpenSettings: () => void
   onOpenDesign: () => void
+  onApplyStyle: (markdown: string) => void
 }
 
 export default function Welcome({
@@ -26,6 +28,7 @@ export default function Welcome({
   onPresetChange,
   onOpenSettings,
   onOpenDesign,
+  onApplyStyle,
 }: Props) {
   function onKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -85,6 +88,44 @@ export default function Welcome({
           <span className="text-xs text-slate-500">Format</span>
           <PresetPicker value={presetId} onChange={onPresetChange} />
         </div>
+
+        {/* First-run style picker (D.1) — sets a DESIGN.md so the very first
+            screen is on-brand. Hidden once a design system is active. */}
+        {!designActive && (
+          <div className="mt-6">
+            <div className="mb-2 flex items-center justify-center gap-2 text-center text-xs uppercase tracking-wide text-slate-500">
+              pick a style <span className="normal-case tracking-normal text-slate-600">— optional, keeps every screen consistent</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {STYLE_PRESETS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onApplyStyle(s.markdown)}
+                  title={`${s.name} — ${s.description}`}
+                  className="group shrink-0 rounded-xl border border-slate-700 bg-slate-800/40 p-2 text-left transition hover:border-indigo-500 hover:bg-slate-800"
+                  style={{ width: 116 }}
+                >
+                  <div className="flex h-10 overflow-hidden rounded-md" style={{ background: s.preview.bg }}>
+                    <span className="flex-1" style={{ background: s.preview.cardBg }} />
+                    <span className="flex-1" style={{ background: s.preview.accent }} />
+                    <span className="flex-1" style={{ background: s.preview.text }} />
+                    <span className="flex-1" style={{ background: s.preview.mutedText }} />
+                  </div>
+                  <div className="mt-1.5 truncate text-[11px] font-medium text-slate-200 group-hover:text-white">{s.name}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {designActive && (
+          <div className="mt-4 text-center text-xs text-emerald-300/90">
+            ● Design system on — your screens will follow it.{' '}
+            <button type="button" onClick={onOpenDesign} className="underline underline-offset-2 hover:text-emerald-200">
+              edit
+            </button>
+          </div>
+        )}
 
         <div className="mt-6">
           <div className="mb-2 text-center text-xs uppercase tracking-wide text-slate-500">
