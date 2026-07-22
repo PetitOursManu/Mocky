@@ -131,6 +131,8 @@ export default function ProjectView({
   // code into these — the existing iframe stays fully rendered until the new
   // code is ready, then swaps in one clean step (no blank/flicker).
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set())
+  // Screens whose render error the auto-fixer is currently repairing.
+  const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
   const [regenLabel, setRegenLabel] = useState('Regenerating…')
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
@@ -208,6 +210,9 @@ export default function ProjectView({
     if (!settings.model.trim()) return
     const ac = new AbortController()
     retryAbortRef.current = ac
+    // Mark this screen as "repairing" so the preview shows a calm state instead
+    // of flashing the red error banner while the fix is in flight.
+    setFixingIds((prev) => new Set(prev).add(screenId))
     try {
       // Pass the screen's capabilities so the fixer knows which globals/icons
       // actually exist — essential for repairing React #130 (undefined element).
@@ -220,6 +225,11 @@ export default function ProjectView({
       // Retry failed — leave the error visible to the user.
     } finally {
       retryAbortRef.current = null
+      setFixingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(screenId)
+        return next
+      })
     }
   }, [screens, onUpdateScreen, busy])
 
@@ -638,6 +648,7 @@ export default function ProjectView({
         onError={onScreenError}
         generatingIds={generatingIds}
         regeneratingIds={regeneratingIds}
+        fixingIds={fixingIds}
         regenLabel={regenLabel}
       />
 

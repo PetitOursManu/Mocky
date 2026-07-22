@@ -252,6 +252,7 @@ export default function Preview({
   pickMode,
   pickOutlineOnly,
   pickPrecise,
+  retrying,
   onPick,
   demoLinks,
   onNavigate,
@@ -270,6 +271,8 @@ export default function Preview({
   pickOutlineOnly?: boolean
   /** In pick mode, pick the exact element under the cursor (no walk-up) — used by Modify mode. */
   pickPrecise?: boolean
+  /** Auto-fix is repairing a render error on this screen — show a calm "Repairing…" state instead of the red error banner. */
+  retrying?: boolean
   onPick?: (info: PickInfo) => void
   demoLinks?: DemoLink[]
   onNavigate?: (target: string) => void
@@ -427,7 +430,15 @@ export default function Preview({
           <span className="text-xs text-slate-400">{generating ? 'Generating…' : 'Rendering…'}</span>
         </div>
       )}
-      {error && (
+      {/* While the auto-fixer is repairing a render error, show a calm state —
+          the red error only appears if the fix ultimately fails. */}
+      {error && retrying && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/95" style={{ borderRadius: radius }}>
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-200 border-t-amber-500" />
+          <span className="text-xs text-amber-600">Repairing component…</span>
+        </div>
+      )}
+      {error && !retrying && (
         <div className="absolute inset-x-0 bottom-0 max-h-[50%] overflow-auto border-t border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">
           <div className="mb-1 font-semibold">Runtime error in generated component</div>
           <pre className="whitespace-pre-wrap font-mono text-xs">{error}</pre>

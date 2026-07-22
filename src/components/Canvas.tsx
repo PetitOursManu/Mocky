@@ -85,6 +85,7 @@ export default function Canvas({
   onError,
   generatingIds,
   regeneratingIds,
+  fixingIds,
   regenLabel,
   referenceScreenId,
   onScreenContextMenu,
@@ -115,6 +116,8 @@ export default function Canvas({
   generatingIds?: Set<string>
   /** Screens with an in-place op running: keep the existing render, show a small badge only. */
   regeneratingIds?: Set<string>
+  /** Screens whose render error is currently being auto-repaired — shows a calm "Repairing…" state instead of the red error. */
+  fixingIds?: Set<string>
   /** Badge label for regeneratingIds frames (e.g. "Regenerating…", "Updating…"). */
   regenLabel?: string
   /** The screen pinned as the project's shared-layout reference, if any. */
@@ -491,6 +494,7 @@ export default function Canvas({
                       onCaptureRect={onCaptureRect}
                       onError={(err) => onError?.(s.id, err)}
                       generating={generatingIds?.has(s.id)}
+                      retrying={fixingIds?.has(s.id)}
                       caps={s.caps}
                       onContentHeight={(h) => onContentHeight?.(s.id, h)}
                     />
@@ -508,6 +512,7 @@ export default function Canvas({
                     onCaptureRect={onCaptureRect}
                     onError={(err) => onError?.(s.id, err)}
                     generating={generatingIds?.has(s.id)}
+                    retrying={fixingIds?.has(s.id)}
                     caps={s.caps}
                   />
                 )}
