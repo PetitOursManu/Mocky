@@ -573,19 +573,27 @@ export function toPreviewModule(code: string): string {
   return out
 }
 
-const FIX_PROMPT = `You are a code reviewer. The following React component has a syntax or runtime error. Fix ONLY the error — do not redesign, restyle, or change anything else. Return the COMPLETE corrected component in a single fenced jsx code block.`
+const FIX_PROMPT = `You are fixing a compile or runtime error in a React component that runs inside a sandbox. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported. Fix ONLY the error — do not redesign, restyle, rename, or change anything that is not broken. Return the COMPLETE corrected component in a single fenced jsx code block.
+
+If the error is React #130 ("Element type is invalid" / an element type is undefined), then a component or icon you rendered does not exist. This is the most important rule: every rendered element MUST be one of (a) a plain lowercase HTML tag, (b) a component DEFINED in this same file, or (c) one of the provided globals listed below. Do NOT invent components. Find the undefined element in the render tree (the error's component stack points near it) and replace it with a defined equivalent — an icon from the Icon set, another provided component, or plain markup. Common causes: an icon name that is NOT in the Icon set (e.g. Icon.Dribbble, Icon.Slack, Icon.Discord), a bare <SomeComponent/> that was referenced but never defined, or a component left over from a stripped import.`
 
 /**
  * Asks the model to fix a broken component given the code + the error message.
  * Used for auto-retry when the preview iframe reports a compile/runtime error.
- * Returns the fixed code. Does NOT stream (the fix is usually small and fast).
+ * Passing the same capability prompt used for generation is essential for
+ * React #130 fixes: without the list of which globals exist, the model cannot
+ * know which component/icon is undefined and often swaps one undefined name for
+ * another. Returns the fixed code. Does NOT stream (the fix is usually small).
  */
 export async function fixComponent(
   s: Settings,
   brokenCode: string,
   errorMessage: string,
   signal?: AbortSignal,
+  caps?: Capability[],
 ): Promise<GeneratedComponent> {
+  const capsPrompt = caps && caps.length ? buildCapabilitiesPrompt(caps) : ''
+  const system = capsPrompt ? `${FIX_PROMPT}\n${capsPrompt}` : FIX_PROMPT
   const user = [
     'The following component has an error:',
     '',
@@ -598,7 +606,7 @@ export async function fixComponent(
     'Fix the error and return the COMPLETE corrected component. Do not change anything that is not broken.',
   ].join('\n')
   const content = await chat(s, [
-    { role: 'system', content: FIX_PROMPT },
+    { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal)
   const code = extractCode(content)

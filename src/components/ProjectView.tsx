@@ -209,7 +209,12 @@ export default function ProjectView({
     const ac = new AbortController()
     retryAbortRef.current = ac
     try {
-      const res = await fixComponent(settings, screen.code, errorMessage, ac.signal)
+      // Pass the screen's capabilities so the fixer knows which globals/icons
+      // actually exist — essential for repairing React #130 (undefined element).
+      const caps = resolveCapabilities(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt),
+      )
+      const res = await fixComponent(settings, screen.code, errorMessage, ac.signal, caps)
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName })
     } catch {
       // Retry failed — leave the error visible to the user.
