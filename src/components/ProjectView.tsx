@@ -9,8 +9,10 @@ import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/sel
 import { planScreen, planToPromptSection } from '../lib/plan'
 import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
+import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
+import DesignSystemPanel from './DesignSystemPanel'
 import PresetPicker from './PresetPicker'
 import DemoPlayer from './DemoPlayer'
 import CodeView from './CodeView'
@@ -87,6 +89,7 @@ export default function ProjectView({
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
   const [linkMode, setLinkMode] = useState(false)
   const [modifyMode, setModifyMode] = useState(false)
+  const [showSystem, setShowSystem] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
   const [modifyLabelDraft, setModifyLabelDraft] = useState('')
@@ -162,6 +165,13 @@ export default function ProjectView({
   /** Apply a starter style's DESIGN.md from the Welcome quick-picker (D.1). */
   function applyStyleMarkdown(markdown: string) {
     saveDesign({ ...loadDesign(), markdown, enabled: true })
+    setDesignVersion((v) => v + 1)
+  }
+
+  /** Recolor one token in the DESIGN.md from the Design-system frame (D.2). */
+  function recolorToken(token: DesignToken, newHex: string) {
+    const d = loadDesign()
+    saveDesign({ ...d, markdown: replaceTokenHex(d.markdown, token, newHex), enabled: true })
     setDesignVersion((v) => v + 1)
   }
   const screens = project.screens
@@ -626,6 +636,16 @@ export default function ProjectView({
         regenLabel={regenLabel}
       />
 
+      {/* Live Design-system frame (D.2) */}
+      {showSystem && (
+        <DesignSystemPanel
+          markdown={design.markdown}
+          onRecolor={recolorToken}
+          onClose={() => setShowSystem(false)}
+          onEdit={onOpenDesign}
+        />
+      )}
+
       {/* Links panel (link mode) */}
       {linkMode && (
         <div className="absolute right-4 top-11 flex max-h-[70vh] w-72 flex-col rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur">
@@ -763,6 +783,16 @@ export default function ProjectView({
           title="Show/hide the iPhone frame on mobile screens"
         >
           📱 Frame
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowSystem((v) => !v)}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+            showSystem ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
+          }`}
+          title="Live Design-system frame — see your DESIGN.md tokens and recolor them"
+        >
+          🎨 System
         </button>
         <div className="mx-1 h-5 w-px bg-slate-700" />
         <button
