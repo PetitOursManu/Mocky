@@ -517,7 +517,7 @@ export default function Canvas({
               {regeneratingIds?.has(s.id) && (
                 <div
                   className="mocky-regen-ring pointer-events-none absolute z-10"
-                  style={{ inset: -2 * inv, padding: 3 * inv, borderRadius: useFrame ? '13% / 6%' : '1rem' }}
+                  style={{ inset: -5 * inv, padding: 7 * inv, borderRadius: useFrame ? '13% / 6%' : '1rem' }}
                 />
               )}
 

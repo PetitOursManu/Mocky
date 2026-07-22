@@ -52,7 +52,7 @@ body {
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
-  filter: drop-shadow(0 0 3px rgba(129, 140, 248, 0.45));
+  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.6)) drop-shadow(0 0 12px rgba(168, 85, 247, 0.35));
 }
 .mocky-regen-ring::before {
   content: '';
