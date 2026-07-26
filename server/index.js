@@ -8,10 +8,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { handleProviderProxy } from './provider-proxy.js'
+import { createMuse } from './muse/index.js'
+import { createMuseRouter } from './muse/routes.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
+const ROOT_DIR = path.join(__dirname, '..')
 fs.mkdirSync(DATA_DIR, { recursive: true })
+
+// ---- Muse (MCP host + inspiration engine) ----
+// Lazy: importing/creating this spawns nothing. Servers start on first use.
+const muse = createMuse({ rootDir: ROOT_DIR, dataDir: DATA_DIR })
+muse.host.startAutoStart().catch(() => {}) // best-effort; never blocks boot
 
 // ---- .env loader (no dependency) ----
 // Reads KEY=VALUE lines from <repo>/.env into process.env (does not override
@@ -462,6 +470,9 @@ app.put('/api/data', (req, res) => {
   res.json({ ok: true })
 })
 
+// ---- Muse routes (MCP status; more added in later phases) ----
+app.use('/api', createMuseRouter({ host: muse.host }))
+
 // ---- serve the built frontend (production) ----
 const dist = path.join(__dirname, '..', 'dist')
 if (fs.existsSync(dist)) {
@@ -477,4 +488,23 @@ if (fs.existsSync(dist)) {
 // tell Vite which port to use) can't accidentally push the backend onto the
 // Vite port and collide with it. Production hosts that set PORT still work.
 const PORT = process.env.MOCKY_PORT || process.env.PORT || 8787
-app.listen(PORT, () => console.log(`Mocky backend on http://localhost:${PORT}`))
+const server = app.listen(PORT, () => console.log(`Mocky backend on http://localhost:${PORT}`))
+
+// Graceful shutdown: close MCP servers (kill spawned children) before exiting.
+let shuttingDown = false
+async function gracefulShutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`\n${signal} received — shutting down Muse MCP servers…`)
+  try {
+    await muse.host.shutdown()
+  } catch {
+    /* ignore */
+  }
+  server.close(() => process.exit(0))
+  // Don't hang forever if a socket is stuck.
+  setTimeout(() => process.exit(0), 3000).unref()
+}
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => gracefulShutdown(sig))
+}

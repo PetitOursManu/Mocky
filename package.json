@@ -15,10 +15,12 @@
     "smoke": "vitest run registry"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "cookie-parser": "^1.4.7",
     "express": "^4.22.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@babel/standalone": "^7.29.7",

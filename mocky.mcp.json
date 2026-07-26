@@ -1,0 +1,12 @@
+{
+  "$comment": "Mocky Muse — local MCP servers spawned by the backend (stdio). All local, free, OSS. See docs/adr/001-muse.md. Swap or add servers here without touching code: the McpToolRouter matches semantic 'role's to whichever server declares a matching tool.",
+  "mcpServers": {
+    "fetcher": {
+      "command": "npx",
+      "args": ["-y", "fetcher-mcp"],
+      "autoStart": false,
+      "role": "inspiration-fetch",
+      "idleTimeoutMs": 300000
+    }
+  }
+}
