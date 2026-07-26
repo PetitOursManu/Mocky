@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { handleProviderProxy } from './provider-proxy.js'
 import { createMuse } from './muse/index.js'
 import { createMuseRouter } from './muse/routes.js'
+import { createImages } from './images/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
@@ -20,6 +21,10 @@ fs.mkdirSync(DATA_DIR, { recursive: true })
 // Lazy: importing/creating this spawns nothing. Servers start on first use.
 const muse = createMuse({ rootDir: ROOT_DIR, dataDir: DATA_DIR })
 muse.host.startAutoStart().catch(() => {}) // best-effort; never blocks boot
+
+// ---- Muse image service + global Image Library ----
+// Lazy: no provider probe or generation until a request hits /api/images.
+const images = createImages({ dataDir: DATA_DIR })
 
 // ---- .env loader (no dependency) ----
 // Reads KEY=VALUE lines from <repo>/.env into process.env (does not override
@@ -472,6 +477,9 @@ app.put('/api/data', (req, res) => {
 
 // ---- Muse routes (MCP status; more added in later phases) ----
 app.use('/api', createMuseRouter({ host: muse.host }))
+
+// ---- Image service + Image Library (Phase 2) ----
+app.use('/api/images', images.router)
 
 // ---- serve the built frontend (production) ----
 const dist = path.join(__dirname, '..', 'dist')
