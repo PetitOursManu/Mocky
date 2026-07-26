@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "description": "Curated, versioned list of AI-slop clichés injected into every Dossier and generation prompt as things to AVOID. Merged with each InspirationCard's own `avoid` list. Full enforcement (lorem lint, distinctiveness pass) lands in Phase 5.",
+  "forbidden": [
+    "purple-to-blue diagonal gradients on a dark background",
+    "generic 'Get Started' / 'Sign up free' hero with floating 3D blobs",
+    "Lorem ipsum or any placeholder filler text",
+    "emoji used as UI icons instead of real icons",
+    "default shadcn zinc/slate look with no brand overrides",
+    "identical border-radius on every single element",
+    "glossy AI-generated 3D mascot or blob illustrations",
+    "meaningless 'Empower your workflow' / 'Unlock your potential' taglines",
+    "three identical feature cards with a generic icon, title and one sentence",
+    "stock-photo smiling team around a laptop",
+    "centered hero + subheading + two buttons with nothing distinctive",
+    "rainbow gradient text on headings",
+    "fake logos strip labeled 'Trusted by' with grey rectangles",
+    "over-rounded pill buttons everywhere with no hierarchy",
+    "generic dashboard with three stat cards and one line chart and no point of view",
+    "'Lorem'-style repeated cities/names (John Doe, Acme Inc, example@email.com) with no context",
+    "drop shadows on absolutely everything",
+    "neon glow on a dark hero as the only art direction"
+  ]
+}

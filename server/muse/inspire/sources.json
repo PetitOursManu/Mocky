@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "description": "Curated registry of stable, fetch-friendly inspiration index pages. Fetched via the inspiration-fetch MCP role, honoring robots.txt + the ≤6/run cap. v1 uses the generic Readability parser for all (ADR open-Q3); dedicated parsers can be added later behind the `parser` field.",
+  "sources": [
+    { "id": "awwwards-sotd", "url": "https://www.awwwards.com/websites/sites_of_the_day/", "type": "gallery", "tags": ["landing", "portfolio", "agency", "creative", "brand", "product"], "parser": "generic" },
+    { "id": "awwwards-nominees", "url": "https://www.awwwards.com/websites/nominees/", "type": "gallery", "tags": ["landing", "saas", "product", "startup", "brand", "app"], "parser": "generic" },
+    { "id": "designmd-gallery", "url": "https://designmd.co/", "type": "gallery", "tags": ["saas", "dashboard", "product", "app", "modern", "landing"], "parser": "generic" },
+    { "id": "motionsites", "url": "https://motionsites.ai/", "type": "gallery", "tags": ["landing", "creative", "agency", "animation", "brand", "portfolio"], "parser": "generic" },
+    { "id": "superdesign", "url": "https://superdesign.dev/", "type": "gallery", "tags": ["saas", "app", "product", "startup", "modern", "landing"], "parser": "generic" },
+    { "id": "landbook", "url": "https://land-book.com/", "type": "gallery", "tags": ["landing", "startup", "saas", "product", "brand", "marketing"], "parser": "generic" }
+  ]
+}

@@ -1,0 +1,104 @@
+// Server-side LLM client for Muse's Distill / Dossier stages.
+//
+// Today all of Mocky's LLM calls originate in the BROWSER; Muse's inspiration
+// stages must run server-side because they process untrusted fetched content.
+// Per ADR decision D7, the provider base URL + API key are forwarded PER REQUEST
+// (from the same browser settings the /__provider proxy already uses) and are
+// used only for the lifetime of the call — never persisted.
+//
+// Non-streamed + Ollama structured output (`format`), mirroring src/lib/plan.ts.
+// Never uses the <<<MOCKY>>> sentinel path (that's for streamed code gen only).
+import { assertSafeTarget } from '../provider-proxy.js'
+
+/** @typedef {{ baseUrl:string, apiKey?:string, model:string }} ProviderCreds */
+
+/**
+ * One chat call. Returns the assistant text. Positive `num_predict` always
+ * (invariant I8 — Ollama Cloud rejects -1). Throws on any transport/HTTP error.
+ * @param {ProviderCreds} creds
+ * @param {{system:string, user:string, schema?:object, options?:object, timeoutMs?:number, signal?:AbortSignal}} req
+ */
+export async function museChat(creds, req) {
+  const base = String(creds?.baseUrl || '').replace(/\/+$/, '')
+  if (!base) throw new Error('Missing provider base URL')
+  if (!creds.model) throw new Error('Missing model')
+  const target = `${base}/api/chat`
+  assertSafeTarget(target) // same SSRF guard as /__provider
+
+  const num_predict = Math.max(1, Math.floor(req.options?.num_predict ?? 2048)) // I8: must be positive
+  const body = {
+    model: creds.model,
+    stream: false,
+    messages: [
+      { role: 'system', content: req.system },
+      { role: 'user', content: req.user },
+    ],
+    options: { temperature: 0.5, num_ctx: 8192, ...(req.options || {}), num_predict },
+  }
+  if (req.schema) body.format = req.schema // Ollama structured output
+
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), req.timeoutMs ?? 40000)
+  const onExternalAbort = () => ctrl.abort()
+  req.signal?.addEventListener('abort', onExternalAbort)
+  try {
+    const res = await fetch(target, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        ...(creds.apiKey ? { authorization: `Bearer ${creds.apiKey}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    })
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`Provider auth failed (HTTP ${res.status}) — check the API key`)
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(`Provider HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`)
+    }
+    const data = await res.json()
+    const content = data?.message?.content ?? data?.choices?.[0]?.message?.content ?? ''
+    if (!content || !content.trim()) throw new Error('Empty model response')
+    return content
+  } finally {
+    clearTimeout(timer)
+    req.signal?.removeEventListener('abort', onExternalAbort)
+  }
+}
+
+/**
+ * Chat call that expects strict JSON back (structured output). Parses and
+ * returns the object. Throws on non-JSON so callers can retry/degrade.
+ * @param {ProviderCreds} creds
+ * @param {{system:string, user:string, schema:object, options?:object, timeoutMs?:number, signal?:AbortSignal}} req
+ */
+export async function museJson(creds, req) {
+  const content = await museChat(creds, req)
+  try {
+    return JSON.parse(content)
+  } catch {
+    // Some models wrap JSON in prose/fences despite `format`; salvage the object.
+    const m = content.match(/\{[\s\S]*\}/)
+    if (m) {
+      try {
+        return JSON.parse(m[0])
+      } catch {
+        /* fall through */
+      }
+    }
+    throw new Error('Model did not return valid JSON')
+  }
+}
+
+/**
+ * Build an injectable `llm` function bound to a set of credentials, so the
+ * inspiration stages depend on a tiny interface (easy to fake in tests).
+ * @param {ProviderCreds} creds
+ * @returns {(req:object)=>Promise<any>}
+ */
+export function makeLlm(creds) {
+  return (req) => museJson(creds, req)
+}

@@ -475,8 +475,8 @@ app.put('/api/data', (req, res) => {
   res.json({ ok: true })
 })
 
-// ---- Muse routes (MCP status; more added in later phases) ----
-app.use('/api', createMuseRouter({ host: muse.host }))
+// ---- Muse routes (MCP status + inspiration engine) ----
+app.use('/api', createMuseRouter({ host: muse.host, fetcher: muse.fetcher, patterns: muse.patterns, blacklist: muse.blacklist }))
 
 // ---- Image service + Image Library (Phase 2) ----
 app.use('/api/images', images.router)

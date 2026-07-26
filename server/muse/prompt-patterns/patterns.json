@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "description": "Hand-written art-direction patterns. Used as offline fallback when live inspiration is unavailable, and blended with InspirationCards otherwise. Each has token seeds (DESIGN.md-compatible), an imagery style, and when-to-use tags.",
+  "patterns": [
+    {
+      "id": "editorial-serif",
+      "name": "Editorial Serif",
+      "description": "Magazine-grade layout: oversized serif display, generous margins, a strict baseline grid, restrained ink-on-paper palette with one accent.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#faf7f2" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#1a1a1a" }, { "label": "Muted", "hex": "#6b6b6b" }, { "label": "Accent", "hex": "#b23a2e" }, { "label": "Border", "hex": "#e6e0d6" }], "radius": "rounded-md", "typography": "Serif display (Playfair/Freight), humanist sans body" },
+      "imageryStyle": "grainy editorial photography, natural light, muted film tones, lots of negative space",
+      "tags": ["blog", "magazine", "portfolio", "editorial", "agency", "writer", "brand"]
+    },
+    {
+      "id": "swiss-grid",
+      "name": "Swiss / International",
+      "description": "Rigorous grid, Helvetica-like neo-grotesque, flush-left type, red accent, zero decoration. Order and clarity as the aesthetic.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#ffffff" }, { "label": "Surface", "hex": "#f4f4f4" }, { "label": "Text", "hex": "#111111" }, { "label": "Muted", "hex": "#767676" }, { "label": "Accent", "hex": "#e2231a" }, { "label": "Border", "hex": "#e0e0e0" }], "radius": "rounded-none", "typography": "Neo-grotesque sans (Helvetica/Inter), tight tracking" },
+      "imageryStyle": "high-contrast black-and-white, geometric compositions, single accent color overlay",
+      "tags": ["saas", "agency", "portfolio", "corporate", "product", "minimal", "landing"]
+    },
+    {
+      "id": "brutalist-raw",
+      "name": "Neo-Brutalist",
+      "description": "Hard borders, blocky cards, high-contrast primaries, visible structure, chunky shadows offset in one direction. Confident and loud.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#fefce8" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#0a0a0a" }, { "label": "Accent", "hex": "#2563eb" }, { "label": "Accent-2", "hex": "#f43f5e" }, { "label": "Border", "hex": "#0a0a0a" }], "radius": "rounded-none", "typography": "Chunky grotesque, heavy weights, mono for labels" },
+      "imageryStyle": "flat bold illustration, thick outlines, primary colors, no gradients",
+      "tags": ["startup", "creative", "portfolio", "app", "playful", "landing", "web3"]
+    },
+    {
+      "id": "organic-warm",
+      "name": "Organic Warm",
+      "description": "Soft earthy palette, rounded forms, warm neutrals, hand-made feel. Approachable and human.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#f6f0e8" }, { "label": "Surface", "hex": "#fffaf3" }, { "label": "Text", "hex": "#3d3428" }, { "label": "Muted", "hex": "#8a7d6b" }, { "label": "Accent", "hex": "#c2703d" }, { "label": "Border", "hex": "#e7dccd" }], "radius": "rounded-3xl", "typography": "Rounded humanist sans, warm serif for headings" },
+      "imageryStyle": "warm natural photography, terracotta and sage tones, soft daylight, artisan textures",
+      "tags": ["restaurant", "bakery", "cafe", "wellness", "beauty", "food", "local", "shop", "artisan"]
+    },
+    {
+      "id": "dark-luxe",
+      "name": "Dark Luxe",
+      "description": "Near-black canvas, gold or champagne accent, thin elegant type, wide letter-spacing, deep contrast. Premium and quiet.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#0c0c0e" }, { "label": "Surface", "hex": "#161619" }, { "label": "Text", "hex": "#f2efe9" }, { "label": "Muted", "hex": "#9a958c" }, { "label": "Accent", "hex": "#c9a15a" }, { "label": "Border", "hex": "#2a2a2e" }], "radius": "rounded-lg", "typography": "High-contrast serif display, thin sans body, wide tracking" },
+      "imageryStyle": "moody low-key photography, single warm light source, deep shadows, product on dark",
+      "tags": ["luxury", "fashion", "jewelry", "hotel", "restaurant", "premium", "spirits", "real-estate"]
+    },
+    {
+      "id": "glass-modern",
+      "name": "Glassmorphism (done right)",
+      "description": "Layered translucent surfaces over a soft mesh backdrop, subtle blur, restrained — one glass layer, not ten. Airy and modern.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#0f1226" }, { "label": "Surface", "hex": "#1b2040" }, { "label": "Text", "hex": "#eef1ff" }, { "label": "Muted", "hex": "#9aa2c9" }, { "label": "Accent", "hex": "#6ea8fe" }, { "label": "Border", "hex": "#2c335c" }], "radius": "rounded-2xl", "typography": "Geometric sans, medium weights" },
+      "imageryStyle": "soft gradient mesh, abstract light refractions, no literal 3D blobs",
+      "tags": ["saas", "fintech", "app", "product", "dashboard", "ai", "modern"]
+    },
+    {
+      "id": "scandi-min",
+      "name": "Scandinavian Minimal",
+      "description": "Cool off-whites, muted blue-grey, lots of whitespace, calm and functional, thin dividers.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#f7f8f8" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#20262b" }, { "label": "Muted", "hex": "#7b858c" }, { "label": "Accent", "hex": "#4a7c8c" }, { "label": "Border", "hex": "#e7eaeb" }], "radius": "rounded-xl", "typography": "Neutral sans, comfortable line height" },
+      "imageryStyle": "bright airy photography, natural materials, wood and linen, soft shadows",
+      "tags": ["interior", "furniture", "wellness", "saas", "portfolio", "shop", "minimal", "app"]
+    },
+    {
+      "id": "cyber-neon",
+      "name": "Cyber Neon",
+      "description": "Deep space background, electric accents, mono type accents, subtle grid glow. Techy without being a cliché — restraint on the glow.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#07070d" }, { "label": "Surface", "hex": "#12121f" }, { "label": "Text", "hex": "#e6e6f5" }, { "label": "Muted", "hex": "#8686a8" }, { "label": "Accent", "hex": "#2dd4bf" }, { "label": "Accent-2", "hex": "#a855f7" }, { "label": "Border", "hex": "#232338" }], "radius": "rounded-lg", "typography": "Geometric sans + monospace labels" },
+      "imageryStyle": "dark tech photography, teal/violet rim light, circuitry macro, wireframe abstractions",
+      "tags": ["web3", "gaming", "ai", "developer", "crypto", "tech", "app", "cyber"]
+    },
+    {
+      "id": "pastel-soft",
+      "name": "Soft Pastel",
+      "description": "Gentle candy palette, rounded everything, friendly and light, playful but tidy.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#fdf4fb" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#3a2f45" }, { "label": "Muted", "hex": "#9a8ea6" }, { "label": "Accent", "hex": "#ec7fb4" }, { "label": "Accent-2", "hex": "#8b7be8" }, { "label": "Border", "hex": "#f1e3ef" }], "radius": "rounded-3xl", "typography": "Rounded friendly sans" },
+      "imageryStyle": "soft pastel illustration, gentle gradients, cute rounded shapes",
+      "tags": ["kids", "education", "wellness", "app", "consumer", "playful", "social", "health"]
+    },
+    {
+      "id": "corporate-trust",
+      "name": "Corporate Trust",
+      "description": "Confident navy + a single professional accent, structured cards, dependable and clean. B2B credibility.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#f7f9fc" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#0f1f3a" }, { "label": "Muted", "hex": "#5b6b85" }, { "label": "Accent", "hex": "#1e5eff" }, { "label": "Border", "hex": "#e3e9f2" }], "radius": "rounded-lg", "typography": "Neutral corporate sans, clear hierarchy" },
+      "imageryStyle": "clean confident photography, real environments, blue-toned, no cheesy stock",
+      "tags": ["saas", "fintech", "b2b", "enterprise", "corporate", "consulting", "insurance", "dashboard"]
+    },
+    {
+      "id": "retro-70s",
+      "name": "Neo-Retro 70s",
+      "description": "Warm mustard, rust and cream, groovy rounded slab type, arch shapes. Nostalgic and cozy.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#f3e9d2" }, { "label": "Surface", "hex": "#fbf5e6" }, { "label": "Text", "hex": "#3b2a1a" }, { "label": "Muted", "hex": "#8a7350" }, { "label": "Accent", "hex": "#d97822" }, { "label": "Accent-2", "hex": "#7a8450" }, { "label": "Border", "hex": "#e4d6b8" }], "radius": "rounded-full", "typography": "Rounded slab / groovy display" },
+      "imageryStyle": "70s film photography, warm grain, arch framing, earthy palette",
+      "tags": ["food", "cafe", "music", "creative", "brand", "shop", "vintage", "restaurant"]
+    },
+    {
+      "id": "mono-terminal",
+      "name": "Monospace Terminal",
+      "description": "Developer aesthetic: monospace everywhere, dark or paper background, ASCII dividers, precise and honest.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#0d1117" }, { "label": "Surface", "hex": "#161b22" }, { "label": "Text", "hex": "#c9d1d9" }, { "label": "Muted", "hex": "#8b949e" }, { "label": "Accent", "hex": "#39d353" }, { "label": "Border", "hex": "#30363d" }], "radius": "rounded-md", "typography": "Monospace (JetBrains Mono) primary" },
+      "imageryStyle": "terminal screenshots, code, wireframe diagrams, no photography",
+      "tags": ["developer", "devtool", "cli", "open-source", "api", "tech", "docs", "saas"]
+    },
+    {
+      "id": "eco-natural",
+      "name": "Eco Natural",
+      "description": "Forest greens and stone, recycled-paper texture, calm and grounded, sustainability signal without greenwashing clichés.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#f2f1e9" }, { "label": "Surface", "hex": "#fbfbf5" }, { "label": "Text", "hex": "#26302a" }, { "label": "Muted", "hex": "#727a6f" }, { "label": "Accent", "hex": "#3f7d54" }, { "label": "Border", "hex": "#e0e2d6" }], "radius": "rounded-2xl", "typography": "Humanist sans, calm serif headings" },
+      "imageryStyle": "natural outdoor photography, greenery, honest materials, soft daylight",
+      "tags": ["eco", "sustainability", "wellness", "food", "nonprofit", "outdoor", "shop", "health"]
+    },
+    {
+      "id": "bold-pop",
+      "name": "Bold Pop",
+      "description": "Saturated primary duo, giant type, energetic and youthful, big CTAs, motion-forward.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#111014" }, { "label": "Surface", "hex": "#1c1a22" }, { "label": "Text", "hex": "#fffef7" }, { "label": "Muted", "hex": "#a29bb0" }, { "label": "Accent", "hex": "#ff5c39" }, { "label": "Accent-2", "hex": "#ffd23f" }, { "label": "Border", "hex": "#2b2833" }], "radius": "rounded-xl", "typography": "Extra-bold grotesque display" },
+      "imageryStyle": "high-energy photography, bold color blocking, dynamic crops",
+      "tags": ["consumer", "app", "sports", "music", "event", "startup", "social", "landing"]
+    },
+    {
+      "id": "art-deco",
+      "name": "Art Deco",
+      "description": "Symmetry, gold linework, deep emerald or navy, geometric ornament, elegant capitals. Timeless glamour.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#0e2b28" }, { "label": "Surface", "hex": "#123734" }, { "label": "Text", "hex": "#f3ead6" }, { "label": "Muted", "hex": "#9db3ad" }, { "label": "Accent", "hex": "#c9a35c" }, { "label": "Border", "hex": "#1e4a45" }], "radius": "rounded-md", "typography": "Elegant deco caps, refined serif body" },
+      "imageryStyle": "geometric gold linework, symmetrical ornament, rich jewel tones",
+      "tags": ["hotel", "restaurant", "event", "luxury", "wedding", "spirits", "brand", "premium"]
+    },
+    {
+      "id": "clinical-clean",
+      "name": "Clinical Clean",
+      "description": "Medical/health clarity: crisp white, calm teal, generous spacing, legible, reassuring and precise.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#f4fbfb" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#12303a" }, { "label": "Muted", "hex": "#5f7c85" }, { "label": "Accent", "hex": "#0ca7a0" }, { "label": "Border", "hex": "#dcecec" }], "radius": "rounded-xl", "typography": "Clear neutral sans, high legibility" },
+      "imageryStyle": "bright clean photography, real people, soft teal tint, trustworthy",
+      "tags": ["health", "medical", "clinic", "insurance", "wellness", "saas", "app", "dashboard"]
+    },
+    {
+      "id": "gradient-vivid",
+      "name": "Vivid Gradient (tasteful)",
+      "description": "One deliberate multi-stop gradient as a brand signature (not purple-to-blue), crisp white cards over it, modern SaaS energy — used sparingly.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#0b1020" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#0b1020" }, { "label": "Muted", "hex": "#5a6b8c" }, { "label": "Accent", "hex": "#ff7a59" }, { "label": "Accent-2", "hex": "#12b981" }, { "label": "Border", "hex": "#e6ebf5" }], "radius": "rounded-2xl", "typography": "Modern geometric sans" },
+      "imageryStyle": "abstract vivid gradient hero, crisp product UI screenshots, no floating blobs",
+      "tags": ["saas", "startup", "product", "ai", "fintech", "landing", "app", "modern"]
+    },
+    {
+      "id": "playful-flat",
+      "name": "Playful Flat",
+      "description": "Friendly flat illustration, cheerful secondary palette, rounded cards, approachable consumer tone.",
+      "tokenSeeds": { "colors": [{ "label": "Background", "hex": "#fff9f2" }, { "label": "Surface", "hex": "#ffffff" }, { "label": "Text", "hex": "#2b2440" }, { "label": "Muted", "hex": "#8a83a0" }, { "label": "Accent", "hex": "#5b5bd6" }, { "label": "Accent-2", "hex": "#f0a500" }, { "label": "Border", "hex": "#f0e9df" }], "radius": "rounded-2xl", "typography": "Rounded friendly sans" },
+      "imageryStyle": "flat vector illustration, cheerful characters, simple shapes, warm palette",
+      "tags": ["fintech", "app", "education", "consumer", "onboarding", "startup", "social", "kids"]
+    }
+  ]
+}
