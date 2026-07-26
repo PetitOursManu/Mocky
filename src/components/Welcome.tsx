@@ -1,5 +1,7 @@
 import PresetPicker from './PresetPicker'
 import { STYLE_PRESETS } from '../lib/styles'
+import MusePanel from './MusePanel'
+import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
 
 type Props = {
   prompt: string
@@ -14,6 +16,12 @@ type Props = {
   onOpenSettings: () => void
   onOpenDesign: () => void
   onApplyStyle: (markdown: string) => void
+  museConfig: MuseConfig
+  onMuseChange: (c: MuseConfig) => void
+  museAvail: boolean | null
+  museResult: MuseResult | null
+  museImages: GeneratedSlotImage[]
+  museStage: string | null
 }
 
 export default function Welcome({
@@ -29,6 +37,12 @@ export default function Welcome({
   onOpenSettings,
   onOpenDesign,
   onApplyStyle,
+  museConfig,
+  onMuseChange,
+  museAvail,
+  museResult,
+  museImages,
+  museStage,
 }: Props) {
   function onKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -60,16 +74,28 @@ export default function Welcome({
             onKeyDown={onKeyDown}
           />
           <div className="flex items-center justify-between gap-3 px-1 pt-1">
-            <button
-              type="button"
-              onClick={onOpenDesign}
-              className={`text-xs transition ${
-                designActive ? 'text-emerald-300 hover:text-emerald-200' : 'text-slate-500 hover:text-slate-300'
-              }`}
-              title="Manage DESIGN.md"
-            >
-              {designActive ? '● DESIGN.md on' : '○ DESIGN.md off'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onOpenDesign}
+                className={`text-xs transition ${
+                  designActive ? 'text-emerald-300 hover:text-emerald-200' : 'text-slate-500 hover:text-slate-300'
+                }`}
+                title="Manage DESIGN.md"
+              >
+                {designActive ? '● DESIGN.md on' : '○ DESIGN.md off'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onMuseChange({ ...museConfig, enabled: !museConfig.enabled })}
+                className={`text-xs transition ${
+                  museConfig.enabled ? 'text-fuchsia-300 hover:text-fuchsia-200' : 'text-slate-500 hover:text-slate-300'
+                }`}
+                title="Muse — inspiration, art direction & real copy"
+              >
+                {museConfig.enabled ? '✨ Muse on' : '✨ Muse off'}
+              </button>
+            </div>
             <div className="flex items-center gap-3">
               <span className="hidden text-xs text-slate-500 sm:inline">⌘/Ctrl + Enter</span>
               <button
@@ -83,6 +109,20 @@ export default function Welcome({
             </div>
           </div>
         </div>
+
+        {museConfig.enabled && (
+          <div className="mt-3">
+            <MusePanel
+              config={museConfig}
+              onChange={onMuseChange}
+              available={museAvail}
+              result={museResult}
+              images={museImages}
+              stage={museStage}
+              busy={busy}
+            />
+          </div>
+        )}
 
         <div className="mt-4 flex items-center justify-center gap-2">
           <span className="text-xs text-slate-500">Format</span>

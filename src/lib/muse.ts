@@ -1,0 +1,200 @@
+// Frontend Muse client. Talks to the backend Inspiration Engine (Phase 3) and
+// image service (Phase 2), and turns a Design Dossier into the `extraSystem`
+// preamble the existing generation path already consumes (exactly where
+// DESIGN.md goes — so Muse OFF changes nothing, M1).
+//
+// Provider credentials are read from the browser Settings and sent per request
+// via the same headers the /__provider proxy uses (ADR D7) — never stored server
+// side.
+import { loadSettings } from './settings'
+
+export interface MuseImagerySlot {
+  id: string
+  slot?: string
+  subject?: string
+  style?: string
+  lighting?: string
+  aspectRatio?: string
+  negative?: string
+  prompt?: string
+}
+export interface MuseDossier {
+  concept: string
+  references?: { sourceUrl?: string; note?: string }[]
+  tokens?: {
+    colors?: { label: string; hex: string; role?: string }[]
+    typography?: { display?: string; body?: string; scaleFeel?: string }
+    radius?: string
+  }
+  layoutGrammar?: string[]
+  motionLanguage?: { name: string; description?: string }[]
+  voice?: {
+    tone?: string
+    headline?: string
+    subheadline?: string
+    valueProps?: string[]
+    ctaLabels?: string[]
+    footer?: string
+  }
+  imageryPlan?: MuseImagerySlot[]
+  forbidden?: string[]
+}
+export interface MuseResult {
+  dossier: MuseDossier
+  markdown: string
+  cards: unknown[]
+  sources: { id: string; url: string }[]
+  patterns: { id: string; name: string }[]
+  notices: string[]
+  source: 'llm' | 'fallback'
+}
+
+export interface MuseConfig {
+  /** ✨ toggle state. */
+  enabled: boolean
+  /** Optional inspiration URLs, one per line. */
+  urls: string
+  /** Fetch live inspiration (spawns the fetcher MCP / Playwright). Off by default. */
+  useFetch: boolean
+}
+
+const STORAGE_KEY = 'mocky.muse.v1'
+
+export function defaultMuseConfig(): MuseConfig {
+  return { enabled: false, urls: '', useFetch: false }
+}
+
+export function loadMuseConfig(): MuseConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return defaultMuseConfig()
+    return { ...defaultMuseConfig(), ...(JSON.parse(raw) as Partial<MuseConfig>) }
+  } catch {
+    return defaultMuseConfig()
+  }
+}
+
+export function saveMuseConfig(c: MuseConfig): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(c))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Muse needs the backend. In pure-localStorage mode it's unavailable. */
+export async function museAvailable(signal?: AbortSignal): Promise<boolean> {
+  try {
+    const res = await fetch('/api/mcp/status', { signal })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** Turn a "/api/images/:hash" path into an absolute, Mocky-origin URL (M6). */
+export function absoluteUrl(path: string): string {
+  return /^https?:\/\//.test(path) ? path : `${window.location.origin}${path}`
+}
+
+/** Parse the URL textarea into a clean list. */
+export function parseUrls(text: string): string[] {
+  return (text || '')
+    .split(/\s+/)
+    .map((u) => u.trim())
+    .filter((u) => /^https?:\/\//.test(u))
+}
+
+/** Run Discover → Distill → Dossier for a prompt. Throws on transport/HTTP error. */
+export async function runMuseDossier(
+  prompt: string,
+  opts: { urls?: string[]; useFetch?: boolean; projectName?: string; signal?: AbortSignal } = {},
+): Promise<MuseResult> {
+  const s = loadSettings()
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  if (s.baseUrl) headers['x-provider-base'] = s.baseUrl
+  if (s.apiKey.trim()) headers['authorization'] = `Bearer ${s.apiKey.trim()}`
+  const res = await fetch('/api/muse/dossier', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      prompt,
+      urls: opts.urls || [],
+      useFetch: opts.useFetch === true,
+      model: s.model,
+      projectName: opts.projectName,
+    }),
+    signal: opts.signal,
+  })
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`Muse failed (HTTP ${res.status})${detail ? `: ${detail.slice(0, 200)}` : ''}`)
+  }
+  return (await res.json()) as MuseResult
+}
+
+export interface GeneratedSlotImage {
+  slot: string
+  id: string
+  url: string
+}
+
+/** Generate the imagery-plan images (capped) and return their absolute URLs. */
+export async function generateSlotImages(
+  slots: MuseImagerySlot[],
+  project: string,
+  opts: { max?: number; signal?: AbortSignal; onImage?: (img: GeneratedSlotImage) => void } = {},
+): Promise<GeneratedSlotImage[]> {
+  const max = opts.max ?? 1 // Pollinations is rate-limited (~1/15s); default to the hero only.
+  const out: GeneratedSlotImage[] = []
+  for (const slot of (slots || []).slice(0, max)) {
+    const promptText = slot.prompt || slot.subject
+    if (!promptText) continue
+    try {
+      const res = await fetch('/api/images/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          prompt: promptText,
+          negative: slot.negative,
+          tags: [slot.slot || 'image'].filter(Boolean),
+          slotType: slot.slot,
+          project,
+        }),
+        signal: opts.signal,
+      })
+      if (!res.ok) continue
+      const j = await res.json()
+      if (j.skipped || !j.url) continue
+      const img = { slot: slot.slot || slot.id, id: slot.id, url: absoluteUrl(j.url) }
+      out.push(img)
+      opts.onImage?.(img)
+    } catch {
+      // Best-effort: a failed image never blocks generation.
+    }
+  }
+  return out
+}
+
+/**
+ * Build the generation preamble from a dossier + any generated images. Goes into
+ * `extraSystem`, exactly where DESIGN.md goes. The dossier is a DESIGN.md
+ * superset, so its tokens drive the palette; its Voice & Copy drive the text.
+ */
+export function buildMusePreamble(markdown: string, images: GeneratedSlotImage[] = []): string {
+  const lines = [
+    'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly.',
+    '',
+    '<DESIGN_DOSSIER>',
+    markdown.trim(),
+    '</DESIGN_DOSSIER>',
+  ]
+  if (images.length) {
+    lines.push(
+      '',
+      'GENERATED IMAGERY — these images are served by THIS app. For the matching visual slots you MUST use an <img> tag with the EXACT absolute URL below (this overrides the general rule against external images — ONLY these listed URLs are allowed, and never add a crossorigin attribute):',
+    )
+    for (const im of images) lines.push(`- slot "${im.slot}": <img src="${im.url}" alt="" className="..." />`)
+  }
+  return lines.join('\n')
+}

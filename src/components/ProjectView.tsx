@@ -17,6 +17,19 @@ import PresetPicker from './PresetPicker'
 import DemoPlayer from './DemoPlayer'
 import CodeView from './CodeView'
 import { type PickInfo } from './Preview'
+import MusePanel from './MusePanel'
+import {
+  loadMuseConfig,
+  saveMuseConfig,
+  museAvailable,
+  runMuseDossier,
+  generateSlotImages,
+  buildMusePreamble,
+  parseUrls,
+  type MuseConfig,
+  type MuseResult,
+  type GeneratedSlotImage,
+} from '../lib/muse'
 
 /** Fixed viewport formats offered in the screen context menu. */
 type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
@@ -82,8 +95,18 @@ export default function ProjectView({
 }) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | null>(null)
+  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // --- Muse (✨) — optional design-intelligence pass before generation ---
+  const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
+  const [museAvail, setMuseAvail] = useState<boolean | null>(null)
+  const [museResult, setMuseResult] = useState<MuseResult | null>(null)
+  const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
+  const [museStage, setMuseStage] = useState<string | null>(null)
+  const updateMuse = useCallback((c: MuseConfig) => {
+    setMuseConfig(c)
+    saveMuseConfig(c)
+  }, [])
   const abortRef = useRef<AbortController | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
@@ -116,6 +139,16 @@ export default function ProjectView({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [menu, codeScreen, pendingModify])
+
+  // Probe the backend once Muse is switched on (Muse needs it; frontend-only ⇒ unavailable).
+  useEffect(() => {
+    if (!museConfig.enabled || museAvail !== null) return
+    let alive = true
+    museAvailable().then((ok) => alive && setMuseAvail(ok))
+    return () => {
+      alive = false
+    }
+  }, [museConfig.enabled, museAvail])
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
   const [annotateMode, setAnnotateMode] = useState(false)
@@ -302,16 +335,59 @@ export default function ProjectView({
           : undefined
         const referencePreamble =
           refScreen && refScreen.code.trim() ? buildLayoutReference(refScreen.code) : undefined
-        const extraSystem = joinSystem([designPreamble, referencePreamble, preset.hint])
+
+        // --- Muse (✨): build a Design Dossier + hero image and use it as the
+        // design authority for this screen. This supersedes DESIGN.md. Muse must
+        // never block generation (M3), and when OFF the path below is byte-
+        // identical to pre-Muse Mocky (M1).
+        let musePreamble: string | undefined
+        let museMarkdown: string | undefined
+        if (museConfig.enabled && museAvail !== false) {
+          try {
+            setMuseResult(null)
+            setMuseImages([])
+            setPhase('muse')
+            setMuseStage('✨ Inspiration & rédaction du dossier…')
+            const res = await runMuseDossier(text, {
+              urls: parseUrls(museConfig.urls),
+              useFetch: museConfig.useFetch,
+              projectName: project.name,
+              signal: ac.signal,
+            })
+            setMuseResult(res)
+            museMarkdown = res.markdown
+            let imgs: GeneratedSlotImage[] = []
+            if (res.dossier.imageryPlan?.length) {
+              setMuseStage('✨ Génération de l’image héro…')
+              imgs = await generateSlotImages(res.dossier.imageryPlan, project.id, {
+                max: 1,
+                signal: ac.signal,
+                onImage: (im) => setMuseImages((a) => [...a, im]),
+              })
+            }
+            musePreamble = buildMusePreamble(res.markdown, imgs)
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            // Degrade: continue without Muse rather than fail the generation.
+            setMuseStage(null)
+          }
+        }
+
+        // Muse dossier supersedes DESIGN.md when present; otherwise the exact
+        // pre-Muse composition (M1).
+        const extraSystem = musePreamble
+          ? joinSystem([musePreamble, referencePreamble, preset.hint])
+          : joinSystem([designPreamble, referencePreamble, preset.hint])
 
         // Deterministic shortlist first — this is the guaranteed fallback.
-        const shortlist = selectCapabilities(text, designMd)
+        const shortlist = selectCapabilities(text, museMarkdown || designMd)
         // Optional planner pass. It runs first (so its capability choice and
         // structure guide generation), but can NEVER block: on failure/timeout
-        // it returns null and we use the shortlist unchanged.
+        // it returns null and we use the shortlist unchanged. Skipped when Muse
+        // ran — the dossier already provides the structure.
         let capIds = shortlist
         let planSection: string | undefined
-        if (settings.usePlanner) {
+        if (settings.usePlanner && !musePreamble) {
           setPhase('planning')
           const plan = await planScreen(
             settings, text, shortlist,
@@ -358,9 +434,10 @@ export default function ProjectView({
       abortRef.current = null
       setBusy(false)
       setPhase(null)
+      setMuseStage(null)
       setGeneratingIds(new Set())
     }
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, museConfig, museAvail, project])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -599,6 +676,12 @@ export default function ProjectView({
         onOpenSettings={onOpenSettings}
         onOpenDesign={onOpenDesign}
         onApplyStyle={applyStyleMarkdown}
+        museConfig={museConfig}
+        onMuseChange={updateMuse}
+        museAvail={museAvail}
+        museResult={museResult}
+        museImages={museImages}
+        museStage={museStage}
       />
     )
   }
@@ -925,6 +1008,19 @@ export default function ProjectView({
             </div>
           )}
 
+          {/* Muse panel (✨) — inspiration + moodboard, only when creating a new screen */}
+          {museConfig.enabled && !editing && (
+            <MusePanel
+              config={museConfig}
+              onChange={updateMuse}
+              available={museAvail}
+              result={museResult}
+              images={museImages}
+              stage={museStage}
+              busy={busy}
+            />
+          )}
+
           {/* Format preset — only relevant when creating a new screen */}
           {!editing && (
             <div className="mb-2 flex items-center gap-2">
@@ -943,6 +1039,16 @@ export default function ProjectView({
               title="Manage DESIGN.md"
             >
               {designActive ? '● DESIGN' : '○ DESIGN'}
+            </button>
+            <button
+              type="button"
+              onClick={() => updateMuse({ ...museConfig, enabled: !museConfig.enabled })}
+              className={`mb-1.5 shrink-0 text-xs transition ${
+                museConfig.enabled ? 'text-fuchsia-300 hover:text-fuchsia-200' : 'text-slate-500 hover:text-slate-300'
+              }`}
+              title="Muse — inspiration, art direction & real copy"
+            >
+              {museConfig.enabled ? '✨ Muse' : '✨ Muse'}
             </button>
             <textarea
               rows={1}
@@ -965,7 +1071,15 @@ export default function ProjectView({
               disabled={busy || !prompt.trim()}
             >
               {busy && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-              {busy ? (phase === 'planning' ? 'Planning…' : 'Generating…') : editing ? `Update ${selectedScreens.length}` : 'Generate'}
+              {busy
+                ? phase === 'muse'
+                  ? 'Muse…'
+                  : phase === 'planning'
+                    ? 'Planning…'
+                    : 'Generating…'
+                : editing
+                  ? `Update ${selectedScreens.length}`
+                  : 'Generate'}
             </button>
             {busy && (
               <button
