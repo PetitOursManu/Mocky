@@ -5,6 +5,7 @@
 import { discover } from './discover.js'
 import { distillAll } from './distill.js'
 import { buildDossier, dossierToMarkdown } from './dossier.js'
+import { refineDistinctiveness } from './distinctiveness.js'
 
 /**
  * @param {object} args  { prompt, urls?, useFetch?, language?, projectName? }
@@ -36,11 +37,17 @@ export async function runInspiration(args, deps) {
   }
 
   onProgress('dossier')
-  const dossier = await buildDossier(
+  let dossier = await buildDossier(
     deps.llm || null,
     { prompt: args.prompt, cards, patternHints, blacklist: deps.blacklist, language: args.language },
     { onNotice },
   )
+  // Distinctiveness self-critique (§5.3) — one score + at most one revise.
+  // Opt-out via args.distinctiveness === false. Best-effort, never blocks.
+  if (deps.llm && args.distinctiveness !== false) {
+    onProgress('refining')
+    dossier = await refineDistinctiveness(deps.llm, dossier, { prompt: args.prompt }, { onNotice })
+  }
   const markdown = dossierToMarkdown(dossier, { projectName: args.projectName })
   onProgress('done')
 

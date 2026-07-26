@@ -33,6 +33,7 @@ import {
   type GeneratedSlotImage,
 } from '../lib/muse'
 import { imageUrl, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
+import { lintSlop } from '../lib/lint'
 
 /** Fixed viewport formats offered in the screen context menu. */
 type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
@@ -452,6 +453,11 @@ export default function ProjectView({
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())
+        // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
+        const lint = lintSlop(result.code)
+        if (!lint.ok) {
+          setError(`⚠ Texte générique détecté (${lint.violations.join(', ')}). Régénère pour un rendu propre.`)
+        }
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return

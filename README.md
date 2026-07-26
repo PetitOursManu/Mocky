@@ -22,6 +22,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 ## Features
 
 - 🧠 **Chat-to-UI generation** — describe a screen, get a self-contained React + Tailwind component.
+- ✨ **Muse — design intelligence** — one toggle turns a prompt into a distinctive art direction with real copy, a coherent palette, and genuine generated imagery (see [✨ Muse](#-muse--design-intelligence) below). Grounded in live award-winning references via local MCP servers; zero keys required.
 - 🎨 **Production-ready output** — the prompt enforces real colors, spacing, rounded corners, shadows, interactive states, and realistic content (no wireframes).
 - 🖼️ **Infinite canvas** — a Stitch-like dotted board; pan/zoom, real-size resizable frames, Windows-style multi-select (click / Ctrl-click / marquee), arrange-to-grid.
 - ▶️ **Interact mode** — click buttons, hover states and animations run live, right in the grid.
@@ -217,6 +218,82 @@ Mocky auto-detects what the prompt needs and injects capabilities into the sandb
 - **DaisyUI** (conditional): CDN CSS for semantic component classes.
 
 Capabilities are snippet-packs (vendored plain-JS source prepended to the generated code) or CDN CSS links. All JS is vendored — the only thing that may come from a CDN is CSS. There is no external JS `<script>` capability: an unreliable CDN would gate otherwise-valid previews behind a network fetch, so icons/charts/motion are all inline.
+
+## ✨ Muse — design intelligence
+
+Muse is an optional pass that lifts generation above generic "AI slop". Flip the
+**✨ Muse** toggle next to the prompt and Mocky will, before building anything:
+
+1. **Gather inspiration** — match your request to a curated registry of
+   fetch-friendly galleries (Awwwards, land-book, …) and any URLs you paste, then
+   fetch them through a **local, free MCP server** (`fetcher-mcp`, Playwright +
+   Readability). Optional — off unless you tick **"Inspiration live"**.
+2. **Distill** each page into a structured *InspirationCard* (palette, style
+   adjectives, layout grammar, motion notes, clichés to avoid) — vocabulary and
+   grammar only, never a copy of any specific design.
+3. **Write a Design Dossier** — a **superset of `DESIGN.md`** with a concept,
+   token palette, layout grammar, motion language, **real written copy in your
+   language** (headline, subheadline, value props, CTA labels, footer), and an
+   imagery plan. It cites which reference drove which choice, and a
+   distinctiveness self-critique revises anything too generic.
+4. **Generate imagery** — a hero image via a zero-key provider and inject it into
+   the mockup, served from Mocky's own origin.
+
+The Dossier then drives generation as the design authority (superseding
+`DESIGN.md` for that screen). **Muse off ⇒ generation is byte-identical to
+before.** Muse needs the backend running (it does nothing in pure-`localStorage`
+mode).
+
+### Image providers
+
+| Provider | Key? | Notes |
+|---|---|---|
+| `pollinations` | ❌ none | Default. Free, URL-based; may watermark. Rate-limited (~1 req/15 s) so requests are queued server-side. |
+| `cloudflare-workers-ai` | ✔ optional | Advanced drawer only (planned). |
+| `local-comfy` | ❌ | Point at your own ComfyUI/A1111 endpoint (planned). |
+| `none` | — | Muse still runs; slots get palette placeholders. |
+
+Every generated image is saved to a **global Image Library** (`data/image-library/`),
+deduplicated by content hash, reusable across projects. Browse it from the
+**📚 Bibliothèque** tab: search, filter, favorite, download, "Tout télécharger"
+(ZIP + `manifest.json`), and **pin** images into the next run (pinned images are
+assigned to slots before any new image is generated). Deleting a project never
+deletes library images; only explicit deletion does.
+
+### MCP servers
+
+Local MCP servers are declared in [`mocky.mcp.json`](mocky.mcp.json) and spawned
+by the backend over stdio — all local, free, open-source. Swap or add servers
+there without touching code (the router matches semantic *roles* to whichever
+server exposes a matching tool). Health is at `GET /api/mcp/status`. The Docker
+image bundles `fetcher-mcp` + Chromium so live inspiration works out of the box;
+if that layer is skipped, Muse falls back to the offline prompt-pattern library.
+
+### Higgsfield (manual workflow)
+
+Higgsfield.ai has no free API, so it isn't integrated. To use it: generate an
+image on Higgsfield, download it, then drop it into Mocky's Image Library (or a
+project) and pin it — Muse will use it like any other image.
+
+### Ethics & ToS
+
+Muse is built to respect the sites it learns from:
+
+- **No bulk scraping.** It fetches only the curated registry pages and URLs you
+  paste, capped at **6 fetches per run**, honoring **`robots.txt`**, with an
+  honest `User-Agent` (`Mocky-Muse/…`) and a 7-day, **text-only** cache to keep
+  load low.
+- **No third-party images are ever stored, cached, proxied, or displayed** —
+  only Mocky-generated images and text distillations persist.
+- **Inspiration = tokens + vocabulary + structural grammar**, never a copy of a
+  specific design.
+- **Fetched web content is treated as untrusted data**, never as instructions.
+- All outbound URLs pass an SSRF guard; the default path needs **zero API keys,
+  zero accounts**.
+
+> Note on dependencies: the MCP SDK pulls a few transitive packages with audit
+> advisories (`hono`, `body-parser`, `shell-quote`, `esbuild`) — all in the SDK's
+> HTTP-server transport, which Mocky does **not** use (we're a stdio client).
 
 ## SSO — "Sign in with Dashy"
 

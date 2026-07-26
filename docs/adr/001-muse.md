@@ -1,6 +1,6 @@
 # ADR 001 — Muse: MCP-powered design intelligence
 
-- **Status:** Proposed (Phase 0 — audit only, no code)
+- **Status:** Accepted — implemented on `main` (Phases 1–5; some Phase 4 UI refinements + the memory-MCP taste profile remain, see §8/§9)
 - **Date:** 2026-07-26
 - **Supersedes / relates to:** the existing capability registry, Planner, DESIGN.md bridge, and provider proxy.
 - **Driver:** `MOCKY_MUSE_PROMPT.md` ("Prompt G", authored by Claude Fable 5).

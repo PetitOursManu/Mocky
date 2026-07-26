@@ -20,6 +20,19 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
+# ---- Muse: bundle the inspiration fetcher (fetcher-mcp) + Chromium so live
+# inspiration works inside the container (ADR D3 — "include by default"). This
+# adds ~300MB. Best-effort: if it fails (e.g. no apt/network in the build env),
+# the image still builds and Muse falls back to the offline pattern-based
+# dossier at runtime. Remove this block for a lean image (Muse still works, just
+# without live web inspiration).
+# Chromium installs to the default cache under HOME (/root/.cache/ms-playwright);
+# the MCP fetcher is spawned with HOME in its env (see server/muse/mcp/realClient.js),
+# so it's found at runtime.
+RUN (npm install -g fetcher-mcp \
+     && npx --yes playwright install --with-deps chromium) \
+    || echo "Muse: skipped Chromium bundling — live inspiration will fall back to patterns"
+
 # Copy built frontend + server code
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
