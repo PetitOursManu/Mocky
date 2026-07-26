@@ -107,10 +107,10 @@ function buildSystem() {
     '',
     'Requirements:',
     '- Concept: 2–3 sentences of specific art direction. NEVER generic ("modern, clean, professional" is banned).',
-    '- Tokens: a coherent palette (6–8 colors with a clear role each), typography feel, radius. Ground choices in the references/patterns.',
+    '- Tokens: a coherent palette (6–8 colors, each with `label` + `hex`). `tokens.radius` MUST be a single string like "rounded-xl" (NOT an object).',
     '- Voice & Copy: write REAL, specific copy — headline, subheadline, exactly 3 value props, CTA labels, footer line. CRITICAL: write ALL copy in the SAME LANGUAGE as the user request. Never use Lorem ipsum or filler.',
-    '- Imagery Plan: for each needed image slot, give subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
-    '- References: cite which reference or pattern inspired which choice.',
+    '- Imagery Plan: an ARRAY; EACH item MUST include a short string `id` (e.g. "hero", "product-1") plus subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
+    '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
     '- Forbidden: restate the key clichés to avoid for THIS project.',
     'Respond with ONLY the JSON object. No prose, no code fences.',
   ].join('\n')
@@ -145,6 +145,106 @@ function mergedForbidden(ctx, dossierForbidden = []) {
   return Array.from(set)
 }
 
+// --- tolerant coercion --------------------------------------------------------
+// Real models drift from the exact schema shape (references as an object, radius
+// as a nested object, imagery items missing `id`, colors as a map, motion items
+// as strings). Normalize those common variants BEFORE zod so a good response is
+// used instead of falling back to the pattern dossier.
+
+function coerceRefs(v) {
+  if (Array.isArray(v)) return v
+  if (v && typeof v === 'object') {
+    if ('sourceUrl' in v || 'note' in v) return [v]
+    const vals = Object.values(v)
+    if (vals.length && vals.every((x) => x && typeof x === 'object')) return vals
+  }
+  return []
+}
+
+function coerceRadius(v) {
+  if (typeof v === 'string') return v
+  if (v && typeof v === 'object') {
+    const s = Object.values(v).find((x) => typeof x === 'string')
+    return s || 'rounded-xl'
+  }
+  return undefined
+}
+
+function pickHex(o) {
+  const h = o.hex || o.value || o.color || o.hexValue
+  return typeof h === 'string' && /^#?[0-9a-fA-F]{3,8}$/.test(h) ? (h.startsWith('#') ? h : `#${h}`) : null
+}
+function coerceColors(v) {
+  const arr = Array.isArray(v)
+    ? v
+    : v && typeof v === 'object'
+      ? Object.entries(v).map(([label, val]) => (typeof val === 'string' ? { label, hex: val } : val && typeof val === 'object' ? { label, ...val } : null))
+      : []
+  return arr
+    .map((c) => {
+      if (!c || typeof c !== 'object') return null
+      const hex = pickHex(c)
+      if (!hex) return null
+      return { label: String(c.label || c.name || c.role || ''), hex, role: c.role }
+    })
+    .filter(Boolean)
+}
+
+function coerceImagery(v) {
+  if (!Array.isArray(v)) return []
+  return v.map((it, i) => {
+    const o = it && typeof it === 'object' ? it : {}
+    return { ...o, id: String(o.id || o.slot || `image-${i + 1}`) }
+  })
+}
+
+function coerceMotion(v) {
+  if (!Array.isArray(v)) return []
+  return v.map((m) => (typeof m === 'string' ? { name: m } : m)).filter((m) => m && m.name)
+}
+
+const firstDefined = (...xs) => xs.find((x) => x != null)
+
+/** Coerce a value into an array of plain strings (unwrapping {title/text/label/value}). */
+function coerceStringArray(v) {
+  const arr = Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : v != null ? [v] : []
+  return arr.map((x) => (typeof x === 'string' ? x : (x && (x.title || x.text || x.label || x.value)) || '')).filter(Boolean)
+}
+
+/** Voice can arrive as `voice`/`voiceCopy`/`copy` with drifting field names. */
+function coerceVoice(v) {
+  if (!v || typeof v !== 'object') return { valueProps: [], ctaLabels: [] }
+  return {
+    tone: firstDefined(v.tone, v.voice, v.mood),
+    headline: firstDefined(v.headline, v.title, v.h1),
+    subheadline: firstDefined(v.subheadline, v.subtitle, v.sub, v.subHeadline),
+    valueProps: coerceStringArray(firstDefined(v.valueProps, v.value_props, v.values, v.benefits, v.props)),
+    ctaLabels: coerceStringArray(firstDefined(v.ctaLabels, v.ctas, v.cta, v.buttons, v.callToActions)),
+    footer: firstDefined(v.footer, v.footerLine, v.footerText, v.footer_line),
+  }
+}
+
+/** Repair common model-output shape/key drift into the shape DossierSchema expects. */
+export function normalizeDossierRaw(raw) {
+  const r = raw && typeof raw === 'object' ? { ...raw } : {}
+  // Top-level key aliases seen from real models.
+  if (!r.voice) r.voice = firstDefined(r.voiceCopy, r.copy, r.voice_copy)
+  if (!r.forbidden) r.forbidden = firstDefined(r['clichés'], r.avoid, r.forbid, r.forbidden)
+  r.references = coerceRefs(r.references)
+  if (r.tokens && typeof r.tokens === 'object') {
+    r.tokens = {
+      ...r.tokens,
+      radius: coerceRadius(r.tokens.radius),
+      colors: coerceColors(firstDefined(r.tokens.colors, r.tokens.palette)),
+    }
+  }
+  r.voice = coerceVoice(r.voice)
+  r.imageryPlan = coerceImagery(r.imageryPlan)
+  r.motionLanguage = coerceMotion(r.motionLanguage)
+  r.forbidden = coerceStringArray(r.forbidden)
+  return r
+}
+
 /**
  * Build the dossier. `llm` may be null (offline) → deterministic fallback.
  * @param {((req:object)=>Promise<any>)|null} llm
@@ -154,19 +254,26 @@ function mergedForbidden(ctx, dossierForbidden = []) {
 export async function buildDossier(llm, ctx, opts = {}) {
   const onNotice = opts.onNotice || (() => {})
   if (llm) {
-    try {
-      const raw = await llm({
-        system: buildSystem(),
-        user: buildUser(ctx),
-        schema: DOSSIER_JSON_SCHEMA,
-        options: { num_predict: 2200, temperature: 0.7 },
-      })
-      const dossier = DossierSchema.parse(raw)
-      dossier.forbidden = mergedForbidden(ctx, dossier.forbidden)
-      dossier.__source = 'llm'
-      return dossier
-    } catch (err) {
-      onNotice(`Muse: dossier LLM step failed (${err instanceof Error ? err.message : String(err)}) — using pattern fallback`)
+    // The dossier is a large structured output; give it enough budget to avoid
+    // mid-JSON truncation, and retry once (the LLM is non-deterministic) before
+    // degrading to the pattern fallback (M3).
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const raw = await llm({
+          system: buildSystem(),
+          user: buildUser(ctx),
+          schema: DOSSIER_JSON_SCHEMA,
+          options: { num_predict: 4096, num_ctx: 16384, temperature: attempt === 0 ? 0.7 : 0.4 },
+        })
+        const dossier = DossierSchema.parse(normalizeDossierRaw(raw))
+        dossier.forbidden = mergedForbidden(ctx, dossier.forbidden)
+        dossier.__source = 'llm'
+        return dossier
+      } catch (err) {
+        if (attempt === 1) {
+          onNotice(`Muse: dossier LLM step failed (${err instanceof Error ? err.message : String(err)}) — using pattern fallback`)
+        }
+      }
     }
   }
   return buildFallbackDossier(ctx)

@@ -63,6 +63,45 @@ describe('buildDossier (LLM path)', () => {
     expect(dossier.forbidden).toEqual(expect.arrayContaining(['generic gradients', 'Lorem ipsum', 'fake team stock photo']))
   })
 
+  it('tolerates real model key/shape drift (voiceCopy, tokens.palette, object ctaLabels, clichés…)', async () => {
+    // The EXACT drift gpt-oss:120b produced live that used to strip fields and/or
+    // force the fallback. It must now validate AND keep every field (source: 'llm').
+    const drifted = {
+      concept: 'Warm editorial bakery identity',
+      references: { sourceUrl: 'https://x.test', note: 'palette' }, // object, not array
+      tokens: {
+        palette: [ // `palette`, not `colors`
+          { label: 'background', hex: '#f6f0e8' },
+          { label: 'accent', hex: '#c2703d' },
+          { label: 'text', hex: '#3d3428' },
+        ],
+        radius: { card: 'rounded-xl', button: 'rounded-lg' }, // object, not string
+      },
+      motionLanguage: ['gentle fade on scroll'], // strings, not {name}
+      voiceCopy: { // `voiceCopy`, not `voice`
+        headline: 'Le goût du vrai pain',
+        subheadline: 'Recettes familiales',
+        valueProps: ['Pain au levain', 'Pâtisseries du jour', 'Livraison à vélo'],
+        ctaLabels: { primary: 'Voir le menu', secondary: 'Commander' }, // object, not array
+        footerLine: '© 2026 Boulangerie', // `footerLine`, not `footer`
+      },
+      imageryPlan: [{ slot: 'hero', prompt: 'bakery, high quality, no text, no watermark' }], // no id
+      'clichés': ['generic gradients'], // `clichés`, not `forbidden`
+    }
+    const dossier = await buildDossier(vi.fn(async () => drifted), { prompt: 'bakery', patternHints: [PATTERN], blacklist: ['Lorem ipsum'] })
+    expect(dossier.__source).toBe('llm') // used, not fallback
+    expect(dossier.tokens.radius).toBe('rounded-xl')
+    expect(dossier.tokens.colors.map((c) => c.hex)).toContain('#c2703d') // palette → colors
+    expect(dossier.references[0].sourceUrl).toBe('https://x.test')
+    expect(dossier.imageryPlan[0].id).toBe('hero') // synthesized from slot
+    expect(dossier.motionLanguage[0].name).toMatch(/fade/)
+    expect(dossier.voice.headline).toBe('Le goût du vrai pain') // voiceCopy → voice
+    expect(dossier.voice.valueProps).toHaveLength(3)
+    expect(dossier.voice.ctaLabels).toEqual(['Voir le menu', 'Commander']) // object → array
+    expect(dossier.voice.footer).toMatch(/Boulangerie/) // footerLine → footer
+    expect(dossier.forbidden).toEqual(expect.arrayContaining(['generic gradients', 'Lorem ipsum'])) // clichés merged
+  })
+
   it('falls back to a pattern dossier when the LLM throws (M3)', async () => {
     const notices = []
     const llm = vi.fn(async () => { throw new Error('model down') })
