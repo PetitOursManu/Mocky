@@ -18,6 +18,7 @@ import DemoPlayer from './DemoPlayer'
 import CodeView from './CodeView'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
+import Bibliotheque from './Bibliotheque'
 import {
   loadMuseConfig,
   saveMuseConfig,
@@ -26,10 +27,12 @@ import {
   generateSlotImages,
   buildMusePreamble,
   parseUrls,
+  absoluteUrl,
   type MuseConfig,
   type MuseResult,
   type GeneratedSlotImage,
 } from '../lib/muse'
+import { imageUrl, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
 
 /** Fixed viewport formats offered in the screen context menu. */
 type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
@@ -103,9 +106,18 @@ export default function ProjectView({
   const [museResult, setMuseResult] = useState<MuseResult | null>(null)
   const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
   const [museStage, setMuseStage] = useState<string | null>(null)
+  const [showLibrary, setShowLibrary] = useState(false)
+  const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   const updateMuse = useCallback((c: MuseConfig) => {
     setMuseConfig(c)
     saveMuseConfig(c)
+  }, [])
+  const togglePin = useCallback((img: LibraryImage) => {
+    setPinnedImages((arr) =>
+      arr.some((p) => p.hash === img.hash)
+        ? arr.filter((p) => p.hash !== img.hash)
+        : [...arr, { hash: img.hash, url: imageUrl(img.hash), label: img.prompt.slice(0, 40) }],
+    )
   }, [])
   const abortRef = useRef<AbortController | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -356,14 +368,28 @@ export default function ProjectView({
             })
             setMuseResult(res)
             museMarkdown = res.markdown
-            let imgs: GeneratedSlotImage[] = []
-            if (res.dossier.imageryPlan?.length) {
+            const plan = res.dossier.imageryPlan || []
+            // Pinned library images (possibly from other projects) fill the
+            // first slots BEFORE any new generation (§4.3). URLs must be absolute
+            // for the null-origin preview iframe (M6).
+            const pins: GeneratedSlotImage[] = pinnedImages.map((p, i) => ({
+              slot: plan[i]?.slot || plan[i]?.id || `image-${i + 1}`,
+              id: plan[i]?.id || `pin-${i + 1}`,
+              url: absoluteUrl(p.url),
+            }))
+            let imgs: GeneratedSlotImage[] = [...pins]
+            if (pins.length) setMuseImages(pins)
+            // Generate a new hero only when no pin already covers a slot (capped
+            // to keep the run fast; multi-image is a later increment).
+            const remaining = plan.slice(pins.length)
+            if (remaining.length && pins.length === 0) {
               setMuseStage('✨ Génération de l’image héro…')
-              imgs = await generateSlotImages(res.dossier.imageryPlan, project.id, {
+              const gen = await generateSlotImages(remaining, project.id, {
                 max: 1,
                 signal: ac.signal,
                 onImage: (im) => setMuseImages((a) => [...a, im]),
               })
+              imgs = [...imgs, ...gen]
             }
             musePreamble = buildMusePreamble(res.markdown, imgs)
           } catch (err) {
@@ -437,7 +463,7 @@ export default function ProjectView({
       setMuseStage(null)
       setGeneratingIds(new Set())
     }
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, museConfig, museAvail, project])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, museConfig, museAvail, project, pinnedImages])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -661,8 +687,13 @@ export default function ProjectView({
     })
   }
 
+  const libraryModal = showLibrary ? (
+    <Bibliotheque projectId={project.id} pinned={pinnedImages} onTogglePin={togglePin} onClose={() => setShowLibrary(false)} />
+  ) : null
+
   if (screens.length === 0) {
     return (
+      <>
       <Welcome
         prompt={prompt}
         setPrompt={setPrompt}
@@ -682,12 +713,18 @@ export default function ProjectView({
         museResult={museResult}
         museImages={museImages}
         museStage={museStage}
+        onOpenLibrary={() => setShowLibrary(true)}
+        pinned={pinnedImages}
+        onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
       />
+      {libraryModal}
+      </>
     )
   }
 
   return (
     <div className="relative h-[calc(100vh-57px)]">
+      {libraryModal}
       <Canvas
         screens={screens}
         selectedIds={selectedIds}
@@ -1018,6 +1055,9 @@ export default function ProjectView({
               images={museImages}
               stage={museStage}
               busy={busy}
+              onOpenLibrary={() => setShowLibrary(true)}
+              pinned={pinnedImages}
+              onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
             />
           )}
 

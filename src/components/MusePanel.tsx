@@ -1,4 +1,5 @@
 import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
+import { imageUrl, type PinnedImage } from '../lib/imageLibrary'
 
 /** Domain of a URL, for reference chips (we show text only — never a third-party image, M2). */
 function domainOf(url: string): string {
@@ -25,6 +26,9 @@ export default function MusePanel({
   images,
   stage,
   busy,
+  onOpenLibrary,
+  pinned,
+  onUnpin,
 }: {
   config: MuseConfig
   onChange: (c: MuseConfig) => void
@@ -33,10 +37,42 @@ export default function MusePanel({
   images: GeneratedSlotImage[]
   stage: string | null
   busy: boolean
+  onOpenLibrary: () => void
+  pinned: PinnedImage[]
+  onUnpin: (hash: string) => void
 }) {
   const d = result?.dossier
   return (
     <div className="mb-2 rounded-xl border border-fuchsia-700/40 bg-fuchsia-950/20 p-2.5 text-xs">
+      {/* Library access + pinned images */}
+      <div className="mb-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenLibrary}
+          className="rounded-md border border-fuchsia-700/50 bg-fuchsia-900/30 px-2 py-1 font-medium text-fuchsia-200 hover:bg-fuchsia-900/50"
+        >
+          📚 Bibliothèque
+        </button>
+        {pinned.length > 0 && (
+          <div className="flex flex-1 flex-wrap items-center gap-1">
+            <span className="text-[10px] text-slate-400">épinglées :</span>
+            {pinned.map((p) => (
+              <span key={p.hash} className="group relative h-7 w-9 overflow-hidden rounded border border-fuchsia-500">
+                <img src={imageUrl(p.hash)} alt={p.label} title={p.label} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => onUnpin(p.hash)}
+                  className="absolute inset-0 flex items-center justify-center bg-black/60 text-white opacity-0 transition group-hover:opacity-100"
+                  title="Retirer"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
       {available === false && (
         <div className="mb-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-2 py-1.5 text-amber-200">
           Muse a besoin du backend Mocky (lance <code>npm run dev:all</code> ou l'app Docker). Indisponible en mode navigateur seul.

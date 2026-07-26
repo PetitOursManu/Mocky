@@ -2,6 +2,7 @@ import PresetPicker from './PresetPicker'
 import { STYLE_PRESETS } from '../lib/styles'
 import MusePanel from './MusePanel'
 import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
+import type { PinnedImage } from '../lib/imageLibrary'
 
 type Props = {
   prompt: string
@@ -22,6 +23,9 @@ type Props = {
   museResult: MuseResult | null
   museImages: GeneratedSlotImage[]
   museStage: string | null
+  onOpenLibrary: () => void
+  pinned: PinnedImage[]
+  onUnpin: (hash: string) => void
 }
 
 export default function Welcome({
@@ -43,6 +47,9 @@ export default function Welcome({
   museResult,
   museImages,
   museStage,
+  onOpenLibrary,
+  pinned,
+  onUnpin,
 }: Props) {
   function onKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -120,6 +127,9 @@ export default function Welcome({
               images={museImages}
               stage={museStage}
               busy={busy}
+              onOpenLibrary={onOpenLibrary}
+              pinned={pinned}
+              onUnpin={onUnpin}
             />
           </div>
         )}
