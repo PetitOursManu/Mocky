@@ -11,7 +11,7 @@ import { handleProviderProxy } from './provider-proxy.js'
 import { createMuse } from './muse/index.js'
 import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
-import { TextConfigStore } from './text/config.js'
+import { TextConfigStore, looksLikeImageModel } from './text/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
@@ -538,6 +538,15 @@ app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
     const upstream = await fetch(plan.url, { method: 'POST', headers: plan.headers, body: plan.body })
     if (!upstream.ok) {
       const detail = await upstream.text().catch(() => '')
+      // The most common misconfiguration by far: an IMAGE model id pasted into
+      // the text field (fal sells both under one key). The provider answers a
+      // bare "is not a valid model ID", which explains nothing on its own.
+      if (looksLikeImageModel(target.model)) {
+        return res.json({
+          ok: false,
+          error: `« ${target.model} » est un modèle d’IMAGES, pas un modèle de texte. Ce champ attend un LLM (ex. openai/gpt-4o-mini, google/gemini-2.5-flash, qwen/qwen3.5-flash-02-23). Pour générer des images, allez dans Admin → Génération d’images (Muse).`,
+        })
+      }
       return res.json({ ok: false, error: `HTTP ${upstream.status}${detail ? `: ${detail.slice(0, 200)}` : ''}` })
     }
     const json = await upstream.json()

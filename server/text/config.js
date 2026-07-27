@@ -35,6 +35,24 @@ export const TEXT_PROVIDER_IDS = TEXT_PROVIDERS.map((p) => p.id)
 const byId = (id) => TEXT_PROVIDERS.find((p) => p.id === id) || null
 
 /**
+ * Does this look like an IMAGE/VIDEO model id pasted into a TEXT model field?
+ *
+ * Easy mistake with fal, which sells both under one key: the image endpoint
+ * (`queue.fal.run/<id>`) takes ids like `fal-ai/bytedance/seedream/v4.5/
+ * text-to-image`, while the LLM endpoint is an OpenRouter passthrough that only
+ * knows `vendor/model` chat ids. Pasting the former into the latter fails with a
+ * bare `HTTP 400 … is not a valid model ID`, which explains nothing.
+ *
+ * Kept deliberately narrow — a false positive would nag about a legitimate
+ * model. Mirrored in src/components/TextProviderSettings.tsx for the live hint.
+ */
+export function looksLikeImageModel(id) {
+  return /(?:text|image)-to-(?:image|video)|\bseedream\b|\bflux\b|stable-?diffusion|\bsdxl\b|\bimagen\b|\bdall-?e\b|\bveo\b|\bkling\b/i.test(
+    String(id || ''),
+  )
+}
+
+/**
  * Two independent profiles:
  *  - 'generation'  — writes the screens (the classic path).
  *  - 'inspiration' — Muse's dossier/vision work. Often deserves a different

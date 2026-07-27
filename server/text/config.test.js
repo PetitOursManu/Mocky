@@ -3,7 +3,14 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { TextConfigStore, mergeTextConfig, publicTextConfig, resolveTextTarget, defaultTextConfig } from './config.js'
+import {
+  TextConfigStore,
+  mergeTextConfig,
+  publicTextConfig,
+  resolveTextTarget,
+  defaultTextConfig,
+  looksLikeImageModel,
+} from './config.js'
 
 let dir
 beforeEach(() => {
@@ -61,6 +68,40 @@ describe('mergeTextConfig', () => {
     expect(c.generation.provider).toBe('openai')
     expect(c.generation.openai.apiKey).toBe('sk-old')
     expect(c.inspiration.provider).toBe('')
+  })
+})
+
+describe('looksLikeImageModel', () => {
+  // fal sells images and LLMs under one key, on two different endpoints, so
+  // pasting an image id into the text field is the easy mistake to make.
+  it('flags image/video model ids', () => {
+    for (const id of [
+      'fal-ai/bytedance/seedream/v4.5/text-to-image',
+      'bytedance/seedream/v5/pro/text-to-image',
+      'fal-ai/flux/schnell',
+      'fal-ai/flux-pro/v1.1',
+      'stabilityai/stable-diffusion-xl',
+      'fal-ai/kling-video/v2/master/image-to-video',
+      'dall-e-3',
+    ]) {
+      expect(looksLikeImageModel(id), id).toBe(true)
+    }
+  })
+
+  it('leaves real chat model ids alone (no false positives)', () => {
+    for (const id of [
+      'openai/gpt-4o-mini',
+      'google/gemini-2.5-flash',
+      'qwen/qwen3.5-flash-02-23',
+      'anthropic/claude-3.5-sonnet',
+      'gpt-oss:120b',
+      'llama-3.3-70b-versatile',
+      'deepseek/deepseek-r1',
+      '',
+      undefined,
+    ]) {
+      expect(looksLikeImageModel(id), String(id)).toBe(false)
+    }
   })
 })
 

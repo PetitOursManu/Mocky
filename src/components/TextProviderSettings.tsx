@@ -13,7 +13,7 @@ const HINTS: Record<string, string> = {
   'ollama-cloud': 'Ollama Cloud (ou une instance Ollama locale — indiquez son URL). Dialecte natif.',
   openai: 'API OpenAI officielle. Modèles : gpt-4o-mini, gpt-4o, o4-mini…',
   openrouter: 'Une clé, des centaines de modèles. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-4o-mini.',
-  fal: 'Votre clé fal.ai (la même que pour les images) donne aussi accès aux LLM — Claude, GPT, Gemini, Qwen… Le modèle s’écrit « éditeur/modèle », comme sur OpenRouter. Pour le mode Inspiration, prenez un modèle qui voit les images (ex. openai/gpt-4o-mini, google/gemini-2.5-flash).',
+  fal: 'Votre clé fal.ai (la même que pour les images) donne aussi accès aux LLM. ⚠ Ce champ n’est PAS pour un modèle d’images : fal expose ses LLM via OpenRouter, donc le modèle s’écrit « éditeur/modèle » — openai/gpt-4o-mini, google/gemini-2.5-flash, qwen/qwen3.5-flash-02-23… (un id du type fal-ai/…/text-to-image sera refusé). Pour le mode Inspiration, prenez un modèle qui voit les images.',
   'openai-compatible': 'Tout endpoint exposant /v1/chat/completions : Groq, Together, DeepSeek, Mistral, LM Studio, vLLM… Indiquez l’URL de base (sans /v1).',
 }
 
@@ -27,6 +27,19 @@ const MODEL_PLACEHOLDER: Record<string, string> = {
 
 /** fal keys are `<id>:<secret>` pairs, not `sk-…` tokens — don't mislead. */
 const KEY_PLACEHOLDER: Record<string, string> = { fal: 'xxxxxxxx-…:xxxxxxxx…' }
+
+/**
+ * An IMAGE model id pasted into the TEXT model field. Easy to do with fal, which
+ * sells images and LLMs under one key but on two different endpoints — the
+ * provider then answers a bare "is not a valid model ID". Caught here, while the
+ * user is still typing, rather than after a failed save.
+ * Mirrors `looksLikeImageModel` in server/text/config.js.
+ */
+function looksLikeImageModel(id: string): boolean {
+  return /(?:text|image)-to-(?:image|video)|\bseedream\b|\bflux\b|stable-?diffusion|\bsdxl\b|\bimagen\b|\bdall-?e\b|\bveo\b|\bkling\b/i.test(
+    id || '',
+  )
+}
 
 const EMPTY_ENTRY: TextProviderEntry = { baseUrl: '', model: '', hasApiKey: false }
 
@@ -169,6 +182,14 @@ function ProfileForm({
               placeholder={MODEL_PLACEHOLDER[provider] || ''}
               spellCheck={false}
             />
+            {looksLikeImageModel(model) && (
+              <span className="mt-1.5 block rounded-lg border border-amber-700/40 bg-amber-900/20 px-2 py-1.5 text-[11px] text-amber-200">
+                ⚠ « {model} » ressemble à un modèle d’<strong>images</strong>. Ce champ attend un <strong>LLM</strong> (texte)
+                — ex. <code>openai/gpt-4o-mini</code>, <code>google/gemini-2.5-flash</code>,{' '}
+                <code>qwen/qwen3.5-flash-02-23</code>. Les modèles d’images se règlent plus bas, dans{' '}
+                <strong>Génération d’images (Muse)</strong>.
+              </span>
+            )}
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-300">Clé API</span>
