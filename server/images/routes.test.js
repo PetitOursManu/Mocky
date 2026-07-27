@@ -11,11 +11,21 @@ const IMG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]) // pretend j
 
 let dir, server, base
 
-const fakeRegistry = {
-  list: () => [
-    { id: 'pollinations', requiresKey: false },
-    { id: 'none', requiresKey: false },
-  ],
+/** One registry per image profile, so a test can assert which one was used. */
+const registries = {
+  content: {
+    list: () => [
+      { id: 'pollinations', requiresKey: false },
+      { id: 'none', requiresKey: false },
+    ],
+  },
+  inspiration: { list: () => [{ id: 'fal', requiresKey: true }] },
+}
+/** Records which registry the last /generate call resolved to. */
+let lastRegistry = null
+const registryFor = (p) => {
+  lastRegistry = p === 'inspiration' ? 'inspiration' : 'content'
+  return registries[lastRegistry]
 }
 
 function makeLibrary() {
@@ -41,7 +51,7 @@ beforeAll(async () => {
 
   const app = express()
   app.use(express.json())
-  app.use('/api/images', createImagesRouter({ library: makeLibrary(), registry: fakeRegistry }))
+  app.use('/api/images', createImagesRouter({ library: makeLibrary(), registryFor }))
   await new Promise((resolve) => {
     server = app.listen(0, () => {
       base = `http://127.0.0.1:${server.address().port}`
@@ -56,11 +66,43 @@ afterAll(async () => {
 })
 
 describe('image routes', () => {
-  it('GET /providers lists providers', async () => {
+  it('GET /providers lists providers (content profile by default)', async () => {
     const res = await fetch(`${base}/api/images/providers`)
     expect(res.ok).toBe(true)
     const body = await res.json()
     expect(body.providers).toHaveLength(2)
+    expect(body.providers[0].id).toBe('pollinations')
+  })
+
+  it('GET /providers?profile=inspiration lists the inspiration providers', async () => {
+    const body = await (await fetch(`${base}/api/images/providers?profile=inspiration`)).json()
+    expect(body.providers).toEqual([{ id: 'fal', requiresKey: true }])
+  })
+
+  // The art-direction reference and a hero photo run on different models, so
+  // /generate must route to the registry matching the requested profile.
+  it('POST /generate routes to the profile’s provider registry', async () => {
+    lastRegistry = null
+    await fetch(`${base}/api/images/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'a landing page mockup', profile: 'inspiration' }),
+    })
+    expect(lastRegistry).toBe('inspiration')
+
+    await fetch(`${base}/api/images/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'a hero photo' }), // no profile → content
+    })
+    expect(lastRegistry).toBe('content')
+
+    await fetch(`${base}/api/images/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'x', profile: 'nonsense' }), // unknown → content
+    })
+    expect(lastRegistry).toBe('content')
   })
 
   it('GET /library returns the filtered listing', async () => {

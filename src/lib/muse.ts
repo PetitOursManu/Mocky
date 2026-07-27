@@ -200,6 +200,21 @@ export interface GeneratedSlotImage {
   url: string
 }
 
+/**
+ * Which image model generates a slot. The two jobs need different models:
+ *  - 'inspiration' — the art-direction reference the model looks at. It must
+ *    render a convincing site/app layout, so it's worth a stronger, slower one.
+ *  - 'content' — hero/product/background pictures embedded in the screen. There
+ *    can be several per screen, so fast and cheap wins.
+ */
+export type MuseImageProfile = 'content' | 'inspiration'
+
+/** The image model to use for a given Muse image mode. In 'both' the image is
+ *  embedded in the screen as real content, so it's a content image. */
+export function profileForMode(mode: MuseImageMode): MuseImageProfile {
+  return mode === 'inspiration' ? 'inspiration' : 'content'
+}
+
 /** Generate the imagery-plan images (capped) and return their absolute URLs. */
 export async function generateSlotImages(
   slots: MuseImagerySlot[],
@@ -207,6 +222,8 @@ export async function generateSlotImages(
   opts: {
     max?: number
     signal?: AbortSignal
+    /** Which image model to run. Defaults to the content one. */
+    profile?: MuseImageProfile
     onImage?: (img: GeneratedSlotImage) => void
     /** Called with a human-readable reason when a slot fails (provider down,
      *  bad model id, quota…). Image failures never block generation, but the
@@ -226,8 +243,9 @@ export async function generateSlotImages(
         body: JSON.stringify({
           prompt: promptText,
           negative: slot.negative,
-          tags: [slot.slot || 'image'].filter(Boolean),
+          tags: [slot.slot || 'image', opts.profile || 'content'].filter(Boolean),
           slotType: slot.slot,
+          profile: opts.profile || 'content',
           project,
         }),
         signal: opts.signal,

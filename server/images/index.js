@@ -4,7 +4,7 @@
 // probe happens on the first pick().
 import { SpacedQueue } from './queue.js'
 import { createProviderRegistry, providersFromConfig, createProvider } from './providers/index.js'
-import { ImagesConfigStore } from './config.js'
+import { ImagesConfigStore, IMAGE_PROFILES, resolveImageProfile } from './config.js'
 import { ImageLibrary } from './library.js'
 import { createImagesRouter } from './routes.js'
 
@@ -17,6 +17,14 @@ export function intervalForProvider(id) {
 }
 
 /**
+ * One queue serialises BOTH profiles, so the spacing must satisfy the slowest
+ * provider in use: Pollinations' limit is per-IP, and this process has one IP.
+ */
+function intervalForConfig(cfg) {
+  return Math.max(...IMAGE_PROFILES.map((p) => intervalForProvider(resolveImageProfile(cfg, p).provider)))
+}
+
+/**
  * @param {object} deps
  * @param {string} deps.dataDir  server/data
  * @param {number} [deps.intervalMs]  force the queue spacing (tests)
@@ -25,15 +33,20 @@ export function createImages({ dataDir, intervalMs } = {}) {
   const configStore = new ImagesConfigStore(dataDir)
   const config = configStore.get()
 
-  const queue = new SpacedQueue(intervalMs ?? intervalForProvider(config.provider))
-  const registry = createProviderRegistry(providersFromConfig(config))
+  const queue = new SpacedQueue(intervalMs ?? intervalForConfig(config))
+  // One registry per profile: 'content' (hero/produits, fast & cheap) and
+  // 'inspiration' (the art-direction reference, worth a stronger model).
+  const registries = Object.fromEntries(
+    IMAGE_PROFILES.map((p) => [p, createProviderRegistry(providersFromConfig(resolveImageProfile(config, p)))]),
+  )
+  const registryFor = (profile) => registries[profile === 'inspiration' ? 'inspiration' : 'content']
   const library = new ImageLibrary(dataDir, { queue })
 
   /** Re-instantiate providers + re-pace the queue after a config change. */
   function reload() {
     const cfg = configStore.get()
-    registry.setProviders(providersFromConfig(cfg))
-    if (intervalMs == null) queue.intervalMs = intervalForProvider(cfg.provider)
+    for (const p of IMAGE_PROFILES) registries[p].setProviders(providersFromConfig(resolveImageProfile(cfg, p)))
+    if (intervalMs == null) queue.intervalMs = intervalForConfig(cfg)
     return cfg
   }
 
@@ -42,11 +55,11 @@ export function createImages({ dataDir, intervalMs } = {}) {
    * provider, WITHOUT storing it in the library — an honest end-to-end check.
    * Returns { ok, provider, bytes } or { ok:false, error }.
    */
-  async function testProvider(providerId) {
-    const cfg = configStore.get()
-    const id = providerId || cfg.provider
+  async function testProvider(providerId, profile = 'content') {
+    const profileCfg = resolveImageProfile(configStore.get(), profile)
+    const id = providerId || profileCfg.provider
     try {
-      const provider = createProvider(id, cfg)
+      const provider = createProvider(id, profileCfg)
       const out = await provider.generate({
         prompt: 'a simple round red apple on a plain white background',
         // 1024² is the safe common denominator: several hosted models (Seedream
@@ -63,6 +76,6 @@ export function createImages({ dataDir, intervalMs } = {}) {
     }
   }
 
-  const router = createImagesRouter({ library, registry })
-  return { queue, registry, library, router, configStore, reload, testProvider }
+  const router = createImagesRouter({ library, registryFor })
+  return { queue, registries, registryFor, library, router, configStore, reload, testProvider }
 }

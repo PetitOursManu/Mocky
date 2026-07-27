@@ -14,9 +14,25 @@ import { DEFAULT_FAL_MODEL } from './providers/fal.js'
 /** Selectable providers, in the order shown in the Admin UI. */
 export const PROVIDER_IDS = ['pollinations', 'fal', 'openai-image', 'cloudflare-workers-ai', 'sd-webui', 'none']
 
-export function defaultImagesConfig() {
+/**
+ * Two independent image profiles, because the two jobs are genuinely different:
+ *
+ *  - 'content'     — the pictures embedded in the generated screen (hero,
+ *    produits, backgrounds). Wanted fast and cheap; there can be several per
+ *    screen. This is the historical, zero-config path (Pollinations by default).
+ *  - 'inspiration' — the single art-direction reference Muse shows to the model.
+ *    A different skill entirely: it must render a convincing web/app layout, so
+ *    it is worth a slower, stronger (pricier) model.
+ *
+ * 'inspiration' is OPTIONAL: an empty provider makes it reuse 'content', which
+ * is exactly the pre-split behaviour.
+ */
+export const IMAGE_PROFILES = ['content', 'inspiration']
+
+/** One profile's settings. `provider: ''` means "not configured". */
+export function defaultImageProfile(provider = '') {
   return {
-    provider: 'pollinations',
+    provider,
     pollinations: { token: '' },
     fal: { apiKey: '', model: DEFAULT_FAL_MODEL, timeoutSec: 300 },
     openai: { baseUrl: 'https://api.openai.com', apiKey: '', model: 'gpt-image-1' },
@@ -25,26 +41,43 @@ export function defaultImagesConfig() {
   }
 }
 
-const str = (v, fallback = '') => (typeof v === 'string' ? v.trim() : fallback)
+export function defaultImagesConfig() {
+  return { content: defaultImageProfile('pollinations'), inspiration: defaultImageProfile('') }
+}
 
 /**
- * Apply a partial update to a config object. Secret fields follow the
- * keep/clear rule described above.
+ * Configs written before the split stored ONE profile at the root. Lift it into
+ * 'content' so an existing instance keeps generating exactly as before, keys and
+ * model intact.
  */
-export function mergeImagesConfig(current, patch) {
-  const base = { ...defaultImagesConfig(), ...(current || {}) }
+function liftLegacy(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  if (raw.content || raw.inspiration) return raw // already the new shape
+  if (typeof raw.provider !== 'string') return null
+  return { content: raw, inspiration: defaultImageProfile('') }
+}
+
+const str = (v, fallback = '') => (typeof v === 'string' ? v.trim() : fallback)
+
+/** undefined/'' → keep; null → clear; string → set. */
+const secret = (next, prev) => {
+  if (next === null) return ''
+  if (next === undefined) return prev
+  const s = str(next)
+  return s === '' ? prev : s
+}
+
+/**
+ * Merge one profile. `allowEmpty` lets the inspiration profile be cleared back
+ * to "reuse content"; the content profile must always name a real provider.
+ */
+function mergeProfile(current, patch, allowEmpty) {
+  const base = { ...defaultImageProfile(allowEmpty ? '' : 'pollinations'), ...(current || {}) }
   const p = patch && typeof patch === 'object' ? patch : {}
 
-  /** undefined/'' → keep; null → clear; string → set. */
-  const secret = (next, prev) => {
-    if (next === null) return ''
-    if (next === undefined) return prev
-    const s = str(next)
-    return s === '' ? prev : s
-  }
-
   const out = {
-    provider: PROVIDER_IDS.includes(p.provider) ? p.provider : base.provider,
+    provider:
+      PROVIDER_IDS.includes(p.provider) || (allowEmpty && p.provider === '') ? p.provider : base.provider,
     pollinations: {
       token: secret(p.pollinations?.token, base.pollinations?.token || ''),
     },
@@ -75,12 +108,23 @@ export function mergeImagesConfig(current, patch) {
   return out
 }
 
-/** Browser-safe projection: secrets replaced by booleans. */
-export function publicImagesConfig(cfg) {
-  const c = { ...defaultImagesConfig(), ...(cfg || {}) }
+/**
+ * Apply a partial update. A patch may target one or both profiles; a legacy
+ * flat patch is treated as a 'content' patch.
+ */
+export function mergeImagesConfig(current, patch) {
+  const base = liftLegacy(current) || { ...defaultImagesConfig(), ...(current || {}) }
+  const p = liftLegacy(patch) || (patch && typeof patch === 'object' ? patch : {})
   return {
-    provider: c.provider,
-    providers: PROVIDER_IDS,
+    content: mergeProfile(base.content, p.content, false),
+    inspiration: mergeProfile(base.inspiration, p.inspiration, true),
+  }
+}
+
+function publicProfile(prof, fallbackProvider) {
+  const c = { ...defaultImageProfile(fallbackProvider), ...(prof || {}) }
+  return {
+    provider: c.provider || '',
     pollinations: { hasToken: Boolean(c.pollinations?.token) },
     fal: { model: c.fal?.model || '', hasApiKey: Boolean(c.fal?.apiKey), timeoutSec: c.fal?.timeoutSec ?? 300 },
     openai: { baseUrl: c.openai?.baseUrl || '', model: c.openai?.model || '', hasApiKey: Boolean(c.openai?.apiKey) },
@@ -91,6 +135,27 @@ export function publicImagesConfig(cfg) {
     },
     sdWebui: { baseUrl: c.sdWebui?.baseUrl || '', steps: c.sdWebui?.steps ?? 20 },
   }
+}
+
+/** Browser-safe projection: secrets replaced by booleans. */
+export function publicImagesConfig(cfg) {
+  const c = liftLegacy(cfg) || { ...defaultImagesConfig(), ...(cfg || {}) }
+  return {
+    providers: PROVIDER_IDS,
+    profiles: IMAGE_PROFILES,
+    content: publicProfile(c.content, 'pollinations'),
+    inspiration: publicProfile(c.inspiration, ''),
+  }
+}
+
+/**
+ * The profile whose settings actually apply. 'inspiration' with no provider of
+ * its own falls back to 'content' — the pre-split behaviour.
+ */
+export function resolveImageProfile(cfg, profile = 'content') {
+  const c = liftLegacy(cfg) || cfg || defaultImagesConfig()
+  if (profile === 'inspiration' && c.inspiration?.provider) return c.inspiration
+  return c.content || defaultImageProfile('pollinations')
 }
 
 export class ImagesConfigStore {
@@ -113,6 +178,11 @@ export class ImagesConfigStore {
 
   publicView() {
     return publicImagesConfig(this.config)
+  }
+
+  /** Settings that apply for a profile ('inspiration' falls back to 'content'). */
+  profile(name = 'content') {
+    return resolveImageProfile(this.config, name)
   }
 
   /** Merge a partial update, persist atomically, return the new config. */

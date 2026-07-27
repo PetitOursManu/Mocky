@@ -31,6 +31,7 @@ import {
   absoluteUrl,
   checkVision,
   imageAsDataUrl,
+  profileForMode,
   type MuseConfig,
   type MuseResult,
   type GeneratedSlotImage,
@@ -417,9 +418,17 @@ export default function ProjectView({
             // to keep the run fast; multi-image is a later increment).
             const remaining = plan.slice(pins.length)
             if (remaining.length && pins.length === 0) {
-              setMuseStage('✨ Génération de l’image héro…')
+              // A mood/art-direction reference and a hero photo are different
+              // jobs, so they run on different image models (Admin → profils).
+              const profile = profileForMode(museConfig.imageMode)
+              setMuseStage(
+                profile === 'inspiration'
+                  ? '✨ Génération de l’image d’inspiration…'
+                  : '✨ Génération de l’image héro…',
+              )
               const gen = await generateSlotImages(remaining, project.id, {
                 max: 1,
+                profile,
                 signal: ac.signal,
                 onImage: (im) => setMuseImages((a) => [...a, im]),
                 onError: (msg) => setMuseImageError(msg),

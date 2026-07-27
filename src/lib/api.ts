@@ -26,26 +26,44 @@ export interface ServerData {
   design: string | null
 }
 
-/** Admin view of the image-generation settings. Secrets are never sent back —
- *  only `has…` booleans, so the UI can show "key set" without exposing it. */
-export interface ImagesConfig {
+/**
+ * Two image profiles, because the jobs differ: 'content' makes the pictures
+ * embedded in the screen (hero, produits — fast and cheap, several per screen),
+ * 'inspiration' makes the single art-direction reference the model looks at
+ * (must render a convincing layout — worth a stronger, slower model).
+ * An empty 'inspiration' provider reuses 'content'.
+ */
+export type ImageProfile = 'content' | 'inspiration'
+
+/** Admin view of one profile. Secrets are never sent back — only `has…`
+ *  booleans, so the UI can show "key set" without exposing it. */
+export interface ImagesProfileConfig {
   provider: string
-  providers: string[]
   pollinations: { hasToken: boolean }
   fal: { model: string; hasApiKey: boolean; timeoutSec: number }
   openai: { baseUrl: string; model: string; hasApiKey: boolean }
   cloudflare: { accountId: string; model: string; hasApiToken: boolean }
   sdWebui: { baseUrl: string; steps: number }
 }
+export interface ImagesConfig {
+  providers: string[]
+  profiles: ImageProfile[]
+  content: ImagesProfileConfig
+  inspiration: ImagesProfileConfig
+}
 
 /** Partial update. Omit (or send '') a secret to keep it; send null to clear. */
-export interface ImagesConfigPatch {
+export interface ImagesProfilePatch {
   provider?: string
   pollinations?: { token?: string | null }
   fal?: { model?: string; apiKey?: string | null; timeoutSec?: number }
   openai?: { baseUrl?: string; model?: string; apiKey?: string | null }
   cloudflare?: { accountId?: string; model?: string; apiToken?: string | null }
   sdWebui?: { baseUrl?: string; steps?: number }
+}
+export interface ImagesConfigPatch {
+  content?: ImagesProfilePatch
+  inspiration?: ImagesProfilePatch
 }
 
 /** Admin view of the text (LLM) provider. Secrets are never sent back. */
@@ -137,8 +155,11 @@ export const api = {
     getImagesConfig: () => req('/api/admin/images/config') as Promise<ImagesConfig>,
     setImagesConfig: (patch: ImagesConfigPatch) =>
       req('/api/admin/images/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<ImagesConfig>,
-    testImagesProvider: (provider?: string) =>
-      req('/api/admin/images/test', { method: 'POST', body: JSON.stringify({ provider }) }) as Promise<ImagesTestResult>,
+    testImagesProvider: (provider?: string, profile: ImageProfile = 'content') =>
+      req('/api/admin/images/test', {
+        method: 'POST',
+        body: JSON.stringify({ provider, profile }),
+      }) as Promise<ImagesTestResult>,
 
     /** Text (LLM) provider. */
     getTextConfig: () => req('/api/admin/text/config') as Promise<TextConfig>,

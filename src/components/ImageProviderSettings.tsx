@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
-import { api, type ImagesConfig, type ImagesConfigPatch, type ImagesTestResult } from '../lib/api'
+import {
+  api,
+  type ImageProfile,
+  type ImagesConfig,
+  type ImagesProfileConfig,
+  type ImagesProfilePatch,
+  type ImagesTestResult,
+} from '../lib/api'
 
 const LABELS: Record<string, string> = {
   pollinations: 'Pollinations — gratuit, sans clé (défaut)',
@@ -11,6 +18,7 @@ const LABELS: Record<string, string> = {
 }
 
 const HINTS: Record<string, string> = {
+  '': 'Le même modèle que pour les images de contenu. Choisissez-en un autre si vous voulez une maquette d’inspiration plus soignée sans ralentir les photos hero/produits.',
   pollinations: 'Aucune configuration requise. Limité à ~1 image / 15 s (les requêtes sont mises en file). Un jeton gratuit augmente la limite.',
   fal: 'Clé fal.ai + identifiant du modèle, copié tel quel depuis la page du modèle (tous ne sont pas sous « fal-ai/ »). Mocky passe par la file d’attente fal, donc les modèles lents fonctionnent.',
   'openai-image': 'Tout endpoint exposant POST {URL}/v1/images/generations (OpenAI, LiteLLM, passerelle compatible…).',
@@ -19,11 +27,32 @@ const HINTS: Record<string, string> = {
   none: 'La génération d’images est désactivée : Muse fonctionne toujours, les emplacements reçoivent un placeholder issu de la palette.',
 }
 
-/** Admin settings for the Muse image-generation provider. Secrets are stored
- *  server-side and never returned — the UI only knows whether one is set. */
-export default function ImageProviderSettings() {
-  const [cfg, setCfg] = useState<ImagesConfig | null>(null)
-  const [provider, setProvider] = useState('pollinations')
+type SecretName = 'pollinations' | 'fal' | 'openai' | 'cloudflare'
+
+/**
+ * One image profile's form. Rendered twice: the model that makes the pictures
+ * embedded in the screen, and the (optional) model that makes the art-direction
+ * reference Muse shows to the LLM.
+ */
+function ProfileForm({
+  profile,
+  title,
+  blurb,
+  emptyLabel,
+  cfg,
+  onConfig,
+}: {
+  profile: ImageProfile
+  title: string
+  blurb: React.ReactNode
+  /** Non-empty only for the optional profile, which may inherit the other. */
+  emptyLabel?: string
+  cfg: ImagesConfig
+  onConfig: (c: ImagesConfig) => void
+}) {
+  const section: ImagesProfileConfig = cfg[profile]
+
+  const [provider, setProvider] = useState(section.provider)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -44,17 +73,16 @@ export default function ImageProviderSettings() {
   const [sdBase, setSdBase] = useState('')
   const [sdSteps, setSdSteps] = useState(20)
 
-  function hydrate(c: ImagesConfig) {
-    setCfg(c)
-    setProvider(c.provider)
-    setFalModel(c.fal.model)
-    setFalTimeout(c.fal.timeoutSec ?? 300)
-    setOaBase(c.openai.baseUrl)
-    setOaModel(c.openai.model)
-    setCfAccount(c.cloudflare.accountId)
-    setCfModel(c.cloudflare.model)
-    setSdBase(c.sdWebui.baseUrl)
-    setSdSteps(c.sdWebui.steps)
+  function hydrate(s: ImagesProfileConfig) {
+    setProvider(s.provider)
+    setFalModel(s.fal.model)
+    setFalTimeout(s.fal.timeoutSec ?? 300)
+    setOaBase(s.openai.baseUrl)
+    setOaModel(s.openai.model)
+    setCfAccount(s.cloudflare.accountId)
+    setCfModel(s.cloudflare.model)
+    setSdBase(s.sdWebui.baseUrl)
+    setSdSteps(s.sdWebui.steps)
     setPoToken('')
     setFalKey('')
     setOaKey('')
@@ -62,26 +90,30 @@ export default function ImageProviderSettings() {
   }
 
   useEffect(() => {
-    api.admin
-      .getImagesConfig()
-      .then(hydrate)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-  }, [])
+    hydrate(section)
+    // Re-hydrate only when the server view of THIS profile changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section])
+
+  async function push(patch: ImagesProfilePatch) {
+    const fresh = await api.admin.setImagesConfig({ [profile]: patch })
+    onConfig(fresh)
+    hydrate(fresh[profile])
+  }
 
   async function save() {
     setSaving(true)
     setError(null)
     setSaved(false)
     try {
-      const patch: ImagesConfigPatch = {
+      await push({
         provider,
         pollinations: { token: poToken || undefined },
         fal: { model: falModel, apiKey: falKey || undefined, timeoutSec: falTimeout },
         openai: { baseUrl: oaBase, model: oaModel, apiKey: oaKey || undefined },
         cloudflare: { accountId: cfAccount, model: cfModel, apiToken: cfToken || undefined },
         sdWebui: { baseUrl: sdBase, steps: sdSteps },
-      }
-      hydrate(await api.admin.setImagesConfig(patch))
+      })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
@@ -91,9 +123,9 @@ export default function ImageProviderSettings() {
     }
   }
 
-  async function clearSecret(which: 'pollinations' | 'fal' | 'openai' | 'cloudflare') {
+  async function clearSecret(which: SecretName) {
     if (!confirm('Effacer la clé enregistrée ?')) return
-    const patch: ImagesConfigPatch =
+    const patch: ImagesProfilePatch =
       which === 'pollinations'
         ? { pollinations: { token: null } }
         : which === 'fal'
@@ -102,7 +134,7 @@ export default function ImageProviderSettings() {
             ? { openai: { apiKey: null } }
             : { cloudflare: { apiToken: null } }
     try {
-      hydrate(await api.admin.setImagesConfig(patch))
+      await push(patch)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -112,7 +144,7 @@ export default function ImageProviderSettings() {
     setTesting(true)
     setTest(null)
     try {
-      setTest(await api.admin.testImagesProvider(provider))
+      setTest(await api.admin.testImagesProvider(provider, profile))
     } catch (e) {
       setTest({ ok: false, provider, error: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -120,19 +152,7 @@ export default function ImageProviderSettings() {
     }
   }
 
-  if (!cfg) {
-    return (
-      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-        <div className="text-sm font-medium text-slate-200">Génération d’images (Muse)</div>
-        <p className="mt-2 text-sm text-slate-500">{error || 'Chargement…'}</p>
-      </div>
-    )
-  }
-
-  const secretSet = (
-    isSet: boolean,
-    which: 'pollinations' | 'fal' | 'openai' | 'cloudflare',
-  ) =>
+  const secretSet = (isSet: boolean, which: SecretName) =>
     isSet ? (
       <span className="text-[11px] text-emerald-400">
         ● clé enregistrée —{' '}
@@ -145,19 +165,16 @@ export default function ImageProviderSettings() {
     )
 
   return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-      <h3 className="mb-1 text-sm font-semibold text-slate-100">Génération d’images (Muse)</h3>
-      <p className="mb-4 text-xs text-slate-400">
-        Choisissez le service qui génère les images de Muse. Les clés sont stockées sur ce serveur et ne sont jamais
-        renvoyées au navigateur. Si un service échoue, Muse retombe automatiquement sur des placeholders.
-      </p>
+    <div className="rounded-xl border border-slate-700/70 bg-slate-900/40 p-4">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-300">{title}</h4>
+      <p className="mb-3 mt-1 text-[11px] leading-relaxed text-slate-400">{blurb}</p>
 
       {error && <div className="mb-3 rounded-lg border border-rose-700/50 bg-rose-900/30 p-2 text-xs text-rose-200">{error}</div>}
 
-      {/* Provider choice */}
       <label className="block">
         <span className="mb-1 block text-xs font-medium text-slate-300">Fournisseur</span>
         <select className="input w-full" value={provider} onChange={(e) => setProvider(e.target.value)}>
+          {emptyLabel && <option value="">{emptyLabel}</option>}
           {cfg.providers.map((id) => (
             <option key={id} value={id}>
               {LABELS[id] || id}
@@ -175,11 +192,11 @@ export default function ImageProviderSettings() {
             <input
               className="input w-full"
               type="password"
-              placeholder={cfg.pollinations.hasToken ? '•••••••• (enregistré)' : 'jeton Pollinations — optionnel'}
+              placeholder={section.pollinations.hasToken ? '•••••••• (enregistré)' : 'jeton Pollinations — optionnel'}
               value={poToken}
               onChange={(e) => setPoToken(e.target.value)}
             />
-            <div className="mt-1">{secretSet(cfg.pollinations.hasToken, 'pollinations')}</div>
+            <div className="mt-1">{secretSet(section.pollinations.hasToken, 'pollinations')}</div>
           </label>
         )}
 
@@ -217,11 +234,11 @@ export default function ImageProviderSettings() {
               <input
                 className="input w-full"
                 type="password"
-                placeholder={cfg.fal.hasApiKey ? '•••••••• (enregistrée)' : 'votre clé fal.ai'}
+                placeholder={section.fal.hasApiKey ? '•••••••• (enregistrée)' : 'votre clé fal.ai'}
                 value={falKey}
                 onChange={(e) => setFalKey(e.target.value)}
               />
-              <div className="mt-1">{secretSet(cfg.fal.hasApiKey, 'fal')}</div>
+              <div className="mt-1">{secretSet(section.fal.hasApiKey, 'fal')}</div>
             </label>
           </>
         )}
@@ -241,11 +258,11 @@ export default function ImageProviderSettings() {
               <input
                 className="input w-full"
                 type="password"
-                placeholder={cfg.openai.hasApiKey ? '•••••••• (enregistrée)' : 'sk-…'}
+                placeholder={section.openai.hasApiKey ? '•••••••• (enregistrée)' : 'sk-…'}
                 value={oaKey}
                 onChange={(e) => setOaKey(e.target.value)}
               />
-              <div className="mt-1">{secretSet(cfg.openai.hasApiKey, 'openai')}</div>
+              <div className="mt-1">{secretSet(section.openai.hasApiKey, 'openai')}</div>
             </label>
           </>
         )}
@@ -265,11 +282,11 @@ export default function ImageProviderSettings() {
               <input
                 className="input w-full"
                 type="password"
-                placeholder={cfg.cloudflare.hasApiToken ? '•••••••• (enregistré)' : 'jeton avec la permission Workers AI'}
+                placeholder={section.cloudflare.hasApiToken ? '•••••••• (enregistré)' : 'jeton avec la permission Workers AI'}
                 value={cfToken}
                 onChange={(e) => setCfToken(e.target.value)}
               />
-              <div className="mt-1">{secretSet(cfg.cloudflare.hasApiToken, 'cloudflare')}</div>
+              <div className="mt-1">{secretSet(section.cloudflare.hasApiToken, 'cloudflare')}</div>
             </label>
           </>
         )}
@@ -303,9 +320,11 @@ export default function ImageProviderSettings() {
         <button type="button" className="btn-primary" onClick={save} disabled={saving}>
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
-        <button type="button" className="btn-ghost px-3 py-2 text-xs" onClick={runTest} disabled={testing}>
-          {testing ? 'Test en cours…' : 'Tester (génère une image)'}
-        </button>
+        {provider && (
+          <button type="button" className="btn-ghost px-3 py-2 text-xs" onClick={runTest} disabled={testing}>
+            {testing ? 'Test en cours…' : 'Tester (génère une image)'}
+          </button>
+        )}
         {saved && <span className="text-xs text-emerald-400">✓ enregistré</span>}
         {test && (
           <span className={`text-xs ${test.ok ? 'text-emerald-400' : 'text-rose-300'}`}>
@@ -316,6 +335,75 @@ export default function ImageProviderSettings() {
               : `✕ ${test.error}`}
           </span>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Admin settings for Muse's image generation. Two profiles, because the two jobs
+ * need different models: the art-direction reference must render a convincing
+ * site/app layout (slower, stronger model), while hero/product pictures want to
+ * be fast and cheap. Secrets are stored server-side and never returned.
+ */
+export default function ImageProviderSettings() {
+  const [cfg, setCfg] = useState<ImagesConfig | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.admin
+      .getImagesConfig()
+      .then(setCfg)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+  }, [])
+
+  if (!cfg) {
+    return (
+      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
+        <div className="text-sm font-medium text-slate-200">Génération d’images (Muse)</div>
+        <p className="mt-2 text-sm text-slate-500">{error || 'Chargement…'}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
+      <h3 className="mb-1 text-sm font-semibold text-slate-100">Génération d’images (Muse)</h3>
+      <p className="mb-4 text-xs text-slate-400">
+        Muse génère <strong>deux sortes d’images</strong>, et peu de modèles sont bons aux deux. Vous pouvez donc en
+        choisir un pour chacune. Les clés sont stockées sur ce serveur et ne sont jamais renvoyées au navigateur ; si un
+        service échoue, Muse retombe sur des placeholders.
+      </p>
+
+      <div className="space-y-4">
+        <ProfileForm
+          profile="inspiration"
+          title="🎨 Image d’inspiration"
+          blurb={
+            <>
+              La <strong>maquette de référence</strong> montrée au LLM pour orienter la direction artistique (mode{' '}
+              <em>Inspiration</em>). Une seule par écran : un modèle plus lent et plus cher se justifie, s’il rend bien
+              une mise en page de site ou d’app.{' '}
+              <span className="text-slate-500">Laissez « Aucun » pour réutiliser le modèle de contenu.</span>
+            </>
+          }
+          emptyLabel="Aucun — réutilise le modèle de contenu"
+          cfg={cfg}
+          onConfig={setCfg}
+        />
+        <ProfileForm
+          profile="content"
+          title="🖼 Images de contenu"
+          blurb={
+            <>
+              Les photos <strong>intégrées dans l’écran</strong> : hero, produits, arrière-plans (modes{' '}
+              <em>Contenu</em> et <em>Les deux</em>). Il peut y en avoir plusieurs par écran — privilégiez un modèle{' '}
+              <strong>rapide et bon marché</strong>.
+            </>
+          }
+          cfg={cfg}
+          onConfig={setCfg}
+        />
       </div>
     </div>
   )

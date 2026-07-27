@@ -8,12 +8,21 @@ import express from 'express'
 
 const HASH_RE = /^[a-f0-9]{16,64}$/
 
-export function createImagesRouter({ library, registry }) {
+/**
+ * @param {object} deps
+ * @param {object} deps.library
+ * @param {(profile:string)=>object} deps.registryFor  provider registry for an
+ *   image profile ('content' | 'inspiration').
+ */
+export function createImagesRouter({ library, registryFor }) {
   const router = express.Router()
+
+  /** Only two profiles exist; anything unknown is content (the default job). */
+  const profileOf = (v) => (v === 'inspiration' ? 'inspiration' : 'content')
 
   // Available providers + whether each needs a key (Advanced drawer).
   router.get('/providers', (req, res) => {
-    res.json({ providers: registry.list() })
+    res.json({ providers: registryFor(profileOf(req.query.profile)).list() })
   })
 
   function filtersFromQuery(q) {
@@ -43,14 +52,17 @@ export function createImagesRouter({ library, registry }) {
     }
   })
 
-  // Generate (or reuse) an image. Body: { prompt, negative?, seed?, width?, height?, tags?, project?, slotType?, providerId? }
+  // Generate (or reuse) an image.
+  // Body: { prompt, negative?, seed?, width?, height?, tags?, project?, slotType?, providerId?, profile? }
+  // `profile` picks WHICH image model runs: 'inspiration' for the art-direction
+  // reference, 'content' (default) for pictures embedded in the screen.
   router.post('/generate', async (req, res) => {
     const spec = req.body || {}
     if (!spec.prompt || !String(spec.prompt).trim()) {
       return res.status(400).json({ error: 'A "prompt" is required.' })
     }
     try {
-      const out = await library.generate(spec, { registry })
+      const out = await library.generate(spec, { registry: registryFor(profileOf(spec.profile)) })
       if (out.skipped) return res.json({ skipped: true })
       res.json({ hash: out.hash, url: `/api/images/${out.hash}`, fromCache: out.fromCache, meta: out.meta })
     } catch (err) {

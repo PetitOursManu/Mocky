@@ -481,7 +481,8 @@ app.put('/api/admin/images/config', requireAdmin, (req, res) => {
 // works end-to-end. Can test a provider before selecting it via ?provider=.
 app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
   const id = typeof req.body?.provider === 'string' ? req.body.provider : undefined
-  res.json(await images.testProvider(id))
+  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'content'
+  res.json(await images.testProvider(id, profile))
 })
 
 // ---- vision capability of the active text model ----
