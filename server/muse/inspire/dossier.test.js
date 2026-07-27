@@ -63,6 +63,39 @@ describe('buildDossier (LLM path)', () => {
     expect(dossier.forbidden).toEqual(expect.arrayContaining(['generic gradients', 'Lorem ipsum', 'fake team stock photo']))
   })
 
+  // Observed live on qwen3.5-flash: a perfectly valid dossier with
+  // `"imageryPlan": []`. Muse then generated NO image at all and said nothing —
+  // no hero on the canvas, nothing in the library, no error to explain it.
+  it('synthesises a hero slot when the model returns an EMPTY imagery plan', async () => {
+    const empty = { ...LLM_DOSSIER, imageryPlan: [] }
+    const dossier = await buildDossier(vi.fn(async () => empty), {
+      prompt: 'bakery in Lyon',
+      patternHints: [PATTERN],
+      blacklist: [],
+    })
+    expect(dossier.__source).toBe('llm') // the rest of the dossier is still used
+    expect(dossier.imageryPlan).toHaveLength(1)
+    expect(dossier.imageryPlan[0].id).toBe('hero')
+    expect(dossier.imageryPlan[0].prompt).toMatch(/bakery in Lyon/)
+    expect(dossier.imageryPlan[0].prompt).toMatch(/no text, no watermark/)
+    // The anti-UI guard must survive the synthesised path too.
+    expect(dossier.imageryPlan[0].negative).toMatch(/user interface/)
+  })
+
+  it('synthesises a hero slot when the model omits imageryPlan entirely', async () => {
+    const missing = { ...LLM_DOSSIER }
+    delete missing.imageryPlan
+    const dossier = await buildDossier(vi.fn(async () => missing), { prompt: 'a ceramics studio', blacklist: [] })
+    expect(dossier.imageryPlan).toHaveLength(1)
+    expect(dossier.imageryPlan[0].prompt).toMatch(/ceramics studio/)
+  })
+
+  it('never overwrites an imagery plan the model did provide', async () => {
+    const dossier = await buildDossier(vi.fn(async () => LLM_DOSSIER), { prompt: 'bakery in Lyon', blacklist: [] })
+    expect(dossier.imageryPlan).toHaveLength(1)
+    expect(dossier.imageryPlan[0].subject).toBe('bakery storefront') // the model's own
+  })
+
   it('tolerates real model key/shape drift (voiceCopy, tokens.palette, object ctaLabels, clichés…)', async () => {
     // The EXACT drift gpt-oss:120b produced live that used to strip fields and/or
     // force the fallback. It must now validate AND keep every field (source: 'llm').

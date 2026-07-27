@@ -86,13 +86,16 @@ const DOSSIER_JSON_SCHEMA = {
     },
     imageryPlan: {
       type: 'array',
+      // Models happily returned an empty array and left the screen with no
+      // image at all; state the floor in the schema as well as the prompt.
+      minItems: 1,
       items: {
         type: 'object',
         properties: {
           id: { type: 'string' }, slot: { type: 'string' }, subject: { type: 'string' }, style: { type: 'string' },
           lighting: { type: 'string' }, aspectRatio: { type: 'string' }, negative: { type: 'string' }, prompt: { type: 'string' },
         },
-        required: ['id'],
+        required: ['id', 'prompt'],
       },
     },
     forbidden: { type: 'array', items: { type: 'string' } },
@@ -109,7 +112,8 @@ function buildSystem() {
     '- Concept: 2–3 sentences of specific art direction. NEVER generic ("modern, clean, professional" is banned).',
     '- Tokens: a coherent palette (6–8 colors, each with `label` + `hex`). `tokens.radius` MUST be a single string like "rounded-xl" (NOT an object).',
     '- Voice & Copy: write REAL, specific copy — headline, subheadline, exactly 3 value props, CTA labels, footer line. CRITICAL: write ALL copy in the SAME LANGUAGE as the user request. Never use Lorem ipsum or filler.',
-    '- Imagery Plan: an ARRAY; EACH item MUST include a short string `id` (e.g. "hero", "product-1") plus subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
+    '- Imagery Plan: an ARRAY that is NEVER EMPTY — it MUST contain AT LEAST ONE item, the "hero" image. Returning `"imageryPlan": []` is a failure: the screen would be generated with no image at all.',
+    '  EACH item MUST include a short string `id` (e.g. "hero", "product-1") plus subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
     '  CRITICAL — image subjects must be PHOTOGRAPHIC or ILLUSTRATIVE: a place, a person, an object, a texture, an abstract composition. NEVER ask for a user interface, a website, a landing page, an app screen, a dashboard, a mockup, a browser window, a phone showing an app, a chart, a logo, or anything containing readable text — image generators render these as garbled fake UI. If the screen needs a product visual, describe the REAL-WORLD subject behind the product (the team, the workshop, the material, the environment, an abstract brand texture), never a picture of the interface itself.',
     '  Each `negative` MUST include: "text, letters, words, watermark, logo, user interface, screenshot, mockup".',
     '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
@@ -247,6 +251,37 @@ export function normalizeDossierRaw(raw) {
   return r
 }
 
+/** The imagery slot every dossier must have, derived from the request. */
+export function defaultHeroSlot(ctx, pattern = null) {
+  const subject = String(ctx?.prompt || 'this product').trim()
+  return {
+    id: 'hero',
+    slot: 'hero',
+    subject,
+    style: pattern?.imageryStyle || 'clean, considered photography',
+    lighting: 'natural, soft',
+    aspectRatio: '16:9',
+    negative: 'text, letters, words, watermark, logo, user interface, screenshot, mockup',
+    prompt: `${subject}, ${pattern?.imageryStyle || 'clean editorial photography'}, high quality, no text, no watermark`,
+  }
+}
+
+/**
+ * Guarantee at least one imagery slot.
+ *
+ * The schema requires the `imageryPlan` KEY, but an empty array satisfies it —
+ * and real models do return `"imageryPlan": []`. Muse then generated no image at
+ * all, silently: no hero on the canvas, nothing added to the library, and no
+ * error anywhere to explain it. A dossier with no imagery is not a usable
+ * dossier, so synthesise the hero slot the fallback path already builds.
+ */
+export function ensureHeroImagery(dossier, ctx) {
+  if (!Array.isArray(dossier.imageryPlan) || dossier.imageryPlan.length === 0) {
+    dossier.imageryPlan = [defaultHeroSlot(ctx, (ctx?.patternHints && ctx.patternHints[0]) || null)]
+  }
+  return dossier
+}
+
 /**
  * Build the dossier. `llm` may be null (offline) → deterministic fallback.
  * @param {((req:object)=>Promise<any>)|null} llm
@@ -269,6 +304,7 @@ export async function buildDossier(llm, ctx, opts = {}) {
         })
         const dossier = DossierSchema.parse(normalizeDossierRaw(raw))
         dossier.forbidden = mergedForbidden(ctx, dossier.forbidden)
+        ensureHeroImagery(dossier, ctx)
         dossier.__source = 'llm'
         return dossier
       } catch (err) {
@@ -311,18 +347,7 @@ export function buildFallbackDossier(ctx) {
       ctaLabels: ['Get started', 'See how it works'],
       footer: `© ${new Date().getFullYear()} — crafted with care.`,
     },
-    imageryPlan: [
-      {
-        id: 'hero',
-        slot: 'hero',
-        subject,
-        style: pattern?.imageryStyle || 'clean, considered photography',
-        lighting: 'natural, soft',
-        aspectRatio: '16:9',
-        negative: 'text, letters, words, watermark, logo, user interface, screenshot, mockup',
-        prompt: `${subject}, ${pattern?.imageryStyle || 'clean editorial photography'}, high quality, no text, no watermark`,
-      },
-    ],
+    imageryPlan: [defaultHeroSlot(ctx, pattern)],
     forbidden: [],
   })
   dossier.forbidden = mergedForbidden(ctx, [])

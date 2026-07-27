@@ -34,9 +34,11 @@ import {
   profileForMode,
   type MuseConfig,
   type MuseResult,
+  type MuseImageMode,
   type GeneratedSlotImage,
 } from '../lib/muse'
-import { imageUrl, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
+import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
+import { matchImagesToScreens } from '../lib/imageBackfill'
 import { lintSlop } from '../lib/lint'
 
 /** Fixed viewport formats offered in the screen context menu. */
@@ -182,15 +184,47 @@ export default function ProjectView({
     checkVision().then((r) => {
       if (!alive) return
       setMuseVision(r.vision)
-      // Never leave the user on a mode their model cannot honour.
-      if (!r.vision && museConfig.imageMode !== 'content') {
-        updateMuse({ ...museConfig, imageMode: 'content' })
-      }
+      // A failed probe must NOT rewrite the saved choice: it used to persist
+      // imageMode:'content' over the user's "Inspiration"/"Les deux", so a
+      // transient probe failure silently and permanently undid their setting.
+      // The mode is now only downgraded for the run in progress (see
+      // `effectiveImageMode`), and the panel says why.
     })
     return () => {
       alive = false
     }
   }, [museConfig, museAvail, museVision, updateMuse])
+
+  // Screens generated before the canvas image card existed have no imageHash,
+  // even though the library still records which project each image belongs to
+  // and when. Recover the link once per project (see lib/imageBackfill) so past
+  // work shows its image instead of staying blank forever.
+  const backfilledRef = useRef<string | null>(null)
+  // Read through refs so the effect can depend on the project id ALONE.
+  // `onUpdateScreen` is a fresh closure on every App render and `project.screens`
+  // a fresh array, so depending on them re-ran the effect constantly — and its
+  // cleanup cancelled the in-flight lookup before it could apply anything
+  // (StrictMode's double-mount made that a guarantee, not a race).
+  const screensRef = useRef(project.screens)
+  screensRef.current = project.screens
+  const updateScreenRef = useRef(onUpdateScreen)
+  updateScreenRef.current = onUpdateScreen
+  useEffect(() => {
+    if (backfilledRef.current === project.id) return
+    backfilledRef.current = project.id
+    if (!screensRef.current.some((s) => !s.imageHash)) return
+    listLibrary({ project: project.id })
+      .then((images) => {
+        // Idempotent: only ever fills an empty imageHash, so applying it after a
+        // re-render (or a remount) is harmless.
+        for (const m of matchImagesToScreens(screensRef.current, images, project.id)) {
+          updateScreenRef.current(m.screenId, { imageHash: m.hash })
+        }
+      })
+      .catch(() => {
+        // Backend absent (frontend-only mode) — nothing to recover, never fail.
+      })
+  }, [project.id])
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
   const [annotateMode, setAnnotateMode] = useState(false)
@@ -388,6 +422,10 @@ export default function ProjectView({
         let museVisionRef: string | undefined
         /** Library hash of the image backing this screen, shown on the canvas. */
         let museImageHash: string | undefined
+        // The saved preference is kept as-is; a model without vision can only
+        // honour "content", so THIS RUN degrades without touching the setting.
+        const effectiveImageMode: MuseImageMode =
+          museVision === false && museConfig.imageMode !== 'content' ? 'content' : museConfig.imageMode
         if (museConfig.enabled && museAvail !== false) {
           try {
             setMuseResult(null)
@@ -420,7 +458,7 @@ export default function ProjectView({
             if (remaining.length && pins.length === 0) {
               // A mood/art-direction reference and a hero photo are different
               // jobs, so they run on different image models (Admin → profils).
-              const profile = profileForMode(museConfig.imageMode)
+              const profile = profileForMode(effectiveImageMode)
               setMuseStage(
                 profile === 'inspiration'
                   ? '✨ Génération de l’image d’inspiration…'
@@ -434,16 +472,21 @@ export default function ProjectView({
                 onError: (msg) => setMuseImageError(msg),
               })
               imgs = [...imgs, ...gen]
+            } else if (!remaining.length && !pins.length) {
+              // No imagery slot at all. The dossier now guarantees a hero, so
+              // this means something upstream produced nothing — say so rather
+              // than finishing silently with an image-less screen.
+              setMuseImageError('le dossier n’a proposé aucune image')
             }
             // "inspiration" and "both" show the image to the model. In "both"
             // it is the same image it will embed, so it can design around it.
-            if (museConfig.imageMode !== 'content' && imgs.length) {
+            if (effectiveImageMode !== 'content' && imgs.length) {
               const dataUrl = await imageAsDataUrl(imgs[0].url, ac.signal)
               if (dataUrl) museVisionRef = dataUrl
             }
             // Remember which image backs this screen so the canvas can show it.
             if (imgs.length) museImageHash = imgs[0].url.split('/').pop() || undefined
-            musePreamble = buildMusePreamble(res.markdown, imgs, museConfig.imageMode)
+            musePreamble = buildMusePreamble(res.markdown, imgs, effectiveImageMode)
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
             // Degrade: continue without Muse rather than fail the generation.

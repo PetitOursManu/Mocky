@@ -159,9 +159,26 @@ export default function MusePanel({
             ✨ Les deux
           </button>
         </span>
-        {vision === false && <span className="text-[10px] text-amber-300/80">vision non détectée sur ce modèle</span>}
         {vision === true && <span className="text-[10px] text-emerald-400/80">vision ✓</span>}
       </div>
+
+      {/* The saved choice is never rewritten — say plainly that THIS run will
+          fall back, so the setting isn't silently undone behind the user. */}
+      {vision === false && (
+        <div className="mt-1.5 rounded-lg border border-amber-700/40 bg-amber-900/20 px-2 py-1.5 text-[10px] text-amber-200">
+          Vision non détectée sur ce modèle.
+          {config.imageMode !== 'content' ? (
+            <>
+              {' '}
+              Votre choix « {config.imageMode === 'both' ? 'Les deux' : 'Inspiration'} » est <strong>conservé</strong>,
+              mais cette génération se fera en <strong>Contenu</strong>. Choisissez un modèle avec vision dans Admin →
+              Modèles de texte pour l’activer.
+            </>
+          ) : (
+            ' Les modes Inspiration et Les deux ont besoin d’un modèle capable de lire une image.'
+          )}
+        </div>
+      )}
 
       {/* Streamed stage */}
       {busy && stage && (
