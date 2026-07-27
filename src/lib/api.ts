@@ -32,7 +32,7 @@ export interface ImagesConfig {
   provider: string
   providers: string[]
   pollinations: { hasToken: boolean }
-  fal: { model: string; hasApiKey: boolean }
+  fal: { model: string; hasApiKey: boolean; timeoutSec: number }
   openai: { baseUrl: string; model: string; hasApiKey: boolean }
   cloudflare: { accountId: string; model: string; hasApiToken: boolean }
   sdWebui: { baseUrl: string; steps: number }
@@ -42,7 +42,7 @@ export interface ImagesConfig {
 export interface ImagesConfigPatch {
   provider?: string
   pollinations?: { token?: string | null }
-  fal?: { model?: string; apiKey?: string | null }
+  fal?: { model?: string; apiKey?: string | null; timeoutSec?: number }
   openai?: { baseUrl?: string; model?: string; apiKey?: string | null }
   cloudflare?: { accountId?: string; model?: string; apiToken?: string | null }
   sdWebui?: { baseUrl?: string; steps?: number }

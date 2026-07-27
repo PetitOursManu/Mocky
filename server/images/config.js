@@ -18,7 +18,7 @@ export function defaultImagesConfig() {
   return {
     provider: 'pollinations',
     pollinations: { token: '' },
-    fal: { apiKey: '', model: DEFAULT_FAL_MODEL },
+    fal: { apiKey: '', model: DEFAULT_FAL_MODEL, timeoutSec: 300 },
     openai: { baseUrl: 'https://api.openai.com', apiKey: '', model: 'gpt-image-1' },
     cloudflare: { accountId: '', apiToken: '', model: DEFAULT_CF_MODEL },
     sdWebui: { baseUrl: 'http://127.0.0.1:7860', steps: 20 },
@@ -51,6 +51,11 @@ export function mergeImagesConfig(current, patch) {
     fal: {
       model: str(p.fal?.model, base.fal?.model) || DEFAULT_FAL_MODEL,
       apiKey: secret(p.fal?.apiKey, base.fal?.apiKey || ''),
+      // Some models (Seedream Pro…) take ~2 min; allow up to 15.
+      timeoutSec:
+        Number(p.fal?.timeoutSec) > 0
+          ? Math.min(900, Math.round(Number(p.fal.timeoutSec)))
+          : base.fal?.timeoutSec || 300,
     },
     openai: {
       baseUrl: str(p.openai?.baseUrl, base.openai?.baseUrl) || 'https://api.openai.com',
@@ -77,7 +82,7 @@ export function publicImagesConfig(cfg) {
     provider: c.provider,
     providers: PROVIDER_IDS,
     pollinations: { hasToken: Boolean(c.pollinations?.token) },
-    fal: { model: c.fal?.model || '', hasApiKey: Boolean(c.fal?.apiKey) },
+    fal: { model: c.fal?.model || '', hasApiKey: Boolean(c.fal?.apiKey), timeoutSec: c.fal?.timeoutSec ?? 300 },
     openai: { baseUrl: c.openai?.baseUrl || '', model: c.openai?.model || '', hasApiKey: Boolean(c.openai?.apiKey) },
     cloudflare: {
       accountId: c.cloudflare?.accountId || '',

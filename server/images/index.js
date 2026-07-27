@@ -49,8 +49,10 @@ export function createImages({ dataDir, intervalMs } = {}) {
       const provider = createProvider(id, cfg)
       const out = await provider.generate({
         prompt: 'a simple round red apple on a plain white background',
-        width: 512,
-        height: 512,
+        // 1024² is the safe common denominator: several hosted models (Seedream
+        // Pro, OpenAI) reject anything smaller.
+        width: 1024,
+        height: 1024,
       })
       if (!out || out.skipped) return { ok: true, provider: id, skipped: true, bytes: 0 }
       const bytes = out.buffer?.length || 0

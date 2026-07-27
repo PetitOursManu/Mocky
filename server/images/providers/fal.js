@@ -1,43 +1,54 @@
 // fal.ai image provider. Fal has its own API shape — NOT OpenAI-compatible:
 //
-//   POST https://fal.run/{model}          e.g. fal-ai/flux/schnell
-//   Authorization: Key <FAL_KEY>          (note: "Key", not "Bearer")
+//   POST https://queue.fal.run/{model}     e.g. fal-ai/flux/schnell
+//                                          or   bytedance/seedream/v5/pro/text-to-image
+//   Authorization: Key <FAL_KEY>           (note: "Key", not "Bearer")
 //   { prompt, image_size: { width, height }, num_images, seed? }
 //   → { images: [{ url, width, height, content_type }], seed }
+//
+// IMPORTANT — model ids are NOT all under "fal-ai/". Many are published under
+// their own namespace (bytedance/…, etc.). Never assume a prefix.
+//
+// The QUEUE endpoint is used rather than the blocking one: fal explicitly
+// recommends it for models with slow inference (Seedream Pro takes ~110s), and
+// a two-minute HTTP connection is fragile behind proxies/keep-alive. We submit,
+// then poll the status URL until COMPLETED, then read the response URL.
 //
 // The result is a URL on fal.media: we download it ONCE server-side and store
 // the bytes locally, so the sandbox still only ever sees Mocky's own origin
 // (M2/M6 — no third-party image is hotlinked or proxied at render time).
-//
-// The synchronous endpoint is used (fast models like flux/schnell). A timeout
-// guards against a slow model stalling the generation queue.
 
 export const DEFAULT_FAL_MODEL = 'fal-ai/flux/schnell'
-const DEFAULT_TIMEOUT_MS = 120_000
+/** Overall deadline for a generation (submit + polling + download). */
+const DEFAULT_TIMEOUT_MS = 300_000
+const POLL_INTERVAL_MS = 2_000
+/** Per-HTTP-call timeout — each individual request should be quick. */
+const CALL_TIMEOUT_MS = 60_000
 
 export function createFal(opts = {}) {
   const fetchImpl = opts.fetchImpl || fetch
   const apiKey = String(opts.apiKey || '').trim()
-  // Accept "fal-ai/flux/schnell" or a pasted full URL / leading slash.
-  const model = String(opts.model || DEFAULT_FAL_MODEL)
-    .trim()
-    .replace(/^https?:\/\/(queue\.)?fal\.run\//, '')
-    .replace(/^\/+|\/+$/g, '') || DEFAULT_FAL_MODEL
+  // Accept "owner/app", a pasted full URL, or a leading slash.
+  const model =
+    String(opts.model || DEFAULT_FAL_MODEL)
+      .trim()
+      .replace(/^https?:\/\/(queue\.)?fal\.run\//, '')
+      .replace(/^\/+|\/+$/g, '') || DEFAULT_FAL_MODEL
   const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : DEFAULT_TIMEOUT_MS
+  const sleep = opts.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)))
+  const now = opts.now || (() => Date.now())
 
-  async function withTimeout(fn, what) {
+  const headers = { 'content-type': 'application/json', authorization: `Key ${apiKey}` }
+
+  /** One HTTP call with its own short timeout. */
+  async function call(url, init, what) {
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+    const timer = setTimeout(() => ctrl.abort(), CALL_TIMEOUT_MS)
     try {
-      return await fn(ctrl.signal)
+      return await fetchImpl(url, { ...init, signal: ctrl.signal })
     } catch (err) {
-      // An abort here is almost always a wrong model id (fal holds the
-      // connection instead of 404-ing) or a model too slow for the sync
-      // endpoint. "This operation was aborted" tells the user nothing.
       if (err && (err.name === 'AbortError' || /abort/i.test(err.message || ''))) {
-        throw new Error(
-          `fal n'a pas répondu en ${Math.round(timeoutMs / 1000)}s (${what}). Vérifiez l'identifiant du modèle — il doit inclure le préfixe du propriétaire, ex. "fal-ai/flux/schnell" ou "fal-ai/bytedance/seedream/v4/text-to-image" — ou choisissez un modèle plus rapide.`,
-        )
+        throw new Error(`fal ne répond pas (${what}) — réseau injoignable ou service indisponible.`)
       }
       throw err
     } finally {
@@ -45,9 +56,32 @@ export function createFal(opts = {}) {
     }
   }
 
-  /** Model ids are "owner/app…" — a missing owner is the most common mistake. */
-  function candidates() {
-    return model.startsWith('fal-ai/') ? [model] : [model, `fal-ai/${model}`]
+  async function detail(res) {
+    try {
+      return (await res.text()).slice(0, 200)
+    } catch {
+      return ''
+    }
+  }
+
+  /** Submit to the queue; retries once with the "fal-ai/" prefix on a 404. */
+  async function submit(body) {
+    const ids = model.startsWith('fal-ai/') ? [model] : [model, `fal-ai/${model}`]
+    let lastError = ''
+    for (const id of ids) {
+      const res = await call(
+        `https://queue.fal.run/${id}`,
+        { method: 'POST', headers, body: JSON.stringify(body) },
+        `envoi vers "${id}"`,
+      )
+      if (res && res.ok) return res.json()
+      const d = await detail(res)
+      lastError = `fal HTTP ${res ? res.status : 'no-response'}${d ? `: ${d}` : ''}`
+      // Only an unknown model is worth retrying under the fal-ai/ namespace;
+      // a real error (bad key, invalid params) must surface as-is.
+      if (!res || res.status !== 404) break
+    }
+    throw new Error(lastError || 'fal: submission failed')
   }
 
   return {
@@ -59,8 +93,8 @@ export function createFal(opts = {}) {
     },
 
     async generate(req) {
-      // Flux models have no negative_prompt field (and fal validates strictly),
-      // so fold it into the prompt instead of sending an unknown key.
+      // Flux/Seedream have no negative_prompt field (and fal validates
+      // strictly), so fold it into the prompt instead of sending an unknown key.
       const prompt = req.negative ? `${req.prompt}. Avoid: ${req.negative}` : req.prompt
       const body = {
         prompt,
@@ -69,40 +103,45 @@ export function createFal(opts = {}) {
       }
       if (req.seed != null) body.seed = Number(req.seed)
 
-      // Try the id as given; if fal says "unknown app", retry once with the
-      // "fal-ai/" owner prefix (the usual copy/paste omission).
-      let res = null
-      let lastError = ''
-      for (const id of candidates()) {
-        res = await withTimeout(
-          (signal) =>
-            fetchImpl(`https://fal.run/${id}`, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json', authorization: `Key ${apiKey}` },
-              body: JSON.stringify(body),
-              signal,
-            }),
-          `modèle "${id}"`,
-        )
-        if (res && res.ok) break
-        let detail = ''
-        try {
-          detail = (await res.text()).slice(0, 200)
-        } catch {
-          /* ignore */
-        }
-        lastError = `fal HTTP ${res ? res.status : 'no-response'}${detail ? `: ${detail}` : ''}`
-        // Only a "not found" is worth retrying with the prefix.
-        if (!res || res.status !== 404) break
-      }
-      if (!res || !res.ok) throw new Error(lastError || 'fal request failed')
+      const deadline = now() + timeoutMs
+      const queued = await submit(body)
+      const statusUrl = queued?.status_url
+      const responseUrl = queued?.response_url
 
-      const data = await res.json()
-      const first = data?.images?.[0] ?? data?.image
+      // Some models answer immediately with the payload (no queue round-trip).
+      let result = queued?.images ? queued : null
+
+      if (!result) {
+        if (!statusUrl || !responseUrl) throw new Error('fal: unexpected queue response (no status_url)')
+        for (;;) {
+          if (now() > deadline) {
+            throw new Error(
+              `fal n'a pas terminé en ${Math.round(timeoutMs / 1000)}s pour le modèle "${model}". Ce modèle est lent : augmentez le délai dans Admin → Génération d'images, ou choisissez un modèle plus rapide.`,
+            )
+          }
+          await sleep(POLL_INTERVAL_MS)
+          const res = await call(statusUrl, { headers }, 'suivi de la file')
+          if (!res || !res.ok) throw new Error(`fal HTTP ${res ? res.status : 'no-response'} (statut)`)
+          const status = await res.json()
+          const s = String(status?.status || '').toUpperCase()
+          if (s === 'COMPLETED') break
+          if (s && s !== 'IN_QUEUE' && s !== 'IN_PROGRESS') {
+            throw new Error(`fal: génération ${s.toLowerCase()}`)
+          }
+        }
+        const final = await call(responseUrl, { headers }, 'récupération du résultat')
+        if (!final || !final.ok) {
+          const d = await detail(final)
+          throw new Error(`fal HTTP ${final ? final.status : 'no-response'}${d ? `: ${d}` : ''} (résultat)`)
+        }
+        result = await final.json()
+      }
+
+      const first = result?.images?.[0] ?? result?.image
       const url = typeof first === 'string' ? first : first?.url
       if (!url) throw new Error('fal returned no image')
 
-      const img = await withTimeout((signal) => fetchImpl(url, { signal }), 'téléchargement du résultat')
+      const img = await call(url, {}, 'téléchargement du résultat')
       if (!img || !img.ok) throw new Error('fal: could not download the generated image')
       const buffer = Buffer.from(await img.arrayBuffer())
       if (!buffer.length) throw new Error('fal returned an empty image')

@@ -124,104 +124,74 @@ describe('sd-webui provider', () => {
   })
 })
 
-describe('fal provider', () => {
+describe('fal provider (queue flow)', () => {
   const imgRes = (bytes = [1, 2, 3]) => ({
     ok: true,
     arrayBuffer: async () => new Uint8Array(bytes).buffer,
     headers: { get: () => 'image/jpeg' },
   })
+  const noSleep = { sleep: async () => {} } // don't actually wait between polls
 
-  it('posts to fal.run/{model} with the "Key" auth scheme (not Bearer)', async () => {
-    let seen
-    const fetchImpl = vi.fn()
-      .mockImplementationOnce(async (url, init) => {
-        seen = { url, init, body: JSON.parse(init.body) }
-        return jsonRes({ images: [{ url: 'https://fal.media/x.jpg', content_type: 'image/jpeg' }], seed: 7 })
-      })
-      .mockImplementationOnce(async () => imgRes([9, 9]))
-    const out = await createFal({ fetchImpl, apiKey: 'fk-1' }).generate({ prompt: 'p', width: 1280, height: 720, seed: 7 })
+  /** Scripted queue: submit → status(IN_PROGRESS…) → status(COMPLETED) → result → image. */
+  function queueFetch({ statusSteps = ['COMPLETED'], imageUrl = 'https://fal.media/x.jpg', bytes = [9, 9] } = {}) {
+    const calls = []
+    let step = 0
+    const fetchImpl = vi.fn(async (url, init) => {
+      calls.push({ url, init })
+      if (url.startsWith('https://queue.fal.run/') && init?.method === 'POST') {
+        return jsonRes({
+          request_id: 'r1',
+          status_url: 'https://queue.fal.run/x/requests/r1/status',
+          response_url: 'https://queue.fal.run/x/requests/r1',
+        })
+      }
+      if (url.endsWith('/status')) return jsonRes({ status: statusSteps[Math.min(step++, statusSteps.length - 1)] })
+      if (url.endsWith('/r1')) return jsonRes({ images: [{ url: imageUrl, content_type: 'image/jpeg' }] })
+      return imgRes(bytes)
+    })
+    fetchImpl.calls = calls
+    return fetchImpl
+  }
 
-    expect(seen.url).toBe('https://fal.run/fal-ai/flux/schnell') // default model
-    expect(seen.init.headers.authorization).toBe('Key fk-1') // NOT "Bearer"
-    expect(seen.body).toMatchObject({ prompt: 'p', num_images: 1, seed: 7 })
-    expect(seen.body.image_size).toEqual({ width: 1280, height: 720 }) // custom size object
+  it('submits to queue.fal.run with the "Key" scheme, polls, then downloads', async () => {
+    const fetchImpl = queueFetch({ statusSteps: ['IN_QUEUE', 'IN_PROGRESS', 'COMPLETED'] })
+    const out = await createFal({ fetchImpl, apiKey: 'fk-1', ...noSleep }).generate({
+      prompt: 'p', width: 1280, height: 720, seed: 7,
+    })
+    const submit = fetchImpl.calls[0]
+    expect(submit.url).toBe('https://queue.fal.run/fal-ai/flux/schnell') // default model, QUEUE endpoint
+    expect(submit.init.headers.authorization).toBe('Key fk-1') // NOT "Bearer"
+    const body = JSON.parse(submit.init.body)
+    expect(body).toMatchObject({ prompt: 'p', num_images: 1, seed: 7 })
+    expect(body.image_size).toEqual({ width: 1280, height: 720 }) // custom size object
+    // polled until COMPLETED, then fetched the result, then the image
+    expect(fetchImpl.calls.filter((c) => c.url.endsWith('/status')).length).toBe(3)
+    expect(fetchImpl.calls.at(-1).url).toBe('https://fal.media/x.jpg')
     expect(Buffer.compare(out.buffer, Buffer.from([9, 9]))).toBe(0)
     expect(out.provider).toBe('fal')
   })
 
-  it('downloads the result URL server-side (M2/M6 — never hotlinked)', async () => {
+  it('accepts a model id OUTSIDE the fal-ai namespace verbatim (e.g. bytedance/…)', async () => {
+    const fetchImpl = queueFetch()
+    await createFal({ fetchImpl, apiKey: 'k', model: 'bytedance/seedream/v5/pro/text-to-image', ...noSleep }).generate({ prompt: 'p' })
+    expect(fetchImpl.calls[0].url).toBe('https://queue.fal.run/bytedance/seedream/v5/pro/text-to-image')
+  })
+
+  it('retries once under fal-ai/ only when the id 404s', async () => {
     const urls = []
-    const fetchImpl = vi.fn(async (url) => {
+    const fetchImpl = vi.fn(async (url, init) => {
       urls.push(url)
-      return urls.length === 1 ? jsonRes({ images: [{ url: 'https://fal.media/a.jpg' }] }) : imgRes()
-    })
-    await createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'p' })
-    expect(urls[1]).toBe('https://fal.media/a.jpg') // the image is fetched by the server
-  })
-
-  it('folds a negative prompt into the prompt (flux has no negative_prompt field)', async () => {
-    let body
-    const fetchImpl = vi.fn()
-      .mockImplementationOnce(async (u, init) => {
-        body = JSON.parse(init.body)
-        return jsonRes({ images: [{ url: 'https://fal.media/x.jpg' }] })
-      })
-      .mockImplementationOnce(async () => imgRes())
-    await createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'a cat', negative: 'text, watermark' })
-    expect(body.prompt).toBe('a cat. Avoid: text, watermark')
-    expect(body.negative_prompt).toBeUndefined()
-  })
-
-  it('normalizes a pasted full URL or leading slash into a model id', async () => {
-    const seen = []
-    const mk = (model) => {
-      const fetchImpl = vi.fn(async (url) => {
-        seen.push(url)
-        return seen.length % 2 === 1 ? jsonRes({ images: [{ url: 'https://fal.media/x.jpg' }] }) : imgRes()
-      })
-      return createFal({ fetchImpl, apiKey: 'k', model })
-    }
-    await mk('https://fal.run/fal-ai/flux/dev').generate({ prompt: 'p' })
-    await mk('/fal-ai/flux-pro/v1.1/').generate({ prompt: 'p' })
-    expect(seen[0]).toBe('https://fal.run/fal-ai/flux/dev')
-    expect(seen[2]).toBe('https://fal.run/fal-ai/flux-pro/v1.1')
-  })
-
-  it('surfaces the upstream detail on an HTTP error', async () => {
-    const fetchImpl = vi.fn(async () => ({ ok: false, status: 422, text: async () => 'validation error' }))
-    await expect(createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'p' })).rejects.toThrow(/422.*validation error/)
-  })
-
-  it('throws when the response carries no image', async () => {
-    const fetchImpl = vi.fn(async () => jsonRes({ images: [] }))
-    await expect(createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'p' })).rejects.toThrow(/no image/)
-  })
-
-  it('is only healthy once a key is configured', async () => {
-    expect(await createFal({ apiKey: '' }).healthy()).toBe(false)
-    expect(await createFal({ apiKey: 'k' }).healthy()).toBe(true)
-  })
-
-  // --- regressions from a real incident: a model id missing the "fal-ai/"
-  // owner prefix made fal hold the connection until the timeout, and the user
-  // only saw "This operation was aborted" behind an opaque 502.
-  it('retries once with the fal-ai/ prefix when the id 404s', async () => {
-    const urls = []
-    const fetchImpl = vi.fn(async (url) => {
-      urls.push(url)
-      if (url === 'https://fal.run/bytedance/seedream/v4/text-to-image') {
-        return { ok: false, status: 404, text: async () => 'not found' }
+      if (url === 'https://queue.fal.run/flux/schnell') return { ok: false, status: 404, text: async () => 'not found' }
+      if (init?.method === 'POST') {
+        return jsonRes({ status_url: 'https://q/status', response_url: 'https://q/r' })
       }
-      if (url.startsWith('https://fal.run/')) {
-        return jsonRes({ images: [{ url: 'https://fal.media/x.jpg' }] })
-      }
-      return imgRes([5])
+      if (url.endsWith('/status')) return jsonRes({ status: 'COMPLETED' })
+      if (url.endsWith('/r')) return jsonRes({ images: [{ url: 'https://fal.media/y.jpg' }] })
+      return imgRes([4])
     })
-    const p = createFal({ fetchImpl, apiKey: 'k', model: 'bytedance/seedream/v4/text-to-image' })
-    const out = await p.generate({ prompt: 'p' })
-    expect(urls[0]).toBe('https://fal.run/bytedance/seedream/v4/text-to-image')
-    expect(urls[1]).toBe('https://fal.run/fal-ai/bytedance/seedream/v4/text-to-image') // prefixed retry
-    expect(Buffer.compare(out.buffer, Buffer.from([5]))).toBe(0)
+    await createFal({ fetchImpl, apiKey: 'k', model: 'flux/schnell', ...noSleep }).generate({ prompt: 'p' })
+    expect(urls[0]).toBe('https://queue.fal.run/flux/schnell')
+    expect(urls[1]).toBe('https://queue.fal.run/fal-ai/flux/schnell')
   })
 
   it('does NOT retry on a non-404 error (a real failure must surface as-is)', async () => {
@@ -230,19 +200,60 @@ describe('fal provider', () => {
       calls++
       return { ok: false, status: 401, text: async () => 'unauthorized' }
     })
-    await expect(createFal({ fetchImpl, apiKey: 'k', model: 'x/y' }).generate({ prompt: 'p' })).rejects.toThrow(/401/)
+    await expect(createFal({ fetchImpl, apiKey: 'k', model: 'x/y', ...noSleep }).generate({ prompt: 'p' })).rejects.toThrow(/401/)
     expect(calls).toBe(1)
   })
 
-  it('turns a timeout into an actionable message naming the model', async () => {
-    const fetchImpl = vi.fn(async () => {
-      const e = new Error('This operation was aborted')
-      e.name = 'AbortError'
-      throw e
+  it('handles a model that answers immediately without a queue round-trip', async () => {
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (init?.method === 'POST') return jsonRes({ images: [{ url: 'https://fal.media/now.jpg' }] })
+      return imgRes([7])
     })
-    await expect(
-      createFal({ fetchImpl, apiKey: 'k', model: 'fal-ai/slow/model', timeoutMs: 10 }).generate({ prompt: 'p' }),
-    ).rejects.toThrow(/n'a pas répondu.*fal-ai\/slow\/model.*identifiant du modèle/s)
+    const out = await createFal({ fetchImpl, apiKey: 'k', ...noSleep }).generate({ prompt: 'p' })
+    expect(Buffer.compare(out.buffer, Buffer.from([7]))).toBe(0)
+  })
+
+  it('gives an actionable message when the overall deadline passes (slow model)', async () => {
+    let t = 0
+    const fetchImpl = queueFetch({ statusSteps: ['IN_PROGRESS'] }) // never completes
+    const p = createFal({
+      fetchImpl, apiKey: 'k', model: 'bytedance/seedream/v5/pro/text-to-image',
+      timeoutMs: 1000, sleep: async () => { t += 600 }, now: () => t,
+    })
+    await expect(p.generate({ prompt: 'p' })).rejects.toThrow(/n'a pas terminé en 1s.*seedream.*augmentez le délai/is)
+  })
+
+  it('surfaces a failed queue status', async () => {
+    const fetchImpl = queueFetch({ statusSteps: ['FAILED'] })
+    await expect(createFal({ fetchImpl, apiKey: 'k', ...noSleep }).generate({ prompt: 'p' })).rejects.toThrow(/failed/i)
+  })
+
+  it('folds a negative prompt into the prompt (no negative_prompt field on flux/seedream)', async () => {
+    const fetchImpl = queueFetch()
+    await createFal({ fetchImpl, apiKey: 'k', ...noSleep }).generate({ prompt: 'a cat', negative: 'text, watermark' })
+    const body = JSON.parse(fetchImpl.calls[0].init.body)
+    expect(body.prompt).toBe('a cat. Avoid: text, watermark')
+    expect(body.negative_prompt).toBeUndefined()
+  })
+
+  it('normalizes a pasted full URL into a model id', async () => {
+    const fetchImpl = queueFetch()
+    await createFal({ fetchImpl, apiKey: 'k', model: 'https://fal.run/fal-ai/flux/dev', ...noSleep }).generate({ prompt: 'p' })
+    expect(fetchImpl.calls[0].url).toBe('https://queue.fal.run/fal-ai/flux/dev')
+  })
+
+  it('throws when the result carries no image', async () => {
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (init?.method === 'POST') return jsonRes({ status_url: 'https://q/status', response_url: 'https://q/r' })
+      if (url.endsWith('/status')) return jsonRes({ status: 'COMPLETED' })
+      return jsonRes({ images: [] })
+    })
+    await expect(createFal({ fetchImpl, apiKey: 'k', ...noSleep }).generate({ prompt: 'p' })).rejects.toThrow(/no image/)
+  })
+
+  it('is only healthy once a key is configured', async () => {
+    expect(await createFal({ apiKey: '' }).healthy()).toBe(false)
+    expect(await createFal({ apiKey: 'k' }).healthy()).toBe(true)
   })
 })
 

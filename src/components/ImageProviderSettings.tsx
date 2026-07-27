@@ -12,7 +12,7 @@ const LABELS: Record<string, string> = {
 
 const HINTS: Record<string, string> = {
   pollinations: 'Aucune configuration requise. Limité à ~1 image / 15 s (les requêtes sont mises en file). Un jeton gratuit augmente la limite.',
-  fal: 'Clé fal.ai + identifiant du modèle. Privilégiez un modèle rapide (schnell) : l’appel est synchrone. La graine est transmise, donc le cache prompt+seed fonctionne.',
+  fal: 'Clé fal.ai + identifiant du modèle, copié tel quel depuis la page du modèle (tous ne sont pas sous « fal-ai/ »). Mocky passe par la file d’attente fal, donc les modèles lents fonctionnent.',
   'openai-image': 'Tout endpoint exposant POST {URL}/v1/images/generations (OpenAI, LiteLLM, passerelle compatible…).',
   'cloudflare-workers-ai': 'Offre gratuite généreuse. Nécessite l’ID de compte et un jeton API avec la permission Workers AI.',
   'sd-webui': 'Votre instance locale (API activée : --api). Aucune clé, aucune limite, rien ne sort de votre machine.',
@@ -34,6 +34,7 @@ export default function ImageProviderSettings() {
   const [poToken, setPoToken] = useState('')
   const [falKey, setFalKey] = useState('')
   const [falModel, setFalModel] = useState('')
+  const [falTimeout, setFalTimeout] = useState(300)
   const [oaBase, setOaBase] = useState('')
   const [oaModel, setOaModel] = useState('')
   const [oaKey, setOaKey] = useState('')
@@ -47,6 +48,7 @@ export default function ImageProviderSettings() {
     setCfg(c)
     setProvider(c.provider)
     setFalModel(c.fal.model)
+    setFalTimeout(c.fal.timeoutSec ?? 300)
     setOaBase(c.openai.baseUrl)
     setOaModel(c.openai.model)
     setCfAccount(c.cloudflare.accountId)
@@ -74,7 +76,7 @@ export default function ImageProviderSettings() {
       const patch: ImagesConfigPatch = {
         provider,
         pollinations: { token: poToken || undefined },
-        fal: { model: falModel, apiKey: falKey || undefined },
+        fal: { model: falModel, apiKey: falKey || undefined, timeoutSec: falTimeout },
         openai: { baseUrl: oaBase, model: oaModel, apiKey: oaKey || undefined },
         cloudflare: { accountId: cfAccount, model: cfModel, apiToken: cfToken || undefined },
         sdWebui: { baseUrl: sdBase, steps: sdSteps },
@@ -192,7 +194,22 @@ export default function ImageProviderSettings() {
                 placeholder="fal-ai/flux/schnell"
               />
               <span className="mt-1 block text-[11px] text-slate-500">
-                ex. <code>fal-ai/flux/schnell</code> (rapide), <code>fal-ai/flux/dev</code>, <code>fal-ai/flux-pro/v1.1</code>
+                Copiez l’id exact depuis la page du modèle — tous ne sont pas sous <code>fal-ai/</code>. Ex.{' '}
+                <code>fal-ai/flux/schnell</code> (rapide) ou <code>bytedance/seedream/v5/pro/text-to-image</code> (lent, ~2 min).
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-300">Délai max (secondes)</span>
+              <input
+                className="input w-32"
+                type="number"
+                min={30}
+                max={900}
+                value={falTimeout}
+                onChange={(e) => setFalTimeout(Number(e.target.value))}
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                Augmentez-le pour un modèle lent (Seedream Pro ≈ 110 s).
               </span>
             </label>
             <label className="block">

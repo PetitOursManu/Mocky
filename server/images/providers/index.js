@@ -62,8 +62,10 @@ export function createProviderRegistry(initialProviders, opts = {}) {
 /** Instantiate one provider by id from the admin config. */
 export function createProvider(id, config = {}) {
   switch (id) {
-    case 'fal':
-      return createFal(config.fal || {})
+    case 'fal': {
+      const f = config.fal || {}
+      return createFal({ ...f, timeoutMs: (Number(f.timeoutSec) || 300) * 1000 })
+    }
     case 'openai-image':
       return createOpenAiImages(config.openai || {})
     case 'cloudflare-workers-ai':
