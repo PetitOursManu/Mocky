@@ -10,8 +10,9 @@ import SettingsPanel from './components/SettingsPanel'
 import DesignPanel from './components/DesignPanel'
 import AuthModal from './components/AuthModal'
 import AdminPanel from './components/AdminPanel'
+import Bibliotheque from './components/Bibliotheque'
 
-type Route = 'home' | 'project' | 'design' | 'settings' | 'admin'
+type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'images'
 
 export default function App() {
   const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen, setReferenceScreen } =
@@ -156,6 +157,9 @@ export default function App() {
             <HeaderTab active={route === 'design'} onClick={() => setRoute('design')}>
               DESIGN.md
             </HeaderTab>
+            <HeaderTab active={route === 'images'} onClick={() => setRoute('images')}>
+              Images
+            </HeaderTab>
             <HeaderTab active={route === 'settings'} onClick={() => setRoute('settings')}>
               Settings
             </HeaderTab>
@@ -237,6 +241,13 @@ export default function App() {
         <main className="px-6 py-10">
           <DesignPanel />
         </main>
+      )}
+      {route === 'images' && (
+        <Bibliotheque
+          variant="page"
+          projectId={activeProject?.id}
+          projectNames={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
+        />
       )}
       {route === 'settings' && (
         <main className="px-6 py-10">
