@@ -456,10 +456,18 @@ export default function ProjectView({
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())
-        // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
-        const lint = lintSlop(result.code)
-        if (!lint.ok) {
-          setError(`⚠ Texte générique détecté (${lint.violations.join(', ')}). Régénère pour un rendu propre.`)
+        if (result.truncated) {
+          // The code is cut mid-token; the preview would only show a cryptic
+          // "Unterminated string constant". Say what actually happened.
+          setError(
+            "⚠ Le modèle a atteint sa limite de tokens : l'écran est incomplet. Demande un écran plus simple (moins de sections), ou utilise un modèle avec une sortie plus longue.",
+          )
+        } else {
+          // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
+          const lint = lintSlop(result.code)
+          if (!lint.ok) {
+            setError(`⚠ Texte générique détecté (${lint.violations.join(', ')}). Régénère pour un rendu propre.`)
+          }
         }
       }
     } catch (err) {

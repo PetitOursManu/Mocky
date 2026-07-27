@@ -89,10 +89,13 @@ function buildSrcDoc(
   const prelude = buildPrelude(caps)
   const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
 
-  // Dev diagnostic: only log when NOT generating (avoids console spam during streaming)
+  // Dev diagnostic: only log when NOT generating (avoids console spam during
+  // streaming). Log the MESSAGE only — dumping the full prelude + component
+  // source made the console unreadable (thousands of lines of icon defs per
+  // error). The real source is one click away in the Code view.
   const devErrorLog = generating
     ? ''
-    : `try { console.error('[Mocky iframe error]', e && e.message ? e.message : e, e && e.stack ? e.stack : '', '\\n--- Source ---\\n', (preludeSrc || '') + src); } catch (_) {}`
+    : `try { console.error('[Mocky iframe error]', e && e.message ? e.message : e); } catch (_) {}`
 
   return `<!doctype html>
 <html>

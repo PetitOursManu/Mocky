@@ -51,10 +51,15 @@ export function toOpenAiRequest(body) {
   return out
 }
 
-/** OpenAI non-streamed response → the Ollama shape Mocky expects. */
+/** OpenAI non-streamed response → the Ollama shape Mocky expects.
+ *  `finish_reason` is carried over as Ollama's `done_reason` so the caller can
+ *  tell a truncated answer (hit the token cap) from a complete one. */
 export function fromOpenAiResponse(json) {
-  const content = json?.choices?.[0]?.message?.content ?? ''
-  return { model: json?.model, message: { role: 'assistant', content }, done: true }
+  const choice = json?.choices?.[0]
+  const content = choice?.message?.content ?? ''
+  const out = { model: json?.model, message: { role: 'assistant', content }, done: true }
+  if (choice?.finish_reason) out.done_reason = choice.finish_reason
+  return out
 }
 
 /** OpenAI /v1/models listing → the Ollama /api/tags shape. */
@@ -82,8 +87,14 @@ export function createSseTranslator() {
       if (!payload || payload === '[DONE]') continue
       try {
         const obj = JSON.parse(payload)
-        const delta = obj?.choices?.[0]?.delta?.content
+        const choice = obj?.choices?.[0]
+        const delta = choice?.delta?.content
         if (delta) out += JSON.stringify({ message: { content: delta }, done: false }) + '\n'
+        // Surface WHY the stream ended: "length" means the model was cut off by
+        // the token cap, which the caller reports instead of a cryptic syntax error.
+        if (choice?.finish_reason) {
+          out += JSON.stringify({ done: true, done_reason: choice.finish_reason }) + '\n'
+        }
       } catch {
         // Partial/!JSON frame — skip; the next chunk completes it.
       }

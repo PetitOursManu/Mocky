@@ -41,12 +41,30 @@ export interface GeneratedComponent {
   code: string
   /** Detected component identifier to mount in the preview. */
   componentName: string
+  /** True when the model hit its output-token cap, so the code is cut off. */
+  truncated?: boolean
+}
+
+/** Out-param so chat() can report why the response ended. */
+interface ChatMeta {
+  truncated?: boolean
+}
+
+/** Ollama sends `done_reason`, OpenAI-compatible providers `finish_reason`. */
+function isLengthStop(obj: { done_reason?: string; finish_reason?: string; choices?: Array<{ finish_reason?: string }> }): boolean {
+  return (
+    obj?.done_reason === 'length' ||
+    obj?.finish_reason === 'length' ||
+    obj?.choices?.[0]?.finish_reason === 'length'
+  )
 }
 
 interface OllamaChatResponse {
   message?: { role?: string; content?: string }
+  /** "length" when the model was cut off by the token cap. */
+  done_reason?: string
   // OpenAI-compatible shape, in case a future provider uses /v1/chat/completions
-  choices?: Array<{ message?: { content?: string } }>
+  choices?: Array<{ message?: { content?: string }; finish_reason?: string }>
 }
 
 interface ChatMessage {
@@ -70,13 +88,17 @@ async function chat(
   messages: ChatMessage[],
   signal?: AbortSignal,
   onChunk?: (partial: string) => void,
+  meta?: ChatMeta,
 ): Promise<string> {
   const useStream = !!onChunk
   const body = JSON.stringify({
     model: s.model,
     stream: useStream,
     messages,
-    options: { temperature: 0.4, num_ctx: 32768, num_predict: 8192 },
+    // A full screen easily runs past 8k tokens; when the cap is hit the code is
+    // cut mid-string and the preview shows a cryptic syntax error, so give it
+    // real headroom. num_predict must stay positive (invariant I8).
+    options: { temperature: 0.4, num_ctx: 32768, num_predict: 16384 },
   })
 
   let res: Response
@@ -106,6 +128,7 @@ async function chat(
     const data = (await res.json()) as OllamaChatResponse
     const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''
     if (!content.trim()) throw new Error('The model returned an empty response.')
+    if (meta && isLengthStop(data)) meta.truncated = true
     return content
   }
 
@@ -139,6 +162,7 @@ async function chat(
           full += piece
           onChunk?.(full)
         }
+        if (meta && isLengthStop(obj)) meta.truncated = true
       } catch {
         // partial JSON — ignore, will be completed on next chunk
       }
@@ -235,6 +259,7 @@ export async function generateComponent(
   const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
   const baseSystem = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
   const system = [baseSystem, capsPrompt, planSection].filter(Boolean).join('\n')
+  const meta: ChatMeta = {}
   const content = await chat(
     s,
     [
@@ -243,10 +268,11 @@ export async function generateComponent(
     ],
     signal,
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
+    meta,
   )
   const code = extractCode(content)
   const componentName = detectComponentName(code)
-  return { raw: content, code, componentName }
+  return { raw: content, code, componentName, truncated: meta.truncated }
 }
 
 /** Prepend a note so the model knows the attached reference images are numbered. */
@@ -427,6 +453,7 @@ export async function editComponent(
     'Requested change:',
     withImageNote(instruction, images),
   ].join('\n')
+  const meta: ChatMeta = {}
   const content = await chat(
     s,
     [
@@ -435,10 +462,11 @@ export async function editComponent(
     ],
     signal,
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
+    meta,
   )
   const code = extractCode(content)
   const componentName = detectComponentName(code)
-  return { raw: content, code, componentName }
+  return { raw: content, code, componentName, truncated: meta.truncated }
 }
 
 const SENTINEL_OPEN = '<<<MOCKY>>>'
