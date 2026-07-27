@@ -67,6 +67,20 @@ describe('museChat', () => {
     expect(seen.body.options).toBeUndefined()
   })
 
+  it('sends fal.ai’s "Key" auth scheme rather than a Bearer token', async () => {
+    let seen
+    stubFetch(async (url, init) => {
+      seen = { url, headers: init.headers }
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'hi' } }] }) }
+    })
+    await museChat(
+      { kind: 'openai', auth: 'key', baseUrl: 'https://fal.run/openrouter/router/openai', apiKey: 'id:secret', model: 'openai/gpt-4o-mini', trusted: true },
+      { system: 's', user: 'u' },
+    )
+    expect(seen.url).toBe('https://fal.run/openrouter/router/openai/v1/chat/completions')
+    expect(seen.headers.authorization).toBe('Key id:secret')
+  })
+
   it('trusts an admin-configured local endpoint (SSRF guard is for browser URLs)', async () => {
     stubFetch(async () => ({ ok: true, status: 200, json: async () => ({ message: { content: 'hi' } }) }))
     const local = { baseUrl: 'http://127.0.0.1:11434', model: 'llama3', trusted: true }

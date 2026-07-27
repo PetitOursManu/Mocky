@@ -104,15 +104,25 @@ export function createSseTranslator() {
 }
 
 /**
+ * Authorization header for a target. Almost everyone uses `Bearer`; fal.ai
+ * expects `Key <id>:<secret>` (a `Bearer` there is read as a JWT and rejected).
+ */
+export function authHeader(target) {
+  if (!target.apiKey) return {}
+  const scheme = target.auth === 'key' ? 'Key' : 'Bearer'
+  return { authorization: `${scheme} ${target.apiKey}` }
+}
+
+/**
  * Build the upstream request for a target.
- * @param {{kind:string, baseUrl:string, apiKey?:string}} target
+ * @param {{kind:string, baseUrl:string, apiKey?:string, auth?:string}} target
  * @param {string} subpath  the Ollama-style path the client asked for
  * @param {Buffer|undefined} rawBody
  * @returns {{url:string, headers:object, body:string|Buffer|undefined, translate:boolean, kind:string, isModels:boolean}}
  */
 export function buildUpstream(target, subpath, rawBody) {
   const base = String(target.baseUrl || '').replace(/\/+$/, '')
-  const auth = target.apiKey ? { authorization: `Bearer ${target.apiKey}` } : {}
+  const auth = authHeader(target)
 
   if (target.kind !== KIND_OPENAI) {
     // Native Ollama — pass everything through untouched.

@@ -17,6 +17,17 @@ export const TEXT_PROVIDERS = [
   { id: 'ollama-cloud', label: 'Ollama Cloud', kind: KIND_OLLAMA, baseUrl: 'https://ollama.com', model: 'gpt-oss:120b' },
   { id: 'openai', label: 'OpenAI', kind: KIND_OPENAI, baseUrl: 'https://api.openai.com', model: 'gpt-4o-mini' },
   { id: 'openrouter', label: 'OpenRouter', kind: KIND_OPENAI, baseUrl: 'https://openrouter.ai/api', model: 'openai/gpt-4o-mini' },
+  // fal.ai exposes an OpenAI-compatible passthrough (routed via OpenRouter), so
+  // the existing translation covers it — only the auth scheme differs: fal wants
+  // `Key <id>:<secret>`, and reads a `Bearer` as a JWT ("Invalid token").
+  {
+    id: 'fal',
+    label: 'fal.ai (Claude, GPT, Gemini, Qwen… via OpenRouter)',
+    kind: KIND_OPENAI,
+    auth: 'key',
+    baseUrl: 'https://fal.run/openrouter/router/openai',
+    model: 'openai/gpt-4o-mini',
+  },
   { id: 'openai-compatible', label: 'Compatible OpenAI (Groq, Together, LM Studio, vLLM…)', kind: KIND_OPENAI, baseUrl: '', model: '' },
 ]
 export const TEXT_PROVIDER_IDS = TEXT_PROVIDERS.map((p) => p.id)
@@ -121,7 +132,7 @@ function resolveProfile(prof) {
   const baseUrl = str(v.baseUrl, def.baseUrl)
   const model = str(v.model, def.model)
   if (!baseUrl || !model) return null // incomplete → don't hijack the request
-  return { id: def.id, kind: def.kind, baseUrl, apiKey: v.apiKey || '', model }
+  return { id: def.id, kind: def.kind, auth: def.auth || 'bearer', baseUrl, apiKey: v.apiKey || '', model }
 }
 
 /**

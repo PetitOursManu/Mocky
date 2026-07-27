@@ -271,6 +271,14 @@ Routing is a request header — `x-mocky-profile: inspiration` — read by the
 every existing caller keeps working untouched. Muse's server-side stages resolve
 the profile directly instead of going through the proxy.
 
+**fal.ai as a text provider.** fal exposes an OpenAI-compatible passthrough
+(`https://fal.run/openrouter/router/openai` + `/v1/chat/completions`), so the
+existing `KIND_OPENAI` translation covers it — including the `image_url` vision
+parts the inspiration mode needs. The only difference is the auth scheme: fal
+keys are `<id>:<secret>` pairs sent as `Key …`, and a `Bearer` there is parsed as
+a JWT and rejected with "Invalid token". Hence the `auth` field on a provider
+definition, carried into the resolved target and applied by `authHeader()`.
+
 Two consequences worth recording:
 - Configs written before this change are a single flat profile. They are **lifted
   into `generation`** on read (`liftLegacy`), keys intact.

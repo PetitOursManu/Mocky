@@ -99,6 +99,19 @@ describe('resolveTextTarget', () => {
     expect(resolveTextTarget(mergeTextConfig(null, gen({ provider: 'openrouter' }))).baseUrl).toBe('https://openrouter.ai/api')
   })
 
+  it('carries fal.ai’s "Key" auth scheme through to the target', () => {
+    const t = resolveTextTarget(mergeTextConfig(null, { inspiration: { provider: 'fal', fal: { apiKey: 'id:secret' } } }), 'inspiration')
+    expect(t).toMatchObject({
+      id: 'fal',
+      kind: 'openai',
+      auth: 'key',
+      baseUrl: 'https://fal.run/openrouter/router/openai',
+      apiKey: 'id:secret',
+    })
+    // Everyone else stays on Bearer.
+    expect(resolveTextTarget(mergeTextConfig(null, gen({ provider: 'openai' }))).auth).toBe('bearer')
+  })
+
   it('returns null when the selection is incomplete (never hijacks a request)', () => {
     // openai-compatible ships with no baseUrl/model — must not take over.
     expect(resolveTextTarget(mergeTextConfig(null, gen({ provider: 'openai-compatible' })))).toBeNull()

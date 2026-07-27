@@ -17,6 +17,7 @@ import { buildUpstream, fromOpenAiResponse, KIND_OPENAI } from '../text/dialect.
  * @property {string} model
  * @property {string} [apiKey]
  * @property {string} [kind]     'openai' routes through the dialect translation.
+ * @property {string} [auth]     'key' for fal.ai; anything else means Bearer.
  * @property {boolean} [trusted] Admin-configured target — skips the SSRF guard,
  *   like /__provider does, so a local model (127.0.0.1) stays usable.
  */
@@ -51,7 +52,12 @@ export async function museChat(creds, req) {
   if (req.schema) body.format = req.schema // Ollama structured output
 
   const plan = buildUpstream(
-    { kind: creds.kind === KIND_OPENAI ? KIND_OPENAI : 'ollama', baseUrl: base, apiKey: creds.apiKey },
+    {
+      kind: creds.kind === KIND_OPENAI ? KIND_OPENAI : 'ollama',
+      auth: creds.auth, // fal.ai wants "Key", not "Bearer"
+      baseUrl: base,
+      apiKey: creds.apiKey,
+    },
     '/api/chat',
     Buffer.from(JSON.stringify(body)),
   )

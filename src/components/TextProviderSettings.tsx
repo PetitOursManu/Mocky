@@ -13,6 +13,7 @@ const HINTS: Record<string, string> = {
   'ollama-cloud': 'Ollama Cloud (ou une instance Ollama locale — indiquez son URL). Dialecte natif.',
   openai: 'API OpenAI officielle. Modèles : gpt-4o-mini, gpt-4o, o4-mini…',
   openrouter: 'Une clé, des centaines de modèles. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-4o-mini.',
+  fal: 'Votre clé fal.ai (la même que pour les images) donne aussi accès aux LLM — Claude, GPT, Gemini, Qwen… Le modèle s’écrit « éditeur/modèle », comme sur OpenRouter. Pour le mode Inspiration, prenez un modèle qui voit les images (ex. openai/gpt-4o-mini, google/gemini-2.5-flash).',
   'openai-compatible': 'Tout endpoint exposant /v1/chat/completions : Groq, Together, DeepSeek, Mistral, LM Studio, vLLM… Indiquez l’URL de base (sans /v1).',
 }
 
@@ -20,8 +21,12 @@ const MODEL_PLACEHOLDER: Record<string, string> = {
   'ollama-cloud': 'gpt-oss:120b',
   openai: 'gpt-4o-mini',
   openrouter: 'openai/gpt-4o-mini',
+  fal: 'openai/gpt-4o-mini',
   'openai-compatible': 'llama-3.3-70b-versatile',
 }
+
+/** fal keys are `<id>:<secret>` pairs, not `sk-…` tokens — don't mislead. */
+const KEY_PLACEHOLDER: Record<string, string> = { fal: 'xxxxxxxx-…:xxxxxxxx…' }
 
 const EMPTY_ENTRY: TextProviderEntry = { baseUrl: '', model: '', hasApiKey: false }
 
@@ -171,7 +176,7 @@ function ProfileForm({
               className="input w-full"
               type="password"
               autoComplete="off"
-              placeholder={current?.hasApiKey ? '•••••••• (enregistrée)' : 'sk-…'}
+              placeholder={current?.hasApiKey ? '•••••••• (enregistrée)' : KEY_PLACEHOLDER[provider] || 'sk-…'}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />

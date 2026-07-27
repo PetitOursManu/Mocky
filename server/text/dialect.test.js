@@ -117,4 +117,19 @@ describe('buildUpstream', () => {
     const plan = buildUpstream({ kind: KIND_OPENAI, baseUrl: 'http://127.0.0.1:1234' }, '/api/chat', Buffer.from('{}'))
     expect(plan.headers.authorization).toBeUndefined()
   })
+
+  // fal.ai reads a `Bearer` as a JWT and answers "Invalid token"; its API keys
+  // are `<id>:<secret>` pairs sent with the `Key` scheme.
+  it('uses the "Key" scheme for fal.ai and "Bearer" for everyone else', () => {
+    const fal = buildUpstream(
+      { kind: KIND_OPENAI, auth: 'key', baseUrl: 'https://fal.run/openrouter/router/openai', apiKey: 'id:secret' },
+      '/api/chat',
+      Buffer.from('{}'),
+    )
+    expect(fal.url).toBe('https://fal.run/openrouter/router/openai/v1/chat/completions')
+    expect(fal.headers.authorization).toBe('Key id:secret')
+
+    const other = buildUpstream({ kind: KIND_OPENAI, baseUrl: 'https://api.openai.com', apiKey: 'sk' }, '/api/chat', Buffer.from('{}'))
+    expect(other.headers.authorization).toBe('Bearer sk')
+  })
 })
