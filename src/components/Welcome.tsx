@@ -27,6 +27,7 @@ type Props = {
   pinned: PinnedImage[]
   onUnpin: (hash: string) => void
   museImageError: string | null
+  museVision: boolean | null
 }
 
 export default function Welcome({
@@ -52,6 +53,7 @@ export default function Welcome({
   pinned,
   onUnpin,
   museImageError,
+  museVision,
 }: Props) {
   function onKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -133,6 +135,7 @@ export default function Welcome({
               pinned={pinned}
               onUnpin={onUnpin}
               imageError={museImageError}
+              vision={museVision}
             />
           </div>
         )}

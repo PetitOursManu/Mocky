@@ -477,6 +477,23 @@ app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
   res.json(await images.testProvider(id))
 })
 
+// ---- vision capability of the active text model ----
+// Muse's "image as inspiration" mode only works if the model accepts images.
+// Uses the instance provider when configured, else the credentials the browser
+// sends (same headers as /__provider). Results are cached per model server-side.
+app.post('/api/text/vision', async (req, res) => {
+  const { probeVision } = await import('./text/vision.js')
+  let target = textConfig.target()
+  if (!target) {
+    const baseUrl = String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
+    const auth = String(req.headers['authorization'] || '')
+    const model = String(req.body?.model || '')
+    if (!baseUrl || !model) return res.json({ vision: false, error: 'Aucun modèle configuré.' })
+    target = { kind: 'ollama', baseUrl, apiKey: auth.startsWith('Bearer ') ? auth.slice(7) : '', model }
+  }
+  res.json({ ...(await probeVision(target, { force: req.body?.force === true })), model: target.model })
+})
+
 // ---- admin: text (LLM) provider ----
 app.get('/api/admin/text/config', requireAdmin, (req, res) => {
   res.json(textConfig.publicView())

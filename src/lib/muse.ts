@@ -49,6 +49,16 @@ export interface MuseResult {
   source: 'llm' | 'fallback'
 }
 
+/**
+ * What the generated image is FOR.
+ *  - 'content'     — it is placed in the screen as a real <img> (hero photo…).
+ *                    Works with any model; no vision needed.
+ *  - 'inspiration' — it is NOT placed in the screen; it is handed to the model
+ *                    as an art-direction reference to design from. Requires a
+ *                    vision-capable model.
+ */
+export type MuseImageMode = 'content' | 'inspiration'
+
 export interface MuseConfig {
   /** ✨ toggle state. */
   enabled: boolean
@@ -56,12 +66,58 @@ export interface MuseConfig {
   urls: string
   /** Fetch live inspiration (spawns the fetcher MCP / Playwright). Off by default. */
   useFetch: boolean
+  /** How the generated image is used. */
+  imageMode: MuseImageMode
 }
 
 const STORAGE_KEY = 'mocky.muse.v1'
 
 export function defaultMuseConfig(): MuseConfig {
-  return { enabled: false, urls: '', useFetch: false }
+  return { enabled: false, urls: '', useFetch: false, imageMode: 'content' }
+}
+
+/**
+ * Does the active text model accept images? Needed before the 'inspiration'
+ * mode can work. The backend probes the model once and caches the answer.
+ */
+export async function checkVision(signal?: AbortSignal): Promise<{ vision: boolean; model?: string; error?: string }> {
+  const s = loadSettings()
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  if (s.baseUrl) headers['x-provider-base'] = s.baseUrl
+  if (s.apiKey.trim()) headers['authorization'] = `Bearer ${s.apiKey.trim()}`
+  try {
+    const res = await fetch('/api/text/vision', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: s.model }),
+      signal,
+    })
+    if (!res.ok) return { vision: false, error: `HTTP ${res.status}` }
+    return await res.json()
+  } catch (err) {
+    return { vision: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
+ * Read a Mocky-served image back as a base64 data URL, so it can be attached to
+ * the generation request as a vision reference (same shape the screenshot
+ * annotations already use). Same-origin, so no CORS issue.
+ */
+export async function imageAsDataUrl(url: string, signal?: AbortSignal): Promise<string | null> {
+  try {
+    const res = await fetch(url, { signal })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
 }
 
 export function loadMuseConfig(): MuseConfig {
@@ -196,7 +252,11 @@ export async function generateSlotImages(
  * `extraSystem`, exactly where DESIGN.md goes. The dossier is a DESIGN.md
  * superset, so its tokens drive the palette; its Voice & Copy drive the text.
  */
-export function buildMusePreamble(markdown: string, images: GeneratedSlotImage[] = []): string {
+export function buildMusePreamble(
+  markdown: string,
+  images: GeneratedSlotImage[] = [],
+  mode: MuseImageMode = 'content',
+): string {
   const lines = [
     'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly.',
     '',
@@ -204,12 +264,18 @@ export function buildMusePreamble(markdown: string, images: GeneratedSlotImage[]
     markdown.trim(),
     '</DESIGN_DOSSIER>',
   ]
-  if (images.length) {
+  if (images.length && mode === 'content') {
     lines.push(
       '',
       'GENERATED IMAGERY — these images are served by THIS app. For the matching visual slots you MUST use an <img> tag with the EXACT absolute URL below (this overrides the general rule against external images — ONLY these listed URLs are allowed, and never add a crossorigin attribute):',
     )
     for (const im of images) lines.push(`- slot "${im.slot}": <img src="${im.url}" alt="" className="..." />`)
+  } else if (images.length && mode === 'inspiration') {
+    lines.push(
+      '',
+      'VISUAL REFERENCE — an image is attached to this request. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.',
+      'Do NOT embed it, do NOT reference its URL, and do NOT describe it as the product. It is not content — it is a style reference.',
+    )
   }
   return lines.join('\n')
 }

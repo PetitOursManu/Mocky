@@ -47,6 +47,19 @@ describe('pure helpers', () => {
     expect(withImg).toMatch(/GENERATED IMAGERY/)
     expect(withImg).toContain('src="http://localhost:5173/api/images/abc"')
   })
+
+  it('in "inspiration" mode the image is a style reference, never embedded', () => {
+    const out = buildMusePreamble(
+      '# Dossier',
+      [{ slot: 'hero', id: 'hero', url: 'http://localhost:5173/api/images/abc' }],
+      'inspiration',
+    )
+    expect(out).toMatch(/VISUAL REFERENCE/)
+    expect(out).toMatch(/ART-DIRECTION ONLY/)
+    // The URL must NOT be handed to the model — it would embed it as content.
+    expect(out).not.toContain('/api/images/abc')
+    expect(out).not.toMatch(/GENERATED IMAGERY/)
+  })
 })
 
 describe('config', () => {
@@ -55,8 +68,12 @@ describe('config', () => {
     expect(defaultMuseConfig().enabled).toBe(false)
   })
   it('round-trips through storage', () => {
-    saveMuseConfig({ enabled: true, urls: 'https://x.test', useFetch: true })
-    expect(loadMuseConfig()).toEqual({ enabled: true, urls: 'https://x.test', useFetch: true })
+    saveMuseConfig({ enabled: true, urls: 'https://x.test', useFetch: true, imageMode: 'inspiration' })
+    expect(loadMuseConfig()).toEqual({ enabled: true, urls: 'https://x.test', useFetch: true, imageMode: 'inspiration' })
+  })
+
+  it('defaults the image mode to "content" (works without vision)', () => {
+    expect(defaultMuseConfig().imageMode).toBe('content')
   })
 })
 

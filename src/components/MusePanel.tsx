@@ -30,6 +30,7 @@ export default function MusePanel({
   pinned,
   onUnpin,
   imageError,
+  vision,
 }: {
   config: MuseConfig
   onChange: (c: MuseConfig) => void
@@ -43,6 +44,8 @@ export default function MusePanel({
   onUnpin: (hash: string) => void
   /** Why an image slot stayed empty (bad model id, provider down, quota…). */
   imageError?: string | null
+  /** null = not probed yet. false = the model refuses images. */
+  vision?: boolean | null
 }) {
   const d = result?.dossier
   return (
@@ -110,6 +113,39 @@ export default function MusePanel({
           />
           Inspiration live
         </label>
+      </div>
+
+      {/* What the generated image is for */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="text-slate-400">Image générée :</span>
+        <span className="flex overflow-hidden rounded-md border border-slate-700">
+          <button
+            type="button"
+            onClick={() => onChange({ ...config, imageMode: 'content' })}
+            disabled={busy}
+            title="L’image est insérée dans l’écran (photo héro, produit…)"
+            className={`px-2 py-0.5 ${config.imageMode === 'content' ? 'bg-fuchsia-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+          >
+            🖼 Contenu
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ ...config, imageMode: 'inspiration' })}
+            disabled={busy || vision === false}
+            title={
+              vision === false
+                ? 'Indisponible : ce modèle n’accepte pas les images'
+                : 'L’image sert de référence de direction artistique au modèle (elle n’apparaît pas dans l’écran)'
+            }
+            className={`px-2 py-0.5 ${
+              config.imageMode === 'inspiration' ? 'bg-fuchsia-500 text-white' : 'text-slate-300 hover:bg-slate-800'
+            } ${vision === false ? 'cursor-not-allowed opacity-40' : ''}`}
+          >
+            🎨 Inspiration
+          </button>
+        </span>
+        {vision === false && <span className="text-[10px] text-amber-300/80">vision non détectée sur ce modèle</span>}
+        {vision === true && <span className="text-[10px] text-emerald-400/80">vision ✓</span>}
       </div>
 
       {/* Streamed stage */}

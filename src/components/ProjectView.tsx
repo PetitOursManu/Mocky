@@ -28,6 +28,8 @@ import {
   buildMusePreamble,
   parseUrls,
   absoluteUrl,
+  checkVision,
+  imageAsDataUrl,
   type MuseConfig,
   type MuseResult,
   type GeneratedSlotImage,
@@ -110,6 +112,8 @@ export default function ProjectView({
   const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
   const [museStage, setMuseStage] = useState<string | null>(null)
   const [museImageError, setMuseImageError] = useState<string | null>(null)
+  /** null until probed: does the active model accept images? */
+  const [museVision, setMuseVision] = useState<boolean | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   const updateMuse = useCallback((c: MuseConfig) => {
@@ -165,6 +169,24 @@ export default function ProjectView({
       alive = false
     }
   }, [museConfig.enabled, museAvail])
+
+  // Does the model accept images? Decides whether "inspiration" mode is usable.
+  // Probed once per session when Muse is on; the answer is cached server-side.
+  useEffect(() => {
+    if (!museConfig.enabled || museAvail === false || museVision !== null) return
+    let alive = true
+    checkVision().then((r) => {
+      if (!alive) return
+      setMuseVision(r.vision)
+      // Never leave the user on a mode their model cannot honour.
+      if (!r.vision && museConfig.imageMode === 'inspiration') {
+        updateMuse({ ...museConfig, imageMode: 'content' })
+      }
+    })
+    return () => {
+      alive = false
+    }
+  }, [museConfig, museAvail, museVision, updateMuse])
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
   const [annotateMode, setAnnotateMode] = useState(false)
@@ -358,6 +380,8 @@ export default function ProjectView({
         // identical to pre-Muse Mocky (M1).
         let musePreamble: string | undefined
         let museMarkdown: string | undefined
+        /** Art-direction reference sent to a vision model ("inspiration" mode). */
+        let museVisionRef: string | undefined
         if (museConfig.enabled && museAvail !== false) {
           try {
             setMuseResult(null)
@@ -397,7 +421,13 @@ export default function ProjectView({
               })
               imgs = [...imgs, ...gen]
             }
-            musePreamble = buildMusePreamble(res.markdown, imgs)
+            // In "inspiration" mode the image is NOT embedded: it is attached to
+            // the request so a vision model can design from it.
+            if (museConfig.imageMode === 'inspiration' && imgs.length) {
+              const dataUrl = await imageAsDataUrl(imgs[0].url, ac.signal)
+              if (dataUrl) museVisionRef = dataUrl
+            }
+            musePreamble = buildMusePreamble(res.markdown, imgs, museConfig.imageMode)
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
             // Degrade: continue without Muse rather than fail the generation.
@@ -457,7 +487,9 @@ export default function ProjectView({
         setPrompt('')
         setAnnotations([])
         const result = await generateComponent(
-          settings, text, extraSystem, images, ac.signal,
+          settings, text, extraSystem,
+          museVisionRef ? [...images, museVisionRef] : images,
+          ac.signal,
           (partial) => onUpdateScreen(screenId, { code: partial }),
           caps, planSection,
         )
@@ -741,6 +773,7 @@ export default function ProjectView({
         pinned={pinnedImages}
         onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
         museImageError={museImageError}
+        museVision={museVision}
       />
       {libraryModal}
       </>
@@ -1084,6 +1117,7 @@ export default function ProjectView({
               pinned={pinnedImages}
               onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
               imageError={museImageError}
+              vision={museVision}
             />
           )}
 
