@@ -26,11 +26,25 @@ export default function SettingsPanel() {
   const settingsRef = useRef(settings)
   settingsRef.current = settings
   // When an admin set an instance-wide model, these fields are ignored.
-  const [managed, setManaged] = useState<{ model: string | null; provider: string | null } | null>(null)
+  const [managed, setManaged] = useState<{
+    model: string | null
+    provider: string | null
+    inspirationModel?: string | null
+  } | null>(null)
   useEffect(() => {
     api
       .config()
-      .then((c) => setManaged(c.textProvider?.configured ? { model: c.textProvider.model, provider: c.textProvider.provider } : null))
+      .then((c) =>
+        setManaged(
+          c.textProvider?.configured
+            ? {
+                model: c.textProvider.model,
+                provider: c.textProvider.provider,
+                inspirationModel: c.textProvider.inspirationModel ?? null,
+              }
+            : null,
+        ),
+      )
       .catch(() => setManaged(null))
   }, [])
 
@@ -100,6 +114,11 @@ export default function SettingsPanel() {
               Fournisseur : <strong>{managed.provider}</strong> · modèle : <strong>{managed.model}</strong>. Les champs
               ci-dessous sont <strong>ignorés</strong> — vous n’avez pas besoin de votre propre clé.
             </div>
+            {managed.inspirationModel && (
+              <div className="mt-1 text-indigo-200/80">
+                ✨ Inspiration (Muse) : <strong>{managed.inspirationModel}</strong>.
+              </div>
+            )}
           </div>
         )}
 

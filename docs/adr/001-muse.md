@@ -254,6 +254,33 @@ distinctiveness self-critique (≤1 retry), the offline prompt-pattern library
 - **No third-party image is ever stored, cached, proxied, or displayed** — only
   Mocky-generated images and text distillations persist (**M2**).
 
+### D10 — Two text profiles: `generation` and `inspiration` (added post-Phase 5)
+Muse's dossier writing and the screen writing are different jobs: the dossier
+writes no code (a cheaper model suffices) while art direction may want a
+vision-capable one. The admin text config therefore holds **two independent
+profiles**, each with its own provider/baseUrl/model/key.
+
+- `generation` — writes the screens, runs the planner. The default for every
+  request; also the model that **receives the inspiration image**, so it is the
+  one `/api/text/vision` probes by default.
+- `inspiration` — Muse's Design Dossier stages. **Optional**: an empty provider
+  falls back to `generation`, which is the pre-existing single-model behaviour.
+
+Routing is a request header — `x-mocky-profile: inspiration` — read by the
+`/__provider` gateway; anything else (including no header) is `generation`, so
+every existing caller keeps working untouched. Muse's server-side stages resolve
+the profile directly instead of going through the proxy.
+
+Two consequences worth recording:
+- Configs written before this change are a single flat profile. They are **lifted
+  into `generation`** on read (`liftLegacy`), keys intact.
+- `server/muse/llm.js` used to speak only the Ollama dialect while `/__provider`
+  translated for everyone else — so with an OpenAI-compatible instance provider,
+  Muse called `ollama.com` with the browser's (empty) key and failed with 403.
+  It now shares `buildUpstream`/`fromOpenAiResponse`, and admin-configured
+  targets are `trusted` (SSRF guard skipped, as in the proxy — D7's local-model
+  case).
+
 ---
 
 ## 5. New invariants (M-series) and how each is enforced

@@ -26,8 +26,11 @@ function credsFromReq(req) {
  * @param {import('./fetch/fetcher.js').InspirationFetcher} [deps.fetcher]
  * @param {object} [deps.patterns]  PromptPatternLibrary
  * @param {string[]} [deps.blacklist]
+ * @param {(profile:string)=>object|null} [deps.resolveTarget]  Admin-configured
+ *   text provider. Muse runs on the 'inspiration' profile so art direction can
+ *   use a different model than screen generation.
  */
-export function createMuseRouter({ host, fetcher, patterns, blacklist }) {
+export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget }) {
   const router = express.Router()
 
   // GET /api/mcp/status — per-server lifecycle state for the Advanced drawer.
@@ -43,7 +46,16 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist }) {
     if (!body.prompt || !String(body.prompt).trim()) {
       return res.status(400).json({ error: 'A "prompt" is required.' })
     }
-    const creds = credsFromReq(req)
+    // An admin-configured provider wins over the browser's own settings, exactly
+    // like /__provider — otherwise Muse would keep calling ollama.com with an
+    // empty key while the rest of the app talks to OpenRouter.
+    let admin = null
+    try {
+      admin = resolveTarget ? resolveTarget('inspiration') : null
+    } catch {
+      admin = null
+    }
+    const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
     const llm = creds ? makeLlm(creds) : null
     try {
       const result = await runInspiration(

@@ -111,6 +111,52 @@ describe('OpenAI dialect translation through the proxy', () => {
   })
 })
 
+describe('profile routing', () => {
+  /** Resolver that answers with a different model per profile. */
+  const perProfile = (profile) => ({
+    kind: 'ollama',
+    baseUrl: fakeUrl,
+    apiKey: '',
+    model: profile === 'inspiration' ? 'insp-model' : 'gen-model',
+  })
+
+  it('defaults to the generation profile when no header is sent', async () => {
+    seen.length = 0
+    const h = await expressHost(perProfile)
+    await fetch(`${h.base}/__provider/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'from-browser', messages: [] }),
+    })
+    expect(JSON.parse(seen.at(-1).body).model).toBe('gen-model')
+    h.close()
+  })
+
+  it('routes x-mocky-profile: inspiration to the inspiration model', async () => {
+    seen.length = 0
+    const h = await expressHost(perProfile)
+    await fetch(`${h.base}/__provider/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-mocky-profile': 'inspiration' },
+      body: JSON.stringify({ model: 'from-browser', messages: [] }),
+    })
+    expect(JSON.parse(seen.at(-1).body).model).toBe('insp-model')
+    h.close()
+  })
+
+  it('treats an unknown profile as generation', async () => {
+    seen.length = 0
+    const h = await expressHost(perProfile)
+    await fetch(`${h.base}/__provider/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-mocky-profile': 'whatever' },
+      body: JSON.stringify({ model: 'from-browser', messages: [] }),
+    })
+    expect(JSON.parse(seen.at(-1).body).model).toBe('gen-model')
+    h.close()
+  })
+})
+
 describe('pass-through mode is unchanged', () => {
   it('forwards the browser credentials verbatim when no admin target is set', async () => {
     seen.length = 0

@@ -54,19 +54,35 @@ export interface TextProviderEntry {
   model: string
   hasApiKey: boolean
 }
-export interface TextConfig {
+/**
+ * Two independent profiles: 'generation' writes the screens, 'inspiration'
+ * powers Muse (dossier + vision). Leaving 'inspiration' empty makes it reuse the
+ * generation model — the previous single-model behaviour.
+ */
+export type TextProfile = 'generation' | 'inspiration'
+export interface TextProfileConfig {
   /** '' = not configured → each browser uses its own Settings. */
   provider: string
-  providers: { id: string; label: string }[]
-  [key: string]: unknown
+  [providerId: string]: unknown
 }
-export interface TextConfigPatch {
+export interface TextConfig {
+  providers: { id: string; label: string }[]
+  profiles: TextProfile[]
+  generation: TextProfileConfig
+  inspiration: TextProfileConfig
+}
+export interface TextProfilePatch {
   provider?: string
   [providerId: string]: unknown
+}
+export interface TextConfigPatch {
+  generation?: TextProfilePatch
+  inspiration?: TextProfilePatch
 }
 export interface TextTestResult {
   ok: boolean
   provider?: string
+  profile?: TextProfile
   model?: string
   reply?: string
   error?: string
@@ -97,7 +113,13 @@ export const api = {
       allowRegistration: boolean
       setup: boolean
       sso: { enabled: boolean; dashyUrl: string | null }
-      textProvider?: { configured: boolean; model: string | null; provider: string | null }
+      textProvider?: {
+        configured: boolean
+        model: string | null
+        provider: string | null
+        /** Set only when Muse runs on a different model than generation. */
+        inspirationModel?: string | null
+      }
     }>,
 
   admin: {
@@ -122,6 +144,7 @@ export const api = {
     getTextConfig: () => req('/api/admin/text/config') as Promise<TextConfig>,
     setTextConfig: (patch: TextConfigPatch) =>
       req('/api/admin/text/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<TextConfig>,
-    testTextProvider: () => req('/api/admin/text/test', { method: 'POST' }) as Promise<TextTestResult>,
+    testTextProvider: (profile: TextProfile = 'generation') =>
+      req('/api/admin/text/test', { method: 'POST', body: JSON.stringify({ profile }) }) as Promise<TextTestResult>,
   },
 }

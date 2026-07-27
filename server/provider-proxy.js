@@ -57,6 +57,19 @@ export function assertSafeTarget(target) {
 }
 
 /**
+ * Which admin profile a request belongs to. Muse tags its own calls with
+ * `x-mocky-profile: inspiration` so an admin can point art direction at a
+ * different (e.g. vision-capable, or cheaper) model than screen generation.
+ * Anything else — including no header at all — is normal generation.
+ */
+export function profileFromRequest(req) {
+  const raw = req?.headers?.['x-mocky-profile']
+  return String(Array.isArray(raw) ? raw[0] : raw || '').toLowerCase() === 'inspiration'
+    ? 'inspiration'
+    : 'generation'
+}
+
+/**
  * Read the raw request body (no parsing). Used for the provider proxy because
  * we forward the body verbatim.
  */
@@ -84,7 +97,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
   // frontend-only deployment.
   let configured = null
   try {
-    configured = opts.resolveTarget ? opts.resolveTarget() : null
+    configured = opts.resolveTarget ? opts.resolveTarget(profileFromRequest(req)) : null
   } catch {
     configured = null
   }

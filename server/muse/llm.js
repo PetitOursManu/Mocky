@@ -9,12 +9,26 @@
 // Non-streamed + Ollama structured output (`format`), mirroring src/lib/plan.ts.
 // Never uses the <<<MOCKY>>> sentinel path (that's for streamed code gen only).
 import { assertSafeTarget } from '../provider-proxy.js'
+import { buildUpstream, fromOpenAiResponse, KIND_OPENAI } from '../text/dialect.js'
 
-/** @typedef {{ baseUrl:string, apiKey?:string, model:string }} ProviderCreds */
+/**
+ * @typedef {object} ProviderCreds
+ * @property {string} baseUrl
+ * @property {string} model
+ * @property {string} [apiKey]
+ * @property {string} [kind]     'openai' routes through the dialect translation.
+ * @property {boolean} [trusted] Admin-configured target — skips the SSRF guard,
+ *   like /__provider does, so a local model (127.0.0.1) stays usable.
+ */
 
 /**
  * One chat call. Returns the assistant text. Positive `num_predict` always
  * (invariant I8 — Ollama Cloud rejects -1). Throws on any transport/HTTP error.
+ *
+ * Mocky speaks the Ollama dialect here too; OpenAI-compatible targets go through
+ * the same translation the /__provider gateway uses, so Muse works on OpenAI,
+ * OpenRouter, Groq… without a second code path.
+ *
  * @param {ProviderCreds} creds
  * @param {{system:string, user:string, schema?:object, options?:object, timeoutMs?:number, signal?:AbortSignal}} req
  */
@@ -22,8 +36,7 @@ export async function museChat(creds, req) {
   const base = String(creds?.baseUrl || '').replace(/\/+$/, '')
   if (!base) throw new Error('Missing provider base URL')
   if (!creds.model) throw new Error('Missing model')
-  const target = `${base}/api/chat`
-  assertSafeTarget(target) // same SSRF guard as /__provider
+  if (!creds.trusted) assertSafeTarget(`${base}/api/chat`) // same SSRF guard as /__provider
 
   const num_predict = Math.max(1, Math.floor(req.options?.num_predict ?? 2048)) // I8: must be positive
   const body = {
@@ -37,19 +50,21 @@ export async function museChat(creds, req) {
   }
   if (req.schema) body.format = req.schema // Ollama structured output
 
+  const plan = buildUpstream(
+    { kind: creds.kind === KIND_OPENAI ? KIND_OPENAI : 'ollama', baseUrl: base, apiKey: creds.apiKey },
+    '/api/chat',
+    Buffer.from(JSON.stringify(body)),
+  )
+
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), req.timeoutMs ?? 40000)
   const onExternalAbort = () => ctrl.abort()
   req.signal?.addEventListener('abort', onExternalAbort)
   try {
-    const res = await fetch(target, {
+    const res = await fetch(plan.url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json',
-        ...(creds.apiKey ? { authorization: `Bearer ${creds.apiKey}` } : {}),
-      },
-      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json', ...plan.headers },
+      body: plan.body,
       signal: ctrl.signal,
     })
     if (res.status === 401 || res.status === 403) {
@@ -59,8 +74,9 @@ export async function museChat(creds, req) {
       const text = await res.text().catch(() => '')
       throw new Error(`Provider HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`)
     }
-    const data = await res.json()
-    const content = data?.message?.content ?? data?.choices?.[0]?.message?.content ?? ''
+    const raw = await res.json()
+    const data = plan.translate ? fromOpenAiResponse(raw) : raw
+    const content = data?.message?.content ?? raw?.choices?.[0]?.message?.content ?? ''
     if (!content || !content.trim()) throw new Error('Empty model response')
     return content
   } finally {

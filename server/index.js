@@ -277,7 +277,7 @@ function authRateLimit(limit = 8, windowMs = 60_000) {
 // so it must run before express.json()). The logic (incl. the SSRF guard) lives
 // in ./provider-proxy.js, shared with the Vite dev middleware.
 app.use('/__provider', (req, res) =>
-  handleProviderProxy(req, res, fetch, { resolveTarget: () => textConfig.target() }),
+  handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textConfig.target(profile) }),
 )
 
 app.use('/api', express.json({ limit: '25mb' }))
@@ -325,7 +325,14 @@ app.get('/api/config', (req, res) => {
     // lets Settings tell users their own provider fields are being overridden.
     textProvider: (() => {
       const t = textConfig.target()
-      return { configured: Boolean(t), model: t ? t.model : null, provider: t ? textConfig.get().provider : null }
+      const insp = textConfig.target('inspiration')
+      return {
+        configured: Boolean(t),
+        model: t ? t.model : null,
+        provider: t ? t.id : null,
+        // Only advertise a distinct inspiration model when it really differs.
+        inspirationModel: insp && (!t || insp.model !== t.model) ? insp.model : null,
+      }
     })(),
   })
 })
@@ -483,7 +490,11 @@ app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
 // sends (same headers as /__provider). Results are cached per model server-side.
 app.post('/api/text/vision', async (req, res) => {
   const { probeVision } = await import('./text/vision.js')
-  let target = textConfig.target()
+  // The inspiration IMAGE is attached to the generation request (that's the model
+  // that must "see" it), so 'generation' is the profile that matters here. The
+  // inspiration profile can be probed explicitly.
+  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'generation'
+  let target = textConfig.target(profile)
   if (!target) {
     const baseUrl = String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
     const auth = String(req.headers['authorization'] || '')
@@ -507,7 +518,8 @@ app.put('/api/admin/text/config', requireAdmin, (req, res) => {
 // Sends a tiny real prompt through the configured provider (via the same
 // dialect translation the app uses) so an admin knows it truly works.
 app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
-  const target = textConfig.target()
+  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'generation'
+  const target = textConfig.target(profile)
   if (!target) return res.json({ ok: false, error: 'Aucun fournisseur configuré.' })
   try {
     const { buildUpstream, fromOpenAiResponse } = await import('./text/dialect.js')
@@ -531,7 +543,7 @@ app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
     const json = await upstream.json()
     const shaped = plan.translate ? fromOpenAiResponse(json) : json
     const reply = String(shaped?.message?.content ?? '').trim()
-    const base = { provider: textConfig.get().provider, model: target.model }
+    const base = { provider: target.id, model: target.model, profile }
 
     if (reply) return res.json({ ...base, ok: true, reply: reply.slice(0, 120) })
 
@@ -588,7 +600,16 @@ app.put('/api/data', (req, res) => {
 })
 
 // ---- Muse routes (MCP status + inspiration engine) ----
-app.use('/api', createMuseRouter({ host: muse.host, fetcher: muse.fetcher, patterns: muse.patterns, blacklist: muse.blacklist }))
+app.use(
+  '/api',
+  createMuseRouter({
+    host: muse.host,
+    fetcher: muse.fetcher,
+    patterns: muse.patterns,
+    blacklist: muse.blacklist,
+    resolveTarget: (profile) => textConfig.target(profile),
+  }),
+)
 
 // ---- Image service + Image Library (Phase 2) ----
 app.use('/api/images', images.router)

@@ -23,28 +23,53 @@ export const TEXT_PROVIDER_IDS = TEXT_PROVIDERS.map((p) => p.id)
 
 const byId = (id) => TEXT_PROVIDERS.find((p) => p.id === id) || null
 
-export function defaultTextConfig() {
-  const cfg = { provider: '' } // '' = not configured → fall back to browser Settings
-  for (const p of TEXT_PROVIDERS) {
-    cfg[p.id] = { baseUrl: p.baseUrl, apiKey: '', model: p.model }
+/**
+ * Two independent profiles:
+ *  - 'generation'  — writes the screens (the classic path).
+ *  - 'inspiration' — Muse's dossier/vision work. Often deserves a different
+ *    model: vision-capable, or simply cheaper since it writes no code.
+ * The inspiration profile is OPTIONAL: leaving its provider empty makes Muse
+ * reuse the generation model, which is the previous single-model behaviour.
+ */
+export const TEXT_PROFILES = ['generation', 'inspiration']
+
+function emptyProfile() {
+  const p = { provider: '' } // '' = not configured
+  for (const def of TEXT_PROVIDERS) {
+    p[def.id] = { baseUrl: def.baseUrl, apiKey: '', model: def.model }
   }
-  return cfg
+  return p
+}
+
+export function defaultTextConfig() {
+  return { generation: emptyProfile(), inspiration: emptyProfile() }
+}
+
+/**
+ * Older configs stored ONE profile at the root. Lift it into `generation` so an
+ * existing instance keeps working untouched after the upgrade.
+ */
+function liftLegacy(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  if (raw.generation || raw.inspiration) return raw // already the new shape
+  if (typeof raw.provider !== 'string') return null
+  return { generation: raw, inspiration: emptyProfile() }
 }
 
 const str = (v, fallback = '') => (typeof v === 'string' ? v.trim() : fallback)
 
-export function mergeTextConfig(current, patch) {
-  const base = { ...defaultTextConfig(), ...(current || {}) }
+/** undefined/'' → keep; null → clear; string → set. */
+const secret = (next, prev) => {
+  if (next === null) return ''
+  if (next === undefined) return prev
+  const s = str(next)
+  return s === '' ? prev : s
+}
+
+/** Merge one profile (the previous single-config logic). */
+function mergeProfile(current, patch) {
+  const base = { ...emptyProfile(), ...(current || {}) }
   const p = patch && typeof patch === 'object' ? patch : {}
-
-  /** undefined/'' → keep; null → clear; string → set. */
-  const secret = (next, prev) => {
-    if (next === null) return ''
-    if (next === undefined) return prev
-    const s = str(next)
-    return s === '' ? prev : s
-  }
-
   const out = { provider: p.provider === '' || TEXT_PROVIDER_IDS.includes(p.provider) ? p.provider : base.provider }
   for (const def of TEXT_PROVIDERS) {
     const cur = base[def.id] || {}
@@ -58,13 +83,18 @@ export function mergeTextConfig(current, patch) {
   return out
 }
 
-/** Browser-safe projection: secrets replaced by booleans. */
-export function publicTextConfig(cfg) {
-  const c = { ...defaultTextConfig(), ...(cfg || {}) }
-  const out = {
-    provider: c.provider || '',
-    providers: TEXT_PROVIDERS.map((p) => ({ id: p.id, label: p.label })),
+export function mergeTextConfig(current, patch) {
+  const base = liftLegacy(current) || { ...defaultTextConfig(), ...(current || {}) }
+  const p = liftLegacy(patch) || (patch && typeof patch === 'object' ? patch : {})
+  return {
+    generation: mergeProfile(base.generation, p.generation),
+    inspiration: mergeProfile(base.inspiration, p.inspiration),
   }
+}
+
+function publicProfile(prof) {
+  const c = { ...emptyProfile(), ...(prof || {}) }
+  const out = { provider: c.provider || '' }
   for (const def of TEXT_PROVIDERS) {
     const v = c[def.id] || {}
     out[def.id] = { baseUrl: v.baseUrl || '', model: v.model || '', hasApiKey: Boolean(v.apiKey) }
@@ -72,20 +102,43 @@ export function publicTextConfig(cfg) {
   return out
 }
 
-/**
- * Resolve the configured target, or null when the admin hasn't set one (the
- * caller then falls back to the credentials the browser sent).
- * @returns {{kind:string, baseUrl:string, apiKey:string, model:string}|null}
- */
-export function resolveTextTarget(cfg) {
-  const c = cfg || {}
+/** Browser-safe projection: secrets replaced by booleans. */
+export function publicTextConfig(cfg) {
+  const c = liftLegacy(cfg) || { ...defaultTextConfig(), ...(cfg || {}) }
+  return {
+    providers: TEXT_PROVIDERS.map((p) => ({ id: p.id, label: p.label })),
+    profiles: TEXT_PROFILES,
+    generation: publicProfile(c.generation),
+    inspiration: publicProfile(c.inspiration),
+  }
+}
+
+function resolveProfile(prof) {
+  const c = prof || {}
   const def = byId(c.provider)
   if (!def) return null
   const v = c[def.id] || {}
   const baseUrl = str(v.baseUrl, def.baseUrl)
   const model = str(v.model, def.model)
   if (!baseUrl || !model) return null // incomplete → don't hijack the request
-  return { kind: def.kind, baseUrl, apiKey: v.apiKey || '', model }
+  return { id: def.id, kind: def.kind, baseUrl, apiKey: v.apiKey || '', model }
+}
+
+/**
+ * Resolve the configured target for a profile, or null when the admin hasn't set
+ * one (the caller then falls back to the credentials the browser sent).
+ *
+ * 'inspiration' falls back to 'generation' when left unconfigured, so a single
+ * model keeps working exactly as before — the second profile is opt-in.
+ *
+ * @returns {{kind:string, baseUrl:string, apiKey:string, model:string}|null}
+ */
+export function resolveTextTarget(cfg, profile = 'generation') {
+  const c = liftLegacy(cfg) || cfg || {}
+  if (profile === 'inspiration') {
+    return resolveProfile(c.inspiration) || resolveProfile(c.generation)
+  }
+  return resolveProfile(c.generation)
 }
 
 export class TextConfigStore {
@@ -116,9 +169,9 @@ export class TextConfigStore {
     return publicTextConfig(this.config)
   }
 
-  /** The active target, or null to fall back to the browser's own credentials. */
-  target() {
-    return resolveTextTarget(this.config)
+  /** The active target for a profile, or null to fall back to the browser's own credentials. */
+  target(profile = 'generation') {
+    return resolveTextTarget(this.config, profile)
   }
 
   update(patch) {

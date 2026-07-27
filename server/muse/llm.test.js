@@ -47,6 +47,31 @@ describe('museChat', () => {
     await expect(museChat({ apiKey: 'k', model: 'm' }, { system: 's', user: 'u' })).rejects.toThrow(/base URL/i)
     await expect(museChat({ baseUrl: 'https://ollama.com' }, { system: 's', user: 'u' })).rejects.toThrow(/model/i)
   })
+
+  // An admin can point the instance at OpenAI/OpenRouter; Muse must speak that
+  // dialect too, otherwise its stages 404/403 while the rest of the app works.
+  it('translates to the OpenAI dialect for an openai-kind target', async () => {
+    let seen
+    stubFetch(async (url, init) => {
+      seen = { url, body: JSON.parse(init.body) }
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '{"a":1}' } }] }) }
+    })
+    const out = await museChat(
+      { kind: 'openai', baseUrl: 'https://openrouter.ai/api', apiKey: 'or', model: 'x/y' },
+      { system: 's', user: 'u', schema: { type: 'object' }, options: { num_predict: 4096 } },
+    )
+    expect(out).toBe('{"a":1}')
+    expect(seen.url).toBe('https://openrouter.ai/api/v1/chat/completions')
+    expect(seen.body.max_tokens).toBe(4096) // num_predict → max_tokens
+    expect(seen.body.response_format.type).toBe('json_schema') // format → response_format
+    expect(seen.body.options).toBeUndefined()
+  })
+
+  it('trusts an admin-configured local endpoint (SSRF guard is for browser URLs)', async () => {
+    stubFetch(async () => ({ ok: true, status: 200, json: async () => ({ message: { content: 'hi' } }) }))
+    const local = { baseUrl: 'http://127.0.0.1:11434', model: 'llama3', trusted: true }
+    expect(await museChat(local, { system: 's', user: 'u' })).toBe('hi')
+  })
 })
 
 describe('museJson', () => {

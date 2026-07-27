@@ -25,9 +25,9 @@ function providerProxy(): Plugin {
       server.middlewares.use((req: IncomingMessage, res: ServerResponse, next) => {
         if (!req.url || !req.url.startsWith('/__provider')) return next()
         handleProviderProxy(req as any, res as any, fetch, {
-          resolveTarget: () => {
+          resolveTarget: (profile: string) => {
             textConfig.reload()
-            return textConfig.target()
+            return textConfig.target(profile)
           },
         })
       })
