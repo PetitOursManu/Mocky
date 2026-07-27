@@ -499,7 +499,10 @@ app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
         model: target.model,
         stream: false,
         messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
-        options: { num_predict: 16, temperature: 0 },
+        // Generous budget on purpose: reasoning models spend tokens thinking
+        // before emitting any visible content, so a tight cap returns an empty
+        // string and looks like a success when it is not.
+        options: { num_predict: 512, temperature: 0 },
       }),
     )
     const plan = buildUpstream(target, '/api/chat', body)
@@ -510,8 +513,26 @@ app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
     }
     const json = await upstream.json()
     const shaped = plan.translate ? fromOpenAiResponse(json) : json
-    const reply = shaped?.message?.content ?? ''
-    res.json({ ok: true, provider: textConfig.get().provider, model: target.model, reply: String(reply).slice(0, 120) })
+    const reply = String(shaped?.message?.content ?? '').trim()
+    const base = { provider: textConfig.get().provider, model: target.model }
+
+    if (reply) return res.json({ ...base, ok: true, reply: reply.slice(0, 120) })
+
+    // HTTP 200 with no visible text is NOT a success: the model would produce
+    // empty screens. Explain the two cases we can actually distinguish.
+    const choice = json?.choices?.[0]
+    const finish = choice?.finish_reason
+    const thought = choice?.message?.reasoning_content || choice?.message?.reasoning
+    const why = thought
+      ? 'ce modèle « réfléchit » avant de répondre et n’a pas produit de texte visible'
+      : finish === 'length'
+        ? 'la réponse a été coupée par la limite de tokens'
+        : 'le modèle a renvoyé un contenu vide'
+    res.json({
+      ...base,
+      ok: false,
+      error: `Connexion OK, mais aucune réponse texte (${why}${finish ? `, finish_reason: ${finish}` : ''}). Essayez un modèle non-« reasoning » — les écrans seraient vides avec celui-ci.`,
+    })
   } catch (err) {
     res.json({ ok: false, error: err instanceof Error ? err.message : String(err) })
   }
