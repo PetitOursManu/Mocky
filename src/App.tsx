@@ -227,6 +227,7 @@ export default function App() {
             onOpenDesign={() => setRoute('design')}
             onBack={goHome}
             onSetReference={(sid) => setReferenceScreen(activeProject.id, sid)}
+            onRenameProject={(name) => renameProject(activeProject.id, name)}
           />
         ) : (
           <div className="px-6 py-16 text-center text-sm text-slate-500">

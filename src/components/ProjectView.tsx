@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, saveDesign, extractDesignColors } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, buildElementEditInstruction, tryDirectTextReplace, type AnimationLevel } from '../lib/generate'
-import { deriveName, newId, type Hotspot, type Project, type Screen } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
@@ -87,6 +87,7 @@ export default function ProjectView({
   onOpenDesign,
   onBack,
   onSetReference,
+  onRenameProject,
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -96,6 +97,7 @@ export default function ProjectView({
   onOpenDesign: () => void
   onBack: () => void
   onSetReference: (screenId: string | null) => void
+  onRenameProject: (name: string) => void
 }) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
@@ -445,6 +447,11 @@ export default function ProjectView({
           links: [],
           caps: capIds,
         })
+        // Name the project after its FIRST prompt, so it stops being called
+        // "Untitled project". A name the user already chose is never touched.
+        if (screens.length === 0 && project.name.trim() === DEFAULT_PROJECT_NAME) {
+          onRenameProject(deriveProjectName(text))
+        }
         setGeneratingIds(new Set([screenId]))
         setSelectedIds([screenId])
         setPrompt('')
@@ -480,7 +487,7 @@ export default function ProjectView({
       setMuseStage(null)
       setGeneratingIds(new Set())
     }
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, museConfig, museAvail, project, pinnedImages])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRenameProject, museConfig, museAvail, project, pinnedImages])
 
   function cancelGenerate() {
     abortRef.current?.abort()

@@ -131,6 +131,8 @@ export default function Canvas({
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
   const [spaceDown, setSpaceDown] = useState(false)
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
+  /** Screen whose original prompt is currently displayed (💬 button). */
+  const [promptShownId, setPromptShownId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState('')
   const [moveDelta, setMoveDelta] = useState<{ dx: number; dy: number } | null>(null)
   const [resizePreview, setResizePreview] = useState<(Box & { id: string }) | null>(null)
@@ -460,6 +462,11 @@ export default function Canvas({
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     <LabelBtn inv={inv} title="Rename" onClick={() => { setDraftLabel(s.name); setEditingLabelId(s.id) }}>✎</LabelBtn>
+                    <LabelBtn
+                      inv={inv}
+                      title={s.prompt ? 'Voir le prompt qui a créé cet écran' : 'Aucun prompt enregistré'}
+                      onClick={() => setPromptShownId((id) => (id === s.id ? null : s.id))}
+                    >💬</LabelBtn>
                     <button
                       type="button"
                       title="More options (or right-click the screen)"
@@ -474,6 +481,37 @@ export default function Canvas({
                   </span>
                 )}
               </div>
+
+              {/* Prompt of this screen — opened from the 💬 button. Sits just
+                  under the label, scale-invariant so it stays readable at any zoom. */}
+              {promptShownId === s.id && selected && (
+                <div
+                  className="absolute left-0 z-20 rounded-lg border border-slate-600 bg-slate-900/95 text-slate-200 shadow-xl backdrop-blur"
+                  style={{
+                    top: -2 * inv,
+                    width: Math.min(s.w, 420) ,
+                    padding: `${8 * inv}px ${10 * inv}px`,
+                    fontSize: `${12 * inv}px`,
+                    transform: `translateY(-100%) translateY(${-22 * inv}px)`,
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between" style={{ gap: 6 * inv, marginBottom: 4 * inv }}>
+                    <span className="font-medium text-fuchsia-300" style={{ fontSize: `${11 * inv}px` }}>
+                      💬 Prompt d’origine
+                    </span>
+                    <span className="flex items-center" style={{ gap: 2 * inv }}>
+                      {s.prompt && (
+                        <LabelBtn inv={inv} title="Copier le prompt" onClick={() => navigator.clipboard?.writeText(s.prompt)}>⧉</LabelBtn>
+                      )}
+                      <LabelBtn inv={inv} title="Fermer" onClick={() => setPromptShownId(null)}>✕</LabelBtn>
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap break-words leading-snug text-slate-300">
+                    {s.prompt || 'Aucun prompt enregistré pour cet écran (créé avant cette fonctionnalité, ou importé).'}
+                  </p>
+                </div>
+              )}
 
               {/* Live preview fills the frame. Interactive when in interact/link mode. */}
               <div

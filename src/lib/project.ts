@@ -106,6 +106,38 @@ export function deriveName(prompt: string): string {
   return clean.length > 48 ? clean.slice(0, 48) + '…' : clean
 }
 
+/** The placeholder a project gets before it has any screen. */
+export const DEFAULT_PROJECT_NAME = 'Untitled project'
+
+/**
+ * A short, human project title derived from the first prompt, so projects stop
+ * being called "Untitled project". Drops the leading boilerplate people write
+ * ("une page d'accueil pour…", "a landing page for…"), keeps the subject, and
+ * cuts on a word boundary.
+ */
+export function deriveProjectName(prompt: string): string {
+  let clean = prompt.trim().replace(/\s+/g, ' ')
+  if (!clean) return DEFAULT_PROJECT_NAME
+
+  // Strip the "<screen kind> for/pour" preamble — the subject is what matters.
+  clean = clean.replace(
+    /^(?:une?|an?|the|le|la|les)?\s*(?:page|écran|ecran|screen|site|app(?:lication)?|dashboard|tableau de bord|landing(?:\s*page)?|maquette|interface|vue)\b[^,]*?\s(?:pour|for|de|d['’]|du|des)\s+/i,
+    '',
+  )
+  clean = clean.replace(/^(?:une?|an?|the|le|la|les|des|du|de)\s+/i, '')
+
+  // Cut on a word boundary, never mid-word.
+  const MAX = 42
+  if (clean.length > MAX) {
+    const cut = clean.slice(0, MAX)
+    const lastSpace = cut.lastIndexOf(' ')
+    clean = (lastSpace > 12 ? cut.slice(0, lastSpace) : cut).replace(/[,;:.\-–—]+$/, '') + '…'
+  }
+  clean = clean.replace(/[,;:.]+$/, '').trim()
+  if (!clean) return DEFAULT_PROJECT_NAME
+  return clean.charAt(0).toUpperCase() + clean.slice(1)
+}
+
 /** Grid slot for the Nth screen, used when a screen has no explicit position. */
 export function slotPosition(index: number): { x: number; y: number } {
   const col = index % COLS
@@ -192,7 +224,7 @@ export function useProjects() {
     const now = Date.now()
     const project: Project = {
       id: newId(),
-      name: name?.trim() || 'Untitled project',
+      name: name?.trim() || DEFAULT_PROJECT_NAME,
       createdAt: now,
       updatedAt: now,
       screens: [],
