@@ -268,10 +268,15 @@ export default function TextProviderSettings() {
   return (
     <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
       <h3 className="mb-1 text-sm font-semibold text-slate-100">Modèles de texte (LLM)</h3>
-      <p className="mb-4 text-xs text-slate-400">
-        Défini ici, un modèle s’applique à <strong>toute l’instance</strong> et les utilisateurs n’ont plus rien à
-        configurer. Vous pouvez utiliser <strong>deux modèles différents</strong> : un pour écrire les écrans, un pour
-        l’inspiration ✨.
+      <p className="mb-3 text-xs text-slate-400">
+        Deux modèles <strong>qui écrivent du texte</strong>. Défini ici, un modèle s’applique à{' '}
+        <strong>toute l’instance</strong> et les utilisateurs n’ont plus rien à configurer.
+      </p>
+      <p className="mb-4 rounded-lg border border-slate-700 bg-slate-900/50 px-2.5 py-2 text-[11px] text-slate-400">
+        🖼 <strong>Ce n’est pas ici que l’image d’inspiration est générée.</strong> Le modèle qui <em>fabrique</em>{' '}
+        l’image (Seedream, Flux, nano-banana…) se règle plus bas, dans <strong>Génération d’images (Muse)</strong>.
+        Muse enchaîne les deux : ② écrit le dossier et la description de l’image → le modèle d’images la fabrique → ②
+        (ou ①) la <em>regarde</em> pour composer l’écran.
       </p>
 
       <div className="mb-4 rounded-lg border border-amber-700/40 bg-amber-900/20 px-2.5 py-2 text-[11px] text-amber-200">
@@ -290,12 +295,15 @@ export default function TextProviderSettings() {
         />
         <ProfileForm
           profile="inspiration"
-          title="② Inspiration ✨ (Muse)"
+          title="② Muse ✨ — texte du Design Dossier"
           blurb={
             <>
-              Le modèle qui rédige le Design Dossier et « regarde » l’image d’inspiration. Il n’écrit pas de code : un
-              modèle moins cher suffit — mais le mode <em>Inspiration</em> exige la <strong>vision</strong>.{' '}
-              <span className="text-slate-500">Laissez « Aucun » pour réutiliser le modèle de génération.</span>
+              Le modèle qui <strong>rédige</strong> le Design Dossier (concept, palette, vrais textes) et qui{' '}
+              <strong>regarde</strong> l’image d’inspiration une fois qu’elle existe. Il n’écrit pas de code : un modèle
+              moins cher suffit — mais le mode <em>Inspiration</em> exige la <strong>vision</strong>.{' '}
+              <span className="text-slate-500">
+                Ce n’est pas lui qui fabrique l’image. Laissez « Aucun » pour réutiliser le modèle de génération.
+              </span>
             </>
           }
           emptyLabel="Aucun — réutilise le modèle de génération"
