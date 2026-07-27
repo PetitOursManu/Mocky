@@ -48,6 +48,17 @@ describe('pure helpers', () => {
     expect(withImg).toContain('src="http://localhost:5173/api/images/abc"')
   })
 
+  it('in "both" mode the image is BOTH embedded and shown to the model', () => {
+    const out = buildMusePreamble(
+      '# Dossier',
+      [{ slot: 'hero', id: 'hero', url: 'http://localhost:5173/api/images/abc' }],
+      'both',
+    )
+    expect(out).toMatch(/GENERATED IMAGERY/) // embedded…
+    expect(out).toContain('src="http://localhost:5173/api/images/abc"')
+    expect(out).toMatch(/You can SEE the attached image/) // …and seen
+  })
+
   it('in "inspiration" mode the image is a style reference, never embedded', () => {
     const out = buildMusePreamble(
       '# Dossier',

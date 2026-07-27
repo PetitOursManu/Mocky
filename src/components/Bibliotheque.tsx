@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import ImageLightbox from './ImageLightbox'
 import {
   listLibrary,
   toggleFavoriteImage,
@@ -31,6 +32,7 @@ export default function Bibliotheque({
   pinned = [],
   onTogglePin,
   onClose,
+  onOpenImage,
 }: {
   variant?: 'modal' | 'page'
   projectId?: string
@@ -39,6 +41,8 @@ export default function Bibliotheque({
   pinned?: PinnedImage[]
   onTogglePin?: (img: LibraryImage) => void
   onClose?: () => void
+  /** Open an image full size. When absent, the page handles it itself. */
+  onOpenImage?: (hash: string) => void
 }) {
   const [images, setImages] = useState<LibraryImage[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,6 +53,10 @@ export default function Bibliotheque({
 
   const isPage = variant === 'page'
   const canPin = Boolean(onTogglePin)
+  /** Standalone page has no parent to host the lightbox — it hosts its own. */
+  const [ownLightbox, setOwnLightbox] = useState<string | null>(null)
+  const openImage = (hash: string) => (onOpenImage ? onOpenImage(hash) : setOwnLightbox(hash))
+  const lightbox = ownLightbox ? <ImageLightbox hash={ownLightbox} onClose={() => setOwnLightbox(null)} /> : null
 
   const filters: LibraryFilters = {
     q: q.trim() || undefined,
@@ -159,9 +167,19 @@ export default function Bibliotheque({
             isPinned(img.hash) ? 'border-fuchsia-500 ring-2 ring-fuchsia-500/40' : 'border-slate-700'
           }`}
         >
-          <div className="aspect-[4/3] w-full overflow-hidden bg-slate-950">
-            <img src={imageUrl(img.hash)} alt={img.prompt} className="h-full w-full object-cover" loading="lazy" />
-          </div>
+          <button
+            type="button"
+            className="block aspect-[4/3] w-full overflow-hidden bg-slate-950"
+            title="Ouvrir en grand"
+            onClick={() => openImage(img.hash)}
+          >
+            <img
+              src={imageUrl(img.hash)}
+              alt={img.prompt}
+              className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          </button>
           <div className="p-1.5">
             <div className="truncate text-[11px] text-slate-300" title={img.prompt}>
               {img.prompt}
@@ -235,6 +253,7 @@ export default function Bibliotheque({
         </p>
         <div className="mb-4 flex flex-wrap items-center gap-3">{toolbar}</div>
         {grid}
+        {lightbox}
       </main>
     )
   }
@@ -268,6 +287,7 @@ export default function Bibliotheque({
           </div>
         </div>
       </div>
+      {lightbox}
     </div>
   )
 }

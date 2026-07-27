@@ -19,6 +19,7 @@ import CodeView from './CodeView'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
 import Bibliotheque from './Bibliotheque'
+import ImageLightbox from './ImageLightbox'
 import {
   loadMuseConfig,
   saveMuseConfig,
@@ -115,6 +116,8 @@ export default function ProjectView({
   /** null until probed: does the active model accept images? */
   const [museVision, setMuseVision] = useState<boolean | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
+  /** Image opened full size (from the canvas card or the library grid). */
+  const [lightboxHash, setLightboxHash] = useState<string | null>(null)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   const updateMuse = useCallback((c: MuseConfig) => {
     setMuseConfig(c)
@@ -179,7 +182,7 @@ export default function ProjectView({
       if (!alive) return
       setMuseVision(r.vision)
       // Never leave the user on a mode their model cannot honour.
-      if (!r.vision && museConfig.imageMode === 'inspiration') {
+      if (!r.vision && museConfig.imageMode !== 'content') {
         updateMuse({ ...museConfig, imageMode: 'content' })
       }
     })
@@ -382,6 +385,8 @@ export default function ProjectView({
         let museMarkdown: string | undefined
         /** Art-direction reference sent to a vision model ("inspiration" mode). */
         let museVisionRef: string | undefined
+        /** Library hash of the image backing this screen, shown on the canvas. */
+        let museImageHash: string | undefined
         if (museConfig.enabled && museAvail !== false) {
           try {
             setMuseResult(null)
@@ -421,12 +426,14 @@ export default function ProjectView({
               })
               imgs = [...imgs, ...gen]
             }
-            // In "inspiration" mode the image is NOT embedded: it is attached to
-            // the request so a vision model can design from it.
-            if (museConfig.imageMode === 'inspiration' && imgs.length) {
+            // "inspiration" and "both" show the image to the model. In "both"
+            // it is the same image it will embed, so it can design around it.
+            if (museConfig.imageMode !== 'content' && imgs.length) {
               const dataUrl = await imageAsDataUrl(imgs[0].url, ac.signal)
               if (dataUrl) museVisionRef = dataUrl
             }
+            // Remember which image backs this screen so the canvas can show it.
+            if (imgs.length) museImageHash = imgs[0].url.split('/').pop() || undefined
             musePreamble = buildMusePreamble(res.markdown, imgs, museConfig.imageMode)
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
@@ -476,6 +483,7 @@ export default function ProjectView({
           device: preset.device,
           links: [],
           caps: capIds,
+          imageHash: museImageHash,
         })
         // Name the project after its FIRST prompt, so it stops being called
         // "Untitled project". A name the user already chose is never touched.
@@ -743,9 +751,20 @@ export default function ProjectView({
     })
   }
 
-  const libraryModal = showLibrary ? (
-    <Bibliotheque projectId={project.id} pinned={pinnedImages} onTogglePin={togglePin} onClose={() => setShowLibrary(false)} />
-  ) : null
+  const libraryModal = (
+    <>
+      {showLibrary && (
+        <Bibliotheque
+          projectId={project.id}
+          pinned={pinnedImages}
+          onTogglePin={togglePin}
+          onClose={() => setShowLibrary(false)}
+          onOpenImage={setLightboxHash}
+        />
+      )}
+      {lightboxHash && <ImageLightbox hash={lightboxHash} onClose={() => setLightboxHash(null)} />}
+    </>
+  )
 
   if (screens.length === 0) {
     return (
@@ -790,6 +809,7 @@ export default function ProjectView({
         onMoveScreens={(updates) => updates.forEach((u) => onUpdateScreen(u.id, { x: u.x, y: u.y }))}
         onResizeScreen={(id, box) => onUpdateScreen(id, box)}
         onRenameScreen={(id, name) => onUpdateScreen(id, { name })}
+        onOpenImage={setLightboxHash}
         onDeleteScreen={(id) => {
           if (confirm('Delete this screen?')) {
             onRemoveScreen(id)

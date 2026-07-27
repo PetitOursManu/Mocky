@@ -57,7 +57,12 @@ export interface MuseResult {
  *                    as an art-direction reference to design from. Requires a
  *                    vision-capable model.
  */
-export type MuseImageMode = 'content' | 'inspiration'
+/**
+ *  - 'both' — the SAME generated image is shown to the model (so it designs
+ *    around its palette and composition) AND embedded in the screen. Costs one
+ *    image, needs vision.
+ */
+export type MuseImageMode = 'content' | 'inspiration' | 'both'
 
 export interface MuseConfig {
   /** ✨ toggle state. */
@@ -264,17 +269,25 @@ export function buildMusePreamble(
     markdown.trim(),
     '</DESIGN_DOSSIER>',
   ]
-  if (images.length && mode === 'content') {
+  const embeds = mode === 'content' || mode === 'both'
+  if (images.length && embeds) {
     lines.push(
       '',
       'GENERATED IMAGERY — these images are served by THIS app. For the matching visual slots you MUST use an <img> tag with the EXACT absolute URL below (this overrides the general rule against external images — ONLY these listed URLs are allowed, and never add a crossorigin attribute):',
     )
     for (const im of images) lines.push(`- slot "${im.slot}": <img src="${im.url}" alt="" className="..." />`)
-  } else if (images.length && mode === 'inspiration') {
+  }
+  if (images.length && mode === 'inspiration') {
     lines.push(
       '',
       'VISUAL REFERENCE — an image is attached to this request. It is MOOD/ART-DIRECTION ONLY: read its palette, lighting, composition and overall feel, and let them guide the colors, spacing and atmosphere of the screen you write.',
       'Do NOT embed it, do NOT reference its URL, and do NOT describe it as the product. It is not content — it is a style reference.',
+    )
+  }
+  if (images.length && mode === 'both') {
+    lines.push(
+      '',
+      'You can SEE the attached image — it is the very image you are embedding above. Design the surrounding screen around it: pull your accent colors from it, leave it room to breathe, and match the layout to its composition and orientation.',
     )
   }
   return lines.join('\n')

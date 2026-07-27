@@ -143,6 +143,21 @@ export default function MusePanel({
           >
             🎨 Inspiration
           </button>
+          <button
+            type="button"
+            onClick={() => onChange({ ...config, imageMode: 'both' })}
+            disabled={busy || vision === false}
+            title={
+              vision === false
+                ? 'Indisponible : ce modèle n’accepte pas les images'
+                : 'Le modèle VOIT l’image et l’insère : il compose l’écran autour d’elle (une seule image générée)'
+            }
+            className={`px-2 py-0.5 ${
+              config.imageMode === 'both' ? 'bg-fuchsia-500 text-white' : 'text-slate-300 hover:bg-slate-800'
+            } ${vision === false ? 'cursor-not-allowed opacity-40' : ''}`}
+          >
+            ✨ Les deux
+          </button>
         </span>
         {vision === false && <span className="text-[10px] text-amber-300/80">vision non détectée sur ce modèle</span>}
         {vision === true && <span className="text-[10px] text-emerald-400/80">vision ✓</span>}

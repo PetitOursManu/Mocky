@@ -28,6 +28,8 @@ export interface Screen {
   previousCode?: string
   /** Selected capability IDs (e.g. ['motion', 'charts']) persisted for reload/edit. */
   caps?: string[]
+  /** Image Library hash of the Muse image backing this screen (shown on the canvas). */
+  imageHash?: string
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -162,6 +164,7 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     device: s.device === 'iphone' ? 'iphone' : 'none',
     links: Array.isArray(s.links) ? s.links : [],
     caps: Array.isArray(s.caps) ? s.caps : [],
+    imageHash: typeof s.imageHash === 'string' ? s.imageHash : undefined,
   }
 }
 

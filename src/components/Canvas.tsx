@@ -69,6 +69,7 @@ export default function Canvas({
   onResizeScreen,
   onRenameScreen,
   onDeleteScreen,
+  onOpenImage,
   linkMode,
   modifyMode,
   interactAll,
@@ -98,6 +99,8 @@ export default function Canvas({
   onResizeScreen: (id: string, box: Box) => void
   onRenameScreen: (id: string, name: string) => void
   onDeleteScreen: (id: string) => void
+  /** Open the Muse image of a screen full size. */
+  onOpenImage?: (hash: string) => void
   linkMode: boolean
   /** No-code "Modify" mode (Lot C): clicking an element in a screen picks it for a targeted edit. */
   modifyMode: boolean
@@ -511,6 +514,31 @@ export default function Canvas({
                     {s.prompt || 'Aucun prompt enregistré pour cet écran (créé avant cette fonctionnalité, ou importé).'}
                   </p>
                 </div>
+              )}
+
+              {/* Muse image that backs this screen — sits in the grid beside the
+                  frame (outside its bounds) so you can see it without opening
+                  the library. Click to view it full size. */}
+              {s.imageHash && (
+                <button
+                  type="button"
+                  className="absolute overflow-hidden rounded-xl border border-fuchsia-600/60 bg-slate-900 shadow-xl transition hover:border-fuchsia-400"
+                  style={{ left: `calc(100% + ${24 * inv}px)`, top: 0, width: 200 * inv, cursor: 'pointer' }}
+                  title="Image Muse de cet écran — cliquer pour l’ouvrir en grand"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onOpenImage?.(s.imageHash as string)
+                  }}
+                >
+                  <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
+                  <span
+                    className="block bg-fuchsia-950/60 text-fuchsia-200"
+                    style={{ padding: `${4 * inv}px ${6 * inv}px`, fontSize: `${11 * inv}px` }}
+                  >
+                    🎨 Image Muse
+                  </span>
+                </button>
               )}
 
               {/* Live preview fills the frame. Interactive when in interact/link mode. */}
