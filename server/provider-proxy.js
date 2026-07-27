@@ -1,6 +1,12 @@
 // Shared provider-proxy logic used by both the Vite dev middleware and the
 // Express production server. Keeps a single source of truth and applies the
 // same SSRF guard in dev and in prod.
+//
+// It also acts as a DIALECT GATEWAY: Mocky always speaks Ollama's `/api/chat`
+// shape, and this proxy translates it to/from OpenAI-compatible providers
+// (OpenAI, OpenRouter, Groq, LM Studio…) when an admin has configured one. The
+// generation, planner and Muse code paths are therefore vendor-agnostic.
+import { buildUpstream, createSseTranslator, fromOpenAiModels, fromOpenAiResponse } from './text/dialect.js'
 
 /**
  * Reject targets that would let a caller reach internal/private networks.
@@ -71,8 +77,21 @@ export function readRawBody(req) {
  * `fetchImpl` is injected so the same code works in Vite (global fetch) and in
  * Express (Node global fetch).
  */
-export async function handleProviderProxy(req, res, fetchImpl = fetch) {
-  const base = String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
+export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}) {
+  // An admin-configured provider (Admin → Modèle de texte) wins over whatever
+  // the browser sends. When none is set, we use the browser's own Settings —
+  // preserving the original "key never leaves the browser" mode and the
+  // frontend-only deployment.
+  let configured = null
+  try {
+    configured = opts.resolveTarget ? opts.resolveTarget() : null
+  } catch {
+    configured = null
+  }
+
+  const base = configured
+    ? String(configured.baseUrl || '').replace(/\/+$/, '')
+    : String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
   if (!base) {
     res.statusCode = 400
     res.setHeader('content-type', 'application/json')
@@ -80,35 +99,110 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch) {
     return
   }
 
+  // Subpath resolution must work in BOTH hosts:
+  //  • Vite dev middleware — no mount path, so req.url = "/__provider/api/chat"
+  //  • Express `app.use('/__provider', …)` — the mount path is STRIPPED, so
+  //    req.url = "/api/chat" while req.originalUrl keeps the full path.
+  // Slicing req.url blindly produced an empty subpath under Express, which
+  // silently pointed every request at the provider's root.
   const prefix = '/__provider'
-  const subpath = req.url ? req.url.slice(prefix.length) : ''
+  const fullUrl = req.originalUrl || req.url || ''
+  const subpath = fullUrl.startsWith(prefix) ? fullUrl.slice(prefix.length) : req.url || ''
   const target = base + subpath
 
-  try {
-    assertSafeTarget(target)
-  } catch (err) {
-    res.statusCode = 400
-    res.setHeader('content-type', 'application/json')
-    res.end(JSON.stringify({ error: err.message, target }))
-    return
+  // The SSRF guard protects us from BROWSER-supplied URLs. An admin-configured
+  // endpoint is trusted on purpose: pointing at a local LLM (Ollama, LM Studio,
+  // vLLM on 127.0.0.1) is a supported setup, and only an admin can set it.
+  if (!configured) {
+    try {
+      assertSafeTarget(target)
+    } catch (err) {
+      res.statusCode = 400
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify({ error: err.message, target }))
+      return
+    }
   }
 
   try {
     const method = req.method || 'GET'
     const hasBody = method !== 'GET' && method !== 'HEAD'
-    const body = hasBody ? await readRawBody(req) : undefined
+    let body = hasBody ? await readRawBody(req) : undefined
 
-    const headers = { accept: 'application/json' }
-    if (req.headers['authorization']) headers['authorization'] = req.headers['authorization']
-    if (req.headers['content-type']) headers['content-type'] = req.headers['content-type']
+    // With an admin provider, the model must come from the server config —
+    // the browser's Settings model belongs to a different vendor.
+    if (configured && body && body.length) {
+      try {
+        const parsed = JSON.parse(body.toString())
+        if (parsed && typeof parsed === 'object' && parsed.model !== undefined) {
+          parsed.model = configured.model
+          body = Buffer.from(JSON.stringify(parsed))
+        }
+      } catch {
+        /* not JSON — forward as-is */
+      }
+    }
 
-    const upstream = await fetchImpl(target, {
-      method,
-      headers,
-      body: body && body.length ? body : undefined,
+    const plan = configured
+      ? buildUpstream(configured, subpath, body)
+      : {
+          url: target,
+          headers: {
+            accept: 'application/json',
+            ...(req.headers['authorization'] ? { authorization: req.headers['authorization'] } : {}),
+            ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
+          },
+          body,
+          translate: false,
+          isModels: false,
+        }
+
+    const upstream = await fetchImpl(plan.url, {
+      method: plan.isModels ? 'GET' : method,
+      headers: plan.headers,
+      body: plan.body && plan.body.length ? plan.body : undefined,
     })
 
     res.statusCode = upstream.status
+
+    // --- OpenAI-compatible: translate the answer back to the Ollama dialect ---
+    if (plan.translate && upstream.ok) {
+      const wantsStream = (() => {
+        if (plan.isModels) return false
+        try {
+          return JSON.parse(plan.body.toString()).stream === true
+        } catch {
+          return false
+        }
+      })()
+
+      if (!wantsStream) {
+        const json = await upstream.json().catch(() => ({}))
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify(plan.isModels ? fromOpenAiModels(json) : fromOpenAiResponse(json)))
+        return
+      }
+
+      res.setHeader('content-type', 'application/x-ndjson')
+      if (typeof res.flushHeaders === 'function') res.flushHeaders()
+      const reader = upstream.body.getReader()
+      const decoder = new TextDecoder()
+      const translate = createSseTranslator()
+      try {
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const ndjson = translate(decoder.decode(value, { stream: true }))
+          if (ndjson) res.write(ndjson)
+        }
+      } finally {
+        reader.releaseLock?.()
+      }
+      res.write(JSON.stringify({ done: true }) + '\n')
+      res.end()
+      return
+    }
+
     const ct = upstream.headers.get('content-type')
     if (ct) res.setHeader('content-type', ct)
 

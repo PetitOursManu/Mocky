@@ -350,7 +350,9 @@ Signed with `SSO_SHARED_SECRET` (HS256), 60 s lifetime. Claims: `sub` (stable Da
 
 ## Notes
 
-- The API key never leaves your browser and is not committed anywhere.
+- **Model provider — two modes.** By default the API key never leaves your browser (per-user Settings). Optionally, an **admin can configure an instance-wide text provider** (Admin → *Modèle de texte*): Ollama Cloud, OpenAI, OpenRouter, or any OpenAI-compatible endpoint (Groq, Together, DeepSeek, Mistral, LM Studio, vLLM…). In that mode the key is stored **on the server** and used by every account of the instance, and each user's own Settings are ignored. Leave the provider on *Aucun* to keep the browser-only behaviour.
+- Mocky always speaks the **Ollama dialect** internally; the provider proxy translates to/from OpenAI-compatible APIs (request shape, `response_format`, vision attachments, and SSE → NDJSON streaming), so generation, the planner and Muse are vendor-agnostic.
+- An admin-configured endpoint may legitimately be a local address (a model on `127.0.0.1`), so it bypasses the SSRF guard that still applies to any browser-supplied URL.
 - The provider proxy runs as a Vite middleware in dev and in the Express backend in production (so the browser never hits the provider cross-origin). Both proxies share the same SSRF-safe forwarding logic.
 - Backend storage lives in `server/data/` (JSON files, git-ignored) — accounts and per-user projects. Writes are atomic (temp + rename) so a crash never leaves a corrupted file. It's a lightweight self-hosted store; for a hardened multi-user deployment you'd swap it for a real DB and add HTTPS.
 - SSO secrets live in a `.env` file (git-ignored). `server/index.js` reads it automatically on startup so you don't need another dependency.

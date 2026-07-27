@@ -48,6 +48,30 @@ export interface ImagesConfigPatch {
   sdWebui?: { baseUrl?: string; steps?: number }
 }
 
+/** Admin view of the text (LLM) provider. Secrets are never sent back. */
+export interface TextProviderEntry {
+  baseUrl: string
+  model: string
+  hasApiKey: boolean
+}
+export interface TextConfig {
+  /** '' = not configured → each browser uses its own Settings. */
+  provider: string
+  providers: { id: string; label: string }[]
+  [key: string]: unknown
+}
+export interface TextConfigPatch {
+  provider?: string
+  [providerId: string]: unknown
+}
+export interface TextTestResult {
+  ok: boolean
+  provider?: string
+  model?: string
+  reply?: string
+  error?: string
+}
+
 export interface ImagesTestResult {
   ok: boolean
   provider: string
@@ -73,6 +97,7 @@ export const api = {
       allowRegistration: boolean
       setup: boolean
       sso: { enabled: boolean; dashyUrl: string | null }
+      textProvider?: { configured: boolean; model: string | null; provider: string | null }
     }>,
 
   admin: {
@@ -92,5 +117,11 @@ export const api = {
       req('/api/admin/images/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<ImagesConfig>,
     testImagesProvider: (provider?: string) =>
       req('/api/admin/images/test', { method: 'POST', body: JSON.stringify({ provider }) }) as Promise<ImagesTestResult>,
+
+    /** Text (LLM) provider. */
+    getTextConfig: () => req('/api/admin/text/config') as Promise<TextConfig>,
+    setTextConfig: (patch: TextConfigPatch) =>
+      req('/api/admin/text/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<TextConfig>,
+    testTextProvider: () => req('/api/admin/text/test', { method: 'POST' }) as Promise<TextTestResult>,
   },
 }

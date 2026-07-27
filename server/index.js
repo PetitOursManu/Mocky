@@ -11,6 +11,7 @@ import { handleProviderProxy } from './provider-proxy.js'
 import { createMuse } from './muse/index.js'
 import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
+import { TextConfigStore } from './text/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
@@ -25,6 +26,10 @@ muse.host.startAutoStart().catch(() => {}) // best-effort; never blocks boot
 // ---- Muse image service + global Image Library ----
 // Lazy: no provider probe or generation until a request hits /api/images.
 const images = createImages({ dataDir: DATA_DIR })
+
+// ---- Admin-configured text (LLM) provider ----
+// When unset, the proxy keeps using the credentials the browser sends.
+const textConfig = new TextConfigStore(DATA_DIR)
 
 // ---- .env loader (no dependency) ----
 // Reads KEY=VALUE lines from <repo>/.env into process.env (does not override
@@ -271,7 +276,9 @@ function authRateLimit(limit = 8, windowMs = 60_000) {
 // Model-provider proxy — forwards to `${x-provider-base}<subpath>` (raw body,
 // so it must run before express.json()). The logic (incl. the SSRF guard) lives
 // in ./provider-proxy.js, shared with the Vite dev middleware.
-app.use('/__provider', (req, res) => handleProviderProxy(req, res))
+app.use('/__provider', (req, res) =>
+  handleProviderProxy(req, res, fetch, { resolveTarget: () => textConfig.target() }),
+)
 
 app.use('/api', express.json({ limit: '25mb' }))
 
@@ -314,6 +321,12 @@ app.get('/api/config', (req, res) => {
       enabled: ssoEnabled,
       dashyUrl: SSO_DASHY_URL || null,
     },
+    // Whether an admin configured an instance-wide model (no secret exposed) —
+    // lets Settings tell users their own provider fields are being overridden.
+    textProvider: (() => {
+      const t = textConfig.target()
+      return { configured: Boolean(t), model: t ? t.model : null, provider: t ? textConfig.get().provider : null }
+    })(),
   })
 })
 
@@ -462,6 +475,46 @@ app.put('/api/admin/images/config', requireAdmin, (req, res) => {
 app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
   const id = typeof req.body?.provider === 'string' ? req.body.provider : undefined
   res.json(await images.testProvider(id))
+})
+
+// ---- admin: text (LLM) provider ----
+app.get('/api/admin/text/config', requireAdmin, (req, res) => {
+  res.json(textConfig.publicView())
+})
+
+app.put('/api/admin/text/config', requireAdmin, (req, res) => {
+  textConfig.update(req.body || {})
+  res.json(textConfig.publicView())
+})
+
+// Sends a tiny real prompt through the configured provider (via the same
+// dialect translation the app uses) so an admin knows it truly works.
+app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
+  const target = textConfig.target()
+  if (!target) return res.json({ ok: false, error: 'Aucun fournisseur configuré.' })
+  try {
+    const { buildUpstream, fromOpenAiResponse } = await import('./text/dialect.js')
+    const body = Buffer.from(
+      JSON.stringify({
+        model: target.model,
+        stream: false,
+        messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
+        options: { num_predict: 16, temperature: 0 },
+      }),
+    )
+    const plan = buildUpstream(target, '/api/chat', body)
+    const upstream = await fetch(plan.url, { method: 'POST', headers: plan.headers, body: plan.body })
+    if (!upstream.ok) {
+      const detail = await upstream.text().catch(() => '')
+      return res.json({ ok: false, error: `HTTP ${upstream.status}${detail ? `: ${detail.slice(0, 200)}` : ''}` })
+    }
+    const json = await upstream.json()
+    const shaped = plan.translate ? fromOpenAiResponse(json) : json
+    const reply = shaped?.message?.content ?? ''
+    res.json({ ok: true, provider: textConfig.get().provider, model: target.model, reply: String(reply).slice(0, 120) })
+  } catch (err) {
+    res.json({ ok: false, error: err instanceof Error ? err.message : String(err) })
+  }
 })
 
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {

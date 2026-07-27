@@ -6,6 +6,7 @@ import {
   saveSettings,
 } from '../lib/settings'
 import { listModels, testConnection, type TestResult } from '../lib/provider'
+import { api } from '../lib/api'
 
 type TestState =
   | { status: 'idle' }
@@ -24,6 +25,14 @@ export default function SettingsPanel() {
   const [modelsError, setModelsError] = useState<string | null>(null)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  // When an admin set an instance-wide model, these fields are ignored.
+  const [managed, setManaged] = useState<{ model: string | null; provider: string | null } | null>(null)
+  useEffect(() => {
+    api
+      .config()
+      .then((c) => setManaged(c.textProvider?.configured ? { model: c.textProvider.model, provider: c.textProvider.provider } : null))
+      .catch(() => setManaged(null))
+  }, [])
 
   // Persist on every change so the form is the source of truth in localStorage.
   useEffect(() => {
@@ -84,7 +93,17 @@ export default function SettingsPanel() {
           </span>
         </div>
 
-        <div className="space-y-4">
+        {managed && (
+          <div className="mb-4 rounded-xl border border-indigo-700/50 bg-indigo-900/25 p-3 text-xs text-indigo-100">
+            <div className="font-medium">Le modèle est défini par l’administrateur de cette instance</div>
+            <div className="mt-1 text-indigo-200/80">
+              Fournisseur : <strong>{managed.provider}</strong> · modèle : <strong>{managed.model}</strong>. Les champs
+              ci-dessous sont <strong>ignorés</strong> — vous n’avez pas besoin de votre propre clé.
+            </div>
+          </div>
+        )}
+
+        <div className={`space-y-4 ${managed ? 'opacity-50' : ''}`}>
           <Field label="Provider">
             <select
               className="input"
@@ -186,7 +205,10 @@ export default function SettingsPanel() {
               />
             </div>
           </Field>
+        </div>
 
+        {/* The planner applies whichever provider is in use — never dimmed. */}
+        <div className="mt-4">
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-800/40 p-3">
             <input
               type="checkbox"
