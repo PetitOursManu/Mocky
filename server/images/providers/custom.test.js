@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { createOpenAiImages, snapSize } from './openai.js'
 import { createCloudflareImages } from './cloudflare.js'
 import { createSdWebUi } from './sdwebui.js'
+import { createFal } from './fal.js'
 import { providersFromConfig, createProvider } from './index.js'
 import { intervalForProvider } from '../index.js'
 
@@ -123,10 +124,90 @@ describe('sd-webui provider', () => {
   })
 })
 
+describe('fal provider', () => {
+  const imgRes = (bytes = [1, 2, 3]) => ({
+    ok: true,
+    arrayBuffer: async () => new Uint8Array(bytes).buffer,
+    headers: { get: () => 'image/jpeg' },
+  })
+
+  it('posts to fal.run/{model} with the "Key" auth scheme (not Bearer)', async () => {
+    let seen
+    const fetchImpl = vi.fn()
+      .mockImplementationOnce(async (url, init) => {
+        seen = { url, init, body: JSON.parse(init.body) }
+        return jsonRes({ images: [{ url: 'https://fal.media/x.jpg', content_type: 'image/jpeg' }], seed: 7 })
+      })
+      .mockImplementationOnce(async () => imgRes([9, 9]))
+    const out = await createFal({ fetchImpl, apiKey: 'fk-1' }).generate({ prompt: 'p', width: 1280, height: 720, seed: 7 })
+
+    expect(seen.url).toBe('https://fal.run/fal-ai/flux/schnell') // default model
+    expect(seen.init.headers.authorization).toBe('Key fk-1') // NOT "Bearer"
+    expect(seen.body).toMatchObject({ prompt: 'p', num_images: 1, seed: 7 })
+    expect(seen.body.image_size).toEqual({ width: 1280, height: 720 }) // custom size object
+    expect(Buffer.compare(out.buffer, Buffer.from([9, 9]))).toBe(0)
+    expect(out.provider).toBe('fal')
+  })
+
+  it('downloads the result URL server-side (M2/M6 — never hotlinked)', async () => {
+    const urls = []
+    const fetchImpl = vi.fn(async (url) => {
+      urls.push(url)
+      return urls.length === 1 ? jsonRes({ images: [{ url: 'https://fal.media/a.jpg' }] }) : imgRes()
+    })
+    await createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'p' })
+    expect(urls[1]).toBe('https://fal.media/a.jpg') // the image is fetched by the server
+  })
+
+  it('folds a negative prompt into the prompt (flux has no negative_prompt field)', async () => {
+    let body
+    const fetchImpl = vi.fn()
+      .mockImplementationOnce(async (u, init) => {
+        body = JSON.parse(init.body)
+        return jsonRes({ images: [{ url: 'https://fal.media/x.jpg' }] })
+      })
+      .mockImplementationOnce(async () => imgRes())
+    await createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'a cat', negative: 'text, watermark' })
+    expect(body.prompt).toBe('a cat. Avoid: text, watermark')
+    expect(body.negative_prompt).toBeUndefined()
+  })
+
+  it('normalizes a pasted full URL or leading slash into a model id', async () => {
+    const seen = []
+    const mk = (model) => {
+      const fetchImpl = vi.fn(async (url) => {
+        seen.push(url)
+        return seen.length % 2 === 1 ? jsonRes({ images: [{ url: 'https://fal.media/x.jpg' }] }) : imgRes()
+      })
+      return createFal({ fetchImpl, apiKey: 'k', model })
+    }
+    await mk('https://fal.run/fal-ai/flux/dev').generate({ prompt: 'p' })
+    await mk('/fal-ai/flux-pro/v1.1/').generate({ prompt: 'p' })
+    expect(seen[0]).toBe('https://fal.run/fal-ai/flux/dev')
+    expect(seen[2]).toBe('https://fal.run/fal-ai/flux-pro/v1.1')
+  })
+
+  it('surfaces the upstream detail on an HTTP error', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: false, status: 422, text: async () => 'validation error' }))
+    await expect(createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'p' })).rejects.toThrow(/422.*validation error/)
+  })
+
+  it('throws when the response carries no image', async () => {
+    const fetchImpl = vi.fn(async () => jsonRes({ images: [] }))
+    await expect(createFal({ fetchImpl, apiKey: 'k' }).generate({ prompt: 'p' })).rejects.toThrow(/no image/)
+  })
+
+  it('is only healthy once a key is configured', async () => {
+    expect(await createFal({ apiKey: '' }).healthy()).toBe(false)
+    expect(await createFal({ apiKey: 'k' }).healthy()).toBe(true)
+  })
+})
+
 describe('providersFromConfig', () => {
   it('puts the selected provider first with `none` as the guaranteed fallback', () => {
     const ids = (cfg) => providersFromConfig(cfg).map((p) => p.id)
     expect(ids({ provider: 'pollinations' })).toEqual(['pollinations', 'none'])
+    expect(ids({ provider: 'fal' })).toEqual(['fal', 'none'])
     expect(ids({ provider: 'openai-image' })).toEqual(['openai-image', 'none'])
     expect(ids({ provider: 'cloudflare-workers-ai' })).toEqual(['cloudflare-workers-ai', 'none'])
     expect(ids({ provider: 'sd-webui' })).toEqual(['sd-webui', 'none'])
@@ -143,6 +224,7 @@ describe('providersFromConfig', () => {
 describe('intervalForProvider', () => {
   it('only paces Pollinations (its anonymous tier is rate-limited)', () => {
     expect(intervalForProvider('pollinations')).toBe(15000)
+    expect(intervalForProvider('fal')).toBe(0)
     expect(intervalForProvider('openai-image')).toBe(0)
     expect(intervalForProvider('sd-webui')).toBe(0)
   })

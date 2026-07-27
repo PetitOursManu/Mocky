@@ -9,14 +9,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { DEFAULT_CF_MODEL } from './providers/cloudflare.js'
+import { DEFAULT_FAL_MODEL } from './providers/fal.js'
 
 /** Selectable providers, in the order shown in the Admin UI. */
-export const PROVIDER_IDS = ['pollinations', 'openai-image', 'cloudflare-workers-ai', 'sd-webui', 'none']
+export const PROVIDER_IDS = ['pollinations', 'fal', 'openai-image', 'cloudflare-workers-ai', 'sd-webui', 'none']
 
 export function defaultImagesConfig() {
   return {
     provider: 'pollinations',
     pollinations: { token: '' },
+    fal: { apiKey: '', model: DEFAULT_FAL_MODEL },
     openai: { baseUrl: 'https://api.openai.com', apiKey: '', model: 'gpt-image-1' },
     cloudflare: { accountId: '', apiToken: '', model: DEFAULT_CF_MODEL },
     sdWebui: { baseUrl: 'http://127.0.0.1:7860', steps: 20 },
@@ -46,6 +48,10 @@ export function mergeImagesConfig(current, patch) {
     pollinations: {
       token: secret(p.pollinations?.token, base.pollinations?.token || ''),
     },
+    fal: {
+      model: str(p.fal?.model, base.fal?.model) || DEFAULT_FAL_MODEL,
+      apiKey: secret(p.fal?.apiKey, base.fal?.apiKey || ''),
+    },
     openai: {
       baseUrl: str(p.openai?.baseUrl, base.openai?.baseUrl) || 'https://api.openai.com',
       model: str(p.openai?.model, base.openai?.model) || 'gpt-image-1',
@@ -71,6 +77,7 @@ export function publicImagesConfig(cfg) {
     provider: c.provider,
     providers: PROVIDER_IDS,
     pollinations: { hasToken: Boolean(c.pollinations?.token) },
+    fal: { model: c.fal?.model || '', hasApiKey: Boolean(c.fal?.apiKey) },
     openai: { baseUrl: c.openai?.baseUrl || '', model: c.openai?.model || '', hasApiKey: Boolean(c.openai?.apiKey) },
     cloudflare: {
       accountId: c.cloudflare?.accountId || '',

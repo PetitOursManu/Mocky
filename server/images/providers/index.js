@@ -10,6 +10,7 @@ import { createNone } from './none.js'
 import { createOpenAiImages } from './openai.js'
 import { createCloudflareImages } from './cloudflare.js'
 import { createSdWebUi } from './sdwebui.js'
+import { createFal } from './fal.js'
 
 export function createProviderRegistry(initialProviders, opts = {}) {
   let providers = initialProviders
@@ -61,6 +62,8 @@ export function createProviderRegistry(initialProviders, opts = {}) {
 /** Instantiate one provider by id from the admin config. */
 export function createProvider(id, config = {}) {
   switch (id) {
+    case 'fal':
+      return createFal(config.fal || {})
     case 'openai-image':
       return createOpenAiImages(config.openai || {})
     case 'cloudflare-workers-ai':

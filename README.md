@@ -254,6 +254,7 @@ placeholders rather than breaking the run.
 | Provider | Key? | Notes |
 |---|---|---|
 | `pollinations` | ❌ none | Default. Free, URL-based; may watermark. Rate-limited (~1 req/15 s) so requests are queued server-side. An optional free token raises the limit. |
+| `fal` | ✔ | [fal.ai](https://fal.ai) — FLUX & co. Pick any model id (`fal-ai/flux/schnell`, `fal-ai/flux/dev`, `fal-ai/flux-pro/v1.1`…). Prefer a fast model: the synchronous endpoint is used. |
 | `openai-image` | ✔ | Any endpoint exposing `POST {baseUrl}/v1/images/generations` — OpenAI (`gpt-image-1`, `dall-e-3`), LiteLLM, compatible gateways. |
 | `cloudflare-workers-ai` | ✔ | Generous free tier. Needs an account id + an API token with the Workers AI permission. |
 | `sd-webui` | ❌ | Your own **Automatic1111 / Forge / SD.Next** instance (started with `--api`). No key, no rate limit, nothing leaves your machine. |

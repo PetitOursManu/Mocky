@@ -48,12 +48,16 @@ describe('publicImagesConfig', () => {
       openai: { apiKey: 'sk-secret' },
       cloudflare: { apiToken: 'cf-secret', accountId: 'acc1' },
       pollinations: { token: 'po-secret' },
+      fal: { apiKey: 'fal-secret', model: 'fal-ai/flux/dev' },
     })
     const view = publicImagesConfig(cfg)
     const serialized = JSON.stringify(view)
     expect(serialized).not.toContain('sk-secret')
     expect(serialized).not.toContain('cf-secret')
     expect(serialized).not.toContain('po-secret')
+    expect(serialized).not.toContain('fal-secret')
+    expect(view.fal.hasApiKey).toBe(true)
+    expect(view.fal.model).toBe('fal-ai/flux/dev') // non-secret field is shown
     expect(view.openai.hasApiKey).toBe(true)
     expect(view.cloudflare.hasApiToken).toBe(true)
     expect(view.pollinations.hasToken).toBe(true)

@@ -3,6 +3,7 @@ import { api, type ImagesConfig, type ImagesConfigPatch, type ImagesTestResult }
 
 const LABELS: Record<string, string> = {
   pollinations: 'Pollinations — gratuit, sans clé (défaut)',
+  fal: 'fal.ai — FLUX & co.',
   'openai-image': 'OpenAI / compatible — DALL·E, gpt-image',
   'cloudflare-workers-ai': 'Cloudflare Workers AI',
   'sd-webui': 'Automatic1111 / Forge — local (votre GPU)',
@@ -11,6 +12,7 @@ const LABELS: Record<string, string> = {
 
 const HINTS: Record<string, string> = {
   pollinations: 'Aucune configuration requise. Limité à ~1 image / 15 s (les requêtes sont mises en file). Un jeton gratuit augmente la limite.',
+  fal: 'Clé fal.ai + identifiant du modèle. Privilégiez un modèle rapide (schnell) : l’appel est synchrone. La graine est transmise, donc le cache prompt+seed fonctionne.',
   'openai-image': 'Tout endpoint exposant POST {URL}/v1/images/generations (OpenAI, LiteLLM, passerelle compatible…).',
   'cloudflare-workers-ai': 'Offre gratuite généreuse. Nécessite l’ID de compte et un jeton API avec la permission Workers AI.',
   'sd-webui': 'Votre instance locale (API activée : --api). Aucune clé, aucune limite, rien ne sort de votre machine.',
@@ -30,6 +32,8 @@ export default function ImageProviderSettings() {
 
   // Editable fields (secrets stay empty = "keep the stored value").
   const [poToken, setPoToken] = useState('')
+  const [falKey, setFalKey] = useState('')
+  const [falModel, setFalModel] = useState('')
   const [oaBase, setOaBase] = useState('')
   const [oaModel, setOaModel] = useState('')
   const [oaKey, setOaKey] = useState('')
@@ -42,6 +46,7 @@ export default function ImageProviderSettings() {
   function hydrate(c: ImagesConfig) {
     setCfg(c)
     setProvider(c.provider)
+    setFalModel(c.fal.model)
     setOaBase(c.openai.baseUrl)
     setOaModel(c.openai.model)
     setCfAccount(c.cloudflare.accountId)
@@ -49,6 +54,7 @@ export default function ImageProviderSettings() {
     setSdBase(c.sdWebui.baseUrl)
     setSdSteps(c.sdWebui.steps)
     setPoToken('')
+    setFalKey('')
     setOaKey('')
     setCfToken('')
   }
@@ -68,6 +74,7 @@ export default function ImageProviderSettings() {
       const patch: ImagesConfigPatch = {
         provider,
         pollinations: { token: poToken || undefined },
+        fal: { model: falModel, apiKey: falKey || undefined },
         openai: { baseUrl: oaBase, model: oaModel, apiKey: oaKey || undefined },
         cloudflare: { accountId: cfAccount, model: cfModel, apiToken: cfToken || undefined },
         sdWebui: { baseUrl: sdBase, steps: sdSteps },
@@ -82,14 +89,16 @@ export default function ImageProviderSettings() {
     }
   }
 
-  async function clearSecret(which: 'pollinations' | 'openai' | 'cloudflare') {
+  async function clearSecret(which: 'pollinations' | 'fal' | 'openai' | 'cloudflare') {
     if (!confirm('Effacer la clé enregistrée ?')) return
     const patch: ImagesConfigPatch =
       which === 'pollinations'
         ? { pollinations: { token: null } }
-        : which === 'openai'
-          ? { openai: { apiKey: null } }
-          : { cloudflare: { apiToken: null } }
+        : which === 'fal'
+          ? { fal: { apiKey: null } }
+          : which === 'openai'
+            ? { openai: { apiKey: null } }
+            : { cloudflare: { apiToken: null } }
     try {
       hydrate(await api.admin.setImagesConfig(patch))
     } catch (e) {
@@ -120,7 +129,7 @@ export default function ImageProviderSettings() {
 
   const secretSet = (
     isSet: boolean,
-    which: 'pollinations' | 'openai' | 'cloudflare',
+    which: 'pollinations' | 'fal' | 'openai' | 'cloudflare',
   ) =>
     isSet ? (
       <span className="text-[11px] text-emerald-400">
@@ -170,6 +179,34 @@ export default function ImageProviderSettings() {
             />
             <div className="mt-1">{secretSet(cfg.pollinations.hasToken, 'pollinations')}</div>
           </label>
+        )}
+
+        {provider === 'fal' && (
+          <>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-300">Modèle</span>
+              <input
+                className="input w-full"
+                value={falModel}
+                onChange={(e) => setFalModel(e.target.value)}
+                placeholder="fal-ai/flux/schnell"
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                ex. <code>fal-ai/flux/schnell</code> (rapide), <code>fal-ai/flux/dev</code>, <code>fal-ai/flux-pro/v1.1</code>
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-300">Clé API</span>
+              <input
+                className="input w-full"
+                type="password"
+                placeholder={cfg.fal.hasApiKey ? '•••••••• (enregistrée)' : 'votre clé fal.ai'}
+                value={falKey}
+                onChange={(e) => setFalKey(e.target.value)}
+              />
+              <div className="mt-1">{secretSet(cfg.fal.hasApiKey, 'fal')}</div>
+            </label>
+          </>
         )}
 
         {provider === 'openai-image' && (
