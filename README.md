@@ -246,12 +246,22 @@ mode).
 
 ### Image providers
 
+Pick the provider in **Admin → Génération d'images (Muse)**. Keys are stored on
+the server and never sent back to the browser; a **Test** button really generates
+a throwaway image so you know it works. If a provider fails, Muse degrades to
+placeholders rather than breaking the run.
+
 | Provider | Key? | Notes |
 |---|---|---|
-| `pollinations` | ❌ none | Default. Free, URL-based; may watermark. Rate-limited (~1 req/15 s) so requests are queued server-side. |
-| `cloudflare-workers-ai` | ✔ optional | Advanced drawer only (planned). |
-| `local-comfy` | ❌ | Point at your own ComfyUI/A1111 endpoint (planned). |
+| `pollinations` | ❌ none | Default. Free, URL-based; may watermark. Rate-limited (~1 req/15 s) so requests are queued server-side. An optional free token raises the limit. |
+| `openai-image` | ✔ | Any endpoint exposing `POST {baseUrl}/v1/images/generations` — OpenAI (`gpt-image-1`, `dall-e-3`), LiteLLM, compatible gateways. |
+| `cloudflare-workers-ai` | ✔ | Generous free tier. Needs an account id + an API token with the Workers AI permission. |
+| `sd-webui` | ❌ | Your own **Automatic1111 / Forge / SD.Next** instance (started with `--api`). No key, no rate limit, nothing leaves your machine. |
 | `none` | — | Muse still runs; slots get palette placeholders. |
+
+> The `sd-webui` base URL is called by the Mocky server itself and is expected to
+> be a local address, so it deliberately bypasses the SSRF guard applied to
+> untrusted URLs. Only an admin can set it — point it at an instance you trust.
 
 Every generated image is saved to a **global Image Library** (`data/image-library/`),
 deduplicated by content hash, reusable across projects. Browse it from the

@@ -443,6 +443,27 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
   res.json({ user: { id: user.id, username: user.username, role: user.role } })
 })
 
+// ---- admin: image-generation provider ----
+// Lets an admin swap Pollinations for their own provider (OpenAI-compatible,
+// Cloudflare Workers AI, or a local Automatic1111/Forge endpoint). Secrets are
+// stored server-side and never sent back to the browser (see publicView()).
+app.get('/api/admin/images/config', requireAdmin, (req, res) => {
+  res.json(images.configStore.publicView())
+})
+
+app.put('/api/admin/images/config', requireAdmin, (req, res) => {
+  images.configStore.update(req.body || {})
+  images.reload() // swap providers + re-pace the queue immediately
+  res.json(images.configStore.publicView())
+})
+
+// Really generates a small throwaway image (not stored) to prove the provider
+// works end-to-end. Can test a provider before selecting it via ?provider=.
+app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
+  const id = typeof req.body?.provider === 'string' ? req.body.provider : undefined
+  res.json(await images.testProvider(id))
+})
+
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   const id = req.params.id
   if (id === req.user.id) return res.status(400).json({ error: 'You cannot delete your own account.' })

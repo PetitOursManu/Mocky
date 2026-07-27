@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type AdminUser } from '../lib/api'
+import ImageProviderSettings from './ImageProviderSettings'
 
 export default function AdminPanel({ currentUsername }: { currentUsername: string }) {
   const [allowReg, setAllowReg] = useState(true)
@@ -118,6 +119,9 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
           </div>
         </form>
       </div>
+
+      {/* Muse image-generation provider */}
+      <ImageProviderSettings />
 
       {/* Users list */}
       <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
