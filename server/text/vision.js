@@ -8,11 +8,55 @@
 // Honest caveat: a 200 means the request was ACCEPTED, not that the model
 // truly reasons about pixels — some gateways silently drop the image. So the
 // UI says "détectée / non détectée", never "garantie".
+import zlib from 'node:zlib'
 import { buildUpstream } from './dialect.js'
+import { crc32 } from '../images/zip.js'
 
-/** 1×1 transparent PNG — the smallest valid image we can send. */
-const TINY_PNG =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+/** Build a PNG chunk (length + type + data + CRC32). */
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4)
+  len.writeUInt32BE(data.length)
+  const typed = Buffer.concat([Buffer.from(type, 'ascii'), data])
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(crc32(typed))
+  return Buffer.concat([len, typed, crc])
+}
+
+/**
+ * A solid-colour PNG of a REAL size. A 1×1 pixel looks like the obvious probe
+ * image, but several vision models reject it outright ("the image length and
+ * width do not meet the requirements") — which reads as "no vision" when the
+ * model actually supports images perfectly well. A solid 256² compresses to
+ * about a kilobyte, so this stays cheap.
+ */
+function makeSolidPng(size = 256, rgb = [128, 128, 128]) {
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(size, 0)
+  ihdr.writeUInt32BE(size, 4)
+  ihdr[8] = 8 // bit depth
+  ihdr[9] = 2 // colour type: truecolour RGB
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(size * 3).fill(Buffer.from(rgb))])
+  const raw = Buffer.concat(Array.from({ length: size }, () => row))
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', zlib.deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]).toString('base64')
+}
+
+const TINY_PNG = makeSolidPng()
+
+/**
+ * Some providers reject the probe image for reasons that PROVE they read it
+ * (wrong dimensions, unsupported ratio…). That is a vision-capable model, not a
+ * text-only one — never report those as "no vision".
+ */
+function errorProvesVision(detail) {
+  return /image (?:length|width|height|size|dimension|resolution|ratio)|pixels?\b.*(?:small|large)|too (?:small|large)/i.test(
+    detail || '',
+  )
+}
 
 /** Probe results are stable per (baseUrl, model) — cache them for the process. */
 const cache = new Map()
@@ -59,11 +103,14 @@ export async function probeVision(target, opts = {}) {
     } else {
       let detail = ''
       try {
-        detail = (await res.text()).slice(0, 200)
+        detail = (await res.text()).slice(0, 400)
       } catch {
         /* ignore */
       }
-      result = { vision: false, error: `HTTP ${res ? res.status : 'no-response'}${detail ? `: ${detail}` : ''}` }
+      // A complaint ABOUT the image means the model parsed it → it has vision.
+      result = errorProvesVision(detail)
+        ? { vision: true }
+        : { vision: false, error: `HTTP ${res ? res.status : 'no-response'}${detail ? `: ${detail}` : ''}` }
     }
   } catch (err) {
     result = { vision: false, error: err instanceof Error ? err.message : String(err) }
