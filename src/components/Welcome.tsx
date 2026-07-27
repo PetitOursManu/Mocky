@@ -26,6 +26,7 @@ type Props = {
   onOpenLibrary: () => void
   pinned: PinnedImage[]
   onUnpin: (hash: string) => void
+  museImageError: string | null
 }
 
 export default function Welcome({
@@ -50,6 +51,7 @@ export default function Welcome({
   onOpenLibrary,
   pinned,
   onUnpin,
+  museImageError,
 }: Props) {
   function onKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -130,6 +132,7 @@ export default function Welcome({
               onOpenLibrary={onOpenLibrary}
               pinned={pinned}
               onUnpin={onUnpin}
+              imageError={museImageError}
             />
           </div>
         )}

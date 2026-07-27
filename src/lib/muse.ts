@@ -143,7 +143,15 @@ export interface GeneratedSlotImage {
 export async function generateSlotImages(
   slots: MuseImagerySlot[],
   project: string,
-  opts: { max?: number; signal?: AbortSignal; onImage?: (img: GeneratedSlotImage) => void } = {},
+  opts: {
+    max?: number
+    signal?: AbortSignal
+    onImage?: (img: GeneratedSlotImage) => void
+    /** Called with a human-readable reason when a slot fails (provider down,
+     *  bad model id, quota…). Image failures never block generation, but the
+     *  user deserves to know why a slot stayed empty. */
+    onError?: (message: string) => void
+  } = {},
 ): Promise<GeneratedSlotImage[]> {
   const max = opts.max ?? 1 // Pollinations is rate-limited (~1/15s); default to the hero only.
   const out: GeneratedSlotImage[] = []
@@ -163,14 +171,21 @@ export async function generateSlotImages(
         }),
         signal: opts.signal,
       })
-      if (!res.ok) continue
-      const j = await res.json()
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // The backend puts the provider's real reason in `error` — surface it
+        // instead of leaving the user with an opaque 502 in the console.
+        opts.onError?.(j?.error ? String(j.error) : `Génération d'image échouée (HTTP ${res.status})`)
+        continue
+      }
       if (j.skipped || !j.url) continue
       const img = { slot: slot.slot || slot.id, id: slot.id, url: absoluteUrl(j.url) }
       out.push(img)
       opts.onImage?.(img)
-    } catch {
+    } catch (err) {
       // Best-effort: a failed image never blocks generation.
+      if (err instanceof Error && err.name === 'AbortError') throw err
+      opts.onError?.(err instanceof Error ? err.message : String(err))
     }
   }
   return out

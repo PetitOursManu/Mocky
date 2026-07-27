@@ -25,14 +25,29 @@ export function createFal(opts = {}) {
     .replace(/^\/+|\/+$/g, '') || DEFAULT_FAL_MODEL
   const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : DEFAULT_TIMEOUT_MS
 
-  async function withTimeout(fn) {
+  async function withTimeout(fn, what) {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), timeoutMs)
     try {
       return await fn(ctrl.signal)
+    } catch (err) {
+      // An abort here is almost always a wrong model id (fal holds the
+      // connection instead of 404-ing) or a model too slow for the sync
+      // endpoint. "This operation was aborted" tells the user nothing.
+      if (err && (err.name === 'AbortError' || /abort/i.test(err.message || ''))) {
+        throw new Error(
+          `fal n'a pas répondu en ${Math.round(timeoutMs / 1000)}s (${what}). Vérifiez l'identifiant du modèle — il doit inclure le préfixe du propriétaire, ex. "fal-ai/flux/schnell" ou "fal-ai/bytedance/seedream/v4/text-to-image" — ou choisissez un modèle plus rapide.`,
+        )
+      }
+      throw err
     } finally {
       clearTimeout(timer)
     }
+  }
+
+  /** Model ids are "owner/app…" — a missing owner is the most common mistake. */
+  function candidates() {
+    return model.startsWith('fal-ai/') ? [model] : [model, `fal-ai/${model}`]
   }
 
   return {
@@ -54,30 +69,40 @@ export function createFal(opts = {}) {
       }
       if (req.seed != null) body.seed = Number(req.seed)
 
-      const res = await withTimeout((signal) =>
-        fetchImpl(`https://fal.run/${model}`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Key ${apiKey}` },
-          body: JSON.stringify(body),
-          signal,
-        }),
-      )
-      if (!res || !res.ok) {
+      // Try the id as given; if fal says "unknown app", retry once with the
+      // "fal-ai/" owner prefix (the usual copy/paste omission).
+      let res = null
+      let lastError = ''
+      for (const id of candidates()) {
+        res = await withTimeout(
+          (signal) =>
+            fetchImpl(`https://fal.run/${id}`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', authorization: `Key ${apiKey}` },
+              body: JSON.stringify(body),
+              signal,
+            }),
+          `modèle "${id}"`,
+        )
+        if (res && res.ok) break
         let detail = ''
         try {
           detail = (await res.text()).slice(0, 200)
         } catch {
           /* ignore */
         }
-        throw new Error(`fal HTTP ${res ? res.status : 'no-response'}${detail ? `: ${detail}` : ''}`)
+        lastError = `fal HTTP ${res ? res.status : 'no-response'}${detail ? `: ${detail}` : ''}`
+        // Only a "not found" is worth retrying with the prefix.
+        if (!res || res.status !== 404) break
       }
+      if (!res || !res.ok) throw new Error(lastError || 'fal request failed')
 
       const data = await res.json()
       const first = data?.images?.[0] ?? data?.image
       const url = typeof first === 'string' ? first : first?.url
       if (!url) throw new Error('fal returned no image')
 
-      const img = await withTimeout((signal) => fetchImpl(url, { signal }))
+      const img = await withTimeout((signal) => fetchImpl(url, { signal }), 'téléchargement du résultat')
       if (!img || !img.ok) throw new Error('fal: could not download the generated image')
       const buffer = Buffer.from(await img.arrayBuffer())
       if (!buffer.length) throw new Error('fal returned an empty image')

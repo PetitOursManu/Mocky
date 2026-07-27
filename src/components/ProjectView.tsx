@@ -107,6 +107,7 @@ export default function ProjectView({
   const [museResult, setMuseResult] = useState<MuseResult | null>(null)
   const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
   const [museStage, setMuseStage] = useState<string | null>(null)
+  const [museImageError, setMuseImageError] = useState<string | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   const updateMuse = useCallback((c: MuseConfig) => {
@@ -359,6 +360,7 @@ export default function ProjectView({
           try {
             setMuseResult(null)
             setMuseImages([])
+            setMuseImageError(null)
             setPhase('muse')
             setMuseStage('✨ Inspiration & rédaction du dossier…')
             const res = await runMuseDossier(text, {
@@ -389,6 +391,7 @@ export default function ProjectView({
                 max: 1,
                 signal: ac.signal,
                 onImage: (im) => setMuseImages((a) => [...a, im]),
+                onError: (msg) => setMuseImageError(msg),
               })
               imgs = [...imgs, ...gen]
             }
@@ -722,6 +725,7 @@ export default function ProjectView({
         onOpenLibrary={() => setShowLibrary(true)}
         pinned={pinnedImages}
         onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
+        museImageError={museImageError}
       />
       {libraryModal}
       </>
@@ -1064,6 +1068,7 @@ export default function ProjectView({
               onOpenLibrary={() => setShowLibrary(true)}
               pinned={pinnedImages}
               onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
+              imageError={museImageError}
             />
           )}
 

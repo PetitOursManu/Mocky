@@ -29,6 +29,7 @@ export default function MusePanel({
   onOpenLibrary,
   pinned,
   onUnpin,
+  imageError,
 }: {
   config: MuseConfig
   onChange: (c: MuseConfig) => void
@@ -40,6 +41,8 @@ export default function MusePanel({
   onOpenLibrary: () => void
   pinned: PinnedImage[]
   onUnpin: (hash: string) => void
+  /** Why an image slot stayed empty (bad model id, provider down, quota…). */
+  imageError?: string | null
 }) {
   const d = result?.dossier
   return (
@@ -72,6 +75,15 @@ export default function MusePanel({
           </div>
         )}
       </div>
+
+      {imageError && (
+        <div className="mb-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-2 py-1.5 text-amber-200">
+          🖼 Image non générée — {imageError}
+          <span className="block text-[10px] text-amber-300/70">
+            L’écran a quand même été généré. Vérifiez le fournisseur d’images dans Admin.
+          </span>
+        </div>
+      )}
 
       {available === false && (
         <div className="mb-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-2 py-1.5 text-amber-200">

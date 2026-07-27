@@ -201,6 +201,49 @@ describe('fal provider', () => {
     expect(await createFal({ apiKey: '' }).healthy()).toBe(false)
     expect(await createFal({ apiKey: 'k' }).healthy()).toBe(true)
   })
+
+  // --- regressions from a real incident: a model id missing the "fal-ai/"
+  // owner prefix made fal hold the connection until the timeout, and the user
+  // only saw "This operation was aborted" behind an opaque 502.
+  it('retries once with the fal-ai/ prefix when the id 404s', async () => {
+    const urls = []
+    const fetchImpl = vi.fn(async (url) => {
+      urls.push(url)
+      if (url === 'https://fal.run/bytedance/seedream/v4/text-to-image') {
+        return { ok: false, status: 404, text: async () => 'not found' }
+      }
+      if (url.startsWith('https://fal.run/')) {
+        return jsonRes({ images: [{ url: 'https://fal.media/x.jpg' }] })
+      }
+      return imgRes([5])
+    })
+    const p = createFal({ fetchImpl, apiKey: 'k', model: 'bytedance/seedream/v4/text-to-image' })
+    const out = await p.generate({ prompt: 'p' })
+    expect(urls[0]).toBe('https://fal.run/bytedance/seedream/v4/text-to-image')
+    expect(urls[1]).toBe('https://fal.run/fal-ai/bytedance/seedream/v4/text-to-image') // prefixed retry
+    expect(Buffer.compare(out.buffer, Buffer.from([5]))).toBe(0)
+  })
+
+  it('does NOT retry on a non-404 error (a real failure must surface as-is)', async () => {
+    let calls = 0
+    const fetchImpl = vi.fn(async () => {
+      calls++
+      return { ok: false, status: 401, text: async () => 'unauthorized' }
+    })
+    await expect(createFal({ fetchImpl, apiKey: 'k', model: 'x/y' }).generate({ prompt: 'p' })).rejects.toThrow(/401/)
+    expect(calls).toBe(1)
+  })
+
+  it('turns a timeout into an actionable message naming the model', async () => {
+    const fetchImpl = vi.fn(async () => {
+      const e = new Error('This operation was aborted')
+      e.name = 'AbortError'
+      throw e
+    })
+    await expect(
+      createFal({ fetchImpl, apiKey: 'k', model: 'fal-ai/slow/model', timeoutMs: 10 }).generate({ prompt: 'p' }),
+    ).rejects.toThrow(/n'a pas répondu.*fal-ai\/slow\/model.*identifiant du modèle/s)
+  })
 })
 
 describe('providersFromConfig', () => {
