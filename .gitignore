@@ -24,3 +24,7 @@ pnpm-debug.log*
 
 # Backend data (accounts + per-user projects) — never commit user data
 server/data/
+
+# Local data backups produced by `npm run backup` — they contain password
+# hashes, session tokens and every project. Never commit them.
+backups/

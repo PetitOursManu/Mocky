@@ -21,39 +21,65 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # ---- Muse: bundle the inspiration fetcher (fetcher-mcp) + Chromium so live
-# inspiration works inside the container (ADR D3 — "include by default"). This
-# adds ~300MB. Best-effort: if it fails (e.g. no apt/network in the build env),
-# the image still builds and Muse falls back to the offline pattern-based
-# dossier at runtime. Remove this block for a lean image (Muse still works, just
-# without live web inspiration).
-# Chromium installs to the default cache under HOME (/root/.cache/ms-playwright);
-# the MCP fetcher is spawned with HOME in its env (see server/muse/mcp/realClient.js),
-# so it's found at runtime.
-RUN (npm install -g fetcher-mcp \
-     && npx --yes playwright install --with-deps chromium) \
-    || echo "Muse: skipped Chromium bundling — live inspiration will fall back to patterns"
+# inspiration works inside the container (ADR D3 — "include by default").
+# Adds ~300 MB.
+#
+# Versions are pinned: `npx --yes playwright install` resolved to whatever was
+# published that day, so two builds of the same commit could ship different
+# browsers.
+#
+# PLAYWRIGHT_BROWSERS_PATH is set BEFORE the install, and deliberately outside
+# /root: the container no longer runs as root (see USER below), so a browser
+# left in /root/.cache would be unreadable at runtime.
+#
+# Still best-effort — a build host without network or apt must not fail the
+# whole image; Muse falls back to the offline pattern dossier. But the failure
+# now leaves a marker the server can report, instead of vanishing into a log
+# line nobody reads.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV FETCHER_MCP_VERSION=0.2.1
+ENV PLAYWRIGHT_VERSION=1.49.1
+RUN (npm install -g "fetcher-mcp@${FETCHER_MCP_VERSION}" \
+     && npx --yes "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
+     && chmod -R a+rX /ms-playwright) \
+    || (echo "Muse: Chromium bundling skipped — live inspiration falls back to patterns" \
+        && touch /app/.no-chromium)
 
 # Copy built frontend + server code
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/public ./public
 
-# Data directory for JSON file store (accounts, sessions, projects)
-RUN mkdir -p /app/server/data
+# Muse's MCP server declarations. server/muse/mcp/config.js resolves this
+# relative to ROOT_DIR (/app); without it the host starts zero servers and live
+# web inspiration silently falls back to the offline pattern dossier — while the
+# Chromium layer above is still paid for at build time.
+COPY --from=builder /app/mocky.mcp.json ./mocky.mcp.json
+
+# Data directory for the JSON file store (accounts, sessions, projects).
+# Owned by `node` so the unprivileged runtime user can write to it — and so the
+# files in the mounted volume are not root-owned, which made backups and
+# rootless Docker painful.
+RUN mkdir -p /app/server/data && chown -R node:node /app/server/data
 
 # Environment defaults
 ENV NODE_ENV=production
 ENV PORT=8787
 
-# Expose the Express server port
 EXPOSE 8787
 
 # Persist user data across container restarts
 VOLUME ["/app/server/data"]
 
-# Healthcheck — hit the config endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://localhost:'+(process.env.PORT||8787)+'/api/config').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+# Drop root. Nothing here needs it.
+USER node
+
+# Health is about the things that actually break: a data directory that is not
+# writable, and a missing build. /api/config answered 200 from memory in both
+# cases, so an unusable instance reported itself healthy.
+# MOCKY_PORT is honoured because the server prefers it over PORT.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.MOCKY_PORT||process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Start the Express server (serves dist/ + API + provider proxy)
 CMD ["node", "server/index.js"]

@@ -1,0 +1,12 @@
+# Normalise line endings so a checkout on Windows and one on Linux produce the
+# same bytes — otherwise the Docker build (Linux) and local dev (Windows) can
+# disagree about files that are byte-compared, and diffs fill up with CRLF noise.
+* text=auto eol=lf
+
+# Vendored browser bundles are shipped verbatim; never rewrite them.
+public/vendor/*.js -text -diff
+
+# Generated / binary
+*.png binary
+*.jpg binary
+*.ico binary

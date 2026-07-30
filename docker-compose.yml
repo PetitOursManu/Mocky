@@ -13,22 +13,29 @@ services:
     image: mocky:latest
     container_name: mocky
     ports:
-      - "8787:8787"
+      # Bound to the loopback interface by default: Mocky has routes that spend
+      # your model credits, so it must not be reachable from the LAN unless you
+      # say so. Put it behind a reverse proxy, or set MOCKY_BIND=0.0.0.0 in .env
+      # to expose it directly (and read the "Exposing Mocky" section of README).
+      - "${MOCKY_BIND:-127.0.0.1}:8787:8787"
     volumes:
       - mocky-data:/app/server/data
+    # Values from a local .env file (copied from .env.example). Without this,
+    # nothing in .env ever reaches the container.
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       PORT: 8787
-      # --- SSO (optional) ---
-      # SSO_SHARED_SECRET: "your-shared-secret-here"
-      # SSO_DASHY_URL: "https://dashy.example.com"
-      # MOCKY_ORIGIN: "https://mocky.example.com"
     restart: unless-stopped
+    # /api/health, not /api/config: the latter answers 200 from memory even when
+    # the data directory is read-only or the frontend was never built.
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/api/config').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
-      start_period: 10s
+      start_period: 15s
       retries: 3
 
 volumes:

@@ -8,23 +8,60 @@ on:
 
 jobs:
   build-test:
-    name: build · test · smoke
+    name: build · test · audit
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 matches the Dockerfile's node:20-slim; 22 is what development
+        # actually runs on, and the two have diverged before.
+        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20 # matches the Dockerfile's node:20-slim
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npm run smoke
+      # The vendored browser bundles run inside the preview iframes alongside
+      # model-generated code. They are minified, so a byte change would pass
+      # review unnoticed — hence hashes rather than trust.
+      - name: Verify vendored bundles
+        run: npm run check:vendor
+      # Production dependencies only. The dev-server advisories (vite/esbuild)
+      # do not apply to a deployment, where Express serves the built dist/.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
   docker:
-    name: docker build (no push)
+    name: docker build · boot
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Build the multi-stage image only (no push) to catch Dockerfile drift.
       - run: docker build -t mocky:ci .
+      # Building proved only that the Dockerfile parses. Actually starting the
+      # image is what catches a missing COPY, a bad CMD, or an unwritable data
+      # directory — all of which have shipped green before.
+      - name: Boot the image and wait for it to report healthy
+        run: |
+          docker run -d --name mocky-ci -p 8787:8787 mocky:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8787/api/config > /dev/null; then
+              echo "Mocky answered on attempt $i"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Mocky never became reachable. Container logs:"
+          docker logs mocky-ci
+          exit 1
+      - name: Check that Muse's MCP config made it into the image
+        # mocky.mcp.json was missing from the runtime stage, so Muse silently
+        # started zero MCP servers while the image still paid ~300 MB for
+        # Chromium. Nothing failed; live inspiration just never worked.
+        run: docker exec mocky-ci test -f /app/mocky.mcp.json
+      - name: Stop
+        if: always()
+        run: docker rm -f mocky-ci || true

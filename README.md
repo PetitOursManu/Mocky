@@ -10,6 +10,12 @@
   <a href="https://github.com/PetitOursManu/Mocky/actions/workflows/ci.yml"><img src="https://github.com/PetitOursManu/Mocky/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
 </p>
 
+<p align="center">
+  <img src="docs/assets/mocky-welcome.png" width="900" alt="Mocky's new-screen view: a prompt field, the ✨ Muse panel with inspiration URLs and image mode, format presets, and a row of style presets." />
+</p>
+
+<p align="center"><sub>Describe a screen, pick a format, and let ✨ Muse build the art direction. — <a href="docs/DESIGN-SYSTEM.md">design system</a></sub></p>
+
 ---
 
 Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, built around two ideas:
@@ -30,15 +36,19 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
 - 🎨 **Design system + style presets** — load/paste a `DESIGN.md` or pick a built-in visual style (17 presets); it drives every generation.
 - ✂️ **Screenshot annotations** — snip a region of a screen into the chat as numbered references, attached to (vision) generations.
-- 📦 **Projects, export & history** — multiple projects, per-screen `.tsx` download and `.zip` export.
+- 📦 **Projects & export** — multiple projects, per-screen `.tsx` download, and a runnable Vite project as `.zip`.
 - 👤 **Optional accounts + SSO** — sign in to a Mocky instance and your projects + DESIGN.md sync across devices (self-hosted backend, no cloud). With a [Dashy](https://github.com/PetitOursManu/Dashy) instance, users can also **"Sign in with Dashy"** and reuse their projects. Without an account everything stays in your browser's `localStorage`.
 - 🌗 **Themes** — Dark, Beige, and a Mocky (teal) light theme.
 
 ## Tech stack
 
-React 18 · TypeScript · Vite · Tailwind CSS on the front, and an optional tiny **Node + Express** backend (JSON file store, no database, no native deps) for accounts + project sync and the production model proxy.
+React 18 · TypeScript · Vite · Tailwind CSS on the front, and a tiny **Node + Express** backend (JSON file store, no database, no native deps) for accounts, project sync, the image library, Muse and the model proxy.
 
 ## Quick start
+
+**Prerequisites:** Docker, *or* Node 20.19+ (see `.nvmrc`). Nothing else — no database, no native modules.
+
+**Mocky requires an account.** The first one you create becomes the instance admin, and only an admin can add other users or configure an instance-wide model. There is no anonymous mode: projects, the image library and Muse all live behind a session.
 
 ### Docker (recommended)
 
@@ -48,32 +58,28 @@ cd Mocky
 docker compose up -d --build
 ```
 
-Mocky is now live on **http://localhost:8787**. Data (accounts, projects, sessions) persists in the `mocky-data` Docker volume.
+Mocky is live on **http://localhost:8787**. Data (accounts, projects, sessions, generated images) persists in the `mocky-data` Docker volume.
 
-**Commands:**
+> The port is published on `127.0.0.1` only, so the instance is not reachable from your network. Several routes spend your model credits, so that is the safe default. To expose it deliberately, set `MOCKY_BIND=0.0.0.0` in `.env` — and read [Reverse proxy / HTTPS](#reverse-proxy--https) first.
 
 | Command | Description |
 |---|---|
 | `docker compose up -d --build` | Build image and start in background |
 | `docker compose logs -f` | Follow logs |
-| `docker compose down` | Stop and remove container (data preserved in volume) |
+| `docker compose ps` | Status, including the health check |
+| `docker compose down` | Stop and remove container (data preserved in the volume) |
 | `docker compose down -v` | Stop and **delete all data** (volume removed) |
 
 ### Local development
 
-**Frontend only** (projects saved in your browser):
-
 ```bash
 npm install
-npm run dev
+npm run dev:all        # Vite + backend together — this is the one you want
 ```
 
-**With accounts + cross-device sync** (also runs the backend):
+Then open **http://localhost:5173**.
 
-```bash
-npm install
-npm run dev:all        # Vite + backend together
-```
+> `npm run dev` starts the **web server only**, with no backend. Since Mocky needs an account and accounts live on the backend, the sign-in box will tell you it cannot reach it. Use `dev:all` unless you specifically want the frontend alone.
 
 **Production build:**
 
@@ -82,13 +88,31 @@ npm run build          # builds the frontend to dist/
 npm start              # backend serves dist/ + API + model proxy on :8787
 ```
 
-Then open the app, go to **Settings**, and configure your provider:
+### First run
 
-1. **Provider** — Ollama Cloud
-2. **Base URL** — `https://ollama.com` (or your own Ollama host)
-3. **API key** — your Ollama Cloud key (stored only in your browser's `localStorage`)
-4. **Model** — pick from the auto-loaded list (e.g. `gpt-oss:120b`)
-5. **Test connection**, then head to **Studio** and describe a screen.
+1. Open Mocky. The sign-in box appears and **cannot be dismissed** — that is by design.
+2. Create the first account. **It becomes the admin.** Keep the credentials; there is no password-reset flow, and promoting another account means editing `server/data/users.json` by hand.
+3. Configure a model — two ways, and they are mutually exclusive:
+
+   - **Per browser** (default) — **Settings** → provider `Ollama Cloud`, base URL `https://ollama.com`, your API key, then pick a model from the list and hit **Test connection**. The key is kept in that browser's `localStorage` and never reaches the server.
+   - **Instance-wide** (admin) — **Admin** → *Modèle de texte*. The key is stored server-side and used for everyone; each user's own Settings are then greyed out. Pick this if you would rather not paste a key into every browser.
+
+4. Describe a screen and generate. Turn on ✨ **Muse** for a full art direction with real copy and generated imagery — see [✨ Muse](#-muse--design-intelligence).
+
+### Housekeeping
+
+```bash
+npm run backup         # → backups/mocky-YYYY-MM-DD-HHmm.zip
+npm run check:vendor   # verify the vendored browser bundles against their hashes
+npm test               # the full suite
+```
+
+`npm run backup` is plain Node and works identically on Windows, macOS and Linux. For a Dockerised instance, copy the data out of the volume first:
+
+```bash
+docker compose cp mocky:/app/server/data ./server/data
+npm run backup
+```
 
 ## Docker deployment
 
@@ -103,34 +127,36 @@ The Express server serves the built frontend, the `/api` endpoints (auth, data s
 
 ### Environment variables
 
-All environment variables are **optional**. Mocky works out of the box without any configuration — accounts are created via the sign-in screen, and the model provider is configured in the browser's Settings.
+All environment variables are **optional**. Mocky runs out of the box: accounts are created from the sign-in screen and the model provider is configured in the UI.
 
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `8787` | Port the Express server listens on |
 | `MOCKY_PORT` | _(unset)_ | Overrides `PORT` for the backend. Useful in dev: a tool that injects `PORT` to configure Vite won't push the backend onto Vite's port. Leave unset in production and use `PORT` |
-| `NODE_ENV` | `production` | Set to `production` for secure cookies and optimized serving |
-| `SSO_SHARED_SECRET` | _(unset)_ | HS256 secret shared with Dashy for SSO. Must match Dashy's `SSO_SHARED_SECRET`. When set together with `SSO_DASHY_URL`, enables "Sign in with Dashy" |
+| `MOCKY_BIND` | `127.0.0.1` | **Docker only** — the host interface the container publishes on. `0.0.0.0` exposes Mocky to your network; do that only on a network you trust, or behind a reverse proxy |
+| `MOCKY_DATA_DIR` | `server/data` | Where the JSON store lives. Point it at a mounted volume to keep state outside the app directory |
+| `TRUST_PROXY` | _(unset)_ | Set to `1` (or a hop count, or an Express `trust proxy` value) **when Mocky sits behind a reverse proxy**. Without it every request looks like it comes from `127.0.0.1`, so the login rate limit becomes a single instance-wide bucket — nine failed attempts a minute and nobody can sign in |
+| `NODE_ENV` | `production` | Enables optimised serving. Cookie security is derived from the actual connection, not from this |
+| `SSO_SHARED_SECRET` | _(unset)_ | HS256 secret shared with Dashy for SSO. Must match Dashy's `SSO_SHARED_SECRET`. Together with `SSO_DASHY_URL`, enables "Sign in with Dashy" |
 | `SSO_DASHY_URL` | _(unset)_ | Public origin of your Dashy instance (e.g. `https://dashy.example.com`) |
-| `MOCKY_ORIGIN` | _(auto-detected)_ | Mocky's own public origin, used as the SSO token's `aud` claim and to build the callback URL. In production: your Mocky domain. If unset, falls back to the request's `Origin` header or the server host |
+| `MOCKY_ORIGIN` | _(auto-detected)_ | Mocky's own public origin, used as the SSO token's `aud` claim and to build the callback URL. **Set it explicitly whenever SSO is on** — the fallback trusts the request's `Host` header |
 
-**Setting env vars in Docker:**
-
-```yaml
-# docker-compose.yml
-environment:
-  SSO_SHARED_SECRET: "your-shared-secret-here"
-  SSO_DASHY_URL: "https://dashy.example.com"
-  MOCKY_ORIGIN: "https://mocky.example.com"
-```
-
-Or via a `.env` file (see `.env.example`):
+**Setting env vars in Docker.** `docker-compose.yml` reads a local `.env`:
 
 ```bash
 cp .env.example .env
-# Edit .env, then:
+# edit .env, then:
 docker compose up -d --build
 ```
+
+The server also logs whether SSO came up at boot, so a typo in a variable name shows immediately:
+
+```
+Mocky backend on http://localhost:8787
+SSO: disabled (set SSO_SHARED_SECRET and SSO_DASHY_URL in .env to enable)
+```
+
+You can equally hard-code values under `environment:` in `docker-compose.yml`.
 
 ### Volumes
 
@@ -138,15 +164,23 @@ docker compose up -d --build
 |---|---|---|
 | `mocky-data` | `/app/server/data` | JSON file store: user accounts, sessions, and per-user project data. Named volume in docker-compose — persists across container rebuilds |
 
-**Backing up data:**
+**Backing up data.** Copy the volume out, then use the bundled script — it is plain Node, so it behaves the same on Windows, macOS and Linux:
 
 ```bash
-# Export the volume to a tarball
-docker run --rm -v mocky-data:/data -v $(pwd):/backup alpine tar czf /backup/mocky-data-backup.tar.gz -C /data .
-
-# Restore from backup
-docker run --rm -v mocky-data:/data -v $(pwd):/backup alpine tar xzf /backup/mocky-data-backup.tar.gz -C /data
+docker compose cp mocky:/app/server/data ./server/data
+npm run backup
 ```
+
+To restore: stop Mocky, unzip the archive over `server/data`, copy it back and start again.
+
+```bash
+docker compose cp ./server/data mocky:/app/server/data
+docker compose restart
+```
+
+> The previous `docker run -v $(pwd):/backup alpine tar …` recipe does not work on Windows: `$(pwd)` is not `cmd.exe` syntax, and under PowerShell it expands to a path that may contain spaces, which breaks the `-v` argument.
+
+The archive contains password hashes and session tokens — `backups/` is git-ignored, keep it that way.
 
 ### Ports
 
@@ -163,16 +197,33 @@ ports:
 
 ### Health check
 
-The container includes a built-in health check that hits `GET /api/config` every 30 seconds. Check status with:
+`GET /api/health` reports on the two things that actually break a running instance:
+
+```json
+{ "ok": true, "checks": { "dataWritable": true, "frontendBuilt": true } }
+```
+
+It answers `503` with a `detail` string when either fails — a read-only data directory, or `npm start` without `npm run build`. The container health check polls it every 30 seconds.
 
 ```bash
 docker compose ps     # shows health status
-docker inspect --format='{{.State.Health.Status}}' mocky
+curl -s localhost:8787/api/health
 ```
 
 ### Reverse proxy / HTTPS
 
-For production deployments behind a reverse proxy (Nginx, Caddy, Traefik), set `NODE_ENV=production` and `MOCKY_ORIGIN` to your public HTTPS URL. The Express server does not handle TLS itself — use your reverse proxy for that.
+Behind Nginx, Caddy or Traefik:
+
+- **Set `TRUST_PROXY=1`.** Otherwise every request appears to originate from the proxy, and the login rate limit collapses into one bucket shared by everyone.
+- **Set `MOCKY_ORIGIN`** to your public HTTPS URL — required if SSO is enabled.
+- Keep `MOCKY_BIND=127.0.0.1` (the default) and let the proxy reach Mocky over the loopback interface.
+- Terminate TLS at the proxy. The Express server does not handle it.
+
+Generate the SSO shared secret without needing `openssl` (which is not on a standard Windows `PATH`):
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```
 
 Example Caddyfile:
 
@@ -316,9 +367,17 @@ It's a standard **redirect OIDC-like flow**; the shared secret never touches the
 
 On the **Mocky** backend, set:
 
+Generate a secret (Node rather than `openssl`, which is not on a standard Windows `PATH`):
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```
+
+Then, on the **Mocky** backend, set:
+
 ```bash
 # The same HS256 secret Dashy signs SSO tokens with (must match Dashy's SSO_SHARED_SECRET)
-SSO_SHARED_SECRET=$(openssl rand -base64 48)
+SSO_SHARED_SECRET=<the value you just generated>
 # The public origin of your Dashy instance
 SSO_DASHY_URL=https://dashy.example.com
 # Mocky's own public origin (used as the token's `aud` claim and to build the

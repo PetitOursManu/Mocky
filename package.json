@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "dev": "vite",
     "server": "node server/index.js",
@@ -12,10 +15,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke": "vitest run registry"
+    "check:vendor": "node scripts/check-vendor.mjs",
+    "backup": "node scripts/backup.mjs"
+  },
+  "overrides": {
+    "@hono/node-server": "^2.0.5"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "cookie-parser": "^1.4.7",
     "express": "^4.22.2",
     "react": "^18.3.1",
@@ -29,8 +36,8 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^9.2.3",
-    "postcss": "^8.4.49",
+    "concurrently": "^10.0.4",
+    "postcss": "^8.5.25",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vite": "^5.4.11",
