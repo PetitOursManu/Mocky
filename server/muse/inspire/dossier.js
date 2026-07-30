@@ -116,6 +116,7 @@ function buildSystem() {
     '  EACH item MUST include a short string `id` (e.g. "hero", "product-1") plus subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
     '  CRITICAL — image subjects must be PHOTOGRAPHIC or ILLUSTRATIVE: a place, a person, an object, a texture, an abstract composition. NEVER ask for a user interface, a website, a landing page, an app screen, a dashboard, a mockup, a browser window, a phone showing an app, a chart, a logo, or anything containing readable text — image generators render these as garbled fake UI. If the screen needs a product visual, describe the REAL-WORLD subject behind the product (the team, the workshop, the material, the environment, an abstract brand texture), never a picture of the interface itself.',
     '  Each `negative` MUST include: "text, letters, words, watermark, logo, user interface, screenshot, mockup".',
+    '  CRITICAL — every image prompt MUST depict the SUBJECT OF THE USER REQUEST. The art-direction pattern only sets the *look* (framing, palette, lighting); it is NEVER the subject. A pattern named "Swiss / International", "Brutalist" or "Scandinavian" describes TYPOGRAPHY AND LAYOUT — do not photograph a Swiss watch, a concrete building or a Nordic forest unless the user asked for one. If the request is a SaaS pricing page, the hero shows something from that product\'s world, rendered in the pattern\'s style.',
     '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
     '- Forbidden: restate the key clichés to avoid for THIS project.',
     'Respond with ONLY the JSON object. No prose, no code fences.',
@@ -266,6 +267,60 @@ export function defaultHeroSlot(ctx, pattern = null) {
   }
 }
 
+/** Words carrying no subject meaning — ignored when matching a prompt to a request. */
+const STOP_WORDS = new Set([
+  // en
+  'a', 'an', 'the', 'and', 'or', 'of', 'for', 'with', 'to', 'in', 'on', 'at', 'by', 'from', 'that', 'this',
+  'page', 'screen', 'site', 'app', 'application', 'website', 'view', 'layout', 'design', 'ui', 'interface',
+  'landing', 'dashboard', 'three', 'two', 'four', 'toggle', 'section', 'style', 'modern', 'clean', 'simple',
+  // fr
+  'un', 'une', 'le', 'la', 'les', 'des', 'du', 'de', 'et', 'ou', 'pour', 'avec', 'dans', 'sur', 'par',
+  'page', 'ecran', 'écran', 'site', 'appli', 'application', 'vue', 'maquette', 'moderne', 'simple',
+])
+
+/** Meaningful lowercase words of a phrase, accents stripped. */
+function contentWords(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+}
+
+/**
+ * Keep every image prompt tied to what the user actually asked for.
+ *
+ * Real failure this exists for: the request was "a SaaS pricing page with three
+ * tiers and a monthly/yearly toggle", the matched art-direction pattern was
+ * "Swiss / International" — and the model wrote an image prompt for a Swiss
+ * WATCH DIAL. It had latched onto the name of the typographic style instead of
+ * the subject, and nothing downstream noticed: the hero image on the canvas was
+ * a wristwatch on a pricing page.
+ *
+ * The instruction in the system prompt asks for this, but an instruction is not
+ * a guarantee. So it is checked: if a prompt shares no meaningful word with the
+ * request, it is re-anchored on the subject rather than trusted.
+ */
+export function anchorImageryToRequest(dossier, ctx) {
+  const subject = String(ctx?.prompt || '').trim()
+  const wanted = contentWords(subject)
+  if (!subject || wanted.length === 0 || !Array.isArray(dossier.imageryPlan)) return dossier
+
+  for (const slot of dossier.imageryPlan) {
+    if (!slot || typeof slot !== 'object') continue
+    // The subject field counts too — a prompt may paraphrase it.
+    const have = new Set([...contentWords(slot.prompt), ...contentWords(slot.subject)])
+    if (wanted.some((w) => have.has(w))) continue
+
+    const style = slot.style || (ctx?.patternHints && ctx.patternHints[0]?.imageryStyle) || 'clean editorial photography'
+    slot.subject = subject
+    slot.prompt = `${subject}, ${style}, high quality, no text, no watermark`
+    slot.driftCorrected = true
+  }
+  return dossier
+}
+
 /**
  * Guarantee at least one imagery slot.
  *
@@ -279,7 +334,7 @@ export function ensureHeroImagery(dossier, ctx) {
   if (!Array.isArray(dossier.imageryPlan) || dossier.imageryPlan.length === 0) {
     dossier.imageryPlan = [defaultHeroSlot(ctx, (ctx?.patternHints && ctx.patternHints[0]) || null)]
   }
-  return dossier
+  return anchorImageryToRequest(dossier, ctx)
 }
 
 /**

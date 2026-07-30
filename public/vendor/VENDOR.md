@@ -1,0 +1,75 @@
+# Vendored browser bundles
+
+These files are served to the **sandboxed preview iframes**, which compile and
+run model-generated components. They are committed rather than fetched from a
+CDN at runtime, for three reasons:
+
+1. **Integrity.** A CDN compromise — or plain DNS interception on the local
+   network — would otherwise mean arbitrary JavaScript executing inside Mocky.
+   `src/lib/capture.ts` in particular used to load Babel from an *unversioned*
+   `unpkg.com` URL, in an iframe that ran with Mocky's own origin.
+2. **Offline.** The previews are the product. Loading Tailwind from
+   `cdn.tailwindcss.com` meant every generated screen rendered unstyled without
+   an internet connection, while the code claimed otherwise.
+3. **A Content-Security-Policy is only possible once nothing external is
+   loaded.** The preview `srcDoc` now declares a strict CSP; an external
+   `<script src>` would be blocked by it.
+
+This is invariant **I3** in `docs/adr/001-muse.md` ("No CDN `<script>` for JS").
+`src/components/Preview.sandbox.test.ts` fails the build if an `http(s)://`
+script tag reappears in the preview pipeline.
+
+## Contents
+
+| File | Package | Version | SHA-256 | Patched |
+|---|---|---|---|---|
+| `react.production.min.js` | react | 18.3.1 | `d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd` | — |
+| `react-dom.production.min.js` | react-dom | 18.3.1 | `35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d` | — |
+| `babel.min.js` | @babel/standalone | 7.29.7 | `b077558a0e5fbea26798443b6212cda6307583b09ec029bb8af207db570855a0` | yes |
+| `html2canvas.min.js` | html2canvas | 1.4.1 | `e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb` | — |
+| `tailwind.min.js` | Tailwind Play CDN | 3.4.17 | `64b8656ae0edd79ff136198680367d51ac356621026cbd88bd6a9030e17b36dc` | yes |
+
+### The two patches
+
+Both remove console noise from inside the preview iframes. That console is where a
+user reads real errors in their generated screen, so anything printed on every
+render is not cosmetic — it is what buries the message that matters.
+
+**`babel.min.js` — trailing `//# sourceMappingURL=babel.min.js.map` removed (38 bytes).**
+The `.map` file is not vendored, so DevTools requested it on every render and the
+preview CSP (`connect-src 'none'`) refused it — three errors per generated screen,
+for a file that does not exist.
+
+**`tailwind.min.js` — the `console.warn("cdn.tailwindcss.com should not be used in
+production…")` call replaced by `void 0` (202 bytes).**
+The warning tells you to stop loading Tailwind from a CDN. Mocky already did that:
+the file is vendored here precisely so previews work offline and under a strict
+CSP. The advice is correct in general and false in this context, and it printed
+twice per render.
+
+Re-apply both after any update, then refresh the hashes above.
+
+Keep `tailwind.min.js` on the same major/minor as the `tailwindcss` devDependency
+in `package.json`: it is what compiles the utility classes inside every preview,
+so a mismatch means previews render differently from the app.
+
+## Verifying
+
+```bash
+node scripts/check-vendor.mjs
+```
+
+It recomputes every hash and exits non-zero on a mismatch — run it after any
+manual update, and it runs in CI.
+
+## Updating
+
+`react`, `react-dom`, `@babel/standalone` and `html2canvas` come from
+`node_modules` after an `npm install` of the matching version. The Tailwind Play
+build is not published to npm; fetch it from the official CDN, pinned:
+
+```bash
+curl -o public/vendor/tailwind.min.js https://cdn.tailwindcss.com/3.4.17
+```
+
+Then update the table above with the new version and hash.

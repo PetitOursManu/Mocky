@@ -7,16 +7,32 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { handleProviderProxy } from './provider-proxy.js'
+import { handleProviderProxy, profileFromRequest, assertSafeTargetResolved } from './provider-proxy.js'
 import { createMuse } from './muse/index.js'
 import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
 import { TextConfigStore, looksLikeImageModel } from './text/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = path.join(__dirname, 'data')
+// Overridable so a deployment can put state on a mounted volume elsewhere, and
+// so tests can run against a throwaway directory instead of real user data.
+const DATA_DIR = process.env.MOCKY_DATA_DIR
+  ? path.resolve(process.env.MOCKY_DATA_DIR)
+  : path.join(__dirname, 'data')
 const ROOT_DIR = path.join(__dirname, '..')
-fs.mkdirSync(DATA_DIR, { recursive: true })
+/** Built frontend. Declared here because /api/health reports on it. */
+const dist = path.join(ROOT_DIR, 'dist')
+try {
+  fs.mkdirSync(DATA_DIR, { recursive: true })
+  fs.accessSync(DATA_DIR, fs.constants.W_OK)
+} catch (err) {
+  console.error(
+    `\nMocky cannot write to its data directory:\n  ${DATA_DIR}\n  ${err.message}\n\n` +
+      'Accounts, sessions and projects all live there. Fix the permissions (or the\n' +
+      'Docker volume mount) and start again.\n',
+  )
+  process.exit(1)
+}
 
 // ---- Muse (MCP host + inspiration engine) ----
 // Lazy: importing/creating this spawns nothing. Servers start on first use.
@@ -73,7 +89,9 @@ function readJson(file, fallback) {
 function writeJson(file, obj) {
   const finalPath = path.join(DATA_DIR, file)
   const tmp = finalPath + '.' + crypto.randomBytes(6).toString('hex') + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2))
+  // 0600: these files hold session tokens and password hashes. The default 0644
+  // left them readable by every other account on the machine.
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), { mode: 0o600 })
   fs.renameSync(tmp, finalPath)
 }
 
@@ -236,6 +254,17 @@ function verifyPw(user, password) {
 
 // ---- app ----
 const app = express()
+// Advertising the framework and version buys an attacker a version-specific
+// exploit list for free.
+app.disable('x-powered-by')
+// Behind a reverse proxy every request appears to come from 127.0.0.1, which
+// collapsed the whole instance into a single rate-limit bucket: nine failed
+// logins a minute locked everyone out. Off by default (direct exposure), set
+// TRUST_PROXY=1 — or a hop count — when Nginx/Caddy/Traefik sits in front.
+if (process.env.TRUST_PROXY) {
+  const v = process.env.TRUST_PROXY
+  app.set('trust proxy', /^\d+$/.test(v) ? Number(v) : v === 'true' || v === '1' ? 1 : v)
+}
 app.use(cookieParser())
 
 // ---- security headers (no CSP — the sandboxed previews need inline scripts) ----
@@ -276,21 +305,68 @@ function authRateLimit(limit = 8, windowMs = 60_000) {
 // Model-provider proxy — forwards to `${x-provider-base}<subpath>` (raw body,
 // so it must run before express.json()). The logic (incl. the SSRF guard) lives
 // in ./provider-proxy.js, shared with the Vite dev middleware.
-app.use('/__provider', (req, res) =>
-  handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textConfig.target(profile) }),
-)
+//
+// The subpath allow-list lives in provider-proxy.js so the Vite dev middleware
+// enforces it too. What is added here is authentication — but only when an
+// admin has configured an instance-wide model. In that mode a request spends
+// the *host's* credits, so it must belong to someone. With no admin provider
+// the caller supplies its own key, and the original "your key never leaves your
+// browser" mode is preserved.
+app.use('/__provider', (req, res) => {
+  if (textConfig.target(profileFromRequest(req)) && !currentUser(req)) {
+    return res.status(401).json({ error: 'Sign in to use this instance’s model.' })
+  }
+  return handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textConfig.target(profile) })
+})
 
 app.use('/api', express.json({ limit: '25mb' }))
 
 // ---- session helpers ----
+
+/** How long a session stays valid. Refreshed on use (sliding expiry). */
+const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000
+
 function currentUser(req) {
   const token = req.cookies?.mocky_sess
   if (!token) return null
-  const sess = loadSessions()[token]
+  const sessions = loadSessions()
+  const sess = sessions[token]
   if (!sess) return null
+
+  // `t` was written on every sign-in and read by nobody: sessions never expired
+  // server-side, and sessions.json grew without bound. The cookie's maxAge is
+  // only a hint to the browser — it is not a server-side control.
+  const age = Date.now() - (sess.t || 0)
+  if (age > SESSION_TTL_MS) {
+    delete sessions[token]
+    saveSessions(sessions)
+    return null
+  }
+  // Sliding expiry, but only written once a day so an active session does not
+  // rewrite the whole store on every request.
+  if (age > 24 * 60 * 60 * 1000) {
+    sess.t = Date.now()
+    saveSessions(sessions)
+  }
   return loadUsers().find((u) => u.id === sess.u) || null
 }
-function setSession(res, userId) {
+
+/** Drop expired sessions at boot so the store does not accumulate forever. */
+function pruneSessions() {
+  const sessions = loadSessions()
+  const now = Date.now()
+  let removed = 0
+  for (const [token, s] of Object.entries(sessions)) {
+    if (now - (s?.t || 0) > SESSION_TTL_MS) {
+      delete sessions[token]
+      removed++
+    }
+  }
+  if (removed) saveSessions(sessions)
+  return removed
+}
+
+function setSession(res, userId, req) {
   const token = crypto.randomBytes(32).toString('hex')
   const sessions = loadSessions()
   sessions[token] = { u: userId, t: Date.now() }
@@ -298,9 +374,24 @@ function setSession(res, userId) {
   res.cookie('mocky_sess', token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 24 * 90,
+    // Derived from the actual connection rather than NODE_ENV: a production
+    // instance reached over plain HTTP on a LAN would otherwise set a Secure
+    // cookie the browser then refuses to send, and sign-in silently fails.
+    secure: Boolean(req?.secure),
+    maxAge: SESSION_TTL_MS,
   })
+}
+
+/**
+ * Any signed-in user. Routes that spend the instance's model credits, read the
+ * shared image library, or delete files were mounted before this existed and
+ * were reachable by anyone who could open the port.
+ */
+function requireUser(req, res, next) {
+  const user = currentUser(req)
+  if (!user) return res.status(401).json({ error: 'Not signed in.' })
+  req.user = user
+  next()
 }
 
 function requireAdmin(req, res, next) {
@@ -310,6 +401,34 @@ function requireAdmin(req, res, next) {
   req.user = user
   next()
 }
+
+// Liveness + readiness. The container healthcheck used to hit /api/config, which
+// answers 200 from memory and therefore proves nothing: an instance whose data
+// directory had gone read-only, or which was started without a build, reported
+// itself perfectly healthy. This checks the two things that actually break.
+app.get('/api/health', (req, res) => {
+  const checks = { dataWritable: false, frontendBuilt: fs.existsSync(dist) }
+  try {
+    fs.accessSync(DATA_DIR, fs.constants.W_OK)
+    checks.dataWritable = true
+  } catch {
+    /* reported below */
+  }
+  const ok = checks.dataWritable && checks.frontendBuilt
+  res.status(ok ? 200 : 503).json({
+    ok,
+    checks,
+    // Named so an operator reading `docker inspect` output knows what to fix.
+    detail: ok
+      ? undefined
+      : [
+          !checks.dataWritable && `cannot write to ${DATA_DIR}`,
+          !checks.frontendBuilt && 'dist/ is missing — run `npm run build`',
+        ]
+          .filter(Boolean)
+          .join('; '),
+  })
+})
 
 // Public config so the sign-in screen knows whether to offer registration
 // and "Sign in with Dashy".
@@ -353,7 +472,7 @@ app.post('/api/register', authRateLimit(8), (req, res) => {
   const user = makeUser(username, password, isFirst ? 'admin' : 'user')
   users.push(user)
   saveUsers(users)
-  setSession(res, user.id)
+  setSession(res, user.id, req)
   res.json({ user: publicUser(user) })
 })
 
@@ -362,7 +481,7 @@ app.post('/api/login', authRateLimit(8), (req, res) => {
   const password = String(req.body?.password || '')
   const user = loadUsers().find((u) => u.username === username)
   if (!user || !verifyPw(user, password)) return res.status(401).json({ error: 'Invalid username or password.' })
-  setSession(res, user.id)
+  setSession(res, user.id, req)
   res.json({ user: publicUser(user) })
 })
 
@@ -420,7 +539,7 @@ app.get('/sso/dashy/callback', authRateLimit(15), (req, res) => {
   }
 
   const user = findOrCreateSsoUser(claims)
-  setSession(res, user.id)
+  setSession(res, user.id, req)
 
   // Redirect to the SPA. In production we serve it ourselves; in dev the Vite
   // proxy keeps everything same-origin, so '/' is correct in both cases.
@@ -489,7 +608,7 @@ app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
 // Muse's "image as inspiration" mode only works if the model accepts images.
 // Uses the instance provider when configured, else the credentials the browser
 // sends (same headers as /__provider). Results are cached per model server-side.
-app.post('/api/text/vision', async (req, res) => {
+app.post('/api/text/vision', requireUser, async (req, res) => {
   const { probeVision } = await import('./text/vision.js')
   // The inspiration IMAGE is attached to the generation request (that's the model
   // that must "see" it), so 'generation' is the profile that matters here. The
@@ -501,6 +620,15 @@ app.post('/api/text/vision', async (req, res) => {
     const auth = String(req.headers['authorization'] || '')
     const model = String(req.body?.model || '')
     if (!baseUrl || !model) return res.json({ vision: false, error: 'Aucun modèle configuré.' })
+    // This route takes a base URL straight from a request header and then makes
+    // the server fetch it — the same shape as /__provider, but it was the one
+    // path that never ran the SSRF guard, and probeVision echoes back up to 400
+    // characters of the response body. That made it a readable port scanner.
+    try {
+      await assertSafeTargetResolved(`${baseUrl}/api/chat`)
+    } catch (err) {
+      return res.status(400).json({ vision: false, error: err instanceof Error ? err.message : String(err) })
+    }
     target = { kind: 'ollama', baseUrl, apiKey: auth.startsWith('Bearer ') ? auth.slice(7) : '', model }
   }
   res.json({ ...(await probeVision(target, { force: req.body?.force === true })), model: target.model })
@@ -610,6 +738,14 @@ app.put('/api/data', (req, res) => {
 })
 
 // ---- Muse routes (MCP status + inspiration engine) ----
+// A dossier run spends model tokens and, with useFetch, launches Chromium; both
+// were reachable by anyone who could open the port.
+//
+// The guard is attached to the two subpaths the router actually serves rather
+// than to the router's '/api' mount: mounting it on '/api' made it run for every
+// later /api/* route too, which silently put the public image bytes behind auth.
+app.use('/api/mcp', requireUser)
+app.use('/api/muse', requireUser)
 app.use(
   '/api',
   createMuseRouter({
@@ -622,10 +758,39 @@ app.use(
 )
 
 // ---- Image service + Image Library (Phase 2) ----
-app.use('/api/images', images.router)
+//
+// The library is instance-wide and its prompts are the briefs people typed.
+// `GET /library` listed every one of them — along with the hashes needed to call
+// `DELETE /:hash`, which really unlinks the file. Anonymous reading *and*
+// anonymous destruction, both reachable from a single unauthenticated listing.
+//
+// Everything is therefore behind requireUser EXCEPT fetching the bytes of one
+// known image. That exception is deliberate and load-bearing:
+//   • preview iframes are sandboxed without allow-same-origin, so their origin
+//     is opaque and their subresource requests carry no SameSite cookie — an
+//     authenticated /:hash would blank out every image in every mockup;
+//   • an exported ZIP references these URLs from a machine with no session.
+// The URL is the capability: a 64-hex SHA-256 of the content, which cannot be
+// guessed and is only ever handed out by the (authenticated) listing.
+const PUBLIC_IMAGE_PATH = /^\/[a-f0-9]{64}$/
+
+app.use(
+  '/api/images',
+  (req, res, next) => {
+    if (req.method === 'GET' && PUBLIC_IMAGE_PATH.test(req.path)) return next()
+    return requireUser(req, res, next)
+  },
+  // Generation is the expensive verb; browsing is not, so only the former is
+  // throttled — 30/min is far above any human pace and far below what a runaway
+  // loop or a stuck retry produces.
+  (req, res, next) => {
+    if (req.method === 'POST' && req.path.startsWith('/generate')) return authRateLimit(30)(req, res, next)
+    next()
+  },
+  images.router,
+)
 
 // ---- serve the built frontend (production) ----
-const dist = path.join(__dirname, '..', 'dist')
 if (fs.existsSync(dist)) {
   app.use(express.static(dist))
   app.get('*', (req, res, next) => {
@@ -633,13 +798,48 @@ if (fs.existsSync(dist)) {
       return next()
     res.sendFile(path.join(dist, 'index.html'))
   })
+} else {
+  // Without this warning the server starts happily and every page is a bare
+  // 404 — the single most confusing way to run `npm start` before `npm run build`.
+  console.warn(
+    `\n  dist/ not found (${dist}).\n` +
+      '  The API is up but there is no frontend to serve. Run `npm run build` first,\n' +
+      '  or use `npm run dev:all` for development.\n',
+  )
 }
 
 // MOCKY_PORT wins over the generic PORT so a dev harness that injects PORT (to
 // tell Vite which port to use) can't accidentally push the backend onto the
 // Vite port and collide with it. Production hosts that set PORT still work.
 const PORT = process.env.MOCKY_PORT || process.env.PORT || 8787
-const server = app.listen(PORT, () => console.log(`Mocky backend on http://localhost:${PORT}`))
+const server = app.listen(PORT, () => {
+  console.log(`Mocky backend on http://localhost:${PORT}`)
+  const pruned = pruneSessions()
+  if (pruned) console.log(`Sessions: pruned ${pruned} expired`)
+  console.log(
+    ssoEnabled
+      ? `SSO: enabled (Dashy at ${SSO_DASHY_URL})`
+      : 'SSO: disabled (set SSO_SHARED_SECRET and SSO_DASHY_URL in .env to enable)',
+  )
+})
+
+// Without this, a busy port kills the process with a raw stack trace — and under
+// `npm run dev:all` concurrently takes Vite down with it, so the visible symptom
+// is "the dev server won't start" with no mention of the port.
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `\nPort ${PORT} is already in use.\n` +
+        '  Another Mocky (or another app) is running there. Stop it, or start Mocky on\n' +
+        `  a different port:  MOCKY_PORT=8788 npm start\n`,
+    )
+  } else if (err.code === 'EACCES') {
+    console.error(`\nNot allowed to listen on port ${PORT}. Ports below 1024 need elevated rights.\n`)
+  } else {
+    console.error(`\nMocky could not start: ${err.message}\n`)
+  }
+  process.exit(1)
+})
 
 // Graceful shutdown: close MCP servers (kill spawned children) before exiting.
 let shuttingDown = false

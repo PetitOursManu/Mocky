@@ -19,12 +19,58 @@ export interface DemoLink {
 }
 
 /**
+ * Content-Security-Policy for the preview document.
+ *
+ * The iframe is sandboxed with `allow-scripts` and no `allow-same-origin`, which
+ * gives it an opaque origin — no localStorage, no cookies, no parent DOM. What
+ * that does NOT restrict is outbound traffic: a generated component could
+ * `fetch()`, `sendBeacon()` or `new Image().src = …` to any host on the
+ * internet, from the user's own IP, on every render. It could also navigate
+ * itself to an arbitrary page, which would then occupy the whole frame inside
+ * Mocky's device chrome.
+ *
+ * So the genuinely dangerous verbs are denied outright:
+ *   connect-src 'none'  — no fetch / XHR / WebSocket / sendBeacon
+ *   form-action 'none'  — nowhere to post
+ *   frame-src   'none'  — no nested frames
+ *   object-src  'none'  — no plugins
+ *   base-uri    'none'  — cannot rewrite relative URL resolution
+ *
+ * `img-src` stays permissive on purpose. A remote image is a weak tracking
+ * vector, but it is also how a mockup shows a photo, and models legitimately
+ * emit picture URLs; blocking it would break real screens to close a small hole.
+ *
+ * 'unsafe-inline' and 'unsafe-eval' are unavoidable here: the whole point of the
+ * document is to run code Babel compiles at runtime, and Tailwind's Play build
+ * evaluates the class scanner in-browser. `blob:` covers the compiled module,
+ * which is injected as a Blob URL script.
+ */
+function cspMeta(): string {
+  // NOT 'self'. This document is sandboxed without allow-same-origin, so its
+  // origin is opaque and 'self' serialises to "null" — it would match nothing,
+  // and the vendored React/Babel/Tailwind scripts would all be blocked. The
+  // parent's origin has to be named explicitly.
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const policy = [
+    "default-src 'none'",
+    `script-src ${origin} 'unsafe-inline' 'unsafe-eval' blob:`,
+    `style-src ${origin} 'unsafe-inline' https://cdn.jsdelivr.net`,
+    'img-src * data: blob:',
+    'font-src * data:',
+    "connect-src 'none'",
+    "form-action 'none'",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+  ].join('; ')
+  return `<meta http-equiv="Content-Security-Policy" content="${policy}" />`
+}
+
+/**
  * Builds a self-contained HTML document for the sandboxed iframe. React,
- * ReactDOM and Babel are all served locally from public/vendor/ (never a CDN),
- * so a CDN compromise can't reach the iframe and previews work offline. The JSX
- * is compiled INSIDE the iframe by that vendored Babel (see below). The only
- * thing loaded from a CDN is Tailwind's Play build (cdn.tailwindcss.com), which
- * does its JIT compilation in-browser and has no local equivalent.
+ * ReactDOM, Babel and Tailwind are all served locally from public/vendor/
+ * (never a CDN), so a CDN compromise can't reach the iframe and previews work
+ * offline. The JSX is compiled INSIDE the iframe by that vendored Babel.
  *
  * The iframe installs a small "interaction bridge" that talks to the parent
  * over postMessage:
@@ -102,9 +148,10 @@ function buildSrcDoc(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+${cspMeta()}
 <script src="/vendor/react.production.min.js"></script>
 <script src="/vendor/react-dom.production.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="/vendor/tailwind.min.js"></script>
 ${cdnLinks.join('\n')}
 ${cdnScripts.join('\n')}
 <script src="/vendor/babel.min.js"></script>
@@ -232,9 +279,27 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
           if (t && (t === e.target || t.contains(e.target))) { e.preventDefault(); e.stopPropagation(); post('navigate', { target: links[i].target }); return false; }
         }
       }
+      // A mockup is a picture of a page, not a page. Generated screens routinely
+      // contain <a href="/">, <a href="/pricing"> and the like; clicking one in
+      // Interact mode navigated THIS frame away from the mockup and loaded
+      // Mocky's own index.html into it. Because the frame is sandboxed to an
+      // opaque origin, every module script of the app then failed CORS and
+      // filled the console — while the screen the user had just generated was
+      // simply gone. Links stay clickable (hover, focus and :active still run);
+      // they just never navigate.
+      var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+      if (a) {
+        var href = a.getAttribute('href') || '';
+        // A pure in-page anchor is legitimate: it scrolls, it does not navigate.
+        if (href.charAt(0) !== '#') { e.preventDefault(); }
+      }
     }, true);
     function markLinks() { for (var i = 0; i < links.length; i++) { var el = null; try { el = document.querySelector(links[i].selector); } catch (_) {} if (el) el.style.cursor = 'pointer'; } }
     window.addEventListener('message', function (e) {
+      // Only Mocky itself may command this frame. parent.frames[i] is reachable
+      // cross-origin, so without this a generated screen could force a SIBLING
+      // preview into demo mode with links of its own choosing.
+      if (e.source !== window.parent) return;
       var d = e.data || {};
       if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; pickPrecise = !!d.precise; } else if (mode === 'pick') { mode = null; hideHl(); } }
       if (d.__mockyCmd === 'demo') { mode = 'demo'; links = d.links || []; markLinks(); }
@@ -356,6 +421,12 @@ export default function Preview({
       }
     }, 20000)
     function onMsg(e: MessageEvent) {
+      // Identity comes from the window that sent the message, not from a field
+      // inside it. `frameId` is written in clear into every srcDoc, so any
+      // preview could read another's id out of the DOM and forge messages on its
+      // behalf — and e.origin is the useless string "null" for every sandboxed
+      // frame, so it cannot be used to tell them apart.
+      if (e.source !== iframeRef.current?.contentWindow) return
       const d = e.data
       if (!d || !d.__mocky || d.frameId !== frameId) return
       if (d.type === 'error') {
@@ -378,8 +449,12 @@ export default function Preview({
         setReady(true)
       }
       if (d.type === 'size' && typeof d.height === 'number') onContentHeightRef.current?.(d.height)
-      if (d.type === 'picked') onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
-      if (d.type === 'navigate') onNavRef.current?.(d.target)
+      // A frame may only report a pick while pick mode is actually on, and may
+      // only ask to navigate while it has demo links. Without these, a rendered
+      // component could drive the parent's UI at will.
+      if (d.type === 'picked' && pickMode)
+        onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
+      if (d.type === 'navigate' && demoLinks && demoLinks.length > 0) onNavRef.current?.(d.target)
     }
     window.addEventListener('message', onMsg)
     return () => {
@@ -428,23 +503,23 @@ export default function Preview({
         />
       )}
       {(generating || (!ready && !error)) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white" style={{ borderRadius: radius }}>
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-          <span className="text-xs text-slate-400">{generating ? 'Generating…' : 'Rendering…'}</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface" style={{ borderRadius: radius }}>
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-ink/15 border-t-accent" />
+          <span className="text-body-sm text-ink-muted">{generating ? 'Generating…' : 'Rendering…'}</span>
         </div>
       )}
       {/* While the auto-fixer is repairing a render error, show a calm state —
           the red error only appears if the fix ultimately fails. */}
       {error && retrying && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/95" style={{ borderRadius: radius }}>
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-200 border-t-amber-500" />
-          <span className="text-xs text-amber-600">Repairing component…</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface/95" style={{ borderRadius: radius }}>
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-warn/25 border-t-warn" />
+          <span className="text-body-sm text-warn">Repairing component…</span>
         </div>
       )}
       {error && !retrying && (
-        <div className="absolute inset-x-0 bottom-0 max-h-[50%] overflow-auto border-t border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">
+        <div className="absolute inset-x-0 bottom-0 max-h-[50%] overflow-auto border-t border-danger bg-surface p-3 text-body text-danger">
           <div className="mb-1 font-semibold">Runtime error in generated component</div>
-          <pre className="whitespace-pre-wrap font-mono text-xs">{error}</pre>
+          <pre className="whitespace-pre-wrap font-mono text-body-sm">{error}</pre>
         </div>
       )}
     </div>

@@ -8,17 +8,66 @@
 // generation, planner and Muse code paths are therefore vendor-agnostic.
 import { buildUpstream, createSseTranslator, fromOpenAiModels, fromOpenAiResponse } from './text/dialect.js'
 
+import dns from 'node:dns/promises'
+
+/** True for an IPv4 address that must never be reachable through the proxy. */
+function isBlockedIpv4(a, b) {
+  return (
+    a === 0 || // 0.0.0.0/8 — "this network"; 0.0.0.0 itself routes to localhost
+    a === 10 || // 10.0.0.0/8
+    a === 127 || // loopback
+    (a === 100 && b >= 64 && b <= 127) || // 100.64.0.0/10 carrier-grade NAT
+    (a === 169 && b === 254) || // link-local + cloud metadata (169.254.169.254)
+    (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
+    (a === 192 && b === 168) || // 192.168.0.0/16
+    (a === 198 && (b === 18 || b === 19)) || // 198.18.0.0/15 benchmarking
+    a >= 224 // multicast + reserved
+  )
+}
+
+/** True for an IPv6 address that must never be reachable through the proxy. */
+function isBlockedIpv6(host) {
+  const h = host.toLowerCase()
+  if (h === '::' || h === '::1') return true
+  // Unique-local (fc00::/7) and link-local (fe80::/10).
+  if (/^f[cd]/.test(h) || h.startsWith('fe8') || h.startsWith('fe9') || h.startsWith('fea') || h.startsWith('feb'))
+    return true
+  // IPv4-mapped/compatible forms — ::ffff:127.0.0.1 and its hex twin
+  // ::ffff:7f00:1 both reach the loopback, and both used to sail straight
+  // through: URL parsing leaves the brackets on, so no string test matched.
+  const mapped = /^::ffff:(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h)
+  if (mapped) return isBlockedIpv4(Number(mapped[1]), Number(mapped[2]))
+  const mappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h)
+  if (mappedHex) {
+    const n = (parseInt(mappedHex[1], 16) << 16) | parseInt(mappedHex[2], 16)
+    return isBlockedIpv4((n >>> 24) & 0xff, (n >>> 16) & 0xff)
+  }
+  return false
+}
+
+/** Reject an IP literal that points anywhere internal. Accepts bare addresses. */
+export function assertSafeIp(address) {
+  const host = String(address).toLowerCase().replace(/^\[|\]$/g, '')
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
+  if (ipv4) {
+    if (isBlockedIpv4(Number(ipv4[1]), Number(ipv4[2])))
+      throw new Error('Private/internal IP targets are not allowed')
+    return
+  }
+  if (host.includes(':') && isBlockedIpv6(host)) {
+    throw new Error('Private/internal IPv6 targets are not allowed')
+  }
+}
+
 /**
  * Reject targets that would let a caller reach internal/private networks.
  * The proxy is intentionally open (no auth) so the anonymous localStorage mode
  * can call the model provider; the trade-off is that we must filter the
  * destination ourselves to prevent SSRF.
  *
- * Blocks: non-http(s) schemes, loopback, private ranges, link-local, and
- * cloud metadata endpoints (e.g. 169.254.169.254). Hostnames that resolve to
- * private IPs would still slip through a pure string check; for a hardened
- * deployment you'd also DNS-resolve and re-check, but this covers the common
- * cases without adding a DNS dependency.
+ * This is the cheap, synchronous half: scheme and address-literal checks. It
+ * cannot see through a hostname that resolves to a private address — use
+ * {@link assertSafeTargetResolved} on any path that actually makes the request.
  */
 export function assertSafeTarget(target) {
   let url
@@ -37,23 +86,33 @@ export function assertSafeTarget(target) {
     throw new Error('Localhost targets are not allowed')
   }
 
-  // IPv4 literal?
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
-  if (ipv4) {
-    const [_, a, b] = ipv4.map(Number)
-    const isPrivate =
-      a === 10 || // 10.0.0.0/8
-      (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
-      (a === 192 && b === 168) || // 192.168.0.0/16
-      (a === 169 && b === 254) || // link-local + cloud metadata
-      (a === 127) // loopback
-    if (isPrivate) throw new Error('Private/internal IP targets are not allowed')
-  }
+  // `new URL()` keeps the brackets around an IPv6 literal, so they are stripped
+  // inside assertSafeIp rather than being compared against bracketed strings.
+  assertSafeIp(host)
+  return url
+}
 
-  // IPv6 loopback / link-local / unique-local
-  if (host === '::1' || host === '[::1]' || host.startsWith('fe80') || host.startsWith('fc') || host.startsWith('fd')) {
-    throw new Error('Private/internal IPv6 targets are not allowed')
+/**
+ * The full guard: literal checks, then DNS resolution with every returned
+ * address re-checked. Without this step a hostname the caller controls
+ * (`evil.test` → A 127.0.0.1) walks past the string tests untouched.
+ */
+export async function assertSafeTargetResolved(target) {
+  const url = assertSafeTarget(target)
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  // Already an IP literal — assertSafeTarget checked it, nothing to resolve.
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':')) return url
+
+  let addresses
+  try {
+    addresses = await dns.lookup(host, { all: true })
+  } catch {
+    // Unresolvable: let the request proceed and fail naturally on connect,
+    // rather than turning a DNS hiccup into a confusing security error.
+    return url
   }
+  for (const { address } of addresses) assertSafeIp(address)
+  return url
 }
 
 /**
@@ -69,15 +128,40 @@ export function profileFromRequest(req) {
     : 'generation'
 }
 
+/** Largest body the proxy will buffer. Matches express.json()'s limit on /api. */
+export const MAX_PROXY_BODY = 25 * 1024 * 1024
+
 /**
  * Read the raw request body (no parsing). Used for the provider proxy because
  * we forward the body verbatim.
+ *
+ * Bounded on purpose. Unbounded, this accumulated whatever the client sent and
+ * then called Buffer.concat inside the 'end' listener — so a body past
+ * buffer.constants.MAX_LENGTH threw outside any promise chain, which with no
+ * uncaughtException handler anywhere took the whole server down.
  */
-export function readRawBody(req) {
+export function readRawBody(req, limit = MAX_PROXY_BODY) {
   return new Promise((resolve, reject) => {
     const chunks = []
-    req.on('data', (c) => chunks.push(c))
-    req.on('end', () => resolve(Buffer.concat(chunks)))
+    let size = 0
+    req.on('data', (c) => {
+      size += c.length
+      if (size > limit) {
+        const err = new Error('Request body too large')
+        err.statusCode = 413
+        req.destroy(err)
+        reject(err)
+        return
+      }
+      chunks.push(c)
+    })
+    req.on('end', () => {
+      try {
+        resolve(Buffer.concat(chunks))
+      } catch (err) {
+        reject(err)
+      }
+    })
     req.on('error', reject)
   })
 }
@@ -90,6 +174,20 @@ export function readRawBody(req) {
  * `fetchImpl` is injected so the same code works in Vite (global fetch) and in
  * Express (Node global fetch).
  */
+/**
+ * The only upstream endpoints Mocky ever calls. Everything else is refused.
+ *
+ * Without this the proxy forwarded any path with any method, so
+ * `DELETE /__provider/api/delete` with `{"name":"llama3"}` reached the
+ * configured Ollama and removed a model: the body rewrite only ever replaces
+ * `model`, so `name` went through untouched.
+ *
+ * It lives here rather than in the Express mount because in development the
+ * Vite middleware — not Express — serves /__provider, and the two hosts are
+ * supposed to behave identically.
+ */
+export const ALLOWED_SUBPATHS = new Set(['/api/chat', '/api/tags'])
+
 export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}) {
   // An admin-configured provider (Admin → Modèle de texte) wins over whatever
   // the browser sends. When none is set, we use the browser's own Settings —
@@ -121,6 +219,19 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
   const prefix = '/__provider'
   const fullUrl = req.originalUrl || req.url || ''
   const subpath = fullUrl.startsWith(prefix) ? fullUrl.slice(prefix.length) : req.url || ''
+
+  if (!ALLOWED_SUBPATHS.has(subpath.split('?')[0])) {
+    res.statusCode = 404
+    res.setHeader('content-type', 'application/json')
+    res.end(
+      JSON.stringify({
+        error: `Endpoint not proxied: ${subpath.split('?')[0]}`,
+        detail: `Mocky only forwards ${[...ALLOWED_SUBPATHS].join(' and ')}.`,
+      }),
+    )
+    return
+  }
+
   const target = base + subpath
 
   // The SSRF guard protects us from BROWSER-supplied URLs. An admin-configured
@@ -128,7 +239,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
   // vLLM on 127.0.0.1) is a supported setup, and only an admin can set it.
   if (!configured) {
     try {
-      assertSafeTarget(target)
+      await assertSafeTargetResolved(target)
     } catch (err) {
       res.statusCode = 400
       res.setHeader('content-type', 'application/json')
@@ -140,7 +251,15 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
   try {
     const method = req.method || 'GET'
     const hasBody = method !== 'GET' && method !== 'HEAD'
-    let body = hasBody ? await readRawBody(req) : undefined
+    let body
+    try {
+      body = hasBody ? await readRawBody(req) : undefined
+    } catch (err) {
+      res.statusCode = err?.statusCode === 413 ? 413 : 400
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Could not read request body' }))
+      return
+    }
 
     // With an admin provider, the model must come from the server config —
     // the browser's Settings model belongs to a different vendor.
@@ -174,7 +293,24 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       method: plan.isModels ? 'GET' : method,
       headers: plan.headers,
       body: plan.body && plan.body.length ? plan.body : undefined,
+      // undici follows redirects by default, which walked straight around the
+      // SSRF guard: the target passed the check, then answered 302 to
+      // http://169.254.169.254/… and we happily returned the body. Redirects are
+      // surfaced instead of followed.
+      redirect: 'manual',
     })
+
+    if (!configured && upstream.status >= 300 && upstream.status < 400) {
+      res.statusCode = 502
+      res.setHeader('content-type', 'application/json')
+      res.end(
+        JSON.stringify({
+          error: 'Provider answered with a redirect, which is not followed',
+          detail: `The endpoint redirected to ${upstream.headers.get('location') || 'an unspecified location'}. Point x-provider-base at the final URL.`,
+        }),
+      )
+      return
+    }
 
     res.statusCode = upstream.status
 
