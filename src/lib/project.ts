@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
-import { scheduleSync } from './sync'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { scheduleSync, reportStorageFailure } from './sync'
+import { visibleProjects, TOMBSTONE_TTL_MS } from './merge'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -30,6 +31,17 @@ export interface Screen {
   caps?: string[]
   /** Image Library hash of the Muse image backing this screen (shown on the canvas). */
   imageHash?: string
+  /**
+   * What that image was FOR — the canvas badge said only "Image Muse", so there
+   * was no way to tell an art-direction reference from a picture embedded in the
+   * screen, and therefore no way to check that inspiration mode was doing
+   * anything at all.
+   *  - 'content'     — placed in the screen as a real <img>
+   *  - 'inspiration' — shown to the model as a reference, never embedded
+   *  - 'both'        — embedded AND shown, so the model designs around it
+   * Absent on screens generated before the distinction was recorded.
+   */
+  imageRole?: 'content' | 'inspiration' | 'both'
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -56,6 +68,13 @@ export interface Project {
    * every NEW generation so screens keep a consistent nav/header/sidebar.
    */
   referenceScreenId?: string
+  /**
+   * Set instead of removing the record, so the deletion can travel to the other
+   * devices. Sync merges by union — without a tombstone, a project deleted here
+   * would simply be handed back by whichever device still had a copy. Records
+   * are dropped for good after TOMBSTONE_TTL_MS (see ./merge).
+   */
+  deletedAt?: number
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -70,7 +89,17 @@ let beforeunloadHooked = false
 
 function flushProjectsNow() {
   if (pendingProjects === null) return
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(pendingProjects))
+  try {
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(pendingProjects))
+  } catch (err) {
+    // Almost always QuotaExceededError. Left unhandled, this threw out of a
+    // setTimeout — so `pendingProjects` was never cleared and scheduleSync() was
+    // never reached: local saving AND server sync both stopped, permanently and
+    // without a word. Report it and keep the pending data so a later flush (or a
+    // sync to the server) can still get it out.
+    reportStorageFailure(err)
+    return
+  }
   pendingProjects = null
   if (saveTimer) {
     clearTimeout(saveTimer)
@@ -165,6 +194,10 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     links: Array.isArray(s.links) ? s.links : [],
     caps: Array.isArray(s.caps) ? s.caps : [],
     imageHash: typeof s.imageHash === 'string' ? s.imageHash : undefined,
+    imageRole:
+      s.imageRole === 'content' || s.imageRole === 'inspiration' || s.imageRole === 'both'
+        ? s.imageRole
+        : undefined,
   }
 }
 
@@ -200,11 +233,18 @@ function loadProjects(): Project[] {
     if (raw) {
       const parsed = JSON.parse(raw)
       if (!Array.isArray(parsed)) return []
-      // Backfill w/h (and x/y) on screens persisted before frames had a size.
-      return (parsed as Project[]).map((p) => ({
-        ...p,
-        screens: (p.screens || []).map((s, i) => normalizeScreen(s, i)),
-      }))
+      const now = Date.now()
+      return (
+        (parsed as Project[])
+          // Forget tombstones once every device has had a month to see them,
+          // otherwise deleted projects would weigh on the blob forever.
+          .filter((p) => !(p.deletedAt && now - p.deletedAt > TOMBSTONE_TTL_MS))
+          // Backfill w/h (and x/y) on screens persisted before frames had a size.
+          .map((p) => ({
+            ...p,
+            screens: (p.screens || []).map((s, i) => normalizeScreen(s, i)),
+          }))
+      )
     }
     return migrateLegacy()
   } catch {
@@ -217,11 +257,34 @@ function saveProjects(projects: Project[]): void {
 }
 
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>(() => loadProjects())
+  // `all` includes deleted records (tombstones), because those have to be
+  // persisted and synced for the deletion to reach other devices. Everything
+  // outside this hook only ever sees the visible ones.
+  const [all, setProjects] = useState<Project[]>(() => loadProjects())
+  const projects = useMemo(() => visibleProjects(all), [all])
 
   useEffect(() => {
-    saveProjects(projects)
-  }, [projects])
+    saveProjects(all)
+  }, [all])
+
+  // Two Mocky tabs used to overwrite each other: each held its own copy loaded
+  // at mount and rewrote the whole array on every flush, so whichever tab saved
+  // last erased what the other had done — and then pushed that truncated array
+  // to the server. The storage event fires only in the OTHER tabs, which is
+  // exactly what we want here.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== PROJECTS_KEY || e.newValue == null) return
+      try {
+        const incoming = JSON.parse(e.newValue)
+        if (Array.isArray(incoming)) setProjects(incoming as Project[])
+      } catch {
+        /* another tab wrote something unparseable — keep what we have */
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   const createProject = useCallback((name?: string): string => {
     const now = Date.now()
@@ -237,7 +300,11 @@ export function useProjects() {
   }, [])
 
   const deleteProject = useCallback((id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id))
+    // Tombstone rather than removal — see Project.deletedAt. Dropping the record
+    // outright made deletions un-syncable: the next merge with a device that
+    // still had the project simply brought it back.
+    const now = Date.now()
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, deletedAt: now, updatedAt: now } : p)))
   }, [])
 
   const renameProject = useCallback((id: string, name: string) => {

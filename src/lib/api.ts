@@ -24,6 +24,13 @@ async function req(path: string, options?: RequestInit): Promise<any> {
 export interface ServerData {
   projects: string | null
   design: string | null
+  /**
+   * When the server last accepted a write. The server has always stamped it
+   * (PUT /api/data); the client simply never declared it, so every reconcile
+   * had to guess which side was fresher — and guessed "server", which is how
+   * local work got overwritten.
+   */
+  updatedAt?: number
 }
 
 /**
