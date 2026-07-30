@@ -7,6 +7,7 @@ import {
   type ImagesProfilePatch,
   type ImagesTestResult,
 } from '../lib/api'
+import { Icon } from '../ui'
 
 const LABELS: Record<string, string> = {
   pollinations: 'Pollinations — gratuit, sans clé (défaut)',
@@ -154,25 +155,25 @@ function ProfileForm({
 
   const secretSet = (isSet: boolean, which: SecretName) =>
     isSet ? (
-      <span className="text-[11px] text-emerald-400">
+      <span className="text-caption text-ok">
         ● clé enregistrée —{' '}
-        <button type="button" className="underline underline-offset-2 hover:text-emerald-300" onClick={() => clearSecret(which)}>
+        <button type="button" className="underline underline-offset-2 hover:text-ink" onClick={() => clearSecret(which)}>
           effacer
         </button>
       </span>
     ) : (
-      <span className="text-[11px] text-slate-500">aucune clé enregistrée</span>
+      <span className="text-caption text-ink-faint">aucune clé enregistrée</span>
     )
 
   return (
-    <div className="rounded-xl border border-slate-700/70 bg-slate-900/40 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-300">{title}</h4>
-      <p className="mb-3 mt-1 text-[11px] leading-relaxed text-slate-400">{blurb}</p>
+    <div className="border border-line-soft bg-ink/5 p-4">
+      <h4 className="kicker text-ink">{title}</h4>
+      <p className="measure mb-3 mt-1.5 text-caption leading-relaxed text-ink-muted">{blurb}</p>
 
-      {error && <div className="mb-3 rounded-lg border border-rose-700/50 bg-rose-900/30 p-2 text-xs text-rose-200">{error}</div>}
+      {error && <div className="mb-3 border border-danger/50 bg-danger/10 p-2 text-body-sm text-danger">{error}</div>}
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-slate-300">Fournisseur</span>
+        <span className="mb-1 block text-body-sm font-medium text-ink">Fournisseur</span>
         <select className="input w-full" value={provider} onChange={(e) => setProvider(e.target.value)}>
           {emptyLabel && <option value="">{emptyLabel}</option>}
           {cfg.providers.map((id) => (
@@ -182,13 +183,13 @@ function ProfileForm({
           ))}
         </select>
       </label>
-      <p className="mt-1.5 text-[11px] text-slate-500">{HINTS[provider]}</p>
+      <p className="mt-1.5 text-caption text-ink-faint">{HINTS[provider]}</p>
 
       {/* Per-provider fields */}
       <div className="mt-4 space-y-3">
         {provider === 'pollinations' && (
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-300">Jeton (optionnel)</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">Jeton (optionnel)</span>
             <input
               className="input w-full"
               type="password"
@@ -203,20 +204,20 @@ function ProfileForm({
         {provider === 'fal' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Modèle</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
               <input
                 className="input w-full"
                 value={falModel}
                 onChange={(e) => setFalModel(e.target.value)}
                 placeholder="fal-ai/flux/schnell"
               />
-              <span className="mt-1 block text-[11px] text-slate-500">
+              <span className="mt-1 block text-caption text-ink-faint">
                 Copiez l’id exact depuis la page du modèle — tous ne sont pas sous <code>fal-ai/</code>. Ex.{' '}
                 <code>fal-ai/flux/schnell</code> (rapide) ou <code>bytedance/seedream/v5/pro/text-to-image</code> (lent, ~2 min).
               </span>
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Délai max (secondes)</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Délai max (secondes)</span>
               <input
                 className="input w-32"
                 type="number"
@@ -225,12 +226,12 @@ function ProfileForm({
                 value={falTimeout}
                 onChange={(e) => setFalTimeout(Number(e.target.value))}
               />
-              <span className="mt-1 block text-[11px] text-slate-500">
+              <span className="mt-1 block text-caption text-ink-faint">
                 Augmentez-le pour un modèle lent (Seedream Pro ≈ 110 s).
               </span>
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Clé API</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Clé API</span>
               <input
                 className="input w-full"
                 type="password"
@@ -246,15 +247,15 @@ function ProfileForm({
         {provider === 'openai-image' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">URL de base</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">URL de base</span>
               <input className="input w-full" value={oaBase} onChange={(e) => setOaBase(e.target.value)} placeholder="https://api.openai.com" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Modèle</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
               <input className="input w-full" value={oaModel} onChange={(e) => setOaModel(e.target.value)} placeholder="gpt-image-1 / dall-e-3" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Clé API</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Clé API</span>
               <input
                 className="input w-full"
                 type="password"
@@ -270,15 +271,15 @@ function ProfileForm({
         {provider === 'cloudflare-workers-ai' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Account ID</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Account ID</span>
               <input className="input w-full" value={cfAccount} onChange={(e) => setCfAccount(e.target.value)} placeholder="a1b2c3…" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Modèle</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
               <input className="input w-full" value={cfModel} onChange={(e) => setCfModel(e.target.value)} placeholder="@cf/black-forest-labs/flux-1-schnell" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Jeton API</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Jeton API</span>
               <input
                 className="input w-full"
                 type="password"
@@ -294,11 +295,11 @@ function ProfileForm({
         {provider === 'sd-webui' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">URL de l’instance</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">URL de l’instance</span>
               <input className="input w-full" value={sdBase} onChange={(e) => setSdBase(e.target.value)} placeholder="http://127.0.0.1:7860" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-300">Steps</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">Steps</span>
               <input
                 className="input w-32"
                 type="number"
@@ -308,8 +309,11 @@ function ProfileForm({
                 onChange={(e) => setSdSteps(Number(e.target.value))}
               />
             </label>
-            <p className="text-[11px] text-amber-300/80">
-              ⚠ Cette adresse est appelée par le serveur Mocky lui-même — utilisez uniquement une instance de confiance.
+            <p className="flex items-start gap-2 text-caption text-warn">
+              <Icon name="warning" size={16} />
+              <span>
+                Cette adresse est appelée par le serveur Mocky lui-même — utilisez uniquement une instance de confiance.
+              </span>
             </p>
           </>
         )}
@@ -321,18 +325,24 @@ function ProfileForm({
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
         {provider && (
-          <button type="button" className="btn-ghost px-3 py-2 text-xs" onClick={runTest} disabled={testing}>
+          <button type="button" className="btn-ghost px-3 py-2 text-body-sm" onClick={runTest} disabled={testing}>
             {testing ? 'Test en cours…' : 'Tester (génère une image)'}
           </button>
         )}
-        {saved && <span className="text-xs text-emerald-400">✓ enregistré</span>}
+        {saved && (
+          <span className="flex items-center gap-1.5 text-body-sm text-ok">
+            <Icon name="check" size={16} />
+            enregistré
+          </span>
+        )}
         {test && (
-          <span className={`text-xs ${test.ok ? 'text-emerald-400' : 'text-rose-300'}`}>
+          <span className={`flex items-center gap-1.5 text-body-sm ${test.ok ? 'text-ok' : 'text-danger'}`}>
+            <Icon name={test.ok ? 'check' : 'close'} size={16} />
             {test.ok
               ? test.skipped
-                ? '✓ fournisseur « aucun » — placeholders'
-                : `✓ image générée (${Math.round((test.bytes || 0) / 1024)} Ko)`
-              : `✕ ${test.error}`}
+                ? 'fournisseur « aucun » — placeholders'
+                : `image générée (${Math.round((test.bytes || 0) / 1024)} Ko)`
+              : test.error}
           </span>
         )}
       </div>
@@ -359,17 +369,24 @@ export default function ImageProviderSettings() {
 
   if (!cfg) {
     return (
-      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-        <div className="text-sm font-medium text-slate-200">Génération d’images (Muse)</div>
-        <p className="mt-2 text-sm text-slate-500">{error || 'Chargement…'}</p>
-      </div>
+      <section>
+        <header className="rule-thin mb-4 border-accent/40 pb-2">
+          <span className="kicker text-accent-ink">Instance</span>
+          <h3 className="mt-1 text-h3 text-ink">Génération d’images (Muse)</h3>
+        </header>
+        <p className="text-body text-ink-faint">{error || 'Chargement…'}</p>
+      </section>
     )
   }
 
   return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-      <h3 className="mb-1 text-sm font-semibold text-slate-100">Génération d’images (Muse)</h3>
-      <p className="mb-4 text-xs text-slate-400">
+    <section>
+      <header className="rule-thin mb-4 border-accent/40 pb-2">
+        <span className="kicker text-accent-ink">Instance</span>
+        <h3 className="mt-1 text-h3 text-ink">Génération d’images (Muse)</h3>
+      </header>
+
+      <p className="measure mb-4 text-body-sm text-ink-muted">
         Muse génère <strong>deux sortes d’images</strong>, et peu de modèles sont bons aux deux. Vous pouvez donc en
         choisir un pour chacune. Les clés sont stockées sur ce serveur et ne sont jamais renvoyées au navigateur ; si un
         service échoue, Muse retombe sur des placeholders.
@@ -378,13 +395,13 @@ export default function ImageProviderSettings() {
       <div className="space-y-4">
         <ProfileForm
           profile="inspiration"
-          title="🎨 Image d’inspiration"
+          title="Image d’inspiration"
           blurb={
             <>
               La <strong>maquette de référence</strong> montrée au LLM pour orienter la direction artistique (mode{' '}
               <em>Inspiration</em>). Une seule par écran : un modèle plus lent et plus cher se justifie, s’il rend bien
               une mise en page de site ou d’app.{' '}
-              <span className="text-slate-500">Laissez « Aucun » pour réutiliser le modèle de contenu.</span>
+              <span className="text-ink-faint">Laissez « Aucun » pour réutiliser le modèle de contenu.</span>
             </>
           }
           emptyLabel="Aucun — réutilise le modèle de contenu"
@@ -393,7 +410,7 @@ export default function ImageProviderSettings() {
         />
         <ProfileForm
           profile="content"
-          title="🖼 Images de contenu"
+          title="Images de contenu"
           blurb={
             <>
               Les photos <strong>intégrées dans l’écran</strong> : hero, produits, arrière-plans (modes{' '}
@@ -405,6 +422,6 @@ export default function ImageProviderSettings() {
           onConfig={setCfg}
         />
       </div>
-    </div>
+    </section>
   )
 }

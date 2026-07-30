@@ -1,5 +1,8 @@
 import { PRESETS } from '../lib/presets'
 
+/** A preset badge leads with a pictogram; the chip is set in words alone. */
+const LEADING_GLYPH = /^\P{L}+/u
+
 export default function PresetPicker({
   value,
   onChange,
@@ -18,14 +21,15 @@ export default function PresetPicker({
             key={p.id}
             type="button"
             onClick={() => onChange(p.id)}
-            className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+            aria-pressed={active}
+            className={`kicker border px-2.5 py-1.5 transition ${
               active
-                ? 'border-indigo-500 bg-indigo-500 text-white'
-                : 'border-slate-700 bg-slate-800/40 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                ? 'border-accent bg-ink text-surface'
+                : 'border-line-soft text-ink-muted hover:border-line hover:text-accent-ink'
             }`}
             title={`${p.label} · ${p.w}×${p.h}`}
           >
-            {p.badge}
+            {p.badge.replace(LEADING_GLYPH, '')}
           </button>
         )
       })}

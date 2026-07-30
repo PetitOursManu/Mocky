@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FRAME_HEADER, type Screen } from '../lib/project'
 import Preview from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
+import { Button, Icon } from '../ui'
 
 /**
  * Prototype player: renders one screen at a time and lets the user click the
@@ -59,25 +60,28 @@ export default function DemoPlayer({
     .map((h) => ({ selector: h.selector as string, target: h.target }))
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-slate-950">
-      <div className="flex items-center gap-2 border-b border-slate-800 bg-slate-900 px-3 py-2">
-        <button type="button" className="btn-ghost text-sm" onClick={onExit}>
-          ✕ Exit demo
-        </button>
-        <button
-          type="button"
-          className="btn-ghost text-sm disabled:opacity-40"
+    <div className="fixed inset-0 z-top flex flex-col bg-sunken">
+      <div className="flex items-center gap-2 border-b border-line bg-surface px-3 py-2">
+        <Button size="sm" onClick={onExit}>
+          <Icon name="close" size={15} />
+          Exit demo
+        </Button>
+        <Button
+          size="sm"
           disabled={stack.length <= 1}
           onClick={() => setStack((st) => (st.length > 1 ? st.slice(0, -1) : st))}
         >
-          ← Back
-        </button>
-        <button type="button" className="btn-ghost text-sm" onClick={() => setStack([startId])}>
-          ↺ Restart
-        </button>
-        <span className="ml-2 truncate text-sm text-slate-300">{current.name}</span>
-        <span className="ml-auto hidden text-xs text-slate-500 sm:inline">
-          Demo · click linked areas to navigate · Esc to exit
+          <Icon name="chevronLeft" size={15} />
+          Back
+        </Button>
+        <Button size="sm" onClick={() => setStack([startId])}>
+          <Icon name="refresh" size={15} />
+          Restart
+        </Button>
+        <span className="kicker ml-3 shrink-0">Demo</span>
+        <span className="truncate text-body text-ink-muted">{current.name}</span>
+        <span className="ml-auto hidden text-body-sm text-ink-faint sm:inline">
+          Click linked areas to navigate · Esc to exit
         </span>
       </div>
 
@@ -102,7 +106,8 @@ export default function DemoPlayer({
                   type="button"
                   onClick={() => navigate(h.target)}
                   title="Go to linked screen"
-                  className="absolute rounded transition hover:bg-indigo-400/20"
+                  aria-label="Go to linked screen"
+                  className="absolute rounded transition hover:bg-accent/20"
                   style={{
                     left: `${h.x * 100}%`,
                     top: `${h.y * 100}%`,

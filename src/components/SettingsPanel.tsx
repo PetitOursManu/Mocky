@@ -7,6 +7,7 @@ import {
 } from '../lib/settings'
 import { listModels, testConnection, type TestResult } from '../lib/provider'
 import { api } from '../lib/api'
+import { Button, Icon, IconButton } from '../ui'
 
 type TestState =
   | { status: 'idle' }
@@ -25,7 +26,7 @@ export default function SettingsPanel() {
   const [modelsError, setModelsError] = useState<string | null>(null)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
-  // When an admin set an instance-wide model, these fields are ignored.
+  // When an admin set an instance-wide model, there is nothing to fill in here.
   const [managed, setManaged] = useState<{
     model: string | null
     provider: string | null
@@ -96,169 +97,199 @@ export default function SettingsPanel() {
   const modelOptions = Array.from(new Set([settings.model, ...models].filter(Boolean)))
 
   return (
-    <div className="mx-auto max-w-xl">
-      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl backdrop-blur">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-100">Provider settings</h2>
+    <div className="border border-line bg-surface px-6 py-6">
+      <header className="rule-double pb-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1">
+          <div>
+            <span className="kicker text-accent-ink">Settings</span>
+            <h2 className="mt-1 text-h2 text-ink">Provider settings</h2>
+          </div>
           <span
-            className={`text-xs text-emerald-400 transition-opacity ${savedFlash ? 'opacity-100' : 'opacity-0'}`}
+            className={`flex items-center gap-1.5 text-body-sm text-ok transition-opacity ${savedFlash ? 'opacity-100' : 'opacity-0'}`}
           >
-            Saved ✓
+            <Icon name="check" size={16} />
+            Saved
           </span>
         </div>
+      </header>
 
-        {managed && (
-          <div className="mb-4 rounded-xl border border-indigo-700/50 bg-indigo-900/25 p-3 text-xs text-indigo-100">
-            <div className="font-medium">Le modèle est défini par l’administrateur de cette instance</div>
-            <div className="mt-1 text-indigo-200/80">
-              Fournisseur : <strong>{managed.provider}</strong> · modèle : <strong>{managed.model}</strong>. Les champs
-              ci-dessous sont <strong>ignorés</strong> — vous n’avez pas besoin de votre propre clé.
+      <div className="mt-6 grid gap-x-12 gap-y-8 lg:grid-cols-2">
+        {/* An admin can set one model for the whole instance. When they have,
+            this page has nothing to ask for — it only says who is in charge. */}
+        {managed ? (
+          <section>
+            <div className="section-head">
+              <span className="kicker text-accent-ink">Modèle de l’instance</span>
             </div>
+            <h3 className="text-h3 text-accent-ink">{managed.model || '—'}</h3>
+            {managed.provider && <p className="kicker mt-1.5">{managed.provider}</p>}
+            <p className="measure mt-3 text-body text-ink-muted">
+              L’administrateur a choisi ce modèle pour tout le monde. Vous n’avez rien à renseigner
+              ici : ni fournisseur, ni adresse, ni clé.
+            </p>
             {managed.inspirationModel && (
-              <div className="mt-1 text-indigo-200/80">
-                ✨ Inspiration (Muse) : <strong>{managed.inspirationModel}</strong>.
-              </div>
+              <p className="mt-4 flex items-start gap-2 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
+                <Icon name="sparkle" size={16} />
+                <span>
+                  Muse écrit son Design Dossier avec{' '}
+                  <strong className="font-medium text-ink">{managed.inspirationModel}</strong>.
+                </span>
+              </p>
             )}
-          </div>
-        )}
-
-        <div className={`space-y-4 ${managed ? 'opacity-50' : ''}`}>
-          <Field label="Provider">
-            <select
-              className="input"
-              value={settings.provider}
-              onChange={(e) => {
-                const p = PROVIDERS.find((x) => x.id === e.target.value) ?? PROVIDERS[0]
-                setSettings((s) => ({ ...s, provider: p.id, baseUrl: p.defaultBaseUrl }))
-                setTest({ status: 'idle' })
-              }}
-            >
-              {PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Base URL" hint={`Default: ${activeProvider.defaultBaseUrl}`}>
-            <input
-              className="input"
-              type="text"
-              spellCheck={false}
-              value={settings.baseUrl}
-              placeholder={activeProvider.defaultBaseUrl}
-              onChange={(e) => update('baseUrl', e.target.value)}
-            />
-          </Field>
-
-          <Field label="API key" hint="Sent as a Bearer token. Stored only in your browser's localStorage.">
-            <div className="flex gap-2">
-              <input
-                className="input flex-1"
-                type={showKey ? 'text' : 'password'}
-                autoComplete="off"
-                spellCheck={false}
-                value={settings.apiKey}
-                placeholder="ollama-…"
-                onChange={(e) => update('apiKey', e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn-ghost shrink-0"
-                onClick={() => setShowKey((v) => !v)}
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
+          </section>
+        ) : (
+          <section>
+            <div className="section-head">
+              <span className="kicker text-accent-ink">Connection</span>
             </div>
-          </Field>
-
-          <Field label="Model" hint={`e.g. ${activeProvider.defaultModel}`}>
-            <div className="space-y-2">
-              <div className="flex gap-2">
+            <div className="space-y-4">
+              <Field label="Provider">
                 <select
-                  className="input flex-1"
-                  value={modelOptions.includes(settings.model) ? settings.model : ''}
-                  onChange={(e) => update('model', e.target.value)}
+                  className="input"
+                  value={settings.provider}
+                  onChange={(e) => {
+                    const p = PROVIDERS.find((x) => x.id === e.target.value) ?? PROVIDERS[0]
+                    setSettings((s) => ({ ...s, provider: p.id, baseUrl: p.defaultBaseUrl }))
+                    setTest({ status: 'idle' })
+                  }}
                 >
-                  <option value="" disabled>
-                    {modelsState === 'loading'
-                      ? 'Loading models…'
-                      : models.length
-                        ? 'Select a model…'
-                        : 'No models loaded — click ↻'}
-                  </option>
-                  {modelOptions.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                  {PROVIDERS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  className="btn-ghost shrink-0"
-                  onClick={loadModels}
-                  disabled={modelsState === 'loading'}
-                  title="Load available models from the provider"
-                >
-                  {modelsState === 'loading' ? '…' : '↻'}
-                </button>
-              </div>
+              </Field>
 
-              {modelsState === 'error' && (
-                <span className="block text-xs text-rose-300">{modelsError}</span>
-              )}
-              {modelsState === 'loaded' && (
-                <span className="block text-xs text-slate-500">
-                  {models.length} model{models.length === 1 ? '' : 's'} available from this provider.
-                </span>
-              )}
+              <Field label="Base URL" hint={`Default: ${activeProvider.defaultBaseUrl}`}>
+                <input
+                  className="input"
+                  type="text"
+                  spellCheck={false}
+                  value={settings.baseUrl}
+                  placeholder={activeProvider.defaultBaseUrl}
+                  onChange={(e) => update('baseUrl', e.target.value)}
+                />
+              </Field>
 
-              <input
-                className="input"
-                type="text"
-                spellCheck={false}
-                value={settings.model}
-                placeholder={`or type a custom model, e.g. ${activeProvider.defaultModel}`}
-                onChange={(e) => update('model', e.target.value)}
-              />
+              <Field label="API key" hint="Sent as a Bearer token. Stored only in your browser's localStorage.">
+                <div className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    type={showKey ? 'text' : 'password'}
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={settings.apiKey}
+                    placeholder="ollama-…"
+                    onChange={(e) => update('apiKey', e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn-ghost shrink-0"
+                    onClick={() => setShowKey((v) => !v)}
+                  >
+                    {showKey ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Model" hint={`e.g. ${activeProvider.defaultModel}`}>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <select
+                      className="input flex-1"
+                      value={modelOptions.includes(settings.model) ? settings.model : ''}
+                      onChange={(e) => update('model', e.target.value)}
+                    >
+                      <option value="" disabled>
+                        {modelsState === 'loading'
+                          ? 'Loading models…'
+                          : models.length
+                            ? 'Select a model…'
+                            : 'No models loaded — reload the list'}
+                      </option>
+                      {modelOptions.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <IconButton
+                      label="Load available models from the provider"
+                      onClick={loadModels}
+                      disabled={modelsState === 'loading'}
+                    >
+                      <Icon name="refresh" size={16} />
+                    </IconButton>
+                  </div>
+
+                  {modelsState === 'error' && (
+                    <span className="block text-body-sm text-danger">{modelsError}</span>
+                  )}
+                  {modelsState === 'loaded' && (
+                    <span className="block text-body-sm text-ink-muted">
+                      <span className="font-mono text-accent-ink">{models.length}</span> model
+                      {models.length === 1 ? '' : 's'} available from this provider.
+                    </span>
+                  )}
+
+                  <input
+                    className="input"
+                    type="text"
+                    spellCheck={false}
+                    value={settings.model}
+                    placeholder={`or type a custom model, e.g. ${activeProvider.defaultModel}`}
+                    onChange={(e) => update('model', e.target.value)}
+                  />
+                </div>
+              </Field>
             </div>
-          </Field>
-        </div>
+          </section>
+        )}
 
-        {/* The planner applies whichever provider is in use — never dimmed. */}
-        <div className="mt-4">
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-800/40 p-3">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 accent-indigo-500"
-              checked={settings.usePlanner}
-              onChange={(e) => update('usePlanner', e.target.checked)}
-            />
-            <span>
-              <span className="block text-sm font-medium text-slate-200">Use planner (slower, better structure)</span>
-              <span className="mt-0.5 block text-xs text-slate-500">
-                A quick pre-generation pass that plans the screen's layout, sections and content before the code is written. Adds a few seconds; falls back automatically if it fails or times out.
+        <section className="space-y-8">
+          {/* The planner applies whichever provider is in use — the user's own
+              or the instance's. */}
+          <div>
+            <div className="section-head">
+              <span className="kicker text-accent-ink">Generation</span>
+            </div>
+            <label className="flex cursor-pointer items-start gap-3 border border-line-soft bg-ink/5 p-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-accent"
+                checked={settings.usePlanner}
+                onChange={(e) => update('usePlanner', e.target.checked)}
+              />
+              <span>
+                <span className="block text-body font-medium text-ink">Use planner (slower, better structure)</span>
+                <span className="measure mt-0.5 block text-body-sm text-ink-muted">
+                  A quick pre-generation pass that plans the screen's layout, sections and content before the code is written. Adds a few seconds; falls back automatically if it fails or times out.
+                </span>
               </span>
-            </span>
-          </label>
-        </div>
+            </label>
+          </div>
 
-        <div className="mt-6 flex items-center gap-3">
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={onTest}
-            disabled={test.status === 'testing'}
-          >
-            {test.status === 'testing' ? 'Testing…' : 'Test connection'}
-          </button>
-        </div>
-
-        {test.status === 'done' && <TestBanner result={test.result} onPick={(m) => update('model', m)} />}
+          {!managed && (
+            <div>
+              <div className="section-head">
+                <span className="kicker text-accent-ink">Connection test</span>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={onTest}
+                disabled={test.status === 'testing'}
+              >
+                {test.status === 'testing' ? 'Testing…' : 'Test connection'}
+              </button>
+              {test.status === 'done' && <TestBanner result={test.result} onPick={(m) => update('model', m)} />}
+            </div>
+          )}
+        </section>
       </div>
 
-      <p className="mt-4 text-center text-xs text-slate-500">
+      <p className="mt-8 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
         Settings are stored in your browser. Head to Studio to generate a screen.
       </p>
     </div>
@@ -276,9 +307,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-300">{label}</span>
+      <span className="mb-1.5 block text-body-sm font-medium text-ink">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+      {hint && <span className="mt-1.5 block text-caption text-ink-muted">{hint}</span>}
     </label>
   )
 }
@@ -286,27 +317,22 @@ function Field({
 function TestBanner({ result, onPick }: { result: TestResult; onPick: (m: string) => void }) {
   return (
     <div
-      className={`mt-4 rounded-xl border p-3 text-sm ${
-        result.ok
-          ? 'border-emerald-700/50 bg-emerald-900/30 text-emerald-200'
-          : 'border-rose-700/50 bg-rose-900/30 text-rose-200'
+      className={`mt-4 border p-3 text-body ${
+        result.ok ? 'border-ok/50 bg-ok/10 text-ok' : 'border-danger/50 bg-danger/10 text-danger'
       }`}
     >
-      <div className="font-medium">{result.ok ? '✓ ' : '✗ '}{result.message}</div>
+      <div className="flex items-start gap-1.5 font-medium">
+        <Icon name={result.ok ? 'check' : 'close'} size={16} className="mt-0.5" />
+        <span>{result.message}</span>
+      </div>
       {result.models && result.models.length > 0 && (
         <div className="mt-2">
-          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Available models</div>
+          <div className="kicker mb-1.5">Available models</div>
           <div className="flex flex-wrap gap-1.5">
             {result.models.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => onPick(m)}
-                className="rounded-md bg-slate-700/70 px-2 py-0.5 text-xs text-slate-200 hover:bg-slate-600"
-                title="Use this model"
-              >
+              <Button key={m} size="sm" onClick={() => onPick(m)} title="Use this model">
                 {m}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

@@ -1,12 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>Mocky — chat-to-UI generator</title>
+    <script>
+      // Theme before first paint. This used to run from main.tsx, i.e. after the
+      // first frame was already on screen, while :root was hard-coded dark — so
+      // opening Mocky in the light theme flashed dark on every single load.
+      // Inline and synchronous in <head> is the only place this can go.
+      (function () {
+        try {
+          var t = localStorage.getItem('mocky.theme')
+          if (t === 'logo') t = 'light' // the old third theme
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          document.documentElement.dataset.theme = t
+        } catch (_) {
+          document.documentElement.dataset.theme = 'light'
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

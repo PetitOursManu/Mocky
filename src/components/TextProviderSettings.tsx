@@ -7,13 +7,14 @@ import {
   type TextProviderEntry,
   type TextTestResult,
 } from '../lib/api'
+import { Icon } from '../ui'
 
 const HINTS: Record<string, string> = {
   '': 'Aucun fournisseur défini pour l’instance : chaque utilisateur configure le sien dans Settings (la clé reste dans son navigateur).',
   'ollama-cloud': 'Ollama Cloud (ou une instance Ollama locale — indiquez son URL). Dialecte natif.',
   openai: 'API OpenAI officielle. Modèles : gpt-4o-mini, gpt-4o, o4-mini…',
   openrouter: 'Une clé, des centaines de modèles. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-4o-mini.',
-  fal: 'Votre clé fal.ai (la même que pour les images) donne aussi accès aux LLM. ⚠ Ce champ n’est PAS pour un modèle d’images : fal expose ses LLM via OpenRouter, donc le modèle s’écrit « éditeur/modèle » — openai/gpt-4o-mini, google/gemini-2.5-flash, qwen/qwen3.5-flash-02-23… (un id du type fal-ai/…/text-to-image sera refusé). Pour le mode Inspiration, prenez un modèle qui voit les images.',
+  fal: 'Votre clé fal.ai (la même que pour les images) donne aussi accès aux LLM. Ce champ n’est PAS pour un modèle d’images : fal expose ses LLM via OpenRouter, donc le modèle s’écrit « éditeur/modèle » — openai/gpt-4o-mini, google/gemini-2.5-flash, qwen/qwen3.5-flash-02-23… (un id du type fal-ai/…/text-to-image sera refusé). Pour le mode Inspiration, prenez un modèle qui voit les images.',
   'openai-compatible': 'Tout endpoint exposant /v1/chat/completions : Groq, Together, DeepSeek, Mistral, LM Studio, vLLM… Indiquez l’URL de base (sans /v1).',
 }
 
@@ -141,14 +142,14 @@ function ProfileForm({
   const current = provider ? entry(section, provider) : null
 
   return (
-    <div className="rounded-xl border border-slate-700/70 bg-slate-900/40 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-300">{title}</h4>
-      <p className="mb-3 mt-1 text-[11px] leading-relaxed text-slate-400">{blurb}</p>
+    <div className="border border-line-soft bg-ink/5 p-4">
+      <h4 className="kicker text-ink">{title}</h4>
+      <p className="measure mb-3 mt-1.5 text-caption leading-relaxed text-ink-muted">{blurb}</p>
 
-      {error && <div className="mb-3 rounded-lg border border-rose-700/50 bg-rose-900/30 p-2 text-xs text-rose-200">{error}</div>}
+      {error && <div className="mb-3 border border-danger/50 bg-danger/10 p-2 text-body-sm text-danger">{error}</div>}
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-slate-300">Fournisseur</span>
+        <span className="mb-1 block text-body-sm font-medium text-ink">Fournisseur</span>
         <select className="input w-full" value={provider} onChange={(e) => hydrate(section, e.target.value)}>
           <option value="">{emptyLabel}</option>
           {cfg.providers.map((p) => (
@@ -158,12 +159,12 @@ function ProfileForm({
           ))}
         </select>
       </label>
-      <p className="mt-1.5 text-[11px] text-slate-500">{HINTS[provider] ?? ''}</p>
+      <p className="mt-1.5 text-caption text-ink-faint">{HINTS[provider] ?? ''}</p>
 
       {provider && (
         <div className="mt-4 space-y-3">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-300">URL de base</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">URL de base</span>
             <input
               className="input w-full"
               value={baseUrl}
@@ -171,10 +172,10 @@ function ProfileForm({
               placeholder="https://api.openai.com"
               spellCheck={false}
             />
-            <span className="mt-1 block text-[11px] text-slate-500">Sans <code>/v1</code> — Mocky l’ajoute.</span>
+            <span className="mt-1 block text-caption text-ink-faint">Sans <code>/v1</code> — Mocky l’ajoute.</span>
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-300">Modèle</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
             <input
               className="input w-full"
               value={model}
@@ -183,16 +184,19 @@ function ProfileForm({
               spellCheck={false}
             />
             {looksLikeImageModel(model) && (
-              <span className="mt-1.5 block rounded-lg border border-amber-700/40 bg-amber-900/20 px-2 py-1.5 text-[11px] text-amber-200">
-                ⚠ « {model} » ressemble à un modèle d’<strong>images</strong>. Ce champ attend un <strong>LLM</strong> (texte)
-                — ex. <code>openai/gpt-4o-mini</code>, <code>google/gemini-2.5-flash</code>,{' '}
-                <code>qwen/qwen3.5-flash-02-23</code>. Les modèles d’images se règlent plus bas, dans{' '}
-                <strong>Génération d’images (Muse)</strong>.
+              <span className="mt-1.5 flex items-start gap-2 border border-warn/40 bg-warn/10 px-2 py-1.5 text-caption text-warn">
+                <Icon name="warning" size={16} />
+                <span>
+                  « {model} » ressemble à un modèle d’<strong>images</strong>. Ce champ attend un <strong>LLM</strong>{' '}
+                  (texte) — ex. <code>openai/gpt-4o-mini</code>, <code>google/gemini-2.5-flash</code>,{' '}
+                  <code>qwen/qwen3.5-flash-02-23</code>. Les modèles d’images se règlent dans{' '}
+                  <strong>Génération d’images (Muse)</strong>.
+                </span>
               </span>
             )}
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-300">Clé API</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">Clé API</span>
             <input
               className="input w-full"
               type="password"
@@ -203,14 +207,14 @@ function ProfileForm({
             />
             <div className="mt-1">
               {current?.hasApiKey ? (
-                <span className="text-[11px] text-emerald-400">
+                <span className="text-caption text-ok">
                   ● clé enregistrée —{' '}
-                  <button type="button" className="underline underline-offset-2 hover:text-emerald-300" onClick={clearKey}>
+                  <button type="button" className="underline underline-offset-2 hover:text-ink" onClick={clearKey}>
                     effacer
                   </button>
                 </span>
               ) : (
-                <span className="text-[11px] text-slate-500">aucune clé enregistrée (inutile pour un modèle local)</span>
+                <span className="text-caption text-ink-faint">aucune clé enregistrée (inutile pour un modèle local)</span>
               )}
             </div>
           </label>
@@ -222,14 +226,20 @@ function ProfileForm({
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
         {provider && (
-          <button type="button" className="btn-ghost px-3 py-2 text-xs" onClick={runTest} disabled={testing}>
+          <button type="button" className="btn-ghost px-3 py-2 text-body-sm" onClick={runTest} disabled={testing}>
             {testing ? 'Test en cours…' : 'Tester'}
           </button>
         )}
-        {saved && <span className="text-xs text-emerald-400">✓ enregistré</span>}
+        {saved && (
+          <span className="flex items-center gap-1.5 text-body-sm text-ok">
+            <Icon name="check" size={16} />
+            enregistré
+          </span>
+        )}
         {test && (
-          <span className={`text-xs ${test.ok ? 'text-emerald-400' : 'text-rose-300'}`}>
-            {test.ok ? `✓ ${test.model} répond : « ${test.reply} »` : `✕ ${test.error}`}
+          <span className={`flex items-center gap-1.5 text-body-sm ${test.ok ? 'text-ok' : 'text-danger'}`}>
+            <Icon name={test.ok ? 'check' : 'close'} size={16} />
+            {test.ok ? `${test.model} répond : « ${test.reply} »` : test.error}
           </span>
         )}
       </div>
@@ -258,30 +268,43 @@ export default function TextProviderSettings() {
 
   if (!cfg) {
     return (
-      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-        <div className="text-sm font-medium text-slate-200">Modèles de texte</div>
-        <p className="mt-2 text-sm text-slate-500">{error || 'Chargement…'}</p>
-      </div>
+      <section>
+        <header className="rule-thin mb-4 border-accent/40 pb-2">
+          <span className="kicker text-accent-ink">Instance</span>
+          <h3 className="mt-1 text-h3 text-ink">Modèles de texte (LLM)</h3>
+        </header>
+        <p className="text-body text-ink-faint">{error || 'Chargement…'}</p>
+      </section>
     )
   }
 
   return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-      <h3 className="mb-1 text-sm font-semibold text-slate-100">Modèles de texte (LLM)</h3>
-      <p className="mb-3 text-xs text-slate-400">
+    <section>
+      <header className="rule-thin mb-4 border-accent/40 pb-2">
+        <span className="kicker text-accent-ink">Instance</span>
+        <h3 className="mt-1 text-h3 text-ink">Modèles de texte (LLM)</h3>
+      </header>
+
+      <p className="measure mb-3 text-body-sm text-ink-muted">
         Deux modèles <strong>qui écrivent du texte</strong>. Défini ici, un modèle s’applique à{' '}
         <strong>toute l’instance</strong> et les utilisateurs n’ont plus rien à configurer.
       </p>
-      <p className="mb-4 rounded-lg border border-slate-700 bg-slate-900/50 px-2.5 py-2 text-[11px] text-slate-400">
-        🖼 <strong>Ce n’est pas ici que l’image d’inspiration est générée.</strong> Le modèle qui <em>fabrique</em>{' '}
-        l’image (Seedream, Flux, nano-banana…) se règle plus bas, dans <strong>Génération d’images (Muse)</strong>.
-        Muse enchaîne les deux : ② écrit le dossier et la description de l’image → le modèle d’images la fabrique → ②
-        (ou ①) la <em>regarde</em> pour composer l’écran.
+      <p className="mb-3 flex items-start gap-2 border border-line-soft bg-ink/5 px-2.5 py-2 text-caption text-ink-muted">
+        <Icon name="image" size={16} />
+        <span>
+          <strong>Ce n’est pas ici que l’image d’inspiration est générée.</strong> Le modèle qui <em>fabrique</em>{' '}
+          l’image (Seedream, Flux, nano-banana…) se règle dans <strong>Génération d’images (Muse)</strong>.
+          Muse enchaîne les deux : ② écrit le dossier et la description de l’image → le modèle d’images la fabrique →
+          ② (ou ①) la <em>regarde</em> pour composer l’écran.
+        </span>
       </p>
 
-      <div className="mb-4 rounded-lg border border-amber-700/40 bg-amber-900/20 px-2.5 py-2 text-[11px] text-amber-200">
-        ⚠ La clé est stockée <strong>sur ce serveur</strong> et utilisable par tous les comptes de l’instance. Laissez
-        « Aucun » pour conserver le mode historique où chaque clé reste dans le navigateur de son utilisateur.
+      <div className="mb-4 flex items-start gap-2 border border-warn/40 bg-warn/10 px-2.5 py-2 text-caption text-warn">
+        <Icon name="warning" size={16} />
+        <span>
+          La clé est stockée <strong>sur ce serveur</strong> et utilisable par tous les comptes de l’instance. Laissez
+          « Aucun » pour conserver le mode historique où chaque clé reste dans le navigateur de son utilisateur.
+        </span>
       </div>
 
       <div className="space-y-4">
@@ -295,13 +318,13 @@ export default function TextProviderSettings() {
         />
         <ProfileForm
           profile="inspiration"
-          title="② Muse ✨ — texte du Design Dossier"
+          title="② Muse — texte du Design Dossier"
           blurb={
             <>
               Le modèle qui <strong>rédige</strong> le Design Dossier (concept, palette, vrais textes) et qui{' '}
               <strong>regarde</strong> l’image d’inspiration une fois qu’elle existe. Il n’écrit pas de code : un modèle
               moins cher suffit — mais le mode <em>Inspiration</em> exige la <strong>vision</strong>.{' '}
-              <span className="text-slate-500">
+              <span className="text-ink-faint">
                 Ce n’est pas lui qui fabrique l’image. Laissez « Aucun » pour réutiliser le modèle de génération.
               </span>
             </>
@@ -311,6 +334,6 @@ export default function TextProviderSettings() {
           onConfig={setCfg}
         />
       </div>
-    </div>
+    </section>
   )
 }

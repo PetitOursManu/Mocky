@@ -6,6 +6,7 @@ import {
   saveDesign,
 } from '../lib/design'
 import { STYLE_PRESETS, resolveStyle, ACCENT_VARIANTS, BG_VARIANTS, type ThemeMode, type StylePreset } from '../lib/styles'
+import { Icon, Segmented } from '../ui'
 
 export default function DesignPanel() {
   const [design, setDesign] = useState<DesignConfig>(() => loadDesign())
@@ -50,100 +51,115 @@ export default function DesignPanel() {
   const active = design.enabled && chars > 0
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-100">DESIGN.md</h2>
+    <div className="pb-12">
+      {/* The page opens the way a section front does: kicker, serif headline,
+          double rule — then the state of the document, on the same line. */}
+      <div className="rule-double mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-3">
+        <div>
+          <div className="kicker text-accent-ink">Design system</div>
+          <h1 className="mt-1 text-h2 text-ink">DESIGN.md</h1>
+        </div>
+        <div className="flex items-center gap-3 pb-1 text-body-sm">
           <span
-            className={`text-xs text-emerald-400 transition-opacity ${savedFlash ? 'opacity-100' : 'opacity-0'}`}
+            className={`inline-flex items-center gap-1 text-ok transition-opacity ${
+              savedFlash ? 'opacity-100' : 'opacity-0'
+            }`}
           >
-            Saved ✓
+            <Icon name="check" size={14} />
+            Saved
+          </span>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
+              active ? 'bg-ok/15 text-ok' : 'bg-ink/5 text-ink-muted'
+            }`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            {active ? 'Active' : 'Inactive'}
           </span>
         </div>
-        <p className="mb-4 text-sm text-slate-400">
-          A portable design system. When enabled, its full content is prepended to every generation
-          prompt so screens stay on-brand. Plain Markdown — paste it, load a <code>.md</code> file,
-          start from the template, or pick a ready-made style below.
-        </p>
+      </div>
 
-        {/* Built-in visual styles */}
-        <div className="mb-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Style presets ({STYLE_PRESETS.length})</div>
-            <div className="flex items-center rounded-lg border border-slate-700 bg-slate-900/60 p-0.5 text-xs" title="Preview & apply styles in light or dark mode">
-              {([
-                ['auto', 'Auto'],
-                ['light', '☀ Light'],
-                ['dark', '☾ Dark'],
-              ] as [ThemeMode, string][]).map(([m, label]) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={`rounded-md px-2.5 py-1 font-medium transition ${
-                    mode === m ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+      <p className="measure mb-8 text-body text-ink-muted">
+        A portable design system. When enabled, its full content is prepended to every generation
+        prompt so screens stay on-brand. Plain Markdown — paste it, load a <code>.md</code> file,
+        start from the template, or pick a ready-made style below.
+      </p>
+
+      {/* Built-in visual styles */}
+      <section className="mb-10">
+        <div className="section-head justify-between">
+          <div className="kicker text-accent-ink">
+            Style presets <span className="text-ink-faint">({STYLE_PRESETS.length})</span>
           </div>
-          <div className="grid grid-cols-1 gap-5">
-            {STYLE_PRESETS.map((s) => {
-              const accentId = accentById[s.id] || ''
-              const bgId = bgById[s.id] || ''
-              const r = resolveStyle(s, mode, accentId, bgId)
-              const isActive = design.markdown.trim() === r.markdown.trim()
-              return (
-                <div
-                  key={s.id}
-                  className={`overflow-hidden rounded-xl border transition ${
-                    isActive ? 'border-indigo-500 ring-2 ring-indigo-500/50' : 'border-slate-700 hover:border-slate-500'
-                  }`}
-                >
-                  <div className="group relative">
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      className="cursor-pointer"
-                      title={`Apply "${s.name}"`}
-                      onClick={() => applyStyle(s, accentId, bgId)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          applyStyle(s, accentId, bgId)
-                        }
-                      }}
-                    >
-                      <ScaledMockup p={r.preview} name={s.name} />
-                    </div>
-                    <button
-                      type="button"
-                      title="Preview larger"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPreview({ preset: s, accentId, bgId })
-                      }}
-                      className="absolute right-2 top-2 rounded-md bg-black/45 px-2 py-1 text-xs text-white/90 opacity-0 backdrop-blur transition hover:bg-black/70 group-hover:opacity-100"
-                    >
-                      ⤢ Preview
-                    </button>
+          <Segmented<ThemeMode>
+            label="Preview mode"
+            value={mode}
+            onChange={(m) => {
+              if (m) setMode(m)
+            }}
+            options={[
+              { value: 'auto', label: 'Auto', title: 'Preview & apply styles as authored' },
+              { value: 'light', label: 'Light', title: 'Preview & apply styles in light mode' },
+              { value: 'dark', label: 'Dark', title: 'Preview & apply styles in dark mode' },
+            ]}
+          />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {STYLE_PRESETS.map((s) => {
+            const accentId = accentById[s.id] || ''
+            const bgId = bgById[s.id] || ''
+            const r = resolveStyle(s, mode, accentId, bgId)
+            const isActive = design.markdown.trim() === r.markdown.trim()
+            return (
+              <div
+                key={s.id}
+                className={`overflow-hidden border transition ${
+                  isActive
+                    ? 'border-accent ring-1 ring-accent ring-offset-2 ring-offset-surface'
+                    : 'border-line-soft hover:border-accent'
+                }`}
+              >
+                <div className="group relative">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="cursor-pointer"
+                    title={`Apply "${s.name}"`}
+                    onClick={() => applyStyle(s, accentId, bgId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        applyStyle(s, accentId, bgId)
+                      }
+                    }}
+                  >
+                    <ScaledMockup p={r.preview} name={s.name} />
                   </div>
+                  <button
+                    type="button"
+                    title="Preview larger"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPreview({ preset: s, accentId, bgId })
+                    }}
+                    className="absolute right-2 top-2 inline-flex items-center gap-1 bg-ink/80 px-2 py-1 text-caption text-surface opacity-0 backdrop-blur transition hover:bg-ink group-hover:opacity-100"
+                  >
+                    <Icon name="fit" size={12} />
+                    Preview
+                  </button>
+                </div>
 
-                  <div className={`px-3 py-2.5 ${isActive ? 'bg-indigo-500/10' : 'bg-slate-800/60'}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-100">
-                          <span className="truncate">{s.name}</span>
-                          {isActive && <span className="shrink-0 text-indigo-400">✓</span>}
-                        </div>
-                        <div className="truncate text-[11px] text-slate-500">{s.description}</div>
-                      </div>
-                    </div>
-                    {/* Accent variants */}
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="mr-0.5 w-14 shrink-0 text-[10px] uppercase tracking-wide text-slate-500">Accent</span>
+                <div className={`px-3 py-2.5 ${isActive ? 'bg-accent/10' : 'bg-surface'}`}>
+                  <div className="flex items-center gap-1.5 text-body font-medium text-ink">
+                    <span className="min-w-0 truncate">{s.name}</span>
+                    {isActive && <Icon name="check" size={14} className="text-accent" />}
+                  </div>
+                  <div className="truncate text-caption text-ink-faint">{s.description}</div>
+
+                  {/* Accent variants */}
+                  <div className="mt-3">
+                    <div className="kicker mb-1.5">Accent</div>
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <AccentPill
                         color={s.preview.accent}
                         active={!accentId}
@@ -166,9 +182,11 @@ export default function DesignPanel() {
                         />
                       ))}
                     </div>
-                    {/* Background variants */}
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <span className="mr-0.5 w-14 shrink-0 text-[10px] uppercase tracking-wide text-slate-500">Background</span>
+                  </div>
+                  {/* Background variants */}
+                  <div className="mt-2">
+                    <div className="kicker mb-1.5">Background</div>
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <AccentPill
                         color={s.preview.bg}
                         active={!bgId}
@@ -193,82 +211,100 @@ export default function DesignPanel() {
                     </div>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* The document itself, set in a column with its controls beside it —
+          markdown stays at a workable measure instead of running the width of
+          the screen. */}
+      <section>
+        <div className="section-head justify-between">
+          <div className="kicker text-accent-ink">Source</div>
+          <span className="font-mono text-body-sm text-ink-faint">
+            <span className="text-accent-ink">{chars.toLocaleString()}</span> chars
+          </span>
         </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button type="button" className="btn-ghost text-sm" onClick={() => fileRef.current?.click()}>
-            Load .md file
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".md,.markdown,text/markdown,text/plain"
-            className="hidden"
-            onChange={onFile}
+        <div className="grid gap-8 lg:grid-cols-3">
+          <textarea
+            className="input min-h-[420px] resize-y font-mono text-body-sm leading-relaxed lg:col-span-2"
+            placeholder="# Design System&#10;&#10;## Color tokens&#10;- Primary: #4f46e5&#10;..."
+            spellCheck={false}
+            value={design.markdown}
+            onChange={(e) => setDesign((d) => ({ ...d, markdown: e.target.value }))}
           />
-          <button
-            type="button"
-            className="btn-ghost text-sm"
-            onClick={() => setDesign((d) => ({ ...d, markdown: STARTER_TEMPLATE }))}
-          >
-            Use starter template
-          </button>
-          <button
-            type="button"
-            className="btn-ghost text-sm disabled:opacity-40"
-            onClick={download}
-            disabled={chars === 0}
-          >
-            Download
-          </button>
-          {chars > 0 && (
-            <button
-              type="button"
-              className="btn-ghost text-sm text-rose-300"
-              onClick={() => {
-                if (confirm('Clear the DESIGN.md content?')) setDesign((d) => ({ ...d, markdown: '' }))
-              }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
 
-        <textarea
-          className="input min-h-[360px] resize-y font-mono text-xs leading-relaxed"
-          placeholder="# Design System&#10;&#10;## Color tokens&#10;- Primary: #4f46e5&#10;..."
-          spellCheck={false}
-          value={design.markdown}
-          onChange={(e) => setDesign((d) => ({ ...d, markdown: e.target.value }))}
-        />
+          <aside className="flex flex-col gap-5">
+            <div>
+              <div className="kicker mb-2">File</div>
+              <div className="flex flex-col items-stretch gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost justify-start"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Icon name="upload" size={16} />
+                  Load .md file
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".md,.markdown,text/markdown,text/plain"
+                  className="hidden"
+                  onChange={onFile}
+                />
+                <button
+                  type="button"
+                  className="btn-ghost justify-start"
+                  onClick={() => setDesign((d) => ({ ...d, markdown: STARTER_TEMPLATE }))}
+                >
+                  <Icon name="copy" size={16} />
+                  Use starter template
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost justify-start disabled:opacity-40"
+                  onClick={download}
+                  disabled={chars === 0}
+                >
+                  <Icon name="download" size={16} />
+                  Download
+                </button>
+                {chars > 0 && (
+                  <button
+                    type="button"
+                    className="btn-ghost justify-start text-danger"
+                    onClick={() => {
+                      if (confirm('Clear the DESIGN.md content?')) setDesign((d) => ({ ...d, markdown: '' }))
+                    }}
+                  >
+                    <Icon name="trash" size={16} />
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
 
-        <div className="mt-3 flex items-center justify-between">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-indigo-500"
-              checked={design.enabled}
-              onChange={(e) => setDesign((d) => ({ ...d, enabled: e.target.checked }))}
-            />
-            Include in generations
-          </label>
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span>{chars.toLocaleString()} chars</span>
-            <span
-              className={`rounded-full px-2 py-0.5 ${
-                active
-                  ? 'bg-emerald-900/40 text-emerald-300'
-                  : 'bg-slate-700/60 text-slate-400'
-              }`}
-            >
-              {active ? '● Active' : '○ Inactive'}
-            </span>
-          </div>
+            <div className="rule-thin" />
+
+            <div>
+              <div className="kicker mb-2">Usage</div>
+              <label className="flex cursor-pointer items-start gap-2 text-body text-ink-muted">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 accent-accent"
+                  checked={design.enabled}
+                  onChange={(e) => setDesign((d) => ({ ...d, enabled: e.target.checked }))}
+                />
+                Include in generations
+              </label>
+            </div>
+          </aside>
         </div>
-      </div>
+      </section>
 
       {/* Larger preview modal */}
       {preview &&
@@ -277,26 +313,27 @@ export default function DesignPanel() {
           const r = resolveStyle(s, mode, preview.accentId, preview.bgId)
           return (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+              className="fixed inset-0 z-modal flex items-center justify-center bg-ink/60 p-4"
               onClick={() => setPreview(null)}
             >
               <div
-                className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+                className="w-full max-w-3xl overflow-hidden rounded-2xl border border-line bg-raised shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 <ScaledMockup p={r.preview} name={s.name} />
-                <div className="flex items-center justify-between gap-3 border-t border-slate-700 p-4">
+                <div className="flex items-center justify-between gap-3 border-t border-line-soft p-4">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-slate-100">{s.name}</div>
-                    <div className="truncate text-xs text-slate-500">{s.description}</div>
+                    <div className="kicker">Style preset</div>
+                    <div className="truncate font-serif text-h3 text-ink">{s.name}</div>
+                    <div className="truncate text-body-sm text-ink-faint">{s.description}</div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <button type="button" className="btn-ghost text-sm" onClick={() => setPreview(null)}>
+                    <button type="button" className="btn-ghost" onClick={() => setPreview(null)}>
                       Close
                     </button>
                     <button
                       type="button"
-                      className="btn-primary text-sm"
+                      className="btn-primary"
                       onClick={() => {
                         applyStyle(s, preview.accentId, preview.bgId)
                         setPreview(null)
@@ -450,10 +487,12 @@ function AccentPill({ color, active, onClick, title }: { color: string; active: 
       type="button"
       onClick={onClick}
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       className={`h-4 w-4 rounded-full border transition ${
         active
-          ? 'border-white/50 ring-2 ring-white/70 ring-offset-1 ring-offset-slate-800'
-          : 'border-black/25 hover:scale-110'
+          ? 'border-ink/40 ring-2 ring-ink ring-offset-1 ring-offset-surface'
+          : 'border-ink/25 hover:scale-110'
       }`}
       style={{ background: color }}
     />

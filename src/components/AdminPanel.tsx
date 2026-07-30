@@ -69,100 +69,115 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-        <h2 className="mb-1 text-lg font-semibold text-slate-100">Admin</h2>
-        <p className="mb-4 text-sm text-slate-400">Manage users and sign-ups for this Mocky instance.</p>
+    <div className="border border-line bg-surface px-6 py-6">
+      <header className="rule-double pb-3">
+        <span className="kicker text-accent-ink">Admin</span>
+        <h2 className="mt-1 text-h2 text-ink">Instance</h2>
+        <p className="measure mt-2 text-body text-ink-muted">
+          Manage users and sign-ups for this Mocky instance.
+        </p>
+      </header>
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-rose-700/50 bg-rose-900/30 p-2 text-xs text-rose-200">{error}</div>
-        )}
+      {error && (
+        <div className="mt-4 border border-danger/50 bg-danger/10 p-2 text-body-sm text-danger">{error}</div>
+      )}
 
-        {/* Registration toggle */}
-        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/40 p-3">
-          <span>
-            <span className="block text-sm font-medium text-slate-200">Allow public sign-ups</span>
-            <span className="block text-xs text-slate-500">
-              When off, only you can create accounts (below). New visitors can still sign in.
-            </span>
-          </span>
-          <input type="checkbox" className="h-5 w-5 accent-indigo-500" checked={allowReg} onChange={toggleReg} />
-        </label>
-
-        {/* Add user */}
-        <form onSubmit={addUser} className="mt-4 rounded-xl border border-slate-700 bg-slate-900/40 p-3">
-          <div className="mb-2 text-sm font-medium text-slate-200">Add a user</div>
-          <div className="flex flex-wrap items-end gap-2">
-            <input
-              className="input min-w-[140px] flex-1"
-              placeholder="username"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <input
-              className="input min-w-[140px] flex-1"
-              type="password"
-              placeholder="password (min 6)"
-              value={newPass}
-              onChange={(e) => setNewPass(e.target.value)}
-            />
-            <select
-              className="input w-28"
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}
-            >
-              <option value="user">user</option>
-              <option value="admin">admin</option>
-            </select>
-            <button type="submit" className="btn-primary" disabled={adding || newName.trim().length < 3 || newPass.length < 6}>
-              {adding ? 'Adding…' : 'Add'}
-            </button>
+      <div className="mt-6 grid gap-x-12 gap-y-8 lg:grid-cols-2">
+        <section>
+          <div className="section-head">
+            <span className="kicker text-accent-ink">Access</span>
           </div>
-        </form>
+
+          {/* Registration toggle */}
+          <label className="flex cursor-pointer items-center justify-between gap-3 border border-line-soft bg-ink/5 p-3">
+            <span>
+              <span className="block text-body font-medium text-ink">Allow public sign-ups</span>
+              <span className="measure block text-body-sm text-ink-muted">
+                When off, only you can create accounts (below). New visitors can still sign in.
+              </span>
+            </span>
+            <input type="checkbox" className="h-5 w-5 accent-accent" checked={allowReg} onChange={toggleReg} />
+          </label>
+
+          {/* Add user */}
+          <form onSubmit={addUser} className="mt-4 border border-line-soft bg-ink/5 p-3">
+            <div className="kicker mb-2">Add a user</div>
+            <div className="flex flex-wrap items-end gap-2">
+              <input
+                className="input min-w-[140px] flex-1"
+                placeholder="username"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <input
+                className="input min-w-[140px] flex-1"
+                type="password"
+                placeholder="password (min 6)"
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+              />
+              <select
+                className="input w-28"
+                value={newRole}
+                onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}
+              >
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+              </select>
+              <button type="submit" className="btn-primary" disabled={adding || newName.trim().length < 3 || newPass.length < 6}>
+                {adding ? 'Adding…' : 'Add'}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        {/* Users list */}
+        <section>
+          <div className="section-head">
+            <span className="kicker text-accent-ink">Users</span>
+            <span className="ml-auto font-mono text-caption text-accent-ink">{users.length}</span>
+          </div>
+          {loading ? (
+            <p className="text-body text-ink-faint">Loading…</p>
+          ) : (
+            <ul className="border-t border-line-soft">
+              {users.map((u) => (
+                <li key={u.id} className="flex items-center gap-3 border-b border-line-soft py-2">
+                  <span className="text-body text-ink">{u.username}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-caption font-semibold uppercase ${
+                      u.role === 'admin' ? 'bg-accent/10 text-accent-ink' : 'bg-ink/5 text-ink-muted'
+                    }`}
+                  >
+                    {u.role}
+                  </span>
+                  <span className="font-mono text-body-sm text-ink-faint">
+                    {new Date(u.createdAt).toLocaleDateString()}
+                  </span>
+                  <div className="ml-auto">
+                    {u.username === currentUsername ? (
+                      <span className="text-body-sm text-ink-faint">you</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="border border-danger/60 px-2 py-1 text-body-sm text-danger hover:bg-danger/10"
+                        onClick={() => removeUser(u)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       {/* Instance-wide model providers */}
-      <TextProviderSettings />
-      <ImageProviderSettings />
-
-      {/* Users list */}
-      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-6 shadow-xl">
-        <div className="mb-3 text-sm font-medium text-slate-200">Users · {users.length}</div>
-        {loading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
-        ) : (
-          <ul className="space-y-1">
-            {users.map((u) => (
-              <li
-                key={u.id}
-                className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-2"
-              >
-                <span className="text-sm text-slate-100">{u.username}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                    u.role === 'admin' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  {u.role}
-                </span>
-                <span className="text-xs text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</span>
-                <div className="ml-auto">
-                  {u.username === currentUsername ? (
-                    <span className="text-xs text-slate-500">you</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="rounded-md border border-rose-800/60 px-2 py-1 text-xs text-rose-300 hover:bg-rose-900/30"
-                      onClick={() => removeUser(u)}
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 xl:grid-cols-2">
+        <TextProviderSettings />
+        <ImageProviderSettings />
       </div>
     </div>
   )

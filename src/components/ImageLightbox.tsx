@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { imageUrl, imageDownloadUrl, listLibrary, type LibraryImage } from '../lib/imageLibrary'
+import { Button, Icon } from '../ui'
 
 /**
  * Full-size view of a generated image. Thumbnails alone made it impossible to
@@ -61,7 +62,7 @@ export default function ImageLightbox({
   return (
     <div
       ref={scrollRef}
-      className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-slate-950/90 backdrop-blur-sm"
+      className="fixed inset-0 z-top overflow-y-auto overscroll-contain bg-ink/60"
       onClick={onClose}
     >
       {/* Pinned actions — reachable no matter how long the prompt is. */}
@@ -69,9 +70,10 @@ export default function ImageLightbox({
         <a
           href={imageDownloadUrl(hash)}
           onClick={(e) => e.stopPropagation()}
-          className="pointer-events-auto rounded-lg border border-slate-600 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-200 shadow-lg hover:bg-slate-800"
+          className="pointer-events-auto inline-flex items-center gap-1.5 border border-line bg-raised px-3 py-1.5 text-body-sm text-ink transition hover:border-accent hover:text-accent-ink"
         >
-          ⬇ Télécharger
+          <Icon name="download" size={16} />
+          Télécharger
         </a>
         <button
           type="button"
@@ -79,10 +81,11 @@ export default function ImageLightbox({
             e.stopPropagation()
             onClose()
           }}
-          className="pointer-events-auto rounded-lg border border-slate-600 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-200 shadow-lg hover:bg-slate-800"
+          className="pointer-events-auto inline-flex items-center gap-1.5 border border-line bg-raised px-3 py-1.5 text-body-sm text-ink transition hover:bg-ink/5"
           title="Fermer (Échap)"
         >
-          ✕ Fermer
+          <Icon name="close" size={16} />
+          Fermer
         </button>
       </div>
 
@@ -97,14 +100,18 @@ export default function ImageLightbox({
         />
 
         {info && (
-          <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-400">
-            <span>
+          <div className="flex flex-wrap items-center justify-center gap-2 border border-line bg-raised px-3 py-1.5 text-caption text-ink-muted">
+            <span className="font-mono">
               {info.width}×{info.height}
             </span>
             <span>· {info.provider}</span>
-            {info.seed != null && <span>· seed {info.seed}</span>}
+            {info.seed != null && (
+              <span>
+                · seed <span className="font-mono">{info.seed}</span>
+              </span>
+            )}
             {(info.tags || []).map((t) => (
-              <span key={t} className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-300">
+              <span key={t} className="rounded bg-ink/5 px-1.5 py-0.5 text-ink-muted">
                 {t}
               </span>
             ))}
@@ -112,25 +119,24 @@ export default function ImageLightbox({
         )}
 
         <div
-          className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900/95 p-3 text-xs text-slate-300"
+          className="measure w-full border border-line bg-raised p-3 text-body-sm text-ink-muted"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Prompt</span>
+          <div className="rule-thin mb-1.5 flex items-center justify-between gap-2 pb-1.5">
+            <span className="kicker text-accent-ink">Prompt</span>
             {info?.prompt && (
-              <button
-                type="button"
-                onClick={copyPrompt}
-                className="rounded border border-slate-700 px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-              >
-                {copied ? '✓ copié' : '⧉ copier'}
-              </button>
+              <Button variant="ghost" size="sm" onClick={copyPrompt}>
+                <Icon name={copied ? 'check' : 'copy'} size={14} />
+                {copied ? 'copié' : 'copier'}
+              </Button>
             )}
           </div>
           <p className="whitespace-pre-wrap break-words leading-snug">{info?.prompt || 'Chargement…'}</p>
         </div>
 
-        <p className="text-[11px] text-slate-500">Échap ou clic à l’extérieur pour fermer</p>
+        <p className="border border-line-soft bg-raised px-2 py-1 text-caption text-ink-muted">
+          Échap ou clic à l’extérieur pour fermer
+        </p>
       </div>
     </div>
   )

@@ -1,58 +1,192 @@
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-  --page-bg: #0f172a;
-  --dot: rgba(148, 163, 184, 0.28);
-  --frame-shadow: 0 18px 44px -14px rgba(0, 0, 0, 0.7), 0 4px 12px -6px rgba(0, 0, 0, 0.5);
-}
+@layer base {
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+  }
 
-[data-theme='light'] {
-  color-scheme: light;
-  --page-bg: #e9e0cd;
-  --dot: rgba(120, 104, 72, 0.4);
-  --frame-shadow: 0 20px 48px -14px rgba(95, 80, 45, 0.4), 0 4px 14px -6px rgba(95, 80, 45, 0.25);
-}
+  body {
+    background: rgb(var(--sunken));
+    color: rgb(var(--ink));
+    font-family: theme('fontFamily.sans');
+    font-size: theme('fontSize.body[0]');
+    line-height: theme('fontSize.body[1].lineHeight');
+    -webkit-font-smoothing: antialiased;
+  }
 
-body {
-  margin: 0;
-  background: var(--page-bg);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /*
+   * Visible focus, everywhere, once.
+   *
+   * There were four `focus:` declarations in the entire application, three of
+   * them inside a single `.input` rule — so none of the 107 buttons showed any
+   * focus state at all. You could Tab through the whole product without ever
+   * seeing where you were. Worse, the most important field in the onboarding
+   * (the prompt box on the welcome screen) explicitly cancelled it with
+   * `focus:ring-0` on top of an `outline-none`.
+   *
+   * `:where()` keeps specificity at zero, so a component can still override it
+   * deliberately — but it now has to be deliberate.
+   */
+  :where(a, button, input, select, textarea, summary, [tabindex], [role='button']):focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /*
+   * Headlines are set in the serif. This single rule is most of what separates
+   * "a monochrome app" from "a printed page": a grotesque headline reads as UI
+   * chrome, a serif one reads as an article.
+   */
+  :where(h1, h2, h3) {
+    font-family: theme('fontFamily.serif');
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: rgb(var(--ink));
+    color: rgb(var(--surface));
+  }
 }
 
 @layer components {
+  /*
+   * ---- Newspaper devices -------------------------------------------------
+   * Four things do nearly all the work of making a screen look printed: a
+   * serif headline, a kicker above it, rules that vary in weight, and columns.
+   */
+
+  /** The masthead: the paper's name, set large in the serif. */
+  .masthead {
+    @apply font-serif font-semibold tracking-tight text-ink;
+    font-variant-ligatures: common-ligatures;
+  }
+
+  /**
+   * A kicker — the small line that sits ABOVE a headline in print
+   * ("BUSINESS", "OPINION"). Used here for section labels, panel titles and
+   * field groups. Small, uppercase, widely letterspaced: unmistakably editorial
+   * and it costs no vertical space.
+   */
+  .kicker {
+    @apply text-caption font-semibold uppercase text-ink-muted;
+    letter-spacing: 0.14em;
+  }
+
+  /**
+   * The double rule under a masthead — one heavy line, a gap, one hairline.
+   * Drawn with a border plus a box-shadow so it stays a single element.
+   */
+  .rule-double {
+    border-bottom: 2px solid rgb(var(--line));
+    box-shadow: 0 3px 0 -2px rgb(var(--line) / 0.55);
+  }
+
+  /** A thin rule for section breaks inside a page. */
+  .rule-thin {
+    @apply border-b border-line-soft;
+  }
+
+  /**
+   * Long-form reading measure. Prose wider than ~72 characters is genuinely
+   * harder to read, which is why newspapers use columns at all — so full-width
+   * pages set their body text with this rather than stretching it edge to edge.
+   */
+  .measure {
+    max-width: 68ch;
+  }
+
+  /**
+   * The page format.
+   *
+   * Pages used to be trapped in `max-w-4xl` (896px), which wasted half of a wide
+   * screen. Removing the cap went too far the other way: on a 2000px display the
+   * content ran bezel to bezel, the eye had to travel the whole width to link a
+   * project name on the left with its date on the right, and nothing framed the
+   * page.
+   *
+   * A newspaper has a fixed format, and this is it. Below 1440px it behaves like
+   * full width; above, the page stops and sits centred on the press bed. One
+   * value, one place to tune it.
+   */
+  .page {
+    width: 100%;
+    max-width: 1440px;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  /**
+   * The wider format, for pages that are a grid of pictures rather than a page
+   * of text — the image library. Columns there carry no reading measure, so more
+   * of them is simply more useful.
+   */
+  .page-wide {
+    width: 100%;
+    max-width: 1760px;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  /** A standing head: kicker + rule, the way a section starts in print. */
+  .section-head {
+    @apply mb-4 flex items-baseline gap-3 border-b border-line pb-2;
+  }
+}
+
+@layer components {
+  /*
+   * These three are kept because they are used across the app and predate the
+   * `src/ui/` primitives. New code should reach for <Button> / <Input> instead;
+   * both render exactly these treatments.
+   */
   .input {
-    @apply w-full rounded-lg border border-slate-600 bg-slate-900/70 px-3 py-2 text-sm text-slate-100
-      placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30;
+    @apply w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink
+      placeholder:text-ink-faint outline-none transition
+      focus:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
   }
+
   .btn-primary {
-    @apply rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition
-      hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-8 items-center justify-center gap-1.5 border border-accent bg-accent
+      px-4 py-1.5 text-body-sm font-medium text-on-accent transition
+      hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
   }
+
   .btn-ghost {
-    @apply rounded-lg border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-700/60;
+    @apply inline-flex min-h-8 items-center justify-center gap-1.5 border border-line-soft
+      px-3 py-1.5 text-body-sm font-medium text-ink transition
+      hover:border-line disabled:cursor-not-allowed disabled:opacity-50;
   }
+
+  /* Canvas frames: a hairline rule, not a drop shadow. */
   .frame-shadow {
-    box-shadow: var(--frame-shadow);
+    box-shadow: theme('boxShadow.frame');
   }
 }
 
 /*
- * Animated multicolor ring drawn around a frame while it is regenerating /
- * updating. The wrapper masks its content to a padding band (a border ring) so
- * the center stays transparent and never covers the preview. Inside, an
- * oversized conic-gradient element spins with transform:rotate — this sweeps the
- * colors around the ring and works in every browser (no @property needed, which
- * PostCSS does not reliably register from a CSS file).
+ * Animated ring drawn around a frame while it regenerates. The wrapper masks
+ * its content to a padding band so the centre stays transparent and never
+ * covers the preview; an oversized conic gradient spins inside it.
+ *
+ * Recoloured for the editorial direction: the old version swept six saturated
+ * hues right next to the mockup being judged. It is now the accent alone,
+ * fading to nothing.
  */
 .mocky-regen-ring {
   overflow: hidden;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.6)) drop-shadow(0 0 12px rgba(168, 85, 247, 0.35));
+  mask-composite: exclude;
 }
 .mocky-regen-ring::before {
   content: '';
@@ -62,141 +196,31 @@ body {
   width: 250%;
   height: 250%;
   background: conic-gradient(
-    #6366f1, #ec4899, #f59e0b, #10b981, #22d3ee, #a855f7, #6366f1
+    rgb(var(--accent)) 0deg,
+    rgb(var(--accent) / 0.15) 90deg,
+    rgb(var(--accent) / 0.15) 270deg,
+    rgb(var(--accent)) 360deg
   );
-  animation: mocky-ring-spin 3s linear infinite;
+  animation: mocky-ring-spin 2.4s linear infinite;
 }
 @keyframes mocky-ring-spin {
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to   { transform: translate(-50%, -50%) rotate(360deg); }
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
+
 @media (prefers-reduced-motion: reduce) {
-  .mocky-regen-ring::before { animation: none; }
+  .mocky-regen-ring::before {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
-
-/*
- * Light theme — remaps the slate utilities the app uses to a warm beige
- * palette. Written unlayered so it wins over Tailwind's utility layer.
- * Dark theme is the default (plain slate utilities).
- */
-[data-theme='light'] .bg-slate-900 { background-color: #e9e0cd; }
-[data-theme='light'] .bg-slate-950 { background-color: #efe7d6; }
-[data-theme='light'] .bg-slate-950\/80 { background-color: rgba(45, 38, 28, 0.55); }
-[data-theme='light'] .bg-slate-800 { background-color: #fbf7ef; }
-[data-theme='light'] .bg-slate-800\/40 { background-color: rgba(251, 247, 239, 0.6); }
-[data-theme='light'] .bg-slate-800\/50 { background-color: rgba(251, 247, 239, 0.72); }
-[data-theme='light'] .bg-slate-800\/60 { background-color: rgba(251, 247, 239, 0.85); }
-[data-theme='light'] .bg-slate-800\/90 { background-color: rgba(251, 247, 239, 0.95); }
-[data-theme='light'] .bg-slate-900\/40 { background-color: #f1ead9; }
-[data-theme='light'] .bg-slate-900\/85 { background-color: rgba(251, 247, 239, 0.92); }
-[data-theme='light'] .bg-slate-900\/90 { background-color: rgba(251, 247, 239, 0.95); }
-[data-theme='light'] .bg-slate-900\/95 { background-color: rgba(251, 247, 239, 0.97); }
-[data-theme='light'] .bg-slate-700 { background-color: #e3d8c2; }
-[data-theme='light'] .bg-slate-700\/60 { background-color: rgba(227, 216, 194, 0.6); }
-[data-theme='light'] .bg-slate-700\/70 { background-color: rgba(227, 216, 194, 0.7); }
-[data-theme='light'] .bg-slate-600 { background-color: #d6c9af; }
-
-[data-theme='light'] .text-slate-100 { color: #2b261e; }
-[data-theme='light'] .text-slate-200 { color: #3b3327; }
-[data-theme='light'] .text-slate-300 { color: #4d4435; }
-[data-theme='light'] .text-slate-400 { color: #877c68; }
-[data-theme='light'] .text-slate-500 { color: #a89b81; }
-[data-theme='light'] .text-slate-600 { color: #bcb097; }
-
-[data-theme='light'] .border-slate-600 { border-color: #d2c6ad; }
-[data-theme='light'] .border-slate-700 { border-color: #dccfb6; }
-[data-theme='light'] .border-slate-700\/70 { border-color: rgba(220, 207, 182, 0.7); }
-[data-theme='light'] .border-slate-800 { border-color: #e4dac5; }
-[data-theme='light'] .ring-slate-700 { --tw-ring-color: #cfc2a6; }
-
-/* Hover / placeholder variants */
-[data-theme='light'] .hover\:bg-slate-800:hover { background-color: #f3eee3; }
-[data-theme='light'] .hover\:bg-slate-700:hover { background-color: #e3d8c2; }
-[data-theme='light'] .hover\:bg-slate-700\/60:hover { background-color: rgba(227, 216, 194, 0.6); }
-[data-theme='light'] .hover\:bg-slate-600:hover { background-color: #d6c9af; }
-[data-theme='light'] .hover\:border-slate-600:hover { border-color: #c8bb9f; }
-[data-theme='light'] .hover\:text-slate-200:hover { color: #3b3327; }
-[data-theme='light'] .hover\:text-slate-300:hover { color: #4d4435; }
-
-/* Centralised component classes */
-[data-theme='light'] .input {
-  background-color: #ffffff;
-  border-color: #d8cdb8;
-  color: #2b261e;
-}
-[data-theme='light'] .input::placeholder { color: #a89b81; }
-[data-theme='light'] .btn-ghost {
-  border-color: #d8cdb8;
-  color: #3b3327;
-}
-[data-theme='light'] .btn-ghost:hover { background-color: rgba(227, 216, 194, 0.6); }
-
-/*
- * "Mocky" light theme — clean off-white palette with the logo's teal accent
- * (indigo utilities are remapped to teal). Also unlayered so it wins.
- */
-[data-theme='logo'] { color-scheme: light; --page-bg: #eef1ec; --dot: rgba(70, 120, 108, 0.34); --frame-shadow: 0 20px 48px -14px rgba(45, 90, 80, 0.32), 0 4px 14px -6px rgba(45, 90, 80, 0.2); }
-
-[data-theme='logo'] .bg-slate-900 { background-color: #eef1ec; }
-[data-theme='logo'] .bg-slate-950 { background-color: #e7ebe5; }
-[data-theme='logo'] .bg-slate-950\/80 { background-color: rgba(30, 45, 41, 0.5); }
-[data-theme='logo'] .bg-slate-800 { background-color: #ffffff; }
-[data-theme='logo'] .bg-slate-800\/40 { background-color: rgba(255, 255, 255, 0.6); }
-[data-theme='logo'] .bg-slate-800\/50 { background-color: rgba(255, 255, 255, 0.72); }
-[data-theme='logo'] .bg-slate-800\/60 { background-color: rgba(255, 255, 255, 0.85); }
-[data-theme='logo'] .bg-slate-800\/90 { background-color: rgba(255, 255, 255, 0.95); }
-[data-theme='logo'] .bg-slate-900\/40 { background-color: #f2f5f1; }
-[data-theme='logo'] .bg-slate-900\/85 { background-color: rgba(255, 255, 255, 0.92); }
-[data-theme='logo'] .bg-slate-900\/90 { background-color: rgba(255, 255, 255, 0.95); }
-[data-theme='logo'] .bg-slate-900\/95 { background-color: rgba(255, 255, 255, 0.97); }
-[data-theme='logo'] .bg-slate-700 { background-color: #e4ebe6; }
-[data-theme='logo'] .bg-slate-700\/60 { background-color: rgba(228, 235, 230, 0.6); }
-[data-theme='logo'] .bg-slate-700\/70 { background-color: rgba(228, 235, 230, 0.7); }
-[data-theme='logo'] .bg-slate-600 { background-color: #d3ddd6; }
-
-[data-theme='logo'] .text-slate-100 { color: #21302b; }
-[data-theme='logo'] .text-slate-200 { color: #32403a; }
-[data-theme='logo'] .text-slate-300 { color: #45524c; }
-[data-theme='logo'] .text-slate-400 { color: #6d7d76; }
-[data-theme='logo'] .text-slate-500 { color: #93a29b; }
-[data-theme='logo'] .text-slate-600 { color: #aab7b0; }
-
-[data-theme='logo'] .border-slate-600 { border-color: #cdd6cf; }
-[data-theme='logo'] .border-slate-700 { border-color: #dbe2dc; }
-[data-theme='logo'] .border-slate-700\/70 { border-color: rgba(219, 226, 220, 0.7); }
-[data-theme='logo'] .border-slate-800 { border-color: #e6ebe4; }
-[data-theme='logo'] .ring-slate-700 { --tw-ring-color: #cfd8d0; }
-
-[data-theme='logo'] .hover\:bg-slate-800:hover { background-color: #f3f6f1; }
-[data-theme='logo'] .hover\:bg-slate-700:hover { background-color: #e4ebe6; }
-[data-theme='logo'] .hover\:bg-slate-700\/60:hover { background-color: rgba(228, 235, 230, 0.6); }
-[data-theme='logo'] .hover\:bg-slate-600:hover { background-color: #d3ddd6; }
-[data-theme='logo'] .hover\:border-slate-600:hover { border-color: #c1ccc3; }
-[data-theme='logo'] .hover\:text-slate-200:hover { color: #32403a; }
-[data-theme='logo'] .hover\:text-slate-300:hover { color: #45524c; }
-
-[data-theme='logo'] .input { background-color: #ffffff; border-color: #d5ddd6; color: #21302b; }
-[data-theme='logo'] .input::placeholder { color: #93a29b; }
-[data-theme='logo'] .input:focus { border-color: #2ba393; box-shadow: 0 0 0 2px rgba(43, 163, 147, 0.28); }
-[data-theme='logo'] .btn-ghost { border-color: #d5ddd6; color: #32403a; }
-[data-theme='logo'] .btn-ghost:hover { background-color: rgba(228, 235, 230, 0.6); }
-
-/* Accent → logo teal */
-[data-theme='logo'] .bg-indigo-500 { background-color: #2ba393; }
-[data-theme='logo'] .bg-indigo-400 { background-color: #3ab6a4; }
-[data-theme='logo'] .hover\:bg-indigo-400:hover { background-color: #34b6a4; }
-[data-theme='logo'] .hover\:bg-indigo-700:hover { background-color: #1e8474; }
-[data-theme='logo'] .border-indigo-500 { border-color: #2ba393; }
-[data-theme='logo'] .ring-indigo-500 { --tw-ring-color: #2ba393; }
-[data-theme='logo'] .text-indigo-100 { color: #eafaf6; }
-[data-theme='logo'] .text-indigo-300 { color: #2ba393; }
-[data-theme='logo'] .bg-indigo-500\/10 { background-color: rgba(43, 163, 147, 0.12); }
-[data-theme='logo'] .bg-indigo-500\/15 { background-color: rgba(43, 163, 147, 0.16); }
-[data-theme='logo'] .bg-indigo-500\/20 { background-color: rgba(43, 163, 147, 0.2); }
-[data-theme='logo'] .bg-indigo-500\/30 { background-color: rgba(43, 163, 147, 0.3); }
-[data-theme='logo'] .bg-indigo-400\/15 { background-color: rgba(58, 182, 164, 0.16); }
-[data-theme='logo'] .bg-indigo-400\/20 { background-color: rgba(58, 182, 164, 0.2); }
-[data-theme='logo'] .border-indigo-400 { border-color: #3ab6a4; }
-[data-theme='logo'] .border-indigo-500\/60:hover, [data-theme='logo'] .hover\:border-indigo-500\/60:hover { border-color: rgba(43, 163, 147, 0.6); }
-[data-theme='logo'] .btn-primary { background-color: #2ba393; }
-[data-theme='logo'] .btn-primary:hover { background-color: #34b6a4; }

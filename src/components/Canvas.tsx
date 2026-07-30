@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { MIN_H, MIN_W, slotPosition, type Screen } from '../lib/project'
 import Preview, { type PickInfo } from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
+import { Icon, IconButton } from '../ui'
 
 interface ViewState {
   x: number
@@ -17,6 +18,43 @@ interface Box {
 
 const MIN_SCALE = 0.05
 const MAX_SCALE = 1.5
+
+/**
+ * What the Muse image beside a frame was for.
+ *
+ * The badge used to read "Image Muse" whatever the image was, so there was no
+ * way to tell a reference the model merely looked at from a picture actually
+ * placed in the screen — and therefore no way to check that inspiration mode was
+ * doing anything. Screens generated before the role was recorded fall back to
+ * 'unknown', which says so rather than guessing.
+ */
+const IMAGE_ROLE: Record<
+  'content' | 'inspiration' | 'both' | 'unknown',
+  { label: string; icon: 'image' | 'sparkle' | 'wand'; title: string }
+> = {
+  content: {
+    label: 'Insérée',
+    icon: 'image',
+    title: 'Image de CONTENU — elle est placée dans l’écran comme une vraie <img>. Cliquer pour l’ouvrir en grand.',
+  },
+  inspiration: {
+    label: 'Inspiration',
+    icon: 'sparkle',
+    title:
+      'Image d’INSPIRATION — elle n’est PAS dans l’écran : elle a été montrée au modèle comme référence d’art direction (palette, lumière, composition). Cliquer pour l’ouvrir en grand.',
+  },
+  both: {
+    label: 'Insérée + réf.',
+    icon: 'wand',
+    title:
+      'Image de CONTENU ET référence — elle est placée dans l’écran, et le modèle l’a vue pour composer autour. Cliquer pour l’ouvrir en grand.',
+  },
+  unknown: {
+    label: 'Image Muse',
+    icon: 'image',
+    title: 'Image Muse — son rôle n’a pas été enregistré (écran généré avant cette distinction).',
+  },
+}
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
@@ -125,7 +163,7 @@ export default function Canvas({
   regenLabel?: string
   /** The screen pinned as the project's shared-layout reference, if any. */
   referenceScreenId?: string
-  /** Open the per-screen context menu at client coords (right-click or ⋯). */
+  /** Open the per-screen context menu at client coords (right-click or the label's More button). */
   onScreenContextMenu?: (screenId: string, x: number, y: number) => void
   /** Reports a screen's rendered content height (px) for the "Full height" format. */
   onContentHeight?: (screenId: string, height: number) => void
@@ -134,7 +172,7 @@ export default function Canvas({
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
   const [spaceDown, setSpaceDown] = useState(false)
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
-  /** Screen whose original prompt is currently displayed (💬 button). */
+  /** Screen whose original prompt is currently displayed (the comment button). */
   const [promptShownId, setPromptShownId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState('')
   const [moveDelta, setMoveDelta] = useState<{ dx: number; dy: number } | null>(null)
@@ -192,12 +230,21 @@ export default function Canvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusScreenId, focusNonce])
 
-  // Space = temporary pan mode (ignored while typing in a field).
+  // Space = temporary pan mode.
+  //
+  // This listener sits on `window`, and Canvas stays mounted underneath every
+  // panel, dialog and menu the app opens. Swallowing Space for anything that is
+  // not an input therefore broke Space on every button and checkbox in the whole
+  // product — you could Tab to a control but never activate it, and the
+  // Bibliothèque checkboxes (whose only activation key IS Space) became
+  // impossible to tick. So: never intercept Space while focus is on an
+  // interactive element.
   useEffect(() => {
-    const isField = (t: EventTarget | null) =>
-      t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')
+    const isInteractive = (t: EventTarget | null) =>
+      t instanceof HTMLElement &&
+      Boolean(t.closest('input, textarea, select, button, a, [role="button"], [contenteditable], [tabindex]'))
     const down = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !isField(e.target)) {
+      if (e.code === 'Space' && !isInteractive(e.target)) {
         setSpaceDown(true)
         e.preventDefault()
       }
@@ -386,7 +433,7 @@ export default function Canvas({
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full select-none overflow-hidden bg-slate-900"
+      className="relative h-full w-full select-none overflow-hidden bg-sunken"
       style={bgStyle}
       onPointerDown={onBackgroundDown}
       onPointerMove={onPointerMove}
@@ -409,7 +456,7 @@ export default function Canvas({
             <div
               key={s.id}
               className={`absolute ${useFrame ? '' : 'frame-shadow'} ${
-                selected ? 'ring-2 ring-indigo-500' : useFrame ? '' : 'ring-1 ring-slate-700'
+                selected ? 'ring-2 ring-accent' : useFrame ? '' : 'ring-1 ring-line-soft'
               }`}
               style={{
                 left: b.x,
@@ -447,49 +494,65 @@ export default function Canvas({
                       }
                       if (e.key === 'Escape') setEditingLabelId(null)
                     }}
-                    className="rounded border border-slate-500 bg-slate-900 text-slate-100 outline-none"
+                    className="rounded border border-line bg-raised text-ink outline-none"
                     style={{ fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
                   />
                 ) : (
-                  <span className={`truncate ${selected ? 'text-indigo-300' : 'text-slate-400'}`}>
+                  <span className={`truncate ${selected ? 'text-accent' : 'text-ink-muted'}`}>
                     {referenceScreenId === s.id && (
-                      <span title="Shared-layout reference for new screens" style={{ marginRight: 3 * inv }}>📌</span>
+                      <span title="Shared-layout reference for new screens" style={{ marginRight: 3 * inv }}>
+                        <Icon
+                          name="pin"
+                          size={11 * inv}
+                          className="inline-block"
+                          style={{ verticalAlign: '-0.15em' }}
+                        />
+                      </span>
                     )}
                     {s.name}
                   </span>
                 )}
                 {selected && singleSelected && editingLabelId !== s.id && (
                   <span
-                    className="flex items-center rounded-md bg-slate-900/90 text-slate-200"
+                    className="flex items-center rounded-md border border-line bg-raised/90 text-ink"
                     style={{ gap: 2 * inv, padding: `${1 * inv}px ${2 * inv}px` }}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <LabelBtn inv={inv} title="Rename" onClick={() => { setDraftLabel(s.name); setEditingLabelId(s.id) }}>✎</LabelBtn>
+                    <LabelBtn inv={inv} title="Rename" onClick={() => { setDraftLabel(s.name); setEditingLabelId(s.id) }}>
+                      <Icon name="pencil" size={13 * inv} />
+                    </LabelBtn>
                     <LabelBtn
                       inv={inv}
                       title={s.prompt ? 'Voir le prompt qui a créé cet écran' : 'Aucun prompt enregistré'}
                       onClick={() => setPromptShownId((id) => (id === s.id ? null : s.id))}
-                    >💬</LabelBtn>
+                    >
+                      <Icon name="comment" size={13 * inv} />
+                    </LabelBtn>
                     <button
                       type="button"
                       title="More options (or right-click the screen)"
+                      aria-label="More options"
                       onClick={(e) => {
                         const r = e.currentTarget.getBoundingClientRect()
                         onScreenContextMenu?.(s.id, r.left, r.bottom)
                       }}
-                      className="rounded text-slate-200 hover:bg-white/10"
-                      style={{ padding: `${2 * inv}px ${5 * inv}px`, lineHeight: 1, fontSize: `${14 * inv}px` }}
-                    >⋯</button>
-                    <LabelBtn inv={inv} title="Delete screen" danger onClick={() => onDeleteScreen(s.id)}>🗑</LabelBtn>
+                      className="flex items-center rounded text-ink hover:bg-ink/5"
+                      style={{ padding: `${2 * inv}px ${5 * inv}px`, lineHeight: 1 }}
+                    >
+                      <Icon name="more" size={14 * inv} />
+                    </button>
+                    <LabelBtn inv={inv} title="Delete screen" danger onClick={() => onDeleteScreen(s.id)}>
+                      <Icon name="trash" size={13 * inv} />
+                    </LabelBtn>
                   </span>
                 )}
               </div>
 
-              {/* Prompt of this screen — opened from the 💬 button. Sits just
+              {/* Prompt of this screen — opened from the comment button. Sits just
                   under the label, scale-invariant so it stays readable at any zoom. */}
               {promptShownId === s.id && selected && (
                 <div
-                  className="absolute left-0 z-20 rounded-lg border border-slate-600 bg-slate-900/95 text-slate-200 shadow-xl backdrop-blur"
+                  className="absolute left-0 z-20 rounded-lg border border-line bg-raised/95 text-ink shadow-xl backdrop-blur"
                   style={{
                     top: -2 * inv,
                     width: Math.min(s.w, 420) ,
@@ -500,17 +563,25 @@ export default function Canvas({
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between" style={{ gap: 6 * inv, marginBottom: 4 * inv }}>
-                    <span className="font-medium text-fuchsia-300" style={{ fontSize: `${11 * inv}px` }}>
-                      💬 Prompt d’origine
+                    <span
+                      className="flex items-center font-medium text-muse"
+                      style={{ fontSize: `${11 * inv}px`, gap: 4 * inv }}
+                    >
+                      <Icon name="comment" size={11 * inv} />
+                      Prompt d’origine
                     </span>
                     <span className="flex items-center" style={{ gap: 2 * inv }}>
                       {s.prompt && (
-                        <LabelBtn inv={inv} title="Copier le prompt" onClick={() => navigator.clipboard?.writeText(s.prompt)}>⧉</LabelBtn>
+                        <LabelBtn inv={inv} title="Copier le prompt" onClick={() => navigator.clipboard?.writeText(s.prompt)}>
+                          <Icon name="copy" size={12 * inv} />
+                        </LabelBtn>
                       )}
-                      <LabelBtn inv={inv} title="Fermer" onClick={() => setPromptShownId(null)}>✕</LabelBtn>
+                      <LabelBtn inv={inv} title="Fermer" onClick={() => setPromptShownId(null)}>
+                        <Icon name="close" size={12 * inv} />
+                      </LabelBtn>
                     </span>
                   </div>
-                  <p className="whitespace-pre-wrap break-words leading-snug text-slate-300">
+                  <p className="whitespace-pre-wrap break-words leading-snug text-ink-muted">
                     {s.prompt || 'Aucun prompt enregistré pour cet écran (créé avant cette fonctionnalité, ou importé).'}
                   </p>
                 </div>
@@ -522,9 +593,9 @@ export default function Canvas({
               {s.imageHash && (
                 <button
                   type="button"
-                  className="absolute overflow-hidden rounded-xl border border-fuchsia-600/60 bg-slate-900 shadow-xl transition hover:border-fuchsia-400"
+                  className="absolute overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
                   style={{ left: `calc(100% + ${24 * inv}px)`, top: 0, width: 200 * inv, cursor: 'pointer' }}
-                  title="Image Muse de cet écran — cliquer pour l’ouvrir en grand"
+                  title={IMAGE_ROLE[s.imageRole ?? 'unknown'].title}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -533,10 +604,11 @@ export default function Canvas({
                 >
                   <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
                   <span
-                    className="block bg-fuchsia-950/60 text-fuchsia-200"
-                    style={{ padding: `${4 * inv}px ${6 * inv}px`, fontSize: `${11 * inv}px` }}
+                    className="flex items-center bg-muse/15 text-muse"
+                    style={{ padding: `${4 * inv}px ${6 * inv}px`, fontSize: `${11 * inv}px`, gap: 4 * inv }}
                   >
-                    🎨 Image Muse
+                    <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={11 * inv} />
+                    {IMAGE_ROLE[s.imageRole ?? 'unknown'].label}
                   </span>
                 </button>
               )}
@@ -595,11 +667,11 @@ export default function Canvas({
               {/* Regenerating badge — the existing preview stays visible underneath */}
               {regeneratingIds?.has(s.id) && (
                 <div
-                  className="pointer-events-none absolute left-1/2 top-0 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-indigo-500 font-medium text-white shadow-lg"
+                  className="pointer-events-none absolute left-1/2 top-0 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-accent font-medium text-on-accent shadow-lg"
                   style={{ marginTop: 8 * inv, paddingLeft: 10 * inv, paddingRight: 12 * inv, paddingTop: 4 * inv, paddingBottom: 4 * inv, fontSize: 12 * inv, gap: 6 * inv }}
                 >
                   <span
-                    className="animate-spin rounded-full border-white/40 border-t-white"
+                    className="animate-spin rounded-full border-on-accent/40 border-t-on-accent"
                     style={{ width: 12 * inv, height: 12 * inv, borderWidth: 2 * inv }}
                   />
                   {regenLabel || 'Regenerating…'}
@@ -616,13 +688,13 @@ export default function Canvas({
                       key={h.id}
                       className={`pointer-events-none absolute rounded border-2 ${
                         hi
-                          ? 'border-amber-400 bg-amber-400/30 ring-4 ring-amber-400/40'
-                          : 'border-indigo-500 bg-indigo-500/20'
+                          ? 'border-warn bg-warn/30 ring-4 ring-warn/40'
+                          : 'border-accent bg-accent/20'
                       }`}
                       style={{ left: h.x * bw, top: h.y * bh, width: h.w * bw, height: h.h * bh }}
                     >
                       <div
-                        className="pointer-events-auto absolute left-0 top-0 flex max-w-full items-center gap-1 rounded bg-indigo-500 px-1 font-medium text-white"
+                        className="pointer-events-auto absolute left-0 top-0 flex max-w-full items-center gap-1 rounded bg-accent px-1 font-medium text-on-accent"
                         style={{ fontSize: 10 / view.scale, transform: `translateY(-100%)` }}
                         onPointerDown={(e) => e.stopPropagation()}
                       >
@@ -632,10 +704,11 @@ export default function Canvas({
                         <button
                           type="button"
                           onClick={() => onRemoveHotspot(s.id, h.id)}
-                          className="rounded px-0.5 hover:bg-indigo-700"
+                          className="flex shrink-0 items-center rounded px-0.5 hover:bg-on-accent/20"
                           title="Remove link"
+                          aria-label="Remove link"
                         >
-                          ✕
+                          <Icon name="close" size={10 / view.scale} />
                         </button>
                       </div>
                     </div>
@@ -670,7 +743,7 @@ export default function Canvas({
                       key={handle}
                       onPointerDown={(e) => onHandleDown(e, s, handle)}
                       style={{ ...pos, cursor, borderRadius: 2 }}
-                      className="border border-white bg-indigo-500"
+                      className="border border-surface bg-accent"
                     />
                   )
                 })}
@@ -678,7 +751,7 @@ export default function Canvas({
               {/* Dimension label under a single selected frame */}
               {selected && singleSelected && (
                 <div
-                  className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-indigo-500 px-2 font-medium text-white"
+                  className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-accent px-2 font-mono font-medium text-on-accent"
                   style={{ top: b.h + 6 / view.scale, fontSize: 11 / view.scale, paddingTop: 1 / view.scale, paddingBottom: 1 / view.scale }}
                 >
                   {Math.round(b.w)} × {Math.round(b.h)}
@@ -692,7 +765,7 @@ export default function Canvas({
       {/* Marquee selection rectangle */}
       {marquee && (marquee.w > 0 || marquee.h > 0) && (
         <div
-          className="pointer-events-none absolute border border-indigo-400 bg-indigo-400/15"
+          className="pointer-events-none absolute border border-accent bg-accent/15"
           style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }}
         />
       )}
@@ -700,48 +773,52 @@ export default function Canvas({
       {/* Annotation capture rectangle */}
       {annotateRect && (annotateRect.w > 0 || annotateRect.h > 0) && (
         <div
-          className="pointer-events-none absolute border-2 border-dashed border-amber-400 bg-amber-400/15"
+          className="pointer-events-none absolute border-2 border-dashed border-warn bg-warn/15"
           style={{ left: annotateRect.x, top: annotateRect.y, width: annotateRect.w, height: annotateRect.h }}
         />
       )}
 
       {/* Zoom controls */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900/90 p-1 shadow-lg">
-        <CtrlBtn onClick={() => zoomBy(1 / 1.2)} title="Zoom out">
-          −
-        </CtrlBtn>
-        <span className="w-12 text-center text-xs text-slate-400">{Math.round(view.scale * 100)}%</span>
-        <CtrlBtn onClick={() => zoomBy(1.2)} title="Zoom in">
-          +
-        </CtrlBtn>
-        <div className="mx-1 h-5 w-px bg-slate-700" />
-        <CtrlBtn onClick={fitAll} title="Fit all">
-          ⤢
-        </CtrlBtn>
-        <CtrlBtn
+      <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg">
+        <IconButton variant="toolbar" label="Zoom out" onClick={() => zoomBy(1 / 1.2)}>
+          <Icon name="zoomOut" size={16} />
+        </IconButton>
+        <span className="w-12 text-center font-mono text-body-sm text-ink-muted">{Math.round(view.scale * 100)}%</span>
+        <IconButton variant="toolbar" label="Zoom in" onClick={() => zoomBy(1.2)}>
+          <Icon name="zoomIn" size={16} />
+        </IconButton>
+        <div className="mx-1 h-5 w-px bg-line-soft" />
+        <IconButton variant="toolbar" label="Fit all" onClick={fitAll}>
+          <Icon name="fit" size={16} />
+        </IconButton>
+        <IconButton
+          variant="toolbar"
+          label="Arrange in a grid"
           onClick={() => {
             onMoveScreens(screens.map((s, i) => ({ id: s.id, ...slotPosition(i) })))
             setTimeout(fitAll, 0)
           }}
-          title="Arrange in a grid"
         >
-          ▦
-        </CtrlBtn>
+          <Icon name="grid" size={16} />
+        </IconButton>
       </div>
 
       {/* Hint */}
-      <div className="pointer-events-none absolute right-4 top-3 text-right text-xs text-slate-500">
+      <div className="pointer-events-none absolute right-4 top-3 text-right text-body-sm text-ink-faint">
         {linkMode ? (
-          <span className="text-indigo-300">
-            🔗 Link mode — click a button/element inside a screen, then pick the target screen
+          <span className="flex items-center justify-end gap-1.5 text-accent">
+            <Icon name="link" size={15} />
+            Link mode — click a button/element inside a screen, then pick the target screen
           </span>
         ) : modifyMode ? (
-          <span className="text-fuchsia-300">
-            ✎ Modify mode — click any element inside a screen, then describe the change
+          <span className="flex items-center justify-end gap-1.5 text-muse">
+            <Icon name="pencil" size={15} />
+            Modify mode — click any element inside a screen, then describe the change
           </span>
         ) : annotateMode ? (
-          <span className="text-amber-300">
-            ✂ Annotate — drag a rectangle over a screen to snip it into the chat as a numbered reference
+          <span className="flex items-center justify-end gap-1.5 text-warn">
+            <Icon name="crop" size={15} />
+            Annotate — drag a rectangle over a screen to snip it into the chat as a numbered reference
           </span>
         ) : (
           <>Drag to select · Space/middle-drag to pan · scroll to zoom</>
@@ -770,30 +847,12 @@ function LabelBtn({
     <button
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
-      className={`rounded hover:bg-white/10 ${active ? 'bg-amber-400/20 text-amber-300' : danger ? 'text-rose-300' : 'text-slate-200'}`}
+      className={`flex items-center rounded hover:bg-ink/5 ${
+        active ? 'bg-warn/20 text-warn' : danger ? 'text-danger' : 'text-ink'
+      }`}
       style={{ padding: `${2 * inv}px ${4 * inv}px`, lineHeight: 1, fontSize: `${13 * inv}px` }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function CtrlBtn({
-  children,
-  onClick,
-  title,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  title: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className="flex h-7 w-7 items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-700/60"
     >
       {children}
     </button>

@@ -1,0 +1,200 @@
+import type { fr } from './fr'
+
+/**
+ * English — mirrors fr.ts key for key.
+ *
+ * Typed as `Record<keyof typeof fr, string>`, so removing or misspelling a key
+ * is a compile error rather than a string that quietly falls back to French.
+ */
+export const en: Record<keyof typeof fr, string> = {
+  // ---- navigation & chrome ----
+  'nav.home': 'Home',
+  'nav.design': 'DESIGN.md',
+  'nav.images': 'Images',
+  'nav.settings': 'Settings',
+  'nav.admin': 'Admin',
+  'nav.tagline': 'Chat → UI · self-hosted',
+  'nav.backHome': 'Mocky home',
+
+  'theme.toPaper': 'Switch to the Paper theme',
+  'theme.toInk': 'Switch to the Ink theme',
+  'theme.paper': 'Paper',
+  'theme.ink': 'Ink',
+
+  'lang.label': 'Language',
+
+  // ---- account ----
+  'account.signIn': 'Sign in',
+  'account.signOut': 'Sign out',
+  'account.signedInAs': 'Signed in — click to sign out',
+  'account.signOutConfirm': 'Sign out of “{name}”? Your projects stay on this device.',
+  'account.username': 'Username',
+  'account.password': 'Password',
+  'account.create': 'Create an account',
+  'account.createAdmin': 'Create the admin account',
+  'account.firstAccountIsAdmin':
+    'This is the first account on this instance — it becomes the admin. Keep the credentials: only an admin can create other accounts or configure the model.',
+  'account.required': 'Mocky needs an account — your projects and DESIGN.md are stored against it.',
+  'account.syncBlurb':
+    'Sync your projects and DESIGN.md to this Mocky instance and reach them from any device.',
+  'account.signUpsDisabled': 'Public sign-ups are disabled — ask an admin for an account.',
+  'account.keyStaysLocal': 'Your API key stays in this browser and is never sent to the server.',
+  'account.withDashy': 'Sign in with Dashy',
+  'account.backendDown': 'Mocky’s backend is not answering.',
+  'account.backendDownHelp':
+    'An account is required, and accounts live on the backend. If you started Mocky with “npm run dev”, that runs the web server only — stop it and use:',
+  'account.backendDownDocker': 'With Docker, check “docker compose logs -f”.',
+
+  // ---- sync ----
+  'sync.saving': 'Saving…',
+  'sync.failed': 'Not saved',
+  'sync.retrying': 'Retrying…',
+  'sync.failedHelp':
+    'Your changes could not be saved to the server. They are still in this browser. Click to retry.',
+  'sync.quotaFull': 'Your browser’s storage is full — recent changes could not be saved locally.',
+
+  // ---- projects ----
+  'projects.title': 'Projects',
+  'projects.new': 'New project',
+  'projects.empty': 'Create a project to start designing screens.',
+  'projects.untitled': 'Untitled project',
+  'projects.rename': 'Rename project',
+  'projects.delete': 'Delete project',
+  'projects.deleteConfirm': 'Delete “{name}” and all its screens?',
+  'projects.open': 'Open',
+  'projects.screenCount': '{count} screen(s)',
+  'projects.search': 'Search projects…',
+
+  'projects.contents': "Contents",
+  'projects.lead': "Lead",
+  'projects.recent': "Other projects",
+  'projects.empties': "Empty drafts",
+  'projects.emptiesHint': "Projects with no screen — delete them if you are not coming back to them.",
+  'projects.noMatch': "No project matches “{q}”.",
+  'projects.updated': "updated {when}",
+  'projects.screens_one': "1 screen",
+  'projects.screens_other': "{count} screens",
+  'projects.noScreens': "no screens",
+  'projects.openProject': "Open “{name}”",
+  'time.justNow': "just now",
+  'time.minutes': "{n}m ago",
+  'time.hours': "{n}h ago",
+  'time.days': "{n}d ago",
+
+  'projects.screensWord': "screens",
+  'projects.projectsWord': "projects",
+
+  // ---- canvas & screens ----
+  'canvas.rename': 'Rename',
+  'canvas.delete': 'Delete screen',
+  'canvas.download': 'Download .tsx',
+  'canvas.showPrompt': 'Show the request that created this screen',
+  'canvas.more': 'More options (or right-click the screen)',
+  'canvas.duplicate': 'Duplicate',
+  'canvas.arrange': 'Arrange',
+  'canvas.fit': 'Fit all',
+  'canvas.zoomIn': 'Zoom in',
+  'canvas.zoomOut': 'Zoom out',
+  'canvas.generating': 'Generating…',
+  'canvas.rendering': 'Rendering…',
+  'canvas.repairing': 'Repairing component…',
+  'canvas.regenerating': 'Regenerating…',
+
+  // ---- toolbar modes ----
+  'mode.link': 'Link',
+  'mode.modify': 'Modify',
+  'mode.interact': 'Interact',
+  'mode.annotate': 'Annotate',
+  'mode.frame': 'Frame',
+  'mode.system': 'System',
+  'mode.demo': 'Demo',
+  'mode.export': 'Export',
+
+  // ---- composer ----
+  'composer.placeholder': 'Describe another screen to add to this project…',
+  'composer.generate': 'Generate',
+  'composer.update': 'Update ({count})',
+  'composer.generating': 'Generating…',
+  'composer.stop': 'Stop',
+  'composer.brief': 'Brief',
+  'composer.briefExpand': 'Show the full brief',
+  'composer.briefCollapse': 'Collapse the brief',
+
+  // ---- Muse ----
+  'muse.title': 'Muse',
+  'muse.dossier': 'Design Dossier',
+  'muse.liveInspiration': 'Live inspiration',
+  'muse.urls': 'Inspiration URLs (Dribbble, Pinterest, a site…), one per line — optional',
+  'muse.imageMode': 'Generated image',
+  'muse.modeContent': 'Content',
+  'muse.modeInspiration': 'Inspiration',
+  'muse.modeBoth': 'Both',
+  'muse.sources': 'Sources',
+  'muse.writtenByModel': 'written by the model',
+  'muse.library': 'Library',
+
+  // ---- library ----
+  'library.title': 'Image library',
+  'library.search': 'Search prompts and tags…',
+  'library.thisProject': 'This project',
+  'library.favorites': 'Favourites',
+  'library.downloadAll': 'Download all',
+  'library.favorite': 'Add to favourites',
+  'library.unfavorite': 'Remove from favourites',
+  'library.deleteImage': 'Delete image',
+  'library.pin': 'Pin',
+  'library.unpin': 'Unpin',
+  'library.empty': 'No images yet. Generate a screen with Muse on.',
+
+  // ---- design ----
+  'design.title': 'Design system',
+  'design.kicker': 'Art direction',
+  'design.include': 'Include in generations',
+  'design.active': 'Active',
+  'design.inactive': 'Inactive',
+  'design.load': 'Load a .md',
+  'design.download': 'Download',
+  'design.clear': 'Clear',
+  'design.styles': 'Preset styles',
+
+  // ---- settings ----
+  'settings.title': 'Settings',
+  'settings.kicker': 'Your model',
+  'settings.provider': 'Provider',
+  'settings.baseUrl': 'Base URL',
+  'settings.apiKey': 'API key',
+  'settings.model': 'Model',
+  'settings.test': 'Test connection',
+  'settings.testing': 'Testing…',
+  'settings.instanceModel': 'Instance model',
+  'settings.instanceManaged':
+    'An admin has configured the model for the whole instance. There is nothing to fill in here.',
+
+  // ---- admin ----
+  'admin.title': 'Administration',
+  'admin.users': 'Accounts',
+  'admin.allowSignups': 'Allow sign-ups',
+  'admin.addUser': 'Add an account',
+  'admin.deleteUser': 'Delete account',
+  'admin.textProvider': 'Text model',
+  'admin.imageProvider': 'Image generation',
+
+  // ---- generic ----
+  'common.save': 'Save',
+  'common.cancel': 'Cancel',
+  'common.close': 'Close',
+  'common.delete': 'Delete',
+  'common.retry': 'Retry',
+  'common.loading': 'Loading…',
+  'common.error': 'Error',
+  'common.copy': 'Copy',
+  'common.copied': 'Copied',
+  'common.revert': 'Revert to the previous version',
+  'common.details': 'Technical details',
+  'common.reload': 'Reload',
+
+  // ---- errors ----
+  'error.crashed': 'Something broke',
+  'error.crashedHelp': 'Mocky could not render this screen. Your projects are saved — nothing is lost.',
+  'error.backToProjects': 'Back to projects',
+}

@@ -32,6 +32,8 @@ import {
   checkVision,
   imageAsDataUrl,
   profileForMode,
+  buildInspirationPrompt,
+  INSPIRATION_NEGATIVE,
   type MuseConfig,
   type MuseResult,
   type MuseImageMode,
@@ -40,6 +42,7 @@ import {
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
 import { matchImagesToScreens } from '../lib/imageBackfill'
 import { lintSlop } from '../lib/lint'
+import { Button, Icon, IconButton, type IconName } from '../ui'
 
 /** Fixed viewport formats offered in the screen context menu. */
 type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
@@ -50,6 +53,7 @@ const VIEWPORTS: Record<Exclude<ViewportFormat, 'full'>, { w: number; h: number;
 }
 
 const FRAME_PREF_KEY = 'mocky.showFrame'
+const BRIEF_PREF_KEY = 'mocky.brief.open'
 
 /** One-tap recolor swatches offered in the no-code Modify panel (Lot C.2). */
 const MODIFY_SWATCHES: { name: string; hex: string }[] = [
@@ -109,7 +113,7 @@ export default function ProjectView({
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // --- Muse (✨) — optional design-intelligence pass before generation ---
+  // --- Muse — optional design-intelligence pass before generation ---
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
   const [museAvail, setMuseAvail] = useState<boolean | null>(null)
   const [museResult, setMuseResult] = useState<MuseResult | null>(null)
@@ -122,6 +126,8 @@ export default function ProjectView({
   /** Image opened full size (from the canvas card or the library grid). */
   const [lightboxHash, setLightboxHash] = useState<string | null>(null)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
+  /** The brief above the composer. Folded by default: open, it eats the canvas. */
+  const [briefOpen, setBriefOpen] = useState(() => localStorage.getItem(BRIEF_PREF_KEY) === '1')
   const updateMuse = useCallback((c: MuseConfig) => {
     setMuseConfig(c)
     saveMuseConfig(c)
@@ -329,7 +335,11 @@ export default function ProjectView({
         screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt),
       )
       const res = await fixComponent(settings, screen.code, errorMessage, ac.signal, caps)
-      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName })
+      // Keep the pre-repair code so "Revert" works after an auto-fix too. Every
+      // other write path (edit, regenerate, animations, modify) already records
+      // it; this one silently overwrote the last version that the user could
+      // still fall back to.
+      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: screen.code })
     } catch {
       // Retry failed — leave the error visible to the user.
     } finally {
@@ -412,7 +422,7 @@ export default function ProjectView({
         const referencePreamble =
           refScreen && refScreen.code.trim() ? buildLayoutReference(refScreen.code) : undefined
 
-        // --- Muse (✨): build a Design Dossier + hero image and use it as the
+        // --- Muse: build a Design Dossier + hero image and use it as the
         // design authority for this screen. This supersedes DESIGN.md. Muse must
         // never block generation (M3), and when OFF the path below is byte-
         // identical to pre-Muse Mocky (M1).
@@ -432,7 +442,7 @@ export default function ProjectView({
             setMuseImages([])
             setMuseImageError(null)
             setPhase('muse')
-            setMuseStage('✨ Inspiration & rédaction du dossier…')
+            setMuseStage('Inspiration & rédaction du dossier…')
             const res = await runMuseDossier(text, {
               urls: parseUrls(museConfig.urls),
               useFetch: museConfig.useFetch,
@@ -461,10 +471,26 @@ export default function ProjectView({
               const profile = profileForMode(effectiveImageMode)
               setMuseStage(
                 profile === 'inspiration'
-                  ? '✨ Génération de l’image d’inspiration…'
-                  : '✨ Génération de l’image héro…',
+                  ? 'Génération de l’image d’inspiration…'
+                  : 'Génération de l’image héro…',
               )
-              const gen = await generateSlotImages(remaining, project.id, {
+              // In 'inspiration' the image is never embedded — it exists only to
+              // be looked at. So it is not the hero photo routed to another
+              // model (which is what it used to be, and why the mode so often
+              // changed nothing): it is an abstract art-direction plate built
+              // from the dossier's own palette and mood.
+              const slotsToRun =
+                profile === 'inspiration'
+                  ? [
+                      {
+                        id: 'art-direction',
+                        slot: 'inspiration',
+                        prompt: buildInspirationPrompt(res.dossier),
+                        negative: INSPIRATION_NEGATIVE,
+                      },
+                    ]
+                  : remaining
+              const gen = await generateSlotImages(slotsToRun, project.id, {
                 max: 1,
                 profile,
                 signal: ac.signal,
@@ -536,6 +562,11 @@ export default function ProjectView({
           links: [],
           caps: capIds,
           imageHash: museImageHash,
+          // Recorded so the canvas can say what the image was for. Without it
+          // the badge could only ever say "Image Muse", which is exactly the
+          // ambiguity that made it impossible to tell whether inspiration mode
+          // had done anything.
+          imageRole: museImageHash ? effectiveImageMode : undefined,
         })
         // Name the project after its FIRST prompt, so it stops being called
         // "Untitled project". A name the user already chose is never touched.
@@ -559,13 +590,13 @@ export default function ProjectView({
           // The code is cut mid-token; the preview would only show a cryptic
           // "Unterminated string constant". Say what actually happened.
           setError(
-            "⚠ Le modèle a atteint sa limite de tokens : l'écran est incomplet. Demande un écran plus simple (moins de sections), ou utilise un modèle avec une sortie plus longue.",
+            "Le modèle a atteint sa limite de tokens : l'écran est incomplet. Demande un écran plus simple (moins de sections), ou utilise un modèle avec une sortie plus longue.",
           )
         } else {
           // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
           const lint = lintSlop(result.code)
           if (!lint.ok) {
-            setError(`⚠ Texte générique détecté (${lint.violations.join(', ')}). Régénère pour un rendu propre.`)
+            setError(`Texte générique détecté (${lint.violations.join(', ')}). Régénère pour un rendu propre.`)
           }
         }
       }
@@ -803,6 +834,27 @@ export default function ProjectView({
     })
   }
 
+  function toggleBrief() {
+    setBriefOpen((v) => {
+      const next = !v
+      localStorage.setItem(BRIEF_PREF_KEY, next ? '1' : '0')
+      return next
+    })
+  }
+
+  /** What the brief says in one line when it is folded. */
+  const briefSummary =
+    museStage ||
+    (museImageError ? `Image non générée — ${museImageError}` : '') ||
+    museResult?.dossier?.concept ||
+    (museAvail === false
+      ? 'Backend Mocky requis'
+      : pinnedImages.length
+        ? `${pinnedImages.length} image${pinnedImages.length > 1 ? 's' : ''} épinglée${
+            pinnedImages.length > 1 ? 's' : ''
+          }`
+        : 'Inspiration, direction artistique et copie réelle')
+
   const libraryModal = (
     <>
       {showLibrary && (
@@ -914,14 +966,14 @@ export default function ProjectView({
 
       {/* Links panel (link mode) */}
       {linkMode && (
-        <div className="absolute right-4 top-11 flex max-h-[70vh] w-72 flex-col rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur">
-          <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-            <span className="text-sm font-semibold text-slate-100">
-              Links · {screens.reduce((a, s) => a + s.links.length, 0)}
+        <div className="absolute right-4 top-11 flex max-h-[70vh] w-72 flex-col rounded-xl border border-line bg-raised shadow-2xl">
+          <div className="flex items-center justify-between border-b border-line-soft px-3 py-2">
+            <span className="kicker text-accent-ink">
+              Links · <span className="font-mono">{screens.reduce((a, s) => a + s.links.length, 0)}</span>
             </span>
             <button
               type="button"
-              className="text-xs text-slate-400 hover:text-slate-200"
+              className="text-body-sm text-ink-muted hover:text-ink"
               onClick={() => setLinkMode(false)}
               title="Close link mode"
             >
@@ -930,7 +982,7 @@ export default function ProjectView({
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-2">
             {screens.every((s) => s.links.length === 0) ? (
-              <p className="p-3 text-center text-xs text-slate-500">
+              <p className="p-3 text-center text-body-sm text-ink-faint">
                 No links yet. Click a button inside a screen to create one.
               </p>
             ) : (
@@ -943,7 +995,7 @@ export default function ProjectView({
                         key={h.id}
                         onMouseEnter={() => setHighlightHotspot(h.id)}
                         onMouseLeave={() => setHighlightHotspot((cur) => (cur === h.id ? null : cur))}
-                        className="group flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-2 py-1.5"
+                        className="group flex items-center gap-2 rounded-lg border border-line-soft bg-ink/5 px-2 py-1.5"
                       >
                         <button
                           type="button"
@@ -951,19 +1003,20 @@ export default function ProjectView({
                           className="min-w-0 flex-1 text-left"
                           title="Center the canvas on this link"
                         >
-                          <div className="truncate text-xs text-slate-300">
-                            {h.label ? <span className="text-indigo-300">"{h.label}"</span> : 'element'} →{' '}
-                            <span className="text-slate-100">{target?.name ?? '(missing)'}</span>
+                          <div className="truncate text-body-sm text-ink-muted">
+                            {h.label ? <span className="text-accent-ink">"{h.label}"</span> : 'element'} →{' '}
+                            <span className="text-ink">{target?.name ?? '(missing)'}</span>
                           </div>
-                          <div className="truncate text-[10px] text-slate-500">on {s.name}</div>
+                          <div className="truncate text-caption text-ink-faint">on {s.name}</div>
                         </button>
                         <button
                           type="button"
                           onClick={() => removeHotspot(s.id, h.id)}
-                          className="shrink-0 rounded px-1 text-xs text-rose-300 hover:bg-rose-900/40"
+                          className="shrink-0 rounded px-1 py-1 text-danger hover:bg-danger/10"
+                          aria-label={`Delete link on ${s.name}`}
                           title="Delete link"
                         >
-                          ✕
+                          <Icon name="close" size={14} />
                         </button>
                       </li>
                     )
@@ -976,113 +1029,110 @@ export default function ProjectView({
       )}
 
       {/* Top-left toolbar */}
-      <div className="absolute left-4 top-3 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900/90 p-1 shadow-lg">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-slate-700/60"
-          title="Back to projects"
-        >
-          ← Back
-        </button>
-        <div className="mx-1 h-5 w-px bg-slate-700" />
-        <button
-          type="button"
+      <div className="absolute left-4 top-3 flex items-center gap-1 rounded-lg border border-line bg-surface p-1 shadow-lg">
+        <Button variant="toolbar" size="sm" onClick={onBack} title="Back to projects">
+          <Icon name="chevronLeft" size={16} />
+          Back
+        </Button>
+        <div className="mx-1 h-5 w-px bg-line-soft" />
+        <Button
+          variant="toolbar"
+          size="sm"
+          active={linkMode}
           onClick={() => {
             setLinkMode((v) => !v)
             setModifyMode(false)
             setAnnotateMode(false)
           }}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-            linkMode ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-          }`}
           title="Draw links between screens"
         >
-          🔗 Link
-        </button>
-        <button
-          type="button"
+          <Icon name="link" size={16} />
+          Link
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          active={modifyMode}
           onClick={() => {
             setModifyMode((v) => !v)
             setLinkMode(false)
             setAnnotateMode(false)
             setPendingModify(null)
           }}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-            modifyMode ? 'bg-fuchsia-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-          }`}
           title="Click an element in a screen, then describe a change — no code needed"
         >
-          ✎ Modify
-        </button>
-        <button
-          type="button"
+          <Icon name="pencil" size={16} />
+          Modify
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          active={interactAll}
           onClick={() => setInteractAll((v) => !v)}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-            interactAll ? 'bg-emerald-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-          }`}
           title="Make all screens interactive (click buttons, animations)"
         >
-          ▶ Interact
-        </button>
-        <button
-          type="button"
+          <Icon name="hand" size={16} />
+          Interact
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          active={annotateMode}
           onClick={() => {
             setAnnotateMode((v) => !v)
             setLinkMode(false)
             setModifyMode(false)
             setPendingModify(null)
           }}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-            annotateMode ? 'bg-amber-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-          }`}
           title="Snip a region of a screen into the chat as a numbered reference"
         >
-          ✂ Annotate
-        </button>
-        <button
-          type="button"
+          <Icon name="crop" size={16} />
+          Annotate
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          active={showFrame}
           onClick={toggleFrame}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-            showFrame ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-          }`}
           title="Show/hide the iPhone frame on mobile screens"
         >
-          📱 Frame
-        </button>
-        <button
-          type="button"
+          <Icon name="phone" size={16} />
+          Frame
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          active={showSystem}
           onClick={() => setShowSystem((v) => !v)}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-            showSystem ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-          }`}
           title="Live Design-system frame — see your DESIGN.md tokens and recolor them"
         >
-          🎨 System
-        </button>
-        <div className="mx-1 h-5 w-px bg-slate-700" />
-        <button
-          type="button"
+          <Icon name="image" size={16} />
+          System
+        </Button>
+        <div className="mx-1 h-5 w-px bg-line-soft" />
+        <Button
+          variant="toolbar"
+          size="sm"
           onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
-          className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-slate-700/60"
           title="Play the prototype"
         >
-          ▶ Demo
-        </button>
+          <Icon name="play" size={14} />
+          Demo
+        </Button>
         <div className="relative">
-          <button
-            type="button"
+          <Button
+            variant="toolbar"
+            size="sm"
+            active={exportMenu}
             onClick={() => setExportMenu((v) => !v)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-              exportMenu ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-700/60'
-            }`}
             title="Export a runnable Vite + React + Tailwind project"
           >
-            ⬇ Export
-          </button>
+            <Icon name="download" size={16} />
+            Export
+          </Button>
           {exportMenu && (
-            <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-xl">
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">Runnable project (.zip)</div>
+            <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-line bg-raised p-1 shadow-xl">
+              <div className="kicker px-2 py-1 text-accent-ink">Runnable project (.zip)</div>
               {([
                 ['shadcn', 'shadcn-ready', 'Theme tokens from DESIGN.md; npx shadcn add works'],
                 ['plain', 'Plain Tailwind', 'Tailwind + vendored UI components'],
@@ -1092,10 +1142,10 @@ export default function ProjectView({
                   key={stack}
                   type="button"
                   onClick={() => handleExport(stack)}
-                  className="block w-full rounded-md px-2.5 py-1.5 text-left text-xs text-slate-200 transition hover:bg-slate-700/60"
+                  className="group block w-full rounded-md px-2.5 py-1.5 text-left text-body-sm text-ink transition hover:bg-ink/5"
                 >
-                  <span className="font-medium">{label}</span>
-                  <span className="block text-[10px] text-slate-500">{hint}</span>
+                  <span className="font-medium transition group-hover:text-accent-ink">{label}</span>
+                  <span className="block text-caption text-ink-faint">{hint}</span>
                 </button>
               ))}
             </div>
@@ -1105,11 +1155,14 @@ export default function ProjectView({
 
       {/* Floating composer */}
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-        <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900/95 p-2 shadow-2xl backdrop-blur">
+        <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-line bg-surface p-2 shadow-2xl">
           {error && (
-            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-rose-700/50 bg-rose-900/30 px-3 py-2 text-xs text-rose-200">
-              <span className="truncate">{error}</span>
-              <button type="button" className="btn-ghost shrink-0 px-2 py-1 text-xs" onClick={onOpenSettings}>
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-body-sm text-danger">
+              <span className="flex min-w-0 items-center gap-2">
+                <Icon name="warning" size={16} />
+                <span className="truncate">{error}</span>
+              </span>
+              <button type="button" className="btn-ghost shrink-0 px-2 py-1 text-body-sm" onClick={onOpenSettings}>
                 Settings
               </button>
             </div>
@@ -1121,26 +1174,27 @@ export default function ProjectView({
               {annotations.map((a, i) => (
                 <div
                   key={a.id}
-                  className="group relative h-14 w-14 overflow-hidden rounded-lg border border-amber-400/60 bg-white"
+                  className="group relative h-14 w-14 overflow-hidden rounded-lg border border-warn/60 bg-surface"
                   title={`Reference [${i + 1}] — attached to the model`}
                 >
                   <img src={a.dataUrl} alt={`ref ${i + 1}`} className="h-full w-full object-cover" />
-                  <span className="absolute left-0 top-0 rounded-br bg-amber-500 px-1 text-[10px] font-bold text-white">
+                  <span className="absolute left-0 top-0 rounded-br bg-warn px-1 font-mono text-caption font-bold text-surface">
                     {i + 1}
                   </span>
                   <button
                     type="button"
                     onClick={() => setAnnotations((arr) => arr.filter((x) => x.id !== a.id))}
-                    className="absolute right-0 top-0 rounded-bl bg-black/60 px-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100"
+                    className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                    aria-label={`Remove reference ${i + 1}`}
                     title="Remove reference"
                   >
-                    ✕
+                    <Icon name="close" size={12} />
                   </button>
                 </div>
               ))}
               {capturing && (
-                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-amber-400/60">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-300/40 border-t-amber-400" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-warn/60">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-warn/40 border-t-warn" />
                 </div>
               )}
             </div>
@@ -1152,22 +1206,26 @@ export default function ProjectView({
               {selectedScreens.map((s) => (
                 <span
                   key={s.id}
-                  className="flex max-w-[200px] items-center gap-1 rounded-md bg-indigo-500 py-0.5 pl-2 pr-1 text-xs font-medium text-white"
+                  className="flex max-w-[200px] items-center gap-1 rounded-md border border-accent bg-ink py-0.5 pl-2 pr-1 text-body-sm font-medium text-surface"
                 >
-                  <span className="truncate">▦ {s.name}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Icon name="grid" size={12} />
+                    <span className="truncate">{s.name}</span>
+                  </span>
                   <button
                     type="button"
-                    className="rounded px-1 text-indigo-100 hover:bg-white/20 hover:text-white"
+                    className="rounded p-0.5 text-surface/70 transition hover:bg-surface/20 hover:text-surface"
                     onClick={() => setSelectedIds((ids) => ids.filter((i) => i !== s.id))}
+                    aria-label={`Remove ${s.name} from selection`}
                     title="Remove from selection"
                   >
-                    ✕
+                    <Icon name="close" size={12} />
                   </button>
                 </span>
               ))}
               <button
                 type="button"
-                className="ml-1 text-xs font-medium text-slate-300 underline-offset-2 hover:text-slate-100 hover:underline"
+                className="ml-1 text-body-sm font-medium text-ink-muted underline-offset-2 hover:text-ink hover:underline"
                 onClick={() => setSelectedIds([])}
               >
                 clear
@@ -1175,28 +1233,50 @@ export default function ProjectView({
             </div>
           )}
 
-          {/* Muse panel (✨) — inspiration + moodboard, only when creating a new screen */}
+          {/* The brief — inspiration + moodboard, only when creating a new screen.
+              Folded, it is one standing line; open, the whole dossier. */}
           {museConfig.enabled && !editing && (
-            <MusePanel
-              config={museConfig}
-              onChange={updateMuse}
-              available={museAvail}
-              result={museResult}
-              images={museImages}
-              stage={museStage}
-              busy={busy}
-              onOpenLibrary={() => setShowLibrary(true)}
-              pinned={pinnedImages}
-              onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
-              imageError={museImageError}
-              vision={museVision}
-            />
+            <div className="mb-2">
+              <button
+                type="button"
+                onClick={toggleBrief}
+                aria-expanded={briefOpen}
+                aria-label={briefOpen ? 'Réduire le dossier Muse' : 'Déplier le dossier Muse'}
+                className="flex w-full items-center gap-2.5 rule-thin px-0.5 pb-1.5 text-left transition hover:text-ink"
+              >
+                <span className="kicker shrink-0">Muse</span>
+                <span className="min-w-0 flex-1 truncate text-body-sm text-ink-muted">{briefSummary}</span>
+                <Icon
+                  name="chevronDown"
+                  size={16}
+                  className={`text-ink-faint transition-transform ${briefOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {briefOpen && (
+                <div className="mt-2 text-body-sm">
+                  <MusePanel
+                    config={museConfig}
+                    onChange={updateMuse}
+                    available={museAvail}
+                    result={museResult}
+                    images={museImages}
+                    stage={museStage}
+                    busy={busy}
+                    onOpenLibrary={() => setShowLibrary(true)}
+                    pinned={pinnedImages}
+                    onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
+                    imageError={museImageError}
+                    vision={museVision}
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           {/* Format preset — only relevant when creating a new screen */}
           {!editing && (
             <div className="mb-2 flex items-center gap-2">
-              <span className="text-xs text-slate-500">Format</span>
+              <span className="kicker">Format</span>
               <PresetPicker value={presetId} onChange={setPresetId} />
             </div>
           )}
@@ -1205,22 +1285,24 @@ export default function ProjectView({
             <button
               type="button"
               onClick={onOpenDesign}
-              className={`mb-1.5 shrink-0 text-xs transition ${
-                designActive ? 'text-emerald-300 hover:text-emerald-200' : 'text-slate-500 hover:text-slate-300'
+              className={`kicker mb-2 shrink-0 transition ${
+                designActive ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
               }`}
               title="Manage DESIGN.md"
             >
-              {designActive ? '● DESIGN' : '○ DESIGN'}
+              {designActive ? '● Design' : '○ Design'}
             </button>
             <button
               type="button"
               onClick={() => updateMuse({ ...museConfig, enabled: !museConfig.enabled })}
-              className={`mb-1.5 shrink-0 text-xs transition ${
-                museConfig.enabled ? 'text-fuchsia-300 hover:text-fuchsia-200' : 'text-slate-500 hover:text-slate-300'
+              className={`kicker mb-2 flex shrink-0 items-center gap-1 transition ${
+                museConfig.enabled ? 'text-muse hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
               }`}
               title="Muse — inspiration, art direction & real copy"
+              aria-pressed={museConfig.enabled}
             >
-              {museConfig.enabled ? '✨ Muse' : '✨ Muse'}
+              <Icon name="sparkle" size={14} />
+              Muse
             </button>
             <textarea
               rows={1}
@@ -1242,7 +1324,9 @@ export default function ProjectView({
               onClick={generate}
               disabled={busy || !prompt.trim()}
             >
-              {busy && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+              {busy && (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/40 border-t-on-accent" />
+              )}
               {busy
                 ? phase === 'muse'
                   ? 'Muse…'
@@ -1256,7 +1340,7 @@ export default function ProjectView({
             {busy && (
               <button
                 type="button"
-                className="btn-ghost mb-0.5 shrink-0 px-3 py-2 text-xs"
+                className="btn-ghost mb-0.5 shrink-0 px-3 py-2 text-body-sm"
                 onClick={cancelGenerate}
                 title="Cancel the in-flight generation"
               >
@@ -1270,17 +1354,18 @@ export default function ProjectView({
       {/* Target picker after drawing a hotspot */}
       {pendingLink && (
         <div
-          className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-4"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
           onClick={() => setPendingLink(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-800 p-4 shadow-2xl"
+            className="w-full max-w-sm rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-1 text-sm font-semibold text-slate-100">
-              Link {pendingLink.info.label ? `"${pendingLink.info.label}"` : 'element'} → which screen?
+            <div className="kicker mb-1 text-accent-ink">Link</div>
+            <h3 className="mb-1 text-lead text-ink">
+              {pendingLink.info.label ? `"${pendingLink.info.label}"` : 'This element'} → which screen?
             </h3>
-            <p className="mb-3 text-xs text-slate-400">
+            <p className="measure mb-3 text-body-sm text-ink-muted">
               In demo mode, clicking this element opens the chosen screen.
             </p>
             <div className="max-h-72 space-y-1 overflow-auto">
@@ -1291,18 +1376,18 @@ export default function ProjectView({
                     key={s.id}
                     type="button"
                     onClick={() => addHotspot(pendingLink.screenId, s.id)}
-                    className="block w-full truncate rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-2 text-left text-sm text-slate-200 hover:border-indigo-500 hover:bg-slate-800"
+                    className="block w-full truncate rounded-lg border border-line-soft px-3 py-2 text-left text-body text-ink transition hover:border-accent hover:bg-ink/5 hover:text-accent-ink"
                   >
                     {s.name}
                   </button>
                 ))}
               {screens.filter((s) => s.id !== pendingLink.screenId).length === 0 && (
-                <p className="text-xs text-slate-500">Add another screen first to link to it.</p>
+                <p className="text-body-sm text-ink-faint">Add another screen first to link to it.</p>
               )}
             </div>
             <button
               type="button"
-              className="btn-ghost mt-3 w-full text-xs"
+              className="btn-ghost mt-3 w-full text-body-sm"
               onClick={() => setPendingLink(null)}
             >
               Cancel
@@ -1314,29 +1399,31 @@ export default function ProjectView({
       {/* No-code element editor (Modify mode) */}
       {pendingModify && (
         <div
-          className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-4"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
           onClick={() => setPendingModify(null)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-fuchsia-700/50 bg-slate-800 p-4 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-100">
-              <span className="text-fuchsia-400">✎</span> Modify element
-            </h3>
-            <div className="mb-3 text-xs text-slate-400">
+            <div className="kicker mb-1 flex items-center gap-1.5 text-accent-ink">
+              <Icon name="pencil" size={14} />
+              Modify
+            </div>
+            <h3 className="mb-1 text-lead text-ink">Element</h3>
+            <div className="mb-3 text-body-sm text-ink-muted">
               <span>Selected </span>
-              <span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[11px] text-fuchsia-200">
+              <span className="rounded bg-accent/10 px-1.5 py-0.5 font-mono text-caption text-accent-ink">
                 {pendingModify.info.tag ? `<${pendingModify.info.tag}>` : 'element'}
               </span>
               {pendingModify.info.label && (
                 <span className="ml-1">
-                  “<span className="text-slate-200">{pendingModify.info.label}</span>”
+                  “<span className="text-ink">{pendingModify.info.label}</span>”
                 </span>
               )}
               {pendingModify.info.className && (
                 <div
-                  className="mt-1 truncate font-mono text-[10px] text-slate-500"
+                  className="mt-1 truncate font-mono text-caption text-ink-faint"
                   title={pendingModify.info.className}
                 >
                   .{pendingModify.info.className.split(' ').filter(Boolean).join(' .')}
@@ -1346,7 +1433,7 @@ export default function ProjectView({
             {/* Quick text edit — deterministic in-place swap when unambiguous */}
             {pendingModify.info.label && (
               <div className="mb-3">
-                <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Text</label>
+                <label className="kicker mb-1 block">Text</label>
                 <div className="flex gap-2">
                   <input
                     autoFocus
@@ -1362,7 +1449,7 @@ export default function ProjectView({
                   />
                   <button
                     type="button"
-                    className="btn-primary shrink-0 text-xs"
+                    className="btn-primary shrink-0 text-body-sm"
                     disabled={busy || !modifyLabelDraft.trim() || modifyLabelDraft === pendingModify.info.label}
                     onClick={() => applyTextChange(pendingModify.screenId, pendingModify.info, modifyLabelDraft)}
                   >
@@ -1374,25 +1461,26 @@ export default function ProjectView({
 
             {/* One-tap recolor */}
             <div className="mb-3">
-              <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Recolor</label>
+              <label className="kicker mb-1 block">Recolor</label>
 
               {designColors.length > 0 && (
                 <>
-                  <div className="mb-1 text-[9px] uppercase tracking-wide text-slate-600">From your design</div>
+                  <div className="mb-1 text-caption text-ink-faint">From your design</div>
                   <div className="mb-2 flex flex-wrap gap-1.5">
                     {designColors.map((c) => (
                       <button
                         key={c.hex}
                         type="button"
                         disabled={busy}
+                        aria-label={`Recolor to ${c.label} (${c.hex})`}
                         title={`${c.label} · ${c.hex}`}
                         onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(c.hex))}
-                        className="h-7 w-7 rounded-full border border-white/20 shadow-sm transition hover:scale-110 disabled:opacity-40"
+                        className="h-7 w-7 rounded-full border border-line-soft shadow-sm transition hover:scale-110 disabled:opacity-40"
                         style={{ background: c.hex }}
                       />
                     ))}
                   </div>
-                  <div className="mb-1 text-[9px] uppercase tracking-wide text-slate-600">Basics</div>
+                  <div className="mb-1 text-caption text-ink-faint">Basics</div>
                 </>
               )}
 
@@ -1402,20 +1490,22 @@ export default function ProjectView({
                     key={sw.hex}
                     type="button"
                     disabled={busy}
+                    aria-label={`Recolor to ${sw.name}`}
                     title={sw.name}
                     onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(sw.hex))}
-                    className="h-7 w-7 rounded-full border border-white/20 shadow-sm transition hover:scale-110 disabled:opacity-40"
+                    className="h-7 w-7 rounded-full border border-line-soft shadow-sm transition hover:scale-110 disabled:opacity-40"
                     style={{ background: sw.hex }}
                   />
                 ))}
                 {/* Custom hex */}
-                <span className="mx-0.5 h-5 w-px bg-slate-700" />
+                <span className="mx-0.5 h-5 w-px bg-line-soft" />
                 <span
-                  className="h-7 w-7 shrink-0 rounded-full border border-white/20 shadow-sm"
+                  className="h-7 w-7 shrink-0 rounded-full border border-line-soft shadow-sm"
                   style={{ background: HEX_RE.test(modifyHex.trim()) ? modifyHex.trim() : 'transparent' }}
                 />
                 <input
-                  className="input h-7 w-[74px] px-2 text-xs"
+                  className="input h-7 w-[74px] px-2 font-mono text-body-sm"
+                  aria-label="Custom hex color"
                   placeholder="#hex"
                   value={modifyHex}
                   onChange={(e) => setModifyHex(e.target.value)}
@@ -1431,7 +1521,7 @@ export default function ProjectView({
                   disabled={busy || !HEX_RE.test(modifyHex.trim())}
                   title="Apply this hex color"
                   onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(modifyHex.trim()))}
-                  className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 transition hover:bg-slate-700/60 disabled:opacity-40"
+                  className="rounded-md border border-line-soft px-2 py-1 text-body-sm text-ink transition hover:border-line disabled:opacity-40"
                 >
                   Go
                 </button>
@@ -1439,7 +1529,7 @@ export default function ProjectView({
             </div>
 
             {/* Free-form change */}
-            <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Or describe any change</label>
+            <label className="kicker mb-1 block">Or describe any change</label>
             <textarea
               rows={2}
               className="input min-h-[52px] resize-none"
@@ -1454,19 +1544,21 @@ export default function ProjectView({
               }}
             />
             <div className="mt-3 flex items-center justify-end gap-2">
-              <button type="button" className="btn-ghost text-xs" onClick={() => setPendingModify(null)}>
+              <button type="button" className="btn-ghost text-body-sm" onClick={() => setPendingModify(null)}>
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn-primary text-xs"
+                className="btn-primary text-body-sm"
                 disabled={busy || !modifyText.trim()}
                 onClick={() => applyModify(pendingModify.screenId, pendingModify.info, modifyText)}
               >
                 Apply change
               </button>
             </div>
-            <p className="mt-2 text-[10px] text-slate-500">Text edits apply instantly when unique · other changes use the model · revertable from the ⋯ menu</p>
+            <p className="measure mt-2 text-caption text-ink-faint">
+              Text edits apply instantly when unique · other changes use the model · revertable from the screen menu
+            </p>
           </div>
         </div>
       )}
@@ -1493,12 +1585,12 @@ export default function ProjectView({
                 }}
               />
               <div
-                className="fixed z-50 w-60 overflow-hidden rounded-lg border border-slate-700 bg-slate-900 py-1 text-sm text-slate-200 shadow-2xl"
+                className="fixed z-50 w-60 overflow-hidden rounded-lg border border-line bg-raised py-1 text-body text-ink shadow-2xl"
                 style={{ left: Math.min(menu.x, window.innerWidth - 250), top: Math.min(menu.y, window.innerHeight - 400) }}
               >
-                <MenuItem icon="🔄" label="Regenerate (new variant)" disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
+                <MenuItem icon="refresh" label="Regenerate (new variant)" disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                 <MenuItem
-                  icon="✎"
+                  icon="pencil"
                   label="Rename"
                   onClick={() => {
                     close()
@@ -1506,36 +1598,42 @@ export default function ProjectView({
                     if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
                   }}
                 />
-                <MenuItem icon="⟨⟩" label="Show code" onClick={() => { close(); setCodeScreen(s) }} />
+                <MenuItem icon="code" label="Show code" onClick={() => { close(); setCodeScreen(s) }} />
                 <MenuItem
-                  icon={isRef ? '📌' : '📍'}
+                  icon="pin"
                   label={isRef ? 'Unpin as reference' : 'Pin as layout reference'}
                   onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
                 />
-                <MenuItem icon="⬇" label="Download .tsx" onClick={() => { close(); downloadTsx(s) }} />
+                <MenuItem icon="download" label="Download .tsx" onClick={() => { close(); downloadTsx(s) }} />
                 {s.previousCode && (
-                  <MenuItem icon="↺" label="Revert to previous" onClick={() => { close(); onRevertScreen(s.id) }} />
+                  <MenuItem icon="undo" label="Revert to previous" onClick={() => { close(); onRevertScreen(s.id) }} />
                 )}
-                <MenuItem icon="🎨" label="Edit DESIGN.md" onClick={() => { close(); onOpenDesign() }} />
+                <MenuItem icon="image" label="Edit DESIGN.md" onClick={() => { close(); onOpenDesign() }} />
 
-                <div className="my-1 border-t border-slate-700/70" />
-                <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-slate-500">Display format</div>
+                <div className="my-1 border-t border-line-soft" />
+                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">Display format</div>
                 <div className="flex gap-1 px-2 pb-1.5">
-                  {([['mobile', '📱'], ['tablet', '▭'], ['desktop', '🖥'], ['full', '↕']] as [ViewportFormat, string][]).map(([f, ic]) => (
+                  {([
+                    ['mobile', 'Mobile'],
+                    ['tablet', 'Tablet'],
+                    ['desktop', 'Desktop'],
+                    ['full', 'Full'],
+                  ] as [ViewportFormat, string][]).map(([f, lbl]) => (
                     <button
                       key={f}
                       type="button"
+                      aria-label={f === 'full' ? 'Full height (fit content)' : `${f} format`}
                       title={f === 'full' ? 'Full height (fit content)' : f}
                       onClick={() => { close(); setFormat(s.id, f) }}
-                      className="flex-1 rounded-md border border-slate-700 py-1.5 text-base transition hover:bg-slate-700/60"
+                      className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink"
                     >
-                      {ic}
+                      {lbl}
                     </button>
                   ))}
                 </div>
 
-                <div className="my-1 border-t border-slate-700/70" />
-                <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-slate-500">Add animations</div>
+                <div className="my-1 border-t border-line-soft" />
+                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">Add animations</div>
                 <div className="flex gap-1 px-2 pb-1.5">
                   {ANIMATION_LEVELS.map((lvl) => (
                     <button
@@ -1544,16 +1642,16 @@ export default function ProjectView({
                       disabled={busy || !s.code.trim()}
                       title={`Add ${ANIMATION_LEVEL_LABELS[lvl].toLowerCase()} motion (keeps content & layout; revertable)`}
                       onClick={() => { close(); addAnimations(s.id, lvl) }}
-                      className="flex-1 rounded-md border border-slate-700 py-1 text-[11px] font-medium transition hover:bg-slate-700/60 disabled:opacity-40"
+                      className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink disabled:opacity-40"
                     >
                       {ANIMATION_LEVEL_LABELS[lvl]}
                     </button>
                   ))}
                 </div>
 
-                <div className="my-1 border-t border-slate-700/70" />
+                <div className="my-1 border-t border-line-soft" />
                 <MenuItem
-                  icon="🗑"
+                  icon="trash"
                   label="Delete screen"
                   danger
                   onClick={() => {
@@ -1572,18 +1670,21 @@ export default function ProjectView({
       {/* Code viewer modal */}
       {codeScreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
           onClick={() => setCodeScreen(null)}
         >
           <div
-            className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+            className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-raised shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-700 px-4 py-2.5">
-              <span className="truncate text-sm font-semibold text-slate-100">{codeScreen.name} — code</span>
-              <button type="button" className="btn-ghost text-sm" onClick={() => setCodeScreen(null)}>
-                Close
-              </button>
+            <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
+              <span className="min-w-0">
+                <span className="kicker block text-accent-ink">Code</span>
+                <span className="block truncate text-body text-ink">{codeScreen.name}</span>
+              </span>
+              <IconButton label="Close the code viewer" variant="quiet" onClick={() => setCodeScreen(null)}>
+                <Icon name="close" size={18} />
+              </IconButton>
             </div>
             <div className="min-h-0 flex-1">
               <CodeView code={codeScreen.code} />
@@ -1602,7 +1703,7 @@ function MenuItem({
   danger,
   disabled,
 }: {
-  icon: string
+  icon: IconName
   label: string
   onClick: () => void
   danger?: boolean
@@ -1614,10 +1715,10 @@ function MenuItem({
       onClick={onClick}
       disabled={disabled}
       className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition disabled:opacity-40 ${
-        danger ? 'text-rose-300 hover:bg-rose-500/10' : 'hover:bg-slate-700/60'
+        danger ? 'text-danger hover:bg-danger/10' : 'hover:bg-ink/5'
       }`}
     >
-      <span className="w-4 shrink-0 text-center text-[13px]">{icon}</span>
+      <Icon name={icon} size={16} />
       <span className="truncate">{label}</span>
     </button>
   )

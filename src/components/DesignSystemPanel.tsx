@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { parseDesignSystem, type DesignToken } from '../lib/designTokens'
+import { Button, Icon, IconButton } from '../ui'
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
@@ -39,26 +40,27 @@ export default function DesignSystemPanel({
   const hasColors = ds.colors.length > 0
 
   return (
-    <div className="absolute right-4 top-11 flex max-h-[80vh] w-80 flex-col rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur">
-      <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-        <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-          <span className="text-indigo-400">🎨</span> Design system
+    <div className="absolute right-4 top-11 flex max-h-[80vh] w-80 flex-col rounded-xl border border-line bg-raised shadow-2xl backdrop-blur">
+      <div className="flex items-center justify-between gap-2 border-b border-line-soft px-3 py-1.5">
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon name="image" size={16} className="text-accent" />
+          <span className="kicker truncate">Design system</span>
         </span>
-        <div className="flex items-center gap-2">
-          <button type="button" className="text-xs text-slate-400 hover:text-slate-200" onClick={onEdit} title="Open the full DESIGN.md editor">
+        <div className="flex shrink-0 items-center gap-1">
+          <Button variant="quiet" size="sm" onClick={onEdit} title="Open the full DESIGN.md editor">
             Edit
-          </button>
-          <button type="button" className="text-xs text-slate-400 hover:text-slate-200" onClick={onClose} title="Close">
-            ✕
-          </button>
+          </Button>
+          <IconButton label="Close" variant="quiet" onClick={onClose}>
+            <Icon name="close" size={16} />
+          </IconButton>
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {!hasColors ? (
-          <p className="px-1 py-6 text-center text-xs text-slate-500">
+          <p className="px-1 py-6 text-center text-body-sm text-ink-faint">
             No design system yet. Pick a style on a new project, or{' '}
-            <button type="button" className="text-indigo-300 underline underline-offset-2" onClick={onEdit}>
+            <button type="button" className="text-accent-ink underline underline-offset-2" onClick={onEdit}>
               edit DESIGN.md
             </button>
             .
@@ -66,7 +68,7 @@ export default function DesignSystemPanel({
         ) : (
           <>
             {/* Palette — click a swatch to recolor that token */}
-            <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Palette · click to recolor</div>
+            <div className="kicker mb-1.5 text-accent-ink">Palette · click to recolor</div>
             <div className="mb-3 grid grid-cols-2 gap-1.5">
               {ds.colors.map((c) => (
                 <button
@@ -74,14 +76,14 @@ export default function DesignSystemPanel({
                   type="button"
                   onClick={() => selectToken(c)}
                   title={`${c.label} · ${c.hex} — click to change`}
-                  className={`flex items-center gap-2 rounded-lg border px-1.5 py-1 text-left transition hover:border-indigo-500 ${
-                    editing?.index === c.index ? 'border-indigo-500 bg-slate-800' : 'border-slate-700 bg-slate-800/40'
+                  className={`flex items-center gap-2 rounded-lg border px-1.5 py-1 text-left transition hover:border-accent ${
+                    editing?.index === c.index ? 'border-accent bg-accent/10' : 'border-line-soft'
                   }`}
                 >
-                  <span className="h-6 w-6 shrink-0 rounded-md border border-white/15" style={{ background: c.hex }} />
+                  <span className="h-6 w-6 shrink-0 rounded-md border border-ink/20" style={{ background: c.hex }} />
                   <span className="min-w-0">
-                    <span className="block truncate text-[11px] font-medium text-slate-200">{c.label}</span>
-                    <span className="block truncate font-mono text-[10px] text-slate-500">{c.hex}</span>
+                    <span className="block truncate text-caption font-medium text-ink">{c.label}</span>
+                    <span className="block truncate font-mono text-caption text-ink-faint">{c.hex}</span>
                   </span>
                 </button>
               ))}
@@ -89,15 +91,15 @@ export default function DesignSystemPanel({
 
             {/* Inline recolor editor for the selected token */}
             {editing && (
-              <div className="mb-3 rounded-lg border border-indigo-700/50 bg-slate-800/70 p-2">
-                <div className="mb-1.5 text-[11px] text-slate-300">
-                  Recolor <span className="font-medium text-indigo-200">{editing.label}</span>
+              <div className="mb-3 rounded-lg border border-line bg-ink/5 p-2">
+                <div className="mb-1.5 text-caption text-ink-muted">
+                  Recolor <span className="font-medium text-ink">{editing.label}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="h-7 w-7 shrink-0 rounded-md border border-white/15" style={{ background: HEX_RE.test(hex.trim()) ? hex.trim() : 'transparent' }} />
+                  <span className="h-7 w-7 shrink-0 rounded-md border border-ink/20" style={{ background: HEX_RE.test(hex.trim()) ? hex.trim() : 'transparent' }} />
                   <input
                     autoFocus
-                    className="input h-7 flex-1 px-2 font-mono text-xs"
+                    className="input h-7 flex-1 px-2 font-mono text-body-sm"
                     placeholder="#rrggbb"
                     value={hex}
                     onChange={(e) => setHex(e.target.value)}
@@ -106,7 +108,7 @@ export default function DesignSystemPanel({
                       if (e.key === 'Escape') setEditing(null)
                     }}
                   />
-                  <button type="button" className="btn-primary px-2.5 py-1 text-xs disabled:opacity-40" disabled={!HEX_RE.test(hex.trim())} onClick={apply}>
+                  <button type="button" className="btn-primary px-2.5 py-1 disabled:opacity-40" disabled={!HEX_RE.test(hex.trim())} onClick={apply}>
                     Apply
                   </button>
                 </div>
@@ -114,8 +116,9 @@ export default function DesignSystemPanel({
             )}
 
             {/* Live sample rendered from the resolved roles */}
-            <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Preview</div>
-            <div className="overflow-hidden rounded-xl border border-slate-700" style={{ background: r.bg, borderRadius: ds.radius }}>
+            <div className="rule-thin mb-3" />
+            <div className="kicker mb-1.5 text-accent-ink">Preview</div>
+            <div className="overflow-hidden border border-line-soft" style={{ background: r.bg, borderRadius: ds.radius }}>
               <div className="flex flex-col gap-3 p-3">
                 <div>
                   <div style={{ color: r.text, fontWeight: 800, fontSize: 18, lineHeight: 1.15 }}>The quick brown fox</div>

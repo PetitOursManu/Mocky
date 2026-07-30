@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useProjects } from './lib/project'
-import { THEMES, loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
+import { loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
-import { enableSync, reconcileOnLogin } from './lib/sync'
+import { enableSync, installUnloadGuard, reconcileOnLogin } from './lib/sync'
 import { checkSsoReturn, cleanSsoQueryParams } from './lib/sso'
 import ProjectsHome from './components/ProjectsHome'
 import ProjectView from './components/ProjectView'
@@ -11,6 +11,9 @@ import DesignPanel from './components/DesignPanel'
 import AuthModal from './components/AuthModal'
 import AdminPanel from './components/AdminPanel'
 import Bibliotheque from './components/Bibliotheque'
+import SyncIndicator from './components/SyncIndicator'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { Button, Icon, IconButton } from './ui'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'images'
 
@@ -63,6 +66,8 @@ export default function App() {
       })
   }, [])
 
+  useEffect(() => installUnloadGuard(), [])
+
   async function logout() {
     try {
       await api.logout()
@@ -79,7 +84,6 @@ export default function App() {
     setThemeState(next)
     saveTheme(next)
   }
-  const themeMeta = THEMES.find((t) => t.id === theme) ?? THEMES[0]
 
   const activeProject = projects.find((p) => p.id === activeId) ?? null
 
@@ -98,25 +102,29 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
-      <header className="border-b border-slate-800">
-        <div className="flex items-center gap-3 px-6 py-3">
-          <button type="button" onClick={goHome} className="flex items-center gap-3" title="Mocky home">
-            <img src="/favicon.svg" alt="Mocky" className="h-9 w-9" />
-            <div className="text-left">
-              <h1 className="text-base font-semibold leading-tight">Mocky</h1>
-              <p className="text-xs text-slate-400">chat-to-UI generator · self-hosted</p>
-            </div>
+    <div className="min-h-screen bg-sunken text-ink">
+      {/* The masthead. A newspaper announces itself once, in the serif, above a
+          double rule — then gets out of the way. */}
+      <header className="rule-double bg-surface">
+        <div className="page flex items-center gap-3 py-2.5">
+          <button
+            type="button"
+            onClick={goHome}
+            className="flex items-baseline gap-2.5"
+            title="Accueil Mocky"
+          >
+            <span className="masthead text-h2 leading-none">Mocky</span>
+            <span className="kicker hidden text-accent-ink sm:inline">Chat&nbsp;→&nbsp;UI · auto-hébergé</span>
           </button>
 
           {/* Project breadcrumb */}
           {activeProject && (
             <div className="flex items-center gap-2">
-              <span className="text-slate-600">/</span>
+              <span className="text-ink-faint">/</span>
               {editingName ? (
                 <input
                   autoFocus
-                  className="input py-1 text-sm"
+                  className="input py-1 text-body"
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
                   onBlur={() => {
@@ -141,7 +149,7 @@ export default function App() {
                       setEditingName(true)
                     }
                   }}
-                  className="text-sm font-medium text-slate-200 hover:text-white"
+                  className="text-body font-medium text-ink-muted transition hover:text-ink"
                   title={route === 'project' ? 'Rename project' : 'Back to project'}
                 >
                   {activeProject.name}
@@ -151,6 +159,7 @@ export default function App() {
           )}
 
           <nav className="ml-auto flex items-center gap-1">
+            <SyncIndicator />
             <HeaderTab active={route === 'home'} onClick={goHome}>
               Home
             </HeaderTab>
@@ -168,36 +177,37 @@ export default function App() {
                 Admin
               </HeaderTab>
             )}
-            <button
-              type="button"
+            <IconButton
+              label={theme === 'dark' ? 'Passer au thème Papier' : 'Passer au thème Encre'}
+              variant="quiet"
               onClick={toggleTheme}
-              className="ml-1 flex h-8 items-center gap-1.5 rounded-lg px-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-              title={`Theme: ${themeMeta.label} — click to switch`}
+              className="ml-1"
             >
-              <span className="text-sm">{themeMeta.icon}</span>
-              <span className="text-xs">{themeMeta.label}</span>
-            </button>
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+            </IconButton>
             {account ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
-                  if (confirm(`Sign out of "${account.username}"? Your projects stay on this device.`)) logout()
+                  if (confirm(`Se déconnecter de « ${account.username} » ? Vos projets restent sur cet appareil.`)) logout()
                 }}
-                className="ml-1 flex h-8 items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700"
-                title="Signed in — click to sign out"
+                className="ml-1"
+                title="Connecté — cliquez pour vous déconnecter"
               >
-                <span>👤</span>
+                <Icon name="user" size={16} />
                 <span className="max-w-[100px] truncate">{account.username}</span>
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
+              <Button
+                variant="quiet"
+                size="sm"
                 onClick={() => setAuthOpen(true)}
-                className="ml-1 flex h-8 items-center rounded-lg px-2.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+                className="ml-1"
                 title="Sign in to sync your projects across devices"
               >
                 Sign in
-              </button>
+              </Button>
             )}
           </nav>
         </div>
@@ -217,6 +227,14 @@ export default function App() {
 
       {route === 'project' &&
         (activeProject ? (
+          // Scoped boundary: a project whose data makes ProjectView throw must
+          // not take the rest of the app down with it — you can still get back
+          // to the other projects.
+          <ErrorBoundary
+            resetKey={activeProject.id}
+            onReset={goHome}
+            resetLabel="Retour aux projets"
+          >
           <ProjectView
             key={activeProject.id}
             project={activeProject}
@@ -229,17 +247,18 @@ export default function App() {
             onSetReference={(sid) => setReferenceScreen(activeProject.id, sid)}
             onRenameProject={(name) => renameProject(activeProject.id, name)}
           />
+          </ErrorBoundary>
         ) : (
-          <div className="px-6 py-16 text-center text-sm text-slate-500">
+          <div className="page py-16 text-center text-body text-ink-faint">
             No project selected.{' '}
-            <button type="button" className="text-indigo-400 hover:underline" onClick={goHome}>
+            <button type="button" className="text-accent hover:underline" onClick={goHome}>
               Back to projects
             </button>
           </div>
         ))}
 
       {route === 'design' && (
-        <main className="px-6 py-10">
+        <main className="page py-10">
           <DesignPanel />
         </main>
       )}
@@ -251,26 +270,28 @@ export default function App() {
         />
       )}
       {route === 'settings' && (
-        <main className="px-6 py-10">
+        <main className="page py-10">
           <SettingsPanel />
         </main>
       )}
       {route === 'admin' &&
         (account?.role === 'admin' ? (
-          <main className="px-6 py-10">
+          <main className="page py-10">
             <AdminPanel currentUsername={account.username} />
           </main>
         ) : (
-          <div className="px-6 py-16 text-center text-sm text-slate-500">Admins only.</div>
+          <div className="page py-16 text-center text-body text-ink-faint">Admins only.</div>
         ))}
 
       {authOpen && (
         <AuthModal
           initialError={ssoError}
+          // Mocky requires an account: the server routes that hold projects,
+          // images and Muse all need a session. The modal says so rather than
+          // eating the click.
+          dismissible={Boolean(account)}
           onClose={() => {
             setSsoError(null)
-            // Unauthenticated users are not allowed to close the modal and
-            // use Mocky without an account.
             if (account) setAuthOpen(false)
           }}
           onSignedIn={(user) => {
@@ -297,12 +318,15 @@ function HeaderTab({
   onClick: () => void
   children: React.ReactNode
 }) {
+  // Section labels of a paper: small caps, widely letterspaced, and the current
+  // one marked by a rule under it rather than a filled pill.
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-        active ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
+      aria-current={active ? 'page' : undefined}
+      className={`kicker min-h-8 border-b-2 px-2.5 pt-1.5 transition ${
+        active ? 'border-accent text-accent-ink' : 'border-transparent hover:text-ink'
       }`}
     >
       {children}

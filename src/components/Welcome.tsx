@@ -1,6 +1,7 @@
 import PresetPicker from './PresetPicker'
 import { STYLE_PRESETS } from '../lib/styles'
 import MusePanel from './MusePanel'
+import { Banner, Button, Icon } from '../ui'
 import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
 import type { PinnedImage } from '../lib/imageLibrary'
 
@@ -65,20 +66,21 @@ export default function Welcome({
   return (
     <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-10">
       <div className="w-full max-w-2xl">
-        <div className="mb-8 text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-slate-100 sm:text-4xl">
+        <header className="rule-double mb-8 pb-6 text-center">
+          <p className="kicker text-accent-ink">New screen</p>
+          <h1 className="mt-2 text-h2 text-ink sm:text-display">
             What do you want to design?
-          </h2>
-          <p className="mt-3 text-slate-400">
+          </h1>
+          <p className="mt-3 text-lead text-ink-muted">
             Describe a screen in plain language — Mocky turns it into a real React + Tailwind component
             with a live preview.
           </p>
-        </div>
+        </header>
 
-        <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-3 shadow-xl">
+        <div className="rounded-2xl border border-line bg-surface p-3 shadow-xl">
           <textarea
             autoFocus
-            className="input min-h-[120px] resize-y border-0 bg-transparent text-base focus:ring-0"
+            className="input min-h-[120px] resize-y border-0 bg-transparent text-lead"
             placeholder="e.g. A clean SaaS landing page with a hero, three feature cards, and a footer…"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -89,8 +91,8 @@ export default function Welcome({
               <button
                 type="button"
                 onClick={onOpenDesign}
-                className={`text-xs transition ${
-                  designActive ? 'text-emerald-300 hover:text-emerald-200' : 'text-slate-500 hover:text-slate-300'
+                className={`text-body-sm transition ${
+                  designActive ? 'text-ok hover:opacity-80' : 'text-ink-faint hover:text-ink'
                 }`}
                 title="Manage DESIGN.md"
               >
@@ -99,24 +101,24 @@ export default function Welcome({
               <button
                 type="button"
                 onClick={() => onMuseChange({ ...museConfig, enabled: !museConfig.enabled })}
-                className={`text-xs transition ${
-                  museConfig.enabled ? 'text-fuchsia-300 hover:text-fuchsia-200' : 'text-slate-500 hover:text-slate-300'
+                className={`inline-flex items-center gap-1.5 text-body-sm transition ${
+                  museConfig.enabled ? 'text-muse hover:opacity-80' : 'text-ink-faint hover:text-ink'
                 }`}
                 title="Muse — inspiration, art direction & real copy"
               >
-                {museConfig.enabled ? '✨ Muse on' : '✨ Muse off'}
+                <Icon name="sparkle" size={15} />
+                {museConfig.enabled ? 'Muse on' : 'Muse off'}
               </button>
             </div>
             <div className="flex items-center gap-3">
-              <span className="hidden text-xs text-slate-500 sm:inline">⌘/Ctrl + Enter</span>
-              <button
-                type="button"
-                className="btn-primary"
+              <span className="hidden text-caption text-ink-faint sm:inline">⌘/Ctrl + Enter</span>
+              <Button
+                variant="primary"
                 onClick={onGenerate}
                 disabled={busy || !prompt.trim()}
               >
                 {busy ? 'Generating…' : 'Generate ↵'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -140,17 +142,18 @@ export default function Welcome({
           </div>
         )}
 
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <span className="text-xs text-slate-500">Format</span>
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <span className="kicker">Format</span>
           <PresetPicker value={presetId} onChange={onPresetChange} />
         </div>
 
         {/* First-run style picker (D.1) — sets a DESIGN.md so the very first
             screen is on-brand. Hidden once a design system is active. */}
         {!designActive && (
-          <div className="mt-6">
-            <div className="mb-2 flex items-center justify-center gap-2 text-center text-xs uppercase tracking-wide text-slate-500">
-              pick a style <span className="normal-case tracking-normal text-slate-600">— optional, keeps every screen consistent</span>
+          <div className="rule-thin mt-8 pb-6">
+            <div className="mb-3 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-center">
+              <span className="kicker text-accent-ink">Pick a style</span>
+              <span className="text-caption text-ink-faint">— optional, keeps every screen consistent</span>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {STYLE_PRESETS.map((s) => (
@@ -159,7 +162,7 @@ export default function Welcome({
                   type="button"
                   onClick={() => onApplyStyle(s.markdown)}
                   title={`${s.name} — ${s.description}`}
-                  className="group shrink-0 rounded-xl border border-slate-700 bg-slate-800/40 p-2 text-left transition hover:border-indigo-500 hover:bg-slate-800"
+                  className="group shrink-0 rounded-xl border border-line-soft bg-surface p-2 text-left transition hover:border-accent hover:bg-ink/5"
                   style={{ width: 116 }}
                 >
                   <div className="flex h-10 overflow-hidden rounded-md" style={{ background: s.preview.bg }}>
@@ -168,32 +171,30 @@ export default function Welcome({
                     <span className="flex-1" style={{ background: s.preview.text }} />
                     <span className="flex-1" style={{ background: s.preview.mutedText }} />
                   </div>
-                  <div className="mt-1.5 truncate text-[11px] font-medium text-slate-200 group-hover:text-white">{s.name}</div>
+                  <div className="mt-1.5 truncate text-caption font-medium text-ink-muted transition group-hover:text-accent-ink">{s.name}</div>
                 </button>
               ))}
             </div>
           </div>
         )}
         {designActive && (
-          <div className="mt-4 text-center text-xs text-emerald-300/90">
+          <div className="mt-4 text-center text-body-sm text-ok">
             ● Design system on — your screens will follow it.{' '}
-            <button type="button" onClick={onOpenDesign} className="underline underline-offset-2 hover:text-emerald-200">
+            <button type="button" onClick={onOpenDesign} className="underline underline-offset-2 transition hover:opacity-80">
               edit
             </button>
           </div>
         )}
 
         <div className="mt-6">
-          <div className="mb-2 text-center text-xs uppercase tracking-wide text-slate-500">
-            or try an example
-          </div>
+          <div className="kicker mb-3 text-center text-accent-ink">Or try an example</div>
           <div className="flex flex-wrap justify-center gap-2">
             {examples.map((ex) => (
               <button
                 key={ex}
                 type="button"
                 onClick={() => setPrompt(ex)}
-                className="rounded-full border border-slate-700 bg-slate-800/40 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-600 hover:bg-slate-800"
+                className="rounded-full border border-line-soft px-3 py-1.5 text-body-sm text-ink-muted transition hover:border-accent hover:bg-ink/5 hover:text-accent-ink"
               >
                 {ex}
               </button>
@@ -202,13 +203,18 @@ export default function Welcome({
         </div>
 
         {error && (
-          <div className="mt-6 rounded-xl border border-rose-700/50 bg-rose-900/30 p-3 text-sm text-rose-200">
-            <div className="font-medium">Generation failed</div>
-            <div className="mt-1 text-xs">{error}</div>
-            <button type="button" className="btn-ghost mt-2 text-xs" onClick={onOpenSettings}>
-              Open Settings
-            </button>
-          </div>
+          <Banner
+            tone="danger"
+            title="Generation failed"
+            className="mt-6"
+            action={
+              <Button variant="ghost" size="sm" onClick={onOpenSettings}>
+                Open Settings
+              </Button>
+            }
+          >
+            {error}
+          </Banner>
         )}
       </div>
     </div>

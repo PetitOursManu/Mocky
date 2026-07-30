@@ -215,6 +215,45 @@ export function profileForMode(mode: MuseImageMode): MuseImageProfile {
   return mode === 'inspiration' ? 'inspiration' : 'content'
 }
 
+/**
+ * The prompt for an ART-DIRECTION reference image.
+ *
+ * An inspiration image used to be generated from the imagery plan's own prompt —
+ * exactly the same photographic subject as the hero, only routed to a different
+ * model. That is not an art-direction reference, it is a second hero photo, and
+ * it explains why turning "Inspiration" on so often changed nothing about the
+ * result: the model was handed a picture of the product and told to read its
+ * palette and composition from it.
+ *
+ * A reference plate is a different object entirely: no subject, no narrative,
+ * just the palette, the material and the light. Colours come from the dossier's
+ * own tokens, so the model sees the palette it is being asked to design with.
+ */
+export function buildInspirationPrompt(dossier: MuseDossier): string {
+  const colors = (dossier.tokens?.colors || []).slice(0, 5)
+  const palette = colors.length
+    ? colors.map((c) => `${c.label} ${c.hex}`).join(', ')
+    : 'a restrained, coherent palette'
+  const style = dossier.imageryPlan?.[0]?.style || 'editorial'
+  const concept = (dossier.concept || '').split(/[.;]/)[0]?.trim()
+
+  return [
+    'An abstract art-direction reference plate.',
+    concept ? `Mood: ${concept}.` : '',
+    `Colour palette, used faithfully: ${palette}.`,
+    `Feel: ${style}.`,
+    'Composition: large flat colour fields, generous negative space, one clear focal area, a subtle paper or fabric texture, soft directional light.',
+    'It is a MOOD BOARD PLATE, not a picture of a product: no people, no objects, no scene, no story.',
+    'high quality, no text, no letters, no words, no logo, no user interface, no website, no app screen, no mockup, no charts, no icons',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/** The negative prompt that goes with an art-direction plate. */
+export const INSPIRATION_NEGATIVE =
+  'text, letters, words, watermark, logo, user interface, website, app screen, dashboard, mockup, screenshot, browser window, charts, icons, buttons, people, faces, product photography'
+
 /** Generate the imagery-plan images (capped) and return their absolute URLs. */
 export async function generateSlotImages(
   slots: MuseImagerySlot[],

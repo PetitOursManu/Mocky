@@ -1,0 +1,131 @@
+/*
+ * Mocky design tokens — "editorial".
+ * ---------------------------------------------------------------------------
+ *
+ * WHY THIS FILE EXISTS
+ *
+ * Theming used to work by re-declaring Tailwind utilities per theme:
+ *   [data-theme='light'] .bg-slate-800 { background-color: #fbf7ef }
+ * There were 96 such rules, they only covered `slate` and `indigo`, and the
+ * components used 109 distinct colour classes. So 83 of them were not themed at
+ * all — which is how the active "Frame" button ended up as white text on a
+ * remapped background at a contrast ratio of 1.2:1, i.e. invisible.
+ *
+ * Now there is one set of semantic tokens, declared channel-by-channel so
+ * Tailwind can compose opacity (`bg-surface/60` works). Switching theme swaps
+ * these variables and nothing else. Adding a colour to a component no longer
+ * requires touching this file.
+ *
+ * THE DIRECTION
+ *
+ * Black and white, 1px rules, no radius, no shadow, one signature flat. Swiss
+ * poster rather than dashboard.
+ *
+ * That is not only taste. Mocky is a tool for *judging colour*: mockups sit
+ * side by side on the canvas and the chrome surrounds them. The old palette was
+ * `slate`, a distinctly blue-leaning grey — a warm mockup placed on it reads
+ * more yellow than it is, a blue one reads flat. A neutral achromatic shell is
+ * the only one that does not lie about what it frames, and pure black/white is
+ * the most complete version of that.
+ *
+ * Consequences worth knowing before editing:
+ *   - `--line` is the strong structural rule. Used everywhere it would hatch
+ *     the interface into a grid of boxes, so repeated divisions inside a panel
+ *     use `--line-soft`. One weight (1px), two strengths, no more.
+ *   - the accent is the logo's teal, and it is the ONLY chromatic colour in the
+ *     chrome besides the status colours. It marks the primary action and the
+ *     active state — nothing else. Previously the same buttons were indigo in
+ *     one theme and teal in another.
+ *   - status colours are deliberately desaturated: they must never shout louder
+ *     than the mockup next to them.
+ */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Elevation — three levels, distinguished by value, not by borders.
+     Newsprint, not screen white: a very slightly warm, slightly grey stock.
+     Pure #fff reads as "app"; this reads as paper, and it is kinder to look at
+     for the hours someone spends staring at generated screens. */
+  --sunken: 232 229 222; /* the press bed — the canvas behind the frames */
+  --surface: 250 248 243; /* the sheet: panels, cards, the masthead */
+  --raised: 253 252 249; /* a sheet laid on top: popovers, menus, modals */
+
+  /* Rules */
+  --line: 0 0 0; /* structural: panel edges, the masthead rule */
+  --line-soft: 201 197 188; /* hairline: rows inside a list, field borders */
+
+  /* Text — warm black, the colour of ink soaked into paper, never pure #000 */
+  --ink: 22 20 17;
+  --ink-muted: 87 82 74; /* 6.4:1 on --surface */
+  --ink-faint: 116 110 100; /* 4.6:1 — the floor, still AA */
+
+  /* The signature flat — #228477.
+     Measured: white on it is 4.53:1, so buttons pass AA. As SMALL TEXT on paper
+     it is 4.27:1, which does not — hence --accent-ink below, a hair darker
+     (#20796C, 4.93:1) and visually indistinguishable at text sizes. Two tokens
+     is what lets the colour be used liberally without shipping unreadable text. */
+  --accent: 34 132 119;
+  --accent-ink: 32 121 108;
+  --on-accent: 255 255 255;
+  /* Tinted washes: row hovers, active backgrounds, the lead-story panel. */
+  --accent-wash: 34 132 119;
+
+  /* Status — one step desaturated from the usual defaults, on purpose */
+  --danger: 176 26 26;
+  --on-danger: 255 255 255;
+  --warn: 141 88 0;
+  --ok: 18 106 70;
+  --muse: 150 26 108; /* Muse keeps its own mark; it is a mode, not a state */
+
+  /* Focus ring */
+  --ring: 0 0 0;
+
+  /* Canvas texture */
+  --dot: 0 0 0 / 0.16;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* The negative of the same press: warm blacks, never blue-black. */
+  --sunken: 10 9 8;
+  --surface: 26 24 22;
+  --raised: 36 34 31;
+
+  --line: 245 243 238;
+  --line-soft: 68 65 60;
+
+  --ink: 245 243 238;
+  --ink-muted: 174 168 158; /* 8.4:1 on --surface */
+  --ink-faint: 140 134 125; /* 5.4:1 — the floor */
+
+  /* On ink, the same green has to come up to meet the paper: 8.4:1 on the
+     surface, so one value serves both fills and text here. */
+  --accent: 45 199 176;
+  --accent-ink: 45 199 176;
+  --on-accent: 0 0 0;
+  --accent-wash: 45 199 176;
+
+  --danger: 255 122 112;
+  --on-danger: 0 0 0;
+  --warn: 224 168 62;
+  --ok: 78 205 156;
+  --muse: 232 130 200;
+
+  --ring: 255 255 255;
+
+  --dot: 255 255 255 / 0.18;
+}
+
+/*
+ * There is deliberately no `@media (prefers-color-scheme: dark)` block here.
+ *
+ * It used to exist and restate all twenty tokens a third time — which is
+ * precisely the duplication that let the old themes drift apart. The OS
+ * preference is honoured earlier and better: the inline script in index.html
+ * sets `data-theme` synchronously before first paint (see loadTheme()). If that
+ * script never runs, the `:root` defaults above apply, and light is a safe,
+ * legible fallback.
+ */
