@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '../ui'
+import { useT } from '../i18n'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
 import { resolveCapabilities } from '../lib/capabilities/select'
 import { buildPrelude } from '../lib/capabilities/prelude'
@@ -54,7 +56,9 @@ function cspMeta(): string {
   const policy = [
     "default-src 'none'",
     `script-src ${origin} 'unsafe-inline' 'unsafe-eval' blob:`,
-    `style-src ${origin} 'unsafe-inline' https://cdn.jsdelivr.net`,
+    // No external host: daisyUI is vendored too, so the preview loads nothing
+    // from the network at all and works offline.
+    `style-src ${origin} 'unsafe-inline'`,
     'img-src * data: blob:',
     'font-src * data:',
     "connect-src 'none'",
@@ -177,6 +181,15 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     ${globalHoists.join('\n    ')}
+    // A mockup must never leave its own document. The click guard further down
+    // stops <a href> navigations, but a generated component can also call
+    // window.open(...) — which in a sandbox without allow-popups either opens a
+    // real tab or, with a "_self"-ish target, replaces the frame. Either way the
+    // mockup is gone. Neutralise it before any generated code runs.
+    // window.location is deliberately NOT touched: it is a non-configurable
+    // accessor, so redefining it throws and would take the whole bridge down.
+    // Programmatic location writes are caught by the parent's load-count net.
+    try { window.open = function () { return null; }; } catch (_) {}
     try {
       // --- Capability readiness guard (CDN scripts only) ---
       ${readinessChecks.join('\n      ')}
@@ -287,7 +300,14 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       // filled the console — while the screen the user had just generated was
       // simply gone. Links stay clickable (hover, focus and :active still run);
       // they just never navigate.
-      var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+      //
+      // <area href> is included because an image map is a navigation source too,
+      // and closest('a[href]') never matches an <area> (it is not an <a>).
+      //
+      // What this guard cannot see: an <a> with no href whose onClick assigns
+      // location, or any other programmatic navigation. That is expected — the
+      // parent counts the frame's load events and restores the mockup.
+      var a = e.target && e.target.closest ? e.target.closest('a[href], area[href]') : null;
       if (a) {
         var href = a.getAttribute('href') || '';
         // A pure in-page anchor is legitimate: it scrolls, it does not navigate.
@@ -357,8 +377,11 @@ export default function Preview({
   /** Reports the rendered content height (px) — used by the "Full height" format. */
   onContentHeight?: (height: number) => void
 }) {
+  const t = useT()
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  /** True for ~3s after the frame tried to leave the mockup and was put back. */
+  const [navBlocked, setNavBlocked] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const frameId = useState(() => 'f' + Math.random().toString(36).slice(2))[0]
 
@@ -406,6 +429,49 @@ export default function Preview({
     return () => clearTimeout(timer)
   }, [code, frameId, hideScrollbars, resolvedCaps])
 
+  // --- The mockup must not be able to navigate away from itself --------------
+  //
+  // The iframe is sandboxed WITHOUT allow-same-origin, but a sandboxed frame is
+  // still allowed to navigate ITSELF. `location.href = '/'`, `location.assign()`,
+  // a submitted form, an <a> whose onClick navigates — any of them make the frame
+  // drop the srcDoc and load Mocky's own index.html instead. Its origin is
+  // opaque, so every module script of the app then fails CORS: the user sees a
+  // white screen, a console full of errors, and the screen they just generated
+  // is gone.
+  //
+  // The one signal that catches all of those, whatever the cause, is the frame's
+  // `load` event: the FIRST load is the srcDoc itself, so any LATER load means
+  // the frame went somewhere else. Re-assigning `srcdoc` on the element (which
+  // the parent always owns, whatever the frame's origin) puts the mockup back.
+  const loadCountRef = useRef(0)
+  const navNoticeRef = useRef<number | null>(null)
+
+  // A new generation is a new document: the next load is a legitimate first one.
+  useEffect(() => {
+    loadCountRef.current = 0
+  }, [srcDoc])
+
+  useEffect(() => () => { if (navNoticeRef.current) window.clearTimeout(navNoticeRef.current) }, [])
+
+  function handleFrameLoad() {
+    loadCountRef.current += 1
+    if (loadCountRef.current < 2) return
+    const frame = iframeRef.current
+    if (!frame || !srcDoc) return
+    // Zero it BEFORE re-assigning: restoring fires a `load` of its own, which
+    // must count as the new document's first one or we would restore forever.
+    loadCountRef.current = 0
+    // Setting the srcdoc attribute re-navigates the frame even to the same
+    // value — React keeps the identical prop, so it never re-sets it itself.
+    frame.srcdoc = srcDoc
+    // The restored document has to announce itself again before it can be told
+    // about pick/demo mode, so drop `ready` and let the "ok" message raise it.
+    setReady(false)
+    setNavBlocked(true)
+    if (navNoticeRef.current) window.clearTimeout(navNoticeRef.current)
+    navNoticeRef.current = window.setTimeout(() => setNavBlocked(false), 3000)
+  }
+
   // Listen for messages from the iframe. The iframe posts 'ok' when the
   // component rendered successfully, or 'error' when Babel or the component
   // threw. We also set a 20s timeout: if no message arrives, show an error.
@@ -417,7 +483,7 @@ export default function Preview({
     const timeout = setTimeout(() => {
       if (!timeoutHit) {
         timeoutHit = true
-        setError('Preview timed out — the component took too long to render.')
+        setError(t('preview.timedOut'))
       }
     }, 20000)
     function onMsg(e: MessageEvent) {
@@ -495,17 +561,18 @@ export default function Preview({
       {srcDoc && (
         <iframe
           ref={iframeRef}
-          title="preview"
+          title={t('preview.frameTitle')}
           className="h-full w-full border-0 bg-white"
           sandbox="allow-scripts"
           srcDoc={srcDoc}
+          onLoad={handleFrameLoad}
           style={{ borderRadius: radius }}
         />
       )}
       {(generating || (!ready && !error)) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface" style={{ borderRadius: radius }}>
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-ink/15 border-t-accent" />
-          <span className="text-body-sm text-ink-muted">{generating ? 'Generating…' : 'Rendering…'}</span>
+          <span className="text-body-sm text-ink-muted">{generating ? t('canvas.generating') : t('canvas.rendering')}</span>
         </div>
       )}
       {/* While the auto-fixer is repairing a render error, show a calm state —
@@ -513,13 +580,24 @@ export default function Preview({
       {error && retrying && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface/95" style={{ borderRadius: radius }}>
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-warn/25 border-t-warn" />
-          <span className="text-body-sm text-warn">Repairing component…</span>
+          <span className="text-body-sm text-warn">{t('canvas.repairing')}</span>
         </div>
       )}
       {error && !retrying && (
         <div className="absolute inset-x-0 bottom-0 max-h-[50%] overflow-auto border-t border-danger bg-surface p-3 text-body text-danger">
-          <div className="mb-1 font-semibold">Runtime error in generated component</div>
+          <div className="mb-1 font-semibold">{t('preview.runtimeError')}</div>
           <pre className="whitespace-pre-wrap font-mono text-body-sm">{error}</pre>
+        </div>
+      )}
+      {/* Rendered last so it sits above the "Rendering…" veil the restore
+          briefly puts back. Purely informative: it never covers the screen and
+          asks for nothing. */}
+      {navBlocked && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-top flex justify-center px-4">
+          <div className="flex items-center gap-2 border border-line bg-raised px-3 py-2 text-body-sm text-ink">
+            <Icon name="link" size={16} className="text-ink-muted" />
+            <span>{t('preview.linksInert')}</span>
+          </div>
         </div>
       )}
     </div>

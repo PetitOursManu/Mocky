@@ -28,6 +28,7 @@ script tag reappears in the preview pipeline.
 | `babel.min.js` | @babel/standalone | 7.29.7 | `b077558a0e5fbea26798443b6212cda6307583b09ec029bb8af207db570855a0` | yes |
 | `html2canvas.min.js` | html2canvas | 1.4.1 | `e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb` | — |
 | `tailwind.min.js` | Tailwind Play CDN | 3.4.17 | `64b8656ae0edd79ff136198680367d51ac356621026cbd88bd6a9030e17b36dc` | yes |
+| `daisyui.min.css` | daisyui | 4.12.10 | `36e28efcf6c4993c482e465b2cae3d63b2066f90ff91455d78bf3e9388af2925` | yes |
 
 ### The two patches
 
@@ -47,7 +48,18 @@ the file is vendored here precisely so previews work offline and under a strict
 CSP. The advice is correct in general and false in this context, and it printed
 twice per render.
 
-Re-apply both after any update, then refresh the hashes above.
+**`daisyui.min.css` — trailing `/*# sourceMappingURL=… */` removed (94 bytes).**
+Same symptom, different file: DevTools asked jsdelivr for the `.map`, the preview
+CSP refused it (`connect-src 'none'`), and the error appeared on every render of
+a screen using the daisyUI capability.
+
+Re-apply all three after any update, then refresh the hashes above.
+
+### daisyUI was the last external request
+
+It was the one capability still loaded from a CDN (`cdn.jsdelivr.net`). Vendoring
+it means the preview and capture shells now fetch **nothing** from the network:
+they work offline, and their CSP no longer needs to name any external host.
 
 Keep `tailwind.min.js` on the same major/minor as the `tailwindcss` devDependency
 in `package.json`: it is what compiles the utility classes inside every preview,

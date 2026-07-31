@@ -1,4 +1,6 @@
 import { detectComponentName, toPreviewModule } from './generate'
+import { buildPrelude } from './capabilities/prelude'
+import type { Capability } from './capabilities/types'
 import { compileJsx } from './compile'
 
 /**
@@ -47,6 +49,26 @@ export function captureRegion(
   width: number,
   height: number,
   rect: { x: number; y: number; w: number; h: number },
+  /**
+   * The capabilities the screen was generated with.
+   *
+   * Without them the shell has no "Icon" global — and the system prompt tells
+   * the model that "Icon" is predefined, so nearly every generated screen uses
+   * it. The component then threw on render, the capture failed, and the caller's
+   * catch turned that into a silent null: thumbnails were never produced for
+   * real screens, while a test component that used no icons worked perfectly.
+   */
+  caps: Capability[] = [],
+  /**
+   * Device-pixel ratio html2canvas renders at.
+   *
+   * 2 is right for an annotation snip, which is read at full size. It is badly
+   * wrong for a thumbnail: a 1440×495 region at scale 2 is a 2880×990 canvas,
+   * ~36× the pixels of the 480 px JPEG it gets shrunk to — enough, on a screen
+   * with a full-bleed background image, to blow the 15 s budget and report
+   * "capture timed out".
+   */
+  scale = 2,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const id = 'cap' + Math.random().toString(36).slice(2)
@@ -55,7 +77,7 @@ export function captureRegion(
     compileJsx(previewCode)
       .then((compiled) => {
         mountCaptureIframe(
-          buildCompiledCaptureSrcDoc(compiled, componentName, id, rect),
+          buildCompiledCaptureSrcDoc(compiled, componentName, id, rect, caps, scale),
           id,
           width,
           height,
@@ -63,7 +85,7 @@ export function captureRegion(
           () => {
             // Fallback: compile JSX inside the iframe with Babel from CDN.
             mountCaptureIframe(
-              buildBabelCaptureSrcDoc(previewCode, componentName, id, rect),
+              buildBabelCaptureSrcDoc(previewCode, componentName, id, rect, caps, scale),
               id + 'b',
               width,
               height,
@@ -76,7 +98,7 @@ export function captureRegion(
       .catch(() => {
         // Parent-side compile failed entirely: still try Babel in the iframe.
         mountCaptureIframe(
-          buildBabelCaptureSrcDoc(previewCode, componentName, id, rect),
+          buildBabelCaptureSrcDoc(previewCode, componentName, id, rect, caps, scale),
           id,
           width,
           height,
@@ -100,9 +122,11 @@ function buildCompiledCaptureSrcDoc(
   componentName: string,
   id: string,
   rect: { x: number; y: number; w: number; h: number },
+  caps: Capability[] = [],
+  scale = 2,
 ): string {
   const b64 = utf8ToBase64(compiled)
-  return buildCaptureShell(id, rect, false, b64, componentName)
+  return buildCaptureShell(id, rect, false, b64, componentName, caps, scale)
 }
 
 function buildBabelCaptureSrcDoc(
@@ -110,9 +134,11 @@ function buildBabelCaptureSrcDoc(
   componentName: string,
   id: string,
   rect: { x: number; y: number; w: number; h: number },
+  caps: Capability[] = [],
+  scale = 2,
 ): string {
   const b64 = utf8ToBase64(sourceCode)
-  return buildCaptureShell(id, rect, true, b64, componentName)
+  return buildCaptureShell(id, rect, true, b64, componentName, caps, scale)
 }
 
 function buildCaptureShell(
@@ -121,6 +147,8 @@ function buildCaptureShell(
   useBabel: boolean,
   b64: string,
   componentName: string,
+  caps: Capability[] = [],
+  scale = 2,
 ): string {
   // Local, pinned copy — see public/vendor/VENDOR.md. This used to point at an
   // UNVERSIONED unpkg URL, loaded into an iframe that ran with Mocky's own
@@ -140,6 +168,41 @@ function buildCaptureShell(
     scr.textContent = src + ';ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(' + ${JSON.stringify(componentName)} + '));';
     document.body.appendChild(scr);`
 
+  // Capability prelude — the same one Preview injects. Its globals (Icon,
+  // Charts, Motion…) are what a generated screen expects to exist: the system
+  // prompt tells the model "Icon is a PRE-DEFINED global namespace", so almost
+  // every screen uses it. Without the prelude the component threw before
+  // html2canvas ever ran, and the caller turned that into a silent null.
+  const prelude = buildPrelude(caps)
+  const preludeB64 = prelude ? utf8ToBase64(prelude) : ''
+  const preludeTag = preludeB64
+    ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</script>`
+    : ''
+  const preludeRunner = preludeB64
+    ? `var praw = window.atob(document.getElementById('mocky-prelude').textContent);
+    var psrc = decodeURIComponent(Array.prototype.map.call(praw, function(c){ return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
+    var pscr = document.createElement('script'); pscr.textContent = psrc; document.body.appendChild(pscr);`
+    : ''
+  /*
+   * Stylesheet capabilities are deliberately NOT loaded here.
+   *
+   * The only one is daisyUI, and it is a 2.9 MB stylesheet. html2canvas resolves
+   * the computed style of every element against every rule, so its cost is
+   * quadratic in exactly the wrong way. Measured on the same screen, same scale:
+   *
+   *   without daisyUI    554 ms
+   *   with daisyUI       times out (>25 s)
+   *
+   * This is not a regression from the thumbnail work — an annotation snip of a
+   * daisyUI screen could never have completed either. Skipping it means a
+   * picture that misses daisy's component skin, which is a far better outcome
+   * than no picture and a 25-second stall.
+   *
+   * Tailwind (vendored, JIT, and the source of nearly all the styling) is still
+   * loaded, so the capture is faithful for everything else.
+   */
+  const capLinks = ''
+
   // This frame is same-origin (see the note at the top of the file), so denying
   // it a network channel is what keeps a component from posting anything it
   // manages to read. img-src is limited to this origin because the capture only
@@ -147,7 +210,7 @@ function buildCaptureShell(
   const csp = [
     "default-src 'none'",
     `script-src ${location.origin} 'unsafe-inline' 'unsafe-eval' blob:`,
-    `style-src ${location.origin} 'unsafe-inline' https://cdn.jsdelivr.net`,
+    `style-src ${location.origin} 'unsafe-inline'`,
     `img-src ${location.origin} data: blob:`,
     'font-src * data:',
     "connect-src 'none'",
@@ -162,21 +225,32 @@ function buildCaptureShell(
 <script crossorigin src="/vendor/react.production.min.js"></script>
 <script crossorigin src="/vendor/react-dom.production.min.js"></script>
 <script src="/vendor/tailwind.min.js"></script>
+${capLinks}
 ${babelScript}
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
 </head><body><div id="root"></div>
 <script type="text/plain" id="mocky-b64">${b64}</script>
+${preludeTag}
 <script>(function(){
   function post(m){ var o={__mockyCap:true,id:${JSON.stringify(id)}}; for(var k in m) o[k]=m[k]; parent.postMessage(o,'*'); }
+  // createRoot().render() commits asynchronously, so a render error is thrown
+  // AFTER the synchronous try/catch below has already returned. Without this the
+  // page simply stayed blank and html2canvas dutifully captured white — a
+  // "successful" capture of nothing, with no error anywhere to explain it.
+  window.onerror = function (msg, src, line, col) { post({ error: String(msg) + (line ? ' (line ' + line + ')' : '') }); return false; };
+  window.addEventListener('unhandledrejection', function (e) { post({ error: 'Unhandled rejection: ' + String(e.reason && e.reason.message || e.reason) }); });
   ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'].forEach(function(k){ if(React[k]) window[k]=React[k]; });
+  try {
+    ${preludeRunner}
+  } catch(e){ post({ error: 'prelude failed: ' + String((e&&e.message)||e) }); return; }
   try {
     ${runner}
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
   setTimeout(function(){
     var vw = window.innerWidth||1, vh = window.innerHeight||1, r = ${JSON.stringify(rect)};
     try {
-      html2canvas(document.body, { x: r.x*vw, y: r.y*vh, width: Math.max(1,Math.round(r.w*vw)), height: Math.max(1,Math.round(r.h*vh)), scale: 2, backgroundColor:'#ffffff', logging:false })
+      html2canvas(document.body, { x: r.x*vw, y: r.y*vh, width: Math.max(1,Math.round(r.w*vw)), height: Math.max(1,Math.round(r.h*vh)), scale: ${scale}, backgroundColor:'#ffffff', logging:false })
         .then(function(canvas){ post({ dataUrl: canvas.toDataURL('image/png') }); })
         .catch(function(e){ post({ error: String((e&&e.message)||e) }); });
     } catch(e){ post({ error: String((e&&e.message)||e) }); }
@@ -226,7 +300,14 @@ function mountCaptureIframe(
   setTimeout(() => {
     if (!done) {
       cleanup()
-      reject(new Error('capture timed out'))
+      reject(
+        new Error(
+          'capture timed out — the screen may be unusually heavy (large background image, very long page)',
+        ),
+      )
     }
-  }, 15000)
+    // 25 s, not 15. A capture is background work for a thumbnail, and a screen
+    // with a full-bleed image genuinely takes a while to rasterise; giving up
+    // early just means no thumbnail at all.
+  }, 25000)
 }

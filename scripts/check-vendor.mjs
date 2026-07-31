@@ -30,7 +30,7 @@ if (expected.size === 0) {
   process.exit(1)
 }
 
-const onDisk = fs.readdirSync(dir).filter((f) => f.endsWith('.js'))
+const onDisk = fs.readdirSync(dir).filter((f) => f.endsWith('.js') || f.endsWith('.css'))
 let failed = 0
 
 for (const [file, want] of expected) {

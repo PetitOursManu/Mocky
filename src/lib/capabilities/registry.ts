@@ -32,7 +32,7 @@ export const CAPABILITIES: Capability[] = [
   {
     id: 'daisyui',
     kind: 'cdn-css',
-    cdn: { url: 'https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css' },
+    cdn: { url: '/vendor/daisyui.min.css' },
     triggers: {
       keywords: ['daisy', 'daisyui', 'semantic', 'btn', 'card component', 'modal component'],
       intents: ['semantic classes', 'component library'],
