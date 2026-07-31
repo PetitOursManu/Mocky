@@ -12,6 +12,7 @@
  * colour classes ended up unthemed.
  */
 export { Icon } from './Icon'
+export { MockyLoader } from './MockyLoader'
 export type { IconName, IconProps } from './Icon'
 export { Button, IconButton } from './Button'
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button'

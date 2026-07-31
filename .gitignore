@@ -22,6 +22,12 @@ pnpm-debug.log*
 # Claude Code local config (keep launch.json, ignore local settings)
 .claude/settings.local.json
 
+# Local Docker overrides. Compose loads this on top of docker-compose.yml, so a
+# committed one would silently follow the repo onto a real deployment — ours
+# pins MOCKY_ORIGIN to http://localhost:8787, which is right for a laptop and
+# wrong everywhere else.
+docker-compose.override.yml
+
 # Backend data (accounts + per-user projects) — never commit user data
 server/data/
 

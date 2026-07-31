@@ -76,7 +76,8 @@ const PAIRS = [
   ['danger', 'surface', 4.5, 'error text'],
   ['warn', 'surface', 4.5, 'warning text'],
   ['ok', 'surface', 4.5, 'success text'],
-  ['muse', 'surface', 4.5, 'the Muse mark as text'],
+  ['muse', 'surface', 3.0, 'the Muse mark as a fill or rule'],
+  ['muse-ink', 'surface', 4.5, 'the Muse mark as small text'],
   ['line', 'surface', 3.0, 'the structural rule — a UI boundary needs 3:1'],
 ]
 

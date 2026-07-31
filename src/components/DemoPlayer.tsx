@@ -3,6 +3,7 @@ import { FRAME_HEADER, type Screen } from '../lib/project'
 import Preview from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import { Button, Icon } from '../ui'
+import { useT } from '../i18n'
 
 /**
  * Prototype player: renders one screen at a time and lets the user click the
@@ -17,6 +18,7 @@ export default function DemoPlayer({
   startId: string
   onExit: () => void
 }) {
+  const t = useT()
   const [stack, setStack] = useState<string[]>([startId])
   const currentId = stack[stack.length - 1]
   const current = screens.find((s) => s.id === currentId) ?? screens.find((s) => s.id === startId) ?? screens[0]
@@ -64,7 +66,7 @@ export default function DemoPlayer({
       <div className="flex items-center gap-2 border-b border-line bg-surface px-3 py-2">
         <Button size="sm" onClick={onExit}>
           <Icon name="close" size={15} />
-          Exit demo
+          {t('canvas.demoExit')}
         </Button>
         <Button
           size="sm"
@@ -72,17 +74,15 @@ export default function DemoPlayer({
           onClick={() => setStack((st) => (st.length > 1 ? st.slice(0, -1) : st))}
         >
           <Icon name="chevronLeft" size={15} />
-          Back
+          {t('canvas.demoBack')}
         </Button>
         <Button size="sm" onClick={() => setStack([startId])}>
           <Icon name="refresh" size={15} />
-          Restart
+          {t('canvas.demoRestart')}
         </Button>
-        <span className="kicker ml-3 shrink-0">Demo</span>
+        <span className="kicker ml-3 shrink-0">{t('mode.demo')}</span>
         <span className="truncate text-body text-ink-muted">{current.name}</span>
-        <span className="ml-auto hidden text-body-sm text-ink-faint sm:inline">
-          Click linked areas to navigate · Esc to exit
-        </span>
+        <span className="ml-auto hidden text-body-sm text-ink-faint sm:inline">{t('canvas.demoHint')}</span>
       </div>
 
       <div ref={areaRef} className="relative flex flex-1 items-center justify-center overflow-hidden">
@@ -105,8 +105,8 @@ export default function DemoPlayer({
                   key={h.id}
                   type="button"
                   onClick={() => navigate(h.target)}
-                  title="Go to linked screen"
-                  aria-label="Go to linked screen"
+                  title={t('canvas.demoGoToScreen')}
+                  aria-label={t('canvas.demoGoToScreen')}
                   className="absolute rounded transition hover:bg-accent/20"
                   style={{
                     left: `${h.x * 100}%`,

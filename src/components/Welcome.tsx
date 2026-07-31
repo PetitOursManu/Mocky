@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react'
 import PresetPicker from './PresetPicker'
 import { STYLE_PRESETS } from '../lib/styles'
 import MusePanel from './MusePanel'
-import { Banner, Button, Icon } from '../ui'
+import { markMuseHintDone, museHintDone } from '../lib/museHint'
+import { useT } from '../i18n'
+import { Banner, Button, Icon, MockyLoader } from '../ui'
 import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
 import type { PinnedImage } from '../lib/imageLibrary'
 
@@ -56,6 +59,29 @@ export default function Welcome({
   museImageError,
   museVision,
 }: Props) {
+  const t = useT()
+
+  // The Muse control draws attention to itself until it has been used once.
+  const [hintDone, setHintDone] = useState(museHintDone)
+  const museHint = !museConfig.enabled && !hintDone
+
+  // Arriving with Muse already on counts as having found it.
+  useEffect(() => {
+    if (museConfig.enabled && !hintDone) {
+      markMuseHintDone()
+      setHintDone(true)
+    }
+  }, [museConfig.enabled, hintDone])
+
+  function toggleMuse() {
+    const next = !museConfig.enabled
+    if (next) {
+      markMuseHintDone()
+      setHintDone(true)
+    }
+    onMuseChange({ ...museConfig, enabled: next })
+  }
+
   function onKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -67,21 +93,16 @@ export default function Welcome({
     <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-10">
       <div className="w-full max-w-2xl">
         <header className="rule-double mb-8 pb-6 text-center">
-          <p className="kicker text-accent-ink">New screen</p>
-          <h1 className="mt-2 text-h2 text-ink sm:text-display">
-            What do you want to design?
-          </h1>
-          <p className="mt-3 text-lead text-ink-muted">
-            Describe a screen in plain language — Mocky turns it into a real React + Tailwind component
-            with a live preview.
-          </p>
+          <p className="kicker text-accent-ink">{t('auth.welcome.kicker')}</p>
+          <h1 className="mt-2 text-h2 text-ink sm:text-display">{t('auth.welcome.title')}</h1>
+          <p className="mt-3 text-lead text-ink-muted">{t('auth.welcome.lead')}</p>
         </header>
 
         <div className="rounded-2xl border border-line bg-surface p-3 shadow-xl">
           <textarea
             autoFocus
             className="input min-h-[120px] resize-y border-0 bg-transparent text-lead"
-            placeholder="e.g. A clean SaaS landing page with a hero, three feature cards, and a footer…"
+            placeholder={t('auth.welcome.placeholder')}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={onKeyDown}
@@ -94,20 +115,26 @@ export default function Welcome({
                 className={`text-body-sm transition ${
                   designActive ? 'text-ok hover:opacity-80' : 'text-ink-faint hover:text-ink'
                 }`}
-                title="Manage DESIGN.md"
+                title={t('auth.welcome.designTitle')}
               >
-                {designActive ? '● DESIGN.md on' : '○ DESIGN.md off'}
+                {designActive ? t('auth.welcome.designOn') : t('auth.welcome.designOff')}
               </button>
               <button
                 type="button"
-                onClick={() => onMuseChange({ ...museConfig, enabled: !museConfig.enabled })}
+                onClick={toggleMuse}
+                // `muse-ink`, not `muse`: on paper the two differ, and the
+                // brighter one measures 4.27:1 against the surface — under the
+                // 4.5:1 AA floor for text this size. The ink variant exists for
+                // exactly this, and is identical in the dark theme.
                 className={`inline-flex items-center gap-1.5 text-body-sm transition ${
-                  museConfig.enabled ? 'text-muse hover:opacity-80' : 'text-ink-faint hover:text-ink'
+                  museConfig.enabled ? 'text-muse-ink hover:opacity-80' : 'text-ink-faint hover:text-ink'
                 }`}
-                title="Muse — inspiration, art direction & real copy"
+                title={museHint ? t('auth.welcome.museHint') : t('auth.welcome.museTitle')}
               >
-                <Icon name="sparkle" size={15} />
-                {museConfig.enabled ? 'Muse on' : 'Muse off'}
+                <Icon name="sparkle" size={15} className={museHint ? 'muse-sweep-icon' : undefined} />
+                <span className={museHint ? 'muse-sweep' : undefined}>
+                  {museConfig.enabled ? t('auth.welcome.museOn') : t('auth.welcome.museOff')}
+                </span>
               </button>
             </div>
             <div className="flex items-center gap-3">
@@ -117,7 +144,17 @@ export default function Welcome({
                 onClick={onGenerate}
                 disabled={busy || !prompt.trim()}
               >
-                {busy ? 'Generating…' : 'Generate ↵'}
+                {busy ? (
+                  <>
+                    {/* MockyLoader porte deja role="status" + aria-label : le texte
+                        visible est masque aux lecteurs d'ecran pour que l'etat ne
+                        soit pas annonce deux fois. */}
+                    <MockyLoader size={64} label={t('auth.welcome.generatingAria')} className="shrink-0" />
+                    <span aria-hidden>{t('composer.generating')}</span>
+                  </>
+                ) : (
+                  `${t('composer.generate')} ↵`
+                )}
               </Button>
             </div>
           </div>
@@ -143,7 +180,7 @@ export default function Welcome({
         )}
 
         <div className="mt-4 flex items-center justify-center gap-3">
-          <span className="kicker">Format</span>
+          <span className="kicker">{t('auth.welcome.format')}</span>
           <PresetPicker value={presetId} onChange={onPresetChange} />
         </div>
 
@@ -152,8 +189,8 @@ export default function Welcome({
         {!designActive && (
           <div className="rule-thin mt-8 pb-6">
             <div className="mb-3 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-center">
-              <span className="kicker text-accent-ink">Pick a style</span>
-              <span className="text-caption text-ink-faint">— optional, keeps every screen consistent</span>
+              <span className="kicker text-accent-ink">{t('auth.welcome.pickStyle')}</span>
+              <span className="text-caption text-ink-faint">{t('auth.welcome.pickStyleHint')}</span>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {STYLE_PRESETS.map((s) => (
@@ -179,15 +216,15 @@ export default function Welcome({
         )}
         {designActive && (
           <div className="mt-4 text-center text-body-sm text-ok">
-            ● Design system on — your screens will follow it.{' '}
+            {t('auth.welcome.designSystemOn')}{' '}
             <button type="button" onClick={onOpenDesign} className="underline underline-offset-2 transition hover:opacity-80">
-              edit
+              {t('auth.welcome.designSystemEdit')}
             </button>
           </div>
         )}
 
         <div className="mt-6">
-          <div className="kicker mb-3 text-center text-accent-ink">Or try an example</div>
+          <div className="kicker mb-3 text-center text-accent-ink">{t('auth.welcome.examples')}</div>
           <div className="flex flex-wrap justify-center gap-2">
             {examples.map((ex) => (
               <button
@@ -205,11 +242,11 @@ export default function Welcome({
         {error && (
           <Banner
             tone="danger"
-            title="Generation failed"
+            title={t('auth.welcome.generationFailed')}
             className="mt-6"
             action={
               <Button variant="ghost" size="sm" onClick={onOpenSettings}>
-                Open Settings
+                {t('auth.welcome.openSettings')}
               </Button>
             }
           >

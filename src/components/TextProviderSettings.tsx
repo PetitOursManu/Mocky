@@ -8,14 +8,16 @@ import {
   type TextTestResult,
 } from '../lib/api'
 import { Icon } from '../ui'
+import { useT } from '../i18n'
 
-const HINTS: Record<string, string> = {
-  '': 'Aucun fournisseur défini pour l’instance : chaque utilisateur configure le sien dans Settings (la clé reste dans son navigateur).',
-  'ollama-cloud': 'Ollama Cloud (ou une instance Ollama locale — indiquez son URL). Dialecte natif.',
-  openai: 'API OpenAI officielle. Modèles : gpt-4o-mini, gpt-4o, o4-mini…',
-  openrouter: 'Une clé, des centaines de modèles. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-4o-mini.',
-  fal: 'Votre clé fal.ai (la même que pour les images) donne aussi accès aux LLM. Ce champ n’est PAS pour un modèle d’images : fal expose ses LLM via OpenRouter, donc le modèle s’écrit « éditeur/modèle » — openai/gpt-4o-mini, google/gemini-2.5-flash, qwen/qwen3.5-flash-02-23… (un id du type fal-ai/…/text-to-image sera refusé). Pour le mode Inspiration, prenez un modèle qui voit les images.',
-  'openai-compatible': 'Tout endpoint exposant /v1/chat/completions : Groq, Together, DeepSeek, Mistral, LM Studio, vLLM… Indiquez l’URL de base (sans /v1).',
+/** Translation keys, resolved at render — `useT` only runs inside a component. */
+const HINT_KEYS: Record<string, string> = {
+  '': 'settings.textHintNone',
+  'ollama-cloud': 'settings.textHintOllamaCloud',
+  openai: 'settings.textHintOpenai',
+  openrouter: 'settings.textHintOpenrouter',
+  fal: 'settings.textHintFal',
+  'openai-compatible': 'settings.textHintOpenaiCompatible',
 }
 
 const MODEL_PLACEHOLDER: Record<string, string> = {
@@ -63,6 +65,7 @@ function ProfileForm({
   cfg: TextConfig
   onConfig: (c: TextConfig) => void
 }) {
+  const t = useT()
   const section: TextProfileConfig = cfg[profile]
 
   const [provider, setProvider] = useState(section.provider || '')
@@ -119,7 +122,7 @@ function ProfileForm({
   }
 
   async function clearKey() {
-    if (!provider || !confirm('Effacer la clé enregistrée ?')) return
+    if (!provider || !confirm(t('settings.clearKeyConfirm'))) return
     try {
       await push({ [provider]: { apiKey: null } }, provider)
     } catch (e) {
@@ -149,7 +152,7 @@ function ProfileForm({
       {error && <div className="mb-3 border border-danger/50 bg-danger/10 p-2 text-body-sm text-danger">{error}</div>}
 
       <label className="block">
-        <span className="mb-1 block text-body-sm font-medium text-ink">Fournisseur</span>
+        <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.provider')}</span>
         <select className="input w-full" value={provider} onChange={(e) => hydrate(section, e.target.value)}>
           <option value="">{emptyLabel}</option>
           {cfg.providers.map((p) => (
@@ -159,12 +162,14 @@ function ProfileForm({
           ))}
         </select>
       </label>
-      <p className="mt-1.5 text-caption text-ink-faint">{HINTS[provider] ?? ''}</p>
+      <p className="mt-1.5 text-caption text-ink-faint">
+        {HINT_KEYS[provider] ? t(HINT_KEYS[provider]) : ''}
+      </p>
 
       {provider && (
         <div className="mt-4 space-y-3">
           <label className="block">
-            <span className="mb-1 block text-body-sm font-medium text-ink">URL de base</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.baseUrl')}</span>
             <input
               className="input w-full"
               value={baseUrl}
@@ -172,10 +177,12 @@ function ProfileForm({
               placeholder="https://api.openai.com"
               spellCheck={false}
             />
-            <span className="mt-1 block text-caption text-ink-faint">Sans <code>/v1</code> — Mocky l’ajoute.</span>
+            <span className="mt-1 block text-caption text-ink-faint">
+              {t('settings.noV1Before')} <code>/v1</code> {t('settings.noV1After')}
+            </span>
           </label>
           <label className="block">
-            <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.model')}</span>
             <input
               className="input w-full"
               value={model}
@@ -187,34 +194,40 @@ function ProfileForm({
               <span className="mt-1.5 flex items-start gap-2 border border-warn/40 bg-warn/10 px-2 py-1.5 text-caption text-warn">
                 <Icon name="warning" size={16} />
                 <span>
-                  « {model} » ressemble à un modèle d’<strong>images</strong>. Ce champ attend un <strong>LLM</strong>{' '}
-                  (texte) — ex. <code>openai/gpt-4o-mini</code>, <code>google/gemini-2.5-flash</code>,{' '}
-                  <code>qwen/qwen3.5-flash-02-23</code>. Les modèles d’images se règlent dans{' '}
-                  <strong>Génération d’images (Muse)</strong>.
+                  {t('settings.imageModelWarnLead', { model })}{' '}
+                  <strong>{t('settings.imageModelWarnLLM')}</strong>{' '}
+                  {t('settings.imageModelWarnExamples')} <code>openai/gpt-4o-mini</code>,{' '}
+                  <code>google/gemini-2.5-flash</code>, <code>qwen/qwen3.5-flash-02-23</code>.{' '}
+                  {t('settings.imageModelWarnWhere')}{' '}
+                  <strong>{t('settings.imagesSectionTitle')}</strong>.
                 </span>
               </span>
             )}
           </label>
           <label className="block">
-            <span className="mb-1 block text-body-sm font-medium text-ink">Clé API</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.apiKey')}</span>
             <input
               className="input w-full"
               type="password"
               autoComplete="off"
-              placeholder={current?.hasApiKey ? '•••••••• (enregistrée)' : KEY_PLACEHOLDER[provider] || 'sk-…'}
+              placeholder={
+                current?.hasApiKey
+                  ? t('settings.keyStoredPlaceholder')
+                  : KEY_PLACEHOLDER[provider] || 'sk-…'
+              }
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
             <div className="mt-1">
               {current?.hasApiKey ? (
                 <span className="text-caption text-ok">
-                  ● clé enregistrée —{' '}
+                  ● {t('settings.keyStored')} —{' '}
                   <button type="button" className="underline underline-offset-2 hover:text-ink" onClick={clearKey}>
-                    effacer
+                    {t('settings.clearKey')}
                   </button>
                 </span>
               ) : (
-                <span className="text-caption text-ink-faint">aucune clé enregistrée (inutile pour un modèle local)</span>
+                <span className="text-caption text-ink-faint">{t('settings.noKeyStoredLocal')}</span>
               )}
             </div>
           </label>
@@ -223,23 +236,25 @@ function ProfileForm({
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" className="btn-primary" onClick={save} disabled={saving}>
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
+          {saving ? t('settings.saving') : t('common.save')}
         </button>
         {provider && (
           <button type="button" className="btn-ghost px-3 py-2 text-body-sm" onClick={runTest} disabled={testing}>
-            {testing ? 'Test en cours…' : 'Tester'}
+            {testing ? t('settings.testing') : t('settings.testShort')}
           </button>
         )}
         {saved && (
           <span className="flex items-center gap-1.5 text-body-sm text-ok">
             <Icon name="check" size={16} />
-            enregistré
+            {t('settings.savedLower')}
           </span>
         )}
         {test && (
           <span className={`flex items-center gap-1.5 text-body-sm ${test.ok ? 'text-ok' : 'text-danger'}`}>
             <Icon name={test.ok ? 'check' : 'close'} size={16} />
-            {test.ok ? `${test.model} répond : « ${test.reply} »` : test.error}
+            {test.ok
+              ? t('settings.testReply', { model: test.model ?? '', reply: test.reply ?? '' })
+              : test.error}
           </span>
         )}
       </div>
@@ -256,6 +271,7 @@ function ProfileForm({
  * per-browser Settings behaviour.
  */
 export default function TextProviderSettings() {
+  const t = useT()
   const [cfg, setCfg] = useState<TextConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -270,10 +286,10 @@ export default function TextProviderSettings() {
     return (
       <section>
         <header className="rule-thin mb-4 border-accent/40 pb-2">
-          <span className="kicker text-accent-ink">Instance</span>
-          <h3 className="mt-1 text-h3 text-ink">Modèles de texte (LLM)</h3>
+          <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+          <h3 className="mt-1 text-h3 text-ink">{t('settings.textModelsTitle')}</h3>
         </header>
-        <p className="text-body text-ink-faint">{error || 'Chargement…'}</p>
+        <p className="text-body text-ink-faint">{error || t('common.loading')}</p>
       </section>
     )
   }
@@ -281,55 +297,56 @@ export default function TextProviderSettings() {
   return (
     <section>
       <header className="rule-thin mb-4 border-accent/40 pb-2">
-        <span className="kicker text-accent-ink">Instance</span>
-        <h3 className="mt-1 text-h3 text-ink">Modèles de texte (LLM)</h3>
+        <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+        <h3 className="mt-1 text-h3 text-ink">{t('settings.textModelsTitle')}</h3>
       </header>
 
       <p className="measure mb-3 text-body-sm text-ink-muted">
-        Deux modèles <strong>qui écrivent du texte</strong>. Défini ici, un modèle s’applique à{' '}
-        <strong>toute l’instance</strong> et les utilisateurs n’ont plus rien à configurer.
+        {t('settings.textModelsBlurb1')} <strong>{t('settings.textModelsBlurbStrong1')}</strong>
+        {t('settings.textModelsBlurb2')} <strong>{t('settings.textModelsBlurbStrong2')}</strong>{' '}
+        {t('settings.textModelsBlurb3')}
       </p>
       <p className="mb-3 flex items-start gap-2 border border-line-soft bg-ink/5 px-2.5 py-2 text-caption text-ink-muted">
         <Icon name="image" size={16} />
         <span>
-          <strong>Ce n’est pas ici que l’image d’inspiration est générée.</strong> Le modèle qui <em>fabrique</em>{' '}
-          l’image (Seedream, Flux, nano-banana…) se règle dans <strong>Génération d’images (Muse)</strong>.
-          Muse enchaîne les deux : ② écrit le dossier et la description de l’image → le modèle d’images la fabrique →
-          ② (ou ①) la <em>regarde</em> pour composer l’écran.
+          <strong>{t('settings.imageNotHereLead')}</strong> {t('settings.imageNotHereBody1')}{' '}
+          <em>{t('settings.imageNotHereMakes')}</em> {t('settings.imageNotHereBody2')}{' '}
+          <strong>{t('settings.imagesSectionTitle')}</strong>
+          {t('settings.imageFlow1')} <em>{t('settings.imageFlowLooks')}</em>{' '}
+          {t('settings.imageFlow2')}
         </span>
       </p>
 
       <div className="mb-4 flex items-start gap-2 border border-warn/40 bg-warn/10 px-2.5 py-2 text-caption text-warn">
         <Icon name="warning" size={16} />
         <span>
-          La clé est stockée <strong>sur ce serveur</strong> et utilisable par tous les comptes de l’instance. Laissez
-          « Aucun » pour conserver le mode historique où chaque clé reste dans le navigateur de son utilisateur.
+          {t('settings.keyOnServer1')} <strong>{t('settings.keyOnServerStrong')}</strong>{' '}
+          {t('settings.keyOnServer2')}
         </span>
       </div>
 
       <div className="space-y-4">
         <ProfileForm
           profile="generation"
-          title="① Génération des écrans"
-          blurb="Le modèle qui écrit le code des écrans et fait tourner le planner. C’est le modèle principal."
-          emptyLabel="Aucun — chaque utilisateur configure le sien"
+          title={t('settings.textProfileGeneration')}
+          blurb={t('settings.textProfileGenerationBlurb')}
+          emptyLabel={t('settings.textEmptyGeneration')}
           cfg={cfg}
           onConfig={setCfg}
         />
         <ProfileForm
           profile="inspiration"
-          title="② Muse — texte du Design Dossier"
+          title={t('settings.textProfileInspiration')}
           blurb={
             <>
-              Le modèle qui <strong>rédige</strong> le Design Dossier (concept, palette, vrais textes) et qui{' '}
-              <strong>regarde</strong> l’image d’inspiration une fois qu’elle existe. Il n’écrit pas de code : un modèle
-              moins cher suffit — mais le mode <em>Inspiration</em> exige la <strong>vision</strong>.{' '}
-              <span className="text-ink-faint">
-                Ce n’est pas lui qui fabrique l’image. Laissez « Aucun » pour réutiliser le modèle de génération.
-              </span>
+              {t('settings.textInsp1')} <strong>{t('settings.textInspWrites')}</strong>{' '}
+              {t('settings.textInsp2')} <strong>{t('settings.textInspLooks')}</strong>{' '}
+              {t('settings.textInsp3')} <em>{t('muse.modeInspiration')}</em>{' '}
+              {t('settings.textInsp4')} <strong>{t('settings.textInspVision')}</strong>.{' '}
+              <span className="text-ink-faint">{t('settings.textInspFaint')}</span>
             </>
           }
-          emptyLabel="Aucun — réutilise le modèle de génération"
+          emptyLabel={t('settings.textEmptyInspiration')}
           cfg={cfg}
           onConfig={setCfg}
         />

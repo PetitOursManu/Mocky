@@ -8,24 +8,26 @@ import {
   type ImagesTestResult,
 } from '../lib/api'
 import { Icon } from '../ui'
+import { useT } from '../i18n'
 
-const LABELS: Record<string, string> = {
-  pollinations: 'Pollinations — gratuit, sans clé (défaut)',
-  fal: 'fal.ai — FLUX & co.',
-  'openai-image': 'OpenAI / compatible — DALL·E, gpt-image',
-  'cloudflare-workers-ai': 'Cloudflare Workers AI',
-  'sd-webui': 'Automatic1111 / Forge — local (votre GPU)',
-  none: 'Aucun — placeholders uniquement',
+/** Translation keys, resolved at render — `useT` only runs inside a component. */
+const LABEL_KEYS: Record<string, string> = {
+  pollinations: 'settings.imgLabelPollinations',
+  fal: 'settings.imgLabelFal',
+  'openai-image': 'settings.imgLabelOpenai',
+  'cloudflare-workers-ai': 'settings.imgLabelCloudflare',
+  'sd-webui': 'settings.imgLabelSdWebui',
+  none: 'settings.imgLabelNone',
 }
 
-const HINTS: Record<string, string> = {
-  '': 'Le même modèle que pour les images de contenu. Choisissez-en un autre si vous voulez une maquette d’inspiration plus soignée sans ralentir les photos hero/produits.',
-  pollinations: 'Aucune configuration requise. Limité à ~1 image / 15 s (les requêtes sont mises en file). Un jeton gratuit augmente la limite.',
-  fal: 'Clé fal.ai + identifiant du modèle, copié tel quel depuis la page du modèle (tous ne sont pas sous « fal-ai/ »). Mocky passe par la file d’attente fal, donc les modèles lents fonctionnent.',
-  'openai-image': 'Tout endpoint exposant POST {URL}/v1/images/generations (OpenAI, LiteLLM, passerelle compatible…).',
-  'cloudflare-workers-ai': 'Offre gratuite généreuse. Nécessite l’ID de compte et un jeton API avec la permission Workers AI.',
-  'sd-webui': 'Votre instance locale (API activée : --api). Aucune clé, aucune limite, rien ne sort de votre machine.',
-  none: 'La génération d’images est désactivée : Muse fonctionne toujours, les emplacements reçoivent un placeholder issu de la palette.',
+const HINT_KEYS: Record<string, string> = {
+  '': 'settings.imgHintInherit',
+  pollinations: 'settings.imgHintPollinations',
+  fal: 'settings.imgHintFal',
+  'openai-image': 'settings.imgHintOpenai',
+  'cloudflare-workers-ai': 'settings.imgHintCloudflare',
+  'sd-webui': 'settings.imgHintSdWebui',
+  none: 'settings.imgHintNone',
 }
 
 type SecretName = 'pollinations' | 'fal' | 'openai' | 'cloudflare'
@@ -51,6 +53,7 @@ function ProfileForm({
   cfg: ImagesConfig
   onConfig: (c: ImagesConfig) => void
 }) {
+  const t = useT()
   const section: ImagesProfileConfig = cfg[profile]
 
   const [provider, setProvider] = useState(section.provider)
@@ -125,7 +128,7 @@ function ProfileForm({
   }
 
   async function clearSecret(which: SecretName) {
-    if (!confirm('Effacer la clé enregistrée ?')) return
+    if (!confirm(t('settings.clearKeyConfirm'))) return
     const patch: ImagesProfilePatch =
       which === 'pollinations'
         ? { pollinations: { token: null } }
@@ -156,13 +159,13 @@ function ProfileForm({
   const secretSet = (isSet: boolean, which: SecretName) =>
     isSet ? (
       <span className="text-caption text-ok">
-        ● clé enregistrée —{' '}
+        ● {t('settings.keyStored')} —{' '}
         <button type="button" className="underline underline-offset-2 hover:text-ink" onClick={() => clearSecret(which)}>
-          effacer
+          {t('settings.clearKey')}
         </button>
       </span>
     ) : (
-      <span className="text-caption text-ink-faint">aucune clé enregistrée</span>
+      <span className="text-caption text-ink-faint">{t('settings.noKeyStored')}</span>
     )
 
   return (
@@ -173,27 +176,33 @@ function ProfileForm({
       {error && <div className="mb-3 border border-danger/50 bg-danger/10 p-2 text-body-sm text-danger">{error}</div>}
 
       <label className="block">
-        <span className="mb-1 block text-body-sm font-medium text-ink">Fournisseur</span>
+        <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.provider')}</span>
         <select className="input w-full" value={provider} onChange={(e) => setProvider(e.target.value)}>
           {emptyLabel && <option value="">{emptyLabel}</option>}
           {cfg.providers.map((id) => (
             <option key={id} value={id}>
-              {LABELS[id] || id}
+              {LABEL_KEYS[id] ? t(LABEL_KEYS[id]) : id}
             </option>
           ))}
         </select>
       </label>
-      <p className="mt-1.5 text-caption text-ink-faint">{HINTS[provider]}</p>
+      <p className="mt-1.5 text-caption text-ink-faint">
+        {HINT_KEYS[provider] ? t(HINT_KEYS[provider]) : ''}
+      </p>
 
       {/* Per-provider fields */}
       <div className="mt-4 space-y-3">
         {provider === 'pollinations' && (
           <label className="block">
-            <span className="mb-1 block text-body-sm font-medium text-ink">Jeton (optionnel)</span>
+            <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.tokenOptional')}</span>
             <input
               className="input w-full"
               type="password"
-              placeholder={section.pollinations.hasToken ? '•••••••• (enregistré)' : 'jeton Pollinations — optionnel'}
+              placeholder={
+                section.pollinations.hasToken
+                  ? t('settings.tokenStoredPlaceholder')
+                  : t('settings.pollinationsTokenPlaceholder')
+              }
               value={poToken}
               onChange={(e) => setPoToken(e.target.value)}
             />
@@ -204,7 +213,7 @@ function ProfileForm({
         {provider === 'fal' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.model')}</span>
               <input
                 className="input w-full"
                 value={falModel}
@@ -212,12 +221,14 @@ function ProfileForm({
                 placeholder="fal-ai/flux/schnell"
               />
               <span className="mt-1 block text-caption text-ink-faint">
-                Copiez l’id exact depuis la page du modèle — tous ne sont pas sous <code>fal-ai/</code>. Ex.{' '}
-                <code>fal-ai/flux/schnell</code> (rapide) ou <code>bytedance/seedream/v5/pro/text-to-image</code> (lent, ~2 min).
+                {t('settings.falModelHint1')} <code>fal-ai/</code>
+                {t('settings.falModelHint2')} <code>fal-ai/flux/schnell</code>{' '}
+                {t('settings.falModelHintFast')} <code>bytedance/seedream/v5/pro/text-to-image</code>{' '}
+                {t('settings.falModelHintSlow')}
               </span>
             </label>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Délai max (secondes)</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.timeoutSeconds')}</span>
               <input
                 className="input w-32"
                 type="number"
@@ -227,15 +238,19 @@ function ProfileForm({
                 onChange={(e) => setFalTimeout(Number(e.target.value))}
               />
               <span className="mt-1 block text-caption text-ink-faint">
-                Augmentez-le pour un modèle lent (Seedream Pro ≈ 110 s).
+                {t('settings.timeoutHint')}
               </span>
             </label>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Clé API</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.apiKey')}</span>
               <input
                 className="input w-full"
                 type="password"
-                placeholder={section.fal.hasApiKey ? '•••••••• (enregistrée)' : 'votre clé fal.ai'}
+                placeholder={
+                  section.fal.hasApiKey
+                    ? t('settings.keyStoredPlaceholder')
+                    : t('settings.falKeyPlaceholder')
+                }
                 value={falKey}
                 onChange={(e) => setFalKey(e.target.value)}
               />
@@ -247,19 +262,19 @@ function ProfileForm({
         {provider === 'openai-image' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">URL de base</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.baseUrl')}</span>
               <input className="input w-full" value={oaBase} onChange={(e) => setOaBase(e.target.value)} placeholder="https://api.openai.com" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.model')}</span>
               <input className="input w-full" value={oaModel} onChange={(e) => setOaModel(e.target.value)} placeholder="gpt-image-1 / dall-e-3" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Clé API</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.apiKey')}</span>
               <input
                 className="input w-full"
                 type="password"
-                placeholder={section.openai.hasApiKey ? '•••••••• (enregistrée)' : 'sk-…'}
+                placeholder={section.openai.hasApiKey ? t('settings.keyStoredPlaceholder') : 'sk-…'}
                 value={oaKey}
                 onChange={(e) => setOaKey(e.target.value)}
               />
@@ -271,19 +286,23 @@ function ProfileForm({
         {provider === 'cloudflare-workers-ai' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Account ID</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.cfAccountId')}</span>
               <input className="input w-full" value={cfAccount} onChange={(e) => setCfAccount(e.target.value)} placeholder="a1b2c3…" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Modèle</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.model')}</span>
               <input className="input w-full" value={cfModel} onChange={(e) => setCfModel(e.target.value)} placeholder="@cf/black-forest-labs/flux-1-schnell" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Jeton API</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.apiToken')}</span>
               <input
                 className="input w-full"
                 type="password"
-                placeholder={section.cloudflare.hasApiToken ? '•••••••• (enregistré)' : 'jeton avec la permission Workers AI'}
+                placeholder={
+                  section.cloudflare.hasApiToken
+                    ? t('settings.tokenStoredPlaceholder')
+                    : t('settings.cfTokenPlaceholder')
+                }
                 value={cfToken}
                 onChange={(e) => setCfToken(e.target.value)}
               />
@@ -295,11 +314,11 @@ function ProfileForm({
         {provider === 'sd-webui' && (
           <>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">URL de l’instance</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.instanceUrl')}</span>
               <input className="input w-full" value={sdBase} onChange={(e) => setSdBase(e.target.value)} placeholder="http://127.0.0.1:7860" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-body-sm font-medium text-ink">Steps</span>
+              <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.sdSteps')}</span>
               <input
                 className="input w-32"
                 type="number"
@@ -311,9 +330,7 @@ function ProfileForm({
             </label>
             <p className="flex items-start gap-2 text-caption text-warn">
               <Icon name="warning" size={16} />
-              <span>
-                Cette adresse est appelée par le serveur Mocky lui-même — utilisez uniquement une instance de confiance.
-              </span>
+              <span>{t('settings.sdWebuiWarn')}</span>
             </p>
           </>
         )}
@@ -322,17 +339,17 @@ function ProfileForm({
       {/* Actions */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" className="btn-primary" onClick={save} disabled={saving}>
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
+          {saving ? t('settings.saving') : t('common.save')}
         </button>
         {provider && (
           <button type="button" className="btn-ghost px-3 py-2 text-body-sm" onClick={runTest} disabled={testing}>
-            {testing ? 'Test en cours…' : 'Tester (génère une image)'}
+            {testing ? t('settings.testing') : t('settings.testImage')}
           </button>
         )}
         {saved && (
           <span className="flex items-center gap-1.5 text-body-sm text-ok">
             <Icon name="check" size={16} />
-            enregistré
+            {t('settings.savedLower')}
           </span>
         )}
         {test && (
@@ -340,8 +357,8 @@ function ProfileForm({
             <Icon name={test.ok ? 'check' : 'close'} size={16} />
             {test.ok
               ? test.skipped
-                ? 'fournisseur « aucun » — placeholders'
-                : `image générée (${Math.round((test.bytes || 0) / 1024)} Ko)`
+                ? t('settings.imgTestSkipped')
+                : t('settings.imgTestOk', { kb: Math.round((test.bytes || 0) / 1024) })
               : test.error}
           </span>
         )}
@@ -357,6 +374,7 @@ function ProfileForm({
  * be fast and cheap. Secrets are stored server-side and never returned.
  */
 export default function ImageProviderSettings() {
+  const t = useT()
   const [cfg, setCfg] = useState<ImagesConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -371,10 +389,10 @@ export default function ImageProviderSettings() {
     return (
       <section>
         <header className="rule-thin mb-4 border-accent/40 pb-2">
-          <span className="kicker text-accent-ink">Instance</span>
-          <h3 className="mt-1 text-h3 text-ink">Génération d’images (Muse)</h3>
+          <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+          <h3 className="mt-1 text-h3 text-ink">{t('settings.imagesSectionTitle')}</h3>
         </header>
-        <p className="text-body text-ink-faint">{error || 'Chargement…'}</p>
+        <p className="text-body text-ink-faint">{error || t('common.loading')}</p>
       </section>
     )
   }
@@ -382,40 +400,37 @@ export default function ImageProviderSettings() {
   return (
     <section>
       <header className="rule-thin mb-4 border-accent/40 pb-2">
-        <span className="kicker text-accent-ink">Instance</span>
-        <h3 className="mt-1 text-h3 text-ink">Génération d’images (Muse)</h3>
+        <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+        <h3 className="mt-1 text-h3 text-ink">{t('settings.imagesSectionTitle')}</h3>
       </header>
 
       <p className="measure mb-4 text-body-sm text-ink-muted">
-        Muse génère <strong>deux sortes d’images</strong>, et peu de modèles sont bons aux deux. Vous pouvez donc en
-        choisir un pour chacune. Les clés sont stockées sur ce serveur et ne sont jamais renvoyées au navigateur ; si un
-        service échoue, Muse retombe sur des placeholders.
+        {t('settings.imagesBlurb1')} <strong>{t('settings.imagesBlurbStrong')}</strong>
+        {t('settings.imagesBlurb2')}
       </p>
 
       <div className="space-y-4">
         <ProfileForm
           profile="inspiration"
-          title="Image d’inspiration"
+          title={t('settings.imgProfileInspiration')}
           blurb={
             <>
-              La <strong>maquette de référence</strong> montrée au LLM pour orienter la direction artistique (mode{' '}
-              <em>Inspiration</em>). Une seule par écran : un modèle plus lent et plus cher se justifie, s’il rend bien
-              une mise en page de site ou d’app.{' '}
-              <span className="text-ink-faint">Laissez « Aucun » pour réutiliser le modèle de contenu.</span>
+              {t('settings.imgInsp1')} <strong>{t('settings.imgInspRef')}</strong>{' '}
+              {t('settings.imgInsp2')}{' '}
+              <span className="text-ink-faint">{t('settings.imgInspFaint')}</span>
             </>
           }
-          emptyLabel="Aucun — réutilise le modèle de contenu"
+          emptyLabel={t('settings.imgEmptyInspiration')}
           cfg={cfg}
           onConfig={setCfg}
         />
         <ProfileForm
           profile="content"
-          title="Images de contenu"
+          title={t('settings.imgProfileContent')}
           blurb={
             <>
-              Les photos <strong>intégrées dans l’écran</strong> : hero, produits, arrière-plans (modes{' '}
-              <em>Contenu</em> et <em>Les deux</em>). Il peut y en avoir plusieurs par écran — privilégiez un modèle{' '}
-              <strong>rapide et bon marché</strong>.
+              {t('settings.imgContent1')} <strong>{t('settings.imgContentEmbedded')}</strong>
+              {t('settings.imgContent2')} <strong>{t('settings.imgContentFastCheap')}</strong>.
             </>
           }
           cfg={cfg}

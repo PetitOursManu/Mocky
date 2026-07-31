@@ -1,20 +1,9 @@
-import { useMemo, useState } from 'react'
-import type { Project, Screen } from '../lib/project'
+import { useEffect, useMemo, useState } from 'react'
+import { headline, type Project, type Screen } from '../lib/project'
+import { getThumb, pruneThumbs, THUMB_REGION } from '../lib/thumbnails'
 import { Button, Icon, IconButton, Input } from '../ui'
 import { useT } from '../i18n'
 
-/**
- * The front page.
- *
- * It used to be a flat two-column list where every entry looked identical and
- * each thumbnail showed the string `componentName` — which is always "App", so
- * sixteen projects displayed the word "App" twenty times and told you nothing.
- *
- * A newspaper front page does the opposite: one lead story set large, the rest
- * ranked beneath it, and empty drafts pushed out of the way. The lead's deck is
- * the prompt that created its first screen — real content, and far more use
- * than a placeholder.
- */
 
 function useTimeAgo() {
   const t = useT()
@@ -32,17 +21,21 @@ function useTimeAgo() {
 }
 
 /**
- * Screens drawn as proportional rectangles.
+ * Screens drawn as proportional rectangles — the fallback figure.
  *
- * Deliberately not live previews: sixteen projects would mean sixteen iframes
- * each booting React, Babel and Tailwind. The real width/height ratio and the
- * device type are honest information, and they cost nothing.
+ * Used until a real thumbnail exists, and permanently for a screen that cannot
+ * be captured. The width/height ratio and the device type are honest
+ * information, and they cost nothing.
+ *
+ * Outline, never filled. Filled with `bg-surface` these read as broken images
+ * in the dark theme — a column of black boxes where pictures should be — when
+ * what they actually are is a diagram of the screen's shape.
  */
 function ScreenFigure({ screens, tall = false }: { screens: Screen[]; tall?: boolean }) {
   const shown = screens.slice(0, tall ? 5 : 3)
   const box = tall ? 76 : 40
   return (
-    <span className="flex items-end gap-1.5" aria-hidden>
+    <span className="flex items-end gap-1.5 opacity-70" aria-hidden>
       {shown.map((s) => {
         const ratio = s.w > 0 && s.h > 0 ? s.w / s.h : 4 / 3
         const h = box
@@ -51,7 +44,7 @@ function ScreenFigure({ screens, tall = false }: { screens: Screen[]; tall?: boo
           <span
             key={s.id}
             style={{ width: w, height: h }}
-            className={`block border border-line-soft bg-surface ${s.device === 'iphone' ? 'rounded-[3px]' : ''}`}
+            className={`block border border-line ${s.device === 'iphone' ? 'rounded-[3px]' : ''}`}
           />
         )
       })}
@@ -64,12 +57,63 @@ function ScreenFigure({ screens, tall = false }: { screens: Screen[]; tall?: boo
   )
 }
 
-/** The deck under a lead headline: the request that produced the first screen. */
-function deckOf(p: Project): string | null {
+/**
+ * Display size of a thumbnail.
+ *
+ * The capture only covers the top THUMB_REGION.h of the screen, so the picture's
+ * ratio is `w / (h * region.h)` — using the screen's own ratio would squash it.
+ * The result is clamped: a phone screen is nearly square once cropped and would
+ * otherwise tower over the row it sits in.
+ */
+function thumbBox(screen: Screen, width: number, minH: number, maxH: number) {
+  const w = screen.w > 0 ? screen.w : 1024
+  const h = screen.h > 0 ? screen.h : 720
+  const ratio = w / Math.max(1, h * THUMB_REGION.h)
+  return { width, height: Math.round(Math.min(maxH, Math.max(minH, width / ratio))) }
+}
+
+/**
+ * The project's cover: its real screenshot when one has been captured, the
+ * drawn rectangles until then. Never a hole — a project whose capture failed
+ * still shows a figure of the right shape.
+ */
+function ProjectFigure({
+  screens,
+  thumbs,
+  tall = false,
+}: {
+  screens: Screen[]
+  thumbs: Record<string, string>
+  tall?: boolean
+}) {
+  const cover = screens[0]
+  const thumb = cover ? thumbs[cover.id] : undefined
+  if (!thumb || !cover) return <ScreenFigure screens={screens} tall={tall} />
+  // A 1440 px screen shown at 96 px was unreadable — generated screens open on
+  // a pale header, so the whole thumbnail read as a white box. 480 px is stored
+  // (see thumbnails.ts) so neither size is upscaled.
+  const box = tall ? thumbBox(cover, 360, 130, 260) : thumbBox(cover, 132, 46, 104)
+  return (
+    <img
+      src={thumb}
+      alt=""
+      aria-hidden
+      decoding="async"
+      width={box.width}
+      height={box.height}
+      style={{ width: box.width, height: box.height }}
+      className="block max-w-full shrink-0 border border-line-soft bg-surface object-cover object-top"
+    />
+  )
+}
+
+/** The deck under a headline: the request that produced the first screen. */
+function deckOf(p: Project, max = 180): string | null {
   const withPrompt = p.screens.find((s) => s.prompt?.trim())
   if (!withPrompt) return null
-  const clean = withPrompt.prompt.trim().replace(/\s+/g, ' ')
-  return clean.length > 180 ? clean.slice(0, 180) + '…' : clean
+  // The same markup `headline` strips would open every deck with a tag.
+  const clean = headline(withPrompt.prompt)
+  return clean.length > max ? clean.slice(0, max) + '…' : clean
 }
 
 export default function ProjectsHome({
@@ -103,11 +147,71 @@ export default function ProjectsHome({
     return { lead: withScreens[0] ?? null, rest: withScreens.slice(1), empties: without, matched: found.length }
   }, [projects, query])
 
+  // Real screenshots, keyed by the id of the screen they show.
+  const [thumbs, setThumbs] = useState<Record<string, string>>({})
+
+  // One cover screen per project — the first, i.e. the one whose prompt is the
+  // lead's deck — most recently touched first. That order is also the capture
+  // order, so the front of the page fills in before the tail. It is derived from
+  // `projects` and not from the filtered list on purpose: typing in the search
+  // box must not restart the queue on every keystroke.
+  const covers = useMemo(
+    () =>
+      [...projects]
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .map((p) => p.screens[0])
+        .filter((s): s is Screen => !!s && !!s.code && s.code.trim().length > 0),
+    [projects],
+  )
+
+  /**
+   * READ ONLY. This page never takes a picture.
+   *
+   * It used to, and that was the wrong place: a capture needs a short-lived
+   * same-origin iframe, so every visit to the home page re-ran model-written
+   * code with Mocky's own origin, once per project — a privileged operation as
+   * a side effect of navigation. The picture is now taken in the project view,
+   * right after a screen settles, where the user has just asked Mocky to run
+   * that code anyway (see queueThumbs).
+   *
+   * A project whose screen has never been opened since simply keeps its drawn
+   * figure, which is honest rather than empty.
+   */
+  useEffect(() => {
+    const cached: Record<string, string> = {}
+    for (const s of covers) {
+      const hit = getThumb(s.id, s.code)
+      if (hit) cached[s.id] = hit
+    }
+    setThumbs(cached)
+    pruneThumbs(projects.flatMap((p) => p.screens.map((s) => s.id)))
+  }, [covers, projects])
+
   const screenCount = (n: number) =>
     n === 0 ? t('projects.noScreens') : n === 1 ? t('projects.screens_one') : t('projects.screens_other', { count: n })
 
   const confirmDelete = (p: Project) => {
-    if (confirm(t('projects.deleteConfirm', { name: p.name }))) onDelete(p.id)
+    if (confirm(t('projects.deleteConfirm', { name: headline(p.name) }))) onDelete(p.id)
+  }
+
+  /**
+   * Delete every empty draft at once.
+   *
+   * They accumulate on their own — a "New project" click that went nowhere
+   * leaves one behind — so clearing them one by one is housekeeping the app
+   * created for the user. Nothing here holds a screen, which is why a single
+   * confirmation is enough for the whole batch.
+   */
+  const clearEmpties = () => {
+    if (empties.length === 0) return
+    const message =
+      empties.length === 1
+        ? t('projects.clearEmptiesOne')
+        : t('projects.clearEmptiesConfirm', { count: empties.length })
+    if (!confirm(message)) return
+    // deleteProject uses a functional setState, so a loop is safe: each call
+    // sees the result of the previous one rather than a stale array.
+    for (const p of empties) onDelete(p.id)
   }
 
   return (
@@ -164,6 +268,7 @@ export default function ProjectsHome({
           <div className="mb-3 flex items-center gap-3">
             <span className="kicker text-accent-ink">{t('projects.lead')}</span>
             <span className="h-px flex-1 bg-accent/40" />
+            <span className="font-mono text-caption tabular-nums text-accent-ink">01</span>
           </div>
 
           <div className="group grid gap-6 border-b border-line pb-8 md:grid-cols-[1fr_auto] md:items-start">
@@ -174,7 +279,9 @@ export default function ProjectsHome({
                 aria-label={t('projects.openProject', { name: lead.name })}
                 className="block max-w-3xl text-left"
               >
-                <h2 className="text-display text-ink transition group-hover:text-accent-ink">{lead.name}</h2>
+                <h2 className="text-display text-ink transition group-hover:text-accent-ink">
+                  {headline(lead.name)}
+                </h2>
               </button>
               {deckOf(lead) && (
                 <p className="measure mt-3 font-serif text-lead text-ink-muted">{deckOf(lead)}</p>
@@ -200,20 +307,31 @@ export default function ProjectsHome({
               </div>
             </div>
 
-            <button
-              type="button"
+            {/* Not a <button>. It was one, marked aria-hidden and tabIndex={-1}
+                to keep it out of the tab order — but clicking still focused it,
+                and the browser rightly complains that a focused element must not
+                be hidden from assistive technology. The headline and the "Open"
+                button already lead into the project; this is decoration, so it
+                is a plain element that happens to be clickable. */}
+            <div
               onClick={() => onOpen(lead.id)}
-              tabIndex={-1}
               aria-hidden
-              className="hidden shrink-0 md:block"
+              className="hidden shrink-0 cursor-pointer md:block"
             >
-              <ScreenFigure screens={lead.screens} tall />
-            </button>
+              <ProjectFigure screens={lead.screens} thumbs={thumbs} tall />
+            </div>
           </div>
         </section>
       )}
 
-      {/* ---- the ranked list, in newspaper columns ---- */}
+      {/* ---- the register ----
+          Three columns of name-plus-date read as a spreadsheet: twenty rows of
+          identical grey, nothing to tell one project from another, and the
+          request that actually produced each screen nowhere in sight. A
+          newspaper index does the opposite — it numbers its entries, gives each
+          a line of standfirst, and rules them off. Two columns leave room for
+          that line; the numbers give the page a rhythm the old grid had none of,
+          and they continue the lead's 01. */}
       {rest.length > 0 && (
         <section className="mb-10">
           <div className="section-head">
@@ -221,36 +339,58 @@ export default function ProjectsHome({
             <span className="ml-auto font-mono text-caption text-ink-faint">{rest.length}</span>
           </div>
 
-          {/* `divide-x` draws the column rule between columns — the device that
-              makes a grid of text read as a page rather than as cards. */}
-          <div className="grid gap-x-8 lg:grid-cols-2 lg:divide-x lg:divide-line-soft xl:grid-cols-3">
-            {rest.map((p) => (
-              <div key={p.id} className="group flex items-center gap-3 border-b border-line-soft py-3 lg:px-4 lg:first:pl-0">
-                <button
-                  type="button"
-                  onClick={() => onOpen(p.id)}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          {/* `divide-x` draws the column rule — the device that makes a grid of
+              text read as a page rather than as cards. */}
+          <div className="grid gap-x-10 xl:grid-cols-2 xl:divide-x xl:divide-line-soft">
+            {rest.map((p, i) => {
+              const deck = deckOf(p, 96)
+              return (
+                <article
+                  key={p.id}
+                  className="group flex items-start gap-4 border-b border-line-soft py-4 xl:px-6 xl:first:pl-0"
                 >
-                  <ScreenFigure screens={p.screens} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body font-medium text-ink transition group-hover:text-accent-ink">
-                      {p.name}
-                    </span>
-                    <span className="mt-0.5 block font-mono text-caption text-ink-faint">
-                      {screenCount(p.screens.length)} · {timeAgo(p.updatedAt)}
-                    </span>
+                  {/* The entry number, as an index has. `tabular-nums` keeps the
+                      column of digits straight; `padStart` keeps 02 above 12. */}
+                  <span className="mt-1 w-6 shrink-0 font-mono text-caption tabular-nums text-ink-faint transition group-hover:text-accent-ink">
+                    {String(i + 2).padStart(2, '0')}
                   </span>
-                </button>
-                <IconButton
-                  label={t('projects.delete')}
-                  variant="quiet"
-                  onClick={() => confirmDelete(p)}
-                  className="text-ink-faint opacity-0 transition hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-                >
-                  <Icon name="trash" size={16} />
-                </IconButton>
-              </div>
-            ))}
+
+                  <button
+                    type="button"
+                    onClick={() => onOpen(p.id)}
+                    className="min-w-0 flex-1 text-left"
+                    aria-label={t('projects.openProject', { name: headline(p.name) })}
+                  >
+                    <span className="block truncate font-serif text-body font-medium text-ink transition group-hover:text-accent-ink">
+                      {headline(p.name)}
+                    </span>
+                    {deck && (
+                      <span className="mt-1 block truncate text-body-sm text-ink-muted">{deck}</span>
+                    )}
+                    <span className="mt-1.5 block font-mono text-caption text-ink-faint">
+                      <span className="text-accent-ink">{screenCount(p.screens.length)}</span>
+                      {' · '}
+                      {timeAgo(p.updatedAt)}
+                    </span>
+                  </button>
+
+                  {/* Decoration, not a control — the headline already opens the
+                      project. See the note on the lead's figure. */}
+                  <div onClick={() => onOpen(p.id)} aria-hidden className="hidden shrink-0 cursor-pointer sm:block">
+                    <ProjectFigure screens={p.screens} thumbs={thumbs} />
+                  </div>
+
+                  <IconButton
+                    label={t('projects.delete')}
+                    variant="quiet"
+                    onClick={() => confirmDelete(p)}
+                    className="-mr-1 shrink-0 text-ink-faint opacity-0 transition hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                  >
+                    <Icon name="trash" size={16} />
+                  </IconButton>
+                </article>
+              )
+            })}
           </div>
         </section>
       )}
@@ -262,7 +402,18 @@ export default function ProjectsHome({
             <span className="kicker">{t('projects.empties')}</span>
             <span className="ml-auto font-mono text-caption text-ink-faint">{empties.length}</span>
           </div>
-          <p className="measure mb-3 text-body-sm text-ink-faint">{t('projects.emptiesHint')}</p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+            <p className="measure text-body-sm text-ink-faint">{t('projects.emptiesHint')}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearEmpties}
+              className="shrink-0 text-ink-faint hover:text-danger"
+            >
+              <Icon name="trash" size={15} />
+              {t('projects.clearEmpties')}
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-2">
             {empties.map((p) => (
               <span
@@ -270,7 +421,7 @@ export default function ProjectsHome({
                 className="group inline-flex min-h-8 items-center gap-1.5 border border-line-soft pl-2.5 text-body-sm text-ink-muted"
               >
                 <button type="button" onClick={() => onOpen(p.id)} className="transition hover:text-accent-ink">
-                  {p.name}
+                  {headline(p.name)}
                 </button>
                 <span className="font-mono text-caption text-ink-faint">{timeAgo(p.updatedAt)}</span>
                 <button

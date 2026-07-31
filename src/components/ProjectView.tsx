@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, saveDesign, extractDesignColors } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, ANIMATION_LEVEL_LABELS, buildElementEditInstruction, tryDirectTextReplace, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
+import { queueThumbs } from '../lib/thumbnails'
 import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection } from '../lib/plan'
 import { downloadZip, downloadTsx } from '../lib/export'
@@ -41,8 +42,10 @@ import {
 } from '../lib/muse'
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
 import { matchImagesToScreens } from '../lib/imageBackfill'
+import { markMuseHintDone, museHintDone } from '../lib/museHint'
 import { lintSlop } from '../lib/lint'
-import { Button, Icon, IconButton, type IconName } from '../ui'
+import { useT } from '../i18n'
+import { Button, Icon, IconButton, MockyLoader, type IconName } from '../ui'
 
 /** Fixed viewport formats offered in the screen context menu. */
 type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
@@ -56,16 +59,23 @@ const FRAME_PREF_KEY = 'mocky.showFrame'
 const BRIEF_PREF_KEY = 'mocky.brief.open'
 
 /** One-tap recolor swatches offered in the no-code Modify panel (Lot C.2). */
-const MODIFY_SWATCHES: { name: string; hex: string }[] = [
-  { name: 'Ink', hex: '#0f172a' },
-  { name: 'White', hex: '#ffffff' },
-  { name: 'Red', hex: '#ef4444' },
-  { name: 'Amber', hex: '#f59e0b' },
-  { name: 'Green', hex: '#10b981' },
-  { name: 'Blue', hex: '#3b82f6' },
-  { name: 'Indigo', hex: '#6366f1' },
-  { name: 'Fuchsia', hex: '#d946ef' },
+const MODIFY_SWATCHES: { nameKey: string; hex: string }[] = [
+  { nameKey: 'project.colorInk', hex: '#0f172a' },
+  { nameKey: 'project.colorWhite', hex: '#ffffff' },
+  { nameKey: 'project.colorRed', hex: '#ef4444' },
+  { nameKey: 'project.colorAmber', hex: '#f59e0b' },
+  { nameKey: 'project.colorGreen', hex: '#10b981' },
+  { nameKey: 'project.colorBlue', hex: '#3b82f6' },
+  { nameKey: 'project.colorIndigo', hex: '#6366f1' },
+  { nameKey: 'project.colorFuchsia', hex: '#d946ef' },
 ]
+
+/** Animation intensities, as dictionary keys — the labels are translated at render. */
+const ANIMATION_LEVEL_KEYS: Record<AnimationLevel, string> = {
+  subtle: 'project.animSubtle',
+  moderate: 'project.animModerate',
+  rich: 'project.animRich',
+}
 
 /** Decisive recolor instruction: acts on bg for filled elements, text otherwise. */
 function recolorChange(hex: string): string {
@@ -82,11 +92,7 @@ function joinSystem(parts: Array<string | undefined>): string | undefined {
 /** Max automatic fix attempts per screen before leaving the error visible. */
 const MAX_FIX_ATTEMPTS = 2
 
-const EXAMPLES = [
-  'A SaaS pricing page with three tiers and a monthly/yearly toggle',
-  'A mobile login screen with email, password and social sign-in',
-  'An analytics dashboard with stat cards, a chart and an activity list',
-]
+const EXAMPLE_KEYS = ['project.example1', 'project.example2', 'project.example3']
 
 export default function ProjectView({
   project,
@@ -109,6 +115,7 @@ export default function ProjectView({
   onSetReference: (screenId: string | null) => void
   onRenameProject: (name: string) => void
 }) {
+  const t = useT()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | null>(null)
@@ -132,6 +139,25 @@ export default function ProjectView({
     setMuseConfig(c)
     saveMuseConfig(c)
   }, [])
+  // The Muse toggle washes the accent through its label until Muse has been
+  // switched on once — here as well as on the first-screen composer, because
+  // this is the one a user with projects actually sees. See lib/museHint.ts.
+  const [museHintDoneState, setMuseHintDoneState] = useState(museHintDone)
+  const museHint = !museConfig.enabled && !museHintDoneState
+  useEffect(() => {
+    if (museConfig.enabled && !museHintDoneState) {
+      markMuseHintDone()
+      setMuseHintDoneState(true)
+    }
+  }, [museConfig.enabled, museHintDoneState])
+  const toggleMuse = useCallback(() => {
+    const next = !museConfig.enabled
+    if (next) {
+      markMuseHintDone()
+      setMuseHintDoneState(true)
+    }
+    updateMuse({ ...museConfig, enabled: next })
+  }, [museConfig, updateMuse])
   const togglePin = useCallback((img: LibraryImage) => {
     setPinnedImages((arr) =>
       arr.some((p) => p.hash === img.hash)
@@ -248,7 +274,7 @@ export default function ProjectView({
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set())
   // Screens whose render error the auto-fixer is currently repairing.
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
-  const [regenLabel, setRegenLabel] = useState('Regenerating…')
+  const [regenLabel, setRegenLabel] = useState(() => t('canvas.regenerating'))
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
     setCapturing(true)
@@ -267,7 +293,7 @@ export default function ProjectView({
       const dataUrl = await captureRegion(screen.code, screen.w, screen.h, rect)
       setAnnotations((a) => [...a, { id, dataUrl }])
     } catch {
-      setError('Screenshot failed — try again or a smaller area.')
+      setError(t('project.captureFailed'))
     } finally {
       setCapturing(false)
     }
@@ -292,6 +318,26 @@ export default function ProjectView({
     setDesignVersion((v) => v + 1)
   }
   const screens = project.screens
+
+  /**
+   * Photograph screens for the home page — here, not there.
+   *
+   * A capture needs a short-lived same-origin iframe (html2canvas cannot read
+   * the sandboxed preview, nor run inside it). Doing that on the home page meant
+   * every visit re-ran model code same-origin for every project. Doing it here
+   * costs the same work once, at the moment the user has just asked Mocky to run
+   * that code anyway — and the home page becomes pure image display.
+   *
+   * Declarative on purpose: watching the settled screens covers new screens,
+   * edits, regenerate, modify, animations and auto-repair without hooking each
+   * of the six places a generation can finish. `busy` keeps it out of the way
+   * while code is still streaming in.
+   */
+  useEffect(() => {
+    if (busy) return
+    const timer = window.setTimeout(() => queueThumbs(screens), 1200)
+    return () => window.clearTimeout(timer)
+  }, [screens, busy])
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
 
   // Revert a screen to its previousCode (saved before the last edit).
@@ -372,7 +418,7 @@ export default function ProjectView({
     if (!text) return
     const settings = loadSettings()
     if (!settings.model.trim()) {
-      setError('No model set. Open Settings and configure a model first.')
+      setError(t('project.noModel'))
       return
     }
     const targets = screens.filter((s) => selectedIds.includes(s.id))
@@ -393,7 +439,7 @@ export default function ProjectView({
         // so the preview updates live as the model writes.
         // Save the current code as previousCode so the user can revert.
         // Use existing caps from the screen (or re-select from prompt).
-        const ids = new Set(targets.map((t) => t.id))
+        const ids = new Set(targets.map((sc) => sc.id))
         setGeneratingIds(ids)
         for (const sc of targets) {
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
@@ -442,7 +488,7 @@ export default function ProjectView({
             setMuseImages([])
             setMuseImageError(null)
             setPhase('muse')
-            setMuseStage('Inspiration & rédaction du dossier…')
+            setMuseStage(t('project.museStageDossier'))
             const res = await runMuseDossier(text, {
               urls: parseUrls(museConfig.urls),
               useFetch: museConfig.useFetch,
@@ -470,9 +516,7 @@ export default function ProjectView({
               // jobs, so they run on different image models (Admin → profils).
               const profile = profileForMode(effectiveImageMode)
               setMuseStage(
-                profile === 'inspiration'
-                  ? 'Génération de l’image d’inspiration…'
-                  : 'Génération de l’image héro…',
+                t(profile === 'inspiration' ? 'project.museStageInspiration' : 'project.museStageHero'),
               )
               // In 'inspiration' the image is never embedded — it exists only to
               // be looked at. So it is not the hero photo routed to another
@@ -502,7 +546,7 @@ export default function ProjectView({
               // No imagery slot at all. The dossier now guarantees a hero, so
               // this means something upstream produced nothing — say so rather
               // than finishing silently with an image-less screen.
-              setMuseImageError('le dossier n’a proposé aucune image')
+              setMuseImageError(t('project.museNoImage'))
             }
             // "inspiration" and "both" show the image to the model. In "both"
             // it is the same image it will embed, so it can design around it.
@@ -512,7 +556,7 @@ export default function ProjectView({
             }
             // Remember which image backs this screen so the canvas can show it.
             if (imgs.length) museImageHash = imgs[0].url.split('/').pop() || undefined
-            musePreamble = buildMusePreamble(res.markdown, imgs, effectiveImageMode)
+            musePreamble = buildMusePreamble(res.markdown, imgs, effectiveImageMode, res.dossier)
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
             // Degrade: continue without Muse rather than fail the generation.
@@ -589,14 +633,12 @@ export default function ProjectView({
         if (result.truncated) {
           // The code is cut mid-token; the preview would only show a cryptic
           // "Unterminated string constant". Say what actually happened.
-          setError(
-            "Le modèle a atteint sa limite de tokens : l'écran est incomplet. Demande un écran plus simple (moins de sections), ou utilise un modèle avec une sortie plus longue.",
-          )
+          setError(t('project.truncated'))
         } else {
           // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
           const lint = lintSlop(result.code)
           if (!lint.ok) {
-            setError(`Texte générique détecté (${lint.violations.join(', ')}). Régénère pour un rendu propre.`)
+            setError(t('project.slop', { list: lint.violations.join(', ') }))
           }
         }
       }
@@ -610,7 +652,7 @@ export default function ProjectView({
       setMuseStage(null)
       setGeneratingIds(new Set())
     }
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRenameProject, museConfig, museAvail, project, pinnedImages])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRenameProject, museConfig, museAvail, project, pinnedImages, t])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -621,7 +663,7 @@ export default function ProjectView({
   async function handleExport(stack: StackTarget) {
     setExportMenu(false)
     if (!screens.length) {
-      setError('Add at least one screen before exporting.')
+      setError(t('project.exportEmpty'))
       return
     }
     const design = loadDesign()
@@ -651,7 +693,7 @@ export default function ProjectView({
     if (!screen || !screen.prompt.trim()) return
     const settings = loadSettings()
     if (!settings.model.trim()) {
-      setError('No model set. Open Settings and configure a model first.')
+      setError(t('project.noModel'))
       return
     }
     const ac = new AbortController()
@@ -659,7 +701,7 @@ export default function ProjectView({
     setBusy(true)
     setError(null)
     // Keep the current iframe rendered — no streaming, no spinner overlay.
-    setRegenLabel('Regenerating…')
+    setRegenLabel(t('canvas.regenerating'))
     setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
@@ -705,7 +747,7 @@ export default function ProjectView({
     if (!screen || !screen.code.trim()) return
     const settings = loadSettings()
     if (!settings.model.trim()) {
-      setError('No model set. Open Settings and configure a model first.')
+      setError(t('project.noModel'))
       return
     }
     const ac = new AbortController()
@@ -713,7 +755,7 @@ export default function ProjectView({
     setBusy(true)
     setError(null)
     // Keep the current render visible; generate fully, then swap once.
-    setRegenLabel('Adding motion…')
+    setRegenLabel(t('project.addingMotion'))
     setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
@@ -752,7 +794,7 @@ export default function ProjectView({
     if (!screen || !screen.code.trim()) return
     const settings = loadSettings()
     if (!settings.model.trim()) {
-      setError('No model set. Open Settings and configure a model first.')
+      setError(t('project.noModel'))
       return
     }
     const ac = new AbortController()
@@ -761,7 +803,7 @@ export default function ProjectView({
     setError(null)
     // Keep the current render visible; generate fully, then swap once (no
     // streaming, so half-written code never flashes a broken/error preview).
-    setRegenLabel('Updating…')
+    setRegenLabel(t('project.updating'))
     setRegeneratingIds(new Set([screenId]))
     setPendingModify(null)
     setModifyText('')
@@ -842,18 +884,23 @@ export default function ProjectView({
     })
   }
 
+  /** Ce que fabrique Mocky en ce moment — sert de libelle ET de nom accessible. */
+  const busyLabel = t(
+    phase === 'muse' ? 'project.busyMuse' : phase === 'planning' ? 'project.busyPlanning' : 'composer.generating',
+  )
+
   /** What the brief says in one line when it is folded. */
   const briefSummary =
     museStage ||
-    (museImageError ? `Image non générée — ${museImageError}` : '') ||
+    (museImageError ? t('project.briefImageFailed', { reason: museImageError }) : '') ||
     museResult?.dossier?.concept ||
     (museAvail === false
-      ? 'Backend Mocky requis'
+      ? t('project.briefBackend')
       : pinnedImages.length
-        ? `${pinnedImages.length} image${pinnedImages.length > 1 ? 's' : ''} épinglée${
-            pinnedImages.length > 1 ? 's' : ''
-          }`
-        : 'Inspiration, direction artistique et copie réelle')
+        ? t(pinnedImages.length === 1 ? 'project.briefPinned_one' : 'project.briefPinned_other', {
+            count: pinnedImages.length,
+          })
+        : t('project.briefDefault'))
 
   const libraryModal = (
     <>
@@ -880,7 +927,7 @@ export default function ProjectView({
         busy={busy}
         error={error}
         designActive={designActive}
-        examples={EXAMPLES}
+        examples={EXAMPLE_KEYS.map((k) => t(k))}
         presetId={presetId}
         onPresetChange={setPresetId}
         onOpenSettings={onOpenSettings}
@@ -915,7 +962,7 @@ export default function ProjectView({
         onRenameScreen={(id, name) => onUpdateScreen(id, { name })}
         onOpenImage={setLightboxHash}
         onDeleteScreen={(id) => {
-          if (confirm('Delete this screen?')) {
+          if (confirm(t('project.deleteScreenConfirm'))) {
             onRemoveScreen(id)
             setSelectedIds((ids) => ids.filter((i) => i !== id))
           }
@@ -969,27 +1016,26 @@ export default function ProjectView({
         <div className="absolute right-4 top-11 flex max-h-[70vh] w-72 flex-col rounded-xl border border-line bg-raised shadow-2xl">
           <div className="flex items-center justify-between border-b border-line-soft px-3 py-2">
             <span className="kicker text-accent-ink">
-              Links · <span className="font-mono">{screens.reduce((a, s) => a + s.links.length, 0)}</span>
+              {t('project.links')} ·{' '}
+              <span className="font-mono">{screens.reduce((a, s) => a + s.links.length, 0)}</span>
             </span>
             <button
               type="button"
               className="text-body-sm text-ink-muted hover:text-ink"
               onClick={() => setLinkMode(false)}
-              title="Close link mode"
+              title={t('project.closeLinkMode')}
             >
-              Done
+              {t('project.done')}
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-2">
             {screens.every((s) => s.links.length === 0) ? (
-              <p className="p-3 text-center text-body-sm text-ink-faint">
-                No links yet. Click a button inside a screen to create one.
-              </p>
+              <p className="p-3 text-center text-body-sm text-ink-faint">{t('project.noLinks')}</p>
             ) : (
               <ul className="space-y-1">
                 {screens.flatMap((s) =>
                   s.links.map((h) => {
-                    const target = screens.find((t) => t.id === h.target)
+                    const target = screens.find((sc) => sc.id === h.target)
                     return (
                       <li
                         key={h.id}
@@ -1001,20 +1047,26 @@ export default function ProjectView({
                           type="button"
                           onClick={() => setFocus({ screenId: s.id, nonce: Date.now() })}
                           className="min-w-0 flex-1 text-left"
-                          title="Center the canvas on this link"
+                          title={t('project.centerOnLink')}
                         >
                           <div className="truncate text-body-sm text-ink-muted">
-                            {h.label ? <span className="text-accent-ink">"{h.label}"</span> : 'element'} →{' '}
-                            <span className="text-ink">{target?.name ?? '(missing)'}</span>
+                            {h.label ? (
+                              <span className="text-accent-ink">{t('project.linkElement', { label: h.label })}</span>
+                            ) : (
+                              t('project.elementWord')
+                            )}{' '}
+                            → <span className="text-ink">{target?.name ?? t('project.missingTarget')}</span>
                           </div>
-                          <div className="truncate text-caption text-ink-faint">on {s.name}</div>
+                          <div className="truncate text-caption text-ink-faint">
+                            {t('project.onScreen', { name: s.name })}
+                          </div>
                         </button>
                         <button
                           type="button"
                           onClick={() => removeHotspot(s.id, h.id)}
                           className="shrink-0 rounded px-1 py-1 text-danger hover:bg-danger/10"
-                          aria-label={`Delete link on ${s.name}`}
-                          title="Delete link"
+                          aria-label={t('project.deleteLinkOn', { name: s.name })}
+                          title={t('project.deleteLink')}
                         >
                           <Icon name="close" size={14} />
                         </button>
@@ -1030,9 +1082,9 @@ export default function ProjectView({
 
       {/* Top-left toolbar */}
       <div className="absolute left-4 top-3 flex items-center gap-1 rounded-lg border border-line bg-surface p-1 shadow-lg">
-        <Button variant="toolbar" size="sm" onClick={onBack} title="Back to projects">
+        <Button variant="toolbar" size="sm" onClick={onBack} title={t('error.backToProjects')}>
           <Icon name="chevronLeft" size={16} />
-          Back
+          {t('project.back')}
         </Button>
         <div className="mx-1 h-5 w-px bg-line-soft" />
         <Button
@@ -1044,10 +1096,10 @@ export default function ProjectView({
             setModifyMode(false)
             setAnnotateMode(false)
           }}
-          title="Draw links between screens"
+          title={t('project.linkTitle')}
         >
           <Icon name="link" size={16} />
-          Link
+          {t('mode.link')}
         </Button>
         <Button
           variant="toolbar"
@@ -1059,20 +1111,20 @@ export default function ProjectView({
             setAnnotateMode(false)
             setPendingModify(null)
           }}
-          title="Click an element in a screen, then describe a change — no code needed"
+          title={t('project.modifyTitle')}
         >
           <Icon name="pencil" size={16} />
-          Modify
+          {t('mode.modify')}
         </Button>
         <Button
           variant="toolbar"
           size="sm"
           active={interactAll}
           onClick={() => setInteractAll((v) => !v)}
-          title="Make all screens interactive (click buttons, animations)"
+          title={t('project.interactTitle')}
         >
           <Icon name="hand" size={16} />
-          Interact
+          {t('mode.interact')}
         </Button>
         <Button
           variant="toolbar"
@@ -1084,40 +1136,40 @@ export default function ProjectView({
             setModifyMode(false)
             setPendingModify(null)
           }}
-          title="Snip a region of a screen into the chat as a numbered reference"
+          title={t('project.annotateTitle')}
         >
           <Icon name="crop" size={16} />
-          Annotate
+          {t('mode.annotate')}
         </Button>
         <Button
           variant="toolbar"
           size="sm"
           active={showFrame}
           onClick={toggleFrame}
-          title="Show/hide the iPhone frame on mobile screens"
+          title={t('project.frameTitle')}
         >
           <Icon name="phone" size={16} />
-          Frame
+          {t('mode.frame')}
         </Button>
         <Button
           variant="toolbar"
           size="sm"
           active={showSystem}
           onClick={() => setShowSystem((v) => !v)}
-          title="Live Design-system frame — see your DESIGN.md tokens and recolor them"
+          title={t('project.systemTitle')}
         >
           <Icon name="image" size={16} />
-          System
+          {t('mode.system')}
         </Button>
         <div className="mx-1 h-5 w-px bg-line-soft" />
         <Button
           variant="toolbar"
           size="sm"
           onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
-          title="Play the prototype"
+          title={t('project.demoTitle')}
         >
           <Icon name="play" size={14} />
-          Demo
+          {t('mode.demo')}
         </Button>
         <div className="relative">
           <Button
@@ -1125,27 +1177,27 @@ export default function ProjectView({
             size="sm"
             active={exportMenu}
             onClick={() => setExportMenu((v) => !v)}
-            title="Export a runnable Vite + React + Tailwind project"
+            title={t('project.exportTitle')}
           >
             <Icon name="download" size={16} />
-            Export
+            {t('mode.export')}
           </Button>
           {exportMenu && (
             <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-line bg-raised p-1 shadow-xl">
-              <div className="kicker px-2 py-1 text-accent-ink">Runnable project (.zip)</div>
+              <div className="kicker px-2 py-1 text-accent-ink">{t('project.exportHeading')}</div>
               {([
-                ['shadcn', 'shadcn-ready', 'Theme tokens from DESIGN.md; npx shadcn add works'],
-                ['plain', 'Plain Tailwind', 'Tailwind + vendored UI components'],
-                ['daisyui', 'daisyUI', 'Tailwind + the daisyUI plugin'],
-              ] as [StackTarget, string, string][]).map(([stack, label, hint]) => (
+                ['shadcn', 'project.exportShadcn', 'project.exportShadcnHint'],
+                ['plain', 'project.exportPlain', 'project.exportPlainHint'],
+                ['daisyui', 'project.exportDaisy', 'project.exportDaisyHint'],
+              ] as [StackTarget, string, string][]).map(([stack, labelKey, hintKey]) => (
                 <button
                   key={stack}
                   type="button"
                   onClick={() => handleExport(stack)}
                   className="group block w-full rounded-md px-2.5 py-1.5 text-left text-body-sm text-ink transition hover:bg-ink/5"
                 >
-                  <span className="font-medium transition group-hover:text-accent-ink">{label}</span>
-                  <span className="block text-caption text-ink-faint">{hint}</span>
+                  <span className="font-medium transition group-hover:text-accent-ink">{t(labelKey)}</span>
+                  <span className="block text-caption text-ink-faint">{t(hintKey)}</span>
                 </button>
               ))}
             </div>
@@ -1163,7 +1215,7 @@ export default function ProjectView({
                 <span className="truncate">{error}</span>
               </span>
               <button type="button" className="btn-ghost shrink-0 px-2 py-1 text-body-sm" onClick={onOpenSettings}>
-                Settings
+                {t('nav.settings')}
               </button>
             </div>
           )}
@@ -1175,9 +1227,9 @@ export default function ProjectView({
                 <div
                   key={a.id}
                   className="group relative h-14 w-14 overflow-hidden rounded-lg border border-warn/60 bg-surface"
-                  title={`Reference [${i + 1}] — attached to the model`}
+                  title={t('project.refAttached', { n: i + 1 })}
                 >
-                  <img src={a.dataUrl} alt={`ref ${i + 1}`} className="h-full w-full object-cover" />
+                  <img src={a.dataUrl} alt={t('project.refAlt', { n: i + 1 })} className="h-full w-full object-cover" />
                   <span className="absolute left-0 top-0 rounded-br bg-warn px-1 font-mono text-caption font-bold text-surface">
                     {i + 1}
                   </span>
@@ -1185,8 +1237,8 @@ export default function ProjectView({
                     type="button"
                     onClick={() => setAnnotations((arr) => arr.filter((x) => x.id !== a.id))}
                     className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
-                    aria-label={`Remove reference ${i + 1}`}
-                    title="Remove reference"
+                    aria-label={t('project.removeRefN', { n: i + 1 })}
+                    title={t('project.removeRef')}
                   >
                     <Icon name="close" size={12} />
                   </button>
@@ -1216,8 +1268,8 @@ export default function ProjectView({
                     type="button"
                     className="rounded p-0.5 text-surface/70 transition hover:bg-surface/20 hover:text-surface"
                     onClick={() => setSelectedIds((ids) => ids.filter((i) => i !== s.id))}
-                    aria-label={`Remove ${s.name} from selection`}
-                    title="Remove from selection"
+                    aria-label={t('project.removeFromSelectionOf', { name: s.name })}
+                    title={t('project.removeFromSelection')}
                   >
                     <Icon name="close" size={12} />
                   </button>
@@ -1228,7 +1280,7 @@ export default function ProjectView({
                 className="ml-1 text-body-sm font-medium text-ink-muted underline-offset-2 hover:text-ink hover:underline"
                 onClick={() => setSelectedIds([])}
               >
-                clear
+                {t('project.clearSelection')}
               </button>
             </div>
           )}
@@ -1241,10 +1293,18 @@ export default function ProjectView({
                 type="button"
                 onClick={toggleBrief}
                 aria-expanded={briefOpen}
-                aria-label={briefOpen ? 'Réduire le dossier Muse' : 'Déplier le dossier Muse'}
+                aria-label={t(briefOpen ? 'composer.briefCollapse' : 'composer.briefExpand')}
                 className="flex w-full items-center gap-2.5 rule-thin px-0.5 pb-1.5 text-left transition hover:text-ink"
               >
-                <span className="kicker shrink-0">Muse</span>
+                <span className="kicker shrink-0">{t('muse.title')}</span>
+                {museStage && (
+                  /* Le dossier s'ecrit : meme signal que le bouton, en plus petit.
+                     Purement decoratif ici — le bouton du composer porte deja
+                     l'annonce, un second role="status" la dirait deux fois. */
+                  <span aria-hidden className="flex shrink-0 items-center text-muse">
+                    <MockyLoader size={52} />
+                  </span>
+                )}
                 <span className="min-w-0 flex-1 truncate text-body-sm text-ink-muted">{briefSummary}</span>
                 <Icon
                   name="chevronDown"
@@ -1276,7 +1336,7 @@ export default function ProjectView({
           {/* Format preset — only relevant when creating a new screen */}
           {!editing && (
             <div className="mb-2 flex items-center gap-2">
-              <span className="kicker">Format</span>
+              <span className="kicker">{t('project.format')}</span>
               <PresetPicker value={presetId} onChange={setPresetId} />
             </div>
           )}
@@ -1288,31 +1348,33 @@ export default function ProjectView({
               className={`kicker mb-2 shrink-0 transition ${
                 designActive ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
               }`}
-              title="Manage DESIGN.md"
+              title={t('project.designTitle')}
             >
-              {designActive ? '● Design' : '○ Design'}
+              {designActive ? '● ' : '○ '}
+              {t('project.designChip')}
             </button>
             <button
               type="button"
-              onClick={() => updateMuse({ ...museConfig, enabled: !museConfig.enabled })}
+              onClick={toggleMuse}
               className={`kicker mb-2 flex shrink-0 items-center gap-1 transition ${
-                museConfig.enabled ? 'text-muse hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
+                museConfig.enabled ? 'text-muse-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
               }`}
-              title="Muse — inspiration, art direction & real copy"
+              title={museHint ? t('project.museHint') : t('project.museToggle')}
               aria-pressed={museConfig.enabled}
             >
-              <Icon name="sparkle" size={14} />
-              Muse
+              <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
+              <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
             </button>
             <textarea
               rows={1}
               className="input min-h-[40px] resize-none"
               placeholder={
                 editing
-                  ? `Describe a change to apply to ${selectedScreens.length} selected screen${
-                      selectedScreens.length === 1 ? '' : 's'
-                    }…`
-                  : 'Describe another screen to add to this project…'
+                  ? t(
+                      selectedScreens.length === 1 ? 'project.composerEdit_one' : 'project.composerEdit_other',
+                      { count: selectedScreens.length },
+                    )
+                  : t('composer.placeholder')
               }
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -1324,27 +1386,28 @@ export default function ProjectView({
               onClick={generate}
               disabled={busy || !prompt.trim()}
             >
-              {busy && (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-on-accent/40 border-t-on-accent" />
+              {busy ? (
+                <>
+                  {/* MockyLoader porte deja role="status" + aria-label : le texte
+                      visible est masque aux lecteurs d'ecran pour que l'etat ne
+                      soit pas annonce deux fois. */}
+                  <MockyLoader size={64} label={busyLabel} className="shrink-0" />
+                  <span aria-hidden>{busyLabel}</span>
+                </>
+              ) : editing ? (
+                t('composer.update', { count: selectedScreens.length })
+              ) : (
+                t('composer.generate')
               )}
-              {busy
-                ? phase === 'muse'
-                  ? 'Muse…'
-                  : phase === 'planning'
-                    ? 'Planning…'
-                    : 'Generating…'
-                : editing
-                  ? `Update ${selectedScreens.length}`
-                  : 'Generate'}
             </button>
             {busy && (
               <button
                 type="button"
                 className="btn-ghost mb-0.5 shrink-0 px-3 py-2 text-body-sm"
                 onClick={cancelGenerate}
-                title="Cancel the in-flight generation"
+                title={t('project.stopTitle')}
               >
-                Cancel
+                {t('composer.stop')}
               </button>
             )}
           </div>
@@ -1361,13 +1424,14 @@ export default function ProjectView({
             className="w-full max-w-sm rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="kicker mb-1 text-accent-ink">Link</div>
+            <div className="kicker mb-1 text-accent-ink">{t('project.linkKicker')}</div>
             <h3 className="mb-1 text-lead text-ink">
-              {pendingLink.info.label ? `"${pendingLink.info.label}"` : 'This element'} → which screen?
+              {pendingLink.info.label
+                ? t('project.linkElement', { label: pendingLink.info.label })
+                : t('project.thisElement')}{' '}
+              → {t('project.linkQuestion')}
             </h3>
-            <p className="measure mb-3 text-body-sm text-ink-muted">
-              In demo mode, clicking this element opens the chosen screen.
-            </p>
+            <p className="measure mb-3 text-body-sm text-ink-muted">{t('project.linkHelp')}</p>
             <div className="max-h-72 space-y-1 overflow-auto">
               {screens
                 .filter((s) => s.id !== pendingLink.screenId)
@@ -1382,7 +1446,7 @@ export default function ProjectView({
                   </button>
                 ))}
               {screens.filter((s) => s.id !== pendingLink.screenId).length === 0 && (
-                <p className="text-body-sm text-ink-faint">Add another screen first to link to it.</p>
+                <p className="text-body-sm text-ink-faint">{t('project.linkNoOther')}</p>
               )}
             </div>
             <button
@@ -1390,7 +1454,7 @@ export default function ProjectView({
               className="btn-ghost mt-3 w-full text-body-sm"
               onClick={() => setPendingLink(null)}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -1408,13 +1472,13 @@ export default function ProjectView({
           >
             <div className="kicker mb-1 flex items-center gap-1.5 text-accent-ink">
               <Icon name="pencil" size={14} />
-              Modify
+              {t('mode.modify')}
             </div>
-            <h3 className="mb-1 text-lead text-ink">Element</h3>
+            <h3 className="mb-1 text-lead text-ink">{t('project.element')}</h3>
             <div className="mb-3 text-body-sm text-ink-muted">
-              <span>Selected </span>
+              <span>{t('project.selectedWord')} </span>
               <span className="rounded bg-accent/10 px-1.5 py-0.5 font-mono text-caption text-accent-ink">
-                {pendingModify.info.tag ? `<${pendingModify.info.tag}>` : 'element'}
+                {pendingModify.info.tag ? `<${pendingModify.info.tag}>` : t('project.elementWord')}
               </span>
               {pendingModify.info.label && (
                 <span className="ml-1">
@@ -1433,7 +1497,7 @@ export default function ProjectView({
             {/* Quick text edit — deterministic in-place swap when unambiguous */}
             {pendingModify.info.label && (
               <div className="mb-3">
-                <label className="kicker mb-1 block">Text</label>
+                <label className="kicker mb-1 block">{t('project.text')}</label>
                 <div className="flex gap-2">
                   <input
                     autoFocus
@@ -1453,7 +1517,7 @@ export default function ProjectView({
                     disabled={busy || !modifyLabelDraft.trim() || modifyLabelDraft === pendingModify.info.label}
                     onClick={() => applyTextChange(pendingModify.screenId, pendingModify.info, modifyLabelDraft)}
                   >
-                    Update
+                    {t('project.textUpdate')}
                   </button>
                 </div>
               </div>
@@ -1461,18 +1525,18 @@ export default function ProjectView({
 
             {/* One-tap recolor */}
             <div className="mb-3">
-              <label className="kicker mb-1 block">Recolor</label>
+              <label className="kicker mb-1 block">{t('project.recolor')}</label>
 
               {designColors.length > 0 && (
                 <>
-                  <div className="mb-1 text-caption text-ink-faint">From your design</div>
+                  <div className="mb-1 text-caption text-ink-faint">{t('project.fromYourDesign')}</div>
                   <div className="mb-2 flex flex-wrap gap-1.5">
                     {designColors.map((c) => (
                       <button
                         key={c.hex}
                         type="button"
                         disabled={busy}
-                        aria-label={`Recolor to ${c.label} (${c.hex})`}
+                        aria-label={t('project.recolorToHex', { name: c.label, hex: c.hex })}
                         title={`${c.label} · ${c.hex}`}
                         onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(c.hex))}
                         className="h-7 w-7 rounded-full border border-line-soft shadow-sm transition hover:scale-110 disabled:opacity-40"
@@ -1480,7 +1544,7 @@ export default function ProjectView({
                       />
                     ))}
                   </div>
-                  <div className="mb-1 text-caption text-ink-faint">Basics</div>
+                  <div className="mb-1 text-caption text-ink-faint">{t('project.basics')}</div>
                 </>
               )}
 
@@ -1490,8 +1554,8 @@ export default function ProjectView({
                     key={sw.hex}
                     type="button"
                     disabled={busy}
-                    aria-label={`Recolor to ${sw.name}`}
-                    title={sw.name}
+                    aria-label={t('project.recolorTo', { name: t(sw.nameKey) })}
+                    title={t(sw.nameKey)}
                     onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(sw.hex))}
                     className="h-7 w-7 rounded-full border border-line-soft shadow-sm transition hover:scale-110 disabled:opacity-40"
                     style={{ background: sw.hex }}
@@ -1505,7 +1569,7 @@ export default function ProjectView({
                 />
                 <input
                   className="input h-7 w-[74px] px-2 font-mono text-body-sm"
-                  aria-label="Custom hex color"
+                  aria-label={t('project.customHex')}
                   placeholder="#hex"
                   value={modifyHex}
                   onChange={(e) => setModifyHex(e.target.value)}
@@ -1519,21 +1583,21 @@ export default function ProjectView({
                 <button
                   type="button"
                   disabled={busy || !HEX_RE.test(modifyHex.trim())}
-                  title="Apply this hex color"
+                  title={t('project.applyHex')}
                   onClick={() => applyModify(pendingModify.screenId, pendingModify.info, recolorChange(modifyHex.trim()))}
                   className="rounded-md border border-line-soft px-2 py-1 text-body-sm text-ink transition hover:border-line disabled:opacity-40"
                 >
-                  Go
+                  {t('project.go')}
                 </button>
               </div>
             </div>
 
             {/* Free-form change */}
-            <label className="kicker mb-1 block">Or describe any change</label>
+            <label className="kicker mb-1 block">{t('project.orDescribe')}</label>
             <textarea
               rows={2}
               className="input min-h-[52px] resize-none"
-              placeholder='e.g. "make it bigger and bold", "add a shadow", "round the corners"…'
+              placeholder={t('project.modifyPlaceholder')}
               value={modifyText}
               onChange={(e) => setModifyText(e.target.value)}
               onKeyDown={(e) => {
@@ -1545,7 +1609,7 @@ export default function ProjectView({
             />
             <div className="mt-3 flex items-center justify-end gap-2">
               <button type="button" className="btn-ghost text-body-sm" onClick={() => setPendingModify(null)}>
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -1553,12 +1617,10 @@ export default function ProjectView({
                 disabled={busy || !modifyText.trim()}
                 onClick={() => applyModify(pendingModify.screenId, pendingModify.info, modifyText)}
               >
-                Apply change
+                {t('project.applyChange')}
               </button>
             </div>
-            <p className="measure mt-2 text-caption text-ink-faint">
-              Text edits apply instantly when unique · other changes use the model · revertable from the screen menu
-            </p>
+            <p className="measure mt-2 text-caption text-ink-faint">{t('project.modifyNote')}</p>
           </div>
         </div>
       )}
@@ -1588,63 +1650,65 @@ export default function ProjectView({
                 className="fixed z-50 w-60 overflow-hidden rounded-lg border border-line bg-raised py-1 text-body text-ink shadow-2xl"
                 style={{ left: Math.min(menu.x, window.innerWidth - 250), top: Math.min(menu.y, window.innerHeight - 400) }}
               >
-                <MenuItem icon="refresh" label="Regenerate (new variant)" disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
+                <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                 <MenuItem
                   icon="pencil"
-                  label="Rename"
+                  label={t('canvas.rename')}
                   onClick={() => {
                     close()
-                    const n = window.prompt('Screen name', s.name)
+                    const n = window.prompt(t('project.screenNamePrompt'), s.name)
                     if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
                   }}
                 />
-                <MenuItem icon="code" label="Show code" onClick={() => { close(); setCodeScreen(s) }} />
+                <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
                 <MenuItem
                   icon="pin"
-                  label={isRef ? 'Unpin as reference' : 'Pin as layout reference'}
+                  label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
                   onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
                 />
-                <MenuItem icon="download" label="Download .tsx" onClick={() => { close(); downloadTsx(s) }} />
+                <MenuItem icon="download" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />
                 {s.previousCode && (
-                  <MenuItem icon="undo" label="Revert to previous" onClick={() => { close(); onRevertScreen(s.id) }} />
+                  <MenuItem icon="undo" label={t('common.revert')} onClick={() => { close(); onRevertScreen(s.id) }} />
                 )}
-                <MenuItem icon="image" label="Edit DESIGN.md" onClick={() => { close(); onOpenDesign() }} />
+                <MenuItem icon="image" label={t('project.editDesign')} onClick={() => { close(); onOpenDesign() }} />
 
                 <div className="my-1 border-t border-line-soft" />
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">Display format</div>
+                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.displayFormat')}</div>
                 <div className="flex gap-1 px-2 pb-1.5">
                   {([
-                    ['mobile', 'Mobile'],
-                    ['tablet', 'Tablet'],
-                    ['desktop', 'Desktop'],
-                    ['full', 'Full'],
-                  ] as [ViewportFormat, string][]).map(([f, lbl]) => (
+                    ['mobile', 'project.formatMobile'],
+                    ['tablet', 'project.formatTablet'],
+                    ['desktop', 'project.formatDesktop'],
+                    ['full', 'project.formatFull'],
+                  ] as [ViewportFormat, string][]).map(([f, labelKey]) => (
                     <button
                       key={f}
                       type="button"
-                      aria-label={f === 'full' ? 'Full height (fit content)' : `${f} format`}
-                      title={f === 'full' ? 'Full height (fit content)' : f}
+                      aria-label={
+                        f === 'full' ? t('project.formatFullTitle') : t('project.formatOf', { name: t(labelKey) })
+                      }
+                      title={f === 'full' ? t('project.formatFullTitle') : t(labelKey)}
                       onClick={() => { close(); setFormat(s.id, f) }}
                       className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink"
                     >
-                      {lbl}
+                      {t(labelKey)}
                     </button>
                   ))}
                 </div>
 
                 <div className="my-1 border-t border-line-soft" />
-                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">Add animations</div>
+                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.addAnimations')}</div>
                 <div className="flex gap-1 px-2 pb-1.5">
                   {ANIMATION_LEVELS.map((lvl) => (
                     <button
                       key={lvl}
                       type="button"
                       disabled={busy || !s.code.trim()}
-                      title={`Add ${ANIMATION_LEVEL_LABELS[lvl].toLowerCase()} motion (keeps content & layout; revertable)`}
+                      title={t('project.animTitle', { level: t(ANIMATION_LEVEL_KEYS[lvl]).toLowerCase() })}
                       onClick={() => { close(); addAnimations(s.id, lvl) }}
                       className="flex-1 rounded-md border border-line-soft py-1 text-caption font-medium transition hover:border-accent hover:text-accent-ink disabled:opacity-40"
                     >
-                      {ANIMATION_LEVEL_LABELS[lvl]}
+                      {t(ANIMATION_LEVEL_KEYS[lvl])}
                     </button>
                   ))}
                 </div>
@@ -1652,11 +1716,11 @@ export default function ProjectView({
                 <div className="my-1 border-t border-line-soft" />
                 <MenuItem
                   icon="trash"
-                  label="Delete screen"
+                  label={t('canvas.delete')}
                   danger
                   onClick={() => {
                     close()
-                    if (confirm('Delete this screen?')) {
+                    if (confirm(t('project.deleteScreenConfirm'))) {
                       onRemoveScreen(s.id)
                       setSelectedIds((ids) => ids.filter((i) => i !== s.id))
                     }
@@ -1679,10 +1743,10 @@ export default function ProjectView({
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
               <span className="min-w-0">
-                <span className="kicker block text-accent-ink">Code</span>
+                <span className="kicker block text-accent-ink">{t('project.codeKicker')}</span>
                 <span className="block truncate text-body text-ink">{codeScreen.name}</span>
               </span>
-              <IconButton label="Close the code viewer" variant="quiet" onClick={() => setCodeScreen(null)}>
+              <IconButton label={t('project.closeCode')} variant="quiet" onClick={() => setCodeScreen(null)}>
                 <Icon name="close" size={18} />
               </IconButton>
             </div>

@@ -71,7 +71,12 @@ const PATHS: Record<IconName, string> = {
   trash: 'M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5',
   pencil: 'M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4',
   comment: 'M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z',
-  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  // Three real discs, drawn as arc pairs. They were `M5 12h.01M12 12h.01…` —
+  // zero-height segments relying on a round linecap to paint a dot, which gave
+  // a path with a bounding box 14 wide and 0 tall and, at the size this renders
+  // in the canvas label bar, no visible ink at all. It was the only degenerate
+  // icon of the set.
+  more: 'M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0',
   close: 'M5 5l14 14M19 5 5 19',
   check: 'M4 12l5 6L20 5',
   plus: 'M12 4v16M4 12h16',
@@ -98,7 +103,7 @@ const PATHS: Record<IconName, string> = {
 }
 
 /** Icons whose shape reads better filled than stroked. */
-const FILLED = new Set<IconName>(['play'])
+const FILLED = new Set<IconName>(['play', 'more'])
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   name: IconName

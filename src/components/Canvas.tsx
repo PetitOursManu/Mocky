@@ -3,6 +3,7 @@ import { MIN_H, MIN_W, slotPosition, type Screen } from '../lib/project'
 import Preview, { type PickInfo } from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import { Icon, IconButton } from '../ui'
+import { useT } from '../i18n'
 
 interface ViewState {
   x: number
@@ -19,6 +20,14 @@ interface Box {
 const MIN_SCALE = 0.05
 const MAX_SCALE = 1.5
 
+/** Window in which two presses on the same frame count as a double-press. */
+const DOUBLE_PRESS_MS = 350
+
+/** Duration and easing of the frame resize animation (format changes only). */
+const RESIZE_MS = 260
+const RESIZE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
+const easeProps = (...props: string[]) => props.map((p) => `${p} ${RESIZE_MS}ms ${RESIZE_EASE}`).join(', ')
+
 /**
  * What the Muse image beside a frame was for.
  *
@@ -30,29 +39,27 @@ const MAX_SCALE = 1.5
  */
 const IMAGE_ROLE: Record<
   'content' | 'inspiration' | 'both' | 'unknown',
-  { label: string; icon: 'image' | 'sparkle' | 'wand'; title: string }
+  { labelKey: string; icon: 'image' | 'sparkle' | 'wand'; titleKey: string }
 > = {
   content: {
-    label: 'Insérée',
+    labelKey: 'canvas.imageRole.contentLabel',
     icon: 'image',
-    title: 'Image de CONTENU — elle est placée dans l’écran comme une vraie <img>. Cliquer pour l’ouvrir en grand.',
+    titleKey: 'canvas.imageRole.contentTitle',
   },
   inspiration: {
-    label: 'Inspiration',
+    labelKey: 'canvas.imageRole.inspirationLabel',
     icon: 'sparkle',
-    title:
-      'Image d’INSPIRATION — elle n’est PAS dans l’écran : elle a été montrée au modèle comme référence d’art direction (palette, lumière, composition). Cliquer pour l’ouvrir en grand.',
+    titleKey: 'canvas.imageRole.inspirationTitle',
   },
   both: {
-    label: 'Insérée + réf.',
+    labelKey: 'canvas.imageRole.bothLabel',
     icon: 'wand',
-    title:
-      'Image de CONTENU ET référence — elle est placée dans l’écran, et le modèle l’a vue pour composer autour. Cliquer pour l’ouvrir en grand.',
+    titleKey: 'canvas.imageRole.bothTitle',
   },
   unknown: {
-    label: 'Image Muse',
+    labelKey: 'canvas.imageRole.unknownLabel',
     icon: 'image',
-    title: 'Image Muse — son rôle n’a pas été enregistré (écran généré avant cette distinction).',
+    titleKey: 'canvas.imageRole.unknownTitle',
   },
 }
 
@@ -168,9 +175,19 @@ export default function Canvas({
   /** Reports a screen's rendered content height (px) for the "Full height" format. */
   onContentHeight?: (screenId: string, height: number) => void
 }) {
+  const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
   const [spaceDown, setSpaceDown] = useState(false)
+  /**
+   * The one screen made interactive by a double-click.
+   *
+   * Interaction used to be all-or-nothing (the `interactAll` toolbar toggle):
+   * turning it on froze selection and moving on *every* frame at once. Per-screen
+   * interaction is opt-in — double-click to enter, click anywhere outside (or
+   * Escape) to leave.
+   */
+  const [interactiveId, setInteractiveId] = useState<string | null>(null)
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
   /** Screen whose original prompt is currently displayed (the comment button). */
   const [promptShownId, setPromptShownId] = useState<string | null>(null)
@@ -180,6 +197,39 @@ export default function Canvas({
   const [marquee, setMarquee] = useState<Box | null>(null)
   const [annotateRect, setAnnotateRect] = useState<Box | null>(null)
   const gesture = useRef<Gesture | null>(null)
+  /** Last frame pressed, for detecting a double-press (see onFrameDown). */
+  const lastPress = useRef<{ id: string; at: number }>({ id: '', at: 0 })
+
+  const [reducedMotion, setReducedMotion] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+    if (!mq) return
+    const onChange = () => setReducedMotion(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  /**
+   * Frames whose width/height are allowed to animate right now.
+   *
+   * Changing a screen's format (context menu → iPhone, Desktop, Pleine hauteur…)
+   * snapped the frame to its new size in a single paint. A CSS transition fixes
+   * that, but it must never be on the element while a handle drag or a move is
+   * running: the box would then lag one transition behind the cursor. So the
+   * transition is armed only when the size changed on its own — i.e. the
+   * `screens` prop brought a new w/h while no gesture was in flight — and only
+   * for the duration of the animation.
+   *
+   * The comparison runs during render, not in an effect: an effect runs after
+   * the browser already committed the new width, and a transition declared after
+   * the value changed never plays.
+   */
+  const sizeSig = useRef(new Map<string, string>())
+  const animUntil = useRef(new Map<string, number>())
+  /** Ids whose next incoming size change is the result of the user's own drag. */
+  const skipSizeAnim = useRef(new Set<string>())
 
   const local = (e: { clientX: number; clientY: number }) => {
     const r = containerRef.current!.getBoundingClientRect()
@@ -240,10 +290,11 @@ export default function Canvas({
   // impossible to tick. So: never intercept Space while focus is on an
   // interactive element.
   useEffect(() => {
-    const isInteractive = (t: EventTarget | null) =>
-      t instanceof HTMLElement &&
-      Boolean(t.closest('input, textarea, select, button, a, [role="button"], [contenteditable], [tabindex]'))
+    const isInteractive = (node: EventTarget | null) =>
+      node instanceof HTMLElement &&
+      Boolean(node.closest('input, textarea, select, button, a, [role="button"], [contenteditable], [tabindex]'))
     const down = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setInteractiveId(null)
       if (e.code === 'Space' && !isInteractive(e.target)) {
         setSpaceDown(true)
         e.preventDefault()
@@ -260,6 +311,12 @@ export default function Canvas({
     }
   }, [])
 
+  // Link, Modify and Annotate all need the pointer to reach the canvas, not the
+  // page inside a frame — leaving a screen interactive would swallow their clicks.
+  useEffect(() => {
+    if (linkMode || modifyMode || annotateMode) setInteractiveId(null)
+  }, [linkMode, modifyMode, annotateMode])
+
   function startPan(e: React.PointerEvent) {
     const { lx, ly } = local(e)
     gesture.current = { type: 'pan', sx: lx, sy: ly, ox: view.x, oy: view.y }
@@ -267,6 +324,9 @@ export default function Canvas({
   }
 
   function onBackgroundDown(e: React.PointerEvent) {
+    // A press that reaches the canvas background is by definition outside every
+    // frame (onFrameDown stops propagation), so it leaves interaction mode.
+    setInteractiveId(null)
     if (gesture.current) return
     if (e.button === 1 || spaceDown) return startPan(e)
     if (e.button !== 0) return
@@ -280,8 +340,35 @@ export default function Canvas({
 
   function onFrameDown(e: React.PointerEvent, s: Screen) {
     e.stopPropagation()
+    // Pressing on another frame counts as "outside" the interactive one.
+    if (interactiveId && interactiveId !== s.id) setInteractiveId(null)
     if (e.button === 1 || spaceDown) return startPan(e)
     if (e.button !== 0) return
+
+    // Double-press enters interaction mode.
+    //
+    // Two earlier attempts failed for two different reasons, both worth keeping
+    // written down:
+    //   • an `onDoubleClick` on the frame never fires, because the first press
+    //     calls setPointerCapture on the CONTAINER, and a captured pointer sends
+    //     its derived click/dblclick to the capture target instead;
+    //   • `e.detail` is useless here — the Pointer Events spec requires
+    //     MouseEvent.detail to be 0 on pointer events, so it is never 2.
+    // So the pair is detected from timing on the presses we do receive.
+    const now = Date.now()
+    const isSecondPress = lastPress.current.id === s.id && now - lastPress.current.at < DOUBLE_PRESS_MS
+    lastPress.current = { id: s.id, at: now }
+    if (isSecondPress && !linkMode && !modifyMode && !annotateMode) {
+      const t = e.target
+      // A double-press on the label bar is not a double-press on the screen.
+      if (!(t instanceof HTMLElement && t.closest('button, input'))) {
+        setInteractiveId(s.id)
+        // No move gesture: the second press must not start a drag.
+        gesture.current = null
+        lastPress.current = { id: '', at: 0 }
+        return
+      }
+    }
     const { lx, ly } = local(e)
     if (annotateMode) {
       gesture.current = { type: 'annotate', screenId: s.id, sx: lx, sy: ly }
@@ -349,6 +436,9 @@ export default function Canvas({
       }
     } else if (g?.type === 'resize' && resizePreview) {
       const { x, y, w, h } = resizePreview
+      // The frame already has this size on screen (the drag preview); the prop
+      // catching up must not be mistaken for a format change and animated.
+      skipSizeAnim.current.add(g.id)
       onResizeScreen(g.id, { x, y, w, h })
     } else if (g?.type === 'marquee' && marquee) {
       if (marquee.w < 4 && marquee.h < 4) {
@@ -430,6 +520,26 @@ export default function Canvas({
   const inv = 1 / view.scale // scale-invariant unit for labels
   const singleSelected = selectedIds.length === 1
 
+  // Arm the resize transition for the frames whose format just changed (see the
+  // sizeSig/animUntil declarations above for why this happens during render).
+  const nowMs = Date.now()
+  const liveIds = new Set<string>()
+  for (const s of screens) {
+    liveIds.add(s.id)
+    const sig = `${Math.round(s.w)}x${Math.round(s.h)}`
+    const before = sizeSig.current.get(s.id)
+    sizeSig.current.set(s.id, sig)
+    if (before === undefined || before === sig) continue
+    if (skipSizeAnim.current.has(s.id) || reducedMotion || gesture.current) continue
+    animUntil.current.set(s.id, nowMs + RESIZE_MS + 60)
+  }
+  skipSizeAnim.current.clear()
+  for (const id of Array.from(sizeSig.current.keys())) {
+    if (liveIds.has(id)) continue
+    sizeSig.current.delete(id)
+    animUntil.current.delete(id)
+  }
+
   return (
     <div
       ref={containerRef}
@@ -447,8 +557,12 @@ export default function Canvas({
         {screens.map((s) => {
           const b = effBox(s)
           const selected = selectedIds.includes(s.id)
-          const interactive = interactAll && !linkMode && !modifyMode && !annotateMode && !spaceDown
+          const modeBlocks = linkMode || modifyMode || annotateMode || spaceDown
+          const interactive = (interactAll || interactiveId === s.id) && !modeBlocks
+          /** Interaction entered by double-clicking *this* frame — the state worth signalling. */
+          const soloInteractive = interactiveId === s.id && !modeBlocks
           const pickable = (linkMode || modifyMode) && !annotateMode && !spaceDown
+          const animateSize = (animUntil.current.get(s.id) ?? 0) > nowMs && !reducedMotion && !gesture.current
           const bw = b.w
           const bh = b.h
           const useFrame = s.device === 'iphone' && showFrame
@@ -456,7 +570,13 @@ export default function Canvas({
             <div
               key={s.id}
               className={`absolute ${useFrame ? '' : 'frame-shadow'} ${
-                selected ? 'ring-2 ring-accent' : useFrame ? '' : 'ring-1 ring-line-soft'
+                selected
+                  ? 'ring-2 ring-accent'
+                  : soloInteractive
+                    ? 'ring-1 ring-accent'
+                    : useFrame
+                      ? ''
+                      : 'ring-1 ring-line-soft'
               }`}
               style={{
                 left: b.x,
@@ -465,8 +585,19 @@ export default function Canvas({
                 height: b.h,
                 background: useFrame ? 'transparent' : 'white',
                 borderRadius: useFrame ? '13% / 6%' : '1rem',
+                transition: animateSize ? easeProps('width', 'height') : undefined,
               }}
               onPointerDown={(e) => onFrameDown(e, s)}
+              onDoubleClick={(e) => {
+                // Enter interaction mode. Selection and renaming are driven by
+                // single clicks / the pencil button, so nothing else fires here —
+                // except a double-click on the label bar itself, which must not
+                // count as "double-clicking the screen".
+                e.stopPropagation()
+                if (linkMode || modifyMode || annotateMode) return
+                if (e.target instanceof HTMLElement && e.target.closest('button, input')) return
+                setInteractiveId(s.id)
+              }}
               onContextMenu={(e) => {
                 e.preventDefault()
                 onScreenContextMenu?.(s.id, e.clientX, e.clientY)
@@ -500,7 +631,10 @@ export default function Canvas({
                 ) : (
                   <span className={`truncate ${selected ? 'text-accent' : 'text-ink-muted'}`}>
                     {referenceScreenId === s.id && (
-                      <span title="Shared-layout reference for new screens" style={{ marginRight: 3 * inv }}>
+                      <span
+                        title={t('canvas.referenceScreen')}
+                        style={{ marginRight: 3 * inv }}
+                      >
                         <Icon
                           name="pin"
                           size={11 * inv}
@@ -512,26 +646,42 @@ export default function Canvas({
                     {s.name}
                   </span>
                 )}
+                {soloInteractive && editingLabelId !== s.id && (
+                  <span
+                    className="flex shrink-0 items-center rounded-full bg-accent/10 text-accent"
+                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
+                  >
+                    <Icon name="hand" size={11 * inv} />
+                    {t('canvas.interactive')}
+                  </span>
+                )}
                 {selected && singleSelected && editingLabelId !== s.id && (
                   <span
                     className="flex items-center rounded-md border border-line bg-raised/90 text-ink"
                     style={{ gap: 2 * inv, padding: `${1 * inv}px ${2 * inv}px` }}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <LabelBtn inv={inv} title="Rename" onClick={() => { setDraftLabel(s.name); setEditingLabelId(s.id) }}>
+                    <LabelBtn
+                      inv={inv}
+                      title={t('canvas.rename')}
+                      onClick={() => {
+                        setDraftLabel(s.name)
+                        setEditingLabelId(s.id)
+                      }}
+                    >
                       <Icon name="pencil" size={13 * inv} />
                     </LabelBtn>
                     <LabelBtn
                       inv={inv}
-                      title={s.prompt ? 'Voir le prompt qui a créé cet écran' : 'Aucun prompt enregistré'}
+                      title={s.prompt ? t('canvas.showPrompt') : t('canvas.noPromptShort')}
                       onClick={() => setPromptShownId((id) => (id === s.id ? null : s.id))}
                     >
                       <Icon name="comment" size={13 * inv} />
                     </LabelBtn>
                     <button
                       type="button"
-                      title="More options (or right-click the screen)"
-                      aria-label="More options"
+                      title={t('canvas.more')}
+                      aria-label={t('canvas.more')}
                       onClick={(e) => {
                         const r = e.currentTarget.getBoundingClientRect()
                         onScreenContextMenu?.(s.id, r.left, r.bottom)
@@ -541,7 +691,7 @@ export default function Canvas({
                     >
                       <Icon name="more" size={14 * inv} />
                     </button>
-                    <LabelBtn inv={inv} title="Delete screen" danger onClick={() => onDeleteScreen(s.id)}>
+                    <LabelBtn inv={inv} title={t('canvas.delete')} danger onClick={() => onDeleteScreen(s.id)}>
                       <Icon name="trash" size={13 * inv} />
                     </LabelBtn>
                   </span>
@@ -568,21 +718,25 @@ export default function Canvas({
                       style={{ fontSize: `${11 * inv}px`, gap: 4 * inv }}
                     >
                       <Icon name="comment" size={11 * inv} />
-                      Prompt d’origine
+                      {t('canvas.originalPrompt')}
                     </span>
                     <span className="flex items-center" style={{ gap: 2 * inv }}>
                       {s.prompt && (
-                        <LabelBtn inv={inv} title="Copier le prompt" onClick={() => navigator.clipboard?.writeText(s.prompt)}>
+                        <LabelBtn
+                          inv={inv}
+                          title={t('canvas.copyPrompt')}
+                          onClick={() => navigator.clipboard?.writeText(s.prompt)}
+                        >
                           <Icon name="copy" size={12 * inv} />
                         </LabelBtn>
                       )}
-                      <LabelBtn inv={inv} title="Fermer" onClick={() => setPromptShownId(null)}>
+                      <LabelBtn inv={inv} title={t('common.close')} onClick={() => setPromptShownId(null)}>
                         <Icon name="close" size={12 * inv} />
                       </LabelBtn>
                     </span>
                   </div>
                   <p className="whitespace-pre-wrap break-words leading-snug text-ink-muted">
-                    {s.prompt || 'Aucun prompt enregistré pour cet écran (créé avant cette fonctionnalité, ou importé).'}
+                    {s.prompt || t('canvas.noPrompt')}
                   </p>
                 </div>
               )}
@@ -595,7 +749,7 @@ export default function Canvas({
                   type="button"
                   className="absolute overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
                   style={{ left: `calc(100% + ${24 * inv}px)`, top: 0, width: 200 * inv, cursor: 'pointer' }}
-                  title={IMAGE_ROLE[s.imageRole ?? 'unknown'].title}
+                  title={t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -608,7 +762,7 @@ export default function Canvas({
                     style={{ padding: `${4 * inv}px ${6 * inv}px`, fontSize: `${11 * inv}px`, gap: 4 * inv }}
                   >
                     <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={11 * inv} />
-                    {IMAGE_ROLE[s.imageRole ?? 'unknown'].label}
+                    {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
                   </span>
                 </button>
               )}
@@ -674,14 +828,14 @@ export default function Canvas({
                     className="animate-spin rounded-full border-on-accent/40 border-t-on-accent"
                     style={{ width: 12 * inv, height: 12 * inv, borderWidth: 2 * inv }}
                   />
-                  {regenLabel || 'Regenerating…'}
+                  {regenLabel || t('canvas.regenerating')}
                 </div>
               )}
 
               {/* Interaction-link hotspots (shown while linking) */}
               {linkMode &&
                 s.links.map((h) => {
-                  const targetName = screens.find((t) => t.id === h.target)?.name ?? '(missing)'
+                  const targetName = screens.find((sc) => sc.id === h.target)?.name ?? t('canvas.missingScreen')
                   const hi = highlightedHotspotId === h.id
                   return (
                     <div
@@ -705,8 +859,8 @@ export default function Canvas({
                           type="button"
                           onClick={() => onRemoveHotspot(s.id, h.id)}
                           className="flex shrink-0 items-center rounded px-0.5 hover:bg-on-accent/20"
-                          title="Remove link"
-                          aria-label="Remove link"
+                          title={t('canvas.removeLink')}
+                          aria-label={t('canvas.removeLink')}
                         >
                           <Icon name="close" size={10 / view.scale} />
                         </button>
@@ -742,7 +896,10 @@ export default function Canvas({
                     <div
                       key={handle}
                       onPointerDown={(e) => onHandleDown(e, s, handle)}
-                      style={{ ...pos, cursor, borderRadius: 2 }}
+                      // The mid-edge handles are placed with a computed offset, so
+                      // they need the same easing as the frame or they jump ahead
+                      // of it during a format change.
+                      style={{ ...pos, cursor, borderRadius: 2, transition: animateSize ? easeProps('left', 'top') : undefined }}
                       className="border border-surface bg-accent"
                     />
                   )
@@ -752,7 +909,13 @@ export default function Canvas({
               {selected && singleSelected && (
                 <div
                   className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-accent px-2 font-mono font-medium text-on-accent"
-                  style={{ top: b.h + 6 / view.scale, fontSize: 11 / view.scale, paddingTop: 1 / view.scale, paddingBottom: 1 / view.scale }}
+                  style={{
+                    top: b.h + 6 / view.scale,
+                    fontSize: 11 / view.scale,
+                    paddingTop: 1 / view.scale,
+                    paddingBottom: 1 / view.scale,
+                    transition: animateSize ? easeProps('top') : undefined,
+                  }}
                 >
                   {Math.round(b.w)} × {Math.round(b.h)}
                 </div>
@@ -780,20 +943,20 @@ export default function Canvas({
 
       {/* Zoom controls */}
       <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg">
-        <IconButton variant="toolbar" label="Zoom out" onClick={() => zoomBy(1 / 1.2)}>
+        <IconButton variant="toolbar" label={t('canvas.zoomOut')} onClick={() => zoomBy(1 / 1.2)}>
           <Icon name="zoomOut" size={16} />
         </IconButton>
         <span className="w-12 text-center font-mono text-body-sm text-ink-muted">{Math.round(view.scale * 100)}%</span>
-        <IconButton variant="toolbar" label="Zoom in" onClick={() => zoomBy(1.2)}>
+        <IconButton variant="toolbar" label={t('canvas.zoomIn')} onClick={() => zoomBy(1.2)}>
           <Icon name="zoomIn" size={16} />
         </IconButton>
         <div className="mx-1 h-5 w-px bg-line-soft" />
-        <IconButton variant="toolbar" label="Fit all" onClick={fitAll}>
+        <IconButton variant="toolbar" label={t('canvas.fit')} onClick={fitAll}>
           <Icon name="fit" size={16} />
         </IconButton>
         <IconButton
           variant="toolbar"
-          label="Arrange in a grid"
+          label={t('canvas.arrange')}
           onClick={() => {
             onMoveScreens(screens.map((s, i) => ({ id: s.id, ...slotPosition(i) })))
             setTimeout(fitAll, 0)
@@ -808,20 +971,20 @@ export default function Canvas({
         {linkMode ? (
           <span className="flex items-center justify-end gap-1.5 text-accent">
             <Icon name="link" size={15} />
-            Link mode — click a button/element inside a screen, then pick the target screen
+            {t('canvas.hintLink')}
           </span>
         ) : modifyMode ? (
           <span className="flex items-center justify-end gap-1.5 text-muse">
             <Icon name="pencil" size={15} />
-            Modify mode — click any element inside a screen, then describe the change
+            {t('canvas.hintModify')}
           </span>
         ) : annotateMode ? (
           <span className="flex items-center justify-end gap-1.5 text-warn">
             <Icon name="crop" size={15} />
-            Annotate — drag a rectangle over a screen to snip it into the chat as a numbered reference
+            {t('canvas.hintAnnotate')}
           </span>
         ) : (
-          <>Drag to select · Space/middle-drag to pan · scroll to zoom</>
+          <>{t('canvas.hintDefault')}</>
         )}
       </div>
     </div>

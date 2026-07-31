@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { getLang, translate } from '../i18n'
 import { Icon } from '../ui'
 
 /**
@@ -49,16 +50,17 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children
 
     const reset = this.props.onReset
+    // A class component cannot call `useT()`; the crash screen is not re-rendered
+    // on a language switch anyway, so reading the language once is enough.
+    const t = (key: string) => translate(getLang(), key)
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-8">
         <div className="w-full max-w-lg border border-line bg-surface p-6">
           <header className="rule-double pb-3">
-            <p className="kicker text-accent-ink">Incident</p>
-            <h2 className="masthead mt-1.5 text-h2">Quelque chose s’est cassé</h2>
+            <p className="kicker text-accent-ink">{t('auth.error.kicker')}</p>
+            <h2 className="masthead mt-1.5 text-h2">{t('error.crashed')}</h2>
           </header>
-          <p className="measure mt-3 text-body text-ink-muted">
-            Mocky n’a pas réussi à afficher cet écran. Vos projets sont enregistrés — rien n’est perdu.
-          </p>
+          <p className="measure mt-3 text-body text-ink-muted">{t('error.crashedHelp')}</p>
 
           <div className="mt-5 flex gap-2">
             <button
@@ -73,19 +75,19 @@ export class ErrorBoundary extends Component<Props, State> {
               }}
             >
               <Icon name={reset ? 'chevronLeft' : 'refresh'} size={16} />
-              {this.props.resetLabel || (reset ? 'Revenir en arrière' : 'Recharger Mocky')}
+              {this.props.resetLabel || (reset ? t('auth.error.goBack') : t('auth.error.reloadMocky'))}
             </button>
             {reset && (
               <button className="btn-ghost" onClick={() => window.location.reload()}>
                 <Icon name="refresh" size={16} />
-                Recharger
+                {t('common.reload')}
               </button>
             )}
           </div>
 
           <details className="mt-5 border-t border-line-soft pt-3">
             <summary className="kicker cursor-pointer transition hover:text-accent-ink">
-              Détails techniques
+              {t('common.details')}
             </summary>
             <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap border border-line-soft bg-sunken p-3 text-caption text-ink-muted">
               {error.message}

@@ -84,6 +84,7 @@ export default {
         warn: token('warn'),
         ok: token('ok'),
         muse: token('muse'),
+        'muse-ink': token('muse-ink'),
         ring: token('ring'),
       },
 

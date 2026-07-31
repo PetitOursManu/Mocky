@@ -212,10 +212,141 @@
   }
 }
 
+/*
+ * The "Mocky" writing loader.
+ *
+ * A clip sweeps left to right across real text — the same idea as the Lottie's
+ * Trim Path, but applied to glyphs rather than to a drawing of them. The word is
+ * held long enough to read, then lifted, then written again: a loader has to
+ * loop, and a wordmark that simply stayed on screen would stop reading as
+ * "still working".
+ */
+.mocky-loader__word {
+  /* A handwriting face, not the masthead serif. The point of the loader is that
+     the name is being WRITTEN — a wipe across a printed serif reads as a wipe,
+     which is exactly the note that came back. Probed as present on Windows:
+     Segoe Script, Lucida Handwriting, Brush Script MT; macOS answers with
+     Snell Roundhand or Bradley Hand. */
+  font-family:
+    'Segoe Script', 'Snell Roundhand', 'Bradley Hand', 'Lucida Handwriting',
+    'Brush Script MT', 'Apple Chancery', cursive;
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.mocky-loader__wipe {
+  transform-box: fill-box;
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: mocky-write 3.2s cubic-bezier(0.45, 0.05, 0.35, 1) infinite;
+}
+
+@keyframes mocky-write {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  /* Laid down over the first two thirds… */
+  60% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  /* …held just long enough to read as a word… */
+  82% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  /* …then lifted off the page rather than snapping back. */
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* ---- the Muse hint ----------------------------------------------------- */
+/* Muse sits in the composer footer as one more grey word among others, and a
+   feature nobody notices is a feature nobody has.
+ *
+ * The colour is washed THROUGH the word, right to left, and left standing for
+ * a beat before it drains back. Motion across the text itself, rather than a
+ * pulse on the icon beside it — the first attempt twinkled the sparkle and was
+ * quiet enough to miss entirely.
+ *
+ * Mechanics: the gradient is twice the width of the word, grey on its left half
+ * and accent on its right. Sliding background-position from 0% to 100% walks
+ * the boundary between them from the right edge of the word to the left edge,
+ * so the accent arrives right-to-left and fills in behind it.
+ *
+ * It runs only until Muse has been switched on once (see lib/museHint.ts).
+ */
+@keyframes muse-sweep {
+  /* Grey, briefly — the word starts as the user last saw it. */
+  0%,
+  8% {
+    background-position: 0% 50%;
+  }
+  /* The accent washes in from the right… */
+  48%,
+  /* …and stays, long enough to be read as a colour rather than a flicker. */
+  78% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.muse-sweep {
+  /* Fallback for anything without background-clip: a plain accent word, which
+     is the state the animation spends most of its time in anyway. Without it,
+     `color: transparent` below would render the word invisible. */
+  color: rgb(var(--accent-ink));
+}
+
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .muse-sweep {
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--ink-faint)) 0%,
+      rgb(var(--ink-faint)) 40%,
+      rgb(var(--accent)) 52%,
+      rgb(var(--accent-ink)) 62%,
+      rgb(var(--accent-ink)) 100%
+    );
+    background-size: 200% 100%;
+    background-position: 0% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: muse-sweep 4.5s ease-in-out infinite;
+  }
+}
+
+/* The sparkle keeps the accent without moving: one thing moves, not two. */
+.muse-sweep-icon {
+  color: rgb(var(--accent-ink));
+}
+
 @media (prefers-reduced-motion: reduce) {
+  /* Motion off: show the finished word, no writing, no loop. */
+  .mocky-loader__wipe {
+    animation: none;
+    transform: scaleX(1);
+  }
+
   .mocky-regen-ring::before {
     animation: none;
   }
+
+  /* No wash, but keep the word in the accent — the point of the hint is the
+     colour, and the global reset below would otherwise land it on the grey
+     end of the gradient. */
+  .muse-sweep {
+    animation: none;
+    background-position: 100% 50%;
+  }
+
   *,
   *::before,
   *::after {

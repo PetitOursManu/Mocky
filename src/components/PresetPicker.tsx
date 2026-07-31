@@ -1,7 +1,15 @@
 import { PRESETS } from '../lib/presets'
+import { useT } from '../i18n'
 
-/** A preset badge leads with a pictogram; the chip is set in words alone. */
-const LEADING_GLYPH = /^\P{L}+/u
+/**
+ * Preset ids map to dictionary keys, not to labels: the chip is set in words
+ * alone (short), the tooltip spells the form factor out (full).
+ */
+const PRESET_KEYS: Record<string, { short: string; full: string }> = {
+  mobile: { short: 'muse.presetMobile', full: 'muse.presetMobileFull' },
+  desktop: { short: 'muse.presetDesktop', full: 'muse.presetDesktopFull' },
+  tablet: { short: 'muse.presetTablet', full: 'muse.presetTabletFull' },
+}
 
 export default function PresetPicker({
   value,
@@ -12,10 +20,14 @@ export default function PresetPicker({
   onChange: (id: string) => void
   className?: string
 }) {
+  const t = useT()
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
       {PRESETS.map((p) => {
         const active = p.id === value
+        const keys = PRESET_KEYS[p.id]
+        const short = keys ? t(keys.short) : p.label
+        const full = keys ? t(keys.full) : p.label
         return (
           <button
             key={p.id}
@@ -27,9 +39,9 @@ export default function PresetPicker({
                 ? 'border-accent bg-ink text-surface'
                 : 'border-line-soft text-ink-muted hover:border-line hover:text-accent-ink'
             }`}
-            title={`${p.label} · ${p.w}×${p.h}`}
+            title={`${full} · ${p.w}×${p.h}`}
           >
-            {p.badge.replace(LEADING_GLYPH, '')}
+            {short}
           </button>
         )
       })}

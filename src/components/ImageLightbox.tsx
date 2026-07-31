@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { imageUrl, imageDownloadUrl, listLibrary, type LibraryImage } from '../lib/imageLibrary'
 import { Button, Icon } from '../ui'
+import { useT } from '../i18n'
 
 /**
  * Full-size view of a generated image. Thumbnails alone made it impossible to
@@ -22,6 +23,7 @@ export default function ImageLightbox({
   meta?: LibraryImage | null
   onClose: () => void
 }) {
+  const t = useT()
   const [info, setInfo] = useState<LibraryImage | null>(meta ?? null)
   const [copied, setCopied] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -73,7 +75,7 @@ export default function ImageLightbox({
           className="pointer-events-auto inline-flex items-center gap-1.5 border border-line bg-raised px-3 py-1.5 text-body-sm text-ink transition hover:border-accent hover:text-accent-ink"
         >
           <Icon name="download" size={16} />
-          Télécharger
+          {t('library.download')}
         </a>
         <button
           type="button"
@@ -82,10 +84,10 @@ export default function ImageLightbox({
             onClose()
           }}
           className="pointer-events-auto inline-flex items-center gap-1.5 border border-line bg-raised px-3 py-1.5 text-body-sm text-ink transition hover:bg-ink/5"
-          title="Fermer (Échap)"
+          title={t('library.closeEsc')}
         >
           <Icon name="close" size={16} />
-          Fermer
+          {t('common.close')}
         </button>
       </div>
 
@@ -94,7 +96,7 @@ export default function ImageLightbox({
       <div className="flex flex-col items-center gap-4 px-4 pb-10 -mt-2">
         <img
           src={imageUrl(hash)}
-          alt={info?.prompt || 'image générée'}
+          alt={info?.prompt || t('library.altGenerated')}
           className="max-h-[78vh] w-auto max-w-full rounded-xl object-contain shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         />
@@ -110,9 +112,9 @@ export default function ImageLightbox({
                 · seed <span className="font-mono">{info.seed}</span>
               </span>
             )}
-            {(info.tags || []).map((t) => (
-              <span key={t} className="rounded bg-ink/5 px-1.5 py-0.5 text-ink-muted">
-                {t}
+            {(info.tags || []).map((tag) => (
+              <span key={tag} className="rounded bg-ink/5 px-1.5 py-0.5 text-ink-muted">
+                {tag}
               </span>
             ))}
           </div>
@@ -123,19 +125,19 @@ export default function ImageLightbox({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="rule-thin mb-1.5 flex items-center justify-between gap-2 pb-1.5">
-            <span className="kicker text-accent-ink">Prompt</span>
+            <span className="kicker text-accent-ink">{t('library.promptLabel')}</span>
             {info?.prompt && (
               <Button variant="ghost" size="sm" onClick={copyPrompt}>
                 <Icon name={copied ? 'check' : 'copy'} size={14} />
-                {copied ? 'copié' : 'copier'}
+                {copied ? t('common.copied') : t('common.copy')}
               </Button>
             )}
           </div>
-          <p className="whitespace-pre-wrap break-words leading-snug">{info?.prompt || 'Chargement…'}</p>
+          <p className="whitespace-pre-wrap break-words leading-snug">{info?.prompt || t('common.loading')}</p>
         </div>
 
         <p className="border border-line-soft bg-raised px-2 py-1 text-caption text-ink-muted">
-          Échap ou clic à l’extérieur pour fermer
+          {t('library.escHint')}
         </p>
       </div>
     </div>

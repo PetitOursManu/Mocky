@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Icon } from '../ui'
+import { useT } from '../i18n'
 
 export default function CodeView({ code }: { code: string }) {
+  const t = useT()
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -26,7 +28,7 @@ export default function CodeView({ code }: { code: string }) {
         }`}
       >
         <Icon name={copied ? 'check' : 'copy'} size={15} />
-        {copied ? 'Copied' : 'Copy'}
+        {copied ? t('common.copied') : t('common.copy')}
       </button>
       <pre className="min-h-full p-4 text-body-sm leading-relaxed text-ink">
         <code className="font-mono">{code}</code>

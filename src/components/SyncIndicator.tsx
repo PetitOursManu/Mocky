@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getStorageError, getSyncState, onSyncState, pushNow, type SyncState } from '../lib/sync'
+import { useT } from '../i18n'
 import { Icon } from '../ui'
 
 /**
@@ -14,6 +15,7 @@ import { Icon } from '../ui'
  * read. It appears only when something is in flight or wrong.
  */
 export default function SyncIndicator() {
+  const t = useT()
   const [state, setState] = useState<SyncState>(() => getSyncState())
   const [retrying, setRetrying] = useState(false)
 
@@ -27,10 +29,10 @@ export default function SyncIndicator() {
     return (
       <span
         className="ml-1 flex h-8 items-center gap-1.5 px-2 text-caption font-semibold uppercase tracking-[0.14em] text-accent-ink"
-        title="Enregistrement sur le serveur…"
+        title={t('auth.sync.savingTitle')}
       >
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-        Enregistrement…
+        {t('sync.saving')}
       </span>
     )
   }
@@ -50,13 +52,13 @@ export default function SyncIndicator() {
         }
       }}
       className="ml-1 flex h-8 items-center gap-1.5 border border-danger bg-danger/15 px-2.5 text-caption font-semibold uppercase tracking-[0.14em] text-danger transition hover:bg-danger/25 disabled:opacity-60"
-      title={
-        storageError ||
-        'Vos modifications n’ont pas pu être enregistrées sur le serveur. Elles sont toujours dans ce navigateur. Cliquez pour réessayer.'
-      }
+      // sync.ts hands back a key rather than a sentence: it has no React context,
+      // and a message frozen at failure time would stay in the old language after
+      // the user switched.
+      title={storageError ? t(storageError.key, { detail: storageError.detail ?? '' }) : t('sync.failedHelp')}
     >
       <Icon name="warning" size={16} />
-      {retrying ? 'Nouvel essai…' : 'Non enregistré'}
+      {retrying ? t('sync.retrying') : t('sync.failed')}
     </button>
   )
 }

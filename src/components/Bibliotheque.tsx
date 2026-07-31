@@ -12,6 +12,7 @@ import {
   type PinnedImage,
 } from '../lib/imageLibrary'
 import { Banner, Button, Icon, IconButton, Spinner } from '../ui'
+import { useT } from '../i18n'
 
 /**
  * The global Image Library browser (Muse §4.3 / §6). Browse every generated
@@ -45,8 +46,10 @@ export default function Bibliotheque({
   /** Open an image full size. When absent, the page handles it itself. */
   onOpenImage?: (hash: string) => void
 }) {
+  const t = useT()
   const [images, setImages] = useState<LibraryImage[]>([])
   const [loading, setLoading] = useState(true)
+  /** Holds a translation KEY, so the banner follows a language switch. */
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [onlyProject, setOnlyProject] = useState(false)
@@ -78,15 +81,15 @@ export default function Bibliotheque({
       )
     } catch {
       // The library lives on the backend; in pure-localStorage mode it's absent.
-      setError('Impossible de joindre la bibliothèque. Le backend Mocky doit tourner (npm run dev:all ou Docker).')
+      setError('library.backendDown')
     } finally {
       setLoading(false)
     }
   }, [q, onlyProject, onlyFav, projectId])
 
   useEffect(() => {
-    const t = setTimeout(refresh, 200) // debounce search
-    return () => clearTimeout(t)
+    const timer = setTimeout(refresh, 200) // debounce search
+    return () => clearTimeout(timer)
   }, [refresh])
 
   useEffect(() => {
@@ -110,8 +113,8 @@ export default function Bibliotheque({
   async function onDelete(img: LibraryImage) {
     const others = img.projects.filter((p) => p !== projectId)
     const msg = others.length
-      ? `Cette image est utilisée par ${img.projects.length} projet(s). La supprimer la retire définitivement de la bibliothèque. Continuer ?`
-      : 'Supprimer définitivement cette image de la bibliothèque ?'
+      ? t('library.deleteSharedConfirm', { count: img.projects.length })
+      : t('library.deleteConfirm')
     if (!window.confirm(msg)) return
     try {
       await deleteImage(img.hash)
@@ -132,7 +135,7 @@ export default function Bibliotheque({
     <>
       <input
         className="input h-8 flex-1 text-body"
-        placeholder="Rechercher (prompt, tags…)"
+        placeholder={t('library.search')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
         autoFocus={!isPage}
@@ -145,7 +148,7 @@ export default function Bibliotheque({
             checked={onlyProject}
             onChange={(e) => setOnlyProject(e.target.checked)}
           />{' '}
-          Ce projet
+          {t('library.thisProject')}
         </label>
       )}
       <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-body-sm text-ink-muted">
@@ -156,7 +159,7 @@ export default function Bibliotheque({
           onChange={(e) => setOnlyFav(e.target.checked)}
         />
         <Icon name="star" size={14} />
-        Favoris
+        {t('library.favorites')}
       </label>
     </>
   )
@@ -166,11 +169,11 @@ export default function Bibliotheque({
       <Spinner className="h-5 w-5" />
     </div>
   ) : error ? (
-    <Banner tone="warn">{error}</Banner>
+    <Banner tone="warn">{t(error)}</Banner>
   ) : images.length === 0 ? (
     <div className="flex h-40 flex-col items-center justify-center gap-1 text-body text-ink-faint">
-      <span>{q || onlyFav || onlyProject ? 'Aucune image ne correspond à ces filtres.' : 'Aucune image pour l’instant.'}</span>
-      <span className="text-body-sm">Génère un écran avec Muse pour remplir la bibliothèque.</span>
+      <span>{q || onlyFav || onlyProject ? t('library.noMatch') : t('library.emptyTitle')}</span>
+      <span className="text-body-sm">{t('library.emptyHint')}</span>
     </div>
   ) : (
     <div
@@ -190,7 +193,7 @@ export default function Bibliotheque({
           <button
             type="button"
             className="block aspect-[4/3] w-full overflow-hidden bg-sunken"
-            title="Ouvrir en grand"
+            title={t('library.openFull')}
             onClick={() => openImage(img.hash)}
           >
             <img
@@ -205,9 +208,9 @@ export default function Bibliotheque({
               {img.prompt}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
-              {(img.tags || []).slice(0, 3).map((t) => (
-                <span key={t} className="rounded bg-ink/5 px-1 text-caption text-ink-muted">
-                  {t}
+              {(img.tags || []).slice(0, 3).map((tag) => (
+                <span key={tag} className="rounded bg-ink/5 px-1 text-caption text-ink-muted">
+                  {tag}
                 </span>
               ))}
               {isPage && img.provider && (
@@ -216,7 +219,7 @@ export default function Bibliotheque({
             </div>
             {isPage && usedBy(img) && (
               <div className="mt-0.5 truncate text-caption text-ink-faint" title={usedBy(img)}>
-                Projets : {usedBy(img)}
+                {t('library.usedBy', { names: usedBy(img) })}
               </div>
             )}
           </div>
@@ -224,7 +227,7 @@ export default function Bibliotheque({
           {/* Actions — one plate over the image, so the rules read as a strip. */}
           <div className="absolute right-1 top-1 flex border border-line bg-raised opacity-0 transition group-hover:opacity-100">
             <IconButton
-              label="Favori"
+              label={t(img.favorite ? 'library.unfavorite' : 'library.favorite')}
               variant="quiet"
               active={img.favorite}
               onClick={() => onFav(img)}
@@ -233,13 +236,13 @@ export default function Bibliotheque({
             </IconButton>
             <a
               href={imageDownloadUrl(img.hash)}
-              aria-label="Télécharger"
-              title="Télécharger"
+              aria-label={t('library.download')}
+              title={t('library.download')}
               className="inline-flex min-h-8 w-8 items-center justify-center text-ink-muted transition hover:text-ink"
             >
               <Icon name="download" size={16} />
             </a>
-            <IconButton label="Supprimer" variant="quiet" onClick={() => onDelete(img)}>
+            <IconButton label={t('library.deleteImage')} variant="quiet" onClick={() => onDelete(img)}>
               <Icon name="trash" size={16} />
             </IconButton>
           </div>
@@ -252,10 +255,10 @@ export default function Bibliotheque({
                   ? 'border border-muse bg-muse text-surface'
                   : 'border border-line bg-raised text-ink opacity-0 group-hover:opacity-100'
               }`}
-              title="Épingler pour la prochaine génération (marche entre projets)"
+              title={t('library.pinHint')}
             >
               <Icon name="pin" size={14} />
-              {isPinned(img.hash) ? 'Épinglée' : 'Épingler'}
+              {isPinned(img.hash) ? t('library.pinned') : t('library.pin')}
             </button>
           )}
           {img.favorite && !isPinned(img.hash) && (
@@ -269,8 +272,8 @@ export default function Bibliotheque({
   )
 
   const zipLink = (
-    <a href={libraryZipUrl(filters)} className="btn-ghost px-3 py-1 text-body-sm" title="Télécharger la sélection filtrée (ZIP + manifest)">
-      Tout télécharger (.zip)
+    <a href={libraryZipUrl(filters)} className="btn-ghost px-3 py-1 text-body-sm" title={t('library.zipHint')}>
+      {t('library.downloadAll')} (.zip)
     </a>
   )
 
@@ -278,17 +281,16 @@ export default function Bibliotheque({
   if (isPage) {
     return (
       <main className="page-wide py-8">
-        <div className="kicker text-accent-ink">Bibliothèque</div>
+        <div className="kicker text-accent-ink">{t('library.kicker')}</div>
         <div className="section-head flex-wrap">
-          <h2 className="text-h3 text-ink">Images générées</h2>
+          <h2 className="text-h3 text-ink">{t('library.generatedImages')}</h2>
           <span className="text-body-sm text-ink-faint">
-            <span className="font-mono text-accent-ink">{images.length}</span> image{images.length === 1 ? '' : 's'}
+            <span className="font-mono text-accent-ink">{images.length}</span>{' '}
+            {t(images.length === 1 ? 'library.imageWord_one' : 'library.imageWord_other')}
           </span>
           <div className="ml-auto">{zipLink}</div>
         </div>
-        <p className="measure mb-4 text-body text-ink-muted">
-          Toutes les images créées par Muse, tous projets confondus. Supprimer un projet ne supprime jamais ses images.
-        </p>
+        <p className="measure mb-4 text-body text-ink-muted">{t('library.pageBlurb')}</p>
         <div className="mb-4 flex max-w-3xl flex-wrap items-center gap-3">{toolbar}</div>
         {grid}
         {lightbox}
@@ -306,10 +308,10 @@ export default function Bibliotheque({
         <div className="flex items-center gap-3 border-b border-line p-3">
           <span className="kicker flex items-center gap-1.5 whitespace-nowrap text-muse">
             <Icon name="library" size={16} />
-            Bibliothèque d’images
+            {t('library.title')}
           </span>
           {toolbar}
-          <IconButton label="Fermer" variant="quiet" title="Fermer (Esc)" onClick={onClose}>
+          <IconButton label={t('common.close')} variant="quiet" title={t('library.closeEsc')} onClick={onClose}>
             <Icon name="close" />
           </IconButton>
         </div>
@@ -318,13 +320,15 @@ export default function Bibliotheque({
 
         <div className="flex items-center justify-between gap-3 border-t border-line-soft p-3 text-body-sm text-ink-muted">
           <span>
-            <span className="font-mono text-accent-ink">{images.length}</span> image{images.length === 1 ? '' : 's'} ·{' '}
-            <span className="font-mono text-accent-ink">{pinned.length}</span> épinglée{pinned.length === 1 ? '' : 's'}
+            <span className="font-mono text-accent-ink">{images.length}</span>{' '}
+            {t(images.length === 1 ? 'library.imageWord_one' : 'library.imageWord_other')} ·{' '}
+            <span className="font-mono text-accent-ink">{pinned.length}</span>{' '}
+            {t(pinned.length === 1 ? 'library.pinnedWord_one' : 'library.pinnedWord_other')}
           </span>
           <div className="flex items-center gap-2">
             {zipLink}
             <Button variant="primary" size="sm" onClick={onClose}>
-              Terminé
+              {t('library.done')}
             </Button>
           </div>
         </div>

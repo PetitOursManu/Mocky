@@ -7,8 +7,10 @@ import {
 } from '../lib/design'
 import { STYLE_PRESETS, resolveStyle, ACCENT_VARIANTS, BG_VARIANTS, type ThemeMode, type StylePreset } from '../lib/styles'
 import { Icon, Segmented } from '../ui'
+import { useT } from '../i18n'
 
 export default function DesignPanel() {
+  const t = useT()
   const [design, setDesign] = useState<DesignConfig>(() => loadDesign())
   const [savedFlash, setSavedFlash] = useState(false)
   const [mode, setMode] = useState<ThemeMode>('auto')
@@ -56,7 +58,7 @@ export default function DesignPanel() {
           double rule — then the state of the document, on the same line. */}
       <div className="rule-double mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-3">
         <div>
-          <div className="kicker text-accent-ink">Design system</div>
+          <div className="kicker text-accent-ink">{t('design.title')}</div>
           <h1 className="mt-1 text-h2 text-ink">DESIGN.md</h1>
         </div>
         <div className="flex items-center gap-3 pb-1 text-body-sm">
@@ -66,7 +68,7 @@ export default function DesignPanel() {
             }`}
           >
             <Icon name="check" size={14} />
-            Saved
+            {t('design.saved')}
           </span>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
@@ -74,33 +76,32 @@ export default function DesignPanel() {
             }`}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-current" />
-            {active ? 'Active' : 'Inactive'}
+            {active ? t('design.active') : t('design.inactive')}
           </span>
         </div>
       </div>
 
       <p className="measure mb-8 text-body text-ink-muted">
-        A portable design system. When enabled, its full content is prepended to every generation
-        prompt so screens stay on-brand. Plain Markdown — paste it, load a <code>.md</code> file,
-        start from the template, or pick a ready-made style below.
+        {t('design.intro1')} <code>.md</code>
+        {t('design.intro2')}
       </p>
 
       {/* Built-in visual styles */}
       <section className="mb-10">
         <div className="section-head justify-between">
           <div className="kicker text-accent-ink">
-            Style presets <span className="text-ink-faint">({STYLE_PRESETS.length})</span>
+            {t('design.styles')} <span className="text-ink-faint">({STYLE_PRESETS.length})</span>
           </div>
           <Segmented<ThemeMode>
-            label="Preview mode"
+            label={t('design.previewMode')}
             value={mode}
             onChange={(m) => {
               if (m) setMode(m)
             }}
             options={[
-              { value: 'auto', label: 'Auto', title: 'Preview & apply styles as authored' },
-              { value: 'light', label: 'Light', title: 'Preview & apply styles in light mode' },
-              { value: 'dark', label: 'Dark', title: 'Preview & apply styles in dark mode' },
+              { value: 'auto', label: t('design.modeAuto'), title: t('design.modeAutoHint') },
+              { value: 'light', label: t('design.modeLight'), title: t('design.modeLightHint') },
+              { value: 'dark', label: t('design.modeDark'), title: t('design.modeDarkHint') },
             ]}
           />
         </div>
@@ -124,7 +125,7 @@ export default function DesignPanel() {
                     role="button"
                     tabIndex={0}
                     className="cursor-pointer"
-                    title={`Apply "${s.name}"`}
+                    title={t('design.applyNamed', { name: s.name })}
                     onClick={() => applyStyle(s, accentId, bgId)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -137,7 +138,7 @@ export default function DesignPanel() {
                   </div>
                   <button
                     type="button"
-                    title="Preview larger"
+                    title={t('design.previewLarger')}
                     onClick={(e) => {
                       e.stopPropagation()
                       setPreview({ preset: s, accentId, bgId })
@@ -145,7 +146,7 @@ export default function DesignPanel() {
                     className="absolute right-2 top-2 inline-flex items-center gap-1 bg-ink/80 px-2 py-1 text-caption text-surface opacity-0 backdrop-blur transition hover:bg-ink group-hover:opacity-100"
                   >
                     <Icon name="fit" size={12} />
-                    Preview
+                    {t('design.preview')}
                   </button>
                 </div>
 
@@ -158,12 +159,12 @@ export default function DesignPanel() {
 
                   {/* Accent variants */}
                   <div className="mt-3">
-                    <div className="kicker mb-1.5">Accent</div>
+                    <div className="kicker mb-1.5">{t('design.accent')}</div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <AccentPill
                         color={s.preview.accent}
                         active={!accentId}
-                        title="Original accent"
+                        title={t('design.accentOriginal')}
                         onClick={() => {
                           setAccentById((m) => ({ ...m, [s.id]: '' }))
                           applyStyle(s, '', bgId)
@@ -185,12 +186,12 @@ export default function DesignPanel() {
                   </div>
                   {/* Background variants */}
                   <div className="mt-2">
-                    <div className="kicker mb-1.5">Background</div>
+                    <div className="kicker mb-1.5">{t('design.background')}</div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <AccentPill
                         color={s.preview.bg}
                         active={!bgId}
-                        title="Original background"
+                        title={t('design.backgroundOriginal')}
                         onClick={() => {
                           setBgById((m) => ({ ...m, [s.id]: '' }))
                           applyStyle(s, accentId, '')
@@ -222,16 +223,16 @@ export default function DesignPanel() {
           the screen. */}
       <section>
         <div className="section-head justify-between">
-          <div className="kicker text-accent-ink">Source</div>
+          <div className="kicker text-accent-ink">{t('design.source')}</div>
           <span className="font-mono text-body-sm text-ink-faint">
-            <span className="text-accent-ink">{chars.toLocaleString()}</span> chars
+            <span className="text-accent-ink">{chars.toLocaleString()}</span> {t('design.charsUnit')}
           </span>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
           <textarea
             className="input min-h-[420px] resize-y font-mono text-body-sm leading-relaxed lg:col-span-2"
-            placeholder="# Design System&#10;&#10;## Color tokens&#10;- Primary: #4f46e5&#10;..."
+            placeholder={t('design.sourcePlaceholder')}
             spellCheck={false}
             value={design.markdown}
             onChange={(e) => setDesign((d) => ({ ...d, markdown: e.target.value }))}
@@ -239,7 +240,7 @@ export default function DesignPanel() {
 
           <aside className="flex flex-col gap-5">
             <div>
-              <div className="kicker mb-2">File</div>
+              <div className="kicker mb-2">{t('design.file')}</div>
               <div className="flex flex-col items-stretch gap-2">
                 <button
                   type="button"
@@ -247,7 +248,7 @@ export default function DesignPanel() {
                   onClick={() => fileRef.current?.click()}
                 >
                   <Icon name="upload" size={16} />
-                  Load .md file
+                  {t('design.load')}
                 </button>
                 <input
                   ref={fileRef}
@@ -262,7 +263,7 @@ export default function DesignPanel() {
                   onClick={() => setDesign((d) => ({ ...d, markdown: STARTER_TEMPLATE }))}
                 >
                   <Icon name="copy" size={16} />
-                  Use starter template
+                  {t('design.useTemplate')}
                 </button>
                 <button
                   type="button"
@@ -271,18 +272,18 @@ export default function DesignPanel() {
                   disabled={chars === 0}
                 >
                   <Icon name="download" size={16} />
-                  Download
+                  {t('design.download')}
                 </button>
                 {chars > 0 && (
                   <button
                     type="button"
                     className="btn-ghost justify-start text-danger"
                     onClick={() => {
-                      if (confirm('Clear the DESIGN.md content?')) setDesign((d) => ({ ...d, markdown: '' }))
+                      if (confirm(t('design.clearConfirm'))) setDesign((d) => ({ ...d, markdown: '' }))
                     }}
                   >
                     <Icon name="trash" size={16} />
-                    Clear
+                    {t('design.clear')}
                   </button>
                 )}
               </div>
@@ -291,7 +292,7 @@ export default function DesignPanel() {
             <div className="rule-thin" />
 
             <div>
-              <div className="kicker mb-2">Usage</div>
+              <div className="kicker mb-2">{t('design.usage')}</div>
               <label className="flex cursor-pointer items-start gap-2 text-body text-ink-muted">
                 <input
                   type="checkbox"
@@ -299,7 +300,7 @@ export default function DesignPanel() {
                   checked={design.enabled}
                   onChange={(e) => setDesign((d) => ({ ...d, enabled: e.target.checked }))}
                 />
-                Include in generations
+                {t('design.include')}
               </label>
             </div>
           </aside>
@@ -323,13 +324,13 @@ export default function DesignPanel() {
                 <ScaledMockup p={r.preview} name={s.name} />
                 <div className="flex items-center justify-between gap-3 border-t border-line-soft p-4">
                   <div className="min-w-0">
-                    <div className="kicker">Style preset</div>
+                    <div className="kicker">{t('design.stylePreset')}</div>
                     <div className="truncate font-serif text-h3 text-ink">{s.name}</div>
                     <div className="truncate text-body-sm text-ink-faint">{s.description}</div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <button type="button" className="btn-ghost" onClick={() => setPreview(null)}>
-                      Close
+                      {t('common.close')}
                     </button>
                     <button
                       type="button"
@@ -339,7 +340,7 @@ export default function DesignPanel() {
                         setPreview(null)
                       }}
                     >
-                      Apply this style
+                      {t('design.applyStyle')}
                     </button>
                   </div>
                 </div>
@@ -391,6 +392,7 @@ function ScaledMockup({ p, name }: { p: PreviewCfg; name: string }) {
 
 /** A realistic mini-dashboard mockup on a fixed 460×300 canvas (see ScaledMockup). */
 function PresetMockup({ p, name }: { p: PreviewCfg; name: string }) {
+  const t = useT()
   const glass = !!p.glass
   const bg = glass
     ? `radial-gradient(circle at 16% 10%, ${withAlpha(p.accent, 0.55)}, transparent 55%), radial-gradient(circle at 88% 92%, rgba(139,92,246,0.4), transparent 55%), ${p.bg}`
@@ -436,7 +438,7 @@ function PresetMockup({ p, name }: { p: PreviewCfg; name: string }) {
 
         {/* Stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          {([['Users', '76k'], ['Sales', '$3.6k'], ['Rate', '9.8']] as const).map(([label, val], i) => (
+          {([[t('design.mockUsers'), '76k'], [t('design.mockSales'), '$3.6k'], [t('design.mockRate'), '9.8']] as const).map(([label, val], i) => (
             <div key={i} style={{ ...panel, padding: 10, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <span style={{ color: p.mutedText, fontSize: 9 }}>{label}</span>
               <span style={{ color: i === 1 ? p.accent : p.text, fontSize: 20, fontWeight: 800, lineHeight: 1 }}>{val}</span>
@@ -461,7 +463,7 @@ function PresetMockup({ p, name }: { p: PreviewCfg; name: string }) {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                   <span style={{ height: 6, borderRadius: 3, background: p.mutedText, opacity: 0.4, width: `${55 - i * 8}%` }} />
                   <span style={{ background: withAlpha(p.accent, 0.22), color: p.accent, fontSize: 8, fontWeight: 700, padding: '1px 6px', borderRadius: 6 }}>
-                    {['Live', 'New', 'Draft'][i]}
+                    {[t('design.mockLive'), t('design.mockNew'), t('design.mockDraft')][i]}
                   </span>
                 </div>
               ))}
@@ -471,7 +473,7 @@ function PresetMockup({ p, name }: { p: PreviewCfg; name: string }) {
               className="transition hover:-translate-y-px hover:brightness-110"
               style={{ background: p.accent, color: p.accentText, fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: p.radius, border: 'none', cursor: 'pointer', alignSelf: 'flex-start' }}
             >
-              Get started →
+              {t('design.mockCta')}
             </button>
           </div>
         </div>
