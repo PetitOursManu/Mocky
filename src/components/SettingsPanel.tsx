@@ -6,8 +6,9 @@ import {
   saveSettings,
 } from '../lib/settings'
 import { listModels, testConnection, type TestResult } from '../lib/provider'
-import { api } from '../lib/api'
-import { Button, Icon, IconButton } from '../ui'
+import { api, type AuthUser } from '../lib/api'
+import { Banner, Button, Field, Icon, IconButton, Input, Segmented, Select } from '../ui'
+import { LANGS, useLang, useT } from '../i18n'
 
 type TestState =
   | { status: 'idle' }
@@ -16,7 +17,12 @@ type TestState =
 
 type ModelsState = 'idle' | 'loading' | 'loaded' | 'error'
 
+/** Must match MIN_NEW_PASSWORD in server/index.js — the server is the authority. */
+const MIN_PASSWORD = 8
+
 export default function SettingsPanel() {
+  const t = useT()
+  const [lang, setLang] = useLang()
   const [settings, setSettings] = useState<Settings>(() => loadSettings())
   const [showKey, setShowKey] = useState(false)
   const [test, setTest] = useState<TestState>({ status: 'idle' })
@@ -26,6 +32,15 @@ export default function SettingsPanel() {
   const [modelsError, setModelsError] = useState<string | null>(null)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  // Who is signed in — the password form needs an account, and a forced change
+  // asked by an admin has to be announced here.
+  const [account, setAccount] = useState<AuthUser | null>(null)
+  useEffect(() => {
+    api
+      .me()
+      .then(setAccount)
+      .catch(() => setAccount(null))
+  }, [])
   // When an admin set an instance-wide model, there is nothing to fill in here.
   const [managed, setManaged] = useState<{
     model: string | null
@@ -53,8 +68,8 @@ export default function SettingsPanel() {
   useEffect(() => {
     saveSettings(settings)
     setSavedFlash(true)
-    const t = setTimeout(() => setSavedFlash(false), 1200)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setSavedFlash(false), 1200)
+    return () => clearTimeout(timer)
   }, [settings])
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
@@ -74,7 +89,7 @@ export default function SettingsPanel() {
     } else {
       setModels([])
       setModelsState('error')
-      setModelsError(res.error ?? 'Failed to load models.')
+      setModelsError(res.error ?? t('settings.modelsLoadFailed'))
     }
   }
 
@@ -101,17 +116,23 @@ export default function SettingsPanel() {
       <header className="rule-double pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1">
           <div>
-            <span className="kicker text-accent-ink">Settings</span>
-            <h2 className="mt-1 text-h2 text-ink">Provider settings</h2>
+            <span className="kicker text-accent-ink">{t('settings.title')}</span>
+            <h2 className="mt-1 text-h2 text-ink">{t('settings.heading')}</h2>
           </div>
           <span
             className={`flex items-center gap-1.5 text-body-sm text-ok transition-opacity ${savedFlash ? 'opacity-100' : 'opacity-0'}`}
           >
             <Icon name="check" size={16} />
-            Saved
+            {t('settings.saved')}
           </span>
         </div>
       </header>
+
+      {account?.mustChangePassword && (
+        <Banner tone="warn" title={t('settings.pwChangeRequested')} className="mt-4">
+          {t('settings.pwChangeRequestedHelp')}
+        </Banner>
+      )}
 
       <div className="mt-6 grid gap-x-12 gap-y-8 lg:grid-cols-2">
         {/* An admin can set one model for the whole instance. When they have,
@@ -119,19 +140,16 @@ export default function SettingsPanel() {
         {managed ? (
           <section>
             <div className="section-head">
-              <span className="kicker text-accent-ink">Modèle de l’instance</span>
+              <span className="kicker text-accent-ink">{t('settings.instanceModel')}</span>
             </div>
             <h3 className="text-h3 text-accent-ink">{managed.model || '—'}</h3>
             {managed.provider && <p className="kicker mt-1.5">{managed.provider}</p>}
-            <p className="measure mt-3 text-body text-ink-muted">
-              L’administrateur a choisi ce modèle pour tout le monde. Vous n’avez rien à renseigner
-              ici : ni fournisseur, ni adresse, ni clé.
-            </p>
+            <p className="measure mt-3 text-body text-ink-muted">{t('settings.managedBlurb')}</p>
             {managed.inspirationModel && (
               <p className="mt-4 flex items-start gap-2 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
                 <Icon name="sparkle" size={16} />
                 <span>
-                  Muse écrit son Design Dossier avec{' '}
+                  {t('settings.museDossierWith')}{' '}
                   <strong className="font-medium text-ink">{managed.inspirationModel}</strong>.
                 </span>
               </p>
@@ -140,108 +158,130 @@ export default function SettingsPanel() {
         ) : (
           <section>
             <div className="section-head">
-              <span className="kicker text-accent-ink">Connection</span>
+              <span className="kicker text-accent-ink">{t('settings.providerConnection')}</span>
             </div>
             <div className="space-y-4">
-              <Field label="Provider">
-                <select
-                  className="input"
-                  value={settings.provider}
-                  onChange={(e) => {
-                    const p = PROVIDERS.find((x) => x.id === e.target.value) ?? PROVIDERS[0]
-                    setSettings((s) => ({ ...s, provider: p.id, baseUrl: p.defaultBaseUrl }))
-                    setTest({ status: 'idle' })
-                  }}
-                >
-                  {PROVIDERS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Base URL" hint={`Default: ${activeProvider.defaultBaseUrl}`}>
-                <input
-                  className="input"
-                  type="text"
-                  spellCheck={false}
-                  value={settings.baseUrl}
-                  placeholder={activeProvider.defaultBaseUrl}
-                  onChange={(e) => update('baseUrl', e.target.value)}
-                />
-              </Field>
-
-              <Field label="API key" hint="Sent as a Bearer token. Stored only in your browser's localStorage.">
-                <div className="flex gap-2">
-                  <input
-                    className="input flex-1"
-                    type={showKey ? 'text' : 'password'}
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={settings.apiKey}
-                    placeholder="ollama-…"
-                    onChange={(e) => update('apiKey', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="btn-ghost shrink-0"
-                    onClick={() => setShowKey((v) => !v)}
+              <Field label={t('settings.provider')}>
+                {(p) => (
+                  <Select
+                    {...p}
+                    value={settings.provider}
+                    onChange={(e) => {
+                      const chosen =
+                        PROVIDERS.find((x) => x.id === e.currentTarget.value) ?? PROVIDERS[0]
+                      setSettings((s) => ({
+                        ...s,
+                        provider: chosen.id,
+                        baseUrl: chosen.defaultBaseUrl,
+                      }))
+                      setTest({ status: 'idle' })
+                    }}
                   >
-                    {showKey ? 'Hide' : 'Show'}
-                  </button>
-                </div>
+                    {PROVIDERS.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
               </Field>
 
-              <Field label="Model" hint={`e.g. ${activeProvider.defaultModel}`}>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <select
-                      className="input flex-1"
-                      value={modelOptions.includes(settings.model) ? settings.model : ''}
-                      onChange={(e) => update('model', e.target.value)}
-                    >
-                      <option value="" disabled>
-                        {modelsState === 'loading'
-                          ? 'Loading models…'
-                          : models.length
-                            ? 'Select a model…'
-                            : 'No models loaded — reload the list'}
-                      </option>
-                      {modelOptions.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                    <IconButton
-                      label="Load available models from the provider"
-                      onClick={loadModels}
-                      disabled={modelsState === 'loading'}
-                    >
-                      <Icon name="refresh" size={16} />
-                    </IconButton>
-                  </div>
-
-                  {modelsState === 'error' && (
-                    <span className="block text-body-sm text-danger">{modelsError}</span>
-                  )}
-                  {modelsState === 'loaded' && (
-                    <span className="block text-body-sm text-ink-muted">
-                      <span className="font-mono text-accent-ink">{models.length}</span> model
-                      {models.length === 1 ? '' : 's'} available from this provider.
-                    </span>
-                  )}
-
-                  <input
-                    className="input"
+              <Field
+                label={t('settings.baseUrl')}
+                hint={t('settings.baseUrlHint', { url: activeProvider.defaultBaseUrl })}
+              >
+                {(p) => (
+                  <Input
+                    {...p}
                     type="text"
                     spellCheck={false}
-                    value={settings.model}
-                    placeholder={`or type a custom model, e.g. ${activeProvider.defaultModel}`}
-                    onChange={(e) => update('model', e.target.value)}
+                    value={settings.baseUrl}
+                    placeholder={activeProvider.defaultBaseUrl}
+                    onChange={(e) => update('baseUrl', e.currentTarget.value)}
                   />
-                </div>
+                )}
+              </Field>
+
+              <Field
+                label={t('settings.apiKey')}
+                hint={t('settings.apiKeyHint')}
+              >
+                {(p) => (
+                  <div className="flex gap-2">
+                    <Input
+                      {...p}
+                      className="flex-1"
+                      type={showKey ? 'text' : 'password'}
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={settings.apiKey}
+                      placeholder="ollama-…"
+                      onChange={(e) => update('apiKey', e.currentTarget.value)}
+                    />
+                    <Button variant="quiet" className="shrink-0" onClick={() => setShowKey((v) => !v)}>
+                      {showKey ? t('settings.hide') : t('settings.show')}
+                    </Button>
+                  </div>
+                )}
+              </Field>
+
+              <Field
+                label={t('settings.model')}
+                hint={t('settings.modelHint', { model: activeProvider.defaultModel })}
+              >
+                {(p) => (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Select
+                        {...p}
+                        className="flex-1"
+                        value={modelOptions.includes(settings.model) ? settings.model : ''}
+                        onChange={(e) => update('model', e.currentTarget.value)}
+                      >
+                        <option value="" disabled>
+                          {modelsState === 'loading'
+                            ? t('settings.modelsLoading')
+                            : models.length
+                              ? t('settings.modelsChoose')
+                              : t('settings.modelsNone')}
+                        </option>
+                        {modelOptions.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </Select>
+                      <IconButton
+                        label={t('settings.modelsReload')}
+                        onClick={loadModels}
+                        disabled={modelsState === 'loading'}
+                      >
+                        <Icon name="refresh" size={16} />
+                      </IconButton>
+                    </div>
+
+                    {modelsState === 'error' && (
+                      <span className="block text-body-sm text-danger">{modelsError}</span>
+                    )}
+                    {modelsState === 'loaded' && (
+                      <span className="block text-body-sm text-ink-muted">
+                        <span className="font-mono text-accent-ink">{models.length}</span>{' '}
+                        {t(models.length === 1 ? 'settings.modelsCount_one' : 'settings.modelsCount_other')}
+                      </span>
+                    )}
+
+                    <Input
+                      type="text"
+                      spellCheck={false}
+                      value={settings.model}
+                      placeholder={t('settings.modelCustomPlaceholder', {
+                        model: activeProvider.defaultModel,
+                      })}
+                      onChange={(e) => update('model', e.currentTarget.value)}
+                      aria-label={t('settings.modelCustom')}
+                    />
+                  </div>
+                )}
               </Field>
             </div>
           </section>
@@ -252,7 +292,7 @@ export default function SettingsPanel() {
               or the instance's. */}
           <div>
             <div className="section-head">
-              <span className="kicker text-accent-ink">Generation</span>
+              <span className="kicker text-accent-ink">{t('settings.generation')}</span>
             </div>
             <label className="flex cursor-pointer items-start gap-3 border border-line-soft bg-ink/5 p-3">
               <input
@@ -262,9 +302,11 @@ export default function SettingsPanel() {
                 onChange={(e) => update('usePlanner', e.target.checked)}
               />
               <span>
-                <span className="block text-body font-medium text-ink">Use planner (slower, better structure)</span>
+                <span className="block text-body font-medium text-ink">
+                  {t('settings.usePlanner')}
+                </span>
                 <span className="measure mt-0.5 block text-body-sm text-ink-muted">
-                  A quick pre-generation pass that plans the screen's layout, sections and content before the code is written. Adds a few seconds; falls back automatically if it fails or times out.
+                  {t('settings.usePlannerHelp')}
                 </span>
               </span>
             </label>
@@ -273,48 +315,179 @@ export default function SettingsPanel() {
           {!managed && (
             <div>
               <div className="section-head">
-                <span className="kicker text-accent-ink">Connection test</span>
+                <span className="kicker text-accent-ink">{t('settings.test')}</span>
               </div>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={onTest}
-                disabled={test.status === 'testing'}
-              >
-                {test.status === 'testing' ? 'Testing…' : 'Test connection'}
-              </button>
+              <Button variant="primary" onClick={onTest} disabled={test.status === 'testing'}>
+                {test.status === 'testing' ? t('settings.testing') : t('settings.test')}
+              </Button>
               {test.status === 'done' && <TestBanner result={test.result} onPick={(m) => update('model', m)} />}
             </div>
           )}
         </section>
       </div>
 
+      <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 lg:grid-cols-2">
+        <PasswordSection account={account} onChanged={setAccount} />
+
+        <section>
+          <div className="section-head">
+            <span className="kicker text-accent-ink">{t('lang.label')}</span>
+          </div>
+          <p className="measure mb-3 text-body text-ink-muted">{t('settings.langHelp')}</p>
+          <Segmented
+            label={t('lang.label')}
+            value={lang}
+            onChange={(v) => {
+              // Segmented turns a mode off when its active item is clicked; a
+              // language cannot be "off", so ignore that case.
+              if (v) setLang(v)
+            }}
+            options={LANGS.map((l) => ({ value: l.id, label: l.label }))}
+          />
+        </section>
+      </div>
+
       <p className="mt-8 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
-        Settings are stored in your browser. Head to Studio to generate a screen.
+        {t('settings.footerNote')}
       </p>
     </div>
   )
 }
 
-function Field({
-  label,
-  hint,
-  children,
+/**
+ * Change your own password.
+ *
+ * The server signs every other device out and re-issues this browser's cookie,
+ * so a successful change does not log the user out of the tab they are in.
+ */
+function PasswordSection({
+  account,
+  onChanged,
 }: {
-  label: string
-  hint?: string
-  children: React.ReactNode
+  account: AuthUser | null
+  onChanged: (u: AuthUser) => void
 }) {
+  const t = useT()
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  if (!account) {
+    return (
+      <section>
+        <div className="section-head">
+          <span className="kicker text-accent-ink">{t('account.password')}</span>
+        </div>
+        <p className="measure text-body text-ink-muted">
+          {t('settings.signInToChangePassword')}
+        </p>
+      </section>
+    )
+  }
+
+  const tooShort = next.length > 0 && next.length < MIN_PASSWORD
+  const mismatch = confirm.length > 0 && confirm !== next
+  const canSubmit =
+    !busy && current.length > 0 && next.length >= MIN_PASSWORD && confirm === next
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setDone(false)
+    setBusy(true)
+    try {
+      const user = await api.changePassword(current, next)
+      setCurrent('')
+      setNext('')
+      setConfirm('')
+      setDone(true)
+      onChanged(user)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-body-sm font-medium text-ink">{label}</span>
-      {children}
-      {hint && <span className="mt-1.5 block text-caption text-ink-muted">{hint}</span>}
-    </label>
+    <section>
+      <div className="section-head">
+        <span className="kicker text-accent-ink">{t('account.password')}</span>
+      </div>
+      <p className="measure mb-4 text-body text-ink-muted">
+        {t('settings.accountIs')}{' '}
+        <strong className="font-medium text-ink">{account.username}</strong>.{' '}
+        {t('settings.passwordChangeSignsOut')}
+      </p>
+
+      <form onSubmit={submit} className="space-y-4">
+        <Field label={t('settings.currentPassword')}>
+          {(p) => (
+            <Input
+              {...p}
+              type="password"
+              autoComplete="current-password"
+              value={current}
+              onChange={(e) => setCurrent(e.currentTarget.value)}
+            />
+          )}
+        </Field>
+
+        <Field
+          label={t('settings.newPassword')}
+          hint={t('settings.minChars', { n: MIN_PASSWORD })}
+          error={tooShort ? t('settings.minChars', { n: MIN_PASSWORD }) : null}
+        >
+          {(p) => (
+            <Input
+              {...p}
+              type="password"
+              autoComplete="new-password"
+              value={next}
+              onChange={(e) => setNext(e.currentTarget.value)}
+            />
+          )}
+        </Field>
+
+        <Field
+          label={t('settings.confirmPassword')}
+          error={mismatch ? t('settings.passwordMismatch') : null}
+        >
+          {(p) => (
+            <Input
+              {...p}
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.currentTarget.value)}
+            />
+          )}
+        </Field>
+
+        <Button type="submit" variant="primary" disabled={!canSubmit}>
+          {busy ? t('settings.changingPassword') : t('settings.changePassword')}
+        </Button>
+
+        {error && (
+          <Banner tone="danger" title={t('settings.passwordNotChanged')}>
+            {error}
+          </Banner>
+        )}
+        {done && !error && (
+          <Banner tone="ok" title={t('settings.passwordChanged')}>
+            {t('settings.otherDevicesSignedOut')}
+          </Banner>
+        )}
+      </form>
+    </section>
   )
 }
 
 function TestBanner({ result, onPick }: { result: TestResult; onPick: (m: string) => void }) {
+  const t = useT()
   return (
     <div
       className={`mt-4 border p-3 text-body ${
@@ -327,10 +500,10 @@ function TestBanner({ result, onPick }: { result: TestResult; onPick: (m: string
       </div>
       {result.models && result.models.length > 0 && (
         <div className="mt-2">
-          <div className="kicker mb-1.5">Available models</div>
+          <div className="kicker mb-1.5">{t('settings.availableModels')}</div>
           <div className="flex flex-wrap gap-1.5">
             {result.models.map((m) => (
-              <Button key={m} size="sm" onClick={() => onPick(m)} title="Use this model">
+              <Button key={m} size="sm" onClick={() => onPick(m)} title={t('settings.useThisModel')}>
                 {m}
               </Button>
             ))}

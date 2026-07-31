@@ -227,10 +227,20 @@ function findOrCreateSsoUser(claims) {
 }
 
 // ---- password hashing (node crypto scrypt) ----
+
+/**
+ * Minimum length for a password being set or reset *today*.
+ *
+ * Accounts created before this existed were allowed 6 characters and still sign
+ * in normally: the check lives on the write paths only, never on /api/login, so
+ * raising the bar cannot lock anyone out of an account they already have.
+ */
+const MIN_NEW_PASSWORD = 8
+
 function hashPw(pw, salt) {
   return crypto.scryptSync(pw, salt, 64).toString('hex')
 }
-function makeUser(username, password, role = 'user') {
+function makeUser(username, password, role = 'user', mustChangePassword = false) {
   const salt = crypto.randomBytes(16).toString('hex')
   return {
     id: crypto.randomUUID(),
@@ -240,10 +250,24 @@ function makeUser(username, password, role = 'user') {
     dashySub: null,
     salt,
     hash: hashPw(password, salt),
+    // When an admin hands out the first password, the account is flagged so the
+    // app can demand a new one at the first sign-in.
+    mustChangePassword: Boolean(mustChangePassword),
     createdAt: Date.now(),
   }
 }
-const publicUser = (u) => ({ username: u.username, role: u.role || 'user' })
+/** Replace a user's credentials in place. Clears any pending forced change. */
+function setPassword(user, password) {
+  user.salt = crypto.randomBytes(16).toString('hex')
+  user.hash = hashPw(password, user.salt)
+  user.mustChangePassword = false
+  user.passwordChangedAt = Date.now()
+}
+const publicUser = (u) => ({
+  username: u.username,
+  role: u.role || 'user',
+  mustChangePassword: Boolean(u.mustChangePassword),
+})
 function verifyPw(user, password) {
   // SSO-only accounts have no password and cannot log in this way.
   if (!user.salt || !user.hash) return false
@@ -383,6 +407,26 @@ function setSession(res, userId, req) {
 }
 
 /**
+ * Drop every session of one user, optionally sparing a single token.
+ *
+ * A password change that leaves the old cookies working protects nobody: the
+ * whole point of changing it is to lock out a device that already holds a valid
+ * session. Returns how many were revoked.
+ */
+function revokeSessions(userId, keepToken = null) {
+  const sessions = loadSessions()
+  let removed = 0
+  for (const [token, s] of Object.entries(sessions)) {
+    if (s?.u === userId && token !== keepToken) {
+      delete sessions[token]
+      removed++
+    }
+  }
+  if (removed) saveSessions(sessions)
+  return removed
+}
+
+/**
  * Any signed-in user. Routes that spend the instance's model credits, read the
  * shared image library, or delete files were mounted before this existed and
  * were reachable by anyone who could open the port.
@@ -503,6 +547,44 @@ app.get('/api/me', (req, res) => {
   res.json({ user: user ? publicUser(user) : null })
 })
 
+// ---- account: change your own password ----
+// Rate-limited like the other credential routes: the current password is a
+// secret being guessed here, session or no session.
+app.post('/api/account/password', requireUser, authRateLimit(8), (req, res) => {
+  const current = String(req.body?.current || '')
+  const next = String(req.body?.next || '')
+
+  // Re-read from the store: req.user is a snapshot, and we are about to write.
+  const users = loadUsers()
+  const user = users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'Compte introuvable.' })
+  if (!user.salt || !user.hash) {
+    return res
+      .status(400)
+      .json({ error: 'Ce compte se connecte via Dashy : le mot de passe se change côté Dashy.' })
+  }
+  if (!verifyPw(user, current)) return res.status(401).json({ error: 'Mot de passe actuel incorrect.' })
+  if (next.length < MIN_NEW_PASSWORD) {
+    return res
+      .status(400)
+      .json({ error: `Le nouveau mot de passe doit faire au moins ${MIN_NEW_PASSWORD} caractères.` })
+  }
+  if (next === current) {
+    return res.status(400).json({ error: 'Le nouveau mot de passe doit être différent de l’actuel.' })
+  }
+
+  setPassword(user, next)
+  saveUsers(users)
+
+  // Every other device is signed out, and the current session gets a brand-new
+  // token rather than being spared: reusing the old one would leave the exact
+  // cookie an attacker may have copied in circulation.
+  revokeSessions(user.id)
+  setSession(res, user.id, req)
+
+  res.json({ ok: true, user: publicUser(user) })
+})
+
 // ---- SSO callback ("Sign in with Dashy") ----
 // Dashy redirects here with ?token=<jwt>&state=<opaque>. We verify the token
 // server-side (the shared secret never leaves the server), find-or-create the
@@ -564,7 +646,16 @@ app.put('/api/admin/config', requireAdmin, (req, res) => {
 
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   res.json({
-    users: loadUsers().map((u) => ({ id: u.id, username: u.username, role: u.role || 'user', createdAt: u.createdAt })),
+    users: loadUsers().map((u) => ({
+      id: u.id,
+      username: u.username,
+      role: u.role || 'user',
+      createdAt: u.createdAt,
+      // Lets the admin list show which accounts still owe a password change.
+      mustChangePassword: Boolean(u.mustChangePassword),
+      // SSO-only accounts have no local password to reset.
+      sso: Boolean(u.dashySub) && !u.salt && !u.hash,
+    })),
   })
 })
 
@@ -572,14 +663,71 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase()
   const password = String(req.body?.password || '')
   const role = req.body?.role === 'admin' ? 'admin' : 'user'
-  if (username.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters.' })
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' })
+  const mustChangePassword = req.body?.mustChangePassword === true
+  if (username.length < 3) {
+    return res.status(400).json({ error: 'Le nom d’utilisateur doit faire au moins 3 caractères.' })
+  }
+  // Stricter than public sign-up (6) on purpose: this password is chosen by
+  // someone other than its owner and travels through a chat or a sticky note.
+  if (password.length < MIN_NEW_PASSWORD) {
+    return res
+      .status(400)
+      .json({ error: `Le mot de passe doit faire au moins ${MIN_NEW_PASSWORD} caractères.` })
+  }
   const users = loadUsers()
-  if (users.some((u) => u.username === username)) return res.status(409).json({ error: 'Username already taken.' })
-  const user = makeUser(username, password, role)
+  if (users.some((u) => u.username === username)) {
+    return res.status(409).json({ error: 'Ce nom d’utilisateur est déjà pris.' })
+  }
+  const user = makeUser(username, password, role, mustChangePassword)
   users.push(user)
   saveUsers(users)
-  res.json({ user: { id: user.id, username: user.username, role: user.role } })
+  res.json({
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      mustChangePassword: Boolean(user.mustChangePassword),
+    },
+  })
+})
+
+// ---- admin: reset a user's password ----
+// No confirmation by the admin's own password, on purpose: an admin who can
+// already DELETE the account and everything in it gains nothing from a second
+// prompt here — it only makes helping a locked-out colleague slower.
+app.put('/api/admin/users/:id/password', requireAdmin, (req, res) => {
+  const password = String(req.body?.password || '')
+  const mustChange = req.body?.mustChange === true
+  if (password.length < MIN_NEW_PASSWORD) {
+    return res
+      .status(400)
+      .json({ error: `Le mot de passe doit faire au moins ${MIN_NEW_PASSWORD} caractères.` })
+  }
+  const users = loadUsers()
+  const user = users.find((u) => u.id === req.params.id)
+  if (!user) return res.status(404).json({ error: 'Compte introuvable.' })
+
+  setPassword(user, password)
+  if (mustChange) user.mustChangePassword = true
+  saveUsers(users)
+
+  // The target is signed out everywhere — a reset exists precisely for accounts
+  // that may be compromised. When an admin resets their own password we hand
+  // them a fresh cookie instead of bouncing them to the sign-in screen; the old
+  // tokens die either way.
+  const self = user.id === req.user.id
+  revokeSessions(user.id)
+  if (self) setSession(res, user.id, req)
+
+  res.json({
+    ok: true,
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role || 'user',
+      mustChangePassword: Boolean(user.mustChangePassword),
+    },
+  })
 })
 
 // ---- admin: image-generation provider ----
@@ -707,9 +855,9 @@ app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   const id = req.params.id
-  if (id === req.user.id) return res.status(400).json({ error: 'You cannot delete your own account.' })
+  if (id === req.user.id) return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte.' })
   const users = loadUsers()
-  if (!users.some((u) => u.id === id)) return res.status(404).json({ error: 'User not found.' })
+  if (!users.some((u) => u.id === id)) return res.status(404).json({ error: 'Compte introuvable.' })
   saveUsers(users.filter((u) => u.id !== id))
   try {
     fs.rmSync(path.join(DATA_DIR, userDataFile(id)), { force: true })

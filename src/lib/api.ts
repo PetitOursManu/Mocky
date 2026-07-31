@@ -1,6 +1,12 @@
 export interface AuthUser {
   username: string
   role: 'admin' | 'user'
+  /**
+   * An admin created (or reset) this account and asked for a new password at
+   * the first sign-in. The server only raises the flag — refusing to serve the
+   * app until it is cleared is the client's job.
+   */
+  mustChangePassword?: boolean
 }
 
 export interface AdminUser {
@@ -8,6 +14,10 @@ export interface AdminUser {
   username: string
   role: 'admin' | 'user'
   createdAt: number
+  /** Still owes a password change (see AuthUser). */
+  mustChangePassword?: boolean
+  /** Signs in through Dashy and has no local password to reset. */
+  sso?: boolean
 }
 
 async function req(path: string, options?: RequestInit): Promise<any> {
@@ -128,6 +138,16 @@ export const api = {
   login: (username: string, password: string) =>
     req('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) }).then((d) => d.user as AuthUser),
   logout: () => req('/api/logout', { method: 'POST' }),
+
+  /**
+   * Change your own password. The server signs every other device out and
+   * re-issues this one's cookie, so the caller stays signed in.
+   */
+  changePassword: (current: string, next: string) =>
+    req('/api/account/password', { method: 'POST', body: JSON.stringify({ current, next }) }).then(
+      (d) => d.user as AuthUser,
+    ),
+
   getData: () => req('/api/data') as Promise<ServerData>,
   putData: (projects: string | null, design: string | null) =>
     req('/api/data', { method: 'PUT', body: JSON.stringify({ projects, design }) }),
@@ -154,8 +174,25 @@ export const api = {
         allowRegistration: boolean
       }>,
     listUsers: () => req('/api/admin/users').then((d) => d.users as AdminUser[]),
-    addUser: (username: string, password: string, role: 'admin' | 'user') =>
-      req('/api/admin/users', { method: 'POST', body: JSON.stringify({ username, password, role }) }),
+    addUser: (
+      username: string,
+      password: string,
+      role: 'admin' | 'user',
+      mustChangePassword = false,
+    ) =>
+      req('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({ username, password, role, mustChangePassword }),
+      }),
+    /**
+     * Reset someone's password. No admin re-authentication — an admin can
+     * already delete the account outright. Signs the target out everywhere.
+     */
+    setUserPassword: (id: string, password: string, mustChange: boolean) =>
+      req(`/api/admin/users/${id}/password`, {
+        method: 'PUT',
+        body: JSON.stringify({ password, mustChange }),
+      }),
     deleteUser: (id: string) => req(`/api/admin/users/${id}`, { method: 'DELETE' }),
 
     /** Image-generation provider (Muse). */
