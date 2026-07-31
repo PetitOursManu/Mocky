@@ -45,10 +45,16 @@ export function hasUnsyncedChanges(): boolean {
   return enabled && (state === 'syncing' || state === 'failed' || dirty)
 }
 
-let storageError: string | null = null
+/** A translatable reason, resolved by whoever displays it. */
+export interface StorageError {
+  key: string
+  detail?: string
+}
+
+let storageError: StorageError | null = null
 
 /** The last localStorage write failure, if any (usually the quota being full). */
-export function getStorageError(): string | null {
+export function getStorageError(): StorageError | null {
   return storageError
 }
 
@@ -58,10 +64,13 @@ export function getStorageError(): string | null {
  * silently failing to save is the worst possible outcome for a design tool.
  */
 export function reportStorageFailure(err: unknown) {
+  // Translated at the point it is shown, not here: this module has no React
+  // context, and a message frozen in one language would stay in that language
+  // after the user switched. The indicator resolves the key.
   storageError =
     err instanceof Error && /quota/i.test(err.name + err.message)
-      ? "Your browser's storage is full — recent changes could not be saved locally. Sign in so projects live on the server, or delete a project you no longer need."
-      : `Could not save to browser storage: ${err instanceof Error ? err.message : String(err)}`
+      ? { key: 'sync.quotaFull' }
+      : { key: 'sync.storageFailed', detail: err instanceof Error ? err.message : String(err) }
   setState('failed')
 }
 

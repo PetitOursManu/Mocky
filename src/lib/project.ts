@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scheduleSync, reportStorageFailure } from './sync'
 import { visibleProjects, TOMBSTONE_TTL_MS } from './merge'
 
@@ -119,6 +119,39 @@ function scheduleSaveProjects(projects: Project[]) {
   }
 }
 
+/** Queue a debounced write of the whole project list to localStorage. */
+export function saveProjects(projects: Project[]): void {
+  scheduleSaveProjects(projects)
+}
+
+/**
+ * Throw away a queued save instead of writing it.
+ *
+ * Needed when something OUTSIDE this module has just written a newer value to
+ * localStorage — in practice `reconcileOnLogin()` merging in the copy the
+ * server holds. The queued snapshot predates that merge, and `flushProjectsNow`
+ * is also wired to `beforeunload` with capture, so it would run during the
+ * reload that follows and put the pre-merge array straight back.
+ *
+ * That is not a lost write, it is an infinite loop: the next load reads the
+ * stale array, reconciles against the server again, finds a difference again,
+ * and reloads again — several times a second, forever. A fresh origin (a Docker
+ * instance on another port, a new browser profile) walks straight into it,
+ * because there the pre-merge array is empty while the server holds every
+ * project the account owns.
+ *
+ * The snapshot dropped here is by construction the one taken at mount, before
+ * the merge — `useProjects` no longer queues that write at all, so in practice
+ * there is nothing to drop and this is a guard rather than a mechanism.
+ */
+export function discardPendingSave(): void {
+  pendingProjects = null
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+}
+
 /** Default real frame size for a new screen (in canvas pixels). */
 export const DEFAULT_W = 1024
 export const DEFAULT_H = 720
@@ -167,6 +200,26 @@ export function deriveProjectName(prompt: string): string {
   clean = clean.replace(/[,;:.]+$/, '').trim()
   if (!clean) return DEFAULT_PROJECT_NAME
   return clean.charAt(0).toUpperCase() + clean.slice(1)
+}
+
+/**
+ * A project name as a headline.
+ *
+ * A project created from a pasted brief inherits its first words verbatim, so
+ * the front page ended up leading with `<reference-prompt> # Summary A
+ * futuristic…`. That is markup, not a title, and it reads as a bug. Stripped
+ * for display only — the stored name is untouched, so renaming still shows
+ * exactly what the user typed.
+ */
+export function headline(name: string): string {
+  const clean = name
+    .replace(/<\/?[a-z][\w-]*(?:\s[^>]*)?>/gi, ' ') // XML-ish tags from pasted briefs
+    .replace(/^[\s#>*_`\-–—]+/, '') // markdown lead-ins
+    .replace(/\s+/g, ' ')
+    .trim()
+  // If stripping left nothing, the markup WAS the name — show it as it is
+  // rather than an empty headline.
+  return clean || name
 }
 
 /** Grid slot for the Nth screen, used when a screen has no explicit position. */
@@ -252,10 +305,6 @@ function loadProjects(): Project[] {
   }
 }
 
-function saveProjects(projects: Project[]): void {
-  scheduleSaveProjects(projects)
-}
-
 export function useProjects() {
   // `all` includes deleted records (tombstones), because those have to be
   // persisted and synced for the deletion to reach other devices. Everything
@@ -263,7 +312,18 @@ export function useProjects() {
   const [all, setProjects] = useState<Project[]>(() => loadProjects())
   const projects = useMemo(() => visibleProjects(all), [all])
 
+  // Persist on change — but never on mount. The mount-time value is what we
+  // just READ from storage, so writing it back is at best a no-op. At worst it
+  // is the bug described on `discardPendingSave`: on a fresh origin the value
+  // read is `[]` while the server holds every project, and queuing that empty
+  // array both clobbers the merge that is about to land and schedules a sync
+  // that would push it to the server.
+  const mounted = useRef(false)
   useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true
+      return
+    }
     saveProjects(all)
   }, [all])
 

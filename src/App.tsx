@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useProjects } from './lib/project'
+import { discardPendingSave, useProjects } from './lib/project'
 import { loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
 import { enableSync, installUnloadGuard, reconcileOnLogin } from './lib/sync'
@@ -14,10 +14,56 @@ import Bibliotheque from './components/Bibliotheque'
 import SyncIndicator from './components/SyncIndicator'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Button, Icon, IconButton } from './ui'
+import { useT } from './i18n'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'images'
 
+/**
+ * Marks that this tab has already reloaded to pick up a merge. Per-tab and
+ * per-session, which is exactly the scope of the loop it guards against.
+ */
+const RECONCILE_RELOAD_KEY = 'mocky.reconcileReload.v1'
+
+/**
+ * Reload so the running stores pick up what `reconcileOnLogin` just merged into
+ * localStorage — at most once, and never with a stale save still queued.
+ *
+ * Both precautions exist because this reload used to be unbounded. A save
+ * queued by `useProjects` at mount still held the array as it was BEFORE the
+ * merge, and its flush is registered on `beforeunload` with capture — so it ran
+ * during this very reload and wrote the pre-merge array back over the merged
+ * one. The next load then found the same difference and reloaded again, several
+ * times a second, forever. A fresh origin hits it on the first visit: empty
+ * localStorage on one side, every project the account owns on the other.
+ */
+function reloadForMergedData(): void {
+  discardPendingSave()
+  try {
+    if (sessionStorage.getItem(RECONCILE_RELOAD_KEY)) {
+      // We already reloaded once for this and it did not settle. Reloading
+      // again would spin; the merged data is in localStorage either way, and
+      // the next navigation picks it up.
+      console.warn('[mocky] reconcile still reports changes after a reload — not reloading again')
+      return
+    }
+    sessionStorage.setItem(RECONCILE_RELOAD_KEY, '1')
+  } catch {
+    /* No sessionStorage (private mode). Reload anyway — the loop is the rarer risk. */
+  }
+  window.location.reload()
+}
+
+/** Called once a load settles, so a genuine later merge can reload again. */
+function clearReconcileReloadMark(): void {
+  try {
+    sessionStorage.removeItem(RECONCILE_RELOAD_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function App() {
+  const t = useT()
   const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen, setReferenceScreen } =
     useProjects()
   const [route, setRoute] = useState<Route>('home')
@@ -48,9 +94,14 @@ export default function App() {
         if (!user) {
           setAuthOpen(true)
         } else {
-          enableSync(true)
+          // Reconcile BEFORE arming sync, not after. Armed first, the empty
+          // array `useProjects` reads at mount could be pushed to the server
+          // before the server's own copy had even been read — and on a fresh
+          // origin that means replacing every project the account owns with [].
           const changed = await reconcileOnLogin()
-          if (changed) window.location.reload()
+          enableSync(true)
+          if (changed) reloadForMergedData()
+          else clearReconcileReloadMark()
         }
       })
       .catch(() => {
@@ -111,10 +162,10 @@ export default function App() {
             type="button"
             onClick={goHome}
             className="flex items-baseline gap-2.5"
-            title="Accueil Mocky"
+            title={t('nav.backHome')}
           >
             <span className="masthead text-h2 leading-none">Mocky</span>
-            <span className="kicker hidden text-accent-ink sm:inline">Chat&nbsp;→&nbsp;UI · auto-hébergé</span>
+            <span className="kicker hidden text-accent-ink sm:inline">{t('nav.tagline')}</span>
           </button>
 
           {/* Project breadcrumb */}
@@ -150,7 +201,7 @@ export default function App() {
                     }
                   }}
                   className="text-body font-medium text-ink-muted transition hover:text-ink"
-                  title={route === 'project' ? 'Rename project' : 'Back to project'}
+                  title={route === 'project' ? t('projects.rename') : t('app.backToProject')}
                 >
                   {activeProject.name}
                 </button>
@@ -161,24 +212,24 @@ export default function App() {
           <nav className="ml-auto flex items-center gap-1">
             <SyncIndicator />
             <HeaderTab active={route === 'home'} onClick={goHome}>
-              Home
+              {t('nav.home')}
             </HeaderTab>
             <HeaderTab active={route === 'design'} onClick={() => setRoute('design')}>
-              DESIGN.md
+              {t('nav.design')}
             </HeaderTab>
             <HeaderTab active={route === 'images'} onClick={() => setRoute('images')}>
-              Images
+              {t('nav.images')}
             </HeaderTab>
             <HeaderTab active={route === 'settings'} onClick={() => setRoute('settings')}>
-              Settings
+              {t('nav.settings')}
             </HeaderTab>
             {account?.role === 'admin' && (
               <HeaderTab active={route === 'admin'} onClick={() => setRoute('admin')}>
-                Admin
+                {t('nav.admin')}
               </HeaderTab>
             )}
             <IconButton
-              label={theme === 'dark' ? 'Passer au thème Papier' : 'Passer au thème Encre'}
+              label={theme === 'dark' ? t('theme.toPaper') : t('theme.toInk')}
               variant="quiet"
               onClick={toggleTheme}
               className="ml-1"
@@ -190,10 +241,10 @@ export default function App() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  if (confirm(`Se déconnecter de « ${account.username} » ? Vos projets restent sur cet appareil.`)) logout()
+                  if (confirm(t('account.signOutConfirm', { name: account.username }))) logout()
                 }}
                 className="ml-1"
-                title="Connecté — cliquez pour vous déconnecter"
+                title={t('account.signedInAs')}
               >
                 <Icon name="user" size={16} />
                 <span className="max-w-[100px] truncate">{account.username}</span>
@@ -204,9 +255,9 @@ export default function App() {
                 size="sm"
                 onClick={() => setAuthOpen(true)}
                 className="ml-1"
-                title="Sign in to sync your projects across devices"
+                title={t('app.signInHint')}
               >
-                Sign in
+                {t('account.signIn')}
               </Button>
             )}
           </nav>
@@ -233,7 +284,7 @@ export default function App() {
           <ErrorBoundary
             resetKey={activeProject.id}
             onReset={goHome}
-            resetLabel="Retour aux projets"
+            resetLabel={t('error.backToProjects')}
           >
           <ProjectView
             key={activeProject.id}
@@ -250,9 +301,9 @@ export default function App() {
           </ErrorBoundary>
         ) : (
           <div className="page py-16 text-center text-body text-ink-faint">
-            No project selected.{' '}
+            {t('app.noProjectSelected')}{' '}
             <button type="button" className="text-accent hover:underline" onClick={goHome}>
-              Back to projects
+              {t('error.backToProjects')}
             </button>
           </div>
         ))}
@@ -280,7 +331,7 @@ export default function App() {
             <AdminPanel currentUsername={account.username} />
           </main>
         ) : (
-          <div className="page py-16 text-center text-body text-ink-faint">Admins only.</div>
+          <div className="page py-16 text-center text-body text-ink-faint">{t('app.adminsOnly')}</div>
         ))}
 
       {authOpen && (
@@ -298,10 +349,19 @@ export default function App() {
             setAccount(user)
             setAuthOpen(false)
             setSsoError(null)
-            enableSync(true)
-            reconcileOnLogin().then((changed) => {
-              if (changed) window.location.reload()
-            })
+            // Same ordering as the startup path above: merge first, arm sync
+            // only once the server's copy is in hand.
+            reconcileOnLogin()
+              .then((changed) => {
+                enableSync(true)
+                if (changed) reloadForMergedData()
+                else clearReconcileReloadMark()
+              })
+              .catch(() => {
+                // Sync stays off rather than risking a push of a copy that was
+                // never reconciled. The indicator already shows nothing is
+                // syncing; a reload retries the whole sequence.
+              })
           }}
         />
       )}
