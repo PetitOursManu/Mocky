@@ -310,10 +310,31 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       var a = e.target && e.target.closest ? e.target.closest('a[href], area[href]') : null;
       if (a) {
         var href = a.getAttribute('href') || '';
-        // A pure in-page anchor is legitimate: it scrolls, it does not navigate.
-        if (href.charAt(0) !== '#') { e.preventDefault(); }
+        // EVERY href is stopped, fragments included.
+        //
+        // "#pricing" looks like an in-page anchor and was let through on that
+        // basis. It is not one here: a srcdoc document inherits the PARENT's
+        // URL as its base, so the browser resolves "#pricing" to
+        // http://localhost:8787/#pricing — a different document — and navigates
+        // the frame to Mocky's own app. Sandboxed to an opaque origin, the app
+        // then fails CORS on its own stylesheet and module script, twice each,
+        // and the mockup is gone. That is the flood of "from origin 'null' has
+        // been blocked by CORS policy" in the console.
+        e.preventDefault();
+        // The scroll a fragment was meant to perform, done by hand so anchor
+        // links in a long generated page still behave like anchor links.
+        if (href.length > 1 && href.charAt(0) === '#') {
+          var id = href.slice(1), t2 = null;
+          try { t2 = document.getElementById(id); } catch (_) {}
+          if (!t2) { try { t2 = document.getElementsByName(id)[0] || null; } catch (_) {} }
+          if (t2 && t2.scrollIntoView) t2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }
     }, true);
+    // A generated <form> with no action submits to the document URL — which,
+    // for the same base-URL reason, is Mocky's own page. Same navigation, same
+    // console flood, from a control nobody thinks of as a link.
+    document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
     function markLinks() { for (var i = 0; i < links.length; i++) { var el = null; try { el = document.querySelector(links[i].selector); } catch (_) {} if (el) el.style.cursor = 'pointer'; } }
     window.addEventListener('message', function (e) {
       // Only Mocky itself may command this frame. parent.frames[i] is reachable

@@ -132,6 +132,35 @@ describe('preview Content-Security-Policy', () => {
   })
 })
 
+describe('the mockup never navigates itself away', () => {
+  /**
+   * A srcdoc document inherits the PARENT's URL as its base. So "#pricing" does
+   * not resolve to a position in the mockup — it resolves to
+   * http://localhost:8787/#pricing, a different document, and the frame loads
+   * Mocky's own app into itself. Sandboxed to an opaque origin, that app then
+   * fails CORS on its own stylesheet and module script, and the screen the user
+   * just generated is gone.
+   *
+   * The guard used to let fragments through on the reasonable-sounding theory
+   * that they only scroll. They only scroll in a document with its own URL.
+   */
+  it('stops fragment links too, not only path and absolute ones', () => {
+    expect(preview).not.toMatch(/if\s*\(\s*href\.charAt\(0\)\s*!==\s*'#'\s*\)\s*\{\s*e\.preventDefault\(\)/)
+    // The anchor branch preventDefaults unconditionally…
+    expect(preview).toMatch(/closest\('a\[href\], area\[href\]'\)[\s\S]{0,1200}?e\.preventDefault\(\)/)
+    // …and does the scroll itself, so in-page anchors still work.
+    expect(preview).toContain('scrollIntoView')
+  })
+
+  it('stops form submissions, which navigate for the same reason', () => {
+    expect(preview).toMatch(/addEventListener\('submit'[\s\S]{0,120}preventDefault/)
+  })
+
+  it('still neutralises window.open before generated code runs', () => {
+    expect(preview).toContain('window.open = function () { return null; }')
+  })
+})
+
 describe('postMessage bridge', () => {
   it('checks the sending window rather than trusting an id in the payload', () => {
     // frameId is written in clear into every srcDoc, so it is not a secret; and
