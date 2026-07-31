@@ -25,7 +25,9 @@ SYNTAX VERIFICATION (CRITICAL):
 - If you find any syntax error, fix it before outputting. Your code MUST compile without errors on the first try.
 
 VISUAL QUALITY REQUIREMENTS:
-- Build a REAL finished UI, not a wireframe or a gray box mock-up. Use a complete, modern color palette (slate/indigo/emerald/amber/rose as appropriate), subtle shadows, rounded corners, and clear visual hierarchy.
+- Build a REAL finished UI, not a wireframe or a gray box mock-up. Commit to a complete, deliberate colour palette and a clear visual hierarchy.
+- If an art direction is supplied below (a DESIGN SYSTEM or a DESIGN DOSSIER), its palette, radius and typography OVERRIDE every stylistic suggestion in these rules. Follow it exactly, even when it contradicts what you would otherwise choose. Only invent a palette when none is given.
+- To apply an exact colour, use Tailwind's arbitrary-value syntax: bg-[#0F172A], text-[#CCFF00], border-[#767676], ring-[#228477], from-[#111111]. Never approximate a supplied hex with the nearest named Tailwind shade.
 - NEVER use generic placeholder text like "Lorem ipsum", "Sample text", "Content here", or repeated gray rectangles. Write realistic, context-aware copy (labels, values, names, numbers, taglines, CTA text).
 - Every interactive element MUST have visible states: hover, active/focus rings, disabled opacity, and cursor pointers.
 - Use appropriate whitespace: generous padding, consistent gaps, readable font sizes, and aligned grids. No crushed text or misaligned elements.

@@ -138,3 +138,49 @@ describe('museAvailable', () => {
     expect(await museAvailable()).toBe(false)
   })
 })
+
+describe('buildMusePreamble — palette fidelity', () => {
+  const dossier = {
+    concept: 'Instrument-grade clarity.',
+    tokens: {
+      colors: [
+        { label: 'ink', hex: '#111111', role: 'text' },
+        { label: 'signal', hex: '#CCFF00', role: 'accent' },
+        { label: 'bad', hex: 'not-a-hex' },
+      ],
+      radius: 'rounded-none',
+    },
+  }
+
+  it('restates every colour as a class the model can paste', () => {
+    // The dossier already lists the hexes, in prose, inside a long markdown
+    // block — and the screens still came out indigo-and-slate. Nothing told the
+    // model HOW to apply a hex with Tailwind, while the base rules named
+    // concrete families, which is a far more actionable instruction.
+    const out = buildMusePreamble('# Dossier', [], 'content', dossier)
+    expect(out).toContain('bg-[#111111]')
+    expect(out).toContain('text-[#CCFF00]')
+    expect(out).toContain('border-[#CCFF00]')
+    expect(out).toMatch(/NON-NEGOTIABLE/)
+  })
+
+  it('drops values that are not real hex colours', () => {
+    const out = buildMusePreamble('# Dossier', [], 'content', dossier)
+    expect(out).not.toContain('not-a-hex')
+  })
+
+  it('carries the radius through, including when it means square', () => {
+    const out = buildMusePreamble('# Dossier', [], 'content', dossier)
+    expect(out).toContain('rounded-none')
+    expect(out).toMatch(/square corners/i)
+  })
+
+  it('says nothing about a palette when the dossier has none', () => {
+    const out = buildMusePreamble('# Dossier', [], 'content', { concept: '' })
+    expect(out).not.toMatch(/NON-NEGOTIABLE/)
+  })
+
+  it('still works without a dossier at all — the old call shape', () => {
+    expect(() => buildMusePreamble('# Dossier')).not.toThrow()
+  })
+})

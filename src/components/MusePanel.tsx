@@ -1,6 +1,7 @@
 import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
 import { imageUrl, type PinnedImage } from '../lib/imageLibrary'
 import { Button, Icon, Spinner } from '../ui'
+import { useT } from '../i18n'
 
 /** Domain of a URL, for reference chips (we show text only — never a third-party image, M2). */
 function domainOf(url: string): string {
@@ -48,19 +49,20 @@ export default function MusePanel({
   /** null = not probed yet. false = the model refuses images. */
   vision?: boolean | null
 }) {
+  const t = useT()
   const d = result?.dossier
   return (
     <div className="mb-2 rounded-xl border border-muse/40 bg-muse/5 p-2.5 text-body-sm">
       {/* Library access + pinned images */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="kicker text-muse">Muse</span>
+        <span className="kicker text-muse">{t('muse.title')}</span>
         <Button variant="ghost" size="sm" onClick={onOpenLibrary}>
           <Icon name="library" size={16} />
-          Bibliothèque
+          {t('muse.library')}
         </Button>
         {pinned.length > 0 && (
           <div className="flex flex-1 flex-wrap items-center gap-1">
-            <span className="kicker">épinglées</span>
+            <span className="kicker">{t('muse.pinned')}</span>
             {pinned.map((p) => (
               <span key={p.hash} className="group relative h-7 w-9 overflow-hidden rounded border border-muse">
                 <img src={imageUrl(p.hash)} alt={p.label} title={p.label} className="h-full w-full object-cover" />
@@ -68,8 +70,8 @@ export default function MusePanel({
                   type="button"
                   onClick={() => onUnpin(p.hash)}
                   className="absolute inset-0 flex items-center justify-center bg-ink/60 text-surface opacity-0 transition group-hover:opacity-100"
-                  aria-label={`Retirer ${p.label}`}
-                  title="Retirer"
+                  aria-label={t('muse.unpinImage', { label: p.label })}
+                  title={t('library.unpin')}
                 >
                   <Icon name="close" size={14} />
                 </button>
@@ -83,17 +85,15 @@ export default function MusePanel({
         <div className="mb-2 rounded-lg border border-warn/40 bg-warn/10 px-2 py-1.5 text-warn">
           <span className="flex items-center gap-1.5">
             <Icon name="image" size={16} />
-            Image non générée — {imageError}
+            {t('muse.imageFailed', { error: imageError })}
           </span>
-          <span className="block text-caption text-warn/70">
-            L’écran a quand même été généré. Vérifiez le fournisseur d’images dans Admin.
-          </span>
+          <span className="block text-caption text-warn/70">{t('muse.imageFailedHelp')}</span>
         </div>
       )}
 
       {available === false && (
         <div className="mb-2 rounded-lg border border-warn/40 bg-warn/10 px-2 py-1.5 text-warn">
-          Muse a besoin du backend Mocky (lance <code>npm run dev:all</code> ou l'app Docker). Indisponible en mode navigateur seul.
+          {t('muse.needsBackendPre')} <code>npm run dev:all</code> {t('muse.needsBackendPost')}
         </div>
       )}
 
@@ -102,12 +102,15 @@ export default function MusePanel({
         <textarea
           rows={2}
           className="input min-h-[38px] flex-1 resize-none text-body-sm"
-          placeholder="URLs d'inspiration (Dribbble, Pinterest, un site…), une par ligne — optionnel"
+          placeholder={t('muse.urls')}
           value={config.urls}
           onChange={(e) => onChange({ ...config, urls: e.target.value })}
           disabled={busy}
         />
-        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 pt-1 text-ink-muted" title="Récupère l'inspiration en direct (installe un navigateur Playwright au 1er usage)">
+        <label
+          className="flex shrink-0 cursor-pointer items-center gap-1.5 pt-1 text-ink-muted"
+          title={t('muse.liveInspirationHint')}
+        >
           <input
             type="checkbox"
             className="accent-accent"
@@ -115,66 +118,58 @@ export default function MusePanel({
             onChange={(e) => onChange({ ...config, useFetch: e.target.checked })}
             disabled={busy}
           />
-          Inspiration live
+          {t('muse.liveInspiration')}
         </label>
       </div>
 
       {/* What the generated image is for */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="kicker">Image générée</span>
+        <span className="kicker">{t('muse.imageMode')}</span>
         <span className="flex overflow-hidden border border-line-soft">
           <button
             type="button"
             onClick={() => onChange({ ...config, imageMode: 'content' })}
             disabled={busy}
-            title="L’image est insérée dans l’écran (photo héro, produit…)"
+            title={t('muse.modeContentHint')}
             className={`kicker border-b-2 px-2.5 py-1 ${
               config.imageMode === 'content'
                 ? 'border-b-accent bg-ink text-surface'
                 : 'border-b-transparent text-ink-muted hover:bg-ink/5'
             }`}
           >
-            Contenu
+            {t('muse.modeContent')}
           </button>
           <button
             type="button"
             onClick={() => onChange({ ...config, imageMode: 'inspiration' })}
             disabled={busy || vision === false}
-            title={
-              vision === false
-                ? 'Indisponible : ce modèle n’accepte pas les images'
-                : 'L’image sert de référence de direction artistique au modèle (elle n’apparaît pas dans l’écran)'
-            }
+            title={vision === false ? t('muse.modeNeedsVision') : t('muse.modeInspirationHint')}
             className={`kicker border-b-2 border-l border-l-line-soft px-2.5 py-1 ${
               config.imageMode === 'inspiration'
                 ? 'border-b-accent bg-ink text-surface'
                 : 'border-b-transparent text-ink-muted hover:bg-ink/5'
             } ${vision === false ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            Inspiration
+            {t('muse.modeInspiration')}
           </button>
           <button
             type="button"
             onClick={() => onChange({ ...config, imageMode: 'both' })}
             disabled={busy || vision === false}
-            title={
-              vision === false
-                ? 'Indisponible : ce modèle n’accepte pas les images'
-                : 'Le modèle VOIT l’image et l’insère : il compose l’écran autour d’elle (une seule image générée)'
-            }
+            title={vision === false ? t('muse.modeNeedsVision') : t('muse.modeBothHint')}
             className={`kicker border-b-2 border-l border-l-line-soft px-2.5 py-1 ${
               config.imageMode === 'both'
                 ? 'border-b-accent bg-ink text-surface'
                 : 'border-b-transparent text-ink-muted hover:bg-ink/5'
             } ${vision === false ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            Les deux
+            {t('muse.modeBoth')}
           </button>
         </span>
         {vision === true && (
           <span className="flex items-center gap-1 text-caption text-ok">
             <Icon name="check" size={14} />
-            vision
+            {t('muse.vision')}
           </span>
         )}
       </div>
@@ -183,16 +178,22 @@ export default function MusePanel({
           fall back, so the setting isn't silently undone behind the user. */}
       {vision === false && (
         <div className="mt-1.5 rounded-lg border border-warn/40 bg-warn/10 px-2 py-1.5 text-caption text-warn">
-          Vision non détectée sur ce modèle.
+          {t('muse.noVision')}
           {config.imageMode !== 'content' ? (
             <>
               {' '}
-              Votre choix « {config.imageMode === 'both' ? 'Les deux' : 'Inspiration'} » est <strong>conservé</strong>,
-              mais cette génération se fera en <strong>Contenu</strong>. Choisissez un modèle avec vision dans Admin →
-              Modèles de texte pour l’activer.
+              {t('muse.noVisionKeptPre', {
+                mode: config.imageMode === 'both' ? t('muse.modeBoth') : t('muse.modeInspiration'),
+              })}{' '}
+              <strong>{t('muse.noVisionKeptWord')}</strong>
+              {t('muse.noVisionKeptMid')} <strong>{t('muse.modeContent')}</strong>
+              {t('muse.noVisionKeptPost')}
             </>
           ) : (
-            ' Les modes Inspiration et Les deux ont besoin d’un modèle capable de lire une image.'
+            ` ${t('muse.noVisionModes', {
+              inspiration: t('muse.modeInspiration'),
+              both: t('muse.modeBoth'),
+            })}`
           )}
         </div>
       )}
@@ -211,10 +212,10 @@ export default function MusePanel({
           <div className="flex items-center justify-between gap-2">
             <span className="kicker flex items-center gap-1.5 text-muse">
               <Icon name="sparkle" size={14} />
-              Design Dossier
+              {t('muse.dossier')}
             </span>
             <span className={`rounded px-1.5 py-0.5 text-caption ${result?.source === 'llm' ? 'bg-ok/20 text-ok' : 'bg-ink/5 text-ink-muted'}`}>
-              {result?.source === 'llm' ? 'écrit par le modèle' : 'patterns (hors-ligne)'}
+              {result?.source === 'llm' ? t('muse.writtenByModel') : t('muse.offlinePatterns')}
             </span>
           </div>
 
@@ -264,10 +265,10 @@ export default function MusePanel({
                   screen — and so no way to check the mode did anything. */}
               <p className="kicker text-accent-ink">
                 {config.imageMode === 'inspiration'
-                  ? 'Référence d’art direction — non insérée dans l’écran'
+                  ? t('muse.imageRoleInspiration')
                   : config.imageMode === 'both'
-                    ? 'Insérée dans l’écran, et montrée au modèle'
-                    : 'Insérée dans l’écran'}
+                    ? t('muse.imageRoleBoth')
+                    : t('muse.imageRoleContent')}
               </p>
               <div className="flex flex-wrap gap-2">
               {images.map((im) => (
@@ -277,8 +278,8 @@ export default function MusePanel({
                   <a
                     href={`${im.url}?download=1`}
                     className="absolute bottom-0 right-0 flex items-center bg-ink/60 p-1 text-surface opacity-0 transition group-hover:opacity-100"
-                    aria-label={`Télécharger l’image ${im.slot}`}
-                    title="Télécharger"
+                    aria-label={t('muse.downloadImage', { slot: im.slot })}
+                    title={t('design.download')}
                   >
                     <Icon name="download" size={14} />
                   </a>
@@ -291,7 +292,7 @@ export default function MusePanel({
           {/* References (text only — M2) + notices */}
           {(result?.sources?.length || result?.patterns?.length) ? (
             <div className="flex flex-wrap items-center gap-1.5 text-caption text-ink-muted">
-              <span className="kicker">Sources</span>
+              <span className="kicker">{t('muse.sources')}</span>
               {result?.sources?.map((s) => (
                 <span key={s.id} className="bg-ink/5 px-1.5 py-0.5" title={s.url}>
                   {domainOf(s.url)}

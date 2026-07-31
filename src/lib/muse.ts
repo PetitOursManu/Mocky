@@ -318,6 +318,7 @@ export function buildMusePreamble(
   markdown: string,
   images: GeneratedSlotImage[] = [],
   mode: MuseImageMode = 'content',
+  dossier?: MuseDossier,
 ): string {
   const lines = [
     'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly.',
@@ -326,6 +327,42 @@ export function buildMusePreamble(
     markdown.trim(),
     '</DESIGN_DOSSIER>',
   ]
+
+  /*
+   * The palette, restated as classes the model can paste.
+   *
+   * The dossier already lists its colours — as hex values, in prose, inside a
+   * long markdown block. Two things then went wrong every time: the base rules
+   * named concrete Tailwind families ("slate/indigo/emerald/amber/rose"), which
+   * is a far more actionable instruction than a list of hexes, and nothing ever
+   * said HOW to apply a hex with Tailwind. So the model quietly fell back on
+   * indigo-and-slate and the screens ignored the art direction.
+   *
+   * Naming the exact classes removes both problems: there is nothing left to
+   * translate, and the instruction is now more concrete than the one it has to
+   * beat.
+   */
+  const colors = (dossier?.tokens?.colors || []).filter((c) => /^#[0-9a-f]{3,8}$/i.test(c.hex || ''))
+  if (colors.length) {
+    lines.push(
+      '',
+      'PALETTE — NON-NEGOTIABLE. These are the only colours this screen may use. Apply them with Tailwind arbitrary values, exactly as written; do NOT substitute a named Tailwind shade that looks close.',
+    )
+    for (const c of colors) {
+      lines.push(`- ${c.label}${c.role ? ` (${c.role})` : ''}: ${c.hex} → bg-[${c.hex}] · text-[${c.hex}] · border-[${c.hex}]`)
+    }
+    lines.push(
+      'Neutrals (white, black, and greys you need for text contrast) are allowed on top of these. Everything else is not.',
+    )
+  }
+
+  const radius = dossier?.tokens?.radius
+  if (radius) {
+    lines.push(
+      '',
+      `RADIUS — use \`${radius}\` as the corner treatment throughout, including when it means square corners. Do not soften it.`,
+    )
+  }
   const embeds = mode === 'content' || mode === 'both'
   if (images.length && embeds) {
     lines.push(
