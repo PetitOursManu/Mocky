@@ -42,7 +42,6 @@ import {
 } from '../lib/muse'
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
 import { matchImagesToScreens } from '../lib/imageBackfill'
-import { markMuseHintDone, museHintDone } from '../lib/museHint'
 import { lintSlop } from '../lib/lint'
 import { useT } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, type IconName } from '../ui'
@@ -139,24 +138,12 @@ export default function ProjectView({
     setMuseConfig(c)
     saveMuseConfig(c)
   }, [])
-  // The Muse toggle washes the accent through its label until Muse has been
-  // switched on once — here as well as on the first-screen composer, because
-  // this is the one a user with projects actually sees. See lib/museHint.ts.
-  const [museHintDoneState, setMuseHintDoneState] = useState(museHintDone)
-  const museHint = !museConfig.enabled && !museHintDoneState
-  useEffect(() => {
-    if (museConfig.enabled && !museHintDoneState) {
-      markMuseHintDone()
-      setMuseHintDoneState(true)
-    }
-  }, [museConfig.enabled, museHintDoneState])
+  // The Muse toggle washes the accent through its label whenever Muse is off —
+  // here as well as on the first-screen composer, because this is the one a
+  // user with projects actually sees. See `.muse-sweep` in index.css.
+  const museHint = !museConfig.enabled
   const toggleMuse = useCallback(() => {
-    const next = !museConfig.enabled
-    if (next) {
-      markMuseHintDone()
-      setMuseHintDoneState(true)
-    }
-    updateMuse({ ...museConfig, enabled: next })
+    updateMuse({ ...museConfig, enabled: !museConfig.enabled })
   }, [museConfig, updateMuse])
   const togglePin = useCallback((img: LibraryImage) => {
     setPinnedImages((arr) =>

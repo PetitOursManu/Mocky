@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react'
 import PresetPicker from './PresetPicker'
 import { STYLE_PRESETS } from '../lib/styles'
 import MusePanel from './MusePanel'
-import { markMuseHintDone, museHintDone } from '../lib/museHint'
 import { useT } from '../i18n'
 import { Banner, Button, Icon, MockyLoader } from '../ui'
 import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
@@ -61,25 +59,21 @@ export default function Welcome({
 }: Props) {
   const t = useT()
 
-  // The Muse control draws attention to itself until it has been used once.
-  const [hintDone, setHintDone] = useState(museHintDone)
-  const museHint = !museConfig.enabled && !hintDone
-
-  // Arriving with Muse already on counts as having found it.
-  useEffect(() => {
-    if (museConfig.enabled && !hintDone) {
-      markMuseHintDone()
-      setHintDone(true)
-    }
-  }, [museConfig.enabled, hintDone])
+  /**
+   * The Muse control announces itself whenever Muse is off — see `.muse-sweep`.
+   *
+   * It used to stop after the first activation, on the theory that a hint which
+   * keeps hinting is noise. That theory was wrong for this control: switching
+   * Muse off is a per-screen decision, not a verdict on the feature, so the
+   * question "did you mean to leave this off?" stays worth asking. The gate
+   * also had a nasty consequence — anyone who had already used Muse once never
+   * saw the hint at all, which is precisely the person most likely to want it
+   * back on.
+   */
+  const museHint = !museConfig.enabled
 
   function toggleMuse() {
-    const next = !museConfig.enabled
-    if (next) {
-      markMuseHintDone()
-      setHintDone(true)
-    }
-    onMuseChange({ ...museConfig, enabled: next })
+    onMuseChange({ ...museConfig, enabled: !museConfig.enabled })
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
