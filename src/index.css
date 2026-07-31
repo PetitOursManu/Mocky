@@ -268,32 +268,39 @@
 /* Muse sits in the composer footer as one more grey word among others, and a
    feature nobody notices is a feature nobody has.
  *
- * The colour is washed THROUGH the word, right to left, and left standing for
+ * The colour is washed THROUGH the word, left to right, and left standing for
  * a beat before it drains back. Motion across the text itself, rather than a
  * pulse on the icon beside it — the first attempt twinkled the sparkle and was
  * quiet enough to miss entirely.
  *
- * Mechanics: the gradient is twice the width of the word, grey on its left half
- * and accent on its right. Sliding background-position from 0% to 100% walks
- * the boundary between them from the right edge of the word to the left edge,
- * so the accent arrives right-to-left and fills in behind it.
+ * MECHANICS, AND WHY THE IMAGE IS THREE TIMES THE WORD
  *
- * It runs only until Muse has been switched on once (see lib/museHint.ts).
+ * The gradient runs accent → grey, and sliding background-position walks the
+ * boundary between them across the word. The width of the image decides how
+ * clean the two ends of the animation are, and the first version got it wrong:
+ * at 200% the window is exactly half the image, so with the blend band sitting
+ * across the middle there was no position where the whole word was one colour.
+ * At rest the last letters still overlapped the band — "Muse désactivée" ended
+ * on a green "ée" that never went away.
+ *
+ * At 300% the window is a third of the image, so anything inside 33.3%–66.6%
+ * is off-screen at both ends of the travel. The band lives at 38%–62%, which
+ * leaves both extremes pure: fully grey at rest, fully accent at the hold.
  */
 @keyframes muse-sweep {
   /* Grey, briefly — the word starts as the user last saw it. */
   0%,
   8% {
-    background-position: 0% 50%;
+    background-position: 100% 50%;
   }
-  /* The accent washes in from the right… */
+  /* The accent washes in from the left… */
   48%,
   /* …and stays, long enough to be read as a colour rather than a flicker. */
   78% {
-    background-position: 100% 50%;
+    background-position: 0% 50%;
   }
   100% {
-    background-position: 0% 50%;
+    background-position: 100% 50%;
   }
 }
 
@@ -306,16 +313,18 @@
 
 @supports ((background-clip: text) or (-webkit-background-clip: text)) {
   .muse-sweep {
+    /* Accent on the left, grey on the right, blend band strictly inside
+       38%–62% — see the note above on why those numbers matter. */
     background-image: linear-gradient(
       90deg,
-      rgb(var(--ink-faint)) 0%,
-      rgb(var(--ink-faint)) 40%,
-      rgb(var(--accent)) 52%,
-      rgb(var(--accent-ink)) 62%,
-      rgb(var(--accent-ink)) 100%
+      rgb(var(--accent-ink)) 0%,
+      rgb(var(--accent-ink)) 38%,
+      rgb(var(--accent)) 50%,
+      rgb(var(--ink-faint)) 62%,
+      rgb(var(--ink-faint)) 100%
     );
-    background-size: 200% 100%;
-    background-position: 0% 50%;
+    background-size: 300% 100%;
+    background-position: 100% 50%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -344,7 +353,7 @@
      end of the gradient. */
   .muse-sweep {
     animation: none;
-    background-position: 100% 50%;
+    background-position: 0% 50%;
   }
 
   *,
