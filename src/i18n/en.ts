@@ -53,6 +53,7 @@ export const en: Record<keyof typeof fr, string> = {
     'Your changes could not be saved to the server. They are still in this browser. Click to retry.',
   'sync.quotaFull': 'Your browser’s storage is full — recent changes could not be saved locally.',
 
+  'sync.storageFailed': 'Could not save to browser storage: {detail}',
   // ---- projects ----
   'projects.title': 'Projects',
   'projects.new': 'New project',
@@ -70,6 +71,9 @@ export const en: Record<keyof typeof fr, string> = {
   'projects.recent': "Other projects",
   'projects.empties': "Empty drafts",
   'projects.emptiesHint': "Projects with no screen — delete them if you are not coming back to them.",
+  'projects.clearEmpties': "Clear all",
+  'projects.clearEmptiesConfirm': "Delete all {count} empty drafts? None of them holds a screen.",
+  'projects.clearEmptiesOne': "Delete this empty draft?",
   'projects.noMatch': "No project matches “{q}”.",
   'projects.updated': "updated {when}",
   'projects.screens_one': "1 screen",

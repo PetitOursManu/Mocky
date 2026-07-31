@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fr } from './fr'
 import { en } from './en'
+import { partsFr, partsEn } from './parts'
 
 /**
  * A very small i18n layer.
@@ -19,14 +20,20 @@ import { en } from './en'
 export type Lang = 'fr' | 'en'
 
 /**
- * The French dictionary is the source of truth for the KEYS; the values are
- * plain strings. `typeof fr` alone would not do — `as const` makes every French
- * value its own literal type, so no other language could ever satisfy it.
+ * Keys come from two places: the core dictionary (fr.ts / en.ts) and the
+ * per-area files under `parts/`. Areas exist so that several components can gain
+ * translations at once without everyone editing one enormous shared file.
+ *
+ * The core file is still the source of truth for the CORE keys; area keys are
+ * plain strings, checked for FR/EN parity by a test rather than by the compiler.
  */
-export type TranslationKey = keyof typeof fr
-export type Dict = Record<TranslationKey, string>
+export type TranslationKey = keyof typeof fr | (string & {})
+export type Dict = Record<string, string>
 
-const DICTS: Record<Lang, Dict> = { fr, en }
+const DICTS: Record<Lang, Dict> = {
+  fr: { ...partsFr, ...fr },
+  en: { ...partsEn, ...en },
+}
 
 const KEY = 'mocky.lang'
 

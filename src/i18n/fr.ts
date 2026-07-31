@@ -55,6 +55,7 @@ export const fr = {
   'sync.quotaFull':
     'Le stockage de votre navigateur est plein — les modifications récentes n’ont pas pu être enregistrées localement.',
 
+  'sync.storageFailed': 'Impossible d’enregistrer dans le navigateur : {detail}',
   // ---- projects ----
   'projects.title': 'Projets',
   'projects.new': 'Nouveau projet',
@@ -72,6 +73,9 @@ export const fr = {
   'projects.recent': "Les autres projets",
   'projects.empties': "Brouillons vides",
   'projects.emptiesHint': "Projets sans écran — supprimez-les si vous ne comptez pas les reprendre.",
+  'projects.clearEmpties': "Tout vider",
+  'projects.clearEmptiesConfirm': "Supprimer les {count} brouillons vides ? Aucun ne contient d’écran.",
+  'projects.clearEmptiesOne': "Supprimer ce brouillon vide ?",
   'projects.noMatch': "Aucun projet ne correspond à « {q} ».",
   'projects.updated': "mis à jour {when}",
   'projects.screens_one': "1 écran",
