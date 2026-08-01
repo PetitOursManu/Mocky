@@ -88,6 +88,49 @@ describe('extractCode', () => {
   })
 })
 
+describe('a mangled closing sentinel', () => {
+  /**
+   * Observed in the wild, and it does not merely warn — it stores broken code:
+   *
+   *   const __mockyDefault = App
+   *   <<<END>>ablytyped
+   *
+   * One `>` short, with a scrap of prose welded on. The exact-match lookup found
+   * nothing, so the tail became part of the component and every later compile
+   * died on "Unterminated JSX contents".
+   */
+  it('cuts on a truncated sentinel instead of keeping it as code', () => {
+    const content = '<<<MOCKY>>>\nconst App = () => <div/>\nconst __mockyDefault = App\n<<<END>>ablytyped'
+    const code = extractCode(content)
+    expect(code).not.toMatch(/<<</)
+    expect(code.trimEnd().endsWith('const __mockyDefault = App')).toBe(true)
+  })
+
+  it('cuts on prose that follows a correct sentinel', () => {
+    const content = '<<<MOCKY>>>\nconst App = () => <div/>\n<<<END>>>\nHope this helps!'
+    expect(extractCode(content)).toBe('const App = () => <div/>')
+  })
+
+  it('cuts on a sentinel that was never finished', () => {
+    const content = '<<<MOCKY>>>\nconst App = () => <div/>\n<<<'
+    expect(extractCode(content)).toBe('const App = () => <div/>')
+  })
+
+  it('leaves a partial sentinel alone WHILE STREAMING', () => {
+    // Mid-stream, "<<<E" is just the next characters arriving. Cutting on it
+    // would truncate the live preview on every chunk.
+    const content = '<<<MOCKY>>>\nconst App = () => <div/>\n<<<E'
+    expect(extractCode(content, { streaming: true })).toContain('<<<E')
+  })
+
+  it('heals a screen already stored with the mangled tail', () => {
+    // toPreviewModule is the one door both the preview and the capture go
+    // through, so old screens recover at render without rewriting storage.
+    const stored = 'const App = () => <div/>\nconst __mockyDefault = App\n<<<END>>ablytyped'
+    expect(toPreviewModule(stored)).not.toMatch(/<<</)
+  })
+})
+
 describe('tryDirectTextReplace', () => {
   it('replaces a unique verbatim occurrence', () => {
     const code = 'return <button>SIGN IN</button>'

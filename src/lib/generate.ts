@@ -197,6 +197,10 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
   const hasCharts = caps.some((c) => c.id === 'charts')
   const hasIcons = caps.some((c) => c.id === 'icons')
   for (const cap of caps) {
+    // A retired pack is still INJECTED (screens generated with it must keep
+    // rendering) but never DOCUMENTED — the model must not learn a vocabulary
+    // it is no longer meant to use.
+    if (cap.retired) continue
     if (cap.kind === 'cdn-css') {
       items.push(`- CSS library "${cap.id}" is loaded. Use its classes directly in className.`)
     } else if (cap.kind === 'cdn-script' && cap.cdn?.global) {
@@ -473,6 +477,41 @@ export async function editComponent(
 
 const SENTINEL_OPEN = '<<<MOCKY>>>'
 const SENTINEL_CLOSE = '<<<END>>>'
+/**
+ * The closing sentinel, as far as it can be trusted.
+ *
+ * The exact form is what the prompt asks for; it is not what always arrives. A
+ * real screen came back ending in:
+ *
+ *     const __mockyDefault = App
+ *     <<<END>>ablytyped
+ *
+ * — one `>` short, with a scrap of prose welded on. `indexOf('<<<END>>>')`
+ * found nothing, so the tail was kept AS CODE and every later compile of that
+ * screen died on "Unterminated JSX contents".
+ *
+ * `<<<` is not valid JavaScript anywhere outside a string, so the moment it
+ * appears at the start of a would-be sentinel the code is over. Cutting there
+ * costs nothing and turns a permanently broken screen into a working one.
+ */
+const SENTINEL_CLOSE_LOOSE = '<<<END'
+
+/**
+ * Cut everything from the closing sentinel onward, however mangled it is.
+ *
+ * Applied at extraction AND at render, so screens already stored with a
+ * corrupted tail heal on their next load instead of failing forever.
+ */
+export function stripTrailingSentinel(code: string): string {
+  const exact = code.indexOf(SENTINEL_CLOSE)
+  if (exact >= 0) return code.slice(0, exact).trimEnd()
+  const loose = code.indexOf(SENTINEL_CLOSE_LOOSE)
+  if (loose >= 0) return code.slice(0, loose).trimEnd()
+  // A bare `<<<` on the last line is a sentinel the stream never finished.
+  const bare = code.search(/\n\s*<<<[^\n]*$/)
+  if (bare >= 0) return code.slice(0, bare).trimEnd()
+  return code
+}
 
 /**
  * Sanitize source code to remove characters that Babel tolerates but the
@@ -529,10 +568,12 @@ export function extractCode(content: string, opts?: { streaming?: boolean }): st
     if (closeIdx >= 0) {
       return sanitizeSource(content.slice(bodyStart, closeIdx).trim())
     }
-    if (streaming) {
-      return sanitizeSource(content.slice(bodyStart).trim())
-    }
-    return sanitizeSource(content.slice(bodyStart).trim())
+    const body = content.slice(bodyStart)
+    // Mid-stream there is no closing sentinel yet, and a half-written one is
+    // just the next few characters arriving — cutting on it would truncate the
+    // preview on every chunk. Once the response is complete, a mangled sentinel
+    // is all there will ever be, so cut on it.
+    return sanitizeSource((streaming ? body : stripTrailingSentinel(body)).trim())
   }
 
   // --- Legacy fenced code block (backward compat) ---
@@ -581,7 +622,10 @@ export function detectComponentName(code: string): string {
  * - export default / export named
  */
 export function toPreviewModule(code: string): string {
-  let out = code
+  // Screens stored before the sentinel was cut tolerantly still carry their
+  // mangled tail. Both the preview and the capture pipeline come through here,
+  // so trimming it once heals them at render without rewriting storage.
+  let out = stripTrailingSentinel(code)
     // `import ... from '...'` — [^;] spans newlines so multi-line specifier
     // lists are matched as a whole, including the closing `} from '...'`.
     .replace(/^[ \t]*import\b[^;]*?from\s*['"][^'"]+['"]\s*;?[ \t]*\r?\n?/gm, '')
