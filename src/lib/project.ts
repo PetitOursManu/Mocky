@@ -51,6 +51,16 @@ export interface Screen {
    */
   videoHash?: string
   videoFrames?: number
+  /**
+   * This screen's own answer about motion, overriding the composer's switch.
+   *
+   * `undefined` — the common case — means "follow the global setting", which is
+   * what every screen generated before this existed says. Set explicitly, it
+   * survives a reload and travels with the project, because "this one screen
+   * must hold still for the demo" is a property of the screen, not of the
+   * session that happened to be open.
+   */
+  animations?: boolean
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -263,6 +273,9 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // Kept as a pair — see the note on Screen.videoHash.
     videoHash: typeof s.videoHash === 'string' && s.videoFrames ? s.videoHash : undefined,
     videoFrames: typeof s.videoFrames === 'number' && s.videoFrames > 0 ? s.videoFrames : undefined,
+    // Only a real boolean is an override; anything else means "follow the
+    // composer", which is what every screen made before this field says.
+    animations: typeof s.animations === 'boolean' ? s.animations : undefined,
   }
 }
 

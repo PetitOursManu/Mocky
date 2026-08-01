@@ -151,6 +151,22 @@ export default function ProjectView({
   const [museVision, setMuseVision] = useState<boolean | null>(null)
   /** auto (Mocky decides) · on (force) · off (hold still). See lib/animations. */
   const [animationMode, setAnimationMode] = useState<AnimationMode>(() => loadAnimationMode())
+  /**
+   * One screen's own answer, cycled: follow the composer → forced on → off.
+   *
+   * Three states rather than a checkbox, so an override can be handed BACK.
+   * With two, a screen switched off would stay off for good — the composer's
+   * setting could never reach it again.
+   */
+  const cycleScreenAnimations = useCallback(
+    (screenId: string) => {
+      const screen = screensRef.current.find((s) => s.id === screenId)
+      if (!screen) return
+      const next = screen.animations === undefined ? true : screen.animations ? false : undefined
+      onUpdateScreen(screenId, { animations: next })
+    },
+    [onUpdateScreen],
+  )
   const cycleAnimations = useCallback(() => {
     setAnimationMode((cur) => {
       const next = nextAnimationMode(cur)
@@ -1127,6 +1143,7 @@ export default function ProjectView({
         // "Sans animation" holds the screens already on the canvas still too —
         // otherwise the button says one thing and the mockups do another.
         animations={animationMode !== 'off'}
+        onCycleScreenAnimations={cycleScreenAnimations}
         linkMode={linkMode}
         modifyMode={modifyMode}
         interactAll={interactAll}
@@ -1497,11 +1514,16 @@ export default function ProjectView({
             </div>
           )}
 
-          <div className="flex items-end gap-2">
+          {/* Two rows, not one.
+              The three toggles grew from two words to a sentence each, and on
+              one line they squeezed the prompt field down to a few characters
+              and the Generate button to an initial. The field is the point of
+              this bar; it gets the width. */}
+          <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
             <button
               type="button"
               onClick={onOpenDesign}
-              className={`kicker mb-2 shrink-0 transition ${
+              className={`kicker shrink-0 transition ${
                 designActive ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
               }`}
               title={t('project.designTitle')}
@@ -1512,7 +1534,7 @@ export default function ProjectView({
             <button
               type="button"
               onClick={toggleMuse}
-              className={`kicker mb-2 flex shrink-0 items-center gap-1 transition ${
+              className={`kicker flex shrink-0 items-center gap-1 transition ${
                 museConfig.enabled ? 'text-muse-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
               }`}
               title={museHint ? t('project.museHint') : t('project.museToggle')}
@@ -1524,7 +1546,7 @@ export default function ProjectView({
             <button
               type="button"
               onClick={cycleAnimations}
-              className={`kicker mb-2 flex shrink-0 items-center gap-1 transition ${
+              className={`kicker flex shrink-0 items-center gap-1 transition ${
                 animationMode === 'on'
                   ? 'text-accent-ink hover:opacity-80'
                   : animationMode === 'off'
@@ -1536,6 +1558,9 @@ export default function ProjectView({
               <Icon name="play" size={14} />
               {t(ANIM_LABELS[animationMode].label)}
             </button>
+          </div>
+
+          <div className="flex items-end gap-2">
             <textarea
               rows={1}
               className="input min-h-[40px] resize-none"
@@ -1883,6 +1908,25 @@ export default function ProjectView({
                     </button>
                   ))}
                 </div>
+
+                <div className="my-1 border-t border-line-soft" />
+                {/* Whether this screen plays its animations. Distinct from
+                    "Ajouter des animations" above, which rewrites the code:
+                    this only decides whether what is already there runs. */}
+                <MenuItem
+                  icon="play"
+                  label={t(
+                    s.animations === undefined
+                      ? 'canvas.animFollow'
+                      : s.animations
+                        ? 'canvas.animOn'
+                        : 'canvas.animOff',
+                  )}
+                  onClick={() => {
+                    close()
+                    cycleScreenAnimations(s.id)
+                  }}
+                />
 
                 <div className="my-1 border-t border-line-soft" />
                 <MenuItem

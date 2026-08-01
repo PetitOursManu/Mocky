@@ -137,6 +137,7 @@ export default function Canvas({
   onScreenContextMenu,
   onContentHeight,
   animations,
+  onCycleScreenAnimations,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -177,6 +178,8 @@ export default function Canvas({
   onContentHeight?: (screenId: string, height: number) => void
   /** false = "Sans animation" — passed through to every preview. */
   animations?: boolean
+  /** Cycle one screen between follow-the-composer, forced on, and forced off. */
+  onCycleScreenAnimations?: (screenId: string) => void
 }) {
   const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -649,6 +652,19 @@ export default function Canvas({
                     {s.name}
                   </span>
                 )}
+                {/* A screen frozen on purpose says so even when it is not
+                    selected — otherwise "why is this one not moving?" has no
+                    visible answer anywhere on the canvas. */}
+                {s.animations === false && editingLabelId !== s.id && (
+                  <span
+                    className="flex shrink-0 items-center rounded-full bg-ink/10 text-ink-muted"
+                    style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
+                    title={t('canvas.animOff')}
+                  >
+                    <Icon name="play" size={11 * inv} />
+                    {t('canvas.animOffBadge')}
+                  </span>
+                )}
                 {soloInteractive && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-accent/10 text-accent"
@@ -680,6 +696,25 @@ export default function Canvas({
                       onClick={() => setPromptShownId((id) => (id === s.id ? null : s.id))}
                     >
                       <Icon name="comment" size={13 * inv} />
+                    </LabelBtn>
+                    {/* This screen's own answer about motion. Three states, so
+                        it can also be handed BACK to the composer's setting —
+                        a two-way switch would strand a screen on an override
+                        the user could no longer clear. */}
+                    <LabelBtn
+                      inv={inv}
+                      title={t(
+                        s.animations === undefined
+                          ? 'canvas.animFollow'
+                          : s.animations
+                            ? 'canvas.animOn'
+                            : 'canvas.animOff',
+                      )}
+                      onClick={() => onCycleScreenAnimations?.(s.id)}
+                    >
+                      <span className={s.animations === false ? 'line-through opacity-60' : undefined}>
+                        <Icon name="play" size={13 * inv} />
+                      </span>
                     </LabelBtn>
                     <button
                       type="button"
@@ -791,7 +826,7 @@ export default function Canvas({
                       generating={generatingIds?.has(s.id)}
                       retrying={fixingIds?.has(s.id)}
                       caps={s.caps}
-                      animations={animations}
+                      animations={s.animations ?? animations}
                       onContentHeight={(h) => onContentHeight?.(s.id, h)}
                     />
                   </DeviceChrome>
@@ -810,7 +845,7 @@ export default function Canvas({
                     generating={generatingIds?.has(s.id)}
                     retrying={fixingIds?.has(s.id)}
                     caps={s.caps}
-                    animations={animations}
+                    animations={s.animations ?? animations}
                   />
                 )}
               </div>

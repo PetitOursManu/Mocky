@@ -14,6 +14,11 @@ export const canvas = {
     // ---- frame label & badges ----
     'canvas.referenceScreen': 'Écran de référence pour la mise en page des nouveaux écrans',
     'canvas.interactive': 'Interactif — clic dehors pour sortir',
+    // ---- animations, par écran ----
+    'canvas.animFollow': 'Animations : suit le composer — cliquez pour forcer',
+    'canvas.animOn': 'Animations forcées sur cet écran — cliquez pour les couper',
+    'canvas.animOff': 'Cet écran ne s’anime pas — cliquez pour revenir au réglage du composer',
+    'canvas.animOffBadge': 'Figé',
 
     // ---- original prompt popover ----
     'canvas.originalPrompt': 'Demande d’origine',
@@ -59,6 +64,11 @@ export const canvas = {
     // ---- frame label & badges ----
     'canvas.referenceScreen': 'Reference screen for the layout of new screens',
     'canvas.interactive': 'Interactive — click outside to leave',
+    // ---- per-screen animations ----
+    'canvas.animFollow': 'Animations: follows the composer — click to force',
+    'canvas.animOn': 'Animations forced on this screen — click to switch them off',
+    'canvas.animOff': 'This screen does not animate — click to follow the composer again',
+    'canvas.animOffBadge': 'Still',
 
     // ---- original prompt popover ----
     'canvas.originalPrompt': 'Original request',
