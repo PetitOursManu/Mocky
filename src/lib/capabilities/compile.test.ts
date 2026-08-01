@@ -50,7 +50,29 @@ describe('Animated', () => {
   })
 
   it('never lets an unknown preset produce an empty element', () => {
-    expect(prelude).toMatch(/if \(!config \|\| !mockyMayAnimate\(\)\)/)
+    // An unknown name falls through to the plain tag WITH its children.
+    expect(prelude).toContain('var animating = Boolean(config) && allowed.current === true')
+    expect(prelude).toMatch(/if \(!animating\) \{[\s\S]{0,160}React\.createElement\(Tag[\s\S]{0,120}children\)/)
+  })
+
+  it('calls its hooks unconditionally', () => {
+    // document.hidden can flip while a mockup is open. If the early return sat
+    // before the hooks, the next render would call fewer of them than the last
+    // — "Rendered fewer hooks than expected", which kills the whole frame.
+    const body = prelude.slice(prelude.indexOf('var Animated = function'))
+    const guard = body.indexOf('if (!animating)')
+    const lastHook = Math.max(
+      body.lastIndexOf('React.useRef', guard),
+      body.lastIndexOf('React.useState', guard),
+      body.lastIndexOf('React.useEffect', guard),
+    )
+    expect(lastHook).toBeGreaterThan(0)
+    expect(lastHook).toBeLessThan(guard)
+  })
+
+  it('gives a statistic its real number when it is not allowed to count', () => {
+    // A KPI stuck at 0 is not a missing animation, it is wrong data.
+    expect(prelude).toContain('React.useState(allowed.current ? 0 : to)')
   })
 
   it('exposes no Motion API beyond the closed preset list', () => {

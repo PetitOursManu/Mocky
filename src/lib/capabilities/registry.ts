@@ -127,8 +127,22 @@ export const CAPABILITIES: Capability[] = [
         name: 'Animated',
         signature: '<Animated preset="fade-up" delay={0.1} as="section" className="…">{children}</Animated>',
         description:
-          'Wraps any block to animate it. `preset` is REQUIRED and must be exactly one of: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "exit-slide" (slides in, and out when removed). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
-        tags: ['animation', 'motion', 'entrance', 'hover', 'stagger', 'reveal'],
+          'Wraps any block to animate it. `preset` is REQUIRED and must be EXACTLY one of these eleven: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "slide-left" (enters from the left), "slide-right" (enters from the right), "blur-in" (blur lifts as it appears), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "hover-glow" (brightens and grows slightly under the cursor, no entrance), "parallax" (drifts slower than the page as it scrolls — for a hero or a background block, never for body text), "exit-slide" (slides in, and out when removed). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
+        tags: ['animation', 'motion', 'entrance', 'hover', 'stagger', 'reveal', 'parallax', 'blur'],
+      },
+      {
+        name: 'Ticker',
+        signature: '<Ticker speed={24} reverse pauseOnHover>{items}</Ticker>',
+        description:
+          'A row that scrolls forever — logo strips, testimonials, tags. The track is duplicated automatically, so pass the items ONCE. `speed` is the seconds per full pass (higher is slower, 4–120). `reverse` runs it right-to-left. `pauseOnHover` is on by default.',
+        tags: ['marquee', 'ticker', 'logos', 'loop', 'scroll'],
+      },
+      {
+        name: 'CountUp',
+        signature: '<CountUp to={1284} duration={1200} prefix="" suffix="+" decimals={0} className="…" />',
+        description:
+          'A number that counts up when it scrolls into view — for statistics and KPIs. `to` is the final value and is REQUIRED. Renders as an inline <span>, so wrap it in your own heading or paragraph for styling. Thousands are spaced automatically.',
+        tags: ['counter', 'number', 'stat', 'kpi', 'metric'],
       },
     ],
   },
