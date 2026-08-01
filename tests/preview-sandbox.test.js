@@ -173,6 +173,36 @@ describe('the mockup never navigates itself away', () => {
   })
 })
 
+describe('"no animation" holds the whole mockup still', () => {
+  /**
+   * The flag alone only reaches <Animated>. A screen animated with a Tailwind
+   * `animate-*` class, a hand-written @keyframes, a CSS transition, or the
+   * retired motion pack kept moving — and from the user's side the switch was
+   * simply broken.
+   */
+  it('collapses animations instead of removing them', () => {
+    // Measured: `animation: none` on a fade-in whose resting state is
+    // `opacity: 0` leaves the content permanently invisible. Collapsing the
+    // duration and forcing the final frame lands it at opacity 1 — still, not
+    // blank. Same recipe as the app's own prefers-reduced-motion block.
+    expect(preview).toContain('animation-duration:0.01ms !important')
+    expect(preview).toContain('animation-fill-mode:forwards !important')
+    expect(preview).toContain('animation-iteration-count:1 !important')
+    expect(preview).toContain('transition-duration:0.01ms !important')
+    expect(preview).not.toMatch(/animation:\s*none\s*!important/)
+  })
+
+  it('applies it only when animations are off', () => {
+    expect(preview).toMatch(/const stillCss = animations\s*\?\s*''/)
+  })
+
+  it('rebuilds the document when the switch flips', () => {
+    // Without `animations` in the dependency list, the screens already on the
+    // canvas keep the setting they were built with.
+    expect(preview).toMatch(/\[code, frameId, hideScrollbars, resolvedCaps, animations\]/)
+  })
+})
+
 describe('postMessage bridge', () => {
   it('checks the sending window rather than trusting an id in the payload', () => {
     // frameId is written in clear into every srcDoc, so it is not a secret; and

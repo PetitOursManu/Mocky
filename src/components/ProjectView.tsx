@@ -1910,23 +1910,39 @@ export default function ProjectView({
                 </div>
 
                 <div className="my-1 border-t border-line-soft" />
-                {/* Whether this screen plays its animations. Distinct from
-                    "Ajouter des animations" above, which rewrites the code:
-                    this only decides whether what is already there runs. */}
-                <MenuItem
-                  icon="play"
-                  label={t(
-                    s.animations === undefined
-                      ? 'canvas.animFollow'
-                      : s.animations
-                        ? 'canvas.animOn'
-                        : 'canvas.animOff',
-                  )}
-                  onClick={() => {
-                    close()
-                    cycleScreenAnimations(s.id)
-                  }}
-                />
+                {/* Whether this screen PLAYS its animations. Distinct from
+                    "Ajouter des animations" just above, which rewrites the
+                    code; this only decides whether what is already there runs.
+                    Three visible choices rather than one cycling label: in a
+                    menu, a single item that changes wording never shows what
+                    the other states are, or which one you are on. */}
+                <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.playAnimations')}</div>
+                <div className="flex gap-1 px-2 pb-1.5">
+                  {(
+                    [
+                      [undefined, 'project.playAuto', 'project.playAutoTitle'],
+                      [true, 'project.playOn', 'project.playOnTitle'],
+                      [false, 'project.playOff', 'project.playOffTitle'],
+                    ] as const
+                  ).map(([value, labelKey, titleKey]) => (
+                    <button
+                      key={String(value)}
+                      type="button"
+                      title={t(titleKey)}
+                      onClick={() => {
+                        close()
+                        onUpdateScreen(s.id, { animations: value })
+                      }}
+                      className={`flex-1 rounded-md border py-1 text-caption font-medium transition ${
+                        s.animations === value
+                          ? 'border-accent bg-ink text-surface'
+                          : 'border-line-soft hover:border-accent hover:text-accent-ink'
+                      }`}
+                    >
+                      {t(labelKey)}
+                    </button>
+                  ))}
+                </div>
 
                 <div className="my-1 border-t border-line-soft" />
                 <MenuItem

@@ -87,6 +87,15 @@ export const project = {
     'project.animHintOn': 'Chaque écran généré aura des animations. Cliquez pour les couper.',
     'project.animHintOff':
       'Aucune animation, même si l’écran s’y prêterait — utile pour une démo ou une capture. Cliquez pour revenir à l’automatique.',
+
+    // ---- lire ou non les animations d'UN écran (menu contextuel) ----
+    'project.playAnimations': 'Lire les animations',
+    'project.playAuto': 'Auto',
+    'project.playOn': 'Oui',
+    'project.playOff': 'Non',
+    'project.playAutoTitle': 'Suit l’interrupteur du composer.',
+    'project.playOnTitle': 'Cet écran s’anime, même si le composer est sur « sans animation ».',
+    'project.playOffTitle': 'Cet écran ne bouge pas, même si le composer autorise les animations.',
     'project.museStageVideo': 'Génération de la vidéo (30 s à 3 min)…',
     'project.museVideoFailed': 'La vidéo n’a pas pu être générée : {detail}. L’écran est produit sans séquence.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
@@ -247,6 +256,15 @@ export const project = {
     'project.animHintOn': 'Every generated screen will be animated. Click to switch them off.',
     'project.animHintOff':
       'No animation, even where the screen would suit it — useful for a demo or a recording. Click to go back to automatic.',
+
+    // ---- play ONE screen's animations, or not (context menu) ----
+    'project.playAnimations': 'Play animations',
+    'project.playAuto': 'Auto',
+    'project.playOn': 'Yes',
+    'project.playOff': 'No',
+    'project.playAutoTitle': 'Follows the composer switch.',
+    'project.playOnTitle': 'This screen animates, even when the composer says no animation.',
+    'project.playOffTitle': 'This screen holds still, even when the composer allows animations.',
     'project.museStageVideo': 'Generating the video (30 s to 3 min)…',
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
     'project.museNoImage': 'the dossier proposed no image',

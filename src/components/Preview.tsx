@@ -120,6 +120,27 @@ function buildSrcDoc(
   const hideCss = hideScrollbars
     ? ' *{scrollbar-width:none;-ms-overflow-style:none} *::-webkit-scrollbar{display:none;width:0;height:0}'
     : ''
+
+  /*
+   * "Sans animation", for everything — not just <Animated>.
+   *
+   * The flag below tells <Animated> to skip its entrance, and that is all it
+   * can do: a screen that animates with a Tailwind `animate-*` class, a
+   * hand-written @keyframes, a CSS transition, or the retired motion pack keeps
+   * moving, and the switch looks broken because from the user's side it IS.
+   *
+   * Animations are RUN TO COMPLETION rather than removed. `animation: none` on
+   * a fade-in whose resting state is `opacity: 0` leaves the content
+   * permanently invisible — a blank mockup instead of a still one. Collapsing
+   * the duration and forcing the final frame is the same recipe Mocky's own
+   * stylesheet uses for prefers-reduced-motion, for exactly this reason.
+   */
+  const stillCss = animations
+    ? ''
+    : ' *,*::before,*::after{animation-duration:0.01ms !important;animation-delay:0ms !important;' +
+      'animation-iteration-count:1 !important;animation-fill-mode:forwards !important;' +
+      'transition-duration:0.01ms !important;transition-delay:0ms !important;' +
+      'scroll-behavior:auto !important}'
   // Build CDN tags for selected capabilities. NO crossorigin attribute — the
   // iframe is sandboxed (allow-scripts only, no allow-same-origin), so its
   // origin is null. crossorigin would turn every script into a CORS request
@@ -170,7 +191,7 @@ ${cspMeta()}
 ${cdnLinks.join('\n')}
 ${cdnScripts.join('\n')}
 <script src="/vendor/babel.min.js"></script>
-<style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}</style>
+<style>html,body{margin:0;padding:0}#root{min-height:100vh}${hideCss}${stillCss}</style>
 </head>
 <body>
 <div id="root"></div>
