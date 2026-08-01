@@ -20,6 +20,50 @@ function credsFromReq(req) {
   return { baseUrl, apiKey, model }
 }
 
+/** A hex string, and nothing that could be smuggled into a prompt as one. */
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+/** Roughly a 1 MP JPEG in base64 — a downscaled reference, not an original. */
+const MAX_MEDIA_IMAGE_CHARS = 1_500_000
+
+/**
+ * Validate the media block before it reaches a prompt or a provider.
+ *
+ * Everything here arrives from the browser and ends up in two places that
+ * deserve care: the text of an LLM prompt, and the body of a call to a
+ * third-party model. So the palette is checked to be hex — not merely
+ * stringified — the label is length-capped, and the attached picture is
+ * accepted only as a base64 data URL of a known image type and only up to a
+ * size that is plainly a reference rather than an upload.
+ *
+ * Returns null when there is nothing usable, which is the same state as "no
+ * media selected" — the dossier then runs exactly as it did before.
+ */
+export function sanitizeUserMedia(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const swatches = (Array.isArray(raw.swatches) ? raw.swatches : [])
+    .filter((s) => s && HEX_RE.test(String(s.hex || '')))
+    .slice(0, 8)
+    .map((s) => ({
+      hex: String(s.hex).toLowerCase(),
+      weight: Number.isFinite(Number(s.weight)) ? Math.min(1, Math.max(0, Number(s.weight))) : 0,
+    }))
+  if (!swatches.length) return null
+
+  const image =
+    typeof raw.image === 'string' &&
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(raw.image) &&
+    raw.image.length <= MAX_MEDIA_IMAGE_CHARS
+      ? raw.image
+      : undefined
+
+  return {
+    kind: raw.kind === 'video' ? 'video' : 'image',
+    swatches,
+    accent: HEX_RE.test(String(raw.accent || '')) ? String(raw.accent).toLowerCase() : null,
+    image,
+  }
+}
+
 /**
  * @param {object} deps
  * @param {import('./mcp/host.js').McpHost} deps.host
@@ -65,6 +109,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
           useFetch: body.useFetch === true, // explicit opt-in (avoids surprise Chromium install)
           language: body.language,
           projectName: body.projectName,
+          userMedia: sanitizeUserMedia(body.userMedia),
         },
         { fetcher, llm, patterns, blacklist },
       )

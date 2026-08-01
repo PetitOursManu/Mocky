@@ -39,7 +39,16 @@ export async function runInspiration(args, deps) {
   onProgress('dossier')
   let dossier = await buildDossier(
     deps.llm || null,
-    { prompt: args.prompt, cards, patternHints, blacklist: deps.blacklist, language: args.language },
+    {
+      prompt: args.prompt,
+      cards,
+      patternHints,
+      blacklist: deps.blacklist,
+      language: args.language,
+      // The user's own picture or clip, when one is selected — its measured
+      // palette, and the bytes themselves if the model has vision.
+      userMedia: args.userMedia,
+    },
     { onNotice },
   )
   // Distinctiveness self-critique (§5.3) — one score + at most one revise.

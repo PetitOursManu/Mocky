@@ -123,6 +123,46 @@ function buildSystem() {
   ].join('\n')
 }
 
+/**
+ * The section that appears when the user brought their own picture or clip.
+ *
+ * It is deliberately the most forceful passage in the whole prompt. Everything
+ * else the dossier reads — patterns, distilled references — is *vocabulary*;
+ * this is the actual material the screen will be built around, and it is
+ * already decided. A palette invented next to it, however tasteful, produces a
+ * page that fights its own hero image.
+ *
+ * The hex values are MEASURED from the file (see src/lib/palette.ts), not
+ * described by a model, so they can be stated as fact rather than as a hint.
+ */
+function buildMediaSection(media) {
+  if (!media || !Array.isArray(media.swatches) || media.swatches.length === 0) return null
+  const kind = media.kind === 'video' ? 'video clip' : 'image'
+  const lines = [
+    `THE USER'S OWN ${kind.toUpperCase()} — THIS IS THE HERO OF THE SCREEN. It already exists; you are designing around it.`,
+    '',
+    'Its palette, sampled from the actual pixels (share of the picture in brackets):',
+    ...media.swatches.map((s) => `- ${s.hex} (${Math.round((s.weight || 0) * 100)}%)`),
+  ]
+  if (media.accent) lines.push(`Most saturated colour, the natural accent: ${media.accent}`)
+  lines.push(
+    '',
+    'RULES — these override the palettes suggested by any pattern or reference above:',
+    '- `tokens.colors` MUST be built FROM the colours above. Keep their hex values, or shift them only as far as contrast requires; name them for their role (background, surface, ink, accent…).',
+    '- Do NOT introduce a colour family that is absent from this list. A page whose palette disagrees with its own hero image is the failure this section exists to prevent.',
+    '- The `concept` must describe a direction that suits THIS picture — its light, its density, its mood — not a generic one.',
+  )
+  if (media.kind === 'video') {
+    lines.push(
+      '- The hero is a video the visitor scrubs through by scrolling. Design the section around a full-bleed moving image with text laid over it: the copy must stay readable on top of these colours.',
+    )
+  }
+  lines.push(
+    '- The imagery plan still describes the SECONDARY images. Do not describe the hero again — it is provided.',
+  )
+  return lines.join('\n')
+}
+
 function buildUser(ctx) {
   const cardLines = (ctx.cards || []).map((c, i) =>
     `Reference ${i + 1} (${c.sourceUrl || 'n/a'}): style=[${(c.styleAdjectives || []).join(', ')}]; palette=[${(c.palette || []).map((p) => p.hex).join(', ')}]; layout=[${(c.layoutGrammar || []).join('; ')}]; tone="${c.contentTone || ''}"; avoid=[${(c.avoid || []).join('; ')}]`,
@@ -130,9 +170,13 @@ function buildUser(ctx) {
   const patternLines = (ctx.patternHints || []).map(
     (p) => `Pattern "${p.name}": ${p.description} | imagery: ${p.imageryStyle} | seed colors: ${(p.tokenSeeds?.colors || []).map((c) => `${c.label} ${c.hex}`).join(', ')}`,
   )
+  const media = buildMediaSection(ctx.userMedia)
   return [
     `USER REQUEST: ${ctx.prompt}`,
     ctx.language ? `Write all copy in this language: ${ctx.language}` : 'Write all copy in the same language as the user request above.',
+    // Placed FIRST among the inputs, before the borrowed vocabulary: it is the
+    // only one of them that is already a decision.
+    ...(media ? ['', media] : []),
     '',
     'DISTILLED INSPIRATION (vocabulary + grammar only — do not copy any specific design):',
     cardLines.length ? cardLines.join('\n') : '(none — rely on the patterns below)',
@@ -355,6 +399,10 @@ export async function buildDossier(llm, ctx, opts = {}) {
           system: buildSystem(),
           user: buildUser(ctx),
           schema: DOSSIER_JSON_SCHEMA,
+          // The picture itself, when the model can see. The measured palette in
+          // the prompt covers colour either way; this adds what a histogram
+          // cannot report — composition, subject, density, light.
+          images: ctx.userMedia?.image ? [ctx.userMedia.image] : undefined,
           options: { num_predict: 4096, num_ctx: 16384, temperature: attempt === 0 ? 0.7 : 0.4 },
         })
         const dossier = DossierSchema.parse(normalizeDossierRaw(raw))

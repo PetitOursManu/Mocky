@@ -40,13 +40,17 @@ export async function museChat(creds, req) {
   if (!creds.trusted) assertSafeTarget(`${base}/api/chat`) // same SSRF guard as /__provider
 
   const num_predict = Math.max(1, Math.floor(req.options?.num_predict ?? 2048)) // I8: must be positive
+  // Vision attachments ride on the user message in the Ollama shape; the
+  // dialect translates them to OpenAI's `image_url` parts when needed, so this
+  // is one field rather than two code paths.
+  const images = Array.isArray(req.images) ? req.images.filter(Boolean) : []
+  const userMessage = images.length
+    ? { role: 'user', content: req.user, images }
+    : { role: 'user', content: req.user }
   const body = {
     model: creds.model,
     stream: false,
-    messages: [
-      { role: 'system', content: req.system },
-      { role: 'user', content: req.user },
-    ],
+    messages: [{ role: 'system', content: req.system }, userMessage],
     options: { temperature: 0.5, num_ctx: 8192, ...(req.options || {}), num_predict },
   }
   if (req.schema) body.format = req.schema // Ollama structured output
