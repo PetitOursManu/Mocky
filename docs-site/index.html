@@ -16,8 +16,26 @@
     would re-request on every navigation. The `.ico` is the same artwork at
     16, 32 and 48 px for 15 KB, and every browser reads it.
   -->
-  <link rel="icon" type="image/x-icon" href="./favicon.ico">
-  <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico">
+  <!--
+    ?v=2 — CACHE BUSTING. Read this before editing any file in docs-site/.
+
+    Static hosts serve CSS, JS and images with a long cache lifetime, and
+    browsers hold on to a stylesheet far longer than they hold on to the HTML
+    that references it. So a redeploy can leave a visitor — or you — running the
+    NEW index.html against the OLD mocky.css. That is not hypothetical: it
+    happened, and it looked like a styling bug rather than a stale file, because
+    the page was still themed, just with rules from a previous revision.
+
+    The query string is what makes the URL change when the content does. There is
+    no build step here to hash filenames, so it is done by hand:
+
+        change any file under docs-site/  →  bump this number, everywhere below
+
+    The vendored Docsify files carry it too. They only move on a version bump,
+    but that is exactly the moment nobody thinks about the cache.
+  -->
+  <link rel="icon" type="image/x-icon" href="./favicon.ico?v=2">
+  <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico?v=2">
   <!--
     Docsify 4.13.1, vendored under ./vendor/ and served by this same host.
 
@@ -40,8 +58,8 @@
     English is the default language and lives at the root of `docs/`. French
     lives under `docs/fr/`.
   -->
-  <link rel="stylesheet" href="./vendor/docsify-theme.css">
-  <link rel="stylesheet" href="./mocky.css">
+  <link rel="stylesheet" href="./vendor/docsify-theme.css?v=2">
+  <link rel="stylesheet" href="./mocky.css?v=2">
   <script>
     /*
      * Theme before first paint.
@@ -120,7 +138,7 @@
     window.$docsify = {
       name: 'Mocky',
       // The masthead mark, next to the name. Same artwork as the favicon.
-      logo: './logo.png',
+      logo: './logo.png?v=2',
       repo: 'https://github.com/PetitOursManu/Mocky',
       loadSidebar: true,
       subMaxLevel: 2,
@@ -287,7 +305,7 @@
       basePath: 'https://raw.githubusercontent.com/PetitOursManu/Mocky/main/docs/',
     }
   </script>
-  <script src="./vendor/docsify.min.js"></script>
-  <script src="./vendor/docsify-search.min.js"></script>
+  <script src="./vendor/docsify.min.js?v=2"></script>
+  <script src="./vendor/docsify-search.min.js?v=2"></script>
 </body>
 </html>

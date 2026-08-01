@@ -512,13 +512,36 @@ view**. Three consequences:
 - The content must stay **public**. `raw.githubusercontent.com` on a private
   repository would require a token, which a static page cannot hold.
 
-> **The converse is the trap.** Everything in `docs-site/` — `index.html`, the
-> favicon, the vendored Docsify files — is served by the deployed resource, not
-> fetched from GitHub. Pushing a change to those files to `main` does **nothing**
-> until the static resource is **redeployed**.
+> **The converse is the trap.** Everything in `docs-site/` — `index.html`,
+> `mocky.css`, the favicon, the vendored Docsify files — is served by the
+> deployed resource, not fetched from GitHub. Pushing a change to those files to
+> `main` does **nothing** until the static resource is **redeployed**.
 >
 > So: a typo fixed in a `.md` appears on the next page load; a new favicon, a
-> changed title or a Docsify upgrade appears only after a redeploy.
+> changed title, a stylesheet edit or a Docsify upgrade appears only after a
+> redeploy.
+
+### Cache busting: bump `?v=` when you touch `docs-site/`
+
+Every local asset in `index.html` is requested with a version marker:
+
+```html
+<link rel="stylesheet" href="./mocky.css?v=2">
+```
+
+**Change any file under `docs-site/` → bump that number on every asset.**
+
+Without it, a redeploy can leave a visitor running the **new `index.html`
+against the old `mocky.css`**. Static hosts serve stylesheets with a long cache
+lifetime, and a browser holds on to a stylesheet far longer than to the HTML that
+references it.
+
+This is not hypothetical: it happened, and it did not look like a caching
+problem. The page was still themed — just with rules from a previous revision —
+so it read as a styling bug in code that was in fact already correct.
+
+There is no build step here to hash filenames, so the marker is maintained by
+hand. It is one number, in one file.
 
 ### Deploying `docs-site/`
 

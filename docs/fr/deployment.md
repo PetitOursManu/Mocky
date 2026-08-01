@@ -536,14 +536,40 @@ affichage de page**. Trois conséquences :
   privé demanderait un jeton, qu'une page statique ne peut pas porter.
 
 > **La réciproque est le piège.** Tout ce qui est dans `docs-site/` —
-> `index.html`, la favicon, les fichiers Docsify copiés — est servi par la
-> ressource déployée, et non lu depuis GitHub. Pousser une modification de ces
-> fichiers sur `main` ne change **rien** tant que la ressource statique n'a pas
-> été **redéployée**.
+> `index.html`, `mocky.css`, la favicon, les fichiers Docsify copiés — est servi
+> par la ressource déployée, et non lu depuis GitHub. Pousser une modification de
+> ces fichiers sur `main` ne change **rien** tant que la ressource statique n'a
+> pas été **redéployée**.
 >
 > Autrement dit : une faute corrigée dans un `.md` apparaît au chargement
-> suivant ; une nouvelle favicon, un titre modifié ou une montée de version de
-> Docsify n'apparaissent qu'après un redéploiement.
+> suivant ; une nouvelle favicon, un titre modifié, une retouche de la feuille de
+> style ou une montée de version de Docsify n'apparaissent qu'après un
+> redéploiement.
+
+### Anti-cache : incrémentez `?v=` dès que vous touchez à `docs-site/`
+
+Chaque ressource locale d'`index.html` est demandée avec un marqueur de
+version :
+
+```html
+<link rel="stylesheet" href="./mocky.css?v=2">
+```
+
+**Vous modifiez un fichier de `docs-site/` → incrémentez ce numéro sur toutes les
+ressources.**
+
+Sans lui, un redéploiement peut laisser un visiteur exécuter le **nouvel
+`index.html` avec l'ancien `mocky.css`**. Les hébergements statiques servent les
+feuilles de style avec une durée de cache longue, et un navigateur garde une
+feuille de style bien plus longtemps que le HTML qui la référence.
+
+Ce n'est pas théorique : c'est arrivé, et cela ne ressemblait pas à un problème
+de cache. La page était toujours habillée — simplement avec les règles d'une
+révision antérieure — donc cela se lisait comme un défaut de style dans du code
+qui était en réalité déjà correct.
+
+Il n'y a pas d'étape de construction ici pour signer les noms de fichiers, donc
+le marqueur se tient à la main. C'est un seul nombre, dans un seul fichier.
 
 ### Déployer `docs-site/`
 
