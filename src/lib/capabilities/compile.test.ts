@@ -1,0 +1,69 @@
+import { describe, it, expect } from 'vitest'
+import * as Babel from '@babel/standalone'
+import { CAPABILITIES } from './registry'
+import { resolveCapabilities } from './select'
+import { buildPrelude } from './prelude'
+
+/**
+ * Every snippet pack must survive the compiler that actually runs it.
+ *
+ * The packs are STRINGS. Nothing type-checks them, nothing lints them, and a
+ * missing bracket in one of them is invisible until a generated screen fails to
+ * render inside a sandboxed iframe — where the error surfaces as a blank frame
+ * and a message nobody reads. This runs the same transform the preview shell
+ * runs, so a syntax error fails the build instead.
+ */
+
+const transform = (src: string) =>
+  Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code
+
+describe('every snippet pack compiles', () => {
+  for (const pack of CAPABILITIES.filter((c) => c.kind === 'snippet-pack')) {
+    it(pack.id, () => {
+      const prelude = buildPrelude(resolveCapabilities([pack.id]))
+      expect(prelude.length).toBeGreaterThan(0)
+      expect(() => transform(prelude)).not.toThrow()
+    })
+  }
+
+  it('and they compile together, as the preview injects them', () => {
+    const ids = CAPABILITIES.filter((c) => c.kind === 'snippet-pack').map((c) => c.id)
+    expect(() => transform(buildPrelude(resolveCapabilities(ids)))).not.toThrow()
+  })
+})
+
+describe('ScrollSequence', () => {
+  const prelude = buildPrelude(resolveCapabilities(['scrollvideo']))
+
+  it('compiles together with a screen that uses it', () => {
+    const screen = `
+      function App() {
+        return (
+          <div>
+            <ScrollSequence base="/api/videos/abc" frames={60} height={300}>
+              <h1 className="text-6xl">Un titre</h1>
+            </ScrollSequence>
+            <section className="p-10">suite de la page</section>
+          </div>
+        )
+      }
+    `
+    expect(() => transform(prelude + '\n' + screen)).not.toThrow()
+  })
+
+  it('reads its frames from the app origin, never from a media element', () => {
+    // The whole reason the server cuts the clip into JPEGs: the preview's CSP
+    // allows img-src and nothing media-shaped. A <video> creeping in here would
+    // be blocked at runtime, silently.
+    expect(prelude).not.toMatch(/<video|createElement\(\s*['"]video['"]/)
+    expect(prelude).toContain("'/f/'")
+    expect(prelude).toContain('canvas')
+  })
+
+  it('drives the frame from scroll progress, clamped to the sequence', () => {
+    // The three things that make scrubbing correct rather than approximate.
+    expect(prelude).toContain('getBoundingClientRect')
+    expect(prelude).toContain('window.innerHeight')
+    expect(prelude).toMatch(/progress\s*<\s*0\s*\?\s*0\s*:\s*progress\s*>\s*1\s*\?\s*1/)
+  })
+})

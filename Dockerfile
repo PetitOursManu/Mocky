@@ -20,6 +20,20 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
+# ---- Scroll-driven video: ffmpeg ----
+# A generated clip is cut into a JPEG sequence the preview scrubs through
+# (server/videos/frames.js). Frames rather than a <video> because seeking an
+# inter-frame compressed MP4 from a scroll handler stutters — and because
+# frames are images, which the sandboxed preview is already allowed to load.
+#
+# Best-effort, like the Chromium layer below: a build host without apt must not
+# fail the whole image. Without it the feature reports itself unavailable, says
+# so in the Muse panel, and nothing else changes. Adds ~120 MB.
+RUN (apt-get update \
+     && apt-get install -y --no-install-recommends ffmpeg \
+     && rm -rf /var/lib/apt/lists/*) \
+    || echo "ffmpeg not installed — scroll-driven video will report itself unavailable"
+
 # ---- Muse: bundle the inspiration fetcher (fetcher-mcp) + Chromium so live
 # inspiration works inside the container (ADR D3 — "include by default").
 # Adds ~300 MB.

@@ -9,10 +9,19 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { DEFAULT_CF_MODEL } from './providers/cloudflare.js'
-import { DEFAULT_FAL_MODEL } from './providers/fal.js'
+import { DEFAULT_FAL_MODEL, DEFAULT_FAL_VIDEO_MODEL } from './providers/fal.js'
+import { DEFAULT_FPS, DEFAULT_FRAME_WIDTH, MAX_FRAMES } from '../videos/frames.js'
 
 /** Selectable providers, in the order shown in the Admin UI. */
 export const PROVIDER_IDS = ['pollinations', 'fal', 'openai-image', 'cloudflare-workers-ai', 'sd-webui', 'none']
+
+/**
+ * Who can make a video. Only fal, for now, and that is not an oversight: none of
+ * the other configured providers has a text-to-video endpoint at all.
+ * '' means the feature is off, which is the default — it costs real money per
+ * clip and nobody should discover that by accident.
+ */
+export const VIDEO_PROVIDER_IDS = ['fal', 'none']
 
 /**
  * Two independent image profiles, because the two jobs are genuinely different:
@@ -41,8 +50,25 @@ export function defaultImageProfile(provider = '') {
   }
 }
 
+/**
+ * Video settings. A separate shape from an image profile because almost nothing
+ * is shared: one provider instead of six, a timeout in minutes rather than
+ * seconds, and the frame-cutting parameters that have no image equivalent.
+ */
+export function defaultVideoProfile() {
+  return {
+    provider: '',
+    fal: { apiKey: '', model: DEFAULT_FAL_VIDEO_MODEL, timeoutSec: 600 },
+    frames: { fps: DEFAULT_FPS, width: DEFAULT_FRAME_WIDTH, max: MAX_FRAMES },
+  }
+}
+
 export function defaultImagesConfig() {
-  return { content: defaultImageProfile('pollinations'), inspiration: defaultImageProfile('') }
+  return {
+    content: defaultImageProfile('pollinations'),
+    inspiration: defaultImageProfile(''),
+    video: defaultVideoProfile(),
+  }
 }
 
 /**
@@ -108,6 +134,33 @@ function mergeProfile(current, patch, allowEmpty) {
   return out
 }
 
+/** Merge the video section. Same secret rules as an image profile. */
+function mergeVideo(current, patch) {
+  const base = { ...defaultVideoProfile(), ...(current || {}) }
+  const p = patch && typeof patch === 'object' ? patch : {}
+  const f = p.frames && typeof p.frames === 'object' ? p.frames : {}
+  const bf = base.frames || defaultVideoProfile().frames
+  const clamp = (v, lo, hi, fallback) =>
+    Number(v) > 0 ? Math.min(hi, Math.max(lo, Math.round(Number(v)))) : fallback
+  return {
+    provider: VIDEO_PROVIDER_IDS.includes(p.provider) || p.provider === '' ? p.provider : base.provider,
+    fal: {
+      model: str(p.fal?.model, base.fal?.model) || DEFAULT_FAL_VIDEO_MODEL,
+      apiKey: secret(p.fal?.apiKey, base.fal?.apiKey || ''),
+      // Video routinely takes minutes; 60 s would time out every single run.
+      timeoutSec:
+        Number(p.fal?.timeoutSec) > 0
+          ? Math.min(1800, Math.round(Number(p.fal.timeoutSec)))
+          : base.fal?.timeoutSec || 600,
+    },
+    frames: {
+      fps: clamp(f.fps, 4, 30, bf.fps),
+      width: clamp(f.width, 320, 1920, bf.width),
+      max: clamp(f.max, 12, 600, bf.max),
+    },
+  }
+}
+
 /**
  * Apply a partial update. A patch may target one or both profiles; a legacy
  * flat patch is treated as a 'content' patch.
@@ -118,6 +171,7 @@ export function mergeImagesConfig(current, patch) {
   return {
     content: mergeProfile(base.content, p.content, false),
     inspiration: mergeProfile(base.inspiration, p.inspiration, true),
+    video: mergeVideo(base.video, p.video),
   }
 }
 
@@ -140,11 +194,18 @@ function publicProfile(prof, fallbackProvider) {
 /** Browser-safe projection: secrets replaced by booleans. */
 export function publicImagesConfig(cfg) {
   const c = liftLegacy(cfg) || { ...defaultImagesConfig(), ...(cfg || {}) }
+  const v = { ...defaultVideoProfile(), ...(c.video || {}) }
   return {
     providers: PROVIDER_IDS,
     profiles: IMAGE_PROFILES,
     content: publicProfile(c.content, 'pollinations'),
     inspiration: publicProfile(c.inspiration, ''),
+    videoProviders: VIDEO_PROVIDER_IDS,
+    video: {
+      provider: v.provider || '',
+      fal: { model: v.fal?.model || '', hasApiKey: Boolean(v.fal?.apiKey), timeoutSec: v.fal?.timeoutSec ?? 600 },
+      frames: { ...defaultVideoProfile().frames, ...(v.frames || {}) },
+    },
   }
 }
 
@@ -183,6 +244,11 @@ export class ImagesConfigStore {
   /** Settings that apply for a profile ('inspiration' falls back to 'content'). */
   profile(name = 'content') {
     return resolveImageProfile(this.config, name)
+  }
+
+  /** Video settings, always a complete object even on a pre-video config file. */
+  videoProfile() {
+    return { ...defaultVideoProfile(), ...(this.config.video || {}) }
   }
 
   /** Merge a partial update, persist atomically, return the new config. */
