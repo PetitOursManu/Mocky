@@ -1,18 +1,31 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ImageLightbox from './ImageLightbox'
 import {
   listLibrary,
   toggleFavoriteImage,
   deleteImage,
+  uploadImage,
   imageUrl,
   imageDownloadUrl,
   libraryZipUrl,
+  ACCEPTED_IMAGE_TYPES,
   type LibraryImage,
   type LibraryFilters,
   type PinnedImage,
 } from '../lib/imageLibrary'
+import {
+  listVideos,
+  deleteVideo,
+  uploadVideo,
+  videoPosterUrl,
+  ACCEPTED_VIDEO_TYPES,
+  type LibraryVideo,
+  type PinnedVideo,
+} from '../lib/videoLibrary'
 import { Banner, Button, Icon, IconButton, Spinner } from '../ui'
 import { useT } from '../i18n'
+
+type MediaTab = 'images' | 'videos'
 
 /**
  * The global Image Library browser (Muse §4.3 / §6). Browse every generated
@@ -33,6 +46,8 @@ export default function Bibliotheque({
   projectNames,
   pinned = [],
   onTogglePin,
+  pinnedVideo = null,
+  onPinVideo,
   onClose,
   onOpenImage,
 }: {
@@ -42,6 +57,9 @@ export default function Bibliotheque({
   projectNames?: Record<string, string>
   pinned?: PinnedImage[]
   onTogglePin?: (img: LibraryImage) => void
+  /** The sequence chosen for the next run — at most one, it is the hero. */
+  pinnedVideo?: PinnedVideo | null
+  onPinVideo?: (v: LibraryVideo | null) => void
   onClose?: () => void
   /** Open an image full size. When absent, the page handles it itself. */
   onOpenImage?: (hash: string) => void
@@ -55,8 +73,16 @@ export default function Bibliotheque({
   const [onlyProject, setOnlyProject] = useState(false)
   const [onlyFav, setOnlyFav] = useState(false)
 
+  const [tab, setTab] = useState<MediaTab>('images')
+  const [videos, setVideos] = useState<LibraryVideo[]>([])
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
   const isPage = variant === 'page'
   const canPin = Boolean(onTogglePin)
+  const canPinVideo = Boolean(onPinVideo)
   /** Standalone page has no parent to host the lightbox — it hosts its own. */
   const [ownLightbox, setOwnLightbox] = useState<string | null>(null)
   const openImage = (hash: string) => (onOpenImage ? onOpenImage(hash) : setOwnLightbox(hash))
@@ -91,6 +117,73 @@ export default function Bibliotheque({
     const timer = setTimeout(refresh, 200) // debounce search
     return () => clearTimeout(timer)
   }, [refresh])
+
+  const refreshVideos = useCallback(async () => {
+    setVideoError(null)
+    try {
+      setVideos(await listVideos(onlyProject && projectId ? projectId : undefined))
+    } catch {
+      setVideoError('library.backendDown')
+    }
+  }, [onlyProject, projectId])
+
+  useEffect(() => {
+    void refreshVideos()
+  }, [refreshVideos])
+
+  /**
+   * One control for both kinds.
+   *
+   * The file picker accepts images and clips together and routes on the file's
+   * own type, because "add my own media" is one intention — asking the user to
+   * first declare which of the two they meant would be a question the file
+   * already answers.
+   */
+  async function onFiles(list: FileList | null) {
+    const files = Array.from(list || [])
+    if (!files.length) return
+    setUploading(true)
+    setUploadError(null)
+    let images = 0
+    let clips = 0
+    try {
+      for (const file of files) {
+        if (ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+          await uploadImage(file, { project: projectId })
+          images++
+        } else if (ACCEPTED_VIDEO_TYPES.includes(file.type)) {
+          await uploadVideo(file, { project: projectId })
+          clips++
+        } else {
+          throw new Error(t('library.uploadBadType', { name: file.name, type: file.type || '?' }))
+        }
+      }
+      if (images) await refresh()
+      if (clips) {
+        await refreshVideos()
+        setTab('videos')
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : String(err))
+      // Whatever landed before the failure is still worth showing.
+      await refresh()
+      await refreshVideos()
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function onDeleteVideo(v: LibraryVideo) {
+    if (!window.confirm(t('library.deleteVideoConfirm'))) return
+    try {
+      await deleteVideo(v.hash)
+      setVideos((arr) => arr.filter((x) => x.hash !== v.hash))
+      if (pinnedVideo?.hash === v.hash) onPinVideo?.(null)
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     if (isPage || !onClose) return
@@ -130,6 +223,88 @@ export default function Bibliotheque({
     const names = img.projects.map((id) => projectNames[id]).filter(Boolean)
     return names.length ? names.join(', ') : ''
   }
+
+  const tabs = (
+    <span className="flex shrink-0 overflow-hidden border border-line-soft">
+      {(['images', 'videos'] as MediaTab[]).map((id) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => setTab(id)}
+          className={`kicker border-b-2 px-2.5 py-1 ${
+            tab === id
+              ? 'border-b-accent bg-ink text-surface'
+              : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+          }`}
+        >
+          {t(id === 'images' ? 'library.tabImages' : 'library.tabVideos')}
+          <span className="ml-1.5 font-mono opacity-70">{id === 'images' ? images.length : videos.length}</span>
+        </button>
+      ))}
+    </span>
+  )
+
+  /**
+   * What is currently selected, in words.
+   *
+   * Pinning an image or choosing a sequence changed a border colour and a small
+   * badge on one card — in a grid of thirty, at the bottom of a scrolled list,
+   * that is a change nobody sees. This says out loud what the next generation
+   * will use, and it appears only when something is actually selected, so it is
+   * never furniture.
+   */
+  const selectionNote =
+    pinned.length || pinnedVideo ? (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-muse/40 bg-muse/5 px-2.5 py-1.5 text-body-sm text-ink-muted">
+        <span className="flex items-center gap-1.5 text-muse">
+          <Icon name="pin" size={14} />
+          {t('library.selectionTitle')}
+        </span>
+        {pinned.length > 0 && (
+          <span>
+            <span className="font-mono text-accent-ink">{pinned.length}</span>{' '}
+            {t(pinned.length === 1 ? 'library.selectedImage_one' : 'library.selectedImage_other')}
+          </span>
+        )}
+        {pinnedVideo && (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate" title={pinnedVideo.label}>
+              {t('library.selectedVideo', { name: pinnedVideo.label })}
+            </span>
+            <button
+              type="button"
+              onClick={() => onPinVideo?.(null)}
+              className="shrink-0 text-ink-faint underline underline-offset-2 transition hover:text-danger"
+            >
+              {t('library.selectedClear')}
+            </button>
+          </span>
+        )}
+      </div>
+    ) : null
+
+  const uploader = (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        className="hidden"
+        accept={[...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_VIDEO_TYPES].join(',')}
+        onChange={(e) => onFiles(e.target.files)}
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        title={t('library.uploadHint')}
+      >
+        {uploading ? <Spinner className="h-4 w-4" /> : <Icon name="plus" size={15} />}
+        {uploading ? t('library.uploading') : t('library.upload')}
+      </Button>
+    </>
+  )
 
   const toolbar = (
     <>
@@ -271,6 +446,78 @@ export default function Bibliotheque({
     </div>
   )
 
+  const videoGrid = videoError ? (
+    <Banner tone="warn">{t(videoError)}</Banner>
+  ) : videos.length === 0 ? (
+    <div className="flex h-40 flex-col items-center justify-center gap-1 text-body text-ink-faint">
+      <span>{t('library.noVideos')}</span>
+      <span className="text-body-sm">{t('library.noVideosHint')}</span>
+    </div>
+  ) : (
+    <div
+      className={`grid gap-3 ${
+        isPage ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3'
+      }`}
+    >
+      {videos.map((v) => {
+        const chosen = pinnedVideo?.hash === v.hash
+        return (
+          <div
+            key={v.hash}
+            className={`group relative overflow-hidden rounded-xl border bg-surface ${
+              chosen ? 'border-muse ring-2 ring-muse/40' : 'border-line-soft'
+            }`}
+          >
+            <div className="relative block aspect-[16/9] w-full overflow-hidden bg-sunken">
+              <img src={videoPosterUrl(v.hash)} alt="" className="h-full w-full object-cover" loading="lazy" />
+              {/* The frame count is the honest measure of a sequence: it is what
+                  the scroll is divided into. */}
+              <span className="absolute bottom-1 right-1 flex items-center gap-1 border border-line bg-raised/90 px-1.5 py-0.5 font-mono text-caption text-ink-muted">
+                <Icon name="play" size={11} />
+                {t('library.frames', { count: v.frames })}
+              </span>
+            </div>
+            <div className="p-1.5">
+              <div className="truncate text-caption text-ink-muted" title={v.prompt}>
+                {v.prompt}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                <span className="rounded border border-line-soft px-1 text-caption text-ink-faint">
+                  {v.provider || 'upload'}
+                </span>
+                <span className="rounded bg-ink/5 px-1 text-caption text-ink-muted">
+                  {v.width}px · {v.fps} fps
+                </span>
+              </div>
+            </div>
+            <div className="absolute right-1 top-1 flex border border-line bg-raised opacity-0 transition group-hover:opacity-100">
+              <IconButton label={t('library.deleteVideo')} variant="quiet" onClick={() => onDeleteVideo(v)}>
+                <Icon name="trash" size={16} />
+              </IconButton>
+            </div>
+            {canPinVideo && (
+              <button
+                type="button"
+                onClick={() => onPinVideo?.(chosen ? null : v)}
+                className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
+                  chosen
+                    ? 'border border-muse bg-muse text-surface'
+                    : 'border border-line bg-raised text-ink opacity-0 group-hover:opacity-100'
+                }`}
+                title={t('library.useVideoHint')}
+              >
+                <Icon name="pin" size={14} />
+                {chosen ? t('library.videoChosen') : t('library.useVideo')}
+              </button>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  const activeGrid = tab === 'images' ? grid : videoGrid
+
   const zipLink = (
     <a href={libraryZipUrl(filters)} className="btn-ghost px-3 py-1 text-body-sm" title={t('library.zipHint')}>
       {t('library.downloadAll')} (.zip)
@@ -283,16 +530,31 @@ export default function Bibliotheque({
       <main className="page-wide py-8">
         <div className="kicker text-accent-ink">{t('library.kicker')}</div>
         <div className="section-head flex-wrap">
-          <h2 className="text-h3 text-ink">{t('library.generatedImages')}</h2>
+          <h2 className="text-h3 text-ink">{t('library.mediaTitle')}</h2>
           <span className="text-body-sm text-ink-faint">
             <span className="font-mono text-accent-ink">{images.length}</span>{' '}
             {t(images.length === 1 ? 'library.imageWord_one' : 'library.imageWord_other')}
+            {' · '}
+            <span className="font-mono text-accent-ink">{videos.length}</span>{' '}
+            {t(videos.length === 1 ? 'library.videoWord_one' : 'library.videoWord_other')}
           </span>
-          <div className="ml-auto">{zipLink}</div>
+          <div className="ml-auto flex items-center gap-2">
+            {uploader}
+            {tab === 'images' && zipLink}
+          </div>
         </div>
         <p className="measure mb-4 text-body text-ink-muted">{t('library.pageBlurb')}</p>
-        <div className="mb-4 flex max-w-3xl flex-wrap items-center gap-3">{toolbar}</div>
-        {grid}
+        <div className="mb-4 flex max-w-3xl flex-wrap items-center gap-3">
+          {tabs}
+          {toolbar}
+        </div>
+        {uploadError && (
+          <Banner tone="danger" className="mb-3">
+            {uploadError}
+          </Banner>
+        )}
+        {selectionNote && <div className="mb-4">{selectionNote}</div>}
+        {activeGrid}
         {lightbox}
       </main>
     )
@@ -310,13 +572,22 @@ export default function Bibliotheque({
             <Icon name="library" size={16} />
             {t('library.title')}
           </span>
+          {tabs}
           {toolbar}
           <IconButton label={t('common.close')} variant="quiet" title={t('library.closeEsc')} onClick={onClose}>
             <Icon name="close" />
           </IconButton>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">{grid}</div>
+        <div className="flex-1 overflow-y-auto p-3">
+          {uploadError && (
+            <Banner tone="danger" className="mb-3">
+              {uploadError}
+            </Banner>
+          )}
+          {selectionNote && <div className="mb-3">{selectionNote}</div>}
+          {activeGrid}
+        </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-line-soft p-3 text-body-sm text-ink-muted">
           <span>
@@ -326,7 +597,8 @@ export default function Bibliotheque({
             {t(pinned.length === 1 ? 'library.pinnedWord_one' : 'library.pinnedWord_other')}
           </span>
           <div className="flex items-center gap-2">
-            {zipLink}
+            {uploader}
+            {tab === 'images' && zipLink}
             <Button variant="primary" size="sm" onClick={onClose}>
               {t('library.done')}
             </Button>

@@ -5,8 +5,22 @@
 // Route order matters: the literal paths (/providers, /library, /library.zip,
 // /generate) are declared BEFORE the `/:hash` catch-all so they aren't captured.
 import express from 'express'
+// The one bounded body reader in the codebase. Reused rather than rewritten:
+// an unbounded read here would let a single request buffer the whole disk into
+// memory, which is exactly the bug it was written to close.
+import { readRawBody } from '../provider-proxy.js'
 
 const HASH_RE = /^[a-f0-9]{16,64}$/
+
+/**
+ * What an upload may be.
+ *
+ * An allowlist, not a blocklist: these bytes are served back from Mocky's own
+ * origin, so anything the browser might treat as active content (SVG carries
+ * script, and `image/svg+xml` is still an image) has no business here.
+ */
+const ACCEPTED_IMAGE = /^image\/(jpeg|png|webp|gif|avif)$/i
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024
 
 /**
  * @param {object} deps
@@ -70,6 +84,39 @@ export function createImagesRouter({ library, registryFor }) {
     }
   })
 
+  /**
+   * Import the user's own image.
+   *
+   * The body IS the file — no multipart, no parser dependency. The browser has
+   * a File object, `fetch` can send it as-is with its own content type, and
+   * everything the server needs to know beyond the bytes (name, dimensions,
+   * project) fits in the query string. Multipart would have added a dependency
+   * to re-derive exactly this.
+   *
+   * Body: raw bytes.  Query: ?name=&w=&h=&project=
+   */
+  router.post('/upload', async (req, res) => {
+    const mime = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+    if (!ACCEPTED_IMAGE.test(mime)) {
+      return res.status(415).json({ error: `Unsupported image type "${mime || 'unknown'}".` })
+    }
+    try {
+      const buffer = await readRawBody(req, MAX_IMAGE_BYTES)
+      const out = library.ingestUpload(buffer, {
+        name: req.query.name,
+        width: req.query.w,
+        height: req.query.h,
+        project: req.query.project,
+        mime,
+      })
+      res.json({ hash: out.hash, url: `/api/images/${out.hash}`, fromCache: out.fromCache, meta: out.meta })
+    } catch (err) {
+      res.status(err?.statusCode === 413 ? 413 : 400).json({
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  })
+
   // Toggle favorite.
   router.post('/:hash/favorite', (req, res) => {
     if (!HASH_RE.test(req.params.hash)) return res.status(400).json({ error: 'Bad hash' })
@@ -98,7 +145,7 @@ export function createImagesRouter({ library, registryFor }) {
     if (req.query.download === '1') {
       return res.download(fp, library.filenameFor(hash))
     }
-    res.type('image/jpeg')
+    res.type(library.mimeFor(hash))
     res.sendFile(fp)
   })
 

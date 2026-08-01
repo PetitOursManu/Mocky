@@ -7,6 +7,7 @@ import crypto from 'node:crypto'
 import { createImagesRouter } from './routes.js'
 
 const HASH = 'a1b2c3d4a1b2c3d4' // valid format, 16 hex
+const UPLOAD_HASH = 'b1b2c3d4b1b2c3d4'
 const IMG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]) // pretend jpeg
 
 let dir, server, base
@@ -33,6 +34,18 @@ function makeLibrary() {
     filePath: (h) => path.join(dir, `${h}.jpg`),
     fileExists: (h) => fs.existsSync(path.join(dir, `${h}.jpg`)),
     filenameFor: (h) => `hero-${h.slice(0, 8)}.jpg`,
+    // Generated images are always JPEG; an upload keeps its own type.
+    mimeFor: (h) => (h === UPLOAD_HASH ? 'image/png' : 'image/jpeg'),
+    ingestUpload: (buffer, spec) => {
+      // The real one stores the bytes; this must too, or the serve route below
+      // has nothing to find.
+      fs.writeFileSync(path.join(dir, `${UPLOAD_HASH}.jpg`), buffer)
+      return {
+        hash: UPLOAD_HASH,
+        fromCache: false,
+        meta: { hash: UPLOAD_HASH, prompt: spec.name, provider: 'upload', mime: spec.mime, tags: ['upload'] },
+      }
+    },
     list: () => [{ hash: HASH, prompt: 'p', tags: ['hero'], seed: 1, width: 10, height: 10, provider: 'fake' }],
     zip: () => Buffer.from('PKzip'),
     toggleFavorite: (h) => (h === HASH ? { favorite: true } : null),
@@ -117,6 +130,42 @@ describe('image routes', () => {
     expect(res.headers.get('content-type')).toMatch(/image\/jpeg/)
     const buf = Buffer.from(await res.arrayBuffer())
     expect(Buffer.compare(buf, IMG_BYTES)).toBe(0)
+  })
+
+  describe('POST /upload', () => {
+    it('stores the bytes and reports where they landed', async () => {
+      const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3])
+      const res = await fetch(`${base}/api/images/upload?name=photo.png&w=800&h=600`, {
+        method: 'POST',
+        headers: { 'content-type': 'image/png' },
+        body: png,
+      })
+      expect(res.ok).toBe(true)
+      const body = await res.json()
+      expect(body.hash).toBe(UPLOAD_HASH)
+      expect(body.url).toBe(`/api/images/${UPLOAD_HASH}`)
+      expect(body.meta.provider).toBe('upload')
+      expect(body.meta.mime).toBe('image/png')
+      expect(body.meta.prompt).toBe('photo.png')
+    })
+
+    it('refuses a type it will later have to serve back', async () => {
+      // SVG is an image and carries script. It is served from Mocky's own
+      // origin, so it must not be accepted at all.
+      for (const type of ['image/svg+xml', 'text/html', 'application/pdf', '']) {
+        const res = await fetch(`${base}/api/images/upload?name=x`, {
+          method: 'POST',
+          headers: { 'content-type': type || 'application/octet-stream' },
+          body: Buffer.from('x'),
+        })
+        expect(res.status, type).toBe(415)
+      }
+    })
+
+    it('serves an uploaded PNG as a PNG, not as the JPEG it is stored as', async () => {
+      const res = await fetch(`${base}/api/images/${UPLOAD_HASH}`)
+      expect(res.headers.get('content-type')).toMatch(/image\/png/)
+    })
   })
 
   it('GET /:hash?download=1 sets an attachment disposition + filename', async () => {

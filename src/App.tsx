@@ -4,6 +4,8 @@ import { loadTheme, nextTheme, saveTheme, type Theme } from './lib/theme'
 import { api, type AuthUser } from './lib/api'
 import { enableSync, installUnloadGuard, reconcileOnLogin } from './lib/sync'
 import { checkSsoReturn, cleanSsoQueryParams } from './lib/sso'
+import { loadMuseConfig, setMuseVideoPin, type MuseVideoPin } from './lib/muse'
+import { videoPosterUrl } from './lib/videoLibrary'
 import ProjectsHome from './components/ProjectsHome'
 import ProjectView from './components/ProjectView'
 import SettingsPanel from './components/SettingsPanel'
@@ -16,7 +18,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { Button, Icon, IconButton } from './ui'
 import { useT } from './i18n'
 
-type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'images'
+type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'media'
 
 /**
  * Marks that this tab has already reloaded to pick up a merge. Per-tab and
@@ -74,6 +76,8 @@ export default function App() {
   const [account, setAccount] = useState<AuthUser | null>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const [ssoError, setSsoError] = useState<string | null>(null)
+  /** The sequence Muse will use for the hero, mirrored from the Muse settings. */
+  const [videoPin, setVideoPin] = useState<MuseVideoPin | null>(() => loadMuseConfig().videoPin)
   const authCheckedRef = useRef(false)
 
   // On startup: if we're returning from a Dashy SSO redirect, validate the
@@ -217,8 +221,8 @@ export default function App() {
             <HeaderTab active={route === 'design'} onClick={() => setRoute('design')}>
               {t('nav.design')}
             </HeaderTab>
-            <HeaderTab active={route === 'images'} onClick={() => setRoute('images')}>
-              {t('nav.images')}
+            <HeaderTab active={route === 'media'} onClick={() => setRoute('media')}>
+              {t('nav.media')}
             </HeaderTab>
             <HeaderTab active={route === 'settings'} onClick={() => setRoute('settings')}>
               {t('nav.settings')}
@@ -313,11 +317,27 @@ export default function App() {
           <DesignPanel />
         </main>
       )}
-      {route === 'images' && (
+      {route === 'media' && (
         <Bibliotheque
           variant="page"
           projectId={activeProject?.id}
           projectNames={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
+          // Choosing a sequence here has no project to attach to, so it is
+          // stored with the Muse settings: whichever project is opened next
+          // finds it already chosen, and it survives a reload.
+          pinnedVideo={videoPin}
+          onPinVideo={(v) => {
+            const pin: MuseVideoPin | null = v
+              ? {
+                  hash: v.hash,
+                  frames: v.frames,
+                  poster: videoPosterUrl(v.hash),
+                  label: v.prompt.slice(0, 60),
+                }
+              : null
+            setMuseVideoPin(pin)
+            setVideoPin(pin)
+          }}
         />
       )}
       {route === 'settings' && (

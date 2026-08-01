@@ -169,6 +169,55 @@ export class ImageLibrary {
     return { hash: contentHash, fromCache: false, meta }
   }
 
+  /**
+   * Store bytes the USER supplied rather than bytes a provider produced.
+   *
+   * Same store, same content addressing, same dedup — an upload that matches an
+   * existing image simply attaches to it. What differs is that there is no
+   * request key: nothing was asked of a provider, so nothing can be "reused
+   * instead of regenerating". `provider` is recorded as 'upload', which is what
+   * the library badge shows and what tells the two apart afterwards.
+   *
+   * Dimensions come from the caller. The browser has already decoded the file
+   * to show a preview and knows them exactly; parsing three image formats
+   * server-side to learn what the client could simply say would be work in
+   * exchange for nothing.
+   */
+  ingestUpload(buffer, spec = {}) {
+    if (!buffer || !buffer.length) throw new Error('empty file')
+    const contentHash = sha256hex(buffer)
+    const fp = path.join(this.filesDir, `${contentHash}.jpg`)
+    if (!fs.existsSync(fp)) {
+      fs.mkdirSync(this.filesDir, { recursive: true })
+      fs.writeFileSync(fp, buffer)
+    }
+    const tags = Array.from(new Set(['upload', ...(Array.isArray(spec.tags) ? spec.tags : [])].map(String)))
+    const existing = this.state.byHash[contentHash]
+    const meta = existing || {
+      hash: contentHash,
+      // The library shows `prompt` as the caption everywhere; for an upload the
+      // file's own name is the closest honest thing to put there.
+      prompt: String(spec.name || 'image importée').slice(0, 200),
+      negative: null,
+      provider: 'upload',
+      seed: null,
+      width: Number(spec.width) || 0,
+      height: Number(spec.height) || 0,
+      // The bytes are whatever was uploaded; the .jpg on disk is a naming
+      // convention, not a claim about the format. This is what the route serves.
+      mime: typeof spec.mime === 'string' ? spec.mime : 'image/jpeg',
+      createdAt: this.now(),
+      tags: [],
+      projects: [],
+      favorite: false,
+    }
+    meta.tags = Array.from(new Set([...(meta.tags || []), ...tags]))
+    if (spec.project && !meta.projects.includes(spec.project)) meta.projects.push(spec.project)
+    this.state.byHash[contentHash] = meta
+    this._persist()
+    return { hash: contentHash, meta, fromCache: Boolean(existing) }
+  }
+
   _attachProject(hash, project) {
     const meta = this.state.byHash[hash]
     if (!meta) return null
@@ -250,7 +299,14 @@ export class ImageLibrary {
   filenameFor(hash) {
     const meta = this.state.byHash[hash]
     const label = meta ? slugify(meta.tags?.[0] || meta.prompt, 'image') : 'image'
-    return `${label}-${hash.slice(0, 8)}.jpg`
+    // Uploads keep their real format; only the on-disk name is always .jpg.
+    const ext = /png/i.test(meta?.mime || '') ? 'png' : /webp/i.test(meta?.mime || '') ? 'webp' : 'jpg'
+    return `${label}-${hash.slice(0, 8)}.${ext}`
+  }
+
+  /** What the bytes actually are — generated images are always JPEG. */
+  mimeFor(hash) {
+    return this.state.byHash[hash]?.mime || 'image/jpeg'
   }
 
   /**

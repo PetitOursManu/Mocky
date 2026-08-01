@@ -59,6 +59,52 @@ export async function listLibrary(f: LibraryFilters = {}, signal?: AbortSignal):
   return data.images || []
 }
 
+/** Formats the server accepts. SVG is deliberately absent — it can carry script. */
+export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
+
+/** Reads a file's real pixel dimensions, or zeros if it cannot be decoded. */
+function imageSize(file: File): Promise<{ w: number; h: number }> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      resolve({ w: img.naturalWidth, h: img.naturalHeight })
+      URL.revokeObjectURL(url)
+    }
+    img.onerror = () => {
+      resolve({ w: 0, h: 0 })
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
+  })
+}
+
+/**
+ * Import one of the user's own images into the library.
+ *
+ * The File is sent as the request body verbatim — no FormData, no multipart.
+ * The dimensions ride along in the query string because the browser has just
+ * decoded the file to measure them and the server would otherwise have to parse
+ * three image formats to learn what is already known here.
+ */
+export async function uploadImage(
+  file: File,
+  opts: { project?: string; signal?: AbortSignal } = {},
+): Promise<LibraryImage> {
+  const { w, h } = await imageSize(file)
+  const p = new URLSearchParams({ name: file.name, w: String(w), h: String(h) })
+  if (opts.project) p.set('project', opts.project)
+  const res = await fetch(`/api/images/upload?${p}`, {
+    method: 'POST',
+    headers: { 'content-type': file.type || 'application/octet-stream' },
+    body: file,
+    signal: opts.signal,
+  })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(j?.error ? String(j.error) : `Upload HTTP ${res.status}`)
+  return j.meta as LibraryImage
+}
+
 export async function toggleFavoriteImage(hash: string): Promise<boolean> {
   const res = await fetch(`/api/images/${hash}/favorite`, { method: 'POST' })
   if (!res.ok) throw new Error(`Favorite HTTP ${res.status}`)
