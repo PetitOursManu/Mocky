@@ -104,6 +104,17 @@ function buildSrcDoc(
   hideScrollbars: boolean,
   caps: Capability[] = [],
   generating: boolean = false,
+  /**
+   * "Sans animation" holds ALREADY GENERATED screens still too.
+   *
+   * The switch decides which capabilities a new screen gets, but a screen that
+   * already has `<Animated>` baked into its code would have kept moving — the
+   * button says "no animation" and the mockup animates. Dropping the capability
+   * at render instead would leave `<Animated>` undefined and crash the screen,
+   * so the flag is passed INTO the frame and the component reads it, exactly
+   * like it already reads prefers-reduced-motion.
+   */
+  animations: boolean = true,
 ): string {
   const b64 = utf8ToBase64(sourceCode)
   const hideCss = hideScrollbars
@@ -180,6 +191,8 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     if (!need('Babel')) { fail('Babel failed to load from /vendor/babel.min.js'); return; }
     var hooks = ['useState','useEffect','useRef','useMemo','useCallback','useReducer','useContext','useLayoutEffect','useImperativeHandle','useId','useTransition','createContext','memo','forwardRef','Fragment'];
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
+    // Read by <Animated> — see the note on buildSrcDoc's animations argument.
+    window.__mockyAnimations = ${animations ? 'true' : 'false'};
     ${globalHoists.join('\n    ')}
     // A mockup must never leave its own document. The click guard further down
     // stops <a href> navigations, but a generated component can also call
@@ -372,6 +385,7 @@ export default function Preview({
   onError,
   generating,
   caps,
+  animations,
   onContentHeight,
 }: {
   code: string
@@ -395,6 +409,8 @@ export default function Preview({
   generating?: boolean
   /** Capability IDs to enable in the preview iframe (e.g. ['motion', 'charts']). */
   caps?: string[]
+  /** false = "Sans animation": already-generated screens hold still too. */
+  animations?: boolean
   /** Reports the rendered content height (px) — used by the "Full height" format. */
   onContentHeight?: (height: number) => void
 }) {
@@ -445,10 +461,14 @@ export default function Preview({
       const previewCode = toPreviewModule(code)
       const name = detectComponentName(code)
       srcCodeRef.current = code
-      setSrcDoc(buildSrcDoc(previewCode, name, frameId, !!hideScrollbars, resolvedCaps, !!generating))
+      setSrcDoc(
+        buildSrcDoc(previewCode, name, frameId, !!hideScrollbars, resolvedCaps, !!generating, animations !== false),
+      )
     }, 500)
     return () => clearTimeout(timer)
-  }, [code, frameId, hideScrollbars, resolvedCaps])
+    // `animations` is in the list on purpose: flipping the switch has to rebuild
+    // the document, or the screens already on the canvas keep moving.
+  }, [code, frameId, hideScrollbars, resolvedCaps, animations])
 
   // --- The mockup must not be able to navigate away from itself --------------
   //

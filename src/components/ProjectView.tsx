@@ -1094,6 +1094,8 @@ export default function ProjectView({
         museImageError={museImageError}
         museVision={museVision}
         museVideo={videoAvail}
+        animationMode={animationMode}
+        onCycleAnimations={cycleAnimations}
       />
       {libraryModal}
       </>
@@ -1122,6 +1124,9 @@ export default function ProjectView({
         onContentHeight={(id, h) => {
           contentHeights.current[id] = h
         }}
+        // "Sans animation" holds the screens already on the canvas still too —
+        // otherwise the button says one thing and the mockups do another.
+        animations={animationMode !== 'off'}
         linkMode={linkMode}
         modifyMode={modifyMode}
         interactAll={interactAll}

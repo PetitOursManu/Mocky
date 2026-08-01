@@ -32,6 +32,36 @@ describe('every snippet pack compiles', () => {
   })
 })
 
+describe('Animated', () => {
+  const prelude = buildPrelude(resolveCapabilities(['animate']))
+
+  it('honours the "no animation" switch the shell passes in', () => {
+    // Without this the button says "Sans animation" and the screens already on
+    // the canvas keep moving, because the presets are baked into their code.
+    expect(prelude).toContain('window.__mockyAnimations === false')
+  })
+
+  it('refuses to animate a hidden document, and says why in code', () => {
+    // Motion holds an element at its `initial` state until the frame loop
+    // starts, and browsers do not run it while hidden — measured: a mockup in a
+    // background tab sits at opacity 0 forever.
+    expect(prelude).toContain('document.hidden')
+    expect(prelude).toContain('prefers-reduced-motion')
+  })
+
+  it('never lets an unknown preset produce an empty element', () => {
+    expect(prelude).toMatch(/if \(!config \|\| !mockyMayAnimate\(\)\)/)
+  })
+
+  it('exposes no Motion API beyond the closed preset list', () => {
+    for (const name of ['fade-in', 'fade-up', 'scale-in', 'stagger-list', 'hover-lift', 'exit-slide']) {
+      expect(prelude).toContain(`'${name}'`)
+    }
+    // The model is given <Animated>, never the library itself.
+    expect(prelude).not.toMatch(/from ['"]motion/)
+  })
+})
+
 describe('ScrollSequence', () => {
   const prelude = buildPrelude(resolveCapabilities(['scrollvideo']))
 

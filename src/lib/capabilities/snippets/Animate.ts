@@ -62,9 +62,13 @@ export const AnimateSource = `var MOCKY_PRESETS = {
   }
 };
 
-/* Animate at all? Three independent reasons not to, all of them the user's. */
+/* Animate at all? Four independent reasons not to, all of them the user's. */
 var mockyMayAnimate = function () {
   try {
+    /* The "Sans animation" switch, passed in by the preview shell. It holds
+       screens that were GENERATED with animations still as well, which is what
+       the button appears to promise. */
+    if (window.__mockyAnimations === false) return false;
     if (document.hidden) return false;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
   } catch (e) { return false; }

@@ -4,6 +4,7 @@ import MusePanel from './MusePanel'
 import { useT } from '../i18n'
 import { Banner, Button, Icon, MockyLoader } from '../ui'
 import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability } from '../lib/muse'
+import type { AnimationMode } from '../lib/animations'
 import type { PinnedImage } from '../lib/imageLibrary'
 
 type Props = {
@@ -31,6 +32,16 @@ type Props = {
   museImageError: string | null
   museVision: boolean | null
   museVideo: MuseVideoAvailability | null
+  /** auto · on · off — owned by ProjectView so both composers agree. */
+  animationMode: AnimationMode
+  onCycleAnimations: () => void
+}
+
+/** Translation keys per animation state. Mirrors the in-project composer. */
+const ANIM_LABELS: Record<AnimationMode, { label: string; hint: string }> = {
+  auto: { label: 'project.animAuto', hint: 'project.animHintAuto' },
+  on: { label: 'project.animOn', hint: 'project.animHintOn' },
+  off: { label: 'project.animOff', hint: 'project.animHintOff' },
 }
 
 export default function Welcome({
@@ -58,6 +69,8 @@ export default function Welcome({
   museImageError,
   museVision,
   museVideo,
+  animationMode,
+  onCycleAnimations,
 }: Props) {
   const t = useT()
 
@@ -131,6 +144,25 @@ export default function Welcome({
                 <span className={museHint ? 'muse-sweep' : undefined}>
                   {museConfig.enabled ? t('auth.welcome.museOn') : t('auth.welcome.museOff')}
                 </span>
+              </button>
+              {/* The same switch as the in-project composer. It was missing
+                  here, which meant the ONE generation where it matters most —
+                  the first screen of a project, the one that sets the tone —
+                  could not be told to hold still. */}
+              <button
+                type="button"
+                onClick={onCycleAnimations}
+                className={`inline-flex items-center gap-1.5 text-body-sm transition ${
+                  animationMode === 'on'
+                    ? 'text-accent-ink hover:opacity-80'
+                    : animationMode === 'off'
+                      ? 'text-ink-faint line-through hover:text-ink'
+                      : 'text-ink-faint hover:text-ink'
+                }`}
+                title={t(ANIM_LABELS[animationMode].hint)}
+              >
+                <Icon name="play" size={15} />
+                {t(ANIM_LABELS[animationMode].label)}
               </button>
             </div>
             <div className="flex items-center gap-3">

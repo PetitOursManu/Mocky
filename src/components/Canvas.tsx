@@ -136,6 +136,7 @@ export default function Canvas({
   referenceScreenId,
   onScreenContextMenu,
   onContentHeight,
+  animations,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -174,6 +175,8 @@ export default function Canvas({
   onScreenContextMenu?: (screenId: string, x: number, y: number) => void
   /** Reports a screen's rendered content height (px) for the "Full height" format. */
   onContentHeight?: (screenId: string, height: number) => void
+  /** false = "Sans animation" — passed through to every preview. */
+  animations?: boolean
 }) {
   const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -788,6 +791,7 @@ export default function Canvas({
                       generating={generatingIds?.has(s.id)}
                       retrying={fixingIds?.has(s.id)}
                       caps={s.caps}
+                      animations={animations}
                       onContentHeight={(h) => onContentHeight?.(s.id, h)}
                     />
                   </DeviceChrome>
@@ -806,6 +810,7 @@ export default function Canvas({
                     generating={generatingIds?.has(s.id)}
                     retrying={fixingIds?.has(s.id)}
                     caps={s.caps}
+                    animations={animations}
                   />
                 )}
               </div>
