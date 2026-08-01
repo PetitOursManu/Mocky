@@ -1,14 +1,16 @@
-- [Accueil](/)
-- [Démarrage](getting-started.md)
+- [Home](/)
+- [Getting started](getting-started.md)
 - Architecture
-  - [Vue d'ensemble](architecture/overview.md)
+  - [Overview](architecture/overview.md)
   - [Invariants](architecture/invariants.md)
 - Muse
-  - [Vue d'ensemble](muse/overview.md)
-  - [Moteur d'inspiration](muse/inspiration-engine.md)
+  - [Overview](muse/overview.md)
+  - [Inspiration engine](muse/inspiration-engine.md)
   - [Animations](muse/animations.md)
-- [Déploiement](deployment.md)
-- Références
+- [Deployment](deployment.md)
+- Reference
   - [ADR 001 — Muse](adr/001-muse.md)
-  - [Système de design](DESIGN-SYSTEM.md)
-  - [Audit 2026-07](AUDIT-2026-07.md)
+  - [Design system (FR)](DESIGN-SYSTEM.md)
+  - [Audit 2026-07 (FR)](AUDIT-2026-07.md)
+- —
+- [Français](fr/README.md)

@@ -1,119 +1,113 @@
 # Mocky
 
-Générateur d'écrans auto-hébergé : on décrit une interface en langage naturel, on
-obtient un composant **React + Tailwind** réel, compilé et rendu en direct sur un
-canevas infini.
+Mocky is a self-hosted screen generator. You describe an interface in plain
+language and get a real **React + Tailwind** component, compiled and rendered live
+on an infinite canvas.
 
-Cette documentation décrit le fonctionnement interne du projet — les décisions
-d'architecture et les raisons derrière celles qui ne sont pas évidentes. Elle
-suppose React et TypeScript connus ; elle ne les explique pas.
+These pages describe how the project is built and why the non-obvious decisions
+were made. They assume you know React and TypeScript.
 
-> Le `README.md` à la racine du dépôt reste la présentation produit (ce que Mocky
-> fait, comment l'installer vite). Ici on décrit **comment c'est construit**.
+> The repository `README.md` is the product overview: what Mocky does and how to
+> install it quickly. This documentation covers the internals.
 
 ---
 
-## Ce que Mocky est, en une page
+## The stack
 
-| | |
+| Layer | What it is |
 |---|---|
-| **Front** | React 18 · TypeScript · Vite · Tailwind CSS |
-| **Back** | Node ≥ 20.19 + Express — magasin de fichiers JSON, aucune base de données, aucune dépendance native |
-| **Rendu** | iframe `sandbox="allow-scripts"` (origine opaque), React/ReactDOM/Babel/Tailwind vendorisés, compilation JSX *dans* l'iframe |
-| **Modèles** | dialecte Ollama en interne, traduit vers les API compatibles OpenAI par le proxy `/__provider` |
-| **Binaire externe** | `ffmpeg`, et uniquement pour la vidéo au défilement |
-
-Le point le moins intuitif, et celui qui explique la moitié du code :
-
-> **Le pipeline de génération tourne dans le navigateur, pas sur le serveur.**
-
-Sélection des capacités, planificateur, génération, édition, réparation
-automatique, persistance : tout est côté client (`src/lib/`). Le backend est
-délibérément mince — fichiers statiques, comptes, synchronisation JSON par
-utilisateur, et un proxy modèle protégé contre le SSRF.
-
-La seule exception est **✨ Muse**, qui doit lancer des processus, piloter un
-navigateur headless et écrire des fichiers : ces étapes-là vivent dans
-`server/muse/`. C'est le premier vrai pipeline côté serveur du projet, et
-[l'ADR 001](adr/001-muse.md) explique pourquoi.
+| Front end | React 18, TypeScript, Vite, Tailwind CSS |
+| Back end | Node ≥ 20.19 with Express. JSON files on disk. No database, no native dependencies |
+| Preview | An iframe sandboxed to an opaque origin. React, ReactDOM, Babel and Tailwind are vendored locally. JSX is compiled inside the iframe |
+| Models | Mocky always speaks the Ollama dialect internally. A proxy translates to OpenAI-compatible APIs |
+| External binary | `ffmpeg`, used only for scroll-driven video |
 
 ---
 
-## Par où commencer
+## The one thing to know first
 
-| Vous voulez… | Allez à |
+**The generation pipeline runs in the browser, not on the server.**
+
+Capability selection, the planner, generation, editing, auto-repair and
+persistence all live in `src/lib/`. The back end is deliberately thin: it serves
+static files, handles accounts, syncs one JSON file per user, and proxies model
+requests.
+
+There is one exception. **Muse** has to spawn processes, drive a headless browser
+and write files, so its stages live in `server/muse/`. It is the project's first
+real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning.
+
+---
+
+## Where to start
+
+| If you want to… | Read |
 |---|---|
-| Installer et lancer Mocky, configurer un modèle | [Démarrage](getting-started.md) |
-| Comprendre le registre de capacités, le planificateur, le bac à sable | [Architecture — vue d'ensemble](architecture/overview.md) |
-| Savoir quelles règles le code refuse de violer, et pourquoi | [Invariants](architecture/invariants.md) |
-| Comprendre ce que Muse ajoute à une génération | [Muse — vue d'ensemble](muse/overview.md) |
-| Le détail de Discover → Distill → Dossier, MCP, `sources.json` | [Moteur d'inspiration](muse/inspiration-engine.md) |
-| Le système d'animations et sa liste fermée de presets | [Animations](muse/animations.md) |
-| Déployer (Docker, Coolify, reverse proxy, sauvegardes) | [Déploiement](deployment.md) |
+| Install Mocky and configure a model | [Getting started](getting-started.md) |
+| Understand the capability registry, the planner and the sandbox | [Architecture overview](architecture/overview.md) |
+| Know which rules the code refuses to break, and why | [Invariants](architecture/invariants.md) |
+| See what Muse adds to a generation | [Muse overview](muse/overview.md) |
+| Follow Discover, Distill and Dossier in detail | [Inspiration engine](muse/inspiration-engine.md) |
+| Understand the animation system | [Animations](muse/animations.md) |
+| Deploy Mocky | [Deployment](deployment.md) |
 
 ---
 
-## Le trajet d'une génération
+## What happens when you generate a screen
 
-```
-                    ┌──────────────────── NAVIGATEUR ────────────────────┐
- prompt ──────────► │                                                    │
-                    │  1. Muse (optionnel) ──► POST /api/muse/dossier ───┼──► SERVEUR
-                    │       Dossier de design + imagerie                 │     MCP · fetch
-                    │                                                    │     LLM · images
-                    │  2. selectCapabilities()  ── déterministe, sans LLM │
-                    │                                                    │
-                    │  3. planScreen()  ── optionnel, JSON structuré,     │
-                    │       3 s de délai, `null` sur le moindre échec     │
-                    │                                                    │
-                    │  4. applyAnimationMode()  ── auto | on | off        │
-                    │                                                    │
-                    │  5. generateComponent() ─► POST /__provider/api/chat┼──► FOURNISSEUR
-                    │       flux NDJSON, protocole sentinelle             │
-                    │                                                    │
-                    │  6. stripForbiddenMotion()  ── AST Babel            │
-                    │                                                    │
-                    │  7. <Preview> ── srcDoc + CSP + prélude + Babel      │
-                    └────────────────────────────────────────────────────┘
-```
+Seven steps. Steps 1 and 3 are optional.
 
-Chaque étape est détaillée dans [Architecture — vue d'ensemble](architecture/overview.md).
+| # | Step | Where | Notes |
+|---|---|---|---|
+| 1 | **Muse** builds a design dossier | Server, via `POST /api/muse/dossier` | Optional. Produces an art direction, real copy and a generated image |
+| 2 | **`selectCapabilities()`** picks a shortlist | Browser | Deterministic keyword matching. No model call |
+| 3 | **`planScreen()`** refines the shortlist | Browser | Optional. Returns `null` on any failure, and the shortlist is used unchanged |
+| 4 | **`applyAnimationMode()`** applies your motion preference | Browser | Three states: `auto`, `on`, `off` |
+| 5 | **`generateComponent()`** streams the component | Browser, via `POST /__provider/api/chat` | NDJSON stream, sentinel-delimited output |
+| 6 | **`stripForbiddenMotion()`** removes raw Motion code | Browser | Babel AST walk, never a regular expression |
+| 7 | **`<Preview>`** renders it | Browser | Sandboxed iframe with a strict CSP |
 
-Trois propriétés valent d'être notées tout de suite, parce qu'elles reviennent
-partout dans le code :
-
-- **Muse éteint ⇒ le pipeline est identique à l'octet près** à ce qu'il était
-  avant Muse (invariant M1). Le dossier entre par `extraSystem`, exactement là où
-  `DESIGN.md` entrait déjà.
-- **Aucune étape optionnelle n'a le droit de bloquer.** Le planificateur renvoie
-  `null` sur n'importe quelle défaillance ; une étape Muse qui échoue dégrade et
-  la génération continue.
-- **L'échec est statique, jamais cassé.** Un preset d'animation inconnu rend un
-  élément ordinaire ; une bibliothèque absente retombe sur du CSS ; une capacité
-  retirée continue d'être injectée pour les écrans qui l'utilisent.
+Each step is covered in the [architecture overview](architecture/overview.md).
 
 ---
 
-## Comment lire cette documentation
+## Three properties worth knowing up front
 
-Les fichiers sont servis **en direct** depuis `docs/` sur la branche `main` du
-dépôt : la page que vous lisez est le fichier Markdown, sans étape de build.
-Publier une correction, c'est pousser un commit.
+They explain a lot of the code you will read.
 
-Le lecteur — trois fichiers statiques Docsify, sans dépendance npm, sans CDN —
-vit dans `docs-site/` et n'a besoin d'être touché que pour une montée de version.
-Voir [Déploiement](deployment.md#la-documentation).
+**Muse off means nothing changes.** With the toggle off, the request sent to the
+model is byte-for-byte what it was before Muse existed. The dossier enters through
+`extraSystem`, the same parameter `DESIGN.md` already used.
+
+**No optional step may block.** The planner resolves to `null` on any failure. A
+Muse stage that fails degrades and the generation continues.
+
+**Failure is static, never broken.** An unknown animation preset renders a plain
+element. A missing library falls back to CSS. A retired capability is still
+injected for the screens that use it.
 
 ---
 
-## Références internes
+## How this documentation is served
 
-Ces documents vivaient déjà dans le dépôt et restent la source sur leurs sujets :
+The Markdown files are fetched live from `docs/` on the `main` branch. The page
+you are reading is the Markdown file itself, with no build step. Publishing a
+correction means pushing a commit.
 
-- [ADR 001 — Muse](adr/001-muse.md) — la décision d'architecture complète, y
-  compris la codification des huit invariants historiques.
-- [Système de design](DESIGN-SYSTEM.md) — les jetons, les thèmes Papier et Encre,
-  les primitives d'interface de Mocky lui-même (à ne pas confondre avec le
-  `DESIGN.md` que l'utilisateur fournit pour ses écrans générés).
-- [Audit 2026-07](AUDIT-2026-07.md) — l'audit multi-agents et sa feuille de
-  route, dont la plus grande partie est aujourd'hui appliquée.
+The viewer is three static Docsify files in `docs-site/`. It has no npm
+dependencies and loads nothing from a CDN. See
+[Deployment](deployment.md).
+
+**Ces pages existent aussi en français : [documentation française](fr/README.md).**
+
+---
+
+## Other documents in this repository
+
+These predate this documentation and remain authoritative on their subjects.
+
+| Document | Language | Subject |
+|---|---|---|
+| [ADR 001 — Muse](adr/001-muse.md) | English | The full architecture decision record, including the first written statement of the eight original invariants |
+| [Design system](DESIGN-SYSTEM.md) | French | Mocky's own interface tokens, the Papier and Encre themes, the UI primitives. Not to be confused with the `DESIGN.md` a user supplies for generated screens |
+| [Audit 2026-07](AUDIT-2026-07.md) | French | The multi-agent audit and its roadmap, most of which has since been applied |

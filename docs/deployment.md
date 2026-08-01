@@ -1,35 +1,36 @@
-# Déploiement
+# Deployment
 
-## L'image Docker
+## The Docker image
 
-`Dockerfile`, construction **multi-étages** sur `node:20-slim`.
+`Dockerfile` is a **multi-stage** build on `node:20-slim`.
 
-### Étage 1 — construction
+### Stage 1 — build
 
 ```dockerfile
 FROM node:20-slim AS builder
 COPY package.json package-lock.json ./
-RUN npm ci                 # toutes les dépendances, devDeps comprises
+RUN npm ci                 # all dependencies, devDependencies included
 COPY . .
 RUN npm run build          # tsc && vite build → dist/
 ```
 
-### Étage 2 — exécution
+### Stage 2 — runtime
 
 ```dockerfile
 FROM node:20-slim AS runtime
 RUN npm ci --omit=dev && npm cache clean --force
 ```
 
-Puis trois couches qui méritent chacune une explication.
+Then three layers that each need explaining.
 
-**`ffmpeg` (~120 Mo), au mieux.** Il découpe un clip généré en séquence JPEG
-(`server/videos/frames.js`). L'installation est enveloppée dans un `|| echo …` :
-un hôte de build sans `apt` ne doit pas faire échouer toute l'image. Sans ffmpeg,
-la vidéo au défilement **se déclare indisponible**, le dit dans le panneau Muse, et
-rien d'autre ne change.
+**`ffmpeg`, roughly 120 MB, best-effort.** It cuts a generated clip into a JPEG
+sequence (`server/videos/frames.js`).
 
-**Chromium + `fetcher-mcp` (~300 Mo), au mieux également.**
+The install is wrapped in a `|| echo …` so a build host without `apt` does not
+fail the whole image. Without ffmpeg, scroll-driven video **reports itself as
+unavailable**, says so in the Muse panel, and nothing else changes.
+
+**Chromium and `fetcher-mcp`, roughly 300 MB, also best-effort.**
 
 ```dockerfile
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -41,23 +42,22 @@ RUN (npm install -g "fetcher-mcp@${FETCHER_MCP_VERSION}" \
     || (echo "…" && touch /app/.no-chromium)
 ```
 
-Trois décisions y sont encodées :
+Three decisions are encoded there:
 
-- **Les versions sont épinglées.** `npx --yes playwright install` résolvait vers ce
-  qui avait été publié ce jour-là : deux builds du même commit pouvaient livrer des
-  navigateurs différents.
-- **`PLAYWRIGHT_BROWSERS_PATH` est posé AVANT l'installation, et hors de `/root`.**
-  Le conteneur ne tourne plus en root (voir `USER` plus bas) : un navigateur laissé
-  dans `/root/.cache` serait illisible à l'exécution.
-- **L'échec laisse une trace.** `/app/.no-chromium` est un marqueur que le serveur
-  peut rapporter, au lieu d'une ligne de log que personne ne lit.
+- **Versions are pinned.** `npx --yes playwright install` resolved to whatever
+  was published that day, so two builds of the same commit could ship different
+  browsers.
+- **`PLAYWRIGHT_BROWSERS_PATH` is set before the install, and outside `/root`.**
+  The container no longer runs as root (see `USER` below), so a browser left in
+  `/root/.cache` would be unreadable at runtime.
+- **Failure leaves a marker.** `/app/.no-chromium` is something the server can
+  report, instead of a log line nobody reads.
 
-La dégradation à l'exécution reste en place quoi qu'il arrive (M3/M5) : sans
-Chromium, Muse retombe sur `fetch` + Readability puis sur la bibliothèque de
-patterns hors ligne. Embarquer le navigateur supprime l'installation au premier
-lancement, pas le repli.
+Runtime degradation stays in place regardless (M3 and M5). Without Chromium, Muse
+falls back to `fetch` plus Readability, then to the offline pattern library.
+Bundling the browser removes the first-run install, not the fallback.
 
-**Les copies depuis le builder.**
+**The copies from the builder.**
 
 ```dockerfile
 COPY --from=builder /app/dist ./dist
@@ -66,17 +66,18 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/mocky.mcp.json ./mocky.mcp.json
 ```
 
-La dernière ligne n'est pas décorative. `server/muse/mcp/config.js` résout ce
-fichier relativement à `ROOT_DIR` (`/app`). Sans lui, l'hôte MCP démarre **zéro
-serveur** et l'inspiration live retombe silencieusement sur le dossier hors ligne —
-pendant que la couche Chromium a bien été payée au build. C'est arrivé, et la CI le
-vérifie désormais explicitement :
+That last line is not decoration. `server/muse/mcp/config.js` resolves the file
+relative to `ROOT_DIR`, which is `/app`.
+
+Without it the MCP host starts **zero** servers and live inspiration silently
+falls back to the offline dossier — while the Chromium layer has already been
+paid for at build time. This happened, and CI now checks for it:
 
 ```yaml
 - run: docker exec mocky-ci test -f /app/mocky.mcp.json
 ```
 
-### Le reste
+### The rest
 
 ```dockerfile
 RUN mkdir -p /app/server/data && chown -R node:node /app/server/data
@@ -90,10 +91,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 CMD ["node", "server/index.js"]
 ```
 
-Le `chown` est fait **avant** `USER node` pour que l'utilisateur non privilégié
-puisse écrire dans le répertoire de données — et pour que les fichiers du volume
-monté n'appartiennent pas à root, ce qui rendait les sauvegardes et le Docker
-rootless pénibles.
+The `chown` happens **before** `USER node` so the unprivileged user can write to
+the data directory — and so the files in a mounted volume are not root-owned,
+which made backups and rootless Docker painful.
 
 ---
 
@@ -127,63 +127,61 @@ volumes:
   mocky-data:
 ```
 
-| Commande | Effet |
+| Command | Effect |
 |---|---|
-| `docker compose up -d --build` | Construit et démarre en arrière-plan |
-| `docker compose logs -f` | Suit les journaux |
-| `docker compose ps` | État, y compris la sonde de santé |
-| `docker compose down` | Arrête et supprime le conteneur — **les données restent** |
-| `docker compose down -v` | Arrête et **supprime toutes les données** (volume retiré) |
+| `docker compose up -d --build` | Build and start in the background |
+| `docker compose logs -f` | Follow the logs |
+| `docker compose ps` | Status, including the health check |
+| `docker compose down` | Stop and remove the container. **Data is preserved** |
+| `docker compose down -v` | Stop and **delete all data** (the volume is removed) |
 
-`env_file` avec `required: false` est ce qui fait que `.env` est **facultatif** :
-sans cette section, rien de ce que contient `.env` n'atteindrait jamais le
-conteneur.
+`env_file` with `required: false` is what makes `.env` **optional**. Without that
+section, nothing in `.env` would ever reach the container.
 
-> `docker-compose.override.yml` est ignoré par git — délibérément. Compose le
-> charge par-dessus le fichier principal, donc un fichier commité suivrait
-> silencieusement le dépôt jusqu'à un vrai déploiement ; celui utilisé en local
-> épingle `MOCKY_ORIGIN` sur `http://localhost:8787`, ce qui est juste sur un
-> portable et faux partout ailleurs.
+> `docker-compose.override.yml` is git-ignored, deliberately. Compose loads it on
+> top of the main file, so a committed one would silently follow the repository
+> onto a real deployment. The local one pins `MOCKY_ORIGIN` to
+> `http://localhost:8787`, which is right on a laptop and wrong everywhere else.
 
 ---
 
-## Variables d'environnement
+## Environment variables
 
-**Toutes sont facultatives.** Mocky démarre sans aucune : les comptes se créent
-depuis l'écran de connexion, et le fournisseur de modèle se configure dans
-l'interface.
+**All of them are optional.** Mocky starts with none: accounts are created from
+the sign-in screen and the model provider is configured in the UI.
 
-| Variable | Défaut | Rôle |
+| Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `8787` | Port d'écoute d'Express |
-| `MOCKY_PORT` | *(non défini)* | **Prend le pas sur `PORT`.** Utile en dev : un harnais qui injecte `PORT` pour configurer Vite ne doit pas pousser le backend sur le port de Vite. À laisser vide en production |
-| `MOCKY_BIND` | `127.0.0.1` | **Docker uniquement** — l'interface hôte sur laquelle le port est publié |
-| `MOCKY_DATA_DIR` | `server/data` | Où vit le magasin JSON. À pointer vers un volume monté ailleurs si besoin |
-| `TRUST_PROXY` | *(non défini)* | `1`, un nombre de sauts, ou une valeur `trust proxy` d'Express. **Obligatoire derrière un reverse proxy** |
-| `NODE_ENV` | `production` | Sert au mode de service. La sécurité du cookie n'en dépend **pas** |
-| `SSO_SHARED_SECRET` | *(non défini)* | Secret HS256 partagé avec Dashy |
-| `SSO_DASHY_URL` | *(non défini)* | Origine publique de l'instance Dashy |
-| `MOCKY_ORIGIN` | *(auto-détectée)* | Origine publique de Mocky. **À poser explicitement dès que le SSO est actif** |
+| `PORT` | `8787` | The port Express listens on |
+| `MOCKY_PORT` | *(unset)* | **Overrides `PORT`.** Useful in development: a harness that injects `PORT` to configure Vite must not push the back end onto Vite's port. Leave it unset in production |
+| `MOCKY_BIND` | `127.0.0.1` | **Docker only** — the host interface the port is published on |
+| `MOCKY_DATA_DIR` | `server/data` | Where the JSON store lives. Point it at a mounted volume if needed |
+| `TRUST_PROXY` | *(unset)* | `1`, a hop count, or an Express `trust proxy` value. **Required behind a reverse proxy** |
+| `NODE_ENV` | `production` | Affects serving mode. Cookie security does **not** depend on it |
+| `SSO_SHARED_SECRET` | *(unset)* | The HS256 secret shared with Dashy |
+| `SSO_DASHY_URL` | *(unset)* | The public origin of your Dashy instance |
+| `MOCKY_ORIGIN` | *(auto-detected)* | Mocky's own public origin. **Set it explicitly whenever SSO is on** |
 
-### Le chargeur `.env` maison
+### The built-in `.env` loader
 
-`server/index.js` lit `<repo>/.env` au démarrage, sans dépendance :
+`server/index.js` reads `<repo>/.env` at startup, with no dependency:
 
 ```js
 const m = /^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/.exec(line.trim())
 if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '')
 ```
 
-Il **n'écrase pas** une valeur déjà présente dans l'environnement. Une variable
-posée par Docker, Coolify ou le shell gagne donc toujours sur `.env`.
+It **does not overwrite** a value already present in the environment. A variable
+set by Docker, Coolify or the shell therefore always wins over `.env`.
 
-### `TRUST_PROXY`, expliqué
+### Why `TRUST_PROXY` matters
 
-Sans lui, derrière Nginx ou Caddy, **chaque requête paraît venir de
-`127.0.0.1`** : la limitation de débit sur les routes d'authentification s'effondre
-en un seau unique partagé par toute l'instance. Neuf échecs de connexion en une
-minute — d'un seul utilisateur maladroit — et **plus personne ne peut se
-connecter**.
+Without it, behind Nginx or Caddy, **every request appears to come from
+`127.0.0.1`**. The rate limit on auth routes collapses into a single bucket
+shared by the whole instance.
+
+Nine failed logins in a minute — from one clumsy user — and **nobody can sign
+in**.
 
 ```js
 if (process.env.TRUST_PROXY) {
@@ -192,22 +190,22 @@ if (process.env.TRUST_PROXY) {
 }
 ```
 
-Il est **désactivé par défaut** parce que le défaut supposé est l'exposition
-directe : faire confiance à `X-Forwarded-For` sans proxy devant permettrait à
-n'importe qui de forger son IP et de contourner la limitation.
+It is **off by default** because the assumed default is direct exposure. Trusting
+`X-Forwarded-For` with no proxy in front would let anyone forge their IP and
+bypass the rate limit.
 
-### Exposer l'instance
+### Exposing the instance
 
-Le port est publié sur `127.0.0.1` par défaut. Plusieurs routes dépensent vos
-crédits modèle : c'est le défaut sûr.
+The port is published on `127.0.0.1` by default. Several routes spend your model
+credits, so that is the safe default.
 
-Pour exposer délibérément, `MOCKY_BIND=0.0.0.0` dans `.env` — et lisez d'abord la
-section reverse proxy. La combinaison recommandée est l'inverse : garder
-`127.0.0.1` et laisser le proxy joindre Mocky par la boucle locale.
+To expose it deliberately, set `MOCKY_BIND=0.0.0.0` in `.env` — and read the
+reverse proxy section first. The recommended setup is the opposite: keep
+`127.0.0.1` and let the proxy reach Mocky over the loopback interface.
 
 ---
 
-## Santé
+## Health
 
 ```bash
 curl -s localhost:8787/api/health
@@ -217,39 +215,35 @@ curl -s localhost:8787/api/health
 { "ok": true, "checks": { "dataWritable": true, "frontendBuilt": true } }
 ```
 
-Deux vérifications, choisies parce que ce sont **les deux choses qui cassent
-réellement une instance en fonctionnement** :
+Two checks, chosen because they are **the two things that actually break a
+running instance**:
 
-- `dataWritable` — le répertoire de données est-il inscriptible ? Comptes, sessions
-  et projets y vivent.
-- `frontendBuilt` — `dist/` existe-t-il ? C'est-à-dire : a-t-on lancé `npm start`
-  sans `npm run build` ?
+- `dataWritable` — is the data directory writable? Accounts, sessions and
+  projects live there.
+- `frontendBuilt` — does `dist/` exist? In other words, was `npm start` run
+  without `npm run build`?
 
-En cas d'échec : `503`, plus un champ `detail` qui **nomme** le problème, pour
-qu'un opérateur lisant la sortie de `docker inspect` sache quoi corriger.
+On failure it answers `503` plus a `detail` field that **names** the problem, so
+an operator reading `docker inspect` output knows what to fix.
 
-> La sonde interrogeait auparavant `/api/config`, qui répond `200` depuis la
-> mémoire dans les deux cas. Une instance inutilisable se déclarait donc
-> parfaitement saine.
+> The probe used to hit `/api/config`, which answers `200` from memory in both
+> cases. An unusable instance therefore reported itself perfectly healthy.
 
-Mocky refuse aussi de **démarrer** si son répertoire de données n'est pas
-inscriptible, avec un message qui explique quoi réparer, plutôt que d'échouer plus
-tard sur la première écriture.
+Mocky also refuses to **start** if its data directory is not writable, with a
+message explaining what to fix, rather than failing later on the first write.
 
 ---
 
-## Reverse proxy et HTTPS
+## Reverse proxy and HTTPS
 
-Derrière Nginx, Caddy ou Traefik :
+Behind Nginx, Caddy or Traefik:
 
-1. **Poser `TRUST_PROXY=1`.**
-2. **Poser `MOCKY_ORIGIN`** sur votre URL HTTPS publique — obligatoire si le SSO
-   est actif.
-3. **Garder `MOCKY_BIND=127.0.0.1`** et laisser le proxy joindre Mocky par la
-   boucle locale.
-4. **Terminer TLS au proxy.** Express ne le gère pas.
+1. **Set `TRUST_PROXY=1`.**
+2. **Set `MOCKY_ORIGIN`** to your public HTTPS URL. Required if SSO is enabled.
+3. **Keep `MOCKY_BIND=127.0.0.1`** and let the proxy reach Mocky over loopback.
+4. **Terminate TLS at the proxy.** Express does not handle it.
 
-Caddy :
+Caddy:
 
 ```
 mocky.example.com {
@@ -257,7 +251,7 @@ mocky.example.com {
 }
 ```
 
-Nginx :
+Nginx:
 
 ```nginx
 server {
@@ -274,23 +268,24 @@ server {
 }
 ```
 
-### Le cookie de session
+### The session cookie
 
 ```js
 secure: Boolean(req?.secure)
 ```
 
-Dérivé de la **connexion réelle**, pas de `NODE_ENV`. Une instance de production
-jointe en HTTP simple sur un réseau local poserait autrement un cookie `Secure` que
-le navigateur refuserait ensuite d'envoyer — et la connexion échouerait sans un
-mot d'explication. C'est aussi une raison de plus de poser `TRUST_PROXY` : sans
-lui, `req.secure` est faux derrière un proxy qui termine le TLS.
+Derived from the **actual connection**, not from `NODE_ENV`.
 
-Le cookie est `httpOnly`, `sameSite: 'lax'`, avec un `maxAge` de 90 jours. Le
-`maxAge` n'est qu'une indication pour le navigateur : l'expiration réelle est
-appliquée côté serveur, et les sessions périmées sont purgées au démarrage.
+A production instance reached over plain HTTP on a local network would otherwise
+set a `Secure` cookie that the browser then refuses to send, and sign-in would
+fail silently. This is one more reason to set `TRUST_PROXY`: without it,
+`req.secure` is false behind a TLS-terminating proxy.
 
-### En-têtes de sécurité
+The cookie is `httpOnly`, `sameSite: 'lax'`, with a 90-day `maxAge`. That
+`maxAge` is only a hint to the browser; real expiry is enforced server-side, and
+stale sessions are pruned at startup.
+
+### Security headers
 
 ```js
 res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -299,267 +294,288 @@ res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
 res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
 ```
 
-Pas de CSP sur l'application elle-même : les aperçus en bac à sable ont besoin de
-scripts en ligne. La CSP stricte est **dans le `srcDoc`** de chaque aperçu, là où
-tourne le code généré — voir
-[Architecture — vue d'ensemble](architecture/overview.md).
+There is no CSP on the application itself: the sandboxed previews need inline
+scripts. The strict CSP lives **inside each preview's `srcDoc`**, where the
+generated code actually runs. See the
+[architecture overview](architecture/overview.md).
 
-`x-powered-by` est explicitement désactivé : annoncer le framework et sa version
-offre gratuitement une liste d'exploits ciblés.
+`x-powered-by` is explicitly disabled. Advertising the framework and its version
+hands out a targeted exploit list for free.
 
 ---
 
-## Sauvegarde et restauration
+## Backup and restore
 
 ```bash
 docker compose cp mocky:/app/server/data ./server/data
 npm run backup                 # → backups/mocky-YYYY-MM-DD-HHmm.zip
 ```
 
-Restauration :
+To restore: stop Mocky, unzip the archive over `server/data`, then
 
 ```bash
-# arrêter Mocky, décompresser l'archive par-dessus server/data, puis :
 docker compose cp ./server/data mocky:/app/server/data
 docker compose restart
 ```
 
-`scripts/backup.mjs` est du Node pur et réutilise l'écrivain ZIP sans dépendance du
-dépôt : il se comporte identiquement sous Windows, macOS et Linux. La recette
-précédente — `docker run -v $(pwd):/backup alpine tar …` — **ne fonctionne pas**
-sous Windows : `$(pwd)` n'est pas de la syntaxe `cmd.exe`, et sous PowerShell il
-s'étend en un chemin pouvant contenir des espaces, ce qui casse l'argument `-v`.
+`scripts/backup.mjs` is plain Node and reuses the repository's dependency-free
+ZIP writer, so it behaves identically on Windows, macOS and Linux.
 
-**L'archive contient des empreintes de mots de passe et des jetons de session.**
-`backups/` est ignoré par git ; qu'il le reste.
+The previous recipe — `docker run -v $(pwd):/backup alpine tar …` — **does not
+work** on Windows. `$(pwd)` is not `cmd.exe` syntax, and under PowerShell it
+expands to a path that may contain spaces, which breaks the `-v` argument.
 
-Ce qui vit dans le volume `mocky-data` :
+**The archive contains password hashes and session tokens.** `backups/` is
+git-ignored; keep it that way.
 
-| Chemin | Contenu | Poids |
+What lives in the `mocky-data` volume:
+
+| Path | Contents | Size |
 |---|---|---|
-| `users.json`, `sessions.json`, `config.json`, `sso-jti.json` | comptes et sessions | minuscule |
-| `data-<uuid>.json` | projets + `DESIGN.md` d'un utilisateur | petit |
-| `text-config.json`, `images-config.json` | fournisseurs configurés — **secrets** | minuscule |
-| `muse-cache.json` | distillations, TTL 7 jours, texte | petit |
-| `image-library.json` + `image-library/` | la bibliothèque d'images | moyen |
-| `video-library/` | séquences : un clip + jusqu'à 150 images chacune | **de loin le plus lourd** |
+| `users.json`, `sessions.json`, `config.json`, `sso-jti.json` | Accounts and sessions | Tiny |
+| `data-<uuid>.json` | One user's projects and `DESIGN.md` | Small |
+| `text-config.json`, `images-config.json` | Configured providers — **secrets** | Tiny |
+| `muse-cache.json` | Distillations, 7-day TTL, text | Small |
+| `image-library.json` and `image-library/` | The image library | Medium |
+| `video-library/` | Sequences: one clip plus up to 150 frames each | **By far the largest** |
 
 ---
 
-## SSO — « Sign in with Dashy »
+## SSO — "Sign in with Dashy"
 
-Mocky peut déléguer l'authentification à une instance
-[Dashy](https://github.com/PetitOursManu/Dashy). C'est un flux de redirection de
-type OIDC ; **le secret partagé ne touche jamais le navigateur** (le JWT est
-vérifié côté serveur). Il est **désactivé tant que `SSO_SHARED_SECRET` et
-`SSO_DASHY_URL` ne sont pas tous deux définis**, et il n'interfère jamais avec la
-connexion par mot de passe.
+Mocky can delegate authentication to a
+[Dashy](https://github.com/PetitOursManu/Dashy) instance. It is a redirect flow
+of the OIDC kind, and **the shared secret never touches the browser** — the JWT
+is verified server-side.
 
-### Activer
+It is **disabled unless both `SSO_SHARED_SECRET` and `SSO_DASHY_URL` are set**,
+and it never interferes with password login.
 
-Générer un secret sans `openssl` (absent du `PATH` Windows standard) :
+### Enabling it
+
+Generate a secret without `openssl`, which is not on a standard Windows `PATH`:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
 ```
 
-Côté **Mocky** :
+On the **Mocky** side:
 
 ```bash
-SSO_SHARED_SECRET=<la valeur générée>
+SSO_SHARED_SECRET=<the value you just generated>
 SSO_DASHY_URL=https://dashy.example.com
 MOCKY_ORIGIN=https://mocky.example.com        # production
-# MOCKY_ORIGIN=http://localhost:5173          # dev — l'origine du SPA Vite, PAS :8787
+# MOCKY_ORIGIN=http://localhost:5173          # dev — the Vite SPA origin, NOT :8787
 ```
 
-Côté **Dashy** : le même `SSO_SHARED_SECRET`, et le rappel de Mocky dans la liste
-blanche :
+On the **Dashy** side: the same `SSO_SHARED_SECRET`, plus Mocky's callback in the
+allow-list:
 
 ```bash
 SSO_ALLOWED_REDIRECTS=https://mocky.example.com/sso/dashy/callback,http://localhost:5173/sso/dashy/callback
 ```
 
-Le serveur annonce l'état au démarrage, donc une faute de frappe dans un nom de
-variable se voit immédiatement :
+The server reports the state at startup, so a typo in a variable name shows
+immediately:
 
 ```
 Mocky backend on http://localhost:8787
 SSO: disabled (set SSO_SHARED_SECRET and SSO_DASHY_URL in .env to enable)
 ```
 
-### Le flux
+### The flow
 
-1. L'écran de connexion affiche **Sign in with Dashy**, uniquement quand le SSO est
-   actif.
-2. Un `state` opaque est stocké en `sessionStorage`, puis redirection vers
+1. The sign-in screen shows **Sign in with Dashy**, only when SSO is enabled.
+2. An opaque `state` is stored in `sessionStorage`, then the browser is
+   redirected to
    `${SSO_DASHY_URL}/api/sso/authorize?redirect_uri=<callback>&state=<state>`.
-3. Dashy authentifie l'utilisateur — **2FA comprise** — signe un JWT HS256 de
-   **60 secondes** et redirige vers
+3. Dashy authenticates the user — **including 2FA** — signs a 60-second HS256
+   JWT, and redirects to
    `${MOCKY_ORIGIN}/sso/dashy/callback?token=<jwt>&state=<state>`.
-4. Le backend vérifie la signature, `iss === "dashy"`, `aud === MOCKY_ORIGIN`,
-   `exp`, et que le `jti` n'a jamais servi ; puis il **trouve-ou-crée** le compte
-   lié à l'identité Dashy (par `sub`), pose le cookie et redirige vers
-   `/?sso=ok&state=…`.
-5. Le SPA vérifie que le `state` correspond, restaure la session et réconcilie les
-   projets — comme une connexion ordinaire.
+4. The back end verifies the signature, `iss === "dashy"`,
+   `aud === MOCKY_ORIGIN`, `exp`, and that the `jti` has never been used. It then
+   **finds or creates** the account linked to the Dashy identity by `sub`, sets
+   the cookie, and redirects to `/?sso=ok&state=…`.
+5. The SPA checks the returned `state`, restores the session, and reconciles
+   projects — exactly like a normal sign-in.
 
-### Ce que la vérification contrôle vraiment
+### What verification actually checks
 
-- L'en-tête doit déclarer `alg: HS256` — défense en profondeur contre la
-  substitution d'algorithme.
-- La signature est comparée en **temps constant** (`crypto.timingSafeEqual`), après
-  contrôle de longueur.
-- `iss`, `aud` et `exp` sont vérifiés séparément, avec des messages distincts.
-- Le `jti` est consommé une seule fois : `sso-jti.json` conserve les identifiants
-  utilisés et purge tout ce qui dépasse 10 minutes (le jeton vit 60 s, plus une
-  marge).
-- Un échec **ne rend pas une page blanche** : l'utilisateur est renvoyé vers
-  l'application avec `?sso=error&reason=…`.
+- The header must declare `alg: HS256` — defence in depth against algorithm
+  substitution.
+- The signature is compared in **constant time** with `crypto.timingSafeEqual`,
+  after a length check.
+- `iss`, `aud` and `exp` are checked separately, with distinct messages.
+- The `jti` is consumed once. `sso-jti.json` keeps used ids and prunes anything
+  older than 10 minutes — the token lives 60 seconds, plus margin.
+- A failure **does not produce a blank page**: the user is sent back to the app
+  with `?sso=error&reason=…`.
 
-### Le contrat de jeton
+### The token contract
 
-Claims : `sub` (identifiant Dashy stable), `email`, `name?`, `role`,
-`iss="dashy"`, `aud=<origine Mocky>`, `iat`, `exp`, `jti`. Le jeton **prouve une
-identité, rien de plus** : il ne donne aucun accès à l'API de Dashy.
+Claims: `sub` (a stable Dashy user id), `email`, `name?`, `role`, `iss="dashy"`,
+`aud=<Mocky origin>`, `iat`, `exp`, `jti`.
 
-Les comptes créés par SSO n'ont **pas de mot de passe** et ne peuvent se connecter
-que par Dashy. Un `admin` Dashy devient un `admin` Mocky. Les comptes Mocky
-existants ne sont **jamais** liés automatiquement : le lien se fait uniquement par
-`dashySub`, que seuls les comptes créés par SSO portent.
+The token **proves an identity and nothing more**. It grants no access to Dashy's
+own API.
 
-Un utilisateur SSO qui a aussi défini un mot de passe Mocky garde le nom
-d'utilisateur qu'il a choisi ; seuls les comptes purement SSO suivent le nom
-d'affichage de Dashy.
+SSO-created accounts have **no password** and can only sign in through Dashy. A
+Dashy `admin` maps to a Mocky `admin`. Existing Mocky accounts are **never**
+auto-linked: linking happens only by `dashySub`, which only SSO-created accounts
+carry.
+
+An SSO user who has also set a Mocky password keeps their chosen username. Only
+SSO-only accounts follow the Dashy display name.
 
 ---
 
 ## Coolify
 
-> **TODO: verify.** Le dépôt ne contient **aucun fichier de configuration
-> Coolify** — pas de `nixpacks.toml`, pas de manifeste, aucune référence à Coolify
-> dans le code ni dans la CI. Les ressources Coolify de ce projet ont été créées
-> et configurées à la main, hors dépôt. Ce qui suit est donc la traduction du
-> `Dockerfile` et du `docker-compose.yml` **réellement présents** vers ce que
-> Coolify demande — à confirmer contre la configuration en place avant de s'y fier.
+> **TODO: verify.** The repository contains **no Coolify configuration** — no
+> `nixpacks.toml`, no manifest, no reference to Coolify in the code or in CI.
+> This project's Coolify resources were created and configured by hand, outside
+> the repository.
+>
+> What follows is a translation of the `Dockerfile` and `docker-compose.yml` that
+> **are** present into what Coolify asks for. Confirm it against the actual
+> configuration before relying on it.
 
-### Ressource 1 — l'application Mocky
+### Resource 1 — the Mocky application
 
-| Réglage Coolify | Valeur | Pourquoi |
+| Coolify setting | Value | Why |
 |---|---|---|
-| Type de build | **Dockerfile** | L'image est déjà multi-étages et complète. Ne pas laisser Nixpacks deviner : il manquerait `ffmpeg` et Chromium |
+| Build type | **Dockerfile** | The image is already multi-stage and complete. Do not let Nixpacks guess: it would miss `ffmpeg` and Chromium |
 | Dockerfile | `./Dockerfile` | |
-| Port exposé | `8787` | `EXPOSE 8787`, et `PORT` vaut `8787` par défaut |
-| Health check | `GET /api/health` | Répond `503` avec un `detail` quand quelque chose manque |
-| Volume persistant | → `/app/server/data` | Comptes, projets, bibliothèques. **Sans lui, tout disparaît à chaque redéploiement** |
-| Domaine | votre domaine HTTPS | Le proxy de Coolify termine le TLS |
+| Exposed port | `8787` | `EXPOSE 8787`, and `PORT` defaults to `8787` |
+| Health check | `GET /api/health` | Answers `503` with a `detail` when something is missing |
+| Persistent volume | mounted at `/app/server/data` | Accounts, projects, libraries. **Without it, everything is lost on each redeploy** |
+| Domain | your HTTPS domain | Coolify's proxy terminates TLS |
 
-Variables à poser dans Coolify :
+Variables to set in Coolify:
 
 ```bash
-TRUST_PROXY=1                              # le proxy de Coolify est devant
-MOCKY_ORIGIN=https://mocky.example.com     # obligatoire dès que le SSO est actif
+TRUST_PROXY=1                              # Coolify's proxy sits in front
+MOCKY_ORIGIN=https://mocky.example.com     # required as soon as SSO is on
 # SSO_SHARED_SECRET=…
 # SSO_DASHY_URL=https://dashy.example.com
 ```
 
-`MOCKY_BIND` **ne sert à rien ici** : c'est une variable de `docker-compose.yml`
-qui décide de l'interface hôte de publication du port. Coolify gère la publication
-lui-même.
+`MOCKY_BIND` is **not used here**. It is a `docker-compose.yml` variable that
+decides which host interface the port is published on; Coolify handles publishing
+itself.
 
-Quatre points d'attention propres à cette image :
+Four things specific to this image:
 
-- **La taille.** Environ 300 Mo de Chromium plus environ 120 Mo de ffmpeg s'ajoutent
-  à `node:20-slim`. Prévoyez le disque de build, et un premier build lent.
-- **Le premier build peut échouer partiellement sans échouer.** Les deux couches
-  sont volontairement « au mieux ». Si le réseau de build a flanché, l'image
-  démarre quand même : la vidéo se déclare indisponible et Muse retombe sur ses
-  patterns hors ligne. Vérifiez `GET /api/mcp/status` et
-  `GET /api/videos/availability` après un déploiement.
-- **Le conteneur tourne en `node`, pas en root.** Un volume monté doit être
-  inscriptible par cet utilisateur, sinon Mocky refuse de démarrer — avec un
-  message qui le dit.
-- **L'arrêt gracieux compte.** `SIGTERM` déclenche la fermeture des serveurs MCP
-  avant celle du serveur HTTP, avec un filet de 3 s. Laissez à Coolify un délai
-  d'arrêt d'au moins ces 3 secondes, sinon des processus enfants peuvent survivre.
+**Size.** Roughly 300 MB of Chromium plus 120 MB of ffmpeg on top of
+`node:20-slim`. Plan for the build disk, and for a slow first build.
 
-### Ressource 2 — la documentation
+**The first build can partly fail without failing.** Both layers are deliberately
+best-effort. If the build network hiccupped, the image still starts: video
+reports itself unavailable and Muse falls back to its offline patterns. Check
+`GET /api/mcp/status` and `GET /api/videos/availability` after a deploy.
 
-Voir la section suivante. C'est une ressource **statique**, entièrement séparée :
-pas de build, pas de Node, pas de volume.
+**The container runs as `node`, not root.** A mounted volume must be writable by
+that user, otherwise Mocky refuses to start — with a message that says so.
+
+**Graceful shutdown matters.** `SIGTERM` triggers closing the MCP servers before
+the HTTP server, with a 3-second net. Give Coolify a stop timeout of at least
+those 3 seconds, or child processes may survive.
+
+### Resource 2 — the documentation
+
+See the next section. It is a **static** resource, entirely separate: no build,
+no Node, no volume.
 
 ---
 
-## La documentation
+## The documentation
 
-Deux dossiers, deux ressources, délibérément découplés.
+Two folders, two resources, deliberately decoupled.
 
-```
-docs/          le contenu — des fichiers Markdown, rien d'autre
-docs-site/     le lecteur — quatre fichiers statiques
-```
+- **`docs/`** — the content. Markdown files, nothing else.
+- **`docs-site/`** — the viewer. Four static files.
 
-### Comment ça marche
+### How it works
 
-`docs-site/index.html` charge Docsify depuis `./vendor/` et pose :
+`docs-site/index.html` loads Docsify from `./vendor/` and sets:
 
 ```js
 basePath: 'https://raw.githubusercontent.com/PetitOursManu/Mocky/main/docs/'
 ```
 
-Le lecteur va donc chercher le Markdown **directement sur GitHub, à chaque
-affichage de page**. Conséquences :
+The viewer therefore fetches the Markdown **directly from GitHub on every page
+view**. Three consequences:
 
-- **Aucune étape de build, jamais.** Publier de la documentation, c'est pousser un
-  `.md` sur `main`. Le site le sert à la requête suivante.
-- **Le site n'a pas besoin d'être redéployé** quand le contenu change. Il ne bouge
-  que pour une montée de version de Docsify.
-- Le contenu doit rester **public** : `raw.githubusercontent.com` sur un dépôt privé
-  demanderait un jeton, que l'on ne peut pas mettre dans une page statique.
+- **There is no build step, ever.** Publishing documentation means pushing a
+  `.md` to `main`. The site serves it on the next request.
+- **The site does not need redeploying** when content changes. It only moves for
+  a Docsify version bump.
+- The content must stay **public**. `raw.githubusercontent.com` on a private
+  repository would require a token, which a static page cannot hold.
 
-### Déployer `docs-site/`
+### Deploying `docs-site/`
 
-N'importe quel hébergement statique convient. Sur Coolify : une ressource
-**statique**, répertoire de publication `docs-site/`, aucune commande de build,
-aucun volume.
+Any static host works. On Coolify: a **static** resource, publish directory
+`docs-site/`, no build command, no volume.
 
-Les quatre fichiers :
+The four files:
 
-```
-docs-site/
-  index.html
-  vendor/
-    docsify.min.js          docsify 4.13.1 — lib/docsify.min.js
-    docsify-theme.css       docsify 4.13.1 — lib/themes/vue.css (patché)
-    docsify-search.min.js   docsify 4.13.1 — lib/plugins/search.min.js
-```
+| File | Origin |
+|---|---|
+| `index.html` | Written for this project |
+| `vendor/docsify.min.js` | docsify 4.13.1 — `lib/docsify.min.js` |
+| `vendor/docsify-theme.css` | docsify 4.13.1 — `lib/themes/vue.css`, patched |
+| `vendor/docsify-search.min.js` | docsify 4.13.1 — `lib/plugins/search.min.js` |
 
-### Pourquoi Docsify est vendorisé
+### Why Docsify is vendored
 
-La même règle que `public/vendor/` côté application, pour la même raison. Le thème
-amont commence par :
+The same rule as `public/vendor/` on the application side, for the same reason.
+
+The upstream theme opens with:
 
 ```css
 @import url("https://fonts.googleapis.com/css?family=Roboto+Mono|Source+Sans+Pro:300,400,600");
 ```
 
-C'est une requête à un CDN tiers à chaque chargement de page — exactement la
-dépendance que la copie locale existe pour supprimer. La ligne a été retirée, et le
-retrait est documenté en tête du fichier. Les deux familles déclarent déjà des
-polices de repli locales dans les règles qui suivent, donc rien d'autre ne change.
+That is a request to a third-party CDN on every page load — exactly the
+dependency the local copy exists to remove. The line was removed and the removal
+is documented at the top of the file. Both families already declare local
+fallbacks in the rules below, so nothing else changes.
 
-**À réappliquer après toute montée de version de Docsify.**
+**Re-apply this after any Docsify version bump.**
 
-### Ajouter une page
+### Languages
 
-1. Créer le `.md` sous `docs/`.
-2. L'ajouter à `docs/_sidebar.md`.
-3. Pousser.
+English is the default and lives at the root of `docs/`. French lives under
+`docs/fr/`, with its own `_sidebar.md`.
 
-Deux règles pour que les liens fonctionnent :
+`index.html` maps every nested sidebar request back to the right one:
 
-- **Toujours écrire les chemins depuis la racine de `docs/`**, jamais relativement
-  à la page courante. Depuis `architecture/overview.md`, on écrit
-  `architecture/invariants.md`, pas `invariants.md` — Docsify résout tout depuis
-  `basePath`.
-- `docs/README.md` est la page d'accueil **obligatoire** de Docsify. Sans elle, le
-  site affiche une erreur de chargement silencieuse au premier affichage.
+```js
+alias: {
+  '/fr/.*_sidebar.md': '/fr/_sidebar.md',
+  '/.*_sidebar.md': '/_sidebar.md',
+}
+```
+
+Order matters: the `/fr/` rule must come first, because Docsify returns the first
+match and `/.*/_sidebar.md` would also match a French path.
+
+`fallbackLanguages: ['fr']` means a French page that does not exist falls back to
+its English equivalent instead of showing an error.
+
+### Adding a page
+
+1. Create the `.md` file under `docs/`, and its translation under `docs/fr/`.
+2. Add it to `docs/_sidebar.md` and `docs/fr/_sidebar.md`.
+3. Push.
+
+Two rules make links work:
+
+**Always write paths from the root of `docs/`**, never relative to the current
+page. From `architecture/overview.md`, write `architecture/invariants.md`, not
+`invariants.md`. Docsify resolves everything from `basePath`.
+
+**`docs/README.md` is Docsify's required homepage.** Without it the site shows a
+silent fetch error on first load. The same applies to `docs/fr/README.md` for the
+French tree.

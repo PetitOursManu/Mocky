@@ -1,276 +1,286 @@
-# Architecture — vue d'ensemble
+# Architecture overview
 
-## 1. Où vit chaque chose
+## 1. Where things live
 
-Le fait le plus structurant du projet :
+The single most structural fact about the project:
 
-> **Le pipeline de génération tourne dans le navigateur.**
+> **The generation pipeline runs in the browser.**
 
-| Préoccupation | Emplacement | Fichiers |
+| Concern | Runs in | Files |
 |---|---|---|
-| Sélection des capacités (déterministe) | **Navigateur** | `src/lib/capabilities/select.ts` |
-| Planificateur (optionnel, sortie structurée) | **Navigateur** | `src/lib/plan.ts` |
-| Génération / édition / réparation (flux) | **Navigateur** | `src/lib/generate.ts` |
-| Orchestration du pipeline, phases | **Navigateur** (React) | `src/components/ProjectView.tsx` |
-| Pont `DESIGN.md` (préambule, jetons, export) | **Navigateur** | `src/lib/design.ts`, `designTokens.ts`, `export/` |
-| Rendu bac à sable (iframe origine nulle, Babel vendorisé) | **Navigateur** | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
-| Persistance | **`localStorage`**, miroir serveur si connecté | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
-| Comptes, SSO, synchronisation JSON, proxy modèle | **Serveur** | `server/index.js`, `server/provider-proxy.js` |
-| Muse : MCP, fetch, distillation, dossier | **Serveur** | `server/muse/` |
-| Images, vidéos, bibliothèques | **Serveur** | `server/images/`, `server/videos/` |
+| Capability selection (deterministic) | Browser | `src/lib/capabilities/select.ts` |
+| Planner (optional, structured output) | Browser | `src/lib/plan.ts` |
+| Generation, editing, repair (streamed) | Browser | `src/lib/generate.ts` |
+| Pipeline orchestration and phases | Browser (React) | `src/components/ProjectView.tsx` |
+| `DESIGN.md` bridge (preamble, tokens, export) | Browser | `src/lib/design.ts`, `designTokens.ts`, `export/` |
+| Sandboxed render | Browser | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
+| Persistence | `localStorage`, mirrored to the server when signed in | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
+| Accounts, SSO, JSON sync, model proxy | Server | `server/index.js`, `server/provider-proxy.js` |
+| Muse: MCP, fetching, distillation, dossier | Server | `server/muse/` |
+| Images, videos, libraries | Server | `server/images/`, `server/videos/` |
 
-Le backend est volontairement mince : **fichiers JSON sous `server/data/`, aucune
-base de données, aucune dépendance native** (`express` + `cookie-parser`, plus
-`@modelcontextprotocol/sdk` et `zod` pour Muse). Les écritures sont atomiques
-(fichier temporaire puis `rename`) : un crash en cours d'écriture ne laisse jamais
-de fichier à moitié écrit. Cette posture « pas de base, pas de natif » est un
-invariant de fait, et l'image `node:20-slim` en dépend.
+The back end is deliberately small: JSON files under `server/data/`, no database,
+no native dependencies. The runtime dependencies are `express`, `cookie-parser`,
+plus `@modelcontextprotocol/sdk` and `zod` for Muse.
+
+Writes are atomic — write to a temporary file, then rename. A crash mid-write
+never leaves a half-written file.
+
+This "no database, no native dependencies" posture is a de facto invariant, and
+the `node:20-slim` image depends on it holding.
 
 ---
 
-## 2. Le registre de capacités
+## 2. The capability registry
 
-Une **capacité** est ce que Mocky injecte dans l'aperçu pour qu'un composant
-généré dispose de quelque chose qu'il n'a pas écrit lui-même. Trois formes,
-déclarées dans `src/lib/capabilities/types.ts` :
+A **capability** is something Mocky injects into the preview so a generated
+component can use code it did not write itself. There are three kinds, declared
+in `src/lib/capabilities/types.ts`:
 
 ```ts
 export type CapabilityKind = 'cdn-script' | 'cdn-css' | 'snippet-pack'
 ```
 
-- **`snippet-pack`** — du JSX brut, en chaîne, préfixé au code généré **avant**
-  `Babel.transform`. C'est la forme dominante.
-- **`cdn-css`** — une balise `<link>`.
-- **`cdn-script`** — une balise `<script>` qui expose un global.
+- **`snippet-pack`** — plain JSX, held as a string, prepended to the generated
+  code *before* `Babel.transform`. This is the dominant kind.
+- **`cdn-css`** — a `<link>` tag.
+- **`cdn-script`** — a `<script>` tag that exposes a global.
 
-Les noms `cdn-*` sont historiques. **Aucune capacité ne pointe vers un tiers** :
-`daisyui` charge `/vendor/daisyui.min.css` et `motion-lib` charge
-`/vendor/motion.js`, tous deux servis par le serveur qui sert la page. C'est
-l'[invariant I3](architecture/invariants.md), et il porte sur
-la *dépendance*, pas sur la forme de la balise.
+The `cdn-*` names are historical. **No capability points at a third party.**
+`daisyui` loads `/vendor/daisyui.min.css` and `motion-lib` loads
+`/vendor/motion.js`, both served by the same server that served the page. That is
+[invariant I3](architecture/invariants.md), and it is about the *dependency*, not
+about the shape of the tag.
 
-### Le registre livré
+### What ships
 
-| id | Genre | Déclencheurs | Ce que ça donne |
+| id | Kind | Triggers | Provides |
 |---|---|---|---|
-| `icons` | snippet-pack | **baseline** — toujours | `Icon.*` — 42 icônes SVG en ligne (+ 3 alias `GitHub`/`LinkedIn`/`YouTube`) |
-| `daisyui` | cdn-css | `daisy`, `semantic`, `btn`, `card component`… | Feuille de style vendorisée, classes sémantiques |
+| `icons` | snippet-pack | baseline, always selected | `Icon.*` — 42 inline SVG icons, plus 3 aliases (`GitHub`, `LinkedIn`, `YouTube`) |
+| `daisyui` | cdn-css | `daisy`, `semantic`, `btn`, `card component`… | A vendored stylesheet of semantic classes |
 | `charts` | snippet-pack | `chart`, `graph`, `dashboard`, `analytics`, `sparkline`… | `BarChart`, `LineChart`, `DonutChart`, `Sparkline`, `ProgressRing` |
-| `motion` | snippet-pack | **aucun** — `retired: true` | `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`, `BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`, `AnimatedBeam` |
-| `motion-lib` | cdn-script | **aucun** — tiré par `requires` | `window.Motion` depuis `/vendor/motion.js` |
-| `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp` — `requires: ['motion-lib']` |
-| `scrollvideo` | snippet-pack | **aucun** — ajouté à la main | `ScrollSequence` |
+| `motion` | snippet-pack | none — `retired: true` | `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`, `BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`, `AnimatedBeam` |
+| `motion-lib` | cdn-script | none — pulled in by `requires` | `window.Motion`, from `/vendor/motion.js` |
+| `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Declares `requires: ['motion-lib']` |
+| `scrollvideo` | snippet-pack | none — added explicitly | `ScrollSequence` |
 
-### Sélection : `selectCapabilities()`
+### Selection
 
-Déterministe, sans LLM. Le prompt utilisateur et le `DESIGN.md` actif sont
-concaténés, mis en minuscules, puis chaque capacité est retenue si **au moins un**
-de ses mots-clés ou intentions apparaît en sous-chaîne. Ensuite :
+`selectCapabilities()` is deterministic and calls no model.
 
-1. les capacités `baseline` sont ajoutées d'office ;
-2. `requires` est résolu transitivement (`animate` tire `motion-lib`) ;
-3. `conflictsWith` retire les conflits.
+It concatenates the user prompt and the active `DESIGN.md`, lowercases the
+result, and selects a capability if **any** of its keywords or intents appears as
+a substring. Then:
 
-C'est volontairement grossier. Le raffinement, quand il a lieu, vient du
-planificateur — et le planificateur ne peut que **choisir dans cette liste**,
-jamais l'élargir.
+1. baseline capabilities are always added;
+2. `requires` is resolved transitively, so `animate` pulls in `motion-lib`;
+3. `conflictsWith` removes conflicting entries.
 
-### Deux capacités sans déclencheurs, pour deux raisons opposées
+This is deliberately coarse. Refinement, when it happens, comes from the planner.
+The planner can only **choose from this list**, never extend it.
 
-**`motion` est retirée.** `<Animated>` l'a remplacée. La supprimer du registre
-aurait été le geste évident et un bug : les identifiants de capacités sont
-**persistés sur chaque écran** (`Screen.caps`), donc un écran généré la semaine
-dernière demande encore `motion` au moment du rendu. Sans l'entrée, son prélude
-n'est plus injecté, `FadeIn` et `Marquee` deviennent indéfinis, et chacun de ces
-écrans lève une exception. Donc : aucun déclencheur (la présélection ne peut
-jamais la choisir) et `retired: true`, qui la **retire de la documentation lue par
-le modèle**. Les anciens écrans continuent de fonctionner exactement comme avant ;
-les nouveaux ne voient jamais que `<Animated>`.
+### Two capabilities with no triggers, for opposite reasons
 
-**`scrollvideo` n'est jamais devinée.** Le composant est inutile sans un `base` et
-un nombre de `frames`, qui n'existent qu'une fois Muse ayant réellement payé un
-clip. Il est ajouté à la génération quand une séquence a été produite, et
-seulement là — un écran à qui l'on offrirait `<ScrollSequence>` sans rien à
-montrer afficherait un rectangle noir haut de trois écrans.
+**`motion` is retired.** `<Animated>` replaced it.
 
-### Validation au chargement du module
+Deleting the entry from the registry would have been the obvious move and would
+have been a bug. Capability ids are **persisted on every screen** in
+`Screen.caps`, so a screen generated last week still asks for `motion` at render
+time. Without the entry its prelude is no longer injected, `FadeIn` and `Marquee`
+become undefined, and every one of those screens throws.
+
+So it keeps no triggers, which means the shortlist can never pick it, plus
+`retired: true`, which removes it from the capability documentation the model
+reads. Old screens keep rendering exactly as before; new screens only ever see
+`<Animated>`.
+
+**`scrollvideo` is never guessed.** The component is useless without a `base` URL
+and a frame count, and those exist only once Muse has actually paid for a clip.
+It is added at generation time when a sequence was produced, and only then. A
+screen offered `<ScrollSequence>` with nothing to draw would render a black box
+three viewports tall.
+
+### Validation at module load
 
 ```js
 validatePack(id, components, snippets)
 ```
 
-s'exécute pour chaque `snippet-pack` à l'import du registre et **lève** dans les
-deux sens : un composant documenté que le snippet n'exporte pas, ou un export
-sans métadonnées de composant. La liste `exports` est écrite à la main, jamais
-déduite du code source — c'est l'[invariant I1](architecture/invariants.md)
-appliqué au prélude lui-même.
+This runs for every `snippet-pack` when the registry is imported, and it throws
+in both directions: a documented component that no snippet exports, or an export
+with no component metadata.
 
-### Le prélude
+The `exports` list is written by hand, never derived from the source. That is
+[invariant I1](architecture/invariants.md) applied to the prelude itself.
 
-`buildPrelude(caps)` concatène le helper `cn()` puis **la totalité** des sources
-de chaque `snippet-pack` retenu. Les packs sont **atomiques** : jamais un
-sous-ensemble, jamais un filtrage par composant. Chaque source passe par
-`sanitizeSource()`.
+### The prelude
+
+`buildPrelude(caps)` concatenates the `cn()` helper, then **all** the sources of
+every selected snippet-pack.
+
+Packs are **atomic**: never a subset, never filtered per component. Every source
+passes through `sanitizeSource()`.
 
 ---
 
-## 3. Le planificateur
+## 3. The planner
 
-`src/lib/plan.ts` — une passe LLM **non diffusée**, bon marché, qui décide de la
-structure de l'écran et des capacités réellement nécessaires, avant la génération.
+`src/lib/plan.ts` is a cheap, non-streamed model call that decides the screen's
+structure and which capabilities it actually needs, before generation runs.
 
 ```ts
 options: { temperature: 0.2, num_ctx: 8192, num_predict: 1024 }
-format: PLAN_SCHEMA     // sortie structurée Ollama
+format: PLAN_SCHEMA     // Ollama structured output
 stream: false
 ```
 
-Délai par défaut : **3 000 ms**.
+The default timeout is 3 000 ms.
 
-Règle dure : **le planificateur ne doit jamais bloquer ni casser une génération.**
-Erreur réseau, dépassement de délai, réponse non-JSON, mauvaise forme : tout
-résout à `null`, et l'appelant retombe **silencieusement** sur la présélection
-déterministe. C'est pour cela que ce module fait son propre `fetch` au lieu de
-réutiliser `chat()`, qui lève.
+**The planner must never block or break a generation.** A network error, a
+timeout, a non-JSON reply, a wrong shape: all of them resolve to `null`, and the
+caller silently falls back to the deterministic shortlist. That is why this
+module does its own `fetch` instead of reusing `chat()`, which throws.
 
-`validatePlan()` filtre les identifiants de capacités retournés : seuls ceux qui
-existent dans le registre **et** figurent dans la présélection survivent — les
-hallucinations disparaissent. Les capacités `baseline` sont systématiquement
-réinjectées, donc le planificateur ne peut pas les faire tomber.
+`validatePlan()` filters the returned capability ids. Only ids that exist in the
+registry **and** appear in the shortlist survive, so hallucinated ids disappear.
+Baseline capabilities are always re-added, so the planner cannot drop them.
 
-Le plan validé devient une section de texte brut (`planToPromptSection`) ajoutée
-au message système. La sortie structurée est sûre ici parce que l'appel est petit
-et non diffusé ; elle n'est **jamais** utilisée pour la génération de code, ce qui
-casserait à la fois l'aperçu en direct et le protocole sentinelle.
+The validated plan becomes a plain-text section appended to the system message.
+Structured output is safe here because the call is small and not streamed. It is
+**never** used for code generation, which would break both the live preview and
+the sentinel protocol.
 
-Le planificateur est **sauté quand Muse a tourné** : le dossier fournit déjà la
-structure.
+The planner is **skipped when Muse ran**, because the dossier already supplies
+the structure.
 
 ---
 
-## 4. Génération
+## 4. Generation
 
-### Le protocole sentinelle
+### The sentinel protocol
 
-Le modèle est prié d'encadrer sa sortie :
+The model is asked to wrap its output:
 
 ```
 <<<MOCKY>>>
-…le composant complet…
+…the complete component…
 <<<END>>>
 ```
 
-Pas de barrières Markdown. La raison est le streaming : on peut extraire du code
-partiel dès qu'il arrive, sans attendre une fence fermante.
+Not Markdown fences. The reason is streaming: partial code can be extracted as
+soon as it arrives, without waiting for a closing fence.
 
-`extractCode()` gère trois cas, dans l'ordre : sentinelles, bloc de code
-historique (compatibilité ascendante), contenu brut.
+`extractCode()` tries three things in order: sentinels, a legacy fenced code
+block for backward compatibility, then the raw content.
 
-La sentinelle fermante est acceptée **telle qu'elle arrive**, pas telle qu'elle
-est demandée. Un écran réel s'est terminé par :
+#### Why the closing sentinel is matched loosely
+
+The closing sentinel is accepted **as it arrives**, not as it was requested. One
+real screen ended like this:
 
 ```
 const __mockyDefault = App
 <<<END>>ablytyped
 ```
 
-— un `>` manquant, avec un fragment de prose soudé. `indexOf('<<<END>>>')` ne
-trouvait rien, la queue était conservée **comme du code**, et chaque compilation
-ultérieure de cet écran mourait sur « Unterminated JSX contents ». `<<<` n'est
-valide nulle part en JavaScript hors chaîne : dès qu'il apparaît en tête d'une
-sentinelle possible, le code est fini. `stripTrailingSentinel()` coupe là, à
-l'extraction **et** au rendu — les écrans déjà stockés avec une queue corrompue
-guérissent à leur prochain chargement plutôt que d'échouer pour toujours.
+One `>` short, with a fragment of prose welded on. `indexOf('<<<END>>>')` found
+nothing, so the tail was kept **as code**, and every later compile of that screen
+died on "Unterminated JSX contents".
 
-### Paramètres
+`<<<` is not valid JavaScript anywhere outside a string. The moment it appears at
+the start of a would-be sentinel, the code is over. `stripTrailingSentinel()`
+cuts there, both at extraction and at render, so screens already stored with a
+corrupted tail heal on their next load instead of failing forever.
+
+### Parameters
 
 ```ts
 options: { temperature: 0.4, num_ctx: 32768, num_predict: 16384 }
 ```
 
-Un écran complet dépasse facilement 8 k jetons ; quand le plafond tombe, le code
-est coupé en pleine chaîne et l'aperçu affiche une erreur de syntaxe
-incompréhensible. `num_predict` doit rester **strictement positif**
-([invariant I8](architecture/invariants.md)).
+A full screen easily exceeds 8 000 tokens. When the cap is hit the code is cut
+mid-string and the preview shows an incomprehensible syntax error, so the budget
+is generous. `num_predict` must stay strictly positive — see
+[invariant I8](architecture/invariants.md).
 
-La coupure est détectée (`done_reason` / `finish_reason` valant `length`,
-y compris via `choices[0]`) et remontée à l'utilisateur en toutes lettres.
+Truncation is detected through `done_reason` or `finish_reason` being `length`,
+including via `choices[0]`, and reported to the user in plain words.
 
 ### Streaming
 
-Le corps de la réponse est lu en NDJSON — un objet JSON par ligne. Une ligne
-partielle est conservée dans un tampon et complétée au chunk suivant. Chaque
-fragment de contenu déclenche `onChunk(extractCode(full, { streaming: true }))`,
-donc l'aperçu se reconstruit en direct.
+The response body is read as NDJSON: one JSON object per line. A partial line is
+kept in a buffer and completed by the next chunk.
 
-En mode streaming, `extractCode` **ne coupe pas** sur une sentinelle fermante
-approximative : une sentinelle à moitié écrite n'est que les prochains caractères
-qui arrivent, et couper dessus tronquerait l'aperçu à chaque chunk. Une fois la
-réponse complète, une sentinelle malformée est tout ce qu'il y aura jamais — donc
-on coupe.
+Each content fragment calls `onChunk(extractCode(full, { streaming: true }))`, so
+the preview rebuilds live.
 
-### Les trois appels
+In streaming mode `extractCode` does **not** cut on an approximate closing
+sentinel. A half-written sentinel is just the next few characters arriving, and
+cutting on it would truncate the preview on every chunk. Once the response is
+complete, a malformed sentinel is all there will ever be, so it does cut.
 
-| Fonction | Usage | Règles supplémentaires |
+### The three call sites
+
+| Function | Used for | Additional rules |
 |---|---|---|
-| `generateComponent()` | Nouvel écran | `extraSystem` (dossier Muse **ou** `DESIGN.md`) + capacités + plan |
-| `editComponent()` | Modifier les écrans sélectionnés | `EDIT_RULES` : « préserver tout ce que l'utilisateur n'a pas demandé de changer », octet pour octet ; le composant complet est renvoyé, pas un diff |
-| `fixComponent()` | Réparation automatique après erreur de rendu | Non diffusé. Reçoit le **même** prompt de capacités — sans la liste des globaux existants, le modèle ne peut pas savoir quel composant est indéfini et échange une erreur React #130 contre une autre |
+| `generateComponent()` | A new screen | `extraSystem` carries either the Muse dossier or `DESIGN.md`, plus capabilities and the plan |
+| `editComponent()` | Editing selected screens | `EDIT_RULES`: preserve everything the user did not ask to change, byte for byte. The complete component is returned, not a diff |
+| `fixComponent()` | Auto-repair after a render error | Not streamed. Receives the **same** capability prompt — without the list of existing globals the model cannot tell which component is undefined, and swaps one React #130 error for another |
 
-### La modification sans LLM
+### Editing without a model call
 
-`tryDirectTextReplace()` : si le texte visible de l'élément cliqué apparaît
-**exactement une fois** verbatim dans la source, il est remplacé sur place —
-instantané et gratuit. Zéro ou plusieurs occurrences : `null`, et l'appelant
-bascule sur une édition LLM ciblée. Ce n'est pas une découverte de noms
-(invariant I1) : c'est l'échange d'un littéral que l'utilisateur est en train de
-regarder.
+`tryDirectTextReplace()` handles the common case. If the clicked element's
+visible text appears **exactly once** verbatim in the source, it is replaced in
+place: instant and free.
 
-Quand il faut bien passer par le modèle, l'ancrage est **textuel d'abord** : le
-chemin DOM (`nth-of-type`) ne se remappe pas fiablement sur du JSX, alors que la
-chaîne `class` exacte de l'élément apparaît verbatim dans le JSX et constitue
-l'ancre la plus forte. Le sélecteur n'est passé qu'en indice de dernier recours.
+Zero or several occurrences return `null`, and the caller falls back to a
+targeted model edit. This is not name discovery, so it does not violate invariant
+I1: it swaps a literal the user is directly looking at.
 
-### Le garde-fou Motion
+When a model call is needed, anchoring is **text-first**. The rendered DOM path
+(`nth-of-type`) cannot be reliably mapped back to JSX, whereas the element's
+exact class string appears verbatim in the JSX and is the strongest anchor. The
+selector is passed only as a last-resort hint.
 
-`guardMotion()` passe chaque sortie par `stripForbiddenMotion()` — un vrai
-parcours d'AST Babel, jamais une regex. Voir
+### The Motion guard
+
+`guardMotion()` runs every output through `stripForbiddenMotion()`, a real Babel
+AST walk rather than a regular expression. See
 [Animations](muse/animations.md).
 
 ---
 
-## 5. Le bac à sable
+## 5. The sandbox
 
-`src/components/Preview.tsx` construit un document HTML autonome et l'injecte en
-`srcDoc`.
+`src/components/Preview.tsx` builds a self-contained HTML document and injects it
+as `srcDoc`.
 
-### L'iframe
+### The iframe
 
 ```html
 <iframe sandbox="allow-scripts" srcDoc={srcDoc} />
 ```
 
-`allow-scripts` **et rien d'autre**. Sans `allow-same-origin`, l'origine est
-opaque : pas de `localStorage`, pas de cookies, pas d'accès au DOM parent. Les
-URL `blob:` sont same-origin par rapport à cette origine nulle, donc le module
-compilé s'exécute sans CORS
-([invariant I2](architecture/invariants.md)).
+`allow-scripts` and nothing else. Without `allow-same-origin` the origin is
+opaque: no `localStorage`, no cookies, no access to the parent DOM. Blob URLs are
+same-origin relative to that opaque origin, so the compiled module runs without
+CORS. This is [invariant I2](architecture/invariants.md).
 
-Un test lit le fichier source et exige l'**égalité exacte** de l'attribut, pas une
-sous-chaîne : `"allow-scripts allow-same-origin"` contient `"allow-scripts"`, donc
-un `includes` serait passé pendant que la frame exécutait du code généré avec
-l'origine de Mocky.
+A test reads the source file and requires **exact equality** of the attribute,
+not a substring match. `"allow-scripts allow-same-origin"` contains
+`"allow-scripts"`, so an `includes` check would have passed while the frame ran
+model-generated code with Mocky's own origin.
 
-### La CSP
+### The Content-Security-Policy
 
-`allow-scripts` seul ne restreint **rien** en sortie : un composant généré pourrait
-`fetch()`, `sendBeacon()` ou `new Image().src = …` vers n'importe quel hôte, depuis
-l'IP de l'utilisateur, à chaque rendu.
+`allow-scripts` alone restricts nothing outbound. A generated component could
+call `fetch()`, `sendBeacon()` or `new Image().src = …` against any host, from
+the user's IP, on every render.
 
 ```
 default-src 'none'
-script-src  <origine du parent> 'unsafe-inline' 'unsafe-eval' blob:
-style-src   <origine du parent> 'unsafe-inline'
+script-src  <parent origin> 'unsafe-inline' 'unsafe-eval' blob:
+style-src   <parent origin> 'unsafe-inline'
 img-src     * data: blob:
 font-src    * data:
 connect-src 'none'
@@ -280,336 +290,344 @@ object-src  'none'
 base-uri    'none'
 ```
 
-`'self'` serait un piège : le document n'a pas d'origine propre, `'self'` se
-sérialise en `"null"` et bloquerait React, Babel et Tailwind. L'origine du parent
-est donc nommée explicitement.
+`'self'` would be a trap. The document has no origin of its own, so `'self'`
+serialises to `"null"` and would block React, Babel and Tailwind. The parent's
+origin is named explicitly instead.
 
-`img-src` reste permissif à dessein. Une image distante est un vecteur de pistage
-faible, mais c'est aussi ainsi qu'une maquette montre une photo, et les modèles
-émettent légitimement des URL d'images. `'unsafe-inline'` et `'unsafe-eval'` sont
-inévitables : tout l'objet du document est d'exécuter du code compilé à la volée.
+`img-src` stays permissive on purpose. A remote image is a weak tracking vector,
+but it is also how a mockup shows a photo, and models legitimately emit picture
+URLs.
 
-### Ce que le document charge
+`'unsafe-inline'` and `'unsafe-eval'` are unavoidable: the whole point of the
+document is to run code compiled at runtime.
 
-```html
-<script src="/vendor/react.production.min.js"></script>
-<script src="/vendor/react-dom.production.min.js"></script>
-<script src="/vendor/tailwind.min.js"></script>
-<!-- liens et scripts des capacités -->
-<script src="/vendor/babel.min.js"></script>
-```
+### What the document loads
 
-Tout vient de `public/vendor/`, épinglé par empreinte SHA-256 dans
-`public/vendor/VENDOR.md` et vérifié par `npm run check:vendor` — qui tourne en CI.
-Les aperçus fonctionnent donc **hors ligne**, et une compromission de CDN ne peut
-pas les atteindre.
+React, ReactDOM and Tailwind first, then the capability tags, then Babel — all
+from `/vendor/`.
 
-Aucune balise ne porte `crossorigin` : l'origine étant nulle, cet attribut
-transformerait chaque script en requête CORS avec `Origin: null`, que le serveur
-ne gère pas — le script échouerait à charger.
+Every file is hash-pinned in `public/vendor/VENDOR.md` and verified by
+`npm run check:vendor`, which runs in CI. Previews therefore work **offline**,
+and a CDN compromise cannot reach them.
 
-### Le pipeline de compilation
+No tag carries `crossorigin`. Since the origin is null, that attribute would turn
+every script into a CORS request with `Origin: null`, which the server does not
+handle, so the script would fail to load.
 
-1. Le code source est encodé en base64 et déposé dans un `<script type="text/plain">`.
-   Cela élimine tout caractère susceptible de casser le HTML ou le template :
-   backticks, `${`, guillemets, sauts de ligne, `</script>`.
-2. Le prélude est encodé de la même façon, quand il y en a un.
+### The compilation path
+
+1. The source is base64-encoded into a `<script type="text/plain">`. This removes
+   every character that could break the HTML or the template: backticks, `${`,
+   quotes, newlines, `</script>`.
+2. The prelude is encoded the same way, when there is one.
 3. `Babel.transform(prelude + '\n' + source, { presets: [['react', { runtime: 'classic' }]] })`
-   s'exécute **dans l'iframe**.
-4. Le résultat est exécuté via une URL `blob:`, ce qui donne de vraies positions
-   d'erreur.
-5. Le composant est monté dans une **frontière d'erreur React**.
+   runs **inside the iframe**.
+4. The result executes through a `blob:` URL, which gives real error positions.
+5. The component mounts inside a React error boundary.
 
-La frontière est nécessaire parce que `createRoot` rend de façon **asynchrone** :
-une erreur de rendu survient après le retour du `try/catch` synchrone et
-s'échapperait vers `window.onerror` sous la forme d'un « Script error. » opaque
-(origine `blob:null`). La frontière l'attrape avec le message réel et la pile de
-composants, et la renvoie au parent — ce qui alimente à la fois la boîte d'erreur
-et `fixComponent`. Elle ne se déclenche que sur de vraies erreurs
-([invariant I5](architecture/invariants.md)).
+The boundary is necessary because `createRoot` renders **asynchronously**. A
+render error is thrown after the synchronous `try/catch` has already returned, so
+it would escape to `window.onerror` as an opaque "Script error." — the module
+comes from a `blob:null` origin.
 
-L'erreur React #130 est reformulée avant d'être remontée, parce que son message
-minifié n'apprend rien :
+The boundary catches it with the real message and the component stack, and posts
+it to the parent. That feeds both the error box and `fixComponent`. It only ever
+fires on real errors, which is
+[invariant I5](architecture/invariants.md).
 
-> Element type is invalid (React #130) : un composant ou une icône rendue est
-> indéfini — probablement un nom absent ou mal orthographié.
+React error #130 is rewritten before being reported, because its minified message
+teaches nothing:
 
-### Le pont d'interaction
+> Element type is invalid (React #130): a component or icon you rendered is
+> undefined — likely a missing or misspelled name.
 
-Un petit script installé dans la frame parle au parent par `postMessage` :
+### The interaction bridge
 
-- **mode `pick`** — surligne l'élément survolé ; au clic, renvoie un sélecteur CSS,
-  le texte visible, la balise et la chaîne `class`. En mode *Modifier* la
-  sélection est exacte ; en mode *Lien* elle remonte jusqu'au plus proche ancêtre
-  interactif.
-- **mode `demo`** — pour une liste `[{selector, target}]`, un clic demande au
-  parent de naviguer.
-- **`ok`**, **`error`**, **`size`** — état du rendu et hauteur du contenu.
+A small script inside the frame talks to the parent over `postMessage`.
 
-L'identité vient de **la fenêtre émettrice**, jamais d'un champ du message.
-`frameId` est écrit en clair dans chaque `srcDoc`, donc un aperçu pourrait lire
-l'identifiant d'un autre dans le DOM et forger des messages en son nom ; et
-`e.origin` vaut l'inutile chaîne `"null"` pour toute frame bac à sable. D'où :
+| Message | Direction | Purpose |
+|---|---|---|
+| `pick` mode | Parent → frame | Highlight the hovered element. On click, report a CSS selector, the visible text, the tag and the class string |
+| `demo` mode | Parent → frame | Given a list of `{selector, target}` pairs, a click asks the parent to navigate |
+| `ok` | Frame → parent | The component mounted successfully |
+| `error` | Frame → parent | A compile or runtime error, with its real message |
+| `size` | Frame → parent | The rendered content height |
+
+In pick mode the selection is exact for *Modify*, and walks up to the nearest
+interactive ancestor for *Link*.
+
+Identity comes from **the sending window**, never from a field inside the
+message. `frameId` is written in clear into every `srcDoc`, so one preview could
+read another's id out of the DOM and forge messages on its behalf. And `e.origin`
+is the useless string `"null"` for every sandboxed frame.
 
 ```js
-if (e.source !== iframeRef.current?.contentWindow) return   // côté parent
-if (e.source !== window.parent) return                      // côté frame
+if (e.source !== iframeRef.current?.contentWindow) return   // in the parent
+if (e.source !== window.parent) return                      // in the frame
 ```
 
-Symétriquement, une frame ne peut signaler un `pick` que si le mode est
-effectivement actif, et ne peut demander une navigation que si elle a des liens de
-démo — sans quoi un composant rendu piloterait l'interface du parent à volonté.
+Symmetrically, a frame may only report a pick while pick mode is actually on, and
+may only request navigation while it has demo links. Without those checks a
+rendered component could drive the parent's UI at will.
 
-### La maquette ne doit jamais quitter son propre document
+### Keeping the mockup inside its own document
 
-Une frame en bac à sable a toujours le droit de **se** naviguer. Un `<a href="/">`,
-un formulaire soumis, un `location.assign()` : la frame abandonne le `srcDoc` et
-charge l'`index.html` de Mocky. Son origine étant opaque, tous les modules de
-l'application échouent alors en CORS — écran blanc, console saturée, et l'écran
-qu'on venait de générer a disparu.
+A sandboxed frame is always allowed to navigate **itself**. An `<a href="/">`, a
+submitted form, a `location.assign()` — any of them make the frame drop the
+`srcDoc` and load Mocky's own `index.html`. Because its origin is opaque, every
+module script of the app then fails CORS: a white screen, a console full of
+errors, and the screen the user just generated is gone.
 
-Quatre gardes, en profondeur :
+Four guards, in depth:
 
-1. `window.open` est neutralisé **avant** l'exécution du code généré.
-   `window.location` n'est délibérément pas touché : c'est un accesseur non
-   configurable, le redéfinir lève et emporterait tout le pont.
-2. Un gestionnaire de clic en capture annule **tout** `<a href>` et `<area href>`,
-   fragments compris. Un document `srcdoc` hérite de l'URL du **parent** comme
-   base : `#pricing` se résout en `http://localhost:8787/#pricing`, un autre
-   document. Le défilement qu'un fragment devait produire est donc fait à la main
-   (`scrollIntoView`), pour que les ancres internes se comportent quand même comme
-   des ancres.
-3. Les soumissions de formulaire sont annulées — un `<form>` sans `action` poste
-   vers l'URL du document, donc vers la page de Mocky.
-4. Pour tout le reste (navigation programmatique), le parent **compte les
-   événements `load`** de la frame : le premier est le `srcDoc`, tout suivant
-   signifie qu'elle est partie ailleurs. Le parent réassigne alors `srcdoc` — un
-   attribut qu'il possède quelle que soit l'origine de la frame — et affiche
-   pendant trois secondes « les liens sont inertes ».
+1. **`window.open` is neutralised** before any generated code runs.
+   `window.location` is deliberately untouched: it is a non-configurable
+   accessor, so redefining it throws and would take the whole bridge down.
+2. **A capturing click handler cancels every `<a href>` and `<area href>`**,
+   fragments included. A `srcdoc` document inherits the *parent's* URL as its
+   base, so `#pricing` resolves to `http://localhost:8787/#pricing` — a different
+   document. The scroll a fragment was meant to perform is done by hand with
+   `scrollIntoView`, so in-page anchors still behave like anchors.
+3. **Form submissions are cancelled.** A `<form>` with no `action` posts to the
+   document URL, which is Mocky's own page.
+4. **The parent counts the frame's `load` events.** The first load is the
+   `srcDoc`; any later one means the frame went elsewhere. The parent then
+   re-assigns `srcdoc`, an attribute it owns whatever the frame's origin, and
+   shows a "links are inert" notice for three seconds.
 
-### Rythme et délais
+### Timing
 
-Le `srcDoc` est reconstruit avec **500 ms de debounce**, pour qu'un flux de jetons
-ne rebâtisse pas l'iframe à chaque caractère. Un **délai de 20 s** évite l'attente
-infinie si aucun message n'arrive. Pendant la génération, les erreurs sont
-ignorées (le code est incomplet) ; et une erreur dont le code source a changé
-depuis la construction du `srcDoc` est écartée comme périmée.
+The `srcDoc` is rebuilt with a **500 ms debounce**, so a token stream does not
+rebuild the iframe on every character.
 
-### L'exception documentée : la capture
+A **20 second timeout** prevents waiting forever if no message arrives.
 
-`src/lib/capture.ts` monte une iframe **same-origin**, et c'est assumé, mesuré et
-verrouillé par un test qui explique pourquoi — pour que personne ne le
-« corrige » à l'aveugle.
+During generation, errors are ignored because the code is incomplete by
+construction. An error whose source code has changed since the `srcDoc` was built
+is discarded as stale.
 
-html2canvas clone le document dans une iframe à lui ; un bac à sable sans
-`allow-same-origin` donne à chaque descendant une **nouvelle** origine opaque, si
-bien que la frame ne peut plus lire son propre clone (« Blocked a frame with
-origin null from accessing a cross-origin frame »), sur le chemin par défaut comme
-avec `foreignObjectRendering`.
+### The documented exception: capture
 
-Ce qui est fermé à la place : la CSP de cette frame refuse `connect-src`,
-`form-action`, `frame-src`, `object-src`, `base-uri`, et **limite `img-src` à
-l'origine** — précisément parce qu'une image distante fait aussi office de balise
-de traçage. Le composant peut lire, il n'a nulle part où envoyer.
+`src/lib/capture.ts` mounts a **same-origin** iframe. This is deliberate,
+measured, and locked by a test that records the reasoning so nobody "fixes" it
+blind.
 
-Le vrai correctif est la **séparation d'origine** : servir la coquille de capture
-depuis une origine distincte et conserver `allow-same-origin`. Cela demande une
-route serveur et une origine de capture configurable, d'où son absence pour
-l'instant.
+html2canvas clones the document into an iframe of its own. A sandbox without
+`allow-same-origin` gives every descendant a **fresh** opaque origin, so the
+frame cannot read its own clone. It fails with "Blocked a frame with origin null
+from accessing a cross-origin frame", both on the default path and with
+`foreignObjectRendering`.
 
----
+What is closed instead: that frame's CSP denies `connect-src`, `form-action`,
+`frame-src`, `object-src` and `base-uri`, and **limits `img-src` to the origin** —
+precisely because a remote image doubles as a tracking beacon. The component can
+read; it has nowhere to send.
 
-## 6. Modèles : un seul dialecte
-
-Mocky parle **toujours** le dialecte Ollama en interne : `POST /api/chat`, `options`,
-`num_ctx`, `num_predict`, `format`, flux NDJSON.
-
-`server/text/dialect.js` traduit vers et depuis les API compatibles OpenAI :
-forme de requête, `response_format`, pièces jointes de vision (`image_url`), et
-SSE → NDJSON. La génération, le planificateur et Muse sont donc **agnostiques du
-fournisseur**, sans second chemin de code.
-
-Le proxy vit à deux endroits qui partagent le même module :
-
-- en développement, un middleware Vite (`vite.config.ts`) ;
-- en production, `app.use('/__provider', …)` dans Express.
-
-Trois protections y sont appliquées :
-
-1. **Liste blanche de sous-chemins** — `/api/chat` et `/api/tags`, rien d'autre.
-2. **Garde SSRF** — `assertSafeTargetResolved()` : schéma http(s) uniquement,
-   refus de `localhost`, des plages privées, du lien-local et de
-   `169.254.169.254`, puis **résolution DNS et nouvelle vérification de chaque
-   adresse retournée**. Sans cette seconde étape, un nom de domaine contrôlé par
-   l'appelant (`evil.test` → A 127.0.0.1) passait les tests de chaîne intact.
-   Les formes IPv6 mappées (`::ffff:127.0.0.1` et son jumeau hexadécimal
-   `::ffff:7f00:1`) sont couvertes explicitement.
-3. **Corps borné** — `readRawBody()` s'arrête à 25 Mo. Non borné, il accumulait ce
-   que le client envoyait puis appelait `Buffer.concat` dans l'écouteur `end` :
-   un corps dépassant `buffer.constants.MAX_LENGTH` levait hors de toute chaîne de
-   promesse et, sans gestionnaire `uncaughtException`, emportait le serveur.
-
-Une cible **configurée par un administrateur** contourne délibérément la garde
-SSRF : pointer vers un modèle local (Ollama, LM Studio, vLLM sur `127.0.0.1`) est
-un montage supporté, et seul un administrateur peut le régler. La garde reste
-entière pour toute URL venue du navigateur.
-
-Quand un fournisseur d'instance est configuré, `/__provider` **exige une session** :
-la requête dépense les crédits de l'hôte, donc elle doit appartenir à quelqu'un.
-Sans fournisseur d'instance, l'appelant fournit sa propre clé et le mode
-« la clé ne quitte pas votre navigateur » est préservé.
+The real fix is **origin separation**: serve the capture shell from a distinct
+origin and keep `allow-same-origin`. That needs a server route and a configurable
+capture origin, which is why it is not in place yet.
 
 ---
 
-## 7. Persistance
+## 6. One dialect for every model
 
-### Côté navigateur
+Mocky always speaks the Ollama dialect internally: `POST /api/chat`, with
+`options`, `num_ctx`, `num_predict`, `format`, and NDJSON streaming.
 
-| Clé `localStorage` | Contenu |
+`server/text/dialect.js` translates to and from OpenAI-compatible APIs: request
+shape, `response_format`, vision attachments as `image_url`, and SSE to NDJSON.
+Generation, the planner and Muse are therefore vendor-agnostic, with no second
+code path.
+
+The proxy lives in two places that share the same module: a Vite middleware in
+development, and `app.use('/__provider', …)` in Express for production.
+
+Three protections apply.
+
+**An allowlist of subpaths.** `/api/chat` and `/api/tags`, nothing else.
+
+**An SSRF guard.** `assertSafeTargetResolved()` accepts http and https only,
+rejects `localhost`, private ranges, link-local addresses and
+`169.254.169.254` — then **resolves the hostname in DNS and re-checks every
+returned address**. Without that second step, a hostname the caller controls
+(`evil.test` → A 127.0.0.1) walked past the string tests untouched. IPv4-mapped
+IPv6 forms are covered explicitly, in both spellings: `::ffff:127.0.0.1` and its
+hexadecimal twin `::ffff:7f00:1`.
+
+**A bounded body.** `readRawBody()` stops at 25 MB. Unbounded, it accumulated
+whatever the client sent and then called `Buffer.concat` inside the `end`
+listener. A body past `buffer.constants.MAX_LENGTH` threw outside any promise
+chain and, with no `uncaughtException` handler, took the whole server down.
+
+An **administrator-configured** target deliberately bypasses the SSRF guard.
+Pointing at a local model — Ollama, LM Studio or vLLM on `127.0.0.1` — is a
+supported setup, and only an administrator can set it. The guard stays fully in
+force for any URL that came from a browser.
+
+When an instance provider is configured, `/__provider` **requires a session**.
+The request spends the host's credits, so it must belong to someone. With no
+instance provider, the caller supplies its own key and the "your key never leaves
+your browser" mode is preserved.
+
+---
+
+## 7. Persistence
+
+### In the browser
+
+| `localStorage` key | Contents |
 |---|---|
-| `mocky.projects.v1` | Les projets, avec écrans, positions, liens |
-| `mocky.design.v1` | Le `DESIGN.md` actif et son interrupteur |
-| `mocky.settings.v1` | Fournisseur, URL de base, **clé d'API**, planificateur oui/non |
-| `mocky.muse.v1` | Configuration Muse (URL d'inspiration, mode image, vidéo, épingle) |
-| `mocky.animations.v1` | `auto` \| `on` \| `off` |
+| `mocky.projects.v1` | Projects, with screens, positions and links |
+| `mocky.design.v1` | The active `DESIGN.md` and its toggle |
+| `mocky.settings.v1` | Provider, base URL, **API key**, planner on or off |
+| `mocky.muse.v1` | Muse configuration: inspiration URLs, image mode, video, pinned media |
+| `mocky.animations.v1` | `auto`, `on` or `off` |
 
-### Côté serveur
+### On the server
 
-Un fichier par utilisateur, `server/data/data-<uuid>.json`, contenant `projects`
-et `design` sérialisés, plus `updatedAt`. Deux routes : `GET /api/data`,
+One file per user, `server/data/data-<uuid>.json`, holding serialised `projects`
+and `design` plus an `updatedAt` timestamp. Two routes: `GET /api/data` and
 `PUT /api/data`.
 
-La synchronisation est **différée et observable** : `scheduleSync()` marque
-l'état sale, un état `idle | syncing | failed` est diffusé à qui s'y abonne, et
-l'échec est visible dans l'interface. Auparavant, un échec après trente secondes
-de tentatives était visible de personne — ni de l'utilisateur, ni de la console.
+Syncing is **deferred and observable**. `scheduleSync()` marks state dirty, and a
+`idle | syncing | failed` state is broadcast to subscribers so a failure is
+visible in the UI. Previously a sync that gave up after thirty seconds of retries
+was visible to nobody, not even the console.
 
-La réconciliation compare `updatedAt` des deux côtés au lieu de supposer que le
-serveur est plus frais, ce qui écrasait du travail local. La fusion
-(`src/lib/merge.ts`) utilise des pierres tombales avec un TTL, pour qu'une
-suppression sur un appareil ne « ressuscite » pas depuis un autre.
+Reconciliation compares `updatedAt` on both sides instead of assuming the server
+is fresher, which used to overwrite local work. The merge in `src/lib/merge.ts`
+uses tombstones with a TTL, so a deletion on one device does not come back from
+another.
 
-### Le magasin serveur
+### The server store
 
-```
-server/data/
-  users.json              comptes (scrypt : salt + hash), rôles, dashySub
-  sessions.json           jeton → { u: userId, t: horodatage }
-  config.json             { allowRegistration }
-  sso-jti.json            jti consommés (anti-rejeu), purgés au-delà de 10 min
-  data-<uuid>.json        projets + design d'un utilisateur
-  text-config.json        fournisseurs de texte configurés par l'admin (secrets)
-  images-config.json      fournisseurs d'images + réglages vidéo (secrets)
-  muse-cache.json         distillations, TTL 7 jours, texte uniquement
-  image-library.json      métadonnées de la bibliothèque d'images
-  image-library/<hash>    les octets des images
-  video-library/          les séquences : clip + trames + poster
-```
+| Path under `server/data/` | Contents |
+|---|---|
+| `users.json` | Accounts: scrypt salt and hash, role, `dashySub` |
+| `sessions.json` | Token → `{ u: userId, t: timestamp }` |
+| `config.json` | `{ allowRegistration }` |
+| `sso-jti.json` | Consumed SSO token ids, pruned after 10 minutes |
+| `data-<uuid>.json` | One user's projects and design |
+| `text-config.json` | Administrator-configured text providers, including secrets |
+| `images-config.json` | Image providers and video settings, including secrets |
+| `muse-cache.json` | Distillations, 7-day TTL, text only |
+| `image-library.json` | Image library metadata |
+| `image-library/<hash>` | The image bytes |
+| `video-library/` | Scroll sequences: clip, frames and poster |
 
-Les fichiers contenant des secrets sont écrits en `0600` — le `0644` par défaut
-les laissait lisibles par tout autre compte de la machine.
+Files holding secrets are written with mode `0600`. The default `0644` left them
+readable by every other account on the machine.
 
 ---
 
-## 8. Surface HTTP
+## 8. HTTP surface
 
-| Méthode & route | Auth | Rôle |
+| Method and route | Auth | Purpose |
 |---|---|---|
-| `GET /api/health` | — | `dataWritable` + `frontendBuilt` ; `503` avec un `detail` nommant ce qui manque |
-| `GET /api/config` | — | Inscription ouverte ?, mode installation, SSO, modèle d'instance (sans secret) |
-| `POST /api/register` · `/api/login` | limité | Le premier compte devient admin |
-| `POST /api/logout` · `GET /api/me` | cookie | `/api/me` répond `200 { user: null }`, pas `401` |
-| `POST /api/account/password` | session + limité | Révoque toutes les sessions, en délivre une neuve |
-| `GET /sso/dashy/callback` | limité | Vérifie le JWT HS256, trouve-ou-crée le compte |
-| `GET·PUT /api/admin/config` · `/users` · `…/password` · `DELETE /users/:id` | admin | |
-| `GET·PUT /api/admin/text/config` · `POST /api/admin/text/test` | admin | Le test envoie une vraie requête |
-| `GET·PUT /api/admin/images/config` · `POST /api/admin/images/test` | admin | Le test génère une vraie image, non stockée |
-| `POST /api/text/vision` | session | Sonde la capacité vision du modèle ; **passe par la garde SSRF** |
-| `GET·PUT /api/data` | session | Projets + design de l'utilisateur |
-| `GET /api/mcp/status` | session | État de chaque serveur MCP déclaré |
+| `GET /api/health` | — | `dataWritable` and `frontendBuilt`; `503` with a `detail` naming what is wrong |
+| `GET /api/config` | — | Registration open?, setup mode, SSO, instance model (no secrets) |
+| `POST /api/register`, `/api/login` | rate-limited | The first account becomes administrator |
+| `POST /api/logout`, `GET /api/me` | cookie | `/api/me` answers `200 { user: null }`, not `401` |
+| `POST /api/account/password` | session, rate-limited | Revokes every session and issues a fresh one |
+| `GET /sso/dashy/callback` | rate-limited | Verifies the HS256 token, finds or creates the account |
+| `GET`/`PUT` `/api/admin/config`, `/users`, `…/password`, `DELETE /users/:id` | admin | Instance and user management |
+| `GET`/`PUT` `/api/admin/text/config`, `POST /api/admin/text/test` | admin | The test sends a real request |
+| `GET`/`PUT` `/api/admin/images/config`, `POST /api/admin/images/test` | admin | The test generates a real image, not stored |
+| `POST /api/text/vision` | session | Probes the model's vision support. **Goes through the SSRF guard** |
+| `GET`/`PUT` `/api/data` | session | The user's projects and design |
+| `GET /api/mcp/status` | session | State of every declared MCP server |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
-| `POST /api/images/generate` · `/upload` | session, limité | 30 requêtes/min |
-| `GET /api/images/library` · `/library.zip` · `POST /:hash/favorite` · `DELETE /:hash` | session | |
-| `GET /api/images/:hash` | **public** | Voir ci-dessous |
-| `POST /api/videos/generate` (6/min) · `/upload` (20/min) | session, limité | |
-| `GET /api/videos/library` · `/:hash/meta` · `DELETE /:hash` | session | |
-| `GET /api/videos/:hash/poster.jpg` · `/:hash/f/:n.jpg` | **public** | Voir ci-dessous |
-| `ALL /__provider/api/chat` · `/api/tags` | session **si** modèle d'instance | Proxy + traduction de dialecte |
+| `POST /api/images/generate`, `/upload` | session, 30/min | Generation is the expensive verb |
+| `GET /api/images/library`, `/library.zip`, `POST /:hash/favorite`, `DELETE /:hash` | session | Library management |
+| `GET /api/images/:hash` | **public** | See below |
+| `POST /api/videos/generate` (6/min), `/upload` (20/min) | session | Different ceilings: generating costs money, uploading costs disk |
+| `GET /api/videos/library`, `/:hash/meta`, `DELETE /:hash` | session | Sequence management |
+| `GET /api/videos/:hash/poster.jpg`, `/:hash/f/:n.jpg` | **public** | See below |
+| `ALL /__provider/api/chat`, `/api/tags` | session **if** an instance model is configured | Proxy and dialect translation |
 
-### Pourquoi les octets d'images et de trames sont publics
+### Why image and frame bytes are public
 
-C'est délibéré et porteur :
+This is deliberate and load-bearing.
 
-- les iframes d'aperçu sont en bac à sable **sans** `allow-same-origin`, donc leur
-  origine est opaque et leurs sous-requêtes ne portent **aucun cookie SameSite** ;
-  une route `/:hash` authentifiée viderait chaque image de chaque maquette ;
-- un ZIP exporté référence ces URL depuis une machine sans session.
+Preview iframes are sandboxed **without** `allow-same-origin`, so their origin is
+opaque and their subresource requests carry **no SameSite cookie**. An
+authenticated `/:hash` route would blank out every image in every mockup.
 
-**L'URL est la capacité** : un SHA-256 de 64 caractères hexadécimaux du contenu,
-qu'on ne devine pas, et qui n'est distribué que par un listing authentifié. Le
-motif est exact — `PUBLIC_IMAGE_PATH = /^\/[a-f0-9]{64}$/` — donc le listing, la
-génération et la suppression restent tous derrière une session.
+An exported ZIP also references these URLs from a machine with no session.
 
-Cette garde est attachée aux **sous-chemins** que les routeurs servent, pas au
-montage `/api`. Montée sur `/api`, elle s'exécutait pour toutes les routes
-`/api/*` suivantes et mettait silencieusement les octets publics derrière
-l'authentification.
+**The URL is the capability**: a 64-character hexadecimal SHA-256 of the content,
+which cannot be guessed and is only ever handed out by an authenticated listing.
+The pattern is exact — `PUBLIC_IMAGE_PATH = /^\/[a-f0-9]{64}$/` — so listing,
+generating and deleting all stay behind a session.
+
+The guard is attached to the **subpaths** the routers serve, not to the `/api`
+mount. Mounted on `/api`, it ran for every later `/api/*` route too, which
+silently put the public bytes behind authentication.
 
 ---
 
 ## 9. Export
 
-`src/lib/export/project.ts` assemble un projet **Vite + React + Tailwind
-exécutable** à partir des écrans, en trois cibles :
+`src/lib/export/project.ts` assembles a runnable **Vite + React + Tailwind**
+project from the screens, with three targets.
 
-| Cible | Contenu |
+| Target | Contents |
 |---|---|
-| `plain` | Tailwind + les packs d'interface de Mocky, vendorisés dans le projet |
-| `shadcn` | En plus : `components.json`, le `cn()` standard, le thème Tailwind shadcn, pour que `npx shadcn add …` hérite de la marque via `globals.css` |
-| `daisyui` | Tailwind + le plugin daisyUI |
+| `plain` | Tailwind plus Mocky's UI packs, vendored into the project |
+| `shadcn` | The above, plus `components.json`, the standard `cn()` and the shadcn Tailwind theme, so `npx shadcn add …` inherits the brand through `globals.css` |
+| `daisyui` | Tailwind plus the daisyUI plugin |
 
-La réécriture JSX → ESM (`export/rewrite.ts`) passe par Babel, jamais par une
-regex : elle transforme d'abord le JSX en `React.createElement` pour que chaque
-référence de composant devienne un identifiant ordinaire, puis interroge la portée.
+The JSX-to-ESM rewrite in `export/rewrite.ts` goes through Babel, never a regular
+expression. It first transforms JSX into `React.createElement` so every component
+reference becomes an ordinary identifier, then queries the scope.
 
-`export/theme.ts` transforme le `DESIGN.md` en `globals.css`. Les regex y sont
-autorisées : elles balaient de la **prose Markdown**, pas du code — l'exemption
-explicite de l'invariant I1.
+`export/theme.ts` turns `DESIGN.md` into `globals.css`. Regular expressions are
+allowed there because they scan **Markdown prose**, not code — the explicit
+exemption in invariant I1.
 
-Le ZIP est écrit par `src/lib/zip.ts`, sans dépendance (méthode « store » + CRC32).
-Le même écrivain sert au « Tout télécharger » de la bibliothèque d'images et à
+The ZIP is written by `src/lib/zip.ts`, with no dependency: store method plus
+CRC32. The same writer serves the image library's "Download all" and
 `npm run backup`.
 
 ---
 
 ## 10. Tests
 
-`npm test` exécute Vitest sur tout le dépôt. Trois suites méritent d'être connues
-parce qu'elles lisent **le code réellement livré**, pas une abstraction :
+`npm test` runs Vitest across the repository. Three suites are worth knowing
+about, because they read **the shipped code** rather than an abstraction.
 
-- **`tests/preview-sandbox.test.js`** — verrouille la posture de sécurité de
-  l'aperçu en lisant `Preview.tsx` et `capture.ts` : valeur exacte de `sandbox`,
-  absence de balise externe, directives CSP, garde de navigation, comportement du
-  mode « sans animation », validation du pont `postMessage`. Elle existe parce que
-  le seul test qui appliquait I3 regardait le **registre** — et ne voyait donc pas
-  les balises `<script src="https://…">` écrites en dur dans `buildSrcDoc`, qui
-  avaient dérivé vers des CDN sans que personne le remarque.
-- **`tests/tokens-contrast.test.js`** — lit `src/styles/tokens.css` et vérifie que
-  chaque paire texte/fond franchit le seuil WCAG AA. Mesuré avant :
-  `text-slate-500` donnait 2,09:1 sur le thème beige, et le bouton actif de la
-  barre d'outils affichait 1,21:1 — son libellé était invisible.
-- **`tests/i18n-parity.test.js`** — chaque clé doit exister en français et en
-  anglais, et aucun composant ne doit contenir de phrase en dur. L'interface a été
-  bilingue **à l'intérieur d'un même composant** : cinq composants en français,
-  douze en anglais, deux mixtes.
+**`tests/preview-sandbox.test.js`** locks the preview's security posture by
+reading `Preview.tsx` and `capture.ts`: the exact `sandbox` value, the absence of
+external tags, the CSP directives, the navigation guard, the behaviour of the
+"no animation" mode, and the `postMessage` validation.
 
-S'y ajoutent `registry.test.ts` (invariants de registre au chargement),
-`ssrf-guard.test.js`, `routes-auth.test.js`, et les suites Muse / images / vidéos.
+It exists because the only test enforcing invariant I3 looked at the
+**registry**, and therefore never saw the `<script src="https://…">` tags written
+directly into `buildSrcDoc`. Both had drifted to CDNs unnoticed.
 
-La CI (`.github/workflows/ci.yml`) exécute `build · test · check:vendor · npm
-audit --omit=dev` sur Node 20 **et** 22, puis construit l'image Docker, la
-**démarre** et attend qu'elle réponde — construire ne prouvait que la syntaxe du
-Dockerfile ; démarrer attrape un `COPY` manquant, un `CMD` cassé, un répertoire de
-données non inscriptible. Une étape vérifie explicitement que `mocky.mcp.json` est
-bien dans l'image : il en avait disparu, et Muse démarrait zéro serveur MCP
-pendant que l'image payait quand même ses ~300 Mo de Chromium.
+**`tests/tokens-contrast.test.js`** reads `src/styles/tokens.css` and checks that
+every text-on-background pair clears WCAG AA. Measured on the shipped values
+before the fix: `text-slate-500` gave 2.09:1 on the beige theme, and the active
+toolbar button measured 1.21:1 — its label was invisible.
+
+**`tests/i18n-parity.test.js`** requires every key to exist in both French and
+English, and no component to contain a hard-coded sentence. The interface used to
+be bilingual **inside single components**: five components in French, twelve in
+English, two mixed.
+
+Alongside those: `registry.test.ts` for registry invariants at load time,
+`ssrf-guard.test.js`, `routes-auth.test.js`, and the Muse, images and video
+suites.
+
+### CI
+
+`.github/workflows/ci.yml` runs `build`, `test`, `check:vendor` and
+`npm audit --omit=dev` on Node 20 **and** 22.
+
+It then builds the Docker image, **starts it**, and waits for it to answer.
+Building only proved that the Dockerfile parses; starting catches a missing
+`COPY`, a broken `CMD`, or an unwritable data directory.
+
+One step checks explicitly that `mocky.mcp.json` made it into the image. It had
+gone missing once, and Muse started zero MCP servers while the image still paid
+its 300 MB of Chromium.

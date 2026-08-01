@@ -1,19 +1,21 @@
-# Démarrage
+# Getting started
 
-## Prérequis
+## Requirements
 
-Docker, **ou** Node ≥ 20.19 (`.nvmrc` épingle la majeure 20, celle de l'image
-`node:20-slim`). Rien d'autre : pas de base de données, pas de module natif.
+Docker, **or** Node ≥ 20.19. The `.nvmrc` file pins major version 20, which is
+what the `node:20-slim` image uses.
 
-`ffmpeg` est le seul binaire externe, et il ne sert qu'à la vidéo au défilement.
-Sans lui, tout le reste fonctionne et la fonctionnalité se déclare indisponible
-plutôt que d'échouer.
+There is no database and no native module to compile.
+
+`ffmpeg` is the only external binary, and it is used only for scroll-driven
+video. Without it everything else works, and that one feature reports itself as
+unavailable rather than failing.
 
 ---
 
-## Installation
+## Install
 
-### Docker (recommandé)
+### Docker
 
 ```bash
 git clone https://github.com/PetitOursManu/Mocky.git
@@ -21,225 +23,236 @@ cd Mocky
 docker compose up -d --build
 ```
 
-Mocky écoute sur **http://localhost:8787**. Les données (comptes, sessions,
-projets, images, séquences vidéo) persistent dans le volume nommé `mocky-data`.
+Mocky listens on **http://localhost:8787**. Accounts, projects, images and video
+sequences persist in the `mocky-data` volume.
 
-Le port est publié sur `127.0.0.1` uniquement — c'est
-`"${MOCKY_BIND:-127.0.0.1}:8787:8787"` dans `docker-compose.yml`. Plusieurs
-routes dépensent vos crédits modèle, donc l'instance n'est pas jointe depuis le
-réseau tant que vous ne le demandez pas explicitement. Voir
-[Déploiement](deployment.md#exposer-linstance).
+The port is published on `127.0.0.1` only. Several routes spend your model
+credits, so the instance is not reachable from the network until you say so. See
+[Deployment](deployment.md).
 
-### Développement local
+### Local development
 
 ```bash
 npm install
-npm run dev:all        # Vite + backend ensemble — c'est celui-là qu'il faut
+npm run dev:all
 ```
 
-Puis **http://localhost:5173**.
+Then open **http://localhost:5173**.
 
-`npm run dev` lance **le serveur web seul**. Comme Mocky exige un compte et que
-les comptes vivent sur le backend, la boîte de connexion annoncera qu'elle ne
-peut pas le joindre. Muse, la bibliothèque média et la synchronisation sont dans
-le même cas.
+Use `dev:all`, not `dev`. `npm run dev` starts the web server alone, with no back
+end. Mocky requires an account and accounts live on the back end, so the sign-in
+box will report that it cannot reach it. Muse, the media library and syncing are
+unavailable in that mode too.
 
-En développement, Vite proxifie `/api` et `/sso` vers `http://localhost:8787`, et
-sert lui-même `/__provider` via un middleware qui partage le code du backend
-(`server/provider-proxy.js`) — voir `vite.config.ts`. Les deux environnements
-appliquent donc exactement la même garde SSRF et la même liste blanche de
-sous-chemins.
+In development, Vite proxies `/api` and `/sso` to `http://localhost:8787`, and
+serves `/__provider` itself through a middleware that imports the back end's own
+module (`server/provider-proxy.js`). Both environments therefore apply the same
+SSRF guard and the same allowed-subpath list.
 
-### Build de production
+### Production build
 
 ```bash
 npm run build          # tsc && vite build  →  dist/
-npm start              # le backend sert dist/ + l'API + le proxy sur :8787
+npm start              # Express serves dist/, the API and the proxy on :8787
 ```
 
-`npm start` sans `npm run build` démarre bien, mais chaque page est un 404 nu.
-Le serveur affiche un avertissement au démarrage, et `/api/health` répond `503`
-avec `frontendBuilt: false` — c'est ce que la sonde du conteneur interroge.
+`npm start` without `npm run build` starts successfully but every page is a bare
+404. The server prints a warning, and `/api/health` answers `503` with
+`frontendBuilt: false`. That is what the container health check reads.
 
 ---
 
-## Première utilisation
+## First run
 
-1. Ouvrez Mocky. La boîte de connexion apparaît et **ne peut pas être fermée** :
-   il n'existe pas de mode anonyme.
-2. Créez le premier compte. **Il devient administrateur de l'instance**
-   (`server/index.js` : `const isFirst = users.length === 0`). Il n'y a pas de
-   flux « mot de passe oublié » ; promouvoir un autre compte se fait en éditant
-   `server/data/users.json` à la main.
-3. Configurez un modèle de texte (section suivante).
-4. Décrivez un écran et générez.
+1. Open Mocky. The sign-in box appears and **cannot be dismissed**. There is no
+   anonymous mode.
+2. Create the first account. **It becomes the instance administrator.** There is
+   no password-reset flow, and promoting another account means editing
+   `server/data/users.json` by hand.
+3. Configure a text model. See the next section.
+4. Describe a screen and generate it.
 
-Quelques règles de compte utiles à connaître :
+### Account rules
 
-| Règle | Valeur | Où |
-|---|---|---|
-| Longueur minimale du nom d'utilisateur | 3 | `POST /api/register` |
-| Mot de passe à l'inscription publique | ≥ 6 | historique, jamais durci pour ne verrouiller personne |
-| Mot de passe créé ou réinitialisé aujourd'hui | ≥ 8 | `MIN_NEW_PASSWORD` |
-| Durée de session | 90 jours, glissante | `SESSION_TTL_MS` |
-| Limitation des routes d'authentification | 8 tentatives / minute / IP | `authRateLimit(8)` |
+| Rule | Value |
+|---|---|
+| Minimum username length | 3 characters |
+| Password at public sign-up | 6 characters |
+| Password created or reset today | 8 characters (`MIN_NEW_PASSWORD`) |
+| Session lifetime | 90 days, sliding |
+| Auth rate limit | 8 attempts per minute per IP |
 
-Le hachage est `scrypt` (`node:crypto`), la comparaison est en temps constant, et
-un changement de mot de passe **révoque toutes les sessions**, y compris la
-courante — à laquelle un jeton neuf est immédiatement délivré.
+The 6-character minimum is historical and was never raised, so that nobody is
+locked out of an account they already have. The stricter limit applies only on
+write paths.
+
+Passwords are hashed with `scrypt` from `node:crypto` and compared in constant
+time. Changing a password **revokes every session**, including the current one,
+which immediately receives a fresh token.
 
 ---
 
-## Configurer un modèle de texte
+## Configure a text model
 
-Deux modes, mutuellement exclusifs. Le mode instance gagne toujours sur le mode
-navigateur.
+There are two modes and they are mutually exclusive. The instance mode always
+wins over the browser mode.
 
-### A. Par navigateur (défaut, la clé ne quitte pas la machine)
+### Mode A — per browser (default)
 
-**Réglages** → fournisseur `Ollama Cloud`, URL de base `https://ollama.com`,
-votre clé d'API, puis un modèle dans la liste et **Tester la connexion**.
+Go to **Settings**, choose `Ollama Cloud`, set the base URL to
+`https://ollama.com`, paste your API key, pick a model and press **Test
+connection**.
 
-La clé est conservée dans le `localStorage` de ce navigateur
-(`mocky.settings.v1`) et n'est jamais écrite côté serveur. Elle transite par
-`/__provider` en en-tête `Authorization`, le temps de la requête.
+The key is stored in that browser's `localStorage` under `mocky.settings.v1` and
+is never written server-side. It passes through `/__provider` as an
+`Authorization` header for the duration of each request.
 
-`src/lib/settings.ts` ne propose qu'un fournisseur dans ce mode : Ollama Cloud.
-Le catalogue complet est réservé au mode instance.
+In this mode `src/lib/settings.ts` offers one provider only: Ollama Cloud. The
+full catalogue is reserved for the instance mode.
 
-### B. Instance entière (administrateur)
+### Mode B — instance-wide (administrator)
 
-**Admin** → *Modèles de texte*. La clé est stockée côté serveur
-(`server/data/text-config.json`), utilisée par tous les comptes, et les Réglages
-personnels de chacun sont alors ignorés.
+Go to **Admin → Text models**. The key is stored on the server in
+`server/data/text-config.json`, used by every account, and each user's personal
+Settings are then ignored.
 
-`server/text/config.js` déclare cinq fournisseurs :
+`server/text/config.js` declares five providers.
 
-| id | Dialecte | URL de base par défaut | Modèle par défaut |
+| id | Dialect | Default base URL | Default model |
 |---|---|---|---|
 | `ollama-cloud` | Ollama | `https://ollama.com` | `gpt-oss:120b` |
 | `openai` | OpenAI | `https://api.openai.com` | `gpt-4o-mini` |
 | `openrouter` | OpenAI | `https://openrouter.ai/api` | `openai/gpt-4o-mini` |
-| `fal` | OpenAI, auth `Key` | `https://fal.run/openrouter/router/openai` | `openai/gpt-4o-mini` |
-| `openai-compatible` | OpenAI | *(à saisir)* | *(à saisir)* |
+| `fal` | OpenAI, `Key` auth | `https://fal.run/openrouter/router/openai` | `openai/gpt-4o-mini` |
+| `openai-compatible` | OpenAI | *(you fill it in)* | *(you fill it in)* |
 
-`openai-compatible` couvre Groq, Together, DeepSeek, Mistral, LM Studio, vLLM —
-tout ce qui expose `POST {baseUrl}/v1/chat/completions`.
+`openai-compatible` covers Groq, Together, DeepSeek, Mistral, LM Studio and
+vLLM — anything exposing `POST {baseUrl}/v1/chat/completions`.
 
-#### OpenRouter, concrètement
+### Setting up OpenRouter
 
-1. **Admin** → *Modèles de texte* → profil **Génération** → fournisseur
-   `OpenRouter`.
-2. URL de base : `https://openrouter.ai/api` — **sans** `/v1`. La traduction de
-   dialecte ajoute elle-même `/v1/chat/completions` ; un `/v1` en trop donne un
-   404 sur `/v1/v1/chat/completions`.
-3. Clé d'API : votre `sk-or-…`, envoyée en `Authorization: Bearer …`.
-4. Modèle : l'identifiant OpenRouter complet, `vendor/model` — par exemple
-   `openai/gpt-4o-mini`, `anthropic/claude-3.5-sonnet`,
+1. **Admin → Text models → Generation profile → OpenRouter.**
+2. Base URL: `https://openrouter.ai/api`. **Do not add `/v1`.** The dialect layer
+   appends `/v1/chat/completions` itself, so an extra `/v1` produces a 404 on
+   `/v1/v1/chat/completions`.
+3. API key: your `sk-or-…` value, sent as `Authorization: Bearer …`.
+4. Model: the full OpenRouter identifier, in `vendor/model` form. For example
+   `openai/gpt-4o-mini`, `anthropic/claude-3.5-sonnet` or
    `google/gemini-2.5-flash`.
-5. **Tester** envoie une vraie requête (« Reply with the single word: ok ») à
-   travers la même traduction que l'application, et distingue trois échecs :
-   HTTP non-2xx, réponse vide d'un modèle « reasoning » qui a dépensé son budget
-   à réfléchir, et coupure par `finish_reason: length`.
+5. Press **Test**. It sends a real request through the same translation layer the
+   app uses.
 
-Un HTTP 200 sans texte visible **n'est pas un succès** et le test le dit : ce
-modèle produirait des écrans vides.
+The test distinguishes three kinds of failure:
 
-> **Piège fréquent.** Coller un identifiant de modèle d'**images** dans le champ
-> texte. C'est facile avec fal, qui vend les deux sous une seule clé. Le
-> fournisseur répond « is not a valid model ID », ce qui n'explique rien ;
-> `looksLikeImageModel()` détecte le motif (`text-to-image`, `flux`, `seedream`,
-> `sdxl`, `dall-e`, `veo`, `kling`…) et affiche un message qui nomme le problème.
+- a non-2xx HTTP response;
+- an empty reply from a reasoning model that spent its token budget thinking;
+- a reply cut short, reported as `finish_reason: length`.
 
-#### Les deux profils de texte
+**HTTP 200 with no visible text is not a success**, and the test says so. That
+model would produce empty screens.
 
-| Profil | Rôle | Recevant l'image |
+> **A common mistake.** Pasting an *image* model identifier into the text field.
+> This is easy with fal, which sells both under one key. The provider answers
+> "is not a valid model ID", which explains nothing. `looksLikeImageModel()`
+> recognises the pattern — `text-to-image`, `flux`, `seedream`, `sdxl`, `dall-e`,
+> `veo`, `kling` and similar — and shows a message that names the problem.
+
+### The two text profiles
+
+| Profile | Job | Receives the inspiration image |
 |---|---|---|
-| `generation` | écrit les écrans, exécute le planificateur | oui — c'est lui qui est sondé pour la vision |
-| `inspiration` | rédige le Dossier de design de Muse | seulement s'il est sondé explicitement |
+| `generation` | Writes the screens and runs the planner | Yes. It is the profile probed for vision support |
+| `inspiration` | Writes Muse's design dossier | Only when probed explicitly |
 
-Le profil voyage en en-tête `x-mocky-profile: inspiration` ; tout le reste,
-en-tête absent compris, est `generation`. Laisser le profil `inspiration` vide le
-fait retomber sur `generation`, ce qui est le comportement mono-modèle
-d'origine. Le dossier n'écrit pas de code : un modèle moins cher y suffit
-généralement.
+The profile travels as an `x-mocky-profile: inspiration` header. Anything else,
+including no header at all, means `generation`.
 
-Les configurations écrites avant l'introduction des profils sont un objet plat ;
-`liftLegacy()` les remonte dans `generation` à la lecture, clés intactes.
+Leaving the `inspiration` profile empty makes it fall back to `generation`, which
+is the original single-model behaviour. The dossier writes no code, so a cheaper
+model is usually enough.
 
-### Ce que le proxy accepte
+Configuration files written before profiles existed are a single flat object.
+`liftLegacy()` lifts them into `generation` on read, with keys intact.
 
-`/__provider` ne relaie que deux sous-chemins :
+### What the proxy accepts
+
+`/__provider` forwards two subpaths and nothing else:
 
 ```js
 export const ALLOWED_SUBPATHS = new Set(['/api/chat', '/api/tags'])
 ```
 
-C'est une liste blanche, pas un filtre. Avant elle, un
-`DELETE /__provider/api/delete` avec `{"name":"llama3"}` atteignait l'Ollama
-configuré et **supprimait un modèle** : la réécriture de corps ne remplace que
-`model`, donc `name` passait intact.
+This is an allowlist, not a filter. Before it existed, a
+`DELETE /__provider/api/delete` carrying `{"name":"llama3"}` reached the
+configured Ollama and **deleted a model**. The body rewrite only ever replaces
+`model`, so `name` passed through untouched.
 
-Les redirections ne sont pas suivies (`redirect: 'manual'`) : une cible qui passe
-la garde SSRF puis répond `302 → http://169.254.169.254/…` contournerait
-autrement toute la protection.
+Redirects are surfaced, not followed (`redirect: 'manual'`). A target that passes
+the SSRF guard and then answers `302 → http://169.254.169.254/…` would otherwise
+walk straight around it.
 
 ---
 
-## Configurer la génération d'images (Muse)
+## Configure image generation
 
-**Admin** → *Génération d'images (Muse)*. Les clés sont stockées côté serveur et
-ne repartent jamais vers le navigateur — `publicView()` les remplace par des
-booléens `hasApiKey` / `hasToken`. Le bouton **Tester** génère réellement une
-image jetable (une pomme rouge sur fond blanc, 1024×1024) et ne la range pas dans
-la bibliothèque.
+Go to **Admin → Image generation (Muse)**. Keys are stored on the server and
+never sent back to the browser: `publicView()` replaces each one with a
+`hasApiKey` or `hasToken` boolean.
 
-| Fournisseur | Clé ? | Notes |
+The **Test** button really generates a throwaway image — a red apple on a white
+background, 1024×1024 — and does not store it in the library.
+
+| Provider | Key | Notes |
 |---|---|---|
-| `pollinations` | ❌ | Défaut. Gratuit, basé sur URL, filigrane possible. Limite ≈ 1 requête / 15 s, donc les requêtes sont sérialisées côté serveur. Un jeton gratuit facultatif relève la limite. |
-| `fal` | ✔ | [fal.ai](https://fal.ai) — FLUX & co. Endpoint synchrone : préférez un modèle rapide. Seul fournisseur capable de **vidéo**. |
-| `openai-image` | ✔ | Tout endpoint exposant `POST {baseUrl}/v1/images/generations` (OpenAI, LiteLLM, passerelles compatibles). |
-| `cloudflare-workers-ai` | ✔ | Palier gratuit généreux. Demande un identifiant de compte et un jeton avec la permission Workers AI. |
-| `sd-webui` | ❌ | Votre propre Automatic1111 / Forge / SD.Next lancé avec `--api`. Rien ne sort de votre machine. |
-| `none` | — | Muse tourne quand même ; les emplacements reçoivent des aplats issus de la palette. |
+| `pollinations` | No | The default. Free and URL-based; may watermark. Limited to roughly one request every 15 seconds, so requests are queued server-side. An optional free token raises the limit |
+| `fal` | Yes | [fal.ai](https://fal.ai), FLUX and similar. The synchronous endpoint is used, so prefer a fast model. The only provider that can produce **video** |
+| `openai-image` | Yes | Any endpoint exposing `POST {baseUrl}/v1/images/generations`: OpenAI, LiteLLM, compatible gateways |
+| `cloudflare-workers-ai` | Yes | Generous free tier. Needs an account id and a token with the Workers AI permission |
+| `sd-webui` | No | Your own Automatic1111, Forge or SD.Next instance started with `--api`. Nothing leaves your machine |
+| `none` | — | Muse still runs. Image slots get palette-derived placeholders |
 
-Deux profils d'images, pour deux métiers différents :
+### Two image profiles
 
-- **`content`** — les images réellement posées dans l'écran (héros, produits,
-  fonds). Rapide et bon marché, plusieurs par écran. C'est le chemin historique,
-  zéro configuration.
-- **`inspiration`** — l'unique planche de direction artistique montrée au modèle.
-  Elle doit convaincre, donc elle vaut un modèle plus lent et plus cher. Laisser
-  son fournisseur vide la fait retomber sur `content`.
+The two jobs are genuinely different, so they have separate settings.
 
-> `sd-webui` est appelé par le serveur de Mocky et pointe par construction vers
-> une adresse locale : il **contourne délibérément** la garde SSRF appliquée aux
-> URL non fiables. Seul un administrateur peut le régler.
+**`content`** produces the pictures placed in the screen: hero images, products,
+backgrounds. There can be several per screen, so it should be fast and cheap.
+This is the original zero-configuration path, and Pollinations is its default.
 
-## Vidéo au défilement
+**`inspiration`** produces the single art-direction reference shown to the model.
+It has to be convincing, so it is worth a slower and more expensive model.
+Leaving its provider empty makes it fall back to `content`.
 
-Deux prérequis indépendants, rapportés séparément dans **Admin → Génération
-d'images → Vidéo** pour qu'on sache lequel manque — ils se réparent à des
-endroits complètement différents :
-
-| Prérequis | Détail |
-|---|---|
-| Un fournisseur vidéo | `fal` uniquement. Aucun autre fournisseur configuré n'a d'endpoint texte→vidéo. Modèle par défaut `fal-ai/ltx-video`. |
-| `ffmpeg` | Fourni dans l'image Docker. Depuis les sources, à installer soi-même. |
-
-`GET /api/videos/availability` renvoie `reason: 'no-provider' | 'no-key' |
-'no-ffmpeg' | null`, ordonné par ce qu'il faut corriger en premier.
-
-**Importer son propre clip ne demande que `ffmpeg`** — aucun fournisseur, aucune
-clé, aucun coût. Une instance qui n'a jamais configuré fal peut donc utiliser
-toute la fonctionnalité avec ses propres rushes.
+> `sd-webui` is called by Mocky's own server and points at a local address by
+> definition, so it **deliberately bypasses** the SSRF guard applied to untrusted
+> URLs. Only an administrator can set it.
 
 ---
 
-## Serveurs MCP
+## Scroll-driven video
 
-Les serveurs MCP locaux sont déclarés dans `mocky.mcp.json` à la racine et lancés
-par le backend en stdio. Le fichier livré ne déclare qu'un serveur :
+Two independent prerequisites. **Admin → Image generation → Video** reports them
+separately, because they are fixed in completely different places.
+
+| Prerequisite | Detail |
+|---|---|
+| A video provider | `fal` only. No other configured provider has a text-to-video endpoint. The default model is `fal-ai/ltx-video` |
+| `ffmpeg` | Shipped in the Docker image. Running from source, install it yourself |
+
+`GET /api/videos/availability` returns
+`reason: 'no-provider' | 'no-key' | 'no-ffmpeg' | null`, ordered by what to fix
+first.
+
+**Importing your own clip needs only `ffmpeg`** — no provider, no key, no cost.
+An instance that has never configured fal can therefore use the whole feature
+with its own footage.
+
+---
+
+## MCP servers
+
+Local MCP servers are declared in `mocky.mcp.json` at the repository root and
+spawned by the back end over stdio. The shipped file declares one server:
 
 ```json
 {
@@ -255,49 +268,50 @@ par le backend en stdio. Le fichier livré ne déclare qu'un serveur :
 }
 ```
 
-Le routeur associe des **rôles** sémantiques aux serveurs qui exposent un outil
-correspondant, ce qui permet d'en changer sans toucher au code. Santé :
-`GET /api/mcp/status`. Détails dans
-[Moteur d'inspiration](muse/inspiration-engine.md#lhôte-mcp).
+The router maps semantic **roles** to whichever server exposes a matching tool,
+so you can swap servers without touching code. Health is reported at
+`GET /api/mcp/status`. Details are in the
+[inspiration engine](muse/inspiration-engine.md) page.
 
-Un fichier absent ou invalide n'est jamais fatal : il donne une liste de serveurs
-vide, et Muse retombe sur sa bibliothèque de patterns hors ligne.
+A missing or invalid file is never fatal. It produces an empty server list, and
+Muse falls back to its offline pattern library.
 
 ---
 
-## Entretien
+## Maintenance commands
 
 ```bash
-npm run backup         # → backups/mocky-YYYY-MM-DD-HHmm.zip
-npm run backup -- <dir>  # écrit ailleurs
-npm run check:vendor   # vérifie les bundles vendorisés contre leurs empreintes
-npm test               # vitest run — la suite complète
+npm run backup           # → backups/mocky-YYYY-MM-DD-HHmm.zip
+npm run backup -- <dir>  # write somewhere else
+npm run check:vendor     # verify the vendored bundles against their hashes
+npm test                 # vitest run, the full suite
 npm run test:watch
 ```
 
-`npm run backup` est du Node pur (il réutilise l'écrivain ZIP sans dépendance du
-dépôt) et se comporte identiquement sous Windows, macOS et Linux. Pour une
-instance dockerisée, sortez d'abord les données du volume :
+`npm run backup` is plain Node and reuses the repository's own dependency-free
+ZIP writer, so it behaves identically on Windows, macOS and Linux.
+
+For a Docker instance, copy the data out of the volume first:
 
 ```bash
 docker compose cp mocky:/app/server/data ./server/data
 npm run backup
 ```
 
-L'archive contient des empreintes de mots de passe et des jetons de session.
-`backups/` est ignoré par git — qu'il le reste.
+The archive contains password hashes and session tokens. `backups/` is
+git-ignored; keep it that way.
 
 ---
 
-## Diagnostic
+## Troubleshooting
 
-| Symptôme | Cause probable |
+| Symptom | Likely cause |
 |---|---|
-| Toutes les pages en 404, l'API répond | `npm start` sans `npm run build`. `/api/health` le dit : `frontendBuilt: false`. |
-| « Sign in » ne joint pas le backend | `npm run dev` au lieu de `npm run dev:all`. |
-| `EADDRINUSE` au démarrage | Un autre Mocky sur le port. `MOCKY_PORT=8788 npm start`. |
-| Neuf échecs de connexion bloquent toute l'instance | Reverse proxy sans `TRUST_PROXY=1` : toutes les requêtes semblent venir de `127.0.0.1`, donc la limitation devient un seau unique. |
-| HTTP 401/403 du fournisseur | Clé absente ou invalide. En mode instance, la clé du navigateur est ignorée — c'est celle de l'admin qui compte. |
-| Écran coupé au milieu d'une chaîne | Le modèle a atteint son plafond de sortie. Mocky le détecte (`done_reason` / `finish_reason` `length`) et l'annonce au lieu de laisser une erreur de syntaxe cryptique. |
-| Aperçu blanc, console pleine d'erreurs CORS `origin 'null'` | La maquette a tenté de naviguer hors d'elle-même. Le parent recharge le `srcdoc` et affiche « les liens sont inertes ». |
-| Muse ne fait rien | Muse exige le backend. En mode `localStorage` pur, l'interrupteur est masqué. |
+| Every page is a 404 but the API answers | `npm start` without `npm run build`. `/api/health` reports `frontendBuilt: false` |
+| Sign-in cannot reach the back end | You ran `npm run dev` instead of `npm run dev:all` |
+| `EADDRINUSE` on startup | Another Mocky is on the port. Use `MOCKY_PORT=8788 npm start` |
+| Nine failed logins lock out the whole instance | A reverse proxy without `TRUST_PROXY=1`. Every request appears to come from `127.0.0.1`, so the rate limit becomes one shared bucket |
+| HTTP 401 or 403 from the provider | Missing or invalid key. In instance mode the browser's key is ignored; the administrator's key is the one that counts |
+| A screen is cut off mid-string | The model hit its output cap. Mocky detects this through `done_reason` or `finish_reason` being `length` and says so, instead of leaving a cryptic syntax error |
+| Blank preview, console full of `origin 'null'` CORS errors | The mockup tried to navigate away from itself. The parent reloads the `srcdoc` and shows a "links are inert" notice |
+| Muse does nothing | Muse requires the back end. In pure `localStorage` mode the toggle is hidden |

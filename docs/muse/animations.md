@@ -1,9 +1,9 @@
 # Animations
 
-Le mouvement dans Mocky repose sur [Motion](https://motion.dev), et **le modèle
-génératif n'en écrit jamais une ligne**. Il n'a aucun accès à l'API de la
-bibliothèque : pas de `motion.div`, pas de transition, pas d'objet de variantes.
-Il choisit un nom dans une liste fermée.
+Motion in Mocky is powered by [Motion](https://motion.dev), and **the generating
+model never writes a line of it**. It has no access to the library's API: no
+`motion.div`, no transition, no variants object. It picks a name from a closed
+list.
 
 ```jsx
 <Animated preset="fade-up" delay={0.1} as="section">…</Animated>
@@ -11,143 +11,144 @@ Il choisit un nom dans une liste fermée.
 <CountUp to={1284} suffix="+" />
 ```
 
-Tout le reste — variantes, ressorts, seuils d'intersection, repli CSS — est écrit
-et testé une fois, dans `src/lib/capabilities/snippets/Animate.ts`.
+Everything else — variants, springs, intersection thresholds, the CSS fallback —
+is written and tested once, in `src/lib/capabilities/snippets/Animate.ts`.
 
 ---
 
-## Pourquoi une liste fermée
+## Why the list is closed
 
-C'est le choix central, et il n'est pas une question de goût.
+This is the central decision, and it is not a matter of taste.
 
-Un modèle qui écrit du code d'animation à la main produit trois classes d'échec
-qu'aucune revue automatique ne rattrape :
+A model writing animation code by hand produces three classes of failure that no
+automated review catches.
 
-1. **Une API mal mémorisée.** Motion a changé de nom, de paquet et de surface
-   (`framer-motion` → `motion/react`). Les modèles ont lu les trois époques. Un
-   import faux ou une prop inexistante n'est pas une animation moins jolie : c'est
-   un écran qui ne monte pas.
-2. **Un état de repos invisible.** Une entrée qui part de `opacity: 0` et dont
-   l'animation ne démarre jamais laisse une page **blanche**. Ce n'est pas une
-   dégradation, c'est une perte de contenu.
-3. **De l'imprévisible.** Chaque écran inventerait ses propres durées, ses propres
-   courbes, ses propres distances — et un projet de douze écrans n'aurait aucun
-   langage de mouvement commun.
+**A misremembered API.** Motion has changed name, package and surface —
+`framer-motion` became `motion/react`. Models have read all three eras. A wrong
+import or a non-existent prop is not a less pretty animation; it is a screen that
+does not mount.
 
-Avec une liste fermée, le pire que le modèle puisse faire est de **nommer un preset
-qui n'existe pas** — ce qui rend un élément ordinaire, non animé, avec son contenu.
+**An invisible resting state.** An entrance that starts at `opacity: 0` and whose
+animation never begins leaves a **blank page**. That is not a degradation, it is
+lost content.
 
-C'est la même logique que le registre de capacités : réduire la surface que le
-modèle peut se tromper à écrire, et déplacer la complexité dans du code testé.
+**Unpredictability.** Every screen would invent its own durations, curves and
+distances, and a twelve-screen project would have no shared motion language.
+
+With a closed list, the worst the model can do is **name a preset that does not
+exist**, which renders a plain, unanimated element with its content intact.
+
+This is the same reasoning as the capability registry: shrink the surface the
+model can get wrong, and move the complexity into tested code.
 
 ---
 
-## Les onze presets
+## The eleven presets
 
-| Catégorie | Preset | Effet |
+| Category | Preset | Effect |
 |---|---|---|
-| **Entrées** | `fade-in` | opacité 0 → 1, 400 ms |
-| | `fade-up` | opacité + montée de 16 px, 400 ms, `easeOut` |
-| | `scale-in` | ressort, `stiffness: 300`, `damping: 24` |
-| | `slide-left` | entre depuis la gauche (−32 px), 450 ms |
-| | `slide-right` | entre depuis la droite (+32 px), 450 ms |
-| | `blur-in` | flou de 12 px qui se lève, 500 ms |
-| | `stagger-list` | les enfants apparaissent l'un après l'autre (0,06 s) |
-| **Survol** | `hover-lift` | se soulève de 4 px + ombre portée |
-| | `hover-glow` | `scale(1.02)` + `brightness(1.08) saturate(1.08)` |
-| **Défilement** | `parallax` | dérive plus lentement que la page (profondeur 0,25) |
-| **Sortie** | `exit-slide` | entre par la gauche, sort par la droite quand l'élément est retiré |
+| **Entrances** | `fade-in` | Opacity 0 to 1, 400 ms |
+| | `fade-up` | Opacity plus a 16 px rise, 400 ms, `easeOut` |
+| | `scale-in` | A spring, `stiffness: 300`, `damping: 24` |
+| | `slide-left` | Enters from the left (−32 px), 450 ms |
+| | `slide-right` | Enters from the right (+32 px), 450 ms |
+| | `blur-in` | A 12 px blur lifting, 500 ms |
+| | `stagger-list` | Children appear one after another, 0.06 s apart |
+| **Hover** | `hover-lift` | Rises 4 px with a shadow |
+| | `hover-glow` | `scale(1.02)` plus `brightness(1.08) saturate(1.08)` |
+| **Scroll** | `parallax` | Drifts more slowly than the page, depth 0.25 |
+| **Exit** | `exit-slide` | Enters from the left, exits to the right when removed |
 
-Deux détails valent l'explication :
+Two details are worth explaining.
 
-**`stagger-list` se pose sur la LISTE, pas sur chaque élément.** C'est dit
-explicitement dans la description lue par le modèle, parce que l'erreur inverse est
-naturelle et donne onze animations simultanées au lieu d'un échelonnement.
+**`stagger-list` goes on the list, not on each item.** This is stated explicitly
+in the description the model reads, because the opposite mistake is natural and
+produces eleven simultaneous animations instead of a stagger.
 
-**`hover-glow` joue sur la lumière, pas sur la couleur.** L'écran généré a sa propre
-palette et ce preset n'a pas à la deviner. `brightness` fonctionne sur n'importe
-quel fond ; un halo coloré codé en dur se battrait avec la moitié des directions
-artistiques.
+**`hover-glow` uses light, not colour.** The generated screen has its own palette
+and this preset must not guess at it. `brightness` works on any background,
+whereas a hard-coded coloured halo would fight half the art directions.
 
-Un nom absent de cette liste **n'est pas une erreur** : `MOCKY_PRESETS[name]` vaut
-`undefined`, `animating` est faux, et le composant rend un élément ordinaire avec
-son `className`, son `style` et ses enfants.
+A name absent from this list **is not an error**. `MOCKY_PRESETS[name]` is
+`undefined`, `animating` is false, and the component renders a plain element with
+its `className`, `style` and children.
 
-### La liste est déclarée deux fois, exprès
+### The list is declared twice, on purpose
 
 ```ts
 export const ANIMATE_PRESETS = ['fade-in', 'fade-up', /* … */] as const
 export type AnimatePreset = (typeof ANIMATE_PRESETS)[number]
 ```
 
-`ANIMATE_PRESETS` est écrite **à côté** de la source, pas dérivée d'elle. Ce qui
-atteint réellement le modèle sont les métadonnées `components` du registre ; un nom
-présent dans l'un et absent de l'autre est exactement la divergence que
-`validatePack` existe pour attraper.
+`ANIMATE_PRESETS` sits **next to** the source rather than being derived from it.
+What actually reaches the model is the registry's `components` metadata, and a
+name present in one but absent from the other is exactly the divergence
+`validatePack` exists to catch.
 
 ---
 
-## Les trois composants
+## The three components
 
 ### `<Animated>`
 
-Le seul emballage. `preset` est **obligatoire**. `delay` est en secondes, borné à
-`[0, 2]`. `as` choisit la balise (`div` par défaut).
+The only wrapper. `preset` is **required**. `delay` is in seconds, clamped to
+`[0, 2]`. `as` chooses the tag, defaulting to `div`.
 
 ### `<Ticker>`
 
-Une rangée qui défile indéfiniment — bandeaux de logos, témoignages, étiquettes.
-La piste est **dupliquée automatiquement**, donc on passe les éléments **une seule
-fois**. `speed` est le nombre de secondes par passe complète (plus haut = plus
-lent), borné à `[4, 120]`. `reverse` inverse le sens. `pauseOnHover` est actif par
-défaut.
+A row that scrolls forever: logo strips, testimonials, tags.
 
-La piste est translatée d'exactement **la moitié de sa largeur** : la couture est
-invisible et le point de bouclage est identique au départ. Ce détail est aussi ce
-qui lui fait survivre au mode « sans animation » — écraser l'animation en une
-passe instantanée la pose à `-50%`, c'est-à-dire exactement la même image.
+The track is **duplicated automatically**, so pass the items **once**. `speed` is
+the number of seconds per full pass — higher is slower — clamped to `[4, 120]`.
+`reverse` flips the direction. `pauseOnHover` is on by default.
+
+The track is translated by exactly **half its width**, so the seam is invisible
+and the loop point looks identical to the start. That detail is also what makes
+it survive "no animation" mode: collapsing the animation to one instant pass
+lands it at −50%, which is the same picture.
 
 ### `<CountUp>`
 
-Un nombre qui compte à partir de zéro quand il entre dans le champ. `to` est
-obligatoire. `duration` est borné à `[200, 6000]` ms, `decimals` à `[0, 3]`.
-L'interpolation est un `easeOutCubic` — rapide d'abord, puis elle se pose sur le
-nombre. Les milliers sont espacés automatiquement.
+A number that counts up when it scrolls into view. `to` is required. `duration`
+is clamped to `[200, 6000]` ms and `decimals` to `[0, 3]`. The easing is
+`easeOutCubic`: fast first, then settling on the number. Thousands are spaced
+automatically.
 
-Il rend un `<span>` en ligne, à emballer soi-même dans un titre ou un paragraphe
-pour le styler.
+It renders an inline `<span>`, so wrap it in your own heading or paragraph for
+styling.
 
-**Quand l'animation est coupée, il rend la valeur FINALE.** Une statistique bloquée
-à 0 est pire qu'une statistique qui n'a pas bougé : elle est **fausse**.
+**When animation is off it renders the final value.** A statistic stuck at 0 is
+worse than a statistic that never moved: it is **wrong**.
 
 ---
 
-## Deux moteurs, un seul contrat
+## Two engines, one contract
 
-Motion est vendorisé et chargé comme capacité, donc il est normalement là. Quand il
-ne l'est pas — le script a échoué, ou l'écran a été généré avant l'existence de la
-capacité — **les mêmes presets tournent sur un petit chemin
-CSS + IntersectionObserver**. Le contrat du composant ne change pas ; seule la
-douceur change.
+Motion is vendored and loaded as a capability, so it is normally there. When it
+is not — the script failed, or the screen was generated before the capability
+existed — **the same presets run on a small CSS and IntersectionObserver path**.
 
-| | Avec `window.Motion` | Sans |
+The component's contract does not change. Only the smoothness does.
+
+| | With `window.Motion` | Without |
 |---|---|---|
-| Entrées | variantes `hidden`/`visible` | classes CSS `from`/`to` + transition, révélées par IntersectionObserver |
-| Survol | `whileHover` | `onMouseEnter`/`onMouseLeave` écrivant les styles à la main |
-| `parallax` | **le même code** | **le même code** |
-| Sortie | `AnimatePresence` | pas de sortie, l'élément disparaît |
+| Entrances | `hidden`/`visible` variants | CSS `from`/`to` classes and a transition, revealed by IntersectionObserver |
+| Hover | `whileHover` | `onMouseEnter`/`onMouseLeave` writing styles by hand |
+| `parallax` | **the same code** | **the same code** |
+| Exit | `AnimatePresence` | No exit; the element simply disappears |
 
-`parallax` est **piloté par le défilement**, donc c'est le même chemin DOM dans les
-deux moteurs — il n'y a rien qu'une variante puisse décrire. Un `requestAnimationFrame`
-est planifié depuis un écouteur `scroll` passif, la position est calculée depuis le
-centre de l'élément relativement au centre du viewport (−1 au-dessus, 0 centré, +1
-en dessous) et bornée à ±80 px, ce qui le maintient près de sa position de mise en
-page à toutes les hauteurs de défilement : il ne dérive jamais hors de sa propre
+`parallax` is **scroll-linked**, so it is the same DOM code in both engines —
+there is nothing for a variant to describe.
+
+A `requestAnimationFrame` is scheduled from a passive `scroll` listener. The
+offset is computed from the element's centre relative to the viewport centre — −1
+above, 0 centred, +1 below — and clamped to ±80 px. That keeps the block near its
+layout position at every scroll offset, so it never drifts out of its own
 section.
 
 ---
 
-## L'échappatoire statique, et pourquoi elle n'est pas optionnelle
+## The static escape hatch
 
 ```js
 var mockyMayAnimate = function () {
@@ -160,92 +161,93 @@ var mockyMayAnimate = function () {
 };
 ```
 
-Trois raisons de ne pas animer, plus la quatrième qu'est une exception, et **toutes
-appartiennent à l'utilisateur**.
+Three reasons not to animate, plus a fourth that is the catch-all, and all of
+them belong to the user.
 
-`document.hidden` est le cas mesuré et non évident : Motion maintient un élément à
-son état `initial` jusqu'au démarrage de sa boucle d'images, et **les navigateurs
-n'exécutent pas cette boucle dans un onglet d'arrière-plan**. Une maquette ouverte
-dans un onglet inactif restait donc à `opacity: 0` indéfiniment — un écran blanc,
-pas un écran retardé.
+`document.hidden` is the measured, non-obvious one. Motion holds an element at
+its `initial` state until its frame loop starts, and **browsers do not run that
+loop in a background tab**. A mockup opened in an inactive tab therefore sat at
+`opacity: 0` indefinitely — a blank screen, not a delayed one.
 
-Dans tous ces cas, l'élément est rendu **dans son état final, immédiatement**. Une
-maquette qui montre son contenu sans l'animer est une petite perte ; une maquette
-qui ne montre rien est un bug.
+In every one of these cases the element renders in its **final state,
+immediately**. A mockup that shows its content without animating is a small loss;
+a mockup that shows nothing is a bug.
 
-### Le piège des hooks
+### The hooks trap
 
-La décision est prise **une fois, au montage**, et gelée dans une `ref` :
+The decision is taken **once, at mount**, and frozen in a ref:
 
 ```js
 var allowed = React.useRef(null);
 if (allowed.current === null) allowed.current = mockyMayAnimate();
 ```
 
-Et **tous les hooks s'exécutent à chaque rendu, inconditionnellement**. Ils se
-trouvaient auparavant après le retour anticipé, ce qui est un bug à retardement :
-`document.hidden` peut basculer pendant qu'une maquette est ouverte (on change
-d'onglet, on revient), et le rendu suivant du parent aurait alors pris le chemin
-court en appelant **moins** de hooks que le précédent — « Rendered fewer hooks than
-expected », qui tue toute la frame.
+And **every hook runs on every render, unconditionally**.
 
-Les effets ne font simplement rien quand il n'y a rien à faire.
+They used to sit after the early return, which is a bug that waits.
+`document.hidden` can flip while a mockup is open — switch tab, come back — and
+the next parent re-render would then take the short path and call **fewer** hooks
+than the previous one. That is "Rendered fewer hooks than expected", and it kills
+the whole frame.
+
+The effects simply do nothing when there is nothing to do.
 
 ---
 
-## L'interrupteur
+## The switch
 
-Trois états, pas deux. Ils vivent dans `src/lib/animations.ts` et sont **par
-appareil et persistants**, comme le thème : c'est une préférence de travail, pas
-une propriété du projet.
+Three states, not two. They live in `src/lib/animations.ts` and are **per device
+and sticky**, like the theme: this is a working preference, not a property of the
+project.
 
-| État | Effet |
+| State | Effect |
 |---|---|
-| `auto` *(défaut)* | La sélection existante s'applique — présélection par mots-clés, éventuellement affinée par le planificateur |
-| `on` | `animate` et `motion-lib` sont ajoutés quoi qu'il arrive |
-| `off` | `animate` et `motion-lib` sont retirés, et les écrans déjà générés sont figés |
+| `auto` *(default)* | The existing selection stands — the keyword shortlist, possibly refined by the planner |
+| `on` | `animate` and `motion-lib` are added regardless |
+| `off` | `animate` and `motion-lib` are removed, and already-generated screens are held still |
 
-Un interrupteur binaire aurait jeté une décision que Mocky prend déjà correctement
-la plupart du temps : une landing page veut des entrées, une table
-d'administration non. `auto` garde cette décision ; les deux autres états existent
-pour les fois où elle se trompe — `on` quand un écran lu comme statique mérite de
-respirer, `off` quand une démo doit tenir en place (un enregistrement d'écran, une
-machine lente, un client qui déteste le mouvement).
+A binary switch would have thrown away a decision Mocky already gets right most
+of the time: a landing page wants entrances, an admin table does not.
+
+`auto` keeps that decision. The other two states exist for when it guesses wrong
+— `on` when a screen read as static should still breathe, `off` when a demo has
+to hold still: a screen recording, a slow machine, a client who hates motion.
 
 ```js
 const ANIMATION_CAPS = ['animate', 'motion-lib']
 ```
 
-`off` retire **aussi la bibliothèque** : laisser `motion-lib` chargerait 129 ko dans
-un aperçu qui n'a rien à animer.
+`off` removes **the library too**. Leaving `motion-lib` behind would load 129 kB
+into a preview that has nothing to animate.
 
-`applyAnimationMode()` est appliqué **une seule fois**, après que la présélection
-et le planificateur ont dit ce qu'ils avaient à dire. Le reste du chemin de
-génération ignore l'existence du mode.
+`applyAnimationMode()` is applied **once**, after both the shortlist and the
+planner have had their say. The rest of the generation path is unaware the mode
+exists.
 
-### Par écran
+### Per screen
 
-Chaque écran peut passer outre depuis la barre au-dessus de sa vignette ou son
-menu contextuel. `Screen.animations` vaut :
+Each screen can override the global setting from the bar above its frame or from
+its context menu. `Screen.animations` holds:
 
-| Valeur | Sens |
+| Value | Meaning |
 |---|---|
-| `undefined` *(le cas courant)* | suit le réglage global — ce que disent tous les écrans générés avant l'existence de l'option |
-| `true` | cet écran anime |
-| `false` | cet écran tient en place |
+| `undefined` *(the common case)* | Follow the global setting. This is what every screen generated before the option existed says |
+| `true` | This screen animates |
+| `false` | This screen holds still |
 
-Résolution : `animations={s.animations ?? animations}`. C'est persisté et voyage
-avec le projet, parce que « cet écran-là doit rester immobile pour la démo » est
-une propriété de l'écran, pas de la session ouverte à ce moment-là.
+Resolution is `animations={s.animations ?? animations}`. It is persisted and
+travels with the project, because "this one screen must hold still for the demo"
+is a property of the screen, not of the session that happened to be open.
 
-### Ce que « couper » veut vraiment dire
+### What "off" really has to do
 
-Le drapeau `window.__mockyAnimations` ne peut atteindre que `<Animated>`. Un écran
-animé par une classe Tailwind `animate-*`, un `@keyframes` écrit à la main, une
-transition CSS ou le pack `motion` retiré continuerait de bouger — et du point de
-vue de l'utilisateur, l'interrupteur **serait** cassé.
+The `window.__mockyAnimations` flag only reaches `<Animated>`.
 
-Alors les animations sont **menées à leur terme** plutôt que retirées :
+A screen animated with a Tailwind `animate-*` class, a hand-written `@keyframes`,
+a CSS transition, or the retired `motion` pack would keep moving — and from the
+user's side the switch **would** be broken.
+
+So animations are **run to completion** rather than removed:
 
 ```css
 *,*::before,*::after{
@@ -259,16 +261,16 @@ Alors les animations sont **menées à leur terme** plutôt que retirées :
 }
 ```
 
-`animation: none` sur un fondu dont l'état de repos est `opacity: 0` laisserait le
-contenu **invisible pour toujours** — une maquette blanche au lieu d'une maquette
-figée. Écraser la durée et forcer l'image finale la pose à `opacity: 1`. C'est
-exactement la recette que la feuille de style de Mocky elle-même utilise pour
-`prefers-reduced-motion`, et pour la même raison.
+`animation: none` on a fade-in whose resting state is `opacity: 0` would leave
+the content **permanently invisible** — a blank mockup instead of a still one.
+Collapsing the duration and forcing the final frame lands it at `opacity: 1`.
 
-Basculer l'interrupteur **reconstruit le document** : `animations` figure dans la
-liste de dépendances de l'effet qui construit le `srcDoc`, sans quoi les écrans
-déjà posés sur le canevas garderaient le réglage avec lequel ils ont été
-construits. Un test verrouille les deux points :
+This is the same recipe Mocky's own stylesheet uses for
+`prefers-reduced-motion`, for exactly the same reason.
+
+Flipping the switch **rebuilds the document**: `animations` is in the dependency
+list of the effect that builds the `srcDoc`, otherwise screens already on the
+canvas would keep the setting they were built with. A test locks both points:
 
 ```js
 expect(preview).toContain('animation-fill-mode:forwards !important')
@@ -278,134 +280,133 @@ expect(preview).toMatch(/\[code, frameId, hideScrollbars, resolvedCaps, animatio
 
 ---
 
-## Quand le modèle écrit du Motion quand même
+## When the model writes Motion anyway
 
-Le modèle est prévenu qu'il n'y a pas de système de modules dans le bac à sable, et
-ne voit jamais que `<Animated>`. Il glisse quand même : `import { motion } from
-"motion/react"` et `<motion.div>` sont de la mémoire musculaire acquise sur tout
-Internet, et l'un des deux dans un écran généré est un échec de rendu **dur**, pas
-dégradé.
+The model is told there is no module system in the sandbox, and only ever sees
+`<Animated>`. It slips anyway: `import { motion } from "motion/react"` and
+`<motion.div>` are muscle memory acquired from the whole internet, and either one
+in a generated screen is a **hard** render failure, not a degraded one.
 
-`stripForbiddenMotion()` (`src/lib/stripMotion.ts`) le retire — par **AST Babel**,
-jamais par regex (invariant I1) :
+`stripForbiddenMotion()` in `src/lib/stripMotion.ts` removes it, through a
+**Babel AST walk**, never a regular expression (invariant I1):
 
 ```js
 const MOTION_MODULE = /^(motion|framer-motion)(\/.*)?$/
 ```
 
-- `ImportDeclaration` dont la source correspond → supprimée.
-- `JSXMemberExpression` dont l'objet est l'identifiant `motion` →
-  `<motion.section className="hero">` devient `<section className="hero">`.
-  L'élément survit **avec ses enfants, sa `className` et son contenu**, et
-  simplement n'anime pas. Même contrat que partout ailleurs dans cette
-  fonctionnalité : dégrader vers la version statique, jamais vers une frame vide.
+An `ImportDeclaration` whose source matches is removed.
 
-Ce qu'il ne touche **pas** : `<Animated>`, et un composant que l'utilisateur aurait
-légitimement nommé `Motion` — seul l'espace de noms `motion` en minuscules, celui
-sous lequel la bibliothèque est connue, est visé. Si la balise renommée ne commence
-pas par une minuscule, elle retombe sur `div` (une balise JSX capitalisée est une
-référence de composant, pas un élément HTML).
+A `JSXMemberExpression` whose object is the `motion` identifier is rewritten:
+`<motion.section className="hero">` becomes `<section className="hero">`. The
+element survives **with its children, its `className` and its content**, and
+simply does not animate. Same contract as everywhere else in this feature:
+degrade to the static version, never to a blank frame.
 
-La fonction **ne lève jamais** : un fichier que Babel ne peut pas parser est
-renvoyé intact, parce que le compilateur en aval signalera cette erreur de syntaxe
-bien mieux qu'elle ne le pourrait, et qu'avaler le code ici transformerait une
-erreur réparable en écran vide.
+What it does **not** touch: `<Animated>`, and a component the user legitimately
+named `Motion`. Only the lowercase `motion` namespace, the one the library is
+known by, is targeted. If the renamed tag does not start with a lowercase letter
+it falls back to `div`, because a capitalised JSX tag is a component reference,
+not an HTML element.
 
-Une suppression est **rapportée dans la console**, jamais faite en silence :
+The function **never throws**. A file Babel cannot parse is returned untouched,
+because the compiler downstream will report that syntax error far better than
+this can, and swallowing the code here would turn a fixable error into an empty
+screen.
+
+A removal is **reported in the console**, never done silently:
 
 ```
 [mocky] raw Motion code removed from the generated screen (<motion.div>) —
 animations come from <Animated preset="…"> only.
 ```
 
-Réécrire la sortie de quelqu'un en secret est le genre de magie qui rend un outil
-peu fiable.
+Silently rewriting someone's output is the kind of magic that makes a tool
+untrustworthy.
 
 ---
 
-## Motion, vendorisé
+## Motion, vendored
 
-Motion est épinglé à une version **exacte** dans `package.json` — `"motion":
-"12.43.0"`, sans `^` — et le bundle navigateur est produit par
+Motion is pinned to an **exact** version in `package.json` — `"motion":
+"12.43.0"`, with no `^` — and the browser bundle is produced by
 `scripts/build-vendor-motion.mjs`.
 
-**Pourquoi un script.** Tous les autres bundles de `public/vendor/` sont copiés
-depuis `node_modules` parce qu'ils livrent déjà une version navigateur. Motion 12
-ne publie qu'ESM et CJS, et l'iframe d'aperçu n'a aucune résolution de modules :
-elle charge des scripts simples et lit des globaux sur `window`.
+**Why a script.** Every other bundle in `public/vendor/` is copied from
+`node_modules` because it already ships a browser build. Motion 12 publishes ESM
+and CJS only, and the preview iframe has no module resolution: it loads plain
+scripts and reads globals off `window`.
 
 ```js
 stdin: { contents: `export { motion, AnimatePresence, useReducedMotion } from 'motion/react'` }
 bundle: true, format: 'iife', globalName: 'Motion'
 ```
 
-Seulement ce dont `<Animated>` a besoin. La surface complète de Motion n'est
-délibérément pas exposée — c'est tout l'objet du registre de presets fermé — donc
-il n'y a aucune raison de livrer les parties que personne n'appelle.
+Only what `<Animated>` needs. Motion's full surface is deliberately not exposed —
+that is the whole point of the closed preset registry — so there is no reason to
+ship the parts nothing calls.
 
-**React n'est pas embarqué.** Un plugin esbuild redirige `react` et `react-dom`
-vers les globaux que la coquille d'aperçu a déjà posés :
+**React is not bundled in.** An esbuild plugin redirects `react` and `react-dom`
+to the globals the preview shell has already set:
 
 ```js
 args.path === 'react' ? 'module.exports = window.React' : 'module.exports = window.ReactDOM'
 ```
 
-Embarquer un second React donnerait à la page deux répartiteurs, et **chaque hook
-lèverait « invalid hook call »** dès le premier rendu d'un composant Motion.
+Bundling a second React would give the page two dispatchers, and **every hook
+would throw "invalid hook call"** the moment a Motion component rendered.
 
-**Après une montée de version.** Relancer le script, recopier le SHA-256 imprimé
-dans `public/vendor/VENDOR.md`, et **vérifier les presets visuellement**. Motion a
-déjà livré une mise à jour qui a **silencieusement cessé d'animer sans lever
-d'erreur** : « pas d'erreur console » ne prouve rien ici.
+**After a version bump.** Re-run the script, copy the printed SHA-256 into
+`public/vendor/VENDOR.md`, and **verify the presets visually**. Motion has
+shipped an upgrade that **silently stopped animating without throwing**: "no
+console error" proves nothing here.
 
 ---
 
-## Le pack retiré, et le seul chemin qui l'atteint encore
+## The retired pack, and the one path that still reaches it
 
-Avant `<Animated>`, il y avait une capacité `motion` : douze composants
-CSS-uniquement (`FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`,
-`ShimmerButton`, `BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`,
-`AnimatedBeam`).
+Before `<Animated>` there was a `motion` capability: twelve CSS-only components —
+`FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`,
+`BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`, `AnimatedBeam`.
 
-Elle est marquée `retired: true` : **injectée** pour les écrans qui la portent dans
-leur `Screen.caps`, **jamais documentée** au modèle. Voir
-[Architecture — vue d'ensemble](architecture/overview.md) pour la mécanique
-complète.
+It is marked `retired: true`: **injected** for screens carrying it in
+`Screen.caps`, **never documented** to the model. The full mechanism is in the
+[architecture overview](architecture/overview.md).
 
-Une action de l'interface la réactive volontairement : **« Ajouter des
-animations »**, dans le menu d'un écran, qui superpose du mouvement à un écran
-déjà généré à trois intensités (`subtle`, `moderate`, `rich`).
+One UI action deliberately re-enables it: **"Add animations"**, in a screen's
+menu, which layers motion onto an already-generated screen at three intensities —
+`subtle`, `moderate` and `rich`.
 
 ```js
 const capIds = Array.from(new Set([...(screen.caps ?? []), 'motion']))
 ```
 
-C'est un chemin d'**édition** : `EDIT_RULES` s'applique, donc le modèle ne peut
-ajouter que du mouvement — contenu, copie, couleurs, mise en page et structure
-restent identiques à l'octet près. L'instruction nomme les composants du pack pour
-qu'il **emballe** le balisage existant au lieu d'écrire ses propres keyframes.
+This is an **edit** path, so `EDIT_RULES` applies: the model may add motion only,
+and content, copy, colours, layout and structure stay byte-for-byte identical.
+The instruction names the pack's components so the model **wraps** the existing
+markup instead of writing its own keyframes.
 
-À noter : comme les capacités retirées sont sautées dans la boucle de documentation
-de `buildCapabilitiesPrompt()`, ce sont l'instruction d'édition et le paragraphe
-final « ANIMATION: use the components listed above (…) » — déclenché par la
-présence de l'id `motion` — qui portent les noms jusqu'au modèle, et non les lignes
-par composant du bloc CAPABILITIES.
+One subtlety worth knowing. Retired capabilities are skipped in
+`buildCapabilitiesPrompt()`'s documentation loop, so the per-component lines are
+not emitted. The names reach the model through two other channels: the edit
+instruction itself, and the trailing "ANIMATION: use the components listed above
+(…)" paragraph, which is triggered by the presence of the `motion` id.
 
-Enfin, `applyAnimationMode('off')` ne retire **que** `animate` et `motion-lib`. Un
-écran construit sur le pack retiré conserve donc ses composants — et c'est le CSS
-d'écrasement décrit plus haut qui le fige, pas la sélection de capacités. C'est
-précisément pour ce cas que l'écrasement existe.
+Finally, `applyAnimationMode('off')` removes **only** `animate` and `motion-lib`.
+A screen built on the retired pack keeps its components, and it is the
+override CSS described above that freezes it, not capability selection. That case
+is precisely why the override exists.
 
 ---
 
-## Le langage de mouvement de Muse
+## Muse's motion language
 
-Un Design Dossier contient une section `## Motion Language` : une liste de noms
-avec leur description. Elle n'est **pas** contraignante au sens du registre — c'est
-de la direction artistique en prose, transmise au modèle dans le préambule.
+A design dossier contains a `## Motion Language` section: a list of names with
+descriptions. It is **not** binding in the registry sense — it is art direction
+in prose, passed to the model in the preamble.
 
-Le lien mécanique est ailleurs : les jetons du dossier alimentent la présélection
-de capacités existante (`selectCapabilities(text, museMarkdown || designMd)`), donc
-un dossier qui parle de mouvement fait naturellement retenir la capacité `animate`
-— exactement comme un prompt qui en parlerait. Aucun genre de capacité nouveau, et
-aucun chemin nouveau.
+The mechanical link is elsewhere. The dossier's tokens feed the existing
+capability shortlist through `selectCapabilities(text, museMarkdown || designMd)`,
+so a dossier that talks about motion naturally causes the `animate` capability to
+be selected — exactly as a prompt mentioning it would.
+
+No new capability kind, and no new code path.

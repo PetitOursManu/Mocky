@@ -1,332 +1,336 @@
-# Muse — vue d'ensemble
+# Muse overview
 
-## L'étoile polaire
+## The problem Muse solves
 
-Un modèle à qui l'on demande « une landing page moderne pour une application de
-gestion de tâches » produit toujours la même page. Dégradé violet-vers-bleu sur
-fond sombre, titre centré, sous-titre, deux boutons, trois cartes identiques avec
-une icône générique, bandeau « Trusted by » en rectangles gris. Ce n'est pas un
-défaut de rendu : c'est le centre de gravité de l'entraînement.
+Ask a model for "a modern landing page for a task manager" and you get the same
+page every time. A purple-to-blue gradient on a dark background, a centred
+headline, a subheading, two buttons, three identical feature cards with generic
+icons, and a grey "Trusted by" logo strip.
 
-**Muse est la passe qui déplace ce centre de gravité.** Un interrupteur, à côté du
-prompt, et Mocky construit d'abord une **direction artistique** — puis génère
-l'écran à partir d'elle plutôt qu'à partir du prompt nu.
+That is not a rendering fault. It is the centre of gravity of the training data.
 
-Ce qui change concrètement :
+**Muse moves that centre of gravity.** Flip one toggle next to the prompt and
+Mocky builds an **art direction** first, then generates the screen from it
+instead of from the bare prompt.
 
-| Sans Muse | Avec Muse |
+| Without Muse | With Muse |
 |---|---|
-| Le modèle invente une palette | Une palette cohérente, tracée jusqu'à ses références |
-| Copie générique, souvent en anglais | De la vraie copie, dans la langue de la demande |
-| Aucune image, ou des aplats | Une image générée, servie depuis l'origine de Mocky |
-| Aucune mémoire du « pourquoi » | Un `DESIGN-DOSSIER.md` citant ce qui a inspiré quoi |
-| Rien n'interdit les clichés | Une liste noire versionnée, et une autocritique |
+| The model invents a palette | A coherent palette, traceable to its references |
+| Generic copy, often in English | Real copy, in the language of the request |
+| No images, or flat colour blocks | A generated image, served from Mocky's origin |
+| No record of the reasoning | A `DESIGN-DOSSIER.md` citing what inspired what |
+| Nothing prevents clichés | A versioned blacklist and a self-critique pass |
 
-Muse a besoin du backend. En mode `localStorage` pur, l'interrupteur est masqué —
-il ne doit jamais **paraître** fonctionner en ne faisant rien.
+Muse needs the back end. In pure `localStorage` mode the toggle is hidden — it
+must never *appear* to work while doing nothing.
 
 ---
 
-## Les quatre étapes
+## The four stages
 
-Muse est un pipeline **serveur**, exposé par `POST /api/muse/dossier`, orchestré
-par `server/muse/inspire/engine.js`.
+Muse is a **server-side** pipeline exposed at `POST /api/muse/dossier` and
+orchestrated by `server/muse/inspire/engine.js`.
 
-```
-prompt ──► Discover ──► Distill ──► Dossier ──► (Affinage) ──► Markdown
-             ▲            ▲           ▲             ▲
-     registre + URL    1 LLM/page   1 LLM       1 LLM, ≤1 reprise
-     via MCP fetch     zod, ≤6      zod         note + révision
-```
+| # | Stage | Model calls | Optional? |
+|---|---|---|---|
+| 1 | **Discover** — gather inspiration | None | Yes, only when "live inspiration" is ticked |
+| 2 | **Distill** — turn pages into vocabulary | One per page, at most 6 | Only runs if Discover found something |
+| 3 | **Dossier** — write the art direction | One, with one retry | No, but degrades to a deterministic dossier |
+| 4 | **Refine** — self-critique | One score, at most one revision | Yes |
 
-### 1. Discover — rassembler l'inspiration
+### 1. Discover
 
-La demande est classée en étiquettes (`landing`, `saas`, `restaurant`,
-`fintech`…) par simple correspondance de mots-clés — **sans LLM**, donc testable et
-utilisable hors ligne. Ces étiquettes sélectionnent des galeries dans un registre
-curaté (`sources.json`), auxquelles s'ajoutent les URL que l'utilisateur a collées.
-**Les URL de l'utilisateur passent en premier** : ses références gagnent toujours
-une place dans le quota.
+The request is classified into tags — `landing`, `saas`, `restaurant`, `fintech`
+and so on — by plain keyword matching. **No model call**, so it is testable and
+works offline.
 
-Les pages sont récupérées par un **serveur MCP local et gratuit** — `fetcher-mcp`,
-qui est du Playwright + Readability. Cette étape est **facultative** : elle ne
-tourne que si l'utilisateur coche « Inspiration live ». Sinon, Muse va directement
-au dossier avec sa bibliothèque de patterns hors ligne.
+Those tags select galleries from a curated registry (`sources.json`), and any
+URLs the user pasted are added. **The user's URLs come first**: their own
+references always get a slot in the quota.
 
-### 2. Distill — en faire du vocabulaire
+Pages are fetched through a **local, free MCP server** — `fetcher-mcp`, which is
+Playwright plus Readability.
 
-Chaque page devient une *InspirationCard* structurée : palette (6 max), adjectifs
-de style, sensation typographique, grammaire de mise en page, notes de mouvement,
-ton du contenu, et clichés à éviter.
+This stage is **optional**. It only runs when the user ticks "live inspiration".
+Otherwise Muse goes straight to the dossier using its offline pattern library.
 
-L'instruction est explicite : extraire du **vocabulaire et de la grammaire
-structurelle**, jamais copier un design, un titre ou un asset précis. Si un champ
-identifierait une seule source exacte, il doit être généralisé.
+### 2. Distill
 
-### 3. Dossier — écrire la direction artistique
+Each page becomes a structured *InspirationCard*: a palette of at most six
+colours, style adjectives, typographic feel, layout grammar, motion notes,
+content tone, and clichés to avoid.
 
-Le **Design Dossier** est un **sur-ensemble strict de `DESIGN.md`**. Sa section
-`## Tokens` est écrite dans le format `DESIGN.md` exact, si bien que
-`src/lib/design.ts`, `designTokens.ts` et toute la chaîne d'export continuent de
-fonctionner sans modification. Autour, Muse ajoute :
+The instruction is explicit: extract **vocabulary and structural grammar**, never
+copy a specific design, headline or asset. If a field would identify one exact
+source design, it must be generalised.
 
-| Section | Contenu |
+### 3. Dossier
+
+The **design dossier** is a strict **superset of `DESIGN.md`**. Its `## Tokens`
+section uses the exact `DESIGN.md` format, so `src/lib/design.ts`,
+`designTokens.ts` and the whole export chain keep working unchanged.
+
+Around that, Muse adds:
+
+| Section | Contents |
 |---|---|
-| `## Concept` | 2–3 phrases de direction artistique **spécifique** ; « moderne, propre, professionnel » est banni |
-| `## References` | Quelle référence ou quel pattern a motivé quel choix |
-| `## Tokens` | Palette (6–8 couleurs), typographie, rayon — **format `DESIGN.md`** |
-| `## Layout Grammar` | La grammaire de composition |
-| `## Motion Language` | Le langage de mouvement |
-| `## Voice & Copy` | Titre, sous-titre, 3 arguments, libellés d'action, pied de page — **dans la langue de la demande** |
-| `## Imagery Plan` | Les emplacements d'images, avec un prompt de génération prêt à l'emploi |
-| `## Forbidden` | Les clichés à ne pas produire, pour **ce** projet |
+| `## Concept` | Two or three sentences of **specific** art direction. "Modern, clean, professional" is banned |
+| `## References` | Which reference or pattern drove which choice |
+| `## Tokens` | Palette of 6 to 8 colours, typography, radius — in `DESIGN.md` format |
+| `## Layout Grammar` | The composition rules |
+| `## Motion Language` | The motion vocabulary |
+| `## Voice & Copy` | Headline, subheadline, three value props, CTA labels, footer — **in the language of the request** |
+| `## Imagery Plan` | Image slots, each with a ready-to-use generation prompt |
+| `## Forbidden` | The clichés to avoid, for **this** project |
 
-La traçabilité n'est pas décorative : demander au modèle de **citer** ce qui a
-motivé chaque choix est une pression vers l'originalité.
+Asking the model to **cite** what drove each choice is not decoration. Traceability
+is pressure towards originality.
 
-### 4. Affinage — l'autocritique de distinction
+### 4. Refine
 
-Une passe LLM bon marché note le dossier et le révise **au plus une fois**. Elle
-est facultative, silencieuse en cas d'échec, et ne bloque jamais.
+A cheap model call scores the dossier and revises it **at most once**. It is
+optional, silent on failure, and never blocks.
 
-Le résultat est rendu en `DESIGN-DOSSIER.md`, injecté dans la génération comme
-`extraSystem` — **exactement là où `DESIGN.md` allait déjà** (invariant M1).
+The result is rendered as `DESIGN-DOSSIER.md` and injected into generation as
+`extraSystem` — **exactly where `DESIGN.md` already went** (invariant M1).
 
-Le détail complet de chaque étape est dans
-[Moteur d'inspiration](muse/inspiration-engine.md).
+Full details are in the [inspiration engine](muse/inspiration-engine.md) page.
 
 ---
 
-## Comment le dossier pilote la génération
+## How the dossier drives generation
 
-`buildMusePreamble()` (`src/lib/muse.ts`) transforme le dossier en préambule.
-Trois ajouts au Markdown brut méritent d'être expliqués, parce qu'ils corrigent
-chacun un échec observé.
+`buildMusePreamble()` in `src/lib/muse.ts` turns the dossier into a preamble.
+Three additions to the raw Markdown are worth explaining, because each fixes an
+observed failure.
 
-### La palette, réénoncée en classes
+### The palette, restated as classes
 
-Le dossier liste déjà ses couleurs — en hexadécimal, en prose, au milieu d'un long
-bloc Markdown. Deux choses tournaient mal à chaque fois : les règles de base
-nommaient des familles Tailwind concrètes (« slate/indigo/emerald/amber/rose »),
-ce qui est une instruction bien plus actionnable qu'une liste d'hexadécimaux ; et
-rien ne disait **comment** appliquer un hexadécimal avec Tailwind. Le modèle
-retombait donc tranquillement sur indigo-et-slate, et les écrans ignoraient la
-direction artistique.
+The dossier already lists its colours — as hex values, in prose, inside a long
+Markdown block. Two things went wrong every time.
 
-D'où :
+The base rules named concrete Tailwind families ("slate, indigo, emerald, amber,
+rose"), which is a far more actionable instruction than a list of hex values. And
+nothing said **how** to apply a hex value with Tailwind.
+
+So the model quietly fell back on indigo-and-slate, and the screens ignored the
+art direction.
+
+The fix restates each colour as the classes to paste:
 
 ```
 - Accent (primary): #cc4b2f → bg-[#cc4b2f] · text-[#cc4b2f] · border-[#cc4b2f]
 ```
 
-Il n'y a plus rien à traduire, et l'instruction est devenue plus concrète que celle
-qu'elle doit battre.
+There is nothing left to translate, and the instruction is now more concrete than
+the one it has to beat.
 
-### Le rayon, énoncé sans échappatoire
+### The radius, stated without an escape hatch
 
-> RADIUS — utilisez `rounded-none` comme traitement d'angle partout, **y compris
-> quand cela signifie des angles droits**. Ne l'adoucissez pas.
+> RADIUS — use `rounded-none` as the corner treatment throughout, **including when
+> that means square corners**. Do not soften it.
 
-Un modèle à qui l'on donne `rounded-none` arrondit quand même « pour faire plus
-moderne » si la phrase laisse la moindre marge.
+Given `rounded-none`, a model will still round corners "to look more modern" if
+the sentence leaves any room.
 
-### La séquence au défilement, énoncée en premier
+### The scroll sequence, stated first
 
-Elle est déclarée **avant** les images et en termes plus forts, parce qu'elle
-décide de la **forme** de l'écran et non du remplissage d'un emplacement : le héros
-cesse d'être un bloc contenant une image pour devenir une section épinglée que le
-visiteur traverse. Un modèle informé en passant écrit un héros normal et pose
-`<ScrollSequence>` quelque part sous la ligne de flottaison — le seul endroit où
-l'effet ne peut pas fonctionner.
+It comes **before** the images and in stronger terms, because it decides the
+**shape** of the screen rather than filling a slot in it. The hero stops being a
+block containing a picture and becomes a pinned section the visitor scrolls
+through.
+
+A model told about it in passing writes a normal hero and drops
+`<ScrollSequence>` somewhere below the fold — the one place the effect cannot
+work.
 
 ---
 
-## Les trois modes d'image
+## The three image modes
 
-L'image générée peut servir à trois choses différentes, et c'est un choix explicite
-dans le panneau Muse.
+The generated image can serve three different purposes, and it is an explicit
+choice in the Muse panel.
 
-| Mode | L'image est… | Vision requise ? | Profil de modèle |
+| Mode | The image is… | Needs vision? | Image profile |
 |---|---|---|---|
-| `content` | posée dans l'écran en `<img>` | non | `content` |
-| `inspiration` | montrée au modèle, **jamais** posée | oui | `inspiration` |
-| `both` | montrée **et** posée — une seule image | oui | `content` |
+| `content` | placed in the screen as an `<img>` | No | `content` |
+| `inspiration` | shown to the model, **never** placed | Yes | `inspiration` |
+| `both` | shown **and** placed — one image, one cost | Yes | `content` |
 
-La préférence enregistrée n'est jamais modifiée en silence : si le modèle actif n'a
-pas la vision, **ce run** dégrade en `content` et le réglage reste tel quel.
+The saved preference is never changed silently. If the active model has no
+vision, **this run** degrades to `content` and the setting stays as it was.
 
-### Pourquoi `inspiration` ne génère pas la même image que `content`
+### Why `inspiration` does not generate the same image as `content`
 
-C'était le cas au départ, et c'est pour cela que le mode « ne changeait souvent
-rien » : une image d'inspiration était générée à partir du prompt du plan
-d'imagerie — donc exactement le même sujet photographique que le héros, simplement
-routé vers un autre modèle. Ce n'est pas une référence de direction artistique,
-c'est une deuxième photo de héros. On tendait au modèle une image du produit en lui
-demandant d'y lire sa palette et sa composition.
+It used to, and that is why the mode "often changed nothing".
 
-Une **planche de référence** est un objet différent : pas de sujet, pas de récit,
-juste la palette, la matière et la lumière. `buildInspirationPrompt()` la construit
-à partir des jetons du dossier lui-même :
+An inspiration image was generated from the imagery plan's own prompt — the same
+photographic subject as the hero, merely routed to a different model. That is not
+an art-direction reference; it is a second hero photo. The model was handed a
+picture of the product and asked to read its palette and composition from it.
+
+A **reference plate** is a different object: no subject, no narrative, just
+palette, material and light. `buildInspirationPrompt()` builds it from the
+dossier's own tokens:
 
 > An abstract art-direction reference plate. […] Composition: large flat colour
 > fields, generous negative space, one clear focal area, a subtle paper or fabric
 > texture, soft directional light. It is a MOOD BOARD PLATE, not a picture of a
 > product: no people, no objects, no scene, no story.
 
-Le canevas enregistre `imageRole` sur l'écran (`content` / `inspiration` / `both`),
-parce que le badge ne disait que « Image Muse » : il était impossible de vérifier
-que le mode inspiration avait fait quoi que ce soit.
+The canvas records `imageRole` on the screen — `content`, `inspiration` or
+`both`. The badge previously said only "Muse image", which made it impossible to
+verify that inspiration mode had done anything at all.
 
 ---
 
-## Muse conçoit *à partir de* vos médias
+## Designing from your own media
 
-Sélectionner une image ou une séquence dans la bibliothèque ne se contente pas de
-remplir un emplacement : le média est lu **avant** l'écriture du dossier, et le
-dossier est construit autour.
+Selecting an image or a sequence from the library does more than fill a slot. The
+media is read **before** the dossier is written, and the dossier is built around
+it.
 
-Deux canaux, parce qu'ils échouent différemment :
+There are two channels, because they fail differently.
 
-- **La palette est mesurée sur les pixels** (`src/lib/palette.ts`). Exacte, et ça
-  marche sur **tous** les modèles. Demander à un modèle de vision de décrire les
-  couleurs échoue deux fois : la moitié des modèles auto-hébergés n'ont pas de
-  vision du tout, et ceux qui en ont renvoient des **noms** (« terracotta chaud »)
-  qu'il faut ensuite retraduire en hexadécimal à l'aveugle.
-- **L'image elle-même** n'est jointe que si le modèle voit. Elle porte ce qu'un
-  histogramme ne peut pas dire : le sujet, la composition, la densité, la lumière.
+**The palette is measured from the pixels** (`src/lib/palette.ts`). It is exact,
+and it works on **every** model.
 
-Les hexadécimaux mesurés sont déclarés comme **écrasant** les palettes suggérées
-par les patterns et les références :
+Asking a vision model to describe the colours fails twice over: half the models
+people self-host have no vision at all, and the ones that do return **names**
+("warm terracotta") that then have to be guessed back into hex.
 
-> RULES — these override the palettes suggested by any pattern or reference above.
-> […] Do NOT introduce a colour family that is absent from this list. A page whose
-> palette disagrees with its own hero image is the failure this section exists to
-> prevent.
+**The picture itself** is attached only when the model can see. It carries what a
+histogram cannot: subject, composition, density, light.
 
-Sans cette phrase, le modèle accuse poliment réception de l'image puis utilise
-quand même l'indigo du pattern — précisément l'échec que la fonctionnalité existe
-pour corriger.
+The measured hex values are declared to **override** the palettes suggested by
+patterns and references:
 
-Le bloc média est assaini avant d'atteindre un prompt ou un fournisseur
-(`sanitizeUserMedia()`) : la palette doit être de l'hexadécimal `#rrggbb` — pas
-seulement « une chaîne » —, au plus 8 échantillons, et l'image n'est acceptée que
-comme data-URL base64 `jpeg|png|webp` d'au plus 1 500 000 caractères, c'est-à-dire
-une référence réduite et pas un envoi de fichier.
+> RULES — these override the palettes suggested by any pattern or reference
+> above. […] Do NOT introduce a colour family that is absent from this list. A
+> page whose palette disagrees with its own hero image is the failure this
+> section exists to prevent.
+
+Without that sentence the model politely acknowledges the image and then uses the
+pattern's indigo anyway — which is exactly the failure the feature exists to fix.
+
+The media block is sanitized before it reaches any prompt or provider. See
+`sanitizeUserMedia()` in the [inspiration engine](muse/inspiration-engine.md)
+page.
 
 ---
 
-## La vidéo au défilement
+## Scroll-driven video
 
-Muse peut générer un **clip pour le héros** et laisser le visiteur le parcourir à
-la molette : le clip avance image par image, épinglé sur toute la hauteur, et
-repart en arrière quand on remonte.
+Muse can generate a **clip for the hero** and let the visitor scrub through it
+with the scroll wheel. The clip advances frame by frame, pinned full-height, and
+runs backwards when you scroll up.
 
-C'est **désactivé par défaut** et redemandé à chaque fois, parce que contrairement
-à toutes les autres options de Muse, celle-ci a un prix à l'usage et ajoute des
-minutes à une génération. Personne ne doit la découvrir en ayant laissé une case
-cochée.
+It is **off by default** and asked for explicitly every time. Unlike every other
+Muse option, this one has a per-use price and adds minutes to a generation.
+Nobody should discover that by leaving a box ticked.
 
-**Le clip n'est jamais lu comme une vidéo.** `ffmpeg` le découpe en séquence JPEG
-(12 i/s, 960 px de large, plafonné à 150 images) et l'écran dessine ces images sur
-un canvas. Deux raisons :
+### The clip is never played as a video
 
-1. Faire avancer `video.currentTime` depuis un gestionnaire de défilement paraît
-   juste en démo et saccade en pratique : le navigateur doit décoder depuis
-   l'image-clé la plus proche à chaque saut, et un clip généré en a très peu.
-2. Des images sont des **images** — donc l'aperçu en bac à sable n'a besoin
-   d'**aucune** source média, et sa CSP ne bouge pas d'un pouce pour supporter la
-   fonctionnalité.
+`ffmpeg` cuts it into a JPEG sequence — 12 fps, 960 px wide, capped at 150
+frames — and the screen draws those onto a canvas. Two reasons:
 
-Le taux d'échantillonnage est **fixe**, pas le nombre d'images : extraire
-« exactement 60 images réparties sur le clip » demanderait de connaître sa durée,
-donc une passe de sondage. À 12 i/s, un clip de 5 s donne 60 images, un clip de
-3 s en donne 36, et les deux se parcourent identiquement parce que la séquence est
-pilotée par la **progression**, pas par le temps. Le plafond de 150 est ce qui
-empêche un clip surprise de 30 s d'écrire 400 fichiers.
+1. Driving `video.currentTime` from a scroll handler looks right in a demo and
+   stutters in practice. The browser has to decode from the nearest keyframe on
+   every seek, and a generated clip has very few of them.
+2. Frames are **images**, so the sandboxed preview needs no media source at all
+   and its CSP does not move an inch to support the feature.
 
-L'affiche (`poster.jpg`) est la première image **copiée**, pas ré-encodée : c'est
-ce que l'écran montre avant la fin du préchargement, et elle doit être identique à
-l'octet près à l'image 1 pour qu'il n'y ait pas de saut visible.
+### A fixed sample rate, not a fixed count
 
-Le composant `<ScrollSequence>` dessine l'image chargée **la plus proche** de celle
-demandée plutôt que d'attendre que toutes soient là : soixante images sont soixante
-requêtes, et bloquer la section jusqu'à la dernière laisserait un trou d'une
-seconde ou deux sur un cache froid.
+Extracting "exactly 60 frames spread over the clip" would require knowing its
+duration, which means a probe pass. A fixed rate needs nothing.
 
-Les séquences vivent dans `data/video-library/`, adressées par le SHA-256 du clip :
-une demande identique réutilise la séquence au lieu de la payer deux fois.
+At 12 fps a 5-second clip gives 60 frames and a 3-second clip gives 36, and both
+scrub identically because the sequence is driven by **progress**, not by time.
+The 150-frame cap is what stops a surprise 30-second clip from writing 400 files.
+
+### Two details that matter
+
+The poster is the first frame **copied**, not re-encoded. It is what the screen
+shows before preloading finishes, and it has to be byte-identical to frame 1 so
+there is no visible jump.
+
+`<ScrollSequence>` draws the **nearest already-loaded frame** rather than waiting
+for all of them. Sixty frames are sixty requests, and blocking the section until
+the last one lands would leave a hole for a second or two on a cold cache.
+
+Sequences live in `data/video-library/`, addressed by the SHA-256 of the clip. An
+identical request reuses the sequence instead of paying for it twice.
 
 ---
 
 ## Anti-slop
 
-Cinq mécanismes, tous actifs :
+Five mechanisms, all active.
 
-1. **Une liste noire versionnée** — `server/muse/anti-slop.json`, 18 clichés
-   nommés, injectés dans le prompt du dossier et fusionnés avec la liste `avoid` de
-   chaque carte d'inspiration. Extraits :
+**1. A versioned blacklist.** `server/muse/anti-slop.json` names 18 clichés,
+injected into the dossier prompt and merged with each inspiration card's own
+`avoid` list. A sample:
 
-   > dégradés violet-vers-bleu en diagonale sur fond sombre · trois cartes de
-   > fonctionnalités identiques avec une icône générique, un titre et une phrase ·
-   > bandeau de faux logos « Trusted by » en rectangles gris · l'emoji utilisé
-   > comme icône d'interface · le même rayon de bordure sur absolument tout
+> purple-to-blue diagonal gradients on a dark background · three identical
+> feature cards with a generic icon, title and one sentence · a fake logo strip
+> labelled "Trusted by" with grey rectangles · emoji used as UI icons · identical
+> border-radius on every single element
 
-2. **Le contenu d'abord** — la section *Voice & Copy* est demandée avant la mise en
-   page. Une page écrite autour de sa copie ne ressemble pas à une page où l'on a
-   versé de la copie.
+**2. Content first.** The *Voice & Copy* section is requested before layout. A
+page written around its copy does not look like a page with copy poured into it.
 
-3. **Un lint post-génération** — `lintSlop()` cherche `lorem ipsum`, « Sample
-   text », « Your text/content here », « Content goes here », « Placeholder text ».
-   Le prompt système l'interdisait déjà ; ceci le rend **constaté**. Une violation
-   n'annule pas l'écran : elle est signalée pour qu'on régénère.
+**3. A post-generation lint.** `lintSlop()` looks for `lorem ipsum`, "Sample
+text", "Your text/content here", "Content goes here" and "Placeholder text". The
+system prompt already forbade them; this makes it **enforced**. A violation does
+not discard the screen — it is flagged so you can regenerate.
 
-4. **L'autocritique de distinction** — une note, et au plus une révision.
+**4. The distinctiveness self-critique.** One score, at most one revision.
 
-5. **La bibliothèque de patterns hors ligne** — 18 directions artistiques écrites à
-   la main, chacune avec ses semences de jetons compatibles `DESIGN.md`. Elle sert
-   de repli quand l'inspiration live est indisponible, et se mélange aux cartes
-   sinon.
+**5. The offline pattern library.** 18 hand-written art directions, each with
+`DESIGN.md`-compatible token seeds. It is the fallback when live inspiration is
+unavailable, and blends with the cards otherwise.
 
 ---
 
-## Éthique et conditions d'utilisation
+## Ethics and terms of service
 
-Muse est construit pour respecter les sites dont il apprend.
+Muse is built to respect the sites it learns from.
 
-- **Aucun moissonnage massif.** Uniquement les pages du registre curaté et les URL
-  que vous collez, plafonnées à **6 récupérations par run**, en honorant
-  `robots.txt`, avec un User-Agent honnête (`Mocky-Muse/…`) et un cache de 7 jours
-  **exclusivement textuel**.
-- **Aucune image tierce n'est jamais stockée, mise en cache, proxifiée ni
-  affichée.** Seules les images générées par Mocky et les distillations textuelles
-  persistent — et `MuseCache` **lève** si on lui passe autre chose que du texte.
-- **L'inspiration, c'est du vocabulaire et de la grammaire structurelle**, jamais
-  la copie d'un design précis.
-- **Le contenu web récupéré est traité comme de la donnée non fiable**, jamais
-  comme des instructions.
-- Toutes les URL sortantes passent la garde SSRF, et le chemin par défaut ne
-  demande **aucune clé, aucun compte**.
+- **No bulk scraping.** Only the curated registry pages and the URLs you paste,
+  capped at **6 fetches per run**, honouring `robots.txt`, with an honest
+  User-Agent (`Mocky-Muse/…`) and a 7-day, **text-only** cache.
+- **No third-party image is ever stored, cached, proxied or displayed.** Only
+  Mocky-generated images and text distillations persist — and `MuseCache`
+  **throws** if handed anything other than text.
+- **Inspiration means vocabulary and structural grammar**, never a copy of a
+  specific design.
+- **Fetched web content is treated as untrusted data**, never as instructions.
+- Every outbound URL passes the SSRF guard, and the default path needs **no API
+  key and no account**.
 
-Ces cinq points sont les invariants M2, M4, M5 et M7 —
-voir [Invariants](architecture/invariants.md).
+These are invariants M2, M4, M5 and M7. See
+[Invariants](architecture/invariants.md).
 
 ---
 
-## Le cas Higgsfield
+## Higgsfield
 
-Higgsfield.ai n'a pas d'API gratuite, donc il n'est pas intégré. Le contournement
-est manuel et fonctionne : générez l'image sur Higgsfield, téléchargez-la, déposez
--la dans la bibliothèque média de Mocky et épinglez-la. Muse l'utilisera comme
-n'importe quelle autre image — c'est-à-dire en mesurant sa palette et en écrivant
-le dossier autour d'elle.
+Higgsfield.ai has no free API, so it is not integrated. The manual workaround
+works: generate the image on Higgsfield, download it, drop it into Mocky's media
+library and pin it.
+
+Muse will use it like any other image — which means measuring its palette and
+writing the dossier around it.
 
 ---
 
-## Note sur les dépendances
+## A note on dependencies
 
-Le SDK MCP tire quelques paquets transitifs signalés par `npm audit` (`hono`,
-`body-parser`, `shell-quote`, `esbuild`). Tous sont dans le **transport HTTP** du
-SDK, que Mocky **n'utilise pas** : Mocky est un client stdio. La CI exécute
-`npm audit --omit=dev --audit-level=high`, c'est-à-dire sur les dépendances de
-production uniquement — les avis du serveur de développement (Vite, esbuild) ne
-concernent pas un déploiement, où Express sert le `dist/` construit.
+The MCP SDK pulls a few transitive packages with audit advisories: `hono`,
+`body-parser`, `shell-quote` and `esbuild`. All of them are in the SDK's **HTTP
+server transport**, which Mocky does **not** use. Mocky is a stdio client.
+
+CI runs `npm audit --omit=dev --audit-level=high`, so production dependencies
+only. Dev-server advisories such as Vite and esbuild do not apply to a
+deployment, where Express serves the built `dist/`.
