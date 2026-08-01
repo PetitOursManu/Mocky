@@ -13,6 +13,8 @@ export const en: Record<keyof typeof fr, string> = {
   'nav.media': 'Media',
   'nav.settings': 'Settings',
   'nav.admin': 'Admin',
+  'nav.docs': 'Docs',
+  'nav.docsHint': 'Open the documentation in a new tab',
   'nav.tagline': 'Chat → UI · self-hosted',
   'nav.backHome': 'Mocky home',
 
@@ -57,8 +59,6 @@ export const en: Record<keyof typeof fr, string> = {
   // ---- projects ----
   'projects.title': 'Projects',
   'projects.new': 'New project',
-  'projects.docs': 'Docs',
-  'projects.docsHint': 'Open the documentation in a new tab',
   'projects.empty': 'Create a project to start designing screens.',
   'projects.untitled': 'Untitled project',
   'projects.rename': 'Rename project',

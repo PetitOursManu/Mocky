@@ -64,6 +64,15 @@ function clearReconcileReloadMark(): void {
   }
 }
 
+/**
+ * Where the documentation lives.
+ *
+ * Its own host, and deliberately so: the docs are a separate static resource
+ * that serves Markdown read straight from the repository, with no build step
+ * and nothing in common with this application's deployment.
+ */
+const DOCS_URL = 'https://mocky-docs.emanuelvigreux.fr'
+
 export default function App() {
   const t = useT()
   const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen, setReferenceScreen } =
@@ -232,6 +241,9 @@ export default function App() {
                 {t('nav.admin')}
               </HeaderTab>
             )}
+            <HeaderLink href={DOCS_URL} title={t('nav.docsHint')}>
+              {t('nav.docs')}
+            </HeaderLink>
             <IconButton
               label={theme === 'dark' ? t('theme.toPaper') : t('theme.toInk')}
               variant="quiet"
@@ -411,5 +423,47 @@ function HeaderTab({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * A masthead entry that leaves the app.
+ *
+ * The same section label as {@link HeaderTab}, but a real `<a>`: it can be
+ * middle-clicked or copied, and a screen reader announces it as a link rather
+ * than as a control that does something unstated. It never carries the active
+ * rule, because it is never the page you are on.
+ *
+ * The small arrow is the one thing that distinguishes it from its neighbours,
+ * and it earns its place: every other entry in this row switches a view inside
+ * Mocky, this one opens another site in another tab.
+ */
+function HeaderLink({ href, title, children }: { href: string; title?: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      // Without `noopener`, the page opened here gets a handle on this window
+      // through `window.opener`.
+      rel="noopener noreferrer"
+      title={title}
+      className="kicker inline-flex min-h-8 items-center gap-1 border-b-2 border-transparent px-2.5 pt-1.5 transition hover:text-ink"
+    >
+      {children}
+      <svg
+        aria-hidden
+        viewBox="0 0 24 24"
+        width="11"
+        height="11"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="opacity-70"
+      >
+        <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+      </svg>
+    </a>
   )
 }

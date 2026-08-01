@@ -1,17 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { headline, type Project, type Screen } from '../lib/project'
 import { getThumb, pruneThumbs, THUMB_REGION } from '../lib/thumbnails'
-import { Button, ButtonLink, Icon, IconButton, Input } from '../ui'
+import { Button, Icon, IconButton, Input } from '../ui'
 import { useT } from '../i18n'
-
-/**
- * Where the documentation lives.
- *
- * Its own host, and deliberately so: the docs are a separate static resource
- * that serves Markdown read straight from the repository, with no build step
- * and nothing in common with this application's deployment.
- */
-const DOCS_URL = 'https://mocky-docs.emanuelvigreux.fr'
 
 function useTimeAgo() {
   const t = useT()
@@ -259,20 +250,7 @@ export default function ProjectsHome({
               />
             </label>
           )}
-          {/* The documentation, hosted separately. A real link rather than a
-              button so it can be middle-clicked or copied, and `noopener` because
-              anything opened with `target="_blank"` otherwise gets a handle on
-              this window through `window.opener`. */}
-          <ButtonLink
-            href={DOCS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={t('projects.docsHint')}
-          >
-            <Icon name="link" size={16} />
-            {t('projects.docs')}
-          </ButtonLink>
-          <Button variant="primary" onClick={onCreate}>
+                    <Button variant="primary" onClick={onCreate}>
             <Icon name="plus" size={16} />
             {t('projects.new')}
           </Button>

@@ -14,6 +14,8 @@ export const fr = {
   'nav.media': 'Média',
   'nav.settings': 'Réglages',
   'nav.admin': 'Admin',
+  'nav.docs': 'Docs',
+  'nav.docsHint': 'Ouvrir la documentation dans un nouvel onglet',
   'nav.tagline': 'Chat → UI · auto-hébergé',
   'nav.backHome': 'Accueil Mocky',
 
@@ -59,8 +61,6 @@ export const fr = {
   // ---- projects ----
   'projects.title': 'Projets',
   'projects.new': 'Nouveau projet',
-  'projects.docs': 'Docs',
-  'projects.docsHint': 'Ouvrir la documentation dans un nouvel onglet',
   'projects.empty': 'Créez un projet pour commencer à dessiner des écrans.',
   'projects.untitled': 'Projet sans titre',
   'projects.rename': 'Renommer le projet',
