@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Mocky — Documentation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Documentation de Mocky — générateur d'interfaces React + Tailwind auto-hébergé.">
+  <!--
+    Docsify 4.13.1, vendorisé sous ./vendor/ et servi par ce même hôte.
+
+    Rien n'est chargé depuis un CDN à l'exécution : ni le moteur, ni le thème,
+    ni le plugin de recherche. C'est la même règle que `public/vendor/` côté
+    application (invariant I3) et pour la même raison — un aperçu, ou ici une
+    page de doc, ne doit pas dépendre de la disponibilité d'un tiers.
+
+    `docsify-theme.css` est le thème `vue.css` amont, avec une seule
+    modification : la ligne `@import` vers fonts.googleapis.com a été retirée
+    (elle est documentée en tête du fichier). À réappliquer après toute montée
+    de version.
+
+    Le contenu, lui, est lu en direct depuis les fichiers Markdown de `docs/`
+    sur la branche par défaut du dépôt. Il n'y a donc aucune étape de build :
+    publier de la documentation, c'est pousser un fichier `.md`.
+  -->
+  <link rel="stylesheet" href="./vendor/docsify-theme.css">
+</head>
+<body>
+  <div id="app">Chargement de la documentation…</div>
+  <script>
+    window.$docsify = {
+      name: 'Mocky',
+      repo: 'https://github.com/PetitOursManu/Mocky',
+      loadSidebar: true,
+      subMaxLevel: 2,
+      // Le sommaire de gauche est écrit à la main (docs/_sidebar.md) ; sans
+      // cette option, Docsify le remplace par la liste des titres de la page.
+      auto2top: true,
+      search: {
+        paths: 'auto',
+        placeholder: 'Rechercher…',
+        noData: 'Aucun résultat.',
+        depth: 3,
+      },
+      // Les fichiers sont lus directement depuis GitHub à chaque affichage.
+      // `main` est la branche par défaut du dépôt ; la barre finale est
+      // obligatoire, Docsify concatène sans l'ajouter.
+      basePath: 'https://raw.githubusercontent.com/PetitOursManu/Mocky/main/docs/',
+    }
+  </script>
+  <script src="./vendor/docsify.min.js"></script>
+  <script src="./vendor/docsify-search.min.js"></script>
+</body>
+</html>
