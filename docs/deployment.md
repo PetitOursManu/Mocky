@@ -518,14 +518,32 @@ view**. Three consequences:
 Any static host works. On Coolify: a **static** resource, publish directory
 `docs-site/`, no build command, no volume.
 
-The four files:
+The files:
 
 | File | Origin |
 |---|---|
 | `index.html` | Written for this project |
+| `favicon.ico` | Copied from `public/favicon.ico` — the application's own icon |
 | `vendor/docsify.min.js` | docsify 4.13.1 — `lib/docsify.min.js` |
 | `vendor/docsify-theme.css` | docsify 4.13.1 — `lib/themes/vue.css`, patched |
 | `vendor/docsify-search.min.js` | docsify 4.13.1 — `lib/plugins/search.min.js` |
+
+### The favicon
+
+The documentation tab carries the same icon as the application tab. The file is
+copied rather than linked, so `docs-site/` stays self-contained and fetches
+nothing from another host.
+
+It is the `.ico` and not the `.svg`, deliberately. `public/favicon.svg` is a
+1141×1107 PNG wrapped in an SVG element — 665 KB, which a documentation page
+would re-request on every navigation. The `.ico` holds the same artwork at 16,
+32 and 48 px for 15 KB, and every browser reads it.
+
+If the application's icon changes, copy it again:
+
+```bash
+cp public/favicon.ico docs-site/favicon.ico
+```
 
 ### Why Docsify is vendored
 
@@ -563,6 +581,13 @@ match and `/.*/_sidebar.md` would also match a French path.
 
 `fallbackLanguages: ['fr']` means a French page that does not exist falls back to
 its English equivalent instead of showing an error.
+
+Both sidebars open with the same language block, so either language is one click
+away from anywhere. Each entry carries a small flag drawn as **inline SVG**, not
+as an emoji: the regional-indicator emoji (🇬🇧, 🇫🇷) render as bare letter pairs
+on Windows, which is the platform this project is developed on. Each flag also
+carries a one-pixel outline — without it, the white band of the French flag
+disappears against the white sidebar and the flag reads as two loose rectangles.
 
 ### Adding a page
 

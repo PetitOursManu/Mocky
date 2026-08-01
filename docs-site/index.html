@@ -6,6 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Mocky documentation — a self-hosted React + Tailwind screen generator.">
   <!--
+    Mocky's own icon, copied from `public/favicon.ico` so the documentation tab
+    matches the application tab.
+
+    The `.ico` and not the `.svg`, deliberately. `public/favicon.svg` is a
+    1141x1107 PNG wrapped in an SVG element: 665 KB, which a documentation page
+    would re-request on every navigation. The `.ico` is the same artwork at
+    16, 32 and 48 px for 15 KB, and every browser reads it.
+  -->
+  <link rel="icon" href="./favicon.ico" sizes="any">
+  <!--
     Docsify 4.13.1, vendored under ./vendor/ and served by this same host.
 
     Nothing is loaded from a CDN at runtime: not the engine, not the theme, not

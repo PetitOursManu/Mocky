@@ -542,14 +542,32 @@ N'importe quel hébergement statique convient. Sur Coolify : une ressource
 **statique**, répertoire de publication `docs-site/`, aucune commande de
 construction, aucun volume.
 
-Les quatre fichiers :
+Les fichiers :
 
 | Fichier | Origine |
 |---|---|
 | `index.html` | Écrit pour ce projet |
+| `favicon.ico` | Copié depuis `public/favicon.ico` — l'icône de l'application |
 | `vendor/docsify.min.js` | docsify 4.13.1 — `lib/docsify.min.js` |
 | `vendor/docsify-theme.css` | docsify 4.13.1 — `lib/themes/vue.css`, modifié |
 | `vendor/docsify-search.min.js` | docsify 4.13.1 — `lib/plugins/search.min.js` |
+
+### La favicon
+
+L'onglet de la documentation porte la même icône que l'onglet de l'application.
+Le fichier est copié plutôt que lié, pour que `docs-site/` reste autonome et
+n'aille rien chercher sur un autre serveur.
+
+C'est le `.ico` et non le `.svg`, volontairement. `public/favicon.svg` est un PNG
+de 1141×1107 enveloppé dans un élément SVG : 665 Ko, qu'une page de documentation
+redemanderait à chaque navigation. Le `.ico` contient le même dessin en 16, 32 et
+48 px pour 15 Ko, et tous les navigateurs le lisent.
+
+Si l'icône de l'application change, recopiez-la :
+
+```bash
+cp public/favicon.ico docs-site/favicon.ico
+```
 
 ### Pourquoi Docsify est copié localement
 
@@ -589,6 +607,14 @@ chemin français.
 
 `fallbackLanguages: ['fr']` fait qu'une page française qui n'existe pas retombe
 sur son équivalent anglais au lieu d'afficher une erreur.
+
+Les deux sommaires s'ouvrent sur le même bloc de langue, donc chaque langue est à
+un clic depuis n'importe où. Chaque entrée porte un petit drapeau dessiné en
+**SVG en ligne**, et non en emoji : les emoji d'indicateur régional (🇬🇧, 🇫🇷)
+s'affichent comme de simples paires de lettres sous Windows, qui est la
+plateforme de développement de ce projet. Chaque drapeau porte aussi un filet
+d'un pixel — sans lui, la bande blanche du drapeau français disparaît sur le fond
+blanc du sommaire, et le drapeau se lit comme deux rectangles séparés.
 
 ### Ajouter une page
 

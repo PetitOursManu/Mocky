@@ -1,3 +1,6 @@
+- Language
+  - [<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" width="18" height="9" style="vertical-align:-1px;margin-right:6px;outline:1px solid rgba(0,0,0,.22)"><clipPath id="ukframe"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="ukdiag"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#ukframe)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#ukdiag)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>English](/)
+  - [<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2" width="18" height="12" style="vertical-align:-3px;margin-right:6px;outline:1px solid rgba(0,0,0,.22)"><path d="M0,0 h3 v2 h-3 z" fill="#fff"/><path d="M0,0 h1 v2 h-1 z" fill="#002395"/><path d="M2,0 h1 v2 h-1 z" fill="#ED2939"/></svg>Français](fr/README.md)
 - [Home](/)
 - [Getting started](getting-started.md)
 - Architecture
@@ -12,5 +15,3 @@
   - [ADR 001 — Muse](adr/001-muse.md)
   - [Design system (FR)](DESIGN-SYSTEM.md)
   - [Audit 2026-07 (FR)](AUDIT-2026-07.md)
-- —
-- [Français](fr/README.md)
