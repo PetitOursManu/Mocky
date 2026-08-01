@@ -31,6 +31,10 @@ import {
   parseUrls,
   absoluteUrl,
   checkVision,
+  checkVideoAvailability,
+  generateScrollVideo,
+  buildVideoPrompt,
+  describeUserMedia,
   imageAsDataUrl,
   profileForMode,
   buildInspirationPrompt,
@@ -39,8 +43,11 @@ import {
   type MuseResult,
   type MuseImageMode,
   type GeneratedSlotImage,
+  type GeneratedVideo,
+  type MuseVideoAvailability,
 } from '../lib/muse'
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
+import { videoBase, videoPosterUrl, type PinnedVideo } from '../lib/videoLibrary'
 import { matchImagesToScreens } from '../lib/imageBackfill'
 import { lintSlop } from '../lib/lint'
 import { useT } from '../i18n'
@@ -138,6 +145,25 @@ export default function ProjectView({
     setMuseConfig(c)
     saveMuseConfig(c)
   }, [])
+  /**
+   * A sequence chosen from the library for the next screen.
+   *
+   * At most one, because a screen has one hero. When it is set, the generation
+   * skips the provider entirely — which is how an instance with no fal account
+   * still gets a scroll sequence, using footage the user imported themselves.
+   *
+   * Read from the Muse settings rather than held here: it can also be chosen
+   * from the standalone Media page, which has no project in scope, and it has
+   * to survive a reload like every other Muse choice.
+   */
+  const pinnedVideo = museConfig.videoPin
+  const setPinnedVideo = useCallback(
+    (pin: PinnedVideo | null) => {
+      // Choosing a sequence implies wanting the effect; see setMuseVideoPin.
+      updateMuse({ ...museConfig, videoPin: pin, video: pin ? true : museConfig.video })
+    },
+    [museConfig, updateMuse],
+  )
   // The Muse toggle washes the accent through its label whenever Muse is off —
   // here as well as on the first-screen composer, because this is the one a
   // user with projects actually sees. See `.muse-sweep` in index.css.
@@ -213,6 +239,22 @@ export default function ProjectView({
       alive = false
     }
   }, [museConfig, museAvail, museVision, updateMuse])
+
+  // Can this instance make a scroll sequence at all? Two prerequisites live in
+  // two different places (a video provider in Admin, ffmpeg in the container),
+  // so the answer carries which one is missing and the panel says so rather
+  // than greying a box out for no stated reason.
+  const [videoAvail, setVideoAvail] = useState<MuseVideoAvailability | null>(null)
+  useEffect(() => {
+    if (!museConfig.enabled || videoAvail !== null) return
+    let alive = true
+    checkVideoAvailability().then((r) => {
+      if (alive && r) setVideoAvail(r)
+    })
+    return () => {
+      alive = false
+    }
+  }, [museConfig.enabled, videoAvail])
 
   // Screens generated before the canvas image card existed have no imageHash,
   // even though the library still records which project each image belongs to
@@ -465,6 +507,8 @@ export default function ProjectView({
         let museVisionRef: string | undefined
         /** Library hash of the image backing this screen, shown on the canvas. */
         let museImageHash: string | undefined
+        /** The scroll sequence, when one was asked for and produced. */
+        let museVideo: GeneratedVideo | null = null
         // The saved preference is kept as-is; a model without vision can only
         // honour "content", so THIS RUN degrades without touching the setting.
         const effectiveImageMode: MuseImageMode =
@@ -475,11 +519,39 @@ export default function ProjectView({
             setMuseImages([])
             setMuseImageError(null)
             setPhase('muse')
+
+            /*
+             * The user's own media, described BEFORE the dossier is written.
+             *
+             * This is the difference between a screen that merely contains the
+             * user's picture and one that was designed around it: the dossier
+             * writes the palette, and until now it wrote it blind. A chosen
+             * sequence wins over a pinned image — it is the hero, and the whole
+             * page is built on top of it.
+             *
+             * Best-effort throughout. No media, an unreadable file, a model
+             * without vision: Muse runs exactly as it did before.
+             */
+            let userMedia = null
+            const mediaSource = pinnedVideo
+              ? { url: absoluteUrl(pinnedVideo.poster), kind: 'video' as const }
+              : pinnedImages[0]
+                ? { url: absoluteUrl(pinnedImages[0].url), kind: 'image' as const }
+                : null
+            if (mediaSource) {
+              setMuseStage(t('project.museStageMedia'))
+              userMedia = await describeUserMedia(mediaSource.url, mediaSource.kind, {
+                vision: museVision,
+                signal: ac.signal,
+              })
+            }
+
             setMuseStage(t('project.museStageDossier'))
             const res = await runMuseDossier(text, {
               urls: parseUrls(museConfig.urls),
               useFetch: museConfig.useFetch,
               projectName: project.name,
+              userMedia,
               signal: ac.signal,
             })
             setMuseResult(res)
@@ -543,7 +615,51 @@ export default function ProjectView({
             }
             // Remember which image backs this screen so the canvas can show it.
             if (imgs.length) museImageHash = imgs[0].url.split('/').pop() || undefined
-            musePreamble = buildMusePreamble(res.markdown, imgs, effectiveImageMode, res.dossier)
+
+            /*
+             * The scroll sequence, when it was asked for.
+             *
+             * Runs LAST and on the hero's own prompt, so the clip and the still
+             * describe the same subject — the still is what the screen falls
+             * back to if this fails, and two unrelated pictures would be worse
+             * than one.
+             *
+             * A failure here does not sink the generation: the screen is built
+             * without the sequence, which is exactly the screen the user would
+             * have got with the box unticked. But it is reported, unlike an
+             * image failure, because this one cost minutes and money.
+             */
+            if (pinnedVideo) {
+              // A sequence chosen from the library wins over generating one.
+              // Same rule the pinned IMAGES follow, and for the same reason:
+              // the user has already answered the question this step exists to
+              // ask, and answering it again costs minutes and money.
+              museVideo = {
+                hash: pinnedVideo.hash,
+                base: absoluteUrl(videoBase(pinnedVideo.hash)),
+                poster: absoluteUrl(pinnedVideo.poster),
+                frames: pinnedVideo.frames,
+                fromCache: true,
+              }
+            } else if (museConfig.video && videoAvail?.available) {
+              const heroSlot = plan[0]
+              const heroPrompt = heroSlot?.prompt || heroSlot?.subject || text
+              setMuseStage(t('project.museStageVideo'))
+              try {
+                museVideo = await generateScrollVideo(buildVideoPrompt(heroPrompt), project.id, {
+                  negative: heroSlot?.negative,
+                  slot: 'hero',
+                  signal: ac.signal,
+                })
+              } catch (err) {
+                if (err instanceof Error && err.name === 'AbortError') throw err
+                setMuseImageError(
+                  t('project.museVideoFailed', { detail: err instanceof Error ? err.message : String(err) }),
+                )
+              }
+            }
+
+            musePreamble = buildMusePreamble(res.markdown, imgs, effectiveImageMode, res.dossier, museVideo)
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
             // Degrade: continue without Muse rather than fail the generation.
@@ -577,6 +693,12 @@ export default function ProjectView({
             planSection = planToPromptSection(plan)
           }
         }
+        // A sequence exists → the component that plays it must be in scope,
+        // whatever the shortlist or the planner decided. 'scrollvideo' has no
+        // keyword triggers precisely because it is never a guess: it is added
+        // here, and only here, when there is something for it to draw.
+        if (museVideo) capIds = capIds.includes('scrollvideo') ? capIds : [...capIds, 'scrollvideo']
+
         setPhase('generating')
         const caps = resolveCapabilities(capIds)
         const screenId = newId()
@@ -598,6 +720,10 @@ export default function ProjectView({
           // ambiguity that made it impossible to tell whether inspiration mode
           // had done anything.
           imageRole: museImageHash ? effectiveImageMode : undefined,
+          // Persisted as a pair so a reload can rebuild the sequence without
+          // asking the server what it cut.
+          videoHash: museVideo?.hash,
+          videoFrames: museVideo?.frames,
         })
         // Name the project after its FIRST prompt, so it stops being called
         // "Untitled project". A name the user already chose is never touched.
@@ -896,6 +1022,14 @@ export default function ProjectView({
           projectId={project.id}
           pinned={pinnedImages}
           onTogglePin={togglePin}
+          pinnedVideo={pinnedVideo}
+          onPinVideo={(v) =>
+            setPinnedVideo(
+              v
+                ? { hash: v.hash, frames: v.frames, poster: videoPosterUrl(v.hash), label: v.prompt.slice(0, 60) }
+                : null,
+            )
+          }
           onClose={() => setShowLibrary(false)}
           onOpenImage={setLightboxHash}
         />
@@ -931,6 +1065,7 @@ export default function ProjectView({
         onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
         museImageError={museImageError}
         museVision={museVision}
+        museVideo={videoAvail}
       />
       {libraryModal}
       </>
@@ -1314,6 +1449,7 @@ export default function ProjectView({
                     onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
                     imageError={museImageError}
                     vision={museVision}
+                    video={videoAvail}
                   />
                 </div>
               )}

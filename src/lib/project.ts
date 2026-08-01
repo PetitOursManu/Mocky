@@ -42,6 +42,15 @@ export interface Screen {
    * Absent on screens generated before the distinction was recorded.
    */
   imageRole?: 'content' | 'inspiration' | 'both'
+  /**
+   * The scroll sequence backing this screen's hero, when Muse produced one.
+   *
+   * Both fields or neither: the component needs the frame count as much as the
+   * address, and a sequence addressed with the wrong count draws the last
+   * frame for the rest of the scroll.
+   */
+  videoHash?: string
+  videoFrames?: number
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -251,6 +260,9 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
       s.imageRole === 'content' || s.imageRole === 'inspiration' || s.imageRole === 'both'
         ? s.imageRole
         : undefined,
+    // Kept as a pair — see the note on Screen.videoHash.
+    videoHash: typeof s.videoHash === 'string' && s.videoFrames ? s.videoHash : undefined,
+    videoFrames: typeof s.videoFrames === 'number' && s.videoFrames > 0 ? s.videoFrames : undefined,
   }
 }
 

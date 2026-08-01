@@ -62,11 +62,24 @@ export interface ImagesProfileConfig {
   cloudflare: { accountId: string; model: string; hasApiToken: boolean }
   sdWebui: { baseUrl: string; steps: number }
 }
+/**
+ * Scroll-sequence video. Its own shape rather than a third profile: one
+ * provider instead of six, a timeout in minutes rather than seconds, and the
+ * frame-cutting settings, which have no image equivalent.
+ */
+export interface ImagesVideoConfig {
+  provider: string
+  fal: { model: string; hasApiKey: boolean; timeoutSec: number }
+  frames: { fps: number; width: number; max: number }
+}
+
 export interface ImagesConfig {
   providers: string[]
   profiles: ImageProfile[]
   content: ImagesProfileConfig
   inspiration: ImagesProfileConfig
+  videoProviders: string[]
+  video: ImagesVideoConfig
 }
 
 /** Partial update. Omit (or send '') a secret to keep it; send null to clear. */
@@ -78,9 +91,15 @@ export interface ImagesProfilePatch {
   cloudflare?: { accountId?: string; model?: string; apiToken?: string | null }
   sdWebui?: { baseUrl?: string; steps?: number }
 }
+export interface ImagesVideoPatch {
+  provider?: string
+  fal?: { model?: string; apiKey?: string | null; timeoutSec?: number }
+  frames?: { fps?: number; width?: number; max?: number }
+}
 export interface ImagesConfigPatch {
   content?: ImagesProfilePatch
   inspiration?: ImagesProfilePatch
+  video?: ImagesVideoPatch
 }
 
 /** Admin view of the text (LLM) provider. Secrets are never sent back. */

@@ -11,6 +11,8 @@ import { handleProviderProxy, profileFromRequest, assertSafeTargetResolved } fro
 import { createMuse } from './muse/index.js'
 import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
+import { createVideos } from './videos/index.js'
+import { PUBLIC_VIDEO_PATH } from './videos/routes.js'
 import { TextConfigStore, looksLikeImageModel } from './text/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -42,6 +44,13 @@ muse.host.startAutoStart().catch(() => {}) // best-effort; never blocks boot
 // ---- Muse image service + global Image Library ----
 // Lazy: no provider probe or generation until a request hits /api/images.
 const images = createImages({ dataDir: DATA_DIR })
+
+// ---- Scroll-sequence videos ----
+// Shares the admin config store with the image service (one Admin screen, one
+// file) but nothing else: different provider, different storage shape, and a
+// dependency on ffmpeg that the image path does not have. Lazy in the same way
+// — nothing is probed until a request arrives.
+const videos = createVideos({ dataDir: DATA_DIR, configStore: images.configStore })
 
 // ---- Admin-configured text (LLM) provider ----
 // When unset, the proxy keeps using the credentials the browser sends.
@@ -932,10 +941,32 @@ app.use(
   // throttled — 30/min is far above any human pace and far below what a runaway
   // loop or a stuck retry produces.
   (req, res, next) => {
-    if (req.method === 'POST' && req.path.startsWith('/generate')) return authRateLimit(30)(req, res, next)
+    if (req.method === 'POST' && (req.path.startsWith('/generate') || req.path.startsWith('/upload'))) {
+      return authRateLimit(30)(req, res, next)
+    }
     next()
   },
   images.router,
+)
+
+// Same posture as /api/images: the picture bytes of a known sequence are public
+// so a null-origin preview can fetch them; everything else needs a session, and
+// generation — the expensive verb, minutes of provider time per call — is
+// throttled harder than image generation because each call costs far more.
+app.use(
+  '/api/videos',
+  (req, res, next) => {
+    if (req.method === 'GET' && PUBLIC_VIDEO_PATH.test(req.path)) return next()
+    return requireUser(req, res, next)
+  },
+  (req, res, next) => {
+    // Generating is metered because it costs money; uploading is metered
+    // because it costs disk and a few seconds of ffmpeg. Different ceilings.
+    if (req.method === 'POST' && req.path.startsWith('/generate')) return authRateLimit(6)(req, res, next)
+    if (req.method === 'POST' && req.path.startsWith('/upload')) return authRateLimit(20)(req, res, next)
+    next()
+  },
+  videos.router,
 )
 
 // ---- serve the built frontend (production) ----

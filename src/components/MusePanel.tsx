@@ -1,4 +1,4 @@
-import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
+import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability } from '../lib/muse'
 import { imageUrl, type PinnedImage } from '../lib/imageLibrary'
 import { Button, Icon, Spinner } from '../ui'
 import { useT } from '../i18n'
@@ -33,6 +33,7 @@ export default function MusePanel({
   onUnpin,
   imageError,
   vision,
+  video,
 }: {
   config: MuseConfig
   onChange: (c: MuseConfig) => void
@@ -48,6 +49,8 @@ export default function MusePanel({
   imageError?: string | null
   /** null = not probed yet. false = the model refuses images. */
   vision?: boolean | null
+  /** null = not probed, or no backend. Carries WHY when unavailable. */
+  video?: MuseVideoAvailability | null
 }) {
   const t = useT()
   const d = result?.dossier
@@ -173,6 +176,86 @@ export default function MusePanel({
           </span>
         )}
       </div>
+
+      {/* The scroll sequence.
+          A permanently greyed-out box teaches nothing, so when the instance is
+          one prerequisite away the panel names which one — the two possible
+          answers are fixed in two different places (Admin, or the container). */}
+      {/* A chosen sequence outranks everything above: it is shown even when no
+          provider is configured, because using one needs neither a key nor a
+          generation — only ffmpeg, which already cut it. */}
+      {config.videoPin ? (
+        <div className="mt-2 flex items-center gap-2.5 border border-muse/50 bg-muse/5 p-2">
+          <img
+            src={config.videoPin.poster}
+            alt=""
+            className="h-12 w-20 shrink-0 border border-line-soft object-cover"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5 text-muse">
+              <Icon name="play" size={14} />
+              {t('muse.videoChosenTitle')}
+            </span>
+            <span className="mt-0.5 block truncate text-caption text-ink-muted" title={config.videoPin.label}>
+              {config.videoPin.label}
+            </span>
+            <span className="block text-caption text-ink-faint">
+              {t('muse.videoChosenDetail', { count: config.videoPin.frames })}
+            </span>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => onChange({ ...config, videoPin: null })}
+            title={t('muse.videoChosenDropHint')}
+          >
+            {t('muse.videoChosenDrop')}
+          </Button>
+        </div>
+      ) : (
+        video && (
+          <div className="mt-2">
+            <label
+              className={`flex items-start gap-2 ${video.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+              title={video.available ? t('muse.videoHint') : undefined}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-accent"
+                checked={config.video && video.available}
+                onChange={(e) => onChange({ ...config, video: e.target.checked })}
+                disabled={busy || !video.available}
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-ink-muted">
+                  <Icon name="play" size={14} />
+                  {t('muse.video')}
+                </span>
+                <span className="mt-0.5 block text-caption text-ink-faint">
+                  {video.available
+                    ? t('muse.videoCost')
+                    : video.reason === 'no-ffmpeg'
+                      ? t('muse.videoNoFfmpeg')
+                      : // ffmpeg is there, only the provider is missing — so
+                        // GENERATING is off, but a clip the user imported still
+                        // works. Saying only "no provider" reads as "feature
+                        // unavailable" and hides a path that is open.
+                        t('muse.videoNoProviderButImport')}
+                </span>
+              </span>
+            </label>
+            {/* The way in, stated where the decision is made. */}
+            <button
+              type="button"
+              onClick={onOpenLibrary}
+              className="mt-1 pl-6 text-caption text-ink-faint underline underline-offset-2 transition hover:text-accent-ink"
+            >
+              {t('muse.videoPickFromLibrary')}
+            </button>
+          </div>
+        )
+      )}
 
       {/* The saved choice is never rewritten — say plainly that THIS run will
           fall back, so the setting isn't silently undone behind the user. */}

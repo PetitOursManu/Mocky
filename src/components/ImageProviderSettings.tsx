@@ -7,7 +7,8 @@ import {
   type ImagesProfilePatch,
   type ImagesTestResult,
 } from '../lib/api'
-import { Icon } from '../ui'
+import { checkVideoAvailability, type MuseVideoAvailability } from '../lib/muse'
+import { Button, Field, Icon, Input, Select } from '../ui'
 import { useT } from '../i18n'
 
 /** Translation keys, resolved at render — `useT` only runs inside a component. */
@@ -368,6 +369,158 @@ function ProfileForm({
 }
 
 /**
+ * Scroll-sequence video settings.
+ *
+ * Separate from the image profiles because it has a second prerequisite none of
+ * them has: ffmpeg, which lives in the container rather than in this form. The
+ * status line reports both halves — a configured provider is useless without
+ * the binary, and the admin needs to know which one is missing before going
+ * looking.
+ */
+function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
+  const t = useT()
+  const section = cfg.video
+
+  const [provider, setProvider] = useState(section.provider)
+  const [model, setModel] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [timeoutSec, setTimeoutSec] = useState(section.fal.timeoutSec)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<MuseVideoAvailability | null>(null)
+  const [checking, setChecking] = useState(false)
+
+  useEffect(() => {
+    setProvider(section.provider)
+    setModel(section.fal.model)
+    setTimeoutSec(section.fal.timeoutSec)
+    setApiKey('')
+  }, [section])
+
+  useEffect(() => {
+    checkVideoAvailability().then(setStatus)
+  }, [])
+
+  async function recheck() {
+    setChecking(true)
+    try {
+      const res = await fetch('/api/videos/recheck', { method: 'POST' })
+      if (res.ok) setStatus(await res.json())
+    } catch {
+      /* the status line simply stays as it was */
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  async function save() {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const fresh = await api.admin.setImagesConfig({
+        video: { provider, fal: { model, apiKey: apiKey || undefined, timeoutSec } },
+      })
+      onConfig(fresh)
+      setApiKey('')
+      setSaved(true)
+      await recheck()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="border border-line-soft p-4">
+      <h4 className="text-h4 text-ink">{t('settings.videoTitle')}</h4>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.videoBlurb')}</p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <Field label={t('settings.videoProvider')}>
+          {(p) => (
+            <Select {...p} value={provider} onChange={(e) => setProvider(e.target.value)}>
+              <option value="">{t('settings.videoProviderOff')}</option>
+              {cfg.videoProviders.map((id) => (
+                <option key={id} value={id}>
+                  {id === 'none' ? t('settings.imgLabelNone') : t('settings.imgLabelFal')}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field label={t('settings.videoModel')} hint={t('settings.videoModelHint')}>
+          {(p) => (
+            <Input
+              {...p}
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="fal-ai/ltx-video"
+            />
+          )}
+        </Field>
+        <Field label={t('settings.videoKey')} hint={section.fal.hasApiKey ? t('settings.keyStored') : undefined}>
+          {(p) => (
+            <Input
+              {...p}
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={section.fal.hasApiKey ? '••••••••' : ''}
+              autoComplete="off"
+            />
+          )}
+        </Field>
+        <Field label={t('settings.videoTimeout')} hint={t('settings.videoTimeoutHint')}>
+          {(p) => (
+            <Input
+              {...p}
+              type="number"
+              min={60}
+              max={1800}
+              value={timeoutSec}
+              onChange={(e) => setTimeoutSec(Number(e.target.value) || 600)}
+            />
+          )}
+        </Field>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+          {saving ? t('settings.saving') : t('common.save')}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={recheck} disabled={checking}>
+          <Icon name="refresh" size={15} />
+          {t('settings.videoRecheck')}
+        </Button>
+        {saved && <span className="text-body-sm text-ok">{t('settings.saved')}</span>}
+        {error && <span className="text-body-sm text-danger">{error}</span>}
+      </div>
+
+      {/* Both prerequisites, always both stated. */}
+      {status && (
+        <ul className="mt-3 space-y-1 text-caption">
+          <li className={status.provider ? 'text-ok' : 'text-ink-faint'}>
+            <Icon name={status.provider ? 'check' : 'close'} size={13} className="mr-1 inline-block" />
+            {status.provider
+              ? t('settings.videoStatusProviderOn', { model: status.model })
+              : t('settings.videoStatusProviderOff')}
+          </li>
+          <li className={status.ffmpeg.available ? 'text-ok' : 'text-warn'}>
+            <Icon name={status.ffmpeg.available ? 'check' : 'close'} size={13} className="mr-1 inline-block" />
+            {status.ffmpeg.available
+              ? status.ffmpeg.version || t('settings.videoStatusFfmpegOn')
+              : t('settings.videoStatusFfmpegOff', { reason: status.ffmpeg.reason || '' })}
+          </li>
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/**
  * Admin settings for Muse's image generation. Two profiles, because the two jobs
  * need different models: the art-direction reference must render a convincing
  * site/app layout (slower, stronger model), while hero/product pictures want to
@@ -436,6 +589,7 @@ export default function ImageProviderSettings() {
           cfg={cfg}
           onConfig={setCfg}
         />
+        <VideoForm cfg={cfg} onConfig={setCfg} />
       </div>
     </section>
   )

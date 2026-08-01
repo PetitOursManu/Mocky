@@ -3,7 +3,7 @@ import { STYLE_PRESETS } from '../lib/styles'
 import MusePanel from './MusePanel'
 import { useT } from '../i18n'
 import { Banner, Button, Icon, MockyLoader } from '../ui'
-import type { MuseConfig, MuseResult, GeneratedSlotImage } from '../lib/muse'
+import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability } from '../lib/muse'
 import type { PinnedImage } from '../lib/imageLibrary'
 
 type Props = {
@@ -30,6 +30,7 @@ type Props = {
   onUnpin: (hash: string) => void
   museImageError: string | null
   museVision: boolean | null
+  museVideo: MuseVideoAvailability | null
 }
 
 export default function Welcome({
@@ -56,6 +57,7 @@ export default function Welcome({
   onUnpin,
   museImageError,
   museVision,
+  museVideo,
 }: Props) {
   const t = useT()
 
@@ -169,6 +171,7 @@ export default function Welcome({
               onUnpin={onUnpin}
               imageError={museImageError}
               vision={museVision}
+              video={museVideo}
             />
           </div>
         )}

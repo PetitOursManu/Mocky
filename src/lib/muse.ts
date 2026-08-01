@@ -7,6 +7,8 @@
 // via the same headers the /__provider proxy uses (ADR D7) — never stored server
 // side.
 import { loadSettings } from './settings'
+import { extractPalette } from './palette'
+import type { PinnedVideo } from './videoLibrary'
 
 export interface MuseImagerySlot {
   id: string
@@ -73,12 +75,175 @@ export interface MuseConfig {
   useFetch: boolean
   /** How the generated image is used. */
   imageMode: MuseImageMode
+  /**
+   * Also generate a clip for the hero and drive it from the scroll.
+   *
+   * Off by default and asked for explicitly every time, because unlike every
+   * other Muse option this one has a per-use price and adds minutes to a
+   * generation. Nobody should discover it by leaving a box ticked.
+   */
+  video: boolean
+  /**
+   * A sequence chosen from the Media library, to be used INSTEAD of generating
+   * one. At most one, because a screen has one hero.
+   *
+   * It lives in the Muse config rather than in the project view for two
+   * reasons: it survives a reload, and it can be chosen from the standalone
+   * Media page, which knows about no project at all. Choosing one implies
+   * `video: true` — picking a sequence is a clearer statement of intent than
+   * the checkbox it would otherwise contradict.
+   */
+  videoPin: MuseVideoPin | null
 }
+
+/**
+ * Everything the preview needs to play a chosen sequence, and a label to show.
+ * Aliased rather than redeclared: the library module owns the shape, and two
+ * copies of it would drift the first time one gained a field.
+ */
+export type MuseVideoPin = PinnedVideo
 
 const STORAGE_KEY = 'mocky.muse.v1'
 
 export function defaultMuseConfig(): MuseConfig {
-  return { enabled: false, urls: '', useFetch: false, imageMode: 'content' }
+  return { enabled: false, urls: '', useFetch: false, imageMode: 'content', video: false, videoPin: null }
+}
+
+/** What the backend says about the scroll-video feature being usable at all. */
+export interface MuseVideoAvailability {
+  available: boolean
+  provider: string
+  model: string
+  ffmpeg: { available: boolean; version?: string; reason?: string }
+  /** null when available; otherwise which of the two prerequisites is missing. */
+  reason: 'no-provider' | 'no-key' | 'no-ffmpeg' | null
+}
+
+/**
+ * Can a scroll sequence be produced right now?
+ *
+ * Two independent prerequisites — a configured video provider and ffmpeg in the
+ * container — and the answer names which one is missing, because they are fixed
+ * in completely different places.
+ */
+export async function checkVideoAvailability(signal?: AbortSignal): Promise<MuseVideoAvailability | null> {
+  try {
+    const res = await fetch('/api/videos/availability', { signal })
+    if (!res.ok) return null
+    return (await res.json()) as MuseVideoAvailability
+  } catch {
+    // Backend absent (frontend-only mode): the option simply never appears.
+    return null
+  }
+}
+
+/** A scroll sequence the server has cut and is ready to serve. */
+export interface GeneratedVideo {
+  hash: string
+  /** Base URL: frames live at `${base}/f/1.jpg` … and the poster at `${base}/poster.jpg`. */
+  base: string
+  poster: string
+  frames: number
+  fromCache: boolean
+}
+
+/**
+ * Generate (or reuse) the hero's scroll sequence.
+ *
+ * Deliberately NOT best-effort like the images are. An image that fails leaves
+ * a screen with one picture missing; a video that fails leaves a screen built
+ * around a component with nothing to play. The caller decides what to do, and
+ * currently degrades to a still image.
+ */
+export async function generateScrollVideo(
+  prompt: string,
+  project: string,
+  opts: { negative?: string; slot?: string; signal?: AbortSignal } = {},
+): Promise<GeneratedVideo> {
+  const res = await fetch('/api/videos/generate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt, negative: opts.negative, slot: opts.slot || 'hero', project }),
+    signal: opts.signal,
+  })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(j?.error ? String(j.error) : `Génération vidéo échouée (HTTP ${res.status})`)
+  }
+  return {
+    hash: String(j.hash),
+    base: absoluteUrl(String(j.base)),
+    poster: absoluteUrl(String(j.poster)),
+    frames: Number(j.frames) || 0,
+    fromCache: Boolean(j.fromCache),
+  }
+}
+
+/**
+ * Turn the hero's still-image prompt into a shot description.
+ *
+ * A prompt written for a photograph asks for a composition; a video model reads
+ * the same words and, given no direction, either holds a static frame for four
+ * seconds or invents a camera move that fights the layout. Naming a slow,
+ * single-axis move is what makes the clip usable as a scroll sequence: it has
+ * to read as one continuous gesture from first frame to last, because the
+ * visitor controls where in it they are.
+ */
+export function buildVideoPrompt(imagePrompt: string): string {
+  const base = String(imagePrompt || '').trim().replace(/\s+/g, ' ')
+  return [
+    base,
+    'Cinematic: ONE slow continuous camera move (a gentle push-in or a steady lateral drift), constant speed, no cuts, no scene change, no camera shake.',
+    'The subject stays in frame throughout. Even, unchanging lighting.',
+    'No text, no letters, no watermark, no logo, no user interface.',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/** What Muse is told about the user's own picture or clip. */
+export interface MuseUserMedia {
+  kind: 'image' | 'video'
+  swatches: { hex: string; weight: number }[]
+  accent: string | null
+  /** The picture itself, only when the model can actually look at it. */
+  image?: string
+}
+
+/**
+ * Describe the selected media for the dossier stage.
+ *
+ * Two channels, because they answer different questions and fail differently:
+ *
+ *  - the PALETTE is measured from the pixels. It works on every model, it is
+ *    exact, and it is what stops the page from disagreeing with its own hero.
+ *  - the PICTURE is attached only when the model has vision. It carries what a
+ *    histogram cannot — subject, composition, density, light.
+ *
+ * A failure anywhere here returns null and Muse runs exactly as it did before;
+ * this is an enrichment, never a prerequisite.
+ *
+ * @param source  a library image URL, or a video poster URL
+ */
+export async function describeUserMedia(
+  source: string,
+  kind: 'image' | 'video',
+  opts: { vision?: boolean | null; signal?: AbortSignal } = {},
+): Promise<MuseUserMedia | null> {
+  try {
+    const { swatches, accent } = await extractPalette(source)
+    if (!swatches.length) return null
+    const media: MuseUserMedia = { kind, swatches, accent }
+    if (opts.vision === true) {
+      const dataUrl = await imageAsDataUrl(source, opts.signal)
+      // The sanitizer on the server accepts jpeg/png/webp data URLs only, and
+      // caps the size; anything else is simply left out rather than rejected.
+      if (dataUrl && /^data:image\/(jpeg|png|webp);base64,/.test(dataUrl)) media.image = dataUrl
+    }
+    return media
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -143,6 +308,21 @@ export function saveMuseConfig(c: MuseConfig): void {
   }
 }
 
+/**
+ * Choose — or clear — the sequence Muse uses for the hero.
+ *
+ * Usable from anywhere, including the standalone Media page, which has no
+ * project and no Muse panel in scope. Choosing one also turns the scroll-video
+ * option on: the user has just pointed at a specific clip, and leaving the
+ * feature switched off would silently ignore them.
+ */
+export function setMuseVideoPin(pin: MuseVideoPin | null): MuseConfig {
+  const current = loadMuseConfig()
+  const next: MuseConfig = { ...current, videoPin: pin, video: pin ? true : current.video }
+  saveMuseConfig(next)
+  return next
+}
+
 /** Muse needs the backend. In pure-localStorage mode it's unavailable. */
 export async function museAvailable(signal?: AbortSignal): Promise<boolean> {
   try {
@@ -169,7 +349,14 @@ export function parseUrls(text: string): string[] {
 /** Run Discover → Distill → Dossier for a prompt. Throws on transport/HTTP error. */
 export async function runMuseDossier(
   prompt: string,
-  opts: { urls?: string[]; useFetch?: boolean; projectName?: string; signal?: AbortSignal } = {},
+  opts: {
+    urls?: string[]
+    useFetch?: boolean
+    projectName?: string
+    /** The user's own picture or clip, so the dossier is written around it. */
+    userMedia?: MuseUserMedia | null
+    signal?: AbortSignal
+  } = {},
 ): Promise<MuseResult> {
   const s = loadSettings()
   const headers: Record<string, string> = { 'content-type': 'application/json' }
@@ -184,6 +371,7 @@ export async function runMuseDossier(
       useFetch: opts.useFetch === true,
       model: s.model,
       projectName: opts.projectName,
+      userMedia: opts.userMedia,
     }),
     signal: opts.signal,
   })
@@ -319,6 +507,7 @@ export function buildMusePreamble(
   images: GeneratedSlotImage[] = [],
   mode: MuseImageMode = 'content',
   dossier?: MuseDossier,
+  video?: GeneratedVideo | null,
 ): string {
   const lines = [
     'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly.',
@@ -363,6 +552,32 @@ export function buildMusePreamble(
       `RADIUS — use \`${radius}\` as the corner treatment throughout, including when it means square corners. Do not soften it.`,
     )
   }
+  /*
+   * The scroll sequence.
+   *
+   * Stated before the images and in stronger terms, because it decides the
+   * SHAPE of the screen rather than filling a slot in it: the hero stops being
+   * a block with a picture in it and becomes a pinned section the visitor
+   * scrolls through. A model told about it in passing writes a normal hero and
+   * drops <ScrollSequence> somewhere below the fold, which is the one place the
+   * effect cannot work.
+   */
+  if (video && video.frames > 0) {
+    lines.push(
+      '',
+      'SCROLL SEQUENCE — a video has been generated for this screen and cut into frames. It MUST be the hero, and it MUST be the FIRST element the visitor sees.',
+      `Use the predefined <ScrollSequence> component EXACTLY like this, at the very top of the page:`,
+      '',
+      `<ScrollSequence base="${video.base}" frames={${video.frames}} height={300}>`,
+      '  {/* headline + subheadline + CTA go here, overlaid on the clip */}',
+      '</ScrollSequence>',
+      '',
+      'Rules: do NOT wrap it in a container with a fixed height, do NOT put it inside a section that already scrolls, and do NOT add an <img> or a <video> for the hero — the component draws the frames itself. `base` and `frames` are exactly the values above; changing either breaks it.',
+      'The overlaid children are centred and do not receive pointer events, so put the CTA button after the component if it must be clickable.',
+      'Everything else on the page follows the sequence, as normal sections.',
+    )
+  }
+
   const embeds = mode === 'content' || mode === 'both'
   if (images.length && embeds) {
     lines.push(

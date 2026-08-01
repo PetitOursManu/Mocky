@@ -32,6 +32,23 @@ export const muse = {
     'muse.modeBothHint':
       'Le modèle VOIT l’image et l’insère : il compose l’écran autour d’elle (une seule image générée)',
 
+    // vidéo au défilement
+    'muse.video': 'Vidéo au défilement',
+    'muse.videoHint':
+      'Muse génère un plan vidéo pour le héro et l’écran le fait défiler image par image, à la vitesse de la molette',
+    'muse.videoCost': 'Une seule séquence, sur le héro. Compter 30 s à 3 min de plus, et un coût par clip.',
+    'muse.videoNoProvider':
+      'Aucun fournisseur vidéo configuré — Admin → Génération d’images → Vidéo.',
+    'muse.videoNoFfmpeg':
+      'ffmpeg est absent de ce conteneur : impossible de découper le clip en images.',
+    'muse.videoNoProviderButImport':
+      'Aucun fournisseur vidéo configuré — mais vous pouvez importer votre propre clip dans Média et le choisir ici.',
+    'muse.videoPickFromLibrary': 'ou choisir une séquence dans Média',
+    'muse.videoChosenTitle': 'Séquence choisie',
+    'muse.videoChosenDetail': '{count} images — elle servira au défilement, aucune génération.',
+    'muse.videoChosenDrop': 'Retirer',
+    'muse.videoChosenDropHint': 'Ne plus utiliser cette séquence',
+
     // vision
     'muse.vision': 'vision',
     'muse.modeNeedsVision': 'Indisponible : ce modèle n’accepte pas les images',
@@ -79,6 +96,21 @@ export const muse = {
       'The image is an art-direction reference for the model (it does not appear in the screen)',
     'muse.modeBothHint':
       'The model SEES the image and places it: it composes the screen around it (one generated image)',
+
+    // scroll video
+    'muse.video': 'Scroll-driven video',
+    'muse.videoHint':
+      'Muse generates a clip for the hero and the screen scrubs through it frame by frame, at the speed of the scroll wheel',
+    'muse.videoCost': 'One sequence, on the hero. Expect 30 s to 3 min more, and a cost per clip.',
+    'muse.videoNoProvider': 'No video provider configured — Admin → Image generation → Video.',
+    'muse.videoNoFfmpeg': 'ffmpeg is missing from this container: the clip cannot be cut into frames.',
+    'muse.videoNoProviderButImport':
+      'No video provider configured — but you can import your own clip in Media and choose it here.',
+    'muse.videoPickFromLibrary': 'or choose a sequence from Media',
+    'muse.videoChosenTitle': 'Chosen sequence',
+    'muse.videoChosenDetail': '{count} frames — it will drive the scroll, nothing is generated.',
+    'muse.videoChosenDrop': 'Remove',
+    'muse.videoChosenDropHint': 'Stop using this sequence',
 
     // vision
     'muse.vision': 'vision',

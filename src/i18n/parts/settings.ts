@@ -169,6 +169,23 @@ export const settings = {
 
     'settings.noV1Before': 'Sans',
     'settings.noV1After': '— Mocky l’ajoute.',
+    // ---- vidéo au défilement ----
+    'settings.videoTitle': 'Vidéo au défilement',
+    'settings.videoBlurb':
+      'Muse peut générer un plan vidéo pour le héro d’un écran. Le clip est découpé en images côté serveur, et l’écran les fait défiler à la vitesse de la molette. Deux conditions : un fournisseur ci-dessous, et ffmpeg dans le conteneur.',
+    'settings.videoProvider': 'Fournisseur vidéo',
+    'settings.videoProviderOff': 'Désactivé',
+    'settings.videoModel': 'Modèle',
+    'settings.videoModelHint': 'Identifiant fal, par exemple fal-ai/ltx-video. Les modèles lents rendent de plus beaux plans.',
+    'settings.videoKey': 'Clé API',
+    'settings.videoTimeout': 'Délai (secondes)',
+    'settings.videoTimeoutHint': 'Une vidéo prend souvent 1 à 3 minutes. 600 s laisse de la marge.',
+    'settings.videoRecheck': 'Revérifier',
+    'settings.videoStatusProviderOn': 'Fournisseur prêt — {model}',
+    'settings.videoStatusProviderOff': 'Aucun fournisseur vidéo : la case reste grisée dans Muse.',
+    'settings.videoStatusFfmpegOn': 'ffmpeg disponible',
+    'settings.videoStatusFfmpegOff': 'ffmpeg indisponible : {reason}',
+
     'settings.keyStored': 'clé enregistrée',
     'settings.clearKey': 'effacer',
     'settings.clearKeyConfirm': 'Effacer la clé enregistrée ?',
@@ -407,6 +424,23 @@ export const settings = {
 
     'settings.noV1Before': 'Without',
     'settings.noV1After': '— Mocky adds it.',
+    // ---- scroll-driven video ----
+    'settings.videoTitle': 'Scroll-driven video',
+    'settings.videoBlurb':
+      'Muse can generate a clip for a screen’s hero. The clip is cut into frames server-side, and the screen scrubs through them at the speed of the scroll wheel. Two prerequisites: a provider below, and ffmpeg in the container.',
+    'settings.videoProvider': 'Video provider',
+    'settings.videoProviderOff': 'Off',
+    'settings.videoModel': 'Model',
+    'settings.videoModelHint': 'A fal id, e.g. fal-ai/ltx-video. Slower models produce better shots.',
+    'settings.videoKey': 'API key',
+    'settings.videoTimeout': 'Timeout (seconds)',
+    'settings.videoTimeoutHint': 'A video often takes 1–3 minutes. 600 s leaves room.',
+    'settings.videoRecheck': 'Re-check',
+    'settings.videoStatusProviderOn': 'Provider ready — {model}',
+    'settings.videoStatusProviderOff': 'No video provider: the box stays greyed out in Muse.',
+    'settings.videoStatusFfmpegOn': 'ffmpeg available',
+    'settings.videoStatusFfmpegOff': 'ffmpeg unavailable: {reason}',
+
     'settings.keyStored': 'key saved',
     'settings.clearKey': 'clear',
     'settings.clearKeyConfirm': 'Clear the saved key?',

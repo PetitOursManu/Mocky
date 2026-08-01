@@ -43,6 +43,34 @@ export const library = {
     'library.closeEsc': 'Fermer (Échap)',
     'library.done': 'Terminé',
 
+    // ---- média : onglets, import, vidéos ----
+    'library.mediaTitle': 'Média',
+    'library.tabImages': 'Images',
+    'library.tabVideos': 'Vidéos',
+    'library.videoWord_one': 'vidéo',
+    'library.videoWord_other': 'vidéos',
+    'library.upload': 'Importer',
+    'library.uploading': 'Import…',
+    'library.uploadHint':
+      'Ajoutez vos propres images et vidéos. Elles rejoignent la bibliothèque et Muse peut s’en servir dans vos écrans.',
+    'library.uploadBadType': '« {name} » : format non pris en charge ({type}).',
+    'library.noVideos': 'Aucune séquence pour l’instant.',
+    'library.noVideosHint':
+      'Importez un clip, ou cochez « Vidéo au défilement » dans Muse pour en faire générer une.',
+    'library.frames': '{count} images',
+    'library.deleteVideo': 'Supprimer la séquence',
+    'library.deleteVideoConfirm':
+      'Supprimer définitivement cette séquence et toutes ses images ?',
+    'library.useVideo': 'Utiliser',
+    'library.videoChosen': 'Choisie',
+    'library.useVideoHint':
+      'Utiliser cette séquence pour le prochain écran, au lieu d’en générer une nouvelle',
+    'library.selectionTitle': 'Sélection pour la prochaine génération',
+    'library.selectedImage_one': 'image épinglée',
+    'library.selectedImage_other': 'images épinglées',
+    'library.selectedVideo': 'séquence : {name}',
+    'library.selectedClear': 'retirer',
+
     // ---- lightbox ----
     'library.altGenerated': 'image générée',
     'library.promptLabel': 'Prompt',
@@ -80,6 +108,31 @@ export const library = {
     'library.zipHint': 'Download the filtered selection (ZIP + manifest)',
     'library.closeEsc': 'Close (Esc)',
     'library.done': 'Done',
+
+    // ---- media: tabs, uploads, videos ----
+    'library.mediaTitle': 'Media',
+    'library.tabImages': 'Images',
+    'library.tabVideos': 'Videos',
+    'library.videoWord_one': 'video',
+    'library.videoWord_other': 'videos',
+    'library.upload': 'Import',
+    'library.uploading': 'Importing…',
+    'library.uploadHint':
+      'Add your own images and videos. They join the library and Muse can use them in your screens.',
+    'library.uploadBadType': '“{name}”: unsupported format ({type}).',
+    'library.noVideos': 'No sequences yet.',
+    'library.noVideosHint': 'Import a clip, or tick “Scroll-driven video” in Muse to have one generated.',
+    'library.frames': '{count} frames',
+    'library.deleteVideo': 'Delete sequence',
+    'library.deleteVideoConfirm': 'Permanently delete this sequence and all its frames?',
+    'library.useVideo': 'Use',
+    'library.videoChosen': 'Chosen',
+    'library.useVideoHint': 'Use this sequence for the next screen, instead of generating a new one',
+    'library.selectionTitle': 'Selected for the next generation',
+    'library.selectedImage_one': 'pinned image',
+    'library.selectedImage_other': 'pinned images',
+    'library.selectedVideo': 'sequence: {name}',
+    'library.selectedClear': 'remove',
 
     // ---- lightbox ----
     'library.altGenerated': 'generated image',

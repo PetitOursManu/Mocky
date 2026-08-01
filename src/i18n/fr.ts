@@ -11,7 +11,7 @@ export const fr = {
   // ---- navigation & chrome ----
   'nav.home': 'Accueil',
   'nav.design': 'DESIGN.md',
-  'nav.images': 'Images',
+  'nav.media': 'Média',
   'nav.settings': 'Réglages',
   'nav.admin': 'Admin',
   'nav.tagline': 'Chat → UI · auto-hébergé',

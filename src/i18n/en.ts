@@ -10,7 +10,7 @@ export const en: Record<keyof typeof fr, string> = {
   // ---- navigation & chrome ----
   'nav.home': 'Home',
   'nav.design': 'DESIGN.md',
-  'nav.images': 'Images',
+  'nav.media': 'Media',
   'nav.settings': 'Settings',
   'nav.admin': 'Admin',
   'nav.tagline': 'Chat → UI · self-hosted',

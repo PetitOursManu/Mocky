@@ -305,7 +305,7 @@ placeholders rather than breaking the run.
 | Provider | Key? | Notes |
 |---|---|---|
 | `pollinations` | ❌ none | Default. Free, URL-based; may watermark. Rate-limited (~1 req/15 s) so requests are queued server-side. An optional free token raises the limit. |
-| `fal` | ✔ | [fal.ai](https://fal.ai) — FLUX & co. Pick any model id (`fal-ai/flux/schnell`, `fal-ai/flux/dev`, `fal-ai/flux-pro/v1.1`…). Prefer a fast model: the synchronous endpoint is used. |
+| `fal` | ✔ | [fal.ai](https://fal.ai) — FLUX & co. Pick any model id (`fal-ai/flux/schnell`, `fal-ai/flux/dev`, `fal-ai/flux-pro/v1.1`…). Prefer a fast model: the synchronous endpoint is used. Also the only provider that can make **video** — see below. |
 | `openai-image` | ✔ | Any endpoint exposing `POST {baseUrl}/v1/images/generations` — OpenAI (`gpt-image-1`, `dall-e-3`), LiteLLM, compatible gateways. |
 | `cloudflare-workers-ai` | ✔ | Generous free tier. Needs an account id + an API token with the Workers AI permission. |
 | `sd-webui` | ❌ | Your own **Automatic1111 / Forge / SD.Next** instance (started with `--api`). No key, no rate limit, nothing leaves your machine. |
@@ -321,6 +321,33 @@ deduplicated by content hash, reusable across projects. Browse it from the
 (ZIP + `manifest.json`), and **pin** images into the next run (pinned images are
 assigned to slots before any new image is generated). Deleting a project never
 deletes library images; only explicit deletion does.
+
+### Scroll-driven video
+
+Muse can also generate a **clip for the hero** and let the visitor scrub through
+it with the scroll wheel — the clip advances frame by frame, pinned full-height,
+and runs backwards when you scroll up. Tick **Vidéo au défilement** in the Muse
+panel; it is off by default, because unlike every other Muse option it costs
+money per use and adds minutes to a generation.
+
+Two prerequisites, reported separately in **Admin → Génération d'images → Vidéo**
+so you know which one is missing:
+
+| | |
+|---|---|
+| A video provider | `fal` only, for now — none of the other configured providers has a text-to-video endpoint. Any fal model id works (`fal-ai/ltx-video` by default); slower models make better shots. |
+| `ffmpeg` | Ships in the Docker image. Running from source, install it yourself — without it the option stays greyed out and says so. |
+
+**The clip is never played as a video.** ffmpeg cuts it into a JPEG sequence
+(12 fps, 960 px, capped at 150 frames) and the screen draws those onto a canvas.
+Two reasons: seeking an inter-frame compressed MP4 from a scroll handler stutters
+badly, and frames are *images* — so the sandboxed preview needs no media source
+and its CSP is unchanged.
+
+Sequences live in `data/video-library/`, addressed by the SHA-256 of the clip, and
+an identical request reuses the sequence instead of paying for it twice. Only the
+frame bytes are public (a preview iframe has an opaque origin and sends no
+cookie); generating, listing and deleting all require a session.
 
 ### MCP servers
 

@@ -6,6 +6,7 @@ import {
   loadMuseConfig,
   saveMuseConfig,
   defaultMuseConfig,
+  setMuseVideoPin,
   runMuseDossier,
   generateSlotImages,
   museAvailable,
@@ -79,12 +80,48 @@ describe('config', () => {
     expect(defaultMuseConfig().enabled).toBe(false)
   })
   it('round-trips through storage', () => {
-    saveMuseConfig({ enabled: true, urls: 'https://x.test', useFetch: true, imageMode: 'inspiration' })
-    expect(loadMuseConfig()).toEqual({ enabled: true, urls: 'https://x.test', useFetch: true, imageMode: 'inspiration' })
+    const cfg = {
+      enabled: true,
+      urls: 'https://x.test',
+      useFetch: true,
+      imageMode: 'inspiration' as const,
+      video: true,
+      videoPin: { hash: 'a'.repeat(64), frames: 60, poster: '/api/videos/x/poster.jpg', label: 'clip' },
+    }
+    saveMuseConfig(cfg)
+    expect(loadMuseConfig()).toEqual(cfg)
   })
 
   it('defaults the image mode to "content" (works without vision)', () => {
     expect(defaultMuseConfig().imageMode).toBe('content')
+  })
+
+  it('choosing a sequence turns the effect on, because that is what was meant', () => {
+    // The user pointed at a specific clip. Leaving the checkbox off would
+    // ignore them, silently, at generation time.
+    saveMuseConfig({ ...defaultMuseConfig(), video: false })
+    const pin = { hash: 'b'.repeat(64), frames: 42, poster: '/p.jpg', label: 'mon clip' }
+    const next = setMuseVideoPin(pin)
+
+    expect(next.videoPin).toEqual(pin)
+    expect(next.video).toBe(true)
+    expect(loadMuseConfig().videoPin).toEqual(pin) // persisted
+  })
+
+  it('clearing a sequence does not silently turn the effect off', () => {
+    // Dropping the chosen clip means "generate one instead", not "forget the
+    // whole feature" — the user never touched the checkbox.
+    saveMuseConfig({ ...defaultMuseConfig(), video: true })
+    setMuseVideoPin({ hash: 'c'.repeat(64), frames: 10, poster: '/p.jpg', label: 'x' })
+    const cleared = setMuseVideoPin(null)
+
+    expect(cleared.videoPin).toBe(null)
+    expect(cleared.video).toBe(true)
+  })
+
+  it('defaults the scroll video to OFF — it has a price per use', () => {
+    expect(defaultMuseConfig().video).toBe(false)
+    expect(defaultMuseConfig().videoPin).toBe(null)
   })
 })
 
