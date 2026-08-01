@@ -14,7 +14,8 @@
     would re-request on every navigation. The `.ico` is the same artwork at
     16, 32 and 48 px for 15 KB, and every browser reads it.
   -->
-  <link rel="icon" href="./favicon.ico" sizes="any">
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
+  <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico">
   <!--
     Docsify 4.13.1, vendored under ./vendor/ and served by this same host.
 
@@ -58,6 +59,23 @@
       // A French page that does not exist falls back to its English
       // equivalent, instead of showing a fetch error.
       fallbackLanguages: ['fr'],
+
+      // Docsify names the tab after the FIRST sidebar link matching the current
+      // route. Since the language block sits at the top and its English entry
+      // points at `/`, the home page was titled "English" and the French home
+      // "Français" — the language name, not the page. The tab is also narrow
+      // enough that only the first few characters are ever read, so the site
+      // name has to come first.
+      plugins: [
+        function (hook) {
+          hook.doneEach(function () {
+            var h1 = document.querySelector('.markdown-section h1')
+            var page = h1 ? h1.textContent.trim() : ''
+            // Both home pages are headed "Mocky"; nothing to append there.
+            document.title = !page || page === 'Mocky' ? 'Doc Mocky' : 'Doc Mocky — ' + page
+          })
+        },
+      ],
 
       search: {
         paths: 'auto',

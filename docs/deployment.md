@@ -508,10 +508,17 @@ view**. Three consequences:
 
 - **There is no build step, ever.** Publishing documentation means pushing a
   `.md` to `main`. The site serves it on the next request.
-- **The site does not need redeploying** when content changes. It only moves for
-  a Docsify version bump.
+- **The site does not need redeploying** when content changes.
 - The content must stay **public**. `raw.githubusercontent.com` on a private
   repository would require a token, which a static page cannot hold.
+
+> **The converse is the trap.** Everything in `docs-site/` — `index.html`, the
+> favicon, the vendored Docsify files — is served by the deployed resource, not
+> fetched from GitHub. Pushing a change to those files to `main` does **nothing**
+> until the static resource is **redeployed**.
+>
+> So: a typo fixed in a `.md` appears on the next page load; a new favicon, a
+> changed title or a Docsify upgrade appears only after a redeploy.
 
 ### Deploying `docs-site/`
 
@@ -544,6 +551,26 @@ If the application's icon changes, copy it again:
 ```bash
 cp public/favicon.ico docs-site/favicon.ico
 ```
+
+Then **redeploy the static resource** — see the warning above. A favicon pushed
+to `main` but not redeployed leaves the tab showing the browser's blank-document
+icon, which is exactly what a missing favicon looks like.
+
+Browsers also cache a favicon aggressively, including the *absence* of one. After
+a redeploy, confirm with a hard reload, or by opening `<your-domain>/favicon.ico`
+directly: it must answer `200` with `image/x-icon`.
+
+### The tab title
+
+Docsify names the tab after the **first sidebar link matching the current
+route**. The language block sits at the top of the sidebar and its English entry
+points at `/`, so the home page ended up titled "English" and the French home
+"Français" — the language name, not the page.
+
+A small plugin in `index.html` sets the title itself on every route: `Doc Mocky`
+on the home pages, `Doc Mocky — <page>` elsewhere. The site name comes first
+because a browser tab is narrow, and the first few characters are the only ones
+anyone reads.
 
 ### Why Docsify is vendored
 

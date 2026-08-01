@@ -531,10 +531,19 @@ affichage de page**. Trois conséquences :
 
 - **Il n'y a jamais d'étape de construction.** Publier de la documentation, c'est
   pousser un `.md` sur `main`. Le site le sert à la requête suivante.
-- **Le site n'a pas besoin d'être redéployé** quand le contenu change. Il ne
-  bouge que pour une montée de version de Docsify.
+- **Le site n'a pas besoin d'être redéployé** quand le contenu change.
 - Le contenu doit rester **public**. `raw.githubusercontent.com` sur un dépôt
   privé demanderait un jeton, qu'une page statique ne peut pas porter.
+
+> **La réciproque est le piège.** Tout ce qui est dans `docs-site/` —
+> `index.html`, la favicon, les fichiers Docsify copiés — est servi par la
+> ressource déployée, et non lu depuis GitHub. Pousser une modification de ces
+> fichiers sur `main` ne change **rien** tant que la ressource statique n'a pas
+> été **redéployée**.
+>
+> Autrement dit : une faute corrigée dans un `.md` apparaît au chargement
+> suivant ; une nouvelle favicon, un titre modifié ou une montée de version de
+> Docsify n'apparaissent qu'après un redéploiement.
 
 ### Déployer `docs-site/`
 
@@ -568,6 +577,29 @@ Si l'icône de l'application change, recopiez-la :
 ```bash
 cp public/favicon.ico docs-site/favicon.ico
 ```
+
+Puis **redéployez la ressource statique** — voir l'avertissement plus haut. Une
+favicon poussée sur `main` mais pas redéployée laisse l'onglet afficher l'icône
+de document vierge du navigateur, ce qui est exactement l'aspect d'une favicon
+absente.
+
+Les navigateurs mettent aussi une favicon en cache de façon agressive, y compris
+son *absence*. Après un redéploiement, vérifiez avec un rechargement forcé, ou en
+ouvrant directement `<votre-domaine>/favicon.ico` : il doit répondre `200` avec
+`image/x-icon`.
+
+### Le titre de l'onglet
+
+Docsify nomme l'onglet d'après le **premier lien du sommaire qui correspond à la
+route courante**. Le bloc de langue est en tête du sommaire et son entrée
+anglaise pointe vers `/` : la page d'accueil s'est donc retrouvée intitulée
+« English », et l'accueil français « Français » — le nom de la langue, pas celui
+de la page.
+
+Un petit plugin dans `index.html` fixe lui-même le titre à chaque route :
+`Doc Mocky` sur les pages d'accueil, `Doc Mocky — <page>` ailleurs. Le nom du
+site vient en premier parce qu'un onglet de navigateur est étroit, et que les
+premiers caractères sont les seuls que l'on lise.
 
 ### Pourquoi Docsify est copié localement
 
