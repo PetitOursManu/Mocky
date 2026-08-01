@@ -32,17 +32,20 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 🎨 **Production-ready output** — the prompt enforces real colors, spacing, rounded corners, shadows, interactive states, and realistic content (no wireframes).
 - 🖼️ **Infinite canvas** — a Stitch-like dotted board; pan/zoom, real-size resizable frames, Windows-style multi-select (click / Ctrl-click / marquee), arrange-to-grid.
 - ▶️ **Interact mode** — click buttons, hover states and animations run live, right in the grid.
+- ✦ **Real motion, safely** — eleven animation presets and three components behind a single `<Animated preset="…">` wrapper, powered by [Motion](https://motion.dev). The generating model never writes animation code: it picks a name from a closed list (see [Animations](#animations) below). One switch, per project or per screen, holds everything still.
+- 🎞️ **Scroll-driven video** — Muse can generate (or you can import) a clip and let the visitor scrub through it with the scroll wheel, pinned full-height.
+- 🖼️ **Media library** — every generated image and sequence in one place, plus **your own** images and clips. Muse builds its art direction *from* what you select.
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
 - 🎨 **Design system + style presets** — load/paste a `DESIGN.md` or pick a built-in visual style (17 presets); it drives every generation.
 - ✂️ **Screenshot annotations** — snip a region of a screen into the chat as numbered references, attached to (vision) generations.
 - 📦 **Projects & export** — multiple projects, per-screen `.tsx` download, and a runnable Vite project as `.zip`.
 - 👤 **Optional accounts + SSO** — sign in to a Mocky instance and your projects + DESIGN.md sync across devices (self-hosted backend, no cloud). With a [Dashy](https://github.com/PetitOursManu/Dashy) instance, users can also **"Sign in with Dashy"** and reuse their projects. Without an account everything stays in your browser's `localStorage`.
-- 🌗 **Themes** — Dark, Beige, and a Mocky (teal) light theme.
+- 🌗 **Two themes** — Papier and Encre, both first-class: same tokens, neither patched on top of the other. Every pairing is checked against WCAG AA by a test that reads the real token file.
 
 ## Tech stack
 
-React 18 · TypeScript · Vite · Tailwind CSS on the front, and a tiny **Node + Express** backend (JSON file store, no database, no native deps) for accounts, project sync, the image library, Muse and the model proxy.
+React 18 · TypeScript · Vite · Tailwind CSS on the front, and a tiny **Node + Express** backend (JSON file store, no database) for accounts, project sync, the media library, Muse, scroll sequences and the model proxy. [Motion](https://motion.dev) is vendored for the previews, and `ffmpeg` is the one external binary — it cuts a video into the frames a scroll sequence scrubs through, and everything else works without it.
 
 ## Quick start
 
@@ -162,7 +165,7 @@ You can equally hard-code values under `environment:` in `docker-compose.yml`.
 
 | Volume | Mount point | Description |
 |---|---|---|
-| `mocky-data` | `/app/server/data` | JSON file store: user accounts, sessions, and per-user project data. Named volume in docker-compose — persists across container rebuilds |
+| `mocky-data` | `/app/server/data` | JSON file store: accounts, sessions, per-user projects, the image library, and the scroll sequences (`video-library/`, which is by far the heaviest — a clip plus up to 150 frames each). Named volume in docker-compose — persists across container rebuilds |
 
 **Backing up data.** Copy the volume out, then use the bundled script — it is plain Node, so it behaves the same on Windows, macOS and Linux:
 
@@ -265,10 +268,38 @@ Mocky auto-detects what the prompt needs and injects capabilities into the sandb
 
 - **Icons** (baseline, always loaded): 26 inline SVG icons under the `Icon.*` namespace. The prompt bans hand-written `<svg><path d="...">` to prevent truncation.
 - **Charts** (conditional): 5 inline-SVG chart components (BarChart, LineChart, DonutChart, Sparkline, ProgressRing). No external chart library.
-- **Motion** (conditional): 12 CSS-only animation components (FadeIn, Stagger, Marquee, Counter, Reveal, ShimmerButton, BentoGrid, BentoCard, BorderBeam, TextReveal, Meteors, AnimatedBeam). No framer-motion.
-- **DaisyUI** (conditional): CDN CSS for semantic component classes.
+- **Animate** (conditional): the `<Animated>` wrapper plus `Ticker` and `CountUp`, backed by Motion — see [Animations](#animations).
+- **ScrollVideo** (only when a sequence exists): `<ScrollSequence>`, the scroll-scrubbed hero.
+- **DaisyUI** (conditional): a vendored stylesheet for semantic component classes.
 
-Capabilities are snippet-packs (vendored plain-JS source prepended to the generated code) or CDN CSS links. All JS is vendored — the only thing that may come from a CDN is CSS. There is no external JS `<script>` capability: an unreliable CDN would gate otherwise-valid previews behind a network fetch, so icons/charts/motion are all inline.
+Capabilities are snippet-packs (vendored plain-JS source prepended to the generated code), stylesheets, or scripts. **Nothing is loaded from another origin.** That is the rule, and it is enforced by a test: the point was never the shape of the tag but the dependency — an unreliable third-party fetch would gate an otherwise-valid preview behind someone else's uptime. A file under `public/vendor/` is served by the same server as the page, is hash-pinned, and cannot fail independently of it.
+
+> A retired capability is still *injected* for screens that were generated with it, but never *documented* to the model. That is how the old CSS-only animation pack (FadeIn, Marquee, BentoGrid…) keeps rendering the screens that use it while no new screen can reach for it — deleting it outright would have thrown on every one of them.
+
+### Animations
+
+Powered by [Motion](https://motion.dev), and the generating model **never writes a line of it**. It has no access to the library's API, writes no `motion.div`, no transition, no variant. It picks a name from a closed list:
+
+| | |
+|---|---|
+| **Entrances** | `fade-in` · `fade-up` · `scale-in` · `slide-left` · `slide-right` · `blur-in` · `stagger-list` |
+| **Hover** | `hover-lift` · `hover-glow` |
+| **Scroll** | `parallax` |
+| **Exit** | `exit-slide` |
+
+```jsx
+<Animated preset="fade-up" delay={0.1} as="section">…</Animated>
+<Ticker speed={24} pauseOnHover>{logos}</Ticker>
+<CountUp to={1284} suffix="+" />
+```
+
+**Failure is always static, never broken.** An unknown preset renders a plain element with its content. A missing library falls back to the same presets in CSS. And an entrance is only ever attempted when the document is visible and the reader has not asked for reduced motion — measured, because Motion holds an element at its `initial` state until its frame loop starts, and browsers do not run that loop in a background tab: a mockup would have sat at `opacity: 0` forever. In every other case the element renders in its **final** state immediately.
+
+A model that slips and writes `import { motion }` or `<motion.div>` anyway has it removed before render — through Babel's AST, never a regex (invariant I1: `motion.` also appears inside strings, inside attributes, and in the middle of the word *promotion*). `<motion.section className="hero">` becomes `<section className="hero">`, keeping its content, and the removal is reported in the console rather than done silently.
+
+**The switch** sits in the composer with three states — `auto` (Mocky decides from the prompt, the default), forced on, forced off — and each screen can override it from the bar above its frame or its context menu. Switching off holds *already generated* screens still too, by collapsing every animation to its final frame rather than removing it: `animation: none` on a fade-in whose resting state is `opacity: 0` would leave a blank mockup instead of a still one.
+
+Motion is pinned to an **exact** version and bundled by `scripts/build-vendor-motion.mjs` — see [`public/vendor/VENDOR.md`](public/vendor/VENDOR.md). It has shipped an upgrade that silently stopped animating without throwing, so verify the presets **visually** after any bump, not just "no console error".
 
 ## ✨ Muse — design intelligence
 
@@ -315,12 +346,43 @@ placeholders rather than breaking the run.
 > be a local address, so it deliberately bypasses the SSRF guard applied to
 > untrusted URLs. Only an admin can set it — point it at an instance you trust.
 
-Every generated image is saved to a **global Image Library** (`data/image-library/`),
+Every generated image is saved to a **global library** (`data/image-library/`),
 deduplicated by content hash, reusable across projects. Browse it from the
-**📚 Bibliothèque** tab: search, filter, favorite, download, "Tout télécharger"
-(ZIP + `manifest.json`), and **pin** images into the next run (pinned images are
-assigned to slots before any new image is generated). Deleting a project never
-deletes library images; only explicit deletion does.
+**Média** tab — images and scroll sequences side by side: search, filter,
+favourite, download, "Tout télécharger" (ZIP + `manifest.json`), and **pin**
+images into the next run (pinned images fill slots before any new image is
+generated). Deleting a project never deletes library media; only explicit
+deletion does.
+
+### Your own images and clips
+
+The same **Média** page imports files you already own. One button takes both
+kinds and routes on the file's own type — the file *is* the request body, no
+multipart and no upload dependency. SVG is refused along with anything else not
+on the allowlist: it is an image, it carries script, and it would be served back
+from Mocky's own origin.
+
+An imported clip needs **only ffmpeg** — no provider, no key, no cost. An
+instance that has never configured fal can therefore use the whole scroll-video
+feature with its own footage.
+
+### Muse designs *from* your media
+
+Selecting an image or a sequence does more than fill a slot: it is read **before**
+the Design Dossier is written, and the dossier is built around it. Two channels,
+because they fail differently:
+
+- the **palette is measured from the pixels** — exact, and it works on every
+  model. Asking a vision model to describe the colours fails twice over: half
+  the models people self-host have no vision at all, and the ones that do return
+  *names* ("warm terracotta") that then have to be guessed back into hex.
+- the **picture itself** is attached only when the model can see, and it carries
+  what a histogram cannot: subject, composition, density, light.
+
+The measured hexes are declared to **override** the palettes suggested by the
+matched patterns and references. Without that sentence the model politely
+acknowledges the image and then uses the pattern's indigo anyway — which is the
+exact failure this feature exists to fix.
 
 ### Scroll-driven video
 
