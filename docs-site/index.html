@@ -89,6 +89,34 @@
       fr: { toDark: 'Thème sombre', toLight: 'Thème clair' },
     }
 
+    /*
+     * The two flags.
+     *
+     * Inline SVG rather than the regional-indicator emoji (🇬🇧, 🇫🇷), which
+     * render as bare letter pairs on Windows — the platform this project is
+     * developed on. Each carries a one-pixel outline: without it the white band
+     * of the French flag disappears against the sidebar and the flag reads as
+     * two loose rectangles.
+     */
+    var MOCKY_FLAGS = {
+      en:
+        '<svg viewBox="0 0 60 30" width="18" height="9" aria-hidden="true">' +
+        '<clipPath id="ukframe"><path d="M0,0 v30 h60 v-30 z"/></clipPath>' +
+        '<clipPath id="ukdiag"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>' +
+        '<g clip-path="url(#ukframe)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/>' +
+        '<path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>' +
+        '<path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#ukdiag)" stroke="#C8102E" stroke-width="4"/>' +
+        '<path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>' +
+        '<path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>',
+      fr:
+        '<svg viewBox="0 0 3 2" width="18" height="12" aria-hidden="true">' +
+        '<path d="M0,0 h3 v2 h-3 z" fill="#fff"/><path d="M0,0 h1 v2 h-1 z" fill="#002395"/>' +
+        '<path d="M2,0 h1 v2 h-1 z" fill="#ED2939"/></svg>',
+    }
+
+    /** Where each language starts. */
+    var MOCKY_HOMES = { en: '#/', fr: '#/fr/README' }
+
     window.$docsify = {
       name: 'Mocky',
       // The masthead mark, next to the name. Same artwork as the favicon.
@@ -129,6 +157,63 @@
             // Both home pages are headed "Mocky"; nothing to append there.
             document.title = !page || page === 'Mocky' ? 'Doc Mocky' : 'Doc Mocky — ' + page
           })
+        },
+
+        /*
+         * The language switch.
+         *
+         * It lives OUTSIDE the sidebar navigation, and that is the whole point.
+         * As a `_sidebar.md` entry the English link pointed at `/` — the same
+         * route as "Home" — so Docsify marked it as the active page and hung the
+         * home page's own table of contents underneath it. The language block
+         * swallowed the page it was sitting above.
+         *
+         * Choosing a language is a preference, like the theme, not a page in the
+         * document tree. So it is a control, built here, and the sidebar is left
+         * to list documents only.
+         */
+        function (hook) {
+          var box
+
+          function currentLang() {
+            return /^#?\/fr(\/|$)/.test(location.hash) ? 'fr' : 'en'
+          }
+
+          function build() {
+            var sidebar = document.querySelector('.sidebar')
+            var title = sidebar && sidebar.querySelector('h1')
+            if (!sidebar || !title) return
+            box = document.createElement('nav')
+            box.className = 'mocky-lang'
+            box.setAttribute('aria-label', 'Language')
+            box.innerHTML =
+              '<a href="' + MOCKY_HOMES.en + '" hreflang="en" data-lang="en">' +
+              MOCKY_FLAGS.en + '<span>English</span></a>' +
+              '<a href="' + MOCKY_HOMES.fr + '" hreflang="fr" data-lang="fr">' +
+              MOCKY_FLAGS.fr + '<span>Français</span></a>'
+            title.insertAdjacentElement('afterend', box)
+          }
+
+          function mark() {
+            // Docsify rebuilds parts of the sidebar; put the control back if it
+            // went with them.
+            if (!box || !box.isConnected) build()
+            if (!box) return
+            var lang = currentLang()
+            box.querySelectorAll('a').forEach(function (a) {
+              var on = a.dataset.lang === lang
+              a.classList.toggle('is-current', on)
+              // The current language is announced, not just coloured.
+              if (on) a.setAttribute('aria-current', 'true')
+              else a.removeAttribute('aria-current')
+            })
+          }
+
+          hook.mounted(function () {
+            build()
+            mark()
+          })
+          hook.doneEach(mark)
         },
 
         /*

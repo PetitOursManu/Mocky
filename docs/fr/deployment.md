@@ -685,13 +685,29 @@ chemin français.
 `fallbackLanguages: ['fr']` fait qu'une page française qui n'existe pas retombe
 sur son équivalent anglais au lieu d'afficher une erreur.
 
-Les deux sommaires s'ouvrent sur le même bloc de langue, donc chaque langue est à
-un clic depuis n'importe où. Chaque entrée porte un petit drapeau dessiné en
-**SVG en ligne**, et non en emoji : les emoji d'indicateur régional (🇬🇧, 🇫🇷)
-s'affichent comme de simples paires de lettres sous Windows, qui est la
-plateforme de développement de ce projet. Chaque drapeau porte aussi un filet
-d'un pixel — sans lui, la bande blanche du drapeau français disparaît sur le fond
-blanc du sommaire, et le drapeau se lit comme deux rectangles séparés.
+### Le sélecteur de langue
+
+Deux onglets sous la manchette, construits par un plugin dans `index.html` —
+**et non** une entrée de `_sidebar.md`.
+
+Cette distinction a été apprise à la dure. En tant que groupe du sommaire, le
+lien anglais pointait vers `/`, c'est-à-dire la même route que « Home ». Or
+Docsify marque comme page active le **premier** lien du sommaire correspondant à
+la route courante, et accroche sous lui le sommaire de cette page. Sur la page
+d'accueil, le bloc de langue devenait donc l'élément actif et avalait toute la
+table des matières, avec « Français » échoué en dessous. Choisir une langue est
+une préférence, comme le thème ; ce n'est pas une page de l'arborescence, et le
+sommaire ne liste plus que des documents.
+
+Chaque onglet porte un petit drapeau dessiné en **SVG en ligne**, et non en
+emoji : les emoji d'indicateur régional (🇬🇧, 🇫🇷) s'affichent comme de simples
+paires de lettres sous Windows, qui est la plateforme de développement de ce
+projet. Chaque drapeau porte aussi un filet d'un pixel — sans lui, la bande
+blanche du drapeau français disparaît sur le fond du sommaire et le drapeau se
+lit comme deux rectangles séparés.
+
+La langue courante est signalée par `aria-current`, et pas seulement par la
+couleur.
 
 ### Ajouter une page
 

@@ -650,12 +650,26 @@ match and `/.*/_sidebar.md` would also match a French path.
 `fallbackLanguages: ['fr']` means a French page that does not exist falls back to
 its English equivalent instead of showing an error.
 
-Both sidebars open with the same language block, so either language is one click
-away from anywhere. Each entry carries a small flag drawn as **inline SVG**, not
-as an emoji: the regional-indicator emoji (🇬🇧, 🇫🇷) render as bare letter pairs
-on Windows, which is the platform this project is developed on. Each flag also
-carries a one-pixel outline — without it, the white band of the French flag
-disappears against the white sidebar and the flag reads as two loose rectangles.
+### The language switch
+
+Two tabs under the masthead, built by a plugin in `index.html` — **not** an entry
+in `_sidebar.md`.
+
+That distinction was learned the hard way. As a sidebar group, the English link
+pointed at `/`, which is the same route as "Home". Docsify marks the **first**
+sidebar link matching the current route as the active page and hangs that page's
+table of contents underneath it — so on the home page the language block became
+the active item and swallowed the whole contents list, with "Français" stranded
+below it. Choosing a language is a preference, like the theme; it is not a page
+in the document tree, and the sidebar now lists documents only.
+
+Each tab carries a small flag drawn as **inline SVG**, not as an emoji: the
+regional-indicator emoji (🇬🇧, 🇫🇷) render as bare letter pairs on Windows, which
+is the platform this project is developed on. Each flag also carries a
+one-pixel outline — without it the white band of the French flag disappears
+against the sidebar and the flag reads as two loose rectangles.
+
+The current language is marked with `aria-current`, not only with colour.
 
 ### Adding a page
 

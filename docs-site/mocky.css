@@ -162,6 +162,57 @@ input:focus-visible {
   content: 'Mocky';
 }
 
+/* The language switch — a control under the masthead, not a nav entry.
+ *
+ * It used to be a group in `_sidebar.md`, and that was wrong twice over: its
+ * English link pointed at `/`, the same route as "Home", so Docsify treated it
+ * as the active page and hung the home page's table of contents underneath it.
+ * Choosing a language is a preference, like the theme. It belongs here. */
+.mocky-lang {
+  display: flex;
+  border-bottom: 1px solid rgb(var(--line-soft));
+}
+
+.mocky-lang a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 8px;
+  color: rgb(var(--ink-faint));
+  font-size: 0.75rem;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, background-color 0.12s, border-color 0.12s;
+}
+
+.mocky-lang a + a {
+  border-left: 1px solid rgb(var(--line-soft));
+}
+
+.mocky-lang a:hover {
+  color: rgb(var(--ink));
+  background: rgb(var(--accent) / 0.06);
+}
+
+/* The current language reads as a selected tab, not as a link you should click. */
+.mocky-lang a.is-current {
+  color: rgb(var(--ink));
+  font-weight: 600;
+  border-bottom-color: rgb(var(--accent));
+  background: rgb(var(--accent) / 0.08);
+}
+
+.mocky-lang svg {
+  flex: none;
+  outline: 1px solid rgb(0 0 0 / 0.22);
+}
+
+[data-theme='dark'] .mocky-lang svg {
+  outline-color: rgb(255 255 255 / 0.25);
+}
+
 .sidebar .sidebar-nav {
   padding: 14px 0 88px;
   line-height: 1.5;
@@ -186,7 +237,14 @@ input:focus-visible {
  *
  * Set as a kicker: the small line that sits ABOVE a headline in print.
  * Uppercase, widely letterspaced, quiet. */
-.sidebar-nav > ul > li:has(> ul) {
+/* `:not(:has(> a))` is what separates a group from a page.
+ *
+ * A group is `<li>Architecture<ul>…</ul></li>` — text, then a list, no link of
+ * its own. But when a TOP-LEVEL page is the one being read, Docsify injects its
+ * table of contents into that same `<li>`, which then also owns a `<ul>`. Keyed
+ * on `:has(> ul)` alone, "Home" turned into an uppercase, letterspaced group
+ * heading the moment you opened it. The direct `<a>` is the difference. */
+.sidebar-nav > ul > li:not(:has(> a)) {
   margin: 22px 0 0;
   padding: 0 20px;
   font-family: var(--font-sans);
@@ -197,14 +255,14 @@ input:focus-visible {
   color: rgb(var(--ink-faint));
 }
 
-.sidebar-nav > ul > li:first-child:has(> ul) {
+.sidebar-nav > ul > li:first-child:not(:has(> a)) {
   margin-top: 6px;
 }
 
 /* The rule under the group title. The negative margin cancels the parent's
    padding so the line spans the full width of the sidebar, the way a section
    rule does on a printed page. */
-.sidebar-nav > ul > li > ul {
+.sidebar-nav > ul > li:not(:has(> a)) > ul {
   margin: 6px -20px 0;
   padding: 5px 0;
   border-top: 1px solid rgb(var(--line-soft));
@@ -217,6 +275,14 @@ input:focus-visible {
   text-transform: none;
   letter-spacing: normal;
   color: rgb(var(--ink-muted));
+}
+
+/* The table of contents of a top-level page — "Home" — is a list inside a page
+   item, not a group. It gets the indent, and no rules around it. */
+.sidebar-nav > ul > li > ul.app-sub-sidebar {
+  margin: 0;
+  padding: 0 0 4px;
+  border: 0;
 }
 
 /* Plain top-level entries sit outside any group, so they get their own breathing
@@ -279,14 +345,21 @@ input:focus-visible {
 }
 
 /* The page's own headings, listed under the active entry. One step in,
-   quieter, and with the same chevron rather than the theme's hyphen. */
-.app-sub-sidebar li a {
+   quieter, and with the same chevron rather than the theme's hyphen.
+ *
+ * Prefixed with `.sidebar` to outweigh `.sidebar ul li a` above, which sets
+ * `padding` as a shorthand. Without it these matched at lower specificity, the
+ * indent never applied, and a page's headings sat flush with the pages
+ * themselves — so the list read as one flat run of links. */
+.sidebar .app-sub-sidebar li a {
   padding-left: 46px;
   font-size: 0.8125rem;
+  padding-top: 3px;
+  padding-bottom: 3px;
   color: rgb(var(--ink-faint));
 }
 
-.app-sub-sidebar li a::before {
+.sidebar .app-sub-sidebar li a::before {
   left: 32px;
   width: 4px;
   height: 4px;
