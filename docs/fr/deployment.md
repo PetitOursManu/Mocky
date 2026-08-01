@@ -556,10 +556,55 @@ Les fichiers :
 | Fichier | Origine |
 |---|---|
 | `index.html` | Écrit pour ce projet |
+| `mocky.css` | Écrit pour ce projet — l'aspect de Mocky, transposé de `src/styles/tokens.css` |
 | `favicon.ico` | Copié depuis `public/favicon.ico` — l'icône de l'application |
+| `logo.png` | Le même dessin, rendu une fois en 128 px pour le sommaire |
 | `vendor/docsify.min.js` | docsify 4.13.1 — `lib/docsify.min.js` |
 | `vendor/docsify-theme.css` | docsify 4.13.1 — `lib/themes/vue.css`, modifié |
 | `vendor/docsify-search.min.js` | docsify 4.13.1 — `lib/plugins/search.min.js` |
+
+### L'aspect
+
+`mocky.css` est chargé après le `vue.css` copié localement, et le remplace. Les
+valeurs ne sont pas inventées : elles sont transposées de
+`src/styles/tokens.css` et de `tailwind.config.js`, pour que la documentation et
+l'application soient d'accord.
+
+Ce que cela donne, repris du fichier de jetons de l'application — *noir et
+blanc, filets d'un pixel, aucun arrondi, aucune ombre, un seul aplat de
+signature* :
+
+| Élément | Traitement |
+|---|---|
+| Fond | Papier journal, pas blanc d'écran. Le `#fff` pur se lit comme « application » |
+| Titres | La pile serif, resserrée. Aucune police n'est téléchargée — ces polices sont livrées avec Windows et macOS, donc la page n'a besoin d'aucune requête vers un tiers |
+| Titres de groupe du sommaire | Un cavalier : 11 px, majuscules, interlettrage `0.14em`, avec un filet dessous |
+| Liens du sommaire | Un chevron à gauche, et le vert de la maison sur la page active |
+| Angles | `0` partout, comme dans l'application |
+| Accent | Le vert du logo, seule couleur chromatique de l'habillage |
+
+Une surprise de structure mérite d'être connue avant d'y toucher. Docsify rend
+un groupe du sommaire sous la forme `<li>Architecture<ul>…</ul></li>` : **le
+titre est un nœud texte nu**, pas un élément. La règle `.sidebar li > p` du
+thème vue ne correspond donc à rien. La typographie est par conséquent posée sur
+le `<li>`, chaque lien enfant la réinitialise, et le filet du groupe est dessiné
+comme la bordure haute de la liste imbriquée — ce qui le place exactement sous le
+titre.
+
+### Le sélecteur de thème
+
+Un bouton en bas du sommaire, et la préférence est retenue.
+
+Le thème est appliqué par un script en ligne dans le `<head>`, de façon
+synchrone, avant le premier affichage. C'est la même astuce et la même raison que
+dans l'`index.html` de l'application : l'exécuter plus tard signifie que la
+première image est déjà à l'écran, donc ouvrir la page en thème sombre provoque
+un éclair de clair à chaque chargement.
+
+Sans préférence enregistrée, il suit le système d'exploitation via
+`prefers-color-scheme`. La clé est `mocky.docs.theme`, réservée à la
+documentation : c'est une origine différente de celle de l'application, donc les
+deux préférences ne peuvent de toute façon pas être partagées.
 
 ### La favicon
 

@@ -57,6 +57,8 @@ export const en: Record<keyof typeof fr, string> = {
   // ---- projects ----
   'projects.title': 'Projects',
   'projects.new': 'New project',
+  'projects.docs': 'Docs',
+  'projects.docsHint': 'Open the documentation in a new tab',
   'projects.empty': 'Create a project to start designing screens.',
   'projects.untitled': 'Untitled project',
   'projects.rename': 'Rename project',

@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Mocky — Documentation</title>
+  <title>Doc Mocky</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Mocky documentation — a self-hosted React + Tailwind screen generator.">
+  <meta name="color-scheme" content="light dark">
   <!--
     Mocky's own icon, copied from `public/favicon.ico` so the documentation tab
-    matches the application tab.
+    matches the application tab. `logo.png` is the same artwork rendered once at
+    128 px for the sidebar masthead.
 
     The `.ico` and not the `.svg`, deliberately. `public/favicon.svg` is a
     1141x1107 PNG wrapped in an SVG element: 665 KB, which a documentation page
@@ -28,6 +30,9 @@
     line pointing at fonts.googleapis.com was removed. The removal is documented
     at the top of that file. Re-apply it after any version bump.
 
+    `mocky.css` comes after it and overrides it, so the documentation looks like
+    the application. Its values are transposed from `src/styles/tokens.css`.
+
     The content itself is read live from the Markdown files in `docs/` on the
     repository's default branch. There is no build step: publishing
     documentation means pushing a `.md` file.
@@ -36,12 +41,58 @@
     lives under `docs/fr/`.
   -->
   <link rel="stylesheet" href="./vendor/docsify-theme.css">
+  <link rel="stylesheet" href="./mocky.css">
+  <script>
+    /*
+     * Theme before first paint.
+     *
+     * The same trick, and the same reason, as `index.html` in the application:
+     * running this from a script at the end of the body would set the theme
+     * after the first frame is already on screen, so opening the page in the
+     * dark theme flashes light on every single load. Inline and synchronous in
+     * <head> is the only place this can go.
+     *
+     * The key is namespaced to the documentation: this is a different origin
+     * from the application, so the two preferences cannot be shared anyway.
+     */
+    ;(function () {
+      try {
+        var t = localStorage.getItem('mocky.docs.theme')
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        document.documentElement.dataset.theme = t
+      } catch (_) {
+        document.documentElement.dataset.theme = 'light'
+      }
+    })()
+  </script>
 </head>
 <body>
   <div id="app">Loading documentation…</div>
   <script>
+    // The two icons the theme switch shows, drawn to match the application's
+    // own `sun` and `moon` icons (src/ui/Icon.tsx).
+    var MOCKY_ICONS = {
+      sun:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">' +
+        '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4' +
+        'M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+      moon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" ' +
+        'stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>',
+    }
+
+    /** Wording follows the page's language, like everything else here. */
+    var MOCKY_LABELS = {
+      en: { toDark: 'Dark theme', toLight: 'Light theme' },
+      fr: { toDark: 'Thème sombre', toLight: 'Thème clair' },
+    }
+
     window.$docsify = {
       name: 'Mocky',
+      // The masthead mark, next to the name. Same artwork as the favicon.
+      logo: './logo.png',
       repo: 'https://github.com/PetitOursManu/Mocky',
       loadSidebar: true,
       subMaxLevel: 2,
@@ -49,7 +100,7 @@
 
       // Docsify asks for `<current directory>/_sidebar.md`. These rules map
       // every nested request back to the one sidebar for that language.
-      // Order matters: the first match wins, and `/.*/_sidebar.md` would also
+      // Order matters: the first match wins, and `/.*_sidebar.md` would also
       // match a French path.
       alias: {
         '/fr/.*_sidebar.md': '/fr/_sidebar.md',
@@ -60,13 +111,17 @@
       // equivalent, instead of showing a fetch error.
       fallbackLanguages: ['fr'],
 
-      // Docsify names the tab after the FIRST sidebar link matching the current
-      // route. Since the language block sits at the top and its English entry
-      // points at `/`, the home page was titled "English" and the French home
-      // "Français" — the language name, not the page. The tab is also narrow
-      // enough that only the first few characters are ever read, so the site
-      // name has to come first.
       plugins: [
+        /*
+         * The tab title.
+         *
+         * Docsify names the tab after the FIRST sidebar link matching the
+         * current route. Since the language block sits at the top and its
+         * English entry points at `/`, the home page was titled "English" and
+         * the French home "Français" — the language name, not the page. A tab
+         * is also narrow enough that only the first few characters are ever
+         * read, so the site name has to come first.
+         */
         function (hook) {
           hook.doneEach(function () {
             var h1 = document.querySelector('.markdown-section h1')
@@ -74,6 +129,57 @@
             // Both home pages are headed "Mocky"; nothing to append there.
             document.title = !page || page === 'Mocky' ? 'Doc Mocky' : 'Doc Mocky — ' + page
           })
+        },
+
+        /*
+         * The theme switch.
+         *
+         * Built once on mount and only relabelled afterwards: rebuilding it on
+         * every route change would make it flicker on each navigation.
+         */
+        function (hook, vm) {
+          var button
+          var box
+
+          function current() {
+            return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+          }
+
+          function relabel() {
+            if (!button) return
+            var fr = /^#?\/fr(\/|$)/.test(location.hash)
+            var words = MOCKY_LABELS[fr ? 'fr' : 'en']
+            var goingDark = current() === 'light'
+            var text = goingDark ? words.toDark : words.toLight
+            button.innerHTML = (goingDark ? MOCKY_ICONS.moon : MOCKY_ICONS.sun) + '<span>' + text + '</span>'
+            button.setAttribute('aria-label', text)
+            button.setAttribute('title', text)
+          }
+
+          hook.mounted(function () {
+            var sidebar = document.querySelector('.sidebar')
+            if (!sidebar) return
+            box = document.createElement('div')
+            box.className = 'mocky-theme'
+            button = document.createElement('button')
+            button.type = 'button'
+            button.addEventListener('click', function () {
+              var next = current() === 'dark' ? 'light' : 'dark'
+              document.documentElement.dataset.theme = next
+              try {
+                localStorage.setItem('mocky.docs.theme', next)
+              } catch (_) {
+                /* A preference that cannot persist still applies for this session. */
+              }
+              relabel()
+            })
+            box.appendChild(button)
+            sidebar.appendChild(box)
+            relabel()
+          })
+
+          // The label follows the language of the page being read.
+          hook.doneEach(relabel)
         },
       ],
 

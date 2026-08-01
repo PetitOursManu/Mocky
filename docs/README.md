@@ -111,3 +111,20 @@ These predate this documentation and remain authoritative on their subjects.
 | [ADR 001 — Muse](adr/001-muse.md) | English | The full architecture decision record, including the first written statement of the eight original invariants |
 | [Design system](DESIGN-SYSTEM.md) | French | Mocky's own interface tokens, the Papier and Encre themes, the UI primitives. Not to be confused with the `DESIGN.md` a user supplies for generated screens |
 | [Audit 2026-07](AUDIT-2026-07.md) | French | The multi-agent audit and its roadmap, most of which has since been applied |
+
+### Why these three are not translated
+
+Each exists in one language only, and that is deliberate rather than an
+oversight.
+
+They are **dated records**, not living pages. An ADR states what was decided on
+a given day and why; an audit states what was measured at a given moment.
+Translating one produces a second copy that can drift from the record — and a
+decision record whose two versions disagree is worse than one nobody can read.
+
+The pages linked in the sidebar above are the opposite: they describe the code as
+it stands today, they are rewritten whenever the code moves, and they exist in
+both languages.
+
+If you need one of the three in the other language, say so — translating them is
+a decision to take on purpose, not a gap to fill quietly.

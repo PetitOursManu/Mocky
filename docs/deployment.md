@@ -530,10 +530,51 @@ The files:
 | File | Origin |
 |---|---|
 | `index.html` | Written for this project |
+| `mocky.css` | Written for this project — Mocky's look, transposed from `src/styles/tokens.css` |
 | `favicon.ico` | Copied from `public/favicon.ico` — the application's own icon |
+| `logo.png` | The same artwork, rendered once at 128 px for the sidebar |
 | `vendor/docsify.min.js` | docsify 4.13.1 — `lib/docsify.min.js` |
 | `vendor/docsify-theme.css` | docsify 4.13.1 — `lib/themes/vue.css`, patched |
 | `vendor/docsify-search.min.js` | docsify 4.13.1 — `lib/plugins/search.min.js` |
+
+### The look
+
+`mocky.css` loads after the vendored `vue.css` and overrides it. The values are
+not invented: they are transposed from `src/styles/tokens.css` and
+`tailwind.config.js`, so the documentation and the application agree.
+
+What that gives, restated from the application's own token file — *black and
+white, 1px rules, no radius, no shadow, one signature flat*:
+
+| Element | Treatment |
+|---|---|
+| Background | Newsprint, not screen white. Pure `#fff` reads as "app" |
+| Headings | The serif stack, tightened. No webfont is loaded — the faces ship with Windows and macOS, so the page needs no third-party request |
+| Sidebar group titles | A kicker: 11 px, uppercase, letterspaced `0.14em`, with a rule under it |
+| Sidebar links | A chevron on the left, and the teal on the active page |
+| Corners | `0` everywhere, as in the application |
+| Accent | The logo's teal, and it is the only chromatic colour in the chrome |
+
+There is one structural surprise worth knowing before editing it. Docsify renders
+a sidebar group as `<li>Architecture<ul>…</ul></li>`: **the title is a bare text
+node**, not an element. The vue theme's own `.sidebar li > p` rule therefore
+matches nothing. So the type is set on the `<li>` and every child link resets it,
+and the group underline is drawn as the nested list's top border — which lands
+exactly under the title.
+
+### The theme switch
+
+A button at the bottom of the sidebar, and the preference is remembered.
+
+The theme is applied by an inline script in `<head>`, synchronously, before the
+first paint. That is the same trick and the same reason as the application's own
+`index.html`: running it later means the first frame is already on screen, so
+opening the page in the dark theme flashes light on every single load.
+
+With nothing stored it follows the operating system, through
+`prefers-color-scheme`. The key is `mocky.docs.theme`, namespaced to the
+documentation — this is a different origin from the application, so the two
+preferences cannot be shared anyway.
 
 ### The favicon
 

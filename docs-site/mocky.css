@@ -1,0 +1,716 @@
+/*
+ * Mocky's own look, applied to Docsify.
+ * ---------------------------------------------------------------------------
+ *
+ * Loaded after the vendored `vue.css`, which it overrides. The values are not
+ * invented: they are transposed from `src/styles/tokens.css` and
+ * `tailwind.config.js`, so the documentation and the application agree.
+ *
+ * THE DIRECTION, restated from the application's own token file
+ *
+ *   Black and white, 1px rules, no radius, no shadow, one signature flat.
+ *   Swiss poster rather than dashboard.
+ *
+ * What that means concretely here:
+ *   - `--radius: 0` everywhere. The application sets every Tailwind radius to 0
+ *     and keeps `rounded-full` as the single exception, for dots and avatars.
+ *   - Two rule strengths and one weight: `--line` is structural, `--line-soft`
+ *     is a hairline. Used everywhere, the strong one would hatch the page into
+ *     a grid of boxes.
+ *   - The teal is the only chromatic colour in the chrome. It marks the active
+ *     item and links, and nothing else.
+ *   - Headings are set in a serif. That is what makes the difference between
+ *     "monochrome app" and "printed page". No webfont is loaded: the stack is
+ *     faces that ship with Windows and macOS, so the page works offline and
+ *     needs no third-party request — the same rule the previews follow.
+ */
+
+/* ---------------------------------------------------------------- tokens -- */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Elevation. Newsprint, not screen white: pure #fff reads as "app". */
+  --sunken: 232 229 222;
+  --surface: 250 248 243;
+  --raised: 253 252 249;
+
+  --line: 0 0 0;
+  --line-soft: 201 197 188;
+
+  /* Warm black — the colour of ink soaked into paper, never pure #000. */
+  --ink: 22 20 17;
+  --ink-muted: 87 82 74;
+  --ink-faint: 116 110 100;
+
+  /* The signature flat. `--accent-ink` is a hair darker so it clears AA as
+     small text on paper, where `--accent` alone measures 4.27:1. */
+  --accent: 34 132 119;
+  --accent-ink: 32 121 108;
+  --on-accent: 255 255 255;
+
+  --danger: 176 26 26;
+  --warn: 141 88 0;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* The negative of the same press: warm blacks, never blue-black. */
+  --sunken: 10 9 8;
+  --surface: 26 24 22;
+  --raised: 36 34 31;
+
+  --line: 245 243 238;
+  --line-soft: 68 65 60;
+
+  --ink: 245 243 238;
+  --ink-muted: 174 168 158;
+  --ink-faint: 140 134 125;
+
+  /* On ink the same green has to come up to meet the paper. */
+  --accent: 45 199 176;
+  --accent-ink: 45 199 176;
+  --on-accent: 0 0 0;
+
+  --danger: 255 122 112;
+  --warn: 224 168 62;
+}
+
+:root {
+  --font-sans: 'Inter var', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia,
+    'Times New Roman', ui-serif, serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Docsify paints the reading-progress bar and a few plugin accents from its
+     own variable. Point it at the house colour. */
+  --theme-color: rgb(var(--accent));
+}
+
+/* ------------------------------------------------------------------ page -- */
+
+html,
+body {
+  background: rgb(var(--sunken));
+}
+
+body {
+  font-family: var(--font-sans);
+  color: rgb(var(--ink));
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.22);
+}
+
+/* Focus is a visible rule, not a glow. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid rgb(var(--ring, var(--ink)));
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------- sidebar -- */
+
+.sidebar {
+  background: rgb(var(--surface));
+  border-right: 1px solid rgb(var(--line));
+  color: rgb(var(--ink));
+  padding-top: 0;
+}
+
+/* The masthead: the paper's name, set in the serif, under a double rule —
+   one heavy line, a gap, one hairline. Same device as the application. */
+.sidebar > h1 {
+  margin: 0;
+  padding: 18px 20px 14px;
+  border-bottom: 2px solid rgb(var(--line));
+  box-shadow: 0 3px 0 -2px rgb(var(--line) / 0.55);
+  text-align: left;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.sidebar > h1 a,
+.sidebar > h1 a:hover {
+  color: rgb(var(--ink));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.sidebar > h1 img {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+
+/* Setting Docsify's `logo` REPLACES the name with the image — the wordmark
+   disappears and the mark stands alone, which is not how Mocky signs itself.
+   The name is written back here. A brand name is the one string that does not
+   need translating. */
+.sidebar > h1 a::after {
+  content: 'Mocky';
+}
+
+.sidebar .sidebar-nav {
+  padding: 14px 0 88px;
+  line-height: 1.5;
+}
+
+.sidebar ul {
+  margin: 0;
+  padding: 0;
+}
+
+.sidebar ul li {
+  margin: 0;
+}
+
+/* Group titles — "Architecture", "Muse", "Reference".
+ *
+ * Docsify renders a group as `<li>Architecture<ul>…</ul></li>`: the title is a
+ * bare TEXT NODE, not an element. The vue theme's own `.sidebar li > p` rule
+ * therefore matches nothing here. So the type is set on the `<li>` and every
+ * child link resets it, and the underline is drawn as the nested list's top
+ * border — which lands exactly under the title.
+ *
+ * Set as a kicker: the small line that sits ABOVE a headline in print.
+ * Uppercase, widely letterspaced, quiet. */
+.sidebar-nav > ul > li:has(> ul) {
+  margin: 22px 0 0;
+  padding: 0 20px;
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgb(var(--ink-faint));
+}
+
+.sidebar-nav > ul > li:first-child:has(> ul) {
+  margin-top: 6px;
+}
+
+/* The rule under the group title. The negative margin cancels the parent's
+   padding so the line spans the full width of the sidebar, the way a section
+   rule does on a printed page. */
+.sidebar-nav > ul > li > ul {
+  margin: 6px -20px 0;
+  padding: 5px 0;
+  border-top: 1px solid rgb(var(--line-soft));
+  /* Closed at the bottom as well as the top. Without it, the plain top-level
+     links that follow a group — "Home", "Getting started" — read as members of
+     that group, since nothing separates them from its last child. */
+  border-bottom: 1px solid rgb(var(--line-soft));
+  font-size: initial;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: rgb(var(--ink-muted));
+}
+
+/* Plain top-level entries sit outside any group, so they get their own breathing
+   room rather than being flush against the rule above them. */
+.sidebar-nav > ul > li > a {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+/* Links. The chevron sits on the LEFT of every entry and is the only marker;
+   it turns to the house colour on hover and on the active page. */
+.sidebar ul li a {
+  position: relative;
+  display: block;
+  padding: 5px 16px 5px 34px;
+  color: rgb(var(--ink-muted));
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s, background-color 0.12s;
+}
+
+.sidebar ul li a::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0.45;
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.sidebar ul li a:hover {
+  color: rgb(var(--ink));
+  background: rgb(var(--accent) / 0.06);
+  text-decoration: none;
+}
+
+.sidebar ul li a:hover::before {
+  opacity: 1;
+  transform: rotate(-45deg) translate(1px, 1px);
+}
+
+.sidebar ul li.active > a {
+  color: rgb(var(--accent-ink));
+  font-weight: 600;
+  border-left-color: rgb(var(--accent));
+  border-right: 0;
+  background: rgb(var(--accent) / 0.08);
+}
+
+.sidebar ul li.active > a::before {
+  opacity: 1;
+}
+
+/* The page's own headings, listed under the active entry. One step in,
+   quieter, and with the same chevron rather than the theme's hyphen. */
+.app-sub-sidebar li a {
+  padding-left: 46px;
+  font-size: 0.8125rem;
+  color: rgb(var(--ink-faint));
+}
+
+.app-sub-sidebar li a::before {
+  left: 32px;
+  width: 4px;
+  height: 4px;
+  opacity: 0.35;
+}
+
+.app-sub-sidebar li:before {
+  content: none;
+}
+
+.app-sub-sidebar li.active > a {
+  background: none;
+  border-left-color: rgb(var(--accent) / 0.5);
+}
+
+/* The flags in the language block need no chevron in front of them. */
+.sidebar ul li a svg {
+  vertical-align: -2px;
+}
+
+/* ------------------------------------------------------- theme + search -- */
+
+.search {
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid rgb(var(--line-soft));
+}
+
+.search .input-wrap {
+  background: transparent;
+  margin: 0;
+}
+
+.search input {
+  padding: 12px 20px;
+  font-size: 0.8125rem;
+  font-family: var(--font-sans);
+  background: transparent;
+  color: rgb(var(--ink));
+  border: 0;
+}
+
+.search input::placeholder {
+  color: rgb(var(--ink-faint));
+}
+
+.search p,
+.search h2,
+.search .matching-post {
+  border-color: rgb(var(--line-soft));
+  color: rgb(var(--ink-muted));
+}
+
+.search .matching-post:hover {
+  background: rgb(var(--accent) / 0.06);
+}
+
+.search a {
+  color: rgb(var(--ink));
+}
+
+.search .search-keyword {
+  color: rgb(var(--accent-ink));
+  background: rgb(var(--accent) / 0.12);
+  font-style: normal;
+  padding: 0 2px;
+}
+
+/* The theme switch, injected into the sidebar by index.html. Sits at the very
+   bottom, on its own rule, next to the toggle the theme already puts there. */
+.mocky-theme {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 10px 52px;
+  background: rgb(var(--surface));
+  border-top: 1px solid rgb(var(--line-soft));
+  z-index: 31;
+}
+
+.mocky-theme button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid rgb(var(--line-soft));
+  background: transparent;
+  color: rgb(var(--ink-muted));
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.mocky-theme button:hover {
+  color: rgb(var(--ink));
+  border-color: rgb(var(--line));
+}
+
+.mocky-theme svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+/* The vue theme's own collapse button, kept but made to match. */
+.sidebar-toggle {
+  background: transparent;
+  padding: 12px 14px;
+  width: auto;
+  bottom: 8px;
+  z-index: 32;
+}
+
+.sidebar-toggle span {
+  background: rgb(var(--ink-faint));
+}
+
+.sidebar-toggle:hover span {
+  background: rgb(var(--accent));
+}
+
+/* --------------------------------------------------------------- content -- */
+
+.content {
+  background: rgb(var(--sunken));
+}
+
+.markdown-section {
+  max-width: 46rem;
+  padding: 40px 24px 80px;
+  color: rgb(var(--ink));
+}
+
+/* Headings in the serif, tightened — the application's own scale. */
+.markdown-section h1,
+.markdown-section h2,
+.markdown-section h3,
+.markdown-section h4 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: rgb(var(--ink));
+  letter-spacing: -0.02em;
+}
+
+.markdown-section h1 {
+  font-size: 2.4rem;
+  line-height: 1.1;
+  margin: 0 0 1.4rem;
+  letter-spacing: -0.035em;
+}
+
+/* A section starts the way it does in print: a rule above the heading. */
+.markdown-section h2 {
+  font-size: 1.7rem;
+  margin: 3rem 0 1rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid rgb(var(--line-soft));
+}
+
+.markdown-section h3 {
+  font-size: 1.3rem;
+  margin: 2.2rem 0 0.6rem;
+}
+
+.markdown-section h4 {
+  font-size: 1.05rem;
+  margin: 1.6rem 0 0.4rem;
+}
+
+.markdown-section h5,
+.markdown-section h6 {
+  font-family: var(--font-sans);
+  color: rgb(var(--ink-muted));
+}
+
+/* Docsify wraps every heading's text in `<a class="anchor">` so it can be
+   deep-linked. Left alone, that anchor picks up the link styling below and
+   every heading on the page comes out teal and underlined. */
+.markdown-section h1 a,
+.markdown-section h2 a,
+.markdown-section h3 a,
+.markdown-section h4 a,
+.markdown-section h5 a,
+.markdown-section h6 a,
+.markdown-section .anchor,
+.markdown-section .anchor span {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+/* The anchor only announces itself on hover, as a hairline. */
+.markdown-section .anchor:hover span {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgb(var(--line-soft));
+}
+
+.markdown-section p,
+.markdown-section li {
+  line-height: 1.65;
+  color: rgb(var(--ink));
+}
+
+.markdown-section strong {
+  color: rgb(var(--ink));
+  font-weight: 600;
+}
+
+.markdown-section em {
+  color: rgb(var(--ink-muted));
+}
+
+.markdown-section a {
+  color: rgb(var(--accent-ink));
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgb(var(--accent) / 0.45);
+}
+
+.markdown-section a:hover {
+  text-decoration-color: rgb(var(--accent));
+}
+
+.markdown-section hr {
+  border: 0;
+  border-top: 1px solid rgb(var(--line-soft));
+  margin: 2.6rem 0;
+}
+
+/* Quotes are a marginal note: a rule on the left, no tint, no italic. */
+.markdown-section blockquote {
+  margin: 1.6rem 0;
+  padding: 0.1rem 0 0.1rem 1.1rem;
+  border-left: 2px solid rgb(var(--accent));
+  background: none;
+  color: rgb(var(--ink-muted));
+}
+
+.markdown-section blockquote p {
+  font-weight: 400;
+  color: rgb(var(--ink-muted));
+}
+
+/* Tables: hairlines inside, a full rule top and bottom. */
+.markdown-section table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.6rem 0;
+  font-size: 0.875rem;
+}
+
+.markdown-section table tr {
+  border: 0;
+  background: none;
+}
+
+.markdown-section table th,
+.markdown-section table td {
+  border: 0;
+  border-bottom: 1px solid rgb(var(--line-soft));
+  padding: 9px 14px 9px 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-section table th {
+  border-bottom: 1px solid rgb(var(--line));
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgb(var(--ink-faint));
+  white-space: nowrap;
+}
+
+.markdown-section table tr:nth-child(2n) {
+  background: none;
+}
+
+.markdown-section table tr:hover td {
+  background: rgb(var(--accent) / 0.05);
+}
+
+/* Code. Numbers and identifiers belong in a monospace; the block is a panel
+   with a rule, not a rounded card. */
+.markdown-section code,
+.markdown-section pre {
+  font-family: var(--font-mono);
+}
+
+.markdown-section code {
+  background: rgb(var(--ink) / 0.06);
+  color: rgb(var(--ink));
+  padding: 1px 5px;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+}
+
+.markdown-section pre {
+  background: rgb(var(--raised));
+  border: 1px solid rgb(var(--line-soft));
+  padding: 0;
+  margin: 1.4rem 0;
+  overflow: auto;
+}
+
+.markdown-section pre > code {
+  background: none;
+  padding: 16px 18px;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: rgb(var(--ink));
+}
+
+.markdown-section pre::after {
+  color: rgb(var(--ink-faint));
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 10px 0;
+}
+
+/* Syntax colours, desaturated so they never shout louder than the prose. */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: rgb(var(--ink-faint));
+}
+.token.punctuation {
+  color: rgb(var(--ink-muted));
+}
+.token.property,
+.token.tag,
+.token.constant,
+.token.symbol {
+  color: rgb(var(--accent-ink));
+}
+.token.boolean,
+.token.number {
+  color: rgb(var(--warn));
+}
+.token.selector,
+.token.string,
+.token.char,
+.token.attr-value {
+  color: rgb(var(--ink-muted));
+}
+.token.operator,
+.token.keyword,
+.token.function {
+  color: rgb(var(--ink));
+  font-weight: 600;
+}
+.token.important,
+.token.deleted {
+  color: rgb(var(--danger));
+}
+
+/* The "tip" and "warn" callouts the theme provides. */
+.markdown-section p.tip {
+  background: rgb(var(--accent) / 0.07);
+  border-left: 2px solid rgb(var(--accent));
+  border-radius: 0;
+  color: rgb(var(--ink));
+  padding: 12px 16px;
+}
+
+.markdown-section p.tip::before {
+  display: none;
+}
+
+.markdown-section p.warn {
+  background: rgb(var(--warn) / 0.1);
+  border-left: 2px solid rgb(var(--warn));
+  border-radius: 0;
+  padding: 12px 16px;
+}
+
+.markdown-section img {
+  border: 1px solid rgb(var(--line-soft));
+}
+
+/* --------------------------------------------------------------- corner -- */
+
+.github-corner svg {
+  fill: rgb(var(--ink));
+  color: rgb(var(--sunken));
+}
+
+.github-corner:hover svg {
+  fill: rgb(var(--accent));
+}
+
+.progress {
+  background: rgb(var(--accent));
+}
+
+/* ---------------------------------------------------------------- mobile -- */
+
+@media screen and (max-width: 768px) {
+  .markdown-section {
+    padding: 28px 18px 64px;
+  }
+
+  .markdown-section h1 {
+    font-size: 1.9rem;
+  }
+
+  .sidebar-toggle {
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--line-soft));
+  }
+}

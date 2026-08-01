@@ -12,6 +12,6 @@
   - [Animations](muse/animations.md)
 - [Deployment](deployment.md)
 - Reference
-  - [ADR 001 — Muse](adr/001-muse.md)
+  - [ADR 001 — Muse (EN)](adr/001-muse.md)
   - [Design system (FR)](DESIGN-SYSTEM.md)
   - [Audit 2026-07 (FR)](AUDIT-2026-07.md)

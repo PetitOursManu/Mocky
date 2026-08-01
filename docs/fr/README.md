@@ -118,3 +118,21 @@ sujets.
 | [ADR 001 — Muse](adr/001-muse.md) | Anglais | La décision d'architecture complète, avec la première mise par écrit des huit invariants d'origine |
 | [Système de design](DESIGN-SYSTEM.md) | Français | Les jetons de l'interface de Mocky, les thèmes Papier et Encre, les primitives. À ne pas confondre avec le `DESIGN.md` que l'utilisateur fournit pour ses écrans générés |
 | [Audit 2026-07](AUDIT-2026-07.md) | Français | L'audit multi-agents et sa feuille de route, aujourd'hui appliquée en grande partie |
+
+### Pourquoi ces trois-là ne sont pas traduits
+
+Chacun n'existe que dans une langue, et c'est un choix, pas un oubli.
+
+Ce sont des **documents datés**, pas des pages vivantes. Un ADR énonce ce qui a
+été décidé un jour donné et pourquoi ; un audit énonce ce qui a été mesuré à un
+moment donné. Traduire l'un produit une seconde copie qui peut s'écarter de
+l'original — et un document de décision dont les deux versions se contredisent
+est pire qu'un document que tout le monde ne peut pas lire.
+
+Les pages listées dans le sommaire ci-dessus sont l'inverse : elles décrivent le
+code tel qu'il est aujourd'hui, elles sont réécrites dès que le code bouge, et
+elles existent dans les deux langues.
+
+Si vous avez besoin de l'un des trois dans l'autre langue, dites-le : les
+traduire est une décision à prendre volontairement, pas un trou à combler en
+silence.

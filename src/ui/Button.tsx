@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react'
 
 /**
  * The one button.
@@ -72,6 +72,38 @@ export function Button({
       className={`${BASE} ${look} ${SIZES[size]} ${className}`}
       {...rest}
     />
+  )
+}
+
+export interface ButtonLinkProps
+  extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'className'> {
+  href: string
+  variant?: ButtonVariant
+  size?: ButtonSize
+  /** Escape hatch for layout only (width, margin, order) — never for colour. */
+  className?: string
+  children?: ReactNode
+}
+
+/**
+ * A link that looks like a button.
+ *
+ * A real `<a>`, not a `<button>` with an `onClick` that calls `window.open`.
+ * That distinction is not pedantry: a link can be middle-clicked, opened in a
+ * background tab, copied, or dragged to the bookmarks bar, and a screen reader
+ * announces it as a link rather than as a control that does something unstated.
+ *
+ * It shares the class composition above rather than restating it, so a change
+ * to a variant reaches both.
+ */
+export function ButtonLink({
+  variant = 'ghost',
+  size = 'md',
+  className = '',
+  ...rest
+}: ButtonLinkProps) {
+  return (
+    <a className={`${BASE} ${VARIANTS[variant]} ${SIZES[size]} ${className}`} {...rest} />
   )
 }
 

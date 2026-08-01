@@ -13,5 +13,5 @@
 - [Déploiement](fr/deployment.md)
 - Références
   - [ADR 001 — Muse (EN)](adr/001-muse.md)
-  - [Système de design](DESIGN-SYSTEM.md)
-  - [Audit 2026-07](AUDIT-2026-07.md)
+  - [Système de design (FR)](DESIGN-SYSTEM.md)
+  - [Audit 2026-07 (FR)](AUDIT-2026-07.md)
