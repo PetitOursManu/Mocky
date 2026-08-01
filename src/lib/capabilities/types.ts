@@ -30,6 +30,15 @@ export interface Capability {
   requires?: string[]
   /** If true, always selected (baseline) regardless of keywords. */
   baseline?: boolean
+  /**
+   * Superseded, but still injected for screens that were generated with it.
+   *
+   * A retired capability has no triggers and is absent from the documentation
+   * the model reads, so nothing new can ever use it — while `Screen.caps`
+   * entries from before it was retired still resolve, and those screens keep
+   * rendering. Removing the entry instead would break them at load.
+   */
+  retired?: boolean
   /** For snippet-packs: metadata for the CAPABILITIES prompt section. */
   components?: CapabilityComponent[]
   /** For snippet-packs: one or more source blocks, each with an explicit exports list. */

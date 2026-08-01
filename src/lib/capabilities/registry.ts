@@ -2,6 +2,8 @@ import type { Capability } from './types'
 import { ChartsSource, CHARTS_EXPORTS } from './snippets/Charts'
 import { IconsSource, ICONS_EXPORTS } from './snippets/Icons'
 import { MotionSource, MOTION_EXPORTS } from './snippets/Motion'
+import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from './snippets/ScrollVideo'
+import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
 function validatePack(id: string, components: { name: string }[], snippets: { exports: string[] }[]) {
@@ -55,12 +57,24 @@ export const CAPABILITIES: Capability[] = [
     ],
   },
   {
+    /**
+     * RETIRED — kept resolvable, never offered.
+     *
+     * `<Animated>` replaced this as the way to animate a screen. Deleting the
+     * pack outright was the obvious move and would have been a bug: capability
+     * ids are PERSISTED on every screen (`Screen.caps`), so a screen generated
+     * last week still asks for 'motion' at render time. Remove it from the
+     * registry and its prelude stops being injected — `FadeIn`, `Marquee`,
+     * `BentoGrid` become undefined and every one of those screens throws.
+     *
+     * So: no triggers (the shortlist can never pick it), and `retired` keeps it
+     * out of the capability documentation the model reads. Old screens keep
+     * rendering exactly as they did; new ones only ever see `<Animated>`.
+     */
     id: 'motion',
     kind: 'snippet-pack',
-    triggers: {
-      keywords: ['animation', 'animate', 'animated', 'animé', 'motion', 'scroll', 'reveal', 'marquee', 'landing', 'hero', 'parallax', 'fade', 'counter', 'shimmer', 'stagger', 'transition', 'bento', 'meteors', 'border beam'],
-      intents: ['animation', 'interactive', 'playful', 'dynamic'],
-    },
+    retired: true,
+    triggers: { keywords: [], intents: [] },
     snippets: [{ source: MotionSource, exports: [...MOTION_EXPORTS] }],
     components: [
       { name: 'FadeIn', signature: '<FadeIn delay={0} y={16}>{children}</FadeIn>', description: 'Fade in + slide up on scroll into view. Accepts delay (ms) and y (px).', tags: ['fade', 'scroll', 'entrance'] },
@@ -75,6 +89,68 @@ export const CAPABILITIES: Capability[] = [
       { name: 'TextReveal', signature: '<TextReveal text="Your text here" />', description: 'Reveals words one by one when scrolled into view.', tags: ['text', 'reveal', 'animation', 'scroll'] },
       { name: 'Meteors', signature: '<Meteors number={20} />', description: 'Animated meteor shower effect for dark backgrounds.', tags: ['meteors', 'stars', 'dark', 'background'] },
       { name: 'AnimatedBeam', signature: '<AnimatedBeam className="..." />', description: 'An SVG beam with an animated particle travelling along a path.', tags: ['beam', 'svg', 'connection', 'flow'] },
+    ],
+  },
+  {
+    /**
+     * Motion itself, vendored — never selected on its own, only pulled in by
+     * `animate` through `requires`.
+     *
+     * The url is a path on Mocky's own origin, not a CDN. That distinction is
+     * the whole of invariant I3: the rule exists so a preview never depends on
+     * a third-party fetch, and `/vendor/motion.js` is served by the same server
+     * as the page. Motion publishes no browser build, so this file is produced
+     * by `scripts/build-vendor-motion.mjs` and hash-pinned like every other
+     * bundle in public/vendor.
+     */
+    id: 'motion-lib',
+    kind: 'cdn-script',
+    cdn: { url: '/vendor/motion.js', global: 'Motion' },
+    globals: ['Motion'],
+    triggers: { keywords: [], intents: [] },
+  },
+  {
+    /**
+     * The closed animation vocabulary. Six presets, one component, and no way
+     * for the model to reach Motion's own API — see snippets/Animate.ts.
+     */
+    id: 'animate',
+    kind: 'snippet-pack',
+    requires: ['motion-lib'],
+    triggers: {
+      keywords: ['animation', 'animate', 'animated', 'animé', 'motion', 'reveal', 'fade', 'stagger', 'transition', 'hover', 'entrance', 'landing', 'hero', 'parallax'],
+      intents: ['animation', 'interactive', 'playful', 'dynamic'],
+    },
+    snippets: [{ source: AnimateSource, exports: [...ANIMATE_EXPORTS] }],
+    components: [
+      {
+        name: 'Animated',
+        signature: '<Animated preset="fade-up" delay={0.1} as="section" className="…">{children}</Animated>',
+        description:
+          'Wraps any block to animate it. `preset` is REQUIRED and must be exactly one of: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "exit-slide" (slides in, and out when removed). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
+        tags: ['animation', 'motion', 'entrance', 'hover', 'stagger', 'reveal'],
+      },
+    ],
+  },
+  {
+    // Never selected by keywords, and that is deliberate: the component is
+    // useless without a `base` and a `frames` count, which only exist once Muse
+    // has actually paid for a clip. It is force-added at generation time when
+    // one was produced (see ProjectView), never guessed from the prompt — a
+    // screen offered <ScrollSequence> with nothing to show would render a black
+    // box the size of three viewports.
+    id: 'scrollvideo',
+    kind: 'snippet-pack',
+    triggers: { keywords: [], intents: [] },
+    snippets: [{ source: ScrollVideoSource, exports: [...SCROLLVIDEO_EXPORTS] }],
+    components: [
+      {
+        name: 'ScrollSequence',
+        signature: '<ScrollSequence base="/api/videos/<hash>" frames={60} height={300}>{overlay}</ScrollSequence>',
+        description:
+          'A generated clip that advances frame by frame as the visitor scrolls, pinned full-height while it plays out. `base` and `frames` are provided by Muse; `height` is the scroll travel in viewport-heights. Children are overlaid on top, centred.',
+        tags: ['video', 'scroll', 'scrub', 'hero', 'pinned', 'cinematic'],
+      },
     ],
   },
 ]

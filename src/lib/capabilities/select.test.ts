@@ -8,7 +8,7 @@ describe('selectCapabilities', () => {
 
   it('selects motion when prompt mentions animation', () => {
     const result = selectCapabilities('A page with smooth animation and transitions')
-    expect(result).toContain('motion')
+    expect(result).toContain('animate')
   })
 
   it('selects charts when prompt mentions chart', () => {
@@ -29,7 +29,7 @@ describe('selectCapabilities', () => {
 
   it('selects motion when prompt mentions marquee', () => {
     const result = selectCapabilities('A landing page with a marquee')
-    expect(result).toContain('motion')
+    expect(result).toContain('animate')
   })
 
   it('does not select magicui (removed, merged into motion)', () => {
@@ -39,19 +39,19 @@ describe('selectCapabilities', () => {
 
   it('selects multiple capabilities from a rich prompt', () => {
     const result = selectCapabilities('An animated dashboard with charts and icons')
-    expect(result).toContain('motion')
+    expect(result).toContain('animate')
     expect(result).toContain('charts')
     expect(result).toContain('icons')
   })
 
   it('reads keywords from design markdown', () => {
     const result = selectCapabilities('A simple page', '# Design System\n- Uses animation and motion effects')
-    expect(result).toContain('motion')
+    expect(result).toContain('animate')
   })
 
   it('is case-insensitive', () => {
     expect(selectCapabilities('A CHART with ANIMATION')).toContain('charts')
-    expect(selectCapabilities('A CHART with ANIMATION')).toContain('motion')
+    expect(selectCapabilities('A CHART with ANIMATION')).toContain('animate')
   })
 })
 
@@ -65,5 +65,28 @@ describe('resolveCapabilities', () => {
     expect(caps).toHaveLength(2)
     expect(caps.map((c) => c.id)).toContain('charts')
     expect(caps.map((c) => c.id)).toContain('motion')
+  })
+
+  it('still resolves the retired motion pack, so old screens keep rendering', () => {
+    // `Screen.caps` is persisted. A screen generated before <Animated> existed
+    // asks for 'motion' at load time; if that stopped resolving, its FadeIn and
+    // BentoGrid would be undefined and the screen would throw on render.
+    const caps = resolveCapabilities(['motion'])
+    expect(caps.map((c) => c.id)).toEqual(['motion'])
+    expect(caps[0].snippets?.length).toBeGreaterThan(0)
+  })
+
+  it('never offers the retired pack to a new generation', () => {
+    for (const prompt of ['an animated landing page', 'a hero with a marquee', 'bento grid with meteors']) {
+      expect(selectCapabilities(prompt), prompt).not.toContain('motion')
+    }
+  })
+
+  it('pulls Motion in whenever the animation vocabulary is selected', () => {
+    // <Animated> without the library is a plain <div>; the dependency is what
+    // makes the presets mean anything.
+    const ids = selectCapabilities('an animated landing page')
+    expect(ids).toContain('animate')
+    expect(ids).toContain('motion-lib')
   })
 })

@@ -29,6 +29,7 @@ script tag reappears in the preview pipeline.
 | `html2canvas.min.js` | html2canvas | 1.4.1 | `e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb` | — |
 | `tailwind.min.js` | Tailwind Play CDN | 3.4.17 | `64b8656ae0edd79ff136198680367d51ac356621026cbd88bd6a9030e17b36dc` | yes |
 | `daisyui.min.css` | daisyui | 4.12.10 | `36e28efcf6c4993c482e465b2cae3d63b2066f90ff91455d78bf3e9388af2925` | yes |
+| `motion.js` | motion | 12.43.0 | `be2986aae4824690b4b1b451725e811a08ac44d1100ea269a4692f49f1a0f4ad` | built |
 
 ### The two patches
 
@@ -54,6 +55,28 @@ CSP refused it (`connect-src 'none'`), and the error appeared on every render of
 a screen using the daisyUI capability.
 
 Re-apply all three after any update, then refresh the hashes above.
+
+### `motion.js` is built, not copied
+
+Every other file here is copied out of `node_modules` because it already ships a
+browser build. Motion 12 publishes ESM and CJS only, and the preview iframe has
+no module resolution — it loads plain scripts and reads globals off `window`.
+So the bundle is produced once, at development time:
+
+```bash
+node scripts/build-vendor-motion.mjs
+```
+
+It bundles only what `<Animated>` uses (`motion`, `AnimatePresence`,
+`useReducedMotion`) as an IIFE exposing `window.Motion`, and **redirects `react`
+and `react-dom` to the globals the shell already sets**. Bundling a second React
+inside it would give the frame two dispatchers and every hook would throw
+"invalid hook call" the moment a motion component rendered.
+
+Re-run it after bumping the pin in `package.json` — the pin is exact on purpose
+— then paste the printed SHA-256 into the table above. Motion has shipped at
+least one upgrade that silently stopped animating without throwing, so verify
+the six presets **visually** before committing, not just "no console error".
 
 ### daisyUI was the last external request
 

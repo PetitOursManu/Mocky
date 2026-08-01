@@ -97,6 +97,18 @@ describe('no external script or style in the preview pipeline', () => {
     }
   })
 
+  it('every script capability is really vendored', () => {
+    // A capability that names a /vendor file which is not there fails at render
+    // time, inside a sandboxed iframe, as a missing global — the least
+    // debuggable place in the app.
+    const registry = read('src/lib/capabilities/registry.ts')
+    const urls = [...registry.matchAll(/url:\s*'(\/vendor\/[\w.-]+)'/g)].map((m) => m[1])
+    expect(urls.length).toBeGreaterThan(0)
+    for (const url of urls) {
+      expect(fs.existsSync(path.join(root, 'public', url.replace(/^\//, ''))), url).toBe(true)
+    }
+  })
+
   it('references the vendored bundles that actually exist on disk', () => {
     const referenced = new Set()
     for (const src of [preview, capture])

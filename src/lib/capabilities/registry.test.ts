@@ -10,13 +10,38 @@ import { compileJsx } from '../compile'
  * additive to prelude.test.ts (atomicity / metadata / React-global collisions).
  */
 describe('registry invariants', () => {
-  // Invariant 3: NO CDN <script> for JS. A `cdn-css` <link> is the only safe
-  // CDN kind. An external JS <script> capability would gate otherwise-valid
-  // previews behind a flaky network fetch — this is exactly what the removed
-  // `lucide` capability did. Enforce its absence mechanically.
-  it('no capability has kind "cdn-script"', () => {
-    const offenders = CAPABILITIES.filter((c) => c.kind === 'cdn-script').map((c) => c.id)
-    expect(offenders, `cdn-script capabilities are forbidden: ${offenders.join(', ')}`).toEqual([])
+  /**
+   * Invariant 3, restated to say what it actually protects.
+   *
+   * It used to read "no capability has kind cdn-script", and the reason written
+   * above it was network flakiness: an external JS <script> gates an otherwise
+   * valid preview behind a third-party fetch, which is what the removed
+   * `lucide` capability did. The rule and its reason had drifted apart — a file
+   * under /vendor is served by the same origin as the page, cannot be flaky
+   * independently of it, and is hash-pinned. That is already how daisyUI ships
+   * as a `cdn-css` capability.
+   *
+   * So the rule is now the property, not the shape: nothing off-origin, and any
+   * script capability must declare the globals it defines (I7) and actually
+   * exist on disk.
+   */
+  it('no capability loads anything from another origin', () => {
+    const offenders = CAPABILITIES.filter((c) => /^https?:\/\//i.test(c.cdn?.url || '')).map(
+      (c) => `${c.id} → ${c.cdn?.url}`,
+    )
+    expect(offenders, `capabilities must load from this origin: ${offenders.join(', ')}`).toEqual([])
+  })
+
+  // The on-disk half of this lives in tests/preview-sandbox.test.js, which
+  // already reads the filesystem; this file is compiled by the browser tsconfig
+  // and has no node types.
+  it('every script capability declares its globals and points into /vendor', () => {
+    for (const cap of CAPABILITIES.filter((c) => c.kind === 'cdn-script')) {
+      // I7: without this the generation prompt cannot tell the model what the
+      // script defines, and the model cannot use it.
+      expect(cap.globals?.length, `${cap.id} declares no globals`).toBeGreaterThan(0)
+      expect(cap.cdn?.url, `${cap.id} has no url`).toMatch(/^\/vendor\//)
+    }
   })
 
   // Generated components run in a scope where React hooks are hoisted onto
