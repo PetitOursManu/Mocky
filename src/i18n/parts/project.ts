@@ -77,6 +77,16 @@ export const project = {
     'project.museStageInspiration': 'Génération de l’image d’inspiration…',
     'project.museStageHero': 'Génération de l’image héro…',
     'project.museStageMedia': 'Lecture de votre média (palette, ambiance)…',
+
+    // ---- animations (interrupteur à trois états) ----
+    'project.animAuto': '✦ Animations auto',
+    'project.animOn': '✦ Animations forcées',
+    'project.animOff': '✦ Sans animation',
+    'project.animHintAuto':
+      'Mocky décide selon l’écran demandé — une landing page respire, un tableau d’administration reste immobile. Cliquez pour forcer.',
+    'project.animHintOn': 'Chaque écran généré aura des animations. Cliquez pour les couper.',
+    'project.animHintOff':
+      'Aucune animation, même si l’écran s’y prêterait — utile pour une démo ou une capture. Cliquez pour revenir à l’automatique.',
     'project.museStageVideo': 'Génération de la vidéo (30 s à 3 min)…',
     'project.museVideoFailed': 'La vidéo n’a pas pu être générée : {detail}. L’écran est produit sans séquence.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
@@ -227,6 +237,16 @@ export const project = {
     'project.museStageInspiration': 'Generating the inspiration image…',
     'project.museStageHero': 'Generating the hero image…',
     'project.museStageMedia': 'Reading your media (palette, mood)…',
+
+    // ---- animations (three-state override) ----
+    'project.animAuto': '✦ Animations auto',
+    'project.animOn': '✦ Animations forced',
+    'project.animOff': '✦ No animation',
+    'project.animHintAuto':
+      'Mocky decides from the screen you asked for — a landing page breathes, an admin table holds still. Click to force.',
+    'project.animHintOn': 'Every generated screen will be animated. Click to switch them off.',
+    'project.animHintOff':
+      'No animation, even where the screen would suit it — useful for a demo or a recording. Click to go back to automatic.',
     'project.museStageVideo': 'Generating the video (30 s to 3 min)…',
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
     'project.museNoImage': 'the dossier proposed no image',

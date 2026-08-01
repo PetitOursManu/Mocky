@@ -1,6 +1,27 @@
 import type { Settings } from './settings'
 import { proxyFetch, truncate } from './proxy'
 import type { Capability } from './capabilities/types'
+import { stripForbiddenMotion } from './stripMotion'
+
+/**
+ * Last gate before generated code becomes a screen.
+ *
+ * The model is told there is no module system and is only ever shown
+ * `<Animated>`, but it has read the whole internet and `import { motion } from
+ * "motion/react"` is muscle memory. One of those is a hard render failure, so
+ * it is removed here — and reported, because a silent rewrite of someone's
+ * output is the kind of magic that makes a tool untrustworthy.
+ */
+async function guardMotion(code: string): Promise<string> {
+  const out = await stripForbiddenMotion(code)
+  if (out.removed.length) {
+    console.warn(
+      `[mocky] raw Motion code removed from the generated screen (${out.removed.join(', ')}) — ` +
+        'animations come from <Animated preset="…"> only.',
+    )
+  }
+  return out.code
+}
 
 export const SYSTEM_PROMPT = `You are an expert React + Tailwind CSS UI engineer. Given a description of a screen, you output a single self-contained React component that renders a polished, production-ready interface — never a wireframe.
 
@@ -276,7 +297,7 @@ export async function generateComponent(
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
     meta,
   )
-  const code = extractCode(content)
+  const code = await guardMotion(extractCode(content))
   const componentName = detectComponentName(code)
   return { raw: content, code, componentName, truncated: meta.truncated }
 }
@@ -470,7 +491,7 @@ export async function editComponent(
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
     meta,
   )
-  const code = extractCode(content)
+  const code = await guardMotion(extractCode(content))
   const componentName = detectComponentName(code)
   return { raw: content, code, componentName, truncated: meta.truncated }
 }
@@ -683,6 +704,6 @@ export async function fixComponent(
     { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal)
-  const code = extractCode(content)
+  const code = await guardMotion(extractCode(content))
   return { raw: content, code, componentName: detectComponentName(code) }
 }

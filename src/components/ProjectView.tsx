@@ -49,9 +49,23 @@ import {
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
 import { videoBase, videoPosterUrl, type PinnedVideo } from '../lib/videoLibrary'
 import { matchImagesToScreens } from '../lib/imageBackfill'
+import {
+  applyAnimationMode,
+  loadAnimationMode,
+  nextAnimationMode,
+  saveAnimationMode,
+  type AnimationMode,
+} from '../lib/animations'
 import { lintSlop } from '../lib/lint'
 import { useT } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, type IconName } from '../ui'
+
+/** Translation keys per animation state — resolved at render, like every label. */
+const ANIM_LABELS: Record<AnimationMode, { label: string; hint: string }> = {
+  auto: { label: 'project.animAuto', hint: 'project.animHintAuto' },
+  on: { label: 'project.animOn', hint: 'project.animHintOn' },
+  off: { label: 'project.animOff', hint: 'project.animHintOff' },
+}
 
 /** Fixed viewport formats offered in the screen context menu. */
 type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
@@ -135,6 +149,15 @@ export default function ProjectView({
   const [museImageError, setMuseImageError] = useState<string | null>(null)
   /** null until probed: does the active model accept images? */
   const [museVision, setMuseVision] = useState<boolean | null>(null)
+  /** auto (Mocky decides) · on (force) · off (hold still). See lib/animations. */
+  const [animationMode, setAnimationMode] = useState<AnimationMode>(() => loadAnimationMode())
+  const cycleAnimations = useCallback(() => {
+    setAnimationMode((cur) => {
+      const next = nextAnimationMode(cur)
+      saveAnimationMode(next)
+      return next
+    })
+  }, [])
   const [showLibrary, setShowLibrary] = useState(false)
   /** Image opened full size (from the canvas card or the library grid). */
   const [lightboxHash, setLightboxHash] = useState<string | null>(null)
@@ -693,6 +716,11 @@ export default function ProjectView({
             planSection = planToPromptSection(plan)
           }
         }
+        // The user's standing answer about motion, applied once, after both the
+        // shortlist and the planner have had their say. 'auto' — the default —
+        // changes nothing.
+        capIds = applyAnimationMode(capIds, animationMode)
+
         // A sequence exists → the component that plays it must be in scope,
         // whatever the shortlist or the planner decided. 'scrollvideo' has no
         // keyword triggers precisely because it is never a guess: it is added
@@ -1487,6 +1515,21 @@ export default function ProjectView({
             >
               <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
               <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={cycleAnimations}
+              className={`kicker mb-2 flex shrink-0 items-center gap-1 transition ${
+                animationMode === 'on'
+                  ? 'text-accent-ink hover:opacity-80'
+                  : animationMode === 'off'
+                    ? 'text-ink-faint line-through hover:text-ink-muted'
+                    : 'text-ink-faint hover:text-ink-muted'
+              }`}
+              title={t(ANIM_LABELS[animationMode].hint)}
+            >
+              <Icon name="play" size={14} />
+              {t(ANIM_LABELS[animationMode].label)}
             </button>
             <textarea
               rows={1}
