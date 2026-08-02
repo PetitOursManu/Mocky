@@ -72,25 +72,36 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 3. Configure a text model. See the next section.
 4. Describe a screen and generate it.
 
+![The home page: your projects](assets/01-accueil-projets.png)
+
+*The home page after a first generation. The most recent project leads, with its thumbnail; projects with no screens are grouped at the bottom.*
+
 ### Account rules
 
 | Rule | Value |
 |---|---|
 | Minimum username length | 3 characters |
-| Password at public sign-up | 6 characters |
-| Password created or reset today | 8 characters (`MIN_NEW_PASSWORD`) |
+| Password at public sign-up | 8 characters (`MIN_NEW_PASSWORD`) |
+| Password created or reset by an admin | 8 characters (`MIN_NEW_PASSWORD`) |
 | Session lifetime | 90 days, sliding |
 | Auth rate limit | 8 attempts per minute per IP |
 
-The 6-character minimum is historical and was never raised, so that nobody is
-locked out of an account they already have. The stricter limit applies only on
-write paths.
+All three paths now ask for the same length. Public sign-up accepted six
+characters — and it is the one path an attacker can reach without a session,
+where on a fresh instance the account they create is the administrator.
+
+Public sign-ups also **close themselves** once the first account exists. An
+administrator reopens them from the Admin screen to invite someone.
 
 Passwords are hashed with `scrypt` from `node:crypto` and compared in constant
 time. Changing a password **revokes every session**, including the current one,
 which immediately receives a fresh token.
 
 ---
+
+![The DESIGN.md page: the current document, and the preset styles](assets/02-design-md.png)
+
+*DESIGN.md. The bar at the top acts on the active document; below it, ready-made styles, each rendered as it will make your screens look.*
 
 ## Configure a text model
 
@@ -107,8 +118,10 @@ The key is stored in that browser's `localStorage` under `mocky.settings.v1` and
 is never written server-side. It passes through `/__provider` as an
 `Authorization` header for the duration of each request.
 
-In this mode `src/lib/settings.ts` offers one provider only: Ollama Cloud. The
-full catalogue is reserved for the instance mode.
+This mode used to offer a single provider, Ollama Cloud — not because the others
+could not work, but because the browser never told the server which dialect its
+endpoint spoke. It does now (the `x-provider-kind` header), and
+`src/lib/settings.ts` offers the same list as the Admin screen.
 
 ### Mode B — instance-wide (administrator)
 
@@ -116,12 +129,13 @@ Go to **Admin → Text models**. The key is stored on the server in
 `server/data/text-config.json`, used by every account, and each user's personal
 Settings are then ignored.
 
-`server/text/config.js` declares five providers.
+`server/text/config.js` declares six providers.
 
 | id | Dialect | Default base URL | Default model |
 |---|---|---|---|
 | `ollama-cloud` | Ollama | `https://ollama.com` | `gpt-oss:120b` |
 | `openai` | OpenAI | `https://api.openai.com` | `gpt-4o-mini` |
+| `anthropic` | OpenAI | `https://api.anthropic.com` | `claude-sonnet-4-5` |
 | `openrouter` | OpenAI | `https://openrouter.ai/api` | `openai/gpt-4o-mini` |
 | `fal` | OpenAI, `Key` auth | `https://fal.run/openrouter/router/openai` | `openai/gpt-4o-mini` |
 | `openai-compatible` | OpenAI | *(you fill it in)* | *(you fill it in)* |

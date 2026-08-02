@@ -14,6 +14,10 @@ TypeScript.
 > **La version anglaise est la version de référence : [English documentation](/).**
 > En cas de divergence entre les deux, c'est l'anglaise qui fait foi.
 
+![Le canevas d'un projet : deux écrans générés, la barre d'outils, le composer](assets/06-canvas-projet.png)
+
+*Un projet ouvert : les écrans vivent côte à côte sur un canevas infini, et le composer en bas décrit le suivant.*
+
 ---
 
 ## La pile technique

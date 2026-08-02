@@ -72,19 +72,28 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 3. Configurez un modèle de texte. Voir la section suivante.
 4. Décrivez un écran et générez-le.
 
+![L'accueil : la liste des projets](assets/01-accueil-projets.png)
+
+*L'accueil après une première génération. Le projet le plus récent est « à la une », avec sa vignette ; les projets sans écran sont regroupés en bas.*
+
 ### Les règles de compte
 
 | Règle | Valeur |
 |---|---|
 | Longueur minimale du nom d'utilisateur | 3 caractères |
-| Mot de passe à l'inscription publique | 6 caractères |
+| Mot de passe à l'inscription publique | 8 caractères (`MIN_NEW_PASSWORD`) |
 | Mot de passe créé ou réinitialisé aujourd'hui | 8 caractères (`MIN_NEW_PASSWORD`) |
 | Durée d'une session | 90 jours, glissante |
 | Limite sur les routes d'authentification | 8 tentatives par minute et par IP |
 
-Le minimum de 6 caractères est historique et n'a jamais été relevé, pour que
-personne ne se retrouve enfermé dehors d'un compte qu'il possède déjà. La limite
-plus stricte ne s'applique qu'aux écritures.
+Les trois chemins exigent désormais la même longueur. L'inscription publique
+acceptait six caractères — c'était le seul chemin qu'un attaquant peut atteindre
+sans session, et sur une instance vierge le compte qu'il crée est
+l'administrateur.
+
+Les inscriptions publiques **se ferment d'elles-mêmes** une fois le premier
+compte créé. Un administrateur les rouvre depuis l'écran Admin s'il veut inviter
+quelqu'un.
 
 Les mots de passe sont hachés avec `scrypt` (`node:crypto`) et comparés en temps
 constant. Changer un mot de passe **révoque toutes les sessions**, y compris
@@ -93,6 +102,10 @@ celle en cours, qui reçoit immédiatement un jeton neuf.
 ---
 
 ## Configurer un modèle de texte
+
+![La page DESIGN.md : le document actuel, et les styles prédéfinis](assets/02-design-md.png)
+
+*DESIGN.md. La barre du haut agit sur le document actif ; en dessous, les styles prêts à l'emploi, chacun rendu tel qu'il produira les écrans.*
 
 Il y a deux modes, et ils s'excluent. Le mode instance l'emporte toujours sur le
 mode navigateur.
@@ -107,8 +120,13 @@ La clé est conservée dans le `localStorage` de ce navigateur, sous
 `mocky.settings.v1`. Elle n'est jamais écrite côté serveur. Elle traverse
 `/__provider` en en-tête `Authorization`, le temps de chaque requête.
 
-Dans ce mode, `src/lib/settings.ts` ne propose qu'un fournisseur : Ollama Cloud.
-Le catalogue complet est réservé au mode instance.
+![L'écran Réglages](assets/04-reglages.png)
+
+Ce mode proposait autrefois un seul fournisseur, Ollama Cloud — non pas parce
+que les autres ne pouvaient pas fonctionner, mais parce que le navigateur ne
+disait jamais au serveur quel dialecte parlait son endpoint. Il le dit
+maintenant (en-tête `x-provider-kind`), et `src/lib/settings.ts` offre la même
+liste que l'écran Admin.
 
 ### Mode B — pour toute l'instance (administrateur)
 
@@ -116,12 +134,13 @@ Allez dans **Admin → Modèles de texte**. La clé est stockée sur le serveur,
 `server/data/text-config.json`. Elle est utilisée par tous les comptes, et les
 Réglages personnels de chacun sont alors ignorés.
 
-`server/text/config.js` déclare cinq fournisseurs.
+`server/text/config.js` déclare six fournisseurs.
 
 | id | Dialecte | URL de base par défaut | Modèle par défaut |
 |---|---|---|---|
 | `ollama-cloud` | Ollama | `https://ollama.com` | `gpt-oss:120b` |
 | `openai` | OpenAI | `https://api.openai.com` | `gpt-4o-mini` |
+| `anthropic` | OpenAI | `https://api.anthropic.com` | `claude-sonnet-4-5` |
 | `openrouter` | OpenAI | `https://openrouter.ai/api` | `openai/gpt-4o-mini` |
 | `fal` | OpenAI, auth `Key` | `https://fal.run/openrouter/router/openai` | `openai/gpt-4o-mini` |
 | `openai-compatible` | OpenAI | *(à vous de la saisir)* | *(à vous de le saisir)* |
