@@ -16,7 +16,7 @@ export function Chip({
   const look = {
     default: 'border-line-soft text-ink',
     accent: 'border-accent bg-accent text-on-accent',
-    muse: 'border-muse text-muse',
+    muse: 'border-muse text-muse-ink',
   }[tone]
   return (
     <span className={`inline-flex min-h-8 items-center gap-1.5 border px-2 text-body-sm ${look}`}>

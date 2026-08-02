@@ -15,6 +15,7 @@ const HINT_KEYS: Record<string, string> = {
   '': 'settings.textHintNone',
   'ollama-cloud': 'settings.textHintOllamaCloud',
   openai: 'settings.textHintOpenai',
+  anthropic: 'settings.textHintAnthropic',
   openrouter: 'settings.textHintOpenrouter',
   fal: 'settings.textHintFal',
   'openai-compatible': 'settings.textHintOpenaiCompatible',
@@ -23,6 +24,7 @@ const HINT_KEYS: Record<string, string> = {
 const MODEL_PLACEHOLDER: Record<string, string> = {
   'ollama-cloud': 'gpt-oss:120b',
   openai: 'gpt-4o-mini',
+  anthropic: 'claude-sonnet-4-5',
   openrouter: 'openai/gpt-4o-mini',
   fal: 'openai/gpt-4o-mini',
   'openai-compatible': 'llama-3.3-70b-versatile',
@@ -77,6 +79,10 @@ function ProfileForm({
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
   const [test, setTest] = useState<TextTestResult | null>(null)
+  /** Model ids the saved key can reach — null until asked for. */
+  const [models, setModels] = useState<string[] | null>(null)
+  const [loadingModels, setLoadingModels] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
 
   const entry = (s: TextProfileConfig, id: string): TextProviderEntry =>
     (s[id] as TextProviderEntry) || EMPTY_ENTRY
@@ -142,6 +148,28 @@ function ProfileForm({
     }
   }
 
+  /**
+   * Ask the provider what this key can reach.
+   *
+   * The model was a free-text field: choosing one meant leaving Mocky for the
+   * provider's docs, and a typo came back as "is not a valid model ID". The
+   * request carries no key — it runs against the saved configuration.
+   */
+  async function loadModels() {
+    setLoadingModels(true)
+    setModels(null)
+    setModelsError(null)
+    try {
+      const r = await api.admin.listTextModels(profile)
+      if (r.ok && r.models?.length) setModels(r.models)
+      else setModelsError(r.error || t('settings.adminModelsNone'))
+    } catch (e) {
+      setModelsError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoadingModels(false)
+    }
+  }
+
   const current = provider ? entry(section, provider) : null
 
   return (
@@ -182,14 +210,57 @@ function ProfileForm({
             </span>
           </label>
           <label className="block">
-            <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.model')}</span>
+            <span className="mb-1 flex items-baseline justify-between gap-3">
+              <span className="text-body-sm font-medium text-ink">{t('settings.model')}</span>
+              {/* Asking the provider beats reading its docs in another tab, and
+                  it is the same call for every provider — the dialect already
+                  maps /api/tags to /v1/models. */}
+              <button
+                type="button"
+                className="kicker text-accent-ink transition hover:opacity-80 disabled:opacity-50"
+                onClick={loadModels}
+                disabled={loadingModels}
+              >
+                {loadingModels ? t('settings.adminModelsLoading') : t('settings.adminModelsList')}
+              </button>
+            </span>
             <input
               className="input w-full"
               value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder={MODEL_PLACEHOLDER[provider] || ''}
               spellCheck={false}
+              list={`models-${profile}`}
             />
+            {/* A datalist rather than a replacement control: the field stays
+                free text, because a provider that lists nothing must still be
+                usable by typing an id in. */}
+            {models && (
+              <datalist id={`models-${profile}`}>
+                {models.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            )}
+            {models && (
+              <span className="mt-1.5 block">
+                <select
+                  className="input w-full"
+                  value={models.includes(model) ? model : ''}
+                  onChange={(e) => e.target.value && setModel(e.target.value)}
+                >
+                  <option value="">{t('settings.adminModelsPick', { count: String(models.length) })}</option>
+                  {models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            )}
+            {modelsError && (
+              <span className="mt-1.5 block text-caption text-warn">{modelsError}</span>
+            )}
             {looksLikeImageModel(model) && (
               <span className="mt-1.5 flex items-start gap-2 border border-warn/40 bg-warn/10 px-2 py-1.5 text-caption text-warn">
                 <Icon name="warning" size={16} />

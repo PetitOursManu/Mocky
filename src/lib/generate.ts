@@ -707,3 +707,60 @@ export async function fixComponent(
   const code = await guardMotion(extractCode(content))
   return { raw: content, code, componentName: detectComponentName(code) }
 }
+
+const DESIGN_EXTRACT_PROMPT = `You are a design systems analyst. Given the source of ONE React + Tailwind screen, you write the DESIGN.md that this screen appears to have been built from.
+
+Write the SYSTEM, not a description of the screen. "Primary: #4f46e5" is a system; "the hero has a blue button" is not. Someone must be able to build a DIFFERENT screen from your document and have it look like a sibling of this one.
+
+Rules:
+- Read the actual classes and hex values in the code. Never invent a value that is not there.
+- Report what is USED, and prefer what is used repeatedly. A colour appearing once is an accent; a colour on every surface is the surface token.
+- Convert Tailwind scale classes to what they mean (rounded-xl → radius, p-6 → padding, text-2xl → heading size). Give both when useful.
+- If the screen shows no evidence for a section, write "not established by this screen" rather than filling it in with a plausible default.
+- Plain Markdown. No preamble, no commentary, no code fence around the whole document.
+
+Use exactly these sections, in this order:
+# Design System
+## Color tokens
+## Typography
+## Spacing & radius
+## Component patterns`
+
+/**
+ * Derive a DESIGN.md from a screen the user points at.
+ *
+ * The design system was a document you had to write before you had anything to
+ * describe. In practice people generate a few screens, like one, and want the
+ * rest to match it — which is the same document, only written afterwards and
+ * from evidence. The model reads the component's real classes and hex values,
+ * so the result describes what is actually on screen rather than a guess.
+ *
+ * Returns Markdown, never code: the caller writes it into DESIGN.md.
+ */
+export async function deriveDesignSystem(
+  s: Settings,
+  code: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const user = [
+    'Here is the screen. Write the DESIGN.md it was built from.',
+    '',
+    '```jsx',
+    code,
+    '```',
+  ].join('\n')
+  const content = await chat(
+    s,
+    [
+      { role: 'system', content: DESIGN_EXTRACT_PROMPT },
+      { role: 'user', content: user },
+    ],
+    signal,
+  )
+  // Models wrap prose in a fence about half the time, despite being told not
+  // to. Unwrap a fence that contains the WHOLE answer; leave inner ones alone,
+  // since a component-patterns section legitimately quotes class strings.
+  const trimmed = content.trim()
+  const whole = /^```(?:markdown|md)?\s*\n([\s\S]*)\n```$/.exec(trimmed)
+  return (whole ? whole[1] : trimmed).trim()
+}

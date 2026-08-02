@@ -7,6 +7,10 @@ export interface AuthUser {
    * app until it is cleared is the client's job.
    */
   mustChangePassword?: boolean
+  /** This account has a picture. */
+  avatar?: boolean
+  /** When it last changed — used as a cache-buster in the avatar URL. */
+  avatarAt?: number
 }
 
 export interface AdminUser {
@@ -142,6 +146,15 @@ export interface TextTestResult {
   error?: string
 }
 
+/** What `POST /api/admin/text/models` answers: the ids this key can reach. */
+export interface TextModelsResult {
+  ok: boolean
+  provider?: string
+  profile?: TextProfile
+  models?: string[]
+  error?: string
+}
+
 export interface ImagesTestResult {
   ok: boolean
   provider: string
@@ -166,6 +179,32 @@ export const api = {
     req('/api/account/password', { method: 'POST', body: JSON.stringify({ current, next }) }).then(
       (d) => d.user as AuthUser,
     ),
+
+  /**
+   * Upload an account picture. The File is sent as the raw body, exactly like
+   * the image library does — no multipart, no parser dependency, and the
+   * browser already sets the right content type from the File itself.
+   */
+  setAvatar: async (file: File) => {
+    const res = await fetch('/api/account/avatar', {
+      method: 'POST',
+      headers: { 'content-type': file.type },
+      body: file,
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(body.error || 'Upload failed.')
+    return body.user as AuthUser
+  },
+
+  removeAvatar: async () => {
+    const res = await fetch('/api/account/avatar', { method: 'DELETE' })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(body.error || 'Could not remove the picture.')
+    return body.user as AuthUser
+  },
+
+  /** Where a signed-in account's own picture lives. Versioned, so it refreshes. */
+  avatarUrl: (u: AuthUser | null) => (u?.avatar ? `/api/account/avatar?v=${u.avatarAt || 0}` : null),
 
   getData: () => req('/api/data') as Promise<ServerData>,
   putData: (projects: string | null, design: string | null) =>
@@ -230,5 +269,7 @@ export const api = {
       req('/api/admin/text/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<TextConfig>,
     testTextProvider: (profile: TextProfile = 'generation') =>
       req('/api/admin/text/test', { method: 'POST', body: JSON.stringify({ profile }) }) as Promise<TextTestResult>,
+    listTextModels: (profile: TextProfile = 'generation') =>
+      req('/api/admin/text/models', { method: 'POST', body: JSON.stringify({ profile }) }) as Promise<TextModelsResult>,
   },
 }

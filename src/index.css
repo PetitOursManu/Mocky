@@ -147,10 +147,21 @@
    * `src/ui/` primitives. New code should reach for <Button> / <Input> instead;
    * both render exactly these treatments.
    */
+  /*
+   * `outline-ring` is load-bearing, not decoration. Tailwind compiles
+   * `outline-none` to `outline: 2px solid transparent` — an outline that is
+   * there and invisible — and the focus-visible utilities below only restore
+   * the STYLE and WIDTH, never a colour. Nothing declared one, so the ring
+   * stayed transparent, and the base rule in @layer base could not step in: it
+   * is written in `:where()` at specificity zero, so a class beats it.
+   * Rule 4 of the design system says the focus ring is visible everywhere.
+   * On the 28 fields carrying `.input`, it was not.
+   */
   .input {
     @apply w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink
       placeholder:text-ink-faint outline-none transition
-      focus:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
+      focus:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring
+      focus-visible:outline-offset-2;
   }
 
   .btn-primary {
@@ -362,5 +373,45 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * The screen context menu appearing.
+ *
+ * A menu that is simply THERE on the next frame reads as a redraw rather than
+ * as a response: nothing connects it to the click that summoned it. 110ms of
+ * rise and fade is enough to make that link, and short enough that a second
+ * right-click never waits on it.
+ *
+ * `transform-origin` is set per-instance in ProjectView, from the side the menu
+ * had to flip to: growing downward from a menu that opened upward would point
+ * away from the cursor, which is worse than not animating at all.
+ */
+@keyframes mocky-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-7px) scale(0.955);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.menu-in {
+  /*
+   * 180ms, up from 110. At 110 the movement was over before the eye had
+   * followed it: the menu still arrived rather than opened. The travel grew
+   * with the duration — a longer animation over the same 4px reads as a delay,
+   * not as a gesture.
+   */
+  animation: mocky-menu-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Shown, not animated. The menu still has to appear. */
+  .menu-in {
+    animation: none;
   }
 }

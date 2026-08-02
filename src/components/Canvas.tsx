@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { MIN_H, MIN_W, slotPosition, type Screen } from '../lib/project'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { MIN_H, MIN_W, packScreens, type Screen } from '../lib/project'
+import { extractDesignColors } from '../lib/design'
+import { parseDesignSystem } from '../lib/designTokens'
+import { ScaledMockup, type PreviewCfg } from './DesignMockup'
 import Preview, { type PickInfo } from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import { Icon, IconButton } from '../ui'
@@ -61,6 +64,171 @@ const IMAGE_ROLE: Record<
     icon: 'image',
     titleKey: 'canvas.imageRole.unknownTitle',
   },
+}
+
+/**
+ * The DESIGN.md a screen was generated from, shown beside it.
+ *
+ * Two states, and the difference matters. When the screen carries a recorded
+ * copy (`screen.design`), this is a FACT: those are the tokens that produced
+ * what you are looking at, and adopting them is a copy — instant, exact, free.
+ * When it does not — screens made before the copy was recorded — there is
+ * nothing truthful to display, so the card offers to reconstruct one by reading
+ * the rendered code instead, and says that it is reading rather than recalling.
+ *
+ * Everything scales by `inv` (the inverse of the canvas zoom) so it stays the
+ * same physical size whatever the zoom, like the labels and badges around it.
+ */
+function ScreenDesignCard({
+  screen,
+  inv,
+  busy,
+  onDerive,
+  onApply,
+  onInspectDesign,
+}: {
+  screen: Screen
+  inv: number
+  busy: boolean
+  onDerive?: (screenId: string) => void
+  onApply?: (screenId: string) => void
+  onInspectDesign?: (screenId: string) => void
+}) {
+  const t = useT()
+  const recorded = screen.design?.trim() || ''
+  const swatches = recorded ? extractDesignColors(recorded).slice(0, 8) : []
+  /**
+   * Muse renders its dossier with a `# Design Dossier` heading, DESIGN.md with
+   * `# Design System`. Worth naming: one was written by the model for this
+   * screen alone, the other is the document the user maintains, and confusing
+   * them is exactly the confusion this card exists to remove.
+   */
+  const fromMuse = /^#\s*Design Dossier/im.test(recorded)
+  /**
+   * The same mini-dashboard the DESIGN.md page uses for its style presets.
+   *
+   * Swatches alone answer "which colours"; this answers "what does it look
+   * like", which is the actual question when you are deciding whether to reuse
+   * a design. `parseDesignSystem` resolves the semantic roles (background,
+   * surface, text, accent…) and turns `rounded-xl` into real pixels.
+   */
+  const preview = useMemo<PreviewCfg | null>(() => {
+    if (!recorded) return null
+    try {
+      const ds = parseDesignSystem(recorded)
+      const r = ds.roles
+      return {
+        bg: r.bg,
+        cardBg: r.surface,
+        cardBorder: r.border,
+        text: r.text,
+        mutedText: r.muted,
+        accent: r.accent,
+        accentText: r.accentText,
+        radius: ds.radius,
+      }
+    } catch {
+      // A malformed document must not take the canvas down with it — the
+      // swatches below still work from a plain regex.
+      return null
+    }
+  }, [recorded])
+
+  if (!recorded) {
+    // Nothing recorded: offer the reconstruction, and only when there is code
+    // to read. Never render an empty palette — a blank strip would read as "this
+    // screen has no colours" rather than "nothing was written down".
+    if (!onDerive || !screen.code.trim()) return null
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        className="flex w-full items-center justify-center border border-muse/60 bg-raised text-muse-ink transition hover:border-muse hover:bg-muse/10 disabled:opacity-50"
+        style={{
+          marginTop: 6 * inv,
+          padding: `${5 * inv}px ${6 * inv}px`,
+          fontSize: `${11 * inv}px`,
+          gap: 4 * inv,
+          cursor: 'pointer',
+        }}
+        title={t('canvas.deriveDesignTitle')}
+        onClick={(e) => {
+          e.stopPropagation()
+          onDerive(screen.id)
+        }}
+      >
+        <Icon name="wand" size={11 * inv} />
+        {t(busy ? 'canvas.deriveDesignBusy' : 'canvas.deriveDesign')}
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className="w-full border border-line-soft bg-raised"
+      style={{ marginTop: 6 * inv, padding: `${6 * inv}px` }}
+    >
+      <div
+        className={`flex items-center ${fromMuse ? 'text-muse-ink' : 'text-accent-ink'}`}
+        style={{ fontSize: `${10 * inv}px`, gap: 4 * inv, letterSpacing: '0.08em' }}
+      >
+        <Icon name={fromMuse ? 'sparkle' : 'image'} size={10 * inv} />
+        {t(fromMuse ? 'canvas.dossierUsed' : 'canvas.designUsed').toUpperCase()}
+      </div>
+
+      {/* The design, rendered rather than listed — and clickable, because at
+          canvas zoom this card is a postage stamp. */}
+      {preview && (
+        <button
+          type="button"
+          className="block w-full overflow-hidden border border-line-soft transition hover:border-accent"
+          style={{ marginTop: 5 * inv, cursor: 'zoom-in' }}
+          title={t('design.openLarger')}
+          onClick={(e) => {
+            e.stopPropagation()
+            onInspectDesign?.(screen.id)
+          }}
+        >
+          <ScaledMockup p={preview} name={fromMuse ? t('muse.dossier') : 'DESIGN.md'} />
+        </button>
+      )}
+
+      {swatches.length > 0 && (
+        <div className="flex flex-wrap" style={{ marginTop: 5 * inv, gap: 3 * inv }}>
+          {swatches.map((c) => (
+            <span
+              key={c.hex}
+              className="block border border-line-soft"
+              style={{ width: 14 * inv, height: 14 * inv, background: c.hex }}
+              title={`${c.label} · ${c.hex}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {onApply && (
+        <button
+          type="button"
+          className="flex w-full items-center justify-center border border-muse/60 text-muse-ink transition hover:bg-muse/10"
+          style={{
+            marginTop: 6 * inv,
+            padding: `${4 * inv}px ${5 * inv}px`,
+            fontSize: `${10 * inv}px`,
+            gap: 3 * inv,
+            cursor: 'pointer',
+          }}
+          title={t('canvas.applyDesignTitle')}
+          onClick={(e) => {
+            e.stopPropagation()
+            onApply(screen.id)
+          }}
+        >
+          <Icon name="check" size={10 * inv} />
+          {t('canvas.applyDesign')}
+        </button>
+      )}
+    </div>
+  )
 }
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
@@ -138,6 +306,10 @@ export default function Canvas({
   onContentHeight,
   animations,
   onCycleScreenAnimations,
+  onDeriveDesign,
+  onApplyScreenDesign,
+  onInspectScreenDesign,
+  derivingDesignId,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -180,6 +352,14 @@ export default function Canvas({
   animations?: boolean
   /** Cycle one screen between follow-the-composer, forced on, and forced off. */
   onCycleScreenAnimations?: (screenId: string) => void
+  /** Write DESIGN.md from this screen. Absent = the action is not offered. */
+  onDeriveDesign?: (screenId: string) => void
+  /** Adopt the DESIGN.md this screen recorded — a copy, not a model call. */
+  onApplyScreenDesign?: (screenId: string) => void
+  /** Open this screen's recorded design full size. */
+  onInspectScreenDesign?: (screenId: string) => void
+  /** The screen whose DESIGN.md derivation is currently running, if any. */
+  derivingDesignId?: string | null
 }) {
   const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -635,7 +815,7 @@ export default function Canvas({
                     style={{ fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
                   />
                 ) : (
-                  <span className={`truncate ${selected ? 'text-accent' : 'text-ink-muted'}`}>
+                  <span className={`truncate ${selected ? 'text-accent-ink' : 'text-ink-muted'}`}>
                     {referenceScreenId === s.id && (
                       <span
                         title={t('canvas.referenceScreen')}
@@ -667,7 +847,7 @@ export default function Canvas({
                 )}
                 {soloInteractive && editingLabelId !== s.id && (
                   <span
-                    className="flex shrink-0 items-center rounded-full bg-accent/10 text-accent"
+                    className="flex shrink-0 items-center rounded-full bg-accent/10 text-accent-ink"
                     style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
                   >
                     <Icon name="hand" size={11 * inv} />
@@ -752,7 +932,7 @@ export default function Canvas({
                 >
                   <div className="flex items-center justify-between" style={{ gap: 6 * inv, marginBottom: 4 * inv }}>
                     <span
-                      className="flex items-center font-medium text-muse"
+                      className="flex items-center font-medium text-muse-ink"
                       style={{ fontSize: `${11 * inv}px`, gap: 4 * inv }}
                     >
                       <Icon name="comment" size={11 * inv} />
@@ -783,26 +963,47 @@ export default function Canvas({
                   frame (outside its bounds) so you can see it without opening
                   the library. Click to view it full size. */}
               {s.imageHash && (
-                <button
-                  type="button"
-                  className="absolute overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
-                  style={{ left: `calc(100% + ${24 * inv}px)`, top: 0, width: 200 * inv, cursor: 'pointer' }}
-                  title={t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)}
+                // A column, not a single button: the image opens full size and
+                // the action beneath it does something else, so one cannot be
+                // nested inside the other.
+                <div
+                  className="absolute"
+                  style={{ left: `calc(100% + ${24 * inv}px)`, top: 0, width: 200 * inv }}
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onOpenImage?.(s.imageHash as string)
-                  }}
                 >
-                  <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
-                  <span
-                    className="flex items-center bg-muse/15 text-muse"
-                    style={{ padding: `${4 * inv}px ${6 * inv}px`, fontSize: `${11 * inv}px`, gap: 4 * inv }}
+                  <button
+                    type="button"
+                    className="block w-full overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
+                    title={t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenImage?.(s.imageHash as string)
+                    }}
                   >
-                    <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={11 * inv} />
-                    {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
-                  </span>
-                </button>
+                    <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
+                    <span
+                      className="flex items-center bg-muse/15 text-muse-ink"
+                      style={{ padding: `${4 * inv}px ${6 * inv}px`, fontSize: `${11 * inv}px`, gap: 4 * inv }}
+                    >
+                      <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={11 * inv} />
+                      {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
+                    </span>
+                  </button>
+
+                  {/* The design system this screen was actually built from.
+                      It sits here because this is where the art direction is
+                      already on display: the reference image is the visible
+                      half, and the document is the half you can reuse. */}
+                  <ScreenDesignCard
+                    screen={s}
+                    inv={inv}
+                    busy={derivingDesignId === s.id}
+                    onDerive={onDeriveDesign}
+                    onApply={onApplyScreenDesign}
+                    onInspectDesign={onInspectScreenDesign}
+                  />
+                </div>
               )}
 
               {/* Live preview fills the frame. Interactive when in interact/link mode. */}
@@ -981,8 +1182,18 @@ export default function Canvas({
         />
       )}
 
-      {/* Zoom controls */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg">
+      {/* Zoom controls.
+          `stopPropagation` on pointerdown is what makes them clickable at all.
+          This bar lives inside the canvas container, whose own onPointerDown
+          starts a marquee and calls setPointerCapture on that container — and a
+          captured pointer delivers its derived `click` to the capture target,
+          not to the button under the cursor. The same mechanism is written up
+          at onFrameDown, where it defeated an onDoubleClick; here it silently
+          made every control in this bar do nothing at all. */}
+      <div
+        className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <IconButton variant="toolbar" label={t('canvas.zoomOut')} onClick={() => zoomBy(1 / 1.2)}>
           <Icon name="zoomOut" size={16} />
         </IconButton>
@@ -998,7 +1209,11 @@ export default function Canvas({
           variant="toolbar"
           label={t('canvas.arrange')}
           onClick={() => {
-            onMoveScreens(screens.map((s, i) => ({ id: s.id, ...slotPosition(i) })))
+            // packScreens, not slotPosition: the old one put every screen in a
+            // 1024x720 cell whatever its real size, so arranging a canvas that
+            // mixed desktop and mobile screens laid them across each other.
+            const placed = packScreens(screens)
+            onMoveScreens(screens.map((s, i) => ({ id: s.id, ...placed[i] })))
             setTimeout(fitAll, 0)
           }}
         >
@@ -1009,12 +1224,12 @@ export default function Canvas({
       {/* Hint */}
       <div className="pointer-events-none absolute right-4 top-3 text-right text-body-sm text-ink-faint">
         {linkMode ? (
-          <span className="flex items-center justify-end gap-1.5 text-accent">
+          <span className="flex items-center justify-end gap-1.5 text-accent-ink">
             <Icon name="link" size={15} />
             {t('canvas.hintLink')}
           </span>
         ) : modifyMode ? (
-          <span className="flex items-center justify-end gap-1.5 text-muse">
+          <span className="flex items-center justify-end gap-1.5 text-muse-ink">
             <Icon name="pencil" size={15} />
             {t('canvas.hintModify')}
           </span>

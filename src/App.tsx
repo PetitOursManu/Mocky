@@ -14,11 +14,16 @@ import AuthModal from './components/AuthModal'
 import AdminPanel from './components/AdminPanel'
 import Bibliotheque from './components/Bibliotheque'
 import SyncIndicator from './components/SyncIndicator'
+import SharedScreen from './components/SharedScreen'
+import { shareTokenFromLocation } from './lib/share'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { Button, Icon, IconButton } from './ui'
+import { Button, Icon, IconButton, Modal } from './ui'
 import { useT } from './i18n'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'media'
+
+/** The hosted documentation. Opened in a new tab; Mocky never navigates away. */
+const DOCS_URL = 'https://mocky-docs.emanuelvigreux.fr/'
 
 /**
  * Marks that this tab has already reloaded to pick up a merge. Per-tab and
@@ -65,10 +70,29 @@ function clearReconcileReloadMark(): void {
 }
 
 export default function App() {
+  /**
+   * A share link short-circuits the whole application.
+   *
+   * Read once, before any hook that loads projects, opens the account modal or
+   * arms the sync loop — none of which a phone scanning a QR code should
+   * trigger. Computed at module scope of the render rather than in state: the
+   * URL cannot change without a navigation, and a state round-trip would flash
+   * the sign-in modal before the viewer appeared.
+   */
+  const shareToken = shareTokenFromLocation()
+  if (shareToken) return <SharedScreen token={shareToken} />
+  return <MockyApp />
+}
+
+function MockyApp() {
   const t = useT()
   const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen, setReferenceScreen } =
     useProjects()
   const [route, setRoute] = useState<Route>('home')
+  /** DESIGN.md shown over the current project, without leaving it. */
+  const [designOverlay, setDesignOverlay] = useState(false)
+  /** Bumped on close so the project below re-reads the file it may have edited. */
+  const [designNonce, setDesignNonce] = useState(0)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
@@ -232,6 +256,19 @@ export default function App() {
                 {t('nav.admin')}
               </HeaderTab>
             )}
+            {/* An anchor, not a button: this one leaves the app, so it has to
+                behave like a link — middle-click, ⌘-click and "copy address"
+                all work, which a button swallowing an onClick cannot offer. */}
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t('nav.docsTitle')}
+              className="kicker flex min-h-8 items-center gap-1.5 border-b-2 border-transparent px-2.5 pt-1.5 text-ink-muted transition hover:text-ink"
+            >
+              {t('nav.docs')}
+              <Icon name="external" size={13} />
+            </a>
             <IconButton
               label={theme === 'dark' ? t('theme.toPaper') : t('theme.toInk')}
               variant="quiet"
@@ -250,7 +287,19 @@ export default function App() {
                 className="ml-1"
                 title={t('account.signedInAs')}
               >
-                <Icon name="user" size={16} />
+                {/* Square, like everything else here. `rounded-full` is the
+                    design system's one exception and it is meant for status
+                    dots — an avatar in a circle would be the only round thing
+                    on a page built out of rules and rectangles. */}
+                {api.avatarUrl(account) ? (
+                  <img
+                    src={api.avatarUrl(account) as string}
+                    alt=""
+                    className="h-5 w-5 shrink-0 border border-line-soft object-cover"
+                  />
+                ) : (
+                  <Icon name="user" size={16} />
+                )}
                 <span className="max-w-[100px] truncate">{account.username}</span>
               </Button>
             ) : (
@@ -297,7 +346,8 @@ export default function App() {
             onUpdateScreen={(sid, patch) => updateScreen(activeProject.id, sid, patch)}
             onRemoveScreen={(sid) => removeScreen(activeProject.id, sid)}
             onOpenSettings={() => setRoute('settings')}
-            onOpenDesign={() => setRoute('design')}
+            onOpenDesign={() => setDesignOverlay(true)}
+            designNonce={designNonce}
             onBack={goHome}
             onSetReference={(sid) => setReferenceScreen(activeProject.id, sid)}
             onRenameProject={(name) => renameProject(activeProject.id, name)}
@@ -306,7 +356,7 @@ export default function App() {
         ) : (
           <div className="page py-16 text-center text-body text-ink-faint">
             {t('app.noProjectSelected')}{' '}
-            <button type="button" className="text-accent hover:underline" onClick={goHome}>
+            <button type="button" className="text-accent-ink hover:underline" onClick={goHome}>
               {t('error.backToProjects')}
             </button>
           </div>
@@ -316,6 +366,25 @@ export default function App() {
         <main className="page py-10">
           <DesignPanel />
         </main>
+      )}
+
+      {/* DESIGN.md over the project instead of instead of it.
+          Opened from the composer chip, the design-system frame or a screen's
+          menu — all three used to change route, which unmounts ProjectView and
+          takes the canvas position, the selection, the composer's text and any
+          generation in flight with it. The header tab still opens the full page
+          for anyone who wants to sit and write in it. */}
+      {designOverlay && (
+        <Modal
+          title="DESIGN.md"
+          size="full"
+          onClose={() => {
+            setDesignOverlay(false)
+            setDesignNonce((n) => n + 1)
+          }}
+        >
+          <DesignPanel embedded />
+        </Modal>
       )}
       {route === 'media' && (
         <Bibliotheque

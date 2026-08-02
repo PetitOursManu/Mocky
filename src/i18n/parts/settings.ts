@@ -160,6 +160,8 @@ export const settings = {
     'settings.textHintOllamaCloud':
       'Ollama Cloud (ou une instance Ollama locale — indiquez son URL). Dialecte natif.',
     'settings.textHintOpenai': 'API OpenAI officielle. Modèles : gpt-4o-mini, gpt-4o, o4-mini…',
+    'settings.textHintAnthropic':
+      'API Claude officielle, via sa couche compatible OpenAI. Modèles : claude-sonnet-4-5, claude-opus-4-1, claude-haiku-4-5… Utilisez « Lister les modèles » pour voir ce que votre clé ouvre.',
     'settings.textHintOpenrouter':
       'Une clé, des centaines de modèles. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-4o-mini.',
     'settings.textHintFal':
@@ -194,6 +196,12 @@ export const settings = {
     'settings.noKeyStored': 'aucune clé enregistrée',
     'settings.noKeyStoredLocal': 'aucune clé enregistrée (inutile pour un modèle local)',
     'settings.testShort': 'Tester',
+    // Distinct from the settings.models* set above, which belongs to the
+    // per-browser provider form. These are the instance provider's, in Admin.
+    'settings.adminModelsList': 'Lister les modèles',
+    'settings.adminModelsLoading': 'Chargement…',
+    'settings.adminModelsPick': 'Choisir parmi {count} modèles…',
+    'settings.adminModelsNone': 'Aucun modèle de texte renvoyé par ce fournisseur.',
     'settings.testReply': '{model} répond : « {reply} »',
     'settings.imageModelWarnLead':
       '« {model} » ressemble à un modèle d’images. Ce champ attend un',
@@ -415,6 +423,8 @@ export const settings = {
     'settings.textHintOllamaCloud':
       'Ollama Cloud (or a local Ollama instance — give its URL). Native dialect.',
     'settings.textHintOpenai': 'The official OpenAI API. Models: gpt-4o-mini, gpt-4o, o4-mini…',
+    'settings.textHintAnthropic':
+      'The official Claude API, through its OpenAI-compatible surface. Models: claude-sonnet-4-5, claude-opus-4-1, claude-haiku-4-5… Use “List models” to see what your key opens.',
     'settings.textHintOpenrouter':
       'One key, hundreds of models. Model ids read “vendor/model”, e.g. openai/gpt-4o-mini.',
     'settings.textHintFal':
@@ -449,6 +459,10 @@ export const settings = {
     'settings.noKeyStored': 'no key saved',
     'settings.noKeyStoredLocal': 'no key saved (not needed for a local model)',
     'settings.testShort': 'Test',
+    'settings.adminModelsList': 'List models',
+    'settings.adminModelsLoading': 'Loading…',
+    'settings.adminModelsPick': 'Pick from {count} models…',
+    'settings.adminModelsNone': 'This provider returned no text models.',
     'settings.testReply': '{model} answers: “{reply}”',
     'settings.imageModelWarnLead':
       '“{model}” looks like an image model. This field expects an',

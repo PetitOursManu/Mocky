@@ -58,7 +58,7 @@ export default function MusePanel({
     <div className="mb-2 rounded-xl border border-muse/40 bg-muse/5 p-2.5 text-body-sm">
       {/* Library access + pinned images */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="kicker text-muse">{t('muse.title')}</span>
+        <span className="kicker text-muse-ink">{t('muse.title')}</span>
         <Button variant="ghost" size="sm" onClick={onOpenLibrary}>
           <Icon name="library" size={16} />
           {t('muse.library')}
@@ -192,7 +192,7 @@ export default function MusePanel({
             className="h-12 w-20 shrink-0 border border-line-soft object-cover"
           />
           <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5 text-muse">
+            <span className="flex items-center gap-1.5 text-muse-ink">
               <Icon name="play" size={14} />
               {t('muse.videoChosenTitle')}
             </span>
@@ -283,7 +283,7 @@ export default function MusePanel({
 
       {/* Streamed stage */}
       {busy && stage && (
-        <div className="mt-2 flex items-center gap-2 text-muse">
+        <div className="mt-2 flex items-center gap-2 text-muse-ink">
           <Spinner label={stage} />
           {stage}
         </div>
@@ -293,7 +293,7 @@ export default function MusePanel({
       {d && (
         <div className="mt-2.5 space-y-2 border-t border-line-soft pt-2.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="kicker flex items-center gap-1.5 text-muse">
+            <span className="kicker flex items-center gap-1.5 text-muse-ink">
               <Icon name="sparkle" size={14} />
               {t('muse.dossier')}
             </span>

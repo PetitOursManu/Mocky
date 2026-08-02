@@ -94,28 +94,45 @@ export default function Bibliotheque({
     favorites: onlyFav || undefined,
   }
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setImages(
-        await listLibrary({
-          q: q.trim() || undefined,
-          project: onlyProject && projectId ? projectId : undefined,
-          favorites: onlyFav || undefined,
-        }),
-      )
-    } catch {
-      // The library lives on the backend; in pure-localStorage mode it's absent.
-      setError('library.backendDown')
-    } finally {
-      setLoading(false)
-    }
-  }, [q, onlyProject, onlyFav, projectId])
+  // The signal matters: the debounce only cancelled the TIMER, never a request
+  // already in flight. Typing "logo" then clearing it fast left two requests
+  // racing, and if the older one answered last the grid showed results for a
+  // query the field no longer contained.
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const images = await listLibrary(
+          {
+            q: q.trim() || undefined,
+            project: onlyProject && projectId ? projectId : undefined,
+            favorites: onlyFav || undefined,
+          },
+          signal,
+        )
+        if (signal?.aborted) return
+        setImages(images)
+      } catch (err) {
+        // Superseded by a newer keystroke — not a failure, and showing the
+        // backend-down banner on every character would be nonsense.
+        if ((err as Error)?.name === 'AbortError') return
+        // The library lives on the backend; in pure-localStorage mode it's absent.
+        setError('library.backendDown')
+      } finally {
+        if (!signal?.aborted) setLoading(false)
+      }
+    },
+    [q, onlyProject, onlyFav, projectId],
+  )
 
   useEffect(() => {
-    const timer = setTimeout(refresh, 200) // debounce search
-    return () => clearTimeout(timer)
+    const ac = new AbortController()
+    const timer = setTimeout(() => void refresh(ac.signal), 200) // debounce search
+    return () => {
+      clearTimeout(timer)
+      ac.abort()
+    }
   }, [refresh])
 
   const refreshVideos = useCallback(async () => {
@@ -256,7 +273,7 @@ export default function Bibliotheque({
   const selectionNote =
     pinned.length || pinnedVideo ? (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-muse/40 bg-muse/5 px-2.5 py-1.5 text-body-sm text-ink-muted">
-        <span className="flex items-center gap-1.5 text-muse">
+        <span className="flex items-center gap-1.5 text-muse-ink">
           <Icon name="pin" size={14} />
           {t('library.selectionTitle')}
         </span>
@@ -568,7 +585,7 @@ export default function Bibliotheque({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-line p-3">
-          <span className="kicker flex items-center gap-1.5 whitespace-nowrap text-muse">
+          <span className="kicker flex items-center gap-1.5 whitespace-nowrap text-muse-ink">
             <Icon name="library" size={16} />
             {t('library.title')}
           </span>

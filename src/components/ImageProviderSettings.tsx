@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   api,
   type ImageProfile,
@@ -94,11 +94,20 @@ function ProfileForm({
     setCfToken('')
   }
 
+  // Keyed on the profile's VALUE, not its object identity. Saving one profile
+  // hands the parent a brand-new ImagesConfig, so both ProfileForms received a
+  // `section` with a new identity and both re-hydrated — wiping the keys and
+  // model you had just typed into the other one, with no warning. Comparing the
+  // serialised value means only the profile that actually changed re-hydrates.
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current) }, [])
+
+  const sectionKey = JSON.stringify(section)
   useEffect(() => {
     hydrate(section)
     // Re-hydrate only when the server view of THIS profile changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section])
+  }, [sectionKey])
 
   async function push(patch: ImagesProfilePatch) {
     const fresh = await api.admin.setImagesConfig({ [profile]: patch })
@@ -120,7 +129,10 @@ function ProfileForm({
         sdWebui: { baseUrl: sdBase, steps: sdSteps },
       })
       setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      // Tracked so it can be cleared on unmount — an untracked timer fires into
+      // a component that is no longer there.
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaved(false), 2500)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {

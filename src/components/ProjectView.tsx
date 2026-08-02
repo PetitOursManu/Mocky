@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, saveDesign, extractDesignColors } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
@@ -17,6 +17,9 @@ import DesignSystemPanel from './DesignSystemPanel'
 import PresetPicker from './PresetPicker'
 import DemoPlayer from './DemoPlayer'
 import CodeView from './CodeView'
+import ShareDialog from './ShareDialog'
+import { SaveDesignDialog, previewFromMarkdown } from './DesignLibrary'
+import { ScaledMockup } from './DesignMockup'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
 import Bibliotheque from './Bibliotheque'
@@ -58,7 +61,7 @@ import {
 } from '../lib/animations'
 import { lintSlop } from '../lib/lint'
 import { useT } from '../i18n'
-import { Button, Icon, IconButton, MockyLoader, type IconName } from '../ui'
+import { Button, Icon, IconButton, MockyLoader, Modal, type IconName } from '../ui'
 
 /** Translation keys per animation state — resolved at render, like every label. */
 const ANIM_LABELS: Record<AnimationMode, { label: string; hint: string }> = {
@@ -121,6 +124,7 @@ export default function ProjectView({
   onRemoveScreen,
   onOpenSettings,
   onOpenDesign,
+  designNonce = 0,
   onBack,
   onSetReference,
   onRenameProject,
@@ -131,6 +135,8 @@ export default function ProjectView({
   onRemoveScreen: (screenId: string) => void
   onOpenSettings: () => void
   onOpenDesign: () => void
+  /** Bumped when the DESIGN.md overlay closes, so this view re-reads the file. */
+  designNonce?: number
   onBack: () => void
   onSetReference: (screenId: string | null) => void
   onRenameProject: (name: string) => void
@@ -233,7 +239,13 @@ export default function ProjectView({
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
   const [menu, setMenu] = useState<{ screenId: string; x: number; y: number } | null>(null)
-  const [codeScreen, setCodeScreen] = useState<Screen | null>(null)
+  // An id, not the object. Holding the Screen froze whatever it contained at
+  // click time: a regeneration or an auto-repair behind the open viewer left it
+  // showing — and offering to copy — source the screen no longer had. Resolving
+  // by id also closes the viewer by itself if the screen is deleted meanwhile.
+  const [codeScreenId, setCodeScreenId] = useState<string | null>(null)
+  const codeScreen = codeScreenId ? (project.screens.find((s) => s.id === codeScreenId) ?? null) : null
+  const setCodeScreen = (s: Screen | null) => setCodeScreenId(s ? s.id : null)
   const contentHeights = useRef<Record<string, number>>({})
 
   // Esc closes the context menu / code viewer.
@@ -334,7 +346,20 @@ export default function ProjectView({
   const [capturing, setCapturing] = useState(false)
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
   const retryRefs = useRef<Record<string, { count: number; lastError: string }>>({})
-  const retryAbortRef = useRef<AbortController | null>(null)
+  /** In-flight auto-repairs, keyed by screen id so each can be cancelled alone. */
+  const retryAborts = useRef<Map<string, AbortController>>(new Map())
+  // ProjectView is mounted with key={project.id} and unmounted the moment you
+  // go Back, switch project, or open Settings/Design/Media. Nothing used to stop
+  // the work in flight: the provider kept streaming — and billing — for a screen
+  // nobody would ever see, calling setState on a component that no longer exists.
+  useEffect(
+    () => () => {
+      abortRef.current?.abort()
+      for (const ac of retryAborts.current.values()) ac.abort()
+      retryAborts.current.clear()
+    },
+    [],
+  )
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set())
   // Screens being regenerated: unlike generatingIds, we DON'T stream partial
   // code into these — the existing iframe stays fully rendered until the new
@@ -367,9 +392,11 @@ export default function ProjectView({
     }
   }
 
-  // Re-read DESIGN.md whenever we change it in-view (D.1 quick-style apply).
+  // Re-read DESIGN.md whenever we change it in-view (D.1 quick-style apply),
+  // and whenever the overlay that edits it closes — ProjectView now stays
+  // mounted underneath it, so nothing else would tell it the file has changed.
   const [designVersion, setDesignVersion] = useState(0)
-  const design = useMemo(() => loadDesign(), [designVersion])
+  const design = useMemo(() => loadDesign(), [designVersion, designNonce])
   const designActive = isDesignActive(design)
   const designColors = designActive ? extractDesignColors(design.markdown).slice(0, 10) : []
 
@@ -384,6 +411,110 @@ export default function ProjectView({
     const d = loadDesign()
     saveDesign({ ...d, markdown: replaceTokenHex(d.markdown, token, newHex), enabled: true })
     setDesignVersion((v) => v + 1)
+  }
+
+  /**
+   * Copy a screen, unlinked.
+   *
+   * "Regenerate" was the only way to explore a variant, and it overwrites — so
+   * comparing two takes meant losing one of them. A duplicate is the cheap
+   * alternative: keep this one, work on the copy.
+   *
+   * `links` are deliberately dropped. A hotspot points at a screen id, and a
+   * copy that inherited them would silently drive the ORIGINAL's demo flow from
+   * a different frame. Everything else travels, including the recorded
+   * DESIGN.md — the copy really was made from that design.
+   */
+  function duplicateScreen(s: Screen) {
+    const { id: _id, x: _x, y: _y, links: _links, ...rest } = s
+    onAddScreen({
+      ...rest,
+      id: newId(),
+      name: t('project.copyOf', { name: s.name }),
+      createdAt: Date.now(),
+      links: [],
+    })
+  }
+
+  /** The screen whose share dialog is open, if any. */
+  const [shareScreenId, setShareScreenId] = useState<string | null>(null)
+  /** The screen whose recorded design is being looked at full size, if any. */
+  const [inspectDesignId, setInspectDesignId] = useState<string | null>(null)
+  /** Set when saving that design into the named library. */
+  const [saveDesignFrom, setSaveDesignFrom] = useState<Screen | null>(null)
+
+  /** The screen a DESIGN.md is currently being derived from, if any. */
+  const [derivingDesignId, setDerivingDesignId] = useState<string | null>(null)
+
+  /**
+   * Adopt the DESIGN.md a screen recorded at generation time.
+   *
+   * No model call: the document is already there, byte for byte. This is the
+   * difference the recorded copy buys — reconstructing a design system by
+   * reading rendered code is an approximation that costs tokens and seconds,
+   * while restoring the one that actually produced the screen is neither.
+   */
+  function applyScreenDesign(screenId: string) {
+    const sc = screensRef.current.find((s) => s.id === screenId)
+    const md = sc?.design?.trim()
+    if (!sc || !md) return
+    const before = loadDesign()
+    if (before.markdown.trim() === md) return // already current — say nothing, do nothing
+    if (before.markdown.trim() && !confirm(t('project.applyDesignConfirm', { name: sc.name }))) return
+    saveDesign({ ...before, markdown: md, enabled: true, previousMarkdown: before.markdown || undefined })
+    setDesignVersion((v) => v + 1)
+  }
+
+  /**
+   * Write DESIGN.md from a screen the user points at.
+   *
+   * The document had to exist BEFORE there was anything to describe, which is
+   * the wrong way round for how people actually work: they generate a few
+   * screens, like one, and want the others to match it. Same document, written
+   * afterwards and from evidence.
+   *
+   * It overwrites, so a non-empty file is confirmed first and the previous text
+   * is kept in `previousMarkdown` — the derivation is a model call, and a model
+   * call is exactly the kind of thing you want to be able to take back.
+   */
+  async function deriveDesignFrom(screen: Screen) {
+    if (derivingDesignId) return
+    if (!screen.code.trim()) {
+      setError(t('project.deriveDesignEmpty'))
+      return
+    }
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const before = loadDesign()
+    if (before.markdown.trim() && !confirm(t('project.deriveDesignConfirm', { name: screen.name }))) return
+
+    setDerivingDesignId(screen.id)
+    setError(null)
+    const ac = new AbortController()
+    retryAborts.current.set(`design:${screen.id}`, ac)
+    try {
+      const markdown = await deriveDesignSystem(settings, screen.code, ac.signal)
+      if (!markdown.trim()) {
+        setError(t('project.deriveDesignEmptyResult'))
+        return
+      }
+      saveDesign({
+        ...loadDesign(),
+        markdown,
+        enabled: true,
+        previousMarkdown: before.markdown || undefined,
+      })
+      setDesignVersion((v) => v + 1)
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      retryAborts.current.delete(`design:${screen.id}`)
+      setDerivingDesignId(null)
+    }
   }
   const screens = project.screens
 
@@ -438,7 +569,14 @@ export default function ProjectView({
     const settings = loadSettings()
     if (!settings.model.trim()) return
     const ac = new AbortController()
-    retryAbortRef.current = ac
+    // Keyed per screen. A single ref meant two screens failing at once shared
+    // one controller, so cancelling either cancelled neither reliably.
+    retryAborts.current.set(screenId, ac)
+    // What the screen held when the repair started. Applying the result over a
+    // screen that has since changed is how a repair of the OLD broken code
+    // silently replaced a fresh regeneration — and buried the revert target
+    // under the broken version at the same time.
+    const codeAtStart = screen.code
     // Mark this screen as "repairing" so the preview shows a calm state instead
     // of flashing the red error banner while the fix is in flight.
     setFixingIds((prev) => new Set(prev).add(screenId))
@@ -449,6 +587,11 @@ export default function ProjectView({
         screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt),
       )
       const res = await fixComponent(settings, screen.code, errorMessage, ac.signal, caps)
+      // Someone else won while we were away — a regeneration, an edit, another
+      // repair. Their result is newer than ours; drop ours rather than replace
+      // working code with a patched-up copy of what it used to be.
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now || now.code !== codeAtStart) return
       // Keep the pre-repair code so "Revert" works after an auto-fix too. Every
       // other write path (edit, regenerate, animations, modify) already records
       // it; this one silently overwrote the last version that the user could
@@ -457,7 +600,7 @@ export default function ProjectView({
     } catch {
       // Retry failed — leave the error visible to the user.
     } finally {
-      retryAbortRef.current = null
+      retryAborts.current.delete(screenId)
       setFixingIds((prev) => {
         const next = new Set(prev)
         next.delete(screenId)
@@ -496,6 +639,8 @@ export default function ProjectView({
     setBusy(true)
     setError(null)
     retryRefs.current = {} // reset retry counters for new generation
+    /** The screen this run created, if any — so a failure can clean it up. */
+    let newScreenId: string | null = null
     try {
       const design = loadDesign()
       const designPreamble = isDesignActive(design) ? buildDesignPreamble(design.markdown) : undefined
@@ -513,14 +658,39 @@ export default function ProjectView({
           const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
           const capIds = sc.caps && sc.caps.length > 0 ? sc.caps : selectCapabilities(text, designMd)
           const caps = resolveCapabilities(capIds)
-          // Snapshot the old code before overwriting
+          // Snapshot the old code before overwriting.
           const oldCode = sc.code
-          const res = await editComponent(
-            settings, text, sc.code, extraSystem, images, ac.signal,
-            (partial) => onUpdateScreen(sc.id, { code: partial }),
-            caps,
-          )
-          onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
+          // And the revert target it already had, so cancelling can put the
+          // screen back exactly as found — including its history. Overwriting
+          // previousCode below is only correct if the edit actually lands.
+          const oldPreviousCode = sc.previousCode
+          // previousCode is recorded BEFORE the first chunk lands, not after the
+          // last one. This is the only path that streams into the live screen,
+          // so an interruption — "Stop", a dropped connection, a provider error
+          // on the second of three selected screens — used to leave the screen
+          // holding JSX cut off mid-tag while "Revert" stayed hidden, because
+          // previousCode was still whatever it had been before. The original
+          // design was gone with no way back.
+          onUpdateScreen(sc.id, { previousCode: oldCode })
+          try {
+            const res = await editComponent(
+              settings, text, sc.code, extraSystem, images, ac.signal,
+              (partial) => onUpdateScreen(sc.id, { code: partial }),
+              caps,
+            )
+            onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
+          } catch (err) {
+            // Put the screen back the way we found it. A half-written component
+            // is worse than no change at all.
+            //
+            // previousCode goes back too. Leaving it at oldCode — which is what
+            // the screen now holds again — offered a "Revert" that swapped the
+            // code for an identical copy of itself: a menu entry that looks like
+            // a way out and does nothing. Restoring the screen IS the undo; the
+            // history it had before the cancelled edit is what should survive.
+            onUpdateScreen(sc.id, { code: oldCode, previousCode: oldPreviousCode })
+            throw err
+          }
         }
         setGeneratingIds(new Set())
         setPrompt('')
@@ -746,6 +916,7 @@ export default function ProjectView({
         setPhase('generating')
         const caps = resolveCapabilities(capIds)
         const screenId = newId()
+        newScreenId = screenId
         onAddScreen({
           id: screenId,
           name: deriveName(text),
@@ -758,6 +929,18 @@ export default function ProjectView({
           device: preset.device,
           links: [],
           caps: capIds,
+          // Whatever was ACTUALLY authoritative for this screen.
+          //
+          // Muse does not merge with DESIGN.md, it replaces it — the choice is a
+          // ternary at the extraSystem line below, not a concatenation. So on a
+          // Muse run the model never sees DESIGN.md at all, and recording it
+          // here labelled the screen with a document that had no hand in it.
+          //
+          // The dossier is already rendered as DESIGN.md-shaped markdown by
+          // dossierToMarkdown() on the server — same `- Label: #hex` lines, a
+          // strict superset of the sections — so it drops straight in and the
+          // swatches parse from it unchanged.
+          design: museMarkdown || designMd,
           imageHash: museImageHash,
           // Recorded so the canvas can say what the image was for. Without it
           // the badge could only ever say "Image Muse", which is exactly the
@@ -800,6 +983,14 @@ export default function ProjectView({
         }
       }
     } catch (err) {
+      // A screen that was added but never received a single character is not a
+      // draft, it is debris: pressing "Stop" one second in used to leave a blank
+      // frame on the canvas that the user then had to find and delete by hand.
+      // Anything with code in it is kept — that is work, however partial.
+      if (newScreenId) {
+        const added = screensRef.current.find((s) => s.id === newScreenId)
+        if (added && !added.code.trim()) onRemoveScreen(newScreenId)
+      }
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -809,11 +1000,20 @@ export default function ProjectView({
       setMuseStage(null)
       setGeneratingIds(new Set())
     }
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRenameProject, museConfig, museAvail, project, pinnedImages, t])
+    // animationMode, museVision and videoAvail are read in the body and belong
+    // here. Without them the closure was only rebuilt when something else in the
+    // list changed — so clicking "No animation" after typing the prompt left the
+    // stale 'auto' in the captured closure, and the button did nothing the
+    // generation could see.
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail])
 
   function cancelGenerate() {
     abortRef.current?.abort()
     abortRef.current = null
+    // Auto-repairs were unreachable from here: "Stop" stopped the generation and
+    // left a repair running, free to overwrite the screen a moment later.
+    for (const ac of retryAborts.current.values()) ac.abort()
+    retryAborts.current.clear()
     setBusy(false)
   }
 
@@ -881,7 +1081,12 @@ export default function ProjectView({
         undefined,
         caps,
       )
-      onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capIds })
+      // Regenerating rebuilds the screen from the design system as it stands
+      // now, so the recorded copy moves with it. Editing a screen does not: an
+      // edit reworks what the original design produced, and overwriting the
+      // record there would quietly reattribute the screen to a document that
+      // never made it.
+      onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capIds, design: designMd })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -1144,6 +1349,13 @@ export default function ProjectView({
         // otherwise the button says one thing and the mockups do another.
         animations={animationMode !== 'off'}
         onCycleScreenAnimations={cycleScreenAnimations}
+        onDeriveDesign={(id) => {
+          const sc = screens.find((x) => x.id === id)
+          if (sc) deriveDesignFrom(sc)
+        }}
+        onApplyScreenDesign={applyScreenDesign}
+        onInspectScreenDesign={setInspectDesignId}
+        derivingDesignId={derivingDesignId}
         linkMode={linkMode}
         modifyMode={modifyMode}
         interactAll={interactAll}
@@ -1842,10 +2054,7 @@ export default function ProjectView({
                   close()
                 }}
               />
-              <div
-                className="fixed z-50 w-60 overflow-hidden rounded-lg border border-line bg-raised py-1 text-body text-ink shadow-2xl"
-                style={{ left: Math.min(menu.x, window.innerWidth - 250), top: Math.min(menu.y, window.innerHeight - 400) }}
-              >
+              <ContextMenuShell x={menu.x} y={menu.y}>
                 <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                 <MenuItem
                   icon="pencil"
@@ -1856,6 +2065,8 @@ export default function ProjectView({
                     if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
                   }}
                 />
+                <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
+                <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
                 <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
                 <MenuItem
                   icon="pin"
@@ -1866,6 +2077,11 @@ export default function ProjectView({
                 {s.previousCode && (
                   <MenuItem icon="undo" label={t('common.revert')} onClick={() => { close(); onRevertScreen(s.id) }} />
                 )}
+                <MenuItem
+                  icon="wand"
+                  label={t(derivingDesignId === s.id ? 'project.deriveDesignBusy' : 'project.deriveDesign')}
+                  onClick={() => { close(); deriveDesignFrom(s) }}
+                />
                 <MenuItem icon="image" label={t('project.editDesign')} onClick={() => { close(); onOpenDesign() }} />
 
                 <div className="my-1 border-t border-line-soft" />
@@ -1957,12 +2173,66 @@ export default function ProjectView({
                     }
                   }}
                 />
-              </div>
+              </ContextMenuShell>
             </>
           )
         })()}
 
       {/* Code viewer modal */}
+      {/* The recorded design, full size. At canvas zoom the card beside a frame
+          is a postage stamp; this is where you actually judge it — and decide
+          whether it is worth keeping under a name. */}
+      {inspectDesignId &&
+        (() => {
+          const sc = screens.find((x) => x.id === inspectDesignId)
+          const md = sc?.design?.trim()
+          if (!sc || !md) return null
+          const preview = previewFromMarkdown(md)
+          return (
+            <Modal title={sc.name || 'DESIGN.md'} size="lg" onClose={() => setInspectDesignId(null)}>
+              {preview && (
+                <div className="overflow-hidden border border-line-soft">
+                  <ScaledMockup p={preview} name={sc.name || 'DESIGN.md'} />
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button variant="primary" onClick={() => { applyScreenDesign(sc.id); setInspectDesignId(null) }}>
+                  <Icon name="check" size={16} />
+                  {t('canvas.applyDesign')}
+                </Button>
+                <Button variant="ghost" onClick={() => { setSaveDesignFrom(sc); setInspectDesignId(null) }}>
+                  <Icon name="plus" size={16} />
+                  {t('design.saveAs')}
+                </Button>
+              </div>
+              {/* The document itself, because a palette is not a design system
+                  and the difference is in the words. */}
+              <pre className="mt-4 max-h-72 overflow-auto border border-line-soft bg-ink/5 p-3 text-body-sm text-ink-muted">
+                {md}
+              </pre>
+            </Modal>
+          )
+        })()}
+
+      {saveDesignFrom && (
+        <SaveDesignDialog
+          markdown={saveDesignFrom.design || ''}
+          suggestedName={saveDesignFrom.name}
+          origin={/^#\s*Design Dossier/im.test(saveDesignFrom.design || '') ? 'muse' : 'screen'}
+          onClose={() => setSaveDesignFrom(null)}
+          onSaved={() => setSaveDesignFrom(null)}
+        />
+      )}
+
+      {/* Resolved by id, like the code viewer: a screen deleted while the
+          dialog is open closes it rather than leaving a ghost. */}
+      {shareScreenId &&
+        (() => {
+          const sc = screens.find((x) => x.id === shareScreenId)
+          if (!sc) return null
+          return <ShareDialog screen={sc} onClose={() => setShareScreenId(null)} />
+        })()}
+
       {codeScreen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
@@ -1991,6 +2261,60 @@ export default function ProjectView({
   )
 }
 
+/**
+ * The screen context menu's frame: as wide as its longest item, and always on
+ * screen.
+ *
+ * It was a fixed `w-60` (240px) with `truncate` on every label, so the longer
+ * entries — "Voir la demande qui a créé cet écran", "Faire de cet écran mon
+ * DESIGN.md" — were cut off mid-word and you had to guess what they did. The
+ * width now follows the content between a floor and a ceiling.
+ *
+ * The position used to be clamped against two hard-coded numbers (250 and 400)
+ * that matched neither the real width nor the real height, so the menu could
+ * still open partly off the bottom of the window. It is measured after mount
+ * instead — the only way to know, since the height depends on which items the
+ * screen actually offers.
+ */
+function ContextMenuShell({ x, y, children }: { x: number; y: number; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ left: x, top: y })
+  /** Which way it grew, so the animation grows the same way. */
+  const [flipped, setFlipped] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    const M = 8 // keep a hair of breathing room against the window edge
+    // Flip above the pointer when there is more room there than below — what a
+    // menu near the bottom edge is expected to do.
+    const goesUp = y + height + M > window.innerHeight && y - height - M > 0
+    setFlipped(goesUp)
+    setPos({
+      left: Math.max(M, Math.min(x, window.innerWidth - width - M)),
+      top: goesUp ? Math.max(M, y - height) : Math.max(M, Math.min(y, window.innerHeight - height - M)),
+    })
+  }, [x, y])
+
+  return (
+    <div
+      ref={ref}
+      className="menu-in fixed z-50 w-max min-w-[15rem] max-w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-lg border border-line bg-raised py-1 text-body text-ink shadow-2xl"
+      style={{
+        left: pos.left,
+        top: pos.top,
+        // Grow from the corner nearest the cursor. A menu that opened upward
+        // but animated downward would point away from the click that summoned
+        // it, which reads worse than no animation.
+        transformOrigin: flipped ? 'bottom left' : 'top left',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function MenuItem({
   icon,
   label,
@@ -2013,8 +2337,11 @@ function MenuItem({
         danger ? 'text-danger hover:bg-danger/10' : 'hover:bg-ink/5'
       }`}
     >
-      <Icon name={icon} size={16} />
-      <span className="truncate">{label}</span>
+      {/* shrink-0 so a long label never squeezes the icon into a sliver. */}
+      <Icon name={icon} size={16} className="shrink-0" />
+      {/* No `truncate`: the frame now sizes to the content, so cutting the
+          label was hiding text that had room to be read. */}
+      <span className="whitespace-nowrap">{label}</span>
     </button>
   )
 }

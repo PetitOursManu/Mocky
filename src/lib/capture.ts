@@ -22,8 +22,14 @@ import { compileJsx } from './compile'
  * `allow-same-origin` is still granted, so for the ~1 s of a capture the
  * model-generated component runs with Mocky's origin: it can read
  * localStorage['mocky.settings.v1'] (the provider API key, in clear) and reach
- * `parent`. Triggering it is an ordinary product action — one drag in Annotate
- * mode.
+ * `parent`.
+ *
+ * Triggering it is not even a deliberate action. Besides the drag in Annotate
+ * mode, `thumbnails.ts` (captureThumb → queueThumbs) mounts this same shell
+ * automatically for EVERY generated screen, so the window opens on its own on
+ * the normal path. And the code inside it comes from the model, which means an
+ * indirect prompt injection through a Muse inspiration URL — or a hostile
+ * provider endpoint — is enough to put a payload here.
  *
  * Removing the flag was tried and measured, and it does not work: html2canvas
  * clones the document into an iframe of its own, and a sandbox without
@@ -34,15 +40,25 @@ import { compileJsx } from './compile'
  * does work in an opaque origin, but carries neither the Tailwind stylesheet nor
  * the images, i.e. it means reimplementing html2canvas.
  *
- * What is closed instead: the CSP below denies connect-src, form-action,
- * frame-src, object-src and base-uri, and limits img-src to this origin — so the
- * component has no network channel to send anything it reads.
+ * The CSP below denies connect-src, form-action, frame-src, object-src and
+ * base-uri and limits img-src to this origin — but do NOT read that as "the
+ * component has no network channel", which is what this comment used to claim.
+ * A CSP binds a DOCUMENT, not an origin. Same-origin code reaches
+ * `window.parent` and can run in the parent's realm, and the parent has no CSP
+ * at all: index.html declares none and the server sends only nosniff / XFO /
+ * Referrer-Policy / COOP. One line in the parent's realm — appending an <img>
+ * whose src carries localStorage — leaves under the PARENT's policy, so none of
+ * the directives below apply to it. The CSP raises the effort; it does not close
+ * the hole.
  *
  * The real fix is ORIGIN SEPARATION: serve the capture shell from a distinct
  * origin (a second port, or a sibling hostname) and keep allow-same-origin.
  * html2canvas then works, while the frame is cross-origin to the app and can
  * touch neither its storage nor its DOM. That needs a server route plus a
  * configurable capture origin, which is why it is not in this change.
+ *
+ * Keeping the provider key out of localStorage entirely — server-side only —
+ * would close it from the other end, and is the cheaper of the two.
  */
 export function captureRegion(
   code: string,
@@ -225,6 +241,13 @@ function buildCaptureShell(
 <script crossorigin src="/vendor/react.production.min.js"></script>
 <script crossorigin src="/vendor/react-dom.production.min.js"></script>
 <script src="/vendor/tailwind.min.js"></script>
+<script>
+  /* Same pin as the preview: without it Play CDN defaults to darkMode 'media',
+     so a thumbnail was captured light or dark according to the OS setting of
+     whoever happened to generate it — and the home page then showed a mixed
+     set of cards for one project. */
+  try { tailwind.config = { darkMode: 'class' } } catch (e) {}
+</script>
 ${capLinks}
 ${babelScript}
 <script src="/vendor/html2canvas.min.js"></script>

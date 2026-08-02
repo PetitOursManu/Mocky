@@ -169,10 +169,18 @@ export default function SettingsPanel() {
                     onChange={(e) => {
                       const chosen =
                         PROVIDERS.find((x) => x.id === e.currentTarget.value) ?? PROVIDERS[0]
+                      // The model travels with the provider. Now that the list
+                      // spans several vendors, keeping the old id would leave
+                      // an Ollama name like `gpt-oss:120b` pointed at OpenAI —
+                      // a 400 with no obvious cause. An id the user typed
+                      // themselves for THIS provider is left alone.
                       setSettings((s) => ({
                         ...s,
                         provider: chosen.id,
                         baseUrl: chosen.defaultBaseUrl,
+                        model: chosen.defaultModel,
+                        // Keys are per-vendor; carrying one across is never right.
+                        apiKey: '',
                       }))
                       setTest({ status: 'idle' })
                     }}
@@ -327,6 +335,7 @@ export default function SettingsPanel() {
       </div>
 
       <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 lg:grid-cols-2">
+        <AvatarSection account={account} onChanged={setAccount} />
         <PasswordSection account={account} onChanged={setAccount} />
 
         <section>
@@ -511,5 +520,106 @@ function TestBanner({ result, onPick }: { result: TestResult; onPick: (m: string
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * The account picture.
+ *
+ * Square, and that is a decision rather than an oversight: `rounded-full` is
+ * the one exception the design system grants, and it grants it to status dots.
+ * A circular avatar would be the only round thing on a page made of rules and
+ * rectangles — the shell is meant to look printed.
+ */
+function AvatarSection({
+  account,
+  onChanged,
+}: {
+  account: AuthUser | null
+  onChanged: (u: AuthUser) => void
+}) {
+  const t = useT()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!account) return null
+  const url = api.avatarUrl(account)
+
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (fileRef.current) fileRef.current.value = ''
+    if (!file) return
+    setBusy(true)
+    setError(null)
+    try {
+      onChanged(await api.setAvatar(file))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="mb-10">
+      <div className="section-head">
+        <span className="kicker text-accent-ink">{t('account.picture')}</span>
+      </div>
+
+      {error && (
+        <div className="mb-3">
+          <Banner tone="danger">{error}</Banner>
+        </div>
+      )}
+
+      <div className="flex items-center gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-line-soft bg-ink/5">
+          {url ? (
+            <img src={url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Icon name="user" size={24} className="text-ink-faint" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
+              <Icon name="upload" size={14} />
+              {account.avatar ? t('account.pictureReplace') : t('account.pictureAdd')}
+            </Button>
+            {account.avatar && (
+              <Button
+                variant="quiet"
+                size="sm"
+                className="text-danger"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true)
+                  try {
+                    onChanged(await api.removeAvatar())
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : String(err))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                <Icon name="trash" size={14} />
+                {t('account.pictureRemove')}
+              </Button>
+            )}
+          </div>
+          <p className="measure mt-1.5 text-caption text-ink-faint">{t('account.pictureHint')}</p>
+        </div>
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+        className="hidden"
+        onChange={pick}
+      />
+    </section>
   )
 }

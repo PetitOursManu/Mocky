@@ -138,11 +138,20 @@ export const project = {
 
     // ---- screen context menu ----
     'project.regenerate': 'Régénérer (nouvelle variante)',
+    'project.copyOf': '{name} (copie)',
     'project.screenNamePrompt': 'Nom de l’écran',
     'project.showCode': 'Voir le code',
     'project.pinReference': 'Épingler comme référence de mise en page',
     'project.unpinReference': 'Ne plus utiliser comme référence',
     'project.editDesign': 'Modifier DESIGN.md',
+    'project.deriveDesign': 'Faire de cet écran mon DESIGN.md',
+    'project.applyDesignConfirm':
+      'Reprendre le DESIGN.md enregistré avec « {name} » ? Votre document actuel restera récupérable dans le panneau DESIGN.md.',
+    'project.deriveDesignBusy': 'Lecture de l’écran…',
+    'project.deriveDesignConfirm':
+      'Remplacer votre DESIGN.md par celui extrait de « {name} » ? L’ancien texte restera récupérable dans le panneau DESIGN.md.',
+    'project.deriveDesignEmpty': 'Cet écran n’a pas encore de code à analyser.',
+    'project.deriveDesignEmptyResult': 'Le modèle n’a rien renvoyé. Réessayez, ou prenez un écran plus abouti.',
     'project.displayFormat': 'Format d’affichage',
     'project.formatMobile': 'Mobile',
     'project.formatTablet': 'Tablette',
@@ -306,11 +315,20 @@ export const project = {
 
     // ---- screen context menu ----
     'project.regenerate': 'Regenerate (new variant)',
+    'project.copyOf': '{name} (copy)',
     'project.screenNamePrompt': 'Screen name',
     'project.showCode': 'Show code',
     'project.pinReference': 'Pin as layout reference',
     'project.unpinReference': 'Unpin as reference',
     'project.editDesign': 'Edit DESIGN.md',
+    'project.deriveDesign': 'Make this screen my DESIGN.md',
+    'project.applyDesignConfirm':
+      'Use the DESIGN.md recorded with “{name}”? Your current document stays recoverable in the DESIGN.md panel.',
+    'project.deriveDesignBusy': 'Reading the screen…',
+    'project.deriveDesignConfirm':
+      'Replace your DESIGN.md with the one derived from “{name}”? The old text stays recoverable in the DESIGN.md panel.',
+    'project.deriveDesignEmpty': 'This screen has no code to read yet.',
+    'project.deriveDesignEmptyResult': 'The model returned nothing. Try again, or pick a more finished screen.',
     'project.displayFormat': 'Display format',
     'project.formatMobile': 'Mobile',
     'project.formatTablet': 'Tablet',

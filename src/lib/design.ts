@@ -3,9 +3,40 @@ export interface DesignConfig {
   markdown: string
   /** Whether to prepend it to generation prompts. */
   enabled: boolean
+  /**
+   * What the document held before it was last REPLACED wholesale — today, only
+   * by "derive from this screen". Hand edits do not touch it: they are
+   * incremental and the field would be overwritten on every keystroke, which is
+   * the opposite of an undo.
+   */
+  previousMarkdown?: string
+  /**
+   * Design systems the user has kept, by name.
+   *
+   * Stored INSIDE the design config rather than under a key of its own, and
+   * that is deliberate: `PUT /api/data` treats `design` as an opaque blob, so
+   * anything nested here syncs to the server and across devices for free.
+   * A sibling key would have needed sync.ts, the server payload and the
+   * reconcile path all taught about it.
+   */
+  library?: DesignEntry[]
 }
 
-import { scheduleSync } from './sync'
+/** One saved design system. `markdown` is the whole document, verbatim. */
+export interface DesignEntry {
+  id: string
+  name: string
+  markdown: string
+  createdAt: number
+  updatedAt: number
+  /**
+   * Where it came from, so the list can say — a system lifted off a screen and
+   * one written by hand are not the same kind of thing to their author.
+   */
+  origin?: 'manual' | 'screen' | 'muse'
+}
+
+import { scheduleSync, reportStorageFailure } from './sync'
 
 const STORAGE_KEY = 'mocky.design.v1'
 
@@ -25,13 +56,136 @@ export function loadDesign(): DesignConfig {
 }
 
 export function saveDesign(d: DesignConfig): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(d))
+  // A full quota must not take the app down. This runs from a useEffect in
+  // DesignPanel that fires on mount, so an unguarded throw reached the root
+  // ErrorBoundary: on an instance with no room left, merely opening the Design
+  // tab replaced the entire interface with the crash screen. Everywhere else in
+  // the codebase a quota error is an ordinary, reported condition.
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(d))
+  } catch (err) {
+    reportStorageFailure(err)
+    return
+  }
   scheduleSync()
 }
 
 /** True when a design system is configured and switched on. */
 export function isDesignActive(d: DesignConfig): boolean {
   return d.enabled && d.markdown.trim().length > 0
+}
+
+// ---- the named library ----
+//
+// Before this, DESIGN.md was a single mutable document: adopting a second look
+// meant destroying the first. That made every interesting move — comparing two
+// directions, keeping a house style beside an experiment, reusing what a screen
+// produced — into a copy-paste-into-a-text-file chore outside the tool.
+
+/** How many systems one account may keep. Generous; a bound all the same. */
+export const MAX_LIBRARY_ENTRIES = 50
+const MAX_NAME_LENGTH = 60
+
+function newEntryId(): string {
+  // crypto.randomUUID is not available on http:// origins in every browser, and
+  // Mocky is routinely reached over plain HTTP on a LAN.
+  return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+}
+
+/** Saved systems, newest first. Always an array, even on a legacy config. */
+export function listDesigns(d: DesignConfig = loadDesign()): DesignEntry[] {
+  return Array.isArray(d.library) ? [...d.library].sort((a, b) => b.updatedAt - a.updatedAt) : []
+}
+
+/**
+ * A name nobody else in the library is using.
+ *
+ * Duplicates are not refused — being told "that name is taken" while trying to
+ * save something is a interruption, not a service. A suffix is added instead,
+ * the way a file manager does it.
+ */
+export function uniqueDesignName(raw: string, existing: DesignEntry[]): string {
+  const base = (raw || '').trim().slice(0, MAX_NAME_LENGTH) || 'Design'
+  const taken = new Set(existing.map((e) => e.name.toLowerCase()))
+  if (!taken.has(base.toLowerCase())) return base
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${base} (${n})`
+    if (!taken.has(candidate.toLowerCase())) return candidate
+  }
+  return `${base} (${Date.now()})`
+}
+
+/** Keep a design system under a name. Returns the stored entry. */
+export function saveDesignToLibrary(
+  name: string,
+  markdown: string,
+  origin: DesignEntry['origin'] = 'manual',
+): DesignEntry {
+  const d = loadDesign()
+  const library = listDesigns(d)
+  if (library.length >= MAX_LIBRARY_ENTRIES) {
+    throw new Error(`You already have ${MAX_LIBRARY_ENTRIES} saved design systems. Delete one first.`)
+  }
+  const now = Date.now()
+  const entry: DesignEntry = {
+    id: newEntryId(),
+    name: uniqueDesignName(name, library),
+    markdown,
+    createdAt: now,
+    updatedAt: now,
+    origin,
+  }
+  saveDesign({ ...d, library: [...library, entry] })
+  return entry
+}
+
+export function renameDesignEntry(id: string, name: string): void {
+  const d = loadDesign()
+  const library = listDesigns(d)
+  const others = library.filter((e) => e.id !== id)
+  saveDesign({
+    ...d,
+    library: library.map((e) =>
+      e.id === id ? { ...e, name: uniqueDesignName(name, others), updatedAt: Date.now() } : e,
+    ),
+  })
+}
+
+export function deleteDesignEntry(id: string): void {
+  const d = loadDesign()
+  saveDesign({ ...d, library: listDesigns(d).filter((e) => e.id !== id) })
+}
+
+/**
+ * Make a saved system the current one.
+ *
+ * The document being replaced goes into `previousMarkdown`, so switching is
+ * always one click from being undone — the same safety the derive-from-screen
+ * path already has.
+ */
+export function applyDesignEntry(id: string): DesignEntry | null {
+  const d = loadDesign()
+  const entry = listDesigns(d).find((e) => e.id === id)
+  if (!entry) return null
+  saveDesign({ ...d, markdown: entry.markdown, enabled: true, previousMarkdown: d.markdown || undefined })
+  return entry
+}
+
+/** Is this exact document already saved? Used to avoid offering a duplicate. */
+export function findDesignByMarkdown(markdown: string, d: DesignConfig = loadDesign()): DesignEntry | null {
+  const needle = markdown.trim()
+  return listDesigns(d).find((e) => e.markdown.trim() === needle) ?? null
+}
+
+/**
+ * Turn the current document off without destroying it.
+ *
+ * Distinct from clearing: the markdown stays, so switching back on restores
+ * what was there. "Stop applying this" and "throw this away" are different
+ * intentions and used to share one button at the bottom of the page.
+ */
+export function setDesignEnabled(enabled: boolean): void {
+  saveDesign({ ...loadDesign(), enabled })
 }
 
 /**

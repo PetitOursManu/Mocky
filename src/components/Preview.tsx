@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Icon } from '../ui'
+import { Icon, ScreenSkeleton, Spinner } from '../ui'
 import { useT } from '../i18n'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
 import { resolveCapabilities } from '../lib/capabilities/select'
@@ -47,6 +47,23 @@ export interface DemoLink {
  * evaluates the class scanner in-browser. `blob:` covers the compiled module,
  * which is injected as a Blob URL script.
  */
+/**
+ * Pins the preview's Tailwind to the same settings the exported project uses.
+ *
+ * Play CDN defaults to `darkMode: 'media'`, so a `dark:` class in a generated
+ * screen followed the VIEWER'S operating-system preference. Two consequences,
+ * both wrong for a tool whose job is judging screens: the same mockup rendered
+ * differently on two machines, and it disagreed with its own export, which sets
+ * `darkMode: ['class']` (src/lib/export/project.ts). A mockup's appearance must
+ * come from the mockup — never from the room it is being looked at in.
+ *
+ * `class` and no `.dark` ancestor means the light branch always wins here. A
+ * screen that wants to be dark says so in its own classes, and still does.
+ */
+const TAILWIND_DETERMINISTIC_CONFIG = `<script>
+  try { tailwind.config = { darkMode: 'class' } } catch (e) {}
+</script>`
+
 function cspMeta(): string {
   // NOT 'self'. This document is sandboxed without allow-same-origin, so its
   // origin is opaque and 'self' serialises to "null" — it would match nothing,
@@ -188,6 +205,7 @@ ${cspMeta()}
 <script src="/vendor/react.production.min.js"></script>
 <script src="/vendor/react-dom.production.min.js"></script>
 <script src="/vendor/tailwind.min.js"></script>
+${TAILWIND_DETERMINISTIC_CONFIG}
 ${cdnLinks.join('\n')}
 ${cdnScripts.join('\n')}
 <script src="/vendor/babel.min.js"></script>
@@ -450,11 +468,16 @@ export default function Preview({
   const onCaptureRectRef = useRef(onCaptureRect)
   const onErrorRef = useRef(onError)
   const onContentHeightRef = useRef(onContentHeight)
+  // Same reasoning applied to a value rather than a callback: the listener needs
+  // to KNOW whether generation is running, but must not re-subscribe when that
+  // changes — re-subscribing resets `ready` and re-arms the render timeout.
+  const generatingRef = useRef(generating)
   onPickRef.current = onPick
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
   onErrorRef.current = onError
   onContentHeightRef.current = onContentHeight
+  generatingRef.current = generating
 
   // Build the iframe srcDoc from the generated code. We debounce 500ms so
   // rapid streaming chunks don't cause an iframe rebuild on every token. The
@@ -561,7 +584,7 @@ export default function Preview({
         timeoutHit = true
         clearTimeout(timeout)
         // Ignore errors while generating — the code is incomplete.
-        if (generating) return
+        if (generatingRef.current) return
         setError(d.message)
         // Only forward the error if the code hasn't changed since we built
         // the srcDoc. If it has, the error is from stale (incomplete) code
@@ -589,7 +612,15 @@ export default function Preview({
       clearTimeout(timeout)
       window.removeEventListener('message', onMsg)
     }
-  }, [srcDoc, frameId, code, generating])
+    // `generating` is read through a ref, NOT a dependency. As a dependency it
+    // re-armed this effect when generation merely ENDED — which is exactly what
+    // happens on a truncated answer: the model hits its token ceiling, so the
+    // final code equals the last streamed value, `srcDoc` does not change and
+    // the iframe never reloads, yet this effect reset `ready` and started a
+    // fresh 20-second clock for an "ok" that could no longer come. The screen
+    // sat under the "Rendering…" veil showing perfectly good output, then
+    // accused itself of a render timeout.
+  }, [srcDoc, frameId, code])
 
   // When a capture is requested, translate the client-space rect into this
   // screen's viewport coordinates (handles the device-frame inset + zoom) and
@@ -632,9 +663,20 @@ export default function Preview({
         />
       )}
       {(generating || (!ready && !error)) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface" style={{ borderRadius: radius }}>
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-ink/15 border-t-accent" />
-          <span className="text-body-sm text-ink-muted">{generating ? t('canvas.generating') : t('canvas.rendering')}</span>
+        // A skeleton, not a spinner. A ring says "something is happening
+        // somewhere"; blocks in the shape of a screen say what is arriving and
+        // roughly where — which is the useful thing on a canvas where several
+        // frames may be waiting at once. The label stays, because the two
+        // waits are not the same: the model is writing, or the frame is
+        // rendering what it wrote.
+        <div className="absolute inset-0 overflow-hidden bg-surface" style={{ borderRadius: radius }}>
+          <ScreenSkeleton />
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-surface/90 py-2">
+            <Spinner className="h-3.5 w-3.5" />
+            <span className="text-body-sm text-ink-muted">
+              {generating ? t('canvas.generating') : t('canvas.rendering')}
+            </span>
+          </div>
         </div>
       )}
       {/* While the auto-fixer is repairing a render error, show a calm state —

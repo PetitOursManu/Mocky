@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scheduleSync, reportStorageFailure } from './sync'
-import { visibleProjects, TOMBSTONE_TTL_MS } from './merge'
+import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -29,6 +29,20 @@ export interface Screen {
   previousCode?: string
   /** Selected capability IDs (e.g. ['motion', 'charts']) persisted for reload/edit. */
   caps?: string[]
+  /**
+   * The DESIGN.md this screen was actually generated from.
+   *
+   * A copy, taken at generation time, not a reference. The document is global
+   * and mutable: read it back later and you get whatever it says *now*, which
+   * is a different thing as soon as anyone edits it — so "the design used for
+   * this screen" could not be answered at all, and the canvas could only ever
+   * show the current one while implying it was this one's.
+   *
+   * Absent on screens generated before this existed, and on screens generated
+   * with no design system active. Both cases mean "nothing to show" rather than
+   * "empty design", and the UI distinguishes them.
+   */
+  design?: string
   /** Image Library hash of the Muse image backing this screen (shown on the canvas). */
   imageHash?: string
   /**
@@ -248,6 +262,82 @@ export function slotPosition(index: number): { x: number; y: number } {
   return { x: col * (DEFAULT_W + GAP), y: row * (DEFAULT_H + GAP) }
 }
 
+/** A positioned box on the canvas — the only part of a Screen layout cares about. */
+export interface Box {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** Do two boxes touch, once the gutter is counted as part of each? */
+function collides(a: Box, b: Box, gap = GAP): boolean {
+  return (
+    a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y
+  )
+}
+
+/**
+ * Where to drop a NEW screen so it lands on empty canvas.
+ *
+ * The old rule was `slotPosition(screens.length)`: a fixed 1024x720 cell on a
+ * three-column grid, indexed by how many screens existed. It overlapped in two
+ * separate ways, and both are routine rather than edge cases.
+ *
+ * First, the cell is one size and screens are not: a desktop screen is 1440
+ * wide, so it ran 336px into the next column every single time — and desktop is
+ * now the default format. Second, the index says nothing about occupancy: drag
+ * one screen anywhere (the ordinary thing to do on a canvas) and slot N is no
+ * longer free, yet the next screen was posted to it regardless.
+ *
+ * This scans a lattice sized to the INCOMING screen and returns the first
+ * position that touches nothing. Same reading order as before — left to right,
+ * then down — so where screens land still feels predictable.
+ */
+export function placeScreen(existing: Box[], w: number, h: number): { x: number; y: number } {
+  const boxes = existing.filter((b) => Number.isFinite(b.x) && Number.isFinite(b.y))
+  if (!boxes.length) return { x: 0, y: 0 }
+
+  // Anchor on the existing cluster rather than the origin, so a project whose
+  // screens were all dragged elsewhere does not get its next screen back at 0,0.
+  const originX = Math.min(...boxes.map((b) => b.x))
+  const originY = Math.min(...boxes.map((b) => b.y))
+  const stepX = w + GAP
+  const stepY = h + GAP
+
+  for (let row = 0; row < 400; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const cand: Box = { x: originX + col * stepX, y: originY + row * stepY, w, h }
+      if (!boxes.some((b) => collides(cand, b))) return { x: cand.x, y: cand.y }
+    }
+  }
+  // Unreachable in practice; below everything is still a correct answer.
+  return { x: originX, y: Math.max(...boxes.map((b) => b.y + b.h)) + GAP }
+}
+
+/**
+ * Lay a whole set out again — what the "Arrange" button does.
+ *
+ * Row height is the tallest screen IN THAT ROW and each column is as wide as it
+ * needs to be, so a mobile screen next to a desktop one no longer has the
+ * desktop one written across it. Order is preserved: arranging must be
+ * predictable, not clever.
+ */
+export function packScreens(screens: Box[], maxPerRow = COLS): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = []
+  let rowTop = 0
+  for (let i = 0; i < screens.length; i += maxPerRow) {
+    const row = screens.slice(i, i + maxPerRow)
+    let x = 0
+    for (const s of row) {
+      out.push({ x, y: rowTop })
+      x += (Number.isFinite(s.w) ? s.w : DEFAULT_W) + GAP
+    }
+    rowTop += Math.max(...row.map((s) => (Number.isFinite(s.h) ? s.h : DEFAULT_H))) + GAP
+  }
+  return out
+}
+
 /** Backfill x/y/w/h on screens loaded from storage (older records lacked them). */
 function normalizeScreen(s: Partial<Screen>, index: number): Screen {
   const pos =
@@ -265,6 +355,10 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     device: s.device === 'iphone' ? 'iphone' : 'none',
     links: Array.isArray(s.links) ? s.links : [],
     caps: Array.isArray(s.caps) ? s.caps : [],
+    // Trimmed, not padded: a stored empty string would claim "this screen was
+    // generated with an empty design system", which is not the same as "no
+    // design system was recorded for this screen".
+    design: typeof s.design === 'string' && s.design.trim() ? s.design : undefined,
     imageHash: typeof s.imageHash === 'string' ? s.imageHash : undefined,
     imageRole:
       s.imageRole === 'content' || s.imageRole === 'inspiration' || s.imageRole === 'both'
@@ -362,7 +456,16 @@ export function useProjects() {
       if (e.key !== PROJECTS_KEY || e.newValue == null) return
       try {
         const incoming = JSON.parse(e.newValue)
-        if (Array.isArray(incoming)) setProjects(incoming as Project[])
+        // Merge, don't replace. Wholesale replacement fixed "last writer wins"
+        // in one direction and recreated it in the other: this tab's own writes
+        // are debounced 300 ms, so a screen mid-generation was not in the other
+        // tab's snapshot yet — adopting that snapshot dropped the screen, and
+        // every later onUpdateScreen for it became a silent no-op against an id
+        // that no longer existed. mergeProjects resolves per project by
+        // updatedAt and keeps what only one side knows about.
+        if (Array.isArray(incoming)) {
+          setProjects((prev) => mergeProjects(prev, incoming as Project[]))
+        }
       } catch {
         /* another tab wrote something unparseable — keep what we have */
       }
@@ -402,7 +505,10 @@ export function useProjects() {
     setProjects((prev) =>
       prev.map((p) => {
         if (p.id !== projectId) return p
-        const full: Screen = { ...screen, ...slotPosition(p.screens.length) }
+        // Placed against what is actually on the canvas, not against a count.
+        const w = typeof screen.w === 'number' ? screen.w : DEFAULT_W
+        const h = typeof screen.h === 'number' ? screen.h : DEFAULT_H
+        const full: Screen = { ...screen, ...placeScreen(p.screens, w, h) }
         return { ...p, screens: [...p.screens, full], updatedAt: Date.now() }
       }),
     )

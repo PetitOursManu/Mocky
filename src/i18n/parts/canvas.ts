@@ -28,6 +28,15 @@ export const canvas = {
       'Aucune demande enregistrée pour cet écran (créé avant cette fonctionnalité, ou importé).',
 
     // ---- Muse image beside a frame ----
+    'canvas.deriveDesign': 'En déduire un DESIGN.md',
+    'canvas.designUsed': 'DESIGN.md utilisé',
+    'canvas.dossierUsed': 'Dossier Muse utilisé',
+    'canvas.applyDesign': 'Reprendre ce design',
+    'canvas.applyDesignTitle':
+      'Remettre ce DESIGN.md comme système courant, à l’identique. C’est la copie enregistrée au moment où cet écran a été généré — aucune relecture, aucun appel au modèle.',
+    'canvas.deriveDesignBusy': 'Lecture…',
+    'canvas.deriveDesignTitle':
+      'Écrire le système de design de cet écran dans DESIGN.md, pour que les prochains écrans lui ressemblent. L’ancien texte restera récupérable.',
     'canvas.imageRole.contentLabel': 'Insérée',
     'canvas.imageRole.contentTitle':
       'Image de CONTENU — elle est placée dans l’écran comme une vraie <img>. Cliquer pour l’ouvrir en grand.',
@@ -77,6 +86,15 @@ export const canvas = {
     'canvas.noPrompt': 'No request was recorded for this screen (created before this feature, or imported).',
 
     // ---- Muse image beside a frame ----
+    'canvas.deriveDesign': 'Derive a DESIGN.md',
+    'canvas.designUsed': 'DESIGN.md used',
+    'canvas.dossierUsed': 'Muse dossier used',
+    'canvas.applyDesign': 'Use this design',
+    'canvas.applyDesignTitle':
+      'Make this DESIGN.md the current one, exactly. It is the copy recorded when this screen was generated — no re-reading, no model call.',
+    'canvas.deriveDesignBusy': 'Reading…',
+    'canvas.deriveDesignTitle':
+      'Write this screen’s design system into DESIGN.md, so the next screens look like it. The old text stays recoverable.',
     'canvas.imageRole.contentLabel': 'Placed',
     'canvas.imageRole.contentTitle':
       'CONTENT image — it sits in the screen as a real <img>. Click to open it full size.',

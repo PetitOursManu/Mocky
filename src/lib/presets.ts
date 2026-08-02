@@ -25,7 +25,16 @@ export const PRESETS: Preset[] = [
   { id: 'tablet', label: 'Tablet', badge: '▭ Tablet', w: 820, h: 1180, device: 'none', hint: TABLET_HINT },
 ]
 
-export const DEFAULT_PRESET_ID = 'mobile'
+/**
+ * Desktop, not mobile.
+ *
+ * Mocky is used on a desktop to judge screens on a desktop, and a 390px column
+ * is the wrong first answer for most briefs — every screen came out as a phone
+ * unless the format was changed before generating, which is a step people skip.
+ * The phone remains one click away and its device frame is still the nicer
+ * demo; it is simply no longer what you get without asking.
+ */
+export const DEFAULT_PRESET_ID = 'desktop'
 
 export function getPreset(id: string): Preset {
   return PRESETS.find((p) => p.id === id) ?? PRESETS[0]
