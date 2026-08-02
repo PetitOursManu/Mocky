@@ -148,6 +148,10 @@ work.
 
 ## The three image modes
 
+![The Media library](../assets/06-media.png)
+
+*Every image Muse generates lands in the Media library, shared across projects and searchable by the prompt that made it.*
+
 The generated image can serve three different purposes, and it is an explicit
 choice in the Muse panel.
 

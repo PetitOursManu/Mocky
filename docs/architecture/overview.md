@@ -157,6 +157,10 @@ the structure.
 
 ## 4. Generation
 
+![A generated screen, rendered at full size](../assets/11-screen-hero.png)
+
+*What comes out: a single self-contained React + Tailwind component, compiled inside the sandbox and rendered live.*
+
 ### The sentinel protocol
 
 The model is asked to wrap its output:
@@ -251,6 +255,10 @@ AST walk rather than a regular expression. See
 ---
 
 ## 5. The sandbox
+
+![The mode toolbar of a project](../assets/08-toolbar.png)
+
+*The eight verbs of a project. Link, Modify, Interact and Annotate all act through the sandboxed preview; Frame, System, Demo and Export act on the canvas around it.*
 
 `src/components/Preview.tsx` builds a self-contained HTML document and injects it
 as `srcDoc`.

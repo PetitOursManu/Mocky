@@ -164,6 +164,10 @@ déjà la structure.
 
 ## 4. La génération
 
+![Un écran généré, rendu en pleine taille](../../assets/11-screen-hero.png)
+
+*Ce qui sort : un composant React + Tailwind autonome, compilé dans le bac à sable et affiché en direct.*
+
 ### Le protocole à sentinelles
 
 On demande au modèle d'encadrer sa sortie :

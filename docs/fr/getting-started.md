@@ -64,6 +64,10 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 
 ## Première utilisation
 
+![La manchette de Mocky : navigation, thème, compte](../assets/01-header.png)
+
+*La manchette est la même partout : les sections à droite, puis le thème et votre compte.*
+
 1. Ouvrez Mocky. La boîte de connexion apparaît et **ne peut pas être fermée**.
    Il n'existe pas de mode anonyme.
 2. Créez le premier compte. **Il devient l'administrateur de l'instance.** Il n'y
@@ -72,7 +76,11 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 3. Configurez un modèle de texte. Voir la section suivante.
 4. Décrivez un écran et générez-le.
 
-![L'accueil : la liste des projets](assets/01-accueil-projets.png)
+![Le composer : format, design, Muse, animations, demande](../assets/09-composer.png)
+
+*Le composer. Le format d’abord, puis les trois interrupteurs qui décident de ce que reçoit le modèle — votre système de design, Muse, et le mouvement.*
+
+![L'accueil : la liste des projets](../assets/02-home-projects.png)
 
 *L'accueil après une première génération. Le projet le plus récent est « à la une », avec sa vignette ; les projets sans écran sont regroupés en bas.*
 
@@ -103,10 +111,6 @@ celle en cours, qui reçoit immédiatement un jeton neuf.
 
 ## Configurer un modèle de texte
 
-![La page DESIGN.md : le document actuel, et les styles prédéfinis](assets/02-design-md.png)
-
-*DESIGN.md. La barre du haut agit sur le document actif ; en dessous, les styles prêts à l'emploi, chacun rendu tel qu'il produira les écrans.*
-
 Il y a deux modes, et ils s'excluent. Le mode instance l'emporte toujours sur le
 mode navigateur.
 
@@ -120,7 +124,9 @@ La clé est conservée dans le `localStorage` de ce navigateur, sous
 `mocky.settings.v1`. Elle n'est jamais écrite côté serveur. Elle traverse
 `/__provider` en en-tête `Authorization`, le temps de chaque requête.
 
-![L'écran Réglages](assets/04-reglages.png)
+![L'écran Réglages : fournisseur, URL de base, clé, modèle](../assets/05-settings.png)
+
+*Réglages. C’est le mode par navigateur : la clé ne quitte pas cette machine.*
 
 Ce mode proposait autrefois un seul fournisseur, Ollama Cloud — non pas parce
 que les autres ne pouvaient pas fonctionner, mais parce que le navigateur ne
@@ -135,6 +141,10 @@ Allez dans **Admin → Modèles de texte**. La clé est stockée sur le serveur,
 Réglages personnels de chacun sont alors ignorés.
 
 `server/text/config.js` déclare six fournisseurs.
+
+![L'écran Admin : modèles de texte et d'images pour toute l'instance](../assets/07-admin.png)
+
+*Admin. Un modèle défini ici sert à tous les comptes, et les Réglages personnels de chacun sont alors ignorés.*
 
 | id | Dialecte | URL de base par défaut | Modèle par défaut |
 |---|---|---|---|

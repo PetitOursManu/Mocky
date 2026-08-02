@@ -10,9 +10,9 @@ were made. They assume you know React and TypeScript.
 > The repository `README.md` is the product overview: what Mocky does and how to
 > install it quickly. This documentation covers the internals.
 
-![A project canvas: two generated screens, the toolbar, the composer](assets/06-canvas-projet.png)
+![A project canvas: two generated screens, the mode toolbar, the composer](assets/13-canvas-project.png)
 
-*A project open: screens sit side by side on an infinite canvas, and the composer at the bottom describes the next one.*
+*A project open. Screens sit side by side on an infinite canvas; the bar at the top switches modes, and the composer at the bottom describes the next screen.*
 
 ---
 

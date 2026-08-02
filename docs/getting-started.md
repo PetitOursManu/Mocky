@@ -64,6 +64,10 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 
 ## First run
 
+![The Mocky masthead: navigation, theme switch, account](assets/01-header.png)
+
+*The masthead is the same on every screen: the sections on the right, then the theme switch and your account.*
+
 1. Open Mocky. The sign-in box appears and **cannot be dismissed**. There is no
    anonymous mode.
 2. Create the first account. **It becomes the instance administrator.** There is
@@ -72,7 +76,11 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 3. Configure a text model. See the next section.
 4. Describe a screen and generate it.
 
-![The home page: your projects](assets/01-accueil-projets.png)
+![The composer: format, design, Muse, animations, prompt](assets/09-composer.png)
+
+*The composer. Format first, then the three switches that decide what the model is given — your design system, Muse, and motion.*
+
+![The home page: your projects](assets/02-home-projects.png)
 
 *The home page after a first generation. The most recent project leads, with its thumbnail; projects with no screens are grouped at the bottom.*
 
@@ -99,10 +107,6 @@ which immediately receives a fresh token.
 
 ---
 
-![The DESIGN.md page: the current document, and the preset styles](assets/02-design-md.png)
-
-*DESIGN.md. The bar at the top acts on the active document; below it, ready-made styles, each rendered as it will make your screens look.*
-
 ## Configure a text model
 
 There are two modes and they are mutually exclusive. The instance mode always
@@ -118,6 +122,10 @@ The key is stored in that browser's `localStorage` under `mocky.settings.v1` and
 is never written server-side. It passes through `/__provider` as an
 `Authorization` header for the duration of each request.
 
+![The Settings screen: provider, base URL, key, model](assets/05-settings.png)
+
+*Settings. This is the per-browser mode: the key is stored in this browser only.*
+
 This mode used to offer a single provider, Ollama Cloud — not because the others
 could not work, but because the browser never told the server which dialect its
 endpoint spoke. It does now (the `x-provider-kind` header), and
@@ -130,6 +138,10 @@ Go to **Admin → Text models**. The key is stored on the server in
 Settings are then ignored.
 
 `server/text/config.js` declares six providers.
+
+![The Admin screen: instance-wide text and image models](assets/07-admin.png)
+
+*Admin. A model set here is used by every account on the instance, and each user’s personal Settings are ignored.*
 
 | id | Dialect | Default base URL | Default model |
 |---|---|---|---|

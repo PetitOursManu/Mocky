@@ -156,6 +156,10 @@ l'effet ne peut pas fonctionner.
 
 ## Les trois modes d'image
 
+![La bibliothèque Média](../../assets/06-media.png)
+
+*Chaque image produite par Muse arrive dans la bibliothèque Média, partagée entre les projets et cherchable par la demande qui l’a créée.*
+
 L'image générée peut servir à trois choses différentes, et c'est un choix
 explicite dans le panneau Muse.
 
