@@ -4,6 +4,7 @@
 // looks like a hash, exactly as the images router does.
 import express from 'express'
 import { readRawBody } from '../provider-proxy.js'
+import { quotaError } from '../storage-quota.js'
 
 const HASH_RE = /^[a-f0-9]{64}$/
 
@@ -25,7 +26,7 @@ const MAX_VIDEO_BYTES = 200 * 1024 * 1024
  */
 export const PUBLIC_VIDEO_PATH = /^\/[a-f0-9]{64}\/(poster\.jpg|f\/[0-9]{1,4}\.jpg)$/
 
-export function createVideosRouter({ library, generate, availability, recheck, frameSettings }) {
+export function createVideosRouter({ library, generate, availability, recheck, frameSettings, budget }) {
   const router = express.Router()
 
   // Immutable, content-addressed: cache for a year.
@@ -90,6 +91,15 @@ export function createVideosRouter({ library, generate, availability, recheck, f
     }
     try {
       const buffer = await readRawBody(req, MAX_VIDEO_BYTES)
+      // A clip is kept whole AND expanded into up to 150 stills, so the disk
+      // cost is a multiple of what was uploaded. Three times is the shape
+      // observed on real sequences; under-reserving here is how a "within
+      // quota" upload still fills the volume.
+      // Refuse BEFORE writing. A store that is already full fails its writes
+      // silently (every _persist swallows), so the honest place to stop is here.
+      if (budget?.wouldExceed(buffer.length * 3)) {
+        return res.status(507).json({ error: quotaError(budget.usage()) })
+      }
       const out = await library.ingest(
         buffer,
         {

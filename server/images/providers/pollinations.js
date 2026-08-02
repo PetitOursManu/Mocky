@@ -1,3 +1,5 @@
+import { fetchWithTimeout, PROBE_TIMEOUT_MS } from './timeout.js'
+
 // Pollinations image provider — the DEFAULT, zero-key path (prompt §4.1).
 // URL-based API: https://image.pollinations.ai/prompt/{prompt}?width=&height=&seed=&model=flux
 // A free token (Advanced settings) raises rate limits; without it the free tier
@@ -33,7 +35,7 @@ export function createPollinations(opts = {}) {
 
     async healthy() {
       try {
-        const res = await fetchImpl(`${BASE}/`, { method: 'GET' })
+        const res = await fetchWithTimeout(fetchImpl, `${BASE}/`, { method: 'GET' }, PROBE_TIMEOUT_MS)
         return !!res && (res.ok || res.status === 405 || res.status === 404)
       } catch {
         return false
@@ -42,7 +44,7 @@ export function createPollinations(opts = {}) {
 
     async generate(req) {
       const url = buildUrl(req)
-      const res = await fetchImpl(url, { method: 'GET' })
+      const res = await fetchWithTimeout(fetchImpl, url, { method: 'GET' })
       if (!res || !res.ok) {
         throw new Error(`pollinations HTTP ${res ? res.status : 'no-response'}`)
       }

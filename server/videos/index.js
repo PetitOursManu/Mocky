@@ -16,7 +16,7 @@ import { createVideosRouter } from './routes.js'
  * @param {import('../images/config.js').ImagesConfigStore} deps.configStore
  * @param {Function} [deps.fetchImpl]  injected for tests
  */
-export function createVideos({ dataDir, configStore, fetchImpl } = {}) {
+export function createVideos({ dataDir, configStore, fetchImpl, budget } = {}) {
   const library = new VideoLibrary(dataDir)
 
   /**
@@ -106,6 +106,7 @@ export function createVideos({ dataDir, configStore, fetchImpl } = {}) {
   }
 
   const router = createVideosRouter({
+    budget,
     library,
     generate,
     availability,

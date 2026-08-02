@@ -3,7 +3,7 @@
   "mcpServers": {
     "fetcher": {
       "command": "npx",
-      "args": ["-y", "fetcher-mcp"],
+      "args": ["-y", "fetcher-mcp@0.2.1"],
       "autoStart": false,
       "role": "inspiration-fetch",
       "idleTimeoutMs": 300000

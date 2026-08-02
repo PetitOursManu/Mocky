@@ -165,3 +165,66 @@ describe('readRawBody', () => {
     await expect(readRawBody(req, 100)).rejects.toThrow(/too large/)
   })
 })
+
+/**
+ * The Muse inspiration fetcher called the SYNCHRONOUS half of the guard, which
+ * only ever looks at the literal text of a URL. A hostname that resolves to an
+ * internal address sailed through untouched — and a wildcard-DNS service makes
+ * that trick free: `127.0.0.1.nip.io` is an ordinary-looking name whose A record
+ * is the loopback. Any account could then read a NAS, a router admin page or a
+ * cloud metadata endpoint through the dossier the route hands back.
+ *
+ * These pin the resolved guard to the two shapes that mattered. They do not
+ * touch the network: the resolver is injected.
+ */
+describe('resolved guard vs. DNS pointing at an internal address', () => {
+  const withStubbedDns = async (addresses, fn) => {
+    const dns = await import('node:dns/promises')
+    const real = dns.default.lookup
+    dns.default.lookup = async () => addresses
+    try {
+      return await fn()
+    } finally {
+      dns.default.lookup = real
+    }
+  }
+
+  it('refuses a hostname that resolves to loopback', async () => {
+    await withStubbedDns([{ address: '127.0.0.1', family: 4 }], async () => {
+      await expect(assertSafeTargetResolved('http://127.0.0.1.nip.io/')).rejects.toThrow(/Private\/internal/)
+    })
+  })
+
+  it('refuses a hostname that resolves to the cloud metadata endpoint', async () => {
+    await withStubbedDns([{ address: '169.254.169.254', family: 4 }], async () => {
+      await expect(assertSafeTargetResolved('http://metadata.example.test/')).rejects.toThrow(/Private\/internal/)
+    })
+  })
+
+  it('refuses when only ONE of several answers is internal', async () => {
+    await withStubbedDns(
+      [
+        { address: '93.184.216.34', family: 4 },
+        { address: '10.0.0.5', family: 4 },
+      ],
+      async () => {
+        await expect(assertSafeTargetResolved('http://split.example.test/')).rejects.toThrow(/Private\/internal/)
+      },
+    )
+  })
+
+  it('still allows an ordinary public host', async () => {
+    await withStubbedDns([{ address: '93.184.216.34', family: 4 }], async () => {
+      await expect(assertSafeTargetResolved('https://example.test/')).resolves.toBeInstanceOf(URL)
+    })
+  })
+
+  it('is the guard the Muse fetcher actually calls', async () => {
+    // The point of the fix: fetcher.js must import the RESOLVED guard. Calling
+    // the synchronous one there is what made every case above reachable.
+    const fs = await import('node:fs')
+    const src = fs.readFileSync(new URL('./muse/fetch/fetcher.js', import.meta.url), 'utf8')
+    expect(src).toMatch(/await assertSafeTargetResolved\(url\)/)
+    expect(src).not.toMatch(/[^a-zA-Z]assertSafeTarget\(/)
+  })
+})

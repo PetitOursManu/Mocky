@@ -16,7 +16,7 @@ CDN at runtime, for three reasons:
    `<script src>` would be blocked by it.
 
 This is invariant **I3** in `docs/adr/001-muse.md` ("No CDN `<script>` for JS").
-`src/components/Preview.sandbox.test.ts` fails the build if an `http(s)://`
+`tests/preview-sandbox.test.js` fails the build if an `http(s)://`
 script tag reappears in the preview pipeline.
 
 ## Contents

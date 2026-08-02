@@ -16,6 +16,16 @@ import { KIND_OLLAMA, KIND_OPENAI } from './dialect.js'
 export const TEXT_PROVIDERS = [
   { id: 'ollama-cloud', label: 'Ollama Cloud', kind: KIND_OLLAMA, baseUrl: 'https://ollama.com', model: 'gpt-oss:120b' },
   { id: 'openai', label: 'OpenAI', kind: KIND_OPENAI, baseUrl: 'https://api.openai.com', model: 'gpt-4o-mini' },
+  // Anthropic publishes an OpenAI-compatible surface at /v1/chat/completions
+  // with Bearer auth, so the existing translation covers it and no new dialect
+  // code is needed — the entry is purely declarative, like every other preset.
+  {
+    id: 'anthropic',
+    label: 'Anthropic (Claude)',
+    kind: KIND_OPENAI,
+    baseUrl: 'https://api.anthropic.com',
+    model: 'claude-sonnet-4-5',
+  },
   { id: 'openrouter', label: 'OpenRouter', kind: KIND_OPENAI, baseUrl: 'https://openrouter.ai/api', model: 'openai/gpt-4o-mini' },
   // fal.ai exposes an OpenAI-compatible passthrough (routed via OpenRouter), so
   // the existing translation covers it — only the auth scheme differs: fal wants
@@ -205,13 +215,21 @@ export class TextConfigStore {
 
   update(patch) {
     this.config = mergeTextConfig(this.config, patch)
+    this.lastPersistError = null
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true })
       const tmp = `${this.file}.${crypto.randomBytes(6).toString('hex')}.tmp`
-      fs.writeFileSync(tmp, JSON.stringify(this.config, null, 2))
+      // 0600: this file holds provider API keys in clear text. The default 0644
+      // left the host's billable credentials readable by every other account on
+      // the machine — the same reasoning already applied to users.json.
+      fs.writeFileSync(tmp, JSON.stringify(this.config, null, 2), { mode: 0o600 })
       fs.renameSync(tmp, this.file)
-    } catch {
-      // Still applied in memory — never throw.
+    } catch (err) {
+      // Still applied in memory — never throw. But say so: silently swallowing
+      // this meant an admin pasted a key, saw it confirmed, generated happily,
+      // and found it gone after a restart with not one line of log.
+      this.lastPersistError = err.message
+      console.error(`mocky: could not save text-provider config to ${this.file} — ${err.message}`)
     }
     return this.config
   }

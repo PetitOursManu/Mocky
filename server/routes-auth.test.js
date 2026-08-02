@@ -102,6 +102,9 @@ const GUARDED = [
   ['GET', '/api/admin/config', ''],
   ['GET', '/api/admin/images/config', ''],
   ['GET', '/api/admin/text/config', ''],
+  ['POST', '/api/admin/text/models', 'makes the server call the provider with the instance key'],
+  ['POST', '/api/share', 'minting a link is what DECIDES something becomes publicly readable'],
+  ['GET', '/api/share', 'lists this account’s live links'],
 ]
 
 const call = (method, p) =>
@@ -126,26 +129,50 @@ describe('anonymous access boundary', () => {
 })
 
 describe('provider proxy', () => {
-  const proxy = (method, p) =>
+  const proxy = (method, p, cookie) =>
     fetch(`${base}/__provider${p}`, {
       method,
-      headers: { 'content-type': 'application/json', 'x-provider-base': 'https://example.invalid' },
+      headers: {
+        'content-type': 'application/json',
+        'x-provider-base': 'https://example.invalid',
+        ...(cookie ? { cookie } : {}),
+      },
       body: method === 'GET' ? undefined : '{}',
     })
 
-  it('refuses model-management endpoints', async () => {
+  /** Session cookie for the instance's one account, created on first use. */
+  let cookie = ''
+  beforeAll(async () => {
+    const res = await fetch(`${base}/api/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'proxytest', password: 'correct-horse' }),
+    })
+    cookie = (res.headers.get('set-cookie') || '').split(';')[0]
+  })
+
+  // The proxy makes the server issue an outbound request. Unauthenticated, that
+  // is an open relay running from the host's IP on the host's credits — so the
+  // session check comes before anything else, including the allow-list.
+  it('refuses anonymous callers outright', async () => {
+    for (const p of ['/api/chat', '/api/tags', '/api/delete']) {
+      expect((await proxy('POST', p)).status, p).toBe(401)
+    }
+  })
+
+  it('refuses model-management endpoints even with a session', async () => {
     for (const [m, p] of [
       ['DELETE', '/api/delete'],
       ['POST', '/api/pull'],
       ['POST', '/api/create'],
     ]) {
-      expect((await proxy(m, p)).status, `${m} ${p}`).toBe(404)
+      expect((await proxy(m, p, cookie)).status, `${m} ${p}`).toBe(404)
     }
   })
 
   it('does not 404 the two endpoints the app uses', async () => {
     for (const p of ['/api/chat', '/api/tags']) {
-      expect((await proxy('POST', p)).status, p).not.toBe(404)
+      expect((await proxy('POST', p, cookie)).status, p).not.toBe(404)
     }
   })
 })
@@ -159,5 +186,57 @@ describe('response headers', () => {
     const h = (await call('GET', '/api/config')).headers
     expect(h.get('x-content-type-options')).toBe('nosniff')
     expect(h.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
+  })
+})
+
+describe('security headers for a publicly reachable instance', () => {
+  it('declares a Permissions-Policy', async () => {
+    const h = (await call('GET', '/api/config')).headers
+    expect(h.get('permissions-policy')).toMatch(/camera=\(\)/)
+  })
+
+  it('does not send HSTS over plain HTTP', async () => {
+    // Sending it from a LAN instance reached over http:// would pin browsers to
+    // an https:// URL that does not answer — the classic way to lock yourself
+    // out of your own tool.
+    const h = (await call('GET', '/api/config')).headers
+    expect(h.get('strict-transport-security')).toBeNull()
+  })
+})
+
+/**
+ * A share link is a capability: the URL is the whole authority. Two properties
+ * decide whether that is safe, and both are pinned here — reading one needs no
+ * account (that is the point), and an unknown token is indistinguishable from
+ * an expired or revoked one (so probing the route teaches nothing).
+ */
+describe('share links', () => {
+  it('reads without a session — the token IS the authority', async () => {
+    // 404 rather than 401: the route is reachable, the token simply is not real.
+    const res = await call('GET', `/api/share/${'a'.repeat(64)}`)
+    expect(res.status).toBe(404)
+  })
+
+  it('answers the same for malformed, unknown and expired tokens', async () => {
+    const codes = []
+    for (const t of ['short', 'Z'.repeat(64), 'b'.repeat(64), '../../etc/passwd']) {
+      codes.push((await call('GET', `/api/share/${encodeURIComponent(t)}`)).status)
+    }
+    // One answer for every kind of miss: anything else confirms which tokens
+    // were once real.
+    expect(new Set(codes).size).toBe(1)
+    expect(codes[0]).toBe(404)
+  })
+})
+
+describe('account picture', () => {
+  it('needs a session to read, upload or remove', async () => {
+    for (const [m, p] of [
+      ['GET', '/api/account/avatar'],
+      ['POST', '/api/account/avatar'],
+      ['DELETE', '/api/account/avatar'],
+    ]) {
+      expect((await call(m, p)).status, `${m} ${p}`).toBe(401)
+    }
   })
 })

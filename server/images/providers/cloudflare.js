@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from './timeout.js'
+
 // Cloudflare Workers AI image provider (free tier available, needs an account
 // id + API token). Endpoint:
 //   POST https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/run/{model}
@@ -32,7 +34,7 @@ export function createCloudflareImages(opts = {}) {
       if (req.width) body.width = Number(req.width)
       if (req.height) body.height = Number(req.height)
 
-      const res = await fetchImpl(url, {
+      const res = await fetchWithTimeout(fetchImpl, url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${apiToken}` },
         body: JSON.stringify(body),

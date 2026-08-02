@@ -7,15 +7,42 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { handleProviderProxy, profileFromRequest, assertSafeTargetResolved } from './provider-proxy.js'
+import { handleProviderProxy, profileFromRequest, assertSafeTargetResolved, readRawBody } from './provider-proxy.js'
 import { createMuse } from './muse/index.js'
 import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
 import { createVideos } from './videos/index.js'
 import { PUBLIC_VIDEO_PATH } from './videos/routes.js'
 import { TextConfigStore, looksLikeImageModel } from './text/config.js'
+import { createLockout } from './auth-lockout.js'
+import { createDiskBudget } from './storage-quota.js'
+import { createShareStore } from './share.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// ---- .env loader (no dependency) ----
+// Reads KEY=VALUE lines from <repo>/.env into process.env (does not override
+// existing values). Lets SSO_* be configured locally without adding dotenv.
+//
+// This runs FIRST, before anything reads process.env. It used to sit below
+// DATA_DIR, which made MOCKY_DATA_DIR the one variable a .env could not set:
+// state kept going to server/data while the admin backed up the mounted volume
+// they thought they had configured.
+{
+  const envFile = path.join(__dirname, '..', '.env')
+  try {
+    const raw = fs.readFileSync(envFile, 'utf8')
+    for (const line of raw.split(/\r?\n/)) {
+      const m = /^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/.exec(line.trim())
+      if (m && process.env[m[1]] === undefined) {
+        process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '')
+      }
+    }
+  } catch {
+    /* no .env — fine */
+  }
+}
+
 // Overridable so a deployment can put state on a mounted volume elsewhere, and
 // so tests can run against a throwaway directory instead of real user data.
 const DATA_DIR = process.env.MOCKY_DATA_DIR
@@ -41,38 +68,32 @@ try {
 const muse = createMuse({ rootDir: ROOT_DIR, dataDir: DATA_DIR })
 muse.host.startAutoStart().catch(() => {}) // best-effort; never blocks boot
 
+// ---- disk budget ----
+// Shared by the image and video libraries: they are the only two things here
+// that grow without an upper bound, and they grow from user input. Seeded once
+// at boot rather than measured per request — see server/storage-quota.js.
+const diskBudget = createDiskBudget({
+  dirs: [path.join(DATA_DIR, 'image-library'), path.join(DATA_DIR, 'video-library')],
+})
+
 // ---- Muse image service + global Image Library ----
 // Lazy: no provider probe or generation until a request hits /api/images.
-const images = createImages({ dataDir: DATA_DIR })
+const images = createImages({ dataDir: DATA_DIR, budget: diskBudget })
 
 // ---- Scroll-sequence videos ----
 // Shares the admin config store with the image service (one Admin screen, one
 // file) but nothing else: different provider, different storage shape, and a
 // dependency on ffmpeg that the image path does not have. Lazy in the same way
 // — nothing is probed until a request arrives.
-const videos = createVideos({ dataDir: DATA_DIR, configStore: images.configStore })
+const videos = createVideos({ dataDir: DATA_DIR, configStore: images.configStore, budget: diskBudget })
 
 // ---- Admin-configured text (LLM) provider ----
 // When unset, the proxy keeps using the credentials the browser sends.
 const textConfig = new TextConfigStore(DATA_DIR)
 
-// ---- .env loader (no dependency) ----
-// Reads KEY=VALUE lines from <repo>/.env into process.env (does not override
-// existing values). Lets SSO_* be configured locally without adding dotenv.
-{
-  const envFile = path.join(__dirname, '..', '.env')
-  try {
-    const raw = fs.readFileSync(envFile, 'utf8')
-    for (const line of raw.split(/\r?\n/)) {
-      const m = /^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/.exec(line.trim())
-      if (m && process.env[m[1]] === undefined) {
-        process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '')
-      }
-    }
-  } catch {
-    /* no .env — fine */
-  }
-}
+// ---- share links ----
+// Kept next to the other stores: same directory, same atomic-write discipline.
+const shares = createShareStore(DATA_DIR)
 
 // ---- SSO ("Sign in with Dashy") config ----
 // Mocky acts as a client app; Dashy is the identity provider. Disabled unless
@@ -83,7 +104,18 @@ const textConfig = new TextConfigStore(DATA_DIR)
 const SSO_SHARED_SECRET = process.env.SSO_SHARED_SECRET || ''
 const SSO_DASHY_URL = (process.env.SSO_DASHY_URL || '').replace(/\/+$/, '')
 const MOCKY_ORIGIN = (process.env.MOCKY_ORIGIN || '').replace(/\/+$/, '')
-const ssoEnabled = Boolean(SSO_SHARED_SECRET && SSO_DASHY_URL)
+// MOCKY_ORIGIN is required, not optional. The token's `aud` claim is the only
+// thing stopping a token Dashy minted for ANOTHER client app — one that shares
+// the same SSO_SHARED_SECRET — from being replayed here. Without MOCKY_ORIGIN
+// the expected audience fell back to the caller's own Origin/Host header, so
+// the caller chose the value it was going to be checked against.
+const ssoEnabled = Boolean(SSO_SHARED_SECRET && SSO_DASHY_URL && MOCKY_ORIGIN)
+if (SSO_SHARED_SECRET && SSO_DASHY_URL && !MOCKY_ORIGIN) {
+  console.error(
+    '\nMocky: SSO is configured but MOCKY_ORIGIN is not set, so SSO stays OFF.\n' +
+      "  Set MOCKY_ORIGIN to this instance's public origin (e.g. https://mocky.example.com).\n",
+  )
+}
 
 // ---- tiny JSON file store ----
 // Reads are plain; writes are atomic (write to a temp file then rename) so a
@@ -276,6 +308,15 @@ const publicUser = (u) => ({
   username: u.username,
   role: u.role || 'user',
   mustChangePassword: Boolean(u.mustChangePassword),
+  /**
+   * Whether this account has a picture, and when it last changed.
+   *
+   * The timestamp is the cache-buster: the avatar lives at one fixed URL per
+   * account, so without it a replaced picture would keep showing the old one
+   * until the browser felt like revalidating.
+   */
+  avatar: Boolean(u.avatarMime),
+  avatarAt: u.avatarAt || 0,
 })
 function verifyPw(user, password) {
   // SSO-only accounts have no password and cannot log in this way.
@@ -300,27 +341,76 @@ if (process.env.TRUST_PROXY) {
 }
 app.use(cookieParser())
 
-// ---- security headers (no CSP — the sandboxed previews need inline scripts) ----
+// ---- security headers ----
+//
+// Still no Content-Security-Policy, and the reason is measurable rather than
+// forgotten: a `srcdoc` iframe INHERITS its parent's policy. Verified in a
+// browser — with `script-src 'unsafe-inline'; img-src 'none'` on the parent, a
+// srcdoc child could no longer `eval` and could no longer load a remote image.
+// Every preview is a srcdoc document that must run Babel at runtime
+// (`unsafe-eval`) and must display the photos a mockup references (`img-src`).
+// A policy strict enough to be worth having would therefore break every screen
+// in the product. Closing that gap means serving previews from a real URL so
+// they stop inheriting — a change to make deliberately, not as a side effect.
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('X-Frame-Options', 'SAMEORIGIN')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
+  // Nothing here needs a camera, a microphone or a location. Saying so costs
+  // one header and removes them from anything embedded too.
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()')
+  // Only over TLS, and only when the deployment says it is public: sending
+  // HSTS from a LAN instance reached over plain HTTP would pin browsers to an
+  // https:// URL that does not answer.
+  if (isHttps(req)) {
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains')
+  }
   next()
 })
+
+/**
+ * One line per authentication event, in a shape fail2ban can match.
+ *
+ * The IP counter alone was never a real defence against guessing: an attacker
+ * with a handful of addresses simply spreads the attempts, and nothing on the
+ * instance ever noticed. Two things fix that — a per-ACCOUNT lockout below, and
+ * this: a log line that names the client address, so fail2ban can ban at the
+ * firewall, which is the layer that can actually stop a distributed attempt.
+ *
+ * Format is fixed and boring on purpose; `deploy/fail2ban/mocky.conf` matches
+ * it, so changing the wording here means changing the filter there.
+ */
+function logAuth(event, req, username) {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown'
+  const name = String(username || '').slice(0, 64).replace(/[\r\n]/g, '')
+  console.log(`mocky auth ${event} user=${JSON.stringify(name)} ip=${ip}`)
+}
+
+/** Per-account lockout — see server/auth-lockout.js for why it is separate. */
+const lockout = createLockout()
+const accountLocked = (u) => lockout.lockedFor(u)
+const noteAuthFailure = (u) => lockout.fail(u)
+const clearAuthFailures = (u) => lockout.succeed(u)
 
 // ---- rate-limit on auth-sensitive routes (in-memory, per IP) ----
 // Simple sliding-window counter: max `limit` hits per `windowMs` per IP. No
 // dependency, no Redis — fine for a self-hosted single-instance deployment.
-const authLimits = new Map() // ip → [{ t, count }]
-function authRateLimit(limit = 8, windowMs = 60_000) {
+//
+// The bucket key carries a `name` as well as the IP. Keyed on the IP alone,
+// every route shared one counter and only the threshold differed: five wrong
+// passwords consumed the video quota, and eight perfectly legitimate image
+// generations locked the user out of /api/login for a minute.
+const authLimits = new Map() // `${name}|${ip}` → { t, count }
+function authRateLimit(limit = 8, windowMs = 60_000, name = 'auth') {
   return (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress || 'unknown'
+    const key = `${name}|${ip}`
     const now = Date.now()
-    let bucket = authLimits.get(ip)
+    let bucket = authLimits.get(key)
     if (!bucket || now - bucket.t > windowMs) {
       bucket = { t: now, count: 0 }
-      authLimits.set(ip, bucket)
+      authLimits.set(key, bucket)
     }
     bucket.count++
     // Opportunistic cleanup of stale buckets (keep the map small).
@@ -345,11 +435,25 @@ function authRateLimit(limit = 8, windowMs = 60_000) {
 // the *host's* credits, so it must belong to someone. With no admin provider
 // the caller supplies its own key, and the original "your key never leaves your
 // browser" mode is preserved.
+// Authentication is unconditional. It used to apply only when an admin had
+// configured an instance model — which is not the default install — leaving an
+// unauthenticated outbound relay: anyone who could reach the port made the
+// server POST up to 25 MB to any public host, from the owner's home IP.
+// Mocky requires an account to do anything anyway, so nothing legitimate loses
+// access.
 app.use('/__provider', (req, res) => {
-  if (textConfig.target(profileFromRequest(req)) && !currentUser(req)) {
+  if (!currentUser(req)) {
     return res.status(401).json({ error: 'Sign in to use this instance’s model.' })
   }
-  return handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textConfig.target(profile) })
+  // Never hand the promise to Express 4: it does not observe rejections, so one
+  // provider cutting a stream mid-answer terminated the process.
+  handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textConfig.target(profile) }).catch(
+    (err) => {
+      console.error('mocky: provider proxy failed —', err?.message || err)
+      if (!res.headersSent) res.status(502).json({ error: 'Proxy request failed' })
+      else res.destroy()
+    },
+  )
 })
 
 app.use('/api', express.json({ limit: '25mb' }))
@@ -399,6 +503,22 @@ function pruneSessions() {
   return removed
 }
 
+/**
+ * Whether this request reached us over TLS, from every signal available.
+ * `req.secure` only reflects reality when Express trusts the proxy; the
+ * forwarded header covers the untrusted-proxy case, and MOCKY_ORIGIN covers the
+ * deployment that declared itself https regardless of either.
+ */
+function isHttps(req) {
+  if (req?.secure) return true
+  const fwd = String(req?.headers?.['x-forwarded-proto'] || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase()
+  if (fwd === 'https') return true
+  return MOCKY_ORIGIN.startsWith('https://')
+}
+
 function setSession(res, userId, req) {
   const token = crypto.randomBytes(32).toString('hex')
   const sessions = loadSessions()
@@ -410,7 +530,13 @@ function setSession(res, userId, req) {
     // Derived from the actual connection rather than NODE_ENV: a production
     // instance reached over plain HTTP on a LAN would otherwise set a Secure
     // cookie the browser then refuses to send, and sign-in silently fails.
-    secure: Boolean(req?.secure),
+    //
+    // `req.secure` alone was not enough. It only tells the truth when Express
+    // trusts the proxy, and TRUST_PROXY is unset by default — so the deployment
+    // the README recommends (Caddy/Nginx terminating TLS, plain HTTP to Mocky on
+    // loopback) handed out a 90-day session cookie with no Secure flag, while
+    // believing it had set one.
+    secure: isHttps(req),
     maxAge: SESSION_TTL_MS,
   })
 }
@@ -467,6 +593,17 @@ app.get('/api/health', (req, res) => {
   } catch {
     /* reported below */
   }
+  // Reported, never fatal. A full library stops new media from being stored,
+  // but everything else — sign-in, projects, generation — keeps working, so
+  // failing the healthcheck would restart a container that is doing its job.
+  // The operator needs to SEE it coming, which is what a ratio is for.
+  const storage = diskBudget.usage()
+  checks.storage = {
+    usedBytes: storage.bytes,
+    maxBytes: storage.maxBytes,
+    percent: storage.ratio == null ? null : Math.round(storage.ratio * 100),
+    full: storage.ratio != null && storage.ratio >= 1,
+  }
   const ok = checks.dataWritable && checks.frontendBuilt
   res.status(ok ? 200 : 503).json({
     ok,
@@ -510,11 +647,17 @@ app.get('/api/config', (req, res) => {
 })
 
 // ---- auth routes (rate-limited against brute-force) ----
-app.post('/api/register', authRateLimit(8), (req, res) => {
+app.post('/api/register', authRateLimit(8, 60_000, 'register'), (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase()
   const password = String(req.body?.password || '')
   if (username.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters.' })
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' })
+  // The public sign-up form is the one path an attacker can reach without a
+  // session, and it used to be the most lenient of the three: 6 characters here
+  // against MIN_NEW_PASSWORD everywhere else. The account it creates on a fresh
+  // instance is the admin.
+  if (password.length < MIN_NEW_PASSWORD) {
+    return res.status(400).json({ error: `Password must be at least ${MIN_NEW_PASSWORD} characters.` })
+  }
   const users = loadUsers()
   const isFirst = users.length === 0
   if (!isFirst && loadConfig().allowRegistration === false) {
@@ -525,15 +668,45 @@ app.post('/api/register', authRateLimit(8), (req, res) => {
   const user = makeUser(username, password, isFirst ? 'admin' : 'user')
   users.push(user)
   saveUsers(users)
+  // Close the door behind the first account. Leaving public sign-ups on by
+  // default meant anyone who could reach the instance made themselves an
+  // account and spent the owner's model credits. The admin re-opens it from the
+  // Admin screen if they actually want to invite people.
+  if (isFirst) {
+    try {
+      saveConfig({ ...loadConfig(), allowRegistration: false })
+    } catch (err) {
+      console.error('mocky: could not close public sign-ups after the first account —', err.message)
+    }
+  }
   setSession(res, user.id, req)
   res.json({ user: publicUser(user) })
 })
 
-app.post('/api/login', authRateLimit(8), (req, res) => {
+app.post('/api/login', authRateLimit(8, 60_000, 'login'), (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase()
   const password = String(req.body?.password || '')
+
+  const lockedFor = accountLocked(username)
+  if (lockedFor) {
+    logAuth('locked', req, username)
+    res.setHeader('Retry-After', String(lockedFor))
+    return res.status(429).json({
+      error: `Too many failed attempts on this account. Try again in ${Math.ceil(lockedFor / 60)} minute(s).`,
+    })
+  }
+
   const user = loadUsers().find((u) => u.username === username)
-  if (!user || !verifyPw(user, password)) return res.status(401).json({ error: 'Invalid username or password.' })
+  if (!user || !verifyPw(user, password)) {
+    // Counted against the account even when it does not exist: otherwise the
+    // response time and the lockout behaviour together say which usernames are
+    // real, which is half of what a guesser is after.
+    noteAuthFailure(username)
+    logAuth('failure', req, username)
+    return res.status(401).json({ error: 'Invalid username or password.' })
+  }
+  clearAuthFailures(username)
+  logAuth('success', req, username)
   setSession(res, user.id, req)
   res.json({ user: publicUser(user) })
 })
@@ -559,7 +732,80 @@ app.get('/api/me', (req, res) => {
 // ---- account: change your own password ----
 // Rate-limited like the other credential routes: the current password is a
 // secret being guessed here, session or no session.
-app.post('/api/account/password', requireUser, authRateLimit(8), (req, res) => {
+// ---- account picture ----
+//
+// The header showed a generic person glyph for everybody, which on a shared
+// instance tells you nothing about who you are signed in as. A picture is the
+// cheapest possible answer to that.
+//
+// Stored as a file next to the JSON stores rather than base64 inside users.json:
+// that file is read on EVERY authenticated request (currentUser → loadUsers), so
+// putting a few hundred kilobytes of image in it would tax every single call.
+const AVATAR_DIR = path.join(DATA_DIR, 'avatars')
+const ACCEPTED_AVATAR = /^image\/(jpeg|png|webp|gif|avif)$/i
+/** Small on purpose: it is rendered at 24px. Anything larger is the user's photo app's problem. */
+const MAX_AVATAR_BYTES = 512 * 1024
+
+const avatarPath = (id) => path.join(AVATAR_DIR, String(id).replace(/[^a-zA-Z0-9-]/g, ''))
+
+app.post('/api/account/avatar', requireUser, authRateLimit(20, 60_000, 'avatar'), async (req, res) => {
+  const mime = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+  // An allow-list, like the image library: these bytes are served back from
+  // Mocky's own origin, and SVG carries script.
+  if (!ACCEPTED_AVATAR.test(mime)) {
+    return res.status(415).json({ error: `Unsupported image type "${mime || 'unknown'}".` })
+  }
+  try {
+    const buffer = await readRawBody(req, MAX_AVATAR_BYTES)
+    fs.mkdirSync(AVATAR_DIR, { recursive: true })
+    fs.writeFileSync(avatarPath(req.user.id), buffer, { mode: 0o600 })
+    const users = loadUsers()
+    const u = users.find((x) => x.id === req.user.id)
+    if (!u) return res.status(404).json({ error: 'Compte introuvable.' })
+    u.avatarMime = mime
+    u.avatarAt = Date.now()
+    saveUsers(users)
+    res.json({ user: publicUser(u) })
+  } catch (err) {
+    res.status(err?.statusCode === 413 ? 413 : 400).json({
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+})
+
+app.get('/api/account/avatar', requireUser, (req, res) => {
+  const users = loadUsers()
+  const u = users.find((x) => x.id === req.user.id)
+  if (!u?.avatarMime) return res.status(404).end()
+  let bytes
+  try {
+    bytes = fs.readFileSync(avatarPath(u.id))
+  } catch {
+    return res.status(404).end()
+  }
+  res.setHeader('Content-Type', u.avatarMime)
+  // Immutable for a day: the URL carries ?v=<avatarAt>, so a replacement is a
+  // different URL and this never serves a stale face.
+  res.setHeader('Cache-Control', 'private, max-age=86400')
+  res.end(bytes)
+})
+
+app.delete('/api/account/avatar', requireUser, (req, res) => {
+  const users = loadUsers()
+  const u = users.find((x) => x.id === req.user.id)
+  if (!u) return res.status(404).json({ error: 'Compte introuvable.' })
+  try {
+    fs.rmSync(avatarPath(u.id), { force: true })
+  } catch {
+    /* already gone — the record is what matters */
+  }
+  delete u.avatarMime
+  u.avatarAt = Date.now()
+  saveUsers(users)
+  res.json({ user: publicUser(u) })
+})
+
+app.post('/api/account/password', requireUser, authRateLimit(8, 60_000, 'password'), (req, res) => {
   const current = String(req.body?.current || '')
   const next = String(req.body?.next || '')
 
@@ -572,7 +818,12 @@ app.post('/api/account/password', requireUser, authRateLimit(8), (req, res) => {
       .status(400)
       .json({ error: 'Ce compte se connecte via Dashy : le mot de passe se change côté Dashy.' })
   }
-  if (!verifyPw(user, current)) return res.status(401).json({ error: 'Mot de passe actuel incorrect.' })
+  if (!verifyPw(user, current)) {
+    // The current password is a secret being guessed here too, session or not.
+    noteAuthFailure(user.username)
+    logAuth('failure', req, user.username)
+    return res.status(401).json({ error: 'Mot de passe actuel incorrect.' })
+  }
   if (next.length < MIN_NEW_PASSWORD) {
     return res
       .status(400)
@@ -600,20 +851,22 @@ app.post('/api/account/password', requireUser, authRateLimit(8), (req, res) => {
 // Mocky account linked to the Dashy identity, set our session cookie, and
 // redirect to the SPA. The `state` is echoed back as a query param so the
 // client can check it against what it stored before the redirect.
-app.get('/sso/dashy/callback', authRateLimit(15), (req, res) => {
+app.get('/sso/dashy/callback', (req, res, next) => {
+  // The disabled check runs BEFORE the limiter. The other way round, nine hits
+  // on a route that answers 404 consumed the shared budget and locked sign-in.
   if (!ssoEnabled) return res.status(404).send('SSO is not enabled')
+  return authRateLimit(15, 60_000, 'sso')(req, res, next)
+}, (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token : ''
   const state = typeof req.query.state === 'string' ? req.query.state : ''
   if (!token) return res.status(400).send('Missing token')
 
-  // We must know our own public origin to validate the token's `aud` claim.
-  // MOCKY_ORIGIN is authoritative when set. In dev (Vite proxy on :8787 → SPA
-  // on :5173) the request's own host/origin is the *backend's*, not the SPA's,
-  // so MOCKY_ORIGIN must be set to the SPA origin (e.g. http://localhost:5173).
-  // We accept the request Origin header as a secondary fallback (the browser
-  // sends it on the top-level redirect navigation).
-  const expectedAudience =
-    MOCKY_ORIGIN || req.get('origin') || `${req.protocol}://${req.get('host')}`
+  // Our own public origin, used to validate the token's `aud` claim. SSO does
+  // not switch on without it (see ssoEnabled), so there is no fallback here:
+  // the previous one read the caller's Origin/Host header, which let the caller
+  // pick the audience it would be checked against. In dev (Vite proxy on :8787
+  // → SPA on :5173) set it to the SPA origin, e.g. http://localhost:5173.
+  const expectedAudience = MOCKY_ORIGIN
 
   let claims
   try {
@@ -765,7 +1018,7 @@ app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
 // Muse's "image as inspiration" mode only works if the model accepts images.
 // Uses the instance provider when configured, else the credentials the browser
 // sends (same headers as /__provider). Results are cached per model server-side.
-app.post('/api/text/vision', requireUser, async (req, res) => {
+app.post('/api/text/vision', requireUser, authRateLimit(20, 60_000, 'vision'), async (req, res) => {
   const { probeVision } = await import('./text/vision.js')
   // The inspiration IMAGE is attached to the generation request (that's the model
   // that must "see" it), so 'generation' is the profile that matters here. The
@@ -862,6 +1115,70 @@ app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
   }
 })
 
+/**
+ * What models this key can actually reach.
+ *
+ * The model was a free-text field, so every provider change meant leaving the
+ * app to look up an id, and a typo came back as a bare "is not a valid model
+ * ID". Every piece needed for this already existed — `buildUpstream` maps
+ * /api/tags to /v1/models, `fromOpenAiModels` reshapes the answer — and because
+ * it goes through the dialect it works for every provider at once, including
+ * one an admin wired up by hand through "OpenAI compatible".
+ */
+app.post('/api/admin/text/models', requireAdmin, authRateLimit(20, 60_000, 'text-models'), async (req, res) => {
+  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'generation'
+  const target = textConfig.target(profile)
+  // The listing runs against the SAVED configuration — the key never travels in
+  // this request. Say so, or "no provider configured" reads as a bug when the
+  // admin has just typed a key and not pressed Save.
+  if (!target) {
+    return res.json({
+      ok: false,
+      error: 'Enregistrez d’abord le fournisseur et sa clé : la liste est demandée avec la configuration sauvegardée.',
+    })
+  }
+  try {
+    const { buildUpstream, fromOpenAiModels } = await import('./text/dialect.js')
+    const plan = buildUpstream(target, '/api/tags', undefined)
+    // A listing is a cheap GET; it must not be able to hang the Admin screen.
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 15_000)
+    let upstream
+    try {
+      upstream = await fetch(plan.url, { method: 'GET', headers: plan.headers, signal: ctrl.signal })
+    } finally {
+      clearTimeout(timer)
+    }
+    if (!upstream.ok) {
+      const detail = await upstream.text().catch(() => '')
+      return res.json({
+        ok: false,
+        error:
+          upstream.status === 404
+            ? `Ce fournisseur n’expose pas de liste de modèles (HTTP 404 sur ${plan.url}). Saisissez l’identifiant à la main.`
+            : `HTTP ${upstream.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+      })
+    }
+    const json = await upstream.json()
+    const shaped = plan.translate ? fromOpenAiModels(json) : json
+    // Both dialects land on { models: [{ name }] }; Ollama also sends `model`.
+    const models = (Array.isArray(shaped?.models) ? shaped.models : [])
+      .map((m) => String(m?.name || m?.model || '').trim())
+      .filter(Boolean)
+      // Image and video ids share the catalogue on some providers, and pasting
+      // one into the text field is the single most common misconfiguration.
+      .filter((id) => !looksLikeImageModel(id))
+      .sort((a, b) => a.localeCompare(b))
+    if (!models.length) {
+      return res.json({ ok: false, error: 'Le fournisseur a répondu, mais sans aucun modèle de texte utilisable.' })
+    }
+    res.json({ ok: true, provider: target.id, profile, models: models.slice(0, 500) })
+  } catch (err) {
+    const msg = err?.name === 'AbortError' ? 'Le fournisseur n’a pas répondu en 15 s.' : String(err?.message || err)
+    res.json({ ok: false, error: msg })
+  }
+})
+
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   const id = req.params.id
   if (id === req.user.id) return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte.' })
@@ -876,7 +1193,52 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   const sessions = loadSessions()
   for (const t of Object.keys(sessions)) if (sessions[t].u === id) delete sessions[t]
   saveSessions(sessions)
+  // Their share links go too. A capability URL outlives the account that minted
+  // it otherwise — a deleted user's screens would stay readable by anyone
+  // holding a link, which is not what "delete this account" means to anybody.
+  shares.revokeAllFor(id)
   res.json({ ok: true })
+})
+
+// ---- share links (one screen, no account, expires) ----
+//
+// GET /api/share/:token is the one route here that is deliberately public: the
+// token IS the authority, exactly like the content-addressed image bytes above.
+// Everything that MINTS or LISTS a link needs a session, because those are the
+// operations that decide what becomes readable.
+app.post('/api/share', requireUser, authRateLimit(20, 60_000, 'share'), (req, res) => {
+  try {
+    const out = shares.create(req.user.id, req.body || {}, req.body?.ttl)
+    res.json({
+      token: out.token,
+      expiresAt: out.expiresAt,
+      // Built from MOCKY_ORIGIN when set, so a link scanned on a phone points at
+      // the instance's real address rather than at whatever host header the
+      // browser happened to use.
+      url: `${MOCKY_ORIGIN || `${req.protocol}://${req.get('host')}`}/s/${out.token}`,
+    })
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.get('/api/share', requireUser, (req, res) => {
+  res.json({ shares: shares.list(req.user.id) })
+})
+
+app.delete('/api/share/:token', requireUser, (req, res) => {
+  res.json({ revoked: shares.revoke(req.user.id, req.params.token) })
+})
+
+app.get('/api/share/:token', (req, res) => {
+  const snap = shares.get(req.params.token)
+  // Same answer for "never existed", "expired" and "revoked". Telling them
+  // apart would confirm that a token was once real, which is the only thing
+  // someone probing this route could hope to learn.
+  if (!snap) return res.status(404).json({ error: 'This link has expired or was revoked.' })
+  // Never cached: the whole point is that it stops working on time.
+  res.setHeader('Cache-Control', 'no-store')
+  res.json(snap)
 })
 
 // ---- per-user data (projects + design) ----
@@ -903,6 +1265,10 @@ app.put('/api/data', (req, res) => {
 // later /api/* route too, which silently put the public image bytes behind auth.
 app.use('/api/mcp', requireUser)
 app.use('/api/muse', requireUser)
+// A dossier is the most expensive verb in the app — up to six page fetches, a
+// Chromium instance, and a handful of model round-trips. It was the only
+// expensive route with no ceiling at all, while image generation had one.
+app.use('/api/muse/dossier', authRateLimit(10, 60_000, 'muse-dossier'))
 app.use(
   '/api',
   createMuseRouter({
@@ -942,7 +1308,7 @@ app.use(
   // loop or a stuck retry produces.
   (req, res, next) => {
     if (req.method === 'POST' && (req.path.startsWith('/generate') || req.path.startsWith('/upload'))) {
-      return authRateLimit(30)(req, res, next)
+      return authRateLimit(30, 60_000, 'images')(req, res, next)
     }
     next()
   },
@@ -962,8 +1328,10 @@ app.use(
   (req, res, next) => {
     // Generating is metered because it costs money; uploading is metered
     // because it costs disk and a few seconds of ffmpeg. Different ceilings.
-    if (req.method === 'POST' && req.path.startsWith('/generate')) return authRateLimit(6)(req, res, next)
-    if (req.method === 'POST' && req.path.startsWith('/upload')) return authRateLimit(20)(req, res, next)
+    if (req.method === 'POST' && req.path.startsWith('/generate'))
+      return authRateLimit(6, 60_000, 'video-generate')(req, res, next)
+    if (req.method === 'POST' && req.path.startsWith('/upload'))
+      return authRateLimit(20, 60_000, 'video-upload')(req, res, next)
     next()
   },
   videos.router,
@@ -971,10 +1339,30 @@ app.use(
 
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {
-  app.use(express.static(dist))
+  app.use(
+    express.static(dist, {
+      // Vite fingerprints everything under /assets (index-CNtvTjn8.js), so those
+      // names change whenever the contents do and can be cached permanently.
+      // With no cache headers at all, every reload revalidated the lot — 3 MB of
+      // Babel included — which on a home server over a slow link is the whole
+      // start-up cost, paid again each time for bytes that had not changed.
+      // Everything else (index.html, the favicon, public/vendor) keeps its name
+      // across releases, so it must be revalidated or an update never lands.
+      setHeaders(res, filePath) {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        } else {
+          res.setHeader('Cache-Control', 'no-cache')
+        }
+      },
+    }),
+  )
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/__provider') || req.path.startsWith('/sso'))
       return next()
+    // Never cached: this is the document that names the fingerprinted bundles,
+    // so a stale copy pins the browser to the previous release forever.
+    res.setHeader('Cache-Control', 'no-cache')
     res.sendFile(path.join(dist, 'index.html'))
   })
 } else {
@@ -991,14 +1379,53 @@ if (fs.existsSync(dist)) {
 // tell Vite which port to use) can't accidentally push the backend onto the
 // Vite port and collide with it. Production hosts that set PORT still work.
 const PORT = process.env.MOCKY_PORT || process.env.PORT || 8787
-const server = app.listen(PORT, () => {
+// Which interface to listen on. Loopback by default: `app.listen(PORT)` with no
+// host binds every interface, so `npm start` put an instance with open sign-ups
+// — whose first account is the admin — on the LAN for anyone to claim.
+//
+// Distinct from MOCKY_BIND, which is the HOST-side publish address in
+// docker-compose. Inside a container the server must listen on 0.0.0.0 or the
+// published port reaches nothing, so the image sets MOCKY_HOST=0.0.0.0 and the
+// loopback default protects source installs, which have no such indirection.
+const HOST = process.env.MOCKY_HOST || '127.0.0.1'
+
+/**
+ * Whether we are running inside a container, so the boot message can tell the
+ * truth about what 0.0.0.0 means here. Both markers are the standard ones:
+ * Docker creates /.dockerenv, and Podman/OCI runtimes set container=.
+ */
+function inContainer() {
+  if (process.env.container) return true
+  try {
+    return fs.existsSync('/.dockerenv')
+  } catch {
+    return false
+  }
+}
+
+const server = app.listen(PORT, HOST, () => {
   console.log(`Mocky backend on http://localhost:${PORT}`)
+  if (HOST === '127.0.0.1' || HOST === 'localhost') {
+    console.log('Listening on loopback only. Set MOCKY_HOST=0.0.0.0 to reach it from another machine.')
+  } else if (inContainer()) {
+    // Do NOT warn here. 0.0.0.0 is the only value that works inside a
+    // container — the published port reaches nothing otherwise — so a scary
+    // line at every boot would be both wrong and unactionable. What actually
+    // limits access is the host side of the port mapping.
+    console.log(`Listening on ${HOST} (normal in Docker — access is limited by MOCKY_BIND on the host side).`)
+  } else {
+    console.log(
+      `Listening on ${HOST} — reachable from your network.\n` +
+        '  Anyone who can reach this port can spend the model credits this instance pays for.\n' +
+        '  Put it behind a reverse proxy, or set MOCKY_HOST=127.0.0.1 to close it again.',
+    )
+  }
   const pruned = pruneSessions()
   if (pruned) console.log(`Sessions: pruned ${pruned} expired`)
   console.log(
     ssoEnabled
       ? `SSO: enabled (Dashy at ${SSO_DASHY_URL})`
-      : 'SSO: disabled (set SSO_SHARED_SECRET and SSO_DASHY_URL in .env to enable)',
+      : 'SSO: disabled (set SSO_SHARED_SECRET, SSO_DASHY_URL and MOCKY_ORIGIN in .env to enable)',
   )
 })
 

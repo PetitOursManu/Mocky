@@ -20,11 +20,24 @@ const u32 = (n) => Buffer.from([n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (
  * @returns {Buffer} the complete .zip
  */
 export function makeZip(entries) {
+  // The classic ZIP header fields are 16- and 32-bit, and u16()/u32() truncate
+  // silently: past these limits the archive came out corrupt with nothing said,
+  // which is worse than refusing. ZIP64 would lift them; refusing is honest and
+  // costs nothing at the sizes Mocky actually produces.
+  if (entries.length > 0xffff) {
+    throw new Error(
+      `Too many files for a ZIP archive (${entries.length}, max 65535). Filter the selection and try again.`,
+    )
+  }
+
   const chunks = []
   const central = []
   let offset = 0
 
   for (const entry of entries) {
+    if (offset > 0xffffffff) {
+      throw new Error('Archive is larger than 4 GB, which this ZIP format cannot address. Filter the selection.')
+    }
     const nameBytes = Buffer.from(entry.name, 'utf8')
     const data = Buffer.isBuffer(entry.data) ? entry.data : Buffer.from(String(entry.data), 'utf8')
     const crc = crc32(data)

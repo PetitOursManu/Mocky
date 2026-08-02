@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from './timeout.js'
+
 // OpenAI-compatible image provider. Works with OpenAI itself and with any
 // gateway exposing `POST {baseUrl}/v1/images/generations` (LiteLLM, OpenRouter-
 // style proxies, self-hosted shims…). Configured by an admin (base URL + key +
@@ -34,7 +36,7 @@ export function createOpenAiImages(opts = {}) {
     // (which always returns b64_json).
     if (/^dall-e/i.test(model)) body.response_format = 'b64_json'
 
-    const res = await fetchImpl(`${baseUrl}/v1/images/generations`, {
+    const res = await fetchWithTimeout(fetchImpl, `${baseUrl}/v1/images/generations`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -70,7 +72,7 @@ export function createOpenAiImages(opts = {}) {
         return { buffer: Buffer.from(item.b64_json, 'base64'), contentType: 'image/png', provider: 'openai-image' }
       }
       if (item.url) {
-        const img = await fetchImpl(item.url)
+        const img = await fetchWithTimeout(fetchImpl, item.url)
         if (!img || !img.ok) throw new Error('openai-image: could not download the result')
         return {
           buffer: Buffer.from(await img.arrayBuffer()),

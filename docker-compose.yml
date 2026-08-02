@@ -16,7 +16,8 @@ services:
       # Bound to the loopback interface by default: Mocky has routes that spend
       # your model credits, so it must not be reachable from the LAN unless you
       # say so. Put it behind a reverse proxy, or set MOCKY_BIND=0.0.0.0 in .env
-      # to expose it directly (and read the "Exposing Mocky" section of README).
+      # to expose it directly (and read the "Reverse proxy / HTTPS" section of
+      # the README first).
       - "${MOCKY_BIND:-127.0.0.1}:8787:8787"
     volumes:
       - mocky-data:/app/server/data
@@ -32,7 +33,11 @@ services:
     # /api/health, not /api/config: the latter answers 200 from memory even when
     # the data directory is read-only or the frontend was never built.
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # MOCKY_PORT first, matching the server's own precedence (and the
+      # Dockerfile's HEALTHCHECK). Reading PORT alone meant that setting
+      # MOCKY_PORT in .env gave a container that worked perfectly and reported
+      # itself `unhealthy` forever.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.MOCKY_PORT||process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 15s

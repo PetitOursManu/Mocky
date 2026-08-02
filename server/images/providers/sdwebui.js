@@ -1,3 +1,5 @@
+import { fetchWithTimeout, PROBE_TIMEOUT_MS } from './timeout.js'
+
 // Local Stable-Diffusion provider using the Automatic1111 / Forge / SD.Next
 // HTTP API (`POST {baseUrl}/sdapi/v1/txt2img`). For power users with their own
 // GPU — no key, no cloud, no rate limit.
@@ -18,7 +20,7 @@ export function createSdWebUi(opts = {}) {
 
     async healthy() {
       try {
-        const res = await fetchImpl(`${baseUrl}/sdapi/v1/options`, { method: 'GET' })
+        const res = await fetchWithTimeout(fetchImpl, `${baseUrl}/sdapi/v1/options`, { method: 'GET' }, PROBE_TIMEOUT_MS)
         return Boolean(res && res.ok)
       } catch {
         return false
@@ -36,7 +38,7 @@ export function createSdWebUi(opts = {}) {
       }
       if (req.seed != null) body.seed = Number(req.seed)
 
-      const res = await fetchImpl(`${baseUrl}/sdapi/v1/txt2img`, {
+      const res = await fetchWithTimeout(fetchImpl, `${baseUrl}/sdapi/v1/txt2img`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),

@@ -79,6 +79,10 @@ RUN mkdir -p /app/server/data && chown -R node:node /app/server/data
 # Environment defaults
 ENV NODE_ENV=production
 ENV PORT=8787
+# Inside a container, listening on loopback would make the published port reach
+# nothing. The equivalent protection lives on the host side of the mapping in
+# docker-compose.yml (MOCKY_BIND, 127.0.0.1 by default).
+ENV MOCKY_HOST=0.0.0.0
 
 EXPOSE 8787
 

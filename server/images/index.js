@@ -29,7 +29,7 @@ function intervalForConfig(cfg) {
  * @param {string} deps.dataDir  server/data
  * @param {number} [deps.intervalMs]  force the queue spacing (tests)
  */
-export function createImages({ dataDir, intervalMs } = {}) {
+export function createImages({ dataDir, intervalMs, budget } = {}) {
   const configStore = new ImagesConfigStore(dataDir)
   const config = configStore.get()
 
@@ -76,6 +76,6 @@ export function createImages({ dataDir, intervalMs } = {}) {
     }
   }
 
-  const router = createImagesRouter({ library, registryFor })
+  const router = createImagesRouter({ library, registryFor, budget })
   return { queue, registries, registryFor, library, router, configStore, reload, testProvider }
 }

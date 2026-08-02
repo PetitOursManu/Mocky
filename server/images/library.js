@@ -60,13 +60,19 @@ export class ImageLibrary {
   }
 
   _persist() {
+    this.lastPersistError = null
     try {
       fs.mkdirSync(path.dirname(this.metaFile), { recursive: true })
       const tmp = `${this.metaFile}.${crypto.randomBytes(6).toString('hex')}.tmp`
       fs.writeFileSync(tmp, JSON.stringify(this.state, null, 2))
       fs.renameSync(tmp, this.metaFile)
-    } catch {
-      /* in-memory still valid */
+    } catch (err) {
+      // In-memory stays valid, but this failing silently is how a library goes
+      // missing: the .jpg files write fine (that error does surface), only the
+      // index fails — so after a restart the library is empty and every file on
+      // disk is an orphan nothing can find again.
+      this.lastPersistError = err.message
+      console.error(`mocky: could not save the image index to ${this.metaFile} — ${err.message}`)
     }
   }
 
@@ -79,6 +85,17 @@ export class ImageLibrary {
   filePath(hash) {
     if (!HASH_RE.test(hash)) return null
     return path.join(this.filesDir, `${hash}.jpg`)
+  }
+
+  /** Bytes this image occupies, or 0 if it is not on disk. For the disk budget. */
+  fileSize(hash) {
+    const fp = this.filePath(hash)
+    if (!fp) return 0
+    try {
+      return fs.statSync(fp).size
+    } catch {
+      return 0
+    }
   }
 
   fileExists(hash) {
@@ -124,9 +141,20 @@ export class ImageLibrary {
     }
 
     // Generate through the paced queue (runs in parallel with other work).
-    const result = await this.queue.add(() =>
-      provider.generate({ prompt: spec.prompt, negative: spec.negative, seed: spec.seed, width, height }),
-    )
+    //
+    // The cache is re-checked INSIDE the task. Checking only before queueing
+    // meant two identical requests in flight at once — a double click, a client
+    // retry, two screens sharing a hero prompt — both sailed past the test and
+    // both paid the provider, which is precisely what the dedupe exists to stop.
+    const result = await this.queue.add(() => {
+      const raced = this.state.byRequest[reqKey]
+      if (raced && this.fileExists(raced)) return { reusedHash: raced }
+      return provider.generate({ prompt: spec.prompt, negative: spec.negative, seed: spec.seed, width, height })
+    })
+    if (result && result.reusedHash) {
+      const meta = this._attachProject(result.reusedHash, spec.project)
+      return { hash: result.reusedHash, fromCache: true, meta }
+    }
     if (!result || result.skipped) {
       onNotice(`Muse: image provider "${provider.id}" produced no image — using placeholder`)
       return { hash: null, fromCache: false, skipped: true }
@@ -144,25 +172,36 @@ export class ImageLibrary {
       }
     }
 
+    // Bounded, the way the video library already bounds its own metadata. These
+    // strings come straight from the request body and land in an index that is
+    // re-serialised whole on every write, so an unbounded one is both a storage
+    // hole and a growing pause on the event loop.
     const tags = Array.from(
       new Set([...(Array.isArray(spec.tags) ? spec.tags : []), spec.slotType].filter(Boolean).map(String)),
     )
+      .slice(0, 10)
+      .map((t) => t.slice(0, 40))
     const existing = this.state.byHash[contentHash]
     const meta = existing || {
       hash: contentHash,
-      prompt: spec.prompt,
-      negative: spec.negative || null,
+      prompt: String(spec.prompt || '').slice(0, 500),
+      negative: spec.negative ? String(spec.negative).slice(0, 300) : null,
       provider: provider.id,
       seed: spec.seed ?? null,
       width,
       height,
+      // The format the provider actually returned. Dropping it meant a PNG from
+      // OpenAI or sd-webui was served as image/jpeg — under nosniff — and
+      // exported named .jpg, which several tools then refuse to open.
+      mime: result.contentType || 'image/jpeg',
       createdAt: this.now(),
       tags: [],
       projects: [],
       favorite: false,
     }
-    meta.tags = Array.from(new Set([...(meta.tags || []), ...tags]))
-    if (spec.project && !meta.projects.includes(spec.project)) meta.projects.push(spec.project)
+    meta.tags = Array.from(new Set([...(meta.tags || []), ...tags])).slice(0, 20)
+    const project = spec.project ? String(spec.project).slice(0, 100) : null
+    if (project && !meta.projects.includes(project)) meta.projects.push(project)
     this.state.byHash[contentHash] = meta
     this.state.byRequest[reqKey] = contentHash
     this._persist()

@@ -18,7 +18,11 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const ENV_ALLOWLIST = [
   'PATH', 'Path', 'PATHEXT', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'SystemRoot',
   'WINDIR', 'TEMP', 'TMP', 'TMPDIR', 'APPDATA', 'LOCALAPPDATA', 'ComSpec',
-  'LANG', 'LC_ALL', 'NODE_OPTIONS',
+  'LANG', 'LC_ALL',
+  // NODE_OPTIONS is deliberately NOT here. It accepts `--require <file>`, so
+  // anything able to set it in the server's environment gets its own code
+  // loaded into every MCP child process. An allow-list exists to keep exactly
+  // that kind of lever out, and nothing Mocky spawns needs it.
 ]
 
 function minimalEnv(extra) {

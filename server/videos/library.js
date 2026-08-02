@@ -59,13 +59,17 @@ export class VideoLibrary {
   }
 
   _persist() {
+    this.lastPersistError = null
     try {
       fs.mkdirSync(path.dirname(this.metaFile), { recursive: true })
       const tmp = `${this.metaFile}.${crypto.randomBytes(6).toString('hex')}.tmp`
       fs.writeFileSync(tmp, JSON.stringify(this.state, null, 2))
       fs.renameSync(tmp, this.metaFile)
-    } catch {
-      /* in-memory copy stays valid */
+    } catch (err) {
+      // In-memory copy stays valid, but a failure here loses the whole index on
+      // restart while the frames stay on disk. Never silent.
+      this.lastPersistError = err.message
+      console.error(`mocky: could not save the video index to ${this.metaFile} — ${err.message}`)
     }
   }
 

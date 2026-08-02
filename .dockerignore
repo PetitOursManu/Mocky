@@ -5,6 +5,13 @@ dist
 .env
 .env.local
 server/data
+# Same reasoning as server/data and .env, applied to their backup copy: these
+# archives hold password hashes and session tokens. Multi-stage keeps them out
+# of the final image, but not out of the build context or the builder layer —
+# and a build cache can be exported or pushed.
+backups
+docker-compose.override.yml
+.claude
 *.md
 .vscode
 .idea

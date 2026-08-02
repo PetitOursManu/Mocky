@@ -1,0 +1,64 @@
+# fail2ban jail for Mocky — append to /etc/fail2ban/jail.local
+#
+# Pick ONE backend block below depending on how you run Mocky, and delete the
+# other. Both feed the same filter (filter.d/mocky.conf).
+
+# ---------------------------------------------------------------------------
+# A. Docker — read the container's log through journald
+# ---------------------------------------------------------------------------
+# Requires the container to log to journald. In docker-compose.yml:
+#
+#   services:
+#     mocky:
+#       logging:
+#         driver: journald
+#
+[mocky]
+enabled  = true
+filter   = mocky
+backend  = systemd
+journalmatch = CONTAINER_NAME=mocky
+# Ten wrong passwords in ten minutes buys an hour off. Mocky itself already
+# locks the ACCOUNT after ten; this bans the ADDRESS, which is what stops the
+# same attacker walking through a list of usernames.
+maxretry = 10
+findtime = 10m
+bantime  = 1h
+action   = iptables-multiport[name=mocky, port="http,https"]
+
+# ---------------------------------------------------------------------------
+# B. Source install under systemd — read the unit's journal
+# ---------------------------------------------------------------------------
+# [mocky]
+# enabled  = true
+# filter   = mocky
+# backend  = systemd
+# journalmatch = _SYSTEMD_UNIT=mocky.service
+# maxretry = 10
+# findtime = 10m
+# bantime  = 1h
+# action   = iptables-multiport[name=mocky, port="http,https"]
+
+# ---------------------------------------------------------------------------
+# C. Plain log file — when you redirect Mocky's output yourself
+# ---------------------------------------------------------------------------
+# [mocky]
+# enabled  = true
+# filter   = mocky
+# logpath  = /var/log/mocky/mocky.log
+# maxretry = 10
+# findtime = 10m
+# bantime  = 1h
+
+# ---------------------------------------------------------------------------
+# Behind a reverse proxy
+# ---------------------------------------------------------------------------
+# Mocky logs `req.ip`. Behind Nginx/Caddy/Traefik that is the PROXY's address
+# unless TRUST_PROXY is set — so every ban would hit the proxy and take the
+# whole instance offline. Set TRUST_PROXY=1 in .env before enabling this jail,
+# and check with:
+#
+#   docker compose logs mocky | grep 'mocky auth'
+#
+# The ip= field must show real client addresses, not 127.0.0.1 or the Docker
+# bridge gateway. If it does not, fix TRUST_PROXY first.

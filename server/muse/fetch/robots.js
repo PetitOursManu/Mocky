@@ -6,6 +6,7 @@
 // Fail-open: a missing/unreachable/invalid robots.txt means "allowed" — we never
 // block a fetch because robots.txt itself couldn't be read (M7 still caps
 // fetches and caches results to keep load on source sites low).
+import { assertSafeTargetResolved } from '../../provider-proxy.js'
 
 /**
  * Parse robots.txt text into per-user-agent rule groups.
@@ -94,7 +95,21 @@ async function fetchWithTimeout(url, fetchImpl, timeoutMs) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
-    return await fetchImpl(url, { signal: ctrl.signal, redirect: 'follow' })
+    // Redirects are followed by hand, re-validating every hop. `redirect:
+    // 'follow'` walked straight around the SSRF guard: the origin passed the
+    // check, then answered 302 to http://169.254.169.254/ and the process
+    // fetched it. Following manually keeps robots.txt compliance intact for the
+    // sites that legitimately redirect it (http→https, apex→www).
+    let current = url
+    for (let hop = 0; hop < 4; hop++) {
+      await assertSafeTargetResolved(current)
+      const res = await fetchImpl(current, { signal: ctrl.signal, redirect: 'manual' })
+      if (!res || res.status < 300 || res.status >= 400) return res
+      const location = res.headers?.get?.('location')
+      if (!location) return res
+      current = new URL(location, current).toString()
+    }
+    return null // redirect loop — fail open, same as any other error
   } finally {
     clearTimeout(timer)
   }

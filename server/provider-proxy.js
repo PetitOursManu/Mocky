@@ -6,7 +6,7 @@
 // shape, and this proxy translates it to/from OpenAI-compatible providers
 // (OpenAI, OpenRouter, Groq, LM Studio…) when an admin has configured one. The
 // generation, planner and Muse code paths are therefore vendor-agnostic.
-import { buildUpstream, createSseTranslator, fromOpenAiModels, fromOpenAiResponse } from './text/dialect.js'
+import { buildUpstream, createSseTranslator, fromOpenAiModels, fromOpenAiResponse, KIND_OPENAI } from './text/dialect.js'
 
 import dns from 'node:dns/promises'
 
@@ -142,6 +142,15 @@ export const MAX_PROXY_BODY = 25 * 1024 * 1024
  */
 export function readRawBody(req, limit = MAX_PROXY_BODY) {
   return new Promise((resolve, reject) => {
+    // Announced-too-large: refuse before reading a single byte, so a 200 MB
+    // upload doesn't have to finish before the sender learns it was rejected.
+    const announced = Number(req.headers?.['content-length'])
+    if (Number.isFinite(announced) && announced > limit) {
+      const err = new Error('Request body too large')
+      err.statusCode = 413
+      reject(err)
+      return
+    }
     const chunks = []
     let size = 0
     req.on('data', (c) => {
@@ -149,7 +158,11 @@ export function readRawBody(req, limit = MAX_PROXY_BODY) {
       if (size > limit) {
         const err = new Error('Request body too large')
         err.statusCode = 413
-        req.destroy(err)
+        // Pause rather than destroy. `req.destroy(err)` killed the socket
+        // before the route could answer, so the client saw ECONNRESET —
+        // "network error" — instead of the 413 every caller already writes.
+        req.pause()
+        req.unpipe?.()
         reject(err)
         return
       }
@@ -233,6 +246,8 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
   }
 
   const target = base + subpath
+  /** Aborts the upstream request when the client disconnects. Set below. */
+  let abort = null
 
   // The SSRF guard protects us from BROWSER-supplied URLs. An admin-configured
   // endpoint is trusted on purpose: pointing at a local LLM (Ollama, LM Studio,
@@ -275,19 +290,48 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       }
     }
 
+    // A browser-supplied endpoint that speaks OpenAI goes through the SAME
+    // translator as an admin-configured one. It could not before: the browser
+    // never said which dialect its endpoint spoke, so the only safe thing was to
+    // forward verbatim — which is why "bring your own key" was stuck on Ollama
+    // while the admin path reached anything. `x-provider-kind` is that missing
+    // fact, and it is a hint about FORMAT only: the target host still comes from
+    // x-provider-base and is still SSRF-checked above, so this widens no trust.
+    const browserKind = String(req.headers['x-provider-kind'] || '').toLowerCase()
     const plan = configured
       ? buildUpstream(configured, subpath, body)
-      : {
-          url: target,
-          headers: {
-            accept: 'application/json',
-            ...(req.headers['authorization'] ? { authorization: req.headers['authorization'] } : {}),
-            ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
-          },
-          body,
-          translate: false,
-          isModels: false,
-        }
+      : browserKind === KIND_OPENAI
+        ? buildUpstream(
+            {
+              kind: KIND_OPENAI,
+              baseUrl: base,
+              // Forward the caller's own credential untouched. `authHeader`
+              // rebuilds it from apiKey, so hand it the bare token.
+              apiKey: String(req.headers['authorization'] || '').replace(/^Bearer\s+/i, ''),
+            },
+            subpath,
+            body,
+          )
+        : {
+            url: target,
+            headers: {
+              accept: 'application/json',
+              ...(req.headers['authorization'] ? { authorization: req.headers['authorization'] } : {}),
+              ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
+            },
+            body,
+            translate: false,
+            isModels: false,
+          }
+
+    // Hang up on the provider when the browser hangs up on us. Without this the
+    // proxy kept draining the stream to the last token after the user pressed
+    // "stop" or closed the tab — on an admin-configured provider that is the
+    // host's own credits being spent on an answer nobody will ever see.
+    abort = new AbortController()
+    req.on('close', () => {
+      if (!res.writableEnded) abort.abort()
+    })
 
     const upstream = await fetchImpl(plan.url, {
       method: plan.isModels ? 'GET' : method,
@@ -298,6 +342,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       // http://169.254.169.254/… and we happily returned the body. Redirects are
       // surfaced instead of followed.
       redirect: 'manual',
+      signal: abort.signal,
     })
 
     if (!configured && upstream.status >= 300 && upstream.status < 400) {
@@ -339,6 +384,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       const translate = createSseTranslator()
       try {
         for (;;) {
+          if (res.destroyed) break
           const { done, value } = await reader.read()
           if (done) break
           const ndjson = translate(decoder.decode(value, { stream: true }))
@@ -347,6 +393,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       } finally {
         reader.releaseLock?.()
       }
+      if (res.destroyed) return
       res.write(JSON.stringify({ done: true }) + '\n')
       res.end()
       return
@@ -371,6 +418,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       if (typeof res.flushHeaders === 'function') res.flushHeaders()
       try {
         for (;;) {
+          if (res.destroyed) break
           const { done, value } = await reader.read()
           if (done) break
           res.write(Buffer.from(value))
@@ -378,13 +426,35 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       } finally {
         reader.releaseLock?.()
       }
-      res.end()
+      if (!res.destroyed) res.end()
     } else {
       // Regular JSON response: buffer and send in one piece.
       const buf = Buffer.from(await upstream.arrayBuffer())
       res.end(buf)
     }
   } catch (err) {
+    // Once a stream has started, the headers are already gone. Writing one here
+    // threw ERR_HTTP_HEADERS_SENT *inside the catch*, so the rejection escaped
+    // the promise entirely — and Express 4 never observes a returned promise,
+    // which took the whole process down every time a provider cut a stream
+    // mid-answer. Past that point the only honest move is to hang up.
+    if (res.headersSent || res.destroyed) {
+      try {
+        res.end()
+      } catch {
+        /* socket already gone */
+      }
+      return
+    }
+    // A client that went away is not a provider failure — say nothing.
+    if (abort?.signal.aborted) {
+      try {
+        res.end()
+      } catch {
+        /* socket already gone */
+      }
+      return
+    }
     res.statusCode = 502
     res.setHeader('content-type', 'application/json')
     res.end(

@@ -173,3 +173,89 @@ describe('pass-through mode is unchanged', () => {
     h.close()
   })
 })
+
+/**
+ * A browser-supplied endpoint that speaks OpenAI.
+ *
+ * "Bring your own key" used to be limited to Ollama — not because the other
+ * providers could not work, but because the browser never said which dialect
+ * its endpoint spoke, so the proxy could only forward the Ollama-shaped body
+ * verbatim. `x-provider-kind` supplies that fact, and the SAME translator that
+ * has always served admin-configured providers takes over.
+ *
+ * `fetch` is injected rather than pointed at the local fake used above: a
+ * browser-supplied base goes through the SSRF guard, which correctly refuses
+ * 127.0.0.1. `example.test` does not resolve, so the guard fails open (its
+ * documented behaviour) and the injected fetch stands in for the provider.
+ */
+describe('browser-supplied provider, OpenAI dialect', () => {
+  const BASE = 'http://provider.example.test'
+
+  /** Mount the proxy with a recording fetch instead of a real one. */
+  async function hostWithFetch(calls) {
+    const fakeFetch = async (url, init) => {
+      calls.push({ url, method: init?.method, auth: init?.headers?.authorization, body: init?.body?.toString() })
+      return new Response(JSON.stringify({ model: 'm', choices: [{ message: { content: 'ok' } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    const app = express()
+    app.use('/__provider', (req, res) => handleProviderProxy(req, res, fakeFetch, { resolveTarget: () => null }))
+    const srv = app.listen(0, '127.0.0.1')
+    await new Promise((r) => srv.on('listening', r))
+    return { base: `http://127.0.0.1:${srv.address().port}`, close: () => srv.close() }
+  }
+
+  it('translates /api/chat into /v1/chat/completions and answers in the Ollama shape', async () => {
+    const calls = []
+    const host = await hostWithFetch(calls)
+    const res = await fetch(`${host.base}/__provider/api/chat`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-provider-base': BASE,
+        'x-provider-kind': 'openai',
+        authorization: 'Bearer sk-user-own-key',
+      },
+      body: JSON.stringify({ model: 'gpt-4o-mini', stream: false, messages: [{ role: 'user', content: 'hi' }] }),
+    })
+    const json = await res.json()
+    host.close()
+
+    expect(calls.at(-1).url).toBe(`${BASE}/v1/chat/completions`)
+    // The caller's own credential reaches the provider untouched.
+    expect(calls.at(-1).auth).toBe('Bearer sk-user-own-key')
+    // …and the answer comes back in the shape Mocky speaks internally.
+    expect(json.message.content).toBe('ok')
+  })
+
+  it('leaves the Ollama path untouched when no dialect is declared', async () => {
+    const calls = []
+    const host = await hostWithFetch(calls)
+    await fetch(`${host.base}/__provider/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-provider-base': BASE },
+      body: JSON.stringify({ model: 'llama3', messages: [] }),
+    })
+    host.close()
+    expect(calls.at(-1).url).toBe(`${BASE}/api/chat`)
+  })
+
+  it('does not let the dialect header bypass the SSRF guard', async () => {
+    const calls = []
+    const host = await hostWithFetch(calls)
+    const res = await fetch(`${host.base}/__provider/api/chat`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-provider-base': 'http://169.254.169.254',
+        'x-provider-kind': 'openai',
+      },
+      body: '{}',
+    })
+    host.close()
+    expect(res.status).toBe(400)
+    expect(calls).toHaveLength(0)
+  })
+})

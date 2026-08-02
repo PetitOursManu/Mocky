@@ -254,13 +254,18 @@ export class ImagesConfigStore {
   /** Merge a partial update, persist atomically, return the new config. */
   update(patch) {
     this.config = mergeImagesConfig(this.config, patch)
+    this.lastPersistError = null
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true })
       const tmp = `${this.file}.${crypto.randomBytes(6).toString('hex')}.tmp`
-      fs.writeFileSync(tmp, JSON.stringify(this.config, null, 2))
+      // 0600: this file holds the fal / OpenAI / Cloudflare keys in clear text.
+      fs.writeFileSync(tmp, JSON.stringify(this.config, null, 2), { mode: 0o600 })
       fs.renameSync(tmp, this.file)
-    } catch {
+    } catch (err) {
       // Config that can't persist is still applied in memory — never throw.
+      // But log it: a read-only volume used to look exactly like success.
+      this.lastPersistError = err.message
+      console.error(`mocky: could not save image config to ${this.file} — ${err.message}`)
     }
     return this.config
   }

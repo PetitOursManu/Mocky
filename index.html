@@ -2,9 +2,17 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="alternate icon" href="/favicon.ico" sizes="any" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <!--
+      The .ico, not the .svg. favicon.svg is 665 kB — a base64 raster wrapped in
+      SVG by a favicon generator — which is MORE than the whole application
+      bundle (597 kB), fetched on every first load for a 16px square. The .ico
+      is 15 kB and carries three real sizes (16, 32, 48), so it is sharper at the
+      sizes a tab actually uses. The .svg stays in the repo: the READMEs use it
+      as the project logo, where its size does not matter.
+      No apple-touch-icon: Safari ignores SVG there, so the old line never
+      worked. Add a 180x180 PNG if iOS home-screen icons ever matter.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <title>Mocky — chat-to-UI generator</title>

@@ -3,7 +3,7 @@
 // text-only cache. Fetching itself is delegated to the `inspiration-fetch` MCP
 // role (fetcher-mcp by default) via the router. Every failure degrades per-URL
 // (M3): a bad or disallowed URL is skipped with a notice, the rest proceed.
-import { assertSafeTarget } from '../../provider-proxy.js'
+import { assertSafeTargetResolved } from '../../provider-proxy.js'
 import { robotsAllows } from './robots.js'
 
 export const USER_AGENT = 'Mocky-Muse/0.1 (+https://github.com/PetitOursManu/Mocky)'
@@ -76,7 +76,13 @@ export class InspirationFetcher {
     for (const url of targets) {
       try {
         // SSRF guard — never let a pasted URL reach an internal address.
-        assertSafeTarget(url)
+        //
+        // The RESOLVED guard, not the synchronous one. The literal-only half
+        // sees `http://127.0.0.1.nip.io/` as an ordinary hostname, and every
+        // wildcard-DNS service on the internet hands out that trick for free —
+        // enough to read a NAS, a router admin page, or a cloud metadata
+        // endpoint through the dossier this route returns to the caller.
+        await assertSafeTargetResolved(url)
 
         const cached = this.cache.get(url)
         if (cached != null) {
