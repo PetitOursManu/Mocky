@@ -14,7 +14,7 @@ export const en: Record<keyof typeof fr, string> = {
   'nav.settings': 'Settings',
   'nav.admin': 'Admin',
   'nav.docs': 'Docs',
-  'nav.docsTitle': 'Mocky documentation (new tab)',
+  'nav.docsHint': 'Open the documentation in a new tab',
   'nav.tagline': 'Chat → UI · self-hosted',
   'nav.backHome': 'Mocky home',
 

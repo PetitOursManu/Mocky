@@ -4,7 +4,6 @@ import { getThumb, pruneThumbs, THUMB_REGION } from '../lib/thumbnails'
 import { Button, Icon, IconButton, Input } from '../ui'
 import { useT } from '../i18n'
 
-
 function useTimeAgo() {
   const t = useT()
   return (ts: number): string => {
@@ -251,7 +250,7 @@ export default function ProjectsHome({
               />
             </label>
           )}
-          <Button variant="primary" onClick={onCreate}>
+                    <Button variant="primary" onClick={onCreate}>
             <Icon name="plus" size={16} />
             {t('projects.new')}
           </Button>

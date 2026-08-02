@@ -1,0 +1,14 @@
+- [Accueil](fr/README.md)
+- [Démarrage](fr/getting-started.md)
+- Architecture
+  - [Vue d'ensemble](fr/architecture/overview.md)
+  - [Invariants](fr/architecture/invariants.md)
+- Muse
+  - [Vue d'ensemble](fr/muse/overview.md)
+  - [Moteur d'inspiration](fr/muse/inspiration-engine.md)
+  - [Animations](fr/muse/animations.md)
+- [Déploiement](fr/deployment.md)
+- Références
+  - [ADR 001 — Muse (EN)](adr/001-muse.md)
+  - [Système de design (FR)](DESIGN-SYSTEM.md)
+  - [Audit 2026-07 (FR)](AUDIT-2026-07.md)

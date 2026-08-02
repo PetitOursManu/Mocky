@@ -14,8 +14,8 @@ export const fr = {
   'nav.media': 'Média',
   'nav.settings': 'Réglages',
   'nav.admin': 'Admin',
-  'nav.docs': 'Doc',
-  'nav.docsTitle': 'Documentation de Mocky (nouvel onglet)',
+  'nav.docs': 'Docs',
+  'nav.docsHint': 'Ouvrir la documentation dans un nouvel onglet',
   'nav.tagline': 'Chat → UI · auto-hébergé',
   'nav.backHome': 'Accueil Mocky',
 
