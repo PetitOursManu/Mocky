@@ -60,6 +60,9 @@ export function defaultVideoProfile() {
     provider: '',
     fal: { apiKey: '', model: DEFAULT_FAL_VIDEO_MODEL, timeoutSec: 600 },
     frames: { fps: DEFAULT_FPS, width: DEFAULT_FRAME_WIDTH, max: MAX_FRAMES },
+    /** True once someone has actually SET the frame settings, not merely saved
+     *  the form around them. Guards dropLegacyFrames — see its note. */
+    framesChosen: false,
   }
 }
 
@@ -84,13 +87,20 @@ const LEGACY_FRAMES = { fps: 12, width: 960, max: 150 }
  * the symptom would be "the new setting does nothing", with no error to explain
  * it.
  *
- * Dropping the block is safe precisely because it can only have been written
- * incidentally: no interface has ever exposed fps, width or max, so an exact
- * match on the old triple cannot be a deliberate choice. THAT STOPS BEING TRUE
- * the day the Admin panel offers these fields — at which point this migration
- * has to go, or it will quietly undo a real decision.
+ * Dropping the block was safe while no interface exposed fps, width or max: an
+ * exact match on the old triple could only have been written incidentally, never
+ * chosen. The Admin panel now offers those fields, so the shape of the values
+ * can no longer tell the two apart — an admin is perfectly entitled to ask for
+ * 12 / 960 / 150 on purpose, and a rule that reads intent out of the numbers
+ * would undo it on the next boot. A test says so.
+ *
+ * So intent is recorded instead of inferred. `framesChosen` is set by
+ * mergeVideo the first time a patch actually CARRIES a frames block, which only
+ * the panel does; the incidental writes that caused this whole problem never
+ * did. Once it is true this function never touches the config again.
  */
 function dropLegacyFrames(raw) {
+  if (raw?.video?.framesChosen) return raw
   const f = raw?.video?.frames
   if (!f) return raw
   const same =
@@ -184,6 +194,10 @@ function mergeVideo(current, patch) {
           ? Math.min(1800, Math.round(Number(p.fal.timeoutSec)))
           : base.fal?.timeoutSec || 600,
     },
+    // Set the moment a patch carries a frames block at all. The old VideoForm
+    // sent { provider, fal } and nothing else, which is precisely why the
+    // defaults of the day got frozen into every saved config.
+    framesChosen: Boolean(base.framesChosen) || (p.frames && typeof p.frames === 'object'),
     frames: {
       fps: clamp(f.fps, 4, 30, bf.fps),
       width: clamp(f.width, 320, 1920, bf.width),
@@ -253,14 +267,42 @@ export function resolveImageProfile(cfg, profile = 'content') {
 export class ImagesConfigStore {
   constructor(dataDir) {
     this.file = path.join(dataDir, 'images-config.json')
-    this.config = this._load()
+    let migrated = false
+    this.config = this._load(() => {
+      migrated = true
+    })
+    // Write the migration back ONCE, so it becomes a past event rather than a
+    // rule that runs forever. After this the file holds the new numbers
+    // explicitly, `dropLegacyFrames` never matches again, and an admin who
+    // deliberately types the old triple into the panel keeps it.
+    if (migrated) this._write()
   }
 
-  _load() {
+  _load(onMigrate) {
     try {
-      return mergeImagesConfig(defaultImagesConfig(), dropLegacyFrames(JSON.parse(fs.readFileSync(this.file, 'utf8'))))
+      const raw = JSON.parse(fs.readFileSync(this.file, 'utf8'))
+      const clean = dropLegacyFrames(raw)
+      if (clean !== raw) onMigrate?.()
+      return mergeImagesConfig(defaultImagesConfig(), clean)
     } catch {
       return defaultImagesConfig()
+    }
+  }
+
+  /** Atomic write of the whole config. Never throws — see `update`. */
+  _write() {
+    this.lastPersistError = null
+    try {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true })
+      const tmp = `${this.file}.${crypto.randomBytes(6).toString('hex')}.tmp`
+      // 0600: this file holds the fal / OpenAI / Cloudflare keys in clear text.
+      fs.writeFileSync(tmp, JSON.stringify(this.config, null, 2), { mode: 0o600 })
+      fs.renameSync(tmp, this.file)
+    } catch (err) {
+      // Config that can't persist is still applied in memory — never throw.
+      // But log it: a read-only volume used to look exactly like success.
+      this.lastPersistError = err.message
+      console.error(`mocky: could not save image config to ${this.file} — ${err.message}`)
     }
   }
 
@@ -285,19 +327,7 @@ export class ImagesConfigStore {
   /** Merge a partial update, persist atomically, return the new config. */
   update(patch) {
     this.config = mergeImagesConfig(this.config, patch)
-    this.lastPersistError = null
-    try {
-      fs.mkdirSync(path.dirname(this.file), { recursive: true })
-      const tmp = `${this.file}.${crypto.randomBytes(6).toString('hex')}.tmp`
-      // 0600: this file holds the fal / OpenAI / Cloudflare keys in clear text.
-      fs.writeFileSync(tmp, JSON.stringify(this.config, null, 2), { mode: 0o600 })
-      fs.renameSync(tmp, this.file)
-    } catch (err) {
-      // Config that can't persist is still applied in memory — never throw.
-      // But log it: a read-only volume used to look exactly like success.
-      this.lastPersistError = err.message
-      console.error(`mocky: could not save image config to ${this.file} — ${err.message}`)
-    }
+    this._write()
     return this.config
   }
 }

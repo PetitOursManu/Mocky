@@ -257,6 +257,35 @@ export function deriveProjectName(prompt: string): string {
 }
 
 /**
+ * The screens of a walkthrough, in the order they should play.
+ *
+ * ORDER IS THE ARRAY, which is creation order — `addScreen` only ever appends,
+ * nothing in the app re-sorts `project.screens`, and every other list already
+ * reads it that way (export sidebar, links panel, project cover).
+ *
+ * Canvas position was the tempting alternative, since dragging is the only
+ * ordering gesture the product offers. It loses on one fact: `packScreens` —
+ * the Arrange button — derives POSITION FROM ARRAY ORDER, and says so ("order is
+ * preserved: arranging must be predictable, not clever"). A chain read out of
+ * x/y would therefore be silently rewritten the first time anyone tidied the
+ * canvas, with no undo. Position is downstream of the array here, so the array
+ * is what a sequence must be built on.
+ *
+ * Screens with no code are dropped rather than shown as a blank step: a screen
+ * that never generated is a hole in the story, not a beat of it.
+ *
+ * `from` starts the walk at a chosen screen and keeps everything after it, which
+ * is what "play from here" means on a canvas the user has scrolled through. An
+ * unknown id is ignored rather than yielding nothing.
+ */
+export function autoFlow(screens: Screen[], from?: string): string[] {
+  const usable = screens.filter((s) => s.code && s.code.trim().length > 0)
+  if (usable.length === 0) return []
+  const at = from ? usable.findIndex((s) => s.id === from) : 0
+  return usable.slice(at > 0 ? at : 0).map((s) => s.id)
+}
+
+/**
  * Longest a folder name may be.
  *
  * Folders are chips on one line above the index; past this they wrap and the

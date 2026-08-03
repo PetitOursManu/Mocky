@@ -417,6 +417,7 @@ export default function Preview({
   onPick,
   demoLinks,
   onNavigate,
+  onReady,
   hideScrollbars,
   radius,
   captureRequest,
@@ -438,6 +439,9 @@ export default function Preview({
   onPick?: (info: PickInfo) => void
   demoLinks?: DemoLink[]
   onNavigate?: (target: string) => void
+  /** Fires when the screen has actually rendered. A walkthrough needs to know:
+   *  advancing on a timer alone shows blank frames on a heavy screen. */
+  onReady?: (ready: boolean) => void
   hideScrollbars?: boolean
   radius?: string
   captureRequest?: CaptureRequest | null
@@ -456,6 +460,16 @@ export default function Preview({
   const t = useT()
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+
+  // Reported through a ref-free effect rather than from inside the message
+  // handler: `ready` is dropped from several places (a code change, a re-subscribe),
+  // and a caller that only heard about the rises would think a screen was still
+  // up after it had gone back to compiling.
+  const onReadyRef = useRef(onReady)
+  onReadyRef.current = onReady
+  useEffect(() => {
+    onReadyRef.current?.(ready)
+  }, [ready])
   /** True for ~3s after the frame tried to leave the mockup and was put back. */
   const [navBlocked, setNavBlocked] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)

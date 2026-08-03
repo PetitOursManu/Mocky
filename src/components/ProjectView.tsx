@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, saveDesign, extractDesignColors } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen, autoFlow } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
@@ -236,7 +236,12 @@ export default function ProjectView({
   const [interactAll, setInteractAll] = useState(false)
   const [showFrame, setShowFrame] = useState(() => localStorage.getItem(FRAME_PREF_KEY) !== '0')
   const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
-  const [demoStartId, setDemoStartId] = useState<string | null>(null)
+  /**
+   * The open demo, if any: where it starts, and — when the user asked to be
+   * walked through rather than to click their own hotspots — the ordered flow.
+   * One piece of state because the player is mounted on its truthiness.
+   */
+  const [demo, setDemo] = useState<{ startId: string; flow?: string[] } | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
   const [menu, setMenu] = useState<{ screenId: string; x: number; y: number } | null>(null)
   // An id, not the object. Holding the Screen froze whatever it contained at
@@ -1548,14 +1553,33 @@ export default function ProjectView({
           {t('mode.system')}
         </Button>
         <div className="mx-1 h-5 w-px bg-line-soft" />
+        {/* Two ways to play. The left one follows the hotspots the user wired;
+            the right one walks the screens in order and needs nothing wired at
+            all, which is the whole point — demo mode used to be useless until
+            you had linked everything by hand. */}
         <Button
           variant="toolbar"
           size="sm"
-          onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
+          onClick={() => {
+            const start = selectedScreens[0]?.id ?? screens[0]?.id
+            if (start) setDemo({ startId: start })
+          }}
           title={t('project.demoTitle')}
         >
           <Icon name="play" size={14} />
           {t('mode.demo')}
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          onClick={() => {
+            const order = autoFlow(screens, selectedScreens[0]?.id)
+            if (order.length > 0) setDemo({ startId: order[0], flow: order })
+          }}
+          title={t('project.demoFlowTitle')}
+        >
+          <Icon name="grid" size={14} />
+          {t('project.demoFlow')}
         </Button>
         <div className="relative">
           <Button
@@ -2035,8 +2059,14 @@ export default function ProjectView({
         </div>
       )}
 
-      {demoStartId && (
-        <DemoPlayer screens={screens} startId={demoStartId} onExit={() => setDemoStartId(null)} />
+      {demo && (
+        <DemoPlayer
+          screens={screens}
+          startId={demo.startId}
+          flow={demo.flow}
+          animations={animationMode !== 'off'}
+          onExit={() => setDemo(null)}
+        />
       )}
 
       {/* Per-screen context menu (right-click or ⋯) */}

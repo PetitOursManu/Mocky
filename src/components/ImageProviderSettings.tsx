@@ -397,6 +397,11 @@ function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [timeoutSec, setTimeoutSec] = useState(section.fal.timeoutSec)
+  // How a clip is cut. Independent of the provider — an imported clip is cut by
+  // the same three numbers as a generated one.
+  const [fps, setFps] = useState(section.frames.fps)
+  const [frameWidth, setFrameWidth] = useState(section.frames.width)
+  const [maxFrames, setMaxFrames] = useState(section.frames.max)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -432,7 +437,11 @@ function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
     setSaved(false)
     try {
       const fresh = await api.admin.setImagesConfig({
-        video: { provider, fal: { model, apiKey: apiKey || undefined, timeoutSec } },
+        video: {
+          provider,
+          fal: { model, apiKey: apiKey || undefined, timeoutSec },
+          frames: { fps, width: frameWidth, max: maxFrames },
+        },
       })
       onConfig(fresh)
       setApiKey('')
@@ -498,6 +507,65 @@ function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
           )}
         </Field>
       </div>
+
+      {/* ---- how a clip is cut ----
+          Its own block because these three are the only settings here that also
+          govern IMPORTED clips, which reach none of the fields above. */}
+      <h5 className="kicker mt-5 text-accent-ink">{t('settings.framesTitle')}</h5>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.framesBlurb')}</p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <Field label={t('settings.framesFps')} hint={t('settings.framesFpsHint')}>
+          {(p) => (
+            <Input
+              {...p}
+              type="number"
+              min={4}
+              max={30}
+              value={fps}
+              onChange={(e) => setFps(Number(e.target.value) || section.frames.fps)}
+            />
+          )}
+        </Field>
+        <Field label={t('settings.framesWidth')} hint={t('settings.framesWidthHint')}>
+          {(p) => (
+            <Input
+              {...p}
+              type="number"
+              min={320}
+              max={1920}
+              step={80}
+              value={frameWidth}
+              onChange={(e) => setFrameWidth(Number(e.target.value) || section.frames.width)}
+            />
+          )}
+        </Field>
+        <Field label={t('settings.framesMax')} hint={t('settings.framesMaxHint')}>
+          {(p) => (
+            <Input
+              {...p}
+              type="number"
+              min={10}
+              max={600}
+              step={10}
+              value={maxFrames}
+              onChange={(e) => setMaxFrames(Number(e.target.value) || section.frames.max)}
+            />
+          )}
+        </Field>
+      </div>
+
+      {/* The coupling, spelled out rather than left to be discovered: `max` is a
+          COUNT, so raising the rate without raising it shortens the longest clip
+          that survives intact. Showing the resulting duration is the only way
+          that is obvious at the moment of typing. */}
+      <p className="mt-2 font-mono text-caption text-ink-faint">
+        {t('settings.framesBudget', {
+          seconds: (maxFrames / Math.max(1, fps)).toFixed(1),
+          frames: maxFrames,
+          fps,
+        })}
+      </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button variant="primary" size="sm" onClick={save} disabled={saving}>

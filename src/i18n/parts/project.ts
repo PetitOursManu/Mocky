@@ -19,7 +19,9 @@ export const project = {
     'project.annotateTitle': 'Découper une zone d’un écran et l’envoyer au chat comme référence numérotée',
     'project.frameTitle': 'Afficher ou masquer le cadre iPhone sur les écrans mobiles',
     'project.systemTitle': 'Système de design en direct — vos tokens DESIGN.md, et de quoi les recolorer',
-    'project.demoTitle': 'Lancer le prototype',
+    'project.demoTitle': 'Lancer le prototype — suit les liens que vous avez posés',
+    'project.demoFlow': 'Dérouler',
+    'project.demoFlowTitle': 'Parcourir les écrans dans l’ordre, sans avoir à les relier',
     'project.exportTitle': 'Exporter un projet Vite + React + Tailwind prêt à lancer',
 
     // ---- export menu ----
@@ -197,7 +199,9 @@ export const project = {
     'project.annotateTitle': 'Snip a region of a screen into the chat as a numbered reference',
     'project.frameTitle': 'Show or hide the iPhone frame on mobile screens',
     'project.systemTitle': 'Live design system — your DESIGN.md tokens, and a way to recolor them',
-    'project.demoTitle': 'Play the prototype',
+    'project.demoTitle': 'Play the prototype — follows the links you placed',
+    'project.demoFlow': 'Walk through',
+    'project.demoFlowTitle': 'Step through the screens in order, with nothing to wire up',
     'project.exportTitle': 'Export a runnable Vite + React + Tailwind project',
 
     // ---- export menu ----

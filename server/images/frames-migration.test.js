@@ -66,4 +66,33 @@ describe('legacy frame settings', () => {
       max: MAX_FRAMES,
     })
   })
+
+  it('writes the migration back, so it happens once and not forever', () => {
+    write({ video: { frames: { fps: 12, width: 960, max: 150 } } })
+    new ImagesConfigStore(dir)
+    // The file itself now spells out the new numbers. Without this the rule
+    // would keep firing on every boot, and the admin panel would have a setting
+    // it silently refused to honour.
+    const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'))
+    expect(onDisk.video.frames).toEqual({ fps: DEFAULT_FPS, width: DEFAULT_FRAME_WIDTH, max: MAX_FRAMES })
+  })
+
+  it('lets an admin choose the old numbers on purpose, once migrated', () => {
+    // First boot migrates and rewrites.
+    write({ video: { frames: { fps: 12, width: 960, max: 150 } } })
+    new ImagesConfigStore(dir)
+
+    // Now the admin deliberately asks for exactly the old triple through the
+    // panel. It must survive the next boot.
+    const store = new ImagesConfigStore(dir)
+    store.update({ video: { frames: { fps: 12, width: 960, max: 150 } } })
+    expect(new ImagesConfigStore(dir).videoProfile().frames).toEqual({ fps: 12, width: 960, max: 150 })
+  })
+
+  it('does not rewrite a file it did not change', () => {
+    write({ video: { frames: { fps: 20, width: 1280, max: 200 } } })
+    const before = fs.readFileSync(file, 'utf8')
+    new ImagesConfigStore(dir)
+    expect(fs.readFileSync(file, 'utf8')).toBe(before)
+  })
 })
