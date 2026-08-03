@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FRAME_HEADER, type Screen } from '../lib/project'
 import Preview from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
@@ -130,9 +130,26 @@ export default function DemoPlayer({
     if (screens.some((s) => s.id === target)) setStack((st) => [...st, target])
   }
 
-  const demoLinks = current.links
-    .filter((h) => h.selector)
-    .map((h) => ({ selector: h.selector as string, target: h.target }))
+  /*
+   * Memoised, and that is load-bearing rather than tidy.
+   *
+   * Rebuilt on every render, this array reaches Preview with a new identity each
+   * time, which re-runs the effects that own the iframe and drops `ready` back
+   * to false. The iframe does not reload, so the "ok" it is now waiting for can
+   * never come — and twenty seconds later a perfectly rendered screen accuses
+   * itself of a render timeout. That is the exact failure Preview's own comment
+   * at the bottom of its message effect warns about.
+   *
+   * It never mattered before because DemoPlayer had no state and never
+   * re-rendered after mount. Adding the walkthrough gave it some.
+   */
+  const demoLinks = useMemo(
+    () =>
+      current.links
+        .filter((h) => h.selector)
+        .map((h) => ({ selector: h.selector as string, target: h.target })),
+    [current.links],
+  )
 
   return (
     <div className="fixed inset-0 z-top flex flex-col bg-sunken">
@@ -193,10 +210,10 @@ export default function DemoPlayer({
             <div className="absolute inset-0">
               {current.device === 'iphone' ? (
                 <DeviceChrome>
-                  <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} onReady={setShown} animations={current.animations ?? animations} hideScrollbars radius={SCREEN_RADIUS} />
+                  <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} onReady={(r) => r && setShown(true)} animations={current.animations ?? animations} hideScrollbars radius={SCREEN_RADIUS} />
                 </DeviceChrome>
               ) : (
-                <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} onReady={setShown} animations={current.animations ?? animations} />
+                <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} onReady={(r) => r && setShown(true)} animations={current.animations ?? animations} />
               )}
             </div>
             {/* Fallback overlays for legacy links without an element selector */}
