@@ -22,6 +22,7 @@ import {
   type LibraryVideo,
   type PinnedVideo,
 } from '../lib/videoLibrary'
+import VideoPlayer from './VideoPlayer'
 import { Banner, Button, Icon, IconButton, Spinner } from '../ui'
 import { useT } from '../i18n'
 
@@ -76,6 +77,8 @@ export default function Bibliotheque({
   const [tab, setTab] = useState<MediaTab>('images')
   const [videos, setVideos] = useState<LibraryVideo[]>([])
   const [videoError, setVideoError] = useState<string | null>(null)
+  /** The clip whose player is open, if any. */
+  const [playing, setPlaying] = useState<LibraryVideo | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -87,6 +90,9 @@ export default function Bibliotheque({
   const [ownLightbox, setOwnLightbox] = useState<string | null>(null)
   const openImage = (hash: string) => (onOpenImage ? onOpenImage(hash) : setOwnLightbox(hash))
   const lightbox = ownLightbox ? <ImageLightbox hash={ownLightbox} onClose={() => setOwnLightbox(null)} /> : null
+  // Mounted in both branches, like the lightbox: the Media page and the Muse
+  // modal render the same video grid, so a clip must play from either.
+  const player = playing ? <VideoPlayer video={playing} onClose={() => setPlaying(null)} /> : null
 
   const filters: LibraryFilters = {
     q: q.trim() || undefined,
@@ -197,6 +203,9 @@ export default function Bibliotheque({
       await deleteVideo(v.hash)
       setVideos((arr) => arr.filter((x) => x.hash !== v.hash))
       if (pinnedVideo?.hash === v.hash) onPinVideo?.(null)
+      // Otherwise the player keeps running over frames the server has just
+      // stopped serving, and the picture dies one 404 at a time.
+      setPlaying((cur) => (cur?.hash === v.hash ? null : cur))
     } catch {
       /* ignore */
     }
@@ -485,15 +494,28 @@ export default function Bibliotheque({
               chosen ? 'border-muse ring-2 ring-muse/40' : 'border-line-soft'
             }`}
           >
-            <div className="relative block aspect-[16/9] w-full overflow-hidden bg-sunken">
+            {/* The poster was inert: a still of a clip nobody could watch. The
+                whole tile is now the play control, which is what a picture of a
+                video has always promised. */}
+            <button
+              type="button"
+              onClick={() => setPlaying(v)}
+              aria-label={t('library.playVideo')}
+              className="relative block aspect-[16/9] w-full overflow-hidden bg-sunken"
+            >
               <img src={videoPosterUrl(v.hash)} alt="" className="h-full w-full object-cover" loading="lazy" />
+              <span className="absolute inset-0 flex items-center justify-center bg-sunken/0 transition group-hover:bg-sunken/40">
+                <span className="flex h-11 w-11 items-center justify-center border border-line bg-raised/90 text-ink opacity-0 transition group-hover:opacity-100">
+                  <Icon name="play" size={18} />
+                </span>
+              </span>
               {/* The frame count is the honest measure of a sequence: it is what
                   the scroll is divided into. */}
               <span className="absolute bottom-1 right-1 flex items-center gap-1 border border-line bg-raised/90 px-1.5 py-0.5 font-mono text-caption text-ink-muted">
                 <Icon name="play" size={11} />
                 {t('library.frames', { count: v.frames })}
               </span>
-            </div>
+            </button>
             <div className="p-1.5">
               <div className="truncate text-caption text-ink-muted" title={v.prompt}>
                 {v.prompt}
@@ -573,6 +595,7 @@ export default function Bibliotheque({
         {selectionNote && <div className="mb-4">{selectionNote}</div>}
         {activeGrid}
         {lightbox}
+      {player}
       </main>
     )
   }
@@ -623,6 +646,7 @@ export default function Bibliotheque({
         </div>
       </div>
       {lightbox}
+      {player}
     </div>
   )
 }

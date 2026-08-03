@@ -24,6 +24,7 @@ export type IconName =
   | 'phone'
   | 'grid'
   | 'play'
+  | 'pause'
   | 'download'
   | 'upload'
   | 'library'
@@ -65,6 +66,11 @@ const PATHS: Record<IconName, string> = {
   phone: 'M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4',
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   play: 'M6 4l14 8-14 8V4Z',
+  // Filled like `play`, because the two sit in the same button and swap: a
+  // stroked pause beside a solid play reads as two different weights of control.
+  // The player had been borrowing `close` for want of this, which says "dismiss"
+  // where the button means "hold".
+  pause: 'M7 4h4v16H7zM13 4h4v16h-4z',
   download: 'M12 3v12m0 0 4-4m-4 4-4-4M4 19h16',
   upload: 'M12 21V9m0 0 4 4M12 9 8 13M4 5h16',
   library: 'M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1',
@@ -103,7 +109,7 @@ const PATHS: Record<IconName, string> = {
 }
 
 /** Icons whose shape reads better filled than stroked. */
-const FILLED = new Set<IconName>(['play', 'more'])
+const FILLED = new Set<IconName>(['play', 'pause', 'more'])
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   name: IconName
