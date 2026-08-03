@@ -5,7 +5,7 @@ import { editComponent, fixComponent, generateComponent, detectComponentName, bu
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen, autoFlow } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
-import { queueThumbs } from '../lib/thumbnails'
+import { cancelThumbs, queueThumbs } from '../lib/thumbnails'
 import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection } from '../lib/plan'
 import { downloadZip, downloadTsx } from '../lib/export'
@@ -541,12 +541,15 @@ export default function ProjectView({
    */
   useEffect(() => {
     if (busy) return
-    // Never while a demo is on screen. A capture is seconds of main-thread work
-    // per screen — it serializes every node's computed style — and the demo is
-    // booting an iframe of its own at the same time. Whichever of the two wins,
-    // the user is watching the one that lost. Thumbnails are best-effort and can
-    // wait for the demo to close; the demo cannot wait for them.
-    if (demo) return
+    // Never while a demo is on screen, and abandon anything already running:
+    // a capture in flight keeps the thread for as long as it takes, and the demo
+    // iframe's own render watchdog is armed the moment it mounts. Whichever
+    // finishes first, the timer was armed earlier, so it wins — and a screen
+    // that rendered perfectly accuses itself of a timeout.
+    if (demo) {
+      cancelThumbs()
+      return
+    }
     const timer = window.setTimeout(() => queueThumbs(screens), 1200)
     return () => window.clearTimeout(timer)
   }, [screens, busy, demo])

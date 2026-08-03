@@ -349,6 +349,34 @@ ${preludeTag}
 })();
 </script></body></html>`
 }
+/**
+ * Teardowns for every capture frame currently mounted.
+ *
+ * A capture is not a background task. snapdom serialises the computed style of
+ * every node, and it does that in a frame that shares this thread — so while a
+ * heavy screen is being photographed, nothing else in the tab runs. Messages sit
+ * in the queue, timers fire late, and anything with a watchdog accuses itself of
+ * a timeout it did not have. That is precisely what demo mode did: its iframe
+ * rendered and posted "ok", the parent could not answer for twenty-odd seconds,
+ * and the render watchdog — armed earlier, therefore due earlier — won the race.
+ *
+ * Removing the frame stops its script dead, which is the only way to give the
+ * thread back. Hence this registry.
+ */
+const liveCaptures = new Set<() => void>()
+
+/**
+ * Abandon every capture in flight.
+ *
+ * Called when something the user is actually looking at needs the thread. The
+ * abandoned captures reject, and their callers treat a failed thumbnail as no
+ * thumbnail — which is what they already do, and what makes this safe.
+ */
+export function cancelCaptures(): void {
+  for (const stop of [...liveCaptures]) stop()
+  liveCaptures.clear()
+}
+
 function mountCaptureIframe(
   srcdoc: string,
   id: string,
@@ -373,6 +401,15 @@ function mountCaptureIframe(
   const cleanup = () => {
     window.removeEventListener('message', onMsg)
     iframe.remove()
+    liveCaptures.delete(abandon)
+  }
+  // Registered so cancelCaptures() can stop this frame mid-snapshot. Rejecting
+  // rather than resolving null keeps the caller's existing failure path.
+  const abandon = () => {
+    if (done) return
+    done = true
+    cleanup()
+    reject(new Error('capture cancelled — the thread was needed elsewhere'))
   }
   function onMsg(e: MessageEvent) {
     // The capture iframe is the only legitimate sender; a live preview must not
@@ -386,6 +423,7 @@ function mountCaptureIframe(
     else reject(new Error(d.error || 'capture failed'))
   }
   window.addEventListener('message', onMsg)
+  liveCaptures.add(abandon)
   document.body.appendChild(iframe)
   setTimeout(() => {
     if (!done) {

@@ -1,4 +1,4 @@
-import { captureRegion } from './capture'
+import { cancelCaptures, captureRegion } from './capture'
 import { resolveCapabilities, selectCapabilities } from './capabilities/select'
 import type { Screen } from './project'
 
@@ -293,6 +293,19 @@ async function drain() {
  * view. See the note at the top of this file: the capture runs model code
  * same-origin, which belongs where the user is already generating.
  */
+/**
+ * Drop everything: the queue, and any capture already grinding.
+ *
+ * Called when the user opens something that needs the thread now. A capture in
+ * flight is not polite background work — it blocks the tab — and thumbnails are
+ * best-effort by construction, so abandoning them costs a picture that will be
+ * retaken the next time the screen settles.
+ */
+export function cancelThumbs(): void {
+  pending.length = 0
+  cancelCaptures()
+}
+
 export function queueThumbs(screens: Screen[]): void {
   for (const s of screens) {
     if (!s?.code || !s.code.trim()) continue

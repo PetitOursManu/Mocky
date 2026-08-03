@@ -117,6 +117,32 @@ export default function DemoPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onExit, flow, step])
 
+  /*
+   * ABOVE the early return, because it is a hook.
+   *
+   * It first went in below, next to the code it replaced — but that code was a
+   * plain `const`, and a plain const may sit after `return null` where a
+   * `useMemo` may not. A conditionally-called hook shifts every later hook's
+   * slot the moment `current` is falsy, which is the kind of corruption that
+   * shows up as some other component behaving impossibly.
+   *
+   * Memoised at all because the identity is load-bearing: rebuilt on every
+   * render, this array reaches Preview fresh each time, re-running the effects
+   * that own the iframe and dropping `ready` back to false. The iframe does not
+   * reload, so the "ok" it then waits for can never come — and twenty seconds
+   * later a perfectly rendered screen accuses itself of a render timeout. That
+   * is the failure Preview's own comment warns about at the foot of its message
+   * effect. It never mattered before because DemoPlayer had no state and never
+   * re-rendered after mount; the walkthrough gave it some.
+   */
+  const demoLinks = useMemo(
+    () =>
+      (current?.links ?? [])
+        .filter((h) => h.selector)
+        .map((h) => ({ selector: h.selector as string, target: h.target })),
+    [current?.links],
+  )
+
   if (!current) return null
 
   const bodyW = current.w
@@ -130,26 +156,6 @@ export default function DemoPlayer({
     if (screens.some((s) => s.id === target)) setStack((st) => [...st, target])
   }
 
-  /*
-   * Memoised, and that is load-bearing rather than tidy.
-   *
-   * Rebuilt on every render, this array reaches Preview with a new identity each
-   * time, which re-runs the effects that own the iframe and drops `ready` back
-   * to false. The iframe does not reload, so the "ok" it is now waiting for can
-   * never come — and twenty seconds later a perfectly rendered screen accuses
-   * itself of a render timeout. That is the exact failure Preview's own comment
-   * at the bottom of its message effect warns about.
-   *
-   * It never mattered before because DemoPlayer had no state and never
-   * re-rendered after mount. Adding the walkthrough gave it some.
-   */
-  const demoLinks = useMemo(
-    () =>
-      current.links
-        .filter((h) => h.selector)
-        .map((h) => ({ selector: h.selector as string, target: h.target })),
-    [current.links],
-  )
 
   return (
     <div className="fixed inset-0 z-top flex flex-col bg-sunken">
