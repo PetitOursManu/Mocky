@@ -198,6 +198,81 @@ export class VideoLibrary {
     return { hash, meta, fromCache: false }
   }
 
+  /**
+   * Cut an existing clip again, at the current settings.
+   *
+   * Possible only because `ingest` keeps `source.mp4` next to the frames. It is
+   * never served — `PUBLIC_VIDEO_PATH` deliberately excludes it — but it is on
+   * disk, so raising the frame rate or the width does not mean paying a provider
+   * to generate the clip a second time.
+   *
+   * The new sequence is written to a sibling directory and swapped in only once
+   * it is complete. Extracting over the top would be shorter and would destroy
+   * the clip whenever ffmpeg failed halfway: the old frames are gone the moment
+   * they are deleted, and the source alone is not something the app can serve.
+   *
+   * The hash does not change — it is the SHA-256 of the source bytes, not of the
+   * frames — so every URL already handed out stays valid, and a screen pointing
+   * at this clip keeps working across the re-cut.
+   */
+  async recut(hash, opts = {}) {
+    const meta = this.state.byHash[hash]
+    if (!meta) return null
+    const dir = this.dirFor(hash)
+    const source = this.sourcePath(hash)
+    // Clips ingested before sources were retained have frames and nothing to
+    // cut them from again. Saying so is better than a half-finished attempt.
+    if (!dir || !source) {
+      const err = new Error('no source kept for this clip')
+      err.code = 'NO_SOURCE'
+      throw err
+    }
+
+    const staging = `${dir}.recut`
+    fs.rmSync(staging, { recursive: true, force: true })
+    let cut
+    try {
+      cut = await this.extract(source, staging, opts)
+    } catch (err) {
+      fs.rmSync(staging, { recursive: true, force: true })
+      throw err
+    }
+
+    // Swap. The old frames go first, then the new ones move in beside the source
+    // — which stays put, so a later re-cut is still possible.
+    try {
+      for (const name of fs.readdirSync(dir)) {
+        if (name === 'source.mp4') continue
+        fs.rmSync(path.join(dir, name), { recursive: true, force: true })
+      }
+      for (const name of fs.readdirSync(staging)) {
+        fs.renameSync(path.join(staging, name), path.join(dir, name))
+      }
+    } finally {
+      fs.rmSync(staging, { recursive: true, force: true })
+    }
+
+    const next = { ...meta, frames: cut.frames, width: cut.width, fps: cut.fps, recutAt: this.now() }
+    this.state.byHash[hash] = next
+    this._persist()
+    return { hash, meta: next }
+  }
+
+  /** Bytes currently on disk for one clip, frames and source together. */
+  clipSize(hash) {
+    const dir = this.dirFor(hash)
+    if (!dir || !fs.existsSync(dir)) return 0
+    let total = 0
+    for (const name of fs.readdirSync(dir)) {
+      try {
+        total += fs.statSync(path.join(dir, name)).size
+      } catch {
+        /* a file that vanished mid-walk contributes nothing */
+      }
+    }
+    return total
+  }
+
   /** The sequence a previous identical request produced, if it still exists. */
   cached(spec) {
     const hash = this.state.byRequest[VideoLibrary.requestKey(spec)]

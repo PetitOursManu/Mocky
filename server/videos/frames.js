@@ -29,12 +29,42 @@ import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
+/*
+ * WHAT THESE THREE NUMBERS COST, AND WHY THEY MOVED
+ *
+ * They were 12 fps / 960 px / 150 frames, sized for the job described above: a
+ * sequence that is SCRUBBED, where the scroll wheel is the clock and exact
+ * frame-stepping matters far more than smoothness. At twelve samples a second
+ * that is entirely adequate — nobody notices the rate when they are the one
+ * turning it.
+ *
+ * Then the Media page grew a play button, and the same material started being
+ * WATCHED. Twelve frames a second is visibly juddery when a clock plays it back,
+ * and 960 px is soft on any modern display. The sampling had not become wrong;
+ * it had acquired a second audience it was never chosen for.
+ *
+ * `max` is a count and not a duration, so the two top numbers are coupled: at
+ * 12 fps, 150 frames was 12.5 seconds of clip. Doubling the rate without
+ * doubling the ceiling would have silently truncated every clip longer than
+ * six seconds. It is doubled here for exactly that reason.
+ *
+ * The cost is disk, and it is roughly four to five times what it was per clip.
+ *
+ * All three are overridable per instance through `video.frames` in the images
+ * config — see defaultVideoProfile(), and mergeVideo() which clamps them to
+ * 4-30 fps, 320-1920 px and at most 600 frames. The Admin panel does NOT expose
+ * them yet: the server accepts the patch, but there is no field to type it into,
+ * so today it means editing images-config.json by hand. Adding those fields also
+ * means deleting dropLegacyFrames() in server/images/config.js — that migration
+ * is only safe while nobody can have chosen these numbers on purpose.
+ */
+
 /** Frames per second sampled from the clip. */
-export const DEFAULT_FPS = 12
+export const DEFAULT_FPS = 24
 /** Long edge of a stored frame, in pixels. */
-export const DEFAULT_FRAME_WIDTH = 960
+export const DEFAULT_FRAME_WIDTH = 1440
 /** Hard ceiling on frames per sequence — see the note above. */
-export const MAX_FRAMES = 150
+export const MAX_FRAMES = 300
 /** JPEG quality for ffmpeg's -q:v (2 = best, 31 = worst). */
 const JPEG_Q = 4
 /** A clip should take seconds to cut; this only catches a wedged process. */

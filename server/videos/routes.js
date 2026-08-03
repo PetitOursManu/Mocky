@@ -142,6 +142,45 @@ export function createVideosRouter({ library, generate, availability, recheck, f
     res.json(meta)
   })
 
+  /*
+   * Cut an existing clip again at the current settings.
+   *
+   * Not in PUBLIC_VIDEO_PATH, so it is behind requireUser like everything that
+   * is not picture bytes. It costs ffmpeg time and disk, nothing else: the
+   * source has been on disk since ingest, so no provider is called and no money
+   * is spent — which is the whole reason this is a button rather than a note in
+   * the docs telling people to regenerate.
+   */
+  router.post('/:hash/recut', async (req, res) => {
+    if (!HASH_RE.test(req.params.hash)) return res.status(400).json({ error: 'Bad hash' })
+    const before = library.clipSize(req.params.hash)
+    if (!before) return res.status(404).json({ error: 'Not found' })
+
+    // A re-cut at a higher rate can multiply what this clip occupies. Charge the
+    // budget for the growth it could cause, not for the frames it will replace.
+    const settings = frameSettings ? frameSettings() : {}
+    if (budget?.wouldExceed(before * 4)) {
+      return res.status(507).json({ error: quotaError(budget.usage()) })
+    }
+
+    try {
+      const out = await library.recut(req.params.hash, settings)
+      if (!out) return res.status(404).json({ error: 'Not found' })
+      // Signed, because `add` clamps a negative to zero: a re-cut that made the
+      // clip SMALLER would otherwise never give the disk back, and the budget
+      // would drift upwards a little on every pass.
+      const delta = library.clipSize(req.params.hash) - before
+      if (delta >= 0) budget?.add?.(delta)
+      else budget?.remove?.(-delta)
+      res.json({ hash: out.hash, frames: out.meta.frames, width: out.meta.width, fps: out.meta.fps })
+    } catch (err) {
+      // Nothing was destroyed: recut stages the new sequence and only swaps it
+      // in once it is whole, so the clip still plays exactly as it did.
+      const code = err?.code === 'NO_SOURCE' ? 409 : err?.code === 'FFMPEG_MISSING' ? 503 : 500
+      res.status(code).json({ error: err instanceof Error ? err.message : String(err) })
+    }
+  })
+
   router.delete('/:hash', (req, res) => {
     if (!HASH_RE.test(req.params.hash)) return res.status(400).json({ error: 'Bad hash' })
     const out = library.remove(req.params.hash)

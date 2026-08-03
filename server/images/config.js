@@ -71,6 +71,37 @@ export function defaultImagesConfig() {
   }
 }
 
+/** The frame settings that were the defaults before clips became watchable. */
+const LEGACY_FRAMES = { fps: 12, width: 960, max: 150 }
+
+/**
+ * Forget a persisted frame block that nobody ever chose.
+ *
+ * `update()` rewrites the WHOLE config, so an admin who once saved an image
+ * provider also wrote the frame settings that happened to be the defaults that
+ * day. Those values then shadow the defaults for good — raising them in code
+ * would change nothing on any instance whose admin had ever pressed Save, and
+ * the symptom would be "the new setting does nothing", with no error to explain
+ * it.
+ *
+ * Dropping the block is safe precisely because it can only have been written
+ * incidentally: no interface has ever exposed fps, width or max, so an exact
+ * match on the old triple cannot be a deliberate choice. THAT STOPS BEING TRUE
+ * the day the Admin panel offers these fields — at which point this migration
+ * has to go, or it will quietly undo a real decision.
+ */
+function dropLegacyFrames(raw) {
+  const f = raw?.video?.frames
+  if (!f) return raw
+  const same =
+    Number(f.fps) === LEGACY_FRAMES.fps &&
+    Number(f.width) === LEGACY_FRAMES.width &&
+    Number(f.max) === LEGACY_FRAMES.max
+  if (!same) return raw
+  const { frames: _dropped, ...video } = raw.video
+  return { ...raw, video }
+}
+
 /**
  * Configs written before the split stored ONE profile at the root. Lift it into
  * 'content' so an existing instance keeps generating exactly as before, keys and
@@ -227,7 +258,7 @@ export class ImagesConfigStore {
 
   _load() {
     try {
-      return mergeImagesConfig(defaultImagesConfig(), JSON.parse(fs.readFileSync(this.file, 'utf8')))
+      return mergeImagesConfig(defaultImagesConfig(), dropLegacyFrames(JSON.parse(fs.readFileSync(this.file, 'utf8'))))
     } catch {
       return defaultImagesConfig()
     }

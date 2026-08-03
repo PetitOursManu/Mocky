@@ -29,9 +29,20 @@ import { useT } from '../i18n'
  * is decoded up front and the canvas only ever blits something already in
  * memory.
  */
-export default function VideoPlayer({ video, onClose }: { video: LibraryVideo; onClose: () => void }) {
+export default function VideoPlayer({
+  video,
+  onClose,
+  onRecut,
+}: {
+  video: LibraryVideo
+  onClose: () => void
+  /** Absent when the instance cannot re-cut (no backend behind this view). */
+  onRecut?: (v: LibraryVideo) => Promise<void>
+}) {
   const t = useT()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [recutting, setRecutting] = useState(false)
+  const [recutError, setRecutError] = useState<string | null>(null)
 
   /** Decoded frames by 1-based index. A plain object: the keys are dense. */
   const framesRef = useRef<Record<number, HTMLImageElement>>({})
@@ -86,7 +97,7 @@ export default function VideoPlayer({ video, onClose }: { video: LibraryVideo; o
           setFailed((was) => was || Object.keys(framesRef.current).length === 0)
           pump()
         }
-        img.src = videoFrameUrl(video.hash, index)
+        img.src = videoFrameUrl(video.hash, index, video.recutAt)
       }
     }
     pump()
@@ -94,7 +105,7 @@ export default function VideoPlayer({ video, onClose }: { video: LibraryVideo; o
     return () => {
       alive = false
     }
-  }, [video.hash, total])
+  }, [video.hash, total, video.recutAt])
 
   // ---- paint ----
   const paint = useCallback(
@@ -161,7 +172,7 @@ export default function VideoPlayer({ video, onClose }: { video: LibraryVideo; o
         {/* The poster holds the frame's shape while the sequence downloads, so
             the dialog does not resize under the user when playback starts. */}
         <img
-          src={videoPosterUrl(video.hash)}
+          src={videoPosterUrl(video.hash, video.recutAt)}
           alt=""
           aria-hidden
           className={`w-full ${loaded > 0 ? 'invisible absolute' : 'block'}`}
@@ -227,13 +238,42 @@ export default function VideoPlayer({ video, onClose }: { video: LibraryVideo; o
         </span>
         <span>{video.provider || 'upload'}</span>
         <a
-          href={videoPosterUrl(video.hash)}
+          href={videoPosterUrl(video.hash, video.recutAt)}
           download={`${video.hash.slice(0, 12)}-poster.jpg`}
           className="ml-auto transition hover:text-accent-ink"
         >
           {t('library.downloadPoster')}
         </a>
       </div>
+
+      {/* Sits under the numbers it changes, because those numbers are the reason
+          anyone would press it. The original clip has been on disk since it was
+          imported, so this costs ffmpeg time and disk — never a provider call. */}
+      {onRecut && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={recutting}
+            onClick={async () => {
+              setRecutting(true)
+              setRecutError(null)
+              try {
+                await onRecut(video)
+              } catch (err) {
+                setRecutError(err instanceof Error ? err.message : String(err))
+              } finally {
+                setRecutting(false)
+              }
+            }}
+          >
+            <Icon name="refresh" size={15} />
+            {recutting ? t('library.recutting') : t('library.recut')}
+          </Button>
+          <span className="measure text-caption text-ink-faint">{t('library.recutHint')}</span>
+        </div>
+      )}
+      {recutError && <p className="mt-2 text-body-sm text-danger">{recutError}</p>}
 
       {video.prompt && <p className="measure mt-3 text-body-sm text-ink-muted">{video.prompt}</p>}
 

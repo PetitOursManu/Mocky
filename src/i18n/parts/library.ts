@@ -69,6 +69,10 @@ export const library = {
     'library.buffering': '{loaded} / {total} images chargées',
     'library.playFailed': 'Aucune image de cette séquence n’a pu être chargée.',
     'library.downloadPoster': 'Télécharger l’aperçu',
+    'library.recut': 'Redécouper plus finement',
+    'library.recutting': 'Redécoupage…',
+    'library.recutHint':
+      'Recalcule la séquence depuis le clip d’origine, conservé sur le serveur — sans appel au fournisseur.',
     'library.deleteVideo': 'Supprimer la séquence',
     'library.deleteVideoConfirm':
       'Supprimer définitivement cette séquence et toutes ses images ?',
@@ -145,6 +149,10 @@ export const library = {
     'library.buffering': '{loaded} / {total} frames loaded',
     'library.playFailed': 'None of this sequence’s frames could be loaded.',
     'library.downloadPoster': 'Download the poster',
+    'library.recut': 'Re-cut it finer',
+    'library.recutting': 'Re-cutting…',
+    'library.recutHint':
+      'Recomputes the sequence from the original clip, kept on the server — no provider call.',
     'library.deleteVideo': 'Delete sequence',
     'library.deleteVideoConfirm': 'Permanently delete this sequence and all its frames?',
     'library.useVideo': 'Use',

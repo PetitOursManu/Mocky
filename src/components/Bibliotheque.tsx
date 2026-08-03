@@ -18,6 +18,7 @@ import {
   deleteVideo,
   uploadVideo,
   videoPosterUrl,
+  recutVideo,
   ACCEPTED_VIDEO_TYPES,
   type LibraryVideo,
   type PinnedVideo,
@@ -92,7 +93,22 @@ export default function Bibliotheque({
   const lightbox = ownLightbox ? <ImageLightbox hash={ownLightbox} onClose={() => setOwnLightbox(null)} /> : null
   // Mounted in both branches, like the lightbox: the Media page and the Muse
   // modal render the same video grid, so a clip must play from either.
-  const player = playing ? <VideoPlayer video={playing} onClose={() => setPlaying(null)} /> : null
+  const player = playing ? (
+    <VideoPlayer
+      video={playing}
+      onClose={() => setPlaying(null)}
+      onRecut={async (v) => {
+        const next = await recutVideo(v.hash)
+        // The frames changed under the SAME URLs, and they were served
+        // immutable for a year. The new recutAt is the cache-buster that makes
+        // the browser fetch the new sequence rather than replay the old one
+        // from its cache — see videoFrameUrl.
+        const merged = { ...v, ...next }
+        setVideos((arr) => arr.map((x) => (x.hash === v.hash ? merged : x)))
+        setPlaying(merged)
+      }}
+    />
+  ) : null
 
   const filters: LibraryFilters = {
     q: q.trim() || undefined,
@@ -503,7 +519,7 @@ export default function Bibliotheque({
               aria-label={t('library.playVideo')}
               className="relative block aspect-[16/9] w-full overflow-hidden bg-sunken"
             >
-              <img src={videoPosterUrl(v.hash)} alt="" className="h-full w-full object-cover" loading="lazy" />
+              <img src={videoPosterUrl(v.hash, v.recutAt)} alt="" className="h-full w-full object-cover" loading="lazy" />
               <span className="absolute inset-0 flex items-center justify-center bg-sunken/0 transition group-hover:bg-sunken/40">
                 <span className="flex h-11 w-11 items-center justify-center border border-line bg-raised/90 text-ink opacity-0 transition group-hover:opacity-100">
                   <Icon name="play" size={18} />
