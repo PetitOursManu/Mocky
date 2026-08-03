@@ -199,9 +199,10 @@ export function createImagesRouter({ library, registryFor, budget }) {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
     // Readable from an opaque origin. Displaying an <img> never needed this, but
     // the capture shell (src/lib/capture.ts) is sandboxed without
-    // allow-same-origin, and snapdom inlines a picture by FETCHING its bytes —
-    // a cross-origin read, which without this header fails and leaves a grey
-    // placeholder in the thumbnail. `*` costs nothing here: this route is
+    // allow-same-origin, and a capture engine that inlines a picture by FETCHING its bytes needs it —
+    // a cross-origin read, which without this header fails. Not exercised today
+    // (the capture frame is same-origin again), kept because it costs nothing
+    // and this route is public by design. `*` costs nothing here: this route is
     // already unauthenticated by design (see the note above its mount in
     // server/index.js), so there are no credentials for a wildcard to expose,
     // and a wildcard cannot carry any.

@@ -40,35 +40,28 @@ describe('preview iframe sandbox', () => {
     for (const v of values) expect(v).toBe('allow-scripts')
   })
 
-  it('holds the capture iframe to allow-scripts too', () => {
-    // This assertion used to require the opposite — 'allow-scripts
-    // allow-same-origin' — and its comment told future readers not to "fix" it
-    // blind. That comment recorded a property of html2canvas, not a security
-    // invariant: html2canvas clones the document into an iframe of its own, and
-    // a sandbox without allow-same-origin gives every descendant a fresh opaque
-    // origin, so the frame could not read its own clone. snapdom serializes the
-    // subtree in place instead, so the flag became unnecessary and left. The
-    // capture frame is now exactly as contained as the preview one.
+  it('keeps the capture iframe same-origin — a documented, measured exception', () => {
+    // This is NOT an oversight, and the test records why so nobody "fixes" it
+    // blind: html2canvas clones the document into an iframe of its own, and a
+    // sandbox without allow-same-origin gives every descendant a fresh opaque
+    // origin, so the frame cannot read its own clone. Removing the flag was
+    // tried and fails with "Blocked a frame with origin null from accessing a
+    // cross-origin frame" — on the default path and with foreignObjectRendering
+    // alike. The real fix is to serve the capture shell from a separate origin.
+    // Until then the CSP below is what contains the frame.
     const values = sandboxValues(capture)
     expect(values.length).toBeGreaterThan(0)
-    for (const v of values) expect(v).toBe('allow-scripts')
+    for (const v of values) expect(v).toBe('allow-scripts allow-same-origin')
   })
 
-  it('leaves the capture frame no route to a third party', () => {
-    // The frame is opaque-origin now, so there is far less to leak — but it
-    // still runs model-generated code, and the point of these directives is that
-    // there is nowhere to send anything. img-src stays pinned to the origin
-    // (unlike in Preview) because a remote <img> doubles as a beacon.
-    for (const directive of ["form-action 'none'", "base-uri 'none'", "frame-src 'none'"]) {
+  it('denies the capture frame every outbound channel, since it is privileged', () => {
+    // A same-origin frame can read localStorage; what stops that mattering is
+    // having nowhere to send it. img-src is pinned to the origin here (unlike in
+    // Preview) precisely because a remote <img> doubles as a beacon.
+    for (const directive of ["connect-src 'none'", "form-action 'none'", "base-uri 'none'"]) {
       expect(capture).toContain(directive)
     }
     expect(capture).toMatch(/img-src \$\{location\.origin\} data: blob:/)
-    // connect-src is the one that had to open, and only to this origin: snapdom
-    // inlines a picture by fetching its bytes, and under 'none' every capture
-    // came back with grey placeholders instead of images. A wildcard here would
-    // hand the frame an exfiltration channel, so assert the exact form.
-    expect(capture).toMatch(/`connect-src \$\{location\.origin\}`/)
-    expect(capture).not.toMatch(/connect-src \*/)
   })
 
   it('never grants the flags that would break either sandbox', () => {

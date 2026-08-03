@@ -1,4 +1,4 @@
-import { cancelCaptures, captureRegion } from './capture'
+import { captureRegion } from './capture'
 import { resolveCapabilities, selectCapabilities } from './capabilities/select'
 import type { Screen } from './project'
 
@@ -7,20 +7,27 @@ import type { Screen } from './project'
  *
  * WHERE THE PICTURE IS TAKEN, AND WHY IT MATTERS
  *
- * Taking it means mounting a short-lived iframe and running model-written code
- * in it. That frame used to be SAME-ORIGIN — html2canvas has to read the
- * document it photographs, and could not do so from a sandbox — so for the
- * moment of every capture, generated code ran with Mocky's own origin and could
- * read the provider key out of localStorage. snapdom serializes the subtree in
- * place instead, so the frame is now sandboxed like any other and that is no
- * longer true (see the block comment in capture.ts for the measurement).
+ * Taking it is not free and it is not innocent: html2canvas cannot read the
+ * sandboxed preview (opaque origin) and cannot run inside it either — it clones
+ * the document into an iframe of its own, and a sandbox without
+ * allow-same-origin gives every descendant a FRESH opaque origin, so the frame
+ * cannot read its own clone. The only way to screenshot a generated screen is
+ * therefore a short-lived SAME-ORIGIN iframe, which for that moment runs
+ * model-written code with Mocky's own origin.
  *
- * The picture is still taken ONCE, in the project view, right after a screen
- * settles (see `queueThumbs`), rather than on every home-page visit as it
- * originally was. That was first a security argument and is now purely a cost
- * one: a capture is ~100 ms of main thread per screen, and the home page has
- * nothing to gain by re-taking pictures it already has. The home page only ever
- * READS the cache — it mounts no iframe and executes no generated code.
+ * That was closed once, by snapshotting with snapdom — which serializes in place
+ * and needs no such access — and then reopened, because snapdom scales far worse
+ * with node count (measured: 4x html2canvas at 6400 nodes, and widening) and a
+ * capture that takes tens of seconds holds the tab's main thread for that long.
+ * See the note at the top of capture.ts. The hole is real and is documented in
+ * docs/AUDIT-2026-07.md §2.1; the fix has to come back with the performance
+ * work done, not before it.
+ *
+ * The picture is taken ONCE, in the project view, right after a screen settles
+ * (see `queueThumbs`), rather than on every home-page visit as it originally
+ * was — every visit used to re-run a same-origin capture for every project. The
+ * home page only ever READS the cache: it mounts no iframe and executes no
+ * generated code.
  *
  * The entry is keyed by a checksum of the code that produced it, so it is
  * retaken only when the screen actually changes.
@@ -253,7 +260,7 @@ export async function captureThumb(screen: Screen): Promise<string | null> {
  * Screens waiting to be photographed, and the run in flight.
  *
  * Strictly one at a time. Each capture mounts an iframe that boots React,
- * Babel, Tailwind and snapdom; several at once would lock the main thread
+ * Babel, Tailwind and html2canvas; several at once would lock the main thread
  * right where the user is working.
  */
 const pending: Screen[] = []
@@ -293,19 +300,6 @@ async function drain() {
  * view. See the note at the top of this file: the capture runs model code
  * same-origin, which belongs where the user is already generating.
  */
-/**
- * Drop everything: the queue, and any capture already grinding.
- *
- * Called when the user opens something that needs the thread now. A capture in
- * flight is not polite background work — it blocks the tab — and thumbnails are
- * best-effort by construction, so abandoning them costs a picture that will be
- * retaken the next time the screen settles.
- */
-export function cancelThumbs(): void {
-  pending.length = 0
-  cancelCaptures()
-}
-
 export function queueThumbs(screens: Screen[]): void {
   for (const s of screens) {
     if (!s?.code || !s.code.trim()) continue
