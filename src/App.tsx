@@ -92,8 +92,18 @@ export default function App() {
 
 function MockyApp() {
   const t = useT()
-  const { projects, createProject, deleteProject, renameProject, addScreen, updateScreen, removeScreen, setReferenceScreen } =
-    useProjects()
+  const {
+    projects,
+    createProject,
+    deleteProject,
+    renameProject,
+    setProjectsFolder,
+    renameFolder,
+    addScreen,
+    updateScreen,
+    removeScreen,
+    setReferenceScreen,
+  } = useProjects()
   const [route, setRoute] = useState<Route>('home')
   /** DESIGN.md shown over the current project, without leaving it. */
   const [designOverlay, setDesignOverlay] = useState(false)
@@ -322,6 +332,8 @@ function MockyApp() {
             deleteProject(id)
             if (id === activeId) setActiveId(null)
           }}
+          onSetFolder={setProjectsFolder}
+          onRenameFolder={renameFolder}
         />
       )}
 

@@ -97,6 +97,35 @@ export const fr = {
   'projects.screensWord': "écrans",
   'projects.projectsWord': "projets",
 
+  // ---- sélection multiple ----
+  'projects.select': "Sélectionner",
+  'projects.selectDone': "Terminer",
+  'projects.selectHint': "Cochez les projets à déplacer ou à supprimer.",
+  'projects.selectAll': "Tout cocher",
+  'projects.selectNone': "Tout décocher",
+  'projects.selected_one': "1 projet coché",
+  'projects.selected_other': "{count} projets cochés",
+  'projects.selectProject': "Cocher « {name} »",
+  'projects.deleteSelected': "Supprimer",
+  'projects.deleteSelectedConfirm': "Supprimer définitivement {count} projets et tous leurs écrans ?",
+  'projects.deleteSelectedScreens': "Cela supprimera aussi {count} écrans.",
+
+  // ---- dossiers ----
+  'projects.folders': "Dossiers",
+  'projects.allProjects': "Tous",
+  'projects.unfiled': "Hors dossier",
+  'projects.folderOf': "Dossier « {name} »",
+  'projects.moveTo': "Classer",
+  'projects.moveToTitle': "Classer {count} projet(s)",
+  'projects.moveToHint': "Choisissez un dossier existant, ou nommez-en un nouveau. Un dossier existe tant qu’un projet s’y trouve.",
+  'projects.newFolder': "Nouveau dossier",
+  'projects.folderName': "Nom du dossier",
+  'projects.folderNamePlaceholder': "Client, Essais, À revoir…",
+  'projects.removeFromFolder': "Retirer du dossier",
+  'projects.renameFolder': "Renommer le dossier",
+  'projects.renameFolderPrompt': "Nouveau nom pour « {name} » :",
+  'projects.inFolder': "dans {name}",
+
   // ---- canvas & screens ----
   'canvas.rename': 'Renommer',
   'canvas.delete': 'Supprimer l’écran',

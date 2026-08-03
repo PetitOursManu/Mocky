@@ -95,6 +95,35 @@ export const en: Record<keyof typeof fr, string> = {
   'projects.screensWord': "screens",
   'projects.projectsWord': "projects",
 
+  // ---- multi-select ----
+  'projects.select': "Select",
+  'projects.selectDone': "Done",
+  'projects.selectHint': "Tick the projects you want to file or delete.",
+  'projects.selectAll': "Tick all",
+  'projects.selectNone': "Untick all",
+  'projects.selected_one': "1 project ticked",
+  'projects.selected_other': "{count} projects ticked",
+  'projects.selectProject': "Tick “{name}”",
+  'projects.deleteSelected': "Delete",
+  'projects.deleteSelectedConfirm': "Permanently delete {count} projects and all their screens?",
+  'projects.deleteSelectedScreens': "That also deletes {count} screens.",
+
+  // ---- folders ----
+  'projects.folders': "Folders",
+  'projects.allProjects': "All",
+  'projects.unfiled': "Unfiled",
+  'projects.folderOf': "Folder “{name}”",
+  'projects.moveTo': "File",
+  'projects.moveToTitle': "File {count} project(s)",
+  'projects.moveToHint': "Pick an existing folder, or name a new one. A folder exists for as long as a project sits in it.",
+  'projects.newFolder': "New folder",
+  'projects.folderName': "Folder name",
+  'projects.folderNamePlaceholder': "Client, Drafts, To review…",
+  'projects.removeFromFolder': "Take out of the folder",
+  'projects.renameFolder': "Rename the folder",
+  'projects.renameFolderPrompt': "New name for “{name}”:",
+  'projects.inFolder': "in {name}",
+
   // ---- canvas & screens ----
   'canvas.rename': 'Rename',
   'canvas.delete': 'Delete screen',

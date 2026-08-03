@@ -108,6 +108,27 @@ export interface Project {
    * are dropped for good after TOMBSTONE_TTL_MS (see ./merge).
    */
   deletedAt?: number
+  /**
+   * The folder this project is filed under — the NAME itself, not an id.
+   *
+   * There is deliberately no folder registry anywhere. A folder exists exactly
+   * as long as some project names it, and the folder list is the set of distinct
+   * values (see `listFolders`). That removes a whole class of state nobody would
+   * have enjoyed: no id→name table to keep in step, no orphan id pointing at a
+   * folder that was deleted on another device, and no empty folders left behind.
+   *
+   * It rides on the Project and not on a separate store because that is the only
+   * place that survives every hop unchanged: the server keeps the projects blob
+   * as an opaque string it never parses, `mergeProjects` moves whole Project
+   * objects by reference, and `loadProjects` spreads `...p`. The same field on a
+   * Screen would be dropped silently — `normalizeScreen` rebuilds each screen
+   * from a fixed whitelist.
+   *
+   * The cost of naming rather than pointing: renaming a folder rewrites every
+   * project in it. That is a loop over a handful of records, and each one bumps
+   * `updatedAt`, so it merges like any other edit.
+   */
+  folder?: string
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -233,6 +254,49 @@ export function deriveProjectName(prompt: string): string {
   clean = clean.replace(/[,;:.]+$/, '').trim()
   if (!clean) return DEFAULT_PROJECT_NAME
   return clean.charAt(0).toUpperCase() + clean.slice(1)
+}
+
+/**
+ * Longest a folder name may be.
+ *
+ * Folders are chips on one line above the index; past this they wrap and the
+ * filter bar stops reading as a bar. It is also a guard on the store, since the
+ * name is repeated on every project filed under it.
+ */
+export const FOLDER_MAX_LEN = 32
+
+/**
+ * Tidies a folder name, or returns null if there is nothing left.
+ *
+ * Trimming matters more than it looks: " Client " and "Client" would otherwise
+ * be two folders that render identically, and no one would ever work out why
+ * their projects had split in two.
+ */
+export function normalizeFolder(name: string | undefined | null): string | null {
+  const clean = (name ?? '').replace(/\s+/g, ' ').trim().slice(0, FOLDER_MAX_LEN)
+  return clean.length > 0 ? clean : null
+}
+
+/**
+ * Every folder in use, with how many live projects each holds.
+ *
+ * Derived, never stored — see the note on `Project.folder`. Sorted by name
+ * rather than by count so the bar does not reshuffle itself as projects move
+ * between folders; a filter whose entries jump around is unusable.
+ *
+ * Comparison is locale-aware and case-insensitive so "Études" files next to
+ * "essais" rather than after "Zoo", which is what a plain `<` would do.
+ */
+export function listFolders(projects: Project[]): { name: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const p of projects) {
+    if (p.deletedAt) continue
+    const f = normalizeFolder(p.folder)
+    if (f) counts.set(f, (counts.get(f) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 }
 
 /**
@@ -501,6 +565,50 @@ export function useProjects() {
     )
   }, [])
 
+  /**
+   * Files a set of projects under a folder, or takes them out of one with null.
+   *
+   * A set rather than a single id because that is how it is always used — the
+   * home page moves a selection. Doing it in one pass also means one state
+   * update and therefore one 300 ms save, where a loop would queue one per
+   * project.
+   */
+  const setProjectsFolder = useCallback((ids: string[], folder: string | null) => {
+    const wanted = normalizeFolder(folder)
+    const set = new Set(ids)
+    const now = Date.now()
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (!set.has(p.id)) return p
+        // Writing the same value would bump updatedAt for nothing and make this
+        // project win a merge it has no business winning.
+        if ((normalizeFolder(p.folder) ?? null) === wanted) return p
+        const next = { ...p, updatedAt: now }
+        if (wanted) next.folder = wanted
+        else delete next.folder
+        return next
+      }),
+    )
+  }, [])
+
+  /**
+   * Renames a folder by rewriting every project filed under it.
+   *
+   * That is the price of storing the name rather than an id, and it is the right
+   * price: there is no registry to fall out of step, and nothing to clean up
+   * when the last project leaves. Merging into an existing folder is allowed and
+   * is simply what happens when the new name is already in use.
+   */
+  const renameFolder = useCallback((from: string, to: string) => {
+    const before = normalizeFolder(from)
+    const after = normalizeFolder(to)
+    if (!before || !after || before === after) return
+    const now = Date.now()
+    setProjects((prev) =>
+      prev.map((p) => (normalizeFolder(p.folder) === before ? { ...p, folder: after, updatedAt: now } : p)),
+    )
+  }, [])
+
   const addScreen = useCallback((projectId: string, screen: Omit<Screen, 'x' | 'y'>) => {
     setProjects((prev) =>
       prev.map((p) => {
@@ -560,6 +668,8 @@ export function useProjects() {
     createProject,
     deleteProject,
     renameProject,
+    setProjectsFolder,
+    renameFolder,
     addScreen,
     updateScreen,
     removeScreen,
