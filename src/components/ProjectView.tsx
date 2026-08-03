@@ -541,9 +541,15 @@ export default function ProjectView({
    */
   useEffect(() => {
     if (busy) return
+    // Never while a demo is on screen. A capture is seconds of main-thread work
+    // per screen — it serializes every node's computed style — and the demo is
+    // booting an iframe of its own at the same time. Whichever of the two wins,
+    // the user is watching the one that lost. Thumbnails are best-effort and can
+    // wait for the demo to close; the demo cannot wait for them.
+    if (demo) return
     const timer = window.setTimeout(() => queueThumbs(screens), 1200)
     return () => window.clearTimeout(timer)
-  }, [screens, busy])
+  }, [screens, busy, demo])
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
 
   // Revert a screen to its previousCode (saved before the last edit).
