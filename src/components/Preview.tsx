@@ -19,6 +19,19 @@ export interface DemoLink {
   selector: string
   target: string
 }
+/**
+ * One element a sweep found — everything a user could link FROM.
+ *
+ * `href` is what a manual pick throws away and what makes automatic linking
+ * possible at all: the model wrote `<a href="/tarifs">`, and that is it saying
+ * where the link goes.
+ */
+export interface SweptElement {
+  selector: string
+  label: string
+  href?: string
+  rect: { x: number; y: number; w: number; h: number }
+}
 
 /**
  * Content-Security-Policy for the preview document.
@@ -318,6 +331,52 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       }
       return parts.length ? ('body > ' + parts.join(' > ')) : 'body';
     }
+    /*
+     * Every element a user could sensibly link FROM.
+     *
+     * The same notion of "interactive" pickTarget already uses, inverted: it
+     * walks up from one element, this walks down over all of them. It has to
+     * live in here because a usable selector only exists in the rendered tree —
+     * cssPath counts nth-of-type positions, and .map() loops, conditionals and
+     * the capability prelude all shift those, so no amount of reading the source
+     * could mint one.
+     *
+     * The href is the point of the exercise. The model routinely writes
+     * <a href="/tarifs">, this document neuters it at click time, and a manual
+     * pick throws it away — yet it is the model stating where that link goes.
+     *
+     * No backticks anywhere in here: this whole script is inside a template
+     * literal, and one would close it.
+     */
+    function sweepLinkables() {
+      var found = [], seen = [];
+      var nodes = document.querySelectorAll('button, a[href], [role="button"], [onclick]');
+      var vw = window.innerWidth || 1, vh = window.innerHeight || 1;
+      for (var i = 0; i < nodes.length && found.length < 60; i++) {
+        var el = nodes[i];
+        var r = el.getBoundingClientRect();
+        // Zero-sized means hidden, collapsed, or inside a closed menu — not
+        // something the user can click, so not something to offer them.
+        if (r.width < 4 || r.height < 4) continue;
+        // A button inside an anchor is one control, and the outer one is what a
+        // person would say they clicked.
+        var nested = false;
+        for (var j = 0; j < seen.length; j++) { if (seen[j].contains(el)) { nested = true; break; } }
+        if (nested) continue;
+        seen.push(el);
+        var label = ((el.innerText || (el.getAttribute && el.getAttribute('aria-label')) || '') + '')
+          .replace(/\\s+/g, ' ').trim().slice(0, 60);
+        var href = (el.getAttribute && el.getAttribute('href')) || '';
+        if (!label && !href) continue;
+        found.push({
+          selector: cssPath(el),
+          label: label,
+          href: href,
+          rect: { x: r.left / vw, y: r.top / vh, w: r.width / vw, h: r.height / vh },
+        });
+      }
+      return found;
+    }
     function moveHl(el) {
       if (!hl) { hl = document.createElement('div'); hl.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border-radius:4px'; document.body.appendChild(hl); }
       // Link mode uses a violet fill; Modify mode a fuchsia outline only (no
@@ -396,6 +455,9 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       var d = e.data || {};
       if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; pickPrecise = !!d.precise; } else if (mode === 'pick') { mode = null; hideHl(); } }
       if (d.__mockyCmd === 'demo') { mode = 'demo'; links = d.links || []; markLinks(); }
+      // Read-only, and it changes no mode: a sweep must not disturb whatever the
+      // user is doing in the screen at the time.
+      if (d.__mockyCmd === 'sweep') { post('swept', { id: d.id, elements: sweepLinkables() }); }
     });
   })();
 </script>
@@ -420,6 +482,8 @@ export default function Preview({
   hideScrollbars,
   radius,
   captureRequest,
+  sweepRequest,
+  onSwept,
   onCaptureRect,
   onError,
   generating,
@@ -441,6 +505,9 @@ export default function Preview({
   hideScrollbars?: boolean
   radius?: string
   captureRequest?: CaptureRequest | null
+  /** Bumped to ask the frame to list every element one could link FROM. */
+  sweepRequest?: number | null
+  onSwept?: (elements: SweptElement[]) => void
   onCaptureRect?: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   /** Called when the iframe reports a compile or runtime error (only when not generating). */
   onError?: (error: string) => void
@@ -468,6 +535,7 @@ export default function Preview({
   const onCaptureRectRef = useRef(onCaptureRect)
   const onErrorRef = useRef(onError)
   const onContentHeightRef = useRef(onContentHeight)
+  const onSweptRef = useRef(onSwept)
   // Same reasoning applied to a value rather than a callback: the listener needs
   // to KNOW whether generation is running, but must not re-subscribe when that
   // changes — re-subscribing resets `ready` and re-arms the render timeout.
@@ -477,6 +545,7 @@ export default function Preview({
   onCaptureRectRef.current = onCaptureRect
   onErrorRef.current = onError
   onContentHeightRef.current = onContentHeight
+  onSweptRef.current = onSwept
   generatingRef.current = generating
 
   // Build the iframe srcDoc from the generated code. We debounce 500ms so
@@ -606,6 +675,7 @@ export default function Preview({
       if (d.type === 'picked' && pickMode)
         onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
       if (d.type === 'navigate' && demoLinks && demoLinks.length > 0) onNavRef.current?.(d.target)
+      if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
     }
     window.addEventListener('message', onMsg)
     return () => {
@@ -621,6 +691,25 @@ export default function Preview({
     // sat under the "Rendering…" veil showing perfectly good output, then
     // accused itself of a render timeout.
   }, [srcDoc, frameId, code])
+
+  /*
+   * Ask the frame to list what a user could link from.
+   *
+   * Gated on `ready` because a document that has not rendered has nothing to
+   * enumerate — a sweep sent early would come back empty and the feature would
+   * look like it found nothing rather than like it ran too soon.
+   *
+   * `sweepRequest` is a nonce, not a flag: asking twice for the same screen is a
+   * legitimate thing to want, and a boolean could not express it. The callback
+   * goes through a ref so this effect never re-subscribes on a parent render —
+   * the mistake that cost several rounds elsewhere in this file.
+   */
+  useEffect(() => {
+    if (!sweepRequest || !ready) return
+    const win = iframeRef.current?.contentWindow
+    if (!win) return
+    win.postMessage({ __mockyCmd: 'sweep', id: sweepRequest }, '*')
+  }, [sweepRequest, ready])
 
   // When a capture is requested, translate the client-space rect into this
   // screen's viewport coordinates (handles the device-frame inset + zoom) and
