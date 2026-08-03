@@ -485,12 +485,19 @@ export default function Preview({
   // Same reasoning applied to a value rather than a callback: the listener needs
   // to KNOW whether generation is running, but must not re-subscribe when that
   // changes — re-subscribing resets `ready` and re-arms the render timeout.
+  // The same treatment for `code`, and for the same reason: the message handler
+  // has to compare against the CURRENT code (it uses this to tell a stale error
+  // from a live one), but a code change must not re-subscribe — re-subscribing
+  // re-arms the render watchdog, and a code change does not reload the frame.
+  // See the note at the foot of that effect.
+  const codeRef = useRef(code)
   const generatingRef = useRef(generating)
   onPickRef.current = onPick
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
   onErrorRef.current = onError
   onContentHeightRef.current = onContentHeight
+  codeRef.current = code
   generatingRef.current = generating
 
   // Build the iframe srcDoc from the generated code. We debounce 500ms so
@@ -603,7 +610,7 @@ export default function Preview({
         // Only forward the error if the code hasn't changed since we built
         // the srcDoc. If it has, the error is from stale (incomplete) code
         // and the current code is probably still streaming.
-        if (srcCodeRef.current === code) {
+        if (srcCodeRef.current === codeRef.current) {
           onErrorRef.current?.(d.message)
         }
       }
@@ -634,7 +641,22 @@ export default function Preview({
     // fresh 20-second clock for an "ok" that could no longer come. The screen
     // sat under the "Rendering…" veil showing perfectly good output, then
     // accused itself of a render timeout.
-  }, [srcDoc, frameId, code])
+    //
+    // `code` was left in this list, and it is the other half of the same defect.
+    // The watchdog is ARMED here, on `code`; it is DISARMED only by an "ok" from
+    // a freshly loaded document, and a document loads only when `srcDoc` changes.
+    // Those two are not the same event. The rebuild above is debounced 500 ms,
+    // skipped outright for blank code, and — decisively — bails out when the
+    // rebuilt string is byte-identical to the one already mounted, because React
+    // compares state by value. So any code change that yields the same document
+    // started a twenty-second clock for an "ok" that had nowhere to come from.
+    //
+    // It is reached without a demo at all: the end of a generation rewrites
+    // `code` (stripTrailingSentinel drops a mangled closing marker), while
+    // toPreviewModule had already stripped that same tail when building the
+    // document — so the code differs and the srcDoc does not. The screen
+    // underneath was correct the whole time.
+  }, [srcDoc, frameId])
 
   // When a capture is requested, translate the client-space rect into this
   // screen's viewport coordinates (handles the device-frame inset + zoom) and

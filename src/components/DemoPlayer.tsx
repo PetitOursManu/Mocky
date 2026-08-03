@@ -126,14 +126,13 @@ export default function DemoPlayer({
    * slot the moment `current` is falsy, which is the kind of corruption that
    * shows up as some other component behaving impossibly.
    *
-   * Memoised at all because the identity is load-bearing: rebuilt on every
-   * render, this array reaches Preview fresh each time, re-running the effects
-   * that own the iframe and dropping `ready` back to false. The iframe does not
-   * reload, so the "ok" it then waits for can never come — and twenty seconds
-   * later a perfectly rendered screen accuses itself of a render timeout. That
-   * is the failure Preview's own comment warns about at the foot of its message
-   * effect. It never mattered before because DemoPlayer had no state and never
-   * re-rendered after mount; the walkthrough gave it some.
+   * Memoised only to save re-stringifying it. I put it here believing a fresh
+   * identity re-armed Preview's render watchdog and caused the twenty-second
+   * phantom timeout; that was wrong. `demoLinks` is in no dependency array of
+   * Preview's — it reaches an effect solely as `demoKey`, a JSON string compared
+   * by value, on an effect that touches neither `ready` nor the timer. The real
+   * cause was `code` sitting in the watchdog's own dependency list; see the note
+   * at the foot of that effect in Preview.tsx.
    */
   const demoLinks = useMemo(
     () =>
