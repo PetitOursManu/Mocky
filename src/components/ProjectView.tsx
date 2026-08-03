@@ -64,7 +64,7 @@ import {
 } from '../lib/animations'
 import { lintSlop } from '../lib/lint'
 import { useT } from '../i18n'
-import { Button, Icon, IconButton, MockyLoader, Modal, type IconName } from '../ui'
+import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
 /** Translation keys per animation state — resolved at render, like every label. */
 const ANIM_LABELS: Record<AnimationMode, { label: string; hint: string }> = {
@@ -361,6 +361,25 @@ export default function ProjectView({
   const [sweepReq, setSweepReq] = useState<{ screenId: string; nonce: number } | null>(null)
   const [proposals, setProposals] = useState<{ screenId: string; items: LinkCandidate[] } | null>(null)
   const [sweeping, setSweeping] = useState(false)
+  /**
+   * Which screen the panel will read.
+   *
+   * Chosen in the panel because it cannot be chosen on the canvas: Link mode
+   * makes every frame pickable, so a click inside one designates an element.
+   * Seeded from the canvas selection made BEFORE entering the mode, which is the
+   * one moment the two agree.
+   */
+  const [autoLinkFrom, setAutoLinkFrom] = useState('')
+  useEffect(() => {
+    if (!linkMode) return
+    const usable = screens.filter((s) => s.code && s.code.trim())
+    if (usable.length === 0) return
+    const picked = selectedIds.find((id) => usable.some((s) => s.id === id))
+    setAutoLinkFrom(picked ?? usable[0].id)
+    // Only when the mode opens: re-seeding on every selection change would undo
+    // a choice the user had just made in the dropdown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkMode])
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
   const retryRefs = useRef<Record<string, { count: number; lastError: string }>>({})
   /** In-flight auto-repairs, keyed by screen id so each can be cancelled alone. */
@@ -1482,24 +1501,47 @@ export default function ProjectView({
           {/* The whole point of the feature: stop making the user wire what the
               model already said. Scoped to one screen at a time — a proposal
               covering six screens at once is a list nobody reads. */}
+          {/* The screen is chosen HERE, not on the canvas.
+              Link mode makes every frame pickable, so a click inside one
+              designates an ELEMENT, not the frame — asking the user to "select a
+              screen" while this panel is open was asking for something the mode
+              itself prevents. The dropdown honours a selection made before
+              entering the mode, and otherwise starts on the first screen. */}
           <div className="border-b border-line-soft px-3 py-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-center"
-              disabled={sweeping || selectedScreens.length !== 1 || screens.length < 2}
-              onClick={() => selectedScreens[0] && startAutoLink(selectedScreens[0].id)}
-            >
-              <Icon name="wand" size={15} />
-              {sweeping ? t('project.autoLinkWorking') : t('project.autoLink')}
-            </Button>
-            <p className="mt-1.5 text-caption text-ink-faint">
-              {screens.length < 2
-                ? t('project.autoLinkNeedsScreens')
-                : selectedScreens.length === 1
-                  ? t('project.autoLinkFor', { name: headline(selectedScreens[0].name) })
-                  : t('project.autoLinkPickOne')}
-            </p>
+            {screens.length < 2 ? (
+              <p className="text-caption text-ink-faint">{t('project.autoLinkNeedsScreens')}</p>
+            ) : (
+              <>
+                <label className="block">
+                  <span className="mb-1 block font-mono text-caption text-ink-faint">
+                    {t('project.autoLinkFrom')}
+                  </span>
+                  <Select
+                    value={autoLinkFrom}
+                    onChange={(e) => setAutoLinkFrom(e.target.value)}
+                    className="w-full !py-1.5"
+                  >
+                    {screens
+                      .filter((s) => s.code && s.code.trim())
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {headline(s.name)}
+                        </option>
+                      ))}
+                  </Select>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 w-full justify-center"
+                  disabled={sweeping || !autoLinkFrom}
+                  onClick={() => autoLinkFrom && startAutoLink(autoLinkFrom)}
+                >
+                  <Icon name="wand" size={15} />
+                  {sweeping ? t('project.autoLinkWorking') : t('project.autoLink')}
+                </Button>
+              </>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-2">
             {screens.every((s) => s.links.length === 0) ? (
