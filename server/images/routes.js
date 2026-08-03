@@ -29,7 +29,23 @@ const MAX_ZIP_ENTRIES = 2000
 /** Bounds on user-supplied generation parameters. */
 const MIN_DIMENSION = 256
 const MAX_DIMENSION = 2048
-const MAX_PROMPT_LENGTH = 2000
+/*
+ * A ceiling on the prompt, and why it is this high.
+ *
+ * It was 2000, and that was wrong: it sat BELOW Mocky's own traffic. Muse builds
+ * an image prompt out of the design dossier — art direction, palette, subject,
+ * framing — and a dossier with any substance produces more than two thousand
+ * characters. So the guard rejected the application's normal work with a 400 the
+ * user only saw as "no image appeared, and none in Media either".
+ *
+ * The guard is worth keeping. Its purpose was never to have an opinion about
+ * prompt length; it was to stop an absurd payload reaching a paid provider,
+ * where it used to come back as an opaque undici error rather than an answer.
+ * Twenty thousand characters is far above anything Muse writes and far below
+ * anything that costs memory, which is the shape a limit like this should have:
+ * invisible to real use, closed to the pathological.
+ */
+const MAX_PROMPT_LENGTH = 20000
 
 /** Round and clamp a caller-supplied number, falling back when it is not one. */
 function clampDimension(value, fallback) {
@@ -105,10 +121,14 @@ export function createImagesRouter({ library, registryFor, budget }) {
     // to a paid one that is a bill, to a local sd-webui a hung GPU — and a
     // multi-megabyte prompt came back as an opaque undici error, not a 400.
     if (String(spec.prompt).length > MAX_PROMPT_LENGTH) {
-      return res.status(400).json({ error: `The prompt is too long (max ${MAX_PROMPT_LENGTH} characters).` })
+      return res.status(400).json({
+        error: `The prompt is too long: ${String(spec.prompt).length} characters, max ${MAX_PROMPT_LENGTH}.`,
+      })
     }
     if (spec.negative != null && String(spec.negative).length > MAX_PROMPT_LENGTH) {
-      return res.status(400).json({ error: `The negative prompt is too long (max ${MAX_PROMPT_LENGTH} characters).` })
+      return res.status(400).json({
+        error: `The negative prompt is too long: ${String(spec.negative).length} characters, max ${MAX_PROMPT_LENGTH}.`,
+      })
     }
     if (spec.width != null) spec.width = clampDimension(spec.width, 1024)
     if (spec.height != null) spec.height = clampDimension(spec.height, 1024)

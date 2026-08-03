@@ -203,6 +203,41 @@ describe('image routes', () => {
     expect(res.status).toBe(400)
   })
 
+  it('accepts a prompt the size Muse actually writes', async () => {
+    // The ceiling was 2000 and sat BELOW the application's own traffic: Muse
+    // builds an image prompt out of the design dossier, and a dossier with any
+    // substance goes past that. The 400 reached the user as "no image appeared,
+    // and none in Media either" — no message, no cause.
+    const res = await fetch(`${base}/api/images/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'a'.repeat(6000) }),
+    })
+    expect(res.status).not.toBe(400)
+  })
+
+  it('still refuses a prompt no one could have meant', async () => {
+    // The guard stays: an absurd payload used to reach the provider and come
+    // back as an opaque transport error rather than an answer.
+    //
+    // 50 000 rather than something wilder on purpose. Past roughly 100 kB the
+    // body never reaches this route at all — express.json()'s own size limit
+    // answers 413 first, which is a better refusal than ours and costs nothing.
+    // So the band this check actually governs is the one between what Muse
+    // writes and what the body parser will carry.
+    const res = await fetch(`${base}/api/images/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'a'.repeat(50_000) }),
+    })
+    expect(res.status).toBe(400)
+    // And it says how long it actually was — without that, a future refusal is
+    // undebuggable from the console, which is exactly how the 2000-character
+    // ceiling stayed invisible.
+    const body = await res.json()
+    expect(String(body.error)).toContain('50000')
+  })
+
   it('POST /generate returns a hash + same-origin url', async () => {
     const res = await fetch(`${base}/api/images/generate`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: 'a bakery' }),
