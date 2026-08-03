@@ -7,7 +7,7 @@ import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
-import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
+import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection } from '../lib/plan'
 import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
@@ -761,7 +761,7 @@ export default function ProjectView({
               (partial) => onUpdateScreen(sc.id, { code: partial }),
               caps,
             )
-            onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
+            onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
           } catch (err) {
             // Put the screen back the way we found it. A half-written component
             // is worse than no change at all.
@@ -1169,7 +1169,7 @@ export default function ProjectView({
       // edit reworks what the original design produced, and overwriting the
       // record there would quietly reattribute the screen to a document that
       // never made it.
-      onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capIds, design: designMd })
+      onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, result.code), design: designMd })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -1217,7 +1217,7 @@ export default function ProjectView({
         undefined,
         caps,
       )
-      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
+      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -1270,7 +1270,7 @@ export default function ProjectView({
         undefined,
         caps,
       )
-      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capIds })
+      onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
