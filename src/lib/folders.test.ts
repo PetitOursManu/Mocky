@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FOLDER_MAX_LEN, listFolders, normalizeFolder } from './project'
+import { FOLDER_MAX_LEN, groupByFolder, indexNumbers, listFolders, normalizeFolder } from './project'
 import { mergeProjects } from './merge'
 import type { Project } from './project'
 
@@ -79,6 +79,64 @@ describe('listFolders', () => {
       project('b', { folder: 'Aaa' }),
     ])
     expect(few.map((f) => f.name)).toEqual(many.map((f) => f.name))
+  })
+})
+
+describe('groupByFolder', () => {
+  it('makes one section per folder, unfiled last', () => {
+    const out = groupByFolder([
+      project('a'),
+      project('b', { folder: 'Zoo' }),
+      project('c', { folder: 'Aaa' }),
+      project('d'),
+    ])
+    expect(out.map((s) => s.folder)).toEqual(['Aaa', 'Zoo', null])
+    expect(out[2].projects.map((p) => p.id)).toEqual(['a', 'd'])
+  })
+
+  it('omits the unfiled section when everything is filed', () => {
+    const out = groupByFolder([project('a', { folder: 'X' })])
+    expect(out).toHaveLength(1)
+    expect(out[0].folder).toBe('X')
+  })
+
+  it('keeps the given order inside a section', () => {
+    // The caller sorts by recency before grouping; grouping must not disturb it,
+    // or the most recent project stops being at the top of its own folder.
+    const out = groupByFolder([
+      project('recent', { folder: 'X' }),
+      project('older', { folder: 'X' }),
+    ])
+    expect(out[0].projects.map((p) => p.id)).toEqual(['recent', 'older'])
+  })
+
+  it('treats a whitespace-only folder as unfiled', () => {
+    const out = groupByFolder([project('a', { folder: '  ' })])
+    expect(out).toEqual([{ folder: null, projects: [expect.objectContaining({ id: 'a' })] }])
+  })
+
+  it('returns nothing for nothing', () => {
+    expect(groupByFolder([])).toEqual([])
+  })
+})
+
+describe('indexNumbers', () => {
+  it('runs on across sections instead of restarting', () => {
+    // A second "02" halfway down the page says the sections are separate
+    // documents. They are one index.
+    const sections = groupByFolder([
+      project('a', { folder: 'X' }),
+      project('b', { folder: 'X' }),
+      project('c', { folder: 'Y' }),
+      project('d'),
+    ])
+    const n = indexNumbers(sections)
+    expect([...n.values()]).toEqual([2, 3, 4, 5])
+    expect(n.get('c')).toBe(4)
+  })
+
+  it('starts after the lead, which is printed as 01', () => {
+    expect(indexNumbers(groupByFolder([project('a')])).get('a')).toBe(2)
   })
 })
 

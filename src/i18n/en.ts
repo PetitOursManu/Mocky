@@ -123,6 +123,11 @@ export const en: Record<keyof typeof fr, string> = {
   'projects.renameFolder': "Rename the folder",
   'projects.renameFolderPrompt': "New name for “{name}”:",
   'projects.inFolder': "in {name}",
+  'projects.createFolder': "Create the folder",
+  'projects.fileProject': "File “{name}”",
+  'projects.fileOne': "File “{name}”",
+  'projects.folderExists': "That folder already exists — the chosen projects will join it.",
+  'projects.newFolderHint': "Choose the projects to put in it. A folder is made of the projects it holds: there is no such thing as an empty one.",
 
   // ---- canvas & screens ----
   'canvas.rename': 'Rename',

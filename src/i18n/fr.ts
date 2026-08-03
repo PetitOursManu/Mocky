@@ -125,6 +125,11 @@ export const fr = {
   'projects.renameFolder': "Renommer le dossier",
   'projects.renameFolderPrompt': "Nouveau nom pour « {name} » :",
   'projects.inFolder': "dans {name}",
+  'projects.createFolder': "Créer le dossier",
+  'projects.fileProject': "Classer « {name} »",
+  'projects.fileOne': "Classer « {name} »",
+  'projects.folderExists': "Ce dossier existe déjà — les projets choisis viendront s’y ajouter.",
+  'projects.newFolderHint': "Choisissez les projets à y mettre. Un dossier est fait des projets qu’il contient : il n’en existe pas de vide.",
 
   // ---- canvas & screens ----
   'canvas.rename': 'Renommer',

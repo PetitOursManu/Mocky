@@ -300,6 +300,59 @@ export function listFolders(projects: Project[]): { name: string; count: number 
 }
 
 /**
+ * The index, cut into sections — one per folder, then everything unfiled.
+ *
+ * Folders are sections of the page rather than a filter above it. A filter shows
+ * one folder and hides the others, so the shape of the whole is never visible;
+ * an index shows every section at once, which is what makes the folders worth
+ * having. It is also the page's existing vocabulary: "Les autres projets" and
+ * "Brouillons vides" are already section heads, so a folder becomes one more.
+ *
+ * Unfiled projects come last and are not a folder — they are what is left, which
+ * is why the caller titles them differently.
+ */
+export function groupByFolder(projects: Project[]): {
+  folder: string | null
+  projects: Project[]
+}[] {
+  const named = new Map<string, Project[]>()
+  const loose: Project[] = []
+  for (const p of projects) {
+    const f = normalizeFolder(p.folder)
+    if (!f) {
+      loose.push(p)
+      continue
+    }
+    const bucket = named.get(f)
+    if (bucket) bucket.push(p)
+    else named.set(f, [p])
+  }
+  const out = [...named.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: 'base' }))
+    .map(([folder, ps]) => ({ folder: folder as string | null, projects: ps }))
+  if (loose.length > 0) out.push({ folder: null, projects: loose })
+  return out
+}
+
+/**
+ * Entry numbers for the index, running across every section.
+ *
+ * The numbers are what make the page read as an index rather than as a list of
+ * cards, so they must not restart at each folder — a second "02" halfway down
+ * says the sections are separate documents. `first` is the number after the
+ * lead, which is printed as 01.
+ */
+export function indexNumbers(
+  sections: { projects: Project[] }[],
+  first = 2,
+): Map<string, number> {
+  const out = new Map<string, number>()
+  let n = first
+  for (const s of sections) for (const p of s.projects) out.set(p.id, n++)
+  return out
+}
+
+/**
  * A project name as a headline.
  *
  * A project created from a pasted brief inherits its first words verbatim, so

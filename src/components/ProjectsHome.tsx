@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   FOLDER_MAX_LEN,
+  groupByFolder,
+  indexNumbers,
   headline,
   listFolders,
   normalizeFolder,
@@ -12,12 +14,14 @@ import { Button, Icon, IconButton, Input, Modal } from '../ui'
 import { useT } from '../i18n'
 
 /**
- * The value of the folder filter.
+ * Key for the unfiled section's folded state.
  *
- * `null` is "everything", which is not the same as "unfiled" — the third state
- * a plain `string | null` would have quietly conflated.
+ * A sentinel and not `null`, because the folded set holds folder NAMES and a
+ * real folder would otherwise be able to collide with it. A NUL cannot appear
+ * in one — `normalizeFolder` trims and collapses whitespace, and a NUL is
+ * neither — so the only way to produce this string is to write it out here.
  */
-type FolderFilter = { kind: 'all' } | { kind: 'unfiled' } | { kind: 'named'; name: string }
+const UNFILED = '\u0000unfiled'
 
 /**
  * The tick box that appears on a row in selection mode.
@@ -161,59 +165,6 @@ function ProjectFigure({
   )
 }
 
-/**
- * One tab of the folder bar.
- *
- * A tab and not a Chip: Chip's accent tone is a filled block meant to mark a
- * value, and a row of filled blocks reads as a row of badges rather than as a
- * choice you are making. The active state here is the rule underneath, which is
- * how a printed index marks its current section.
- */
-function FolderTab({
-  active,
-  onClick,
-  onRename,
-  renameLabel,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  onRename?: () => void
-  renameLabel?: string
-  children: React.ReactNode
-}) {
-  return (
-    <span className="group inline-flex items-center">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-current={active ? 'true' : undefined}
-        className={`inline-flex min-h-8 items-center border-b-2 px-2.5 py-1 text-body-sm transition ${
-          active
-            ? 'border-accent text-accent-ink'
-            : 'border-transparent text-ink-muted hover:border-line hover:text-ink'
-        }`}
-      >
-        {children}
-      </button>
-      {onRename && (
-        <button
-          type="button"
-          onClick={onRename}
-          aria-label={renameLabel}
-          // Always visible, never `opacity-0 group-hover:opacity-100`. That
-          // pattern is used elsewhere on this page and docs/AUDIT-2026-07.md:509
-          // already files it as a defect — a keyboard user tabs into a control
-          // they cannot see. No point spreading it to a new one.
-          className="-ml-1 px-1 py-1 text-ink-faint transition hover:text-accent-ink"
-        >
-          <Icon name="pencil" size={13} />
-        </button>
-      )}
-    </span>
-  )
-}
-
 /** The deck under a headline: the request that produced the first screen. */
 function deckOf(p: Project, max = 180): string | null {
   const withPrompt = p.screens.find((s) => s.prompt?.trim())
@@ -241,50 +192,67 @@ export default function ProjectsHome({
   const t = useT()
   const timeAgo = useTimeAgo()
   const [query, setQuery] = useState('')
-  const [folder, setFolder] = useState<FolderFilter>({ kind: 'all' })
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
-  const [filing, setFiling] = useState(false)
+  /** Open the filing dialog: for the ticked set, or for one project by id. */
+  const [filing, setFiling] = useState<'selection' | string | null>(null)
+  const [creating, setCreating] = useState(false)
+  /** Section heads the user has folded away. Names, so a rename reopens it. */
+  const [folded, setFolded] = useState<Set<string>>(new Set())
 
   const folders = useMemo(() => listFolders(projects), [projects])
+  const folderNames = useMemo(() => folders.map((f) => f.name), [folders])
 
-  // A folder that empties out while it is the active filter would leave the page
-  // showing nothing with no way back. Fall back to "all" instead.
-  useEffect(() => {
-    if (folder.kind === 'named' && !folders.some((f) => f.name === folder.name)) setFolder({ kind: 'all' })
-  }, [folders, folder])
-
-  const { lead, rest, empties, matched, visible } = useMemo(() => {
+  const { lead, sections, counts, empties, matched, visible } = useMemo(() => {
     const q = query.trim().toLowerCase()
     const matches = (p: Project) =>
       !q ||
       p.name.toLowerCase().includes(q) ||
       p.screens.some((s) => `${s.name} ${s.prompt}`.toLowerCase().includes(q))
 
-    const inFolder = (p: Project) => {
-      if (folder.kind === 'all') return true
-      const f = normalizeFolder(p.folder)
-      return folder.kind === 'unfiled' ? !f : f === folder.name
-    }
-
-    const found = projects.filter((p) => matches(p) && inFolder(p))
+    const found = projects.filter(matches)
     const byRecency = [...found].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
     // A project with no screen is a draft someone abandoned — it must not take
     // the lead, and it should not crowd the ranked list either.
     const withScreens = byRecency.filter((p) => p.screens.length > 0)
     const without = byRecency.filter((p) => p.screens.length === 0)
+    const head = withScreens[0] ?? null
+
+    /*
+     * The count on a section head counts the FOLDER, not the rows under it.
+     *
+     * Those two differ by one whenever the lead belongs to that folder, because
+     * the lead is printed at the top of the page and not repeated in its
+     * section. Counting rows made a folder holding three projects announce
+     * itself as two, which reads as a bug — the head names a folder, so it has
+     * to say how big that folder is.
+     *
+     * It counts the MATCHED projects rather than every project, so a search
+     * narrows the numbers along with the lists instead of leaving them stale.
+     */
+    const counts = new Map<string, number>()
+    for (const p of withScreens) {
+      const key = normalizeFolder(p.folder) ?? UNFILED
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+
     return {
-      lead: withScreens[0] ?? null,
-      rest: withScreens.slice(1),
+      lead: head,
+      // The lead is already printed at the top; leaving it in its section too
+      // would list it twice.
+      sections: groupByFolder(withScreens.slice(1)),
+      counts,
       empties: without,
       matched: found.length,
       visible: found,
     }
-  }, [projects, query, folder])
+  }, [projects, query])
 
-  // Ticks are dropped when a project leaves the view — through the filter, the
-  // search box, or a deletion. Acting on something the user can no longer see is
-  // how a batch delete takes a project nobody meant to touch.
+  const numbers = useMemo(() => indexNumbers(sections), [sections])
+
+  // Ticks are dropped when a project leaves the view — through the search box or
+  // a deletion. Acting on something the user can no longer see is how a batch
+  // delete takes a project nobody meant to touch.
   useEffect(() => {
     setPicked((prev) => {
       const live = new Set(visible.map((p) => p.id))
@@ -327,15 +295,32 @@ export default function ProjectsHome({
     leaveSelection()
   }
 
-  const filePicked = (name: string | null) => {
-    if (pickedProjects.length === 0) return
+  /** Whichever projects the open filing dialog is about. */
+  const filingTargets = useMemo(() => {
+    if (filing === null) return []
+    if (filing === 'selection') return pickedProjects
+    const one = projects.find((p) => p.id === filing)
+    return one ? [one] : []
+  }, [filing, pickedProjects, projects])
+
+  const applyFiling = (name: string | null) => {
+    if (filingTargets.length === 0) return
     onSetFolder(
-      pickedProjects.map((p) => p.id),
+      filingTargets.map((p) => p.id),
       name,
     )
-    setFiling(false)
-    leaveSelection()
+    const wasSelection = filing === 'selection'
+    setFiling(null)
+    if (wasSelection) leaveSelection()
   }
+
+  const toggleFold = (name: string) =>
+    setFolded((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
 
   // Real screenshots, keyed by the id of the screen they show.
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
@@ -441,6 +426,16 @@ export default function ProjectsHome({
               />
             </label>
           )}
+          {/* A folder is made here, in one dialog, without ticking anything
+              first. The previous arrangement hid folder creation behind
+              selection mode, which meant you had to already know folders
+              existed to find out that they did. */}
+          {projects.some((p) => p.screens.length > 0) && (
+            <Button variant="ghost" onClick={() => setCreating(true)}>
+              <Icon name="library" size={16} />
+              {t('projects.newFolder')}
+            </Button>
+          )}
           {projects.length > 1 && (
             <Button variant={selecting ? 'primary' : 'ghost'} onClick={() => (selecting ? leaveSelection() : setSelecting(true))}>
               <Icon name={selecting ? 'close' : 'check'} size={16} />
@@ -453,38 +448,6 @@ export default function ProjectsHome({
           </Button>
         </div>
       </header>
-
-      {/* ---- the folder bar ----
-          Only once a folder exists. Until then it would be a row of one chip
-          labelled "All", which explains nothing and costs a line of the page. */}
-      {folders.length > 0 && (
-        <nav aria-label={t('projects.folders')} className="mb-6 flex flex-wrap items-center gap-2">
-          <FolderTab active={folder.kind === 'all'} onClick={() => setFolder({ kind: 'all' })}>
-            {t('projects.allProjects')}
-            <span className="ml-1.5 font-mono text-caption opacity-60">{projects.length}</span>
-          </FolderTab>
-          {folders.map((f) => (
-            <FolderTab
-              key={f.name}
-              active={folder.kind === 'named' && folder.name === f.name}
-              onClick={() => setFolder({ kind: 'named', name: f.name })}
-              onRename={() => {
-                const next = prompt(t('projects.renameFolderPrompt', { name: f.name }), f.name)
-                if (next != null) onRenameFolder(f.name, next)
-              }}
-              renameLabel={t('projects.renameFolder')}
-            >
-              {f.name}
-              <span className="ml-1.5 font-mono text-caption opacity-60">{f.count}</span>
-            </FolderTab>
-          ))}
-          {projects.some((p) => !normalizeFolder(p.folder)) && (
-            <FolderTab active={folder.kind === 'unfiled'} onClick={() => setFolder({ kind: 'unfiled' })}>
-              {t('projects.unfiled')}
-            </FolderTab>
-          )}
-        </nav>
-      )}
 
       {/* ---- the selection bar ----
           Sticky, because the ticks are spread down a long page and the actions
@@ -510,7 +473,7 @@ export default function ProjectsHome({
                 ? t('projects.selectNone')
                 : t('projects.selectAll')}
             </Button>
-            <Button variant="ghost" size="sm" disabled={picked.size === 0} onClick={() => setFiling(true)}>
+            <Button variant="ghost" size="sm" disabled={picked.size === 0} onClick={() => setFiling('selection')}>
               <Icon name="library" size={15} />
               {t('projects.moveTo')}
             </Button>
@@ -609,96 +572,142 @@ export default function ProjectsHome({
         </section>
       )}
 
-      {/* ---- the register ----
+      {/* ---- the index, cut into sections ----
           Three columns of name-plus-date read as a spreadsheet: twenty rows of
           identical grey, nothing to tell one project from another, and the
           request that actually produced each screen nowhere in sight. A
           newspaper index does the opposite — it numbers its entries, gives each
           a line of standfirst, and rules them off. Two columns leave room for
           that line; the numbers give the page a rhythm the old grid had none of,
-          and they continue the lead's 01. */}
-      {rest.length > 0 && (
-        <section className="mb-10">
-          <div className="section-head">
-            <span className="kicker text-accent-ink">{t('projects.recent')}</span>
-            <span className="ml-auto font-mono text-caption text-ink-faint">{rest.length}</span>
-          </div>
+          and they continue the lead's 01.
 
-          {/* `divide-x` draws the column rule — the device that makes a grid of
-              text read as a page rather than as cards. */}
-          <div className="grid gap-x-10 xl:grid-cols-2 xl:divide-x xl:divide-line-soft">
-            {rest.map((p, i) => {
-              const deck = deckOf(p, 96)
-              return (
-                <article
-                  key={p.id}
-                  className="group flex items-start gap-4 border-b border-line-soft py-4 xl:px-6 xl:first:pl-0"
+          Folders are the SECTIONS of that index rather than a filter above it.
+          A filter shows one folder and hides the rest, so the shape of the whole
+          is never visible and a folder you are not looking at may as well not
+          exist — which is exactly how the first attempt failed. Sections show
+          every folder at once, in the page's own existing vocabulary: a kicker,
+          a rule, a count. They fold away when there are too many. */}
+      {sections.map(({ folder: name, projects: ps }) => {
+        // The unfiled group is not a folder, so it cannot be keyed by its name.
+        const key = name ?? UNFILED
+        const shut = folded.has(key)
+        return (
+          <section key={key} className="mb-10">
+            <div className="section-head">
+              <button
+                type="button"
+                onClick={() => toggleFold(key)}
+                aria-expanded={!shut}
+                className="-ml-1 inline-flex items-center gap-1.5 px-1 py-0.5 text-left transition hover:text-accent-ink"
+              >
+                <Icon
+                  name={shut ? 'chevronRight' : 'chevronDown'}
+                  size={14}
+                  className="text-ink-faint"
+                />
+                <span className="kicker text-accent-ink">
+                  {name ?? t('projects.unfiled')}
+                </span>
+              </button>
+              {name && (
+                <IconButton
+                  label={t('projects.renameFolder')}
+                  variant="quiet"
+                  onClick={() => {
+                    const next = prompt(t('projects.renameFolderPrompt', { name }), name)
+                    if (next != null) onRenameFolder(name, next)
+                  }}
+                  className="text-ink-faint hover:text-accent-ink"
                 >
-                  {/* The entry number, as an index has. `tabular-nums` keeps the
-                      column of digits straight; `padStart` keeps 02 above 12.
-                      In selection mode the tick box takes its place rather than
-                      sitting beside it: two markers in the same gutter would
-                      push the whole column out of alignment with the lead. */}
-                  {selecting ? (
-                    <TickBox
-                      checked={picked.has(p.id)}
-                      onChange={(on) => toggle(p.id, on)}
-                      label={t('projects.selectProject', { name: headline(p.name) })}
-                      className="mt-1 w-6"
-                    />
-                  ) : (
-                    <span className="mt-1 w-6 shrink-0 font-mono text-caption tabular-nums text-ink-faint transition group-hover:text-accent-ink">
-                      {String(i + 2).padStart(2, '0')}
-                    </span>
-                  )}
+                  <Icon name="pencil" size={14} />
+                </IconButton>
+              )}
+              <span className="ml-auto font-mono text-caption text-ink-faint">{counts.get(key) ?? ps.length}</span>
+            </div>
 
-                  <button
-                    type="button"
-                    onClick={() => onOpen(p.id)}
-                    className="min-w-0 flex-1 text-left"
-                    aria-label={t('projects.openProject', { name: headline(p.name) })}
-                  >
-                    <span className="block truncate font-serif text-body font-medium text-ink transition group-hover:text-accent-ink">
-                      {headline(p.name)}
-                    </span>
-                    {deck && (
-                      <span className="mt-1 block truncate text-body-sm text-ink-muted">{deck}</span>
-                    )}
-                    <span className="mt-1.5 block font-mono text-caption text-ink-faint">
-                      <span className="text-accent-ink">{screenCount(p.screens.length)}</span>
-                      {' · '}
-                      {timeAgo(p.updatedAt)}
-                      {/* Only outside a folder view: inside one, every row would
-                          repeat the name of the folder you are already in. */}
-                      {folder.kind !== 'named' && normalizeFolder(p.folder) && (
-                        <>
-                          {' · '}
-                          {t('projects.inFolder', { name: normalizeFolder(p.folder) as string })}
-                        </>
+            {/* `divide-x` draws the column rule — the device that makes a grid of
+                text read as a page rather than as cards. */}
+            {!shut && (
+              <div className="grid gap-x-10 xl:grid-cols-2 xl:divide-x xl:divide-line-soft">
+                {ps.map((p) => {
+                  const deck = deckOf(p, 96)
+                  return (
+                    <article
+                      key={p.id}
+                      className="group flex items-start gap-4 border-b border-line-soft py-4 xl:px-6 xl:first:pl-0"
+                    >
+                      {/* The entry number, as an index has. `tabular-nums` keeps
+                          the column of digits straight; `padStart` keeps 02 above
+                          12. In selection mode the tick box takes its place
+                          rather than sitting beside it: two markers in the same
+                          gutter would push the column out of line with the lead. */}
+                      {selecting ? (
+                        <TickBox
+                          checked={picked.has(p.id)}
+                          onChange={(on) => toggle(p.id, on)}
+                          label={t('projects.selectProject', { name: headline(p.name) })}
+                          className="mt-1 w-6"
+                        />
+                      ) : (
+                        <span className="mt-1 w-6 shrink-0 font-mono text-caption tabular-nums text-ink-faint transition group-hover:text-accent-ink">
+                          {String(numbers.get(p.id) ?? 0).padStart(2, '0')}
+                        </span>
                       )}
-                    </span>
-                  </button>
 
-                  {/* Decoration, not a control — the headline already opens the
-                      project. See the note on the lead's figure. */}
-                  <div onClick={() => onOpen(p.id)} aria-hidden className="hidden shrink-0 cursor-pointer sm:block">
-                    <ProjectFigure screens={p.screens} thumbs={thumbs} />
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => onOpen(p.id)}
+                        className="min-w-0 flex-1 text-left"
+                        aria-label={t('projects.openProject', { name: headline(p.name) })}
+                      >
+                        <span className="block truncate font-serif text-body font-medium text-ink transition group-hover:text-accent-ink">
+                          {headline(p.name)}
+                        </span>
+                        {deck && (
+                          <span className="mt-1 block truncate text-body-sm text-ink-muted">{deck}</span>
+                        )}
+                        <span className="mt-1.5 block font-mono text-caption text-ink-faint">
+                          <span className="text-accent-ink">{screenCount(p.screens.length)}</span>
+                          {' · '}
+                          {timeAgo(p.updatedAt)}
+                        </span>
+                      </button>
 
-                  <IconButton
-                    label={t('projects.delete')}
-                    variant="quiet"
-                    onClick={() => confirmDelete(p)}
-                    className="-mr-1 shrink-0 text-ink-faint opacity-0 transition hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-                  >
-                    <Icon name="trash" size={16} />
-                  </IconButton>
-                </article>
-              )
-            })}
-          </div>
-        </section>
-      )}
+                      {/* Decoration, not a control — the headline already opens
+                          the project. See the note on the lead's figure. */}
+                      <div onClick={() => onOpen(p.id)} aria-hidden className="hidden shrink-0 cursor-pointer sm:block">
+                        <ProjectFigure screens={p.screens} thumbs={thumbs} />
+                      </div>
+
+                      {/* Filing one project takes one click from here. It used to
+                          take four — enter selection mode, tick, open the dialog,
+                          choose — which meant you had to already know folders
+                          existed in order to discover that they did. */}
+                      <IconButton
+                        label={t('projects.fileProject', { name: headline(p.name) })}
+                        variant="quiet"
+                        onClick={() => setFiling(p.id)}
+                        className="shrink-0 text-ink-faint hover:text-accent-ink"
+                      >
+                        <Icon name="library" size={16} />
+                      </IconButton>
+
+                      <IconButton
+                        label={t('projects.delete')}
+                        variant="quiet"
+                        onClick={() => confirmDelete(p)}
+                        className="-mr-1 shrink-0 text-ink-faint transition hover:text-danger"
+                      >
+                        <Icon name="trash" size={16} />
+                      </IconButton>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )
+      })}
 
       {/* ---- abandoned drafts, out of the way ---- */}
       {empties.length > 0 && (
@@ -761,16 +770,129 @@ export default function ProjectsHome({
         </button>
       )}
 
-      {filing && (
+      {filing !== null && filingTargets.length > 0 && (
         <FileIntoFolder
-          count={pickedProjects.length}
-          folders={folders.map((f) => f.name)}
-          anyFiled={pickedProjects.some((p) => !!normalizeFolder(p.folder))}
-          onPick={filePicked}
-          onClose={() => setFiling(false)}
+          count={filingTargets.length}
+          only={filingTargets.length === 1 ? headline(filingTargets[0].name) : null}
+          folders={folderNames}
+          anyFiled={filingTargets.some((p) => !!normalizeFolder(p.folder))}
+          onPick={applyFiling}
+          onClose={() => setFiling(null)}
+        />
+      )}
+
+      {creating && (
+        <NewFolder
+          candidates={projects.filter((p) => p.screens.length > 0)}
+          existing={folderNames}
+          onCreate={(name, ids) => {
+            onSetFolder(ids, name)
+            setCreating(false)
+          }}
+          onClose={() => setCreating(false)}
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Make a folder and put projects in it, in one dialog.
+ *
+ * This exists because the first version had no such step: the only way to make a
+ * folder was to enter selection mode, tick something, open "File" and type a
+ * name — which meant you had to already know folders existed in order to find
+ * out that they did.
+ *
+ * It asks for the projects at the same time as the name because it has to. A
+ * folder here IS the projects filed under it (see `Project.folder`), so an empty
+ * one cannot be stored and would vanish on the next reload. Naming and filling
+ * are one action rather than two, and nothing is left dangling.
+ */
+function NewFolder({
+  candidates,
+  existing,
+  onCreate,
+  onClose,
+}: {
+  candidates: Project[]
+  existing: string[]
+  onCreate: (name: string, ids: string[]) => void
+  onClose: () => void
+}) {
+  const t = useT()
+  const [name, setName] = useState('')
+  const [chosen, setChosen] = useState<Set<string>>(new Set())
+  const clean = normalizeFolder(name)
+  const taken = !!clean && existing.some((e) => e.localeCompare(clean, undefined, { sensitivity: 'base' }) === 0)
+
+  return (
+    <Modal
+      title={t('projects.newFolder')}
+      onClose={onClose}
+      size="md"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!clean || chosen.size === 0}
+            onClick={() => clean && onCreate(clean, [...chosen])}
+          >
+            {t('projects.createFolder')}
+          </Button>
+        </>
+      }
+    >
+      <label className="block">
+        <span className="mb-1 block font-mono text-caption text-ink-faint">{t('projects.folderName')}</span>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t('projects.folderNamePlaceholder')}
+          maxLength={FOLDER_MAX_LEN}
+          autoFocus
+        />
+      </label>
+      {taken && <p className="mt-1.5 text-body-sm text-ink-muted">{t('projects.folderExists')}</p>}
+
+      <p className="measure mt-5 text-body-sm text-ink-muted">{t('projects.newFolderHint')}</p>
+
+      <div className="mt-3 max-h-64 overflow-y-auto border border-line-soft">
+        {candidates.map((p) => {
+          const current = normalizeFolder(p.folder)
+          return (
+            <label
+              key={p.id}
+              className="flex cursor-pointer items-center gap-3 border-b border-line-soft px-3 py-2 last:border-b-0 transition hover:text-accent-ink"
+            >
+              <TickBox
+                checked={chosen.has(p.id)}
+                onChange={(on) =>
+                  setChosen((prev) => {
+                    const next = new Set(prev)
+                    if (on) next.add(p.id)
+                    else next.delete(p.id)
+                    return next
+                  })
+                }
+                label={t('projects.selectProject', { name: headline(p.name) })}
+              />
+              <span className="min-w-0 flex-1 truncate text-body-sm text-ink">{headline(p.name)}</span>
+              {/* Where it is now, so moving it out of another folder is a
+                  deliberate act rather than a surprise. */}
+              {current && (
+                <span className="shrink-0 font-mono text-caption text-ink-faint">
+                  {t('projects.inFolder', { name: current })}
+                </span>
+              )}
+            </label>
+          )
+        })}
+      </div>
+    </Modal>
   )
 }
 
@@ -784,12 +906,15 @@ export default function ProjectsHome({
  */
 function FileIntoFolder({
   count,
+  only,
   folders,
   anyFiled,
   onPick,
   onClose,
 }: {
   count: number
+  /** The project name when there is exactly one — a title beats a tally. */
+  only: string | null
   folders: string[]
   anyFiled: boolean
   onPick: (name: string | null) => void
@@ -800,7 +925,7 @@ function FileIntoFolder({
   const clean = normalizeFolder(draft)
 
   return (
-    <Modal title={t('projects.moveToTitle', { count })} onClose={onClose} size="sm">
+    <Modal title={only ? t('projects.fileOne', { name: only }) : t('projects.moveToTitle', { count })} onClose={onClose} size="sm">
       <p className="measure text-body-sm text-ink-muted">{t('projects.moveToHint')}</p>
 
       {folders.length > 0 && (
