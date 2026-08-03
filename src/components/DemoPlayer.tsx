@@ -1,19 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FRAME_HEADER, type Screen } from '../lib/project'
 import Preview from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import { Button, Icon } from '../ui'
 import { useT } from '../i18n'
-
-/**
- * How long a screen is held before the walkthrough moves on.
- *
- * Counted from the moment the screen has RENDERED, not from the navigation, so
- * a heavy screen gets its full turn rather than flashing past while it compiles.
- * Long enough to read a headline and see what changed; short enough that nobody
- * reaches for the Next button.
- */
-const DWELL_MS = 2600
 
 /**
  * Prototype player: renders one screen at a time and lets the user click the
@@ -22,62 +12,16 @@ const DWELL_MS = 2600
 export default function DemoPlayer({
   screens,
   startId,
-  flow,
-  animations,
   onExit,
 }: {
   screens: Screen[]
   startId: string
-  /**
-   * An ordered walkthrough, when the user asked to play the screens rather than
-   * follow their own hotspots. Ephemeral on purpose: writing it into
-   * `Screen.links` would sync it, list it in the Links panel and draw it on the
-   * canvas as if the user had wired it themselves.
-   */
-  flow?: string[]
-  /** The project's animation switch, so a screen set to hold still does. */
-  animations?: boolean
   onExit: () => void
 }) {
   const t = useT()
   const [stack, setStack] = useState<string[]>([startId])
   const currentId = stack[stack.length - 1]
   const current = screens.find((s) => s.id === currentId) ?? screens.find((s) => s.id === startId) ?? screens[0]
-
-  // ---- walkthrough ----
-  //
-  // The step is derived from the current screen rather than held separately, so
-  // a hotspot click inside a walkthrough cannot leave the two disagreeing.
-  const step = flow ? flow.indexOf(currentId) : -1
-  const [autoplay, setAutoplay] = useState(false)
-  const [shown, setShown] = useState(false)
-
-  const goTo = (index: number) => {
-    if (!flow) return
-    const id = flow[index]
-    if (!id || !screens.some((s) => s.id === id)) return
-    setShown(false)
-    setStack((st) => [...st, id])
-  }
-
-  /*
-   * Auto-advance waits for the screen to have RENDERED, not for a fixed delay.
-   *
-   * Every step swaps the code, which rebuilds the iframe's srcDoc after a debounce
-   * and recompiles it inside the frame. A timer alone would march past screens
-   * that had not finished booting, and a walkthrough of blank rectangles is worse
-   * than no walkthrough. `shown` is raised by Preview's onReady; the dwell only
-   * starts counting from there.
-   */
-  useEffect(() => {
-    if (!autoplay || !flow || step < 0 || !shown) return
-    const id = setTimeout(() => {
-      if (step + 1 < flow.length) goTo(step + 1)
-      else setAutoplay(false)
-    }, DWELL_MS)
-    return () => clearTimeout(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoplay, shown, step, flow])
 
   const areaRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -94,53 +38,11 @@ export default function DemoPlayer({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onExit()
-        return
-      }
-      // Arrows only in a walkthrough. In hotspot mode there is no "next" to go
-      // to, and stealing the arrow keys would break scrolling the screen.
-      if (!flow || step < 0) return
-      if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        setAutoplay(false)
-        goTo(step + 1)
-      }
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        setAutoplay(false)
-        goTo(step - 1)
-      }
+      if (e.key === 'Escape') onExit()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onExit, flow, step])
-
-  /*
-   * ABOVE the early return, because it is a hook.
-   *
-   * It first went in below, next to the code it replaced — but that code was a
-   * plain `const`, and a plain const may sit after `return null` where a
-   * `useMemo` may not. A conditionally-called hook shifts every later hook's
-   * slot the moment `current` is falsy, which is the kind of corruption that
-   * shows up as some other component behaving impossibly.
-   *
-   * Memoised only to save re-stringifying it. I put it here believing a fresh
-   * identity re-armed Preview's render watchdog and caused the twenty-second
-   * phantom timeout; that was wrong. `demoLinks` is in no dependency array of
-   * Preview's — it reaches an effect solely as `demoKey`, a JSON string compared
-   * by value, on an effect that touches neither `ready` nor the timer. The real
-   * cause was `code` sitting in the watchdog's own dependency list; see the note
-   * at the foot of that effect in Preview.tsx.
-   */
-  const demoLinks = useMemo(
-    () =>
-      (current?.links ?? [])
-        .filter((h) => h.selector)
-        .map((h) => ({ selector: h.selector as string, target: h.target })),
-    [current?.links],
-  )
+  }, [onExit])
 
   if (!current) return null
 
@@ -155,6 +57,9 @@ export default function DemoPlayer({
     if (screens.some((s) => s.id === target)) setStack((st) => [...st, target])
   }
 
+  const demoLinks = current.links
+    .filter((h) => h.selector)
+    .map((h) => ({ selector: h.selector as string, target: h.target }))
 
   return (
     <div className="fixed inset-0 z-top flex flex-col bg-sunken">
@@ -171,42 +76,13 @@ export default function DemoPlayer({
           <Icon name="chevronLeft" size={15} />
           {t('canvas.demoBack')}
         </Button>
-        <Button size="sm" onClick={() => { setAutoplay(false); setStack([startId]) }}>
+        <Button size="sm" onClick={() => setStack([startId])}>
           <Icon name="refresh" size={15} />
           {t('canvas.demoRestart')}
         </Button>
-
-        {/* ---- walkthrough controls ---- */}
-        {flow && step >= 0 && (
-          <>
-            <span className="mx-1 h-5 w-px bg-line-soft" aria-hidden />
-            <Button
-              size="sm"
-              disabled={step + 1 >= flow.length && !autoplay}
-              onClick={() => (autoplay ? setAutoplay(false) : step + 1 < flow.length ? setAutoplay(true) : undefined)}
-            >
-              <Icon name={autoplay ? 'pause' : 'play'} size={15} />
-              {autoplay ? t('canvas.demoPause') : t('canvas.demoAuto')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={step + 1 >= flow.length}
-              onClick={() => { setAutoplay(false); goTo(step + 1) }}
-            >
-              {t('canvas.demoNext')}
-              <Icon name="chevronRight" size={15} />
-            </Button>
-            <span className="shrink-0 font-mono text-caption tabular-nums text-ink-faint">
-              {step + 1}/{flow.length}
-            </span>
-          </>
-        )}
-
         <span className="kicker ml-3 shrink-0">{t('mode.demo')}</span>
         <span className="truncate text-body text-ink-muted">{current.name}</span>
-        <span className="ml-auto hidden text-body-sm text-ink-faint sm:inline">
-          {flow && step >= 0 ? t('canvas.demoFlowHint') : t('canvas.demoHint')}
-        </span>
+        <span className="ml-auto hidden text-body-sm text-ink-faint sm:inline">{t('canvas.demoHint')}</span>
       </div>
 
       <div ref={areaRef} className="relative flex flex-1 items-center justify-center overflow-hidden">
@@ -215,10 +91,10 @@ export default function DemoPlayer({
             <div className="absolute inset-0">
               {current.device === 'iphone' ? (
                 <DeviceChrome>
-                  <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} onReady={(r) => r && setShown(true)} animations={current.animations ?? animations} hideScrollbars radius={SCREEN_RADIUS} />
+                  <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} hideScrollbars radius={SCREEN_RADIUS} />
                 </DeviceChrome>
               ) : (
-                <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} onReady={(r) => r && setShown(true)} animations={current.animations ?? animations} />
+                <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} />
               )}
             </div>
             {/* Fallback overlays for legacy links without an element selector */}
