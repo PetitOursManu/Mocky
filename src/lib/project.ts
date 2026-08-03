@@ -129,6 +129,26 @@ export interface Project {
    * `updatedAt`, so it merges like any other edit.
    */
   folder?: string
+  /**
+   * The design direction THIS project works under.
+   *
+   * DESIGN.md is global — one per browser, shared by every project (see
+   * loadDesign). That is almost certainly why Muse was written to ignore it and
+   * mint its own dossier per generation: it had nowhere to put a direction that
+   * belonged to one project. The consequence was the bug this field closes —
+   * every screen carried a different design document, so a project had as many
+   * visual languages as it had screens, which is the one thing Mocky exists to
+   * prevent.
+   *
+   * Absent means "use the global DESIGN.md", which is what every existing
+   * project does and keeps doing. Nothing is rewritten behind anyone's back.
+   *
+   * Here and not on Screen for the same reason `folder` is: the server keeps the
+   * projects blob as an opaque string, `mergeProjects` moves whole Project
+   * objects, and `loadProjects` spreads `...p` — while `normalizeScreen` rebuilds
+   * every screen from a fixed whitelist and would drop it.
+   */
+  design?: string
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -283,6 +303,26 @@ export function autoFlow(screens: Screen[], from?: string): string[] {
   if (usable.length === 0) return []
   const at = from ? usable.findIndex((s) => s.id === from) : 0
   return usable.slice(at > 0 ? at : 0).map((s) => s.id)
+}
+
+/**
+ * Which design direction applies to a screen of this project.
+ *
+ * One rule, in one place, so nothing has to guess: the project's own direction
+ * wins, the global DESIGN.md is the fallback, and an empty or whitespace-only
+ * value counts as absent — a blank direction is not a direction, and treating it
+ * as one would silently strip the fallback.
+ *
+ * Returns undefined when neither exists, which every caller already handles as
+ * "generate without a design preamble".
+ */
+export function designForProject(
+  project: Pick<Project, 'design'> | null | undefined,
+  globalMarkdown?: string,
+): string | undefined {
+  const own = project?.design
+  if (own && own.trim()) return own
+  return globalMarkdown && globalMarkdown.trim() ? globalMarkdown : undefined
 }
 
 /**
@@ -681,6 +721,28 @@ export function useProjects() {
    * when the last project leaves. Merging into an existing folder is allowed and
    * is simply what happens when the new name is already in use.
    */
+  /**
+   * Fix this project's design direction, or clear it back to the global one.
+   *
+   * The only writer. Every path that changes a direction — "make this screen my
+   * DESIGN.md", a Muse run the user allowed to redefine it — comes through here,
+   * so there is one place to look when a project's look changes and nobody
+   * remembers asking.
+   */
+  const setProjectDesign = useCallback((id: string, markdown: string | null) => {
+    const clean = markdown && markdown.trim() ? markdown : null
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p
+        if ((p.design ?? null) === clean) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (clean) next.design = clean
+        else delete next.design
+        return next
+      }),
+    )
+  }, [])
+
   const renameFolder = useCallback((from: string, to: string) => {
     const before = normalizeFolder(from)
     const after = normalizeFolder(to)
@@ -751,6 +813,7 @@ export function useProjects() {
     deleteProject,
     renameProject,
     setProjectsFolder,
+    setProjectDesign,
     renameFolder,
     addScreen,
     updateScreen,
