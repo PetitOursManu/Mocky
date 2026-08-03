@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
-import { buildDesignPreamble, isDesignActive, loadDesign, saveDesign, extractDesignColors } from '../lib/design'
+import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { resolveDirection } from '../lib/direction'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
@@ -46,6 +47,7 @@ import {
   buildInspirationPrompt,
   INSPIRATION_NEGATIVE,
   type MuseConfig,
+  type MuseDossier,
   type MuseResult,
   type MuseImageMode,
   type GeneratedSlotImage,
@@ -131,6 +133,7 @@ export default function ProjectView({
   onBack,
   onSetReference,
   onRenameProject,
+  onSetDesign,
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -143,11 +146,22 @@ export default function ProjectView({
   onBack: () => void
   onSetReference: (screenId: string | null) => void
   onRenameProject: (name: string) => void
+  /** Set this project's own design direction, or null to fall back to DESIGN.md. */
+  onSetDesign: (markdown: string | null) => void
 }) {
   const t = useT()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | null>(null)
+  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | null>(null)
+  /**
+   * "Cette génération redéfinit la direction" — armed by hand, spent on use.
+   *
+   * A project keeps one design direction; this is the composer's way of saying
+   * the next prompt replaces it. Deliberately not persisted: a flag that
+   * survived a reload would be a standing instruction to redesign, which is the
+   * opposite of what a one-shot means.
+   */
+  const [redesign, setRedesign] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // --- Muse — optional design-intelligence pass before generation ---
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
@@ -428,25 +442,70 @@ export default function ProjectView({
     }
   }
 
-  // Re-read DESIGN.md whenever we change it in-view (D.1 quick-style apply),
-  // and whenever the overlay that edits it closes — ProjectView now stays
-  // mounted underneath it, so nothing else would tell it the file has changed.
-  const [designVersion, setDesignVersion] = useState(0)
-  const design = useMemo(() => loadDesign(), [designVersion, designNonce])
+  // Re-read DESIGN.md whenever the overlay that edits it closes — ProjectView
+  // stays mounted underneath it, so nothing else would tell it the file has
+  // changed. Nothing in this view writes the global document any more: the
+  // quick-style picker and the Design-system frame both edit the project's own
+  // direction, which arrives through props and re-renders on its own.
+  const design = useMemo(() => loadDesign(), [designNonce])
   const designActive = isDesignActive(design)
-  const designColors = designActive ? extractDesignColors(design.markdown).slice(0, 10) : []
 
-  /** Apply a starter style's DESIGN.md from the Welcome quick-picker (D.1). */
+  /**
+   * The direction in force, read fresh at call time.
+   *
+   * Every generation path used to open with the same three lines — load
+   * DESIGN.md, check it is active, keep the markdown — which meant the project's
+   * own direction had five separate places to be forgotten. One function now,
+   * called by all of them.
+   *
+   * Fresh rather than memoised because DESIGN.md is edited in an overlay that
+   * leaves this view mounted underneath; a value captured at render would be the
+   * document as it stood before the user changed it.
+   */
+  const activeDirection = useCallback((): string | undefined => {
+    const d = loadDesign()
+    return designForProject(project, isDesignActive(d) ? d.markdown : undefined)
+  }, [project])
+
+  /**
+   * The same resolution, as the render sees it.
+   *
+   * Everything the interface SHOWS about the design — the swatches, the
+   * Design-system frame, whether the welcome screen says a direction is in
+   * force — must be the document that will actually govern the next screen. Two
+   * answers to that question is how the frame ended up offering to recolour a
+   * palette no generation would ever read.
+   */
+  const directionMd = useMemo(
+    () => designForProject(project, designActive ? design.markdown : undefined),
+    [project, design, designActive],
+  )
+  const designColors = useMemo(() => extractDesignColors(directionMd || '').slice(0, 10), [directionMd])
+
+  /**
+   * Apply a starter style from the Welcome quick-picker (D.1).
+   *
+   * This project's direction, not the global file. Picking a style on an empty
+   * project is a statement about that project; writing it globally repainted
+   * every other one, which is the same bug as Muse re-rolling a dossier per
+   * screen, wearing a different hat.
+   */
   function applyStyleMarkdown(markdown: string) {
-    saveDesign({ ...loadDesign(), markdown, enabled: true })
-    setDesignVersion((v) => v + 1)
+    onSetDesign(markdown)
   }
 
-  /** Recolor one token in the DESIGN.md from the Design-system frame (D.2). */
+  /**
+   * Recolor one token from the Design-system frame (D.2).
+   *
+   * Edits the direction the frame is DISPLAYING. It used to read the global file
+   * while the swatches beside it came from elsewhere, so on a Muse project the
+   * recolour landed in a document no generation would read and the palette on
+   * screen never moved.
+   */
   function recolorToken(token: DesignToken, newHex: string) {
-    const d = loadDesign()
-    saveDesign({ ...d, markdown: replaceTokenHex(d.markdown, token, newHex), enabled: true })
-    setDesignVersion((v) => v + 1)
+    const md = activeDirection()
+    if (!md) return
+    onSetDesign(replaceTokenHex(md, token, newHex))
   }
 
   /**
@@ -494,11 +553,14 @@ export default function ProjectView({
     const sc = screensRef.current.find((s) => s.id === screenId)
     const md = sc?.design?.trim()
     if (!sc || !md) return
-    const before = loadDesign()
-    if (before.markdown.trim() === md) return // already current — say nothing, do nothing
-    if (before.markdown.trim() && !confirm(t('project.applyDesignConfirm', { name: sc.name }))) return
-    saveDesign({ ...before, markdown: md, enabled: true, previousMarkdown: before.markdown || undefined })
-    setDesignVersion((v) => v + 1)
+    const before = activeDirection()?.trim()
+    if (before === md) return // already current — say nothing, do nothing
+    if (before && !confirm(t('project.applyDesignConfirm', { name: sc.name }))) return
+    // This project's direction, not the global file: adopting a look here must
+    // not repaint every other project on the machine. The direction being
+    // replaced is not lost either — every screen made under it still records it,
+    // which is what this very menu entry reads.
+    onSetDesign(md)
   }
 
   /**
@@ -509,9 +571,11 @@ export default function ProjectView({
    * screens, like one, and want the others to match it. Same document, written
    * afterwards and from evidence.
    *
-   * It overwrites, so a non-empty file is confirmed first and the previous text
-   * is kept in `previousMarkdown` — the derivation is a model call, and a model
-   * call is exactly the kind of thing you want to be able to take back.
+   * It overwrites this PROJECT's direction — the global DESIGN.md is left alone,
+   * since lifting a look off one screen is not a statement about every other
+   * project on the machine. A direction already in force is confirmed first; the
+   * one being replaced survives on the screens generated under it, which "Reprendre
+   * ce DESIGN.md" reads back.
    */
   async function deriveDesignFrom(screen: Screen) {
     if (derivingDesignId) return
@@ -524,8 +588,8 @@ export default function ProjectView({
       setError(t('project.noModel'))
       return
     }
-    const before = loadDesign()
-    if (before.markdown.trim() && !confirm(t('project.deriveDesignConfirm', { name: screen.name }))) return
+    const before = activeDirection()?.trim()
+    if (before && !confirm(t('project.deriveDesignConfirm', { name: screen.name }))) return
 
     setDerivingDesignId(screen.id)
     setError(null)
@@ -537,13 +601,7 @@ export default function ProjectView({
         setError(t('project.deriveDesignEmptyResult'))
         return
       }
-      saveDesign({
-        ...loadDesign(),
-        markdown,
-        enabled: true,
-        previousMarkdown: before.markdown || undefined,
-      })
-      setDesignVersion((v) => v + 1)
+      onSetDesign(markdown)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -724,10 +782,23 @@ export default function ProjectView({
     retryRefs.current = {} // reset retry counters for new generation
     /** The screen this run created, if any — so a failure can clean it up. */
     let newScreenId: string | null = null
+    /**
+     * A redesign only means anything when creating a screen.
+     *
+     * An edit reworks what an existing direction produced; letting it rewrite
+     * that direction would reattribute every OTHER screen in the project to a
+     * document written for a change to one of them. The toggle is hidden in edit
+     * mode for the same reason — see the composer.
+     */
+    const redesigning = redesign && targets.length === 0
     try {
-      const design = loadDesign()
-      const designPreamble = isDesignActive(design) ? buildDesignPreamble(design.markdown) : undefined
-      const designMd = isDesignActive(design) ? design.markdown : undefined
+      // Read fresh, not from the render-scope memo: this callback outlives the
+      // render that created it, and DESIGN.md is edited in an overlay that
+      // leaves this view mounted underneath.
+      const globalDesign = loadDesign()
+      const globalMd = isDesignActive(globalDesign) ? globalDesign.markdown : undefined
+      const designMd = designForProject(project, globalMd)
+      const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
 
       if (targets.length > 0) {
         // Edit mode: apply the instruction to each selected screen in place,
@@ -789,12 +860,18 @@ export default function ProjectView({
         const referencePreamble =
           refScreen && refScreen.code.trim() ? buildLayoutReference(refScreen.code) : undefined
 
-        // --- Muse: build a Design Dossier + hero image and use it as the
-        // design authority for this screen. This supersedes DESIGN.md. Muse must
-        // never block generation (M3), and when OFF the path below is byte-
-        // identical to pre-Muse Mocky (M1).
+        // --- Muse: build a Design Dossier + hero image. The dossier is a
+        // CANDIDATE direction, not the authority it once was — see the
+        // resolveDirection call below. Muse must never block generation (M3),
+        // and when OFF the path below is byte-identical to pre-Muse Mocky (M1).
         let musePreamble: string | undefined
         let museMarkdown: string | undefined
+        /** Whether Muse got far enough to have something to say. */
+        let museRan = false
+        /** This run's dossier — kept for its palette and its imagery plan. */
+        let museDossier: MuseDossier | undefined
+        /** The images this run ended up with, pinned or generated. */
+        let museImgs: GeneratedSlotImage[] = []
         /** Art-direction reference sent to a vision model ("inspiration" mode). */
         let museVisionRef: string | undefined
         /** Library hash of the image backing this screen, shown on the canvas. */
@@ -847,7 +924,6 @@ export default function ProjectView({
               signal: ac.signal,
             })
             setMuseResult(res)
-            museMarkdown = res.markdown
             const plan = res.dossier.imageryPlan || []
             // Pinned library images (possibly from other projects) fill the
             // first slots BEFORE any new generation (§4.3). URLs must be absolute
@@ -951,7 +1027,19 @@ export default function ProjectView({
               }
             }
 
-            musePreamble = buildMusePreamble(res.markdown, imgs, effectiveImageMode, res.dossier, museVideo)
+            /*
+             * Muse's results are published only once it has finished.
+             *
+             * All of it or none of it, which is the M3 contract read strictly: a
+             * run that threw halfway used to leave the preamble unbuilt — Muse
+             * contributed nothing — while still labelling the screen with the
+             * dossier it had written. Now that a dossier can become the whole
+             * project's direction, that discrepancy stops being cosmetic.
+             */
+            museMarkdown = res.markdown
+            museDossier = res.dossier
+            museImgs = imgs
+            museRan = true
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
             // Degrade: continue without Muse rather than fail the generation.
@@ -959,14 +1047,57 @@ export default function ProjectView({
           }
         }
 
-        // Muse dossier supersedes DESIGN.md when present; otherwise the exact
-        // pre-Muse composition (M1).
+        /*
+         * One direction per project — decided here, once, for this run.
+         *
+         * Muse used to be the authority by construction: whatever dossier it had
+         * just written superseded everything, on every generation, so a project
+         * accumulated one visual language per screen. It is now a candidate like
+         * any other, and it only wins when there is nothing to protect (the
+         * project's first screen) or when the user asked for a redesign.
+         */
+        const dir = resolveDirection({
+          established: project.design,
+          fresh: museMarkdown,
+          global: globalMd,
+          redesign: redesigning,
+        })
+
+        /*
+         * Muse's preamble, carrying whichever direction won.
+         *
+         * The palette is restated as Tailwind classes because the dossier's own
+         * hex list, buried in a long markdown block, lost every time to the base
+         * rules naming concrete Tailwind families — see buildMusePreamble. So the
+         * restatement has to describe the direction ACTUALLY in force: handing
+         * over the fresh dossier's tokens while the text above them is last
+         * week's direction is worse than not restating anything.
+         *
+         * Radius is dropped along with them. It is still stated inside the
+         * document itself; only the emphatic repetition goes.
+         */
+        if (museRan && dir.markdown) {
+          const tokens = dir.establish
+            ? museDossier?.tokens
+            : { colors: extractDesignColors(dir.markdown).slice(0, 12) }
+          musePreamble = buildMusePreamble(
+            dir.markdown,
+            museImgs,
+            effectiveImageMode,
+            museDossier ? { ...museDossier, tokens } : undefined,
+            museVideo,
+          )
+        }
+
+        // Muse's preamble supersedes DESIGN.md's when present; otherwise the
+        // exact pre-Muse composition (M1). Both now carry the same direction.
+        const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
         const extraSystem = musePreamble
           ? joinSystem([musePreamble, referencePreamble, preset.hint])
-          : joinSystem([designPreamble, referencePreamble, preset.hint])
+          : joinSystem([dirPreamble, referencePreamble, preset.hint])
 
         // Deterministic shortlist first — this is the guaranteed fallback.
-        const shortlist = selectCapabilities(text, museMarkdown || designMd)
+        const shortlist = selectCapabilities(text, dir.markdown)
         // Optional planner pass. It runs first (so its capability choice and
         // structure guide generation), but can NEVER block: on failure/timeout
         // it returns null and we use the shortlist unchanged. Skipped when Muse
@@ -977,7 +1108,7 @@ export default function ProjectView({
           setPhase('planning')
           const plan = await planScreen(
             settings, text, shortlist,
-            { design: designMd, presetHint: preset.hint },
+            { design: dir.markdown, presetHint: preset.hint },
             ac.signal,
           )
           if (plan) {
@@ -1012,18 +1143,16 @@ export default function ProjectView({
           device: preset.device,
           links: [],
           caps: capIds,
-          // Whatever was ACTUALLY authoritative for this screen.
+          // Whatever was ACTUALLY authoritative for this screen — which, now
+          // that a project has one direction, is the same document for every
+          // screen in it. That is the point: the field is a record of what
+          // produced the screen, and it used to record a different answer each
+          // time because a different answer was being invented each time.
           //
-          // Muse does not merge with DESIGN.md, it replaces it — the choice is a
-          // ternary at the extraSystem line below, not a concatenation. So on a
-          // Muse run the model never sees DESIGN.md at all, and recording it
-          // here labelled the screen with a document that had no hand in it.
-          //
-          // The dossier is already rendered as DESIGN.md-shaped markdown by
-          // dossierToMarkdown() on the server — same `- Label: #hex` lines, a
-          // strict superset of the sections — so it drops straight in and the
-          // swatches parse from it unchanged.
-          design: museMarkdown || designMd,
+          // Kept per-screen rather than read off the project, because a screen
+          // generated under an older direction must keep saying so — that is
+          // what makes "reprendre ce DESIGN.md" meaningful.
+          design: dir.markdown,
           imageHash: museImageHash,
           // Recorded so the canvas can say what the image was for. Without it
           // the badge could only ever say "Image Muse", which is exactly the
@@ -1053,6 +1182,39 @@ export default function ProjectView({
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())
+
+        /*
+         * The direction is kept only once the screen exists.
+         *
+         * Doing it at onAddScreen time would have changed what the whole project
+         * looks like on the strength of a run the user then cancelled — and a
+         * cancelled run deletes its screen, so there would be nothing left to
+         * explain why every subsequent screen had changed.
+         */
+        if (dir.establish) {
+          onSetDesign(dir.establish)
+        } else if (redesigning && result.code.trim()) {
+          /*
+           * A redesign with Muse off.
+           *
+           * There is no dossier to keep, so the direction is read back off the
+           * screen the prompt just produced — the same derivation as "Faire de
+           * cet écran mon DESIGN.md", run automatically because the user already
+           * said that is what they wanted by ticking the box.
+           *
+           * Best-effort: the screen is finished and correct either way, and a
+           * failure here only means the next screen falls back to the direction
+           * that was in force before.
+           */
+          setPhase('design')
+          try {
+            const derived = await deriveDesignSystem(settings, result.code, ac.signal)
+            if (derived.trim()) onSetDesign(derived)
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+          }
+        }
+
         if (result.truncated) {
           // The code is cut mid-token; the preview would only show a cryptic
           // "Unterminated string constant". Say what actually happened.
@@ -1082,13 +1244,17 @@ export default function ProjectView({
       setPhase(null)
       setMuseStage(null)
       setGeneratingIds(new Set())
+      // The toggle is for ONE generation — the user's own words. It clears here
+      // rather than on success so that a failed or cancelled run does not leave
+      // a primed redesign waiting to fire on the next, unrelated prompt.
+      if (redesigning) setRedesign(false)
     }
     // animationMode, museVision and videoAvail are read in the body and belong
     // here. Without them the closure was only rebuilt when something else in the
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, redesign])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -1106,10 +1272,8 @@ export default function ProjectView({
       setError(t('project.exportEmpty'))
       return
     }
-    const design = loadDesign()
-    const md = isDesignActive(design) ? design.markdown : undefined
     try {
-      await downloadZip(screens, { stack, designMarkdown: md, projectName: project.name })
+      await downloadZip(screens, { stack, designMarkdown: activeDirection(), projectName: project.name })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -1145,8 +1309,7 @@ export default function ProjectView({
     setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
-      const design = loadDesign()
-      const designMd = isDesignActive(design) ? design.markdown : undefined
+      const designMd = activeDirection()
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
       const refScreen =
         project.referenceScreenId && project.referenceScreenId !== screenId
@@ -1204,9 +1367,10 @@ export default function ProjectView({
     setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
-      const design = loadDesign()
-      const designMd = isDesignActive(design) ? design.markdown : undefined
-      const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
+      const designPreamble = (() => {
+        const md = activeDirection()
+        return md ? buildDesignPreamble(md) : undefined
+      })()
       const extraSystem = joinSystem([designPreamble, hintForDevice(screen.device)])
       // Make the Motion pack available on top of whatever the screen already uses.
       const capIds = Array.from(new Set([...(screen.caps ?? []), 'motion']))
@@ -1254,8 +1418,7 @@ export default function ProjectView({
     setModifyText('')
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
-      const design = loadDesign()
-      const designMd = isDesignActive(design) ? design.markdown : undefined
+      const designMd = activeDirection()
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
       const extraSystem = joinSystem([designPreamble, hintForDevice(screen.device)])
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
@@ -1331,7 +1494,13 @@ export default function ProjectView({
 
   /** Ce que fabrique Mocky en ce moment — sert de libelle ET de nom accessible. */
   const busyLabel = t(
-    phase === 'muse' ? 'project.busyMuse' : phase === 'planning' ? 'project.busyPlanning' : 'composer.generating',
+    phase === 'muse'
+      ? 'project.busyMuse'
+      : phase === 'planning'
+        ? 'project.busyPlanning'
+        : phase === 'design'
+          ? 'project.busyDesign'
+          : 'composer.generating',
   )
 
   /** What the brief says in one line when it is folded. */
@@ -1379,7 +1548,7 @@ export default function ProjectView({
         onGenerate={generate}
         busy={busy}
         error={error}
-        designActive={designActive}
+        designActive={!!directionMd}
         examples={EXAMPLE_KEYS.map((k) => t(k))}
         presetId={presetId}
         onPresetChange={setPresetId}
@@ -1473,7 +1642,7 @@ export default function ProjectView({
       {/* Live Design-system frame (D.2) */}
       {showSystem && (
         <DesignSystemPanel
-          markdown={design.markdown}
+          markdown={directionMd || ''}
           onRecolor={recolorToken}
           onClose={() => setShowSystem(false)}
           onEdit={onOpenDesign}
@@ -1863,17 +2032,29 @@ export default function ProjectView({
               and the Generate button to an initial. The field is the point of
               this bar; it gets the width. */}
           <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <button
-              type="button"
-              onClick={onOpenDesign}
-              className={`kicker shrink-0 transition ${
-                designActive ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-              title={t('project.designTitle')}
-            >
-              {designActive ? '● ' : '○ '}
-              {t('project.designChip')}
-            </button>
+            {/* One direction per project, and this is the only way to change it
+                from the composer: tick it, and THIS prompt writes the design
+                every following screen will follow. Hidden while editing — an
+                edit reworks what a direction produced, and letting it rewrite
+                that direction would reattribute every other screen in the
+                project to a document written for a change to one of them.
+                DESIGN.md itself is still reachable from the header and from a
+                screen's context menu; what it is not any more is a thing the
+                composer silently rewrote on every generation. */}
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => setRedesign((v) => !v)}
+                className={`kicker shrink-0 transition ${
+                  redesign ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
+                }`}
+                title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
+                aria-pressed={redesign}
+              >
+                {redesign ? '● ' : '○ '}
+                {t('project.redesignChip')}
+              </button>
+            )}
             <button
               type="button"
               onClick={toggleMuse}

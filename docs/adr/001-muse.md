@@ -331,6 +331,40 @@ Two consequences worth recording:
   targets are `trusted` (SSRF guard skipped, as in the proxy — D7's local-model
   case).
 
+### D11 — A project has one design direction; the dossier is a candidate for it, not the authority (added post-Phase 5)
+
+> **Why it works this way —** D1 put the dossier into `extraSystem` "exactly where DESIGN.md already goes", and that sentence hid an asymmetry nobody noticed until a real project had five screens in it: DESIGN.md is a document the user keeps, while the dossier was written afresh on every single generation. Same slot, opposite lifetimes. So a Muse project accumulated one visual language per screen, and the user's report — *"le design.md d'un iframe à l'autre change alors que je ne lui ai pas dit d'en changer"* — was not a bug in any one function; it was this decision, unstated.
+
+The direction now lives on the project (`Project.design`), and `resolveDirection`
+(`src/lib/direction.ts`) is the only thing that decides which document governs a
+generation:
+
+- an **established** direction wins, and a dossier written this run is discarded
+  as an authority;
+- with nothing to protect — the project's first screen — the dossier wins **and
+  is kept**, which is what stops the next screen re-rolling one;
+- otherwise DESIGN.md governs, unchanged and **not** copied onto the project:
+  freezing a copy would quietly stop the user's later edits from reaching it.
+
+Muse still runs on every generation, because `imageryPlan` is the one part of a
+dossier that was ever legitimately per-screen. What it no longer does is decide
+what the project looks like. `buildMusePreamble` therefore receives the direction
+in force, and its palette restatement is rebuilt from that document rather than
+from the fresh dossier's tokens — a Tailwind palette contradicting the markdown
+above it is worse than no restatement at all.
+
+Three explicit acts replace a direction, and nothing else does: the composer's
+one-shot **« Nouvelle direction »** (spent on use, never persisted — a flag that
+survived a reload would be a standing instruction to redesign), and the two
+context-menu entries that were already there. Those two now write the project's
+direction instead of the global file, since lifting a look off one screen was
+never a statement about every other project on the machine.
+
+`Project`, not `Screen`, for the reason `folder` is: the server keeps the
+projects blob opaque and `mergeProjects` moves whole objects, while
+`normalizeScreen` rebuilds from a whitelist and would have dropped the field on
+first sync.
+
 ---
 
 ## 5. New invariants (M-series) and how each is enforced

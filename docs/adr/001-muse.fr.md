@@ -394,6 +394,43 @@ Deux conséquences méritent d'être consignées :
   l'administration sont `trusted` (garde-fou SSRF contourné, comme dans le proxy
   — le cas du modèle local de D7).
 
+### D11 — Un projet a une direction de design ; le dossier y prétend, il ne fait plus autorité (ajouté après la phase 5)
+
+> **Pourquoi c'est ainsi —** D1 plaçait le dossier dans `extraSystem` « exactement là où va déjà le DESIGN.md », et cette phrase cachait une asymétrie que personne n'a vue avant qu'un vrai projet n'atteigne cinq écrans : le DESIGN.md est un document que l'utilisateur conserve, le dossier était réécrit à chaque génération. Même emplacement, durées de vie opposées. Un projet Muse accumulait donc une langue visuelle par écran, et le signalement de l'utilisateur — *« le design.md d'un iframe à l'autre change alors que je ne lui ai pas dit d'en changer »* — n'était le bug d'aucune fonction en particulier : c'était cette décision-là, jamais écrite.
+
+La direction vit désormais sur le projet (`Project.design`), et `resolveDirection`
+(`src/lib/direction.ts`) est la seule chose qui décide quel document gouverne une
+génération :
+
+- une direction **établie** l'emporte, et le dossier écrit pendant ce tour est
+  écarté comme autorité ;
+- quand il n'y a rien à protéger — le premier écran du projet — le dossier
+  l'emporte **et il est conservé**, ce qui empêche l'écran suivant d'en tirer un
+  nouveau ;
+- sinon le DESIGN.md gouverne, inchangé et **non** recopié sur le projet : en
+  figer une copie empêcherait silencieusement les modifications ultérieures de
+  l'utilisateur de l'atteindre.
+
+Muse tourne toujours à chaque génération, parce que `imageryPlan` est la seule
+partie d'un dossier qui ait jamais été légitimement propre à un écran. Ce qu'elle
+ne décide plus, c'est l'allure du projet. `buildMusePreamble` reçoit donc la
+direction en vigueur, et sa reformulation de palette est reconstruite à partir de
+ce document plutôt que des tokens du dossier frais — une palette Tailwind qui
+contredit le texte au-dessus d'elle vaut moins que pas de reformulation du tout.
+
+Trois gestes explicites remplacent une direction, et rien d'autre : l'interrupteur
+ponctuel **« Nouvelle direction »** du composer (consommé à l'usage, jamais
+persisté — un indicateur qui survivrait à un rechargement serait une consigne
+permanente de tout redessiner), et les deux entrées du menu contextuel qui
+existaient déjà. Ces deux-là écrivent maintenant la direction du projet plutôt que
+le fichier global : relever l'allure d'un écran n'a jamais été une déclaration
+concernant tous les autres projets de la machine.
+
+Sur `Project` et non sur `Screen`, pour la raison qui valait déjà pour `folder` :
+le serveur garde le bloc des projets opaque et `mergeProjects` déplace des objets
+entiers, tandis que `normalizeScreen` reconstruit à partir d'une liste blanche et
+aurait perdu le champ à la première synchronisation.
+
 ---
 
 ## 5. Les nouveaux invariants (série M) et la façon dont chacun est appliqué

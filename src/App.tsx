@@ -98,6 +98,7 @@ function MockyApp() {
     deleteProject,
     renameProject,
     setProjectsFolder,
+    setProjectDesign,
     renameFolder,
     addScreen,
     updateScreen,
@@ -359,6 +360,7 @@ function MockyApp() {
             onBack={goHome}
             onSetReference={(sid) => setReferenceScreen(activeProject.id, sid)}
             onRenameProject={(name) => renameProject(activeProject.id, name)}
+            onSetDesign={(markdown) => setProjectDesign(activeProject.id, markdown)}
           />
           </ErrorBoundary>
         ) : (

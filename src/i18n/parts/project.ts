@@ -70,6 +70,11 @@ export const project = {
     'project.format': 'Format',
     'project.designChip': 'Design',
     'project.designTitle': 'Gérer DESIGN.md',
+    'project.redesignChip': 'Nouvelle direction',
+    'project.redesignTitle':
+      'Les écrans de ce projet suivent tous la même direction. Cochez pour que ce prompt en écrive une nouvelle — elle s’appliquera aux écrans suivants.',
+    'project.redesignOnTitle':
+      'Ce prompt va redéfinir la direction du projet. La case se décochera toute seule après la génération.',
     'project.museToggle': 'Muse — inspiration, direction artistique et vraie copie',
     'project.museHint':
       'Essayez Muse : elle cherche des références, écrit une direction artistique et remplace le faux texte par de vrais contenus. Cliquez pour l’activer.',
@@ -89,6 +94,7 @@ export const project = {
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planification…',
+    'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Inspiration & rédaction du dossier…',
     'project.museStageInspiration': 'Génération de l’image d’inspiration…',
     'project.museStageHero': 'Génération de l’image héro…',
@@ -162,10 +168,10 @@ export const project = {
     'project.editDesign': 'Modifier DESIGN.md',
     'project.deriveDesign': 'Faire de cet écran mon DESIGN.md',
     'project.applyDesignConfirm':
-      'Reprendre le DESIGN.md enregistré avec « {name} » ? Votre document actuel restera récupérable dans le panneau DESIGN.md.',
+      'Faire du DESIGN.md enregistré avec « {name} » la direction de ce projet ? Les écrans suivants la suivront ; la direction actuelle reste accessible depuis les écrans qui l’ont utilisée.',
     'project.deriveDesignBusy': 'Lecture de l’écran…',
     'project.deriveDesignConfirm':
-      'Remplacer votre DESIGN.md par celui extrait de « {name} » ? L’ancien texte restera récupérable dans le panneau DESIGN.md.',
+      'Faire du design de « {name} » la direction de ce projet ? Les écrans suivants la suivront ; la direction actuelle reste accessible depuis les écrans qui l’ont utilisée.',
     'project.deriveDesignEmpty': 'Cet écran n’a pas encore de code à analyser.',
     'project.deriveDesignEmptyResult': 'Le modèle n’a rien renvoyé. Réessayez, ou prenez un écran plus abouti.',
     'project.displayFormat': 'Format d’affichage',
@@ -264,6 +270,11 @@ export const project = {
     'project.format': 'Format',
     'project.designChip': 'Design',
     'project.designTitle': 'Manage DESIGN.md',
+    'project.redesignChip': 'New direction',
+    'project.redesignTitle':
+      'Every screen in this project follows the same design direction. Tick this and the prompt below writes a new one, which the screens after it will follow.',
+    'project.redesignOnTitle':
+      'This prompt will redefine the project’s direction. The box unticks itself once the screen is generated.',
     'project.museToggle': 'Muse — inspiration, art direction & real copy',
     'project.museHint':
       'Try Muse: it finds references, writes an art direction, and replaces lorem ipsum with real copy. Click to turn it on.',
@@ -283,6 +294,7 @@ export const project = {
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planning…',
+    'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Gathering inspiration & writing the dossier…',
     'project.museStageInspiration': 'Generating the inspiration image…',
     'project.museStageHero': 'Generating the hero image…',
@@ -355,10 +367,10 @@ export const project = {
     'project.editDesign': 'Edit DESIGN.md',
     'project.deriveDesign': 'Make this screen my DESIGN.md',
     'project.applyDesignConfirm':
-      'Use the DESIGN.md recorded with “{name}”? Your current document stays recoverable in the DESIGN.md panel.',
+      'Make the DESIGN.md recorded with “{name}” this project’s direction? Later screens will follow it; the current direction stays reachable from the screens that used it.',
     'project.deriveDesignBusy': 'Reading the screen…',
     'project.deriveDesignConfirm':
-      'Replace your DESIGN.md with the one derived from “{name}”? The old text stays recoverable in the DESIGN.md panel.',
+      'Make the design of “{name}” this project’s direction? Later screens will follow it; the current direction stays reachable from the screens that used it.',
     'project.deriveDesignEmpty': 'This screen has no code to read yet.',
     'project.deriveDesignEmptyResult': 'The model returned nothing. Try again, or pick a more finished screen.',
     'project.displayFormat': 'Display format',
