@@ -163,14 +163,14 @@ describe('withoutExisting', () => {
       links: [{ id: 'h1', x: 0, y: 0, w: 1, h: 1, target: 'b', selector: '#tarifs' }],
     })
     const candidates = [
-      { selector: '#tarifs', label: 'Tarifs', target: 'b', score: 0.9, why: 'href' as const },
-      { selector: '#contact', label: 'Contact', target: 'c', score: 0.8, why: 'href' as const },
+      { selector: '#tarifs', label: 'Tarifs', rect: { x: 0, y: 0, w: 1, h: 1 }, target: 'b', score: 0.9, why: 'href' as const },
+      { selector: '#contact', label: 'Contact', rect: { x: 0, y: 0, w: 1, h: 1 }, target: 'c', score: 0.8, why: 'href' as const },
     ]
     expect(withoutExisting(candidates, from).map((c) => c.selector)).toEqual(['#contact'])
   })
 
   it('is a no-op on a screen with no links', () => {
-    const candidates = [{ selector: '#x', label: 'X', target: 'b', score: 0.9, why: 'href' as const }]
+    const candidates = [{ selector: '#x', label: 'X', rect: { x: 0, y: 0, w: 1, h: 1 }, target: 'b', score: 0.9, why: 'href' as const }]
     expect(withoutExisting(candidates, screen('a'))).toHaveLength(1)
   })
 })

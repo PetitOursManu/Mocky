@@ -47,6 +47,8 @@ export interface LinkableElement {
 export interface LinkCandidate {
   selector: string
   label: string
+  /** Carried through from the swept element — a Hotspot needs it to be drawn. */
+  rect: { x: number; y: number; w: number; h: number }
   /** Target screen id. */
   target: string
   /** 0..1. Only what cleared the floor is returned. */
@@ -170,7 +172,7 @@ export function proposeLinks(
         score === bySlug && bySlug > 0 ? 'href' : score === byPrompt * 0.9 ? 'prompt' : 'content'
 
       if (score >= MIN_SCORE && (!best || score > best.score)) {
-        best = { selector: el.selector, label: el.label, target: target.id, score, why }
+        best = { selector: el.selector, label: el.label, rect: el.rect, target: target.id, score, why }
       }
     }
     if (best) out.push(best)

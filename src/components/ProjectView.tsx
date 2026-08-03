@@ -2,10 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, saveDesign, extractDesignColors } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
+import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection } from '../lib/plan'
 import { downloadZip, downloadTsx } from '../lib/export'
@@ -13,9 +14,11 @@ import type { StackTarget } from '../lib/export/project'
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
+import type { SweptElement } from './Preview'
 import DesignSystemPanel from './DesignSystemPanel'
 import PresetPicker from './PresetPicker'
 import DemoPlayer from './DemoPlayer'
+import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
 import ShareDialog from './ShareDialog'
 import { SaveDesignDialog, previewFromMarkdown } from './DesignLibrary'
@@ -344,6 +347,20 @@ export default function ProjectView({
     { screenId: string; id: string; clientRect: { left: number; top: number; width: number; height: number } } | null
   >(null)
   const [capturing, setCapturing] = useState(false)
+
+  /*
+   * Automatic linking, in three pieces of state.
+   *
+   * `sweepReq` asks one screen's preview to list what could be linked FROM — a
+   * nonce rather than a flag, so asking twice about the same screen is possible.
+   * `proposals` is what came back, scored. Nothing is written until the user
+   * says so: `Hotspot` carries no provenance, so a machine-made link would be
+   * indistinguishable from one they drew, in a panel whose only affordance is a
+   * delete button per row.
+   */
+  const [sweepReq, setSweepReq] = useState<{ screenId: string; nonce: number } | null>(null)
+  const [proposals, setProposals] = useState<{ screenId: string; items: LinkCandidate[] } | null>(null)
+  const [sweeping, setSweeping] = useState(false)
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
   const retryRefs = useRef<Record<string, { count: number; lastError: string }>>({})
   /** In-flight auto-repairs, keyed by screen id so each can be cancelled alone. */
@@ -618,6 +635,51 @@ export default function ProjectView({
     const hotspot: Hotspot = { id: newId(), ...rect, target, selector, label }
     onUpdateScreen(screenId, { links: [...screen.links, hotspot] })
     setPendingLink(null)
+  }
+
+  /** Ask a screen's preview what it holds that could be linked. */
+  function startAutoLink(screenId: string) {
+    setProposals(null)
+    setSweeping(true)
+    setSweepReq({ screenId, nonce: Date.now() })
+  }
+
+  /**
+   * The sweep came back. Score it, drop what is already wired, and show it.
+   *
+   * `withoutExisting` is not politeness: `addHotspot` appends without checking
+   * anything, so re-proposing a wired element is how a second pass silently
+   * doubles every link — the canvas stacks the overlays and the demo honours
+   * only the first match.
+   */
+  function onSwept(screenId: string, elements: SweptElement[]) {
+    setSweeping(false)
+    setSweepReq(null)
+    const from = screens.find((s) => s.id === screenId)
+    if (!from) return
+    setProposals({ screenId, items: withoutExisting(proposeLinks(elements, from, screens), from) })
+  }
+
+  /**
+   * Write the accepted proposals — all of them, in ONE update.
+   *
+   * Not a loop over `addHotspot`: that function reads `screen.links` from the
+   * render it was called in, so the second call would spread a list that does
+   * not contain the first, and every hotspot but the last would vanish. The same
+   * shape of bug the batch delete on the home page had to avoid.
+   */
+  function applyProposals(screenId: string, accepted: LinkCandidate[]) {
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || accepted.length === 0) return setProposals(null)
+    const added: Hotspot[] = accepted.map((c) => ({
+      id: newId(),
+      ...(c.rect ?? { x: 0, y: 0, w: 0, h: 0 }),
+      target: c.target,
+      selector: c.selector,
+      label: c.label,
+    }))
+    onUpdateScreen(screenId, { links: [...screen.links, ...added] })
+    setProposals(null)
   }
 
   function removeHotspot(screenId: string, hotspotId: string) {
@@ -1379,6 +1441,8 @@ export default function ProjectView({
         annotateMode={annotateMode}
         onCaptureRegion={onCaptureRegion}
         captureReq={captureReq}
+        sweepReq={sweepReq}
+        onSwept={onSwept}
         onCaptureRect={onCaptureRect}
         onError={onScreenError}
         generatingIds={generatingIds}
@@ -1413,6 +1477,29 @@ export default function ProjectView({
             >
               {t('project.done')}
             </button>
+          </div>
+
+          {/* The whole point of the feature: stop making the user wire what the
+              model already said. Scoped to one screen at a time — a proposal
+              covering six screens at once is a list nobody reads. */}
+          <div className="border-b border-line-soft px-3 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-center"
+              disabled={sweeping || selectedScreens.length !== 1 || screens.length < 2}
+              onClick={() => selectedScreens[0] && startAutoLink(selectedScreens[0].id)}
+            >
+              <Icon name="wand" size={15} />
+              {sweeping ? t('project.autoLinkWorking') : t('project.autoLink')}
+            </Button>
+            <p className="mt-1.5 text-caption text-ink-faint">
+              {screens.length < 2
+                ? t('project.autoLinkNeedsScreens')
+                : selectedScreens.length === 1
+                  ? t('project.autoLinkFor', { name: headline(selectedScreens[0].name) })
+                  : t('project.autoLinkPickOne')}
+            </p>
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-2">
             {screens.every((s) => s.links.length === 0) ? (
@@ -2033,6 +2120,15 @@ export default function ProjectView({
             <p className="measure mt-2 text-caption text-ink-faint">{t('project.modifyNote')}</p>
           </div>
         </div>
+      )}
+
+      {proposals && (
+        <ProposedLinks
+          items={proposals.items}
+          screens={screens}
+          onApply={(accepted) => applyProposals(proposals.screenId, accepted)}
+          onClose={() => setProposals(null)}
+        />
       )}
 
       {demoStartId && (

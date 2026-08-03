@@ -3,7 +3,7 @@ import { MIN_H, MIN_W, packScreens, type Screen } from '../lib/project'
 import { extractDesignColors } from '../lib/design'
 import { parseDesignSystem } from '../lib/designTokens'
 import { ScaledMockup, type PreviewCfg } from './DesignMockup'
-import Preview, { type PickInfo } from './Preview'
+import Preview, { type PickInfo, type SweptElement } from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import { Icon, IconButton } from '../ui'
 import { useT } from '../i18n'
@@ -295,6 +295,8 @@ export default function Canvas({
   annotateMode,
   onCaptureRegion,
   captureReq,
+  sweepReq,
+  onSwept,
   onCaptureRect,
   onError,
   generatingIds,
@@ -333,6 +335,9 @@ export default function Canvas({
   annotateMode: boolean
   onCaptureRegion: (screenId: string, clientRect: { left: number; top: number; width: number; height: number }) => void
   captureReq: { screenId: string; id: string; clientRect: { left: number; top: number; width: number; height: number } } | null
+  /** Which screen to enumerate, and a nonce so asking twice is possible. */
+  sweepReq: { screenId: string; nonce: number } | null
+  onSwept: (screenId: string, elements: SweptElement[]) => void
   onCaptureRect: (id: string, rect: { x: number; y: number; w: number; h: number }) => void
   onError?: (screenId: string, error: string) => void
   generatingIds?: Set<string>
@@ -1023,6 +1028,8 @@ export default function Canvas({
                       radius={SCREEN_RADIUS}
                       captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
                       onCaptureRect={onCaptureRect}
+                      sweepRequest={sweepReq?.screenId === s.id ? sweepReq.nonce : null}
+                      onSwept={(els) => onSwept(s.id, els)}
                       onError={(err) => onError?.(s.id, err)}
                       generating={generatingIds?.has(s.id)}
                       retrying={fixingIds?.has(s.id)}
@@ -1042,6 +1049,8 @@ export default function Canvas({
                     radius="1rem"
                     captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
                     onCaptureRect={onCaptureRect}
+                    sweepRequest={sweepReq?.screenId === s.id ? sweepReq.nonce : null}
+                    onSwept={(els) => onSwept(s.id, els)}
                     onError={(err) => onError?.(s.id, err)}
                     generating={generatingIds?.has(s.id)}
                     retrying={fixingIds?.has(s.id)}
