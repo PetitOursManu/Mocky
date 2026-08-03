@@ -26,7 +26,7 @@ script tag reappears in the preview pipeline.
 | `react.production.min.js` | react | 18.3.1 | `d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd` | — |
 | `react-dom.production.min.js` | react-dom | 18.3.1 | `35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d` | — |
 | `babel.min.js` | @babel/standalone | 7.29.7 | `b077558a0e5fbea26798443b6212cda6307583b09ec029bb8af207db570855a0` | yes |
-| `html2canvas.min.js` | html2canvas | 1.4.1 | `e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb` | — |
+| `snapdom.js` | @zumer/snapdom | 2.23.1 | `32840384a1df601e6377e801ece91c1d7a2ea3d0e05f27896565492eb3390976` | — |
 | `tailwind.min.js` | Tailwind Play CDN | 3.4.17 | `64b8656ae0edd79ff136198680367d51ac356621026cbd88bd6a9030e17b36dc` | yes |
 | `daisyui.min.css` | daisyui | 4.12.10 | `36e28efcf6c4993c482e465b2cae3d63b2066f90ff91455d78bf3e9388af2925` | yes |
 | `motion.js` | motion | 12.43.0 | `be2986aae4824690b4b1b451725e811a08ac44d1100ea269a4692f49f1a0f4ad` | built |
@@ -99,12 +99,25 @@ manual update, and it runs in CI.
 
 ## Updating
 
-`react`, `react-dom`, `@babel/standalone` and `html2canvas` come from
-`node_modules` after an `npm install` of the matching version. The Tailwind Play
-build is not published to npm; fetch it from the official CDN, pinned:
+`react`, `react-dom`, `@babel/standalone` and `@zumer/snapdom` come from
+`node_modules` after an `npm install` of the matching version — each is a real
+`devDependency`, so `npm audit` sees them. (`html2canvas` used to sit here and
+was not: it was an orphan binary listed in no manifest. It left with the snapdom
+migration.) The Tailwind Play build is not published to npm; fetch it from the
+official CDN, pinned:
 
 ```bash
 curl -o public/vendor/tailwind.min.js https://cdn.tailwindcss.com/3.4.17
 ```
 
-Then update the table above with the new version and hash.
+Then refresh the table above. The hash is a plain SHA-256 of the file on disk:
+
+```bash
+node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync(process.argv[1])).digest('hex'))" public/vendor/snapdom.js
+```
+
+Copy files here with a flat `*.js` or `*.css` name. Two mechanisms depend on it:
+`.gitattributes` marks `public/vendor/*.js` as binary, and without that a Windows
+checkout normalises line endings and the hash no longer matches CI; and
+`check-vendor.mjs` only sweeps those two extensions when looking for files you
+forgot to list. A `.mjs` build would slip past both.

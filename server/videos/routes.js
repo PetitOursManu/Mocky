@@ -29,8 +29,16 @@ export const PUBLIC_VIDEO_PATH = /^\/[a-f0-9]{64}\/(poster\.jpg|f\/[0-9]{1,4}\.j
 export function createVideosRouter({ library, generate, availability, recheck, frameSettings, budget }) {
   const router = express.Router()
 
-  // Immutable, content-addressed: cache for a year.
-  const immutable = (res) => res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+  // Immutable, content-addressed: cache for a year. Also readable from an opaque
+  // origin, for the same reason as the image route: the capture shell is
+  // sandboxed without allow-same-origin and snapdom inlines a picture by
+  // fetching its bytes, which is a cross-origin read. These paths are already
+  // unauthenticated by design (see their mount in server/index.js), so a
+  // wildcard exposes no credentials and can carry none.
+  const immutable = (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+  }
 
   router.get('/availability', async (_req, res) => {
     res.json(await availability())

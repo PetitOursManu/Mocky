@@ -521,11 +521,13 @@ export default function ProjectView({
   /**
    * Photograph screens for the home page — here, not there.
    *
-   * A capture needs a short-lived same-origin iframe (html2canvas cannot read
-   * the sandboxed preview, nor run inside it). Doing that on the home page meant
-   * every visit re-ran model code same-origin for every project. Doing it here
-   * costs the same work once, at the moment the user has just asked Mocky to run
-   * that code anyway — and the home page becomes pure image display.
+   * A capture mounts a short-lived iframe and runs the generated code in it.
+   * Doing that on the home page meant every visit re-ran model code for every
+   * project — and back then the capture frame was same-origin, so that was a
+   * security problem as well as a cost. The frame is sandboxed now (see
+   * capture.ts), but doing it here still costs the same work once, at the moment
+   * the user has just asked Mocky to run that code anyway — and the home page
+   * stays pure image display.
    *
    * Declarative on purpose: watching the settled screens covers new screens,
    * edits, regenerate, modify, animations and auto-repair without hooking each

@@ -414,26 +414,44 @@ During generation, errors are ignored because the code is incomplete by
 construction. An error whose source code has changed since the `srcDoc` was built
 is discarded as stale.
 
-### The documented exception: capture
+### Capture: the exception that no longer is
 
-`src/lib/capture.ts` mounts a **same-origin** iframe. This is deliberate,
-measured, and locked by a test that records the reasoning so nobody "fixes" it
-blind.
+`src/lib/capture.ts` used to mount a **same-origin** iframe, and this document
+used to explain at length why that was unavoidable. It no longer is.
 
-html2canvas clones the document into an iframe of its own. A sandbox without
-`allow-same-origin` gives every descendant a **fresh** opaque origin, so the
-frame cannot read its own clone. It fails with "Blocked a frame with origin null
-from accessing a cross-origin frame", both on the default path and with
-`foreignObjectRendering`.
+The reason was html2canvas: it has to read the document it photographs, and it
+clones that document into an iframe of its own, so a sandbox without
+`allow-same-origin` gave every descendant a **fresh** opaque origin and the frame
+could not read its own clone. It failed with "Blocked a frame with origin null
+from accessing a cross-origin frame", on the default path and with
+`foreignObjectRendering` alike.
 
-What is closed instead: that frame's CSP denies `connect-src`, `form-action`,
-`frame-src`, `object-src` and `base-uri`, and **limits `img-src` to the origin** —
-precisely because a remote image doubles as a tracking beacon. The component can
-read; it has nowhere to send.
+Mocky now snapshots with **snapdom**, which serializes the subtree into an SVG
+`<foreignObject>` with every node's computed style inlined, then rasterizes that
+through a `data:` URL. Nothing in that path crosses an origin boundary, so the
+capture frame carries `allow-scripts` and nothing else — exactly like a preview.
+For the second or so of a capture, the model's code no longer runs with Mocky's
+origin, which means it can no longer read the provider API key out of
+`localStorage` or reach into `window.parent`.
 
-The real fix is **origin separation**: serve the capture shell from a distinct
-origin and keep `allow-same-origin`. That needs a server route and a configurable
-capture origin, which is why it is not in place yet.
+Measured in an opaque origin before the change was made: the capture succeeds,
+`toDataURL()` does not throw (the canvas is not tainted), Tailwind's injected
+utilities are honoured, and `rgb(var(--token) / 0.5)` composites to the exact
+pixel. 113 ms by default against 111 ms for html2canvas with the origin open.
+
+Two consequences worth knowing:
+
+- **`connect-src` had to open to this origin.** snapdom inlines a picture by
+  fetching its bytes; under `connect-src 'none'` every fetch was blocked and each
+  image became a grey placeholder. `/api/images/:hash` therefore also answers with
+  `Access-Control-Allow-Origin: *` — it is already unauthenticated by design, so
+  a wildcard exposes nothing. Every other outbound directive stays shut, so there
+  is still nowhere to send anything.
+- **A hidden tab defers the capture.** snapdom rasterizes by awaiting
+  `img.decode()`, which never settles in a document the browser is not
+  compositing: backgrounded, the same capture took 39 s where html2canvas took
+  1 s. The shell now waits for `visibilitychange` rather than burning its
+  watchdog.
 
 ---
 

@@ -7,22 +7,20 @@ import type { Screen } from './project'
  *
  * WHERE THE PICTURE IS TAKEN, AND WHY IT MATTERS
  *
- * Taking it is not free and it is not innocent: html2canvas cannot read the
- * sandboxed preview (opaque origin) and cannot run inside it either — it clones
- * the document into an iframe of its own, and a sandbox without
- * allow-same-origin gives every descendant a FRESH opaque origin, so the frame
- * cannot read its own clone. The only way to screenshot a generated screen is
- * therefore a short-lived SAME-ORIGIN iframe, which for that moment runs
- * model-written code with Mocky's own origin.
+ * Taking it means mounting a short-lived iframe and running model-written code
+ * in it. That frame used to be SAME-ORIGIN — html2canvas has to read the
+ * document it photographs, and could not do so from a sandbox — so for the
+ * moment of every capture, generated code ran with Mocky's own origin and could
+ * read the provider key out of localStorage. snapdom serializes the subtree in
+ * place instead, so the frame is now sandboxed like any other and that is no
+ * longer true (see the block comment in capture.ts for the measurement).
  *
- * That is acceptable while the user is generating — they have just asked Mocky
- * to run that code, and the preview is already running it. It is not acceptable
- * as a side effect of opening the home page, which is where this started: every
- * visit re-ran a same-origin capture for every project.
- *
- * So the picture is taken ONCE, in the project view, right after a screen
- * settles (see `queueThumbs`). The home page only ever READS the cache — it
- * mounts no iframe and executes no generated code.
+ * The picture is still taken ONCE, in the project view, right after a screen
+ * settles (see `queueThumbs`), rather than on every home-page visit as it
+ * originally was. That was first a security argument and is now purely a cost
+ * one: a capture is ~100 ms of main thread per screen, and the home page has
+ * nothing to gain by re-taking pictures it already has. The home page only ever
+ * READS the cache — it mounts no iframe and executes no generated code.
  *
  * The entry is keyed by a checksum of the code that produced it, so it is
  * retaken only when the screen actually changes.
@@ -255,7 +253,7 @@ export async function captureThumb(screen: Screen): Promise<string | null> {
  * Screens waiting to be photographed, and the run in flight.
  *
  * Strictly one at a time. Each capture mounts an iframe that boots React,
- * Babel, Tailwind and html2canvas; several at once would lock the main thread
+ * Babel, Tailwind and snapdom; several at once would lock the main thread
  * right where the user is working.
  */
 const pending: Screen[] = []

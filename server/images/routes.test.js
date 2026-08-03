@@ -132,6 +132,16 @@ describe('image routes', () => {
     expect(Buffer.compare(buf, IMG_BYTES)).toBe(0)
   })
 
+  it('lets an opaque origin read those bytes, which is what thumbnails need', async () => {
+    // The capture shell is sandboxed without allow-same-origin, so its requests
+    // are cross-origin and snapdom inlines a picture by FETCHING it. Without this
+    // header the fetch fails and the thumbnail shows a grey placeholder where the
+    // picture was — a silent, cosmetic-looking failure with a security cause.
+    // Displaying an <img> never needed the header, so nothing here caught it.
+    const res = await fetch(`${base}/api/images/${HASH}`)
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+  })
+
   describe('POST /upload', () => {
     it('stores the bytes and reports where they landed', async () => {
       const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3])

@@ -428,27 +428,44 @@ Pendant la génération, les erreurs sont ignorées : le code est incomplet par
 construction. Une erreur dont le code source a changé depuis la construction du
 `srcDoc` est écartée comme périmée.
 
-### L'exception documentée : la capture d'écran
+### La capture : une exception qui n'en est plus une
 
-`src/lib/capture.ts` monte une iframe **de même origine**. C'est volontaire,
-mesuré, et verrouillé par un test qui consigne le raisonnement pour que personne
-ne le « corrige » à l'aveugle.
+`src/lib/capture.ts` montait une iframe **de même origine**, et ce document
+expliquait longuement pourquoi c'était inévitable. Ça ne l'est plus.
 
-html2canvas clone le document dans une iframe à lui. Or une isolation sans
-`allow-same-origin` donne à chaque descendant une **nouvelle** origine vide :
-l'iframe ne peut alors plus lire son propre clone. Elle échoue avec « Blocked a
-frame with origin null from accessing a cross-origin frame », aussi bien sur le
-chemin par défaut qu'avec `foreignObjectRendering`.
+La cause était html2canvas : il doit lire le document qu'il photographie, et il
+le clone dans une iframe à lui — or une isolation sans `allow-same-origin` donne
+à chaque descendant une **nouvelle** origine vide, si bien que l'iframe ne
+pouvait plus lire son propre clone. Elle échouait avec « Blocked a frame with
+origin null from accessing a cross-origin frame », aussi bien sur le chemin par
+défaut qu'avec `foreignObjectRendering`.
 
-Ce qui est fermé à la place : la politique de sécurité de cette iframe refuse
-`connect-src`, `form-action`, `frame-src`, `object-src` et `base-uri`, et
-**limite `img-src` à l'origine** — précisément parce qu'une image distante sert
-aussi de mouchard. Le composant peut lire ; il n'a nulle part où envoyer.
+Mocky capture désormais avec **snapdom**, qui sérialise le sous-arbre en un SVG
+`<foreignObject>` où le style calculé de chaque nœud est inliné, puis rastérise
+le tout via une URL `data:`. Rien dans ce chemin ne franchit de frontière
+d'origine : l'iframe de capture ne porte plus que `allow-scripts`, exactement
+comme un aperçu. Pendant la seconde que dure une capture, le code du modèle ne
+s'exécute donc plus avec l'origine de Mocky — il ne peut plus lire la clé API
+dans `localStorage`, ni atteindre `window.parent`.
 
-Le vrai correctif est la **séparation d'origine** : servir la coquille de capture
-depuis une origine distincte, et garder `allow-same-origin`. Cela demande une
-route serveur et une origine de capture configurable, d'où son absence pour
-l'instant.
+Mesuré en origine opaque avant d'engager le changement : la capture aboutit,
+`toDataURL()` ne lève rien (le canvas n'est pas teinté), les utilitaires injectés
+par Tailwind sont respectés, et `rgb(var(--token) / 0.5)` se compose au pixel
+exact. 113 ms par défaut, contre 111 ms pour html2canvas avec l'origine ouverte.
+
+Deux conséquences à connaître :
+
+- **`connect-src` a dû s'ouvrir à cette origine.** snapdom inline une image en
+  récupérant ses octets ; sous `connect-src 'none'`, chaque requête était bloquée
+  et chaque image devenait un aplat gris. `/api/images/:hash` répond donc aussi
+  avec `Access-Control-Allow-Origin: *` — cette route est déjà publique par
+  conception, un joker n'y expose rien. Toutes les autres directives sortantes
+  restent fermées : il n'y a toujours nulle part où envoyer quoi que ce soit.
+- **Un onglet masqué diffère la capture.** snapdom rastérise en attendant
+  `img.decode()`, qui ne se résout jamais dans un document que le navigateur ne
+  compose pas : en arrière-plan, la même capture prenait 39 s là où html2canvas
+  en prenait 1. La coquille attend maintenant `visibilitychange` au lieu
+  d'épuiser son chien de garde.
 
 ---
 
