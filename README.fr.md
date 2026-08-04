@@ -25,7 +25,7 @@
 Mocky est une alternative auto-hébergée à des outils comme Google Stitch / openStitch, bâtie autour de deux idées :
 
 - **Ollama Cloud comme fournisseur de premier plan** — une URL de base configurable (par défaut `https://ollama.com`) + une clé d'API envoyée en jeton Bearer, pour que vous restiez maître de votre accès au modèle.
-- **Un système de design portable (`DESIGN.md`)** — du Markdown ordinaire (jetons de couleur, typographie, espacements, motifs de composants) que Mocky place en tête de chaque génération, pour que les écrans restent fidèles à la marque d'une session à l'autre.
+- **Un système de design portable (`DESIGN.md`)** — du Markdown ordinaire (jetons de couleur, typographie, espacements, motifs de composants) que Mocky place en tête de chaque génération, pour que les écrans restent fidèles à la marque d'une session à l'autre. Chaque projet garde en plus une **direction qui lui est propre**, fixée une fois puis laissée tranquille, pour que ses écrans aient l'air d'un seul produit ; `DESIGN.md` est ce sur quoi un projet se rabat tant qu'il n'en a pas.
 - **Une génération réglée pour de vraies interfaces** — le prompt système interdit les wireframes, les aplats gris de remplissage et le « Lorem ipsum » ; il réclame des composants finis et interactifs, avec de vrais textes, des états de survol et de focus, et un style Tailwind moderne.
 - **Le SSO « Se connecter avec Dashy », en option** — laissez vos utilisateurs s'authentifier via une instance [Dashy](https://github.com/PetitOursManu/Dashy) et retrouver leurs projets Mocky sans un mot de passe de plus.
 
@@ -44,6 +44,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - 🔗 **Liens d'interaction + mode Démo** — reliez un véritable élément d'un écran à un autre écran, puis jouez le prototype cliquable.
 - 📱 **Préréglages de format et cadre d'appareil** — Mobile (iPhone) / Bureau / Tablette ; les écrans mobiles s'affichent dans un cadre d'iPhone en CSS (barre d'état, encoche, barre d'accueil).
 - 🎨 **Système de design et préréglages de style** — chargez ou collez un `DESIGN.md`, ou choisissez un style visuel intégré (17 préréglages) ; il pilote chaque génération.
+- 🧭 **Une direction par projet** — les écrans d'un projet partagent une seule direction de design, ainsi que le même nom de produit et le même logo, au lieu de réinventer les trois à chaque génération. **Nouvelle direction**, dans le composer, est la dérogation ponctuelle : la prochaine demande réécrit la direction, puis l'interrupteur se remet de lui-même.
 - ✂️ **Annotations par capture** — découpez une zone d'un écran vers le dialogue sous forme de références numérotées, jointes aux générations (avec vision).
 - 📦 **Projets et export** — plusieurs projets, téléchargement `.tsx` écran par écran, et un projet Vite exécutable en `.zip`.
 - 👤 **Comptes et SSO en option** — connectez-vous à une instance Mocky et vos projets ainsi que votre DESIGN.md se synchronisent d'un appareil à l'autre (backend auto-hébergé, aucun cloud). Avec une instance [Dashy](https://github.com/PetitOursManu/Dashy), les utilisateurs peuvent aussi **« Se connecter avec Dashy »** et retrouver leurs projets. Sans compte, tout reste dans le `localStorage` de votre navigateur.
@@ -291,7 +292,7 @@ server {
 
 Tout le trafic passe par le `POST /api/chat` du fournisseur, à travers un reverse proxy :
 
-- **Nouvel écran** — prompt système (règles de sortie + `DESIGN.md` + indication de format) + votre description.
+- **Nouvel écran** — prompt système (règles de sortie + la direction de design du projet + indication de format) + votre description. Dès que le projet a un écran, le plus ancien voyage aussi, pour que le produit garde son nom et son logo ; épinglez un écran comme référence de mise en page et c'est toute la chrome partagée qui l'accompagne à la place.
 - **Modification d'un écran sélectionné** — les mêmes règles **plus le code complet du composant actuel** et une consigne stricte du type « ne change que ce qui est demandé, préserve tout le reste ». Le modèle renvoie le composant complet mis à jour.
 
 La réponse du modèle utilise un **protocole sentinelle** (`<<<MOCKY>>> ... <<<END>>>`) au lieu de clôtures markdown, de sorte que du code partiel peut être extrait pendant le flux, sans attendre une clôture finale. La requête utilise `num_ctx: 32768` pour éviter la troncature sur les gros composants.
@@ -362,10 +363,14 @@ va, avant de construire quoi que ce soit :
 4. **Générer l'imagerie** — une image de héros via un fournisseur sans clé, injectée dans
    la maquette et servie depuis l'origine de Mocky elle-même.
 
-Le Dossier pilote ensuite la génération en tant qu'autorité de design (il supplante
-`DESIGN.md` pour cet écran). **Muse désactivé ⇒ la génération est identique octet pour octet à
-ce qu'elle était avant.** Muse a besoin du backend en fonctionnement (il ne fait rien en mode
-`localStorage` pur).
+Le Dossier pilote la génération en tant qu'autorité de design — mais pour le
+**projet**, pas pour ce seul écran. Le premier rédigé devient la direction du
+projet et est ensuite réutilisé tel quel ; les exécutions suivantes écrivent
+toujours un dossier, pour le plan d'imagerie, et il ne décide plus de l'allure du
+projet. Le réécrire est un geste explicite : **Nouvelle direction** dans le
+composer, ou « Faire de cet écran mon DESIGN.md ». **Muse désactivé ⇒ la
+génération est identique octet pour octet à ce qu'elle était avant.** Muse a
+besoin du backend en fonctionnement (il ne fait rien en mode `localStorage` pur).
 
 ### Fournisseurs d'images
 

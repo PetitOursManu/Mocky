@@ -13,6 +13,7 @@ Le fait le plus structurant du projet :
 | Génération, édition, réparation | Navigateur | `src/lib/generate.ts` |
 | Orchestration du pipeline | Navigateur (React) | `src/components/ProjectView.tsx` |
 | Pont `DESIGN.md` (préambule, jetons, export) | Navigateur | `src/lib/design.ts`, `designTokens.ts`, `export/` |
+| Quelle direction gouverne une génération | Navigateur | `src/lib/direction.ts` |
 | Affichage isolé de l'aperçu | Navigateur | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
 | Persistance | `localStorage`, recopié sur le serveur si connecté | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
 | Comptes, SSO, synchronisation, proxy modèle | Serveur | `server/index.js`, `server/provider-proxy.js` |
@@ -70,9 +71,10 @@ C'est [l'invariant I3](fr/architecture/invariants.md), et il porte sur la
 
 `selectCapabilities()` est déterministe et n'appelle aucun modèle.
 
-Elle assemble le prompt de l'utilisateur et le `DESIGN.md` actif, met le tout en
-minuscules, et retient une capacité si **au moins un** de ses mots-clés apparaît
-dans ce texte. Ensuite :
+Elle assemble le prompt de l'utilisateur et la direction de design en vigueur
+(`DESIGN.md`, ou celle du projet — ce que `resolveDirection` a renvoyé), met le
+tout en minuscules, et retient une capacité si **au moins un** de ses mots-clés
+apparaît dans ce texte. Ensuite :
 
 1. les capacités de base sont ajoutées d'office ;
 2. `requires` est résolu de proche en proche, donc `animate` tire `motion-lib` ;
@@ -237,7 +239,7 @@ jamais : là, elle coupe.
 
 | Fonction | Sert à | Règles supplémentaires |
 |---|---|---|
-| `generateComponent()` | Créer un écran | `extraSystem` porte soit le dossier Muse, soit `DESIGN.md`, plus les capacités et le plan |
+| `generateComponent()` | Créer un écran | `extraSystem` porte la direction de design du projet (`resolveDirection` — celle qui est établie, le dossier Muse de ce tour, ou `DESIGN.md`), le plus ancien écran comme référence d'identité, plus les capacités et le plan |
 | `editComponent()` | Modifier les écrans sélectionnés | `EDIT_RULES` : conserver tout ce que l'utilisateur n'a pas demandé de changer, à l'octet près. Le composant complet est renvoyé, pas un diff |
 | `fixComponent()` | Réparer automatiquement après une erreur d'affichage | Non diffusé. Reçoit **le même** prompt de capacités : sans la liste des variables globales existantes, le modèle ne peut pas savoir quel composant est indéfini, et échange une erreur React #130 contre une autre |
 
@@ -520,8 +522,8 @@ clé, et le mode « votre clé ne quitte pas votre navigateur » est préservé.
 
 | Clé `localStorage` | Contenu |
 |---|---|
-| `mocky.projects.v1` | Les projets, avec écrans, positions et liens |
-| `mocky.design.v1` | Le `DESIGN.md` actif et son interrupteur |
+| `mocky.projects.v1` | Les projets, avec écrans, positions et liens — et la direction de design propre à chaque projet |
+| `mocky.design.v1` | Le `DESIGN.md` global et son interrupteur — le repli d'un projet qui n'a pas de direction à lui |
 | `mocky.settings.v1` | Fournisseur, URL de base, **clé d'API**, planificateur activé ou non |
 | `mocky.muse.v1` | La configuration Muse : URL d'inspiration, mode image, vidéo, média épinglé |
 | `mocky.animations.v1` | `auto`, `on` ou `off` |

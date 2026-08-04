@@ -13,6 +13,7 @@ The single most structural fact about the project:
 | Generation, editing, repair (streamed) | Browser | `src/lib/generate.ts` |
 | Pipeline orchestration and phases | Browser (React) | `src/components/ProjectView.tsx` |
 | `DESIGN.md` bridge (preamble, tokens, export) | Browser | `src/lib/design.ts`, `designTokens.ts`, `export/` |
+| Which direction governs a generation | Browser | `src/lib/direction.ts` |
 | Sandboxed render | Browser | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
 | Persistence | `localStorage`, mirrored to the server when signed in | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
 | Accounts, SSO, JSON sync, model proxy | Server | `server/index.js`, `server/provider-proxy.js` |
@@ -68,7 +69,8 @@ about the shape of the tag.
 
 `selectCapabilities()` is deterministic and calls no model.
 
-It concatenates the user prompt and the active `DESIGN.md`, lowercases the
+It concatenates the user prompt and the design direction in force (`DESIGN.md`,
+or the project's own — whichever `resolveDirection` returned), lowercases the
 result, and selects a capability if **any** of its keywords or intents appears as
 a substring. Then:
 
@@ -227,7 +229,7 @@ complete, a malformed sentinel is all there will ever be, so it does cut.
 
 | Function | Used for | Additional rules |
 |---|---|---|
-| `generateComponent()` | A new screen | `extraSystem` carries either the Muse dossier or `DESIGN.md`, plus capabilities and the plan |
+| `generateComponent()` | A new screen | `extraSystem` carries the project's design direction (`resolveDirection` — the established one, this run's Muse dossier, or `DESIGN.md`), the earliest screen as an identity reference, plus capabilities and the plan |
 | `editComponent()` | Editing selected screens | `EDIT_RULES`: preserve everything the user did not ask to change, byte for byte. The complete component is returned, not a diff |
 | `fixComponent()` | Auto-repair after a render error | Not streamed. Receives the **same** capability prompt — without the list of existing globals the model cannot tell which component is undefined, and swaps one React #130 error for another |
 
@@ -503,8 +505,8 @@ your browser" mode is preserved.
 
 | `localStorage` key | Contents |
 |---|---|
-| `mocky.projects.v1` | Projects, with screens, positions and links |
-| `mocky.design.v1` | The active `DESIGN.md` and its toggle |
+| `mocky.projects.v1` | Projects, with screens, positions and links — and each project's own design direction |
+| `mocky.design.v1` | The global `DESIGN.md` and its toggle — the fallback for a project that has no direction of its own |
 | `mocky.settings.v1` | Provider, base URL, **API key**, planner on or off |
 | `mocky.muse.v1` | Muse configuration: inspiration URLs, image mode, video, pinned media |
 | `mocky.animations.v1` | `auto`, `on` or `off` |

@@ -78,7 +78,22 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 
 ![Le composer : format, design, Muse, animations, demande](../assets/09-composer.png)
 
-*Le composer. Le format d’abord, puis les trois interrupteurs qui décident de ce que reçoit le modèle — votre système de design, Muse, et le mouvement.*
+*Le composer. Le format d’abord, puis les trois interrupteurs qui décident de ce que reçoit le modèle — la direction de design, Muse, et le mouvement.*
+
+Un projet garde **une seule** direction de design, pour que ses écrans aient
+l’air d’un produit et non de cinq esquisses. Elle est fixée par le premier écran
+généré, puis laissée tranquille. **Nouvelle direction** est l’exception : cochez
+la case et la demande que vous vous apprêtez à envoyer réécrit la direction pour
+tous les écrans suivants. Elle se décoche toute seule une fois cet écran généré —
+c’est un geste ponctuel, pas un mode.
+
+Deux autres choses voyagent d’un écran à l’autre sans qu’on ait à le demander :
+le **nom** du produit et son **logo**. Une direction décrit une palette et une
+voix, donc rien en elle n’empêchait un deuxième écran d’inventer une deuxième
+marque — c’est précisément ce qui arrivait, jusqu’à ce que le premier écran soit
+montré au modèle comme l’identité à respecter. La navigation, les sections et la
+mise en page restent libres ; épinglez un écran comme référence de mise en page
+(clic droit sur un écran) si vous voulez les figer aussi.
 
 ![L'accueil : la liste des projets](../assets/02-home-projects.png)
 

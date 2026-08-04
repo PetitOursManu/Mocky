@@ -78,7 +78,20 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 
 ![The composer: format, design, Muse, animations, prompt](assets/09-composer.png)
 
-*The composer. Format first, then the three switches that decide what the model is given — your design system, Muse, and motion.*
+*The composer. Format first, then the three switches that decide what the model is given — the design direction, Muse, and motion.*
+
+A project keeps **one** design direction, so its screens look like one product
+rather than five sketches. It is set by the first screen you generate and then
+left alone. **New direction** is the exception: tick it and the prompt you are
+about to send rewrites the direction for every screen after it. It unticks
+itself once that screen is generated — it is a one-off, not a mode.
+
+Two other things travel between screens without being asked for: the product's
+**name** and its **logo**. A design direction describes a palette and a voice, so
+nothing in it stops a second screen inventing a second brand — which is exactly
+what happened until the first screen started being shown to the model as the
+identity to match. The nav, the sections and the layout stay free; pin a screen
+as a layout reference (right-click a screen) if you want those fixed too.
 
 ![The home page: your projects](assets/02-home-projects.png)
 

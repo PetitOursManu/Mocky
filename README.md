@@ -25,7 +25,7 @@
 Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, built around two ideas:
 
 - **Ollama Cloud as a first-class provider** — a configurable base URL (default `https://ollama.com`) + API key sent as a Bearer token, so you own your model access.
-- **A portable design system (`DESIGN.md`)** — plain Markdown (color tokens, typography, spacing, component patterns) that Mocky prepends to every generation so screens stay on-brand across sessions.
+- **A portable design system (`DESIGN.md`)** — plain Markdown (color tokens, typography, spacing, component patterns) that Mocky prepends to every generation so screens stay on-brand across sessions. Each project also keeps a **direction of its own**, set once and left alone, so its screens look like one product; `DESIGN.md` is what a project falls back on until it has one.
 - **Generation tuned for real UIs** — the system prompt forbids wireframes, gray placeholders, and "Lorem ipsum"; it asks for finished, interactive components with real copy, hover/focus states, and modern Tailwind styling.
 - **Optional "Sign in with Dashy" SSO** — let users authenticate through a [Dashy](https://github.com/PetitOursManu/Dashy) instance and find their Mocky projects without another password.
 
@@ -44,6 +44,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
 - 🎨 **Design system + style presets** — load/paste a `DESIGN.md` or pick a built-in visual style (17 presets); it drives every generation.
+- 🧭 **One direction per project** — a project's screens share a single design direction, plus the same product name and logo, instead of re-inventing all three on every generation. **New direction** in the composer is the one-shot override: the next prompt rewrites the direction, then the switch clears itself.
 - ✂️ **Screenshot annotations** — snip a region of a screen into the chat as numbered references, attached to (vision) generations.
 - 📦 **Projects & export** — multiple projects, per-screen `.tsx` download, and a runnable Vite project as `.zip`.
 - 👤 **Optional accounts + SSO** — sign in to a Mocky instance and your projects + DESIGN.md sync across devices (self-hosted backend, no cloud). With a [Dashy](https://github.com/PetitOursManu/Dashy) instance, users can also **"Sign in with Dashy"** and reuse their projects. Without an account everything stays in your browser's `localStorage`.
@@ -311,7 +312,7 @@ server {
 
 All traffic goes to the provider's `POST /api/chat` through a reverse proxy:
 
-- **New screen** — system prompt (output rules + `DESIGN.md` + format hint) + your description.
+- **New screen** — system prompt (output rules + the project's design direction + format hint) + your description. Once the project has a screen, the earliest one rides along too, so the product keeps its name and its logo; pin a screen as a layout reference and the whole shared chrome comes with it instead.
 - **Edit a selected screen** — the same rules **plus the full current component code** and a strict "change only what's asked, preserve everything else" instruction. The model returns the complete updated component.
 
 The model's response uses a **sentinel protocol** (`<<<MOCKY>>> ... <<<END>>>`) instead of markdown fences, so partial code can be extracted during streaming without waiting for a closing fence. The request uses `num_ctx: 32768` to avoid truncation on large components.
@@ -381,10 +382,13 @@ Muse is an optional pass that lifts generation above generic "AI slop". Flip the
 4. **Generate imagery** — a hero image via a zero-key provider and inject it into
    the mockup, served from Mocky's own origin.
 
-The Dossier then drives generation as the design authority (superseding
-`DESIGN.md` for that screen). **Muse off ⇒ generation is byte-identical to
-before.** Muse needs the backend running (it does nothing in pure-`localStorage`
-mode).
+The Dossier drives generation as the design authority — but for the **project**,
+not for that one screen. The first one written becomes the project's direction
+and is then reused verbatim; later runs still write a dossier, for the imagery
+plan, and it no longer decides what the project looks like. Rewriting it is an
+explicit act: the composer's **New direction**, or "Make this screen my
+DESIGN.md". **Muse off ⇒ generation is byte-identical to before.** Muse needs the
+backend running (it does nothing in pure-`localStorage` mode).
 
 ### Image providers
 

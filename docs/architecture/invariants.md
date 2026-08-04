@@ -286,6 +286,13 @@ provider is the pre-Muse payload.
 
 This is what makes the feature adoptable: it cannot regress what already worked.
 
+Read strictly, the invariant also decides when Muse's results are allowed to
+exist. A run that threw halfway used to leave the preamble unbuilt — Muse
+contributed nothing to the prompt — while still labelling the screen with the
+dossier it had written. Now that a dossier can become the whole project's
+direction (see D11), that discrepancy stops being cosmetic: nothing is published
+until the run finishes.
+
 ### M2. No third-party image is ever stored, cached, proxied or displayed
 
 Only **Mocky-generated** images and **text** distillations persist.

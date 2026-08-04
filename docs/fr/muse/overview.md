@@ -100,6 +100,15 @@ Le résultat est rendu en `DESIGN-DOSSIER.md` puis injecté dans la génération
 comme `extraSystem` — **exactement là où `DESIGN.md` allait déjà** (invariant
 M1).
 
+L'emplacement est le même, mais les deux documents ont des durées de vie
+opposées, et rien ne le disait pendant longtemps : `DESIGN.md` est un document
+que l'utilisateur conserve, tandis qu'un dossier était réécrit à chaque
+génération. Un projet accumulait donc une langue visuelle par écran. Le dossier
+est désormais une direction **candidate** plutôt que l'autorité —
+`resolveDirection` garde le premier et écarte les suivants, ceux-ci n'existant
+plus que pour leur plan d'imagerie, la seule partie d'un dossier qui ait jamais
+été légitimement propre à un écran. Voir [D11](adr/001-muse.fr.md).
+
 Le détail complet est dans la page
 [moteur d'inspiration](fr/muse/inspiration-engine.md).
 

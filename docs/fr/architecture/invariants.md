@@ -302,6 +302,13 @@ envoyé au fournisseur est ce qui était envoyé avant Muse.
 C'est ce qui rend la fonctionnalité adoptable : elle ne peut pas casser ce qui
 marchait.
 
+Lu strictement, l'invariant décide aussi du moment où les résultats de Muse ont
+le droit d'exister. Un tour qui échouait à mi-chemin laissait le préambule non
+construit — Muse n'apportait rien au prompt — tout en étiquetant quand même
+l'écran avec le dossier qu'il avait écrit. Maintenant qu'un dossier peut devenir
+la direction du projet entier (voir D11), cet écart cesse d'être cosmétique :
+rien n'est publié tant que le tour n'est pas terminé.
+
 ### M2. Aucune image tierce n'est jamais conservée, mise en cache, relayée ou affichée
 
 Seules persistent les images **produites par Mocky** et les distillations

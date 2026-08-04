@@ -94,6 +94,14 @@ optional, silent on failure, and never blocks.
 The result is rendered as `DESIGN-DOSSIER.md` and injected into generation as
 `extraSystem` — **exactly where `DESIGN.md` already went** (invariant M1).
 
+That slot is shared, but the two documents have opposite lifetimes, and for a
+long time nothing said so: `DESIGN.md` is a document the user keeps, while a
+dossier was written afresh on every generation. A project therefore accumulated
+one visual language per screen. The dossier is now a **candidate** direction
+rather than the authority — `resolveDirection` keeps the first one and discards
+the rest, and the later runs exist for their imagery plan, the one part of a
+dossier that was ever legitimately per-screen. See [D11](../adr/001-muse.md).
+
 Full details are in the [inspiration engine](muse/inspiration-engine.md) page.
 
 ---
