@@ -13,9 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 20 matches the Dockerfile's node:20-slim; 22 is what development
-        # actually runs on, and the two have diverged before.
-        node-version: [20, 22]
+        # 22 matches the Dockerfile's node:22-slim and the .nvmrc; 24 is the
+        # next LTS, kept in the matrix because the two have diverged before.
+        # Node 20 was dropped when the quality pass landed: `impeccable`
+        # requires >=22.12, and Node 20 left support in April 2026.
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

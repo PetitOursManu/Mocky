@@ -1,10 +1,18 @@
 # ---- Stage 1: Build the frontend ----
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Copy package files and install ALL deps (including devDeps for the build)
-COPY package.json package-lock.json ./
+# Copy package files and install ALL deps (including devDeps for the build).
+#
+# .puppeteerrc.cjs comes along and must arrive BEFORE `npm ci`, not with the
+# rest of the source below. Puppeteer — an optional dependency of `impeccable`
+# — resolves its configuration from the working directory at install time, so
+# copying it afterwards is the same as not having it: this stage would download
+# a full Chrome build (~700 MB) that nothing here uses and that the runtime
+# stage discards anyway. It cannot be dropped from this stage either, because
+# `--omit=optional` would strip @rolldown/binding-* and break `npm run build`.
+COPY package.json package-lock.json .puppeteerrc.cjs ./
 RUN npm ci
 
 # Copy source and build
@@ -12,13 +20,20 @@ COPY . .
 RUN npm run build
 
 # ---- Stage 2: Production runtime ----
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 
 WORKDIR /app
 
-# Copy package files and install ONLY production deps
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+# Copy package files and install ONLY production deps.
+#
+# --omit=optional is correct HERE and nowhere else. This stage installs runtime
+# dependencies and builds nothing, so it wants neither Puppeteer (pulled in as
+# an optional dependency of `impeccable`, whose URL engine Mocky never calls)
+# nor any per-platform native binding. In the builder stage the same flag would
+# strip @rolldown/binding-* and break `npm run build`, which is why it is not
+# in an .npmrc — see .puppeteerrc.cjs for the rest of that story.
+COPY package.json package-lock.json .puppeteerrc.cjs ./
+RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 
 # ---- Scroll-driven video: ffmpeg ----
 # A generated clip is cut into a JPEG sequence the preview scrubs through

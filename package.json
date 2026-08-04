@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "type": "module",
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.12"
   },
   "scripts": {
     "dev": "vite",
@@ -25,6 +25,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "cookie-parser": "^1.4.7",
     "express": "^4.22.2",
+    "impeccable": "^3.5.0",
     "motion": "12.43.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
