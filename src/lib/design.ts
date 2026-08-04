@@ -227,6 +227,53 @@ export function extractDesignColors(markdown: string): { hex: string; label: str
   return out
 }
 
+/**
+ * The product's own name, read out of a DESIGN.md's `## Product` section.
+ *
+ * Why the name is read from PROSE and not from the screen it appears in: the
+ * name lives in generated JSX, and invariant I1 forbids discovering names in
+ * generated source with a regular expression — a wordmark is a string among
+ * strings, and "Softly" in a header is indistinguishable from "Softly" in a
+ * sentence to a pattern. Parsing Markdown is the invariant's one explicit
+ * exemption, and `extractDesignColors` above is the in-repo precedent: the
+ * model reads the screen once, writes what it found into the document, and
+ * everything afterwards reads the document.
+ *
+ * Returns null rather than a guess. A DESIGN.md written before this section
+ * existed simply has no `## Product`, and callers fall back to naming the
+ * document instead of inventing a product.
+ */
+export function extractProductName(markdown: string | undefined): string | null {
+  if (!markdown) return null
+
+  // A line walk rather than one regular expression. The regex this replaced
+  // ended its section with `\Z`, which JavaScript does not support and reads as
+  // a literal "Z" — so the name was found only when another `##` happened to
+  // follow it, and a document ending on `## Product` returned nothing.
+  const lines = markdown.split(/\r?\n/)
+  const start = lines.findIndex((l) => /^##[ \t]*Product[ \t]*$/i.test(l))
+  if (start === -1) return null
+
+  let line: string | null = null
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^##[ \t]/.test(lines[i])) break // next section: the field was empty
+    const cleaned = lines[i].replace(/^[\s>*+-]+/, '').replace(/[*_`]/g, '').trim()
+    if (cleaned) {
+      line = cleaned
+      break
+    }
+  }
+  if (!line) return null
+  // The prompt asks for a bare name, but models like to explain themselves.
+  // Take what precedes the first sentence break, and refuse anything long
+  // enough to be a description rather than a wordmark.
+  const name = line.split(/\s+[—–-]\s+|\.\s|:\s/)[0].trim()
+  if (!name || name.length > 40) return null
+  // The prompt's own escape hatch for a screen that shows no product name.
+  if (/^not established/i.test(name)) return null
+  return name
+}
+
 /** A minimal example so users without a DESIGN.md can see the expected shape. */
 export const STARTER_TEMPLATE = `# Design System
 

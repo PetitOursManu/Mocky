@@ -823,10 +823,13 @@ Rules:
 
 Use exactly these sections, in this order:
 # Design System
+## Product
 ## Color tokens
 ## Typography
 ## Spacing & radius
-## Component patterns`
+## Component patterns
+
+For "## Product", write ONE line and nothing else: the product or application name exactly as it is spelled and cased in the screen — the wordmark in the header, the name in the footer, the one in the page title. Just the name, no description, no punctuation around it. If the screen shows no product name at all, write exactly "not established by this screen".`
 
 /**
  * Derive a DESIGN.md from a screen the user points at.

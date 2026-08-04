@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MIN_H, MIN_W, packScreens, type Screen } from '../lib/project'
-import { extractDesignColors } from '../lib/design'
+import { extractDesignColors, extractProductName } from '../lib/design'
 import { parseDesignSystem } from '../lib/designTokens'
 import { ScaledMockup, type PreviewCfg } from './DesignMockup'
 import Preview, { type PickInfo, type SweptElement } from './Preview'
@@ -22,6 +22,24 @@ interface Box {
 
 const MIN_SCALE = 0.05
 const MAX_SCALE = 1.5
+
+/**
+ * The reference/design column beside a frame, in WORLD units.
+ *
+ * World rather than screen units because this column takes up room on the
+ * board: anything sized against the zoom occupies a footprint that changes with
+ * it, and a neighbour that moves when you zoom out is the one thing an infinite
+ * canvas must not do.
+ */
+const CARD_W = 320
+/**
+ * Below this zoom the column is not drawn at all.
+ *
+ * At 0.15 a 320 px card is 48 px on screen: past the point where shrinking it
+ * further tells anyone anything, and the alternative — counter-scaling it back
+ * up — is precisely the bug this replaced.
+ */
+const CARD_MIN_SCALE = 0.15
 
 /** Window in which two presses on the same frame count as a double-press. */
 const DOUBLE_PRESS_MS = 350
@@ -76,19 +94,21 @@ const IMAGE_ROLE: Record<
  * nothing truthful to display, so the card offers to reconstruct one by reading
  * the rendered code instead, and says that it is reading rather than recalling.
  *
- * Everything scales by `inv` (the inverse of the canvas zoom) so it stays the
- * same physical size whatever the zoom, like the labels and badges around it.
+ * Everything is sized in WORLD units, so the card scales with the canvas like
+ * the frame it sits beside. It used to counter-scale by `inv` the way the
+ * labels and handles do, which is right for a control that must stay legible
+ * and wrong for something that occupies space on the board: its footprint was
+ * 200/scale, so zooming out grew it until it covered its neighbours. Below
+ * CARD_MIN_SCALE the caller stops drawing it rather than shrinking it further.
  */
 function ScreenDesignCard({
   screen,
-  inv,
   busy,
   onDerive,
   onApply,
   onInspectDesign,
 }: {
   screen: Screen
-  inv: number
   busy: boolean
   onDerive?: (screenId: string) => void
   onApply?: (screenId: string) => void
@@ -104,6 +124,13 @@ function ScreenDesignCard({
    * them is exactly the confusion this card exists to remove.
    */
   const fromMuse = /^#\s*Design Dossier/im.test(recorded)
+  /**
+   * Read from the recorded document rather than taken from the project, so the
+   * card names the product THIS screen was built for even if the project has
+   * since been renamed or re-directed. Null on every document written before
+   * the `## Product` section existed, which is the normal case for a while.
+   */
+  const productName = extractProductName(recorded)
   /**
    * The same mini-dashboard the DESIGN.md page uses for its style presets.
    *
@@ -145,10 +172,10 @@ function ScreenDesignCard({
         disabled={busy}
         className="flex w-full items-center justify-center border border-muse/60 bg-raised text-muse-ink transition hover:border-muse hover:bg-muse/10 disabled:opacity-50"
         style={{
-          marginTop: 6 * inv,
-          padding: `${5 * inv}px ${6 * inv}px`,
-          fontSize: `${11 * inv}px`,
-          gap: 4 * inv,
+          marginTop: 10,
+          padding: '8px 10px',
+          fontSize: 17,
+          gap: 6,
           cursor: 'pointer',
         }}
         title={t('canvas.deriveDesignTitle')}
@@ -157,7 +184,7 @@ function ScreenDesignCard({
           onDerive(screen.id)
         }}
       >
-        <Icon name="wand" size={11 * inv} />
+        <Icon name="wand" size={17} />
         {t(busy ? 'canvas.deriveDesignBusy' : 'canvas.deriveDesign')}
       </button>
     )
@@ -166,13 +193,13 @@ function ScreenDesignCard({
   return (
     <div
       className="w-full border border-line-soft bg-raised"
-      style={{ marginTop: 6 * inv, padding: `${6 * inv}px` }}
+      style={{ marginTop: 10, padding: 10 }}
     >
       <div
         className={`flex items-center ${fromMuse ? 'text-muse-ink' : 'text-accent-ink'}`}
-        style={{ fontSize: `${10 * inv}px`, gap: 4 * inv, letterSpacing: '0.08em' }}
+        style={{ fontSize: 16, gap: 6, letterSpacing: '0.08em' }}
       >
-        <Icon name={fromMuse ? 'sparkle' : 'image'} size={10 * inv} />
+        <Icon name={fromMuse ? 'sparkle' : 'image'} size={16} />
         {t(fromMuse ? 'canvas.dossierUsed' : 'canvas.designUsed').toUpperCase()}
       </div>
 
@@ -182,24 +209,32 @@ function ScreenDesignCard({
         <button
           type="button"
           className="block w-full overflow-hidden border border-line-soft transition hover:border-accent"
-          style={{ marginTop: 5 * inv, cursor: 'zoom-in' }}
+          style={{ marginTop: 8, cursor: 'zoom-in' }}
           title={t('design.openLarger')}
           onClick={(e) => {
             e.stopPropagation()
             onInspectDesign?.(screen.id)
           }}
         >
-          <ScaledMockup p={preview} name={fromMuse ? t('muse.dossier') : 'DESIGN.md'} />
+          {/* The product's name when the document records one, the document's
+              own name otherwise. Never the screen's name: that is the sentence
+              the user typed to get ONE screen, and painting it as a wordmark
+              across a project's design card said the project was called
+              "a contact page for users". */}
+          <ScaledMockup
+            p={preview}
+            name={productName || (fromMuse ? t('muse.dossier') : 'DESIGN.md')}
+          />
         </button>
       )}
 
       {swatches.length > 0 && (
-        <div className="flex flex-wrap" style={{ marginTop: 5 * inv, gap: 3 * inv }}>
+        <div className="flex flex-wrap" style={{ marginTop: 8, gap: 5 }}>
           {swatches.map((c) => (
             <span
               key={c.hex}
               className="block border border-line-soft"
-              style={{ width: 14 * inv, height: 14 * inv, background: c.hex }}
+              style={{ width: 22, height: 22, background: c.hex }}
               title={`${c.label} · ${c.hex}`}
             />
           ))}
@@ -211,10 +246,10 @@ function ScreenDesignCard({
           type="button"
           className="flex w-full items-center justify-center border border-muse/60 text-muse-ink transition hover:bg-muse/10"
           style={{
-            marginTop: 6 * inv,
-            padding: `${4 * inv}px ${5 * inv}px`,
-            fontSize: `${10 * inv}px`,
-            gap: 3 * inv,
+            marginTop: 10,
+            padding: '7px 8px',
+            fontSize: 16,
+            gap: 5,
             cursor: 'pointer',
           }}
           title={t('canvas.applyDesignTitle')}
@@ -223,7 +258,7 @@ function ScreenDesignCard({
             onApply(screen.id)
           }}
         >
-          <Icon name="check" size={10 * inv} />
+          <Icon name="check" size={16} />
           {t('canvas.applyDesign')}
         </button>
       )}
@@ -666,15 +701,58 @@ export default function Canvas({
     setAnnotateRect(null)
   }
 
-  function onWheel(e: React.WheelEvent) {
-    const { lx, ly } = local(e)
-    setView((v) => {
-      const newScale = clamp(v.scale * (1 + -e.deltaY * 0.0015), MIN_SCALE, MAX_SCALE)
-      const wx = (lx - v.x) / v.scale
-      const wy = (ly - v.y) / v.scale
-      return { x: lx - wx * newScale, y: ly - wy * newScale, scale: newScale }
-    })
-  }
+  /**
+   * The wheel, attached by hand rather than through React's `onWheel`.
+   *
+   * React registers wheel on the root as a PASSIVE listener, so a
+   * `preventDefault()` inside a React handler is ignored. The consequence was
+   * not subtle: a trackpad pinch sends `wheel` with `ctrlKey`, so the browser
+   * ran its own page zoom AND this handler ran the canvas zoom, in the same
+   * gesture. Page zoom moves the container's bounding rect, which is what
+   * `lx/ly` are measured against — so the anchor point shifted underneath the
+   * pointer mid-gesture and the board appeared to jump. A native listener with
+   * `{ passive: false }` can actually cancel the page zoom, which leaves the
+   * canvas zoom alone with the gesture.
+   *
+   * Two more corrections while here:
+   *
+   *  - `deltaMode` is normalised. Firefox on Windows reports LINE (1), not
+   *    PIXEL (0), so `deltaY` arrives as ~3 where Chrome sends ~100 and the
+   *    zoom step was roughly thirty times smaller on one browser than another.
+   *  - Modifier decides the verb: ctrl/meta zooms, everything else pans. That
+   *    is what a pinch means, and what every canvas tool does with a plain
+   *    wheel. Before, a two-finger scroll zoomed, which is the other half of
+   *    "the board moves when I don't expect it to".
+   */
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    function onWheelNative(e: WheelEvent) {
+      const box = el!.getBoundingClientRect()
+      e.preventDefault()
+
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? box.height : 1
+      const dx = e.deltaX * unit
+      const dy = e.deltaY * unit
+
+      if (e.ctrlKey || e.metaKey) {
+        const lx = e.clientX - box.left
+        const ly = e.clientY - box.top
+        setView((v) => {
+          const newScale = clamp(v.scale * (1 + -dy * 0.0015), MIN_SCALE, MAX_SCALE)
+          const wx = (lx - v.x) / v.scale
+          const wy = (ly - v.y) / v.scale
+          return { x: lx - wx * newScale, y: ly - wy * newScale, scale: newScale }
+        })
+        return
+      }
+      setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }))
+    }
+
+    el.addEventListener('wheel', onWheelNative, { passive: false })
+    return () => el.removeEventListener('wheel', onWheelNative)
+  }, [])
 
   function zoomBy(factor: number) {
     const el = containerRef.current
@@ -739,7 +817,7 @@ export default function Canvas({
       onPointerDown={onBackgroundDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onWheel={onWheel}
+
     >
       <div
         className="absolute left-0 top-0 origin-top-left"
@@ -967,13 +1045,25 @@ export default function Canvas({
               {/* Muse image that backs this screen — sits in the grid beside the
                   frame (outside its bounds) so you can see it without opening
                   the library. Click to view it full size. */}
-              {s.imageHash && (
+              {s.imageHash && view.scale >= CARD_MIN_SCALE && (
                 // A column, not a single button: the image opens full size and
                 // the action beneath it does something else, so one cannot be
                 // nested inside the other.
+                //
+                // Sized in WORLD units, unlike the labels and handles around it.
+                // It used to counter-scale by `inv` like they do, which is right
+                // for something that must stay legible and wrong for something
+                // that occupies space next to a frame: at `200 * inv` its
+                // footprint was 200/scale, so it grew from 133 world px at
+                // maximum zoom to 4000 at minimum and swept across whatever
+                // stood to its right. Zooming out is exactly when you want to
+                // see the arrangement, and it was exactly when the arrangement
+                // was destroyed. Legibility is handled by not drawing the card
+                // at all below CARD_MIN_SCALE, where it would be unreadable
+                // however it were scaled.
                 <div
                   className="absolute"
-                  style={{ left: `calc(100% + ${24 * inv}px)`, top: 0, width: 200 * inv }}
+                  style={{ left: 'calc(100% + 40px)', top: 0, width: CARD_W }}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   <button
@@ -989,9 +1079,9 @@ export default function Canvas({
                     <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
                     <span
                       className="flex items-center bg-muse/15 text-muse-ink"
-                      style={{ padding: `${4 * inv}px ${6 * inv}px`, fontSize: `${11 * inv}px`, gap: 4 * inv }}
+                      style={{ padding: '7px 10px', fontSize: 17, gap: 6 }}
                     >
-                      <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={11 * inv} />
+                      <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={17} />
                       {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
                     </span>
                   </button>
@@ -1002,7 +1092,6 @@ export default function Canvas({
                       half, and the document is the half you can reuse. */}
                   <ScreenDesignCard
                     screen={s}
-                    inv={inv}
                     busy={derivingDesignId === s.id}
                     onDerive={onDeriveDesign}
                     onApply={onApplyScreenDesign}

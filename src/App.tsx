@@ -164,6 +164,30 @@ function MockyApp() {
 
   useEffect(() => installUnloadGuard(), [])
 
+  /**
+   * The browser's own ctrl/⌘+wheel page zoom, refused across the whole app.
+   *
+   * The canvas already cancels it over the grid, which left the worse half of
+   * the problem: a pinch that starts a few pixels outside — over the composer,
+   * the toolbar, a panel — silently rescales Mocky's entire interface instead.
+   * The board then appears to have moved, because everything around it did, and
+   * the only way back is the browser's own zoom reset, which most people do not
+   * think to look for.
+   *
+   * Only the modified wheel is taken. A plain wheel still scrolls every panel,
+   * list and dialog normally, which is why this cannot simply cancel `wheel`.
+   * Keyboard zoom (ctrl+plus) is deliberately left alone: it is deliberate, it
+   * is reversible by the same keys, and taking it would remove the browser
+   * accessibility control rather than an accident.
+   */
+  useEffect(() => {
+    function refusePageZoom(e: WheelEvent) {
+      if (e.ctrlKey || e.metaKey) e.preventDefault()
+    }
+    window.addEventListener('wheel', refusePageZoom, { passive: false })
+    return () => window.removeEventListener('wheel', refusePageZoom)
+  }, [])
+
   async function logout() {
     try {
       await api.logout()

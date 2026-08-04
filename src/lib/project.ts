@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scheduleSync, reportStorageFailure } from './sync'
 import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
+import { extractProductName } from './design'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -185,6 +186,26 @@ export interface Project {
    * every screen from a fixed whitelist and would drop it.
    */
   design?: string
+  /**
+   * What the thing being designed is CALLED — "Softly", not "a page de contact".
+   *
+   * A direction says what a project looks like; it says nothing about what the
+   * product is named, and the two are not the same fact. The name was already
+   * travelling between screens, but only inside the model's head:
+   * `buildIdentityReference` shows it the reference screen and asks it to keep
+   * the wordmark, so nothing ever wrote the name down and nothing outside
+   * generation could use it. That is why a card meant to show a project's
+   * identity ended up showing the sentence that produced one screen of it.
+   *
+   * Filled from a derived DESIGN.md's `## Product` section. Absent on every
+   * project made before this existed, and absent for any screen that shows no
+   * product name — callers name the document instead of inventing one.
+   *
+   * On Project and not on Screen, for the same reason `design` is: it is one
+   * fact per project, and `normalizeScreen` rebuilds screens from a whitelist
+   * that would drop it.
+   */
+  productName?: string
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -267,7 +288,20 @@ export const DEFAULT_W = 1024
 export const DEFAULT_H = 720
 export const MIN_W = 240
 export const MIN_H = 200
-const GAP = 80
+/**
+ * Breathing room between arranged frames.
+ *
+ * Two values, because the two axes have different jobs. Canvas draws the
+ * reference/design column to the RIGHT of a frame and OUTSIDE its bounds — 40 px
+ * of offset plus a 320 px card — and the layout below reasons only about the
+ * frame, so a horizontal gap narrower than that column puts it on top of the
+ * next screen. Vertically nothing is drawn outside the frame, and inheriting the
+ * horizontal figure there would only push the board apart for no reason.
+ */
+const GAP_X = 400
+const GAP_Y = 80
+/** The smaller of the two, for the overlap test — a collision on either axis. */
+const GAP = GAP_Y
 const COLS = 3
 
 export function newId(): string {
@@ -481,7 +515,7 @@ export function headline(name: string): string {
 export function slotPosition(index: number): { x: number; y: number } {
   const col = index % COLS
   const row = Math.floor(index / COLS)
-  return { x: col * (DEFAULT_W + GAP), y: row * (DEFAULT_H + GAP) }
+  return { x: col * (DEFAULT_W + GAP_X), y: row * (DEFAULT_H + GAP_Y) }
 }
 
 /** A positioned box on the canvas — the only part of a Screen layout cares about. */
@@ -524,8 +558,8 @@ export function placeScreen(existing: Box[], w: number, h: number): { x: number;
   // screens were all dragged elsewhere does not get its next screen back at 0,0.
   const originX = Math.min(...boxes.map((b) => b.x))
   const originY = Math.min(...boxes.map((b) => b.y))
-  const stepX = w + GAP
-  const stepY = h + GAP
+  const stepX = w + GAP_X
+  const stepY = h + GAP_Y
 
   for (let row = 0; row < 400; row++) {
     for (let col = 0; col < COLS; col++) {
@@ -534,7 +568,7 @@ export function placeScreen(existing: Box[], w: number, h: number): { x: number;
     }
   }
   // Unreachable in practice; below everything is still a correct answer.
-  return { x: originX, y: Math.max(...boxes.map((b) => b.y + b.h)) + GAP }
+  return { x: originX, y: Math.max(...boxes.map((b) => b.y + b.h)) + GAP_Y }
 }
 
 /**
@@ -553,9 +587,9 @@ export function packScreens(screens: Box[], maxPerRow = COLS): { x: number; y: n
     let x = 0
     for (const s of row) {
       out.push({ x, y: rowTop })
-      x += (Number.isFinite(s.w) ? s.w : DEFAULT_W) + GAP
+      x += (Number.isFinite(s.w) ? s.w : DEFAULT_W) + GAP_X
     }
-    rowTop += Math.max(...row.map((s) => (Number.isFinite(s.h) ? s.h : DEFAULT_H))) + GAP
+    rowTop += Math.max(...row.map((s) => (Number.isFinite(s.h) ? s.h : DEFAULT_H))) + GAP_Y
   }
   return out
 }
@@ -794,6 +828,18 @@ export function useProjects() {
         const next = { ...p, updatedAt: Date.now() }
         if (clean) next.design = clean
         else delete next.design
+        // The product's name rides along with the document that carries it.
+        // Done here rather than at each call site because this is the ONLY
+        // place a project's design changes — derive, adopt, edit and clear all
+        // funnel through it — so the name cannot drift from the document.
+        //
+        // A document with no `## Product` section leaves the previous name
+        // alone rather than clearing it: older DESIGN.md files predate the
+        // section, and losing a known name to a hand-edit that simply did not
+        // mention it would be worse than keeping it.
+        const derived = clean ? extractProductName(clean) : null
+        if (derived) next.productName = derived
+        else if (!clean) delete next.productName
         return next
       }),
     )

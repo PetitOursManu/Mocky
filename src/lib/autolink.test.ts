@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MIN_SCORE, overlap, proposeLinks, slugTokens, tokens, withoutExisting } from './autolink'
+import { MIN_SCORE, isInPageAnchor, overlap, proposeLinks, slugTokens, tokens, withoutExisting } from './autolink'
 import type { LinkableElement } from './autolink'
 import type { Screen } from './project'
 
@@ -172,5 +172,42 @@ describe('withoutExisting', () => {
   it('is a no-op on a screen with no links', () => {
     const candidates = [{ selector: '#x', label: 'X', rect: { x: 0, y: 0, w: 1, h: 1 }, target: 'b', score: 0.9, why: 'href' as const }]
     expect(withoutExisting(candidates, screen('a'))).toHaveLength(1)
+  })
+})
+
+describe('in-page anchors', () => {
+  it('recognises a fragment, and only a real one', () => {
+    expect(isInPageAnchor('#waitlist')).toBe(true)
+    expect(isInPageAnchor('#faq')).toBe(true)
+    // A bare "#" is the placeholder href of a button that goes nowhere yet —
+    // exactly what this feature exists to give a destination.
+    expect(isInPageAnchor('#')).toBe(false)
+    expect(isInPageAnchor('/pricing')).toBe(false)
+    expect(isInPageAnchor('https://example.com#x')).toBe(false)
+    expect(isInPageAnchor(undefined)).toBe(false)
+  })
+
+  it('never proposes a cross-screen link for a jump within the page', () => {
+    // The trap: slugTokens strips the fragment, so "#waitlist" contributes
+    // nothing and the element would be scored on its label alone — "Rejoindre
+    // la liste" then matches a screen that talks about joining, and Mocky
+    // offers to replace a working in-page scroll with a navigation elsewhere.
+    const from = screen('a', { prompt: 'page daccueil avec une liste dattente' })
+    const target = screen('b', { prompt: 'rejoindre la liste dattente inscription' })
+
+    const anchored = proposeLinks([el('Rejoindre la liste', { href: '#waitlist' })], from, [target])
+    expect(anchored).toEqual([])
+
+    // The same element with a real path is still proposed, so the exclusion is
+    // about the fragment and not about the words.
+    const routed = proposeLinks([el('Rejoindre la liste', { href: '/liste-dattente' })], from, [target])
+    expect(routed.length).toBeGreaterThan(0)
+  })
+
+  it('still proposes for a placeholder href', () => {
+    const from = screen('a', { prompt: 'accueil' })
+    const target = screen('b', { prompt: 'page de contact avec un formulaire' })
+    const out = proposeLinks([el('Contact', { href: '#' })], from, [target])
+    expect(out.map((c) => c.target)).toEqual(['b'])
   })
 })

@@ -18,6 +18,20 @@ const ColorSchema = z.object({
   role: z.string().optional(),
 })
 export const DossierSchema = z.object({
+  /**
+   * What the product is CALLED.
+   *
+   * The dossier already decided how a project looks and how it speaks, and
+   * said nothing about its name — so every screen invented its own wordmark
+   * and the direction was powerless to stop it. Deciding it here, once, before
+   * a single screen exists, is what makes it consistent by construction rather
+   * than by asking each generation to copy the last one.
+   *
+   * Optional, and empty on every dossier written before this field: the
+   * markdown simply omits the section and readers fall back to naming the
+   * document.
+   */
+  productName: z.string().optional(),
   concept: z.string().default(''),
   references: z.array(z.object({ sourceUrl: z.string().optional(), note: z.string().optional() })).default([]),
   tokens: z
@@ -57,9 +71,20 @@ export const DossierSchema = z.object({
   forbidden: z.array(z.string()).default([]),
 })
 
+/**
+ * The schema handed to the model, and the one that decides what it emits.
+ *
+ * It is written by hand and is NOT derived from `DossierSchema` above, which is
+ * a trap worth naming: zod validates what came back, this constrains what is
+ * produced, and adding a field to only one of them silently does nothing. That
+ * is exactly how `productName` shipped once without ever being generated — the
+ * prompt asked for it, zod accepted it, and the model was never told the field
+ * existed, so every dossier came back without one.
+ */
 const DOSSIER_JSON_SCHEMA = {
   type: 'object',
   properties: {
+    productName: { type: 'string' },
     concept: { type: 'string' },
     references: { type: 'array', items: { type: 'object', properties: { sourceUrl: { type: 'string' }, note: { type: 'string' } } } },
     tokens: {
@@ -100,7 +125,10 @@ const DOSSIER_JSON_SCHEMA = {
     },
     forbidden: { type: 'array', items: { type: 'string' } },
   },
-  required: ['concept', 'tokens', 'layoutGrammar', 'voice', 'imageryPlan', 'forbidden'],
+  // `productName` is required, like every other field the screens depend on.
+  // Left optional it was simply omitted: a model satisfies a schema, it does not
+  // volunteer beyond it, however plainly the prompt asks.
+  required: ['productName', 'concept', 'tokens', 'layoutGrammar', 'voice', 'imageryPlan', 'forbidden'],
 }
 
 function buildSystem() {
@@ -109,6 +137,7 @@ function buildSystem() {
     'You are given: the user request, distilled inspiration cards (vocabulary + grammar, NOT designs to copy), matched art-direction patterns, and a list of clichés to AVOID.',
     '',
     'Requirements:',
+    '- Product name: invent ONE short, memorable name for this product — the wordmark that will appear in the header of every screen. One or two words, no tagline, no explanation, no generic placeholder like "Brand" or "Acme". Write it in the SAME LANGUAGE as the user request. If the user already named the product, use their name exactly as they spelled it.',
     '- Concept: 2–3 sentences of specific art direction. NEVER generic ("modern, clean, professional" is banned).',
     '- Tokens: a coherent palette (6–8 colors, each with `label` + `hex`). `tokens.radius` MUST be a single string like "rounded-xl" (NOT an object).',
     '- Voice & Copy: write REAL, specific copy — headline, subheadline, exactly 3 value props, CTA labels, footer line. CRITICAL: write ALL copy in the SAME LANGUAGE as the user request. Never use Lorem ipsum or filler.',
@@ -280,6 +309,12 @@ export function normalizeDossierRaw(raw) {
   const r = raw && typeof raw === 'object' ? { ...raw } : {}
   // Top-level key aliases seen from real models.
   if (!r.voice) r.voice = firstDefined(r.voiceCopy, r.copy, r.voice_copy)
+  // The name arrives under whichever key the model felt like using. Coerced to
+  // a trimmed string, and dropped if it came back as an object or a sentence —
+  // a wordmark is short, and anything long is an explanation of one.
+  if (!r.productName) r.productName = firstDefined(r.product_name, r.product, r.name, r.brand, r.brandName)
+  const nameRaw = typeof r.productName === 'string' ? r.productName.trim() : ''
+  r.productName = nameRaw && nameRaw.length <= 40 ? nameRaw : undefined
   if (!r.forbidden) r.forbidden = firstDefined(r['clichés'], r.avoid, r.forbid, r.forbidden)
   r.references = coerceRefs(r.references)
   if (r.tokens && typeof r.tokens === 'object') {
@@ -474,6 +509,13 @@ export function dossierToMarkdown(dossier, meta = {}) {
   const lines = []
   lines.push(`# Design Dossier — ${meta.projectName || 'Untitled'}`)
   lines.push('')
+  // Same section name and shape the derived DESIGN.md uses, so one reader
+  // (extractProductName, src/lib/design.ts) serves both documents.
+  if (d.productName && String(d.productName).trim()) {
+    lines.push('## Product')
+    lines.push(String(d.productName).trim())
+    lines.push('')
+  }
   lines.push('## Concept')
   lines.push(d.concept || '')
   lines.push('')

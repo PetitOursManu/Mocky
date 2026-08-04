@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { buildDossier, buildFallbackDossier, dossierToMarkdown } from './dossier.js'
+import { buildDossier, buildFallbackDossier, dossierToMarkdown, normalizeDossierRaw, DossierSchema, DOSSIER_JSON_SCHEMA } from './dossier.js'
 // The DESIGN.md bridge: the SAME parser the app + Vite export use. If the
 // dossier's Tokens section ever drifts from DESIGN.md format, this breaks.
 import { parseDesignSystem } from '../../../src/lib/designTokens'
@@ -178,5 +178,57 @@ describe('dossierToMarkdown + DESIGN.md bridge', () => {
     expect(ds.roles.border).toBe('#334155')
     expect(ds.radius).toBe('14px') // rounded-xl → 14px via the token bridge
     expect(ds.colors.length).toBeGreaterThanOrEqual(6)
+  })
+})
+
+describe('product name', () => {
+  it('renders a ## Product section the shared reader understands', () => {
+    const md = dossierToMarkdown({ productName: 'cadre.', concept: 'x', tokens: { colors: [] } }, {})
+    expect(md).toContain('## Product')
+    expect(md).toMatch(/## Product\r?\ncadre\./)
+    // Same heading the derived DESIGN.md uses, so src/lib/design.ts's
+    // extractProductName serves both documents with one parser.
+    expect(md.indexOf('## Product')).toBeLessThan(md.indexOf('## Concept'))
+  })
+
+  it('omits the section entirely when no name was decided', () => {
+    // Every dossier written before this field. Readers then name the document
+    // rather than inventing a product.
+    const md = dossierToMarkdown({ concept: 'x', tokens: { colors: [] } }, {})
+    expect(md).not.toContain('## Product')
+  })
+
+  it('accepts the aliases real models return', () => {
+    for (const key of ['productName', 'product_name', 'product', 'name', 'brand', 'brandName']) {
+      const out = normalizeDossierRaw({ [key]: 'Nimbus', concept: 'x' })
+      expect(out.productName, `alias ${key}`).toBe('Nimbus')
+    }
+  })
+
+  it('refuses anything that is not a wordmark', () => {
+    // Models explain themselves when asked for a name; a sentence is not one.
+    const long = 'A calm, considered name evoking the product’s focus on quiet productivity'
+    expect(normalizeDossierRaw({ productName: long }).productName).toBeUndefined()
+    expect(normalizeDossierRaw({ productName: { value: 'Nimbus' } }).productName).toBeUndefined()
+    expect(normalizeDossierRaw({ productName: '   ' }).productName).toBeUndefined()
+  })
+})
+
+describe('the two schemas must agree', () => {
+  it('every field zod validates is a field the model was told to produce', () => {
+    // The bug this exists to prevent, and it already happened once: zod is
+    // checked AFTER the call, DOSSIER_JSON_SCHEMA constrains what the model
+    // emits DURING it. Adding a field to only one of them changes nothing
+    // observable — the prompt asks, zod accepts, and the model never hears
+    // about the field, so it comes back missing on every single run.
+    const zodKeys = Object.keys(DossierSchema.shape)
+    const jsonKeys = Object.keys(DOSSIER_JSON_SCHEMA.properties)
+    expect(jsonKeys.sort()).toEqual(zodKeys.sort())
+  })
+
+  it('asks for the fields a screen cannot be built without', () => {
+    for (const key of ['productName', 'concept', 'tokens', 'voice', 'imageryPlan']) {
+      expect(DOSSIER_JSON_SCHEMA.required, `${key} must be required`).toContain(key)
+    }
   })
 })

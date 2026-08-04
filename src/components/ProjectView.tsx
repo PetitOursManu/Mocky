@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
-import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors } from '../lib/design'
+import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, polishComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
 import { resolveDirection } from '../lib/direction'
@@ -1636,6 +1636,15 @@ export default function ProjectView({
 
   const editing = selectedScreens.length > 0
 
+  /**
+   * Whether the iPhone bezel has anything to draw around in this project.
+   *
+   * Derived per render rather than stored: a screen's device is not fixed at
+   * creation — the format switcher rewrites it — so a cached flag would go
+   * stale the moment someone turns a desktop screen into a mobile one.
+   */
+  const hasPhoneScreen = screens.some((s) => s.device === 'iphone')
+
   function toggleFrame() {
     setShowFrame((v) => {
       const next = !v
@@ -1988,9 +1997,19 @@ export default function ProjectView({
         <Button
           variant="toolbar"
           size="sm"
-          active={showFrame}
+          // Disabled, not hidden: the control still says what it would do. It
+          // was already a no-op without a phone screen — Canvas only draws the
+          // bezel on `device === 'iphone'` — so this only makes the existing
+          // behaviour visible instead of leaving a button that answers nothing.
+          //
+          // `showFrame` itself is deliberately NOT cleared here. It lives in one
+          // global localStorage key shared by every project, so resetting it
+          // because THIS project has no phone would silently un-frame all the
+          // others. Gate the control, leave the preference.
+          disabled={!hasPhoneScreen}
+          active={showFrame && hasPhoneScreen}
           onClick={toggleFrame}
-          title={t('project.frameTitle')}
+          title={hasPhoneScreen ? t('project.frameTitle') : t('project.frameNeedsMobile')}
         >
           <Icon name="phone" size={16} />
           {t('mode.frame')}
@@ -2699,7 +2718,22 @@ export default function ProjectView({
             <Modal title={sc.name || 'DESIGN.md'} size="lg" onClose={() => setInspectDesignId(null)}>
               {preview && (
                 <div className="overflow-hidden border border-line-soft">
-                  <ScaledMockup p={preview} name={sc.name || 'DESIGN.md'} />
+                  {/* The modal HEADER keeps the screen's name — "the design
+                      recorded for this screen" is what this window is about.
+                      The wordmark inside the mockup is a different claim: it
+                      says what the product is called, so it must not be the
+                      sentence someone typed to get one screen of it. */}
+                  <ScaledMockup
+                    p={preview}
+                    name={
+                      extractProductName(md) ||
+                      project.productName ||
+                      // Name the document it actually is. The card beside the
+                      // frame already distinguishes the two, and answering
+                      // "DESIGN.md" over a Muse dossier contradicted it.
+                      (/^#\s*Design Dossier/im.test(md) ? t('muse.dossier') : 'DESIGN.md')
+                    }
+                  />
                 </div>
               )}
               <div className="mt-4 flex flex-wrap gap-2">

@@ -116,6 +116,24 @@ export function slugTokens(href: string | undefined): string[] {
   return tokens(href.replace(/[?#].*$/, '').replace(/\.[a-z0-9]+$/i, ''))
 }
 
+/**
+ * An href that points inside the screen it lives on, e.g. `#waitlist`.
+ *
+ * These must not be proposed as links to another screen, and the reason is
+ * easy to miss: `slugTokens` strips the fragment, so `#waitlist` contributes
+ * nothing and the element ends up scored on its LABEL alone. "Join the quiet
+ * list" then matches whichever screen happens to talk about joining, and the
+ * feature offers to wire a jump-to-section into a navigation to somewhere else
+ * — replacing behaviour the screen already had, since the preview bridge
+ * performs fragment scrolling itself (see Preview.tsx).
+ *
+ * A bare "#" is excluded: it is the placeholder href of a button that goes
+ * nowhere yet, which is exactly what this feature exists to give a destination.
+ */
+export function isInPageAnchor(href: string | undefined): boolean {
+  return typeof href === 'string' && href.length > 1 && href.charAt(0) === '#'
+}
+
 /** Everything a screen can be recognised by, as one bag of words. */
 function screenTokens(s: Screen): { name: string[]; content: string[] } {
   return {
@@ -152,6 +170,10 @@ export function proposeLinks(
   const out: LinkCandidate[] = []
 
   for (const el of elements) {
+    // A jump to a section of this same screen already works, and is not a
+    // candidate for a link to another one.
+    if (isInPageAnchor(el.href)) continue
+
     const label = tokens(el.label)
     const slug = slugTokens(el.href)
     if (label.length === 0 && slug.length === 0) continue

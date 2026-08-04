@@ -8,6 +8,7 @@
 // side.
 import { loadSettings } from './settings'
 import { extractPalette } from './palette'
+import { extractProductName } from './design'
 import type { PinnedVideo } from './videoLibrary'
 
 export interface MuseImagerySlot {
@@ -516,6 +517,26 @@ export function buildMusePreamble(
     markdown.trim(),
     '</DESIGN_DOSSIER>',
   ]
+
+  /*
+   * The name, restated outside the document.
+   *
+   * It is already in the dossier's `## Product` section, and that was not
+   * enough: the model reads the whole block as art direction and treats a bare
+   * name as one more note, so screens still shipped whatever wordmark suited
+   * the moment. Naming it as an instruction — and saying WHERE it has to
+   * appear — is the difference between a fact the model has and a fact the
+   * model uses. This is the same job buildIdentityReference does from a
+   * reference screen, done from the direction instead, so it works on the very
+   * first screen of a project rather than only on the second.
+   */
+  const productName = extractProductName(markdown)
+  if (productName) {
+    lines.push(
+      '',
+      `PRODUCT NAME — this product is called "${productName}". Use exactly that spelling and casing wherever the product is named: the header wordmark, the page copy, the footer. Do not invent another name, and do not translate it.`,
+    )
+  }
 
   /*
    * The palette, restated as classes the model can paste.

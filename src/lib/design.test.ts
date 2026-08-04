@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractDesignColors } from './design'
+import { extractDesignColors, extractProductName } from './design'
 
 describe('extractDesignColors', () => {
   it('extracts hex colors with their preceding labels', () => {
@@ -29,5 +29,54 @@ describe('extractDesignColors', () => {
 
   it('returns an empty array when there are no hex colors', () => {
     expect(extractDesignColors('# Design\nNo colors here.')).toEqual([])
+  })
+})
+
+describe('extractProductName', () => {
+  it('reads the name from a ## Product section', () => {
+    const md = `# Design System
+
+## Product
+Softly
+
+## Color tokens
+- Primary: #b8422e
+`
+    expect(extractProductName(md)).toBe('Softly')
+  })
+
+  it('returns null when the section is absent', () => {
+    // Every DESIGN.md written before the section existed. The caller names the
+    // document instead of inventing a product.
+    expect(extractProductName('# Design System\n\n## Color tokens\n- Primary: #fff')).toBeNull()
+    expect(extractProductName('')).toBeNull()
+    expect(extractProductName(undefined)).toBeNull()
+  })
+
+  it("honours the prompt's own escape hatch", () => {
+    expect(extractProductName('## Product\nnot established by this screen\n')).toBeNull()
+  })
+
+  it('strips list markers and emphasis the model adds anyway', () => {
+    expect(extractProductName('## Product\n- **Nimbus**\n')).toBe('Nimbus')
+  })
+
+  it('keeps the name and drops the explanation', () => {
+    // Models narrate despite being told not to.
+    expect(extractProductName('## Product\nSoftly — a wellness app\n')).toBe('Softly')
+    expect(extractProductName('## Product\nSoftly. The wordmark in the header.\n')).toBe('Softly')
+  })
+
+  it('refuses a sentence pretending to be a name', () => {
+    const md = '## Product\nThis screen does not appear to belong to any particular named product\n'
+    expect(extractProductName(md)).toBeNull()
+  })
+
+  it('stops at the next section', () => {
+    expect(extractProductName('## Product\nSoftly\n\n## Typography\nInter\n')).toBe('Softly')
+  })
+
+  it('keeps multi-word names', () => {
+    expect(extractProductName('## Product\nRaw Form\n')).toBe('Raw Form')
   })
 })

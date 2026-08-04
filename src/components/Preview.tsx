@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Icon, ScreenSkeleton, Spinner } from '../ui'
+import { Icon, MockyLoader, ScreenSkeleton } from '../ui'
 import { useT } from '../i18n'
 import { detectComponentName, toPreviewModule } from '../lib/generate'
 import { resolveCapabilities } from '../lib/capabilities/select'
@@ -438,7 +438,13 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
           var id = href.slice(1), t2 = null;
           try { t2 = document.getElementById(id); } catch (_) {}
           if (!t2) { try { t2 = document.getElementsByName(id)[0] || null; } catch (_) {} }
-          if (t2 && t2.scrollIntoView) t2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (t2 && t2.scrollIntoView) { t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          // A fragment naming nothing used to do nothing, silently, and looked
+          // exactly like a broken link in a broken preview. The model writes
+          // these itself — a nav pointing at "#features" over a page whose
+          // section is "#feature-grid" — so say which anchor is missing rather
+          // than leaving the click unexplained.
+          else { post('anchor-missing', { anchor: id }); }
         }
       }
     }, true);
@@ -676,6 +682,17 @@ export default function Preview({
         onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
       if (d.type === 'navigate' && demoLinks && demoLinks.length > 0) onNavRef.current?.(d.target)
       if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
+      // A fragment pointing at nothing. Reported rather than swallowed: these
+      // come from the model's own markup — a nav item written before the
+      // section it names was renamed — and used to be indistinguishable from a
+      // dead preview. Console only for now, deliberately: it is the author's
+      // problem with their screen, not an error in Mocky, and it does not
+      // deserve to seize the composer's banner on a stray click.
+      if (d.type === 'anchor-missing' && typeof d.anchor === 'string') {
+        console.warn(
+          `[Mocky] Ancre introuvable dans l'écran : #${d.anchor} — aucun élément ne porte cet id.`,
+        )
+      }
     }
     window.addEventListener('message', onMsg)
     return () => {
@@ -760,11 +777,24 @@ export default function Preview({
         // rendering what it wrote.
         <div className="absolute inset-0 overflow-hidden bg-surface" style={{ borderRadius: radius }}>
           <ScreenSkeleton />
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-surface/90 py-2">
-            <Spinner className="h-3.5 w-3.5" />
-            <span className="text-body-sm text-ink-muted">
-              {generating ? t('canvas.generating') : t('canvas.rendering')}
-            </span>
+          {/* The wordmark writing itself, centred over the blocks.
+              It is the same animation the composer's button runs, which is the
+              point: one gesture means "Mocky is working", wherever it appears.
+              MockyLoader derives its clip-path id from useId(), so several
+              frames waiting at once do not collide over one id — which is the
+              normal case on a canvas. */}
+          {/* The wordmark alone. The written-out "Mocky" already says the only
+              thing a wait needs to say, and the caption under it repeated that
+              in words — two statements of the same fact, one of them noise.
+              The distinction between "the model is writing" and "the frame is
+              rendering" survives in the accessible label, where it costs
+              nothing to anyone who does not need it. */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <MockyLoader
+              size={120}
+              label={generating ? t('canvas.generating') : t('canvas.rendering')}
+              className="text-ink-muted"
+            />
           </div>
         </div>
       )}
