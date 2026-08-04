@@ -570,7 +570,7 @@ const DARK_NEUTRALS = { bg: '#0b1020', cardBg: '#131a2e', cardBorder: '#1e293b',
 const LIGHT_NEUTRALS = { bg: '#ffffff', cardBg: '#f8fafc', cardBorder: '#e2e8f0', text: '#0f172a', mutedText: '#64748b' }
 
 /** Relative luminance (0..1) of a #rgb/#rrggbb color. */
-function luminance(hex: string): number {
+export function luminance(hex: string): number {
   const h = hex.replace('#', '')
   const full = (h.length === 3 ? h.split('').map((c) => c + c).join('') : h).slice(0, 6).padEnd(6, '0')
   const chan = [0, 2, 4].map((i) => {
