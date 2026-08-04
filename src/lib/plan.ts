@@ -18,6 +18,20 @@ import { proxyFetch } from './proxy'
  * used for code generation — that would break the live preview and the
  * <<<MOCKY>>> sentinel protocol.
  */
+/**
+ * What success looks like for the visitor of this screen.
+ *
+ * Four modes, and the distinction is about the SURFACE, not the product: one
+ * project routinely contains all four — a landing page persuades, its dashboard
+ * operates, its docs are read, its gallery is experienced. Naming the mode lets
+ * the generation prompt ask for the right thing, because the right thing is not
+ * the same in each: a landing page that is merely scannable has failed, and a
+ * settings page that is expressive has also failed.
+ */
+export type ScreenMode = 'persuade' | 'operate' | 'read' | 'experience'
+
+export const SCREEN_MODES: ScreenMode[] = ['persuade', 'operate', 'read', 'experience']
+
 export interface Plan {
   /** Capability ids (validated against the registry + shortlist). */
   capabilities: string[]
@@ -27,6 +41,8 @@ export interface Plan {
   sections: string[]
   /** Realistic copy/data hints (names, figures, labels). */
   contentNotes: string
+  /** What the visitor is here to do. Absent when the planner did not decide. */
+  mode?: ScreenMode
 }
 
 /** JSON schema handed to Ollama's `format` for structured output. */
@@ -37,8 +53,50 @@ const PLAN_SCHEMA = {
     layout: { type: 'string' },
     sections: { type: 'array', items: { type: 'string' } },
     contentNotes: { type: 'string' },
+    mode: { type: 'string', enum: SCREEN_MODES },
   },
+  // `mode` is offered but NOT required. The prompt asks for it and the schema
+  // constrains it, yet a model that cannot satisfy the enum should still return
+  // a usable plan rather than failing the structured output and losing the
+  // capability choice with it. When it is missing the caller falls back to
+  // inferMode(), so nothing downstream depends on the model getting it right.
   required: ['capabilities', 'layout', 'sections', 'contentNotes'],
+}
+
+/**
+ * Keyword classification, used when no planner runs.
+ *
+ * The planner is skipped whenever Muse is on, and turned off entirely by a
+ * setting — so a mode that only ever came from the planner would be absent on
+ * most runs. This is deliberately crude and deliberately biased towards
+ * 'operate': app UI is the common case, and the cost of guessing 'persuade'
+ * wrongly (an expressive settings page) is higher than the reverse.
+ */
+export function inferMode(prompt: string): ScreenMode {
+  const p = prompt.toLowerCase()
+  if (/\b(portfolio|gallery|showcase|lookbook|case stud|exhibit)/.test(p)) return 'experience'
+  if (/\b(docs?|documentation|article|blog|guide|changelog|faq|help|tutorial|readme)/.test(p)) return 'read'
+  if (/\b(landing|marketing|pricing|hero|campaign|waitlist|sales page|homepage|home page)/.test(p)) {
+    return 'persuade'
+  }
+  return 'operate'
+}
+
+/** The guidance appended to the generation prompt for each mode. */
+const MODE_GUIDANCE: Record<ScreenMode, string> = {
+  persuade:
+    'MODE — Persuade. The visitor decides and acts, and the design IS the product here, so it has to earn attention: distinctive type, a committed palette, an image-led opening, one unmistakable primary action. Being merely tidy is a failure on this surface.',
+  operate:
+    'MODE — Operate. The visitor completes a task. Scanability, consistency and native expectations outrank expression: predictable controls, dense but legible data, obvious states, no decorative flourish that costs a glance.',
+  read:
+    'MODE — Read. The visitor is here to understand something. Structure for comprehension first — clear heading levels, a comfortable measure, real hierarchy between sections — then make the reading itself pleasant.',
+  experience:
+    'MODE — Experience. The visitor is inside the work itself. Let the artifact lead from the first viewport and let the interface recede: large imagery, minimal chrome, navigation that stays out of the way.',
+}
+
+/** The prompt section for a mode, or '' when there is none. */
+export function modeToPromptSection(mode: ScreenMode | undefined): string {
+  return mode ? MODE_GUIDANCE[mode] : ''
 }
 
 const DEFAULT_TIMEOUT_MS = 3000
@@ -58,6 +116,12 @@ function buildPlanSystem(shortlist: string[], design?: string, presetHint?: stri
     '- layout: ONE sentence describing the overall structure (e.g. "centered card", "sidebar + main grid", "stacked mobile sections").',
     '- sections: an ordered list of the concrete blocks to build, top to bottom.',
     '- contentNotes: realistic, specific copy and data hints (names, numbers, labels) so the screen never looks like a placeholder.',
+    '- mode: what the visitor of THIS screen is here to do. Exactly one of:',
+    '    "persuade" — they decide and act (landing, marketing, pricing, campaign).',
+    '    "operate"  — they complete a task (app UI, dashboard, editor, settings, admin).',
+    '    "read"     — they understand something (docs, article, guide, changelog).',
+    '    "experience" — they are inside the work itself (portfolio, gallery, showcase).',
+    '  Choose from the SURFACE requested, not from the product it belongs to.',
     'Be concise and specific to THIS request.',
   ]
   if (presetHint) parts.push('', 'Target form factor:', presetHint)
@@ -88,11 +152,16 @@ function validatePlan(raw: unknown, shortlist: string[]): Plan | null {
     .filter((id) => CAPABILITY_MAP[id] && allowed.has(id)) // drop unknown/hallucinated + off-shortlist
   const capabilities = Array.from(new Set([...BASELINE_IDS, ...chosen]))
   const sections = (o.sections as unknown[]).filter((s): s is string => typeof s === 'string')
+  // The mode is the one optional field: a model that omits it, or invents a
+  // fifth mode, leaves the plan otherwise usable. The caller falls back to
+  // inferMode() rather than losing the whole plan over a label.
+  const mode = SCREEN_MODES.includes(o.mode as ScreenMode) ? (o.mode as ScreenMode) : undefined
   return {
     capabilities,
     layout: o.layout,
     sections,
     contentNotes: o.contentNotes,
+    mode,
   }
 }
 
@@ -154,6 +223,7 @@ export function planToPromptSection(plan: Plan): string {
     'SCREEN PLAN (follow this structure; it was produced by a planning pass):',
     `- Layout: ${plan.layout}`,
   ]
+  if (plan.mode) lines.push(`- ${modeToPromptSection(plan.mode)}`)
   if (plan.sections.length) {
     lines.push('- Sections, in order:')
     plan.sections.forEach((sec, i) => lines.push(`  ${i + 1}. ${sec}`))
