@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
 import { resolveDirection } from '../lib/direction'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
@@ -509,6 +509,38 @@ export default function ProjectView({
   }
 
   /**
+   * What a new screen must inherit from the ones already here.
+   *
+   * Two contracts, and which one applies depends on whether the user pinned
+   * anything:
+   *
+   *  - a screen IS pinned → the whole shared chrome, unchanged behaviour. Pinning
+   *    is a statement that these screens are pages of one layout.
+   *  - nothing pinned → only the product's identity, taken from the screen that
+   *    established it. A direction says what a project looks like and nothing
+   *    about what the product is CALLED, so the second screen was free to invent
+   *    a second brand — and did.
+   *
+   * `excludeId` keeps a regenerating screen from being handed its own source as
+   * a reference to copy.
+   */
+  function identityOrLayoutReference(excludeId?: string): string | undefined {
+    const pinnedId = project.referenceScreenId
+    if (pinnedId && pinnedId !== excludeId) {
+      const pinned = screens.find((s) => s.id === pinnedId)
+      return pinned && pinned.code.trim() ? buildLayoutReference(pinned.code) : undefined
+    }
+    // The oldest screen that actually rendered — the one whose name and mark the
+    // rest of the project has been following. Not simply screens[0]: a screen
+    // that never generated has no identity to lend, and canvas order is position
+    // on a board, not chronology.
+    const first = screens
+      .filter((s) => s.id !== excludeId && s.code.trim())
+      .reduce<Screen | undefined>((best, s) => (!best || s.createdAt < best.createdAt ? s : best), undefined)
+    return first ? buildIdentityReference(first.code) : undefined
+  }
+
+  /**
    * Copy a screen, unlinked.
    *
    * "Regenerate" was the only way to explore a variant, and it overwrites — so
@@ -852,13 +884,7 @@ export default function ProjectView({
       } else {
         // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
-        // Pinned reference screen → reproduce its shared nav/layout in the new
-        // screen (skip if the reference is somehow the empty/only screen).
-        const refScreen = project.referenceScreenId
-          ? screens.find((s) => s.id === project.referenceScreenId)
-          : undefined
-        const referencePreamble =
-          refScreen && refScreen.code.trim() ? buildLayoutReference(refScreen.code) : undefined
+        const referencePreamble = identityOrLayoutReference()
 
         // --- Muse: build a Design Dossier + hero image. The dossier is a
         // CANDIDATE direction, not the authority it once was — see the
@@ -1311,11 +1337,7 @@ export default function ProjectView({
     try {
       const designMd = activeDirection()
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
-      const refScreen =
-        project.referenceScreenId && project.referenceScreenId !== screenId
-          ? screens.find((s) => s.id === project.referenceScreenId)
-          : undefined
-      const referencePreamble = refScreen && refScreen.code.trim() ? buildLayoutReference(refScreen.code) : undefined
+      const referencePreamble = identityOrLayoutReference(screenId)
       const extraSystem = joinSystem([designPreamble, referencePreamble, hintForDevice(screen.device)])
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
       const caps = resolveCapabilities(capIds)

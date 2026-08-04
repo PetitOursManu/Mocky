@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference, tryDirectTextReplace } from './generate'
+import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference, buildIdentityReference, tryDirectTextReplace } from './generate'
 
 describe('buildLayoutReference', () => {
   it('includes the reference code and a reproduce-the-nav instruction', () => {
@@ -12,6 +12,59 @@ describe('buildLayoutReference', () => {
   })
   it('trims surrounding whitespace of the reference code', () => {
     expect(buildLayoutReference('  \n  X  \n ')).toContain('\nX')
+  })
+})
+
+/**
+ * The gap: a design direction says what a project LOOKS like and nothing about
+ * what the product is CALLED. So the first screen invented "FLOWSTATE" with a
+ * circled arrow, the contact page invented "MOTION / OPS" with another mark, and
+ * both were faithful to the same direction while being different products.
+ */
+describe('buildIdentityReference', () => {
+  const CODE = 'function App(){ return <header><Logo/> FLOWSTATE</header> }'
+
+  it('shows the earlier screen and pins the name and the mark to it', () => {
+    const s = buildIdentityReference(CODE)
+    expect(s).toContain(CODE)
+    expect(s).toContain('PRODUCT IDENTITY')
+    expect(s.toLowerCase()).toContain('same product/brand name')
+    expect(s.toLowerCase()).toContain('logo')
+  })
+
+  it('leaves everything except the identity to the model', () => {
+    // The whole reason this is not buildLayoutReference: the user never pinned
+    // anything, so claiming the nav and the layout too would be putting words in
+    // their mouth. A contact page may legitimately look nothing like a landing
+    // page — it just may not be a different product.
+    const s = buildIdentityReference(CODE).toLowerCase()
+    expect(s).toContain('the navigation, the sections, the layout')
+    expect(s).not.toContain('shared layout')
+  })
+
+  it('does not demand a brand the earlier screen never had', () => {
+    // A first screen with no wordmark would otherwise leave the model hunting
+    // for one to copy, and inventing something to satisfy the instruction.
+    expect(buildIdentityReference(CODE).toLowerCase()).toContain('invent one')
+  })
+
+  it('trims surrounding whitespace of the reference code', () => {
+    expect(buildIdentityReference('  \n  X  \n ')).toContain('\nX')
+  })
+
+  it('keeps the head of a long screen and says it did', () => {
+    // This section rides on every generation, unlike a pinned reference, so its
+    // cost is paid over and over. The header is at the top of the file, which is
+    // exactly the part worth paying for.
+    const long = '<header>ACME</header>' + 'x'.repeat(9000)
+    const s = buildIdentityReference(long)
+    expect(s).toContain('<header>ACME</header>')
+    expect(s).toContain('omitted')
+    expect(s.length).toBeLessThan(5000)
+  })
+
+  it('sends a short screen whole, with no truncation notice', () => {
+    expect(buildIdentityReference('<header>ACME</header>')).not.toContain('omitted')
   })
 })
 

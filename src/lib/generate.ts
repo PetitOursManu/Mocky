@@ -324,6 +324,48 @@ export function buildLayoutReference(referenceCode: string): string {
   ].join('\n')
 }
 
+/**
+ * Carry the product's identity — its name and its logo — from one screen to the
+ * next.
+ *
+ * A design direction says what a project LOOKS like. It says nothing about what
+ * the product is CALLED, and nothing about the mark in the corner, because
+ * neither is a design token: the dossier writes a palette, a grammar and a voice
+ * and stops there. So the first screen invented "FLOWSTATE" with a circled
+ * arrow, the contact page invented "MOTION / OPS" with something else, and both
+ * were faithful to the same direction while being obviously different products.
+ *
+ * Narrower than buildLayoutReference on purpose. That one is the pinned-screen
+ * contract — reproduce the whole chrome, same nav items, same order — and it is
+ * a strong claim to make about a screen the user never pinned. Identity is the
+ * part that is safe to assume: nobody generating a second screen wants a second
+ * brand. The nav, the sections and the layout stay the model's to decide, and
+ * pinning a reference is still there for those who want them fixed too.
+ */
+/**
+ * How much of the earlier screen travels.
+ *
+ * Unlike a pinned reference, this one rides on EVERY generation, so its cost is
+ * paid over and over — a 600-line screen would roughly double the prompt. The
+ * head is the right part to keep: a wordmark and a logo live in the header, and
+ * the header is the first thing in the file. What is lost is a second mention in
+ * a footer, which is not where a name is decided.
+ */
+const IDENTITY_REFERENCE_MAX = 4000
+
+export function buildIdentityReference(referenceCode: string): string {
+  const src = referenceCode.trim()
+  const clipped = src.length > IDENTITY_REFERENCE_MAX
+  return [
+    'PRODUCT IDENTITY — this screen belongs to a product that already exists. An earlier screen of it is given below.',
+    'Carry over its identity EXACTLY: the same product/brand name, spelled and cased identically wherever it appears (header, wordmark, page copy, footer, page title), and the same logo — reuse the markup of that mark as-is rather than designing another one.',
+    'Do NOT rename the product, re-letter it, translate it, abbreviate it, or replace its mark with a different shape or icon. If the earlier screen has no name or no mark, invent one — but then use it consistently within this screen.',
+    'Everything else is yours to decide: the navigation, the sections, the layout and the copy all follow the request for THIS screen. Only the identity is fixed.',
+    clipped ? 'Earlier screen source (opening section only):' : 'Earlier screen source:',
+    clipped ? src.slice(0, IDENTITY_REFERENCE_MAX) + '\n/* … rest of the screen omitted … */' : src,
+  ].join('\n')
+}
+
 export const EDIT_RULES = `You are EDITING an existing screen, not designing a new one. The single most important rule:
 
 PRESERVE EVERYTHING THAT THE USER DID NOT EXPLICITLY ASK TO CHANGE.
