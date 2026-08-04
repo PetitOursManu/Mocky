@@ -75,6 +75,20 @@ export interface Screen {
    * session that happened to be open.
    */
   animations?: boolean
+  /**
+   * The last quality check on this screen, kept small on purpose.
+   *
+   * Only the verdict is stored: the score, the rule ids still open, and how
+   * many correction passes it took. The findings' names and descriptions are
+   * NOT stored — they are reproducible from the rule id, and a project holds
+   * many screens inside a localStorage budget that the component sources
+   * already strain (see reportStorageFailure in lib/sync.ts). A few hundred
+   * bytes per screen is affordable; a few kilobytes is not.
+   *
+   * Absent means "never checked", which is deliberately distinct from a stored
+   * record with `open: []`, meaning "checked and clean".
+   */
+  quality?: ScreenQuality
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -85,6 +99,28 @@ export interface Screen {
   device: 'iphone' | 'none'
   /** Interaction links to other screens (used by demo mode). */
   links: Hotspot[]
+}
+
+/** The compact record of one quality check. See Screen.quality. */
+export interface ScreenQuality {
+  /** Health score out of 20 when the check ran. */
+  score: number
+  band: 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical'
+  /** Rule ids still failing and worth acting on. */
+  open: string[]
+  /**
+   * Rule ids the correction pass resolved.
+   *
+   * Without this, a converged polish and a polish that found nothing look
+   * identical in storage and in the UI — both leave `open` empty. That is the
+   * one question worth answering afterwards: what did it change?
+   */
+  fixed: string[]
+  /** How many correction passes ran to get here. */
+  iterations: number
+  /** Whether the model-judged half of the pass contributed. */
+  judged: boolean
+  checkedAt: number
 }
 
 /** Legacy frame-header height; frames are now chrome-less, so this is 0. */
@@ -556,6 +592,26 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // Only a real boolean is an override; anything else means "follow the
     // composer", which is what every screen made before this field says.
     animations: typeof s.animations === 'boolean' ? s.animations : undefined,
+    // Rebuilt field by field rather than passed through: this record is written
+    // from a server response, and everything on a Screen survives a reload only
+    // if it is named here.
+    quality: normalizeQuality(s.quality),
+  }
+}
+
+/** Validate a stored quality record, or drop it. */
+function normalizeQuality(q: Partial<ScreenQuality> | undefined): ScreenQuality | undefined {
+  if (!q || typeof q !== 'object') return undefined
+  if (typeof q.score !== 'number' || !Number.isFinite(q.score)) return undefined
+  const bands = ['excellent', 'good', 'acceptable', 'poor', 'critical'] as const
+  return {
+    score: Math.max(0, Math.min(20, Math.round(q.score))),
+    band: bands.includes(q.band as (typeof bands)[number]) ? (q.band as ScreenQuality['band']) : 'good',
+    open: Array.isArray(q.open) ? q.open.filter((r): r is string => typeof r === 'string') : [],
+    fixed: Array.isArray(q.fixed) ? q.fixed.filter((r): r is string => typeof r === 'string') : [],
+    iterations: typeof q.iterations === 'number' && q.iterations >= 0 ? Math.floor(q.iterations) : 0,
+    judged: q.judged === true,
+    checkedAt: typeof q.checkedAt === 'number' && q.checkedAt > 0 ? q.checkedAt : Date.now(),
   }
 }
 

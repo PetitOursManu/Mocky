@@ -4,6 +4,7 @@
 import express from 'express'
 import { makeLlm } from './llm.js'
 import { runInspiration } from './inspire/engine.js'
+import { runQuality } from './quality/index.js'
 
 /**
  * Extract per-request provider credentials (ADR D7) from the same headers the
@@ -17,7 +18,13 @@ function credsFromReq(req) {
   const apiKey = auth.startsWith('Bearer ') ? auth.slice(7) : ''
   const model = String((req.body && req.body.model) || req.headers['x-provider-model'] || '')
   if (!baseUrl || !model) return null
-  return { baseUrl, apiKey, model }
+  // Which wire format the endpoint speaks, forwarded by the browser exactly as
+  // it is for /__provider (see src/lib/proxy.ts). Without it every
+  // browser-configured target was addressed as Ollama, so the four
+  // OpenAI-dialect providers in the picker — OpenAI, Anthropic, OpenRouter and
+  // "compatible" — silently failed here while working everywhere else.
+  const kind = String(req.headers['x-provider-kind'] || '') === 'openai' ? 'openai' : 'ollama'
+  return { baseUrl, apiKey, model, kind }
 }
 
 /** A hex string, and nothing that could be smuggled into a prompt as one. */
@@ -115,6 +122,55 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
       )
       res.json(result)
     } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+    }
+  })
+
+  /*
+   * POST /api/muse/quality — check one generated screen.
+   *
+   * The screen itself is generated in the browser; only the checking happens
+   * here, for two reasons. The detector is a Node module that reads `node:fs`
+   * at import, so it cannot be bundled for the browser at all. And keeping it
+   * server-side means its ~1 MB of rule engine never reaches the client, which
+   * matters for a tool whose previews are the product.
+   *
+   * Credentials follow the dossier route exactly: an admin-configured provider
+   * wins, otherwise the browser's own headers. Without either, the deterministic
+   * half still runs and the judged half reports itself as unavailable — which
+   * is why this route answers 200 with an honest report rather than 4xx when
+   * there is no model.
+   */
+  router.post('/muse/quality', async (req, res) => {
+    const body = req.body || {}
+    const code = typeof body.code === 'string' ? body.code : ''
+    if (!code.trim()) {
+      return res.status(400).json({ error: 'A "code" string is required.' })
+    }
+
+    let admin = null
+    try {
+      admin = resolveTarget ? resolveTarget('inspiration') : null
+    } catch {
+      admin = null
+    }
+    const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    const llm = creds ? makeLlm(creds) : null
+
+    try {
+      const result = await runQuality(
+        {
+          code,
+          hasDirection: body.hasDirection === true,
+          critique: body.critique !== false,
+        },
+        { llm },
+      )
+      res.json(result)
+    } catch (err) {
+      // runQuality is written not to throw. If it ever does, the screen is
+      // already generated and on the user's canvas — reporting the failure is
+      // right, failing the request is not (invariant Q1).
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
     }
   })

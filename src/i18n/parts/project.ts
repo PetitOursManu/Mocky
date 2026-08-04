@@ -203,6 +203,16 @@ export const project = {
     'project.truncated':
       'Le modèle a atteint sa limite de tokens : l’écran est incomplet. Demandez un écran plus simple (moins de sections), ou utilisez un modèle avec une sortie plus longue.',
     'project.slop': 'Texte générique détecté ({list}). Régénérez pour un rendu propre.',
+    // ---- passe qualité ----
+    'project.polish': 'Peaufiner (détecter et corriger)',
+    'project.polishing': 'Analyse de l’écran…',
+    'project.polishingPass': 'Correction {i} — {n} point(s) à reprendre',
+    'project.polishClean': 'Rien à reprendre — {score}/20.',
+    'project.polishFixed': 'Écran peaufiné — {score}/20. Corrigé : {list}.',
+    'project.polishResidual':
+      'Reste à reprendre ({score}/20) : {list}. Relancez « Peaufiner » ou modifiez la direction.',
+    'project.polishFailed':
+      'La passe qualité n’a pas abouti. L’écran est intact — réessayez, ou vérifiez le modèle dans les réglages.',
 
     // ---- starter examples ----
     'project.example1': 'Une page de tarifs SaaS avec trois formules et une bascule mensuel/annuel',
@@ -402,6 +412,16 @@ export const project = {
     'project.truncated':
       'The model hit its token limit: the screen is incomplete. Ask for a simpler screen (fewer sections), or use a model with a longer output.',
     'project.slop': 'Generic placeholder text detected ({list}). Regenerate for a clean result.',
+    // ---- quality pass ----
+    'project.polish': 'Polish (detect and correct)',
+    'project.polishing': 'Checking the screen…',
+    'project.polishingPass': 'Correction {i} — {n} issue(s) to address',
+    'project.polishClean': 'Nothing to address — {score}/20.',
+    'project.polishFixed': 'Screen polished — {score}/20. Fixed: {list}.',
+    'project.polishResidual':
+      'Still open ({score}/20): {list}. Run Polish again, or adjust the direction.',
+    'project.polishFailed':
+      'The quality pass did not complete. The screen is untouched — try again, or check the model in settings.',
 
     // ---- starter examples ----
     'project.example1': 'A SaaS pricing page with three tiers and a monthly/yearly toggle',

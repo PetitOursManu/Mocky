@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, polishComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
 import { resolveDirection } from '../lib/direction'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
@@ -9,7 +9,9 @@ import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
-import { planScreen, planToPromptSection } from '../lib/plan'
+import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from '../lib/plan'
+import { checkQuality } from '../lib/quality'
+import { runPolishLoop } from '../lib/polish'
 import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
@@ -418,6 +420,8 @@ export default function ProjectView({
   // Screens whose render error the auto-fixer is currently repairing.
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
   const [regenLabel, setRegenLabel] = useState(() => t('canvas.regenerating'))
+  /** Neutral one-liner in the composer — the quality pass reporting back. */
+  const [notice, setNotice] = useState<string | null>(null)
 
   function onCaptureRegion(screenId: string, clientRect: { left: number; top: number; width: number; height: number }) {
     setCapturing(true)
@@ -811,6 +815,7 @@ export default function ProjectView({
     abortRef.current = ac
     setBusy(true)
     setError(null)
+    setNotice(null) // a verdict about the previous screen does not survive a new one
     retryRefs.current = {} // reset retry counters for new generation
     /** The screen this run created, if any — so a failure can clean it up. */
     let newScreenId: string | null = null
@@ -1130,6 +1135,11 @@ export default function ProjectView({
         // ran — the dossier already provides the structure.
         let capIds = shortlist
         let planSection: string | undefined
+        // What the visitor of this screen is here to do. The planner decides it
+        // when it runs; otherwise a keyword guess, because the planner is
+        // skipped on every Muse run and whenever the setting is off, and a mode
+        // that only existed on the planner path would almost never exist.
+        let mode = inferMode(text)
         if (settings.usePlanner && !musePreamble) {
           setPhase('planning')
           const plan = await planScreen(
@@ -1140,8 +1150,12 @@ export default function ProjectView({
           if (plan) {
             capIds = plan.capabilities
             planSection = planToPromptSection(plan)
+            if (plan.mode) mode = plan.mode
           }
         }
+        // Appended to the plan section rather than folded into it, so the mode
+        // still reaches generation on the paths where no plan was produced.
+        if (!planSection) planSection = modeToPromptSection(mode)
         // The user's standing answer about motion, applied once, after both the
         // shortlist and the planner have had their say. 'auto' — the default —
         // changes nothing.
@@ -1355,6 +1369,130 @@ export default function ProjectView({
       // record there would quietly reattribute the screen to a document that
       // never made it.
       onUpdateScreen(screenId, { code: result.code, componentName: result.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, result.code), design: designMd })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setRegeneratingIds(new Set())
+    }
+  }
+
+  /**
+   * Check a screen against the quality rules and correct what they find.
+   *
+   * On demand, never automatic. The check costs a server round trip and the
+   * judged half costs a model call, so running it after every generation would
+   * tax every screen for the benefit of the few that need it — and it would
+   * break the promise that with Muse off the generation path is unchanged
+   * (invariant M1). The user asks for a polish when they want one.
+   *
+   * The loop itself lives in lib/polish.ts, with its stopping conditions and
+   * their tests. This function is the wiring: credentials, capabilities, the
+   * busy state, and writing the result back under the same stale-write and
+   * revert conventions every other screen mutation uses.
+   */
+  async function polishScreen(screenId: string) {
+    if (busy) return
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    // Keep the current render on screen; the corrected code swaps in at once.
+    setRegenLabel(t('project.polishing'))
+    setRegeneratingIds(new Set([screenId]))
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
+    try {
+      const designMd = activeDirection()
+      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      const caps = resolveCapabilities(capIds)
+      const codeAtStart = screen.code
+
+      const outcome = await runPolishLoop(
+        codeAtStart,
+        {
+          check: (code) =>
+            checkQuality(code, {
+              // An established direction owns the palette and the typography,
+              // so the rules about them become advice rather than corrections.
+              hasDirection: Boolean(designMd && designMd.trim()),
+              settings,
+              signal: ac.signal,
+            }),
+          polish: async (code, findingsBlock) => {
+            const res = await polishComponent(settings, code, findingsBlock, ac.signal, caps)
+            return res.code
+          },
+          onPass: (iteration, remaining) =>
+            setRegenLabel(t('project.polishingPass', { i: iteration, n: remaining })),
+        },
+        { signal: ac.signal },
+      )
+
+      // Someone else may have rewritten this screen while the loop ran — the
+      // same race fixComponent guards against, and the same answer: drop ours.
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now || now.code !== codeAtStart) return
+
+      // Only a run that actually produced a report leaves a record. Writing one
+      // from a run whose check never completed would store a 20/20 for a screen
+      // nobody looked at, and `quality: undefined` — "never checked" — is the
+      // honest state for that.
+      const record = outcome.report
+        ? {
+            score: outcome.report.audit.score,
+            band: outcome.report.audit.band,
+            open: outcome.residual.map((f) => f.rule),
+            fixed: outcome.fixed.map((f) => f.rule),
+            iterations: outcome.iterations,
+            judged: outcome.report.audit.coverage.judged === true,
+            checkedAt: Date.now(),
+          }
+        : undefined
+
+      if (outcome.code !== codeAtStart) {
+        onUpdateScreen(screenId, {
+          code: outcome.code,
+          componentName: detectComponentName(outcome.code),
+          // "Revert to previous" undoes a polish, exactly as it undoes an edit.
+          previousCode: codeAtStart,
+          caps: capabilitiesFor(capIds, outcome.code),
+          ...(record ? { quality: record } : {}),
+        })
+      } else if (record) {
+        onUpdateScreen(screenId, { quality: record })
+      }
+
+      // Say what happened. A polish that changed nothing is a result, not a
+      // silent no-op, and the reason it stopped is the useful part.
+      // Naming what changed is the whole point of the report. "Clean, 20/20"
+      // was indistinguishable from "nothing to do" even when the pass had
+      // rewritten half a dozen things, which is exactly how a working feature
+      // reads as a broken one.
+      const fixedList = outcome.fixed.map((f) => f.name).join(', ')
+      if (outcome.stopped === 'error' || !record) {
+        setError(t('project.polishFailed'))
+      } else if (outcome.residual.length) {
+        setNotice(
+          t('project.polishResidual', {
+            list: outcome.residual.map((f) => f.name).join(', '),
+            score: record.score,
+          }),
+        )
+      } else if (outcome.fixed.length) {
+        setNotice(t('project.polishFixed', { list: fixedList, score: record.score }))
+      } else {
+        setNotice(t('project.polishClean', { score: record.score }))
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
@@ -1926,6 +2064,31 @@ export default function ProjectView({
             </div>
           )}
 
+          {/*
+           * Neutral counterpart to the error banner.
+           *
+           * The red banner is the only text channel the composer had, and a
+           * quality pass that finds nothing has something worth saying that is
+           * not a failure. Without this, asking for a polish on an already-clean
+           * screen produced no visible change and no message — indistinguishable
+           * from the action never having run.
+           */}
+          {notice && !error && (
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-raised px-3 py-2 text-body-sm text-ink-muted">
+              <span className="flex min-w-0 items-center gap-2">
+                <Icon name="sparkle" size={16} />
+                <span className="truncate">{notice}</span>
+              </span>
+              <button
+                type="button"
+                className="btn-ghost shrink-0 px-2 py-1 text-body-sm"
+                onClick={() => setNotice(null)}
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          )}
+
           {/* Annotation thumbnails */}
           {(annotations.length > 0 || capturing) && (
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -2399,6 +2562,7 @@ export default function ProjectView({
               />
               <ContextMenuShell x={menu.x} y={menu.y}>
                 <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
+                <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
                 <MenuItem
                   icon="pencil"
                   label={t('canvas.rename')}

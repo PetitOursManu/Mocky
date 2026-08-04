@@ -750,6 +750,66 @@ export async function fixComponent(
   return { raw: content, code, componentName: detectComponentName(code) }
 }
 
+const POLISH_PROMPT = `You are correcting specific, named design problems in a React component that runs inside a sandbox. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported.
+
+You will be given the component and a numbered list of findings. Each finding names a rule and describes what is wrong. Fix EVERY finding in the list, and change NOTHING else.
+
+Rules:
+- This is a correction pass, not a redesign. Keep the same layout, the same sections in the same order, the same copy, and the same component structure. Someone comparing the two versions should see the named problems gone and nothing else moved.
+- Keep the palette and typography you were given. If a finding is about the palette, adjust only what the finding names — do not re-theme the screen.
+- Never replace real content with placeholders. If a finding is about filler text, write realistic, specific copy for THIS product; do not delete the element.
+- A finding cites a line number only as a hint. Line numbers may have shifted; fix the problem the finding describes, wherever it actually is.
+- If a finding is genuinely already absent, leave that part alone rather than inventing a change to make.
+
+Return the COMPLETE corrected component in a single fenced jsx code block. No prose.`
+
+/**
+ * Asks the model to correct named quality findings.
+ *
+ * Deliberately a sibling of `fixComponent` rather than a variant of it. They
+ * share the transport, the extraction tail and the caller's guard pattern, but
+ * they are asking for different things and must not share a prompt: FIX_PROMPT
+ * says "fix ONLY the error, do not restyle", which is exactly wrong here — a
+ * slop finding IS a styling problem, and a model told not to restyle will
+ * return the screen unchanged and burn an iteration.
+ *
+ * The findings are pre-filtered by the caller to those the policy marks
+ * enforceable (see server/muse/quality/policy.js). Advisory findings are shown
+ * to the user and never sent here, so the pass is never spent on a rule Mocky
+ * has decided not to insist on.
+ *
+ * Does NOT stream: the caller re-checks the result, and a partial screen cannot
+ * be checked.
+ */
+export async function polishComponent(
+  s: Settings,
+  code: string,
+  findingsBlock: string,
+  signal?: AbortSignal,
+  caps?: Capability[],
+): Promise<GeneratedComponent> {
+  const capsPrompt = caps && caps.length ? buildCapabilitiesPrompt(caps) : ''
+  const system = capsPrompt ? `${POLISH_PROMPT}\n${capsPrompt}` : POLISH_PROMPT
+  const user = [
+    'Correct the following component.',
+    '',
+    '```jsx',
+    code,
+    '```',
+    '',
+    'Findings to fix:',
+    findingsBlock,
+    '',
+    'Return the COMPLETE corrected component. Fix every finding above and change nothing else.',
+  ].join('\n')
+  const content = await chat(s, [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ], signal)
+  const fixed = await guardMotion(extractCode(content))
+  return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
+}
+
 const DESIGN_EXTRACT_PROMPT = `You are a design systems analyst. Given the source of ONE React + Tailwind screen, you write the DESIGN.md that this screen appears to have been built from.
 
 Write the SYSTEM, not a description of the screen. "Primary: #4f46e5" is a system; "the hero has a blue button" is not. Someone must be able to build a DIFFERENT screen from your document and have it look like a sibling of this one.
