@@ -33,20 +33,44 @@ export interface DesignSystem {
   radius: string
 }
 
-/** Infer a color's semantic role from its DESIGN.md label. Order matters. */
+/**
+ * Infer a color's semantic role from its DESIGN.md label. Order matters.
+ *
+ * Bilingual, because the documents are. The dossier prompt instructs the model
+ * to write everything in the language of the request, so a French request
+ * yields a French palette — "Papier", "Encre", "Ligne", "Rose signal" — and an
+ * English-only matcher resolved essentially none of it. The consequence was not
+ * cosmetic: every unmatched colour falls through to 'other', `roles` then
+ * invents slate defaults for background, text and accent, and a cream editorial
+ * direction renders as a grey dashboard that resembles nothing the user made.
+ *
+ * The French terms are the ones Muse actually produces, not a dictionary: paper
+ * and ink for the page and its text, "filet" for a rule — Mocky's own design
+ * language calls it that — and "signal" for the one committed accent.
+ */
 export function roleForLabel(label: string): TokenRole {
   const l = label.toLowerCase()
-  if (/accent[-\s]?text|on[-\s]?(primary|accent|brand)|(primary|button)\s*text/.test(l)) return 'accentText'
-  if (/muted|secondary|subtle|placeholder|caption/.test(l)) return 'muted'
-  if (/\btext\b|foreground|\bink\b|\bbody\b|heading|typography/.test(l)) return 'text'
-  if (/border|divider|outline|stroke|ring/.test(l)) return 'border'
-  if (/surface|\bcard\b|panel|elevated|sheet/.test(l)) return 'surface'
-  if (/background|\bbg\b|\bbase\b|canvas|\bpage\b/.test(l)) return 'bg'
-  if (/primary|accent|brand|action|\bcta\b|highlight|link/.test(l)) return 'accent'
+  if (/accent[-\s]?text|on[-\s]?(primary|accent|brand)|(primary|button)\s*text|sur[-\s]?accent/.test(l)) return 'accentText'
+  if (/muted|secondary|subtle|placeholder|caption|atténué|attenue|secondaire|discret|estompé|estompe/.test(l)) return 'muted'
+  if (/\btext\b|foreground|\bink\b|\bbody\b|heading|typography|\btexte\b|\bencre\b|titre|corps/.test(l)) return 'text'
+  if (/border|divider|outline|stroke|ring|\bfilet\b|bordure|séparateur|separateur|\bligne\b|trait/.test(l)) return 'border'
+  if (/surface|\bcard\b|panel|elevated|sheet|\bcarte\b|panneau|feuille/.test(l)) return 'surface'
+  if (/background|\bbg\b|\bbase\b|canvas|\bpage\b|\bfond\b|papier|arrière[-\s]?plan|arriere[-\s]?plan/.test(l)) return 'bg'
+  if (/primary|accent|brand|action|\bcta\b|highlight|link|signal|primaire|marque|principal/.test(l)) return 'accent'
   return 'other'
 }
 
-const COLOR_LINE_RE = /(?:([A-Za-z][A-Za-z0-9 /_-]*?)\s*[:=]\s*)?(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))\b/g
+/**
+ * `- Crème: #f7f3e8` → label "Crème", not "me".
+ *
+ * The label class used to be `[A-Za-z]`, which stops dead at the first accent:
+ * a French palette came back with "re" for Crème and "cision" for Précision —
+ * the regex simply started matching after the é. Muse writes its dossier in the
+ * language of the request, by instruction, so on a French install that was most
+ * labels in most documents. `\p{L}` under the `u` flag covers every alphabet,
+ * which is the right scope: nothing about this is French-specific.
+ */
+const COLOR_LINE_RE = /(?:(\p{L}[\p{L}\p{N} /_'’-]*?)\s*[:=]\s*)?(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))\b/gu
 
 /**
  * A role stated outright, right after the hex.
@@ -57,29 +81,97 @@ const COLOR_LINE_RE = /(?:([A-Za-z][A-Za-z0-9 /_-]*?)\s*[:=]\s*)?(#(?:[0-9a-fA-F
  * "Paper", "Bone", "Signal" match none of the label patterns, so a perfectly
  * well-described palette resolved to no background at all.
  */
-const ROLE_SUFFIX_RE = /^\s*\(([A-Za-z][A-Za-z /_-]*)\)/
+const ROLE_SUFFIX_RE = /^\s*\((\p{L}[^)\n]*)\)/u
 
-/** Extract every hex color with its label, role and source offset (deduped by hex). */
+/**
+ * The headings under which a document lists its palette.
+ *
+ * Dossiers write `### Colors`, a derived DESIGN.md writes `## Color tokens`,
+ * and the shipped presets use either. Matched loosely on purpose — a document
+ * is prose, and the exact wording is the model's choice.
+ */
+const COLOR_SECTION_RE = /^#{2,4}[ \t]*(colors?|colou?r tokens?|palette)[ \t]*$/gim
+
+/** The [start, end) spans of every colour section in the document. */
+function colorSectionSpans(markdown: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = []
+  let m: RegExpExecArray | null
+  COLOR_SECTION_RE.lastIndex = 0
+  while ((m = COLOR_SECTION_RE.exec(markdown))) {
+    const from = m.index + m[0].length
+    // Runs to the next heading of any level, or to the end of the document.
+    const next = /^#{1,4}[ \t]/m.exec(markdown.slice(from))
+    spans.push([from, next ? from + next.index : markdown.length])
+  }
+  return spans
+}
+
+/**
+ * Extract every hex color with its label, role and source offset (deduped by hex).
+ *
+ * Read in TWO passes — the colour sections first, then the rest of the document
+ * — and that ordering is a correctness fix, not a tidiness one. The scan is
+ * document-wide and first-appearance wins, so a hex merely *mentioned* in prose
+ * ("a signal red #c0392b against paper") used to claim the entry before the
+ * `### Colors` bullet that actually declares it. It stole the label, and worse
+ * it stole the `index`: recolouring is a slice-and-splice at that offset
+ * (`replaceTokenHex`), so editing a token could rewrite a sentence in the
+ * concept instead of the token in the palette.
+ *
+ * The second pass still runs: a document whose palette lives entirely in prose
+ * is unusual but not wrong, and dropping those colours would leave the sheet
+ * emptier than the document.
+ */
 export function parseColors(markdown: string): DesignToken[] {
   const out: DesignToken[] = []
   const seen = new Set<string>()
-  let m: RegExpExecArray | null
-  COLOR_LINE_RE.lastIndex = 0
-  while ((m = COLOR_LINE_RE.exec(markdown))) {
-    const hex = m[2]
-    const key = hex.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    const label = (m[1] || '').trim()
-    // The hex sits at the end of the whole match (before the zero-width \b).
-    const index = m.index + m[0].length - hex.length
-    // Stated role first, label second. Both go through the same matcher, so a
-    // parenthesised "(surface)" and a label "Surface" mean the same thing.
-    const stated = ROLE_SUFFIX_RE.exec(markdown.slice(index + hex.length))
-    const role = (stated && roleForLabel(stated[1])) || roleForLabel(label)
-    out.push({ hex, label: label || hex, index, role })
+
+  const collect = (from: number, to: number) => {
+    const slice = markdown.slice(from, to)
+    let m: RegExpExecArray | null
+    COLOR_LINE_RE.lastIndex = 0
+    while ((m = COLOR_LINE_RE.exec(slice))) {
+      const hex = m[2]
+      const key = hex.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      const label = (m[1] || '').trim()
+      // The hex sits at the end of the whole match (before the zero-width \b),
+      // and the offset is against the WHOLE document — replaceTokenHex splices
+      // there, so a slice-relative index would corrupt the file.
+      const index = from + m.index + m[0].length - hex.length
+      // Label first, parenthetical second — and that order is the opposite of
+      // what it was, changed against real documents.
+      //
+      // The parenthetical is NOT a role token. Muse's `colorLines()` renders the
+      // dossier's `role` field, and models fill that field with a sentence about
+      // usage: "(Fond discret de la formule mise en avant)". Read as a role, the
+      // word "discret" in that sentence turned the accent pink into a muted
+      // token, overriding a label — "Rose signal" — that said exactly what it
+      // was. The label is the token's identity, chosen deliberately; the
+      // parenthetical is prose about where it gets used.
+      //
+      // It still serves as the fallback, because it is genuinely what saves a
+      // poetic palette: "Obsidian" and "Chalk" resolve to nothing, and only
+      // "(background)" / "(text)" say which is which.
+      //
+      // `roleForLabel` returns the STRING 'other', which is truthy, so both
+      // sides must be compared against it rather than tested for truthiness.
+      const byLabel = roleForLabel(label)
+      let role = byLabel
+      if (byLabel === 'other') {
+        const stated = ROLE_SUFFIX_RE.exec(markdown.slice(index + hex.length))
+        if (stated) role = roleForLabel(stated[1])
+      }
+      out.push({ hex, label: label || hex, index, role })
+    }
   }
-  return out
+
+  const spans = colorSectionSpans(markdown)
+  for (const [from, to] of spans) collect(from, to)
+  collect(0, markdown.length)
+  // Source order, so the palette reads as the document writes it.
+  return out.sort((a, b) => a.index - b.index)
 }
 
 /**

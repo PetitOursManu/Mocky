@@ -24,8 +24,8 @@ import DemoPlayer from './DemoPlayer'
 import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
 import ShareDialog from './ShareDialog'
-import { SaveDesignDialog, previewFromMarkdown } from './DesignLibrary'
-import { ScaledMockup } from './DesignMockup'
+import { SaveDesignDialog } from './DesignLibrary'
+import DesignSpecSheet from './DesignSpecSheet'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
 import Bibliotheque from './Bibliotheque'
@@ -2713,29 +2713,48 @@ export default function ProjectView({
           const sc = screens.find((x) => x.id === inspectDesignId)
           const md = sc?.design?.trim()
           if (!sc || !md) return null
-          const preview = previewFromMarkdown(md)
+          // Wide, because this window is a document rather than a dialog. At
+          // `lg` (768px) six sections in two columns produced ribbons of text
+          // four words across and a page that scrolled forever; the Forbidden
+          // list alone runs to twenty-odd entries.
           return (
-            <Modal title={sc.name || 'DESIGN.md'} size="lg" onClose={() => setInspectDesignId(null)}>
-              {preview && (
-                <div className="overflow-hidden border border-line-soft">
-                  {/* The modal HEADER keeps the screen's name — "the design
-                      recorded for this screen" is what this window is about.
-                      The wordmark inside the mockup is a different claim: it
-                      says what the product is called, so it must not be the
-                      sentence someone typed to get one screen of it. */}
-                  <ScaledMockup
-                    p={preview}
-                    name={
-                      extractProductName(md) ||
-                      project.productName ||
-                      // Name the document it actually is. The card beside the
-                      // frame already distinguishes the two, and answering
-                      // "DESIGN.md" over a Muse dossier contradicted it.
-                      (/^#\s*Design Dossier/im.test(md) ? t('muse.dossier') : 'DESIGN.md')
-                    }
-                  />
-                </div>
-              )}
+            <Modal title={sc.name || 'DESIGN.md'} size="full" onClose={() => setInspectDesignId(null)}>
+              {/* The document, read as a specification rather than glanced at
+                  as a thumbnail. The canvas card keeps the thumbnail — it is
+                  128px wide at the default zoom and a six-section sheet would
+                  be illegible there — and this window, which that card already
+                  opens on click, is where the document is actually judged.
+
+                  The modal HEADER keeps the screen's name: "the design recorded
+                  for this screen" is what this window is about. The wordmark
+                  inside the sheet is a different claim — what the product is
+                  called — so it must not be the sentence someone typed to get
+                  one screen of it. */}
+              <DesignSpecSheet
+                markdown={md}
+                title={
+                  extractProductName(md) ||
+                  project.productName ||
+                  (/^#\s*Design Dossier/im.test(md) ? t('muse.dossier') : 'DESIGN.md')
+                }
+                density="full"
+                columns={3}
+                saveLabel={t('design.spec.saveAndApply')}
+                // Saving does BOTH, and the label says so.
+                //
+                // Writing only to `screen.design` would be the tidy answer —
+                // that field is the record of what this screen was generated
+                // from — but it would also be a button that appears to do
+                // nothing: the next generation reads the project's direction,
+                // not a screen's record, so an edit saved there would sit
+                // unused until someone found "Reprendre ce design". Editing a
+                // design system is something you do in order to use it.
+                onSave={(next: string) => {
+                  onUpdateScreen(sc.id, { design: next })
+                  onSetDesign(next)
+                  setInspectDesignId(null)
+                }}
+              />
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="primary" onClick={() => { applyScreenDesign(sc.id); setInspectDesignId(null) }}>
                   <Icon name="check" size={16} />

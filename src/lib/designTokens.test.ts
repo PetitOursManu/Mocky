@@ -118,3 +118,119 @@ describe('replaceTokenHex', () => {
     expect(parseColors(out).find((c) => c.label === 'Primary')!.hex).toBe('#ff0000')
   })
 })
+
+describe('parseColors — la prose ne vole plus les jetons', () => {
+  const md = `# Design Dossier — Essai
+
+## Concept
+Un rouge signal #c0392b posé sur du papier, sans jamais crier.
+
+## Tokens
+
+### Colors
+- Papier: #fdfcf8  (background)
+- Signal: #c0392b  (accent)
+`
+
+  it('donne le libellé et le rôle du vrai jeton, pas de la phrase', () => {
+    // Avant : la mention dans ## Concept gagnait, le jeton s'appelait "" et
+    // n'avait aucun rôle. La palette déclarait pourtant les deux.
+    const signal = parseColors(md).find((c) => c.hex.toLowerCase() === '#c0392b')!
+    expect(signal.label).toBe('Signal')
+    expect(signal.role).toBe('accent')
+  })
+
+  it("pointe sur le hex de la palette, pas sur celui de la prose", () => {
+    // Le vrai enjeu : recolorer est un découpage à cette position. Pointer sur
+    // la phrase réécrivait le concept au lieu du jeton.
+    const signal = parseColors(md).find((c) => c.hex.toLowerCase() === '#c0392b')!
+    expect(md.slice(signal.index, signal.index + 7)).toBe('#c0392b')
+    expect(signal.index).toBeGreaterThan(md.indexOf('### Colors'))
+    // Et le remplacement touche bien la palette, la phrase reste intacte.
+    const after = replaceTokenHex(md, signal, '#0000ff')
+    expect(after).toContain('Un rouge signal #c0392b posé')
+    expect(after).toContain('- Signal: #0000ff')
+  })
+
+  it('garde les couleurs qui ne vivent que dans la prose', () => {
+    const prose = '# Design System\n\nUn bleu #123456 et rien d’autre.\n'
+    expect(parseColors(prose).map((c) => c.hex)).toEqual(['#123456'])
+  })
+})
+
+describe('parseColors — un rôle entre parenthèses qui ne dit rien', () => {
+  it("ne prend pas le pas sur un libellé qui, lui, dit quelque chose", () => {
+    // roleForLabel rend la CHAÎNE 'other', qui est truthy : « (warm cream) »
+    // écrasait donc « Background » et le jeton ne résolvait plus rien.
+    const md = '## Color tokens\n- Background: #fff7ed (warm cream)\n'
+    expect(parseColors(md)[0].role).toBe('bg')
+  })
+
+  it('respecte un rôle entre parenthèses qui, lui, résout', () => {
+    const md = '## Color tokens\n- Papier: #f7f3e8 (background)\n'
+    expect(parseColors(md)[0].role).toBe('bg')
+  })
+})
+
+describe('les palettes françaises, telles que Muse les écrit', () => {
+  // Copié d'un vrai dossier : Muse écrit dans la langue de la demande, par
+  // instruction, donc une demande française donne une palette française.
+  const md = `### Colors
+- Papier: #F7F7F3  (Arrière-plan principal)
+- Surface claire: #FFFFFF  (Cartes tarifaires et zones de contenu)
+- Encre: #171717  (Titres, prix et texte principal)
+- Gris repère: #707070  (Descriptions secondaires et informations de facturation)
+- Rouge décision: #D9342B  (Formule recommandée, états actifs et appels à l’action)
+- Ligne: #D9D9D4  (Séparateurs et bordures fines)
+`
+
+  it("ne coupe plus les libellés au premier accent", () => {
+    // La classe était [A-Za-z] : « Crème » ressortait « me », « Précision »
+    // ressortait « cision ». Sur une install française, la plupart des jetons.
+    const labels = parseColors(md).map((c) => c.label)
+    expect(labels).toContain('Rouge décision')
+    expect(labels).toContain('Gris repère')
+    expect(parseColors('- Crème: #f7f3e8\n')[0].label).toBe('Crème')
+  })
+
+  it('reconnaît le vocabulaire français des rôles', () => {
+    const byLabel = Object.fromEntries(parseColors(md).map((c) => [c.label, c.role]))
+    expect(byLabel['Papier']).toBe('bg')
+    expect(byLabel['Encre']).toBe('text')
+    expect(byLabel['Ligne']).toBe('border')
+    expect(byLabel['Surface claire']).toBe('surface')
+  })
+
+  it('résout la direction au lieu d’inventer de l’ardoise', () => {
+    // Avant : un seul rôle déclaré, donc fond, texte et accent inventés en
+    // gris ardoise — une direction crème rendue en tableau de bord gris.
+    const ds = parseDesignSystem(md)
+    expect(ds.roles.bg).toBe('#F7F7F3')
+    expect(ds.roles.text).toBe('#171717')
+    expect(ds.roles.accent).toBe('#D9342B')
+  })
+})
+
+describe('la parenthèse est une description, pas un rôle', () => {
+  it('ne laisse pas une phrase d’usage écraser un libellé qui parle', () => {
+    // Cas réel : « (Fond discret de la formule mise en avant) » contient
+    // « discret », et transformait l’accent rose en jeton atténué.
+    const md = '### Colors\n- Rose signal: #F3DAD5  (Fond discret de la formule mise en avant)\n'
+    expect(parseColors(md)[0].role).toBe('accent')
+  })
+
+  it('sert quand même de recours quand le libellé est poétique', () => {
+    // « Obsidian » et « Chalk » ne disent rien ; seule la parenthèse tranche.
+    const md = '### Colors\n- Obsidian: #0b0b0f  (background)\n- Chalk: #f5f5f0  (text)\n'
+    const ds = parseDesignSystem(md)
+    expect(ds.roles.bg).toBe('#0b0b0f')
+    expect(ds.roles.text).toBe('#f5f5f0')
+  })
+
+  it('lit une description contenant des virgules', () => {
+    // Le motif refusait la ponctuation, donc « Formule recommandée, états
+    // actifs et appels à l’action » ne était tout simplement pas lu.
+    const md = '### Colors\n- Rouge: #D9342B  (Formule recommandée, états actifs et appels à l’action)\n'
+    expect(parseColors(md)[0].role).toBe('accent')
+  })
+})

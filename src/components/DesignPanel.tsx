@@ -9,6 +9,7 @@ import { STYLE_PRESETS, resolveStyle, ACCENT_VARIANTS, BG_VARIANTS, type ThemeMo
 import { Button, Icon, Segmented } from '../ui'
 import { ScaledMockup } from './DesignMockup'
 import { DesignLibrarySection, SaveDesignDialog } from './DesignLibrary'
+import DesignSpecSheet from './DesignSpecSheet'
 import { useT } from '../i18n'
 
 export default function DesignPanel({
@@ -143,6 +144,26 @@ export default function DesignPanel({
             {t('design.clear')}
           </Button>
         </div>
+      )}
+
+      {/* The document, rendered.
+          This page could only ever be EDITED — a textarea and a character
+          count — so the one thing it never showed was the thing it is about.
+          Everything below is read from the Markdown itself: no section appears
+          unless the document fills it. */}
+      {chars > 0 && (
+        <section className="mb-10">
+          <DesignSpecSheet
+            markdown={design.markdown}
+            density="full"
+            columns={embedded ? 2 : 3}
+            // Editable here, because here the document IS the user's live
+            // design system. Save goes through the same setDesign the textarea
+            // uses, so the autosave effect persists it and the textarea below
+            // updates in the same render.
+            onSave={(next: string) => setDesign((d) => ({ ...d, markdown: next }))}
+          />
+        </section>
       )}
 
       {/* Saved systems, before the built-in presets: what you kept comes first. */}
