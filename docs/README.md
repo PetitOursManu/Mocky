@@ -21,7 +21,7 @@ were made. They assume you know React and TypeScript.
 | Layer | What it is |
 |---|---|
 | Front end | React 18, TypeScript, Vite, Tailwind CSS |
-| Back end | Node ≥ 20.19 with Express. JSON files on disk. No database, no native dependencies |
+| Back end | Node ≥ 22.12 with Express. JSON files on disk. No database, no native dependencies |
 | Preview | An iframe sandboxed to an opaque origin. React, ReactDOM, Babel and Tailwind are vendored locally. JSX is compiled inside the iframe |
 | Models | Mocky always speaks the Ollama dialect internally. A proxy translates to OpenAI-compatible APIs |
 | External binary | `ffmpeg`, used only for scroll-driven video |

@@ -2,12 +2,12 @@
 
 ## L'image Docker
 
-`Dockerfile` est une construction **en plusieurs étages**, sur `node:20-slim`.
+`Dockerfile` est une construction **en plusieurs étages**, sur `node:22-slim`.
 
 ### Étage 1 — la construction
 
 ```dockerfile
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 COPY package.json package-lock.json ./
 RUN npm ci                 # toutes les dépendances, y compris de développement
 COPY . .
@@ -17,7 +17,7 @@ RUN npm run build          # tsc && vite build → dist/
 ### Étage 2 — l'exécution
 
 ```dockerfile
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 RUN npm ci --omit=dev && npm cache clean --force
 ```
 
@@ -486,7 +486,7 @@ charge lui-même.
 Quatre points propres à cette image :
 
 **La taille.** Environ 300 Mo de Chromium plus 120 Mo de ffmpeg s'ajoutent à
-`node:20-slim`. Prévoyez le disque de construction, et une première construction
+`node:22-slim`. Prévoyez le disque de construction, et une première construction
 lente.
 
 **La première construction peut échouer partiellement sans échouer.** Les deux

@@ -2,8 +2,10 @@
 
 ## Prérequis
 
-Docker, **ou** Node ≥ 20.19. Le fichier `.nvmrc` fixe la version majeure 20,
-celle qu'utilise l'image `node:20-slim`.
+Docker, **ou** Node ≥ 22.12. Le fichier `.nvmrc` fixe la version 22.12, celle
+qu'utilise l'image `node:22-slim`. Le plancher est passé de 20 à 22 avec la
+passe de qualité : son détecteur exige Node 22.12+, et Node 20 est sorti du
+support en avril 2026.
 
 Il n'y a ni base de données, ni module natif à compiler.
 

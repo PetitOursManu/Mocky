@@ -36,6 +36,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - 🧠 **Génération d'interfaces par le dialogue** — décrivez un écran, obtenez un composant React + Tailwind autonome.
 - ✨ **Muse — intelligence du design** — un seul interrupteur transforme un prompt en direction artistique singulière, avec de vrais textes, une palette cohérente et de véritables images générées (voir [✨ Muse](#-muse--intelligence-du-design) plus bas). Ancrée dans des références primées consultées en direct via des serveurs MCP locaux ; aucune clé requise.
 - 🎨 **Un rendu prêt pour la production** — le prompt impose de vraies couleurs, des espacements, des angles arrondis, des ombres, des états interactifs et un contenu réaliste (pas de wireframes).
+- 🔎 **Passe de qualité, à la demande** — clic droit sur un écran et Mocky confronte ce qu'il a généré à 59 règles déterministes et à une passe jugée, le note sur 20, et sait corriger ce qu'il a trouvé (voir [Passe de qualité](#passe-de-qualité) plus bas). Jamais automatique.
 - 🖼️ **Canevas infini** — un plan pointillé façon Stitch ; déplacement et zoom, cadres redimensionnables à taille réelle, sélection multiple façon Windows (clic / Ctrl-clic / lasso), rangement en grille.
 - ▶️ **Mode Interagir** — cliquez sur les boutons ; les états de survol et les animations s'exécutent en direct, à même la grille.
 - ✦ **De vraies animations, sans danger** — onze préréglages d'animation et trois composants derrière un unique emballage `<Animated preset="…">`, propulsés par [Motion](https://motion.dev). Le modèle qui génère n'écrit jamais de code d'animation : il choisit un nom dans une liste fermée (voir [Animations](#animations) plus bas). Un seul interrupteur, par projet ou par écran, fige l'ensemble.
@@ -60,7 +61,7 @@ React 18 · TypeScript · Vite · Tailwind CSS côté interface, et un minuscule
 
 > **Pourquoi c'est ainsi —** Plusieurs routes de Mocky dépensent de l'argent réel — appels au modèle, génération d'images, images extraites d'une vidéo — et son stockage contient le travail de personnes nommément identifiées ; l'instance identifie donc ses appelants avant de faire quoi que ce soit, et la toute première personne qui se présente est celle à qui elle confie les clés. Les deux prérequis ci-dessous sont des alternatives plutôt qu'une liste : l'image de conteneur arrive avec chaque brique optionnelle déjà à l'intérieur, tandis qu'une copie des sources attend de vous que vous fournissiez l'environnement d'exécution.
 
-**Prérequis :** Docker, *ou* Node 20.19+ (voir `.nvmrc`). Rien d'autre — pas de base de données, pas de module natif.
+**Prérequis :** Docker, *ou* Node 22.12+ (voir `.nvmrc`). Rien d'autre — pas de base de données, pas de module natif. Ce plancher est fixé par le détecteur d'anti-motifs qui sert la [passe de qualité](#passe-de-qualité), et Node 20 est de toute façon sorti du support en avril 2026.
 
 **Mocky exige un compte.** Le premier que vous créez devient l'administrateur de l'instance, et seul un administrateur peut ajouter d'autres utilisateurs ou configurer un modèle valable pour toute l'instance. Il n'y a pas de mode anonyme : les projets, la bibliothèque d'images et Muse vivent tous derrière une session.
 
@@ -144,7 +145,7 @@ npm run backup
 
 > **Pourquoi c'est ainsi —** Les outils qui transforment du code source typé en bundle pour navigateur sont volumineux, nombreux, et nécessaires exactement une fois. Un build en deux étapes permet à la première de les contenir tous pendant que la seconde n'hérite que de leur résultat : ce qui atterrit sur la machine en production, c'est l'interface compilée plus la poignée de paquets que le serveur appelle vraiment — une image plus légère à déplacer, et moins de code posé sur quelque chose que vous avez exposé à un réseau.
 
-L'image Docker est un **build multi-étapes** basé sur `node:20-slim` :
+L'image Docker est un **build multi-étapes** basé sur `node:22-slim` :
 
 - **Étape 1 (builder)** : installe toutes les dépendances, exécute `npm run build` → produit `dist/`
 - **Étape 2 (runtime)** : n'installe que les dépendances de production, copie `dist/`, `server/` et `public/` depuis le builder. Exécute `node server/index.js`.
@@ -339,6 +340,26 @@ Un modèle qui déraperait et écrirait malgré tout `import { motion }` ou `<mo
 **L'interrupteur** se trouve dans le composeur, avec trois états — `auto` (Mocky décide d'après le prompt, c'est la valeur par défaut), forcé à l'arrêt, forcé en marche — et chaque écran peut passer outre depuis la barre au-dessus de son cadre ou depuis son menu contextuel. Couper l'interrupteur fige aussi les écrans *déjà générés*, en ramenant chaque animation à son image finale plutôt qu'en la supprimant : `animation: none` sur un fondu dont l'état de repos est `opacity: 0` laisserait une maquette blanche au lieu d'une maquette immobile.
 
 Motion est figé à une version **exacte** et empaqueté par `scripts/build-vendor-motion.mjs` — voir [`public/vendor/VENDOR.md`](public/vendor/VENDOR.md). Une mise à jour a déjà été livrée qui a silencieusement cessé d'animer sans lever la moindre erreur : vérifiez donc les préréglages **visuellement** après chaque montée de version, et pas seulement « aucune erreur en console ».
+
+### Passe de qualité
+
+> **Pourquoi c'est ainsi —** On a beau dire à un modèle à quoi ressemble le bon travail, il rendra malgré tout trois cartes de fonctionnalités interchangeables et un héros sans idée propre, parce qu'un prompt est une consigne et non un contrôle. Le contrôle a donc lieu après coup, sur le code fini, et il est réparti selon ce que chaque moitié peut réellement trancher : une règle qui porte sur un nom de classe se décide de façon déterministe et ne coûte rien, une règle qui porte sur une composition réclame un lecteur et coûte un appel de modèle bon marché. Rien de tout cela ne se déclenche seul — un écran qui vous convient ne doit jamais être réécrit dans votre dos.
+
+Clic droit sur un écran du canevas → **Peaufiner (détecter et corriger)**. Mocky examine ce qui a été généré et, là où quelque chose ne va pas, demande au modèle de le réparer — **deux passes de correction au maximum**, à la demande, jamais automatiquement. La détection tourne sur le backend : comme Muse, la passe ne fait rien en mode `localStorage` pur.
+
+Trois choses regardent l'écran, et chacune a le droit de ne rien apporter :
+
+- **Une détection déterministe** — 59 règles visant les marques visuelles d'une interface écrite par une machine, appliquées au JSX généré lu comme du texte. Chaque signalement porte une ligne et un extrait, ce qui est précisément ce qui rend la réparation possible : un défaut que le modèle sait localiser est un défaut qu'il sait corriger.
+- **Une passe jugée** — un unique appel de modèle, bon marché et sans flux, qui répond à une liste fixe de questions par oui ou par non qu'aucune expression régulière ne tranche (« trois cartes de fonctionnalités interchangeables », « un héros sans idée propre »). Le code y entre comme *donnée*, jamais comme consigne — la même séparation que Muse applique à une page récupérée, et pour la même raison.
+- **Un audit** — cinq dimensions (accessibilité, performance, thème, adaptabilité, anti-motifs), chacune notée de 0 à 4 pour un score de santé sur 20, avec des signalements étiquetés de P0 à P3.
+
+**Chaque dimension annonce aussi un degré de confiance, et c'est là que se loge l'honnêteté du rapport.** Mocky lit le code source ; il n'affiche jamais la page. Cela couvre presque entièrement le thème et les marques de « slop », qui vivent dans des noms de classe qu'il peut voir — et cela ne touche presque pas à l'accessibilité ni à l'adaptabilité, parce que le contraste, la longueur des lignes et les débordements sont des propriétés d'une page déjà mise en page. Un 4/4 en accessibilité sur un écran que personne n'a affiché serait un mensonge, et le degré de confiance est ce qui empêche le rapport de le proférer.
+
+**Le goût cesse d'être l'affaire de Mocky dès l'instant où vous l'avez tranché.** `src/lib/generate.ts` dit déjà au modèle qu'une direction artistique fournie prime sur chacune des règles de style du prompt ; lorsqu'un projet a une direction établie, les règles qui jugent la couleur et la typographie sont donc rétrogradées au rang de conseils : elles vous sont signalées, jamais transmises à la boucle de correction. Un écran qui respecte une direction violette est juste, pas bâclé.
+
+**La boucle s'arrête à quatre conditions, dont une seule est le budget.** Plus rien à corriger. Les mêmes règles toujours en échec après une passe, puisque redemander donnerait la même réponse. Une passe qui a créé plus de problèmes qu'elle n'en a résolu — auquel cas c'est l'écran d'*avant* que vous conservez. Et, en dernier, les deux passes épuisées. **Revenir à la version précédente** annule un peaufinage exactement comme il annule une modification.
+
+La détection déterministe s'appuie sur **[`impeccable`](https://github.com/pbakaus/impeccable)**, un paquet npm open source de Paul Bakaus, sous licence **Apache-2.0**. Mocky n'utilise que ce paquet et son catalogue public de règles, rien d'autre : un seul moteur, `detectText`, qui lit du code source sous forme de chaîne. Rien de la couche agentique du projet n'est utilisé — ni skills, ni commandes slash, ni Live Mode. Les questions de la passe jugée sont propres à Mocky, écrites pour ce pipeline.
 
 ## ✨ Muse — intelligence du design
 

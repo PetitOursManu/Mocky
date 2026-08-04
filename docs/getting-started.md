@@ -2,8 +2,10 @@
 
 ## Requirements
 
-Docker, **or** Node ≥ 20.19. The `.nvmrc` file pins major version 20, which is
-what the `node:20-slim` image uses.
+Docker, **or** Node ≥ 22.12. The `.nvmrc` file pins 22.12, which is what the
+`node:22-slim` image uses. The floor moved up from 20 when the quality pass
+landed: its detector requires Node 22.12+, and Node 20 left support in April
+2026.
 
 There is no database and no native module to compile.
 

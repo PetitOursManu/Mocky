@@ -22,15 +22,19 @@ Le fait le plus structurant du projet :
 
 Le back-end est volontairement petit : des fichiers JSON dans `server/data/`,
 aucune base de données, aucune dépendance native. Les dépendances d'exécution
-sont `express`, `cookie-parser`, plus `@modelcontextprotocol/sdk` et `zod` pour
-Muse.
+sont `express`, `cookie-parser`, `@modelcontextprotocol/sdk` et `zod` pour Muse,
+et `impeccable` pour la passe de qualité.
 
 Les écritures sont atomiques : on écrit dans un fichier temporaire, puis on le
 renomme. Un plantage en cours d'écriture ne laisse donc jamais de fichier à
 moitié écrit.
 
 Cette posture « pas de base de données, pas de dépendance native » est un
-invariant de fait, et l'image `node:20-slim` repose dessus.
+invariant de fait, et l'image `node:22-slim` repose dessus. `impeccable` ne
+l'affaiblit pas : ses six dépendances d'exécution sont toutes en JavaScript pur,
+et le Puppeteer qu'il déclare est **optionnel**, pour un moteur d'analyse d'URL
+que Mocky n'appelle jamais. Voir les [invariants](invariants.md) pour savoir
+pourquoi ce drapeau vit dans le Dockerfile et pas dans un `.npmrc`.
 
 ---
 
@@ -673,7 +677,11 @@ vidéos.
 ### L'intégration continue
 
 `.github/workflows/ci.yml` exécute `build`, `test`, `check:vendor` et
-`npm audit --omit=dev` sur Node 20 **et** 22.
+`npm audit --omit=dev` sur Node 22 **et** 24. La 22 correspond au Dockerfile et
+au `.nvmrc` ; la 24 est la prochaine LTS, gardée dans la matrice parce que les
+deux ont déjà divergé. Node 20 a été abandonné à l'arrivée de la passe de
+qualité : `impeccable` exige 22.12 ou plus, et Node 20 est sorti du support en
+avril 2026.
 
 Elle construit ensuite l'image Docker, la **démarre**, et attend qu'elle réponde.
 Construire ne prouvait que la validité syntaxique du Dockerfile ; démarrer

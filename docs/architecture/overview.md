@@ -22,13 +22,18 @@ The single most structural fact about the project:
 
 The back end is deliberately small: JSON files under `server/data/`, no database,
 no native dependencies. The runtime dependencies are `express`, `cookie-parser`,
-plus `@modelcontextprotocol/sdk` and `zod` for Muse.
+`@modelcontextprotocol/sdk` and `zod` for Muse, and `impeccable` for the quality
+pass.
 
 Writes are atomic — write to a temporary file, then rename. A crash mid-write
 never leaves a half-written file.
 
 This "no database, no native dependencies" posture is a de facto invariant, and
-the `node:20-slim` image depends on it holding.
+the `node:22-slim` image depends on it holding. `impeccable` does not weaken it:
+its six runtime dependencies are all pure JavaScript, and the Puppeteer it
+declares is **optional**, for a URL-scanning engine Mocky never calls. See
+[invariants](invariants.md) for why that flag lives in the Dockerfile and not in
+an `.npmrc`.
 
 ---
 
@@ -650,7 +655,10 @@ suites.
 ### CI
 
 `.github/workflows/ci.yml` runs `build`, `test`, `check:vendor` and
-`npm audit --omit=dev` on Node 20 **and** 22.
+`npm audit --omit=dev` on Node 22 **and** 24. 22 matches the Dockerfile and the
+`.nvmrc`; 24 is the next LTS, kept in the matrix because the two have diverged
+before. Node 20 was dropped when the quality pass landed: `impeccable` requires
+22.12 or later, and Node 20 left support in April 2026.
 
 It then builds the Docker image, **starts it**, and waits for it to answer.
 Building only proved that the Dockerfile parses; starting catches a missing

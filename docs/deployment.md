@@ -2,12 +2,12 @@
 
 ## The Docker image
 
-`Dockerfile` is a **multi-stage** build on `node:20-slim`.
+`Dockerfile` is a **multi-stage** build on `node:22-slim`.
 
 ### Stage 1 — build
 
 ```dockerfile
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 COPY package.json package-lock.json ./
 RUN npm ci                 # all dependencies, devDependencies included
 COPY . .
@@ -17,7 +17,7 @@ RUN npm run build          # tsc && vite build → dist/
 ### Stage 2 — runtime
 
 ```dockerfile
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 RUN npm ci --omit=dev && npm cache clean --force
 ```
 
@@ -467,7 +467,7 @@ itself.
 Four things specific to this image:
 
 **Size.** Roughly 300 MB of Chromium plus 120 MB of ffmpeg on top of
-`node:20-slim`. Plan for the build disk, and for a slow first build.
+`node:22-slim`. Plan for the build disk, and for a slow first build.
 
 **The first build can partly fail without failing.** Both layers are deliberately
 best-effort. If the build network hiccupped, the image still starts: video

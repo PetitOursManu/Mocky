@@ -25,7 +25,7 @@ TypeScript.
 | Couche | Ce que c'est |
 |---|---|
 | Front | React 18, TypeScript, Vite, Tailwind CSS |
-| Back | Node ≥ 20.19 avec Express. Des fichiers JSON sur disque. Pas de base de données, pas de dépendance native |
+| Back | Node ≥ 22.12 avec Express. Des fichiers JSON sur disque. Pas de base de données, pas de dépendance native |
 | Aperçu | Une iframe isolée, sans origine propre. React, ReactDOM, Babel et Tailwind sont copiés localement. Le JSX est compilé à l'intérieur de l'iframe |
 | Modèles | Mocky parle toujours le dialecte Ollama en interne. Un proxy traduit vers les API compatibles OpenAI |
 | Binaire externe | `ffmpeg`, uniquement pour la vidéo au défilement |

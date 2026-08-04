@@ -36,6 +36,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 🧠 **Chat-to-UI generation** — describe a screen, get a self-contained React + Tailwind component.
 - ✨ **Muse — design intelligence** — one toggle turns a prompt into a distinctive art direction with real copy, a coherent palette, and genuine generated imagery (see [✨ Muse](#-muse--design-intelligence) below). Grounded in live award-winning references via local MCP servers; zero keys required.
 - 🎨 **Production-ready output** — the prompt enforces real colors, spacing, rounded corners, shadows, interactive states, and realistic content (no wireframes).
+- 🔎 **Quality pass, on demand** — right-click a screen and Mocky checks what it generated against 59 deterministic rules plus a judged pass, scores it out of 20, and can correct what it found (see [Quality pass](#quality-pass) below). Never automatic.
 - 🖼️ **Infinite canvas** — a Stitch-like dotted board; pan/zoom, real-size resizable frames, Windows-style multi-select (click / Ctrl-click / marquee), arrange-to-grid.
 - ▶️ **Interact mode** — click buttons, hover states and animations run live, right in the grid.
 - ✦ **Real motion, safely** — eleven animation presets and three components behind a single `<Animated preset="…">` wrapper, powered by [Motion](https://motion.dev). The generating model never writes animation code: it picks a name from a closed list (see [Animations](#animations) below). One switch, per project or per screen, holds everything still.
@@ -60,7 +61,7 @@ React 18 · TypeScript · Vite · Tailwind CSS on the front, and a tiny **Node +
 
 > **Why it works this way —** Several of Mocky's routes spend real money — model calls, image generation, video frames — and its store holds work that belongs to named people, so the instance identifies its callers before it does anything at all, and the very first person to arrive is the one it hands the keys to. The two prerequisites below are alternatives rather than a list: the container image arrives with every optional part already inside it, while a source checkout expects you to supply the runtime yourself.
 
-**Prerequisites:** Docker, *or* Node 20.19+ (see `.nvmrc`). Nothing else — no database, no native modules.
+**Prerequisites:** Docker, *or* Node 22.12+ (see `.nvmrc`). Nothing else — no database, no native modules. That floor is set by the anti-pattern detector behind the [quality pass](#quality-pass), and Node 20 left support in April 2026 anyway.
 
 **Mocky requires an account.** The first one you create becomes the instance admin, and only an admin can add other users or configure an instance-wide model. There is no anonymous mode: projects, the image library and Muse all live behind a session.
 
@@ -144,7 +145,7 @@ npm run backup
 
 > **Why it works this way —** The tools that turn typed source into a browser bundle are large, numerous, and needed exactly once. A two-stage build lets the first stage hold all of them while the second inherits only their output, so what ends up on the running machine is the compiled interface plus the handful of packages the server genuinely calls — a smaller image to move around, and less code sitting on something you have exposed to a network.
 
-The Docker image is a **multi-stage build** based on `node:20-slim`:
+The Docker image is a **multi-stage build** based on `node:22-slim`:
 
 - **Stage 1 (builder)**: installs all dependencies, runs `npm run build` → produces `dist/`
 - **Stage 2 (runtime)**: installs only production dependencies, copies `dist/`, `server/`, and `public/` from the builder. Runs `node server/index.js`.
@@ -359,6 +360,26 @@ A model that slips and writes `import { motion }` or `<motion.div>` anyway has i
 **The switch** sits in the composer with three states — `auto` (Mocky decides from the prompt, the default), forced on, forced off — and each screen can override it from the bar above its frame or its context menu. Switching off holds *already generated* screens still too, by collapsing every animation to its final frame rather than removing it: `animation: none` on a fade-in whose resting state is `opacity: 0` would leave a blank mockup instead of a still one.
 
 Motion is pinned to an **exact** version and bundled by `scripts/build-vendor-motion.mjs` — see [`public/vendor/VENDOR.md`](public/vendor/VENDOR.md). It has shipped an upgrade that silently stopped animating without throwing, so verify the presets **visually** after any bump, not just "no console error".
+
+### Quality pass
+
+> **Why it works this way —** A model can be told exactly what good looks like and still hand back three interchangeable feature cards and a hero with no idea of its own, because a prompt is an instruction and not a check. So the check happens afterwards, on the finished source, and it is split by what each half can actually settle: a rule about a class name is decided deterministically and costs nothing, a rule about a composition needs a reader and costs one cheap model call. None of it runs on its own — a screen you are happy with should never be rewritten behind your back.
+
+Right-click a screen on the canvas → **Polish (detect and correct)**. Mocky checks what was generated and, where something is wrong, asks the model to repair it — **up to two correction passes**, on demand, never automatically. Detection runs on the backend, so like Muse the pass does nothing in pure-`localStorage` mode.
+
+Three things look at the screen, and each is allowed to contribute nothing:
+
+- **Deterministic detection** — 59 rules for the visual tells of machine-written UI, run over the generated JSX as text. Every finding carries a line and a snippet, which is what makes repair possible at all: a finding the model can locate is a finding it can fix.
+- **A judged pass** — one cheap, non-streamed model call answering a fixed list of yes/no questions no regex settles ("three interchangeable feature cards", "a hero with no idea of its own"). The source goes in as *data*, never as instructions — the same separation Muse applies to a fetched page, for the same reason.
+- **An audit** — five dimensions (accessibility, performance, theming, responsive, anti-patterns), each scored 0–4 for a health score out of 20, with findings tagged P0 to P3.
+
+**Every dimension also states a confidence, and that field is the honest part.** Mocky reads the source; it never renders the page. That covers theming and the slop tells almost completely, because they live in class names it can see — and it barely touches accessibility or responsiveness, because contrast, line length and overflow are properties of a page that has been laid out. A 4/4 for accessibility on a screen nobody rendered would be a lie, and the confidence is what stops the report from telling it.
+
+**Taste stops being Mocky's call once you have settled it.** `src/lib/generate.ts` already tells the model that a supplied art direction overrides every stylistic rule in the prompt, so when a project has an established direction the rules judging colour and typography are demoted to advice: reported to you, never fed to the correction loop. A screen that honours a violet direction is correct, not sloppy.
+
+**The loop stops on four conditions, and only one of them is the budget.** Nothing enforceable left. The same rules still failing after a pass, since asking again would get the same answer. A pass that introduced more problems than it solved — in which case the screen from *before* it is the one you keep. And, last, the two passes spent. **Revert to the previous version** undoes a polish exactly as it undoes an edit.
+
+Deterministic detection is built on **[`impeccable`](https://github.com/pbakaus/impeccable)**, an open-source npm package by Paul Bakaus, licensed **Apache-2.0**. Mocky uses that package and its public rule catalogue and nothing else: one engine, `detectText`, which reads source as a string. None of the project's agentic layer is used — no skills, no slash-commands, no Live Mode. The judged questions are Mocky's own, written for this pipeline.
 
 ## ✨ Muse — design intelligence
 
