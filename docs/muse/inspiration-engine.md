@@ -399,6 +399,7 @@ discarded in favour of the fallback dossier.
 | `voice` named `voiceCopy` or `copy` | Top-level aliases |
 | `headline`/`title`/`h1`, `valueProps`/`value_props`/`benefits`… | `coerceVoice()` |
 | `forbidden` named `clichés`, `avoid` or `forbid` | Aliases plus `coerceStringArray()` |
+| `productName` named `product_name`, `product`, `name`, `brand` or `brandName` | Top-level aliases — trimmed, then dropped if it came back as anything other than a string or runs past 40 characters: a wordmark is short, and anything longer is an explanation of one |
 
 ### Two attempts, then a deterministic fallback
 

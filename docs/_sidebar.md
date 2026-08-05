@@ -1,5 +1,6 @@
 - [Home](/)
 - [Getting started](getting-started.md)
+- [DESIGN.md presets](design-presets.md)
 - Architecture
   - [Overview](architecture/overview.md)
   - [Invariants](architecture/invariants.md)
@@ -7,8 +8,10 @@
   - [Overview](muse/overview.md)
   - [Inspiration engine](muse/inspiration-engine.md)
   - [Animations](muse/animations.md)
+- [Quality pass](quality.md)
 - [Deployment](deployment.md)
+- [Changelog](CHANGELOG.md)
 - Reference
-  - [ADR 001 — Muse (EN)](adr/001-muse.md)
-  - [Design system (FR)](DESIGN-SYSTEM.md)
-  - [Audit 2026-07 (FR)](AUDIT-2026-07.md)
+  - [ADR 001 — Muse](adr/001-muse.md)
+  - [Design system](DESIGN-SYSTEM.en.md)
+  - [Audit 2026-07](AUDIT-2026-07.en.md)

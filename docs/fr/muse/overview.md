@@ -79,6 +79,7 @@ Autour, Muse ajoute :
 
 | Section | Contenu |
 |---|---|
+| `## Product` | Comment le produit s'**appelle** — le logotype que porte chaque écran. `required` dans le schéma remis au modèle, et non facultatif : laissé facultatif, il était tout simplement omis, car un modèle satisfait un schéma, il n'offre rien au-delà |
 | `## Concept` | Deux ou trois phrases de direction artistique **précise**. « Moderne, propre, professionnel » est banni |
 | `## References` | Quelle référence ou quel pattern a motivé quel choix |
 | `## Tokens` | Une palette de 6 à 8 couleurs, la typographie, le rayon des angles — au format `DESIGN.md` |

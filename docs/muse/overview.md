@@ -74,6 +74,7 @@ Around that, Muse adds:
 
 | Section | Contents |
 |---|---|
+| `## Product` | What the product is **called** — the wordmark every screen carries. `required` in the schema handed to the model, not optional: left optional it was simply omitted, because a model satisfies a schema, it does not volunteer beyond it |
 | `## Concept` | Two or three sentences of **specific** art direction. "Modern, clean, professional" is banned |
 | `## References` | Which reference or pattern drove which choice |
 | `## Tokens` | Palette of 6 to 8 colours, typography, radius — in `DESIGN.md` format |
@@ -100,7 +101,7 @@ dossier was written afresh on every generation. A project therefore accumulated
 one visual language per screen. The dossier is now a **candidate** direction
 rather than the authority — `resolveDirection` keeps the first one and discards
 the rest, and the later runs exist for their imagery plan, the one part of a
-dossier that was ever legitimately per-screen. See [D11](../adr/001-muse.md).
+dossier that was ever legitimately per-screen. See [D11](adr/001-muse.md).
 
 Full details are in the [inspiration engine](muse/inspiration-engine.md) page.
 

@@ -17,7 +17,7 @@
     16, 32 and 48 px for 15 KB, and every browser reads it.
   -->
   <!--
-    ?v=2 — CACHE BUSTING. Read this before editing any file in docs-site/.
+    ?v=3 — CACHE BUSTING. Read this before editing any file in docs-site/.
 
     Static hosts serve CSS, JS and images with a long cache lifetime, and
     browsers hold on to a stylesheet far longer than they hold on to the HTML
@@ -34,8 +34,8 @@
     The vendored Docsify files carry it too. They only move on a version bump,
     but that is exactly the moment nobody thinks about the cache.
   -->
-  <link rel="icon" type="image/x-icon" href="./favicon.ico?v=2">
-  <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico?v=2">
+  <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3">
+  <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico?v=3">
   <!--
     Docsify 4.13.1, vendored under ./vendor/ and served by this same host.
 
@@ -58,8 +58,8 @@
     English is the default language and lives at the root of `docs/`. French
     lives under `docs/fr/`.
   -->
-  <link rel="stylesheet" href="./vendor/docsify-theme.css?v=2">
-  <link rel="stylesheet" href="./mocky.css?v=2">
+  <link rel="stylesheet" href="./vendor/docsify-theme.css?v=3">
+  <link rel="stylesheet" href="./mocky.css?v=3">
   <script>
     /*
      * Theme before first paint.
@@ -138,7 +138,7 @@
     window.$docsify = {
       name: 'Mocky',
       // The masthead mark, next to the name. Same artwork as the favicon.
-      logo: './logo.png?v=2',
+      logo: './logo.png?v=3',
       repo: 'https://github.com/PetitOursManu/Mocky',
       loadSidebar: true,
       subMaxLevel: 2,
@@ -305,7 +305,13 @@
       basePath: 'https://raw.githubusercontent.com/PetitOursManu/Mocky/main/docs/',
     }
   </script>
-  <script src="./vendor/docsify.min.js?v=2"></script>
-  <script src="./vendor/docsify-search.min.js?v=2"></script>
+  <!--
+    Registered BEFORE the engine: it appends to window.$docsify.plugins,
+    which Docsify reads once at startup. Loaded after it, the plugin would
+    be added to an array nobody looks at again.
+  -->
+  <script src="./widgets.js?v=3"></script>
+  <script src="./vendor/docsify.min.js?v=3"></script>
+  <script src="./vendor/docsify-search.min.js?v=3"></script>
 </body>
 </html>

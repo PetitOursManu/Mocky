@@ -8,7 +8,7 @@
 
 ```dockerfile
 FROM node:22-slim AS builder
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .puppeteerrc.cjs ./
 RUN npm ci                 # toutes les dépendances, y compris de développement
 COPY . .
 RUN npm run build          # tsc && vite build → dist/
@@ -18,8 +18,16 @@ RUN npm run build          # tsc && vite build → dist/
 
 ```dockerfile
 FROM node:22-slim AS runtime
-RUN npm ci --omit=dev && npm cache clean --force
+COPY package.json package-lock.json .puppeteerrc.cjs ./
+RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 ```
+
+`--omit=optional` a sa place **ici et nulle part ailleurs** : cet étage installe
+les dépendances d'exécution et ne construit rien, donc il ne veut ni Puppeteer —
+dépendance facultative d'`impeccable`, dont Mocky n'appelle jamais le moteur par
+URL — ni le moindre binaire natif propre à une plateforme, alors que le même
+drapeau posé dans un `.npmrc` s'appliquerait aussi à l'étage de construction, où
+il retire `@rolldown/binding-*` et casse `npm run build`.
 
 Puis trois couches qui demandent chacune une explication.
 
@@ -160,6 +168,7 @@ l'interface.
 |---|---|---|
 | `PORT` | `8787` | Le port sur lequel Express écoute |
 | `MOCKY_PORT` | *(non définie)* | **Prend le pas sur `PORT`.** Utile en développement : un outil qui injecte `PORT` pour configurer Vite ne doit pas pousser le back-end sur le port de Vite. À laisser vide en production |
+| `MOCKY_HOST` | `127.0.0.1` | **Installation depuis les sources** — l'interface sur laquelle le serveur lui-même écoute. La boucle locale par défaut, parce qu'`app.listen(PORT)` sans hôte écoute sur toutes les interfaces, ce qui posait sur le réseau local une instance aux inscriptions ouvertes, offerte au premier venu. L'image pose `0.0.0.0` ; n'y touchez pas, un conteneur qui écoute sur la boucle locale est injoignable par son port publié |
 | `MOCKY_BIND` | `127.0.0.1` | **Docker uniquement** — l'interface de l'hôte sur laquelle le port est publié |
 | `MOCKY_DATA_DIR` | `server/data` | Où vit le magasin JSON. À pointer vers un volume monté si besoin |
 | `TRUST_PROXY` | *(non définie)* | `1`, un nombre de sauts, ou une valeur `trust proxy` d'Express. **Obligatoire derrière un reverse proxy** |
@@ -516,7 +525,7 @@ séparée : pas de construction, pas de Node, pas de volume.
 Deux dossiers, deux ressources, volontairement découplés.
 
 - **`docs/`** — le contenu. Des fichiers Markdown, rien d'autre.
-- **`docs-site/`** — le lecteur. Quatre fichiers statiques.
+- **`docs-site/`** — le lecteur. Sept fichiers statiques.
 
 ### Comment ça marche
 

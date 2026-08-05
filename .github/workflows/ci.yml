@@ -32,6 +32,12 @@ jobs:
       # review unnoticed — hence hashes rather than trust.
       - name: Verify vendored bundles
         run: npm run check:vendor
+      # The documentation site cannot import from src/, so the design presets
+      # and the quality rules exist a second time as JSON beside the docs. That
+      # copy is generated; this turns a drift that is otherwise invisible — the
+      # docs quietly showing last month's palette — into a red build.
+      - name: Verify generated docs data
+        run: npm run check:docs-data
       # Production dependencies only. The dev-server advisories (vite/esbuild)
       # do not apply to a deployment, where Express serves the built dist/.
       - name: Audit production dependencies

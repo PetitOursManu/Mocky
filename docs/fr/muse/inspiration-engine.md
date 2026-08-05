@@ -417,6 +417,7 @@ bonne réponse soit utilisée au lieu d'être jetée au profit du dossier de rep
 | `voice` nommé `voiceCopy` ou `copy` | Alias de premier niveau |
 | `headline`/`title`/`h1`, `valueProps`/`value_props`/`benefits`… | `coerceVoice()` |
 | `forbidden` nommé `clichés`, `avoid` ou `forbid` | Alias plus `coerceStringArray()` |
+| `productName` nommé `product_name`, `product`, `name`, `brand` ou `brandName` | Alias de premier niveau — espaces de tête et de fin retirés, puis la valeur est abandonnée si elle est revenue autrement qu'en chaîne ou si elle dépasse 40 caractères : un logotype est court, et tout ce qui est plus long en est l'explication |
 
 ### Deux tentatives, puis un repli déterministe
 

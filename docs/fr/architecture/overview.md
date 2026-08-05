@@ -11,8 +11,10 @@ Le fait le plus structurant du projet :
 | Sélection des capacités | Navigateur | `src/lib/capabilities/select.ts` |
 | Planificateur (facultatif) | Navigateur | `src/lib/plan.ts` |
 | Génération, édition, réparation | Navigateur | `src/lib/generate.ts` |
+| Passe de qualité : vérifier un écran, puis le corriger | Navigateur ; détection sur le serveur | `src/lib/quality.ts`, `polish.ts`, `server/muse/quality/` |
 | Orchestration du pipeline | Navigateur (React) | `src/components/ProjectView.tsx` |
-| Pont `DESIGN.md` (préambule, jetons, export) | Navigateur | `src/lib/design.ts`, `designTokens.ts`, `export/` |
+| Pont `DESIGN.md` (préambule, jetons, fiche, export) | Navigateur | `src/lib/design.ts`, `designTokens.ts`, `designSpec.ts`, `export/` |
+| Une direction lue comme une fiche de spécification, et modifiée comme telle | Navigateur | `src/lib/designSpec.ts`, `src/components/DesignSpecSheet.tsx` |
 | Quelle direction gouverne une génération | Navigateur | `src/lib/direction.ts` |
 | Affichage isolé de l'aperçu | Navigateur | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
 | Persistance | `localStorage`, recopié sur le serveur si connecté | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
@@ -136,8 +138,8 @@ composant. Chaque source passe par `sanitizeSource()`.
 ## 3. Le planificateur
 
 `src/lib/plan.ts` est un appel de modèle bon marché, non diffusé, qui décide de
-la structure de l'écran et des capacités réellement nécessaires, avant la
-génération.
+la structure de l'écran, de son mode et des capacités réellement nécessaires,
+avant la génération.
 
 ```ts
 options: { temperature: 0.2, num_ctx: 8192, num_predict: 1024 }
@@ -165,6 +167,49 @@ l'aperçu en direct et le protocole à sentinelles.
 
 Le planificateur est **sauté quand Muse a tourné**, parce que le dossier fournit
 déjà la structure.
+
+### Le mode
+
+`PLAN_SCHEMA` porte une cinquième propriété, `mode`, limitée à quatre valeurs :
+
+```ts
+export type ScreenMode = 'persuade' | 'operate' | 'read' | 'experience'
+```
+
+Elle dit à quoi ressemble la réussite pour le visiteur de *cet* écran-là, et la
+distinction porte sur la surface, pas sur le produit : un même projet en contient
+couramment les quatre — une page d'accueil persuade, son tableau de bord fait
+travailler, sa documentation se lit, sa galerie se traverse. Nommer le mode
+permet au prompt de génération de demander la bonne chose, parce que la bonne
+chose n'est pas la même dans les quatre cas. Une page d'accueil seulement lisible
+a échoué ; une page de réglages expressive a échoué aussi.
+
+`mode` est la seule propriété **volontairement absente de `required`**. Le prompt
+la demande et le schéma la contraint, mais un modèle incapable de satisfaire
+l'énumération doit quand même rendre un plan utilisable, plutôt que de faire
+échouer la sortie structurée et d'emporter le choix des capacités avec elle.
+`validatePlan()` tient la même ligne dans l'autre sens : un cinquième mode
+inventé devient `undefined` au lieu de couler tout le plan pour une étiquette.
+
+Reste à savoir d'où vient le mode sur les tours où il n'y a pas de plan — et
+c'est presque tous, puisque le planificateur est sauté à chaque passage de Muse
+et désactivé entièrement par un réglage. D'où l'ordre suivi dans la fonction de
+génération de `ProjectView.tsx`, entre la liste courte déterministe et l'appel de
+génération :
+
+1. `inferMode(text)` — une devinette par mots-clés, volontairement grossière et
+   volontairement penchée vers `operate` : l'interface applicative est le cas
+   courant, et se tromper en devinant `persuade` coûte une page de réglages
+   expressive, ce qui est pire que l'inverse.
+2. Le planificateur, sur les rares tours où il s'exécute, remplace cette
+   devinette par son propre `mode` — mais seulement s'il en a réellement renvoyé
+   un.
+3. `if (!planSection) planSection = modeToPromptSection(mode)`
+
+C'est cette troisième ligne qui porte tout. Le mode est ajouté comme une section
+de prompt à lui plutôt que fondu dans le plan, et c'est ce qui le fait arriver
+jusqu'à la génération sur **tous** les chemins — y compris ceux où aucun plan n'a
+jamais été produit.
 
 ---
 
@@ -239,13 +284,30 @@ en train d'arriver, et couper dessus tronquerait l'aperçu à chaque morceau. Un
 fois la réponse complète, une sentinelle mal formée est tout ce qu'il y aura
 jamais : là, elle coupe.
 
-### Les trois points d'appel
+### Les quatre points d'appel
 
 | Fonction | Sert à | Règles supplémentaires |
 |---|---|---|
 | `generateComponent()` | Créer un écran | `extraSystem` porte la direction de design du projet (`resolveDirection` — celle qui est établie, le dossier Muse de ce tour, ou `DESIGN.md`), le plus ancien écran comme référence d'identité, plus les capacités et le plan |
 | `editComponent()` | Modifier les écrans sélectionnés | `EDIT_RULES` : conserver tout ce que l'utilisateur n'a pas demandé de changer, à l'octet près. Le composant complet est renvoyé, pas un diff |
 | `fixComponent()` | Réparer automatiquement après une erreur d'affichage | Non diffusé. Reçoit **le même** prompt de capacités : sans la liste des variables globales existantes, le modèle ne peut pas savoir quel composant est indéfini, et échange une erreur React #130 contre une autre |
+| `polishComponent()` | Corriger des défauts de qualité nommés | Non diffusé non plus : l'appelant revérifie le résultat, et un écran incomplet ne peut pas être vérifié. Reçoit lui aussi le prompt de capacités, et `POLISH_PROMPT` à la place de `FIX_PROMPT` |
+
+`polishComponent` est délibérément un **frère** de `fixComponent`, jamais une
+variante. Les deux partagent le transport, la fin d'extraction et les conventions
+d'écriture de l'appelant, et rien d'autre : `FIX_PROMPT` dit « corrige UNIQUEMENT
+l'erreur, ne restyle pas », ce qui est exactement la mauvaise consigne ici. Un
+défaut de bâclage *est* un problème de style, donc un modèle à qui l'on interdit
+de restyler rend l'écran inchangé et brûle une itération. Les défauts qu'il
+reçoit sont filtrés par l'appelant sur ceux que la politique déclare à
+corriger : une passe n'est donc jamais dépensée sur une règle que Mocky a décidé
+de ne pas imposer.
+
+Les quatre se terminent sur la même expression —
+`guardMotion(extractCode(content))` — et c'est là que la source générée complète
+existe pour la première fois. D'où l'intérêt de garder juste le compte de ce
+titre : une vérification post-génération branchée sur le seul `generateComponent`
+ne voit ni une modification, ni une réparation, ni un polissage.
 
 ### Modifier sans appeler le modèle
 
@@ -587,6 +649,7 @@ défaut les laissait lisibles par tous les autres comptes de la machine.
 | `GET`/`PUT` `/api/data` | session | Les projets et le design de l'utilisateur |
 | `GET /api/mcp/status` | session | L'état de chaque serveur MCP déclaré |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
+| `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` en entrée, un rapport en sortie. `400` uniquement si `code` manque ; **`200` même sans modèle configuré** — voir plus bas |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Générer est le verbe coûteux |
 | `GET /api/images/library`, `/library.zip`, `POST /:hash/favorite`, `DELETE /:hash` | session | Gestion de la bibliothèque |
 | `GET /api/images/:hash` | **public** | Voir plus bas |
@@ -615,6 +678,25 @@ Cette garde est attachée aux **sous-chemins** que servent les routeurs, pas au
 montage `/api`. Montée sur `/api`, elle s'exécutait pour toutes les routes
 `/api/*` suivantes, ce qui plaçait en silence les octets publics derrière
 l'authentification.
+
+### Pourquoi la vérification de qualité répond 200 sans modèle
+
+La route est derrière une session comme tout le reste de Muse —
+`app.use('/api/muse', requireUser)` — et elle refuse une requête dans un seul
+cas : il n'y a pas de `code` à regarder, et c'est un `400`. L'absence de modèle
+n'est pas ce cas-là.
+
+Un rapport a deux moitiés. Les règles déterministes n'ont besoin que de la
+source ; la moitié jugée a besoin d'un modèle. Les identifiants suivent
+exactement la route du dossier : un fournisseur configuré par l'administrateur
+l'emporte, sinon ce sont les en-têtes du navigateur, ceux-là mêmes que lit
+`/__provider`. Sans identifiants, la première moitié tourne quand même et la
+seconde se déclare indisponible : il y a donc une vraie réponse à rendre — les
+défauts trouvés, un audit qui dit quelles dimensions ont réellement été
+examinées, et une note qui nomme ce qui n'a pas tourné. Un `4xx` dirait « cet
+écran n'a pas pu être vérifié », ce qui est faux, et le navigateur le
+remonterait comme un échec au-dessus d'un écran généré sans le moindre problème.
+Dégrader, jamais échouer — [l'invariant Q1](fr/architecture/invariants.md).
 
 ---
 
@@ -646,8 +728,9 @@ d'images et à `npm run backup`.
 
 ## 10. Les tests
 
-`npm test` exécute Vitest sur tout le dépôt. Trois suites méritent d'être
-connues, parce qu'elles lisent **le code réellement livré**, pas une abstraction.
+`npm test` exécute Vitest sur tout le dépôt. Quatre suites méritent d'être
+connues, parce qu'elles lisent **ce qui est réellement livré**, pas une
+abstraction.
 
 **`tests/preview-sandbox.test.js`** verrouille la sécurité de l'aperçu en lisant
 `Preview.tsx` et `capture.ts` : la valeur exacte de `sandbox`, l'absence de
@@ -670,9 +753,29 @@ anglais, et qu'aucun composant ne contienne de phrase en dur. L'interface a ét�
 bilingue **à l'intérieur d'un même composant** : cinq composants en français,
 douze en anglais, deux mixtes.
 
+**`tests/docs-parity.test.js`** fait la même chose pour la documentation. Quatre
+paires — les deux README, le système de design, l'ADR 001 et l'audit de juillet —
+doivent porter le même nombre de titres, aux mêmes niveaux, dans le même ordre ;
+chaque fichier désigne son jumeau par un sélecteur de langue, et sous chaque
+titre se trouve un bloc d'une ligne qui dit pourquoi la section est agencée
+ainsi, dans la langue de ce fichier et jamais dans l'autre. Tenue à la main,
+cette convention se défait là où personne ne regarde : un titre traduit d'un côté
+et oublié de l'autre, un trait d'union ASCII là où le gabarit met un tiret
+cadratin, un bloc anglais collé dans le fichier français. Les documents partaient
+exactement où l'interface était déjà allée : un système de design en français, un
+ADR en anglais, un audit en français, un README en anglais, et aucun moyen de
+savoir à quel lecteur chacun s'adressait.
+
 À côté : `registry.test.ts` pour les invariants du registre au chargement,
-`ssrf-guard.test.js`, `routes-auth.test.js`, et les suites Muse, images et
-vidéos.
+`ssrf-guard.test.js`, `routes-auth.test.js`,
+`server/muse/quality/quality.test.js` pour la détection, la politique, le
+catalogue jugé et l'audit, `src/lib/quality.test.ts` pour la fusion du lint local
+avec les défauts du serveur et pour la signature sur laquelle se mesure le
+progrès, `src/lib/polish.test.ts` pour la boucle de correction — ses quatre
+conditions d'arrêt sont éprouvées en injectant la vérification et la correction,
+donc sans fournisseur ni serveur — `src/lib/designSpec.test.ts` pour les deux
+formes que peut prendre une direction et pour les modifications faites depuis la
+fiche, et les suites Muse, images et vidéos.
 
 ### L'intégration continue
 

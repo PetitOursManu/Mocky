@@ -11,8 +11,10 @@ The single most structural fact about the project:
 | Capability selection (deterministic) | Browser | `src/lib/capabilities/select.ts` |
 | Planner (optional, structured output) | Browser | `src/lib/plan.ts` |
 | Generation, editing, repair (streamed) | Browser | `src/lib/generate.ts` |
+| Quality pass: check a screen, then correct it | Browser; detection on the server | `src/lib/quality.ts`, `polish.ts`, `server/muse/quality/` |
 | Pipeline orchestration and phases | Browser (React) | `src/components/ProjectView.tsx` |
-| `DESIGN.md` bridge (preamble, tokens, export) | Browser | `src/lib/design.ts`, `designTokens.ts`, `export/` |
+| `DESIGN.md` bridge (preamble, tokens, spec, export) | Browser | `src/lib/design.ts`, `designTokens.ts`, `designSpec.ts`, `export/` |
+| A direction read as a specification sheet, and edited as one | Browser | `src/lib/designSpec.ts`, `src/components/DesignSpecSheet.tsx` |
 | Which direction governs a generation | Browser | `src/lib/direction.ts` |
 | Sandboxed render | Browser | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
 | Persistence | `localStorage`, mirrored to the server when signed in | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
@@ -133,7 +135,8 @@ passes through `sanitizeSource()`.
 ## 3. The planner
 
 `src/lib/plan.ts` is a cheap, non-streamed model call that decides the screen's
-structure and which capabilities it actually needs, before generation runs.
+structure, its mode, and which capabilities it actually needs, before generation
+runs.
 
 ```ts
 options: { temperature: 0.2, num_ctx: 8192, num_predict: 1024 }
@@ -159,6 +162,46 @@ the sentinel protocol.
 
 The planner is **skipped when Muse ran**, because the dossier already supplies
 the structure.
+
+### The mode
+
+`PLAN_SCHEMA` carries a fifth property, `mode`, constrained to four values:
+
+```ts
+export type ScreenMode = 'persuade' | 'operate' | 'read' | 'experience'
+```
+
+It records what success looks like for the visitor of *this* screen, and the
+distinction is about the surface, not the product: one project routinely holds
+all four — a landing page persuades, its dashboard operates, its docs are read,
+its gallery is experienced. Naming it lets the generation prompt ask for the
+right thing, because the right thing is not the same in each. A landing page that
+is merely scannable has failed, and so has a settings page that is expressive.
+
+`mode` is the one property deliberately **left out of `required`**. The prompt
+asks for it and the schema constrains it, but a model that cannot satisfy the
+enum should still return a usable plan rather than fail structured output and
+lose the capability choice along with it. `validatePlan()` holds the same line
+from the other side: an invented fifth mode becomes `undefined` instead of
+sinking the whole plan over a label.
+
+Which leaves the question of where the mode comes from on the runs that have no
+plan — and that is nearly all of them, since the planner is skipped on every Muse
+run and switched off entirely by a setting. Hence the order in the generate
+callback of `ProjectView.tsx`, between the deterministic shortlist and the
+generation call:
+
+1. `inferMode(text)` — a keyword guess, deliberately crude and deliberately
+   biased towards `operate`: app UI is the common case, and wrongly guessing
+   `persuade` costs an expressive settings page, which is worse than the reverse.
+2. The planner, on the rare runs where it does execute, replaces that guess with
+   its own `mode` — but only when it actually returned one.
+3. `if (!planSection) planSection = modeToPromptSection(mode)`
+
+The third line is the load-bearing one. The mode is appended as a prompt section
+of its own rather than folded into the plan, which is what makes it reach
+generation on **every** path — including the paths where no plan was ever
+produced.
 
 ---
 
@@ -230,13 +273,28 @@ sentinel. A half-written sentinel is just the next few characters arriving, and
 cutting on it would truncate the preview on every chunk. Once the response is
 complete, a malformed sentinel is all there will ever be, so it does cut.
 
-### The three call sites
+### The four call sites
 
 | Function | Used for | Additional rules |
 |---|---|---|
 | `generateComponent()` | A new screen | `extraSystem` carries the project's design direction (`resolveDirection` — the established one, this run's Muse dossier, or `DESIGN.md`), the earliest screen as an identity reference, plus capabilities and the plan |
 | `editComponent()` | Editing selected screens | `EDIT_RULES`: preserve everything the user did not ask to change, byte for byte. The complete component is returned, not a diff |
 | `fixComponent()` | Auto-repair after a render error | Not streamed. Receives the **same** capability prompt — without the list of existing globals the model cannot tell which component is undefined, and swaps one React #130 error for another |
+| `polishComponent()` | Correcting named quality findings | Not streamed either: the caller re-checks the result, and a partial screen cannot be checked. Receives the capability prompt as well, and `POLISH_PROMPT` in place of `FIX_PROMPT` |
+
+`polishComponent` is deliberately a **sibling** of `fixComponent`, never a variant
+of it. They share the transport, the extraction tail and the caller's write-back
+conventions, and nothing else: `FIX_PROMPT` says "fix ONLY the error, do not
+restyle", which is exactly the wrong instruction here. A slop finding *is* a
+styling problem, so a model told not to restyle hands the screen back unchanged
+and burns an iteration. The findings it receives are filtered by the caller to
+those the policy marks enforceable, so a pass is never spent on a rule Mocky has
+decided not to insist on.
+
+All four end on the same expression — `guardMotion(extractCode(content))` — which
+is where the complete generated source first exists. That is why the count in
+this heading is worth keeping accurate: a post-generation check hooked onto
+`generateComponent` alone sees neither an edit, nor a repair, nor a polish.
 
 ### Editing without a model call
 
@@ -570,6 +628,7 @@ readable by every other account on the machine.
 | `GET`/`PUT` `/api/data` | session | The user's projects and design |
 | `GET /api/mcp/status` | session | State of every declared MCP server |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
+| `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` in, one report out. `400` only when `code` is missing; **`200` even with no model configured** — see below |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Generation is the expensive verb |
 | `GET /api/images/library`, `/library.zip`, `POST /:hash/favorite`, `DELETE /:hash` | session | Library management |
 | `GET /api/images/:hash` | **public** | See below |
@@ -596,6 +655,23 @@ generating and deleting all stay behind a session.
 The guard is attached to the **subpaths** the routers serve, not to the `/api`
 mount. Mounted on `/api`, it ran for every later `/api/*` route too, which
 silently put the public bytes behind authentication.
+
+### Why the quality check answers 200 with no model
+
+The route is session-gated like the rest of Muse — `app.use('/api/muse',
+requireUser)` — and it refuses a request in exactly one case: no `code` to look
+at, which is a `400`. An absent model is not that case.
+
+A report has two halves. The deterministic rules need nothing but the source; the
+judged pass needs a model. Credentials follow the dossier route exactly — an
+administrator-configured provider wins, otherwise the browser's own headers, the
+same ones `/__provider` reads. With no credentials the first half still runs and
+the second reports itself unavailable, so there is a real answer to return: the
+findings that were found, an audit that says which dimensions were actually
+looked at, and a notice naming what did not run. A `4xx` would instead say "this
+screen could not be checked", which is untrue, and the browser would raise it as
+a failure over a screen that had generated perfectly well. Degrade, never fail —
+[invariant Q1](architecture/invariants.md).
 
 ---
 
@@ -626,8 +702,9 @@ CRC32. The same writer serves the image library's "Download all" and
 
 ## 10. Tests
 
-`npm test` runs Vitest across the repository. Three suites are worth knowing
-about, because they read **the shipped code** rather than an abstraction.
+`npm test` runs Vitest across the repository. Four suites are worth knowing
+about, because they read **what actually ships** rather than an abstraction of
+it.
 
 **`tests/preview-sandbox.test.js`** locks the preview's security posture by
 reading `Preview.tsx` and `capture.ts`: the exact `sandbox` value, the absence of
@@ -648,9 +725,28 @@ English, and no component to contain a hard-coded sentence. The interface used t
 be bilingual **inside single components**: five components in French, twelve in
 English, two mixed.
 
+**`tests/docs-parity.test.js`** does the same for the documentation. Four pairs —
+the two READMEs, the design system, ADR 001 and the July audit — must carry the
+same number of headings, at the same levels, in the same order; each file points
+at its twin with a language switch, and under every heading sits a one-line block
+saying why the section is arranged the way it is, in that file's own language and
+never the other's. Kept by hand, that convention decays where nobody looks: a
+heading translated on one side and forgotten on the other, an ASCII hyphen where
+the template has an em dash, an English block pasted into the French file. The
+documents were going exactly where the interface had already been — a French
+design system, an English ADR, a French audit, an English README, and no way to
+tell which reader each was written for.
+
 Alongside those: `registry.test.ts` for registry invariants at load time,
-`ssrf-guard.test.js`, `routes-auth.test.js`, and the Muse, images and video
-suites.
+`ssrf-guard.test.js`, `routes-auth.test.js`,
+`server/muse/quality/quality.test.js` for detection, the policy, the judged
+catalogue and the audit, `src/lib/quality.test.ts` for the merge of the local
+placeholder lint with the server's findings and for the signature progress is
+measured on, `src/lib/polish.test.ts` for the correction loop — its four stopping
+conditions are exercised with the check and the correction injected, so neither a
+provider nor a server is needed — `src/lib/designSpec.test.ts` for the two shapes
+a direction can take and for the edits made through the sheet, and the Muse,
+images and video suites.
 
 ### CI
 

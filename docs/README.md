@@ -53,6 +53,7 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 | See what Muse adds to a generation | [Muse overview](muse/overview.md) |
 | Follow Discover, Distill and Dossier in detail | [Inspiration engine](muse/inspiration-engine.md) |
 | Understand the animation system | [Animations](muse/animations.md) |
+| Check a generated screen, and correct what the check finds | [Quality pass](quality.md) |
 | Deploy Mocky | [Deployment](deployment.md) |
 
 ---
@@ -75,7 +76,7 @@ Each step is covered in the [architecture overview](architecture/overview.md).
 
 ---
 
-## Three properties worth knowing up front
+## Four properties worth knowing up front
 
 They explain a lot of the code you will read.
 
@@ -85,6 +86,14 @@ model is byte-for-byte what it was before Muse existed. The dossier enters throu
 
 **No optional step may block.** The planner resolves to `null` on any failure. A
 Muse stage that fails degrades and the generation continues.
+
+**A quality run can never fail a generation.** That is the rule above again, and
+it matters more here because of where the pass sits. Muse runs *before* a
+generation, so a Muse failure is a screen built with less; the quality pass runs
+*after* one that already succeeded, on a screen the user is looking at. So every
+stage degrades and returns a report, and none of them throws at the caller: a
+failure to **check** a screen must never look like a failure to **make** one.
+Invariant Q1.
 
 **Failure is static, never broken.** An unknown animation preset renders a plain
 element. A missing library falls back to CSS. A retired capability is still
@@ -98,9 +107,9 @@ The Markdown files are fetched live from `docs/` on the `main` branch. The page
 you are reading is the Markdown file itself, with no build step. Publishing a
 correction means pushing a commit.
 
-The viewer is three static Docsify files in `docs-site/`. It has no npm
-dependencies and loads nothing from a CDN. See
-[Deployment](deployment.md).
+The viewer is seven static files in `docs-site/` — four written for the project,
+three vendored copies of Docsify. It has no npm dependencies and loads nothing
+from a CDN. See [Deployment](deployment.md), which lists them one by one.
 
 **Ces pages existent aussi en français : [documentation française](fr/README.md).**
 
@@ -109,26 +118,34 @@ dependencies and loads nothing from a CDN. See
 ## Other documents in this repository
 
 These predate this documentation and remain authoritative on their subjects.
+Each of the four now exists in both languages.
 
-| Document | Language | Subject |
-|---|---|---|
-| [ADR 001 — Muse](adr/001-muse.md) | English | The full architecture decision record, including the first written statement of the eight original invariants |
-| [Design system](DESIGN-SYSTEM.md) | French | Mocky's own interface tokens, the Papier and Encre themes, the UI primitives. Not to be confused with the `DESIGN.md` a user supplies for generated screens |
-| [Audit 2026-07](AUDIT-2026-07.md) | French | The multi-agent audit and its roadmap, most of which has since been applied |
+| Document | Subject | English | Français |
+|---|---|---|---|
+| Repository README | The product overview: what Mocky does, and how to install it quickly | `README.md` | `README.fr.md` |
+| ADR 001 — Muse | The full architecture decision record, including the first written statement of the eight original invariants | [001-muse.md](adr/001-muse.md) | [001-muse.fr.md](adr/001-muse.fr.md) |
+| Design system | Mocky's own interface tokens, the Papier and Encre themes, the UI primitives. Not to be confused with the `DESIGN.md` a user supplies for generated screens | [DESIGN-SYSTEM.en.md](DESIGN-SYSTEM.en.md) | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
+| Audit 2026-07 | The multi-agent audit and its roadmap, most of which has since been applied | [AUDIT-2026-07.en.md](AUDIT-2026-07.en.md) | [AUDIT-2026-07.md](AUDIT-2026-07.md) |
 
-### Why these three are not translated
+Each of the eight files carries a language switch on its first useful line, and
+`tests/docs-parity.test.js` holds the pairs together: the same number of
+headings, the same levels in the same order, one "why" block under each of them,
+and never a block in the other language.
 
-Each exists in one language only, and that is deliberate rather than an
-oversight.
+They used to exist in one language each, and that was defended as deliberate —
+an ADR is a dated record, so translating it invites two versions that disagree.
+What the argument missed is that the interface had already been through the
+identical failure: a single row of buttons reading "Rename", "Voir le prompt qui
+a créé cet écran", "More options", "Delete screen". A French design system, an
+English ADR, a French audit and an English README are that row spread over four
+files, with no way to tell which reader each was written for. The fix is the one
+`src/i18n` had already found — a complete file per language, kept in step by a
+test.
 
-They are **dated records**, not living pages. An ADR states what was decided on
-a given day and why; an audit states what was measured at a given moment.
-Translating one produces a second copy that can drift from the record — and a
-decision record whose two versions disagree is worse than one nobody can read.
-
-The pages linked in the sidebar above are the opposite: they describe the code as
-it stands today, they are rewritten whenever the code moves, and they exist in
-both languages.
-
-If you need one of the three in the other language, say so — translating them is
-a decision to take on purpose, not a gap to fill quietly.
+Which is why the filenames read backwards next to the rest of `docs/`, where the
+bare path is English and `fr/` holds the translation. Here each document kept the
+path and the language it already had and gained a twin suffixed with the other
+one, so `DESIGN-SYSTEM.md` is the **French** page and `DESIGN-SYSTEM.en.md` the
+English; the other way round, `adr/001-muse.md` is the **English** page and
+`adr/001-muse.fr.md` the French. Renaming them would break the `DOCS` array in
+the parity test and every inbound link, for a symmetry no reader ever asked for.

@@ -59,6 +59,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 | Voir ce que Muse ajoute à une génération | [Vue d'ensemble de Muse](fr/muse/overview.md) |
 | Suivre Discover, Distill et Dossier en détail | [Moteur d'inspiration](fr/muse/inspiration-engine.md) |
 | Comprendre le système d'animations | [Animations](fr/muse/animations.md) |
+| Contrôler un écran généré, et corriger ce que le contrôle trouve | [Passe de qualité](fr/quality.md) |
 | Déployer Mocky | [Déploiement](fr/deployment.md) |
 
 ---
@@ -82,7 +83,7 @@ Chaque étape est détaillée dans la
 
 ---
 
-## Trois propriétés à connaître d'emblée
+## Quatre propriétés à connaître d'emblée
 
 Elles expliquent une bonne partie du code que vous allez lire.
 
@@ -93,6 +94,15 @@ au modèle est exactement celle d'avant l'existence de Muse. Le dossier entre pa
 **Aucune étape facultative n'a le droit de bloquer.** Le planificateur renvoie
 `null` au moindre échec. Une étape Muse qui échoue dégrade, et la génération
 continue.
+
+**Une passe de qualité ne peut jamais faire échouer une génération.** C'est la
+règle précédente, à nouveau, et elle pèse davantage ici à cause de l'endroit où
+la passe se place. Muse tourne *avant* une génération : un échec de Muse donne
+un écran construit avec moins. La passe de qualité tourne *après* une génération
+déjà réussie, sur un écran que l'utilisateur a sous les yeux. Chaque étape
+dégrade donc et renvoie un rapport, et aucune ne lève d'exception chez
+l'appelant : échouer à **contrôler** un écran ne doit jamais ressembler à un
+échec à le **fabriquer**. C'est l'invariant Q1.
 
 **L'échec est statique, jamais cassé.** Un preset d'animation inconnu affiche un
 élément ordinaire. Une bibliothèque absente retombe sur du CSS. Une capacité
@@ -106,37 +116,46 @@ Les fichiers Markdown sont lus en direct depuis `docs/` sur la branche `main`. L
 page que vous lisez est le fichier Markdown lui-même, sans étape de compilation.
 Publier une correction, c'est pousser un commit.
 
-Le lecteur est constitué de trois fichiers Docsify statiques dans `docs-site/`.
-Il n'a aucune dépendance npm et ne charge rien depuis un CDN. Voir
-[Déploiement](fr/deployment.md).
+Le lecteur est constitué de sept fichiers statiques dans `docs-site/` : quatre
+écrits pour le projet, trois copies locales de Docsify. Il n'a aucune dépendance
+npm et ne charge rien depuis un CDN. Voir [Déploiement](fr/deployment.md), qui
+les liste un par un.
 
 ---
 
 ## Les autres documents du dépôt
 
 Ils existaient avant cette documentation et restent la référence sur leurs
-sujets.
+sujets. Les quatre existent désormais dans les deux langues.
 
-| Document | Langue | Sujet |
-|---|---|---|
-| [ADR 001 — Muse](adr/001-muse.md) | Anglais | La décision d'architecture complète, avec la première mise par écrit des huit invariants d'origine |
-| [Système de design](DESIGN-SYSTEM.md) | Français | Les jetons de l'interface de Mocky, les thèmes Papier et Encre, les primitives. À ne pas confondre avec le `DESIGN.md` que l'utilisateur fournit pour ses écrans générés |
-| [Audit 2026-07](AUDIT-2026-07.md) | Français | L'audit multi-agents et sa feuille de route, aujourd'hui appliquée en grande partie |
+| Document | Sujet | English | Français |
+|---|---|---|---|
+| README du dépôt | La présentation du produit : ce que Mocky fait, et comment l'installer rapidement | `README.md` | `README.fr.md` |
+| ADR 001 — Muse | La décision d'architecture complète, avec la première mise par écrit des huit invariants d'origine | [001-muse.md](adr/001-muse.md) | [001-muse.fr.md](adr/001-muse.fr.md) |
+| Système de design | Les jetons de l'interface de Mocky, les thèmes Papier et Encre, les primitives. À ne pas confondre avec le `DESIGN.md` que l'utilisateur fournit pour ses écrans générés | [DESIGN-SYSTEM.en.md](DESIGN-SYSTEM.en.md) | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
+| Audit 2026-07 | L'audit multi-agents et sa feuille de route, aujourd'hui appliquée en grande partie | [AUDIT-2026-07.en.md](AUDIT-2026-07.en.md) | [AUDIT-2026-07.md](AUDIT-2026-07.md) |
 
-### Pourquoi ces trois-là ne sont pas traduits
+Chacun des huit fichiers porte un sélecteur de langue sur sa première ligne
+utile, et `tests/docs-parity.test.js` tient les paires ensemble : même nombre de
+titres, mêmes niveaux dans le même ordre, un bloc « pourquoi » sous chacun
+d'eux, et jamais un bloc rédigé dans l'autre langue.
 
-Chacun n'existe que dans une langue, et c'est un choix, pas un oubli.
+Ils n'ont longtemps existé que dans une seule langue, et on présentait cela
+comme un choix : un ADR est un document daté, le traduire invite deux versions
+qui finissent par se contredire. Ce que l'argument oubliait, c'est que
+l'interface avait déjà connu exactement la même panne — une seule rangée de
+boutons où se lisaient « Rename », « Voir le prompt qui a créé cet écran »,
+« More options », « Delete screen ». Un système de design en français, un ADR en
+anglais, un audit en français et un README en anglais, c'est cette rangée-là
+étalée sur quatre fichiers, sans moyen de savoir à quel lecteur chacun
+s'adressait. Le remède est celui que `src/i18n` avait déjà trouvé : un fichier
+complet par langue, tenu au pas par un test.
 
-Ce sont des **documents datés**, pas des pages vivantes. Un ADR énonce ce qui a
-été décidé un jour donné et pourquoi ; un audit énonce ce qui a été mesuré à un
-moment donné. Traduire l'un produit une seconde copie qui peut s'écarter de
-l'original — et un document de décision dont les deux versions se contredisent
-est pire qu'un document que tout le monde ne peut pas lire.
-
-Les pages listées dans le sommaire ci-dessus sont l'inverse : elles décrivent le
-code tel qu'il est aujourd'hui, elles sont réécrites dès que le code bouge, et
-elles existent dans les deux langues.
-
-Si vous avez besoin de l'un des trois dans l'autre langue, dites-le : les
-traduire est une décision à prendre volontairement, pas un trou à combler en
-silence.
+D'où des noms de fichiers qui se lisent à l'envers du reste de `docs/`, où le
+chemin nu porte l'anglais et où `fr/` porte la traduction. Ici, chaque document
+a gardé le chemin et la langue qu'il avait déjà, et a reçu un jumeau suffixé de
+l'autre : `DESIGN-SYSTEM.md` est la page **française** et `DESIGN-SYSTEM.en.md`
+l'anglaise ; à l'inverse, `adr/001-muse.md` est la page **anglaise** et
+`adr/001-muse.fr.md` la française. Les renommer casserait le tableau `DOCS` du
+test de parité et tous les liens entrants, pour une symétrie que personne n'a
+jamais réclamée.

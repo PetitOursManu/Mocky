@@ -16,6 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:vendor": "node scripts/check-vendor.mjs",
+    "changelog": "node scripts/build-changelog.mjs",
+    "docs:data": "node --experimental-strip-types scripts/build-docs-data.mjs",
+    "check:docs-data": "node --experimental-strip-types scripts/check-docs-data.mjs",
     "backup": "node scripts/backup.mjs"
   },
   "overrides": {

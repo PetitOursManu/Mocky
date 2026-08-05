@@ -42,8 +42,11 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
 
 - `src/lib/generate.ts` — prompts, `chat()`, extraction. The complete generated
   source first exists at `guardMotion(extractCode(content))`, which appears in
-  **three** places: `generateComponent`, `editComponent`, `fixComponent`. A
-  post-generation check that only hooks the first one misses edits and repairs.
+  **four** places: `generateComponent`, `editComponent`, `fixComponent`,
+  `polishComponent`. A post-generation check that only hooks the first one
+  misses edits, repairs and polishes. This note said "three" for an hour after
+  `polishComponent` was added — by the person who had just written the note.
+  Count them with grep before trusting the number.
 - `src/lib/plan.ts` — the optional planner. Runs only when `usePlanner` is on
   **and** Muse did not run. Also decides the screen's *mode*.
 - `src/components/Preview.tsx` — builds the sandboxed `srcDoc`. Invariant-dense;

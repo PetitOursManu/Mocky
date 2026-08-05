@@ -1,0 +1,479 @@
+[
+ {
+  "id": "minimal-light",
+  "name": "Minimal Light",
+  "description": "Clean, airy, lots of whitespace",
+  "swatches": [
+   "#ffffff",
+   "#111827",
+   "#4f46e5",
+   "#f3f4f6"
+  ],
+  "preview": {
+   "bg": "#ffffff",
+   "cardBg": "#f9fafb",
+   "cardBorder": "#e5e7eb",
+   "text": "#111827",
+   "mutedText": "#6b7280",
+   "accent": "#4f46e5",
+   "accentText": "#ffffff",
+   "radius": "16px"
+  },
+  "sections": [
+   "Design System — Minimal Light",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "bold-dark",
+  "name": "Bold Dark",
+  "description": "High-contrast dark UI, vivid accents",
+  "swatches": [
+   "#0b1020",
+   "#e2e8f0",
+   "#22d3ee",
+   "#a855f7"
+  ],
+  "preview": {
+   "bg": "#0b1020",
+   "cardBg": "#131a2e",
+   "cardBorder": "#1e293b",
+   "text": "#e2e8f0",
+   "mutedText": "#94a3b8",
+   "accent": "#22d3ee",
+   "accentText": "#0b1020",
+   "radius": "16px"
+  },
+  "sections": [
+   "Design System — Bold Dark",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "playful",
+  "name": "Playful",
+  "description": "Rounded, colorful, friendly",
+  "swatches": [
+   "#fff7ed",
+   "#7c3aed",
+   "#f97316",
+   "#10b981"
+  ],
+  "preview": {
+   "bg": "#fff7ed",
+   "cardBg": "#ffffff",
+   "cardBorder": "#fde68a",
+   "text": "#1f2937",
+   "mutedText": "#6b7280",
+   "accent": "#7c3aed",
+   "accentText": "#ffffff",
+   "radius": "24px"
+  },
+  "sections": [
+   "Design System — Playful",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "corporate",
+  "name": "Corporate",
+  "description": "Trustworthy, structured, blue",
+  "swatches": [
+   "#f8fafc",
+   "#0f172a",
+   "#2563eb",
+   "#e2e8f0"
+  ],
+  "preview": {
+   "bg": "#f8fafc",
+   "cardBg": "#ffffff",
+   "cardBorder": "#e2e8f0",
+   "text": "#0f172a",
+   "mutedText": "#64748b",
+   "accent": "#2563eb",
+   "accentText": "#ffffff",
+   "radius": "12px"
+  },
+  "sections": [
+   "Design System — Corporate",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "glass",
+  "name": "Glassmorphism",
+  "description": "Frosted glass over gradients",
+  "swatches": [
+   "#1e1b4b",
+   "#ffffff",
+   "#818cf8",
+   "#f0abfc"
+  ],
+  "preview": {
+   "bg": "linear-gradient(135deg, #1e1b4b, #4c1d95)",
+   "cardBg": "rgba(255,255,255,0.1)",
+   "cardBorder": "rgba(255,255,255,0.2)",
+   "text": "#ffffff",
+   "mutedText": "rgba(255,255,255,0.7)",
+   "accent": "#818cf8",
+   "accentText": "#1e1b4b",
+   "radius": "16px",
+   "glass": true
+  },
+  "sections": [
+   "Design System — Glassmorphism",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "neobrutalist",
+  "name": "Neobrutalist",
+  "description": "Hard edges, thick borders, bold",
+  "swatches": [
+   "#fde047",
+   "#000000",
+   "#ffffff",
+   "#2563eb"
+  ],
+  "preview": {
+   "bg": "#fef9c3",
+   "cardBg": "#ffffff",
+   "cardBorder": "#000000",
+   "text": "#000000",
+   "mutedText": "#444444",
+   "accent": "#2563eb",
+   "accentText": "#ffffff",
+   "radius": "4px"
+  },
+  "sections": [
+   "Design System — Neobrutalist",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "warm-earth",
+  "name": "Warm Earth",
+  "description": "Natural tones, cozy, organic",
+  "swatches": [
+   "#faf6f0",
+   "#3c2a1e",
+   "#b45309",
+   "#d6c3a5"
+  ],
+  "preview": {
+   "bg": "#faf6f0",
+   "cardBg": "#fffaf3",
+   "cardBorder": "#d6c3a5",
+   "text": "#3c2a1e",
+   "mutedText": "#8b7355",
+   "accent": "#b45309",
+   "accentText": "#ffffff",
+   "radius": "14px"
+  },
+  "sections": [
+   "Design System — Warm Earth",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "mint-fresh",
+  "name": "Mint Fresh",
+  "description": "Cool greens, clean, refreshing",
+  "swatches": [
+   "#f0fdf4",
+   "#064e3b",
+   "#10b981",
+   "#a7f3d0"
+  ],
+  "preview": {
+   "bg": "#f0fdf4",
+   "cardBg": "#ffffff",
+   "cardBorder": "#a7f3d0",
+   "text": "#064e3b",
+   "mutedText": "#059669",
+   "accent": "#10b981",
+   "accentText": "#ffffff",
+   "radius": "14px"
+  },
+  "sections": [
+   "Design System — Mint Fresh",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "sunset",
+  "name": "Sunset",
+  "description": "Warm gradients, pink/orange energy",
+  "swatches": [
+   "#fff1f2",
+   "#831843",
+   "#f43f5e",
+   "#fb923c"
+  ],
+  "preview": {
+   "bg": "linear-gradient(135deg, #fff1f2, #fef3c7)",
+   "cardBg": "#ffffff",
+   "cardBorder": "#fbcfe8",
+   "text": "#831843",
+   "mutedText": "#be185d",
+   "accent": "#f43f5e",
+   "accentText": "#ffffff",
+   "radius": "16px"
+  },
+  "sections": [
+   "Design System — Sunset",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "midnight",
+  "name": "Midnight",
+  "description": "Deep blue-black, gold accents, elegant",
+  "swatches": [
+   "#020617",
+   "#e2e8f0",
+   "#fbbf24",
+   "#1e3a5f"
+  ],
+  "preview": {
+   "bg": "#020617",
+   "cardBg": "#0f172a",
+   "cardBorder": "#1e3a5f",
+   "text": "#e2e8f0",
+   "mutedText": "#94a3b8",
+   "accent": "#fbbf24",
+   "accentText": "#020617",
+   "radius": "12px"
+  },
+  "sections": [
+   "Design System — Midnight",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "constructivism",
+  "name": "Constructivism",
+  "description": "Geometry, asymmetry, motion",
+  "swatches": [
+   "#1a1a1a",
+   "#ffffff",
+   "#dc2626",
+   "#fbbf24"
+  ],
+  "preview": {
+   "bg": "#1a1a1a",
+   "cardBg": "#2a2a2a",
+   "cardBorder": "#dc2626",
+   "text": "#ffffff",
+   "mutedText": "#a3a3a3",
+   "accent": "#dc2626",
+   "accentText": "#ffffff",
+   "radius": "0px"
+  },
+  "sections": [
+   "Design System — Constructivism",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "swiss",
+  "name": "Swiss Style",
+  "description": "Grid, Helvetica, clarity",
+  "swatches": [
+   "#ffffff",
+   "#000000",
+   "#ef4444",
+   "#f3f4f6"
+  ],
+  "preview": {
+   "bg": "#ffffff",
+   "cardBg": "#f3f4f6",
+   "cardBorder": "#d1d5db",
+   "text": "#000000",
+   "mutedText": "#6b7280",
+   "accent": "#ef4444",
+   "accentText": "#ffffff",
+   "radius": "0px"
+  },
+  "sections": [
+   "Design System — Swiss Style",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "editorial",
+  "name": "Editorial",
+  "description": "Magazine layout, serif headlines",
+  "swatches": [
+   "#faf9f6",
+   "#1a1a1a",
+   "#9333ea",
+   "#e5e7eb"
+  ],
+  "preview": {
+   "bg": "#faf9f6",
+   "cardBg": "#ffffff",
+   "cardBorder": "#e5e7eb",
+   "text": "#1a1a1a",
+   "mutedText": "#6b7280",
+   "accent": "#9333ea",
+   "accentText": "#ffffff",
+   "radius": "0px"
+  },
+  "sections": [
+   "Design System — Editorial",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "hand-drawn",
+  "name": "Hand-Drawn",
+  "description": "Sketchy, casual, imperfect",
+  "swatches": [
+   "#fefce8",
+   "#3f3f46",
+   "#f59e0b",
+   "#84cc16"
+  ],
+  "preview": {
+   "bg": "#fefce8",
+   "cardBg": "#fffbeb",
+   "cardBorder": "#d4d4d8",
+   "text": "#3f3f46",
+   "mutedText": "#71717a",
+   "accent": "#f59e0b",
+   "accentText": "#3f3f46",
+   "radius": "20px"
+  },
+  "sections": [
+   "Design System — Hand-Drawn",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "retro",
+  "name": "Retro",
+  "description": "Vintage, grainy, nostalgic",
+  "swatches": [
+   "#2d1b00",
+   "#fef3c7",
+   "#f97316",
+   "#06b6d4"
+  ],
+  "preview": {
+   "bg": "#2d1b00",
+   "cardBg": "#3d2b10",
+   "cardBorder": "#6b4d20",
+   "text": "#fef3c7",
+   "mutedText": "#d4a574",
+   "accent": "#f97316",
+   "accentText": "#2d1b00",
+   "radius": "8px"
+  },
+  "sections": [
+   "Design System — Retro",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "flat",
+  "name": "Flat",
+  "description": "No shadows, pastel, clean",
+  "swatches": [
+   "#fafafa",
+   "#1f2937",
+   "#3b82f6",
+   "#f3f4f6"
+  ],
+  "preview": {
+   "bg": "#fafafa",
+   "cardBg": "#ffffff",
+   "cardBorder": "#e5e7eb",
+   "text": "#1f2937",
+   "mutedText": "#6b7280",
+   "accent": "#3b82f6",
+   "accentText": "#ffffff",
+   "radius": "8px"
+  },
+  "sections": [
+   "Design System — Flat",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ },
+ {
+  "id": "bento",
+  "name": "Bento",
+  "description": "Tidy tiles, modular, dense",
+  "swatches": [
+   "#0f0f0f",
+   "#ffffff",
+   "#a78bfa",
+   "#f9a8d4"
+  ],
+  "preview": {
+   "bg": "#0f0f0f",
+   "cardBg": "#1a1a1a",
+   "cardBorder": "#333333",
+   "text": "#ffffff",
+   "mutedText": "#a3a3a3",
+   "accent": "#a78bfa",
+   "accentText": "#0f0f0f",
+   "radius": "16px"
+  },
+  "sections": [
+   "Design System — Bento",
+   "Color tokens",
+   "Typography",
+   "Spacing & radius",
+   "Component patterns"
+  ]
+ }
+]

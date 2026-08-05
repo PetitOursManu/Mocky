@@ -1,0 +1,57 @@
+# Regenerates the documentation changelog after every push to main.
+name: changelog
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# The documentation site reads Markdown straight from this branch, so the file
+# has to be COMMITTED to be visible — generating it in the runner and throwing
+# it away would publish nothing.
+permissions:
+  contents: write
+
+# Two pushes in quick succession would otherwise race to commit the same file.
+concurrency:
+  group: changelog
+  cancel-in-progress: false
+
+jobs:
+  changelog:
+    name: regenerate docs/CHANGELOG.md
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The generator reads the WHOLE history. The default checkout is
+          # shallow and would produce a changelog with one entry in it.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: node scripts/build-changelog.mjs
+
+      # Commit only when something actually changed.
+      #
+      # On the loop: a push made with the default GITHUB_TOKEN does not trigger
+      # further workflow runs — that is a platform guarantee, and it is what
+      # stops this job from re-arming itself. The diff check is the second belt:
+      # it keeps the history clean, and it keeps the guarantee from being the
+      # only thing standing between here and an infinite loop. If anyone ever
+      # swaps in a PAT or an App token to satisfy branch protection, the
+      # platform guarantee disappears and this check becomes the only guard —
+      # so do not remove it, and think twice before changing the token.
+      - name: commit if changed
+        run: |
+          if git diff --quiet -- docs/CHANGELOG.md docs/fr/CHANGELOG.md; then
+            echo "changelog unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/CHANGELOG.md docs/fr/CHANGELOG.md
+          git commit -m "docs(changelog): régénéré depuis l'historique"
+          git push

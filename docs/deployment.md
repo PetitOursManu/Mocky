@@ -8,7 +8,7 @@
 
 ```dockerfile
 FROM node:22-slim AS builder
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .puppeteerrc.cjs ./
 RUN npm ci                 # all dependencies, devDependencies included
 COPY . .
 RUN npm run build          # tsc && vite build → dist/
@@ -18,8 +18,16 @@ RUN npm run build          # tsc && vite build → dist/
 
 ```dockerfile
 FROM node:22-slim AS runtime
-RUN npm ci --omit=dev && npm cache clean --force
+COPY package.json package-lock.json .puppeteerrc.cjs ./
+RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 ```
+
+`--omit=optional` belongs **here and nowhere else**: this stage installs runtime
+dependencies and builds nothing, so it wants neither Puppeteer — an optional
+dependency of `impeccable`, whose URL engine Mocky never calls — nor any
+per-platform native binding, whereas the same flag in an `.npmrc` would also
+apply to the builder stage, where it strips `@rolldown/binding-*` and breaks
+`npm run build`.
 
 Then three layers that each need explaining.
 
@@ -154,6 +162,7 @@ the sign-in screen and the model provider is configured in the UI.
 |---|---|---|
 | `PORT` | `8787` | The port Express listens on |
 | `MOCKY_PORT` | *(unset)* | **Overrides `PORT`.** Useful in development: a harness that injects `PORT` to configure Vite must not push the back end onto Vite's port. Leave it unset in production |
+| `MOCKY_HOST` | `127.0.0.1` | **Source installs** — the interface the server itself listens on. Loopback by default, because `app.listen(PORT)` with no host binds every interface, which put an instance with open sign-ups on the LAN for anyone to claim. The image sets `0.0.0.0`; leave it alone, a container listening on loopback cannot be reached through its published port |
 | `MOCKY_BIND` | `127.0.0.1` | **Docker only** — the host interface the port is published on |
 | `MOCKY_DATA_DIR` | `server/data` | Where the JSON store lives. Point it at a mounted volume if needed |
 | `TRUST_PROXY` | *(unset)* | `1`, a hop count, or an Express `trust proxy` value. **Required behind a reverse proxy** |
@@ -493,7 +502,7 @@ no Node, no volume.
 Two folders, two resources, deliberately decoupled.
 
 - **`docs/`** — the content. Markdown files, nothing else.
-- **`docs-site/`** — the viewer. Four static files.
+- **`docs-site/`** — the viewer. Seven static files.
 
 ### How it works
 
