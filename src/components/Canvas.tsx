@@ -817,7 +817,18 @@ export default function Canvas({
       onPointerDown={onBackgroundDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-
+      /*
+       * A cancelled gesture has to end like a finished one.
+       *
+       * The browser fires `pointercancel` instead of `pointerup` whenever it
+       * takes the pointer back — a touch turning into a system scroll, a pen
+       * leaving the digitiser, an alt-tab mid-drag. Without this the gesture
+       * ref stayed populated for the rest of the session, and both `:802` and
+       * `:834` test it: a single interrupted drag silently disabled the
+       * frame-resize animation until reload. Touch makes it routine rather
+       * than rare, which is how it surfaced.
+       */
+      onPointerCancel={onPointerUp}
     >
       <div
         className="absolute left-0 top-0 origin-top-left"
@@ -1289,7 +1300,18 @@ export default function Canvas({
           at onFrameDown, where it defeated an onDoubleClick; here it silently
           made every control in this bar do nothing at all. */}
       <div
-        className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg"
+        /*
+         * Above the toolbar on a narrow window, beside it on a wide one.
+         *
+         * At `bottom-4 left-4` this sat underneath the floating composer, which
+         * is opaque and painted later — so on anything under about 1100px the
+         * only zoom control the product has was invisible. That is not a
+         * z-index problem and cannot be fixed with one: paint order does not
+         * uncover what is painted over. The two are separated geometrically
+         * instead, which also fixes it for a 1024px laptop window where nobody
+         * thought to look.
+         */
+        className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg lg:bottom-4 lg:top-auto"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <IconButton variant="toolbar" label={t('canvas.zoomOut')} onClick={() => zoomBy(1 / 1.2)}>

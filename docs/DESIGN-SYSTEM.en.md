@@ -126,8 +126,15 @@ The interface was built out of emoji. Those are **colour bitmaps**: the theme ca
 `caption` 11px (badges only) · `body-sm` 13px (controls, toolbar) · `body` 14px (**the default**) · `lead` 16px · `h3` 20px · `h2` 28px · `display` 44px.
 Arbitrary sizes (`text-[11px]`…) are forbidden. Figures that change under the eye — zoom, dimensions, footprints — take `font-mono` so they stop jittering.
 
-**3. Every clickable target is at least 32px high.**
+**3. Every clickable target is at least 32px high — and 44px under a finger.**
 The primitives enforce it. Going through them is enough.
+
+The 32px are sized for a trackpad: a fine pointer, guided by a cursor you can
+see. A finger has neither, and it covers the target at the moment of touching
+it. Under `@media (pointer: coarse)`, in `index.css`, the floor therefore rises
+to 44px. That is not a contradiction of the rule but a second value for a
+second device: the query is purely additive — the file holds no other
+width-based media query — so it cannot regress the desktop.
 
 **4. Focus is visible everywhere.**
 A single rule in the `base` layer of `index.css`, written with `:where()` so it stays at zero specificity. Do not cancel it.

@@ -21,6 +21,10 @@ export const project = {
     'project.frameNeedsMobile': 'Aucun écran mobile dans ce projet — le cadre iPhone n’a rien à entourer',
     'project.systemTitle': 'Système de design en direct — vos tokens DESIGN.md, et de quoi les recolorer',
     'project.demoTitle': 'Lancer le prototype — suit les liens que vous avez posés',
+    // Le menu de débordement de la barre d'outils, sous md. Court par nécessité :
+    // il partage la rangée avec trois boutons sur un écran de 390px.
+    'project.moreTools': 'Plus',
+    'project.moreToolsTitle': 'Les autres outils du canevas — interaction, annotation, cadre, système, démo, export',
     'project.autoLink': 'Proposer des liens',
     'project.autoLinkFrom': 'Depuis quel écran',
     'project.autoLinkWorking': 'Lecture de l’écran…',
@@ -232,6 +236,8 @@ export const project = {
     'project.frameNeedsMobile': 'No mobile screen in this project — the iPhone frame has nothing to wrap',
     'project.systemTitle': 'Live design system — your DESIGN.md tokens, and a way to recolor them',
     'project.demoTitle': 'Play the prototype — follows the links you placed',
+    'project.moreTools': 'More',
+    'project.moreToolsTitle': 'The rest of the canvas tools — interact, annotate, frame, system, demo, export',
     'project.autoLink': 'Suggest links',
     'project.autoLinkFrom': 'From which screen',
     'project.autoLinkWorking': 'Reading the screen…',

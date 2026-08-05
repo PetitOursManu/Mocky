@@ -415,3 +415,56 @@
     animation: none;
   }
 }
+
+/*
+ * ---- The touch floor -----------------------------------------------------
+ *
+ * Rule 3 of the design system says a click target is at least 32px, and the
+ * primitives impose it. That number was picked for a trackpad — Button.tsx
+ * still says so at the top — where the pointer is one pixel the hand places
+ * exactly. A fingertip is not a pointer, and the trackpad reasoning does not
+ * stretch to cover one: measured on a 390px phone, 12 of the 14 focusable
+ * elements on the home route came in under 44px and the whole header nav row
+ * was 32.
+ *
+ * So the floor is 44px under a coarse pointer and stays 32px everywhere else.
+ * That is an ADDITION to rule 3, not a contradiction of it: the trackpad
+ * argument still governs every mouse, and this block simply answers a pointer
+ * rule 3 was never written about.
+ *
+ * Why it cannot regress the desktop, in one sentence: `pointer: coarse` asks
+ * what the PRIMARY input device is, not how wide the window is — a mouse-driven
+ * browser dragged down to 390px does not match, and index.css carries no width
+ * media query at all (the only other queries in this file are the two
+ * prefers-reduced-motion blocks). Purely additive, on touch hardware only.
+ *
+ * Corollary for whoever re-measures this: a headless check has to emulate touch
+ * (`hasTouch`), not merely set a 390px viewport, or it will read the 32px floor
+ * and conclude nothing changed.
+ *
+ * Nothing shrinks to pay for the extra height. No padding is removed and no
+ * type step is traded down — a target that is easy to hit and impossible to
+ * read is not an improvement.
+ *
+ * KEEP THIS BLOCK LAST. `.tap-target` and Tailwind's `.min-h-8` carry the same
+ * specificity (0,1,0), so which one wins is decided by source order alone, and
+ * Tailwind emits its utilities where `@tailwind utilities` sits — line 5.
+ */
+@media (pointer: coarse) {
+  .tap-target,
+  /* `.btn-primary`, `.btn-ghost` and `.input` predate src/ui and are still used
+     across the app. They are named here rather than handed the class, because
+     a CSS rule has nobody to add a class to. */
+  .btn-primary,
+  .btn-ghost,
+  .input {
+    min-height: 44px;
+  }
+
+  /* An icon-only control has no label to widen it: IconButton is a fixed `w-8`
+     square, so raising the height alone would leave a 44×32 target — tall
+     enough to satisfy a checker, still too narrow for a thumb. */
+  .tap-target-square {
+    min-width: 44px;
+  }
+}

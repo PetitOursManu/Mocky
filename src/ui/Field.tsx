@@ -13,8 +13,13 @@ import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttri
 // `outline-none` compiles to a transparent 2px outline at class specificity,
 // which silently beats the zero-specificity `:where()` rule in @layer base. A
 // control that opts out of the default ring has to bring its own back.
+// `tap-target` for the same reason as on Button: a field is something you tap
+// before you type into it, and 14px of text between 8px of padding is a 39px
+// box. The floor only applies under a coarse pointer, so the desktop form
+// rhythm is untouched. Type stays at `body` — see the note in index.css about
+// not paying for height with legibility.
 const CONTROL =
-  'w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink ' +
+  'tap-target w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink ' +
   'placeholder:text-ink-faint outline-none transition hover:border-line focus:border-accent ' +
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ' +
   'disabled:cursor-not-allowed disabled:opacity-50'

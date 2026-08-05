@@ -19,14 +19,18 @@ export function Chip({
     muse: 'border-muse text-muse-ink',
   }[tone]
   return (
-    <span className={`inline-flex min-h-8 items-center gap-1.5 border px-2 text-body-sm ${look}`}>
+    <span className={`tap-target inline-flex min-h-8 items-center gap-1.5 border px-2 text-body-sm ${look}`}>
       <span className="max-w-[14rem] truncate">{children}</span>
       {onRemove && (
         <button
           type="button"
           onClick={onRemove}
           aria-label={removeLabel}
-          className="-mr-0.5 shrink-0 px-1 opacity-70 transition hover:opacity-100"
+          // A 14px cross with 4px of padding either side is a 22px target: the
+          // smallest thing in the whole system, and the one most often reached
+          // for with a thumb. It gets both axes of the coarse-pointer floor.
+          // `inline-flex` so the icon stays centred once the box is 44 wide.
+          className="tap-target tap-target-square -mr-0.5 inline-flex shrink-0 items-center justify-center px-1 opacity-70 transition hover:opacity-100"
         >
           <Icon name="close" size={14} />
         </button>
@@ -69,7 +73,7 @@ export function Segmented<T extends string>({
             // is no way back to plain selection without picking another mode.
             onClick={() => onChange(active ? null : opt.value)}
             className={
-              'inline-flex min-h-8 items-center gap-1.5 border-b-2 px-2.5 text-body-sm font-medium transition ' +
+              'tap-target inline-flex min-h-8 items-center gap-1.5 border-b-2 px-2.5 text-body-sm font-medium transition ' +
               (i > 0 ? 'border-l border-l-line-soft ' : '') +
               // The inversion carries the state; the accent rule underneath is
               // what makes it findable at a glance, the way a tab is underlined.

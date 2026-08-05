@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, polishComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
 import { resolveDirection } from '../lib/direction'
+import { usePhone } from '../lib/usePhone'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
@@ -17,6 +18,7 @@ import type { StackTarget } from '../lib/export/project'
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
 import Welcome from './Welcome'
 import Canvas from './Canvas'
+import MobileProject from './MobileProject'
 import type { SweptElement } from './Preview'
 import DesignSystemPanel from './DesignSystemPanel'
 import PresetPicker from './PresetPicker'
@@ -123,6 +125,34 @@ function joinSystem(parts: Array<string | undefined>): string | undefined {
 const MAX_FIX_ATTEMPTS = 2
 
 const EXAMPLE_KEYS = ['project.example1', 'project.example2', 'project.example3']
+
+/** The three export targets, as [stack, label key, hint key]. */
+const EXPORT_TARGETS: [StackTarget, string, string][] = [
+  ['shadcn', 'project.exportShadcn', 'project.exportShadcnHint'],
+  ['plain', 'project.exportPlain', 'project.exportPlainHint'],
+  ['daisyui', 'project.exportDaisy', 'project.exportDaisyHint'],
+]
+
+/**
+ * A toolbar action that folds into the "Plus" menu below md.
+ *
+ * Data rather than JSX because the bar and the menu offer the same six actions,
+ * and the alternative was copying six blocks of `onClick` — which is how a mode
+ * ends up toggling on the bar and doing nothing in the menu.
+ */
+type FoldedTool = {
+  id: string
+  icon: IconName
+  /** Only for glyphs that read a size larger than the rest; 16 otherwise. */
+  iconSize?: number
+  label: string
+  title: string
+  active?: boolean
+  disabled?: boolean
+  /** Draws the group rule before this one, the way the bar always has. */
+  startsGroup?: boolean
+  onClick: () => void
+}
 
 export default function ProjectView({
   project,
@@ -257,6 +287,8 @@ export default function ProjectView({
   const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
+  /** The toolbar's overflow menu below md. See the bar itself for why it exists. */
+  const [plusMenu, setPlusMenu] = useState(false)
   const [menu, setMenu] = useState<{ screenId: string; x: number; y: number } | null>(null)
   // An id, not the object. Holding the Screen froze whatever it contained at
   // click time: a regeneration or an auto-repair behind the open viewer left it
@@ -267,19 +299,25 @@ export default function ProjectView({
   const setCodeScreen = (s: Screen | null) => setCodeScreenId(s ? s.id : null)
   const contentHeights = useRef<Record<string, number>>({})
 
-  // Esc closes the context menu / code viewer.
+  // Esc closes the context menu / code viewer / the two toolbar dropdowns.
+  // Escape is the second way out of the toolbar menus, never the only one: a
+  // phone has no Escape key, so each of them also carries a tap-to-dismiss
+  // backdrop. A dropdown whose only exit is a hardware key is a dropdown a
+  // touch user cannot close.
   useEffect(() => {
-    if (!menu && !codeScreen && !pendingModify) return
+    if (!menu && !codeScreen && !pendingModify && !plusMenu && !exportMenu) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMenu(null)
         setCodeScreen(null)
         setPendingModify(null)
+        setPlusMenu(false)
+        setExportMenu(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [menu, codeScreen, pendingModify])
+  }, [menu, codeScreen, pendingModify, plusMenu, exportMenu])
 
   // Probe the backend once Muse is switched on (Muse needs it; frontend-only ⇒ unavailable).
   useEffect(() => {
@@ -419,6 +457,8 @@ export default function ProjectView({
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set())
   // Screens whose render error the auto-fixer is currently repairing.
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
+  /** Phone: a coarse pointer AND a narrow viewport. See lib/usePhone.ts. */
+  const phone = usePhone()
   const [regenLabel, setRegenLabel] = useState(() => t('canvas.regenerating'))
   /** Neutral one-liner in the composer — the quality pass reporting back. */
   const [notice, setNotice] = useState<string | null>(null)
@@ -1308,6 +1348,9 @@ export default function ProjectView({
 
   async function handleExport(stack: StackTarget) {
     setExportMenu(false)
+    // Below md the export dropdown is reached through "Plus", which stays open
+    // behind it otherwise — two stacked menus over a download that has started.
+    setPlusMenu(false)
     if (!screens.length) {
       setError(t('project.exportEmpty'))
       return
@@ -1744,9 +1787,103 @@ export default function ProjectView({
     )
   }
 
+  /**
+   * Everything on the toolbar past "Modifier". Rendered as buttons on the bar
+   * at md and above, as rows in the "Plus" menu below it — from this one list,
+   * so the two can never drift apart.
+   */
+  const foldedTools: FoldedTool[] = [
+    {
+      id: 'interact',
+      icon: 'hand',
+      label: t('mode.interact'),
+      title: t('project.interactTitle'),
+      active: interactAll,
+      onClick: () => setInteractAll((v) => !v),
+    },
+    {
+      id: 'annotate',
+      icon: 'crop',
+      label: t('mode.annotate'),
+      title: t('project.annotateTitle'),
+      active: annotateMode,
+      onClick: () => {
+        setAnnotateMode((v) => !v)
+        setLinkMode(false)
+        setModifyMode(false)
+        setPendingModify(null)
+      },
+    },
+    {
+      id: 'frame',
+      icon: 'phone',
+      label: t('mode.frame'),
+      // Disabled, not hidden: the control still says what it would do. It was
+      // already a no-op without a phone screen — Canvas only draws the bezel on
+      // `device === 'iphone'` — so this only makes the existing behaviour
+      // visible instead of leaving a button that answers nothing.
+      //
+      // `showFrame` itself is deliberately NOT cleared by `toggleFrame`. It
+      // lives in one global localStorage key shared by every project, so
+      // resetting it because THIS project has no phone would silently un-frame
+      // all the others. Gate the control, leave the preference.
+      title: hasPhoneScreen ? t('project.frameTitle') : t('project.frameNeedsMobile'),
+      active: showFrame && hasPhoneScreen,
+      disabled: !hasPhoneScreen,
+      onClick: toggleFrame,
+    },
+    {
+      id: 'system',
+      icon: 'image',
+      label: t('mode.system'),
+      title: t('project.systemTitle'),
+      active: showSystem,
+      onClick: () => setShowSystem((v) => !v),
+    },
+    {
+      id: 'demo',
+      icon: 'play',
+      iconSize: 14,
+      label: t('mode.demo'),
+      title: t('project.demoTitle'),
+      startsGroup: true,
+      onClick: () => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null),
+    },
+    {
+      id: 'export',
+      icon: 'download',
+      label: t('mode.export'),
+      title: t('project.exportTitle'),
+      active: exportMenu,
+      onClick: () => setExportMenu((v) => !v),
+    },
+  ]
+
   return (
     <div className="relative h-[calc(100vh-57px)]">
       {libraryModal}
+      {/*
+        The viewport, and only the viewport.
+        On a phone the infinite canvas is replaced — see MobileProject for why
+        it is arithmetic rather than taste. Everything above and below this
+        line is unchanged: the composer, the toolbar, the generation callbacks
+        and their AbortController/codeAtStart/previousCode conventions all stay
+        in this component, so there is exactly one mutation path on every
+        device.
+      */}
+      {phone ? (
+        <MobileProject
+          screens={screens}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+          generatingIds={generatingIds}
+          regeneratingIds={regeneratingIds}
+          fixingIds={fixingIds}
+          regenLabel={regenLabel}
+          onError={onScreenError}
+          onOpenScreenMenu={(s, x, y) => setMenu({ screenId: s.id, x, y })}
+        />
+      ) : (
       <Canvas
         screens={screens}
         selectedIds={selectedIds}
@@ -1807,6 +1944,7 @@ export default function ProjectView({
         fixingIds={fixingIds}
         regenLabel={regenLabel}
       />
+      )}
 
       {/* Live Design-system frame (D.2) */}
       {showSystem && (
@@ -1933,126 +2071,153 @@ export default function ProjectView({
         </div>
       )}
 
-      {/* Top-left toolbar */}
-      <div className="absolute left-4 top-3 flex items-center gap-1 rounded-lg border border-line bg-surface p-1 shadow-lg">
-        <Button variant="toolbar" size="sm" onClick={onBack} title={t('error.backToProjects')}>
-          <Icon name="chevronLeft" size={16} />
-          {t('project.back')}
-        </Button>
-        <div className="mx-1 h-5 w-px bg-line-soft" />
-        <Button
-          variant="toolbar"
-          size="sm"
-          active={linkMode}
-          onClick={() => {
-            setLinkMode((v) => !v)
-            setModifyMode(false)
-            setAnnotateMode(false)
-          }}
-          title={t('project.linkTitle')}
-        >
-          <Icon name="link" size={16} />
-          {t('mode.link')}
-        </Button>
-        <Button
-          variant="toolbar"
-          size="sm"
-          active={modifyMode}
-          onClick={() => {
-            setModifyMode((v) => !v)
-            setLinkMode(false)
-            setAnnotateMode(false)
-            setPendingModify(null)
-          }}
-          title={t('project.modifyTitle')}
-        >
-          <Icon name="pencil" size={16} />
-          {t('mode.modify')}
-        </Button>
-        <Button
-          variant="toolbar"
-          size="sm"
-          active={interactAll}
-          onClick={() => setInteractAll((v) => !v)}
-          title={t('project.interactTitle')}
-        >
-          <Icon name="hand" size={16} />
-          {t('mode.interact')}
-        </Button>
-        <Button
-          variant="toolbar"
-          size="sm"
-          active={annotateMode}
-          onClick={() => {
-            setAnnotateMode((v) => !v)
-            setLinkMode(false)
-            setModifyMode(false)
-            setPendingModify(null)
-          }}
-          title={t('project.annotateTitle')}
-        >
-          <Icon name="crop" size={16} />
-          {t('mode.annotate')}
-        </Button>
-        <Button
-          variant="toolbar"
-          size="sm"
-          // Disabled, not hidden: the control still says what it would do. It
-          // was already a no-op without a phone screen — Canvas only draws the
-          // bezel on `device === 'iphone'` — so this only makes the existing
-          // behaviour visible instead of leaving a button that answers nothing.
-          //
-          // `showFrame` itself is deliberately NOT cleared here. It lives in one
-          // global localStorage key shared by every project, so resetting it
-          // because THIS project has no phone would silently un-frame all the
-          // others. Gate the control, leave the preference.
-          disabled={!hasPhoneScreen}
-          active={showFrame && hasPhoneScreen}
-          onClick={toggleFrame}
-          title={hasPhoneScreen ? t('project.frameTitle') : t('project.frameNeedsMobile')}
-        >
-          <Icon name="phone" size={16} />
-          {t('mode.frame')}
-        </Button>
-        <Button
-          variant="toolbar"
-          size="sm"
-          active={showSystem}
-          onClick={() => setShowSystem((v) => !v)}
-          title={t('project.systemTitle')}
-        >
-          <Icon name="image" size={16} />
-          {t('mode.system')}
-        </Button>
-        <div className="mx-1 h-5 w-px bg-line-soft" />
-        <Button
-          variant="toolbar"
-          size="sm"
-          onClick={() => setDemoStartId(selectedScreens[0]?.id ?? screens[0]?.id ?? null)}
-          title={t('project.demoTitle')}
-        >
-          <Icon name="play" size={14} />
-          {t('mode.demo')}
-        </Button>
-        <div className="relative">
+      {/*
+        Top-left toolbar.
+
+        It was one row of nine labelled buttons whose natural width is ~850px,
+        so on anything narrower than about 880px — a phone, but a half-width
+        desktop window just as much — it pushed the document sideways and left
+        six of the nine modes off-screen with no way to reach them.
+
+        Three defences, because dropping the labels is not enough on its own:
+         1. the labels fold away below md, leaving the icons and their titles;
+         2. everything past "Modifier" folds into "Plus". Stripped to icons the
+            nine buttons still come to roughly 408px — 38 each (a 16px glyph
+            inside px-2.5), plus two group rules and ten gaps — against the
+            358px a 390px screen leaves after the composer's gutters. The count
+            is the problem, not the labels. `tap-target` in index.css raises the
+            floor by height only, so this arithmetic holds on touch as well;
+         3. max-w + overflow-x-auto, so whatever the labels end up doing the bar
+            scrolls itself instead of scrolling the page. That is what carries
+            the 768–880px band, where the labels are back but the window is
+            still too narrow for them.
+
+        The two dropdowns hang off this wrapper rather than off the row: defence
+        3 makes the row a scroll container, and a scroll container clips a menu
+        anchored inside it.
+      */}
+      <div className="absolute left-4 top-3 max-w-[calc(100vw-2rem)]">
+        <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 shadow-lg">
+          <Button variant="toolbar" size="sm" onClick={onBack} title={t('error.backToProjects')}>
+            <Icon name="chevronLeft" size={16} />
+            {/* Every label on the bar is wrapped, including the ones inside the
+                folded group where the group already hides them. Uniform, so
+                moving a tool in or out of the group cannot bring a label back
+                at 390px by accident. The `title` is what remains at that width,
+                and the icon-only buttons keep their accessible name from it. */}
+            <span className="hidden md:inline">{t('project.back')}</span>
+          </Button>
+          <div className="mx-1 h-5 w-px bg-line-soft" />
           <Button
             variant="toolbar"
             size="sm"
-            active={exportMenu}
-            onClick={() => setExportMenu((v) => !v)}
-            title={t('project.exportTitle')}
+            active={linkMode}
+            onClick={() => {
+              setLinkMode((v) => !v)
+              setModifyMode(false)
+              setAnnotateMode(false)
+            }}
+            title={t('project.linkTitle')}
           >
-            <Icon name="download" size={16} />
-            {t('mode.export')}
+            <Icon name="link" size={16} />
+            <span className="hidden md:inline">{t('mode.link')}</span>
           </Button>
-          {exportMenu && (
-            <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-line bg-raised p-1 shadow-xl">
+          <Button
+            variant="toolbar"
+            size="sm"
+            active={modifyMode}
+            onClick={() => {
+              setModifyMode((v) => !v)
+              setLinkMode(false)
+              setAnnotateMode(false)
+              setPendingModify(null)
+            }}
+            title={t('project.modifyTitle')}
+          >
+            <Icon name="pencil" size={16} />
+            <span className="hidden md:inline">{t('mode.modify')}</span>
+          </Button>
+
+          {/* `contents` and not `flex`: at md and above this wrapper must add no
+              box of its own, or the six buttons would space as one item against
+              the three before them. */}
+          <div className="hidden md:contents">
+            {foldedTools.map((tool) => (
+              <Fragment key={tool.id}>
+                {tool.startsGroup && <div className="mx-1 h-5 w-px bg-line-soft" />}
+                <Button
+                  variant="toolbar"
+                  size="sm"
+                  active={tool.active}
+                  disabled={tool.disabled}
+                  onClick={tool.onClick}
+                  title={tool.title}
+                >
+                  <Icon name={tool.icon} size={tool.iconSize ?? 16} />
+                  <span className="hidden md:inline">{tool.label}</span>
+                </Button>
+              </Fragment>
+            ))}
+          </div>
+
+          <Button
+            variant="toolbar"
+            size="sm"
+            className="md:hidden"
+            active={plusMenu}
+            aria-expanded={plusMenu}
+            onClick={() => setPlusMenu((v) => !v)}
+            title={t('project.moreToolsTitle')}
+          >
+            <Icon name="more" size={16} />
+            {t('project.moreTools')}
+          </Button>
+        </div>
+
+        {/* Both menus carry a backdrop rather than relying on Escape: opened by
+            a finger, they have no keyboard to close them, and "click outside"
+            only exists if something outside is listening for it. */}
+        {plusMenu && (
+          <>
+            <div className="fixed inset-0 z-menu md:hidden" onClick={() => setPlusMenu(false)} />
+            <div className="absolute left-0 top-full z-menu mt-1 w-64 max-w-[calc(100vw-2rem)] border border-line bg-raised py-1 md:hidden">
+              {foldedTools.map((tool) => (
+                <Fragment key={tool.id}>
+                  {tool.startsGroup && <div className="my-1 border-t border-line-soft" />}
+                  <button
+                    type="button"
+                    disabled={tool.disabled}
+                    aria-pressed={tool.active || undefined}
+                    onClick={() => {
+                      setPlusMenu(false)
+                      tool.onClick()
+                    }}
+                    title={tool.title}
+                    className={`flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left text-body transition disabled:opacity-40 ${
+                      // Inverted, not tinted — the same way an active toolbar
+                      // button reads, and legible in both themes.
+                      tool.active ? 'bg-ink text-surface' : 'text-ink hover:bg-ink/5'
+                    }`}
+                  >
+                    <Icon name={tool.icon} size={tool.iconSize ?? 16} />
+                    {tool.label}
+                  </button>
+                </Fragment>
+              ))}
+            </div>
+          </>
+        )}
+
+        {exportMenu && (
+          <>
+            <div className="fixed inset-0 z-menu" onClick={() => setExportMenu(false)} />
+            {/* left-0 below md, right-0 above it. Anchored right at every width,
+                the panel opened at x 657–881 on a 390px screen — entirely past
+                the edge, because the button it hangs from is itself pushed to
+                the right of the bar. */}
+            <div className="absolute left-0 top-full z-menu mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-xl md:left-auto md:right-0">
               <div className="kicker px-2 py-1 text-accent-ink">{t('project.exportHeading')}</div>
-              {([
-                ['shadcn', 'project.exportShadcn', 'project.exportShadcnHint'],
-                ['plain', 'project.exportPlain', 'project.exportPlainHint'],
-                ['daisyui', 'project.exportDaisy', 'project.exportDaisyHint'],
-              ] as [StackTarget, string, string][]).map(([stack, labelKey, hintKey]) => (
+              {EXPORT_TARGETS.map(([stack, labelKey, hintKey]) => (
                 <button
                   key={stack}
                   type="button"
@@ -2064,8 +2229,8 @@ export default function ProjectView({
                 </button>
               ))}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Floating composer */}
@@ -2121,10 +2286,15 @@ export default function ProjectView({
                   <span className="absolute left-0 top-0 rounded-br bg-warn px-1 font-mono text-caption font-bold text-surface">
                     {i + 1}
                   </span>
+                  {/* opacity-60, not opacity-0. The same bug PanelRow already
+                      carries a note about: hidden-until-hover has no trigger on
+                      a touch screen, so "remove this reference" was permanently
+                      invisible on a phone — not merely hard to see, unreachable.
+                      Visible by default, full strength on hover and on focus. */}
                   <button
                     type="button"
                     onClick={() => setAnnotations((arr) => arr.filter((x) => x.id !== a.id))}
-                    className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                    className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
                     aria-label={t('project.removeRefN', { n: i + 1 })}
                     title={t('project.removeRef')}
                   >
@@ -2234,8 +2404,23 @@ export default function ProjectView({
               The three toggles grew from two words to a sentence each, and on
               one line they squeezed the prompt field down to a few characters
               and the Generate button to an initial. The field is the point of
-              this bar; it gets the width. */}
-          <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+              this bar; it gets the width.
+
+              They were also bare `.kicker` text: 11px, 16px tall, no padding at
+              all — three of the smallest hit targets in the product, and a
+              design-system violation besides, since caption 11px is for badges
+              only. They are controls, so they take body-sm 13px and a real box.
+              `text-body-sm` after `kicker` is not redundant: Tailwind emits
+              utilities after components, so that is what actually overrides the
+              `@apply text-caption` inside `.kicker` while the rest of the
+              device — capitals, tracking, weight — stays.
+
+              `tap-target` because these are hand-rolled `<button>`s and not the
+              `Button` primitive, so the 44px touch floor in index.css does not
+              reach them on its own. `-mx-2` pays back the `px-2` each toggle now
+              carries, so the labels still line up with the Format row above
+              instead of sitting 8px in. */}
+          <div className="-mx-2 mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             {/* One direction per project, and this is the only way to change it
                 from the composer: tick it, and THIS prompt writes the design
                 every following screen will follow. Hidden while editing — an
@@ -2249,7 +2434,7 @@ export default function ProjectView({
               <button
                 type="button"
                 onClick={() => setRedesign((v) => !v)}
-                className={`kicker shrink-0 transition ${
+                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center px-2 py-1.5 text-body-sm transition ${
                   redesign ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
                 }`}
                 title={t(redesign ? 'project.redesignOnTitle' : 'project.redesignTitle')}
@@ -2262,7 +2447,7 @@ export default function ProjectView({
             <button
               type="button"
               onClick={toggleMuse}
-              className={`kicker flex shrink-0 items-center gap-1 transition ${
+              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
                 museConfig.enabled ? 'text-muse-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
               }`}
               title={museHint ? t('project.museHint') : t('project.museToggle')}
@@ -2274,7 +2459,7 @@ export default function ProjectView({
             <button
               type="button"
               onClick={cycleAnimations}
-              className={`kicker flex shrink-0 items-center gap-1 transition ${
+              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
                 animationMode === 'on'
                   ? 'text-accent-ink hover:opacity-80'
                   : animationMode === 'off'
@@ -2289,9 +2474,13 @@ export default function ProjectView({
           </div>
 
           <div className="flex items-end gap-2">
+            {/* min-w-0: a textarea's automatic minimum size comes from `cols`
+                (20 by default), which is wider than the room left beside the
+                two buttons at 390px — so without this the row overflowed the
+                composer instead of the field giving way. */}
             <textarea
               rows={1}
-              className="input min-h-[40px] resize-none"
+              className="input min-h-[40px] min-w-0 resize-none"
               placeholder={
                 editing
                   ? t(
@@ -2314,9 +2503,18 @@ export default function ProjectView({
                 <>
                   {/* MockyLoader porte deja role="status" + aria-label : le texte
                       visible est masque aux lecteurs d'ecran pour que l'etat ne
-                      soit pas annonce deux fois. */}
-                  <MockyLoader size={64} label={busyLabel} className="shrink-0" />
-                  <span aria-hidden>{busyLabel}</span>
+                      soit pas annonce deux fois.
+
+                      64px de signature plus le libelle plus le bouton Arreter,
+                      tous shrink-0, ne laissaient que ~74px au champ de saisie
+                      sur un telephone : la barre annoncait ce qu'elle faisait au
+                      prix de ce a quoi elle sert. Le mot passe a 32 et le
+                      libelle disparait sous sm — le champ garde ~190px, et le
+                      nom accessible du loader dit toujours l'etat. */}
+                  <MockyLoader size={32} label={busyLabel} className="shrink-0" />
+                  <span aria-hidden className="hidden sm:inline">
+                    {busyLabel}
+                  </span>
                 </>
               ) : editing ? (
                 t('composer.update', { count: selectedScreens.length })

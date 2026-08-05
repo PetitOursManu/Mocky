@@ -17,7 +17,7 @@ import SyncIndicator from './components/SyncIndicator'
 import SharedScreen from './components/SharedScreen'
 import { shareTokenFromLocation } from './lib/share'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { Button, Icon, IconButton, Modal } from './ui'
+import { Button, ButtonLink, Icon, IconButton, Modal } from './ui'
 import { useT } from './i18n'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'media'
@@ -116,6 +116,8 @@ function MockyApp() {
   const [theme, setThemeState] = useState<Theme>(() => loadTheme())
   const [account, setAccount] = useState<AuthUser | null>(null)
   const [authOpen, setAuthOpen] = useState(false)
+  /** The folded masthead, below md. See the `md:hidden` nav further down. */
+  const [menuOpen, setMenuOpen] = useState(false)
   const [ssoError, setSsoError] = useState<string | null>(null)
   /** The sequence Muse will use for the hero, mirrored from the Muse settings. */
   const [videoPin, setVideoPin] = useState<MuseVideoPin | null>(() => loadMuseConfig().videoPin)
@@ -221,6 +223,19 @@ function MockyApp() {
     setRoute('home')
   }
 
+  /**
+   * Navigate from the folded masthead.
+   *
+   * Closing the sheet is not cosmetic: it is a `Modal`, so it holds the focus
+   * trap and `body { overflow: hidden }` for as long as it is mounted. A menu
+   * entry that changed the route and left itself open would hand the user a new
+   * page they could neither scroll nor tab into.
+   */
+  function goRoute(next: Route) {
+    setRoute(next)
+    setMenuOpen(false)
+  }
+
   return (
     <div className="min-h-screen bg-sunken text-ink">
       {/* The masthead. A newspaper announces itself once, in the serif, above a
@@ -234,12 +249,20 @@ function MockyApp() {
             title={t('nav.backHome')}
           >
             <span className="masthead text-h2 leading-none">Mocky</span>
-            <span className="kicker hidden text-accent-ink sm:inline">{t('nav.tagline')}</span>
+            {/* `md`, not `sm`. The tagline is 67px of brand that nothing needs,
+                and restoring it at 640px was making 640–740px worse rather than
+                better: the masthead still overflowed at 741px, so between those
+                two widths this line was buying the row nothing and costing it
+                the last of its slack. It comes back with the full nav. */}
+            <span className="kicker hidden text-accent-ink md:inline">{t('nav.tagline')}</span>
           </button>
 
-          {/* Project breadcrumb */}
+          {/* Project breadcrumb.
+              `min-w-0` because a flex item refuses to shrink below its content
+              by default: without it the project name pushed the nav off the
+              right edge instead of giving way to it. */}
           {activeProject && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <span className="text-ink-faint">/</span>
               {editingName ? (
                 <input
@@ -269,7 +292,12 @@ function MockyApp() {
                       setEditingName(true)
                     }
                   }}
-                  className="text-body font-medium text-ink-muted transition hover:text-ink"
+                  // The only uncapped variable-width string in the masthead, and
+                  // the reason a project called anything longer than a word used
+                  // to shove the whole nav sideways. `truncate` also sets
+                  // `overflow: hidden`, which is what lets this shrink past its
+                  // own text when 40vw is still too much.
+                  className="max-w-[40vw] truncate text-body font-medium text-ink-muted transition hover:text-ink"
                   title={route === 'project' ? t('projects.rename') : t('app.backToProject')}
                 >
                   {activeProject.name}
@@ -278,7 +306,14 @@ function MockyApp() {
             </div>
           )}
 
-          <nav className="ml-auto flex items-center gap-1">
+          {/* The full masthead, from md up.
+              Below that it does not fit and never did: measured at 390px the
+              row ran ~260px past the right edge, which put Réglages, Docs, the
+              theme toggle and the entire account entry outside the document
+              with nothing to scroll them back in. The breakpoint is md and not
+              sm because the overflow is still real at 741px — sm would have
+              declared the problem solved 100px early. */}
+          <nav className="ml-auto hidden items-center gap-1 md:flex">
             <SyncIndicator />
             <HeaderTab active={route === 'home'} onClick={goHome}>
               {t('nav.home')}
@@ -344,6 +379,41 @@ function MockyApp() {
                 {t('account.signIn')}
               </Button>
             )}
+          </nav>
+
+          {/* The folded masthead, below md.
+              Three controls, no more: sync state (which shows itself only when
+              something is wrong or in flight), the theme, and one way in to
+              everything else. The two buttons are sized here rather than left
+              to the primitive's 32px — a menu that hides seven destinations
+              behind a target a finger cannot land on is the same bug moved.
+              The `!` is load-bearing, not emphasis: Tailwind emits these
+              utilities in LEXICOGRAPHIC order, so `.w-8` lands after `.w-11`
+              and `.min-h-8` after `.min-h-11` in the stylesheet, and at equal
+              specificity the primitive's own 32px would win. Read out of the
+              built CSS rather than assumed — the plain classes were written
+              first and measured 32px. `!px-0` inside IconButton is there for
+              the same reason. */}
+          <nav className="ml-auto flex items-center gap-1 md:hidden">
+            <SyncIndicator />
+            <IconButton
+              label={theme === 'dark' ? t('theme.toPaper') : t('theme.toInk')}
+              variant="quiet"
+              onClick={toggleTheme}
+              className="!min-h-11 !w-11"
+            >
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+            </IconButton>
+            <IconButton
+              label={t('app.navMenu')}
+              variant="quiet"
+              onClick={() => setMenuOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
+              className="!min-h-11 !w-11"
+            >
+              <Icon name="more" />
+            </IconButton>
           </nav>
         </div>
       </header>
@@ -457,6 +527,87 @@ function MockyApp() {
           <div className="page py-16 text-center text-body text-ink-faint">{t('app.adminsOnly')}</div>
         ))}
 
+      {/* Every masthead destination, as a list a thumb can hit.
+          The account entry is not optional here. It is the only route back into
+          an account — sign in when there is no session, sign out when there is —
+          and a folded masthead that dropped it would leave anyone on a phone
+          signed into a session they cannot leave, or out of one they cannot
+          re-enter. It is last because it is the one that changes who you are,
+          not where you are. */}
+      {menuOpen && (
+        <Modal title={t('app.navMenu')} size="sm" onClose={() => setMenuOpen(false)}>
+          <nav className="flex flex-col gap-1">
+            <MenuRow active={route === 'home'} onClick={() => goRoute('home')}>
+              {t('nav.home')}
+            </MenuRow>
+            <MenuRow active={route === 'design'} onClick={() => goRoute('design')}>
+              {t('nav.design')}
+            </MenuRow>
+            <MenuRow active={route === 'media'} onClick={() => goRoute('media')}>
+              {t('nav.media')}
+            </MenuRow>
+            <MenuRow active={route === 'settings'} onClick={() => goRoute('settings')}>
+              {t('nav.settings')}
+            </MenuRow>
+            {account?.role === 'admin' && (
+              <MenuRow active={route === 'admin'} onClick={() => goRoute('admin')}>
+                {t('nav.admin')}
+              </MenuRow>
+            )}
+            {/* Still a real link, for the same reason HeaderLink is one: it
+                leaves Mocky, and it can be long-pressed and opened in its own
+                tab like anything else that does. */}
+            <ButtonLink
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="quiet"
+              title={t('nav.docsHint')}
+              className="!min-h-11 w-full !justify-start"
+            >
+              {t('nav.docs')}
+            </ButtonLink>
+            {account ? (
+              <MenuRow
+                title={t('account.signedInAs')}
+                onClick={() => {
+                  // Dismiss first: `confirm` blocks the main thread, and a
+                  // native dialog stacked over our own reads as two questions.
+                  setMenuOpen(false)
+                  if (confirm(t('account.signOutConfirm', { name: account.username }))) logout()
+                }}
+              >
+                {api.avatarUrl(account) ? (
+                  <img
+                    src={api.avatarUrl(account) as string}
+                    alt=""
+                    className="h-5 w-5 shrink-0 border border-line-soft object-cover"
+                  />
+                ) : (
+                  <Icon name="user" size={16} />
+                )}
+                {/* Who you are and what tapping does, both stated. The masthead
+                    button can lean on a `title` for the second half; a touch
+                    target has no hover to reveal one. */}
+                <span className="min-w-0 truncate">{account.username}</span>
+                <span className="ml-auto shrink-0 text-ink-faint">{t('account.signOut')}</span>
+              </MenuRow>
+            ) : (
+              <MenuRow
+                title={t('app.signInHint')}
+                onClick={() => {
+                  setMenuOpen(false)
+                  setAuthOpen(true)
+                }}
+              >
+                <Icon name="user" size={16} />
+                {t('account.signIn')}
+              </MenuRow>
+            )}
+          </nav>
+        </Modal>
+      )}
+
       {authOpen && (
         <AuthModal
           initialError={ssoError}
@@ -514,6 +665,52 @@ function HeaderTab({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * One destination in the folded masthead.
+ *
+ * A row, not a dropdown line. {@link HeaderTab} is 32px tall, which is right for
+ * a trackpad and eight pixels short of what a fingertip reliably lands on — so
+ * rebuilding the same height inside a sheet would have moved the problem rather
+ * than fixed it. `min-h-11` is that 44px floor, stated here rather than assumed,
+ * because this menu is the only way to reach five of the app's six routes on a
+ * phone and it cannot depend on a global rule staying in place.
+ *
+ * It wraps the primitive instead of hand-rolling a `<button>`: the variant, the
+ * focus ring and any later touch-target floor all reach it that way. Both `!`
+ * are load-bearing, and neither is emphasis. Tailwind emits `justify-center`
+ * after `justify-start`, and `min-h-9` after `min-h-11` — it sorts these
+ * lexicographically, not by value — so at equal specificity `Button`'s own
+ * classes win, and this row was 36px tall and centred until the built CSS was
+ * actually read.
+ */
+function MenuRow({
+  active = false,
+  onClick,
+  title,
+  children,
+}: {
+  active?: boolean
+  onClick: () => void
+  title?: string
+  children: React.ReactNode
+}) {
+  return (
+    <Button
+      variant="quiet"
+      active={active}
+      // `active` alone would announce this as a pressed toggle. It is
+      // navigation, and "current page" is the thing a screen reader is looking
+      // for here — the same claim HeaderTab makes with the rule under it.
+      aria-current={active ? 'page' : undefined}
+      onClick={onClick}
+      title={title}
+      className="!min-h-11 w-full !justify-start"
+    >
+      {children}
+    </Button>
   )
 }
 

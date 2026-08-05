@@ -126,8 +126,16 @@ L'interface était construite en emoji. Ce sont des **bitmaps en couleur** : le 
 `caption` 11px (badges uniquement) · `body-sm` 13px (contrôles, barre d'outils) · `body` 14px (**le défaut**) · `lead` 16px · `h3` 20px · `h2` 28px · `display` 44px.
 Les tailles arbitraires (`text-[11px]`…) sont interdites. Les chiffres qui changent sous l'œil — zoom, dimensions, empreintes — prennent `font-mono` pour cesser de sautiller.
 
-**3. Toute cible cliquable fait au moins 32px de haut.**
+**3. Toute cible cliquable fait au moins 32px de haut — et 44px au doigt.**
 Les primitives l'imposent. Passer par elles suffit.
+
+Les 32px sont dimensionnés pour un pavé tactile : un pointeur fin, guidé par un
+curseur qu'on voit. Un doigt n'a ni l'un ni l'autre, et il cache la cible au
+moment de la toucher. Sous `@media (pointer: coarse)`, dans `index.css`, le
+plancher passe donc à 44px. Ce n'est pas une contradiction de la règle mais une
+seconde valeur pour un second appareil : la requête est purement additive — le
+fichier ne contient aucune autre requête de média sur la largeur — et ne peut
+donc rien régresser sur ordinateur.
 
 **4. Le focus est visible partout.**
 Une règle unique en couche `base` dans `index.css`, posée en `:where()` pour rester à spécificité zéro. Ne l'annulez pas.

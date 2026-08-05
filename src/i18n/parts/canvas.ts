@@ -72,6 +72,7 @@ export const canvas = {
     'canvas.demoFlowHint': 'Flèches ← → pour naviguer · Échap pour sortir',
     'canvas.demoHint': 'Cliquez les zones liées pour naviguer · Échap pour sortir',
     'canvas.demoGoToScreen': 'Aller à l’écran lié',
+    'canvas.phoneLimits': 'Sur téléphone, un écran à la fois. Comparer plusieurs écrans, les relier, les annoter ou les redimensionner demande un écran plus large.',
   } as Record<string, string>,
   en: {
     // ---- frame label & badges ----
@@ -133,5 +134,6 @@ export const canvas = {
     'canvas.demoFlowHint': 'Arrows ← → to move · Esc to leave',
     'canvas.demoHint': 'Click linked areas to navigate · Esc to exit',
     'canvas.demoGoToScreen': 'Go to the linked screen',
+    'canvas.phoneLimits': 'One screen at a time on a phone. Comparing several screens, linking, annotating and resizing them need a wider screen.',
   } as Record<string, string>,
 }

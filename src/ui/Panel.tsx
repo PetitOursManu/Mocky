@@ -70,7 +70,11 @@ export function PanelRow({
         <button
           type="button"
           onClick={onClick}
-          className="min-w-0 flex-1 truncate text-left text-body-sm text-ink transition group-hover:text-accent-ink"
+          // The row label is the whole hit area for opening a link or a screen,
+          // and `py-2` around 13px of text leaves it at 35px. `tap-target`
+          // raises the row itself under a finger — the actions beside it are
+          // IconButtons, which already carry the floor.
+          className="tap-target min-w-0 flex-1 truncate text-left text-body-sm text-ink transition group-hover:text-accent-ink"
         >
           {children}
         </button>

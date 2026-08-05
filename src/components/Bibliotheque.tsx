@@ -350,8 +350,16 @@ export default function Bibliotheque({
 
   const toolbar = (
     <>
+      {/* `grow basis-40`, not `flex-1`. An input carries an intrinsic minimum
+          width of about 170px, so `flex-1` alone refused to shrink and this row
+          pushed the modal 280px past a 390px screen. `min-w-0` lifts that floor
+          — but `flex-1` also means a flex-basis of 0, and an item 0px wide never
+          counts as too wide to fit: the field then stayed glued to the header's
+          first line and collapsed to a sliver beside the tabs. A 10rem basis is
+          what makes it take the next line instead when 10rem is not there, and
+          it still grows into whatever the line has spare. */}
       <input
-        className="input h-8 flex-1 text-body"
+        className="input h-8 min-w-0 grow basis-40 text-body"
         placeholder={t('library.search')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -441,8 +449,12 @@ export default function Bibliotheque({
             )}
           </div>
 
-          {/* Actions — one plate over the image, so the rules read as a strip. */}
-          <div className="absolute right-1 top-1 flex border border-line bg-raised opacity-0 transition group-hover:opacity-100">
+          {/* Actions — one plate over the image, so the rules read as a strip.
+              Damped to 60% rather than hidden at 0: there is no hover on a touch
+              screen, so "download" and "delete" were simply unreachable on a
+              phone, and a keyboard tabbed into invisible buttons. Same reasoning
+              as PanelRow's actions. */}
+          <div className="absolute right-1 top-1 flex border border-line bg-raised opacity-60 transition group-hover:opacity-100 group-focus-within:opacity-100">
             <IconButton
               label={t(img.favorite ? 'library.unfavorite' : 'library.favorite')}
               variant="quiet"
@@ -467,10 +479,12 @@ export default function Bibliotheque({
             <button
               type="button"
               onClick={() => onTogglePin?.(img)}
+              // Damped, never hidden: at opacity-0 the only way to discover that
+              // an image could be pinned at all was to own a mouse.
               className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
                 isPinned(img.hash)
                   ? 'border border-muse bg-muse text-surface'
-                  : 'border border-line bg-raised text-ink opacity-0 group-hover:opacity-100'
+                  : 'border border-line bg-raised text-ink opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
               }`}
               title={t('library.pinHint')}
             >
@@ -545,7 +559,9 @@ export default function Bibliotheque({
                 </span>
               </div>
             </div>
-            <div className="absolute right-1 top-1 flex border border-line bg-raised opacity-0 transition group-hover:opacity-100">
+            {/* Damped rather than hidden, like the image plate above: hover is
+                not a thing a phone has. */}
+            <div className="absolute right-1 top-1 flex border border-line bg-raised opacity-60 transition group-hover:opacity-100 group-focus-within:opacity-100">
               <IconButton label={t('library.deleteVideo')} variant="quiet" onClick={() => onDeleteVideo(v)}>
                 <Icon name="trash" size={16} />
               </IconButton>
@@ -557,7 +573,7 @@ export default function Bibliotheque({
                 className={`kicker absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-1 transition ${
                   chosen
                     ? 'border border-muse bg-muse text-surface'
-                    : 'border border-line bg-raised text-ink opacity-0 group-hover:opacity-100'
+                    : 'border border-line bg-raised text-ink opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
                 }`}
                 title={t('library.useVideoHint')}
               >
@@ -623,14 +639,31 @@ export default function Bibliotheque({
         className="mx-auto mt-8 flex h-[calc(100vh-4rem)] w-full max-w-5xl flex-col rounded-2xl border border-line bg-raised shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-line p-3">
-          <span className="kicker flex items-center gap-1.5 whitespace-nowrap text-muse-ink">
+        {/* This row used to be a single unwrapped line whose min-content was
+            about 670px — inside a card that is `w-full`, so on a 390px phone the
+            title, the tabs and the search field ran off the right edge, taking
+            the close button with them, and the overlay behind the card was not
+            reachable either. The dialog could then be dismissed only with a
+            hardware Escape key, which a phone does not have. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line p-3">
+          <span className="kicker flex min-w-0 items-center gap-1.5 text-muse-ink">
             <Icon name="library" size={16} />
-            {t('library.title')}
+            {/* "Bibliothèque d'images" is ~210px of letterspaced caps; nowrap
+                made it a 210px wall that nothing else could wrap around. */}
+            <span className="truncate">{t('library.title')}</span>
           </span>
           {tabs}
           {toolbar}
-          <IconButton label={t('common.close')} variant="quiet" title={t('library.closeEsc')} onClick={onClose}>
+          {/* Last in the DOM so the desktop row still ends with it, but ordered
+              first once things wrap: the way out of a dialog must be on the line
+              you can see, not three wrapped rows down. */}
+          <IconButton
+            label={t('common.close')}
+            variant="quiet"
+            title={t('library.closeEsc')}
+            onClick={onClose}
+            className="order-first md:order-none"
+          >
             <Icon name="close" />
           </IconButton>
         </div>
@@ -645,14 +678,17 @@ export default function Bibliotheque({
           {activeGrid}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-line-soft p-3 text-body-sm text-ink-muted">
+        {/* Wraps for the same reason as the header: "Importer", "Tout
+            télécharger (.zip)" and "Terminé" set in French come to ~340px on
+            their own, which is the whole width of the phone this has to fit. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line-soft p-3 text-body-sm text-ink-muted">
           <span>
             <span className="font-mono text-accent-ink">{images.length}</span>{' '}
             {t(images.length === 1 ? 'library.imageWord_one' : 'library.imageWord_other')} ·{' '}
             <span className="font-mono text-accent-ink">{pinned.length}</span>{' '}
             {t(pinned.length === 1 ? 'library.pinnedWord_one' : 'library.pinnedWord_other')}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {uploader}
             {tab === 'images' && zipLink}
             <Button variant="primary" size="sm" onClick={onClose}>

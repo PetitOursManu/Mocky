@@ -11,13 +11,23 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'reac
  *
  * Every variant here clears 4.5:1 in both themes, and every one is at least
  * 32px tall so it can actually be hit with a trackpad.
+ *
+ * A finger is not a trackpad, and 32px does not survive the trip: on a 390px
+ * phone, 12 of the 14 focusable elements on the home route measured under 44px.
+ * `tap-target` — the last block of index.css — lifts the floor to 44px when the
+ * primary pointer is coarse, and does nothing otherwise. It is an addition to
+ * the 32px rule rather than a replacement for it: the trackpad number still
+ * governs every mouse, at every window width.
  */
 
 export type ButtonVariant = 'primary' | 'ghost' | 'quiet' | 'danger' | 'toolbar'
 export type ButtonSize = 'sm' | 'md'
 
+// `tap-target` sits in BASE rather than in SIZES because the floor is not a
+// size: `sm` and `md` still differ by 32 vs 36 on a mouse, and both land on the
+// same 44 under a finger.
 const BASE =
-  'inline-flex items-center justify-center gap-1.5 font-medium transition select-none ' +
+  'tap-target inline-flex items-center justify-center gap-1.5 font-medium transition select-none ' +
   'disabled:cursor-not-allowed disabled:opacity-50'
 
 const VARIANTS: Record<ButtonVariant, string> = {
@@ -125,8 +135,11 @@ export function IconButton({ label, className = '', size = 'sm', ...rest }: Icon
       size={size}
       aria-label={label}
       title={rest.title ?? label}
-      // Square, and never below the 32px touch target.
-      className={`w-8 shrink-0 !px-0 ${className}`}
+      // Square, and never below the 32px touch target. `w-8` is a fixed width,
+      // so the height floor in BASE cannot widen it on its own — an icon button
+      // would end up 44 tall and 32 wide. `tap-target-square` supplies the
+      // other axis, under a coarse pointer only.
+      className={`tap-target-square w-8 shrink-0 !px-0 ${className}`}
     />
   )
 }

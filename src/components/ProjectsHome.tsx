@@ -409,9 +409,17 @@ export default function ProjectsHome({
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Wraps, like the selection bar and the drafts row below already do.
+            In French this row asks for 680px — "Nouveau dossier", "Sélectionner"
+            and "Nouveau projet" beside a 224px search field — against the 342px
+            a 390px phone leaves. Without a wrap the buttons did not overflow,
+            they squeezed: every label broke onto two lines inside its own box,
+            which is worse than a second row. */}
+        <div className="flex flex-wrap items-center gap-2">
           {projects.length > 5 && (
-            <label className="relative">
+            // Full width on its own line rather than squeezed beside the
+            // buttons: this field was the only fixed width in the shell.
+            <label className="relative w-full sm:w-auto">
               <span className="sr-only">{t('projects.search')}</span>
               <Icon
                 name="search"
@@ -422,7 +430,7 @@ export default function ProjectsHome({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('projects.search')}
-                className="w-56 !py-1.5 pl-8"
+                className="w-full !py-1.5 pl-8 sm:w-56"
               />
             </label>
           )}
