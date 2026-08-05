@@ -43,6 +43,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `docs` | la version mobile, d'après un audit multi-agents | `efe4daf` |
 | `docs` | le sélecteur de thème retrouve le bas du menu | `b690b88` |
 | `mobile` | la liste des projets cesse d'élargir la page | `dc7d301` |
 | `deps` | fast-uri et hono, corrigés là où ils étaient déjà permis | `764e3d8` |
