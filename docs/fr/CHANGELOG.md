@@ -43,6 +43,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mobile` | la liste des projets cesse d'élargir la page | `dc7d301` |
 | `deps` | fast-uri et hono, corrigés là où ils étaient déjà permis | `764e3d8` |
 | `design` | les vignettes viennent de la palette, plus d'un bleu nuit par défaut | `85c16aa` |
 | `capabilities` | charger ce que le code utilise, pas seulement ce que le prompt annonçait | `3a802fb` |
