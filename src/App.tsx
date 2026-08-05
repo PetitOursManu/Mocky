@@ -245,16 +245,51 @@ function MockyApp() {
           <button
             type="button"
             onClick={goHome}
-            className="flex items-baseline gap-2.5"
+            className="flex items-center gap-2.5"
             title={t('nav.backHome')}
           >
-            <span className="masthead text-h2 leading-none">Mocky</span>
-            {/* `md`, not `sm`. The tagline is 67px of brand that nothing needs,
-                and restoring it at 640px was making 640–740px worse rather than
-                better: the masthead still overflowed at 741px, so between those
-                two widths this line was buying the row nothing and costing it
-                the last of its slack. It comes back with the full nav. */}
-            <span className="kicker hidden text-accent-ink md:inline">{t('nav.tagline')}</span>
+            {/*
+              The mark, beside the name.
+              `alt=""` and aria-hidden on purpose: the wordmark next to it
+              already says "Mocky" in text, and a screen reader announcing the
+              name twice is worse than not announcing the image at all. The
+              button carries its own title.
+
+              28px, and no larger. This row overflowed by 260px at 390px until
+              an hour ago and still has to hold seven nav entries at 768; the
+              mark is 22kB of 128px artwork — the same file the documentation
+              sidebar uses — so it is sized down here rather than shipped twice
+              at two resolutions.
+
+              `shrink-0` because it is the one item in this row that must never
+              give way: a squashed logo reads as a rendering bug, whereas a
+              truncated project name reads as a truncated project name.
+            */}
+            <img
+              src="/logo.png"
+              alt=""
+              aria-hidden
+              width={28}
+              height={28}
+              className="h-7 w-7 shrink-0"
+            />
+            {/* Baseline is restored INSIDE the text pair. The button itself now
+                centres, because an image has no baseline worth aligning to —
+                left on `items-baseline` the mark sat on the serif's baseline
+                and hung a third of its height below the row. */}
+            <span className="flex items-baseline gap-2.5">
+              <span className="masthead text-h2 leading-none">Mocky</span>
+              {/* `lg`, and the mark beside it is what moved this from `md`.
+                  The tagline is 67px of brand that nothing needs; it was already
+                  held back to `md` because restoring it at 640px made 640–740px
+                  worse rather than better. At `md` exactly — where the seven-item
+                  nav returns — the row now holds the mark as well and had 13px
+                  left, which the project breadcrumb then truncated to almost
+                  nothing. Between 768 and 1024 the logo says "Mocky" perfectly
+                  well on its own, so the words wait for room that actually
+                  exists. */}
+              <span className="kicker hidden text-accent-ink lg:inline">{t('nav.tagline')}</span>
+            </span>
           </button>
 
           {/* Project breadcrumb.
