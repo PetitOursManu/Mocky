@@ -257,9 +257,19 @@
             var id = el('td')
             id.appendChild(el('code', null, r.id))
             row.appendChild(id)
-            row.appendChild(el('td', null, r.name))
+            var nameCell = el('td', null, r.name)
+            // The reason is printed, not only offered on hover. It is the *why*
+            // behind each disposition — the substance of invariant Q2 — and a
+            // `title` surfaces on no touch device, so on a phone the argument
+            // the widget exists to make was simply absent. Under the name
+            // rather than in a fourth column: `.mk-table` scrolls inside
+            // `.mk-tablewrap`, so a fourth column would push the disposition
+            // off-screen at 360px, which is the same bug in a new place.
+            if (r.reason) nameCell.appendChild(el('small', 'mk-why', r.reason))
+            row.appendChild(nameCell)
             var badge = el('td')
             var b = el('span', 'mk-pill mk-pill--' + d, t(d))
+            // Kept as well: it costs nothing and still helps a desktop reader.
             if (r.reason) b.title = r.reason
             badge.appendChild(b)
             row.appendChild(badge)

@@ -280,8 +280,8 @@ box.
 The whole table, and the switch that moves it. Ticking the box re-runs
 `dispositionFor` with `hasDirection: true` — the nine rules that judge taste in
 colour or type move from *corrected* to *reported*, because with a direction in
-force the model was told to obey it. Hover a badge for the reason recorded
-against that rule.
+force the model was told to obey it. The reason recorded against each rule is
+printed under its name.
 
 <div data-mocky-widget="rules"></div>
 

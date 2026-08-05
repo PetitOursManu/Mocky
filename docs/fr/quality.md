@@ -296,8 +296,8 @@ fonctionne tel quel.
 La table entière, et l'interrupteur qui la déplace. Cocher la case relance
 `dispositionFor` avec `hasDirection: true` — les neuf règles qui jugent le goût
 en couleur ou en typographie passent de *corrigée* à *signalée*, puisqu'avec une
-direction en vigueur le modèle a reçu l'ordre de la suivre. Survolez une pastille
-pour lire la raison consignée pour cette règle.
+direction en vigueur le modèle a reçu l'ordre de la suivre. La raison consignée
+pour chaque règle est imprimée sous son nom.
 
 <div data-mocky-widget="rules"></div>
 

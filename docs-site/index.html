@@ -17,7 +17,7 @@
     16, 32 and 48 px for 15 KB, and every browser reads it.
   -->
   <!--
-    ?v=4 — CACHE BUSTING. Read this before editing any file in docs-site/.
+    ?v=5 — CACHE BUSTING. Read this before editing any file in docs-site/.
 
     Static hosts serve CSS, JS and images with a long cache lifetime, and
     browsers hold on to a stylesheet far longer than they hold on to the HTML
@@ -34,8 +34,8 @@
     The vendored Docsify files carry it too. They only move on a version bump,
     but that is exactly the moment nobody thinks about the cache.
   -->
-  <link rel="icon" type="image/x-icon" href="./favicon.ico?v=4">
-  <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico?v=4">
+  <link rel="icon" type="image/x-icon" href="./favicon.ico?v=5">
+  <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico?v=5">
   <!--
     Docsify 4.13.1, vendored under ./vendor/ and served by this same host.
 
@@ -58,8 +58,8 @@
     English is the default language and lives at the root of `docs/`. French
     lives under `docs/fr/`.
   -->
-  <link rel="stylesheet" href="./vendor/docsify-theme.css?v=4">
-  <link rel="stylesheet" href="./mocky.css?v=4">
+  <link rel="stylesheet" href="./vendor/docsify-theme.css?v=5">
+  <link rel="stylesheet" href="./mocky.css?v=5">
   <script>
     /*
      * Theme before first paint.
@@ -138,7 +138,7 @@
     window.$docsify = {
       name: 'Mocky',
       // The masthead mark, next to the name. Same artwork as the favicon.
-      logo: './logo.png?v=4',
+      logo: './logo.png?v=5',
       repo: 'https://github.com/PetitOursManu/Mocky',
       loadSidebar: true,
       subMaxLevel: 2,
@@ -310,8 +310,8 @@
     which Docsify reads once at startup. Loaded after it, the plugin would
     be added to an array nobody looks at again.
   -->
-  <script src="./widgets.js?v=4"></script>
-  <script src="./vendor/docsify.min.js?v=4"></script>
-  <script src="./vendor/docsify-search.min.js?v=4"></script>
+  <script src="./widgets.js?v=5"></script>
+  <script src="./vendor/docsify.min.js?v=5"></script>
+  <script src="./vendor/docsify-search.min.js?v=5"></script>
 </body>
 </html>

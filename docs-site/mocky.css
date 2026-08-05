@@ -228,8 +228,12 @@ input:focus-visible {
   outline-color: rgb(255 255 255 / 0.25);
 }
 
+/* The bottom padding was 88px, reserving room under the theme switch back when
+   it was `position: absolute` and overlapped whatever the nav ended with. The
+   switch is in flow now and takes its own space, so that reserve had become 88px
+   of visible emptiness at the end of the menu. 16px is ordinary trailing space. */
 .sidebar .sidebar-nav {
-  padding: 14px 0 88px;
+  padding: 14px 0 16px;
   line-height: 1.5;
 }
 
@@ -397,7 +401,16 @@ input:focus-visible {
 
 /* ------------------------------------------------------- theme + search -- */
 
-.search {
+/* `.sidebar .search`, not `.search`. The search plugin injects its own
+   stylesheet at runtime with `.search { margin-bottom: 20px; padding: 6px;
+   border-bottom: 1px solid #eee }` — the same (0-1-0) as ours but later in
+   document order, so the plain selector loses the tie and the declarations
+   below never applied. What a phone user actually saw on opening the menu was
+   a 20px hole above the masthead and a near-white #eee rule: in the dark theme
+   that is the loudest line on the page, where the design asks for `--line-soft`
+   rgb(68 65 60). Zeroing the plugin's 6px padding also lines the field's text
+   up with the masthead's own 20px, which is why no separate rule does that. */
+.sidebar .search {
   margin: 0;
   padding: 0;
   border-bottom: 1px solid rgb(var(--line-soft));
@@ -731,6 +744,24 @@ input:focus-visible {
   padding: 1px 5px;
   font-size: 0.85em;
   white-space: pre-wrap;
+  /* `pre-wrap` breaks at spaces and nowhere else, so a single long token — a
+     command, a URL, an identifier — lays out at full width and is then cut off
+     by the vue theme's `main { overflow-x: hidden }`, with no gesture that
+     brings it back. The audit's §3.5 lost the last 18 characters of the very
+     command it exists to hand over.
+
+     `break-word` and NOT `anywhere`: `anywhere` also feeds min-content sizing,
+     and auto table layout reads min-content. Measured at 1280px it collapsed
+     the audit's route column from 148px to 74px and broke `/api/muse/dossier`
+     across two lines. `break-word` is ignored for intrinsic sizing, which is
+     exactly what leaves the desktop tables where they are; the span still
+     breaks when rendered, because a paragraph's width comes from block layout.
+
+     This also reaches `pre > code` and is inert there: the vendor's
+     `.markdown-section pre>code { white-space: inherit }` (0-1-2) wins, so
+     fence content stays `pre` and never wraps. A `:not(pre) > code` guard would
+     buy nothing and cost the next reader a puzzle. */
+  overflow-wrap: break-word;
 }
 
 .markdown-section pre {
@@ -849,6 +880,100 @@ input:focus-visible {
     background: rgb(var(--surface));
     border: 1px solid rgb(var(--line-soft));
   }
+
+  /* `body.close` is Docsify's OPEN state on a phone — it is what slides the
+     sidebar in. In exactly that state the vendor's `body.close .sidebar-toggle`
+     (0-2-1) outranks the one-class rule above and inflates the hamburger from
+     46px to a 284px bar pinned to the bottom-left. The theme switch sits at
+     x 52-159 in the same corner, so the bar covered it completely and every tap
+     meant for it closed the menu instead: the switch could not be operated on a
+     phone at all. Raising `.mocky-theme`'s z-index cannot help — `.sidebar` is
+     `position: fixed; z-index: 20`, which seals its children in a stacking
+     context the toggle's 32 sits outside of.
+
+     Matching the vendor's specificity is the point of the `body.close` prefix;
+     mocky.css is linked after the vendor sheet, so the tie goes to us.
+     `background-color`, not the `background` shorthand — the vendor uses the
+     longhand, and a shorthand at equal specificity is a coin toss.
+
+     What this gives up: the 284px bar was the vendor's wide "tap to close"
+     target. Nothing is lost in practice — Docsify still closes the menu on a
+     tap anywhere outside it — so do not "restore" it. */
+  body.close .sidebar-toggle {
+    width: auto;
+    padding: 12px 14px;
+    background-color: rgb(var(--surface));
+  }
+
+  /* A table is the one element here that cannot be made narrow. The vue theme
+     puts `overflow-x: hidden` on `main` at this width, so a table wider than
+     the column was not merely off-screen — it was unreachable, with no gesture
+     that brought it back. Getting started lost the entire `Default model`
+     column: the model ids the page is telling the reader to type.
+
+     `display: block` turns the table itself into the scroll container. The
+     table still fills the column when it fits (`width: 100%` applies to the
+     block box), so nothing shrink-wraps. `.mk-table` already sits inside
+     `.mk-tablewrap`, which gives it a second, inner scroll box — harmless, the
+     inner one takes the gesture, and worth knowing before someone removes one
+     of the two as redundant.
+
+     Do NOT instead remove the vendor's `overflow-x: hidden`. `main.scrollLeft`
+     is settable today, so lifting the clip pans the whole layout sideways. */
+  .markdown-section table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* Headers were the widest cells in several tables purely because they refused
+     to wrap; letting them wrap pulled one table back inside the column entirely,
+     so it no longer needs to scroll at all. */
+  .markdown-section table th {
+    white-space: normal;
+  }
+
+  /* iOS Safari magnifies the page when a field below an ABSOLUTE 16px takes
+     focus, and the viewport meta carries no `maximum-scale`, so it never
+     magnifies back: tapping search left the reader zoomed into a layout wider
+     than the screen. The fix is the field, not the meta tag — disabling zoom
+     would take it away from everyone who needs it.
+
+     `.search .input-wrap input` (0-2-1) rather than `.search input`: the search
+     plugin injects `.search input { font-size: inherit }` at the same (0-1-1)
+     as ours and later in document order, so the obvious selector loses the tie.
+     Check this one with getComputedStyle, never by reading the stylesheet. */
+  .search .input-wrap input {
+    font-size: 16px;
+    padding: 14px 20px;
+  }
+
+  /* Nav rows are 26-31px tall and stacked with no gap; a thumb contact patch is
+     30-45px across, so aiming at one entry regularly hit its neighbour.
+
+     The second rule is not optional: `.sidebar .app-sub-sidebar li a` is (0-2-2)
+     and would otherwise keep beating the (0-1-3) rule above it — leaving exactly
+     the sub-entries that are worst today untouched. Padding rather than
+     `min-height`: these links are `display: block`, so a min-height grows the
+     box while the text stays glued to its top, floating the label above its own
+     target and dragging the ::before chevron (top: 50%) away from the text. */
+  .sidebar ul li a {
+    padding-top: 11px;
+    padding-bottom: 11px;
+  }
+
+  .sidebar .app-sub-sidebar li a {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .mocky-lang a {
+    padding-top: 15px;
+    padding-bottom: 15px;
+  }
+
+  /* The widgets' phone overrides are NOT here — they are in the second mobile
+     block at the end of this file, because the rules they override are defined
+     further down than this one. See the note there. */
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -864,6 +989,25 @@ input:focus-visible {
  */
 .markdown-section pre[data-lang] {
   position: relative;
+}
+
+/* The vue theme prints the language name in the same top-right corner this
+   button occupies, so "BASH" was printed almost exactly on top of "Copy".
+   Rather than guess an offset — "DOCKERFILE" is ~75px of text and the docs
+   contain ten such fences, so any fixed nudge is wrong for some of them —
+   reserve a strip across the top and give each control one end of it. Neither
+   then depends on the other's measured width, so it holds at every width.
+
+   Both controls are positioned against the pre's padding box, which does not
+   scroll, so the strip stays put while the code scrolls under it. */
+.markdown-section pre[data-lang] > code {
+  padding-top: 34px;
+}
+
+.markdown-section pre[data-lang]::after {
+  left: 20px;
+  right: auto;
+  text-align: left;
 }
 
 .mk-copy {
@@ -1015,9 +1159,13 @@ input:focus-visible {
   margin-bottom: 10px;
 }
 
+/* Wrapping is unconditional — at 360px the three filters do not fit on one
+   line, and above it there is nothing to wrap, so the rule costs the desktop
+   nothing. Only the target size is held back for the phone block. */
 .mk-chips {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .mk-chip {
@@ -1074,6 +1222,16 @@ input:focus-visible {
   vertical-align: top;
 }
 
+/* The rule's justification, under its name. It used to live only in a `title`,
+   which no touch device shows — see the note in widgets.js `draw()`. */
+.mk-why {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgb(var(--ink-faint));
+}
+
 .mk-table code {
   font-size: 11px;
 }
@@ -1112,4 +1270,65 @@ input:focus-visible {
 .mk-failed {
   font-size: 13px;
   color: rgb(var(--ink-faint));
+}
+
+/* ------------------------------------------------- mobile, part two --------
+ *
+ * KEEP THIS BLOCK LAST.
+ *
+ * The first `max-width: 768px` block sits above, next to the layout it adjusts.
+ * These rules cannot live there. Everything they override — `.mk-copy`,
+ * `.mk-chip`, `.mk-toggle`, `.mk-bar` — is declared BELOW that block, and a
+ * media query grants no specificity of its own. A one-class rule inside an
+ * earlier `@media` loses to a one-class rule later in the file, so the phone
+ * overrides were written, shipped, and silently did nothing: the copy button
+ * still measured `opacity: 0` at 390px.
+ *
+ * The application's own `src/index.css` carries the same warning over
+ * `.tap-target`, for the same reason, after the same mistake.
+ */
+@media screen and (max-width: 768px) {
+  /* The copy button is revealed by `:hover`, and a touch screen has no hover —
+     so it was permanently invisible on a phone, on pages that are a column of
+     shell commands. Readers were left dragging selection handles across a
+     command instead.
+
+     Gated on width rather than only on `@media (hover: none)` so a desktop
+     window narrowed to 390px reproduces it. A rule that can only ever match on
+     hardware you are not holding is a rule nobody will maintain — the same
+     reason a `(pointer: coarse)` block hid a bug in the application for weeks.
+
+     No 44x44 plate: at top 6 / right 8 inside a 360px fence, that lands on the
+     first line of the very command it is offering to copy. */
+  .mk-copy {
+    opacity: 1;
+    padding: 8px 12px;
+  }
+
+  /* The rule browser's filters were 22px tall and 6px apart — under half a
+     thumb, with a dead gap between them. Grown for the phone only: a 44px slab
+     is the right answer under a thumb and the wrong one in a stylesheet whose
+     stated direction is a Swiss poster. */
+  .mk-chip {
+    min-height: 44px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .mk-toggle {
+    min-height: 44px;
+  }
+
+  .mk-toggle input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+
+  /* `.mk-bar` aligns on the baseline, which sat the count on the first chip's
+     baseline; with 44px inline-flex chips that drops it to the bottom of the row. */
+  .mk-bar {
+    align-items: center;
+  }
 }
