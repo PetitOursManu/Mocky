@@ -639,10 +639,26 @@ export default function ProjectsHome({
               <div className="grid gap-x-10 xl:grid-cols-2 xl:divide-x xl:divide-line-soft">
                 {ps.map((p) => {
                   const deck = deckOf(p, 96)
+                  /*
+                    `min-w-0` on the article, not only on the button below. The
+                    article is a GRID item, and a grid item's default
+                    `min-width: auto` resolves to its min-content — which, for a
+                    flex row holding a `flex-1` child, is essentially that
+                    child's MAX-content. So the row sized itself to the
+                    untruncated deck: 749px inside a 375px viewport. `truncate`
+                    then clipped nothing (there was room for the whole string),
+                    the file and delete buttons were pushed off the right edge,
+                    and the document grew wide enough that the header and the
+                    number gutter scrolled out of reach on a phone.
+
+                    The `min-w-0` already on the button could not prevent this:
+                    it governs how far the button may shrink, not how far its
+                    grid ancestor is allowed to.
+                  */
                   return (
                     <article
                       key={p.id}
-                      className="group flex items-start gap-4 border-b border-line-soft py-4 xl:px-6 xl:first:pl-0"
+                      className="group flex min-w-0 items-start gap-4 border-b border-line-soft py-4 xl:px-6 xl:first:pl-0"
                     >
                       {/* The entry number, as an index has. `tabular-nums` keeps
                           the column of digits straight; `padStart` keeps 02 above
