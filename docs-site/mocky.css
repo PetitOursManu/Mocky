@@ -493,10 +493,45 @@ input:focus-visible {
   background: rgb(var(--sunken));
 }
 
+/*
+ * The column, and the measure inside it, which are two different things.
+ *
+ * This was one number for both, and it served neither: at 46rem the body text
+ * ran to 91 characters a line — a third past the 68 the project sets for itself
+ * in `src/index.css` and states outright in the design system ("full width does
+ * not mean 200-character lines: that is precisely why newspapers have
+ * columns") — while the three-column changelog tables and the 75-row rule table
+ * were squeezed into the same 46rem and had to scroll.
+ *
+ * So the container widens and the PROSE is constrained instead, which is what
+ * the application does: `.measure` is a class on paragraphs, never on the page.
+ * Tables, code blocks and the widgets then use the full column, and sentences
+ * read at the length they were meant to. The two axes stop fighting.
+ */
 .markdown-section {
-  max-width: 46rem;
+  max-width: 58rem;
   padding: 40px 24px 80px;
   color: rgb(var(--ink));
+}
+
+/*
+ * 68ch, the same figure as `.measure` in the application.
+ *
+ * Deliberately NOT applied to headings — display text is short and setting it
+ * on a narrower grid than the rule beneath it looks like a mistake — nor to
+ * tables, code or the widgets, which are figures and want the room.
+ */
+.markdown-section p,
+.markdown-section li,
+.markdown-section blockquote {
+  max-width: 68ch;
+}
+
+/* A table cell is not prose; the rule above must not reach inside one. */
+.markdown-section td p,
+.markdown-section td li,
+.markdown-section th p {
+  max-width: none;
 }
 
 /* Headings in the serif, tightened — the application's own scale. */
@@ -850,10 +885,10 @@ input:focus-visible {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
-@media screen and (min-width: 1200px) {
+@media screen and (min-width: 1400px) {
   .mk-grid {
-    margin-left: -6rem;
-    margin-right: -6rem;
+    margin-left: -4rem;
+    margin-right: -4rem;
   }
 }
 

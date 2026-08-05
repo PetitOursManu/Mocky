@@ -84,7 +84,7 @@
   var cache = {}
   function load(name) {
     if (cache[name]) return cache[name]
-    cache[name] = fetch('data/' + name + '.json?v=3').then(function (r) {
+    cache[name] = fetch('data/' + name + '.json?v=4').then(function (r) {
       if (!r.ok) throw new Error(r.status)
       return r.json()
     })
