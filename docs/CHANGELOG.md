@@ -10,6 +10,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `header` | la marque à côté du nom, et la baseline qui lui cède la place | `9b71bc0` |
 | `mobile` | des barres qui tiennent, des cibles qu'on peut viser, un canevas qui cède | `8cf0509` |
 | `design` | le DESIGN.md devient une fiche, et se modifie | `2d8f0ba` |
 | `canvas` | cinq retouches, dont deux vrais bugs | `93e8f8c` |
