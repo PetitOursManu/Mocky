@@ -62,6 +62,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | un changelog, des pages vivantes, et ce qui manquait | `8e012c8` |
 | — | CLAUDE.md, la série Q, et ce qu'on doit à Impeccable | `b055b9c` |
 | — | la direction par projet, l'identité qui voyage, et deux phrases devenues fausses | `29b62a0` |
 | — | les jumeaux de langue, et le « pourquoi » sous chaque titre | `f014d33` |
