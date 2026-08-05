@@ -121,6 +121,19 @@ Le lecteur est constitué de sept fichiers statiques dans `docs-site/` : quatre
 npm et ne charge rien depuis un CDN. Voir [Déploiement](fr/deployment.md), qui
 les liste un par un.
 
+Pour lire le site en local avant d'y publier une modification :
+
+```bash
+npm run docs
+```
+
+Cela sert `docs-site/` sur `http://127.0.0.1:4173`. La prose continue d'être lue
+depuis GitHub : ce que vous prévisualisez est donc le vrai site à sa vraie
+longueur — avec une barre latérale assez longue pour défiler, ce qui est la
+condition sous laquelle sa mise en page mérite d'être vérifiée. C'est faute de
+toute prévisualisation locale que le sélecteur de thème a passé un moment au
+milieu du menu sur tous les écrans étroits.
+
 ---
 
 ## Les autres documents du dépôt

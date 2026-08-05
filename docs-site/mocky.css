@@ -118,11 +118,26 @@ input:focus-visible {
 
 /* --------------------------------------------------------------- sidebar -- */
 
+/* A column, so that the theme switch at the end can be pinned to the bottom
+   without being taken out of flow. See the note on `.mocky-theme`: the switch
+   used to be `position: absolute`, which pins against the padding box but
+   scrolls away with the content. Laying the sidebar out as a flex column and
+   letting the nav absorb the slack keeps the switch at the bottom whether the
+   nav is short (tall desktop, nothing scrolls) or long (phone, it scrolls) —
+   and those two cases want opposite things from `position: sticky` alone. */
 .sidebar {
   background: rgb(var(--surface));
   border-right: 1px solid rgb(var(--line));
   color: rgb(var(--ink));
   padding-top: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* `flex-shrink: 0` so a long nav keeps its full height and the sidebar scrolls,
+   rather than the nav compressing to fit and clipping its last entries. */
+.sidebar .sidebar-nav {
+  flex: 1 0 auto;
 }
 
 /* The masthead: the paper's name, set in the serif, under a double rule —
@@ -429,12 +444,25 @@ input:focus-visible {
 }
 
 /* The theme switch, injected into the sidebar by index.html. Sits at the very
-   bottom, on its own rule, next to the toggle the theme already puts there. */
+   bottom, on its own rule, next to the toggle the theme already puts there.
+   The left padding is the gutter the hamburger sits in — it is `position:
+   fixed` at the bottom-left corner and would otherwise land on this button.
+
+   `sticky`, not `absolute`. `.sidebar` is a positioned SCROLLING container, and
+   an absolutely positioned child at `bottom: 0` is placed against the padding
+   box but then scrolls with the content: on a phone the nav is long enough to
+   scroll ~223px, so the switch drifted exactly that far up and came to rest in
+   the middle of the menu. It was invisible on a desktop only because a tall
+   window fits the whole nav without scrolling.
+
+   `sticky` alone is NOT enough, and swapping one for the other would have moved
+   the bug rather than fixed it: with nothing to scroll, a bottom-stuck element
+   simply stays where it falls in flow — measured at 282px above the bottom of a
+   1400px window. The flex column on `.sidebar` is what closes that gap. */
 .mocky-theme {
-  position: absolute;
+  position: sticky;
   bottom: 0;
-  left: 0;
-  right: 0;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;

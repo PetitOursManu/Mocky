@@ -111,6 +111,18 @@ The viewer is seven static files in `docs-site/` — four written for the projec
 three vendored copies of Docsify. It has no npm dependencies and loads nothing
 from a CDN. See [Deployment](deployment.md), which lists them one by one.
 
+To read the site locally before publishing a change to it:
+
+```bash
+npm run docs
+```
+
+That serves `docs-site/` on `http://127.0.0.1:4173`. The prose still comes from
+GitHub, so what you preview is the real site at its real length — including a
+sidebar long enough to scroll, which is the condition under which its layout is
+worth checking. Having no local preview at all is how the theme switch came to
+spend a while sitting in the middle of the menu on every narrow screen.
+
 **Ces pages existent aussi en français : [documentation française](fr/README.md).**
 
 ---
