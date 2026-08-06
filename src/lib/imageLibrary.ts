@@ -105,6 +105,40 @@ export async function uploadImage(
   return j.meta as LibraryImage
 }
 
+/**
+ * Make one image on demand, outside the Muse imagery plan.
+ *
+ * `generateSlotImages` in muse.ts covers the generation path — a whole plan of
+ * slots, produced before a screen exists and capped because the default
+ * provider is rate-limited. This is the other case: one picture, asked for by
+ * name, to replace one that is already in a screen. Same endpoint, same
+ * library, no plan.
+ *
+ * Returns the hash rather than a URL: the caller decides whether the URL it
+ * writes needs an origin (the preview iframe does — I2 — while the app DOM does
+ * not), and handing out a relative URL here is how that decision gets made by
+ * accident.
+ */
+export async function generateImage(
+  prompt: string,
+  opts: { project?: string; signal?: AbortSignal } = {},
+): Promise<{ hash: string } | null> {
+  const res = await fetch('/api/images/generate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt, project: opts.project, profile: 'content', tags: ['replacement'] }),
+    signal: opts.signal,
+  })
+  const j = await res.json().catch(() => ({}))
+  // The backend puts the provider's real reason in `error`; an opaque 502 in
+  // the console is not something a user can act on.
+  if (!res.ok) throw new Error(j?.error ? String(j.error) : `HTTP ${res.status}`)
+  // A provider that answered but produced nothing. Not an error, but not an
+  // image either — the caller has to tell the difference.
+  if (j.skipped || !j.hash) return null
+  return { hash: String(j.hash) }
+}
+
 export async function toggleFavoriteImage(hash: string): Promise<boolean> {
   const res = await fetch(`/api/images/${hash}/favorite`, { method: 'POST' })
   if (!res.ok) throw new Error(`Favorite HTTP ${res.status}`)

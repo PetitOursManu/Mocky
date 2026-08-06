@@ -90,6 +90,42 @@ export const library = {
     'library.altGenerated': 'image générée',
     'library.promptLabel': 'Prompt',
     'library.escHint': 'Échap ou clic à l’extérieur pour fermer',
+
+    // ---- replacing an image inside a screen ----
+    'library.swapTitle': 'Images de « {name} »',
+    'library.swapBlurb':
+      'Les images utilisées par cet écran. Remplacer réécrit uniquement l’adresse de l’image dans le code — le reste de l’écran n’est pas retouché, et « Revenir en arrière » annule l’opération.',
+    'library.swapNone': 'Cet écran n’utilise aucune image de la médiathèque.',
+    'library.swapNoneHint':
+      'Les écrans générés sans image utilisent des aplats et des SVG dessinés à la main. Pour en ajouter une, décrivez-la dans le composeur.',
+    'library.swapUnparsed':
+      'Le code de cet écran n’a pas pu être analysé, donc ses images sont introuvables. Corrigez l’erreur affichée sur l’écran, puis réessayez.',
+    'library.swapUsedOnce': 'utilisée une fois',
+    'library.swapUsedTimes': 'utilisée {n} fois',
+    'library.swapAllOccurrences': 'Les {n} occurrences seront remplacées.',
+    'library.swapNoAlt': 'sans texte alternatif',
+    'library.swapReplace': 'Remplacer',
+    'library.swapCancel': 'Garder celle-ci',
+    'library.swapChoose': 'Choisir la nouvelle image',
+    'library.swapSearch': 'Rechercher dans la médiathèque',
+    'library.swapEmpty': 'Aucune image ne correspond.',
+    'library.swapUpload': 'Importer un fichier',
+    'library.swapGenerate': 'Générer',
+    'library.swapGeneratePlaceholder': 'Décrivez l’image à générer…',
+    'library.swapGenerating': 'Génération…',
+    'library.swapGenerateSkipped':
+      'Le fournisseur n’a produit aucune image. Réessayez, ou choisissez-en une dans la médiathèque.',
+    'library.swapDone': 'Image remplacée.',
+    'library.swapFailed': 'Le remplacement a échoué.',
+    'library.swapSame': 'C’est déjà l’image utilisée.',
+    'library.swapEverywhere': 'Partout ({n})',
+    'library.swapEverywhereHint':
+      'Remplace les {n} emplacements d’un coup — à choisir quand c’est une seule et même image affichée plusieurs fois.',
+    'library.swapSlots': 'Ou un emplacement à la fois',
+    'library.swapSlotsHint':
+      'Muse ne produit qu’une image par écran, donc la même se retrouve à plusieurs endroits. Donnez-en une différente à chacun.',
+    'library.swapSlot': 'Emplacement {n}',
+    'library.swapSlotLine': 'ligne {n}',
   } as Record<string, string>,
   en: {
     // ---- standalone Images page ----
@@ -168,5 +204,41 @@ export const library = {
     'library.altGenerated': 'generated image',
     'library.promptLabel': 'Prompt',
     'library.escHint': 'Press Esc, or click outside, to close',
+
+    // ---- replacing an image inside a screen ----
+    'library.swapTitle': 'Images in “{name}”',
+    'library.swapBlurb':
+      'The images this screen uses. Replacing rewrites only the image’s address in the code — nothing else about the screen is touched, and “Revert” undoes it.',
+    'library.swapNone': 'This screen uses no images from the media library.',
+    'library.swapNoneHint':
+      'Screens generated without one use flat colour and hand-drawn SVG. To add an image, describe it in the composer.',
+    'library.swapUnparsed':
+      'This screen’s code could not be read, so its images cannot be found. Fix the error shown on the screen and try again.',
+    'library.swapUsedOnce': 'used once',
+    'library.swapUsedTimes': 'used {n} times',
+    'library.swapAllOccurrences': 'All {n} occurrences will be replaced.',
+    'library.swapNoAlt': 'no alt text',
+    'library.swapReplace': 'Replace',
+    'library.swapCancel': 'Keep this one',
+    'library.swapChoose': 'Choose the new image',
+    'library.swapSearch': 'Search the media library',
+    'library.swapEmpty': 'No image matches.',
+    'library.swapUpload': 'Upload a file',
+    'library.swapGenerate': 'Generate',
+    'library.swapGeneratePlaceholder': 'Describe the image to generate…',
+    'library.swapGenerating': 'Generating…',
+    'library.swapGenerateSkipped':
+      'The provider produced no image. Try again, or pick one from the media library.',
+    'library.swapDone': 'Image replaced.',
+    'library.swapFailed': 'The replacement failed.',
+    'library.swapSame': 'That is already the image in use.',
+    'library.swapEverywhere': 'Everywhere ({n})',
+    'library.swapEverywhereHint':
+      'Replaces all {n} places at once — the right choice when it really is one picture shown several times.',
+    'library.swapSlots': 'Or one place at a time',
+    'library.swapSlotsHint':
+      'Muse makes only one image per screen, so the same one lands in several places. Give each of them a different picture.',
+    'library.swapSlot': 'Place {n}',
+    'library.swapSlotLine': 'line {n}',
   } as Record<string, string>,
 }

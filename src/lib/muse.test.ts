@@ -221,3 +221,22 @@ describe('buildMusePreamble — palette fidelity', () => {
     expect(() => buildMusePreamble('# Dossier')).not.toThrow()
   })
 })
+
+describe('generateSlotImages guards', () => {
+  it('skips a slot whose subject is only whitespace instead of asking the server', async () => {
+    // The route rejects a whitespace prompt with a 400, and `"  "` is truthy in
+    // JavaScript — so the two guards disagreed and the mismatch showed up as a
+    // bare 400 in the console with no picture and no explanation. A blank
+    // subject is what a dossier looks like when the model ran out of tokens
+    // mid-JSON.
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { generateSlotImages } = await import('./muse')
+    const out = await generateSlotImages(
+      [{ id: 'hero', slot: 'hero', subject: '   ', prompt: '' } as never],
+      'proj',
+    )
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(out).toEqual([])
+  })
+})

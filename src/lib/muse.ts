@@ -462,7 +462,20 @@ export async function generateSlotImages(
   const max = opts.max ?? 1 // Pollinations is rate-limited (~1/15s); default to the hero only.
   const out: GeneratedSlotImage[] = []
   for (const slot of (slots || []).slice(0, max)) {
-    const promptText = slot.prompt || slot.subject
+    /**
+     * Trimmed, because the server's idea of "empty" is not JavaScript's.
+     *
+     * The route rejects `!String(prompt).trim()` with a 400, while this guard
+     * was a plain truthiness test — and `"  "` is truthy. A slot whose subject
+     * came back as whitespace therefore sailed past here and was refused there,
+     * which surfaced as a bare `POST /api/images/generate 400` in the console
+     * and a screen with no picture in it, with nothing anywhere saying why.
+     *
+     * A blank subject is not exotic: it is what a dossier looks like when the
+     * model ran out of output tokens mid-JSON, which is exactly when this was
+     * seen.
+     */
+    const promptText = String(slot.prompt || slot.subject || '').trim()
     if (!promptText) continue
     try {
       const res = await fetch('/api/images/generate', {
