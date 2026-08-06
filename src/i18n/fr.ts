@@ -140,6 +140,7 @@ export const fr = {
   'canvas.duplicate': 'Dupliquer',
   'canvas.arrange': 'Réorganiser',
   'canvas.fit': 'Tout afficher',
+  'canvas.zoomLatest': 'Zoomer sur le dernier écran',
   'canvas.zoomIn': 'Zoomer',
   'canvas.zoomOut': 'Dézoomer',
   'canvas.generating': 'Génération…',
@@ -153,6 +154,7 @@ export const fr = {
   'mode.interact': 'Interagir',
   'mode.annotate': 'Annoter',
   'mode.frame': 'Cadre',
+  'mode.audit': 'Audit',
   'mode.system': 'Système',
   'mode.demo': 'Démo',
   'mode.export': 'Exporter',
@@ -265,6 +267,30 @@ export const fr = {
   'admin.deleteUser': 'Supprimer le compte',
   'admin.textProvider': 'Modèle de texte',
   'admin.imageProvider': 'Génération d’images',
+
+  // ---- admin: usage report ----
+  'admin.usage': 'Utilisation',
+  'admin.usageBlurb':
+    'Ce que chaque compte a produit et ce qu’il occupe sur le disque. Les médias sont dédupliqués : une image identique déposée par deux personnes est un seul fichier, dont la taille est partagée entre elles.',
+  'admin.usageProjects': 'Projets',
+  'admin.usageScreens': 'Écrans',
+  'admin.usageMedia': 'Médias',
+  'admin.usageUnreadable': 'Données illisibles',
+  'admin.usageUnreadableHelp':
+    'Le contenu de ce compte n’a pas pu être analysé. Les octets restent comptés — seul le détail manque.',
+  'admin.usageTombstones': 'dont {n} supprimé(s) en attente de synchronisation',
+  'admin.usageUnattributed': 'Sans propriétaire',
+  'admin.usageUnattributedHelp':
+    'Médias déposés avant que le propriétaire ne soit enregistré, ou appartenant à un compte supprimé. Ils ne sont attribués à personne plutôt que devinés.',
+  'admin.usageInstance': 'Total de l’instance',
+  'admin.usageUnlimited': 'sans plafond',
+  'admin.usageEmpty': 'Aucun compte n’a encore rien produit.',
+  'admin.usageFailed': 'Le rapport d’utilisation est indisponible.',
+  'admin.usageBreakdown': '{data} de projets · {media} de médias · {avatar} d’avatar',
+  'admin.unitB': 'o',
+  'admin.unitKB': 'ko',
+  'admin.unitMB': 'Mo',
+  'admin.unitGB': 'Go',
 
   // ---- generic ----
   'common.save': 'Enregistrer',

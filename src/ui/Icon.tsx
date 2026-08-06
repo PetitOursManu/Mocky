@@ -54,6 +54,7 @@ export type IconName =
   | 'zoomIn'
   | 'zoomOut'
   | 'fit'
+  | 'target'
   | 'pin'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
@@ -105,6 +106,11 @@ const PATHS: Record<IconName, string> = {
   zoomIn: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3M11 8v6M8 11h6',
   zoomOut: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3M8 11h6',
   fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  // Reticle: ring, four ticks, and a centre disc drawn as an arc pair rather
+  // than a zero-length segment — see the note on `more` for what the shortcut
+  // costs at toolbar size.
+  target:
+    'M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM12 2v3M12 19v3M2 12h3M19 12h3M13.4 12a1.4 1.4 0 1 0-2.8 0a1.4 1.4 0 1 0 2.8 0',
   pin: 'M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z',
 }
 

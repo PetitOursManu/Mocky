@@ -138,6 +138,7 @@ export const en: Record<keyof typeof fr, string> = {
   'canvas.duplicate': 'Duplicate',
   'canvas.arrange': 'Arrange',
   'canvas.fit': 'Fit all',
+  'canvas.zoomLatest': 'Zoom to the latest screen',
   'canvas.zoomIn': 'Zoom in',
   'canvas.zoomOut': 'Zoom out',
   'canvas.generating': 'Generating…',
@@ -151,6 +152,7 @@ export const en: Record<keyof typeof fr, string> = {
   'mode.interact': 'Interact',
   'mode.annotate': 'Annotate',
   'mode.frame': 'Frame',
+  'mode.audit': 'Audit',
   'mode.system': 'System',
   'mode.demo': 'Demo',
   'mode.export': 'Export',
@@ -263,6 +265,30 @@ export const en: Record<keyof typeof fr, string> = {
   'admin.deleteUser': 'Delete account',
   'admin.textProvider': 'Text model',
   'admin.imageProvider': 'Image generation',
+
+  // ---- admin: usage report ----
+  'admin.usage': 'Usage',
+  'admin.usageBlurb':
+    'What each account has produced and what it occupies on disk. Media is deduplicated: one image uploaded by two people is a single file, and its size is shared between them.',
+  'admin.usageProjects': 'Projects',
+  'admin.usageScreens': 'Screens',
+  'admin.usageMedia': 'Media',
+  'admin.usageUnreadable': 'Unreadable data',
+  'admin.usageUnreadableHelp':
+    'This account’s contents could not be read. The bytes are still counted — only the breakdown is missing.',
+  'admin.usageTombstones': 'including {n} deleted, still waiting to sync',
+  'admin.usageUnattributed': 'No owner',
+  'admin.usageUnattributedHelp':
+    'Media added before ownership was recorded, or belonging to a deleted account. Left unattributed rather than guessed at.',
+  'admin.usageInstance': 'Instance total',
+  'admin.usageUnlimited': 'no ceiling',
+  'admin.usageEmpty': 'No account has produced anything yet.',
+  'admin.usageFailed': 'The usage report is unavailable.',
+  'admin.usageBreakdown': '{data} of projects · {media} of media · {avatar} of avatar',
+  'admin.unitB': 'B',
+  'admin.unitKB': 'kB',
+  'admin.unitMB': 'MB',
+  'admin.unitGB': 'GB',
 
   // ---- generic ----
   'common.save': 'Save',

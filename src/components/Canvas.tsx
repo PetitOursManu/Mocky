@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MIN_H, MIN_W, packScreens, type Screen } from '../lib/project'
+import { MIN_H, MIN_W, packScreens, type Box, type Screen } from '../lib/project'
+import {
+  CARD_GUTTER,
+  CARD_W,
+  FIT_MAX_SCALE,
+  FOCUS_MAX_SCALE,
+  FRAME_PAD,
+  MAX_SCALE,
+  MIN_SCALE,
+  clamp,
+  contentBox,
+  frameBox,
+  latestScreenOf,
+  type Framing,
+  type ViewState,
+} from '../lib/framing'
 import { extractDesignColors, extractProductName } from '../lib/design'
 import { parseDesignSystem } from '../lib/designTokens'
 import { ScaledMockup, type PreviewCfg } from './DesignMockup'
@@ -8,32 +23,8 @@ import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
 import { Icon, IconButton } from '../ui'
 import { useT } from '../i18n'
 
-interface ViewState {
-  x: number
-  y: number
-  scale: number
-}
-interface Box {
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-const MIN_SCALE = 0.05
-const MAX_SCALE = 1.5
-
 /**
- * The reference/design column beside a frame, in WORLD units.
- *
- * World rather than screen units because this column takes up room on the
- * board: anything sized against the zoom occupies a footprint that changes with
- * it, and a neighbour that moves when you zoom out is the one thing an infinite
- * canvas must not do.
- */
-const CARD_W = 320
-/**
- * Below this zoom the column is not drawn at all.
+ * Below this zoom the reference/design column is not drawn at all.
  *
  * At 0.15 a 320 px card is 48 px on screen: past the point where shrinking it
  * further tells anyone anything, and the alternative — counter-scaling it back
@@ -276,8 +267,6 @@ type Gesture =
   | { type: 'marquee'; sx: number; sy: number; additive: boolean; base: string[] }
   | { type: 'annotate'; screenId: string; sx: number; sy: number }
 
-const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
-
 function capture(el: HTMLElement | null, pointerId: number) {
   try {
     el?.setPointerCapture(pointerId)
@@ -404,6 +393,7 @@ export default function Canvas({
   const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<ViewState>({ x: 80, y: 80, scale: 0.4 })
+  const [framing, setFraming] = useState<Framing>(null)
   const [spaceDown, setSpaceDown] = useState(false)
   /**
    * The one screen made interactive by a double-click.
@@ -462,47 +452,98 @@ export default function Canvas({
     return { lx: e.clientX - r.left, ly: e.clientY - r.top }
   }
 
-  const fitAll = useCallback(() => {
-    const el = containerRef.current
-    if (!el || screens.length === 0) {
-      setView({ x: 80, y: 80, scale: 0.5 })
-      return
-    }
-    const minX = Math.min(...screens.map((s) => s.x))
-    const minY = Math.min(...screens.map((s) => s.y))
-    const maxX = Math.max(...screens.map((s) => s.x + s.w))
-    const maxY = Math.max(...screens.map((s) => s.y + s.h))
-    const w = maxX - minX
-    const h = maxY - minY
-    const pad = 80
-    const scale = clamp(Math.min((el.clientWidth - pad * 2) / w, (el.clientHeight - pad * 2) / h), MIN_SCALE, 1)
-    setView({
-      x: (el.clientWidth - w * scale) / 2 - minX * scale,
-      y: (el.clientHeight - h * scale) / 2 - minY * scale,
-      scale,
-    })
-  }, [screens])
+  const applyFraming = useCallback(
+    (f: Framing) => {
+      const el = containerRef.current
+      if (!f || !el) return
+      const viewport = { width: el.clientWidth, height: el.clientHeight }
+      if (f.kind === 'all') {
+        const box = contentBox(screens)
+        // An empty board has no bounding box and therefore no framing; the
+        // fallback is the same starting view the component mounts with.
+        if (!box) {
+          setView({ x: 80, y: 80, scale: 0.5 })
+          return
+        }
+        const v = frameBox(box, viewport, FRAME_PAD, FIT_MAX_SCALE)
+        if (v) setView(v)
+        return
+      }
+      const s = screens.find((x) => x.id === f.id)
+      if (!s) return
+      const v = frameBox({ x: s.x, y: s.y, w: s.w, h: s.h }, viewport, FRAME_PAD, FOCUS_MAX_SCALE)
+      if (v) setView(v)
+    },
+    [screens],
+  )
+
+  /**
+   * Refs so the resize observer below can stay mounted for the life of the
+   * component. Re-creating it whenever `screens` changed would re-run the
+   * callback ResizeObserver fires on `observe()`, i.e. re-frame the board on
+   * every generation — which is the same class of bug, pointing the other way.
+   */
+  const framingRef = useRef<Framing>(framing)
+  framingRef.current = framing
+  const applyFramingRef = useRef(applyFraming)
+  applyFramingRef.current = applyFraming
+
+  const frameAll = useCallback(() => {
+    setFraming({ kind: 'all' })
+    applyFraming({ kind: 'all' })
+  }, [applyFraming])
+
+  const frameScreen = useCallback(
+    (id: string) => {
+      setFraming({ kind: 'screen', id })
+      applyFraming({ kind: 'screen', id })
+    },
+    [applyFraming],
+  )
+
+  const latestScreen = useMemo(() => latestScreenOf(screens), [screens])
 
   const didFit = useRef(false)
   useEffect(() => {
     if (!didFit.current && screens.length > 0) {
       didFit.current = true
-      fitAll()
+      frameAll()
     }
-  }, [screens, fitAll])
+  }, [screens, frameAll])
+
+  /**
+   * Re-frame when the CONTAINER changes size — never when its contents move.
+   *
+   * `screens` is deliberately not a trigger here: dragging a frame changes the
+   * bounding box, and re-fitting mid-drag would pull the board out from under
+   * the pointer. Only the question's container is allowed to invalidate the
+   * answer.
+   *
+   * This covers more than the window: a side panel opening, the browser chrome
+   * appearing on a tablet, and the phone/desktop switch all resize this element
+   * without resizing the window.
+   */
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    // ResizeObserver fires once on observe(), before anything has actually
+    // resized. Re-framing there would override the caller's own first framing.
+    let settled = false
+    const ro = new ResizeObserver(() => {
+      if (!settled) {
+        settled = true
+        return
+      }
+      applyFramingRef.current(framingRef.current)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // Center the canvas on a screen when the links panel requests focus.
   useEffect(() => {
     if (!focusScreenId) return
-    const s = screens.find((x) => x.id === focusScreenId)
-    const el = containerRef.current
-    if (!s || !el) return
-    const scale = clamp(Math.min((el.clientWidth - 160) / s.w, (el.clientHeight - 160) / s.h), MIN_SCALE, 0.9)
-    setView({
-      x: el.clientWidth / 2 - (s.x + s.w / 2) * scale,
-      y: el.clientHeight / 2 - (s.y + s.h / 2) * scale,
-      scale,
-    })
+    frameScreen(focusScreenId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusScreenId, focusNonce])
 
@@ -545,6 +586,8 @@ export default function Canvas({
 
   function startPan(e: React.PointerEvent) {
     const { lx, ly } = local(e)
+    // From here the framing is the user's — see the note on Framing.
+    setFraming(null)
     gesture.current = { type: 'pan', sx: lx, sy: ly, ox: view.x, oy: view.y }
     capture(containerRef.current, e.pointerId)
   }
@@ -731,6 +774,9 @@ export default function Canvas({
     function onWheelNative(e: WheelEvent) {
       const box = el!.getBoundingClientRect()
       e.preventDefault()
+      // Both branches below move the view by hand, so both surrender the
+      // automatic framing — see the note on Framing.
+      setFraming(null)
 
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? box.height : 1
       const dx = e.deltaX * unit
@@ -757,6 +803,7 @@ export default function Canvas({
   function zoomBy(factor: number) {
     const el = containerRef.current
     if (!el) return
+    setFraming(null)
     const lx = el.clientWidth / 2
     const ly = el.clientHeight / 2
     setView((v) => {
@@ -1074,7 +1121,7 @@ export default function Canvas({
                 // however it were scaled.
                 <div
                   className="absolute"
-                  style={{ left: 'calc(100% + 40px)', top: 0, width: CARD_W }}
+                  style={{ left: `calc(100% + ${CARD_GUTTER}px)`, top: 0, width: CARD_W }}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   <button
@@ -1308,10 +1355,22 @@ export default function Canvas({
          * only zoom control the product has was invisible. That is not a
          * z-index problem and cannot be fixed with one: paint order does not
          * uncover what is painted over. The two are separated geometrically
-         * instead, which also fixes it for a 1024px laptop window where nobody
-         * thought to look.
+         * instead.
+         *
+         * The threshold is `xl`, not `lg`, and it is arithmetic rather than
+         * taste. The composer is `max-w-2xl` centred, so its left edge sits at
+         * (W - 672) / 2; this bar starts at left-4 and is as wide as its
+         * contents. Six controls came to 215px and cleared the composer only
+         * above ~1130px — so at `lg` exactly, a 1024px laptop, the right end of
+         * the bar was already being painted over. The seventh control makes it
+         * 251px and needs W > 1206.
+         *
+         * Budget for whoever adds the eighth: at `xl` the clearance is 1280/2
+         * - 336 - 16 - width. Past ~330px of controls this has to move again,
+         * and a wider breakpoint is the wrong answer at that point — the bar
+         * would spend its life at top-14. Fold something into a menu instead.
          */
-        className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg lg:bottom-4 lg:top-auto"
+        className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg xl:bottom-4 xl:top-auto"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <IconButton variant="toolbar" label={t('canvas.zoomOut')} onClick={() => zoomBy(1 / 1.2)}>
@@ -1322,8 +1381,16 @@ export default function Canvas({
           <Icon name="zoomIn" size={16} />
         </IconButton>
         <div className="mx-1 h-5 w-px bg-line-soft" />
-        <IconButton variant="toolbar" label={t('canvas.fit')} onClick={fitAll}>
+        <IconButton variant="toolbar" label={t('canvas.fit')} onClick={frameAll}>
           <Icon name="fit" size={16} />
+        </IconButton>
+        <IconButton
+          variant="toolbar"
+          label={t('canvas.zoomLatest')}
+          disabled={!latestScreen}
+          onClick={() => latestScreen && frameScreen(latestScreen.id)}
+        >
+          <Icon name="target" size={16} />
         </IconButton>
         <IconButton
           variant="toolbar"
@@ -1334,7 +1401,13 @@ export default function Canvas({
             // mixed desktop and mobile screens laid them across each other.
             const placed = packScreens(screens)
             onMoveScreens(screens.map((s, i) => ({ id: s.id, ...placed[i] })))
-            setTimeout(fitAll, 0)
+            // Deferred because onMoveScreens goes up to the parent and the new
+            // positions are not in `screens` yet — and through the ref, because
+            // the deferred call must see the framing function built from those
+            // new positions. Scheduling `frameAll` itself would re-fit the
+            // layout as it was before the button was pressed.
+            setFraming({ kind: 'all' })
+            setTimeout(() => applyFramingRef.current({ kind: 'all' }), 0)
           }}
         >
           <Icon name="grid" size={16} />
