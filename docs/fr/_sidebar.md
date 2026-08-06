@@ -1,5 +1,6 @@
 - [Accueil](fr/README.md)
 - [Démarrage](fr/getting-started.md)
+- [L’interface](fr/interface.md)
 - [Modèles de DESIGN.md](fr/design-presets.md)
 - Architecture
   - [Vue d'ensemble](fr/architecture/overview.md)
@@ -9,6 +10,7 @@
   - [Moteur d'inspiration](fr/muse/inspiration-engine.md)
   - [Animations](fr/muse/animations.md)
 - [Passe de qualité](fr/quality.md)
+- [SEO et accessibilité](fr/seo-accessibility.md)
 - [Déploiement](fr/deployment.md)
 - [Journal des modifications](fr/CHANGELOG.md)
 - Références

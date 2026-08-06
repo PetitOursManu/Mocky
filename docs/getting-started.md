@@ -95,6 +95,14 @@ what happened until the first screen started being shown to the model as the
 identity to match. The nav, the sections and the layout stay free; pin a screen
 as a layout reference (right-click a screen) if you want those fixed too.
 
+Two buttons in the zoom bar do the navigating for you. **Fit all** frames every
+screen and — this is the part worth knowing — *keeps* doing so: open a panel,
+resize the window, turn a tablet, and the board re-frames itself, until you pan
+or zoom by hand, which hands the view back to you for good. **Zoom to the latest
+screen** jumps to the one you generated most recently, which is not necessarily
+the one you have selected. Both are in [The interface](interface.md#the-zoom-bar)
+with the rest of the bar.
+
 ![The home page: your projects](assets/02-home-projects.png)
 
 *The home page after a first generation. The most recent project leads, with its thumbnail; projects with no screens are grouped at the bottom.*
@@ -169,6 +177,44 @@ Settings are then ignored.
 
 `openai-compatible` covers Groq, Together, DeepSeek, Mistral, LM Studio and
 vLLM — anything exposing `POST {baseUrl}/v1/chat/completions`.
+
+### The Usage block on the same screen
+
+Below the two model columns, full width, sits **Usage** — one row per account
+with a bar. It is full width rather than tucked inside the account list because
+a row with a bar needs the width to stay readable at the sizes the grid gives a
+column.
+
+Per account: three labelled counts — **Projects**, **Screens**, **Media** — and
+the total on disk, right-aligned. The bar under the row carries the breakdown as
+its tooltip: *"{data} of projects · {media} of media · {avatar} of avatar"*.
+
+It is its own route, `GET /api/admin/usage`, and that is not an accident of
+layering. Producing it means parsing every user's projects blob — the one thing
+the server otherwise treats as an opaque string — and walking a directory per
+scroll sequence. Folded into the account list, everyone who opened the Admin tab
+would pay that cost whether or not they were looking.
+
+Three readings are worth knowing before you act on the table:
+
+- **`Unreadable data`** against an account, and an em dash where its project and
+  screen counts would be. A blob that will not parse has not got zero projects,
+  and a confident nought would send you hunting for a problem that is yours. The
+  bytes are still counted; only the breakdown is missing.
+- **"including {n} deleted, still waiting to sync"** under a project count.
+  Tombstones stay in the blob so a deletion can travel to the user's other
+  devices. They cost storage without being projects, which is exactly the kind
+  of gap that makes a total look wrong.
+- **`No owner`**, on its own line at the bottom. Media added before ownership
+  was recorded, or belonging to a deleted account. Those bytes are real and
+  their owner is unknown, so they are reported apart rather than guessed at or
+  spread over everyone. Media is deduplicated, so a file two people uploaded is
+  one file whose size is split between them — which is what keeps the column
+  adding up to what the volume actually holds.
+
+Top right of the section header, beside the word **Usage**, sits the instance
+total against `MOCKY_MAX_STORAGE_MB` — or *"no ceiling"* when that variable is
+set to `0`. See [Deployment](deployment.md#environment-variables).
 
 ### Setting up OpenRouter
 

@@ -165,6 +165,7 @@ the sign-in screen and the model provider is configured in the UI.
 | `MOCKY_HOST` | `127.0.0.1` | **Source installs** — the interface the server itself listens on. Loopback by default, because `app.listen(PORT)` with no host binds every interface, which put an instance with open sign-ups on the LAN for anyone to claim. The image sets `0.0.0.0`; leave it alone, a container listening on loopback cannot be reached through its published port |
 | `MOCKY_BIND` | `127.0.0.1` | **Docker only** — the host interface the port is published on |
 | `MOCKY_DATA_DIR` | `server/data` | Where the JSON store lives. Point it at a mounted volume if needed |
+| `MOCKY_MAX_STORAGE_MB` | `10240` | The ceiling on everything under the data directory. `0` means no limit, for someone who would rather watch their own disk — it has to be an explicit opt-out, because "unlimited by default" is how the problem existed in the first place. This is the number **Admin → Usage** prints in its banner, as `Instance total … / no ceiling` |
 | `TRUST_PROXY` | *(unset)* | `1`, a hop count, or an Express `trust proxy` value. **Required behind a reverse proxy** |
 | `NODE_ENV` | `production` | Affects serving mode. Cookie security does **not** depend on it |
 | `SSO_SHARED_SECRET` | *(unset)* | The HS256 secret shared with Dashy |

@@ -97,6 +97,15 @@ montré au modèle comme l’identité à respecter. La navigation, les sections
 mise en page restent libres ; épinglez un écran comme référence de mise en page
 (clic droit sur un écran) si vous voulez les figer aussi.
 
+Deux boutons de la barre de zoom naviguent à votre place. **Tout afficher** cadre
+tous les écrans et — c’est la partie qui mérite d’être connue — *continue* de le
+faire : ouvrez un panneau, redimensionnez la fenêtre, tournez une tablette, et le
+plan se recadre tout seul. Jusqu’à ce que vous vous déplaciez ou zoomiez à la
+main, geste qui vous rend la vue pour de bon. **Zoomer sur le dernier écran**
+saute vers celui que vous venez de générer, qui n’est pas forcément celui que
+vous avez sélectionné. Les deux sont dans
+[L’interface](fr/interface.md#la-barre-de-zoom), avec le reste de la barre.
+
 ![L'accueil : la liste des projets](../assets/02-home-projects.png)
 
 *L'accueil après une première génération. Le projet le plus récent est « à la une », avec sa vignette ; les projets sans écran sont regroupés en bas.*
@@ -174,6 +183,48 @@ Réglages personnels de chacun sont alors ignorés.
 
 `openai-compatible` couvre Groq, Together, DeepSeek, Mistral, LM Studio et
 vLLM — tout ce qui expose `POST {baseUrl}/v1/chat/completions`.
+
+### Le bloc Utilisation, sur le même écran
+
+Sous les deux colonnes de modèles, en pleine largeur, se trouve
+**Utilisation** — une ligne par compte, avec une barre. Pleine largeur plutôt que
+glissé dans la liste des comptes, parce qu'une ligne avec une barre a besoin de
+la largeur pour rester lisible aux tailles que la grille donne à une colonne.
+
+Par compte : trois décomptes nommés — **Projets**, **Écrans**, **Médias** — et le
+total sur disque, aligné à droite. La barre sous la ligne porte le détail en
+infobulle : « {data} de projets · {media} de médias · {avatar} d'avatar ».
+
+C'est une route à part, `GET /api/admin/usage`, et ce n'est pas un accident de
+découpage. La produire suppose d'analyser le blob de projets de chaque
+utilisateur — la seule chose que le serveur traite par ailleurs comme une chaîne
+opaque — et de parcourir un répertoire par séquence de défilement. Repliée dans
+la liste des comptes, elle ferait payer ce coût à quiconque ouvre l'onglet Admin,
+qu'il la regarde ou non.
+
+Trois lectures méritent d'être connues avant d'agir sur ce tableau :
+
+- **« Données illisibles »** en face d'un compte, et un tiret cadratin là où
+  seraient ses décomptes de projets et d'écrans. Un blob qui ne s'analyse pas n'a
+  pas zéro projet, et un zéro affirmé enverrait un administrateur chasser un
+  problème qui est le sien. Les octets restent comptés ; seul le détail manque.
+- **« dont {n} supprimé(s) en attente de synchronisation »** sous un décompte de
+  projets. Les pierres tombales restent dans le blob pour qu'une suppression
+  puisse voyager jusqu'aux autres appareils de l'utilisateur. Elles coûtent du
+  stockage sans être des projets, ce qui est exactement le genre d'écart qui fait
+  paraître un total faux.
+- **« Sans propriétaire »**, sur sa propre ligne en bas. Des médias déposés avant
+  que la propriété ne soit enregistrée, ou appartenant à un compte supprimé. Ces
+  octets sont réels et leur propriétaire est inconnu : ils sont donc rapportés à
+  part, plutôt que devinés ou répartis sur tout le monde. Les médias étant
+  dédupliqués, un fichier déposé par deux personnes est un seul fichier dont la
+  taille est partagée entre elles — c'est ce qui fait que la colonne totalise ce
+  que le volume contient réellement.
+
+En haut à droite de l'en-tête de section, à côté du mot **Utilisation**, se
+trouve le total de l'instance rapporté à `MOCKY_MAX_STORAGE_MB` — ou « sans
+plafond » quand cette variable vaut `0`. Voir le
+[Déploiement](fr/deployment.md).
 
 ### Configurer OpenRouter
 

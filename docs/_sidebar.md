@@ -1,5 +1,6 @@
 - [Home](/)
 - [Getting started](getting-started.md)
+- [The interface](interface.md)
 - [DESIGN.md presets](design-presets.md)
 - Architecture
   - [Overview](architecture/overview.md)
@@ -9,6 +10,7 @@
   - [Inspiration engine](muse/inspiration-engine.md)
   - [Animations](muse/animations.md)
 - [Quality pass](quality.md)
+- [SEO and accessibility](seo-accessibility.md)
 - [Deployment](deployment.md)
 - [Changelog](CHANGELOG.md)
 - Reference

@@ -17,8 +17,10 @@ for.
 Right-click a screen and pick **Polish (detect and correct)**. That is the only
 way in. There is no automatic run, no setting that enables one, and no hook
 anywhere on the generation path — `polishScreen` in
-`src/components/ProjectView.tsx:1396` is the sole caller of `checkQuality` and
-`runPolishLoop` in the whole front end.
+`src/components/ProjectView.tsx:1488` is the sole caller of `checkQuality` in the
+whole front end. (`runPolishLoop` next to it has a second caller now; that one is
+the audit fix, and it is [a different pass](seo-accessibility.md) with a
+different check.)
 
 That is deliberate, and it is [M1](architecture/invariants.md) again. M1 says
 that with Muse off the payload sent to the provider is the pre-Muse payload; a
@@ -71,7 +73,7 @@ not performance.
 `detectText` takes the source as a **string** and reports a **line** and a
 snippet pointing into the generated JSX. That is what makes the correction half
 of this feature possible at all: **a finding the model can locate is a finding it
-can repair.** `findingsToPrompt` in `src/lib/quality.ts:234` renders each one as
+can repair.** `findingsToPrompt` in `src/lib/quality.ts:235` renders each one as
 a numbered `[rule] (line 42, near \`…\`) name: description`, and the model is
 pointed at the problem rather than told to go looking for it.
 
@@ -296,12 +298,33 @@ injected calls, one that checks a screen and one that rewrites it, so the
 interesting behaviour — does it converge, does it stop — can be tested without a
 provider or a server.
 
-The rewrite itself is `polishComponent` (`src/lib/generate.ts:784`), and it is a
-**sibling** of `fixComponent`, not a variant of it. They share the transport, the
-extraction tail and the caller's guard pattern, and they must not share a prompt:
-`FIX_PROMPT` says "fix ONLY the error, do not restyle", which is exactly wrong
-here. A slop finding *is* a styling problem, and a model told not to restyle
-hands the screen back unchanged and burns an iteration.
+It is also **generic over its report type**:
+
+```ts
+export async function runPolishLoop<R extends PolishReport = QualityReport>(
+```
+
+which is not gratuitous. The loop now serves two features: this one, and the
+correction half of the [SEO and accessibility audit](seo-accessibility.md). The
+four stop conditions below are the hard part and are worth having exactly once;
+the checks that feed them are not the same check, and the prompts are not the
+same prompt.
+
+The rewrite itself is `polishComponent` (`src/lib/generate.ts:784`), and it has
+**two brothers**, not one — `fixComponent` for a render error, and
+`auditFixComponent` for markup. All three share the transport, the extraction
+tail and the caller's guard pattern, and none of them may share a prompt,
+because each central instruction is fatal to the other two:
+
+| | Trigger | Says | Because |
+|---|---|---|---|
+| **Repair** | The preview reports a render or compile error | fix ONLY the error, do not restyle | a crash is not a design problem |
+| **Polish** | You ask for it, from the screen menu | fix these named findings, visual change expected | a slop finding **is** a styling problem, so a model told not to restyle hands the screen back unchanged and burns an iteration |
+| **Audit fix** | You ask for it, from the Audit panel | fix the markup, the screen must look identical | a semantics pass that redesigns has failed even with every finding gone |
+
+The same table is in `CLAUDE.md` and in
+[SEO and accessibility](seo-accessibility.md), and it is repeated because
+merging any two of these three is the tempting refactor.
 
 Only enforceable findings are ever sent. Advisory ones are shown to the user and
 never spent a pass on.
@@ -326,7 +349,7 @@ rewrite may well be fine, but keeping an *unverified* rewrite is worse than
 keeping the checked original.
 
 `no-progress` is the guard the render-error repair loop already used
-(`onScreenError`, `src/components/ProjectView.tsx:693`): two attempts maximum, and
+(`onScreenError`, `src/components/ProjectView.tsx:744`): two attempts maximum, and
 an early bail when the new error is byte-identical to the last one. The quality
 loop is the same idea applied to a set of rules instead of one message.
 
@@ -370,7 +393,7 @@ leaves `residual` empty. The first version of this module reported both as
 "clean, 20/20" — so a pass that had rewritten six things read exactly like a pass
 that had done nothing, and a working feature looked broken.
 
-`fixed` is derived at a **single exit point**: `done()` in `src/lib/polish.ts:115`
+`fixed` is derived at a **single exit point**: `done()` in `src/lib/polish.ts:158`
 computes it on every path rather than being recomputed at each of the returns
 below it. Nine `return` statements each doing their own set arithmetic is how one
 of them ends up subtly different from the others.

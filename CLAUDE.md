@@ -42,11 +42,12 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
 
 - `src/lib/generate.ts` — prompts, `chat()`, extraction. The complete generated
   source first exists at `guardMotion(extractCode(content))`, which appears in
-  **four** places: `generateComponent`, `editComponent`, `fixComponent`,
-  `polishComponent`. A post-generation check that only hooks the first one
-  misses edits, repairs and polishes. This note said "three" for an hour after
-  `polishComponent` was added — by the person who had just written the note.
-  Count them with grep before trusting the number.
+  **five** places: `generateComponent`, `editComponent`, `fixComponent`,
+  `polishComponent`, `auditFixComponent`. A post-generation check that only
+  hooks the first one misses edits, repairs, polishes and accessibility
+  corrections. This note said "three" for an hour after `polishComponent` was
+  added — by the person who had just written the note — and said "four" until
+  `auditFixComponent` arrived. Count them with grep before trusting the number.
 - `src/lib/plan.ts` — the optional planner. Runs only when `usePlanner` is on
   **and** Muse did not run. Also decides the screen's *mode*.
 - `src/components/Preview.tsx` — builds the sandboxed `srcDoc`. Invariant-dense;
@@ -55,16 +56,23 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
   mutation follows the same conventions: an `AbortController`, a `codeAtStart`
   snapshot re-checked before writing back, and `previousCode` so "Revert" works.
 
-There are two independent correction loops, and they are not interchangeable:
+There are three independent correction loops, and they are not interchangeable:
 
 | | Trigger | Prompt | Budget |
 |---|---|---|---|
 | **Repair** | The iframe reports a render/compile error | `FIX_PROMPT` — "fix ONLY the error, do not restyle" | `MAX_FIX_ATTEMPTS = 2` |
 | **Polish** | The user asks for it | `POLISH_PROMPT` — "fix these named findings, change nothing else" | `DEFAULT_MAX_ITERATIONS = 2` |
+| **Audit fix** | The user asks for it, from the SEO/a11y panel | `AUDIT_FIX_PROMPT` — "fix the markup, the screen must look identical" | `DEFAULT_MAX_ITERATIONS = 2` |
 
-They share the transport and the write-back conventions and nothing else. Do
-not merge them: a slop finding *is* a styling problem, and a model told not to
-restyle will hand the screen back unchanged.
+They share the transport, `runPolishLoop` and the write-back conventions, and
+nothing else. Do not merge them. Each one's instruction breaks the other two: a
+slop finding *is* a styling problem, so a model told not to restyle hands the
+screen back unchanged — while an accessibility pass that restyles has failed
+even with every finding gone, because a semantics fix came back as a redesign.
+
+`runPolishLoop` is generic over its report type for exactly this reason: the
+four stop conditions are worth having once, and the checks that feed them are
+not the same check.
 
 ## The quality pass
 

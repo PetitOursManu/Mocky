@@ -389,6 +389,23 @@ The hash **is** the identifier: `data/image-library/{hash}`, served by
 `GET /api/images/:hash`. Video sequences follow the same rule, addressed by the
 SHA-256 of the clip.
 
+**Ownership is therefore a set, not a field.** Two people arriving at
+byte-identical images land on the **same** entry, and the second must not erase
+the first — hence `owners` as a bounded array rather than a single `owner`. This
+was discovered while writing the per-account usage report, and it has an
+accounting consequence the deduplication rule on its own does not state:
+`splitOwnedBytes()` in `server/usage.js` **shares** a file's bytes across its
+owners, in equal parts. Charging each of them the full size would make the
+column sum to more than the disk holds, which is the fastest way to make a
+dashboard untrusted.
+
+The honesty corollary: nothing was recorded before that report existed. Those
+images are not unowned — their owner is simply **unknown**, and inventing one by
+correlating timestamps and project ids would be a guess printed as a fact. They
+get their own line, "No owner", and they stay there. An owner whose account has
+since been deleted falls back into it, because `splitOwnedBytes` filters against
+the set of ids that still exist.
+
 ---
 
 ## Series Q — the quality pass

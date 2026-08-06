@@ -12,6 +12,7 @@ The single most structural fact about the project:
 | Planner (optional, structured output) | Browser | `src/lib/plan.ts` |
 | Generation, editing, repair (streamed) | Browser | `src/lib/generate.ts` |
 | Quality pass: check a screen, then correct it | Browser; detection on the server | `src/lib/quality.ts`, `polish.ts`, `server/muse/quality/` |
+| SEO / accessibility audit: markup rules, then correct it | Browser; the judged half on the server | `src/lib/audit/`, `server/muse/quality/audit-judge.js` |
 | Pipeline orchestration and phases | Browser (React) | `src/components/ProjectView.tsx` |
 | `DESIGN.md` bridge (preamble, tokens, spec, export) | Browser | `src/lib/design.ts`, `designTokens.ts`, `designSpec.ts`, `export/` |
 | A direction read as a specification sheet, and edited as one | Browser | `src/lib/designSpec.ts`, `src/components/DesignSpecSheet.tsx` |
@@ -19,6 +20,9 @@ The single most structural fact about the project:
 | Sandboxed render | Browser | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
 | Persistence | `localStorage`, mirrored to the server when signed in | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
 | Accounts, SSO, JSON sync, model proxy | Server | `server/index.js`, `server/provider-proxy.js` |
+| Per-account usage: projects, screens, disk | Server | `server/usage.js` |
+| Framing the infinite canvas (fit, focus, latest) | Browser | `src/lib/framing.ts` |
+| Finding and swapping the images inside a screen (AST, no model) | Browser | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
 | Muse: MCP, fetching, distillation, dossier | Server | `server/muse/` |
 | Images, videos, libraries | Server | `server/images/`, `server/videos/` |
 
@@ -34,7 +38,7 @@ This "no database, no native dependencies" posture is a de facto invariant, and
 the `node:22-slim` image depends on it holding. `impeccable` does not weaken it:
 its six runtime dependencies are all pure JavaScript, and the Puppeteer it
 declares is **optional**, for a URL-scanning engine Mocky never calls. See
-[invariants](invariants.md) for why that flag lives in the Dockerfile and not in
+[invariants](architecture/invariants.md) for why that flag lives in the Dockerfile and not in
 an `.npmrc`.
 
 ---
@@ -273,7 +277,7 @@ sentinel. A half-written sentinel is just the next few characters arriving, and
 cutting on it would truncate the preview on every chunk. Once the response is
 complete, a malformed sentinel is all there will ever be, so it does cut.
 
-### The four call sites
+### The five call sites
 
 | Function | Used for | Additional rules |
 |---|---|---|
@@ -281,20 +285,29 @@ complete, a malformed sentinel is all there will ever be, so it does cut.
 | `editComponent()` | Editing selected screens | `EDIT_RULES`: preserve everything the user did not ask to change, byte for byte. The complete component is returned, not a diff |
 | `fixComponent()` | Auto-repair after a render error | Not streamed. Receives the **same** capability prompt — without the list of existing globals the model cannot tell which component is undefined, and swaps one React #130 error for another |
 | `polishComponent()` | Correcting named quality findings | Not streamed either: the caller re-checks the result, and a partial screen cannot be checked. Receives the capability prompt as well, and `POLISH_PROMPT` in place of `FIX_PROMPT` |
+| `auditFixComponent()` | Correcting named SEO / accessibility findings | Not streamed either. Receives `AUDIT_FIX_PROMPT`, whose central instruction — *the screen must look exactly the same afterwards* — is the inverse of `POLISH_PROMPT`'s |
 
-`polishComponent` is deliberately a **sibling** of `fixComponent`, never a variant
-of it. They share the transport, the extraction tail and the caller's write-back
-conventions, and nothing else: `FIX_PROMPT` says "fix ONLY the error, do not
-restyle", which is exactly the wrong instruction here. A slop finding *is* a
-styling problem, so a model told not to restyle hands the screen back unchanged
-and burns an iteration. The findings it receives are filtered by the caller to
-those the policy marks enforceable, so a pass is never spent on a rule Mocky has
-decided not to insist on.
+`polishComponent` and `auditFixComponent` are deliberately **siblings** of
+`fixComponent`, never variants of it. All three share the transport, the
+extraction tail and the caller's write-back conventions, and nothing else,
+because each one's central instruction is fatal to the other two. `FIX_PROMPT`
+says "fix ONLY the error, do not restyle": right for a crash, and exactly wrong
+for a slop finding, which *is* a styling problem — a model told not to restyle
+hands the screen back unchanged and burns an iteration. `POLISH_PROMPT` invites
+visual change, which is right there and wrong for an accessibility pass, where a
+semantics correction returned as a redesign has failed even with every finding
+gone. See [SEO and accessibility](seo-accessibility.md) for the third one's
+own loop. In each case the findings are filtered by the caller to those the
+policy marks enforceable, so a pass is never spent on a rule Mocky has decided
+not to insist on.
 
-All four end on the same expression — `guardMotion(extractCode(content))` — which
+All five end on the same expression — `guardMotion(extractCode(content))` — which
 is where the complete generated source first exists. That is why the count in
-this heading is worth keeping accurate: a post-generation check hooked onto
-`generateComponent` alone sees neither an edit, nor a repair, nor a polish.
+this heading is worth keeping accurate, and why it is worth grepping rather than
+trusting: it read "three" until `polishComponent` arrived and "four" until
+`auditFixComponent` did. A post-generation check hooked onto `generateComponent`
+alone sees neither an edit, nor a repair, nor a polish, nor an accessibility
+correction.
 
 ### Editing without a model call
 
@@ -319,11 +332,94 @@ AST walk rather than a regular expression. See
 
 ---
 
-## 5. The sandbox
+## 5. Framing the canvas
+
+Before the sandbox, what surrounds it. `src/lib/framing.ts` decides what the
+infinite canvas shows, and it lives apart from `Canvas.tsx` because it is
+arithmetic — and because the arithmetic was wrong.
+
+**The bug it was extracted to fix.** "Fit all" computed an `{x, y, scale}` once
+and left it there, so it framed the project for whatever the container measured
+at the instant the button was pressed. Resize the window, open a side panel,
+rotate a tablet, and the numbers still described a container that no longer
+existed. The button looked like it worked and then quietly stopped agreeing with
+the screen, with nothing to click to find out why.
+
+### Keeping the intent, never the result
+
+The fix is a type:
+
+```ts
+export type Framing = { kind: 'all' } | { kind: 'screen'; id: string } | null
+```
+
+What the view is framed **on**, not the numbers that framing produced. The
+numbers can then be recomputed from scratch every time the container changes
+size, which is the only thing that makes the answer stay true.
+
+`null` is the third value and the most important one. Any manual pan or zoom
+clears the framing, because re-imposing ours on the next resize would be the
+very same bug, aimed this time at the person who had just corrected it by hand.
+
+### The observer watches the container, not the contents
+
+`Canvas.tsx` observes the **container** element with a `ResizeObserver`, and
+`screens` is deliberately not a trigger. Dragging a frame changes the bounding
+box, and re-fitting mid-drag would pull the board out from under the pointer.
+Only the question's container is allowed to invalidate the answer — which
+catches more than the window: a side panel opening, browser chrome appearing on
+a tablet, the phone/desktop switch.
+
+The observer's first callback is ignored on purpose. `ResizeObserver` fires once
+on `observe()`, before anything has actually resized, and re-framing there would
+override the caller's own first framing.
+
+### Two ceilings, and why they differ
+
+| Constant | Value | Why |
+|---|---|---|
+| `FIT_MAX_SCALE` | 1 | A board blown up past life size is no longer showing you an arrangement |
+| `FOCUS_MAX_SCALE` | 0.9 | One framed screen keeps a visible edge instead of bleeding off the container |
+| `MAX_SCALE` | 1.5 | Neither of the above: this is the ceiling the wheel and the +/− buttons obey |
+
+### `contentBox()` — the column that hangs off the side
+
+The image/design column beside a frame is drawn **outside** the frame's box, so
+bounding the project on `x + w` framed it with every card sliced down the middle.
+Only screens that actually draw one (`imageHash`) are widened; adding the
+column's width unconditionally would loosen the fit of a project that has no
+cards at all, which is most of them.
+
+`CARD_W = 320` and `CARD_GUTTER = 40` are in **world** units, not screen pixels.
+Anything sized against the zoom occupies a footprint that changes with it, and a
+neighbour that moves when you zoom out is the one thing an infinite canvas must
+not do.
+
+### `latestScreenOf()` sorts on `createdAt`
+
+Not the selection, which moves every time the user clicks anywhere. Not the tail
+of the array either: `addScreen` only appends, but nothing promises the order
+survives an import or a merge from another device. `createdAt` is the one of the
+three that still answers "the last one generated" in all of those cases.
+
+Two controls in the zoom bar expose all of this — `Fit all` and `Zoom to the
+latest screen`. Their labels, their icons and what they cost are in
+[The interface](interface.md#the-zoom-bar).
+
+---
+
+## 6. The sandbox
 
 ![The mode toolbar of a project](../assets/08-toolbar.png)
 
-*The eight verbs of a project. Link, Modify, Interact and Annotate all act through the sandboxed preview; Frame, System, Demo and Export act on the canvas around it.*
+*The nine verbs of a project, in bar order: Link, Modify, Interact, Annotate, Frame, System, Audit, Demo, Export. The first four act through the sandboxed preview; the last five act on the canvas around it. The screenshot predates Audit, which sits between System and Demo — eight verbs are visible here, not nine.*
+
+`Audit` and `System` are **mutually exclusive**, and that is enforced in the
+click handlers rather than left to CSS: both panels want the slot at
+`right-4 top-11`, so opening either closes the other. It is the kind of detail a
+legend should carry, because nothing on screen explains why turning one on turns
+the other off. Every control in that toolbar is documented, with its exact label
+and what it costs, in [The interface](interface.md#the-project-toolbar).
 
 `src/components/Preview.tsx` builds a self-contained HTML document and injects it
 as `srcDoc`.
@@ -520,7 +616,7 @@ Two consequences worth knowing:
 
 ---
 
-## 6. One dialect for every model
+## 7. One dialect for every model
 
 Mocky always speaks the Ollama dialect internally: `POST /api/chat`, with
 `options`, `num_ctx`, `num_predict`, `format`, and NDJSON streaming.
@@ -562,7 +658,7 @@ your browser" mode is preserved.
 
 ---
 
-## 7. Persistence
+## 8. Persistence
 
 ### In the browser
 
@@ -599,19 +695,24 @@ another.
 | `config.json` | `{ allowRegistration }` |
 | `sso-jti.json` | Consumed SSO token ids, pruned after 10 minutes |
 | `data-<uuid>.json` | One user's projects and design |
+| `avatars/<userId>` | One file per account that uploaded a picture. Counted as `bytes.avatar` in the usage report |
 | `text-config.json` | Administrator-configured text providers, including secrets |
 | `images-config.json` | Image providers and video settings, including secrets |
 | `muse-cache.json` | Distillations, 7-day TTL, text only |
-| `image-library.json` | Image library metadata |
+| `image-library.json` | Image library metadata — including `owners`, the account ids that put each file there, **capped at 20** |
 | `image-library/<hash>` | The image bytes |
-| `video-library/` | Scroll sequences: clip, frames and poster |
+| `video-library/` | Scroll sequences: clip, frames and poster. Its metadata carries `owners` under the same cap |
 
 Files holding secrets are written with mode `0600`. The default `0644` left them
 readable by every other account on the machine.
 
+The cap on `owners` is the same one `tags` and `projects` carry beside it, for
+the same reason: these indexes are re-serialised **whole** on every write, so
+nothing inside them may grow without a ceiling.
+
 ---
 
-## 8. HTTP surface
+## 9. HTTP surface
 
 | Method and route | Auth | Purpose |
 |---|---|---|
@@ -622,12 +723,14 @@ readable by every other account on the machine.
 | `POST /api/account/password` | session, rate-limited | Revokes every session and issues a fresh one |
 | `GET /sso/dashy/callback` | rate-limited | Verifies the HS256 token, finds or creates the account |
 | `GET`/`PUT` `/api/admin/config`, `/users`, `…/password`, `DELETE /users/:id` | admin | Instance and user management |
+| `GET /api/admin/usage` | admin | Projects and disk per account. Its own route because it parses every projects blob and walks a directory per scroll sequence; answers `200` with an `error` field rather than a status, so a failed report never breaks the Admin screen |
 | `GET`/`PUT` `/api/admin/text/config`, `POST /api/admin/text/test` | admin | The test sends a real request |
 | `GET`/`PUT` `/api/admin/images/config`, `POST /api/admin/images/test` | admin | The test generates a real image, not stored |
 | `POST /api/text/vision` | session | Probes the model's vision support. **Goes through the SSRF guard** |
 | `GET`/`PUT` `/api/data` | session | The user's projects and design |
 | `GET /api/mcp/status` | session | State of every declared MCP server |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
+| `POST /api/muse/audit` | session | The judged half of the SEO/accessibility report. `400` only when `code` is missing; **`200` with an empty list and a notice when there is no model** |
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` in, one report out. `400` only when `code` is missing; **`200` even with no model configured** — see below |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Generation is the expensive verb |
 | `GET /api/images/library`, `/library.zip`, `POST /:hash/favorite`, `DELETE /:hash` | session | Library management |
@@ -656,6 +759,24 @@ The guard is attached to the **subpaths** the routers serve, not to the `/api`
 mount. Mounted on `/api`, it ran for every later `/api/*` route too, which
 silently put the public bytes behind authentication.
 
+### Why `owners` never reaches a browser
+
+The other half of the same question. `server/images/routes.js` and
+`server/videos/routes.js` both strip `owners` from every listing before it
+leaves the server, and that is a privacy decision rather than a tidiness one.
+
+The media libraries are **instance-wide**: every signed-in user lists every
+image. Left in the payload, an ordinary account learns its own id from the
+`meta` of its first upload, subtracts its own images from the list, and now
+holds the global library partitioned by author — who produced how much, and
+which prompts belong together. That is exactly why `publicUser()` in
+`server/index.js` omits `id`, and why only `GET /api/admin/users` ever
+publishes one.
+
+It costs the feature nothing: nothing under `src/` reads `owners`. The usage
+report consumes it server-side, through `collectUsage`, which reads the library
+object directly.
+
 ### Why the quality check answers 200 with no model
 
 The route is session-gated like the rest of Muse — `app.use('/api/muse',
@@ -675,7 +796,7 @@ a failure over a screen that had generated perfectly well. Degrade, never fail �
 
 ---
 
-## 9. Export
+## 10. Export
 
 `src/lib/export/project.ts` assembles a runnable **Vite + React + Tailwind**
 project from the screens, with three targets.
@@ -700,7 +821,7 @@ CRC32. The same writer serves the image library's "Download all" and
 
 ---
 
-## 10. Tests
+## 11. Tests
 
 `npm test` runs Vitest across the repository. Four suites are worth knowing
 about, because they read **what actually ships** rather than an abstraction of

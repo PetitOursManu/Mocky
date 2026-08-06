@@ -12,6 +12,7 @@ Le fait le plus structurant du projet :
 | Planificateur (facultatif) | Navigateur | `src/lib/plan.ts` |
 | Génération, édition, réparation | Navigateur | `src/lib/generate.ts` |
 | Passe de qualité : vérifier un écran, puis le corriger | Navigateur ; détection sur le serveur | `src/lib/quality.ts`, `polish.ts`, `server/muse/quality/` |
+| Audit SEO / accessibilité : règles de balisage, puis correction | Navigateur ; la moitié jugée sur le serveur | `src/lib/audit/`, `server/muse/quality/audit-judge.js` |
 | Orchestration du pipeline | Navigateur (React) | `src/components/ProjectView.tsx` |
 | Pont `DESIGN.md` (préambule, jetons, fiche, export) | Navigateur | `src/lib/design.ts`, `designTokens.ts`, `designSpec.ts`, `export/` |
 | Une direction lue comme une fiche de spécification, et modifiée comme telle | Navigateur | `src/lib/designSpec.ts`, `src/components/DesignSpecSheet.tsx` |
@@ -19,6 +20,9 @@ Le fait le plus structurant du projet :
 | Affichage isolé de l'aperçu | Navigateur | `src/components/Preview.tsx`, `lib/capabilities/prelude.ts` |
 | Persistance | `localStorage`, recopié sur le serveur si connecté | `src/lib/project.ts`, `sync.ts`, `merge.ts` |
 | Comptes, SSO, synchronisation, proxy modèle | Serveur | `server/index.js`, `server/provider-proxy.js` |
+| Utilisation par compte : projets, écrans, disque | Serveur | `server/usage.js` |
+| Cadrage du canevas infini (tout afficher, focus, dernier écran) | Navigateur | `src/lib/framing.ts` |
+| Trouver et remplacer les images d'un écran (AST, sans modèle) | Navigateur | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
 | Muse : MCP, récupération de pages, distillation, dossier | Serveur | `server/muse/` |
 | Images, vidéos, bibliothèques | Serveur | `server/images/`, `server/videos/` |
 
@@ -35,7 +39,7 @@ Cette posture « pas de base de données, pas de dépendance native » est un
 invariant de fait, et l'image `node:22-slim` repose dessus. `impeccable` ne
 l'affaiblit pas : ses six dépendances d'exécution sont toutes en JavaScript pur,
 et le Puppeteer qu'il déclare est **optionnel**, pour un moteur d'analyse d'URL
-que Mocky n'appelle jamais. Voir les [invariants](invariants.md) pour savoir
+que Mocky n'appelle jamais. Voir les [invariants](fr/architecture/invariants.md) pour savoir
 pourquoi ce drapeau vit dans le Dockerfile et pas dans un `.npmrc`.
 
 ---
@@ -284,7 +288,7 @@ en train d'arriver, et couper dessus tronquerait l'aperçu à chaque morceau. Un
 fois la réponse complète, une sentinelle mal formée est tout ce qu'il y aura
 jamais : là, elle coupe.
 
-### Les quatre points d'appel
+### Les cinq points d'appel
 
 | Fonction | Sert à | Règles supplémentaires |
 |---|---|---|
@@ -292,22 +296,31 @@ jamais : là, elle coupe.
 | `editComponent()` | Modifier les écrans sélectionnés | `EDIT_RULES` : conserver tout ce que l'utilisateur n'a pas demandé de changer, à l'octet près. Le composant complet est renvoyé, pas un diff |
 | `fixComponent()` | Réparer automatiquement après une erreur d'affichage | Non diffusé. Reçoit **le même** prompt de capacités : sans la liste des variables globales existantes, le modèle ne peut pas savoir quel composant est indéfini, et échange une erreur React #130 contre une autre |
 | `polishComponent()` | Corriger des défauts de qualité nommés | Non diffusé non plus : l'appelant revérifie le résultat, et un écran incomplet ne peut pas être vérifié. Reçoit lui aussi le prompt de capacités, et `POLISH_PROMPT` à la place de `FIX_PROMPT` |
+| `auditFixComponent()` | Corriger des défauts de balisage SEO / accessibilité nommés | Non diffusé non plus. Reçoit `AUDIT_FIX_PROMPT`, dont la consigne centrale — *l'écran doit rester exactement le même* — est l'inverse de celle de `POLISH_PROMPT` |
 
-`polishComponent` est délibérément un **frère** de `fixComponent`, jamais une
-variante. Les deux partagent le transport, la fin d'extraction et les conventions
-d'écriture de l'appelant, et rien d'autre : `FIX_PROMPT` dit « corrige UNIQUEMENT
-l'erreur, ne restyle pas », ce qui est exactement la mauvaise consigne ici. Un
-défaut de bâclage *est* un problème de style, donc un modèle à qui l'on interdit
-de restyler rend l'écran inchangé et brûle une itération. Les défauts qu'il
-reçoit sont filtrés par l'appelant sur ceux que la politique déclare à
-corriger : une passe n'est donc jamais dépensée sur une règle que Mocky a décidé
-de ne pas imposer.
+`polishComponent` et `auditFixComponent` sont délibérément des **frères** de
+`fixComponent`, jamais des variantes. Les trois partagent le transport, la fin
+d'extraction et les conventions d'écriture de l'appelant, et rien d'autre, parce
+que la consigne centrale de chacun est mortelle pour les deux autres.
+`FIX_PROMPT` dit « corrige UNIQUEMENT l'erreur, ne restyle pas » : juste devant
+un plantage, et exactement faux devant un défaut de bâclage, qui *est* un
+problème de style — un modèle à qui l'on interdit de restyler rend l'écran
+inchangé et brûle une itération. `POLISH_PROMPT` invite au changement visuel, ce
+qui est juste là et faux pour une passe d'accessibilité : une correction de
+sémantique rendue sous forme de refonte a échoué même si plus aucun défaut ne
+subsiste. Voir [SEO et accessibilité](fr/seo-accessibility.md) pour la boucle
+propre au troisième. Dans chaque cas, les défauts sont filtrés par l'appelant sur
+ceux que la politique déclare à corriger : une passe n'est donc jamais dépensée
+sur une règle que Mocky a décidé de ne pas imposer.
 
-Les quatre se terminent sur la même expression —
+Les cinq se terminent sur la même expression —
 `guardMotion(extractCode(content))` — et c'est là que la source générée complète
 existe pour la première fois. D'où l'intérêt de garder juste le compte de ce
-titre : une vérification post-génération branchée sur le seul `generateComponent`
-ne voit ni une modification, ni une réparation, ni un polissage.
+titre, et de le vérifier au grep plutôt que de le croire : il disait « trois »
+jusqu'à l'arrivée de `polishComponent`, puis « quatre » jusqu'à celle
+d'`auditFixComponent`. Une vérification post-génération branchée sur le seul
+`generateComponent` ne voit ni une modification, ni une réparation, ni un
+polissage, ni une correction d'accessibilité.
 
 ### Modifier sans appeler le modèle
 
@@ -333,7 +346,99 @@ parcours d'arbre syntaxique Babel, pas une expression régulière. Voir
 
 ---
 
-## 5. L'isolation de l'aperçu
+## 5. Le cadrage du canevas
+
+Avant le bac à sable, ce qui l'entoure. `src/lib/framing.ts` décide de ce que
+montre le canevas infini, et il vit à l'écart de `Canvas.tsx` parce que c'est de
+l'arithmétique — et parce que cette arithmétique était fausse.
+
+**Le bug qui a justifié l'extraction.** « Tout afficher » calculait un
+`{x, y, scale}` **une seule fois** et le laissait là : il cadrait donc le projet
+pour le conteneur mesuré à l'instant du clic. Redimensionnez la fenêtre, ouvrez
+un panneau latéral, tournez une tablette, et les nombres décrivaient encore un
+conteneur qui n'existait plus. Le bouton avait l'air de fonctionner, puis cessait
+discrètement d'être d'accord avec l'écran, sans rien sur quoi cliquer pour
+comprendre pourquoi.
+
+### Garder l'intention, jamais son résultat
+
+La correction est un type :
+
+```ts
+export type Framing = { kind: 'all' } | { kind: 'screen'; id: string } | null
+```
+
+Ce **sur quoi** la vue est cadrée, et non les nombres que ce cadrage a produits.
+Les nombres peuvent alors être recalculés depuis zéro chaque fois que le
+conteneur change de taille, et c'est la seule façon de faire que la réponse reste
+vraie.
+
+`null` est la troisième valeur, et la plus importante. Tout déplacement ou tout
+zoom manuel remet le cadrage à `null`, parce que réimposer le nôtre au prochain
+redimensionnement serait exactement le même bug, retourné cette fois contre la
+personne qui venait de le corriger à la main.
+
+### L'observateur regarde le conteneur, pas le contenu
+
+`Canvas.tsx` observe l'élément **conteneur** avec un `ResizeObserver`, et
+`screens` n'est délibérément pas un déclencheur. Faire glisser un cadre change la
+boîte englobante, et re-cadrer en plein glissement arracherait le plan sous le
+pointeur. Seul le conteneur de la question a le droit d'invalider la réponse — ce
+qui couvre plus que la fenêtre : un panneau latéral qui s'ouvre, la barre du
+navigateur qui apparaît sur une tablette, le passage téléphone/bureau.
+
+Le premier appel de l'observateur est ignoré volontairement. `ResizeObserver` se
+déclenche une fois sur `observe()`, avant tout redimensionnement réel, et
+re-cadrer là écraserait le premier cadrage demandé par l'appelant.
+
+### Deux plafonds, et pourquoi ils diffèrent
+
+| Constante | Valeur | Pourquoi |
+|---|---|---|
+| `FIT_MAX_SCALE` | 1 | Un plan agrandi au-delà de la taille réelle ne montre plus un agencement |
+| `FOCUS_MAX_SCALE` | 0,9 | Un écran cadré garde un bord visible au lieu de déborder du conteneur |
+| `MAX_SCALE` | 1,5 | Ni l'un ni l'autre : c'est le plafond auquel obéissent la molette et les boutons +/− |
+
+### `contentBox()` — la colonne qui pend sur le côté
+
+La colonne image/design d'un cadre est dessinée **hors** de la boîte de ce cadre :
+borner le projet sur `x + w` le cadrait donc avec chaque carte tranchée en deux.
+Seuls les écrans qui en dessinent une (`imageHash`) sont élargis ; ajouter la
+largeur de la colonne sans condition relâcherait le cadrage d'un projet qui n'a
+aucune carte, c'est-à-dire de la plupart d'entre eux.
+
+`CARD_W = 320` et `CARD_GUTTER = 40` sont en unités **monde**, pas en pixels
+d'écran. Tout ce qui est dimensionné contre le zoom occupe une empreinte qui
+change avec lui, et un voisin qui se déplace quand on dézoome est la seule chose
+qu'un canevas infini ne doit pas faire.
+
+### `latestScreenOf()` trie sur `createdAt`
+
+Ni la sélection, qui bouge dès que l'utilisateur clique quelque part. Ni la queue
+du tableau : `addScreen` ne fait qu'ajouter à la fin, mais rien ne garantit que
+l'ordre survive à un import ou à une fusion venue d'un autre appareil.
+`createdAt` est celui des trois qui répond encore « le dernier généré » dans tous
+ces cas.
+
+Deux boutons de la barre de zoom exposent tout cela — « Tout afficher » et
+« Zoomer sur le dernier écran ». Leurs libellés, leurs icônes et ce qu'ils
+coûtent sont dans [L'interface](fr/interface.md#la-barre-de-zoom).
+
+---
+
+## 6. L'isolation de l'aperçu
+
+![La barre d'outils d'un projet](../../assets/08-toolbar.png)
+
+*Les neuf verbes d'un projet, dans l'ordre de la barre : Lier, Modifier, Interagir, Annoter, Cadre, Système, Audit, Démo, Exporter. Les quatre premiers agissent à travers l'aperçu isolé ; les cinq derniers agissent sur le canevas autour de lui. La capture est antérieure à « Audit », qui se place entre « Système » et « Démo » — on voit donc ici huit verbes, pas neuf.*
+
+« Audit » et « Système » **s'excluent mutuellement**, et c'est imposé dans les
+gestionnaires de clic plutôt que laissé au CSS : les deux panneaux veulent la
+même place, à `right-4 top-11`, donc ouvrir l'un ferme l'autre. C'est exactement
+le genre de détail qu'une légende doit porter, parce que rien à l'écran
+n'explique pourquoi activer l'un désactive l'autre. Chaque contrôle de cette
+barre est documenté, avec son libellé exact et ce qu'il coûte, dans
+[L'interface](fr/interface.md#la-barre-doutils-du-projet).
 
 `src/components/Preview.tsx` construit un document HTML autonome et l'injecte en
 `srcDoc`.
@@ -537,7 +642,7 @@ Deux conséquences à connaître :
 
 ---
 
-## 6. Un seul dialecte pour tous les modèles
+## 7. Un seul dialecte pour tous les modèles
 
 Mocky parle toujours le dialecte Ollama en interne : `POST /api/chat`, avec
 `options`, `num_ctx`, `num_predict`, `format`, et une diffusion en NDJSON.
@@ -582,7 +687,7 @@ clé, et le mode « votre clé ne quitte pas votre navigateur » est préservé.
 
 ---
 
-## 7. La persistance
+## 8. La persistance
 
 ### Dans le navigateur
 
@@ -620,19 +725,25 @@ pour qu'une suppression faite sur un appareil ne revienne pas depuis un autre.
 | `config.json` | `{ allowRegistration }` |
 | `sso-jti.json` | Les identifiants de jeton SSO déjà consommés, purgés après 10 minutes |
 | `data-<uuid>.json` | Les projets et le design d'un utilisateur |
+| `avatars/<userId>` | Un fichier par compte ayant envoyé une photo. Compté en `bytes.avatar` dans le rapport d'utilisation |
 | `text-config.json` | Les fournisseurs de texte configurés par l'administrateur, secrets compris |
 | `images-config.json` | Les fournisseurs d'images et les réglages vidéo, secrets compris |
 | `muse-cache.json` | Les distillations, 7 jours de durée de vie, texte uniquement |
-| `image-library.json` | Les métadonnées de la bibliothèque d'images |
+| `image-library.json` | Les métadonnées de la bibliothèque d'images — dont `owners`, les identifiants des comptes qui ont déposé chaque fichier, **borné à 20** |
 | `image-library/<hash>` | Les octets des images |
-| `video-library/` | Les séquences : clip, images et affiche |
+| `video-library/` | Les séquences : clip, images et affiche. Leurs métadonnées portent `owners` sous la même borne |
 
 Les fichiers contenant des secrets sont écrits en mode `0600`. Le `0644` par
 défaut les laissait lisibles par tous les autres comptes de la machine.
 
+La borne sur `owners` est celle que portent déjà `tags` et `projects` juste à
+côté, pour la même raison : ces index sont ré-sérialisés **en entier** à chaque
+écriture, donc rien de ce qu'ils contiennent n'a le droit de grandir sans
+plafond.
+
 ---
 
-## 8. Les routes HTTP
+## 9. Les routes HTTP
 
 | Méthode et route | Authentification | À quoi ça sert |
 |---|---|---|
@@ -643,12 +754,14 @@ défaut les laissait lisibles par tous les autres comptes de la machine.
 | `POST /api/account/password` | session, limité | Révoque toutes les sessions et en délivre une neuve |
 | `GET /sso/dashy/callback` | limité | Vérifie le jeton HS256, trouve ou crée le compte |
 | `GET`/`PUT` `/api/admin/config`, `/users`, `…/password`, `DELETE /users/:id` | admin | Gestion de l'instance et des utilisateurs |
+| `GET /api/admin/usage` | admin | Projets et disque par compte. Route à part parce qu'elle analyse le blob projets de chaque utilisateur et parcourt un répertoire par séquence vidéo ; répond `200` avec un champ `error` plutôt qu'un statut d'erreur, pour qu'un rapport en échec ne casse jamais l'écran Admin |
 | `GET`/`PUT` `/api/admin/text/config`, `POST /api/admin/text/test` | admin | Le test envoie une vraie requête |
 | `GET`/`PUT` `/api/admin/images/config`, `POST /api/admin/images/test` | admin | Le test génère une vraie image, non conservée |
 | `POST /api/text/vision` | session | Sonde la vision du modèle. **Passe par la protection SSRF** |
 | `GET`/`PUT` `/api/data` | session | Les projets et le design de l'utilisateur |
 | `GET /api/mcp/status` | session | L'état de chaque serveur MCP déclaré |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
+| `POST /api/muse/audit` | session | La moitié jugée du rapport SEO / accessibilité. `400` uniquement si `code` manque ; **`200` avec une liste vide et une notice quand il n'y a pas de modèle** |
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` en entrée, un rapport en sortie. `400` uniquement si `code` manque ; **`200` même sans modèle configuré** — voir plus bas |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Générer est le verbe coûteux |
 | `GET /api/images/library`, `/library.zip`, `POST /:hash/favorite`, `DELETE /:hash` | session | Gestion de la bibliothèque |
@@ -679,6 +792,25 @@ montage `/api`. Montée sur `/api`, elle s'exécutait pour toutes les routes
 `/api/*` suivantes, ce qui plaçait en silence les octets publics derrière
 l'authentification.
 
+### Pourquoi `owners` n'atteint jamais un navigateur
+
+L'autre moitié de la même question. `server/images/routes.js` et
+`server/videos/routes.js` retirent tous deux `owners` de chaque listing avant
+qu'il ne quitte le serveur, et c'est une décision de confidentialité, pas de
+propreté.
+
+Les médiathèques sont **à l'échelle de l'instance** : tout utilisateur connecté
+liste toutes les images. Laissé dans la réponse, un compte ordinaire apprend son
+propre identifiant dans le `meta` de son premier envoi, soustrait ses images de
+la liste, et détient alors la bibliothèque globale partitionnée par auteur — qui
+a produit combien, et quels prompts vont ensemble. C'est exactement pour cela que
+`publicUser()`, dans `server/index.js`, omet `id`, et que seule
+`GET /api/admin/users` en publie un.
+
+Cela ne coûte rien à la fonctionnalité : rien sous `src/` ne lit `owners`. Le
+rapport d'utilisation le consomme côté serveur, via `collectUsage`, qui lit
+directement l'objet bibliothèque.
+
 ### Pourquoi la vérification de qualité répond 200 sans modèle
 
 La route est derrière une session comme tout le reste de Muse —
@@ -700,7 +832,7 @@ Dégrader, jamais échouer — [l'invariant Q1](fr/architecture/invariants.md).
 
 ---
 
-## 9. L'export
+## 10. L'export
 
 `src/lib/export/project.ts` assemble un projet **Vite + React + Tailwind**
 exécutable à partir des écrans, avec trois cibles.
@@ -726,7 +858,7 @@ d'images et à `npm run backup`.
 
 ---
 
-## 10. Les tests
+## 11. Les tests
 
 `npm test` exécute Vitest sur tout le dépôt. Quatre suites méritent d'être
 connues, parce qu'elles lisent **ce qui est réellement livré**, pas une

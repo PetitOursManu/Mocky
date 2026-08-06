@@ -17,8 +17,10 @@ comparer à ce qui avait été demandé.
 Clic droit sur un écran, puis **Peaufiner (détecter et corriger)**. C'est la
 seule entrée. Aucun déclenchement automatique, aucun réglage qui en active un,
 aucun point d'accroche sur le chemin de génération — `polishScreen`, dans
-`src/components/ProjectView.tsx:1396`, est le seul appelant de `checkQuality` et
-de `runPolishLoop` dans tout le front.
+`src/components/ProjectView.tsx:1488`, est le seul appelant de `checkQuality`
+dans tout le front. (`runPolishLoop`, juste à côté, a désormais un second
+appelant : c'est la correction d'audit, [une autre passe](fr/seo-accessibility.md)
+avec une autre vérification.)
 
 C'est délibéré, et c'est encore [M1](fr/architecture/invariants.md). M1 dit
 qu'avec Muse désactivé la charge envoyée au fournisseur est celle d'avant Muse ;
@@ -74,7 +76,7 @@ n'est pas la performance.
 `detectText` prend la source sous forme de **chaîne** et rend une **ligne** et un
 extrait qui pointent dans le JSX généré. C'est ce qui rend la moitié corrective
 possible tout court : **un défaut que le modèle sait localiser est un défaut
-qu'il sait réparer.** `findingsToPrompt`, dans `src/lib/quality.ts:234`, rend
+qu'il sait réparer.** `findingsToPrompt`, dans `src/lib/quality.ts:235`, rend
 chacun sous la forme numérotée `[règle] (line 42, near \`…\`) nom : description`,
 et le modèle est pointé sur le problème plutôt qu'envoyé à sa recherche.
 
@@ -312,13 +314,33 @@ deux appels injectés, un qui vérifie un écran et un qui le réécrit, pour qu
 comportement intéressant — est-ce que ça converge, est-ce que ça s'arrête — soit
 testable sans fournisseur et sans serveur.
 
+Elle est aussi **générique sur son type de rapport** :
+
+```ts
+export async function runPolishLoop<R extends PolishReport = QualityReport>(
+```
+
+et ce n'est pas gratuit. La boucle sert désormais deux fonctionnalités : celle-ci,
+et la moitié corrective de l'[audit SEO et accessibilité](fr/seo-accessibility.md).
+Les quatre conditions d'arrêt ci-dessous sont la partie difficile et méritent
+d'exister une seule fois ; les vérifications qui les alimentent ne sont pas la
+même vérification, et les prompts ne sont pas le même prompt.
+
 La réécriture elle-même est `polishComponent` (`src/lib/generate.ts:784`), et
-c'est un **frère** de `fixComponent`, pas une variante. Ils partagent le
-transport, la queue d'extraction et le motif de garde de l'appelant, et ils ne
-doivent pas partager de prompt : `FIX_PROMPT` dit « fix ONLY the error, do not
-restyle », ce qui est exactement faux ici. Un constat de slop *est* un problème de
-style, et un modèle à qui l'on interdit de restyler rend l'écran inchangé et
-gaspille une itération.
+elle a **deux frères**, non pas un — `fixComponent` pour une erreur de rendu, et
+`auditFixComponent` pour le balisage. Les trois partagent le transport, la queue
+d'extraction et le motif de garde de l'appelant, et aucun ne peut partager son
+prompt, parce que chaque consigne centrale est mortelle pour les deux autres :
+
+| | Déclencheur | Dit | Parce que |
+|---|---|---|---|
+| **Réparation** | L'aperçu signale une erreur de rendu ou de compilation | corrige UNIQUEMENT l'erreur, ne restyle pas | un plantage n'est pas un problème de design |
+| **Peaufinage** | Vous le demandez, depuis le menu d'un écran | corrige ces constats nommés, le changement visuel est attendu | un constat de slop **est** un problème de style, donc un modèle à qui l'on interdit de restyler rend l'écran inchangé et gaspille une itération |
+| **Correction d'audit** | Vous le demandez, depuis le panneau Audit | corrige le balisage, l'écran doit rester identique | une passe de sémantique qui refond a échoué même quand plus aucun constat ne subsiste |
+
+La même table figure dans `CLAUDE.md` et dans
+[SEO et accessibilité](fr/seo-accessibility.md), et elle est répétée parce que
+fusionner deux de ces trois-là est le refactor tentant.
 
 Seuls les constats applicables partent. Ceux qui sont en conseil sont montrés à
 l'utilisateur et ne coûtent jamais un passage.
@@ -343,7 +365,7 @@ est traitée pareil — la réécriture est peut-être très bien, mais garder u
 réécriture *non vérifiée* est pire que garder l'original vérifié.
 
 `no-progress` est la garde que la boucle de réparation d'erreurs de rendu
-utilisait déjà (`onScreenError`, `src/components/ProjectView.tsx:693`) : deux
+utilisait déjà (`onScreenError`, `src/components/ProjectView.tsx:744`) : deux
 tentatives au maximum, et un abandon anticipé quand la nouvelle erreur est
 identique à la précédente, octet pour octet. La boucle de qualité est la même
 idée appliquée à un ensemble de règles plutôt qu'à un message.
@@ -395,7 +417,7 @@ lisait donc exactement comme un passage qui n'avait rien fait, et une
 fonctionnalité qui marchait avait l'air cassée.
 
 `fixed` est dérivé en un **point de sortie unique** : `done()`, dans
-`src/lib/polish.ts:115`, le calcule sur tous les chemins au lieu d'être recalculé
+`src/lib/polish.ts:158`, le calcule sur tous les chemins au lieu d'être recalculé
 à chacun des retours en dessous. Neuf `return` faisant chacun sa propre
 arithmétique d'ensembles, c'est ainsi que l'un d'eux finit subtilement différent
 des autres.

@@ -171,6 +171,7 @@ l'interface.
 | `MOCKY_HOST` | `127.0.0.1` | **Installation depuis les sources** — l'interface sur laquelle le serveur lui-même écoute. La boucle locale par défaut, parce qu'`app.listen(PORT)` sans hôte écoute sur toutes les interfaces, ce qui posait sur le réseau local une instance aux inscriptions ouvertes, offerte au premier venu. L'image pose `0.0.0.0` ; n'y touchez pas, un conteneur qui écoute sur la boucle locale est injoignable par son port publié |
 | `MOCKY_BIND` | `127.0.0.1` | **Docker uniquement** — l'interface de l'hôte sur laquelle le port est publié |
 | `MOCKY_DATA_DIR` | `server/data` | Où vit le magasin JSON. À pointer vers un volume monté si besoin |
+| `MOCKY_MAX_STORAGE_MB` | `10240` | Le plafond de tout ce qui vit sous le répertoire de données. `0` veut dire « sans limite », pour qui préfère surveiller son disque lui-même — le renoncement doit être explicite, parce que « sans limite par défaut » est précisément d'où venait le problème. C'est le nombre qu'affiche **Admin → Utilisation** dans son bandeau, sous la forme « Total de l'instance … / sans plafond » |
 | `TRUST_PROXY` | *(non définie)* | `1`, un nombre de sauts, ou une valeur `trust proxy` d'Express. **Obligatoire derrière un reverse proxy** |
 | `NODE_ENV` | `production` | Influence le mode de service. La sécurité du cookie n'en dépend **pas** |
 | `SSO_SHARED_SECRET` | *(non définie)* | Le secret HS256 partagé avec Dashy |

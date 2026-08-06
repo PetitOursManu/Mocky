@@ -414,6 +414,25 @@ L'empreinte **est** l'identifiant : `data/image-library/{hash}`, servi par
 `GET /api/images/:hash`. Les séquences vidéo suivent la même règle, adressées par
 l'empreinte SHA-256 du clip.
 
+**La propriété est donc un ensemble, pas un champ.** Deux personnes qui arrivent
+sur des octets identiques atterrissent sur la **même** entrée, et la seconde ne
+doit pas effacer la première — d'où `owners`, un tableau borné, plutôt qu'un
+`owner` unique. Cela s'est découvert en écrivant le rapport d'utilisation par
+compte, et cela entraîne une conséquence comptable que la seule règle de
+déduplication n'énonce pas : `splitOwnedBytes()`, dans `server/usage.js`,
+**partage** les octets d'un fichier entre ses propriétaires, à parts égales.
+Facturer la taille pleine à chacun ferait totaliser la colonne à plus que ce que
+le disque contient, ce qui est la façon la plus rapide de rendre un tableau de
+bord non crédible.
+
+Le corollaire d'honnêteté : rien n'était enregistré avant ce rapport. Ces images
+ne sont pas sans propriétaire — leur propriétaire est simplement **inconnu**, et
+l'inventer en corrélant horodatages et identifiants de projet serait une
+supposition imprimée comme un fait. Elles ont leur propre ligne, « Sans
+propriétaire », et elles y restent. Un propriétaire dont le compte a été supprimé
+y retombe, parce que `splitOwnedBytes` filtre sur l'ensemble des identifiants qui
+existent encore.
+
 ---
 
 ## Série Q — la passe de qualité
