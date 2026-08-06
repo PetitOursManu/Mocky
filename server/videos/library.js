@@ -130,6 +130,17 @@ export class VideoLibrary {
     return fs.existsSync(fp) ? fp : null
   }
 
+  /** Record that `owner` put this clip here. See `owners` in `ingest`. */
+  _addOwner(meta, owner) {
+    if (!meta || typeof owner !== 'string' || !owner) return false
+    if (!Array.isArray(meta.owners)) meta.owners = []
+    if (meta.owners.includes(owner)) return false
+    // Bounded: this index is re-serialised whole on every write.
+    if (meta.owners.length >= 20) return false
+    meta.owners.push(owner)
+    return true
+  }
+
   list({ project } = {}) {
     return Object.values(this.state.byHash)
       .filter((m) => !project || m.project === project)
@@ -153,10 +164,12 @@ export class VideoLibrary {
     // ask skips the provider too.
     const known = this.state.byHash[hash]
     if (known && this.posterPath(hash)) {
+      let changed = this._addOwner(known, spec.owner)
       if (this.state.byRequest[key] !== hash) {
         this.state.byRequest[key] = hash
-        this._persist()
+        changed = true
       }
+      if (changed) this._persist()
       return { hash, meta: known, fromCache: true }
     }
 
@@ -190,8 +203,17 @@ export class VideoLibrary {
       model: spec.model || '',
       project: spec.project || '',
       slot: spec.slot || 'hero',
+      /**
+       * Who put this clip here — a set, for the same reason the image library
+       * keeps one: the store is content-addressed, so two people uploading the
+       * same bytes share one directory on disk. `server/usage.js` splits its
+       * footprint between them. Absent on everything cut before this existed,
+       * and reported as unattributed rather than guessed at.
+       */
+      owners: [],
       createdAt: this.now(),
     }
+    this._addOwner(meta, spec.owner)
     this.state.byHash[hash] = meta
     this.state.byRequest[key] = hash
     this._persist()
@@ -279,6 +301,10 @@ export class VideoLibrary {
     if (!hash) return null
     const meta = this.state.byHash[hash]
     if (!meta || !this.posterPath(hash)) return null
+    // A cache hit is still someone arriving at this clip, and the usage report
+    // has to say so. `requestKey` reads named fields only, so the owner never
+    // reaches the key and a second person asking cannot miss the cache.
+    if (this._addOwner(meta, spec.owner)) this._persist()
     return { hash, meta, fromCache: true }
   }
 

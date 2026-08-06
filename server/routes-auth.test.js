@@ -95,10 +95,12 @@ const GUARDED = [
   ['GET', '/api/images/deadbeef', 'a short hash is not a capability URL'],
   ['GET', '/api/mcp/status', ''],
   ['POST', '/api/muse/dossier', 'spends model tokens and can launch Chromium'],
+  ['POST', '/api/muse/audit', 'the judged half of the SEO/a11y report spends model tokens'],
   ['POST', '/api/text/vision', 'server-side fetch of a caller-supplied base URL'],
   ['GET', '/api/data', ''],
   ['PUT', '/api/data', ''],
   ['GET', '/api/admin/users', ''],
+  ['GET', '/api/admin/usage', 'reads every account’s projects blob and walks the media libraries'],
   ['GET', '/api/admin/config', ''],
   ['GET', '/api/admin/images/config', ''],
   ['GET', '/api/admin/text/config', ''],
@@ -238,5 +240,94 @@ describe('account picture', () => {
     ]) {
       expect((await call(m, p)).status, `${m} ${p}`).toBe(401)
     }
+  })
+})
+
+/**
+ * The usage report, end to end.
+ *
+ * Worth a real server rather than only the unit tests next to server/usage.js:
+ * the report is the first thing here that opens the projects blob, which every
+ * other route treats as an opaque string. A change to how that string is stored
+ * would leave the unit tests green — they are handed the string directly — and
+ * break this.
+ */
+describe('admin usage report', () => {
+  /**
+   * The instance's first account is its admin. Register, or sign in if an
+   * earlier block in this file already claimed it — public sign-ups close
+   * behind the first account, so which one gets there first must not matter.
+   */
+  let cookie = ''
+  beforeAll(async () => {
+    const creds = { username: 'proxytest', password: 'correct-horse' }
+    for (const route of ['/api/register', '/api/login']) {
+      const res = await fetch(base + route, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(creds),
+      })
+      if (res.ok) {
+        cookie = (res.headers.get('set-cookie') || '').split(';')[0]
+        return
+      }
+    }
+    throw new Error('could not obtain an admin session')
+  })
+
+  const asAdmin = (method, p, body) =>
+    fetch(base + p, {
+      method,
+      headers: { 'content-type': 'application/json', cookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+
+  it('counts the projects an account actually saved', async () => {
+    const projects = [
+      { id: 'p1', name: 'One', screens: [{ id: 's1' }, { id: 's2' }] },
+      { id: 'p2', name: 'Two', screens: [{ id: 's3' }] },
+      { id: 'p3', name: 'Gone', deletedAt: 1, screens: [{ id: 's4' }] },
+    ]
+    expect((await asAdmin('PUT', '/api/data', { projects: JSON.stringify(projects), design: null })).status).toBe(200)
+
+    const report = await (await asAdmin('GET', '/api/admin/usage')).json()
+    const row = report.users.find((u) => u.username === 'proxytest')
+    expect(row).toBeTruthy()
+    expect(row.readable).toBe(true)
+    expect(row.projects).toBe(2)
+    expect(row.screens).toBe(3)
+    expect(row.deletedProjects).toBe(1)
+    // The blob is on disk, so its bytes are real and counted.
+    expect(row.bytes.data).toBeGreaterThan(0)
+    expect(row.bytes.total).toBe(row.bytes.data + row.bytes.avatar + row.bytes.media)
+  })
+
+  it('reports the instance ceiling alongside the per-account rows', async () => {
+    const report = await (await asAdmin('GET', '/api/admin/usage')).json()
+    expect(report.instance).toBeTruthy()
+    expect(typeof report.instance.bytes).toBe('number')
+    expect(report.unattributed).toEqual(expect.objectContaining({ bytes: expect.any(Number) }))
+  })
+
+  it('refuses a signed-in NON-admin', async () => {
+    // Sign-ups are closed behind the first account, so the second one has to be
+    // made by the admin — which is also the only way to get a 'user' role here.
+    const made = await asAdmin('POST', '/api/admin/users', {
+      username: 'plainuser',
+      password: 'correct-horse-battery',
+      role: 'user',
+    })
+    expect(made.status).toBe(200)
+    const login = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'plainuser', password: 'correct-horse-battery' }),
+    })
+    expect(login.ok).toBe(true)
+    const theirs = (login.headers.get('set-cookie') || '').split(';')[0]
+    const res = await fetch(`${base}/api/admin/usage`, { headers: { cookie: theirs } })
+    // 403, not 401: they are signed in, they are simply not an admin. Answering
+    // 401 would send the SPA to the sign-in screen they just came from.
+    expect(res.status).toBe(403)
   })
 })

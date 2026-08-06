@@ -81,8 +81,28 @@ export function createImagesRouter({ library, registryFor, budget }) {
   }
 
   // Library listing with search/filters.
+  /**
+   * Strip `owners` from anything sent to a browser.
+   *
+   * The field holds account ids, and the library is INSTANCE-WIDE: every
+   * signed-in user lists every image. Left in, an ordinary account learns its
+   * own id from the `meta` of its first upload, subtracts its own images, and
+   * has the global library partitioned by author — who made how many, and which
+   * prompts belong together. `publicUser()` in server/index.js deliberately
+   * omits `id` for exactly this reason, and only GET /api/admin/users publishes
+   * it.
+   *
+   * Nothing in `src/` reads `owners`: the usage report consumes it server-side
+   * through `collectUsage`, which reads the library object directly. So this
+   * costs the feature nothing.
+   */
+  const withoutOwners = (m) => {
+    const { owners, ...rest } = m
+    return rest
+  }
+
   router.get('/library', (req, res) => {
-    res.json({ images: library.list(filtersFromQuery(req.query)) })
+    res.json({ images: library.list(filtersFromQuery(req.query)).map(withoutOwners) })
   })
 
   // "Tout télécharger" — ZIP of the current filtered selection (+ manifest).
@@ -139,10 +159,15 @@ export function createImagesRouter({ library, registryFor, budget }) {
       return res.status(507).json({ error: quotaError(budget.usage()) })
     }
     try {
+      // Who asked, taken from the session rather than from the body: the body
+      // is the caller's to write, and an attribution anyone can forge is worth
+      // less than no attribution at all. `requireUser` guards this router in
+      // server/index.js, so it is always there.
+      spec.owner = req.user?.id
       const out = await library.generate(spec, { registry: registryFor(profileOf(spec.profile)) })
       if (out.skipped) return res.json({ skipped: true })
       if (!out.fromCache) budget?.add(library.fileSize?.(out.hash) ?? 0)
-      res.json({ hash: out.hash, url: `/api/images/${out.hash}`, fromCache: out.fromCache, meta: out.meta })
+      res.json({ hash: out.hash, url: `/api/images/${out.hash}`, fromCache: out.fromCache, meta: withoutOwners(out.meta) })
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : String(err) })
     }
@@ -176,12 +201,14 @@ export function createImagesRouter({ library, registryFor, budget }) {
         width: req.query.w,
         height: req.query.h,
         project: req.query.project,
+        // From the session, never the query string — see the note on generate.
+        owner: req.user?.id,
         mime,
       })
       // Content-addressed: a re-upload of the same bytes reuses the file on
       // disk, so charging for it would leak quota on every duplicate.
       if (!out.fromCache) budget?.add(buffer.length)
-      res.json({ hash: out.hash, url: `/api/images/${out.hash}`, fromCache: out.fromCache, meta: out.meta })
+      res.json({ hash: out.hash, url: `/api/images/${out.hash}`, fromCache: out.fromCache, meta: withoutOwners(out.meta) })
     } catch (err) {
       res.status(err?.statusCode === 413 ? 413 : 400).json({
         error: err instanceof Error ? err.message : String(err),

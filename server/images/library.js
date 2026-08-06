@@ -136,7 +136,7 @@ export class ImageLibrary {
     // Reuse an identical prior request (M8) — no provider call.
     const cachedHash = this.state.byRequest[reqKey]
     if (cachedHash && this.fileExists(cachedHash)) {
-      const meta = this._attachProject(cachedHash, spec.project)
+      const meta = this._attachProject(cachedHash, spec.project, spec.owner)
       return { hash: cachedHash, fromCache: true, meta }
     }
 
@@ -152,7 +152,7 @@ export class ImageLibrary {
       return provider.generate({ prompt: spec.prompt, negative: spec.negative, seed: spec.seed, width, height })
     })
     if (result && result.reusedHash) {
-      const meta = this._attachProject(result.reusedHash, spec.project)
+      const meta = this._attachProject(result.reusedHash, spec.project, spec.owner)
       return { hash: result.reusedHash, fromCache: true, meta }
     }
     if (!result || result.skipped) {
@@ -197,11 +197,13 @@ export class ImageLibrary {
       createdAt: this.now(),
       tags: [],
       projects: [],
+      owners: [],
       favorite: false,
     }
     meta.tags = Array.from(new Set([...(meta.tags || []), ...tags])).slice(0, 20)
     const project = spec.project ? String(spec.project).slice(0, 100) : null
     if (project && !meta.projects.includes(project)) meta.projects.push(project)
+    this._addOwner(meta, spec.owner)
     this.state.byHash[contentHash] = meta
     this.state.byRequest[reqKey] = contentHash
     this._persist()
@@ -248,22 +250,52 @@ export class ImageLibrary {
       createdAt: this.now(),
       tags: [],
       projects: [],
+      owners: [],
       favorite: false,
     }
     meta.tags = Array.from(new Set([...(meta.tags || []), ...tags]))
     if (spec.project && !meta.projects.includes(spec.project)) meta.projects.push(spec.project)
+    this._addOwner(meta, spec.owner)
     this.state.byHash[contentHash] = meta
     this._persist()
     return { hash: contentHash, meta, fromCache: Boolean(existing) }
   }
 
-  _attachProject(hash, project) {
+  /**
+   * Record that `owner` put this image here.
+   *
+   * A set rather than a field, because the library is content-addressed: two
+   * people who generate or upload byte-identical images land on the SAME entry,
+   * and the second arrival must not erase the first. `server/usage.js` splits
+   * the file's bytes between whoever is in this list, so the admin table adds
+   * up to what the volume actually holds.
+   *
+   * Absent on everything that existed before this was recorded. That is
+   * reported as unattributed rather than backfilled — an owner inferred from
+   * timestamps would be a guess printed as a fact.
+   *
+   * @returns {boolean} whether the list changed, so the caller can persist once
+   */
+  _addOwner(meta, owner) {
+    if (!meta || typeof owner !== 'string' || !owner) return false
+    if (!Array.isArray(meta.owners)) meta.owners = []
+    if (meta.owners.includes(owner)) return false
+    // Bounded like `tags` and `projects` beside it: this index is re-serialised
+    // whole on every write, so nothing in it may grow without a ceiling.
+    if (meta.owners.length >= 20) return false
+    meta.owners.push(owner)
+    return true
+  }
+
+  _attachProject(hash, project, owner) {
     const meta = this.state.byHash[hash]
     if (!meta) return null
+    let changed = this._addOwner(meta, owner)
     if (project && !meta.projects.includes(project)) {
       meta.projects.push(project)
-      this._persist()
+      changed = true
     }
+    if (changed) this._persist()
     return meta
   }
 

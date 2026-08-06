@@ -48,15 +48,23 @@ export function createVideosRouter({ library, generate, availability, recheck, f
     res.json(await recheck())
   })
 
+  /** Account ids never leave the server — see the note in images/routes.js. */
+  const withoutOwners = (m) => {
+    const { owners, ...rest } = m
+    return rest
+  }
+
   router.get('/library', (req, res) => {
     const project = typeof req.query.project === 'string' ? req.query.project : undefined
-    res.json({ videos: library.list({ project }) })
+    res.json({ videos: library.list({ project }).map(withoutOwners) })
   })
 
   // Body: { prompt, negative?, project?, slot?, seed? }
   router.post('/generate', async (req, res) => {
     try {
-      const out = await generate(req.body || {})
+      // From the session, not the body: an attribution the caller can write is
+      // worth less than none. `requireUser` guards this router.
+      const out = await generate({ ...(req.body || {}), owner: req.user?.id })
       res.json({
         hash: out.hash,
         frames: out.meta.frames,
@@ -116,6 +124,7 @@ export function createVideosRouter({ library, generate, availability, recheck, f
           model: '',
           project: req.query.project || '',
           slot: 'hero',
+          owner: req.user?.id,
         },
         frameSettings ? frameSettings() : {},
       )

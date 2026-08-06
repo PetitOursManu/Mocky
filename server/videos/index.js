@@ -86,6 +86,7 @@ export function createVideos({ dataDir, configStore, fetchImpl, budget } = {}) {
       provider: cfg.provider,
       model: cfg.fal?.model || '',
       seconds: spec.seconds || '',
+      owner: spec.owner,
     }
     const hit = library.cached(cacheSpec)
     if (hit) return hit
@@ -100,7 +101,7 @@ export function createVideos({ dataDir, configStore, fetchImpl, budget } = {}) {
 
     return library.ingest(
       out.buffer,
-      { ...cacheSpec, project: spec.project || '', slot: spec.slot || 'hero' },
+      { ...cacheSpec, project: spec.project || '', slot: spec.slot || 'hero', owner: spec.owner },
       cfg.frames || {},
     )
   }

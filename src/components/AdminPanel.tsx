@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, type AdminUser } from '../lib/api'
 import ImageProviderSettings from './ImageProviderSettings'
 import TextProviderSettings from './TextProviderSettings'
+import UsageReport from './UsageReport'
 import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../ui'
 import { useT } from '../i18n'
 
@@ -258,6 +259,13 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
             </ul>
           )}
         </section>
+      </div>
+
+      {/* Usage sits below the two columns rather than inside the account list:
+          it fetches on its own, and a row per account with a bar needs the full
+          width to stay readable at the sizes the grid gives a column. */}
+      <div className="mt-8 border-t border-line pt-8">
+        <UsageReport />
       </div>
 
       {resetting && (

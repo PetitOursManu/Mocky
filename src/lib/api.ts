@@ -24,6 +24,41 @@ export interface AdminUser {
   sso?: boolean
 }
 
+/** One row of the usage report — see server/usage.js for how it is computed. */
+export interface UsageRow {
+  id: string
+  username: string
+  role: 'admin' | 'user'
+  createdAt: number | null
+  projects: number
+  screens: number
+  /** Tombstones: deleted projects that still occupy the blob so the deletion can sync. */
+  deletedProjects: number
+  /**
+   * False when the projects blob would not parse. The counts above are then 0
+   * because they are unknown, not because they are zero — the UI must say so
+   * rather than show a confident nought.
+   */
+  readable: boolean
+  /** How many library items name this user as an owner. */
+  media: number
+  bytes: { data: number; avatar: number; media: number; total: number }
+}
+
+export interface UsageReport {
+  users: UsageRow[]
+  /**
+   * Media whose owner is unknown: everything that existed before ownership was
+   * recorded, plus anything belonging to a deleted account. Its own line rather
+   * than a share of everyone's.
+   */
+  unattributed: { bytes: number; count: number }
+  /** The instance-wide disk budget, or null when the report could not be built. */
+  instance: { bytes: number; maxBytes: number; ratio: number | null } | null
+  /** Present only when the report failed; the rest of the Admin screen still works. */
+  error?: string
+}
+
 async function req(path: string, options?: RequestInit): Promise<any> {
   const res = await fetch(path, {
     ...options,
@@ -232,6 +267,7 @@ export const api = {
         allowRegistration: boolean
       }>,
     listUsers: () => req('/api/admin/users').then((d) => d.users as AdminUser[]),
+    usage: () => req('/api/admin/usage') as Promise<UsageReport>,
     addUser: (
       username: string,
       password: string,

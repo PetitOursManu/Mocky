@@ -16,6 +16,7 @@ import { PUBLIC_VIDEO_PATH } from './videos/routes.js'
 import { TextConfigStore, looksLikeImageModel } from './text/config.js'
 import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
+import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -919,6 +920,42 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
       sso: Boolean(u.dashySub) && !u.salt && !u.hash,
     })),
   })
+})
+
+/**
+ * Who is using the instance, and how much of it.
+ *
+ * Separate from GET /api/admin/users because it costs something: it parses
+ * every user's projects blob — the one thing the server otherwise treats as an
+ * opaque string — and walks a directory per scroll sequence. Folding that into
+ * the account list would make opening the Admin tab pay for it whether or not
+ * anyone looked.
+ *
+ * The reply is deliberately not a single number per person: see server/usage.js
+ * for why deduplicated media is split between its owners and why anything
+ * generated before ownership was recorded gets its own line instead of a guess.
+ */
+app.get('/api/admin/usage', requireAdmin, (req, res) => {
+  try {
+    res.json(
+      collectUsage({
+        dataDir: DATA_DIR,
+        users: loadUsers(),
+        images: images.library,
+        videos: videos.library,
+        instance: diskBudget.usage(),
+      }),
+    )
+  } catch (err) {
+    // A report is not worth a 500 on the Admin screen: the account list beside
+    // it still works, and the panel degrades to "usage unavailable".
+    res.status(200).json({
+      users: [],
+      unattributed: { bytes: 0, count: 0 },
+      instance: null,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
 })
 
 app.post('/api/admin/users', requireAdmin, (req, res) => {
