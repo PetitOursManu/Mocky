@@ -13,11 +13,12 @@ import { library } from './library'
 import { design } from './design'
 import { settings } from './settings'
 import { preview } from './preview'
+import { audit } from './audit'
 
-const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview]
+const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview, audit]
 
 export const partsFr: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.fr))
 export const partsEn: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.en))
 
 /** Exposed for the parity test, which checks each area separately. */
-export const AREA_DICTS = { app, auth, canvas, project, muse, library, design, settings, preview }
+export const AREA_DICTS = { app, auth, canvas, project, muse, library, design, settings, preview, audit }

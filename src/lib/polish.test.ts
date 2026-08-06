@@ -340,3 +340,73 @@ describe('runPolishLoop — inputs', () => {
     ])
   })
 })
+
+/**
+ * Fixing ONE finding on a screen that has several.
+ *
+ * The audit panel puts a "Fix" button on each finding, so the loop is handed a
+ * subset — while `check` re-audits the whole screen and answers about all of
+ * them. Comparing the two directly is what `scope` exists to stop.
+ */
+describe('a run scoped to some of the findings', () => {
+  /** The screen keeps its two other problems whatever happens to the first. */
+  const stillTwo = () => report([finding('input-no-label'), finding('control-no-name')])
+
+  it('does not read a full re-check as a regression', async () => {
+    // The bug: open = [img-alt] (1), nextOpen = the whole screen (2), so
+    // `nextOpen.length > open.length` fired, the loop returned the ORIGINAL
+    // code, and the panel said there had been nothing to fix — after paying
+    // for a model call that had in fact corrected the alt.
+    const check = vi.fn(async () => stillTwo())
+    const out = await runPolishLoop(
+      'original',
+      { check, polish: async () => 'corrected' },
+      {
+        initialReport: report([finding('img-alt')]),
+        scope: ['img-alt'],
+      },
+    )
+    expect(out.stopped).toBe('clean')
+    expect(out.code).toBe('corrected')
+    expect(out.fixed.map((f) => f.rule)).toEqual(['img-alt'])
+    expect(out.residual).toEqual([])
+  })
+
+  it('still reports the rest of the screen through the full report', async () => {
+    // Scoping decides what the run is answerable for; it must not hide what
+    // else the screen needs, which the panel goes on showing.
+    const out = await runPolishLoop(
+      'original',
+      { check: async () => stillTwo(), polish: async () => 'corrected' },
+      { initialReport: report([finding('img-alt')]), scope: ['img-alt'] },
+    )
+    expect(out.report?.findings.map((f) => f.rule)).toEqual(['input-no-label', 'control-no-name'])
+  })
+
+  it('still stops when the scoped finding survives the pass', async () => {
+    // The guard has to keep working inside the scope: a correction that did not
+    // land is still a correction that did not land.
+    const out = await runPolishLoop(
+      'original',
+      {
+        check: async () => report([finding('img-alt'), finding('input-no-label')]),
+        polish: async () => 'rewritten',
+      },
+      { initialReport: report([finding('img-alt')]), scope: ['img-alt'] },
+    )
+    expect(out.stopped).toBe('no-progress')
+    expect(out.fixed).toEqual([])
+  })
+
+  it('is unchanged when no scope is given', async () => {
+    // Every existing caller passes a full report and no scope; they must keep
+    // measuring against the whole screen.
+    const out = await runPolishLoop(
+      'original',
+      { check: async () => stillTwo(), polish: async () => 'corrected' },
+      { initialReport: report([finding('img-alt')]) },
+    )
+    expect(out.stopped).toBe('regressed')
+    expect(out.code).toBe('original')
+  })
+})

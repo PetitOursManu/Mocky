@@ -5,6 +5,7 @@ import express from 'express'
 import { makeLlm } from './llm.js'
 import { runInspiration } from './inspire/engine.js'
 import { runQuality } from './quality/index.js'
+import { judgeAudit } from './quality/audit-judge.js'
 
 /**
  * Extract per-request provider credentials (ADR D7) from the same headers the
@@ -172,6 +173,48 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
       // already generated and on the user's canvas — reporting the failure is
       // right, failing the request is not (invariant Q1).
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+    }
+  })
+
+  /*
+   * POST /api/muse/audit — the judged half of the SEO / accessibility report.
+   *
+   * Unlike /muse/quality, the DETERMINISTIC half of this evaluation does not
+   * run here at all: those rules are Mocky's own markup analysis over an AST the
+   * browser already parses, so they run in `src/lib/audit/` with no round trip,
+   * no cost, and no dependency on this server being reachable. Only the
+   * judgement questions — is the alt any good, does the heading describe the
+   * section — need a model, which is why this route exists and why it is behind
+   * a second, explicit button in the panel.
+   *
+   * Credentials follow /muse/quality exactly: an admin-configured provider wins,
+   * otherwise the browser's own headers. With neither, this answers 200 with an
+   * empty findings list and a notice saying so — the caller already has a
+   * complete deterministic report and must not lose it (Q1).
+   */
+  router.post('/muse/audit', async (req, res) => {
+    const code = typeof req.body?.code === 'string' ? req.body.code : ''
+    if (!code.trim()) return res.status(400).json({ error: 'A "code" string is required.' })
+
+    let admin = null
+    try {
+      admin = resolveTarget ? resolveTarget('inspiration') : null
+    } catch {
+      admin = null
+    }
+    const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    const llm = creds ? makeLlm(creds) : null
+
+    try {
+      res.json(await judgeAudit(code, { llm }))
+    } catch (err) {
+      // judgeAudit is written not to throw. If it ever does, the screen is on
+      // the user's canvas and the deterministic half is already in their hands.
+      res.status(200).json({
+        findings: [],
+        notices: [err instanceof Error ? err.message : String(err)],
+        judged: false,
+      })
     }
   })
 

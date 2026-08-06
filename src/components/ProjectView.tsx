@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, polishComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
@@ -11,8 +11,9 @@ import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from '../lib/plan'
-import { checkQuality } from '../lib/quality'
-import { runPolishLoop } from '../lib/polish'
+import { checkQuality, type QualityFinding } from '../lib/quality'
+import { auditScreen } from '../lib/audit'
+import { runPolishLoop, type PolishReport } from '../lib/polish'
 import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
@@ -32,6 +33,8 @@ import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
 import Bibliotheque from './Bibliotheque'
 import ImageLightbox from './ImageLightbox'
+import ScreenImagesDialog from './ScreenImagesDialog'
+import AuditPanel from './AuditPanel'
 import {
   loadMuseConfig,
   saveMuseConfig,
@@ -69,7 +72,7 @@ import {
   type AnimationMode,
 } from '../lib/animations'
 import { lintSlop } from '../lib/lint'
-import { useT } from '../i18n'
+import { getLang, useT } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
 /** Translation keys per animation state — resolved at render, like every label. */
@@ -232,6 +235,10 @@ export default function ProjectView({
   const [showLibrary, setShowLibrary] = useState(false)
   /** Image opened full size (from the canvas card or the library grid). */
   const [lightboxHash, setLightboxHash] = useState<string | null>(null)
+  /** The screen whose images are being swapped, if any. Id, not the screen: the
+   *  dialog must follow the record as it is rewritten, not a stale copy. */
+  const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
+  const [showAudit, setShowAudit] = useState(false)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   /** The brief above the composer. Folded by default: open, it eats the canvas. */
   const [briefOpen, setBriefOpen] = useState(() => localStorage.getItem(BRIEF_PREF_KEY) === '1')
@@ -710,6 +717,10 @@ export default function ProjectView({
     return () => window.clearTimeout(timer)
   }, [screens, busy])
   const selectedScreens = screens.filter((s) => selectedIds.includes(s.id))
+  // Looked up rather than captured, so the dialog re-renders from the rewritten
+  // source after each swap — and closes on its own if the screen is deleted
+  // from under it.
+  const imageSwapScreen = imagesForScreen ? screens.find((s) => s.id === imagesForScreen) ?? null : null
 
   // Revert a screen to its previousCode (saved before the last edit).
   function onRevertScreen(screenId: string) {
@@ -1356,7 +1367,17 @@ export default function ProjectView({
       return
     }
     try {
-      await downloadZip(screens, { stack, designMarkdown: activeDirection(), projectName: project.name })
+      await downloadZip(screens, {
+        stack,
+        designMarkdown: activeDirection(),
+        projectName: project.name,
+        // The interface language, which is the language the project was briefed
+        // and written in. `lang` is what tells a screen reader how to pronounce
+        // the page, so a hardcoded "en" made every French export unreadable
+        // aloud — it is not a cosmetic default.
+        lang: getLang(),
+        description: project.productName ? `${project.productName} — ${project.name}` : undefined,
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -1652,6 +1673,118 @@ export default function ProjectView({
    * deterministic in-place swap first (instant, free, no model) and falls back
    * to a targeted LLM edit when the text isn't a unique verbatim match.
    */
+  /**
+   * Correct named SEO / accessibility findings on one screen.
+   *
+   * Reuses `runPolishLoop` — its four stop conditions are the hard part and are
+   * worth having once — but not the quality pass's check or its prompt. The
+   * check is the browser-side audit, and the prompt is `AUDIT_FIX_PROMPT`,
+   * which says the screen must look identical afterwards. POLISH_PROMPT says
+   * roughly the opposite, on purpose, and using it here would return a
+   * redesigned screen with good markup: two changes where one was asked for.
+   *
+   * Deliberately does NOT write `Screen.quality`. That field records the /20
+   * design audit, and putting an accessibility score in it would make two
+   * different measurements share one number.
+   *
+   * @returns how many findings were resolved, or null when nothing could run.
+   */
+  async function fixAuditFindings(screenId: string, findings: QualityFinding[]): Promise<number | null> {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen) return null
+    // Read at call time, like every other model-backed path here, so an admin
+    // changing the instance provider applies without a reload.
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return null
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setRegenLabel(t('audit.fixing'))
+    setRegeneratingIds(new Set([screenId]))
+    try {
+      const designMd = activeDirection()
+      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      const caps = resolveCapabilities(capIds)
+      const codeAtStart = screen.code
+
+      // Explicitly a PolishReport, not an AuditReport: `initialReport` below is
+      // the findings the user pressed the button about, and nothing else of an
+      // audit report is needed to steer the loop.
+      const outcome = await runPolishLoop<PolishReport>(
+        codeAtStart,
+        {
+          check: (code) => auditScreen(code, { settings, signal: ac.signal }),
+          polish: async (code, findingsBlock) => {
+            const res = await auditFixComponent(settings, code, findingsBlock, ac.signal, caps)
+            return res.code
+          },
+        },
+        {
+          signal: ac.signal,
+          // The report the user is looking at, so the first pass corrects what
+          // they actually pressed the button about rather than re-deriving a
+          // possibly different list a second later.
+          initialReport: { findings },
+          // And the same list as the yardstick. `check` re-audits the WHOLE
+          // screen, so without this the loop compared the one finding the user
+          // clicked against every finding the screen still had, decided things
+          // had got worse, and threw away a correction that had worked.
+          scope: findings.map((f) => f.rule),
+        },
+      )
+
+      // Someone else may have rewritten this screen while the loop ran — the
+      // same race polishScreen guards against, and the same answer: drop ours.
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now || now.code !== codeAtStart) return null
+
+      if (outcome.code !== codeAtStart) {
+        onUpdateScreen(screenId, {
+          code: outcome.code,
+          componentName: detectComponentName(outcome.code),
+          previousCode: codeAtStart,
+        })
+      }
+      return outcome.fixed.length
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return null
+      setError(e instanceof Error ? e.message : String(e))
+      return null
+    } finally {
+      setBusy(false)
+      setRegenLabel('')
+      setRegeneratingIds(new Set())
+      abortRef.current = null
+    }
+  }
+
+  /**
+   * Write back a screen whose image URLs were swapped.
+   *
+   * No AbortController and no `codeAtStart` re-check, unlike every model-backed
+   * mutation here: the substitution is synchronous and was computed from the
+   * source this very render handed the dialog, so there is no window in which
+   * the screen could have moved underneath it. What it does share is
+   * `previousCode`, which is what makes "Revert" undo a swap the same way it
+   * undoes an edit.
+   *
+   * `componentName` is re-detected out of habit rather than need — an image URL
+   * cannot rename a component — but every other write-back here does it, and a
+   * path that skips it is a path someone has to reason about later.
+   */
+  function swapScreenImages(screenId: string, nextCode: string) {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen || screen.code === nextCode) return
+    onUpdateScreen(screenId, {
+      code: nextCode,
+      componentName: detectComponentName(nextCode),
+      previousCode: screen.code,
+    })
+  }
+
   async function applyTextChange(screenId: string, info: PickInfo, newText: string) {
     const screen = screens.find((s) => s.id === screenId)
     if (!screen) return
@@ -1748,6 +1881,15 @@ export default function ProjectView({
         />
       )}
       {lightboxHash && <ImageLightbox hash={lightboxHash} onClose={() => setLightboxHash(null)} />}
+      {imageSwapScreen && (
+        <ScreenImagesDialog
+          screenName={imageSwapScreen.name}
+          code={imageSwapScreen.code}
+          projectId={project.id}
+          onReplace={(code) => swapScreenImages(imageSwapScreen.id, code)}
+          onClose={() => setImagesForScreen(null)}
+        />
+      )}
     </>
   )
 
@@ -1838,7 +1980,24 @@ export default function ProjectView({
       label: t('mode.system'),
       title: t('project.systemTitle'),
       active: showSystem,
-      onClick: () => setShowSystem((v) => !v),
+      onClick: () => {
+        setShowSystem((v) => !v)
+        setShowAudit(false)
+      },
+    },
+    {
+      id: 'audit',
+      icon: 'shield',
+      label: t('mode.audit'),
+      title: t('audit.open'),
+      active: showAudit,
+      onClick: () => {
+        // Mutually exclusive with the design system panel: both want the same
+        // slot at `right-4 top-11`, and Panel's own note records what happened
+        // the last time two of them shared it without a z-index.
+        setShowAudit((v) => !v)
+        setShowSystem(false)
+      },
     },
     {
       id: 'demo',
@@ -1953,6 +2112,25 @@ export default function ProjectView({
           onRecolor={recolorToken}
           onClose={() => setShowSystem(false)}
           onEdit={onOpenDesign}
+        />
+      )}
+
+      {showAudit && (
+        <AuditPanel
+          className="absolute right-4 top-11 w-80 rounded-xl shadow-2xl"
+          screens={screens}
+          projectName={project.name}
+          productName={project.productName}
+          selectedId={selectedIds[0] ?? null}
+          // Selecting from the panel also frames the screen on the canvas: the
+          // report names elements, and a report about a screen you cannot see
+          // is a list of assertions you have to take on trust.
+          onSelect={(id) => {
+            setSelectedIds([id])
+            setFocus({ screenId: id, nonce: Date.now() })
+          }}
+          onFix={fixAuditFindings}
+          onClose={() => setShowAudit(false)}
         />
       )}
 
@@ -2807,6 +2985,11 @@ export default function ProjectView({
                   onClick={() => { close(); deriveDesignFrom(s) }}
                 />
                 <MenuItem icon="image" label={t('project.editDesign')} onClick={() => { close(); onOpenDesign() }} />
+                <MenuItem
+                  icon="library"
+                  label={t('project.changeImages')}
+                  onClick={() => { close(); setImagesForScreen(s.id) }}
+                />
 
                 <div className="my-1 border-t border-line-soft" />
                 <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.displayFormat')}</div>

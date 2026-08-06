@@ -22,6 +22,10 @@ export interface ExportOptions {
   stack: StackTarget
   designMarkdown?: string
   projectName?: string
+  /** BCP-47 two-letter tag for `<html lang>`. Defaults to 'en'. */
+  lang?: string
+  /** `<meta name="description">`. Omitted entirely when absent — an empty one is worse than none. */
+  description?: string
 }
 
 interface NamedScreen {
@@ -140,14 +144,48 @@ function tsconfig(): string {
   )
 }
 
-function indexHtml(name: string): string {
+/** Escape for HTML text and double-quoted attribute values alike. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * The exported document's head.
+ *
+ * Exported so `src/lib/audit` can check what this REALLY writes rather than a
+ * description of it — a report that grades a template from memory goes stale
+ * the first time the template changes.
+ *
+ * Three things here were wrong until the audit went looking, and all three were
+ * invisible because nobody reads their own export's `<head>`:
+ *
+ *  - the title was the *slugified package name* (`my-shop`), not the project's
+ *    name (`My Shop`). It is the single most visible string in a search result
+ *    and it was a filename.
+ *  - `lang` was hardcoded `en` for every export, including French projects. It
+ *    is what tells a screen reader which language to pronounce, so it was not a
+ *    cosmetic default: it made every French export unreadable aloud.
+ *  - there was no description at all, so a search engine had to invent one.
+ */
+export function indexHtml(
+  title: string,
+  opts: { lang?: string; description?: string } = {},
+): string {
+  // Two letters, no more: `lang` takes a BCP-47 tag and anything else here
+  // would have come from a place that does not know that.
+  const lang = /^[a-z]{2}$/i.test(opts.lang || '') ? (opts.lang as string).toLowerCase() : 'en'
+  const description = (opts.description || '').trim()
   return `<!doctype html>
-<html lang="en">
+<html lang="${lang}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${name}</title>
-  </head>
+    <title>${escapeHtml(title)}</title>
+${description ? `    <meta name="description" content="${escapeHtml(description.slice(0, 160))}" />\n` : ''}  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
@@ -366,7 +404,12 @@ export async function buildProjectFiles(
   files.push({ name: 'package.json', content: packageJson(name, opts.stack) })
   files.push({ name: 'vite.config.ts', content: viteConfig() })
   files.push({ name: 'tsconfig.json', content: tsconfig() })
-  files.push({ name: 'index.html', content: indexHtml(name) })
+  // The project's real name, not `name` — that one is slugified for package.json
+  // and npm, and a <title> of "my-shop" is a filename shown to a reader.
+  files.push({
+    name: 'index.html',
+    content: indexHtml(opts.projectName?.trim() || name, { lang: opts.lang, description: opts.description }),
+  })
   files.push({ name: 'tailwind.config.ts', content: tailwindConfig(opts.stack) })
   files.push({ name: 'postcss.config.js', content: postcssConfig() })
 

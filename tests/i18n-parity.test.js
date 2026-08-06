@@ -41,7 +41,7 @@ describe('core dictionary', () => {
   })
 })
 
-const AREAS = ['app', 'auth', 'canvas', 'project', 'muse', 'library', 'design', 'settings', 'preview']
+const AREAS = ['app', 'auth', 'canvas', 'project', 'muse', 'library', 'design', 'settings', 'preview', 'audit']
 
 describe('area dictionaries', () => {
   for (const area of AREAS) {

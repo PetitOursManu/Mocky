@@ -810,6 +810,67 @@ export async function polishComponent(
   return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
 }
 
+const AUDIT_FIX_PROMPT = `You are correcting named accessibility and SEO problems in the MARKUP of a React component that runs inside a sandbox. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported.
+
+You will be given the component and a numbered list of findings. Fix EVERY finding, and change NOTHING else.
+
+Rules:
+- This is a semantics pass, not a redesign. The screen must LOOK exactly the same afterwards. Keep every Tailwind class, every colour, every spacing value, the same sections in the same order and the same copy.
+- The ONE exception is a contrast finding. It names an element whose text and background cannot be read together, and the only possible fix is to change one of those two colour classes: darken the text or lighten the background, stay in the same colour family, and touch no other element. Every other class on that element, and every class on every other element, stays as it is.
+- Prefer the correct element to an ARIA patch: a real <button> rather than a <div role="button">, a real <nav>/<main>/<header> rather than a <div> with a landmark role.
+- Write alt text that describes what the image SHOWS, in the language the rest of the screen is written in. Never write "image", "photo" or a file name. An image that is purely decorative gets alt="" — that is a correct answer, not a missing one.
+- Give a control its name from its visible text where there is one; use aria-label only when the control shows nothing but an icon.
+- Fix heading LEVELS without changing how headings look. If an <h3> must become an <h2>, carry its classes over so the size does not change.
+- Never delete content, never add sections, and never introduce placeholder text.
+- If a finding is genuinely already absent, leave that part alone rather than inventing a change to make.
+
+Return the COMPLETE corrected component in a single fenced jsx code block. No prose.`
+
+/**
+ * Asks the model to correct named accessibility / SEO findings.
+ *
+ * A third sibling of `fixComponent` and `polishComponent`, and separate from
+ * both for the same reason they are separate from each other: the instruction
+ * that makes one work breaks the others. FIX_PROMPT says "do not restyle",
+ * which is right for a crash and wrong for slop. POLISH_PROMPT invites visual
+ * change, which is right for slop and WRONG here — an accessibility pass that
+ * restyles the screen has failed even if every finding is gone, because the
+ * user asked for a semantics fix and got a redesign they now have to review.
+ *
+ * Note for whoever counts them next: this is the FIFTH place the complete
+ * generated source first exists as `guardMotion(extractCode(content))`. The
+ * note in CLAUDE.md says to grep rather than trust the number, and it was right
+ * both previous times.
+ */
+export async function auditFixComponent(
+  s: Settings,
+  code: string,
+  findingsBlock: string,
+  signal?: AbortSignal,
+  caps?: Capability[],
+): Promise<GeneratedComponent> {
+  const capsPrompt = caps && caps.length ? buildCapabilitiesPrompt(caps) : ''
+  const system = capsPrompt ? `${AUDIT_FIX_PROMPT}\n${capsPrompt}` : AUDIT_FIX_PROMPT
+  const user = [
+    'Correct the following component.',
+    '',
+    '```jsx',
+    code,
+    '```',
+    '',
+    'Findings to fix:',
+    findingsBlock,
+    '',
+    'Return the COMPLETE corrected component. Fix every finding above, and leave the screen looking exactly as it does now.',
+  ].join('\n')
+  const content = await chat(s, [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ], signal)
+  const fixed = await guardMotion(extractCode(content))
+  return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
+}
+
 const DESIGN_EXTRACT_PROMPT = `You are a design systems analyst. Given the source of ONE React + Tailwind screen, you write the DESIGN.md that this screen appears to have been built from.
 
 Write the SYSTEM, not a description of the screen. "Primary: #4f46e5" is a system; "the hero has a blue button" is not. Someone must be able to build a DIFFERENT screen from your document and have it look like a sibling of this one.

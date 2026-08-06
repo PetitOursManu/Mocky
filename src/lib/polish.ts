@@ -45,7 +45,7 @@ export interface PolishPass {
   remaining: number
 }
 
-export interface PolishOutcome {
+export interface PolishOutcome<R extends PolishReport = QualityReport> {
   /** The best code the loop produced — never worse than what it was given. */
   code: string
   /** How many correction passes actually ran. */
@@ -66,7 +66,7 @@ export interface PolishOutcome {
    */
   fixed: QualityFinding[]
   /** Every finding, enforceable or advisory, from the final check. */
-  report: QualityReport | null
+  report: R | null
   stopped: PolishStop
   /** One entry per pass, for observability. */
   history: PolishPass[]
@@ -74,19 +74,52 @@ export interface PolishOutcome {
 
 export const DEFAULT_MAX_ITERATIONS = 2
 
-export interface PolishDeps {
+/**
+ * Any report the loop can steer by.
+ *
+ * Generic, and deliberately narrow: the loop only ever reads `findings`, and
+ * typing it to the quality pass's own report meant a second kind of check — the
+ * SEO/accessibility audit — could not reuse the four stop conditions without
+ * copying them. Two copies of "did this pass actually land" is exactly the
+ * duplication that lets one of them drift.
+ */
+export interface PolishReport {
+  findings: QualityFinding[]
+}
+
+export interface PolishDeps<R extends PolishReport = QualityReport> {
   /** Check a screen. Must resolve; see checkQuality. */
-  check: (code: string) => Promise<QualityReport>
+  check: (code: string) => Promise<R>
   /** Rewrite a screen given a rendered findings block. Returns the new source. */
   polish: (code: string, findingsBlock: string) => Promise<string>
   /** Called before each pass, for a progress label. */
   onPass?: (iteration: number, remaining: number) => void
 }
 
-export interface PolishOptions {
+export interface PolishOptions<R extends PolishReport = QualityReport> {
   maxIterations?: number
   /** A check already performed by the caller, so the loop does not repeat it. */
-  initialReport?: QualityReport
+  initialReport?: R
+  /**
+   * The rule ids this run is answerable for. Absent means the whole report.
+   *
+   * Without it, a caller that asks for ONE finding to be fixed is measured
+   * against a check that reports everything, and the two are not comparable.
+   * The audit panel's per-finding button did exactly that: `open` held the one
+   * rule the user clicked, `nextOpen` held all three the screen still had, and
+   * `nextOpen.length > open.length` fired — so a correction that had genuinely
+   * landed was thrown away, the original code was kept, and the panel reported
+   * that there had been nothing to fix. One paid model call, discarded, with a
+   * message saying the opposite of what happened.
+   *
+   * Scoping every measurement to the same set is what makes the three stop
+   * conditions mean anything: they compare like with like, and progress is
+   * still counted on rule ids, never on line numbers (Q3).
+   *
+   * `report` on the outcome stays the FULL report either way — the panel has to
+   * go on showing what else the screen needs.
+   */
+  scope?: string[]
   signal?: AbortSignal
 }
 
@@ -97,24 +130,34 @@ export interface PolishOptions {
  * `stopped: 'error'` and returns the last good code — the screen is already on
  * the user's canvas and must survive a failed attempt to improve it.
  */
-export async function runPolishLoop(
+export async function runPolishLoop<R extends PolishReport = QualityReport>(
   code: string,
-  deps: PolishDeps,
-  opts: PolishOptions = {},
-): Promise<PolishOutcome> {
+  deps: PolishDeps<R>,
+  opts: PolishOptions<R> = {},
+): Promise<PolishOutcome<R>> {
   const max = Math.max(0, Math.floor(opts.maxIterations ?? DEFAULT_MAX_ITERATIONS))
   const history: PolishPass[] = []
 
   let current = code
-  let report: QualityReport | null = opts.initialReport ?? null
+  let report: R | null = opts.initialReport ?? null
+
+  /**
+   * Narrow a report's findings to what this run answers for. See `scope`.
+   *
+   * Applied to BOTH sides of every comparison below, which is the whole point:
+   * the bug it closes was measuring a subset against a full re-check.
+   */
+  const scope = opts.scope?.length ? new Set(opts.scope) : null
+  const inScope = (findings: QualityFinding[]) =>
+    scope ? findings.filter((f) => scope.has(f.rule)) : findings
 
   /**
    * Single exit point, so `fixed` is derived the same way on every path rather
    * than recomputed at each of the seven returns below.
    */
   const done = (
-    out: Omit<PolishOutcome, 'fixed' | 'history'> & { initial: QualityFinding[] },
-  ): PolishOutcome => {
+    out: Omit<PolishOutcome<R>, 'fixed' | 'history'> & { initial: QualityFinding[] },
+  ): PolishOutcome<R> => {
     const stillOpen = new Set(out.residual.map((f) => f.rule))
     return { ...out, fixed: out.initial.filter((f) => !stillOpen.has(f.rule)), history }
   }
@@ -125,7 +168,7 @@ export async function runPolishLoop(
     return done({ code: current, iterations: 0, initial: [], residual: [], report: null, stopped: 'error' })
   }
 
-  let open = enforceableFindings(report.findings)
+  let open = inScope(enforceableFindings(report.findings))
   const initial = open
 
   if (!open.length) {
@@ -154,7 +197,7 @@ export async function runPolishLoop(
       return done({ code: current, iterations, initial, residual: open, report, stopped: 'no-progress' })
     }
 
-    let next: QualityReport
+    let next: R
     try {
       next = await deps.check(candidate)
     } catch {
@@ -163,7 +206,7 @@ export async function runPolishLoop(
       return done({ code: current, iterations, initial, residual: open, report, stopped: 'error' })
     }
 
-    const nextOpen = enforceableFindings(next.findings)
+    const nextOpen = inScope(enforceableFindings(next.findings))
     history.push({ iteration: iterations, signature: findingsSignature(nextOpen), remaining: nextOpen.length })
 
     if (!nextOpen.length) {

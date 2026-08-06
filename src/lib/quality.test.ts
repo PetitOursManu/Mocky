@@ -187,3 +187,39 @@ describe('findingsToPrompt', () => {
     expect(block).not.toContain('[three-feature-cards] (line')
   })
 })
+
+describe('findingsToPrompt', () => {
+  const base = {
+    rule: 'img-alt',
+    source: 'mocky' as const,
+    severity: 'error' as const,
+    category: 'a11y',
+    disposition: 'enforce' as const,
+  }
+
+  it('resolves audit rule keys to their English instruction', async () => {
+    // The audit rules carry i18n keys so the panel can render them in the
+    // reader's language. Sent raw, the model gets an identifier and nothing
+    // it can act on — least of all that alt="" is the right answer for a
+    // decorative image.
+    const { findingsToPrompt } = await import('./quality')
+    const out = findingsToPrompt([
+      { ...base, name: 'audit.rule.imgAlt', description: 'audit.rule.imgAltDesc' },
+    ])
+    expect(out).not.toContain('audit.rule.')
+    expect(out).toContain('Image with no alt text')
+    expect(out).toContain('alt=""')
+    // The id still leads the line: it is what progress is measured on (Q3).
+    expect(out).toContain('[img-alt]')
+  })
+
+  it('leaves prose alone', async () => {
+    // Quality-pass findings are already sentences, which is why this never
+    // came up before the audit rules arrived.
+    const { findingsToPrompt } = await import('./quality')
+    const out = findingsToPrompt([
+      { ...base, rule: 'generic-hero', name: 'Generic hero', description: 'Every landing page opens this way.' },
+    ])
+    expect(out).toContain('Generic hero: Every landing page opens this way.')
+  })
+})

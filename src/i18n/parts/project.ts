@@ -171,6 +171,7 @@ export const project = {
     'project.pinReference': 'Épingler comme référence de mise en page',
     'project.unpinReference': 'Ne plus utiliser comme référence',
     'project.editDesign': 'Modifier DESIGN.md',
+    'project.changeImages': 'Changer les images…',
     'project.deriveDesign': 'Faire de cet écran mon DESIGN.md',
     'project.applyDesignConfirm':
       'Faire du DESIGN.md enregistré avec « {name} » la direction de ce projet ? Les écrans suivants la suivront ; la direction actuelle reste accessible depuis les écrans qui l’ont utilisée.',
@@ -383,6 +384,7 @@ export const project = {
     'project.pinReference': 'Pin as layout reference',
     'project.unpinReference': 'Unpin as reference',
     'project.editDesign': 'Edit DESIGN.md',
+    'project.changeImages': 'Change the images…',
     'project.deriveDesign': 'Make this screen my DESIGN.md',
     'project.applyDesignConfirm':
       'Make the DESIGN.md recorded with “{name}” this project’s direction? Later screens will follow it; the current direction stays reachable from the screens that used it.',

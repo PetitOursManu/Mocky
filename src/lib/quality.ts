@@ -1,6 +1,7 @@
 import { loadSettings, type Settings } from './settings'
 import { proxyHeaders } from './proxy'
 import { lintSlop } from './lint'
+import { translate, type TranslationKey } from '../i18n'
 
 /**
  * The quality pass, from the browser's side.
@@ -232,10 +233,28 @@ export function findingsSignature(findings: QualityFinding[]): string {
  * list so the model is not asked to reconcile two formats.
  */
 export function findingsToPrompt(findings: QualityFinding[]): string {
+  /**
+   * Resolve an i18n key to English, and pass prose through untouched.
+   *
+   * The audit rules carry KEYS in `name`/`description` so the panel can render
+   * them in the reader's language (src/lib/audit/rules.ts). The model must not
+   * see those: `1. [img-alt] audit.rule.imgAlt: audit.rule.imgAltDesc` tells it
+   * the id and nothing else — not what is wrong, and not the part that matters
+   * most here, that `alt=""` is the right answer for a decorative image. The
+   * fix button spent a model call to be told an identifier.
+   *
+   * English rather than the reader's language, so one screen does not get a
+   * different instruction from another because someone changed the UI language.
+   *
+   * `translate` returns the key unchanged when it is not one, which is exactly
+   * the fallback the quality-pass findings need — theirs are already sentences
+   * (`lintSlop`, `critique.js`), which is why this was never needed before.
+   */
+  const en = (s: string) => translate('en', s as TranslationKey)
   return findings
     .map((f, i) => {
       const where = f.line ? ` (line ${f.line}${f.snippet ? `, near \`${f.snippet}\`` : ''})` : ''
-      return `${i + 1}. [${f.rule}]${where} ${f.name}: ${f.description}`
+      return `${i + 1}. [${f.rule}]${where} ${en(f.name)}: ${en(f.description)}`
     })
     .join('\n')
 }
