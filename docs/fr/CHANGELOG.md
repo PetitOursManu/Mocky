@@ -10,6 +10,10 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `seo` | un panneau SEO et accessibilité, noté par famille | `b82c673` |
+| `images` | changer les images d'un écran, emplacement par emplacement | `cc9ca69` |
+| `admin` | les projets et le stockage, compte par compte | `78cc8b0` |
+| `canevas` | le cadrage suit la fenêtre, et un bouton vise le dernier écran | `f52ecff` |
 | `header` | la marque à côté du nom, et la baseline qui lui cède la place | `9b71bc0` |
 | `mobile` | des barres qui tiennent, des cibles qu'on peut viser, un canevas qui cède | `8cf0509` |
 | `design` | le DESIGN.md devient une fiche, et se modifie | `2d8f0ba` |
@@ -67,6 +71,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | une page sur l'interface, et le rattrapage du retard | `866340e` |
 | `site` | la colonne s'élargit, la mesure se resserre | `5e10a3b` |
 | — | un changelog, des pages vivantes, et ce qui manquait | `8e012c8` |
 | — | CLAUDE.md, la série Q, et ce qu'on doit à Impeccable | `b055b9c` |
