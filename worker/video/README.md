@@ -48,32 +48,82 @@ The separation is enforced in four places, and all four have to hold:
 
 ---
 
-## What it does today — phase 1
+## What it renders
 
-**This worker ignores the timeline and the images it is sent, and returns a
-three-second test card.**
-
-That is the point of the phase. The chain it has to prove is long — browser →
-Mocky's API → timeline schema → in-memory queue → HTTP → this container →
-Chromium → mp4 → back into the video library — and every link in it can be wrong
-in a way that looks like one of the others. A fixed composition removes the
-renderer from the list of suspects.
-
-Because a solid-colour clip is indistinguishable from a broken render, the test
-card says what it is in three ways:
-
-- the picture reads *"test card — this is not your timeline"*, with a running
-  second counter that proves frames actually advanced;
-- the response carries `x-mocky-worker-phase: test-card`;
-- the container logs a `PHASE 1` warning on every boot.
-
-Phase 2 replaces `renderTestCard` with a composition that consumes a
-`VideoTimeline`. The HTTP contract does not change.
+One composition, `ImageSequenceVideo`, and it is the only thing a caller can
+reach: `render.js` selects it by id, so a request cannot name anything else.
 
 **The model never writes Remotion code.** It writes one JSON object, validated
 by `src/lib/video/timeline.ts`, and hand-written compositions consume it. Every
 composition in `remotion/` is written by a person, and that is the founding rule
-of the feature rather than a phase-1 convenience.
+of the feature rather than a stage it went through. Read the props as hostile
+and the rest follows: nothing from the timeline is ever interpolated into
+markup, a class name, a style string or a URL. The overlay text is a React
+child — escaped by React, and by nothing else. The image addresses are built
+here from a validated 64-character hash. `dangerouslySetInnerHTML` does not
+appear in this directory and must not start.
+
+A scene is one image, shown for `durationMs`, with a Ken Burns move and a
+transition into the scene that follows it.
+
+| Field | What it does |
+|---|---|
+| `kenBurns` | `zoom-in` / `zoom-out` drift between 1.0 and 1.12; `pan-left` / `pan-right` slide a 1.12-overscaled frame by ±4%; `static` does nothing. Small on purpose — the model picks the effect without ever seeing the result |
+| `transitionOut` | `crossfade`, `wipe-left`, `wipe-right`, `none`. It describes how a scene LEAVES, and it is implemented by how the next one arrives: only the incoming scene animates, on top of a predecessor that stays opaque, because a two-sided fade dips through the background at its midpoint and blinks |
+| `textOverlay` | Up to 120 characters at `top` / `center` / `bottom`, on a semi-opaque panel with a shadow — either alone loses, over a bright sky or a dark photograph |
+| `aspectRatio` | `16:9` → 1920×1080, `9:16` → 1080×1920, `1:1` → 1080×1080. 1080 on the long edge in all three, so a portrait export is not quietly the low-quality option |
+| `outputFormat` | `mp4` (h264) or `webm` (vp8, not vp9 — several times slower for a gain nobody watching a slideshow will see, on a budget of 110 s and two cores) |
+
+Everything runs at **30 fps**, which is not configurable: the schema has no fps
+field, so an option here would be one nobody can reach.
+
+**A transition never lengthens the video.** It bites into the end of the
+outgoing scene and the start of the incoming one. Appending its own duration
+instead would make the schema's 120-second ceiling a lie by up to nineteen
+half-seconds, and Mocky's own 120-second job timeout would start killing exports
+that had validated cleanly. It is also capped at a third of the shorter of the
+two scenes it joins — the schema's minimum scene is one second, and an uncapped
+half-second transition on each side of one leaves nothing of it standing alone.
+
+`remotion/composition.js` holds all of that arithmetic in plain JavaScript, with
+no React and no Remotion import, so `composition.test.js` can check it inside
+Mocky's own vitest suite. Frame counts, offsets and geometry are where the
+defects are, and they are the only part of a video that can be verified without
+producing one. Do not move the maths into the JSX.
+
+### How the images reach Chromium
+
+They arrive as base64 in the request body, are written into a `mocky-frames/`
+directory inside the served bundle, and are removed when the render ends.
+
+That route was picked by elimination. **This container has no egress**, so
+fetching an image by URL is not an option — and Mocky's origin is frequently a
+name that only resolves on someone's LAN anyway. `file://` URLs cannot be loaded
+as subresources of an `http://` page; Chromium refuses them, and the only way
+round it is to disable web security in a renderer displaying model-supplied
+content. `data:` URLs work, but they mean up to 80 MB of base64 serialised into
+the props of a page that is also running an encoder.
+
+The staging directory is emptied at the start of every render rather than named
+per request, so a render abandoned mid-flight cannot leave stale frames inside a
+bundle that lives as long as the container. And the composition uses Remotion's
+`<Img>`, which cancels the render when it cannot load a picture — a staging
+mistake is a failed job with a message, never a video of blank frames reported
+as a success.
+
+### It does not trust its caller
+
+Mocky validates every timeline against the zod schema before enqueuing a job, so
+`validate.js` never refuses anything on a healthy instance. That is why it is
+here: this is a plain HTTP service with no authentication of its own, and the
+internal bridge it sits on is a deployment choice rather than a guarantee.
+
+It is deliberately not a third copy of the schema — it checks whether the
+composition can *render* the document, and `validate.test.js` requires its
+bounds and enumerations to match `server/video/timeline.js` on a corpus,
+defaults included. Unknown keys are refused and named, which doubles as
+version-skew detection: a Mocky that learned to send `audio` fails with the word
+in the message instead of getting a silent video back.
 
 ---
 
@@ -108,8 +158,15 @@ Check it:
 
 ```bash
 curl http://localhost:3030/health
+
+# One scene, one pixel. `imageId` has to be 64 lower-case hex characters and the
+# bytes for it have to be in the same request — the worker fetches nothing.
+ID=$(printf 'a%.0s' $(seq 64))
+PIXEL=iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=
 curl -X POST http://localhost:3030/render -H 'content-type: application/json' \
-     -d '{}' --output test-card.mp4
+     -d "{\"timeline\":{\"scenes\":[{\"imageId\":\"$ID\",\"durationMs\":2000}]},
+          \"images\":[{\"id\":\"$ID\",\"mime\":\"image/png\",\"base64\":\"$PIXEL\"}]}" \
+     --output scene.mp4
 ```
 
 ---
@@ -132,15 +189,22 @@ is this package's version, and it is displayed to the administrator.
 
 ```jsonc
 {
-  "timeline": { /* a parsed VideoTimeline — ignored in phase 1 */ },
+  "timeline": { /* a VideoTimeline — re-validated here, see above */ },
   "images":   [ { "id": "<sha256>", "mime": "image/png", "base64": "…" } ],
   "licenseKey": "…"   // optional; see below
 }
 ```
 
-Answers `200` with the video bytes and a video content type. Bodies are accepted
-up to 80 MB, because the images travel inside the request rather than as URLs
-back to Mocky — this container has no guarantee of a route home.
+Answers `200` with the video bytes, a video content type, and
+`x-mocky-worker-composition: ImageSequenceVideo` — which is also how a container
+left behind on an older image gives itself away in a network trace. Bodies are
+accepted up to 80 MB, because the images travel inside the request rather than
+as URLs back to Mocky: this container has no guarantee of a route home, and no
+egress to use one with.
+
+Every scene's `imageId` must have matching bytes in `images`. There is no
+fallback for a missing one; a video with a blank scene in the middle would be
+reported as a successful export.
 
 **Every failure is one line of plain text, not JSON and not an HTML page.** Mocky
 splices up to 300 characters of a non-2xx body straight into the sentence the
@@ -153,7 +217,7 @@ nobody.
 | `504` | The render passed 110 s and was abandoned — ten seconds under Mocky's own 120 s deadline, so the worker gets to be the one that explains |
 | `500` | The render failed, or produced no bytes |
 | `404` | A route that does not exist, usually a `workerUrl` with a stray path |
-| `400` | A body Express refused: malformed JSON, or over the limit |
+| `400` | A body Express refused (malformed JSON, over the limit), or a timeline `validate.js` refused. The message names the field |
 
 ---
 
@@ -221,20 +285,33 @@ worker/video/
   .dockerignore        this directory is its own build context
   server.js            Express: GET /health, POST /render. Imports no Remotion package
   server.test.js       the HTTP contract, run by Mocky's own vitest suite
+  validate.js          what this worker will render, checked without trusting the caller
+  validate.test.js     that check, and its agreement with server/video/timeline.js
   render.js            everything that imports @remotion/*, behind a dynamic import
   remotion/
-    index.js           registerRoot — bundled, never run by Node
-    Root.jsx           the composition list; one entry in phase 1
-    TestCard.jsx       the test card
-    composition.js     its id and dimensions, in plain JS so render.js can import them
+    index.js               registerRoot — bundled, never run by Node
+    Root.jsx               the composition list; one entry, with calculateMetadata
+    ImageSequenceVideo.jsx the composition. React, written by hand
+    composition.js         its id, geometry and frame maths, in plain JS so both Node
+                           and the bundle can import them
+    composition.test.js    that arithmetic, without rendering a video
 ```
 
-`server.test.js` runs from the repository root (`npm test`) even though this is a
-separate sub-project. It tests the wire between two halves that cannot see each
-other, which is exactly where a contract drifts unnoticed — and it works only
-because `server.js` imports no Remotion package. If that stops being true, the
-test stops running everywhere the worker has not been built, and that is the
-signal to put the import back behind `render.js`.
+The tests run from the repository root (`npm test`) even though this is a
+separate sub-project, and each one is deliberate about it.
+
+`server.test.js` tests the wire between two halves that cannot see each other,
+which is exactly where a contract drifts unnoticed. It works only because
+`server.js` imports no Remotion package — if that stops being true, the test
+stops running everywhere the worker has not been built, and that is the signal
+to put the import back behind `render.js`. The same rule keeps `validate.js` and
+`remotion/composition.js` free of Remotion imports.
+
+`validate.test.js` imports `server/video/timeline.js`, which is the one place
+this sub-project reaches outside itself. **That import is test-only and must
+stay that way**: the Docker build copies this directory and nothing else, so a
+runtime import of anything under `server/` produces a container that boots and
+then fails every render on a missing module.
 
 ## Versions
 

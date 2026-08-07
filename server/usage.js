@@ -112,10 +112,16 @@ export function splitOwnedBytes(items, known = null) {
   return { byUser, unattributed }
 }
 
-/** The media libraries, reduced to the two things attribution needs. */
-function imageItems(images) {
-  if (!images?.list) return []
-  return images.list().map((m) => ({ owners: m.owners, bytes: images.fileSize?.(m.hash) ?? 0 }))
+/**
+ * A store of one file per hash, reduced to the two things attribution needs.
+ *
+ * Shared by the image library and the video-export store because they have the
+ * same shape at this distance — `list()` of metadata, `fileSize(hash)` of bytes.
+ * The scroll-sequence library does not, which is why it has its own reader below.
+ */
+function fileItems(lib) {
+  if (!lib?.list) return []
+  return lib.list().map((m) => ({ owners: m.owners, bytes: lib.fileSize?.(m.hash) ?? 0 }))
 }
 
 function videoItems(videos) {
@@ -138,11 +144,15 @@ function videoItems(videos) {
  * @param {{id:string, username:string, role?:string, createdAt?:number}[]} deps.users
  * @param {object} [deps.images] ImageLibrary
  * @param {object} [deps.videos] VideoLibrary
+ * @param {object} [deps.videoExports] VideoExportStore
  * @param {{bytes:number, maxBytes:number, ratio:number|null}} [deps.instance] disk budget usage()
  */
-export function collectUsage({ dataDir, users, images = null, videos = null, instance = null }) {
+export function collectUsage({ dataDir, users, images = null, videos = null, videoExports = null, instance = null }) {
   const known = new Set(users.map((u) => u.id))
-  const media = splitOwnedBytes([...imageItems(images), ...videoItems(videos)], known)
+  // Exported films are counted with the rest of the media, not apart: they are
+  // owned bytes on the same volume, and a column that omitted them would say a
+  // user holds less disk than the ceiling is charging them for.
+  const media = splitOwnedBytes([...fileItems(images), ...videoItems(videos), ...fileItems(videoExports)], known)
 
   const rows = users.map((u) => {
     const dataFile = path.join(dataDir, `data-${u.id}.json`)

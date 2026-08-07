@@ -25,6 +25,24 @@ const app = () =>
     log: { error: (m) => logged.push(m), warn: () => {}, log: () => {} },
   })
 
+const IMAGE_ID = 'a'.repeat(64)
+/** One base64 pixel — the injected renderer never decodes it. */
+const PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+
+/**
+ * The smallest body the worker accepts.
+ *
+ * A helper rather than a literal in every test, because since the worker
+ * validates what it is sent, `{}` no longer reaches the renderer at all — every
+ * case below that is not ABOUT validation has to send something valid to get
+ * past it.
+ */
+const validBody = (extra = {}) => ({
+  timeline: { scenes: [{ imageId: IMAGE_ID, durationMs: 2000 }] },
+  images: [{ id: IMAGE_ID, mime: 'image/png', base64: PIXEL }],
+  ...extra,
+})
+
 beforeAll(async () => {
   await new Promise((resolve) => {
     server = app().listen(0, '127.0.0.1', resolve)
@@ -71,7 +89,7 @@ describe('POST /render', () => {
    * empty one. Bytes and a video content type are the entire success contract.
    */
   it('returns the rendered bytes with a video content type', async () => {
-    const res = await post({ timeline: { scenes: [] }, images: [] })
+    const res = await post(validBody())
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('video/mp4')
     const bytes = Buffer.from(await res.arrayBuffer())
@@ -79,13 +97,65 @@ describe('POST /render', () => {
   })
 
   /**
-   * Phase 1 hands back a test card whatever it was asked for. Saying so in a
-   * header is what keeps "the export worked but the images are missing" from
-   * being investigated as a bug in the timeline schema.
+   * Which composition produced the bytes, and — the half that is a regression
+   * guard rather than a convenience — that the worker no longer announces
+   * itself as a test card. `x-mocky-worker-phase: test-card` was phase 1's way
+   * of warning that the response was NOT the requested timeline; a container
+   * left behind on that image would otherwise be indistinguishable from a
+   * current one in a network trace.
    */
-  it('marks the response as a test card', async () => {
-    const res = await post({})
-    expect(res.headers.get('x-mocky-worker-phase')).toBe('test-card')
+  it('names the composition it rendered and no longer claims to be a test card', async () => {
+    const res = await post(validBody())
+    expect(res.headers.get('x-mocky-worker-composition')).toBe('ImageSequenceVideo')
+    expect(res.headers.get('x-mocky-worker-phase')).toBeNull()
+  })
+
+  /**
+   * Defence in depth: Mocky validates the same document before enqueuing it,
+   * and this worker is still a plain HTTP endpoint with no authentication of
+   * its own. A refusal must cost nothing — no Chromium, no render slot — and it
+   * must name the field, because the sentence lands in front of whoever asked
+   * for the export.
+   */
+  it('refuses an invalid timeline with 400 and never calls the renderer', async () => {
+    let called = false
+    renderImpl = async () => {
+      called = true
+      return { buffer: Buffer.from('x'), contentType: 'video/mp4' }
+    }
+    const res = await post({ timeline: { scenes: [{ imageId: IMAGE_ID, durationMs: 40000 }] }, images: [] })
+    expect(res.status).toBe(400)
+    expect(res.headers.get('content-type')).toContain('text/plain')
+    expect(await res.text()).toContain('durationMs')
+    expect(called).toBe(false)
+  })
+
+  /**
+   * A caller sending a malformed body in a loop must not hold the render slot
+   * closed against the one request that was correct — which is why validation
+   * happens before `busy` is taken, not after.
+   */
+  it('leaves the render slot free after a refusal', async () => {
+    expect((await post({ timeline: { scenes: [] }, images: [] })).status).toBe(400)
+    expect((await post(validBody())).status).toBe(200)
+  })
+
+  /**
+   * The renderer receives the PARSED document: the validator fills in the
+   * schema's defaults and decodes the base64 once, so nothing downstream has to
+   * decide what an absent field meant.
+   */
+  it('hands the renderer a normalised timeline and decoded images', async () => {
+    let seen = null
+    renderImpl = async (opts) => {
+      seen = opts
+      return { buffer: Buffer.from('x'), contentType: 'video/mp4' }
+    }
+    await post(validBody())
+    expect(seen.timeline.scenes[0]).toMatchObject({ kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null })
+    expect(seen.timeline.aspectRatio).toBe('16:9')
+    expect(Buffer.isBuffer(seen.images[0].bytes)).toBe(true)
+    expect(seen.images[0].extension).toBe('.png')
   })
 
   /**
@@ -97,7 +167,7 @@ describe('POST /render', () => {
     renderImpl = async () => {
       throw new Error('Chromium could not be launched')
     }
-    const res = await post({})
+    const res = await post(validBody())
     expect(res.status).toBe(500)
     expect(res.headers.get('content-type')).toContain('text/plain')
     const text = await res.text()
@@ -112,7 +182,7 @@ describe('POST /render', () => {
   /** A renderer that resolves with nothing must not become a successful export of nothing. */
   it('refuses an empty render rather than answering 200', async () => {
     renderImpl = async () => ({ buffer: Buffer.alloc(0), contentType: 'video/mp4' })
-    const res = await post({})
+    const res = await post(validBody())
     expect(res.status).toBe(500)
     expect(await res.text()).toContain('no bytes')
   })
@@ -124,10 +194,10 @@ describe('POST /render', () => {
   it('refuses a second render while one is running', async () => {
     let release
     renderImpl = () => new Promise((resolve) => (release = () => resolve({ buffer: Buffer.from('x'), contentType: 'video/mp4' })))
-    const first = post({})
+    const first = post(validBody())
     // Wait for the first request to be inside the handler before racing it.
     await new Promise((r) => setTimeout(r, 20))
-    const second = await post({})
+    const second = await post(validBody())
     expect(second.status).toBe(429)
     expect(await second.text()).toContain('one video at a time')
     release()
@@ -143,12 +213,12 @@ describe('POST /render', () => {
    */
   it('gives up on an overrunning render and frees the slot for the next one', async () => {
     renderImpl = () => new Promise(() => {})
-    const res = await post({})
+    const res = await post(validBody())
     expect(res.status).toBe(504)
     expect(await res.text()).toContain('abandoned')
 
     renderImpl = async () => ({ buffer: Buffer.from('later'), contentType: 'video/mp4' })
-    expect((await post({})).status).toBe(200)
+    expect((await post(validBody())).status).toBe(200)
   })
 
   /**
@@ -164,7 +234,7 @@ describe('POST /render', () => {
       seen = licenseKey
       throw new Error('rendering is not the point of this test')
     }
-    const res = await post({ licenseKey: KEY })
+    const res = await post(validBody({ licenseKey: KEY }))
     expect(seen).toBe(KEY)
     expect(await res.text()).not.toContain(KEY)
     expect(logged.join(' ')).not.toContain(KEY)
@@ -177,9 +247,9 @@ describe('POST /render', () => {
       seen = licenseKey
       return { buffer: Buffer.from('x'), contentType: 'video/mp4' }
     }
-    await post({})
+    await post(validBody())
     expect(seen).toBeNull()
-    await post({ licenseKey: '   ' })
+    await post(validBody({ licenseKey: '   ' }))
     expect(seen).toBeNull()
   })
 })

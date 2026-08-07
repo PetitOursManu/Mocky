@@ -52,32 +52,88 @@ La séparation est tenue à quatre endroits, et les quatre doivent tenir :
 
 ---
 
-## Ce qu'il fait aujourd'hui — phase 1
+## Ce qu'il rend
 
-**Ce worker ignore la timeline et les images qu'on lui envoie, et renvoie une
-mire de trois secondes.**
-
-C'est l'objet de cette phase. La chaîne à prouver est longue — navigateur → API
-Mocky → schéma de timeline → file en mémoire → HTTP → ce conteneur → Chromium →
-mp4 → retour dans la bibliothèque vidéo — et chaque maillon peut casser d'une
-façon qui ressemble à la panne d'un autre. Une composition fixe retire le moteur
-de rendu de la liste des suspects.
-
-Comme un plan de couleur unie est indiscernable d'un rendu cassé, la mire dit ce
-qu'elle est de trois façons :
-
-- l'image affiche *« test card — this is not your timeline »*, avec un compteur
-  de secondes qui prouve que les images se sont bien succédé ;
-- la réponse porte l'en-tête `x-mocky-worker-phase: test-card` ;
-- le conteneur journalise un avertissement `PHASE 1` à chaque démarrage.
-
-La phase 2 remplacera `renderTestCard` par une composition qui consomme une
-`VideoTimeline`. Le contrat HTTP ne change pas.
+Une seule composition, `ImageSequenceVideo`, et c'est tout ce qu'un appelant peut
+atteindre : `render.js` la sélectionne par son id, donc une requête ne peut en
+nommer aucune autre.
 
 **Le modèle n'écrit jamais de code Remotion.** Il écrit un objet JSON, validé par
 `src/lib/video/timeline.ts`, et des compositions écrites à la main le consomment.
 Toutes les compositions de `remotion/` sont écrites par une personne, et c'est la
-règle fondatrice de la fonctionnalité, pas une commodité de phase 1.
+règle fondatrice de la fonctionnalité, pas une étape qu'elle aurait traversée.
+Lisez les props comme hostiles et le reste suit : rien de la timeline n'est jamais
+interpolé dans du balisage, un nom de classe, une chaîne de style ou une URL. Le
+texte d'incrustation est un enfant React — échappé par React, et par rien d'autre.
+Les adresses d'images sont construites ici à partir d'une empreinte de 64
+caractères validée. `dangerouslySetInnerHTML` n'apparaît pas dans ce répertoire
+et ne doit pas commencer.
+
+Une scène, c'est une image affichée pendant `durationMs`, avec son effet Ken
+Burns et sa transition vers celle qui suit.
+
+| Champ | Ce qu'il fait |
+|---|---|
+| `kenBurns` | `zoom-in` / `zoom-out` dérivent entre 1.0 et 1.12 ; `pan-left` / `pan-right` déplacent de ±4 % une image surdimensionnée à 1.12 ; `static` ne fait rien. Volontairement discret — le modèle choisit l'effet sans jamais voir le résultat |
+| `transitionOut` | `crossfade`, `wipe-left`, `wipe-right`, `none`. Le champ décrit comment une scène PART, et c'est l'arrivée de la suivante qui l'implémente : seule la scène entrante s'anime, par-dessus une sortante restée opaque, parce qu'un fondu à deux côtés passe par le fond à mi-parcours et clignote |
+| `textOverlay` | Jusqu'à 120 caractères en `top` / `center` / `bottom`, sur un panneau semi-opaque avec une ombre — l'un sans l'autre perd, sur un ciel clair ou sur une photo sombre |
+| `aspectRatio` | `16:9` → 1920×1080, `9:16` → 1080×1920, `1:1` → 1080×1080. 1080 sur le grand côté dans les trois cas, pour qu'un export vertical ne soit pas en silence l'option de moindre qualité |
+| `outputFormat` | `mp4` (h264) ou `webm` (vp8, pas vp9 — plusieurs fois plus lent pour un gain que personne ne verra sur un diaporama, avec 110 s de budget et deux cœurs) |
+
+Tout tourne à **30 i/s**, et ce n'est pas configurable : le schéma n'a pas de
+champ fps, donc une option ici serait une option que personne ne peut atteindre.
+
+**Une transition n'allonge jamais la vidéo.** Elle mord sur la fin de la scène
+sortante et sur le début de l'entrante. Ajouter sa durée ferait mentir le
+plafond de 120 secondes du schéma de jusqu'à dix-neuf demi-secondes, et le délai
+de 120 secondes de la file de Mocky se mettrait à tuer des exports pourtant
+valides. Elle est aussi plafonnée au tiers de la plus courte des deux scènes
+qu'elle relie : la scène minimale du schéma dure une seconde, et une transition
+d'une demi-seconde de chaque côté n'en laisserait rien voir seule.
+
+`remotion/composition.js` porte toute cette arithmétique en JavaScript simple,
+sans React ni import Remotion, pour que `composition.test.js` puisse la vérifier
+dans la suite vitest de Mocky. Les comptes d'images, les décalages et la
+géométrie sont là où sont les défauts, et c'est la seule partie d'une vidéo
+vérifiable sans en produire une. Ne déplacez pas ces calculs dans le JSX.
+
+### Comment les images arrivent jusqu'à Chromium
+
+Elles arrivent en base64 dans le corps de la requête, sont écrites dans un
+répertoire `mocky-frames/` à l'intérieur du bundle servi, et sont supprimées à la
+fin du rendu.
+
+Ce chemin a été choisi par élimination. **Ce conteneur n'a aucune sortie
+réseau**, donc aller chercher une image par URL n'est pas une option — et
+l'origine de Mocky est souvent un nom qui ne se résout que sur un réseau local.
+Les URL `file://` ne peuvent pas être chargées comme sous-ressources d'une page
+`http://` : Chromium les refuse, et le seul contournement consiste à désactiver
+la sécurité web dans un moteur de rendu qui affiche du contenu fourni par un
+modèle. Les URL `data:` fonctionnent, mais elles signifient jusqu'à 80 Mo de
+base64 sérialisés dans les props d'une page qui fait aussi tourner un encodeur.
+
+Le répertoire est vidé au début de chaque rendu plutôt que nommé par requête,
+pour qu'un rendu abandonné en route ne laisse pas d'images périmées dans un
+bundle qui vit aussi longtemps que le conteneur. Et la composition utilise le
+`<Img>` de Remotion, qui annule le rendu quand il ne peut pas charger une image :
+une erreur de préparation est un travail en échec avec un message, jamais une
+vidéo d'images noires annoncée comme réussie.
+
+### Il ne fait pas confiance à son appelant
+
+Mocky valide chaque timeline avec le schéma zod avant de mettre un travail en
+file, donc `validate.js` ne refuse jamais rien sur une instance saine. C'est
+justement pour cela qu'il existe : ceci est un service HTTP nu, sans
+authentification propre, et le pont interne sur lequel il se trouve est un choix
+de déploiement, pas une garantie.
+
+Ce n'est délibérément pas une troisième copie du schéma — il vérifie si la
+composition peut *rendre* le document, et `validate.test.js` exige que ses bornes
+et ses énumérations correspondent à `server/video/timeline.js` sur un corpus,
+valeurs par défaut comprises. Les clés inconnues sont refusées et nommées, ce qui
+sert aussi de détecteur de décalage de version : un Mocky qui apprendrait à
+envoyer `audio` échoue avec le mot dans le message au lieu de récupérer une vidéo
+silencieuse.
 
 ---
 
@@ -113,8 +169,15 @@ Vérification :
 
 ```bash
 curl http://localhost:3030/health
+
+# Une scène, un pixel. `imageId` doit faire 64 caractères hexadécimaux minuscules
+# et ses octets doivent être dans la même requête — le worker ne va rien chercher.
+ID=$(printf 'a%.0s' $(seq 64))
+PIXEL=iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=
 curl -X POST http://localhost:3030/render -H 'content-type: application/json' \
-     -d '{}' --output test-card.mp4
+     -d "{\"timeline\":{\"scenes\":[{\"imageId\":\"$ID\",\"durationMs\":2000}]},
+          \"images\":[{\"id\":\"$ID\",\"mime\":\"image/png\",\"base64\":\"$PIXEL\"}]}" \
+     --output scene.mp4
 ```
 
 ---
@@ -138,16 +201,22 @@ affichée à l'administrateur.
 
 ```jsonc
 {
-  "timeline": { /* une VideoTimeline validée — ignorée en phase 1 */ },
+  "timeline": { /* une VideoTimeline — revalidée ici, voir plus haut */ },
   "images":   [ { "id": "<sha256>", "mime": "image/png", "base64": "…" } ],
   "licenseKey": "…"   // facultatif ; voir plus bas
 }
 ```
 
-Répond `200` avec les octets de la vidéo et un content-type vidéo. Les corps sont
-acceptés jusqu'à 80 Mo, parce que les images voyagent dans la requête plutôt que
-sous forme d'URL vers Mocky : ce conteneur n'a aucune garantie d'avoir une route
-de retour.
+Répond `200` avec les octets de la vidéo, un content-type vidéo, et
+`x-mocky-worker-composition: ImageSequenceVideo` — c'est aussi ainsi qu'un
+conteneur resté sur une image plus ancienne se trahit dans une trace réseau. Les
+corps sont acceptés jusqu'à 80 Mo, parce que les images voyagent dans la requête
+plutôt que sous forme d'URL vers Mocky : ce conteneur n'a aucune garantie d'avoir
+une route de retour, ni de sortie réseau pour l'emprunter.
+
+Chaque `imageId` de scène doit avoir ses octets dans `images`. Il n'y a aucun
+repli pour une image manquante : une vidéo avec une scène noire au milieu serait
+annoncée comme un export réussi.
 
 **Chaque échec tient en une ligne de texte brut, ni JSON ni page HTML.** Mocky
 recopie jusqu'à 300 caractères d'un corps non-2xx directement dans la phrase que
@@ -160,7 +229,7 @@ phrase n'aident personne.
 | `504` | Le rendu a dépassé 110 s et a été abandonné — dix secondes sous le délai de 120 s de Mocky, pour que ce soit le worker qui explique |
 | `500` | Le rendu a échoué, ou n'a produit aucun octet |
 | `404` | Une route inexistante, en général un `workerUrl` avec un chemin en trop |
-| `400` | Un corps refusé par Express : JSON invalide, ou trop gros |
+| `400` | Un corps refusé par Express (JSON invalide, trop gros), ou une timeline refusée par `validate.js`. Le message nomme le champ |
 
 ---
 
@@ -230,21 +299,34 @@ worker/video/
   .dockerignore        ce répertoire est son propre contexte de build
   server.js            Express : GET /health, POST /render. N'importe aucun paquet Remotion
   server.test.js       le contrat HTTP, exécuté par la suite vitest de Mocky
+  validate.js          ce que ce worker accepte de rendre, sans faire confiance à l'appelant
+  validate.test.js     ce contrôle, et son accord avec server/video/timeline.js
   render.js            tout ce qui importe @remotion/*, derrière un import dynamique
   remotion/
-    index.js           registerRoot — bundlé, jamais exécuté par Node
-    Root.jsx           la liste des compositions ; une seule entrée en phase 1
-    TestCard.jsx       la mire
-    composition.js     son id et ses dimensions, en JS simple pour que render.js puisse les importer
+    index.js               registerRoot — bundlé, jamais exécuté par Node
+    Root.jsx               la liste des compositions ; une entrée, avec calculateMetadata
+    ImageSequenceVideo.jsx la composition. Du React, écrit à la main
+    composition.js         son id, sa géométrie et son arithmétique d'images, en JS simple
+                           pour que Node et le bundle puissent tous deux les importer
+    composition.test.js    cette arithmétique, sans produire de vidéo
 ```
 
-`server.test.js` s'exécute depuis la racine du dépôt (`npm test`) bien que ceci
-soit un sous-projet séparé. Il teste le fil entre deux moitiés qui ne se voient
-pas, c'est-à-dire exactement l'endroit où un contrat dérive sans qu'on le
-remarque — et il ne fonctionne que parce que `server.js` n'importe aucun paquet
-Remotion. Si cela cesse d'être vrai, le test cesse de tourner partout où le
-worker n'a pas été construit, et c'est le signal qu'il faut remettre l'import
-derrière `render.js`.
+Les tests s'exécutent depuis la racine du dépôt (`npm test`) bien que ceci soit
+un sous-projet séparé, et chacun l'assume pour une raison précise.
+
+`server.test.js` teste le fil entre deux moitiés qui ne se voient pas,
+c'est-à-dire exactement l'endroit où un contrat dérive sans qu'on le remarque. Il
+ne fonctionne que parce que `server.js` n'importe aucun paquet Remotion : si cela
+cesse d'être vrai, le test cesse de tourner partout où le worker n'a pas été
+construit, et c'est le signal qu'il faut remettre l'import derrière `render.js`.
+La même règle garde `validate.js` et `remotion/composition.js` libres d'imports
+Remotion.
+
+`validate.test.js` importe `server/video/timeline.js`, le seul endroit où ce
+sous-projet sort de lui-même. **Cet import est réservé aux tests et doit le
+rester** : la construction Docker copie ce répertoire et rien d'autre, donc un
+import à l'exécution de quoi que ce soit sous `server/` donnerait un conteneur
+qui démarre puis échoue à chaque rendu sur un module introuvable.
 
 ## Versions
 

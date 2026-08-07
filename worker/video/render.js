@@ -11,13 +11,54 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { bundle } from '@remotion/bundler'
 import { ensureBrowser, makeCancelSignal, renderMedia, selectComposition } from '@remotion/renderer'
-import { TEST_CARD } from './remotion/composition.js'
+import { IMAGE_SEQUENCE } from './remotion/composition.js'
+import { stageImages, unstage } from './staging.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ENTRY_POINT = path.join(HERE, 'remotion', 'index.js')
 
-/** h264 in an mp4 container. `contentType` comes back from Remotion, not from here. */
-const CODEC = 'h264'
+/**
+ * The output format the timeline asks for, as a codec Remotion knows.
+ *
+ * vp8 rather than vp9 for webm. vp9 encodes several times slower for a gain
+ * nobody watching a fifteen-second slideshow will see, and the budget is 110
+ * seconds on a container limited to two cores — a format choice that turns a
+ * working export into a timeout is not a quality improvement.
+ */
+const CODECS = { mp4: 'h264', webm: 'vp8' }
+
+/** The codec for a container, or h264. See the note on the lookup below. */
+function codecFor(outputFormat) {
+  // `Object.hasOwn`, not a plain lookup, for the reason `server/video/store.js`
+  // spells out beside its own container table: a plain lookup answers for the
+  // whole prototype chain, so `outputFormat: "constructor"` returns a function
+  // that is perfectly truthy and reaches Remotion as a codec. Every caller today
+  // is validated — this is the second lock, so a validator loosened one day
+  // cannot silently become an encoder argument.
+  return typeof outputFormat === 'string' && Object.hasOwn(CODECS, outputFormat) ? CODECS[outputFormat] : CODECS.mp4
+}
+
+/*
+ * Where a request's images are written so Chromium can load them: beside the
+ * bundle, which is the one place both halves already agree on. Remotion serves
+ * the bundle directory over HTTP for the render, so a file written there is
+ * reachable at a root-relative path from the page — same origin, no scheme
+ * games, nothing fetched from the network.
+ *
+ * The two obvious alternatives were tried on paper and both lose. `file://`
+ * URLs cannot be loaded as subresources of an `http://` page; Chromium refuses
+ * them, and the only way round it is to disable web security in a renderer that
+ * is displaying model-supplied content. `data:` URLs work, but they mean up to
+ * 80 MB of base64 serialised into the props of a page, which is memory the
+ * container does not have to spare while it is also running an encoder.
+ *
+ * A wrong assumption here fails loudly rather than quietly: the composition uses
+ * Remotion's `<Img>`, which cancels the render on a 404 instead of
+ * screenshotting an empty box.
+ *
+ * The naming and the cleanup live in `staging.js` — a module with no Remotion
+ * import, so the race that used to be there is now covered by a test.
+ */
 
 let bundlePromise = null
 
@@ -77,23 +118,26 @@ export async function warmUp(log = console) {
 }
 
 /**
- * Render the phase-1 test card and return its bytes.
+ * Render one VideoTimeline and return its bytes.
  *
- * The timeline and the images are accepted by the route and ignored here. That
- * is the whole point of this phase — prove that a request travels from the
- * browser through Mocky's queue into Chromium and back as a playable file —
- * and it is also why the picture says so in words.
- *
- * @param {object} [options]
+ * @param {object} options
+ * @param {object} options.timeline                                       validated by `validate.js`, never a raw body
+ * @param {Array<{id:string, extension:string, bytes:Buffer}>} options.images
  * @param {string|null} [options.licenseKey]  Remotion licence key, applied only when present
  * @param {AbortSignal} [options.signal]      the route's deadline
  * @returns {Promise<{buffer: Buffer, contentType: string}>}
  */
-export async function renderTestCard({ licenseKey = null, signal } = {}) {
+export async function renderTimeline({ timeline, images = [], licenseKey = null, signal } = {}) {
   await ensureBrowser()
   const serveUrl = await servedBundle()
+  const staged = await stageImages(serveUrl, images)
+  const { imageSrc } = staged
 
-  const composition = await selectComposition({ serveUrl, id: TEST_CARD.id })
+  // The composition reads both, and `selectComposition` has to be given the
+  // same object as `renderMedia`: the geometry and the frame count come out of
+  // `calculateMetadata`, so props that differ between the two calls produce a
+  // video whose dimensions belong to a timeline it did not render.
+  const inputProps = { timeline, imageSrc }
 
   // Remotion cancels through its own signal object, not an AbortSignal, so the
   // route's deadline has to be bridged. Without the bridge a render the caller
@@ -106,14 +150,19 @@ export async function renderTestCard({ licenseKey = null, signal } = {}) {
   if (signal?.aborted) cancel()
 
   try {
+    const composition = await selectComposition({ serveUrl, id: IMAGE_SEQUENCE.id, inputProps, logLevel: 'error' })
+
     const { buffer, contentType } = await renderMedia({
       composition,
       serveUrl,
-      codec: CODEC,
+      codec: codecFor(timeline.outputFormat),
+      inputProps,
       // No output location: the bytes come back in memory and go straight into
       // the HTTP response. A file would need a writable path, a name nobody
-      // owns, and a cleanup step that runs even when the render throws — for
-      // a three-second clip that is about to be sent over a socket anyway.
+      // owns, and a cleanup step that runs even when the render throws — for a
+      // clip that is about to be sent over a socket anyway. The ceiling is the
+      // schema's: two minutes of 1080p, which is far smaller than the 80 MB
+      // request that carried the images in.
       outputLocation: null,
       cancelSignal,
       logLevel: 'error',
@@ -131,10 +180,16 @@ export async function renderTestCard({ licenseKey = null, signal } = {}) {
       // until someone adds a file path above and forgets this line — at which
       // point the alternative is an empty 200 that Mocky reports as a
       // successful export of nothing.
-      throw new Error('Remotion returned no bytes for the test card.')
+      throw new Error('Remotion returned no bytes for this timeline.')
     }
-    return { buffer, contentType: contentType || 'video/mp4' }
+    return { buffer, contentType: contentType || (timeline.outputFormat === 'webm' ? 'video/webm' : 'video/mp4') }
   } finally {
     signal?.removeEventListener('abort', onAbort)
+    // This render's own directory, never a shared one. When the route gives up
+    // on an overrunning render it frees its `busy` flag at once — the abort is a
+    // request, not a guarantee — so this line can run long after the NEXT render
+    // has staged its own pictures. Sharing a directory made that line delete
+    // them. `staging.js` carries the rest of the story.
+    await unstage(staged)
   }
 }

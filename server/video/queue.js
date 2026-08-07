@@ -164,6 +164,23 @@ export class VideoQueue {
   }
 
   /**
+   * Did this account render these bytes?
+   *
+   * The queue is the only place that ties a stored file back to a person: the
+   * export store is content-addressed, so the hash says what a file contains and
+   * nothing about who asked for it. `GET /api/video/:hash` reads this before it
+   * reads the disk.
+   *
+   * It is not the whole answer, and it is not meant to be — `_trim` drops
+   * finished jobs past MAX_JOURNAL_JOBS while the file stays on disk, so the
+   * store's own `owners` set covers the exports whose job has aged out.
+   */
+  hasVideo(userId, hash) {
+    if (!userId || !hash) return false
+    return this.jobs.some((j) => j.userId === userId && j.videoHash === hash)
+  }
+
+  /**
    * Resolves when nothing is queued or rendering.
    *
    * Exists for the tests, and stated as such rather than dressed up: a queue

@@ -74,6 +74,26 @@ describe('running a job', () => {
     expect(job.videoHash).toBe(null)
   })
 
+  /**
+   * `hasVideo` is what GET /api/video/:hash reads before it touches the disk.
+   * The store is content-addressed, so the file says what it contains and
+   * nothing about who asked for it — two people rendering the same timeline land
+   * on the same bytes, and each must reach them only through their own job.
+   */
+  it('ties a stored hash back to the account that asked for it', async () => {
+    const q = new VideoQueue({ dataDir: dir, render: async () => ({ videoHash: 'f'.repeat(64) }) })
+    q.enqueue({ userId: 'u1', timeline: TIMELINE })
+    await q.whenIdle()
+    expect(q.hasVideo('u1', 'f'.repeat(64))).toBe(true)
+    expect(q.hasVideo('u2', 'f'.repeat(64))).toBe(false)
+    expect(q.hasVideo('u1', 'e'.repeat(64))).toBe(false)
+    // A job that produced nothing must not authorise a null hash: `videoHash` is
+    // null on every queued and every failed job, so `hasVideo(u1, null)` reading
+    // "yes" would have matched all of them.
+    expect(q.hasVideo('u1', null)).toBe(false)
+    expect(q.hasVideo(undefined, undefined)).toBe(false)
+  })
+
   it('records the message when a render throws', async () => {
     const q = new VideoQueue({ dataDir: dir, render: async () => { throw new Error('worker said no') } })
     const job = q.enqueue({ userId: 'u1', timeline: TIMELINE })

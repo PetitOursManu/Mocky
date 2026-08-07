@@ -1,15 +1,28 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import express from 'express'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import crypto from 'node:crypto'
 import { createVideoRouter, createVideoAdminRouter } from './routes.js'
+import { VideoExportStore } from './store.js'
 import { MAX_SCENES } from './timeline.js'
 
 const ID_A = 'a'.repeat(64)
 const ID_B = 'b'.repeat(64)
 const scene = (over = {}) => ({ imageId: ID_A, durationMs: 3000, ...over })
 
+// The real store, on a temp directory: the download route's whole job is to
+// find a file and say what it is, and a fake that answered `filePath` would have
+// tested the fake.
+const storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mocky-vidroutes-'))
+const store = new VideoExportStore(storeDir)
+const RENDERED = Buffer.from('rendered-film-bytes')
+const RENDERED_HASH = crypto.createHash('sha256').update(RENDERED).digest('hex')
+
 let server, base
 /** Rewritten per test — every refusal in this router depends on one of these. */
-let user, enabled, workerState, probed, adminProbed, present, enqueued, jobs, config
+let user, enabled, workerState, probed, adminProbed, present, enqueued, jobs, config, full
 
 function makeApp() {
   const app = express()
@@ -37,7 +50,10 @@ function makeApp() {
           return stored
         },
         get: (id) => jobs.find((j) => j.id === id) || null,
+        hasVideo: (userId, hash) => jobs.some((j) => j.userId === userId && j.videoHash === hash),
       },
+      store,
+      budget: { wouldExceed: () => full, usage: () => ({ bytes: 9, maxBytes: 9, ratio: 1 }) },
       worker: {
         health: async () => {
           probed = true
@@ -68,6 +84,7 @@ function makeApp() {
 }
 
 beforeAll(async () => {
+  store.put(RENDERED, { owner: 'u1', format: 'mp4', aspectRatio: '16:9', scenes: 1, durationMs: 3000 })
   const app = makeApp()
   await new Promise((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve)
@@ -76,6 +93,7 @@ beforeAll(async () => {
 })
 afterAll(async () => {
   await new Promise((r) => server.close(r))
+  fs.rmSync(storeDir, { recursive: true, force: true })
 })
 
 beforeEach(() => {
@@ -87,7 +105,8 @@ beforeEach(() => {
   present = [ID_A, ID_B]
   enqueued = null
   jobs = []
-  config = { enabled: true, hasLicenseKey: true, access: 'allowlist', allowedUserIds: ['u1'], workerUrl: 'http://worker.test:3030' }
+  full = false
+  config ={ enabled: true, hasLicenseKey: true, access: 'allowlist', allowedUserIds: ['u1'], workerUrl: 'http://worker.test:3030' }
 })
 
 const post = (path, body) =>
@@ -203,6 +222,95 @@ describe('POST /render', () => {
     expect(res.status).toBe(404)
     expect((await res.json()).missingImageIds).toEqual([ID_B])
     expect(enqueued).toBe(null)
+  })
+
+  /**
+   * A render is minutes of CPU. Starting one on a volume that is already at its
+   * ceiling buys the same wait and a worse message: the store refuses at the
+   * write, so the user watches a spinner to be told what was knowable up front.
+   */
+  it('507s rather than queueing a render with nowhere to land', async () => {
+    full = true
+    const res = await post('/api/video/render', { timeline: { scenes: [scene()] } })
+    expect(res.status).toBe(507)
+    expect((await res.json()).error).toMatch(/storage limit/i)
+    expect(enqueued).toBe(null)
+  })
+})
+
+describe('GET /:hash', () => {
+  const owningJob = (over = {}) => {
+    jobs.push({ id: 'job-1', userId: 'u1', status: 'done', videoHash: RENDERED_HASH, ...over })
+  }
+
+  it('sends the whole file back to the account that rendered it', async () => {
+    owningJob()
+    const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
+    expect(res.status).toBe(200)
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(RENDERED)
+    expect(res.headers.get('content-type')).toContain('video/mp4')
+    expect(res.headers.get('content-disposition')).toContain(`mocky-export-${RENDERED_HASH.slice(0, 12)}.mp4`)
+  })
+
+  /**
+   * Never `public`, and never the `Access-Control-Allow-Origin: *` the image and
+   * frame routes carry: those are unauthenticated on purpose so a null-origin
+   * preview can fetch them, and this one sits behind a session. A shared cache
+   * holding it would hand one account's export to the next request that asked.
+   */
+  it('marks the response private and same-origin', async () => {
+    owningJob()
+    const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
+    expect(res.headers.get('cache-control')).toContain('private')
+    expect(res.headers.get('access-control-allow-origin')).toBe(null)
+  })
+
+  it('403s for an account that did not render it, and sends no bytes', async () => {
+    owningJob()
+    user = { id: 'u2', role: 'admin' }
+    const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
+    expect(res.status).toBe(403)
+    expect(await res.text()).not.toContain('rendered-film-bytes')
+  })
+
+  /**
+   * The defect: authorising on the job alone. The journal keeps only the newest
+   * MAX_JOURNAL_JOBS finished jobs, so a user's own export becomes undownloadable
+   * on their fifty-first — while the file, which nothing prunes, is still there.
+   */
+  it('still serves an export whose job has aged out of the journal', async () => {
+    jobs = []
+    const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
+    expect(res.status).toBe(200)
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(RENDERED)
+  })
+
+  /**
+   * Ownership before existence, which is the reverse of the usual shape: 404 for
+   * an unknown hash and 403 for a stranger's would make this route an oracle for
+   * what other people have exported.
+   */
+  it('403s on a hash nobody here ever rendered', async () => {
+    const res = await fetch(`${base}/api/video/${'9'.repeat(64)}`)
+    expect(res.status).toBe(403)
+  })
+
+  it('404s when the job is the caller’s but the bytes are gone', async () => {
+    owningJob({ videoHash: 'c'.repeat(64) })
+    const res = await fetch(`${base}/api/video/${'c'.repeat(64)}`)
+    expect(res.status).toBe(404)
+    expect((await res.json()).error).toMatch(/no longer/i)
+  })
+
+  /**
+   * `/status` and `/render` are literals declared above this route, so Express
+   * reaches them first — but a router whose safety depends on declaration order
+   * is one reordering away from serving `/status` as a hash. The regexp is the
+   * part that does not move.
+   */
+  it('leaves the literal routes alone', async () => {
+    expect((await fetch(`${base}/api/video/status`)).status).toBe(200)
+    expect((await fetch(`${base}/api/video/not-a-hash`)).status).toBe(403)
   })
 })
 

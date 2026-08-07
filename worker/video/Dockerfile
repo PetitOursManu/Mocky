@@ -20,8 +20,10 @@ FROM node:22-bookworm-slim
 # every render is worse than one that refuses to build.
 #
 # fonts-liberation is in the same line and is not padding. A container with no
-# fonts renders every glyph as a hollow box, so the test card — whose whole job
-# is to be read by a person — would come back saying nothing at all.
+# fonts renders every glyph as a hollow box, and `ImageSequenceVideo.jsx` names
+# "Liberation Sans" for its burnt-in captions precisely because this line is what
+# puts a family on the machine. Drop it and every overlay renders as a row of
+# rectangles, burnt into an mp4 nobody previewed.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         fonts-liberation \
@@ -81,7 +83,7 @@ RUN npm run ensure-browser
 
 # ---- The worker itself ----
 COPY --chown=node:node remotion ./remotion
-COPY --chown=node:node render.js server.js ./
+COPY --chown=node:node render.js server.js validate.js staging.js ./
 
 ENV NODE_ENV=production
 ENV PORT=3030

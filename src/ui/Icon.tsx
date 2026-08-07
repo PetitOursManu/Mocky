@@ -25,6 +25,7 @@ export type IconName =
   | 'grid'
   | 'play'
   | 'pause'
+  | 'film'
   | 'download'
   | 'upload'
   | 'library'
@@ -72,6 +73,12 @@ const PATHS: Record<IconName, string> = {
   // The player had been borrowing `close` for want of this, which says "dismiss"
   // where the button means "hold".
   pause: 'M7 4h4v16H7zM13 4h4v16h-4z',
+  // Video export, and it exists because the toolbar strips to icons below md:
+  // the only other candidate was `play`, which "Démo" already carries, and two
+  // buttons drawn identically at 390px are two buttons nobody can tell apart.
+  // A body and a lens, not a perforated film strip — sprocket holes at 16px
+  // with a 1.5 stroke close up into a grey smudge.
+  film: 'M3 6h12v12H3zM15 10l6-4v12l-6-4z',
   download: 'M12 3v12m0 0 4-4m-4 4-4-4M4 19h16',
   upload: 'M12 21V9m0 0 4 4M12 9 8 13M4 5h16',
   library: 'M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1',

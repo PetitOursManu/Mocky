@@ -16,6 +16,8 @@ import { PUBLIC_VIDEO_PATH } from './videos/routes.js'
 import { VideoConfigStore } from './video/config.js'
 import { VideoQueue } from './video/queue.js'
 import { createVideoWorker, collectImages } from './video/worker.js'
+import { VideoExportStore } from './video/store.js'
+import { totalDurationMs } from './video/timeline.js'
 import { createVideoRouter, createVideoAdminRouter } from './video/routes.js'
 import { TextConfigStore, looksLikeImageModel } from './text/config.js'
 import { createLockout } from './auth-lockout.js'
@@ -74,11 +76,18 @@ const muse = createMuse({ rootDir: ROOT_DIR, dataDir: DATA_DIR })
 muse.host.startAutoStart().catch(() => {}) // best-effort; never blocks boot
 
 // ---- disk budget ----
-// Shared by the image and video libraries: they are the only two things here
-// that grow without an upper bound, and they grow from user input. Seeded once
-// at boot rather than measured per request — see server/storage-quota.js.
+// Shared by everything here that grows without an upper bound from user input:
+// the image library, the scroll-sequence library, and the exported films. A
+// directory left out of this list is not exempt from filling the volume, only
+// from being counted — which makes the ceiling wrong by however much it holds.
+// Seeded once at boot rather than measured per request — see
+// server/storage-quota.js.
 const diskBudget = createDiskBudget({
-  dirs: [path.join(DATA_DIR, 'image-library'), path.join(DATA_DIR, 'video-library')],
+  dirs: [
+    path.join(DATA_DIR, 'image-library'),
+    path.join(DATA_DIR, 'video-library'),
+    path.join(DATA_DIR, 'video-exports'),
+  ],
 })
 
 // ---- Muse image service + global Image Library ----
@@ -105,23 +114,36 @@ const videos = createVideos({ dataDir: DATA_DIR, configStore: images.configStore
 // pays for a file read that fails and a queue holding zero jobs.
 const videoConfig = new VideoConfigStore(DATA_DIR)
 const videoWorker = createVideoWorker({ config: videoConfig, fetchImpl: fetch })
+/*
+ * Where a finished render lands — its own store, NOT `videos.library`.
+ *
+ * The clip library exists to cut scroll sequences: `ingest` runs ffmpeg over
+ * whatever it is given to produce up to 150 stills, and everything downstream of
+ * its `list()` expects them. An exported film has no frames anybody will ever
+ * display, so filing it there would pay for the cutting and then lie to every
+ * consumer of that list. See the header of server/video/store.js.
+ */
+const videoExports = new VideoExportStore(DATA_DIR, { budget: diskBudget })
 const videoQueue = new VideoQueue({
   dataDir: DATA_DIR,
-  /*
-   * Phase 1 stops deliberately short of storing anything.
-   *
-   * The worker is called for real and its bytes come back, but they are not
-   * filed in the clip library: an exported timeline is not a scroll sequence,
-   * and `videos.library.ingest` would run ffmpeg over it to cut 150 stills
-   * nothing will ever display. Where the .mp4 belongs — the existing video
-   * library, which already handles the disk budget and addressing by hash — is
-   * settled; wiring it is the next step's work, and until then a finished job
-   * reports no `videoHash` rather than a hash pointing at nothing.
-   */
   render: async (job, { signal }) => {
     const payload = collectImages(images.library, job.timeline)
-    await videoWorker.render(job.timeline, payload, { signal })
-    return { videoHash: null }
+    const out = await videoWorker.render(job.timeline, payload, { signal })
+    /*
+     * Stored here rather than by the queue, because the queue deliberately does
+     * not judge a result: it turns a rejection into a job marked `error`, and
+     * `put` throwing on a full volume is exactly that — a render that produced
+     * bytes with nowhere to go has not succeeded, and a job saying `done` with
+     * no `videoHash` would be a download button pointing at nothing.
+     */
+    const stored = videoExports.put(out.buffer, {
+      owner: job.userId,
+      format: job.timeline.outputFormat,
+      aspectRatio: job.timeline.aspectRatio,
+      scenes: job.timeline.scenes.length,
+      durationMs: totalDurationMs(job.timeline),
+    })
+    return { videoHash: stored.hash }
   },
 })
 
@@ -980,6 +1002,7 @@ app.get('/api/admin/usage', requireAdmin, (req, res) => {
         users: loadUsers(),
         images: images.library,
         videos: videos.library,
+        videoExports,
         instance: diskBudget.usage(),
       }),
     )
@@ -1432,7 +1455,14 @@ app.use(
     }
     next()
   },
-  createVideoRouter({ config: videoConfig, queue: videoQueue, worker: videoWorker, imageLibrary: images.library }),
+  createVideoRouter({
+    config: videoConfig,
+    queue: videoQueue,
+    worker: videoWorker,
+    imageLibrary: images.library,
+    store: videoExports,
+    budget: diskBudget,
+  }),
 )
 
 // The worker is handed to the admin router too, so the panel that owns the URL

@@ -144,10 +144,11 @@ server/video/timeline.js    the same schema, mirrored for Node — see below
 server/video/config.js      admin settings; the licence key never leaves the server
 server/video/queue.js       in-memory queue + atomic JSON journal. No Redis, ever
 server/video/worker.js      HTTP client for the render worker
+server/video/store.js       the finished file, kept whole. NOT server/videos/
 worker/video/               the Remotion worker: separate sub-project, separate image
 ```
 
-Four things, and the first one is not negotiable.
+Five things, and the first one is not negotiable.
 
 1. **Remotion must never enter Mocky's `package.json`, `Dockerfile`, or default
    compose file.** Its licence is free for individuals, non-profits and companies
@@ -169,6 +170,14 @@ Four things, and the first one is not negotiable.
    nothing renders gets accepted in silence and the export is reported as a
    success. There is no audio, and a schema that strips unknown keys cannot say
    so.
+5. **A finished render lands in `server/video/store.js`, never in the clip
+   library.** `server/videos/` cuts *scroll sequences*: `ingest` runs ffmpeg to
+   produce up to 150 stills, and everything downstream of its `list()` — the
+   Media tab, `VideoPlayer.tsx`, `usage.js` — expects them. A film has none, so
+   filing it there would pay for the cutting and then lie to every one of those
+   callers. The export store is content-addressed and atomic like its neighbours,
+   shares the same `diskBudget`, and refuses **before** writing: a full volume
+   fails writes silently everywhere in this repository.
 
 ## Conventions
 

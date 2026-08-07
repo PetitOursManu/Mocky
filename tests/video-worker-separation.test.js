@@ -197,4 +197,27 @@ describe('the worker sub-project', () => {
   it('is marked private, so it can never be published by accident', () => {
     expect(workerManifest.private).toBe(true)
   })
+
+  /**
+   * Every runtime module at the worker's root reaches the image.
+   *
+   * The Dockerfile copies them by name — `COPY render.js server.js …` — and the
+   * failure of forgetting one is the worst shape available: the image builds,
+   * the container boots, `/health` answers, and every render dies on
+   * `ERR_MODULE_NOT_FOUND` deep inside a dynamic import. It has already happened
+   * once, to `validate.js`, and was caught by reading the diff rather than by
+   * anything that fails.
+   *
+   * Root only. `remotion/` is copied whole as a directory, and the tests are
+   * excluded by `.dockerignore` because there is no runner in the image.
+   */
+  it('copies every runtime module at the worker root into the image', () => {
+    const dockerfile = read('worker/video/Dockerfile')
+    const missing = fs
+      .readdirSync(path.join(root, 'worker/video'), { withFileTypes: true })
+      .filter((e) => e.isFile() && e.name.endsWith('.js') && !e.name.endsWith('.test.js'))
+      .map((e) => e.name)
+      .filter((name) => !new RegExp(`^COPY\\b.*\\b${name.replace('.', '\\.')}\\b`, 'm').test(dockerfile))
+    expect(missing, 'add these to the COPY line in worker/video/Dockerfile').toEqual([])
+  })
 })

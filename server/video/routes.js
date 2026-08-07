@@ -8,6 +8,9 @@
 // is parsed here.
 import express from 'express'
 import { VideoTimelineSchema, readableIssues, MAX_SCENES, MAX_TOTAL_DURATION_MS } from './timeline.js'
+import { quotaError } from '../storage-quota.js'
+
+const HASH_RE = /^[a-f0-9]{64}$/
 
 /**
  * What a job looks like to the account that owns it.
@@ -25,8 +28,10 @@ const publicJob = ({ userId, ...rest }) => rest
  * @param {import('./queue.js').VideoQueue} deps.queue
  * @param {ReturnType<import('./worker.js').createVideoWorker>} deps.worker
  * @param {import('../images/library.js').ImageLibrary} deps.imageLibrary
+ * @param {import('./store.js').VideoExportStore} [deps.store] where a finished render lands
+ * @param {{wouldExceed:(n:number)=>boolean, usage:()=>object}} [deps.budget] the instance disk ceiling
  */
-export function createVideoRouter({ config, queue, worker, imageLibrary }) {
+export function createVideoRouter({ config, queue, worker, imageLibrary, store, budget }) {
   const router = express.Router()
 
   /**
@@ -109,6 +114,21 @@ export function createVideoRouter({ config, queue, worker, imageLibrary }) {
       })
     }
 
+    /*
+     * Is there anywhere to put the result?
+     *
+     * Last, because it is the only refusal here that is about the instance
+     * rather than the request — and the only one whose answer can change while
+     * the job waits, which is why the store checks again with the real size
+     * before it writes. This one is cheap and asks a blunter question: the
+     * volume is ALREADY at its ceiling, so a render that will take minutes of
+     * CPU has nowhere to land before it starts. Spending them anyway and failing
+     * at the last step is the same wasted wait, with a worse message.
+     */
+    if (budget?.wouldExceed(0)) {
+      return res.status(507).json({ error: quotaError(budget.usage()) })
+    }
+
     const job = queue.enqueue({ userId: req.user.id, timeline })
     // 202: accepted, not done. The body carries the id to poll.
     res.status(202).json(publicJob(job))
@@ -130,6 +150,53 @@ export function createVideoRouter({ config, queue, worker, imageLibrary }) {
       return res.status(403).json({ error: 'This render job belongs to another account.' })
     }
     res.json(publicJob(job))
+  })
+
+  /**
+   * Download one finished render.
+   *
+   * Declared last, and matched on 64 hex characters: `/status` and `/render`
+   * are literals declared above it, so Express reaches them first, but a router
+   * whose safety depends on declaration order is one reordering away from
+   * serving `/status` as a hash. The regexp is the part that does not move.
+   *
+   * Ownership is checked BEFORE existence, which is the reverse of the usual
+   * shape and deliberate: answering 404 for an unknown hash and 403 for a
+   * stranger's would turn this route into an oracle for what other people have
+   * exported. Checked in this order it says the same thing either way, and it
+   * says something true — a hash you did not render is not yours.
+   *
+   * Two sources agree on that, for the reason each one is incomplete alone: the
+   * job carries the account id (`hasVideo`), and the journal is trimmed to the
+   * newest fifty finished jobs; the store's `owners` set is not trimmed but is
+   * bounded at twenty accounts per file. Either is enough to say yes.
+   */
+  router.get('/:hash', (req, res) => {
+    const hash = String(req.params.hash)
+    const userId = req.user?.id
+    const mine = HASH_RE.test(hash) && (queue.hasVideo?.(userId, hash) || store?.ownedBy?.(hash, userId))
+    if (!mine) {
+      return res.status(403).json({ error: 'This render belongs to another account.' })
+    }
+
+    const file = store?.filePath?.(hash)
+    if (!file) {
+      // Owned, but the bytes are gone: a deletion, a restored volume, a wiped
+      // data directory. Saying "no longer" rather than "not found" is the whole
+      // difference between a user checking their own history and one filing a
+      // bug about a download button that lies.
+      return res.status(404).json({ error: 'This render is no longer stored on this instance.' })
+    }
+
+    // `private`, never the `Access-Control-Allow-Origin: *` the image and frame
+    // routes carry: those paths are deliberately unauthenticated so a
+    // null-origin preview can fetch them, and this one is the opposite — it sits
+    // behind a session, and a shared cache holding it would hand one account's
+    // export to the next request that asked.
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
+    res.setHeader('Content-Disposition', `attachment; filename="${store.downloadName(hash)}"`)
+    res.type(store.mimeFor(hash) || 'video/mp4')
+    res.sendFile(file)
   })
 
   return router

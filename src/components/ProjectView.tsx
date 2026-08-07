@@ -34,6 +34,7 @@ import MusePanel from './MusePanel'
 import Bibliotheque from './Bibliotheque'
 import ImageLightbox from './ImageLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
+import VideoExportDialog from './VideoExportDialog'
 import AuditPanel from './AuditPanel'
 import {
   loadMuseConfig,
@@ -238,6 +239,17 @@ export default function ProjectView({
   /** The screen whose images are being swapped, if any. Id, not the screen: the
    *  dialog must follow the record as it is rewritten, not a stale copy. */
   const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
+  const [showVideoExport, setShowVideoExport] = useState(false)
+  /**
+   * The render this session last started, kept here rather than in the dialog.
+   *
+   * A render takes minutes and the panel is a modal over the canvas, so closing
+   * it while the queue works is the normal thing to do. Held inside the dialog,
+   * the job id would die with it and the finished file would have no route back
+   * to the person who asked for it — the download link is reachable only through
+   * the id, and nothing else in the interface lists past exports.
+   */
+  const [videoJobId, setVideoJobId] = useState<string | null>(null)
   const [showAudit, setShowAudit] = useState(false)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   /** The brief above the composer. Folded by default: open, it eats the canvas. */
@@ -1890,6 +1902,14 @@ export default function ProjectView({
           onClose={() => setImagesForScreen(null)}
         />
       )}
+      {showVideoExport && (
+        <VideoExportDialog
+          projectId={project.id}
+          jobId={videoJobId}
+          onJobId={setVideoJobId}
+          onClose={() => setShowVideoExport(false)}
+        />
+      )}
     </>
   )
 
@@ -2015,6 +2035,23 @@ export default function ProjectView({
       title: t('project.exportTitle'),
       active: exportMenu,
       onClick: () => setExportMenu((v) => !v),
+    },
+    /*
+     * In the "produce something from this project" group, beside Démo and
+     * Export, and deliberately NOT in a screen's context menu.
+     *
+     * The film is cut from the media library; it does not read a screen, and it
+     * cannot be derived from one. Hanging it off a screen would have promised a
+     * relationship the pipeline does not have, and the first thing the dialog
+     * does — ask which pictures to use — would have contradicted it.
+     */
+    {
+      id: 'video',
+      icon: 'film',
+      label: t('video.toolbarLabel'),
+      title: t('video.toolbarTitle'),
+      active: showVideoExport,
+      onClick: () => setShowVideoExport((v) => !v),
     },
   ]
 

@@ -702,6 +702,9 @@ another.
 | `image-library.json` | Image library metadata — including `owners`, the account ids that put each file there, **capped at 20** |
 | `image-library/<hash>` | The image bytes |
 | `video-library/` | Scroll sequences: clip, frames and poster. Its metadata carries `owners` under the same cap |
+| `video-exports.json` | Exported films: bytes, container, scene count, duration — and `owners` under the same cap. Never the timeline, which carries somebody's overlay text |
+| `video-exports/<hash>.mp4\|.webm` | The finished film, whole. A different directory from `video-library/` on purpose: that one holds *scroll sequences*, cut into stills by ffmpeg, and every consumer of its `list()` expects frames a film does not have |
+| `video-jobs.json` | The render queue's journal: the newest 50 finished jobs, plus whatever is live. A job found mid-flight at boot is marked failed, never resumed |
 
 Files holding secrets are written with mode `0600`. The default `0644` left them
 readable by every other account on the machine.
@@ -738,6 +741,11 @@ nothing inside them may grow without a ceiling.
 | `POST /api/videos/generate` (6/min), `/upload` (20/min) | session | Different ceilings: generating costs money, uploading costs disk |
 | `GET /api/videos/library`, `/:hash/meta`, `DELETE /:hash` | session | Sequence management |
 | `GET /api/videos/:hash/poster.jpg`, `/:hash/f/:n.jpg` | **public** | See below |
+| `GET /api/video/status` | session | Video **export** — note the singular. Access, worker health, and the schema bounds the panel quotes |
+| `POST /api/video/render` (6/min) | session | Validates the timeline, then queues. `400` with the issue list, `404` naming absent images, `507` when the volume is already full |
+| `GET /api/video/jobs/:id` | session | `403`, not `404`, on someone else's job: a job carries the timeline, and a timeline carries their overlay text |
+| `GET /api/video/:hash` | session | The finished film. **Never public** — ownership is checked before existence, so an unknown hash and a stranger's answer alike |
+| `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | The licence key leaves as `hasLicenseKey`, a boolean |
 | `ALL /__provider/api/chat`, `/api/tags` | session **if** an instance model is configured | Proxy and dialect translation |
 
 ### Why image and frame bytes are public

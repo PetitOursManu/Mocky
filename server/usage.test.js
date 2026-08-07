@@ -168,6 +168,23 @@ describe('collectUsage', () => {
     fs.rmSync(dir, { recursive: true, force: true })
   })
 
+  /**
+   * Exported films are on the same volume and count against the same ceiling, so
+   * a media column that ignored them would report a user as holding less disk
+   * than the budget is charging them for — and the two numbers sit side by side
+   * on the Admin screen.
+   */
+  it('counts an exported film with the rest of a user’s media', () => {
+    const dir = tmpDataDir()
+    const videoExports = {
+      list: () => [{ hash: 'e1', owners: ['u1'] }],
+      fileSize: () => 3000,
+    }
+    const out = collectUsage({ dataDir: dir, users, videoExports })
+    expect(out.users.find((u) => u.username === 'ana').bytes.media).toBe(3000)
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
   it('sorts the heaviest account first', () => {
     const dir = tmpDataDir()
     writeUserData(dir, 'u2', [{ id: 'p', screens: new Array(20).fill({ code: 'x'.repeat(200) }) }])

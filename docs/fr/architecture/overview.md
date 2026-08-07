@@ -732,6 +732,9 @@ pour qu'une suppression faite sur un appareil ne revienne pas depuis un autre.
 | `image-library.json` | Les métadonnées de la bibliothèque d'images — dont `owners`, les identifiants des comptes qui ont déposé chaque fichier, **borné à 20** |
 | `image-library/<hash>` | Les octets des images |
 | `video-library/` | Les séquences : clip, images et affiche. Leurs métadonnées portent `owners` sous la même borne |
+| `video-exports.json` | Les films exportés : octets, conteneur, nombre de scènes, durée — et `owners` sous la même borne. Jamais le montage, qui porte le texte incrusté écrit par quelqu'un |
+| `video-exports/<hash>.mp4\|.webm` | Le film terminé, entier. Un répertoire distinct de `video-library/` à dessein : celui-là contient des *séquences de défilement*, découpées en images par ffmpeg, et tout ce qui lit son `list()` attend des images qu'un film n'a pas |
+| `video-jobs.json` | Le journal de la file de rendu : les 50 derniers jobs terminés, plus ceux en cours. Un job trouvé en cours au démarrage passe en erreur, jamais repris |
 
 Les fichiers contenant des secrets sont écrits en mode `0600`. Le `0644` par
 défaut les laissait lisibles par tous les autres comptes de la machine.
@@ -769,6 +772,11 @@ plafond.
 | `POST /api/videos/generate` (6/min), `/upload` (20/min) | session | Plafonds différents : générer coûte de l'argent, importer coûte du disque |
 | `GET /api/videos/library`, `/:hash/meta`, `DELETE /:hash` | session | Gestion des séquences |
 | `GET /api/videos/:hash/poster.jpg`, `/:hash/f/:n.jpg` | **public** | Voir plus bas |
+| `GET /api/video/status` | session | L'export **vidéo** — noter le singulier. Accès, état du worker, et les bornes du schéma que le panneau cite |
+| `POST /api/video/render` (6/min) | session | Valide le montage, puis met en file. `400` avec la liste des défauts, `404` en nommant les images absentes, `507` si le volume est déjà plein |
+| `GET /api/video/jobs/:id` | session | `403`, pas `404`, sur le job d'un autre : un job porte le montage, et un montage porte son texte incrusté |
+| `GET /api/video/:hash` | session | Le film terminé. **Jamais public** — la propriété est vérifiée avant l'existence, donc un hash inconnu et celui d'un autre répondent pareil |
+| `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | La clé de licence sort en `hasLicenseKey`, un booléen |
 | `ALL /__provider/api/chat`, `/api/tags` | session **si** un modèle d'instance est configuré | Proxy et traduction de dialecte |
 
 ### Pourquoi les octets d'images et d'images vidéo sont publics

@@ -5,9 +5,11 @@ node_modules
 npm-debug.log*
 *.log
 
-# The contract test runs inside Mocky's vitest suite, never inside this image,
-# and there is no test runner here to run it with.
-*.test.js
+# The tests run inside Mocky's vitest suite, never inside this image, and there
+# is no test runner here to run them with. `**/` because they are co-located
+# with what they test — `remotion/composition.test.js` is one directory down,
+# and a bare `*.test.js` only ever matched the root.
+**/*.test.js
 
 # The licence warning is meant to be read before the build, not shipped inside
 # the result.

@@ -1,14 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ACCEPTED_IMAGE_TYPES,
-  generateImage,
-  imageUrl,
-  listLibrary,
-  uploadImage,
-  type LibraryImage,
-} from '../lib/imageLibrary'
+import { useCallback, useEffect, useState } from 'react'
+import { imageUrl } from '../lib/imageLibrary'
 import { findScreenImages, replaceScreenImage, type ImageSpan, type ScreenImage } from '../lib/screenImages'
-import { Banner, Button, Icon, Input, Modal, Spinner } from '../ui'
+import { ImagePicker } from './ImagePicker'
+import { Banner, Button, Modal, Spinner } from '../ui'
 import { useT } from '../i18n'
 
 /**
@@ -222,9 +216,10 @@ export default function ScreenImagesDialog({
                       {t('library.swapAllOccurrences', { n: img.spans.length })}
                     </p>
                   )}
-                  <Picker
+                  <ImagePicker
                     projectId={projectId}
-                    currentHash={img.hash}
+                    heading={t('library.swapChoose')}
+                    selected={[img.hash]}
                     onPick={(hash) =>
                       apply(
                         img,
@@ -241,158 +236,5 @@ export default function ScreenImagesDialog({
         </ul>
       )}
     </Modal>
-  )
-}
-
-/**
- * Where the replacement comes from: the library, a file, or the provider.
- *
- * Deliberately not the Bibliothèque component. This one cannot delete an image
- * or export the library, which is the whole point — those are one click from
- * "replace" and both are irreversible.
- */
-function Picker({
-  projectId,
-  currentHash,
-  onPick,
-  onError,
-}: {
-  projectId?: string
-  /** Marked in the grid, so the picture already in use is recognisable. */
-  currentHash: string
-  onPick: (hash: string) => void
-  onError: (message: string) => void
-}) {
-  const t = useT()
-  const [items, setItems] = useState<LibraryImage[]>([])
-  const [q, setQ] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [prompt, setPrompt] = useState('')
-  const fileRef = useRef<HTMLInputElement | null>(null)
-
-  // Debounced AND aborted: cancelling only the timer left two requests racing,
-  // and the older one answering last showed results for a query the field no
-  // longer held. Same correction as Bibliothèque's.
-  useEffect(() => {
-    const ctrl = new AbortController()
-    const id = setTimeout(() => {
-      setLoading(true)
-      listLibrary({ q: q.trim() || undefined }, ctrl.signal)
-        .then(setItems)
-        .catch((e) => {
-          if (e?.name !== 'AbortError') onError(e instanceof Error ? e.message : String(e))
-        })
-        .finally(() => setLoading(false))
-    }, 200)
-    return () => {
-      clearTimeout(id)
-      ctrl.abort()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q])
-
-  async function run<T>(work: () => Promise<T>, use: (out: T) => void) {
-    setBusy(true)
-    try {
-      use(await work())
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div>
-      <div className="kicker mb-2 text-accent-ink">{t('library.swapChoose')}</div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={q}
-          placeholder={t('library.swapSearch')}
-          onChange={(e) => setQ(e.currentTarget.value)}
-          className="min-w-48 flex-1"
-        />
-        <input
-          ref={fileRef}
-          type="file"
-          className="hidden"
-          accept={ACCEPTED_IMAGE_TYPES.join(',')}
-          onChange={(e) => {
-            const file = e.currentTarget.files?.[0]
-            // Cleared straight away so re-picking the same file still fires.
-            e.currentTarget.value = ''
-            if (!file) return
-            run(
-              () => uploadImage(file, { project: projectId }),
-              (meta) => onPick(meta.hash),
-            )
-          }}
-        />
-        <Button size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
-          <Icon name="upload" size={15} />
-          {t('library.swapUpload')}
-        </Button>
-      </div>
-
-      <form
-        className="mt-2 flex flex-wrap items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (!prompt.trim()) return
-          run(
-            () => generateImage(prompt.trim(), { project: projectId }),
-            (out) => {
-              // A provider that answered without producing anything is not an
-              // error, and not an image either. Saying nothing would look like
-              // a button that does nothing.
-              if (!out) return onError(t('library.swapGenerateSkipped'))
-              setPrompt('')
-              onPick(out.hash)
-            },
-          )
-        }}
-      >
-        <Input
-          value={prompt}
-          placeholder={t('library.swapGeneratePlaceholder')}
-          onChange={(e) => setPrompt(e.currentTarget.value)}
-          className="min-w-48 flex-1"
-        />
-        <Button type="submit" size="sm" variant="primary" disabled={busy || !prompt.trim()}>
-          <Icon name="sparkle" size={15} />
-          {busy ? t('library.swapGenerating') : t('library.swapGenerate')}
-        </Button>
-      </form>
-
-      <div className="mt-3 max-h-64 overflow-y-auto">
-        {loading ? (
-          <div className="flex justify-center py-6">
-            <Spinner />
-          </div>
-        ) : items.length === 0 ? (
-          <p className="py-4 text-body-sm text-ink-faint">{t('library.swapEmpty')}</p>
-        ) : (
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-            {items.map((m) => (
-              <li key={m.hash}>
-                <button
-                  type="button"
-                  disabled={busy}
-                  title={m.prompt}
-                  onClick={() => onPick(m.hash)}
-                  className={`block w-full overflow-hidden border transition disabled:opacity-40 ${
-                    m.hash === currentHash ? 'border-accent' : 'border-line-soft hover:border-line'
-                  }`}
-                >
-                  <img src={imageUrl(m.hash)} alt={m.prompt} className="block aspect-[4/3] w-full object-cover" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
   )
 }

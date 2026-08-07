@@ -11,12 +11,16 @@
 // the user sees, which is why every refusal below is one line of plain text
 // rather than JSON or an Express HTML page.
 //
-// Nothing here imports Remotion. `render.js` does, behind a dynamic import, so
-// that the contract test co-located with this file can run inside Mocky's own
-// vitest suite where those packages are not installed.
+// Nothing here imports Remotion — and neither do `validate.js` and
+// `remotion/composition.js`, which is why they can be imported at the top.
+// `render.js` does, behind a dynamic import, so that the contract test
+// co-located with this file can run inside Mocky's own vitest suite where those
+// packages are not installed.
 import express from 'express'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
+import { validateRenderRequest } from './validate.js'
+import { IMAGE_SEQUENCE } from './remotion/composition.js'
 
 const pkg = createRequire(import.meta.url)('./package.json')
 
@@ -25,10 +29,10 @@ export const DEFAULT_PORT = 3030
 
 /**
  * Images arrive as base64 inside the JSON body — up to MAX_SCENES of them, and
- * base64 costs a third on top. Express defaults to 100 kB, which would refuse
- * every real timeline with an HTML error page long before phase 2 could send
- * one. The ceiling still exists because an unbounded JSON body is how a worker
- * with a 4 GB memory limit gets killed by something that is not a render.
+ * base64 costs a third on top. Express defaults to 100 kB, which refuses every
+ * real timeline with an HTML error page. The ceiling still exists because an
+ * unbounded JSON body is how a worker with a 4 GB memory limit gets killed by
+ * something that is not a render.
  */
 export const MAX_BODY = '80mb'
 
@@ -47,14 +51,14 @@ const fail = (res, status, message) => res.status(status).type('text/plain').sen
 
 /** Loaded on demand so this module stays importable without Remotion installed. */
 async function loadRenderer() {
-  const { renderTestCard } = await import('./render.js')
-  return renderTestCard
+  const { renderTimeline } = await import('./render.js')
+  return renderTimeline
 }
 
 /**
  * @param {object} [deps]
  * @param {string} [deps.version]
- * @param {(opts:{timeline:unknown, images:unknown, licenseKey:string|null, signal:AbortSignal})=>Promise<{buffer:Buffer, contentType:string}>} [deps.renderVideo]
+ * @param {(opts:{timeline:object, images:Array<object>, licenseKey:string|null, signal:AbortSignal})=>Promise<{buffer:Buffer, contentType:string}>} [deps.renderVideo]
  * @param {number} [deps.timeoutMs]
  * @param {Console} [deps.log]
  */
@@ -85,6 +89,30 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
     if (busy) {
       return fail(res, 429, 'The render worker is already rendering. It runs one video at a time; try again when that one finishes.')
     }
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {}
+    const licenseKey = typeof body.licenseKey === 'string' && body.licenseKey.trim() ? body.licenseKey.trim() : null
+
+    /*
+     * Checked here, before the slot is taken, and checked at all because this
+     * worker does not trust its caller.
+     *
+     * Mocky validates the same document against the zod schema before it ever
+     * enqueues a job, so on a healthy instance this never refuses anything. It
+     * is defence in depth for the case the compose file describes but cannot
+     * enforce: a plain HTTP service, no authentication of its own, one internal
+     * bridge away from anything that can open a socket. `validate.js` carries
+     * the full reasoning.
+     *
+     * Refusing before `busy = true` matters on its own — a caller sending a
+     * malformed body in a loop would otherwise hold the render slot closed
+     * against the one request that was correct.
+     */
+    const parsed = validateRenderRequest(body)
+    if (!parsed.ok) {
+      return fail(res, 400, `The render request was refused: ${parsed.message}`)
+    }
+
     busy = true
 
     const controller = new AbortController()
@@ -96,9 +124,6 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
       timer.unref?.()
     })
 
-    const body = req.body && typeof req.body === 'object' ? req.body : {}
-    const licenseKey = typeof body.licenseKey === 'string' && body.licenseKey.trim() ? body.licenseKey.trim() : null
-
     try {
       /*
        * Raced rather than awaited, for the reason the queue on the Mocky side
@@ -108,7 +133,12 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
        * progress — which is true, and useless, and lasts until a restart.
        */
       const running = Promise.resolve().then(() =>
-        render({ timeline: body.timeline, images: body.images, licenseKey, signal: controller.signal }),
+        // The PARSED timeline and images, never `req.body`. The validator
+        // applies the schema's own defaults — `kenBurns: 'static'`,
+        // `transitionOut: 'crossfade'`, `aspectRatio: '16:9'` — and decodes the
+        // base64 once, so the renderer never has to decide what an absent field
+        // meant.
+        render({ timeline: parsed.timeline, images: parsed.images, licenseKey, signal: controller.signal }),
       )
       const outcome = await Promise.race([running.then((value) => ({ value })), expired])
 
@@ -124,11 +154,14 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
 
       res.status(200)
       res.type(contentType || 'video/mp4')
-      // Stated in the response as well as burnt into the picture. A file that
-      // reaches the video library carries no header with it, but a developer
-      // reading a network trace and wondering why the images were ignored
-      // should not have to open the mp4 to find out.
-      res.set('x-mocky-worker-phase', 'test-card')
+      // Which composition produced these bytes. It replaced
+      // `x-mocky-worker-phase: test-card`, whose job was to warn that the
+      // response was NOT the requested timeline — a worker that renders the
+      // timeline has nothing to apologise for, but a developer reading a
+      // network trace still wants to know what rendered it without opening the
+      // file. It is also the fastest way to catch a container left behind on an
+      // older image.
+      res.set('x-mocky-worker-composition', IMAGE_SEQUENCE.id)
       res.send(buffer)
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
@@ -175,10 +208,7 @@ export async function start({ port = Number(process.env.PORT) || DEFAULT_PORT, l
     app.listen(port, '0.0.0.0', resolve)
   })
 
-  log.warn?.(
-    'mocky-video-worker: PHASE 1 — /render returns a three-second test card and ignores the timeline and images it is sent.',
-  )
-  log.log?.(`mocky-video-worker ${VERSION} listening on 0.0.0.0:${port}`)
+  log.log?.(`mocky-video-worker ${VERSION} listening on 0.0.0.0:${port} — composition ${IMAGE_SEQUENCE.id}`)
 
   // Caught, including the import itself. `warmUp` already degrades on its own,
   // but a renderer that will not even load — a half-finished `npm install`, a
