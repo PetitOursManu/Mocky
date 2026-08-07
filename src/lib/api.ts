@@ -198,6 +198,50 @@ export interface ImagesTestResult {
   error?: string
 }
 
+/** Who the video export is open to. Mirrors ACCESS_MODES in server/video/config.js. */
+export type VideoAccessMode = 'all' | 'allowlist'
+
+/**
+ * Admin view of the video-export settings.
+ *
+ * `hasLicenseKey` rather than the key: `publicVideoConfig()` is the only shape
+ * the config is allowed to leave the server in, and it turns the Remotion
+ * licence key into a boolean exactly like every provider secret above.
+ */
+export interface VideoExportConfig {
+  accessModes: VideoAccessMode[]
+  enabled: boolean
+  hasLicenseKey: boolean
+  access: VideoAccessMode
+  allowedUserIds: string[]
+  workerUrl: string | null
+}
+
+/**
+ * Partial update. Same secret rule as the image keys — omit (or send '') the
+ * licence key to keep the stored one, send null to clear it.
+ *
+ * `allowedUserIds` is the exception to "partial": the server REPLACES the list
+ * rather than merging it, because sending the list without an account is the
+ * only way to express a removal.
+ */
+export interface VideoExportConfigPatch {
+  enabled?: boolean
+  licenseKey?: string | null
+  access?: VideoAccessMode
+  allowedUserIds?: string[]
+  workerUrl?: string | null
+}
+
+/** What the worker probe answers. Never an error: "I could not tell" is a state. */
+export interface VideoWorkerHealth {
+  available: boolean
+  /** 'not-configured' | 'blocked-target' | 'unreachable' | 'http-error' */
+  reason?: string
+  detail?: string
+  version?: string
+}
+
 export const api = {
   me: () => req('/api/me').then((d) => (d.user ? (d.user as AuthUser) : null)),
   register: (username: string, password: string) =>
@@ -307,5 +351,20 @@ export const api = {
       req('/api/admin/text/test', { method: 'POST', body: JSON.stringify({ profile }) }) as Promise<TextTestResult>,
     listTextModels: (profile: TextProfile = 'generation') =>
       req('/api/admin/text/models', { method: 'POST', body: JSON.stringify({ profile }) }) as Promise<TextModelsResult>,
+
+    /** Video export (the Remotion worker). Off by default on every instance. */
+    getVideoConfig: () => req('/api/admin/video/config') as Promise<VideoExportConfig>,
+    setVideoConfig: (patch: VideoExportConfigPatch) =>
+      req('/api/admin/video/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<VideoExportConfig>,
+    /**
+     * Probe the worker as an administrator.
+     *
+     * Not `GET /api/video/status`: that route reports the worker only to an
+     * account the feature is enabled FOR, and `videoEnabledFor()` deliberately
+     * grants an admin no implicit access. An admin who has not put themselves on
+     * the allowlist would have read "no-access" and concluded the worker was
+     * down — while looking at the very panel where its URL is typed.
+     */
+    videoWorkerHealth: () => req('/api/admin/video/health') as Promise<VideoWorkerHealth>,
   },
 }

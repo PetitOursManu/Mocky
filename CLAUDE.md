@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+> **Keep replies short.** Answer, then stop. No preamble, no restating the
+> request, no recap of what you just did when the diff already says it, no table
+> for two facts. Long replies cost tokens on every turn and bury the one sentence
+> that mattered.
+
 Notes for an agent working in this repository. Short on purpose: the real
 documentation is in `docs/`, and this file's job is to point at it and to name
 the handful of things that are easy to break without noticing.
@@ -126,6 +131,44 @@ Mode — and contains none of that code.
 The judged rules in `catalog.js` are Mocky's own questions, written for this
 pipeline. The audit rubric follows the structure Impeccable documents publicly
 (five dimensions, 0–4, P0–P3); the scoring and the confidence model are ours.
+
+## Video export
+
+Turns a list of image ids into an .mp4. **The model never writes Remotion code**
+— it writes one JSON object validated by `src/lib/video/timeline.ts`, and
+hand-written compositions consume it. That is the founding rule, not a phase.
+
+```
+src/lib/video/timeline.ts   the zod schema (browser)
+server/video/timeline.js    the same schema, mirrored for Node — see below
+server/video/config.js      admin settings; the licence key never leaves the server
+server/video/queue.js       in-memory queue + atomic JSON journal. No Redis, ever
+server/video/worker.js      HTTP client for the render worker
+worker/video/               the Remotion worker: separate sub-project, separate image
+```
+
+Four things, and the first one is not negotiable.
+
+1. **Remotion must never enter Mocky's `package.json`, `Dockerfile`, or default
+   compose file.** Its licence is free for individuals, non-profits and companies
+   up to three employees, and it does not address redistribution inside a
+   self-hosted product. Keeping it in `worker/video/` behind
+   `profiles: ["video-export"]` is what makes that question *not exist* for
+   everyone who never turns the feature on. `tests/video-worker-separation.test.js`
+   is what enforces it — the four documents that explain it cannot fail a build.
+2. **`server/video/timeline.js` mirrors the TypeScript schema by hand**, because
+   `node server/index.js` cannot import a `.ts` file at the 22.12 floor. Same
+   deliberate duplication as `server/images/zip.js`. `timeline.test.js` runs a
+   corpus through both and requires identical answers, defaults included — edit
+   one side alone and the suite fails.
+3. **The worker URL is the third administrator-only bypass of the SSRF guard.**
+   Written down in `invariants.md` with the other two. Guarded, the feature had
+   no working configuration at all: the worker sits on an internal compose bridge
+   and its only address is a private one.
+4. **`.strict()` everywhere in the schema.** An unknown key is how a field
+   nothing renders gets accepted in silence and the export is reported as a
+   success. There is no audio, and a schema that strips unknown keys cannot say
+   so.
 
 ## Conventions
 

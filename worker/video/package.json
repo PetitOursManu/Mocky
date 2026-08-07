@@ -1,0 +1,22 @@
+{
+  "name": "mocky-video-worker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Remotion render worker for Mocky video export. A separate sub-project on purpose: these dependencies must never reach Mocky's own package.json, which is what keeps the default image free of Remotion and its licence question moot for anyone who does not turn the feature on. See README.md before building.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "ensure-browser": "node -e \"import('@remotion/renderer').then((m) => m.ensureBrowser())\""
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.507",
+    "@remotion/renderer": "4.0.507",
+    "express": "^4.22.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.507"
+  }
+}

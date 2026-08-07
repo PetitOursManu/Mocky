@@ -13,6 +13,10 @@ import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
 import { createVideos } from './videos/index.js'
 import { PUBLIC_VIDEO_PATH } from './videos/routes.js'
+import { VideoConfigStore } from './video/config.js'
+import { VideoQueue } from './video/queue.js'
+import { createVideoWorker, collectImages } from './video/worker.js'
+import { createVideoRouter, createVideoAdminRouter } from './video/routes.js'
 import { TextConfigStore, looksLikeImageModel } from './text/config.js'
 import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
@@ -87,6 +91,39 @@ const images = createImages({ dataDir: DATA_DIR, budget: diskBudget })
 // dependency on ffmpeg that the image path does not have. Lazy in the same way
 // — nothing is probed until a request arrives.
 const videos = createVideos({ dataDir: DATA_DIR, configStore: images.configStore, budget: diskBudget })
+
+// ---- Video export (Remotion worker) ----
+//
+// Note the singular: `server/video/` is the export pipeline, `server/videos/`
+// above is the clip library that feeds scroll sequences into a mockup. Two
+// features, one letter apart.
+//
+// Its own config store rather than the images one: the Remotion licence key and
+// the export allowlist have nothing to do with an image provider, and the worker
+// is an opt-in Docker service the rest of the app knows nothing about. Nothing
+// here probes or spawns at boot — an instance that never turns the feature on
+// pays for a file read that fails and a queue holding zero jobs.
+const videoConfig = new VideoConfigStore(DATA_DIR)
+const videoWorker = createVideoWorker({ config: videoConfig, fetchImpl: fetch })
+const videoQueue = new VideoQueue({
+  dataDir: DATA_DIR,
+  /*
+   * Phase 1 stops deliberately short of storing anything.
+   *
+   * The worker is called for real and its bytes come back, but they are not
+   * filed in the clip library: an exported timeline is not a scroll sequence,
+   * and `videos.library.ingest` would run ffmpeg over it to cut 150 stills
+   * nothing will ever display. Where the .mp4 belongs — the existing video
+   * library, which already handles the disk budget and addressing by hash — is
+   * settled; wiring it is the next step's work, and until then a finished job
+   * reports no `videoHash` rather than a hash pointing at nothing.
+   */
+  render: async (job, { signal }) => {
+    const payload = collectImages(images.library, job.timeline)
+    await videoWorker.render(job.timeline, payload, { signal })
+    return { videoHash: null }
+  },
+})
 
 // ---- Admin-configured text (LLM) provider ----
 // When unset, the proxy keeps using the credentials the browser sends.
@@ -1373,6 +1410,35 @@ app.use(
   },
   videos.router,
 )
+
+// ---- Video export (/api/video, singular) ----
+//
+// No public path at all, unlike its two neighbours: this router serves status,
+// a queue and job documents, and a job carries the timeline somebody composed.
+// There is nothing here a null-origin preview needs, so the exception those two
+// make does not apply.
+//
+// The rate limit is the only bound on how deep the queue can go — VideoQueue
+// never evicts a job that has not finished, on purpose, so nothing else stops a
+// loop from filling it. Six a minute is far above composing a timeline by hand
+// and far below what a stuck retry produces; the queue runs one at a time
+// anyway, so a burst only costs memory, never CPU.
+app.use(
+  '/api/video',
+  requireUser,
+  (req, res, next) => {
+    if (req.method === 'POST' && req.path.startsWith('/render')) {
+      return authRateLimit(6, 60_000, 'video-render')(req, res, next)
+    }
+    next()
+  },
+  createVideoRouter({ config: videoConfig, queue: videoQueue, worker: videoWorker, imageLibrary: images.library }),
+)
+
+// The worker is handed to the admin router too, so the panel that owns the URL
+// field can probe it: an admin is not implicitly on the allowlist, so the
+// per-account /api/video/status would answer them "no-access" instead.
+app.use('/api/admin/video', requireAdmin, createVideoAdminRouter({ config: videoConfig, worker: videoWorker }))
 
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {

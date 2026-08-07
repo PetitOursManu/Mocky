@@ -21,6 +21,18 @@ services:
       - "${MOCKY_BIND:-127.0.0.1}:8787:8787"
     volumes:
       - mocky-data:/app/server/data
+    networks:
+      # `default` has to be named explicitly: a service that lists any network
+      # joins only the ones it lists, and dropping the default one would take
+      # away the outbound access Muse and the model providers need.
+      #
+      # video-worker is listed even though the worker itself is not built by
+      # default. A network cannot be attached by a profile, so the alternative
+      # is an administrator editing this file before `--profile video-export`
+      # does anything useful. The cost of listing it is one empty internal
+      # bridge on instances that never turn the feature on.
+      - default
+      - video-worker
     # Values from a local .env file (copied from .env.example). Without this,
     # nothing in .env ever reaches the container.
     env_file:
@@ -42,6 +54,77 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
+
+  # ---- Remotion render worker — OPT-IN, and absent by default ---------------
+  #
+  #   docker compose --profile video-export up -d --build
+  #
+  # Without that flag this service is not built, not created and not started.
+  # That is a licensing decision as much as a technical one: Remotion is free
+  # for individuals, non-profits and companies with up to three employees, and
+  # its licence does not address redistribution inside a self-hosted product.
+  # Shipping it in the default image would hand every Mocky operator a question
+  # they never asked to answer. Whoever runs this line builds the image
+  # themselves and answers for their own situation.
+  #
+  # READ worker/video/README.md FIRST. It is a warning, not a footnote.
+  video-worker:
+    profiles: ["video-export"]
+    build:
+      context: ./worker/video
+    image: mocky-video-worker:latest
+    container_name: mocky-video-worker
+    networks:
+      # No published port. Mocky reaches it in-cluster at
+      # http://video-worker:3030, and the network below has no route out.
+      - video-worker
+    environment:
+      NODE_ENV: production
+      PORT: 3030
+    restart: unless-stopped
+    # A render is one Chromium plus one encoder, and neither is a polite guest.
+    # Unbounded, a stuck render takes the host down with it — on the small VPS
+    # this whole feature is sized for, that also takes Mocky down, so a failed
+    # export becomes an outage.
+    mem_limit: 4g
+    # Equal to mem_limit, which disables swap for this container. A Remotion
+    # render that starts swapping does not finish slower, it finishes after the
+    # 120 s the queue allows it — so it produces nothing and costs the disk.
+    memswap_limit: 4g
+    cpus: 2.0
+    pids_limit: 512
+    # Chromium puts its shared buffers in /dev/shm, and Docker's 64 MB default
+    # is the classic cause of a headless browser dying mid-page with no error
+    # anyone can read.
+    shm_size: 1gb
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3030)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      # Generous: the container fetches Chromium and compiles the bundle after
+      # it starts listening, and a first boot marked unhealthy for doing exactly
+      # what it should is how an administrator concludes the image is broken.
+      start_period: 90s
+      retries: 3
+
+networks:
+  # The wire between Mocky and the render worker, and nothing else on it.
+  #
+  # `internal: true` is what gives the worker no egress: Docker creates the
+  # bridge without a gateway, so the container can talk to Mocky and to nothing
+  # beyond this host. With no licence key configured that is the whole story,
+  # and it is the state the feature is designed to run in.
+  #
+  # A licence key changes it. From Remotion 5.0 a licensed render is telemetered,
+  # so a key that is configured but cannot phone home is a key that does not
+  # work. Setting `internal: false` here is the one visible switch that grants
+  # this container outbound access, and it belongs to whoever entered the key —
+  # which is why it is a line to uncomment rather than something the presence of
+  # a key turns on quietly.
+  video-worker:
+    internal: true
 
 volumes:
   mocky-data:

@@ -661,11 +661,32 @@ Les redirections ne sont pas suivies (`redirect: 'manual'`). `undici` les suit
 par défaut, ce qui contournait la protection d'un seul pas : la cible passait le
 contrôle, puis répondait `302` vers l'adresse de métadonnées cloud.
 
-**Deux contournements volontaires**, tous deux réservés à un administrateur :
+**Trois contournements volontaires**, tous réservés à un administrateur :
 
 - une cible de texte configurée par un administrateur, parce que pointer vers un
   modèle local est un montage prévu ;
-- l'URL de base `sd-webui`, qui est locale par définition.
+- l'URL de base `sd-webui`, qui est locale par définition ;
+- l'**URL du worker** d'export vidéo, `assertWorkerTarget()` dans
+  `server/video/worker.js`.
+
+Le troisième a été ajouté, pas hérité, et la raison vaut le paragraphe. Protégé,
+il n'existait **aucune configuration fonctionnelle** : le worker Remotion est un
+service Compose sur un pont `internal: true` sans port publié, donc sa seule
+adresse est un nom de service qui se résout en `172.16/12`. Tout rendu mourait
+avant de quitter Mocky, et le conseil de repli du panneau d'administration —
+« exposez le worker sur une adresse publiquement résolvable » — demandait à un
+exploitant de publier un point d'entrée non authentifié acceptant des corps de
+80 Mo. C'est un moins bon compromis que celui que faisait le garde.
+
+Il a la même forme que les deux autres : il est local par définition, et il
+n'atteint le serveur que par `PUT /api/admin/video/config`, derrière
+`requireAdmin` — jamais depuis un navigateur, ce contre quoi le garde existe. Ce
+qu'il ne relâche **pas** : le schéma doit être `http` ou `https`, et ni la sonde
+de santé ni l'appel de rendu ne suivent de redirection — un worker répondant
+`302` vers le point de métadonnées ne peut donc pas élargir la dérogation au-delà
+de ce qui a été accordé. `createVideoWorker({ guard })` garde le contrôle
+injectable : qui exécute le worker sur un hôte public peut y remettre
+`assertSafeTargetResolved`.
 
 Toute URL venue d'un navigateur reste entièrement protégée — y compris sur
 `POST /api/text/vision`. C'était la seule route qui prenait une URL de base dans

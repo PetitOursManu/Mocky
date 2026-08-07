@@ -1,0 +1,15 @@
+# The worker's own build context. Docker reads the .dockerignore next to the
+# context root, which for this service is worker/video/ — the repository's
+# root .dockerignore does not apply here.
+node_modules
+npm-debug.log*
+*.log
+
+# The contract test runs inside Mocky's vitest suite, never inside this image,
+# and there is no test runner here to run it with.
+*.test.js
+
+# The licence warning is meant to be read before the build, not shipped inside
+# the result.
+README.md
+README.fr.md

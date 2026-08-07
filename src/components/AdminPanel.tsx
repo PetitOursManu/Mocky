@@ -3,6 +3,7 @@ import { api, type AdminUser } from '../lib/api'
 import ImageProviderSettings from './ImageProviderSettings'
 import TextProviderSettings from './TextProviderSettings'
 import UsageReport from './UsageReport'
+import VideoExportSettings from './VideoExportSettings'
 import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../ui'
 import { useT } from '../i18n'
 
@@ -285,6 +286,11 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
       <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 xl:grid-cols-2">
         <TextProviderSettings />
         <ImageProviderSettings />
+        {/* Alongside the providers because it is the same kind of setting — one
+            instance-wide switch over a capability — but it is the only one of
+            the three that also decides WHO may use it, which is why it carries
+            the account list rather than a key and a model. */}
+        <VideoExportSettings />
       </div>
     </div>
   )

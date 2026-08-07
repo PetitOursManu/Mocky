@@ -622,11 +622,31 @@ Redirects are not followed (`redirect: 'manual'`). `undici` follows them by
 default, which walked around the guard in one step: the target passed the check,
 then answered `302` towards the cloud metadata endpoint.
 
-**Two deliberate bypasses**, both administrator-only:
+**Three deliberate bypasses**, all administrator-only:
 
 - an administrator-configured text target, because pointing at a local model is a
   supported setup;
-- the `sd-webui` base URL, which is local by definition.
+- the `sd-webui` base URL, which is local by definition;
+- the video-export **worker URL**, `assertWorkerTarget()` in
+  `server/video/worker.js`.
+
+The third one was added, not inherited, and the reason is worth the paragraph.
+Guarded, it had **no working configuration at all**: the Remotion worker ships as
+a compose service on an `internal: true` bridge with no published port, so its
+only address is a service name resolving into `172.16/12`. Every render died
+before leaving Mocky, and the admin panel's fallback advice — "expose the worker
+on a publicly resolvable address" — asked an operator to publish an
+unauthenticated endpoint that accepts 80 MB bodies. That is a worse trade than
+the one the guard was making.
+
+It fits the same shape as the other two: it is local by definition, and it
+reaches the server only through `PUT /api/admin/video/config` behind
+`requireAdmin` — never from a browser, which is what the guard is for. What it
+does **not** relax: the scheme must be `http` or `https`, and neither the health
+probe nor the render call follows a redirect, so a worker answering `302` towards
+the metadata endpoint cannot widen the bypass past what was granted.
+`createVideoWorker({ guard })` keeps the check injectable, so an operator running
+the worker on a public host can pass `assertSafeTargetResolved` back in.
 
 Any URL that came from a browser stays fully guarded — including on
 `POST /api/text/vision`. That was the one route taking a base URL from a header,

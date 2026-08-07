@@ -41,9 +41,34 @@ describe('core dictionary', () => {
   })
 })
 
-const AREAS = ['app', 'auth', 'canvas', 'project', 'muse', 'library', 'design', 'settings', 'preview', 'audit']
+// Every file in src/i18n/parts/ except index.ts. Forgetting a line here is
+// silent — the area simply never gets checked — so the list is derived from the
+// directory rather than kept by hand.
+const AREAS = fs
+  .readdirSync(path.join(root, 'src/i18n/parts'))
+  .filter((f) => f.endsWith('.ts') && f !== 'index.ts')
+  .map((f) => f.replace(/\.ts$/, ''))
 
 describe('area dictionaries', () => {
+  // A glob that matches nothing turns every check below into a loop over zero
+  // areas — a green suite that verifies nothing at all, which is worse than the
+  // hand-written list it replaced.
+  it('found the area files', () => {
+    expect(AREAS.length).toBeGreaterThan(5)
+  })
+
+  /**
+   * The other half of the same silent failure: a dictionary can be perfectly
+   * bilingual and still never reach the app, because only `parts/index.ts`
+   * merges it. A file nobody imports ships no strings, and every `t()` call
+   * against it renders the key.
+   */
+  it('merges every area file into the dictionary', () => {
+    const index = read('src/i18n/parts/index.ts')
+    const orphans = AREAS.filter((a) => !new RegExp(`\\bimport \\{ ${a} \\} from './${a}'`).test(index))
+    expect(orphans).toEqual([])
+  })
+
   for (const area of AREAS) {
     const src = read(`src/i18n/parts/${area}.ts`)
     const frAt = src.indexOf('fr: {')
