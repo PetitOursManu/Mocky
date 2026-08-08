@@ -65,6 +65,8 @@ export const video = {
     'video.workerNotConfigured': 'Non configuré',
     'video.workerBlockedHint':
       'Adresse refusée avant tout appel : Mocky n’a pas essayé de la joindre, redémarrer le worker n’y changera rien. Seuls http:// et https:// sont acceptés.',
+    'video.workerNotStartedHint':
+      'Le worker Remotion est un service facultatif, absent du démarrage habituel : rien ne répond tant qu’il n’a pas été construit et lancé à part. Depuis le dossier du dépôt :',
     'video.workerRecheck': 'Revérifier',
     'video.workerChecking': 'Vérification…',
 
@@ -217,6 +219,8 @@ export const video = {
     'video.workerNotConfigured': 'Not configured',
     'video.workerBlockedHint':
       'The address was refused before any call was made: Mocky did not try to reach it, and restarting the worker will not change that. Only http:// and https:// are accepted.',
+    'video.workerNotStartedHint':
+      'The Remotion worker is an optional service, left out of the usual start-up: nothing answers until it has been built and started separately. From the repository folder:',
     'video.workerRecheck': 'Re-check',
     'video.workerChecking': 'Checking…',
 

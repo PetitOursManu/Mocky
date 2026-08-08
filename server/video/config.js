@@ -19,13 +19,30 @@ import crypto from 'node:crypto'
 /** Who may export. 'allowlist' is the default; see `enabledFor`. */
 export const ACCESS_MODES = ['all', 'allowlist']
 
+/**
+ * Where the worker answers in the topology this repository ships.
+ *
+ * A default rather than an empty field, because the value is not the
+ * administrator's to invent: `docker-compose.yml` names the service
+ * `video-worker` and sets `PORT: 3030` on an internal bridge with no published
+ * port, so this address is the only one that can ever work for the standard
+ * deployment. Leaving it blank made a mandatory field out of a constant we
+ * control, and the first thing an admin met was a question with one right
+ * answer written down somewhere else.
+ *
+ * It is still editable: whoever runs the worker elsewhere — another host, a
+ * published port, a different compose project — overwrites it, and clearing it
+ * back to empty turns the feature off with an honest "not configured".
+ */
+export const DEFAULT_WORKER_URL = 'http://video-worker:3030'
+
 export function defaultVideoConfig() {
   return {
     enabled: false,
     licenseKey: null,
     access: 'allowlist',
     allowedUserIds: [],
-    workerUrl: null,
+    workerUrl: DEFAULT_WORKER_URL,
   }
 }
 
@@ -49,17 +66,30 @@ const secret = (next, prev) => {
  * bypasses of the SSRF guard; a typo stored silently would surface much later as
  * an unexplained failure in the queue, at which point nobody looks at this file.
  */
+/**
+ * Empty falls back to the shipped address rather than to nothing.
+ *
+ * A default applied only in `defaultVideoConfig()` reaches a fresh install and
+ * nobody else: an instance that saved this config once already has a file with
+ * `workerUrl: null` in it, and the merge dutifully keeps the null — so the
+ * administrator who most needed the value still had to go and find it. Resolving
+ * the fallback HERE reaches both.
+ *
+ * Nothing is lost by dropping the empty-means-off behaviour, because it was a
+ * second off-switch for a feature that already has one: `enabled` is the master
+ * switch, and it is the one the panel puts first. An address that turns the
+ * feature off by being wrong is a worse control than a checkbox that says so.
+ */
 function mergeWorkerUrl(next, prev) {
-  if (next === undefined) return prev ?? null
-  if (next === null) return null
-  const s = str(next)
-  if (s === '') return null
+  if (next === undefined) return prev || DEFAULT_WORKER_URL
+  const s = next === null ? '' : str(next)
+  if (s === '') return DEFAULT_WORKER_URL
   try {
     const u = new URL(s)
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return prev ?? null
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return prev || DEFAULT_WORKER_URL
     return s
   } catch {
-    return prev ?? null
+    return prev || DEFAULT_WORKER_URL
   }
 }
 

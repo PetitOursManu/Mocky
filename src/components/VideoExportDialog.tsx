@@ -346,9 +346,12 @@ export default function VideoExportDialog({
                 {...p}
                 value={draft.aspectRatio}
                 disabled={live}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, aspectRatio: e.currentTarget.value as VideoDraft['aspectRatio'] }))
-                }
+                // Read BEFORE the updater, never inside it — see the note on
+                // the container select below.
+                onChange={(e) => {
+                  const aspectRatio = e.currentTarget.value as VideoDraft['aspectRatio']
+                  setDraft((d) => ({ ...d, aspectRatio }))
+                }}
               >
                 {ASPECT_RATIOS.map((r) => (
                   <option key={r} value={r}>
@@ -364,9 +367,25 @@ export default function VideoExportDialog({
                 {...p}
                 value={draft.outputFormat}
                 disabled={live}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, outputFormat: e.currentTarget.value as VideoDraft['outputFormat'] }))
-                }
+                /**
+                 * The value is read here, not inside the updater.
+                 *
+                 * A functional `setState` updater does not run when it is
+                 * written — React calls it during the render pass that follows.
+                 * By then the synthetic event has had `currentTarget` reset to
+                 * null, because it only means anything while the event is
+                 * propagating. `e.currentTarget.value` inside the updater
+                 * therefore threw "Cannot read properties of null", took the
+                 * whole dialog down through the error boundary, and did it on
+                 * the first change of container — before anyone pressed Export.
+                 *
+                 * `e.target` would have survived, which is what makes this easy
+                 * to write and easy to miss.
+                 */
+                onChange={(e) => {
+                  const outputFormat = e.currentTarget.value as VideoDraft['outputFormat']
+                  setDraft((d) => ({ ...d, outputFormat }))
+                }}
               >
                 {OUTPUT_FORMATS.map((f) => (
                   <option key={f} value={f}>

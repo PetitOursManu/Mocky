@@ -439,6 +439,19 @@ function WorkerStatus({ health }: { health: VideoWorkerHealth | null }) {
       {health.reason === 'blocked-target' && (
         <p className="measure mt-1 text-caption text-ink-muted">{t('video.workerBlockedHint')}</p>
       )}
+      {/* "Unreachable" is technically right and practically useless: on a fresh
+          instance the overwhelmingly likely cause is that the opt-in Compose
+          profile was never started, and the raw fetch error ("aborted due to
+          timeout") sends an admin looking for a network fault instead. Name the
+          likely cause and give the command. */}
+      {health.reason === 'unreachable' && (
+        <>
+          <p className="measure mt-1 text-caption text-ink-muted">{t('video.workerNotStartedHint')}</p>
+          <code className="mt-1 block bg-ink/5 px-2 py-1 font-mono text-caption text-ink">
+            docker compose --profile video-export up -d --build
+          </code>
+        </>
+      )}
       {health.detail && !health.available && (
         <p className="measure mt-1 font-mono text-caption text-ink-faint">{health.detail}</p>
       )}

@@ -10,6 +10,7 @@ import {
   defaultVideoConfig,
   videoEnabledFor,
   ACCESS_MODES,
+  DEFAULT_WORKER_URL,
 } from './config.js'
 
 let dir
@@ -24,13 +25,48 @@ afterEach(() => {
 describe('mergeVideoConfig', () => {
   // The worker is an opt-in Docker service and a render costs CPU. Anything but
   // "off, allowlist" as a default would turn a `git pull` into a live feature.
-  it('defaults to off, allowlist, no key and no worker', () => {
+  it('defaults to off, allowlist and no key', () => {
     const c = defaultVideoConfig()
     expect(c.enabled).toBe(false)
     expect(c.access).toBe('allowlist')
     expect(c.licenseKey).toBe(null)
     expect(c.allowedUserIds).toEqual([])
-    expect(c.workerUrl).toBe(null)
+  })
+
+  /**
+   * The one default that is NOT off, and the exception is the point: this
+   * address is not the administrator's to invent. docker-compose.yml names the
+   * service and fixes its port, so there is exactly one value that can work for
+   * the shipped topology. An empty field made a mandatory question out of a
+   * constant we control — and it changes nothing about safety, because
+   * `enabled` is still false and nothing is reached until somebody turns it on.
+   */
+  it('points at the worker this repository ships, so nobody has to guess it', () => {
+    expect(defaultVideoConfig().workerUrl).toBe(DEFAULT_WORKER_URL)
+    expect(DEFAULT_WORKER_URL).toBe('http://video-worker:3030')
+  })
+
+  it('restores the shipped address when the field is cleared', () => {
+    // Clearing used to mean "no worker", which was a second off-switch for a
+    // feature that already has one. `enabled` is the master switch and the
+    // panel puts it first; an address that disables by being wrong is a worse
+    // control than a checkbox that says so.
+    expect(mergeVideoConfig(defaultVideoConfig(), { workerUrl: '' }).workerUrl).toBe(DEFAULT_WORKER_URL)
+    expect(mergeVideoConfig(defaultVideoConfig(), { workerUrl: null }).workerUrl).toBe(DEFAULT_WORKER_URL)
+  })
+
+  it('gives an instance that stored a null before the default existed', () => {
+    // The real case this closes: a config saved when the field was mandatory
+    // holds `workerUrl: null`, and a default applied only at file creation
+    // never reaches it — so the admin who most needed the value still had to
+    // go and find it.
+    const stored = { ...defaultVideoConfig(), workerUrl: null }
+    expect(mergeVideoConfig(stored, {}).workerUrl).toBe(DEFAULT_WORKER_URL)
+  })
+
+  it('keeps an address the operator actually chose', () => {
+    const c = mergeVideoConfig(defaultVideoConfig(), { workerUrl: 'http://10.1.2.3:9000' })
+    expect(c.workerUrl).toBe('http://10.1.2.3:9000')
   })
 
   it('KEEPS the stored licence key when the patch omits it or sends an empty string', () => {
@@ -65,11 +101,14 @@ describe('mergeVideoConfig', () => {
     expect(mergeVideoConfig(null, { allowedUserIds: 'u1' }).allowedUserIds).toEqual([])
   })
 
-  it('clears the worker URL on null or "", and refuses a non-http one', () => {
+  it('resets the worker URL to the shipped one on null or "", and refuses a non-http one', () => {
     const c = mergeVideoConfig(null, { workerUrl: 'http://remotion:3030' })
     expect(c.workerUrl).toBe('http://remotion:3030')
-    expect(mergeVideoConfig(c, { workerUrl: null }).workerUrl).toBe(null)
-    expect(mergeVideoConfig(c, { workerUrl: '' }).workerUrl).toBe(null)
+    // Emptying restores the default rather than leaving nothing — `enabled` is
+    // the off-switch, and a blank address was a second one that only ever
+    // confused the panel.
+    expect(mergeVideoConfig(c, { workerUrl: null }).workerUrl).toBe(DEFAULT_WORKER_URL)
+    expect(mergeVideoConfig(c, { workerUrl: '' }).workerUrl).toBe(DEFAULT_WORKER_URL)
     // The server fetches this URL; a stored typo fails much later, in the queue.
     expect(mergeVideoConfig(c, { workerUrl: 'file:///etc/passwd' }).workerUrl).toBe('http://remotion:3030')
     expect(mergeVideoConfig(c, { workerUrl: 'not a url' }).workerUrl).toBe('http://remotion:3030')
