@@ -128,3 +128,35 @@ export async function museJson(creds, req) {
 export function makeLlm(creds) {
   return (req) => museJson(creds, req)
 }
+
+/**
+ * Extract per-request provider credentials (ADR D7) from the same headers the
+ * /__provider proxy uses. Returns null when unset — the caller then runs with no
+ * LLM, which every server-side stage is written to survive (M3, Q1).
+ * Credentials are used only for this request and never persisted.
+ *
+ * It lives here rather than in `muse/routes.js`, where it was written, because
+ * it is now read by two unrelated routers: a second copy is a second place for
+ * the two traps below to be forgotten.
+ *
+ * @param {import('express').Request} req
+ * @returns {ProviderCreds|null}
+ */
+export function credsFromReq(req) {
+  const baseUrl = String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
+  const auth = String(req.headers['authorization'] || '')
+  const apiKey = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  // The model name comes from the BODY first. The browser sends it there for
+  // every route that takes one, and reading only the header is what made the
+  // SEO deep pass return "no model configured" on an instance where the model
+  // picker was plainly set — the header is the fallback, not the source.
+  const model = String((req.body && req.body.model) || req.headers['x-provider-model'] || '')
+  if (!baseUrl || !model) return null
+  // Which wire format the endpoint speaks, forwarded by the browser exactly as
+  // it is for /__provider (see src/lib/proxy.ts). Without it every
+  // browser-configured target was addressed as Ollama, so the four
+  // OpenAI-dialect providers in the picker — OpenAI, Anthropic, OpenRouter and
+  // "compatible" — silently failed here while working everywhere else.
+  const kind = String(req.headers['x-provider-kind'] || '') === 'openai' ? 'openai' : 'ollama'
+  return { baseUrl, apiKey, model, kind }
+}

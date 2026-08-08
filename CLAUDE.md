@@ -141,6 +141,7 @@ hand-written compositions consume it. That is the founding rule, not a phase.
 ```
 src/lib/video/timeline.ts   the zod schema (browser)
 server/video/timeline.js    the same schema, mirrored for Node — see below
+server/video/compose.js     the one model call: it ORDERS and TUNES, never picks
 server/video/config.js      admin settings; the licence key never leaves the server
 server/video/queue.js       in-memory queue + atomic JSON journal. No Redis, ever
 server/video/worker.js      HTTP client for the render worker

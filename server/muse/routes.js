@@ -2,31 +2,13 @@
 // (Discover → Distill → Dossier). `express.json` is applied at the /api level in
 // server/index.js, so req.body is parsed for POST /muse/dossier.
 import express from 'express'
-import { makeLlm } from './llm.js'
+// `credsFromReq` moved to ./llm.js when the video-export composer became its
+// second caller. Muse still runs offline when it returns null — the
+// pattern-based dossier, no LLM.
+import { makeLlm, credsFromReq } from './llm.js'
 import { runInspiration } from './inspire/engine.js'
 import { runQuality } from './quality/index.js'
 import { judgeAudit } from './quality/audit-judge.js'
-
-/**
- * Extract per-request provider credentials (ADR D7) from the same headers the
- * /__provider proxy uses. Returns null when unset — Muse then runs offline
- * (pattern-based dossier, no LLM). Credentials are used only for this request
- * and never persisted.
- */
-function credsFromReq(req) {
-  const baseUrl = String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
-  const auth = String(req.headers['authorization'] || '')
-  const apiKey = auth.startsWith('Bearer ') ? auth.slice(7) : ''
-  const model = String((req.body && req.body.model) || req.headers['x-provider-model'] || '')
-  if (!baseUrl || !model) return null
-  // Which wire format the endpoint speaks, forwarded by the browser exactly as
-  // it is for /__provider (see src/lib/proxy.ts). Without it every
-  // browser-configured target was addressed as Ollama, so the four
-  // OpenAI-dialect providers in the picker — OpenAI, Anthropic, OpenRouter and
-  // "compatible" — silently failed here while working everywhere else.
-  const kind = String(req.headers['x-provider-kind'] || '') === 'openai' ? 'openai' : 'ollama'
-  return { baseUrl, apiKey, model, kind }
-}
 
 /** A hex string, and nothing that could be smuggled into a prompt as one. */
 const HEX_RE = /^#[0-9a-fA-F]{6}$/

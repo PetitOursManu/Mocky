@@ -1,5 +1,13 @@
 import { describe as suite, it, expect } from 'vitest'
-import { BLOCKER_KEYS, MOTION_KEYS, OVERLAY_KEYS, TRANSITION_KEYS, describe } from './VideoExportDialog'
+import {
+  BLOCKER_KEYS,
+  COMPOSE_BLOCKER_KEYS,
+  MOTION_KEYS,
+  OVERLAY_KEYS,
+  TRANSITION_KEYS,
+  composeBlocker,
+  describe,
+} from './VideoExportDialog'
 import { VideoExportError } from '../lib/video/client'
 import { KEN_BURNS, OVERLAY_POSITIONS, TRANSITIONS } from '../lib/video/timeline'
 import { translate } from '../i18n'
@@ -72,6 +80,26 @@ suite('describe', () => {
   })
 })
 
+suite('composeBlocker', () => {
+  it('asks for the pictures before it asks for the sentence', () => {
+    // Both are missing when the panel opens. Naming the brief first sends
+    // somebody off to write one and then refuses them anyway, because a montage
+    // is proposed from a selection and there is nothing to propose it on.
+    expect(composeBlocker(0, '')).toBe('no-images')
+    expect(composeBlocker(0, 'a calm slideshow')).toBe('no-images')
+  })
+
+  it('treats a box full of spaces as an empty one', () => {
+    // It reaches the server as an empty brief and comes back a 400, having spent
+    // a request to say what the disabled button could have said for free.
+    expect(composeBlocker(2, '   \n ')).toBe('no-brief')
+  })
+
+  it('clears once there is something to work from', () => {
+    expect(composeBlocker(1, 'a calm slideshow')).toBeNull()
+  })
+})
+
 /**
  * The four enum-to-label maps: complete, and every label a real string.
  *
@@ -102,6 +130,7 @@ suite('the enum labels', () => {
       ...Object.values(TRANSITION_KEYS),
       ...Object.values(OVERLAY_KEYS),
       ...Object.values(BLOCKER_KEYS),
+      ...Object.values(COMPOSE_BLOCKER_KEYS),
     ]
     // `translate` hands back the key itself when it is missing, which is what
     // makes this checkable at all.

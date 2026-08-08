@@ -773,6 +773,7 @@ plafond.
 | `GET /api/videos/library`, `/:hash/meta`, `DELETE /:hash` | session | Gestion des séquences |
 | `GET /api/videos/:hash/poster.jpg`, `/:hash/f/:n.jpg` | **public** | Voir plus bas |
 | `GET /api/video/status` | session | L'export **vidéo** — noter le singulier. Accès, état du worker, et les bornes du schéma que le panneau cite |
+| `POST /api/video/compose` (12/min) | session | Le seul appel modèle de la fonctionnalité. Propose un montage sur les images **que l'utilisateur a déjà choisies** : il ordonne et règle, il ne choisit jamais. Un `imageId` hors de la sélection est refusé, jamais substitué, et un document que le schéma rejette est refusé en entier plutôt que réparé. Répond **`200` avec `timeline: null` et des remarques** quand rien d'utilisable n'est revenu — une proposition qui n'a pas eu lieu n'est pas une requête ratée (Q1) |
 | `POST /api/video/render` (6/min) | session | Valide le montage, puis met en file. `400` avec la liste des défauts, `404` en nommant les images absentes, `507` si le volume est déjà plein |
 | `GET /api/video/jobs/:id` | session | `403`, pas `404`, sur le job d'un autre : un job porte le montage, et un montage porte son texte incrusté |
 | `GET /api/video/:hash` | session | Le film terminé. **Jamais public** — la propriété est vérifiée avant l'existence, donc un hash inconnu et celui d'un autre répondent pareil |

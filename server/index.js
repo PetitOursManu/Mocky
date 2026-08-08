@@ -1453,6 +1453,13 @@ app.use(
     if (req.method === 'POST' && req.path.startsWith('/render')) {
       return authRateLimit(6, 60_000, 'video-render')(req, res, next)
     }
+    // Composing costs a model call rather than minutes of CPU, so the ceiling is
+    // its own: high enough to iterate on a brief — "shorter", "calmer", "start
+    // with the packshot" — and low enough that a retry loop cannot bill an
+    // account's provider key in a tight circle.
+    if (req.method === 'POST' && req.path.startsWith('/compose')) {
+      return authRateLimit(12, 60_000, 'video-compose')(req, res, next)
+    }
     next()
   },
   createVideoRouter({
@@ -1462,6 +1469,7 @@ app.use(
     imageLibrary: images.library,
     store: videoExports,
     budget: diskBudget,
+    resolveTarget: (profile) => textConfig.target(profile),
   }),
 )
 

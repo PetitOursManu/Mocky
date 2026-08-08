@@ -1,14 +1,17 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
+  BRIEF_MAX_LENGTH,
   POLL_GRACE_MS,
   VideoExportError,
   fetchVideoAccess,
   fetchVideoJob,
   pollDeadlinePassed,
+  proposeVideoTimeline,
   startVideoRender,
   videoDownloadUrl,
 } from './client'
 import type { VideoTimelineInput } from './timeline'
+import { defaultSettings } from '../settings'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -92,6 +95,151 @@ describe('startVideoRender', () => {
     const err = await startVideoRender(OK_TIMELINE).catch((e) => e)
     expect(err).toBe(abort)
     expect(err).not.toBeInstanceOf(VideoExportError)
+  })
+})
+
+describe('proposeVideoTimeline', () => {
+  const SETTINGS = { ...defaultSettings(), baseUrl: 'https://models.test', apiKey: 'sk-test', model: 'a-model' }
+  const PROPOSAL = { scenes: [{ imageId: IMG, durationMs: 3000, kenBurns: 'zoom-in', transitionOut: 'none', textOverlay: null }], outputFormat: 'mp4', aspectRatio: '16:9' }
+
+  /** Capture what left the browser, and answer with `body`. */
+  function spy(status: number, body: unknown) {
+    const sent: { url?: string; init?: RequestInit } = {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        sent.url = url
+        sent.init = init
+        return { ok: status >= 200 && status < 300, status, json: async () => body }
+      }),
+    )
+    return sent
+  }
+
+  it('sends the brief, the picked ids and the model name in the body', async () => {
+    // The ids are the whole world the model is shown: it orders and tunes, it
+    // never chooses a picture, and the server refuses an id from outside this
+    // list rather than substituting the nearest one.
+    const sent = spy(200, { timeline: PROPOSAL, notices: [] })
+    await proposeVideoTimeline('a calm slideshow', [IMG], { settings: SETTINGS })
+    expect(sent.url).toBe('/api/video/compose')
+    expect(JSON.parse(String(sent.init!.body))).toEqual({
+      brief: 'a calm slideshow',
+      images: [IMG],
+      // In the BODY, not only the header: `credsFromReq` reads the body first,
+      // and a route that sent just the header is what once left a whole pass
+      // reporting "no model configured" on an instance that plainly had one.
+      model: 'a-model',
+    })
+  })
+
+  it('carries the browser’s provider settings, so "bring your own key" works here too', async () => {
+    const sent = spy(200, { timeline: PROPOSAL, notices: [] })
+    await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    const headers = sent.init!.headers as Record<string, string>
+    expect(headers['x-provider-base']).toBe('https://models.test')
+    expect(headers['authorization']).toBe('Bearer sk-test')
+    // Without the dialect header every browser-configured target is addressed
+    // as Ollama, and the four OpenAI-dialect providers in the picker fail here
+    // while working everywhere else.
+    expect(headers['x-provider-kind']).toBeTruthy()
+  })
+
+  it('resolves when nothing was proposed, rather than throwing at the panel', async () => {
+    // Q1: a proposal that did not happen is not a request that failed. The user
+    // still has the editor they opened the panel with, and a thrown error would
+    // draw a red banner over a feature that is working.
+    spy(200, { timeline: null, notices: ['No text model is configured.'] })
+    const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    expect(out.timeline).toBeNull()
+    expect(out.notices).toEqual(['No text model is configured.'])
+  })
+
+  it('applies the schema’s defaults to what it hands the form', async () => {
+    // The proposal reaches the editor as a parsed document, so a scene the model
+    // left half-specified arrives with the same defaults a hand-built one gets.
+    spy(200, { timeline: { scenes: [{ imageId: IMG, durationMs: 2000 }] }, notices: [] })
+    const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    expect(out.timeline!.scenes[0]).toMatchObject({ kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null })
+  })
+
+  it('refuses a timeline this browser’s schema rejects instead of filling the form with it', async () => {
+    // The only check that can see the hand-mirrored server schema drift from
+    // this one. Without it the form fills with a document /render will refuse,
+    // and the refusal arrives later, reading as if the user had composed it.
+    //
+    // Refused, never repaired: clamping the 99 s scene to 15 s would turn a
+    // failed call into a shipped video, which is the exact hole the schema was
+    // written to close — the film is not the one that was described, and nobody
+    // can tell which one they are looking at.
+    spy(200, { timeline: { scenes: [{ imageId: IMG, durationMs: 99000 }] }, notices: [] })
+    const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    expect(out.timeline).toBeNull()
+    expect(out.notices.join(' ')).toContain('durationMs')
+  })
+
+  it.each([
+    [403, {}, 'no-access'],
+    [400, {}, 'invalid'],
+    [404, { missingImageIds: [IMG] }, 'missing-images'],
+    [500, {}, 'http'],
+  ])('throws on HTTP %i, which is the request being wrong rather than the answer', async (status, body, code) => {
+    spy(status as number, { error: 'server said so', ...(body as object) })
+    const err = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS }).catch((e) => e)
+    expect(err).toBeInstanceOf(VideoExportError)
+    expect(err.code).toBe(code)
+  })
+
+  it('lets an abort through untouched, so a cancelled proposal is silent', async () => {
+    const abort = Object.assign(new Error('aborted'), { name: 'AbortError' })
+    vi.stubGlobal('fetch', vi.fn(async () => { throw abort }))
+    const err = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS }).catch((e) => e)
+    expect(err).toBe(abort)
+  })
+
+  it('calls a dead server "offline" here as well', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
+    const err = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS }).catch((e) => e)
+    expect(err.code).toBe('offline')
+  })
+
+  it('says something when a 200 carries neither a timeline nor a reason', async () => {
+    // The route never answers that shape: every exit with no timeline goes
+    // through `refuse()`, which carries a sentence. So this is something in
+    // FRONT of it — a reverse proxy's own 200, a build that predates /compose.
+    // Passed on as it stood, the button spun, stopped, and changed nothing
+    // visible anywhere on the panel. Degrading is allowed (Q1); degrading in
+    // silence is the one thing it forbids.
+    spy(200, {})
+    const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    expect(out.timeline).toBeNull()
+    expect(out.notices).toHaveLength(1)
+    expect(out.notices[0]).toMatch(/\S/)
+  })
+
+  it('counts the refusals it did not print, rather than trimming in silence', async () => {
+    // server/video/compose.js says "…and N more" about its own list. A trimmed
+    // report that does not say it was trimmed reads as the whole story, which
+    // is how four problems become the reason nobody looks for the other two.
+    spy(200, {
+      timeline: { scenes: Array.from({ length: 6 }, () => ({ imageId: IMG, durationMs: 99000 })) },
+      notices: [],
+    })
+    const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    expect(out.timeline).toBeNull()
+    // Four sentences and a tally. Six scenes at 99 s each break the per-scene
+    // ceiling six times AND the 120 s total, so there are seven refusals here —
+    // which is the point: the count has to come from the list, not from a
+    // number somebody typed next to it.
+    expect(out.notices).toHaveLength(5)
+    expect(out.notices[out.notices.length - 1]).toMatch(/…and 3 more problems/)
+  })
+
+  it('bounds the brief at the length the server actually reads', () => {
+    // server/video/compose.js SLICES rather than refusing, so a form that let
+    // more through would drop the end of a sentence in silence and compose from
+    // the rest.
+    expect(BRIEF_MAX_LENGTH).toBe(600)
   })
 })
 

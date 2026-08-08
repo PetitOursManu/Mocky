@@ -742,6 +742,7 @@ nothing inside them may grow without a ceiling.
 | `GET /api/videos/library`, `/:hash/meta`, `DELETE /:hash` | session | Sequence management |
 | `GET /api/videos/:hash/poster.jpg`, `/:hash/f/:n.jpg` | **public** | See below |
 | `GET /api/video/status` | session | Video **export** — note the singular. Access, worker health, and the schema bounds the panel quotes |
+| `POST /api/video/compose` (12/min) | session | The one model call in the feature. Proposes a montage over images **the user has already selected**: it orders and tunes, it never picks. An `imageId` from outside the selection is refused, never substituted, and a document the schema rejects is refused whole rather than repaired. Answers **`200` with `timeline: null` and notices** when nothing usable came back — a proposal that did not happen is not a request that failed (Q1) |
 | `POST /api/video/render` (6/min) | session | Validates the timeline, then queues. `400` with the issue list, `404` naming absent images, `507` when the volume is already full |
 | `GET /api/video/jobs/:id` | session | `403`, not `404`, on someone else's job: a job carries the timeline, and a timeline carries their overlay text |
 | `GET /api/video/:hash` | session | The finished film. **Never public** — ownership is checked before existence, so an unknown hash and a stranger's answer alike |

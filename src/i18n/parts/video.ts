@@ -94,6 +94,29 @@ export const video = {
     'video.workerDownBody':
       'Le service de rendu ne répond pas. Rien ne peut être mis en file d’attente tant qu’il est absent ; c’est un réglage d’instance, pas un problème de montage.',
 
+    // ---- décrire plutôt que régler ---------------------------------------
+    // Le mot « proposer » est tenu partout : le modèle ordonne et règle, il ne
+    // valide rien et ne lance rien. Ce qui revient remplit le formulaire du
+    // dessous, que l’on peut reprendre entièrement — c’est un pré-remplissage,
+    // pas un second mode.
+    'video.composeTitle': 'Décrire la vidéo',
+    'video.composeBrief': 'Décrivez la vidéo',
+    'video.composeHint':
+      'Le modèle ordonne les images que vous avez choisies et règle durées, mouvements, transitions et textes. Il ne choisit pas les images et n’en ajoute aucune. La proposition remplit le formulaire ci-dessous : rien n’est lancé, tout reste modifiable. Consomme des jetons.',
+    'video.composePlaceholder':
+      'Un diaporama calme de nos produits, une trentaine de secondes, sous-titré en français.',
+    'video.briefCount': '{n} / {max}',
+    'video.compose': 'Proposer un montage',
+    'video.composing': 'Proposition en cours…',
+    'video.composeNeedImages': 'Choisissez d’abord au moins une image : le montage est bâti sur votre sélection.',
+    'video.composeNeedBrief': 'Décrivez la vidéo en une phrase.',
+    'video.composeOverwriteConfirm':
+      'Remplacer le montage que vous avez réglé à la main ? L’ordre, les durées, les mouvements, les transitions et les textes incrustés seront écrasés par la proposition.',
+    // Titre de la bannière des remarques. Elles arrivent aussi — et surtout —
+    // quand rien n’a été proposé : le formulaire reste alors tel quel, et ces
+    // phrases sont la seule explication de ce qui ne s’est pas produit.
+    'video.composeNotices': 'À propos de cette proposition',
+
     'video.scenesTitle': 'Scènes',
     'video.sceneCount': '{n} sur {max}',
     'video.addSceneFull': 'Maximum atteint : {max} scènes',
@@ -247,6 +270,27 @@ export const video = {
     'video.workerDown': 'Render worker unreachable',
     'video.workerDownBody':
       'The render service is not answering. Nothing can be queued while it is away; this is an instance setting, not a problem with your cut.',
+
+    // ---- describing instead of dialling ------------------------------------
+    // "Propose" is held to throughout: the model orders and tunes, it approves
+    // nothing and starts nothing. What comes back fills the form below, which
+    // stays entirely editable — a pre-fill, not a second mode.
+    'video.composeTitle': 'Describe the video',
+    'video.composeBrief': 'Describe the video',
+    'video.composeHint':
+      'The model orders the images you chose and sets durations, motion, transitions and captions. It does not choose the pictures and cannot add any. The proposal fills the form below: nothing is started, and everything stays editable. Spends tokens.',
+    'video.composePlaceholder': 'A calm slideshow of our products, about thirty seconds, captioned in English.',
+    'video.briefCount': '{n} / {max}',
+    'video.compose': 'Propose a cut',
+    'video.composing': 'Proposing…',
+    'video.composeNeedImages': 'Pick at least one image first: the cut is built from your selection.',
+    'video.composeNeedBrief': 'Describe the video in one sentence.',
+    'video.composeOverwriteConfirm':
+      'Replace the cut you arranged by hand? The order, the durations, the motion, the transitions and the burnt-in text will be overwritten by the proposal.',
+    // The heading of the notices banner. They also arrive — mostly — when
+    // nothing was proposed: the form is then left exactly as it was, and these
+    // sentences are the only account of what did not happen.
+    'video.composeNotices': 'About this proposal',
 
     'video.scenesTitle': 'Scenes',
     'video.sceneCount': '{n} of {max}',

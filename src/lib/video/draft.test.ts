@@ -5,16 +5,18 @@ import {
   addScene,
   clampDuration,
   draftBlockers,
+  draftFromTimeline,
   draftTotalMs,
   emptyDraft,
   formatSeconds,
   moveScene,
   removeScene,
+  setAspectRatio,
   toTimelineInput,
   updateScene,
   type VideoDraft,
 } from './draft'
-import { MAX_SCENES, MAX_TOTAL_DURATION_MS, VideoTimelineSchema } from './timeline'
+import { MAX_SCENES, MAX_TOTAL_DURATION_MS, VideoTimelineSchema, type VideoTimeline } from './timeline'
 
 const IMG = 'a'.repeat(64)
 const IMG2 = 'b'.repeat(64)
@@ -174,6 +176,87 @@ describe('toTimelineInput', () => {
     expect(Object.keys(sent.scenes as object[])).toBeTruthy()
     expect((sent.scenes as Record<string, unknown>[])[0]).not.toHaveProperty('key')
     expect(VideoTimelineSchema.safeParse(sent).success).toBe(true)
+  })
+})
+
+describe('draftFromTimeline', () => {
+  const proposed = (): VideoTimeline =>
+    VideoTimelineSchema.parse({
+      scenes: [
+        { imageId: IMG, durationMs: 5000, kenBurns: 'zoom-in', transitionOut: 'none' },
+        {
+          imageId: IMG2,
+          durationMs: 3000,
+          kenBurns: 'pan-left',
+          transitionOut: 'wipe-left',
+          textOverlay: { content: 'Chapitre 1', position: 'top' },
+        },
+      ],
+      aspectRatio: '9:16',
+      outputFormat: 'webm',
+    })
+
+  it('round-trips: the pre-filled form produces the film that was proposed', () => {
+    // The whole promise of the "describe it" path — what the user sees in the
+    // controls IS the proposal, not a summary of it. A lossy fill would send a
+    // different timeline to the renderer from the one that was shown, and the
+    // difference would only ever surface as a finished mp4.
+    const timeline = proposed()
+    expect(VideoTimelineSchema.parse(toTimelineInput(draftFromTimeline(timeline)))).toEqual(timeline)
+  })
+
+  it('gives every row its own key, including two scenes on one picture', () => {
+    // A proposal is reordered before it is rendered, and the array index as a
+    // key is what makes React keep a moved row's DOM attached to the wrong scene.
+    const d = draftFromTimeline(VideoTimelineSchema.parse({ scenes: [{ imageId: IMG, durationMs: 2000 }, { imageId: IMG, durationMs: 2000 }] }))
+    expect(d.scenes[0].key).not.toBe(d.scenes[1].key)
+  })
+
+  it('turns a silent scene into an empty box on the form’s own default position', () => {
+    // Not `undefined`: a select with no value reads as its first option, which
+    // is `top`, so switching an overlay on later would have moved it.
+    const d = draftFromTimeline(proposed())
+    expect(d.scenes[0].overlayText).toBe('')
+    expect(d.scenes[0].overlayPosition).toBe('bottom')
+    expect(d.scenes[1].overlayText).toBe('Chapitre 1')
+  })
+
+  it('arrives as untouched work, so the next proposal does not warn for nothing', () => {
+    expect(draftFromTimeline(proposed()).handEdited).toBe(false)
+  })
+})
+
+describe('handEdited', () => {
+  /**
+   * What the overwrite warning is asking about.
+   *
+   * Recorded rather than inferred: a reordered list of default scenes looks
+   * exactly like the order the pictures were picked in, and a running order is
+   * the edit that costs the most to redo.
+   */
+  it('stays false while images are only being chosen', () => {
+    // Picking pictures is the proposal's INPUT, so a proposal destroys none of
+    // it. Warning here would fire on the ordinary path — pick, describe,
+    // propose — and a confirmation people click through is not a confirmation.
+    const picked = addScene(addScene(emptyDraft(), IMG), IMG2)
+    expect(removeScene(picked, picked.scenes[0].key).handEdited).toBe(false)
+  })
+
+  it.each([
+    ['a scene is tuned', (d: VideoDraft) => updateScene(d, d.scenes[0].key, { durationMs: 9000 })],
+    ['the running order changes', (d: VideoDraft) => moveScene(d, d.scenes[0].key, 1)],
+    ['the aspect ratio is chosen', (d: VideoDraft) => setAspectRatio(d, '9:16')],
+  ])('turns true once %s', (_what, act) => {
+    expect(act(withScenes(2, IMG)).handEdited).toBe(true)
+  })
+
+  it.each([
+    ['a move that hits the end of the list', (d: VideoDraft) => moveScene(d, d.scenes[0].key, -1)],
+    ['a patch aimed at a scene that is gone', (d: VideoDraft) => updateScene(d, 'nope', { durationMs: 9000 })],
+  ])('is not set by %s, which changed nothing', (_what, act) => {
+    // The warning has to mean something. Raising it for a click that did not
+    // alter the draft is how it becomes noise.
+    expect(act(withScenes(2, IMG)).handEdited).toBe(false)
   })
 })
 

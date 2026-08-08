@@ -21,6 +21,7 @@ import {
   type OutputFormat,
   type OverlayPosition,
   type Transition,
+  type VideoTimeline,
   type VideoTimelineInput,
 } from './timeline'
 
@@ -74,6 +75,22 @@ export interface VideoDraft {
   scenes: DraftScene[]
   aspectRatio: AspectRatio
   outputFormat: OutputFormat
+  /**
+   * Has anything here been arranged by hand?
+   *
+   * Recorded rather than inferred, because a proposal REPLACES this draft and
+   * the panel has to warn before it does. Inferring it from the values — "this
+   * scene is no longer four seconds" — cannot see the one edit that is hardest
+   * to redo, a twenty-scene running order, since a reordered list of defaults is
+   * indistinguishable from the order the pictures were picked in.
+   *
+   * Adding and removing images deliberately do NOT set it. The selection is the
+   * proposal's INPUT — it is what the model is given to order — so choosing
+   * pictures loses nothing when a proposal lands, and a confirmation on the
+   * ordinary path is one people learn to click through, including the time it
+   * was about to cost them an afternoon.
+   */
+  handEdited: boolean
 }
 
 let counter = 0
@@ -81,7 +98,7 @@ let counter = 0
 const newKey = () => `s${++counter}`
 
 export function emptyDraft(): VideoDraft {
-  return { scenes: [], aspectRatio: '16:9', outputFormat: 'mp4' }
+  return { scenes: [], aspectRatio: '16:9', outputFormat: 'mp4', handEdited: false }
 }
 
 /**
@@ -112,7 +129,17 @@ export function removeScene(draft: VideoDraft, key: string): VideoDraft {
 }
 
 export function updateScene(draft: VideoDraft, key: string, patch: Partial<Omit<DraftScene, 'key'>>): VideoDraft {
-  return { ...draft, scenes: draft.scenes.map((s) => (s.key === key ? { ...s, ...patch } : s)) }
+  if (!draft.scenes.some((s) => s.key === key)) return draft
+  return { ...draft, handEdited: true, scenes: draft.scenes.map((s) => (s.key === key ? { ...s, ...patch } : s)) }
+}
+
+/** The two output settings, here rather than inline, so one place sets `handEdited`. */
+export function setAspectRatio(draft: VideoDraft, aspectRatio: AspectRatio): VideoDraft {
+  return { ...draft, aspectRatio, handEdited: true }
+}
+
+export function setOutputFormat(draft: VideoDraft, outputFormat: OutputFormat): VideoDraft {
+  return { ...draft, outputFormat, handEdited: true }
 }
 
 /**
@@ -130,7 +157,43 @@ export function moveScene(draft: VideoDraft, key: string, delta: number): VideoD
   const scenes = [...draft.scenes]
   const [moved] = scenes.splice(from, 1)
   scenes.splice(to, 0, moved)
-  return { ...draft, scenes }
+  return { ...draft, scenes, handEdited: true }
+}
+
+/**
+ * Fill the editor from a proposal.
+ *
+ * The point of the whole "describe it" path: what comes back is not a mode of
+ * its own, it is the SAME form somebody could have filled in by hand, with every
+ * control still live. A read-only preview of a model's montage would have to be
+ * accepted whole or thrown away whole, and the one thing everybody wants to do
+ * with a proposed running order is move two scenes.
+ *
+ * Fresh keys, never the index, for the reason `addScene` gives: reordering a
+ * proposal is the first thing that happens to it.
+ *
+ * `handEdited: false`, because nothing here was arranged by hand yet — tune this
+ * and ask for another proposal, and the warning fires again.
+ */
+export function draftFromTimeline(timeline: VideoTimeline): VideoDraft {
+  return {
+    scenes: timeline.scenes.map((s) => ({
+      key: newKey(),
+      imageId: s.imageId,
+      durationMs: s.durationMs,
+      kenBurns: s.kenBurns,
+      transitionOut: s.transitionOut,
+      // No overlay is an empty box, which is what `toTimelineInput` turns back
+      // into `null`. The position falls back to the form's own default rather
+      // than being left undefined: a select with no value is a control that
+      // silently reads as the first option, which is not `bottom`.
+      overlayText: s.textOverlay?.content ?? '',
+      overlayPosition: s.textOverlay?.position ?? 'bottom',
+    })),
+    aspectRatio: timeline.aspectRatio,
+    outputFormat: timeline.outputFormat,
+    handEdited: false,
+  }
 }
 
 /**

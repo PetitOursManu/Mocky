@@ -6,11 +6,14 @@ import {
   addScene,
   clampDuration,
   draftBlockers,
+  draftFromTimeline,
   draftTotalMs,
   emptyDraft,
   formatSeconds,
   moveScene,
   removeScene,
+  setAspectRatio,
+  setOutputFormat,
   toTimelineInput,
   updateScene,
   type DraftBlocker,
@@ -18,11 +21,13 @@ import {
   type VideoDraft,
 } from '../lib/video/draft'
 import {
+  BRIEF_MAX_LENGTH,
   POLL_INTERVAL_MS,
   VideoExportError,
   fetchVideoAccess,
   fetchVideoJob,
   pollDeadlinePassed,
+  proposeVideoTimeline,
   startVideoRender,
   videoDownloadUrl,
   type VideoAccess,
@@ -43,7 +48,7 @@ import {
   type Transition,
 } from '../lib/video/timeline'
 import { ImagePicker } from './ImagePicker'
-import { Banner, Button, ButtonLink, Field, Icon, IconButton, Input, Modal, Select, Spinner } from '../ui'
+import { Banner, Button, ButtonLink, Field, Icon, IconButton, Input, Modal, Select, Spinner, Textarea } from '../ui'
 import { useLang, useT } from '../i18n'
 
 export const MOTION_KEYS: Record<KenBurns, string> = {
@@ -65,6 +70,31 @@ export const OVERLAY_KEYS: Record<OverlayPosition, string> = {
   top: 'video.overlayTop',
   center: 'video.overlayCenter',
   bottom: 'video.overlayBottom',
+}
+
+/**
+ * Why "Propose a cut" will not fire.
+ *
+ * The same shape as `BLOCKER_KEYS`, and for the same reason: the panel names the
+ * reason next to the disabled button, and a control that refuses to fire without
+ * saying why is what this whole screen was built to avoid.
+ */
+export type ComposeBlocker = 'no-images' | 'no-brief'
+
+export const COMPOSE_BLOCKER_KEYS: Record<ComposeBlocker, string> = {
+  'no-images': 'video.composeNeedImages',
+  'no-brief': 'video.composeNeedBrief',
+}
+
+/**
+ * Ordered, not alphabetical: there is nothing to propose a montage ON before
+ * there is a selection, so asking for a sentence first would send somebody to
+ * write one and then refuse them anyway.
+ */
+export function composeBlocker(sceneCount: number, brief: string): ComposeBlocker | null {
+  if (sceneCount === 0) return 'no-images'
+  if (!brief.trim()) return 'no-brief'
+  return null
 }
 
 /** What the panel shows instead of the button, when the button cannot fire. */
@@ -109,6 +139,13 @@ interface Failure {
  * this panel collects becomes JSX, CSS or a URL. Every control writes into one
  * field of a `VideoTimeline`, and a hand-written composition in the worker is
  * the only thing that ever turns those fields into pixels.
+ *
+ * There are two ways to fill it in and only one form. "Propose a cut" sends a
+ * sentence and the images already picked to POST /api/video/compose, and what
+ * comes back is written into the SAME controls, all of them still live — the
+ * model proposes, the user disposes. It is a pre-fill, not a mode: a read-only
+ * preview would have to be taken whole or thrown away whole, and the first thing
+ * anyone wants to do with a proposed running order is move two scenes.
  */
 export default function VideoExportDialog({
   projectId,
@@ -137,6 +174,10 @@ export default function VideoExportDialog({
   const [failure, setFailure] = useState<Failure | null>(null)
   const [pollStumbled, setPollStumbled] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [brief, setBrief] = useState('')
+  const [proposing, setProposing] = useState(false)
+  /** What the server said about the proposal. English, verbatim — see the banner. */
+  const [notices, setNotices] = useState<string[]>([])
 
   // ---- access -----------------------------------------------------------
 
@@ -222,6 +263,79 @@ export default function VideoExportDialog({
 
   const edit = useCallback((fn: (d: VideoDraft) => VideoDraft) => setDraft((d) => fn(d)), [])
 
+  /**
+   * The proposal in flight, so it can be cancelled — by the user, or by the
+   * panel closing under it.
+   *
+   * A ref rather than state: nothing renders from it, and putting an
+   * AbortController in state re-renders the whole panel twice per call for a
+   * value only the handler reads.
+   */
+  const proposeCtrl = useRef<AbortController | null>(null)
+  useEffect(
+    () => () => {
+      // Cleared as well as aborted, so the one guard below — "does this call
+      // still own the form?" — covers the unmount too, and a call in flight
+      // when the panel closes sets no state on its way out.
+      proposeCtrl.current?.abort()
+      proposeCtrl.current = null
+    },
+    [],
+  )
+
+  /**
+   * Ask for a montage, and pre-fill the form with it.
+   *
+   * The confirmation is the load-bearing part. A proposal replaces the running
+   * order, every duration, every motion and every caption at once, and doing
+   * that silently to somebody who has spent ten minutes in this panel is the
+   * worst possible moment to discover what the button does. It fires on hand
+   * work only — see `handEdited` — so the ordinary path, pick pictures then
+   * describe, never asks.
+   */
+  async function propose() {
+    if (draft.handEdited && !confirm(t('video.composeOverwriteConfirm'))) return
+
+    proposeCtrl.current?.abort()
+    const ctrl = new AbortController()
+    proposeCtrl.current = ctrl
+    setProposing(true)
+    setFailure(null)
+    setNotices([])
+    try {
+      const proposal = await proposeVideoTimeline(
+        brief,
+        draft.scenes.map((s) => s.imageId),
+        { signal: ctrl.signal },
+      )
+      // A newer proposal (or the panel closing) owns the form now. Writing this
+      // one in would replace the answer the user is actually waiting for.
+      if (proposeCtrl.current !== ctrl) return
+      setNotices(proposal.notices)
+      /*
+       * Nothing proposed leaves the form EXACTLY as it was.
+       *
+       * Clearing it would take a working timeline away as the price of asking a
+       * question, and the reasons a proposal comes back empty — no model
+       * configured, a provider that hung up, a document the schema refused —
+       * have nothing to do with the montage already on screen (Q1).
+       */
+      if (proposal.timeline) setDraft(draftFromTimeline(proposal.timeline))
+    } catch (e) {
+      // An abort is this panel cancelling, not something that went wrong.
+      if ((e as { name?: string })?.name === 'AbortError') return
+      setFailure(describe(e))
+    } finally {
+      if (proposeCtrl.current === ctrl) setProposing(false)
+    }
+  }
+
+  function cancelPropose() {
+    proposeCtrl.current?.abort()
+    proposeCtrl.current = null
+    setProposing(false)
+  }
+
   async function start() {
     setStarting(true)
     setFailure(null)
@@ -262,6 +376,11 @@ export default function VideoExportDialog({
 
     const live = job?.status === 'queued' || job?.status === 'rendering'
     const workerDown = !access.worker.available
+    // Every control the proposal is about to rewrite is frozen while it runs.
+    // A slider moved during the call is an edit that vanishes when the answer
+    // lands, with nothing to show it was ever made.
+    const frozen = live || proposing
+    const composeBlocked = composeBlocker(draft.scenes.length, brief)
 
     return (
       <>
@@ -292,6 +411,81 @@ export default function VideoExportDialog({
 
         {job && <JobPanel job={job} stumbled={pollStumbled} onNewCut={newCut} />}
 
+        {/* Shown whether or not a timeline came back, and that is the point:
+            with `timeline: null` these sentences are the only account of what
+            did not happen, and the form below is deliberately untouched. `warn`
+            rather than `danger` — an image left out of an otherwise good
+            proposal is a remark, not a failure. The server's own words, kept
+            verbatim, for the reason the error banner gives above. */}
+        {notices.length > 0 && (
+          <Banner tone="warn" title={t('video.composeNotices')} className="mt-3">
+            <ul className="space-y-1">
+              {notices.map((n, i) => (
+                <li key={i}>{n}</li>
+              ))}
+            </ul>
+          </Banner>
+        )}
+
+        {/*
+          Above the scenes, not below them.
+
+          What this block produces is the list underneath it, so it reads in the
+          order it works: describe, and watch the form fill in. Put after the
+          picker it would sit under twenty scene rows in a body that scrolls,
+          where nobody discovers it — and the panel would look like a manual
+          editor with a hidden shortcut rather than two ways in.
+        */}
+        <div className="mt-4 border border-line-soft bg-ink/5 p-3">
+          <div className="section-head">
+            <span className="kicker text-accent-ink">{t('video.composeTitle')}</span>
+          </div>
+          <Field label={t('video.composeBrief')} hint={t('video.composeHint')}>
+            {(p) => (
+              <Textarea
+                {...p}
+                rows={2}
+                value={brief}
+                disabled={frozen}
+                maxLength={BRIEF_MAX_LENGTH}
+                placeholder={t('video.composePlaceholder')}
+                onChange={(e) => setBrief(e.currentTarget.value)}
+              />
+            )}
+          </Field>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={frozen || composeBlocked !== null}
+              onClick={propose}
+            >
+              <Icon name="sparkle" size={15} />
+              {proposing ? t('video.composing') : t('video.compose')}
+            </Button>
+            {/* Cancellable, and visibly so: this is a model call on somebody
+                else's hardware, and the only alternative to a stop button is
+                closing the panel to get out of it. */}
+            {proposing && (
+              <>
+                <Spinner />
+                <Button variant="ghost" size="sm" onClick={cancelPropose}>
+                  {t('common.cancel')}
+                </Button>
+              </>
+            )}
+            <span className="ml-auto font-mono text-caption text-ink-faint">
+              {t('video.briefCount', { n: brief.length, max: BRIEF_MAX_LENGTH })}
+            </span>
+          </div>
+          {/* Next to the disabled button, for the reason the budget line exists:
+              a control that will not fire and will not say why is what this
+              whole panel was built to avoid. */}
+          {composeBlocked && !proposing && (
+            <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(COMPOSE_BLOCKER_KEYS[composeBlocked])}</p>
+          )}
+        </div>
+
         <div className="section-head mt-5">
           <span className="kicker text-accent-ink">{t('video.scenesTitle')}</span>
           <span className="ml-auto font-mono text-caption text-accent-ink">
@@ -312,7 +506,7 @@ export default function VideoExportDialog({
                 scene={scene}
                 index={i}
                 isLast={i === draft.scenes.length - 1}
-                disabled={live}
+                disabled={frozen}
                 onMove={(delta) => edit((d) => moveScene(d, scene.key, delta))}
                 onRemove={() => edit((d) => removeScene(d, scene.key))}
                 onPatch={(patch) => edit((d) => updateScene(d, scene.key, patch))}
@@ -329,7 +523,7 @@ export default function VideoExportDialog({
               projectId={projectId}
               heading={t('video.pickScene')}
               selected={draft.scenes.map((s) => s.imageId)}
-              disabled={live}
+              disabled={frozen}
               onPick={(hash) => edit((d) => addScene(d, hash))}
               onError={(message) => setFailure({ titleKey: 'common.error', detail: message })}
             />
@@ -345,12 +539,12 @@ export default function VideoExportDialog({
               <Select
                 {...p}
                 value={draft.aspectRatio}
-                disabled={live}
+                disabled={frozen}
                 // Read BEFORE the updater, never inside it — see the note on
                 // the container select below.
                 onChange={(e) => {
                   const aspectRatio = e.currentTarget.value as VideoDraft['aspectRatio']
-                  setDraft((d) => ({ ...d, aspectRatio }))
+                  edit((d) => setAspectRatio(d, aspectRatio))
                 }}
               >
                 {ASPECT_RATIOS.map((r) => (
@@ -366,7 +560,7 @@ export default function VideoExportDialog({
               <Select
                 {...p}
                 value={draft.outputFormat}
-                disabled={live}
+                disabled={frozen}
                 /**
                  * The value is read here, not inside the updater.
                  *
@@ -384,7 +578,7 @@ export default function VideoExportDialog({
                  */
                 onChange={(e) => {
                   const outputFormat = e.currentTarget.value as VideoDraft['outputFormat']
-                  setDraft((d) => ({ ...d, outputFormat }))
+                  edit((d) => setOutputFormat(d, outputFormat))
                 }}
               >
                 {OUTPUT_FORMATS.map((f) => (
@@ -425,6 +619,9 @@ export default function VideoExportDialog({
           onClick={start}
           disabled={
             starting ||
+            // A render started here would queue the timeline that is about to be
+            // replaced, and pay minutes of CPU for a film nobody will look at.
+            proposing ||
             job?.status === 'queued' ||
             job?.status === 'rendering' ||
             !access.worker.available ||
