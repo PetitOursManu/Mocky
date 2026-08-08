@@ -14,6 +14,7 @@ import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from 
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
+import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
@@ -250,7 +251,6 @@ export default function ProjectView({
    * the id, and nothing else in the interface lists past exports.
    */
   const [videoJobId, setVideoJobId] = useState<string | null>(null)
-  const [showAudit, setShowAudit] = useState(false)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   /** The brief above the composer. Folded by default: open, it eats the canvas. */
   const [briefOpen, setBriefOpen] = useState(() => localStorage.getItem(BRIEF_PREF_KEY) === '1')
@@ -294,9 +294,19 @@ export default function ProjectView({
   const abortRef = useRef<AbortController | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
-  const [linkMode, setLinkMode] = useState(false)
+  /**
+   * The one panel over the canvas' top-right corner — see lib/rightSlot.ts.
+   *
+   * One value and not three booleans: the Design System inspector, the audit
+   * panel and the Links list all live at `absolute right-4 top-11`, and as
+   * separate flags two of them could be — and were — open at once, painting over
+   * each other with no z-index to settle it.
+   */
+  const [rightSlot, setRightSlot] = useState<RightSlot>(null)
+  const linkMode = rightSlot === 'links'
+  const showSystem = rightSlot === 'system'
+  const showAudit = rightSlot === 'audit'
   const [modifyMode, setModifyMode] = useState(false)
-  const [showSystem, setShowSystem] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
   const [modifyLabelDraft, setModifyLabelDraft] = useState('')
@@ -1681,11 +1691,6 @@ export default function ProjectView({
   }
 
   /**
-   * Change only the visible text of the picked element (Lot C.2). Tries a
-   * deterministic in-place swap first (instant, free, no model) and falls back
-   * to a targeted LLM edit when the text isn't a unique verbatim match.
-   */
-  /**
    * Correct named SEO / accessibility findings on one screen.
    *
    * Reuses `runPolishLoop` — its four stop conditions are the hard part and are
@@ -1702,6 +1707,24 @@ export default function ProjectView({
    * @returns how many findings were resolved, or null when nothing could run.
    */
   async function fixAuditFindings(screenId: string, findings: QualityFinding[]): Promise<number | null> {
+    /*
+     * The same guard as regenerate, polishScreen, addAnimations and applyModify,
+     * and the only one of the five that was missing it.
+     *
+     * `busy`, `abortRef.current`, `regenLabel` and `regeneratingIds` are one set
+     * of state shared by every model-backed mutation, so a second one starting
+     * mid-flight does not run beside the first — it overwrites it. Started
+     * during a regeneration, this took over `abortRef`, so Stop cancelled the
+     * audit fix and left the regeneration running with nothing pointing at it;
+     * moved the progress overlay onto its own screen; and then cleared all four
+     * in its `finally` while the regeneration was still going, which is how a
+     * screen finishes generating with no sign it ever started.
+     *
+     * Returning null rather than throwing: AuditPanel already treats null as
+     * "the pass could not run", and the panel's buttons are disabled on `busy`
+     * anyway, so this is the backstop for a click that slipped through.
+     */
+    if (busy) return null
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen) return null
     // Read at call time, like every other model-backed path here, so an admin
@@ -1716,6 +1739,13 @@ export default function ProjectView({
     setBusy(true)
     setRegenLabel(t('audit.fixing'))
     setRegeneratingIds(new Set([screenId]))
+    // Every path that hands a screen wholesale to the model resets this first,
+    // and this one did not. `retryRefs` is the auto-repair budget — two attempts
+    // per screen, spent on render errors — and it is keyed by screen id, not by
+    // version of the code. A screen that had already burned MAX_FIX_ATTEMPTS on
+    // its previous source would get no repair at all if the markup correction
+    // came back broken, which is the moment it is most likely to.
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
       const designMd = activeDirection()
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
@@ -1797,6 +1827,16 @@ export default function ProjectView({
     })
   }
 
+  /**
+   * Change only the visible text of the picked element (Lot C.2). Tries a
+   * deterministic in-place swap first (instant, free, no model) and falls back
+   * to a targeted LLM edit when the text isn't a unique verbatim match.
+   *
+   * No `busy` guard of its own: the direct swap is synchronous and costs
+   * nothing, and the fallback is `applyModify`, which already refuses while
+   * another mutation is running. Adding a second check here would be a second
+   * place to keep in step with a rule that has one owner.
+   */
   async function applyTextChange(screenId: string, info: PickInfo, newText: string) {
     const screen = screens.find((s) => s.id === screenId)
     if (!screen) return
@@ -1971,7 +2011,10 @@ export default function ProjectView({
       active: annotateMode,
       onClick: () => {
         setAnnotateMode((v) => !v)
-        setLinkMode(false)
+        // Only Link mode: annotating has no panel in the right-hand slot, so
+        // closing the Design System inspector or the audit report here would be
+        // taking away a reference the user opened on purpose.
+        setRightSlot((s) => closeSlot(s, 'links'))
         setModifyMode(false)
         setPendingModify(null)
       },
@@ -2000,10 +2043,7 @@ export default function ProjectView({
       label: t('mode.system'),
       title: t('project.systemTitle'),
       active: showSystem,
-      onClick: () => {
-        setShowSystem((v) => !v)
-        setShowAudit(false)
-      },
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'system')),
     },
     {
       id: 'audit',
@@ -2011,13 +2051,10 @@ export default function ProjectView({
       label: t('mode.audit'),
       title: t('audit.open'),
       active: showAudit,
-      onClick: () => {
-        // Mutually exclusive with the design system panel: both want the same
-        // slot at `right-4 top-11`, and Panel's own note records what happened
-        // the last time two of them shared it without a z-index.
-        setShowAudit((v) => !v)
-        setShowSystem(false)
-      },
+      // Exclusive with the design system panel AND with the Links list, which
+      // this used to forget: all three want `right-4 top-11`, and it only ever
+      // cleared the one whose name was in the same paragraph. See lib/rightSlot.
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'audit')),
     },
     {
       id: 'demo',
@@ -2147,7 +2184,7 @@ export default function ProjectView({
         <DesignSystemPanel
           markdown={directionMd || ''}
           onRecolor={recolorToken}
-          onClose={() => setShowSystem(false)}
+          onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
           onEdit={onOpenDesign}
         />
       )}
@@ -2167,7 +2204,12 @@ export default function ProjectView({
             setFocus({ screenId: id, nonce: Date.now() })
           }}
           onFix={fixAuditFindings}
-          onClose={() => setShowAudit(false)}
+          // Gated on the project being idle, not just on the panel's own state:
+          // `fixAuditFindings` refuses while another screen mutation runs, and a
+          // button whose only feedback would be "the correction failed" is worse
+          // than one that says it is unavailable.
+          busy={busy}
+          onClose={() => setRightSlot((s) => closeSlot(s, 'audit'))}
         />
       )}
 
@@ -2182,7 +2224,7 @@ export default function ProjectView({
             <button
               type="button"
               className="text-body-sm text-ink-muted hover:text-ink"
-              onClick={() => setLinkMode(false)}
+              onClick={() => setRightSlot((s) => closeSlot(s, 'links'))}
               title={t('project.closeLinkMode')}
             >
               {t('project.done')}
@@ -2328,7 +2370,7 @@ export default function ProjectView({
             size="sm"
             active={linkMode}
             onClick={() => {
-              setLinkMode((v) => !v)
+              setRightSlot((s) => toggleSlot(s, 'links'))
               setModifyMode(false)
               setAnnotateMode(false)
             }}
@@ -2343,7 +2385,9 @@ export default function ProjectView({
             active={modifyMode}
             onClick={() => {
               setModifyMode((v) => !v)
-              setLinkMode(false)
+              // See the Annotate button: Link mode only, because Modify has no
+              // panel of its own in that slot to make room for.
+              setRightSlot((s) => closeSlot(s, 'links'))
               setAnnotateMode(false)
               setPendingModify(null)
             }}

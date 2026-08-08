@@ -135,13 +135,13 @@ plutôt que de pousser la page de côté.
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg> | `Retour` | Quitte le projet. Comme plus haut : cela annule la génération en cours. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg> | `Lier` | `Relier les écrans entre eux`. Cliquez un élément dans un écran, puis choisissez la destination. L’activer désactive `Modifier` et `Annoter`. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg> | `Lier` | `Relier les écrans entre eux`. Cliquez un élément dans un écran, puis choisissez la destination. L’activer désactive `Modifier` et `Annoter` — et ferme `Système` ou `Audit`, car la liste des liens qu’il ouvre veut la même place qu’eux. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Modifier` | `Cliquez un élément dans un écran, puis décrivez le changement — sans écrire de code`. Également exclusif des deux autres. | libre |
 
 L’exclusivité est le fond du sujet : ces trois modes donnent trois sens
 différents au même clic dans un écran, et deux à la fois n’en donneraient aucun.
 
-### Les sept derrière « Plus »
+### Les huit derrière « Plus »
 
 Rendus en boutons à partir de `md`, en lignes de menu en dessous — depuis une
 seule liste, pour que les deux ne puissent jamais diverger. <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> `Plus`
@@ -152,10 +152,18 @@ lui-même n’existe que sous `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1.5V4a1.5 1.5 0 0 1 3 0v7m0-1.5a1.5 1.5 0 0 1 3 0V13m-9 0a1.5 1.5 0 0 0-3 0v2a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-4"/></svg> | `Interagir` | `Rendre tous les écrans interactifs (boutons cliquables, animations)`. Donne le pointeur à **tous** les aperçus d’un coup. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Annoter` | `Découper une zone d’un écran et l’envoyer au chat comme référence numérotée`. Le rectangle que vous tracez devient une vignette jointe au composeur, et il part avec votre prochaine demande. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Cadre` | `Afficher ou masquer le cadre iPhone sur les écrans mobiles`. **Désactivé quand le projet n’a aucun écran mobile** — et la préférence n’est pas effacée pour autant, car elle vit dans une clé unique partagée par tous les projets. Désactiver le contrôle plutôt que remettre le réglage à zéro, c’est ce qui garde vos autres projets encadrés. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Système` | `Système de design en direct — vos tokens DESIGN.md, et de quoi les recolorer`. Ferme `Audit` s’il était ouvert. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Évaluer le SEO et l’accessibilité`. Ferme `Système` s’il était ouvert — les deux veulent la même place. **Ouvrir le panneau n’évalue rien.** | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Système` | `Système de design en direct — vos tokens DESIGN.md, et de quoi les recolorer`. Ferme `Audit`, ou le mode `Lier`, si l’un des deux était ouvert. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Évaluer le SEO et l’accessibilité`. Ferme `Système`, ou le mode `Lier`, si l’un des deux était ouvert — les trois veulent la même place. **Ouvrir le panneau n’évalue rien.** | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Démo` | `Lancer le prototype — suit les liens que vous avez posés`. Démarre sur l’écran sélectionné, ou sur le premier si rien ne l’est. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Exporter` | `Exporter un projet Vite + React + Tailwind prêt à lancer`. Ouvre un menu de trois piles. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Vidéo` | `Monter une vidéo à partir des images de la médiathèque`. Ouvre le panneau d’export — voir plus bas. | libre à l’ouverture |
+
+Les trois derniers forment un groupe : ce sont les trois façons de faire sortir
+quelque chose d’un projet. `Vidéo` s’y trouve, à côté de `Démo` et `Exporter`, et
+**délibérément pas dans le menu contextuel d’un écran**. Le film est monté depuis
+la médiathèque ; il ne lit aucun écran et ne peut pas en être tiré. L’accrocher à
+un écran promettrait une relation que le pipeline n’honore pas, et la première
+chose que fait le panneau — demander quelles images utiliser — la contredirait.
 
 ---
 
@@ -404,6 +412,64 @@ projet ou dans son nom de produit, pas dans le balisage d’un écran.
 
 ---
 
+## Le panneau d’export vidéo
+
+S’ouvre avec `Vidéo`. Un diaporama monté à partir de la médiathèque : une image
+par scène, avec sa durée, son mouvement et sa transition. **Le rendu tourne sur
+le worker Remotion, pas dans ce navigateur** — et ce worker est un service Docker
+séparé et facultatif, donc la première chose que fait le panneau est de dire s’il
+est là. Pourquoi c’est bâti ainsi est dans [l’export vidéo](fr/video-export.md).
+
+Un compte pour lequel la fonctionnalité n’est pas activée reçoit une phrase
+laconique et rien d’autre : il n’apprend rien de la configuration de l’instance,
+ni de ce à quoi ressemble un montage valide.
+
+Il y a **un seul formulaire**, et deux façons de le remplir.
+
+| Contrôle | Ce qu’il fait | Coût |
+|---|---|---|
+| `Décrivez la vidéo` → `Proposer un montage` | Envoie votre phrase et les images déjà choisies au modèle. Il **ordonne et règle** — durées, mouvements, transitions, textes. Il ne choisit pas les images et n’en ajoute aucune. | modèle |
+| `Partir d’une image` → `Générer une image modèle` | Fabrique une image à partir d’un sujet que vous décrivez. Rien ne continue tant que vous n’avez pas choisi `Garder`, `Régénérer` ou `Abandonner`. | image |
+| `Produire {n} variantes` | De deux à six prises de cette image. Vous cochez ensuite celles qui méritent d’être montées ; ce qui reste décoché reste en attente, définitivement. | image, un appel par variante |
+| Une ligne de scène | Durée, mouvement, transition vers la suivante, et une ligne facultative de texte incrusté. Monter, descendre, retirer. | libre |
+| `Sortie` | Format d’image (`16:9`, `9:16`, `1:1`) et conteneur (`mp4`, `webm`). | libre |
+| `Lancer le rendu` | Met le job en file. Un seul rendu à la fois sur l’instance ; vous pouvez fermer le panneau et le retrouver en le rouvrant. | serveur (des minutes de processeur) |
+| `Télécharger la vidéo` | Le fichier terminé. | libre |
+
+**Une proposition est un pré-remplissage, pas un mode.** Ce qui revient est écrit
+dans les mêmes contrôles, tous encore actifs, et remplacer un montage que vous
+avez réglé à la main demande confirmation. Un aperçu en lecture seule devrait
+être pris en entier ou jeté en entier, alors que la première chose que l’on veut
+faire d’un ordre de passage proposé, c’est déplacer deux scènes.
+
+Trois choses que le panneau énonce au lieu de les sous-entendre, parce que
+chacune est un fait sur votre instance qui change ce que vous obtenez :
+
+- **Si les variantes dériveront vraiment de votre image.** Avec un profil d’image
+  « Édition » configuré, elles sortent d’un modèle image-vers-image nourri de
+  votre propre image ; sans lui, elles naissent du même texte — même sujet, autre
+  photographie. La phrase apparaît deux fois : avant le clic, d’après ce que le
+  serveur promet, et après coup, d’après ce que la réponse a réellement fait.
+- **`{used} s sur {max} s`.** Deux minutes au total, vingt scènes, et le bouton
+  nomme la raison pour laquelle il ne partira pas plutôt que de rester grisé.
+- **`Dernière scène : cette transition ne joue pas.`** Le champ existe sur toutes
+  les scènes parce que le schéma est uniforme. Masquer le contrôle donnerait à
+  une ligne une forme différente des autres, sans raison visible, dès qu’on
+  réordonne.
+
+Quand un rendu échoue, la bannière est un titre et une marche à suivre, jamais
+« l’export a échoué ». Quatre situations arrivent sous la même forme d’erreur et
+envoient chercher à quatre endroits différents : le volume est plein (ne
+raccourcissez rien — voyez l’administrateur), le worker est injoignable (un
+réglage d’instance, pas votre montage), les images ont quitté la médiathèque
+(remplacez ces scènes), le rendu ne répond plus (rouvrez le panneau ; il a
+peut-être abouti quand même). Une cinquième n’est pas un échec du tout : `Des
+images attendent votre confirmation` veut dire que le serveur a refusé une image
+que personne n’a regardée, ce qui est toute la raison pour laquelle ce garde vit
+sur le serveur et non dans ce panneau.
+
+---
+
 ## Les modales
 
 Tout ce qui s’ouvre par-dessus le canevas. La première est un menu déroulant et
@@ -516,9 +582,13 @@ ci-dessous est un clic, et la liste est complète.
 | `Analyse approfondie` | Panneau Audit | Change ce que coûte `Évaluer`. Décochée par défaut. |
 | `Corriger` / `Tout corriger` | Panneau Audit | |
 | `Générer` (une image) | `Changer les images…`, bibliothèque d’images | Appelle le fournisseur d’images, pas le modèle de texte. |
+| `Proposer un montage` | Panneau d’export vidéo | Le seul appel au modèle de l’export vidéo. Il ordonne et règle les images que vous avez choisies ; il n’en choisit jamais une. |
+| `Générer une image modèle`, `Produire {n} variantes` | Panneau d’export vidéo | Le fournisseur d’images, une fois par image. Six variantes, six appels. |
+| `Lancer le rendu` | Panneau d’export vidéo | Ni modèle ni fournisseur — mais des minutes de processeur sur le worker de rendu, ce qui en fait le clic le plus cher du produit sur une petite machine. |
 
 Et les absences notables — ce qui a l’air cher et ne l’est pas : `Évaluer` dans
 le panneau Audit avec `Analyse approfondie` décochée, `Proposer des liens`,
 `Reprendre ce design`, `Exporter`,
-`Télécharger le .tsx`, `Dupliquer`, `Réorganiser`, tout le panneau `Système`, et
-chacune des bascules de format, de cadre et de lecture du produit.
+`Télécharger le .tsx`, `Dupliquer`, `Réorganiser`, tout le panneau `Système`,
+l’ouverture du panneau `Vidéo`, et chacune des bascules de format, de cadre et de
+lecture du produit.

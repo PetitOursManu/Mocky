@@ -50,6 +50,12 @@ La séparation est tenue à quatre endroits, et les quatre doivent tenir :
 | `.dockerignore` (racine du dépôt) | `worker/` n'entre jamais dans le contexte de build de Mocky |
 | `docker-compose.yml` | `profiles: ["video-export"]` — absent tant qu'on ne le demande pas |
 
+Et tenue, plutôt que simplement écrite, par
+`tests/video-worker-separation.test.js` dans le dépôt Mocky : la prose ne fait pas
+échouer une compilation. L'autre versant — la moitié Mocky du pipeline, le
+schéma, la file et le magasin — est documenté dans
+[`docs/fr/video-export.md`](../../docs/fr/video-export.md).
+
 ---
 
 ## Ce qu'il rend

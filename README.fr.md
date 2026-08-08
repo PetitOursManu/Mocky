@@ -41,6 +41,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - ▶️ **Mode Interagir** — cliquez sur les boutons ; les états de survol et les animations s'exécutent en direct, à même la grille.
 - ✦ **De vraies animations, sans danger** — onze préréglages d'animation et trois composants derrière un unique emballage `<Animated preset="…">`, propulsés par [Motion](https://motion.dev). Le modèle qui génère n'écrit jamais de code d'animation : il choisit un nom dans une liste fermée (voir [Animations](#animations) plus bas). Un seul interrupteur, par projet ou par écran, fige l'ensemble.
 - 🎞️ **Vidéo au défilement** — Muse peut générer un clip (ou vous pouvez en importer un) et laisser le visiteur le parcourir à la molette, épinglé en pleine hauteur.
+- 🎬 **Export vidéo** — montez un `.mp4` à partir de votre médiathèque : une image par scène, avec un mouvement de caméra, une transition et un texte facultatif, jusqu'à deux minutes. Un modèle peut proposer l'ordre de passage, mais il n'écrit jamais une ligne de code de rendu (voir [Export vidéo](#export-vidéo) plus bas). Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
 - 🖼️ **Bibliothèque de médias** — toutes les images et séquences générées au même endroit, plus **vos propres** images et clips. Muse construit sa direction artistique *à partir de* ce que vous sélectionnez.
 - 🔗 **Liens d'interaction + mode Démo** — reliez un véritable élément d'un écran à un autre écran, puis jouez le prototype cliquable.
 - 📱 **Préréglages de format et cadre d'appareil** — Mobile (iPhone) / Bureau / Tablette ; les écrans mobiles s'affichent dans un cadre d'iPhone en CSS (barre d'état, encoche, barre d'accueil).
@@ -193,7 +194,7 @@ Vous pouvez tout aussi bien inscrire les valeurs en dur sous `environment:` dans
 
 | Volume | Point de montage | Description |
 |---|---|---|
-| `mocky-data` | `/app/server/data` | Stockage en fichiers JSON : comptes, sessions, projets par utilisateur, bibliothèque d'images et séquences au défilement (`video-library/`, de loin la plus lourde — chacune stocke un clip plus jusqu'à 150 images). Volume nommé dans docker-compose — persiste au fil des reconstructions du conteneur |
+| `mocky-data` | `/app/server/data` | Stockage en fichiers JSON : comptes, sessions, projets par utilisateur, bibliothèque d'images, séquences au défilement (`video-library/`, de loin la plus lourde — chacune stocke un clip plus jusqu'à 150 images) et films exportés (`video-exports/`, des fichiers `.mp4`/`.webm` entiers, que rien n'élague). Volume nommé dans docker-compose — persiste au fil des reconstructions du conteneur |
 
 **Sauvegarder les données.** Sortez le contenu du volume, puis utilisez le script fourni — c'est du Node ordinaire, il se comporte donc à l'identique sous Windows, macOS et Linux :
 
@@ -526,6 +527,57 @@ Muse est conçu pour respecter les sites dont il s'inspire :
 > Note sur les dépendances : le SDK MCP entraîne quelques paquets transitifs faisant l'objet
 > d'avis de sécurité (`hono`, `body-parser`, `shell-quote`, `esbuild`) — tous dans le transport
 > serveur HTTP du SDK, que Mocky n'utilise **pas** (nous sommes un client stdio).
+
+## Export vidéo
+
+> **Pourquoi c'est ainsi —** Le moteur de rendu dont cette fonctionnalité a besoin est gratuit pour les particuliers et les petites sociétés, payant au-delà, et ses conditions ne disent rien du fait d'être transmis à l'intérieur de quelque chose que l'on héberge soi-même — l'arrangement honnête est donc qu'il n'arrive jamais tant qu'on ne va pas le chercher, ce qui fait appartenir la question à qui y répond plutôt qu'à chaque exploitant qui n'utilisera jamais la fonctionnalité. La seconde décision découle de la première, puisqu'il s'agit d'un programme qui ouvre un navigateur et touche à un disque : un modèle a le droit de décrire le film dans un vocabulaire fermé, vérifié avant que quoi que ce soit ne tourne, et le code qui transforme cette description en images est écrit à la main et couvert par des tests.
+
+Montez une vidéo à partir de votre médiathèque. `Plus → Vidéo`, dans un projet,
+ouvre le panneau : on choisit les images, on donne à chaque scène sa durée, son
+mouvement de caméra et sa transition, on ajoute un texte si l'on veut, et on
+lance le rendu. Vingt scènes au plus, deux minutes au plus, en `16:9`, `9:16` ou
+`1:1`. Il n'y a pas de son.
+
+On peut aussi décrire le film en une phrase, et un modèle **ordonnera et réglera**
+les images déjà choisies. Il ne choisit jamais une image, et il n'écrit jamais de
+code de rendu : il renvoie un unique objet JSON validé par un schéma, que des
+compositions écrites à la main consomment. C'est la règle fondatrice de la
+fonctionnalité.
+
+**Le moteur de rendu est [Remotion](https://www.remotion.dev/), et il n'est pas
+dans les dépendances de ce dépôt.** Sa licence est gratuite pour les
+particuliers, les organisations à but non lucratif et les sociétés jusqu'à trois
+salariés, et elle ne traite pas de la redistribution au sein d'un produit
+auto-hébergé. Il vit donc dans `worker/video/`, comme une image séparée, derrière
+un profil Compose facultatif :
+
+```bash
+docker compose --profile video-export up -d --build
+```
+
+Sans ce drapeau, le service n'est ni construit, ni créé, ni démarré, et
+`docker compose up -d` se comporte exactement comme avant. Le construire est le
+moment où la question de licence devient la vôtre — le seuil compte **les
+salariés de votre organisation, pas les comptes de cette instance**, et Mocky ne
+prétend délibérément pas savoir dans quel cas vous êtes.
+
+Il reste à l'activer dans **Administration → Export vidéo** : un interrupteur
+maître, une liste d'accès (un administrateur n'est *pas* autorisé d'office),
+l'URL du worker (`http://video-worker:3030` est la valeur livrée et la réponse
+normale), et une clé de licence facultative — stockée côté serveur, jamais
+renvoyée au navigateur, et dont la seule conséquence visible est qu'un rendu sous
+licence exige une télémétrie sortante que le conteneur du worker n'a pas
+autrement.
+
+Les films terminés atterrissent dans `data/video-exports/`, adressés par le
+SHA-256 de leurs octets, et partagent le même plafond de disque que les
+médiathèques. Ils ne sont **pas** rangés avec les séquences au défilement de
+`video-library/` : celles-là sont des clips découpés en images fixes, et tout ce
+qui les lit attend des images qu'un film n'a pas.
+
+Le raisonnement complet : [`docs/fr/video-export.md`](docs/fr/video-export.md),
+et [`worker/video/README.fr.md`](worker/video/README.fr.md) pour le worker
+lui-même.
 
 ## SSO — « Se connecter avec Dashy »
 

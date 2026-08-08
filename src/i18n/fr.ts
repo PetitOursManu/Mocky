@@ -296,6 +296,16 @@ export const fr = {
   'common.save': 'Enregistrer',
   'common.cancel': 'Annuler',
   'common.close': 'Fermer',
+  // Trois des cinq noms accessibles que les primitives de src/ui portaient en
+  // dur, en français — les deux autres, « Fermer » et « Chargement… », avaient
+  // déjà leur clé plus haut. Panel et Modal n’avaient aucune prop pour surcharger
+  // la leur : en interface anglaise, « Fermer le panneau » était le seul mot
+  // qu’un lecteur d’écran annonçait sur ce bouton, et aucun appelant ne pouvait
+  // le corriger. Ils vivent ici parce que la primitive n’a pas de domaine à elle
+  // — un panneau se ferme pareil partout.
+  'common.closePanel': 'Fermer le panneau',
+  'common.remove': 'Retirer',
+  'common.generating': 'Génération en cours…',
   'common.delete': 'Supprimer',
   'common.retry': 'Réessayer',
   'common.loading': 'Chargement…',

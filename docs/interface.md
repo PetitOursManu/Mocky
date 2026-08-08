@@ -130,13 +130,13 @@ into `More`, and the row scrolls itself rather than pushing the page sideways.
 | | Control | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg> | `Back` | Leaves the project. As above: this aborts a generation in flight. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg> | `Link` | `Draw links between screens`. Click an element inside a screen, then pick a destination. Turning it on turns `Modify` and `Annotate` off. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg> | `Link` | `Draw links between screens`. Click an element inside a screen, then pick a destination. Turning it on turns `Modify` and `Annotate` off — and closes `System` or `Audit`, because the Links list it opens wants the same slot they do. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Modify` | `Click an element in a screen, then describe a change — no code needed`. Also mutually exclusive with the other two. | free |
 
 The exclusivity is the point: all three modes make a click inside a screen mean
 something different, and two of them at once would make a click mean nothing.
 
-### The seven behind "More"
+### The eight behind "More"
 
 Rendered as buttons at `md` and above, as menu rows below it — from a single
 list, so the two can never drift apart. <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> `More` itself only exists
@@ -147,10 +147,18 @@ below `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1.5V4a1.5 1.5 0 0 1 3 0v7m0-1.5a1.5 1.5 0 0 1 3 0V13m-9 0a1.5 1.5 0 0 0-3 0v2a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-4"/></svg> | `Interact` | `Make all screens interactive (clickable buttons, animations)`. Hands the pointer to **every** preview at once. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Annotate` | `Snip a region of a screen into the chat as a numbered reference`. The rectangle you drag becomes a thumbnail attached to the composer, and it travels with your next prompt. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Frame` | `Show or hide the iPhone frame on mobile screens`. **Disabled when the project has no mobile screen** — and the preference is not cleared with it, because it lives in one browser-wide key shared by every project. Disabling the control rather than resetting the setting is what keeps your other projects framed. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `System` | `Live design system — your DESIGN.md tokens, and a way to recolor them`. Closes `Audit` if it was open. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Evaluate SEO and accessibility`. Closes `System` if it was open — the two want the same slot. **Opening the panel evaluates nothing.** | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `System` | `Live design system — your DESIGN.md tokens, and a way to recolor them`. Closes `Audit`, or `Link` mode, if one was open. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Evaluate SEO and accessibility`. Closes `System`, or `Link` mode, if one was open — all three want the same slot. **Opening the panel evaluates nothing.** | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Demo` | `Play the prototype — follows the links you placed`. Starts on the selected screen, or the first one if nothing is selected. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Export` | `Export a runnable Vite + React + Tailwind project`. Opens a menu of three stacks. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Video` | `Cut a video from the media library`. Opens the export panel — see below. | free to open |
+
+The last three form a group: they are the three ways to get something out of a
+project. `Video` sits there, beside `Demo` and `Export`, and **deliberately not
+in a screen's context menu**. The film is cut from the media library; it does not
+read a screen and cannot be derived from one. Hanging it off a screen would
+promise a relationship the pipeline does not have, and the first thing the panel
+does — ask which pictures to use — would contradict it.
 
 ---
 
@@ -389,6 +397,63 @@ in its product name, not in any screen's markup.
 
 ---
 
+## The video export panel
+
+Open with `Video`. A slideshow cut from the media library: one image per scene,
+with its duration, its motion and its transition. **The render runs on the
+Remotion worker, not in this browser** — and that worker is a separate, opt-in
+Docker service, so the first thing the panel does is say whether it is there. Why
+it is built that way is in [Video export](video-export.md).
+
+An account the feature is not enabled for gets one terse sentence and nothing
+else: it learns nothing about how the instance is configured, nor about what a
+valid cut looks like.
+
+There is **one form**, and two ways to fill it in.
+
+| Control | What it does | Cost |
+|---|---|---|
+| `Describe the video` → `Propose a cut` | Sends your sentence and the images you already picked to the model. It **orders and tunes** — durations, motion, transitions, captions. It does not choose the pictures and cannot add any. | model |
+| `Start from an image` → `Generate a model image` | Makes one picture from a subject you describe. Nothing continues until you `Keep`, `Regenerate` or `Abandon` it. | image |
+| `Produce {n} variants` | Two to six takes on that picture. Then you tick the ones worth cutting; anything left unticked stays pending, for good. | image, one call per variant |
+| A scene row | Duration, motion, transition to the next, and an optional line of burnt-in text. Move up, move down, remove. | free |
+| `Output` | Aspect ratio (`16:9`, `9:16`, `1:1`) and container (`mp4`, `webm`). | free |
+| `Start the render` | Queues the job. One render at a time on the instance; you can close the panel and find it again on reopening. | server (minutes of CPU) |
+| `Download the video` | The finished file. | free |
+
+**A proposal is a pre-fill, not a mode.** What comes back is written into the
+same controls, all of them still live, and replacing a cut you arranged by hand
+asks first. A read-only preview would have to be taken whole or thrown away
+whole, and the first thing anyone wants to do with a proposed running order is
+move two scenes.
+
+Three things the panel states rather than implies, because each is a fact about
+your instance that changes what you get:
+
+- **Whether the variants will really derive from your picture.** With an `Edit`
+  image profile configured they come out of an image-to-image model fed with your
+  own image; without one they are born of the same text — same subject, another
+  photograph. The sentence appears twice: before the click, from what the server
+  promises, and afterwards, from what the answer actually did.
+- **`{used} s of {max} s`.** Two minutes total, twenty scenes, and the button
+  names the reason it will not fire rather than sitting there greyed out.
+- **`Last scene: this transition never plays.`** The field is on every scene
+  because the schema is uniform. Hiding the control would give one row a
+  different shape from the others for no visible reason the moment anything is
+  reordered.
+
+When a render fails, the banner is a heading and a next step, never "the export
+failed". Four situations arrive as the same kind of error and send you somewhere
+completely different: the volume is full (shorten nothing — ask the
+administrator), the worker is unreachable (an instance setting, not your cut),
+the pictures left the library (replace those scenes), the render stopped
+answering (reopen the panel; it may have finished anyway). A fifth is not a
+failure at all — `Some images are awaiting your confirmation` means the server
+refused a picture nobody has looked at, which is the whole reason that guard is
+on the server and not in this panel.
+
+---
+
 ## The modals
 
 Everything that opens over the canvas. The first is a dropdown rather than a
@@ -496,8 +561,11 @@ this is the complete list.
 | `Deep analysis` | Audit panel | Changes what `Evaluate` costs. Off by default. |
 | `Fix` / `Fix all` | Audit panel | |
 | `Generate` (an image) | `Change the images…`, image library | Calls the image provider, not the text model. |
+| `Propose a cut` | Video export panel | The only model call in video export. It orders and tunes the images you picked; it never picks one. |
+| `Generate a model image`, `Produce {n} variants` | Video export panel | The image provider, once per picture. Six variants is six calls. |
+| `Start the render` | Video export panel | No model and no provider — but minutes of CPU on the render worker, which is the most expensive click in the product on a small box. |
 
 And the notable absences — things that look expensive and are not:
 `Evaluate` in the audit panel with `Deep analysis` off, `Suggest links`, `Use this design`, `Export`,
-`Download .tsx`, `Duplicate`, `Arrange`, the whole `System` panel, and every
-format, frame and playback toggle in the product.
+`Download .tsx`, `Duplicate`, `Arrange`, the whole `System` panel, opening the
+`Video` panel, and every format, frame and playback toggle in the product.

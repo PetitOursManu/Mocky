@@ -108,6 +108,51 @@ describe('area dictionaries', () => {
 })
 
 /**
+ * The primitives, where a hard-coded label is invisible and reaches everything.
+ *
+ * `Panel` shipped `label="Fermer le panneau"`, `Modal` `label="Fermer"`,
+ * `Spinner` `label = 'Chargement…'`, `Chip` `removeLabel = 'Retirer'` and
+ * `MockyLoader` `label = 'Génération en cours…'`. Five names, and `Panel` and
+ * `Modal` had no prop at all to override theirs. These are icon-only or
+ * text-free controls, so that string is not a fallback: it is the ENTIRE
+ * accessible name. An English interface announced five French sentences and
+ * nothing else, on every panel, every dialog and every spinner in the app.
+ *
+ * The parity checks above could not see it. A sentence that never reaches a
+ * dictionary is perfectly consistent between two dictionaries.
+ *
+ * Deliberately narrow: only the props that BECOME an accessible name, and only
+ * under src/ui. Prose elsewhere is `t()`'s business, and a broad "no quoted
+ * string" rule would fire on class names, ids and units.
+ */
+describe('the UI primitives', () => {
+  const files = fs
+    .readdirSync(path.join(root, 'src/ui'))
+    .filter((f) => f.endsWith('.tsx'))
+    .map((f) => `src/ui/${f}`)
+
+  it('found the primitives', () => {
+    expect(files.length).toBeGreaterThan(5)
+  })
+
+  it('hard-codes no accessible name', () => {
+    // Matches both spellings the defect had: the JSX attribute
+    // (`label="Fermer"`) and the default parameter (`label = 'Chargement…'`).
+    const naming = /\b[\w-]*(?:label|title|placeholder)\s*=\s*['"]/gi
+    const offenders = []
+    for (const f of files) {
+      read(f)
+        .split(/\r?\n/)
+        .forEach((line, i) => {
+          if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
+          for (const m of line.matchAll(naming)) offenders.push(`${f}:${i + 1}: ${m[0].trim()}`)
+        })
+    }
+    expect(offenders).toEqual([])
+  })
+})
+
+/**
  * The other direction, which nothing was checking: a key a component ASKS for
  * and no dictionary answers.
  *

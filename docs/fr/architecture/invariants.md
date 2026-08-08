@@ -688,6 +688,10 @@ de ce qui a été accordé. `createVideoWorker({ guard })` garde le contrôle
 injectable : qui exécute le worker sur un hôte public peut y remettre
 `assertSafeTargetResolved`.
 
+Le reste de la fonctionnalité à laquelle il appartient — pourquoi le worker est
+une image séparée, et pourquoi le modèle qui décrit un film n'écrit jamais le
+code qui le rend — est dans [l'export vidéo](fr/video-export.md).
+
 Toute URL venue d'un navigateur reste entièrement protégée — y compris sur
 `POST /api/text/vision`. C'était la seule route qui prenait une URL de base dans
 un en-tête, faisait fetcher le serveur, et **renvoyait jusqu'à 400 caractères du
@@ -703,6 +707,17 @@ Cet invariant est de fait plutôt que déclaré, mais il a réellement décidé 
 choses. C'est lui qui a fait rejeter SQLite pour la persistance de Muse, et qui a
 fait réutiliser l'écrivain ZIP sans dépendance du dépôt au lieu d'ajouter
 `archiver`.
+
+La file d'attente de l'export vidéo est la plus récente chose que cet invariant a
+tranchée, et la plus tentante à rater : un exécuteur de tâches est exactement la
+fonctionnalité pour laquelle on tend la main vers Redis. `server/video/queue.js`
+est une file en mémoire, avec un journal JSON atomique et une seule tâche à la
+fois. Un Mocky auto-hébergé est un seul processus, et une file réclamant un second
+démon pour survivre à un redémarrage coûterait plus cher à exploiter que la
+fonctionnalité ne vaut. `tests/video-worker-separation.test.js` refuse un serveur
+de file d'attente ou un pilote de base de données dans le manifeste, à côté de sa
+vérification de Remotion : cette moitié de la posture fait donc échouer une
+compilation elle aussi.
 
 **L'image d'exécution est `node:22-slim`.** `.nvmrc` contient `22.12` et
 `package.json` déclare `"node": ">=22.12"`. Deux raisons, dont chacune aurait

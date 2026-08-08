@@ -19,6 +19,14 @@ right with every screen in the project as a thumbnail. Pick one, press
 Nothing runs automatically. Nothing runs on generation. Opening the panel costs
 one localStorage read.
 
+**Leaving abandons the run.** Closing the panel, or selecting another screen —
+from the thumbnails or from the canvas — aborts an evaluation in flight. A deep
+pass is a model call taking seconds, and it had no `AbortController` at all: it
+kept being paid for after the panel was shut, and the spinner it left behind was
+drawn over the report of the screen the user had just asked to see. The panel
+shows one screen's report, so a check running for a different one can only ever
+hide the one that was wanted.
+
 ---
 
 ## The two halves
@@ -173,6 +181,15 @@ others:
 | Repair | fix only the error, do not restyle | a crash is not a design problem |
 | Polish | fix these findings, visual change expected | a slop finding **is** a styling problem |
 | Audit fix | fix the markup, the screen must look identical | a semantics pass that redesigns has failed even with every finding gone |
+
+**Fix is unavailable while the project is generating.** A correction is a screen
+mutation, and every screen mutation in Mocky shares one `AbortController`, one
+busy flag and one progress overlay — so a second one does not run beside the
+first, it overwrites it. This was the one of the five that did not check, and
+started during a regeneration it took the Stop button hostage: Stop cancelled the
+correction, the regeneration became unstoppable, and the progress overlay moved
+to whichever screen the audit panel was pointed at. The buttons are now disabled
+while something else runs, and say why.
 
 Advisory findings are never corrected automatically. Some rules legitimately
 contradict a design: a landing page really can be one `<section>` with no `<nav>`,

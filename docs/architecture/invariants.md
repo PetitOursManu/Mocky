@@ -648,6 +648,10 @@ the metadata endpoint cannot widen the bypass past what was granted.
 `createVideoWorker({ guard })` keeps the check injectable, so an operator running
 the worker on a public host can pass `assertSafeTargetResolved` back in.
 
+The rest of the feature this belongs to — why the worker is a separate image at
+all, and why the model that describes a film never writes the code that renders
+it — is in [Video export](video-export.md).
+
 Any URL that came from a browser stays fully guarded — including on
 `POST /api/text/vision`. That was the one route taking a base URL from a header,
 making the server fetch it, and **echoing back up to 400 characters of the
@@ -662,6 +666,15 @@ dependency is pure JavaScript.
 This invariant is de facto rather than declared, but it really did decide things.
 It is why SQLite was rejected for Muse's persistence, and why the repository's
 dependency-free ZIP writer was reused instead of adding `archiver`.
+
+The video export queue is the newest thing it decided, and the most tempting one
+to get wrong: a job runner is exactly the feature somebody reaches for Redis to
+build. `server/video/queue.js` is an in-memory queue with an atomic JSON journal
+and a concurrency of one. A self-hosted Mocky is one process, and a queue needing
+a second daemon to survive a restart would cost more to operate than the feature
+is worth. `tests/video-worker-separation.test.js` refuses a queue server or a
+database driver in the manifest alongside its Remotion check, so this half of the
+posture fails a build too.
 
 **The runtime image is `node:22-slim`.** `.nvmrc` reads `22.12` and
 `package.json` declares `"node": ">=22.12"`. Two reasons, and either would have

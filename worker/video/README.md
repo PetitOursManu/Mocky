@@ -46,6 +46,12 @@ The separation is enforced in four places, and all four have to hold:
 | `.dockerignore` (repository root) | `worker/` never enters Mocky's own build context |
 | `docker-compose.yml` | `profiles: ["video-export"]` — absent unless asked for |
 
+And enforced, rather than merely written down, by
+`tests/video-worker-separation.test.js` in the Mocky repository: prose does not
+fail a build. The other side of this — Mocky's half of the pipeline, the schema,
+the queue and the store — is documented in
+[`docs/video-export.md`](../../docs/video-export.md).
+
 ---
 
 ## What it renders

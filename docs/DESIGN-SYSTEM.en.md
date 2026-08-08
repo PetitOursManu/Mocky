@@ -164,6 +164,18 @@ import { Button, IconButton, Field, Input, Modal, Banner, Chip, Segmented, Panel
 | `Banner` | inline messages. `role="alert"` when `tone="danger"`. |
 | `Spinner` / `Skeleton` / `ScreenSkeleton` / `EmptyState` | waiting and empty states. |
 
+**No primitive hard-codes a label.** `Panel`, `Modal`, `Chip`, `Spinner` and
+`MockyLoader` all carry an accessible name that is the *entire* name of a control
+with no text in it — a close cross, a spinning ring — and all five shipped it as
+a French sentence, two of them (`Panel` and `Modal`) with no prop to override it
+at all. An English interface
+announced "Fermer le panneau", "Retirer" and "Chargement…", on every panel and
+every spinner in the app. Each one now defaults through `t('common.*')` and takes
+an optional prop for the callers that can say something more specific. A block in
+`tests/i18n-parity.test.js` fails on any label-shaped prop assigned a literal
+under `src/ui`: the FR/EN parity checks could never have caught this, because a
+sentence that reaches no dictionary is perfectly consistent between two of them.
+
 ## The guardrails
 
 > **Why it works this way —** Contrast is one of the few qualities of an interface a machine can settle on its own: it is a number, computed from two colours and compared to a published threshold. The check is wired to the file that ships, and not to a copy of its values: a hue retouched by hand therefore fails the suite straight away, instead of waiting for a user to stop being able to see a label.

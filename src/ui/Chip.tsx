@@ -1,11 +1,19 @@
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
+import { useT } from '../i18n'
 
 /** A small removable token — selected screens, pinned images, tags. */
 export function Chip({
   children,
   onRemove,
-  removeLabel = 'Retirer',
+  /**
+   * The cross's accessible name. It defaulted to the literal `"Retirer"`, which
+   * is the whole name of a button with nothing but an icon in it — so an English
+   * interface announced a French word, and no caller could correct it without
+   * writing the sentence itself. Overridable still, because "Retirer" alone says
+   * nothing about what: `removeLabel={t('project.removeRefN', { n })}`.
+   */
+  removeLabel,
   tone = 'default',
 }: {
   children: ReactNode
@@ -13,6 +21,7 @@ export function Chip({
   removeLabel?: string
   tone?: 'default' | 'accent' | 'muse'
 }) {
+  const t = useT()
   const look = {
     default: 'border-line-soft text-ink',
     accent: 'border-accent bg-accent text-on-accent',
@@ -25,7 +34,7 @@ export function Chip({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={removeLabel}
+          aria-label={removeLabel ?? t('common.remove')}
           // A 14px cross with 4px of padding either side is a 22px target: the
           // smallest thing in the whole system, and the one most often reached
           // for with a thumb. It gets both axes of the coarse-pointer floor.

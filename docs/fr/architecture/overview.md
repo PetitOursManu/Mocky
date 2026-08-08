@@ -25,6 +25,8 @@ Le fait le plus structurant du projet :
 | Trouver et remplacer les images d'un écran (AST, sans modèle) | Navigateur | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
 | Muse : MCP, récupération de pages, distillation, dossier | Serveur | `server/muse/` |
 | Images, vidéos, bibliothèques | Serveur | `server/images/`, `server/videos/` |
+| Export vidéo : schéma, l'unique appel de modèle, file, magasin | Serveur | `server/video/` — au **singulier** ; `server/videos/` est la bibliothèque de clips |
+| Export vidéo : le rendu proprement dit | Un service Docker séparé et facultatif | `worker/video/` — Remotion, absent tant que `--profile video-export` n'a pas été construit |
 
 Le back-end est volontairement petit : des fichiers JSON dans `server/data/`,
 aucune base de données, aucune dépendance native. Les dépendances d'exécution
@@ -430,15 +432,22 @@ coûtent sont dans [L'interface](fr/interface.md#la-barre-de-zoom).
 
 ![La barre d'outils d'un projet](../../assets/08-toolbar.png)
 
-*Les neuf verbes d'un projet, dans l'ordre de la barre : Lier, Modifier, Interagir, Annoter, Cadre, Système, Audit, Démo, Exporter. Les quatre premiers agissent à travers l'aperçu isolé ; les cinq derniers agissent sur le canevas autour de lui. La capture est antérieure à « Audit », qui se place entre « Système » et « Démo » — on voit donc ici huit verbes, pas neuf.*
+*Les dix verbes d'un projet, dans l'ordre de la barre : Lier, Modifier, Interagir, Annoter, Cadre, Système, Audit, Démo, Exporter, Vidéo. Les quatre premiers agissent à travers l'aperçu isolé ; les six derniers agissent autour de lui. La capture est antérieure à deux d'entre eux — « Audit », qui se place entre « Système » et « Démo », et « Vidéo », qui ferme la rangée — on voit donc ici huit verbes, pas dix.*
 
-« Audit » et « Système » **s'excluent mutuellement**, et c'est imposé dans les
-gestionnaires de clic plutôt que laissé au CSS : les deux panneaux veulent la
-même place, à `right-4 top-11`, donc ouvrir l'un ferme l'autre. C'est exactement
-le genre de détail qu'une légende doit porter, parce que rien à l'écran
-n'explique pourquoi activer l'un désactive l'autre. Chaque contrôle de cette
-barre est documenté, avec son libellé exact et ce qu'il coûte, dans
-[L'interface](fr/interface.md#la-barre-doutils-du-projet).
+« Lier », « Système » et « Audit » **s'excluent mutuellement**, car les trois
+ouvrent un panneau dans l'unique emplacement à `right-4 top-11`. C'était imposé
+dans les gestionnaires de clic, et c'est précisément ainsi que la règle a cédé :
+chaque bouton éteignait ceux auxquels son auteur pensait, « Audit » fermait
+« Système » et aucun des deux ne fermait le mode « Lier » — le rapport d'audit et
+la liste des liens se peignaient donc l'un sur l'autre, sans z-index pour
+départager, et les boutons du dessous devenaient inatteignables.
+`src/lib/rightSlot.ts` tient désormais une **valeur unique**, qui nomme
+l'occupant : deux panneaux ouverts est un état que le type ne sait pas écrire, et
+un quatrième panneau ne peut pas oublier une remise à zéro que personne n'a
+écrite. C'est exactement le genre de détail qu'une légende doit porter, parce que
+rien à l'écran n'explique pourquoi activer l'un désactive l'autre. Chaque
+contrôle de cette barre est documenté, avec son libellé exact et ce qu'il coûte,
+dans [L'interface](fr/interface.md#la-barre-doutils-du-projet).
 
 `src/components/Preview.tsx` construit un document HTML autonome et l'injecte en
 `srcDoc`.
@@ -727,7 +736,8 @@ pour qu'une suppression faite sur un appareil ne revienne pas depuis un autre.
 | `data-<uuid>.json` | Les projets et le design d'un utilisateur |
 | `avatars/<userId>` | Un fichier par compte ayant envoyé une photo. Compté en `bytes.avatar` dans le rapport d'utilisation |
 | `text-config.json` | Les fournisseurs de texte configurés par l'administrateur, secrets compris |
-| `images-config.json` | Les fournisseurs d'images et les réglages vidéo, secrets compris |
+| `images-config.json` | Les fournisseurs d'images et les réglages de la vidéo au défilement, secrets compris |
+| `video-config.json` | Les réglages de l'**export** vidéo : l'interrupteur maître, le mode d'accès et sa liste, l'URL du worker, et la clé de licence Remotion en clair — d'où le mode `0600`, et d'où `publicView()` qui la transforme en booléen `hasLicenseKey` avant que quoi que ce soit quitte le serveur |
 | `muse-cache.json` | Les distillations, 7 jours de durée de vie, texte uniquement |
 | `image-library.json` | Les métadonnées de la bibliothèque d'images — dont `owners`, les identifiants des comptes qui ont déposé chaque fichier, **borné à 20** |
 | `image-library/<hash>` | Les octets des images |
@@ -768,13 +778,15 @@ plafond.
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` en entrée, un rapport en sortie. `400` uniquement si `code` manque ; **`200` même sans modèle configuré** — voir plus bas |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Générer est le verbe coûteux |
 | `GET /api/images/library`, `/library.zip`, `POST /:hash/favorite`, `DELETE /:hash` | session | Gestion de la bibliothèque |
+| `POST /api/images/:hash/confirm` | session, propriétaire | Retire la marque `pending` d'une image produite par le parcours de variantes. À sens unique et idempotent : il n'y a pas de dé-confirmation, parce que « personne n'a encore regardé ceci » est un fait passé |
 | `GET /api/images/:hash` | **public** | Voir plus bas |
 | `POST /api/videos/generate` (6/min), `/upload` (20/min) | session | Plafonds différents : générer coûte de l'argent, importer coûte du disque |
 | `GET /api/videos/library`, `/:hash/meta`, `DELETE /:hash` | session | Gestion des séquences |
 | `GET /api/videos/:hash/poster.jpg`, `/:hash/f/:n.jpg` | **public** | Voir plus bas |
 | `GET /api/video/status` | session | L'export **vidéo** — noter le singulier. Accès, état du worker, et les bornes du schéma que le panneau cite |
-| `POST /api/video/compose` (12/min) | session | Le seul appel modèle de la fonctionnalité. Propose un montage sur les images **que l'utilisateur a déjà choisies** : il ordonne et règle, il ne choisit jamais. Un `imageId` hors de la sélection est refusé, jamais substitué, et un document que le schéma rejette est refusé en entier plutôt que réparé. Répond **`200` avec `timeline: null` et des remarques** quand rien d'utilisable n'est revenu — une proposition qui n'a pas eu lieu n'est pas une requête ratée (Q1) |
-| `POST /api/video/render` (6/min) | session | Valide le montage, puis met en file. `400` avec la liste des défauts, `404` en nommant les images absentes, `507` si le volume est déjà plein |
+| `POST /api/video/compose` (12/min) | session | Le seul appel modèle de la fonctionnalité. Propose un montage sur les images **que l'utilisateur a déjà choisies** : il ordonne et règle, il ne choisit jamais. Un `imageId` hors de la sélection est refusé, jamais substitué, et un document que le schéma rejette est refusé en entier plutôt que réparé. Répond **`200` avec `timeline: null` et des remarques** quand rien d'utilisable n'est revenu — une proposition qui n'a pas eu lieu n'est pas une requête ratée (Q1). `409` si la sélection contient encore une image que personne n'a confirmée : le même garde que `/render`, vérifié ici aussi pour qu'un rebut ne devienne pas la scène quatre |
+| `POST /api/video/variants` (6/min) | session | De deux à six prises d'une image de la bibliothèque. Compté comme `/api/videos/generate` plutôt que comme `/compose`, parce que chaque variante est un appel au fournisseur. Répond `derived` : avec un profil d'image « edit » les images sortent de celle de l'utilisateur, sans lui ce sont des sœurs nées du même texte — et une interface qui montrerait les deux à l'identique mentirait |
+| `POST /api/video/render` (6/min) | session | Valide le montage, puis met en file. `400` avec la liste des défauts, `404` en nommant les images absentes, `409` si la sélection contient encore une image que personne n'a confirmée, `507` si le volume est déjà plein |
 | `GET /api/video/jobs/:id` | session | `403`, pas `404`, sur le job d'un autre : un job porte le montage, et un montage porte son texte incrusté |
 | `GET /api/video/:hash` | session | Le film terminé. **Jamais public** — la propriété est vérifiée avant l'existence, donc un hash inconnu et celui d'un autre répondent pareil |
 | `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | La clé de licence sort en `hasLicenseKey`, un booléen |
@@ -865,11 +877,16 @@ Le ZIP est écrit par `src/lib/zip.ts`, sans aucune dépendance : méthode « st
 plus CRC32. Le même écrivain sert au « Tout télécharger » de la bibliothèque
 d'images et à `npm run backup`.
 
+**Ce n'est pas l'export vidéo**, avec lequel il ne partage que le mot. Celui-là
+transforme des images de la médiathèque en `.mp4` sur un service Docker séparé et
+facultatif, et ne touche jamais à un écran — voir
+[l'export vidéo](fr/video-export.md).
+
 ---
 
 ## 11. Les tests
 
-`npm test` exécute Vitest sur tout le dépôt. Quatre suites méritent d'être
+`npm test` exécute Vitest sur tout le dépôt. Cinq suites méritent d'être
 connues, parce qu'elles lisent **ce qui est réellement livré**, pas une
 abstraction.
 
@@ -906,6 +923,34 @@ cadratin, un bloc anglais collé dans le fichier français. Les documents partai
 exactement où l'interface était déjà allée : un système de design en français, un
 ADR en anglais, un audit en français, un README en anglais, et aucun moyen de
 savoir à quel lecteur chacun s'adressait.
+
+La même suite tient aussi l'**autre** famille de miroirs, celle qui porte
+l'essentiel de cette documentation : `docs/` en anglais, `docs/fr/` en français,
+chemin pour chemin. Rien ne la vérifiait jusqu'à ce qu'on en ait besoin — les
+quatre jumeaux ci-dessus sont côte à côte avec un suffixe de langue, et les tests
+écrits pour eux n'atteignaient pas un arbre mis en miroir par répertoire. Chaque
+page doit donc exister des deux côtés, avec les mêmes titres aux mêmes niveaux,
+et cela dans les deux sens. L'existence est la moitié bon marché, et c'est celle
+qui attrape la vraie faute : ajouter une page sous `docs/` et s'arrêter là ne
+fait échouer aucune compilation et laisse le sommaire français pointer vers rien.
+
+**`tests/video-worker-separation.test.js`** tient Remotion hors de Mocky. Elle lit
+`package.json` à la recherche d'un paquet Remotion dans **n'importe quel** champ
+de dépendances — y compris `peerDependencies`, celui qui a l'air inoffensif parce
+qu'il n'installe rien tout en mettant Remotion dans l'arbre de qui le résout —
+puis l'arbre des sources pour un import, `.dockerignore` pour l'exclusion de
+`worker/`, et `docker-compose.yml` pour le profil `video-export` et le réseau
+interne.
+
+Elle existe parce que cette séparation était défendue dans quatre documents et
+gardée par aucun : la prose ne fait pas échouer une compilation. Un seul
+`npm install remotion` à la racine du dépôt pour « juste essayer la composition
+en local », et l'image par défaut livre Remotion à tous les exploitants qui ne
+l'ont jamais demandé — ce qui est une régression de licence, pas de taille, et
+qu'aucun test ultérieur ne peut dé-livrer. La même suite refuse un serveur de
+file d'attente ou un pilote de base de données, car un exécuteur de tâches est
+exactement la fonctionnalité pour laquelle on tend la main vers Redis. Voir
+[l'export vidéo](fr/video-export.md).
 
 À côté : `registry.test.ts` pour les invariants du registre au chargement,
 `ssrf-guard.test.js`, `routes-auth.test.js`,

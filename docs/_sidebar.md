@@ -11,6 +11,7 @@
   - [Animations](muse/animations.md)
 - [Quality pass](quality.md)
 - [SEO and accessibility](seo-accessibility.md)
+- [Video export](video-export.md)
 - [Deployment](deployment.md)
 - [Changelog](CHANGELOG.md)
 - Reference

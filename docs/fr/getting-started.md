@@ -368,6 +368,61 @@ toute la fonctionnalité avec ses propres images.
 
 ---
 
+## Export vidéo
+
+Une autre fonctionnalité que la précédente, et le singulier est ce qui permet de
+les distinguer dans le code : `server/videos/` découpe des séquences au
+défilement, `server/video/` fabrique des films. Celle-ci transforme des images de
+la médiathèque en `.mp4`.
+
+Elle est **désactivée par défaut, et son moteur de rendu n'est pas installé par
+défaut**, ce qui relève de la licence plutôt que de la technique. Remotion est
+gratuit pour les particuliers, les organisations à but non lucratif et les
+sociétés jusqu'à trois salariés, et sa licence ne traite pas de la
+redistribution au sein d'un produit auto-hébergé — il vit donc dans une image
+séparée que personne ne construit par accident. Pourquoi toute la fonctionnalité
+est bâtie autour de cela est dans [l'export vidéo](fr/video-export.md).
+
+Trois étapes, dans cet ordre.
+
+**1. Construire et lancer le worker.** Depuis la racine du dépôt :
+
+```bash
+docker compose --profile video-export up -d --build
+```
+
+Sans `--profile video-export`, rien ici n'est construit, créé ni démarré, et
+`docker compose up -d` se comporte exactement comme avant. Construire cette image
+est le moment où la question de licence devient la vôtre : lisez d'abord
+<https://www.remotion.dev/>, et notez que le seuil compte **les salariés de votre
+organisation, pas les comptes de cette instance**.
+
+**2. L'activer dans Administration → Export vidéo.**
+
+| Réglage | Détail |
+|---|---|
+| Activer l'export vidéo | L'interrupteur maître. Fermé, personne n'exporte, quelle que soit la portée |
+| Portée | `Tout le monde`, ou une liste de comptes. Un administrateur n'est **pas** autorisé d'office — un rendu coûte du processeur et se compte par compte, donc l'accès s'accorde explicitement, y compris à soi-même |
+| URL du worker de rendu | `http://video-worker:3030` par défaut, c'est-à-dire le nom du service Compose sur un pont interne. Cela a l'air de ne pas pouvoir marcher : c'est la troisième dérogation réservée à l'administrateur au garde SSRF, et le raisonnement est dans [les invariants](fr/architecture/invariants.md) |
+| Clé de licence Remotion | Facultative. Stockée côté serveur, jamais renvoyée au navigateur. En renseigner une active la télémétrie sortante qu'un rendu sous licence exige à partir de Remotion 5.0 ; sans clé, le conteneur du worker n'a aucune sortie réseau |
+
+Le panneau sonde le worker et rapporte `Disponible` avec sa version,
+`Injoignable`, `Non configuré`, ou une adresse qu'il a refusée avant tout appel.
+Ce dernier cas mérite d'être lu attentivement : rien n'a été contacté, donc
+redémarrer le worker n'y changera rien — seuls `http://` et `https://` sont
+acceptés.
+
+**3. S'en servir.** `Plus → Vidéo` dans un projet. Vingt scènes au plus, deux
+minutes au plus, et pas de son.
+
+Les variantes — « Partir d'une image », dans ce panneau — sont la seule partie
+qui s'appuie sur un autre réglage. Avec un profil d'image « edit » configuré, ce
+sont de vraies dérivations de votre image ; sans lui, ce sont des sœurs nées du
+même texte, et le panneau le dit avant que les appels au fournisseur soient
+dépensés.
+
+---
+
 ## Serveurs MCP
 
 Les serveurs MCP locaux sont déclarés dans `mocky.mcp.json`, à la racine du

@@ -29,6 +29,7 @@ TypeScript.
 | Aperçu | Une iframe isolée, sans origine propre. React, ReactDOM, Babel et Tailwind sont copiés localement. Le JSX est compilé à l'intérieur de l'iframe |
 | Modèles | Mocky parle toujours le dialecte Ollama en interne. Un proxy traduit vers les API compatibles OpenAI |
 | Binaire externe | `ffmpeg`, uniquement pour la vidéo au défilement |
+| Service séparé facultatif | Le worker de rendu Remotion, dans `worker/video/`, derrière le profil Compose `video-export`. Absent de l'image par défaut, pour des [raisons de licence](fr/video-export.md) |
 
 ---
 
@@ -60,6 +61,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 | Suivre Discover, Distill et Dossier en détail | [Moteur d'inspiration](fr/muse/inspiration-engine.md) |
 | Comprendre le système d'animations | [Animations](fr/muse/animations.md) |
 | Contrôler un écran généré, et corriger ce que le contrôle trouve | [Passe de qualité](fr/quality.md) |
+| Transformer un ensemble d'images en `.mp4`, et savoir pourquoi son moteur de rendu est livré à part | [Export vidéo](fr/video-export.md) |
 | Déployer Mocky | [Déploiement](fr/deployment.md) |
 
 ---
