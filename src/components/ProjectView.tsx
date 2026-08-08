@@ -771,11 +771,36 @@ export default function ProjectView({
   function onRevertScreen(screenId: string) {
     const screen = screens.find((s) => s.id === screenId)
     if (!screen || !screen.previousCode) return
+    const back = screen.previousCode
     // Swap: current code becomes the new previousCode, old code becomes current
     onUpdateScreen(screenId, {
-      code: screen.previousCode,
+      code: back,
       previousCode: undefined,
-      componentName: detectComponentName(screen.previousCode),
+      componentName: detectComponentName(back),
+      /*
+       * The sequence record follows the code back, or it stops claiming anything.
+       *
+       * `swapScreenImages` moves `videoHash`/`videoFrames` when a hero swap
+       * re-points the very clip they name — the pair moves as one. Revert put the
+       * source back and left them where they were, which splits the pair the
+       * other way round: the screen draws clip A while the record says B. That is
+       * the same defect this whole path exists to prevent, arrived at through the
+       * button sitting next to it.
+       *
+       * The restored source is the arbiter, and it only has to answer one
+       * question: does it still contain that content address? A 64-hex hash is
+       * looked for literally, with no pattern and no name discovery — this is not
+       * reading structure out of generated source (I1), it is asking whether a
+       * string Mocky itself wrote is still in the file, and the answer is only
+       * ever used to DROP a claim.
+       *
+       * Dropped rather than re-derived: what the old source pointed at cannot be
+       * known without a parse, and absent means "not recorded", which is what
+       * almost every screen says. A guess would mean something else.
+       */
+      ...(screen.videoHash && !back.includes(screen.videoHash)
+        ? { videoHash: undefined, videoFrames: undefined }
+        : {}),
     })
   }
 
@@ -1827,7 +1852,7 @@ export default function ProjectView({
   }
 
   /**
-   * Write back a screen whose image URLs were swapped.
+   * Write back a screen whose media URLs were swapped in the source.
    *
    * No AbortController and no `codeAtStart` re-check, unlike every model-backed
    * mutation here: the substitution is synchronous and was computed from the
@@ -1836,17 +1861,29 @@ export default function ProjectView({
    * `previousCode`, which is what makes "Revert" undo a swap the same way it
    * undoes an edit.
    *
-   * `componentName` is re-detected out of habit rather than need — an image URL
+   * `componentName` is re-detected out of habit rather than need — a media URL
    * cannot rename a component — but every other write-back here does it, and a
    * path that skips it is a path someone has to reason about later.
+   *
+   * `sequence` arrives only when the swap re-pointed the very clip
+   * `videoHash`/`videoFrames` records. Those two are written at generation time
+   * to say which sequence Muse paid for; left behind after a hero swap they
+   * describe a clip the screen no longer shows. They move as a pair or not at
+   * all, here as everywhere — half a sequence draws its last frame for the rest
+   * of the scroll.
    */
-  function swapScreenImages(screenId: string, nextCode: string) {
+  function swapScreenImages(
+    screenId: string,
+    nextCode: string,
+    sequence?: { hash: string; frames: number },
+  ) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
     onUpdateScreen(screenId, {
       code: nextCode,
       componentName: detectComponentName(nextCode),
       previousCode: screen.code,
+      ...(sequence ? { videoHash: sequence.hash, videoFrames: sequence.frames } : {}),
     })
   }
 
@@ -1981,7 +2018,8 @@ export default function ProjectView({
           code={imageSwapScreen.code}
           projectId={project.id}
           attached={imageSwapScreen.attachedMedia}
-          onReplace={(code) => swapScreenImages(imageSwapScreen.id, code)}
+          videoHash={imageSwapScreen.videoHash}
+          onReplace={(code, sequence) => swapScreenImages(imageSwapScreen.id, code, sequence)}
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
         />

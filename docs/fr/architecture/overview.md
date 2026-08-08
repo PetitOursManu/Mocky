@@ -23,6 +23,7 @@ Le fait le plus structurant du projet :
 | Utilisation par compte : projets, écrans, disque | Serveur | `server/usage.js` |
 | Cadrage du canevas infini (tout afficher, focus, dernier écran) | Navigateur | `src/lib/framing.ts` |
 | Trouver et remplacer les images d'un écran (AST, sans modèle) | Navigateur | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
+| Trouver et remplacer les séquences de défilement d'un écran (AST, sans modèle) | Navigateur | `src/lib/screenSequences.ts` — un couple, `base` **et** `frames`, réécrits ensemble |
 | Muse : MCP, récupération de pages, distillation, dossier | Serveur | `server/muse/` |
 | Images, vidéos, bibliothèques | Serveur | `server/images/`, `server/videos/` |
 | Export vidéo : schéma, l'unique appel de modèle, file, magasin | Serveur | `server/video/` — au **singulier** ; `server/videos/` est la bibliothèque de clips |

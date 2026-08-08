@@ -138,12 +138,12 @@ export const library = {
     // une <img> à une adresse que l'AST a validée — et pas ce qu'elle s'appelle.
     'library.swapTitle': 'Médias de « {name} »',
     'library.swapBlurb':
-      'Les images utilisées par cet écran. Remplacer réécrit uniquement l’adresse de l’image dans le code — le reste de l’écran n’est pas retouché, et « Revenir en arrière » annule l’opération.',
-    'library.swapNone': 'Cet écran n’utilise aucune image de la médiathèque.',
+      'Les images et les séquences de défilement utilisées par cet écran. Remplacer réécrit uniquement leur adresse dans le code — le reste de l’écran n’est pas retouché, et « Revenir en arrière » annule l’opération.',
+    'library.swapNone': 'Cet écran n’utilise aucun média de la médiathèque.',
     'library.swapNoneHint':
       'Les écrans générés sans image utilisent des aplats et des SVG dessinés à la main. Pour en ajouter une, décrivez-la dans le composeur.',
     'library.swapUnparsed':
-      'Le code de cet écran n’a pas pu être analysé, donc ses images sont introuvables. Corrigez l’erreur affichée sur l’écran, puis réessayez.',
+      'Le code de cet écran n’a pas pu être analysé, donc ses médias sont introuvables. Corrigez l’erreur affichée sur l’écran, puis réessayez.',
     'library.swapUsedOnce': 'utilisée une fois',
     'library.swapUsedTimes': 'utilisée {n} fois',
     'library.swapAllOccurrences': 'Les {n} occurrences seront remplacées.',
@@ -171,12 +171,41 @@ export const library = {
     'library.swapSlot': 'Emplacement {n}',
     'library.swapSlotLine': 'ligne {n}',
 
+    // ---- séquences de défilement présentes dans le code ----
+    // Une séquence n'est pas une image : elle est désignée par un COUPLE,
+    // l'adresse et le nombre d'images. Les deux textes ci-dessous le disent,
+    // parce que c'est ce qui explique pourquoi le remplacement impose une
+    // séquence entière de la médiathèque et non un fichier quelconque.
+    'library.swapSequences': 'Séquences de défilement dans le code',
+    'library.swapSequencesHint':
+      'Une séquence est désignée par un couple : son adresse et son nombre d’images. Le remplacement réécrit les deux ensemble — l’un sans l’autre laisse un défilement figé sur la dernière image.',
+    'library.swapSeqBadge': 'Séquence',
+    'library.swapSeqLabel': 'Séquence de défilement',
+    // Découpée comme `filmScenes` : le compte est affiché sur chaque ligne et sur
+    // chaque vignette du sélecteur, et une séquence d'une seule image est un cas
+    // réel — `replaceScreenSequence` accepte 1, et un clip très court n'en donne
+    // pas plus. « 1 images » sur toute une grille.
+    'library.swapSeqFrames_one': '{n} image',
+    'library.swapSeqFrames_other': '{n} images',
+    'library.swapSeqChoose': 'Choisir la nouvelle séquence',
+    'library.swapSeqEmpty':
+      'Aucune séquence dans la médiathèque. Importez un clip ou générez-en une depuis Médias.',
+    'library.swapSeqListFailed':
+      'Impossible de lister les séquences de la médiathèque. Les images ci-dessus restent remplaçables.',
+    'library.swapSeqDone': 'Séquence remplacée : adresse et nombre d’images réécrits ensemble.',
+    'library.swapSeqSame': 'C’est déjà la séquence utilisée.',
+    // Un montage ne peut pas entrer dans le code : le composant généré n'a pas
+    // de balise vidéo, et lui en injecter une serait une génération, pas une
+    // substitution. La seule voie honnête est de le redemander au composeur.
+    'library.swapNoFilmInCode':
+      'Un montage ne peut pas être placé dans le code : le composant généré n’a pas de balise vidéo, et lui en ajouter une serait une régénération. Pour un montage en héros, régénérez l’écran en le demandant dans le composeur — sinon, attachez-le ci-dessous.',
+
     // ---- les deux sections de la modale ----
     // Les intitulés portent toute la distinction : une section réécrit le code
     // de l'écran, l'autre non. Mélangées en une seule liste, « remplacer »
     // voudrait dire « réécrire la source » sur une ligne et « pointer la carte
     // ailleurs » sur la suivante, sans rien à l'écran pour les distinguer.
-    'library.swapCodeSection': 'Images dans le code de l’écran',
+    'library.swapCodeSection': 'Médias dans le code de l’écran',
     'library.attachSection': 'Média attaché à l’écran (hors du code)',
     'library.attachBlurb':
       'Un montage ou une séquence rattaché à cet écran. Rien n’est écrit dans le code : le média s’affiche sur une carte à côté du cadre, dans le canevas, à côté de l’image Muse et du DESIGN.md.',
@@ -320,12 +349,12 @@ export const library = {
     // vouched for — and not what it is called.
     'library.swapTitle': 'Media in “{name}”',
     'library.swapBlurb':
-      'The images this screen uses. Replacing rewrites only the image’s address in the code — nothing else about the screen is touched, and “Revert” undoes it.',
-    'library.swapNone': 'This screen uses no images from the media library.',
+      'The images and scroll sequences this screen uses. Replacing rewrites only their address in the code — nothing else about the screen is touched, and “Revert” undoes it.',
+    'library.swapNone': 'This screen uses nothing from the media library.',
     'library.swapNoneHint':
       'Screens generated without one use flat colour and hand-drawn SVG. To add an image, describe it in the composer.',
     'library.swapUnparsed':
-      'This screen’s code could not be read, so its images cannot be found. Fix the error shown on the screen and try again.',
+      'This screen’s code could not be read, so its media cannot be found. Fix the error shown on the screen and try again.',
     'library.swapUsedOnce': 'used once',
     'library.swapUsedTimes': 'used {n} times',
     'library.swapAllOccurrences': 'All {n} occurrences will be replaced.',
@@ -353,12 +382,39 @@ export const library = {
     'library.swapSlot': 'Place {n}',
     'library.swapSlotLine': 'line {n}',
 
+    // ---- scroll sequences present in the code ----
+    // A sequence is not an image: it is named by a PAIR, the address and the
+    // frame count. Both sentences below say so, because that is what explains
+    // why replacing one means picking a whole library sequence rather than any
+    // file at all.
+    'library.swapSequences': 'Scroll sequences in the code',
+    'library.swapSequencesHint':
+      'A sequence is named by a pair: its address and its frame count. Replacing rewrites both together — one without the other leaves a scroll frozen on the last frame.',
+    'library.swapSeqBadge': 'Sequence',
+    'library.swapSeqLabel': 'Scroll sequence',
+    // Split like `filmScenes`: the count is printed on every row and on every
+    // card of the picker, and a one-frame sequence is a real case —
+    // `replaceScreenSequence` accepts 1, and a very short clip yields no more.
+    'library.swapSeqFrames_one': '{n} frame',
+    'library.swapSeqFrames_other': '{n} frames',
+    'library.swapSeqChoose': 'Choose the new sequence',
+    'library.swapSeqEmpty': 'No sequence in the library. Upload a clip, or generate one from Media.',
+    'library.swapSeqListFailed':
+      'Could not list the library’s sequences. The images above are still replaceable.',
+    'library.swapSeqDone': 'Sequence replaced: address and frame count rewritten together.',
+    'library.swapSeqSame': 'That is already the sequence in use.',
+    // A cut cannot go into the code: the generated component has no video tag,
+    // and injecting one would be a generation rather than a substitution. The
+    // only honest way in is to ask the composer for it.
+    'library.swapNoFilmInCode':
+      'A cut cannot be placed in the code: the generated component has no video tag, and adding one would be a regeneration. For a cut as the hero, regenerate the screen and ask for it in the composer — otherwise, attach it below.',
+
     // ---- the dialog's two sections ----
     // The headings carry the whole distinction: one section rewrites the
     // screen's code, the other does not. Mixed into a single list, "replace"
     // would mean "rewrite the source" on one row and "point the card elsewhere"
     // on the next, with nothing on screen to tell them apart.
-    'library.swapCodeSection': 'Images in the screen’s code',
+    'library.swapCodeSection': 'Media in the screen’s code',
     'library.attachSection': 'Media attached to the screen (not in the code)',
     'library.attachBlurb':
       'A cut or a sequence hung on this screen. Nothing is written into the code: the media shows on a card beside the frame, on the canvas, next to the Muse image and the DESIGN.md.',

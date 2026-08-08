@@ -23,6 +23,7 @@ The single most structural fact about the project:
 | Per-account usage: projects, screens, disk | Server | `server/usage.js` |
 | Framing the infinite canvas (fit, focus, latest) | Browser | `src/lib/framing.ts` |
 | Finding and swapping the images inside a screen (AST, no model) | Browser | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
+| Finding and swapping the scroll sequences inside a screen (AST, no model) | Browser | `src/lib/screenSequences.ts` — a pair, `base` **and** `frames`, rewritten together |
 | Muse: MCP, fetching, distillation, dossier | Server | `server/muse/` |
 | Images, videos, libraries | Server | `server/images/`, `server/videos/` |
 | Video export: schema, the one model call, queue, store | Server | `server/video/` — note the **singular**; `server/videos/` is the clip library |

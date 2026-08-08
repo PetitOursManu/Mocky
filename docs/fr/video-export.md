@@ -383,13 +383,32 @@ un.
 **Il y a deux relations entre un écran et un média, et elles ne se mélangent
 pas.** Tout le reste de cette fonctionnalité en découle.
 
-1. **Une image dans le code.** `src/lib/screenImages.ts` trouve les
+1. **Un média dans le code.** `src/lib/screenImages.ts` trouve les
    `/api/images/HASH` dans `Screen.code` et les remplace par substitution de
    chaîne, aux offsets qu’un AST a validés. C’est du **code généré** qu’on
    réécrit — aucun appel au modèle, rien de restylé, et « Revenir en arrière »
    l’annule comme n’importe quelle édition. Ce chemin ne sait délibérément pas
    AJOUTER une image à un écran qui n’en a pas : cela change la structure du
    composant, donc c’est une génération.
+
+   `src/lib/screenSequences.ts` fait la même chose pour une **séquence de
+   défilement**, et c’est un module distinct parce qu’une séquence n’est pas
+   désignée par une URL. Elle est désignée par un **couple** —
+   `<ScrollSequence base="…/api/videos/HASH" frames={60}>` — et les deux moitiés
+   doivent bouger ensemble, pour la raison qui justifie `Screen.videoFrames` : le
+   composant parcourt 1…total, donc une nouvelle adresse sous un ancien compte
+   soit s’arrête trop tôt et tient sa dernière image pendant tout le reste du
+   défilement, soit demande des images qui répondent 404 et tient la dernière qui
+   a répondu. Aucune de ces pannes ne lève d’erreur, aucune ne se voit dans la vue
+   Code, et les deux ressemblent à un remplacement réussi. `replaceScreenSequence`
+   réécrit donc l’adresse et les chiffres du compte en un seul appel, et un
+   élément dont le compte est une expression et non un littéral —
+   `frames={total}` — n’est pas signalé du tout, parce que le réécrire
+   supposerait de deviner ce que cette expression vaudra.
+
+   La reconnaissance porte sur le couple d’attributs, jamais sur le nom de
+   l’élément : un modèle qui a enveloppé `ScrollSequence` dans un composant à lui
+   a quand même écrit un héros que l’utilisateur doit pouvoir repointer.
 
 2. **Un média attaché à l’écran.** `Screen.attachedMedia` — comme `imageHash` et
    `design` — est une **métadonnée**. Rien n’en est dans le code ; le canevas le
@@ -406,6 +425,41 @@ dont l’un dit qu’il réécrit le code de l’écran et l’autre qu’il n�
 En une seule liste, « remplacer » voudrait dire « réécrire la source » sur une
 ligne et « pointer la carte ailleurs » sur la suivante, sans rien à l’écran pour
 les distinguer.
+
+**La section 1 liste des images et des séquences, aucun montage — et elle dit
+pourquoi.** Une absence n’explique rien : quelqu’un qui veut son montage en héros
+et ne le trouve que sous « attacher » mérite la raison plutôt que d’avoir à la
+deviner. Une phrase la porte (`library.swapNoFilmInCode`) : le composant généré
+n’a pas de balise vidéo, lui en ajouter une est une régénération, donc il faut la
+demander au composeur. Une séquence a sa place dans cette liste parce qu’elle
+*est déjà* un composant que le modèle a appris à écrire ; un montage, non.
+
+**Une ligne de séquence, c’est une affiche plus un badge, jamais une vignette
+nue.** Une affiche est une image extraite du clip : seule, elle se lit comme une
+photo — alors que la seule chose que la ligne doit faire passer, c’est que cet
+emplacement représente trois hauteurs de fenêtre de défilement épinglé. La ligne
+affiche aussi le nombre d’images, parce que c’est la moitié de ce qu’un
+remplacement réécrit.
+
+**Remplacer le héros déplace `videoHash`/`videoFrames` avec lui**, et seulement
+si l’enregistrement désignait le clip remplacé. Ces deux champs sont écrits à la
+génération pour dire quelle séquence Muse a payée ; laissés en place après un
+remplacement, ils décrivent un clip que l’écran n’affiche plus. Un écran qui
+porte deux séquences n’a qu’un `videoHash` : le déplacer vers celle que
+l’utilisateur a remplacée par hasard lui ferait dire quelque chose que personne
+ne lui a demandé.
+
+**Et « Revenir en arrière » doit le ramener, sinon le couple se disloque dans
+l’autre sens.** Le retour arrière restaurait la source et laissait
+l’enregistrement là où le remplacement l’avait mis : l’écran dessinait le clip A
+pendant que `videoHash` nommait le B — le même défaut, atteint par le bouton
+d’à côté. `onRevertScreen` retire donc le couple quand la source restaurée ne
+contient plus cette adresse de contenu. Retiré et non recalculé : ce que
+désignait l’ancienne source ne se sait pas sans analyse, et « absent » veut dire
+« non enregistré », ce que dit déjà presque tout écran. Chercher une chaîne de 64
+hex que Mocky a lui-même écrite n’est pas lire la structure d’un source généré
+(I1) — aucun motif, aucune découverte de nom, et la réponse ne sert qu’à retirer
+une affirmation.
 
 **Le champ est dans la liste blanche.** `normalizeScreen` reconstruit chaque
 écran depuis une liste fixe de champs : un champ absent de cette liste est perdu

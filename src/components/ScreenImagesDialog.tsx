@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { imageUrl } from '../lib/imageLibrary'
 import { findScreenImages, replaceScreenImage, type ImageSpan, type ScreenImage } from '../lib/screenImages'
 import {
+  findScreenSequences,
+  replaceScreenSequence,
+  type ScreenSequence,
+} from '../lib/screenSequences'
+import {
   filmMedia,
   mediaPoster,
   runningTime,
@@ -13,7 +18,7 @@ import type { AttachedMedia } from '../lib/project'
 import { listVideoExports, type VideoExport } from '../lib/video/client'
 import { listVideos, videoPosterUrl, type LibraryVideo } from '../lib/videoLibrary'
 import { ImagePicker } from './ImagePicker'
-import { Banner, Button, Modal, Spinner } from '../ui'
+import { Banner, Button, Icon, Modal, Spinner } from '../ui'
 import { useT } from '../i18n'
 
 /**
@@ -22,18 +27,22 @@ import { useT } from '../i18n'
  * THE TWO RELATIONS. A screen and a media can be related in two ways, and the
  * word "replace" means something different in each.
  *
- *  1. AN IMAGE INSIDE THE CODE. `src/lib/screenImages.ts` finds
- *     `/api/images/HASH` in `Screen.code` and rewrites it by string substitution
- *     at offsets an AST vouched for. That is generated SOURCE being edited — no
- *     model is called, nothing is restyled, and "Revert" undoes it like any
- *     other edit. What it deliberately cannot do is ADD an image to a screen
- *     that has none, or remove one: both change the component's structure, which
- *     is a generation rather than a substitution.
+ *  1. A MEDIA INSIDE THE CODE. `src/lib/screenImages.ts` finds
+ *     `/api/images/HASH` in `Screen.code` and `src/lib/screenSequences.ts` finds
+ *     the `base`/`frames` pair of a scroll sequence; both rewrite by string
+ *     substitution at offsets an AST vouched for. That is generated SOURCE being
+ *     edited — no model is called, nothing is restyled, and "Revert" undoes it
+ *     like any other edit. What it deliberately cannot do is ADD a media to a
+ *     screen that has none, or remove one: both change the component's
+ *     structure, which is a generation rather than a substitution.
  *
  *  2. A MEDIA ATTACHED TO THE SCREEN. `Screen.attachedMedia` — like `imageHash`
  *     and `design` — is metadata. It is nowhere in the code; the canvas draws it
  *     on a card beside the frame. A film can only ever be this: the generated
  *     component has no `<video>` tag, and injecting one would be a generation.
+ *     That is why section 1 lists sequences and not films, and says so in a
+ *     sentence rather than leaving the absence to be puzzled over — a sequence
+ *     already IS a component the model was taught to write, a film is not.
  *
  * They are two sections with two headings for that reason, and the headings say
  * which one touches the code. Mixed into a single list, "remplacer" would mean
@@ -49,6 +58,7 @@ export default function ScreenImagesDialog({
   code,
   projectId,
   attached,
+  videoHash,
   onReplace,
   onAttach,
   onClose,
@@ -59,14 +69,33 @@ export default function ScreenImagesDialog({
   projectId?: string
   /** What is attached to the screen right now, if anything. Section 2's subject. */
   attached?: AttachedMedia
-  /** Hands the rewritten source back; the caller owns previousCode and Revert. */
-  onReplace: (nextCode: string) => void
+  /**
+   * The sequence `Screen.videoHash` records as backing this screen's hero.
+   *
+   * Read for one thing only: deciding whether a swap in the code invalidates
+   * that record. The field is written at generation time and says which clip
+   * Muse paid for; swapping the hero and leaving it behind makes it a note about
+   * a clip the screen no longer shows.
+   */
+  videoHash?: string
+  /**
+   * Hands the rewritten source back; the caller owns previousCode and Revert.
+   *
+   * `sequence` travels with it when the swap re-pointed the hero the screen's
+   * `videoHash`/`videoFrames` pair names — the pair moves as one, here as
+   * everywhere else. Absent means the metadata was about some other clip, or
+   * about none, and must not be touched.
+   */
+  onReplace: (nextCode: string, sequence?: { hash: string; frames: number }) => void
   /** Attaches a media, or detaches with null. Never touches the code. */
   onAttach: (media: AttachedMedia | null) => void
   onClose: () => void
 }) {
   const t = useT()
   const [images, setImages] = useState<ScreenImage[] | null>(null)
+  const [sequences, setSequences] = useState<ScreenSequence[] | null>(null)
+  /** Which occurrence the sequence picker is open for, by index in `sequences`. */
+  const [seqTarget, setSeqTarget] = useState<number | null>(null)
   /**
    * What is being replaced: a whole image, or one of its places.
    *
@@ -79,12 +108,23 @@ export default function ScreenImagesDialog({
   const [error, setError] = useState<string | null>(null)
 
   // Re-derived from `code`, never held in state across a swap: the parent
-  // rewrites the source, hands it back down, and the list must describe THAT.
+  // rewrites the source, hands it back down, and the lists must describe THAT.
+  // Both offsets move on every edit, so a list kept across one would splice at
+  // addresses that have shifted.
   useEffect(() => {
     let live = true
-    findScreenImages(code)
-      .then((found) => live && setImages(found))
-      .catch(() => live && setImages([]))
+    setSeqTarget(null)
+    Promise.all([findScreenImages(code), findScreenSequences(code)])
+      .then(([foundImages, foundSequences]) => {
+        if (!live) return
+        setImages(foundImages)
+        setSequences(foundSequences)
+      })
+      .catch(() => {
+        if (!live) return
+        setImages([])
+        setSequences([])
+      })
     return () => {
       live = false
     }
@@ -120,6 +160,52 @@ export default function ScreenImagesDialog({
     [code, onReplace, t],
   )
 
+  /**
+   * Re-point one scroll sequence at another clip.
+   *
+   * Takes the whole library entry rather than a hash, because the frame count is
+   * half the identity: `replaceScreenSequence` rewrites the address and the count
+   * in one splice, and a caller holding only a hash could not supply the second.
+   */
+  const applySequence = useCallback(
+    (sequence: ScreenSequence, next: LibraryVideo) => {
+      if (next.hash === sequence.hash && next.frames === sequence.frames) {
+        setNotice(t('library.swapSeqSame'))
+        setSeqTarget(null)
+        return
+      }
+      try {
+        // Mocky's origin, not the iframe's: the iframe's is opaque (I2).
+        const out = replaceScreenSequence(
+          code,
+          sequence,
+          { hash: next.hash, frames: next.frames },
+          window.location.origin,
+        )
+        if (out === code) {
+          setError(t('library.swapFailed'))
+          return
+        }
+        onReplace(
+          out,
+          // Only when the record was about THIS clip. A screen with two
+          // sequences has one `videoHash`, and moving it to whichever one the
+          // user happened to swap would make the field say something nobody
+          // asked it to say.
+          videoHash && videoHash === sequence.hash
+            ? { hash: next.hash, frames: next.frames }
+            : undefined,
+        )
+        setNotice(t('library.swapSeqDone'))
+        setError(null)
+        setSeqTarget(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+    },
+    [code, onReplace, t, videoHash],
+  )
+
   const targeted = images?.find((i) => i.hash === target?.hash) ?? null
   const isAll = (img: ScreenImage) => target?.hash === img.hash && target.spanIndex === null
   const isSlot = (img: ScreenImage, i: number) => target?.hash === img.hash && target.spanIndex === i
@@ -127,10 +213,32 @@ export default function ScreenImagesDialog({
   const aim = (hash: string, spanIndex: number | null) => {
     setNotice(null)
     setError(null)
+    setSeqTarget(null)
     setTarget((prev) =>
       prev?.hash === hash && prev.spanIndex === spanIndex ? null : { hash, spanIndex },
     )
   }
+  /** Same, for one sequence occurrence. The two pickers never stand open together. */
+  const aimSequence = (index: number) => {
+    setNotice(null)
+    setError(null)
+    setTarget(null)
+    setSeqTarget((prev) => (prev === index ? null : index))
+  }
+
+  // Only once the walk has found something to draw a poster for.
+  const clips = useClipLibrary(Boolean(sequences?.length))
+
+  const scanning = images === null || sequences === null
+  const nothingInCode = !scanning && images.length === 0 && sequences.length === 0
+  /*
+   * "No media here" and "this source would not parse" need different advice, and
+   * the only signal separating them is that an address is plainly in the text
+   * while the walk found nothing. `/api/videos/` counts for the same reason
+   * `/api/images/` does: a hero sequence in a screen that no longer compiles is
+   * exactly the case where the user reaches for this dialog.
+   */
+  const addressesInText = code.includes('/api/images/') || code.includes('/api/videos/')
 
   return (
     <Modal title={t('library.swapTitle', { name: screenName })} onClose={onClose} size="lg">
@@ -152,23 +260,23 @@ export default function ScreenImagesDialog({
       </div>
       <p className="measure text-body-sm text-ink-muted">{t('library.swapBlurb')}</p>
 
-      {images === null ? (
+      {scanning ? (
         <div className="mt-6 flex justify-center">
           <Spinner />
         </div>
-      ) : images.length === 0 ? (
+      ) : nothingInCode ? (
         <div className="mt-4 border border-line-soft bg-ink/5 p-4">
           {/* Two different situations, and they need different advice: a screen
-              that has no images, and a screen whose source would not parse. The
+              that has no media, and a screen whose source would not parse. The
               second is a bug the user can see on the canvas. */}
           <p className="text-body text-ink">
-            {code.includes('/api/images/') ? t('library.swapUnparsed') : t('library.swapNone')}
+            {addressesInText ? t('library.swapUnparsed') : t('library.swapNone')}
           </p>
-          {!code.includes('/api/images/') && (
+          {!addressesInText && (
             <p className="measure mt-1 text-body-sm text-ink-muted">{t('library.swapNoneHint')}</p>
           )}
         </div>
-      ) : (
+      ) : images.length > 0 ? (
         <ul className="mt-4 space-y-2">
           {images.map((img) => (
             <li key={img.hash} className="border border-line-soft bg-surface">
@@ -265,6 +373,82 @@ export default function ScreenImagesDialog({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {/* The scroll sequences, in the same section because they are in the same
+          place — the source — and visibly not photographs. A poster on its own
+          IS a still from the clip and reads as one, so the badge is the only
+          thing on the row saying that this slot is three viewport-heights of
+          pinned scrolling rather than an <img>. */}
+      {sequences && sequences.length > 0 && (
+        <div className="mt-5">
+          <p className="kicker text-accent-ink">{t('library.swapSequences')}</p>
+          <p className="measure mb-2 text-caption text-ink-faint">{t('library.swapSequencesHint')}</p>
+          <ul className="space-y-2">
+            {sequences.map((seq, i) => (
+              // Keyed on the offset, not the hash: the same clip can back two
+              // sections, and two rows sharing a key would swap the open picker
+              // onto the wrong one.
+              <li key={`${seq.hash}:${seq.base.start}`} className="border border-line-soft bg-surface">
+                <div className="flex items-center gap-3 p-2">
+                  <span className="relative block h-16 w-24 shrink-0 border border-line-soft bg-ink">
+                    {/* The re-cut stamp when the library entry is in hand — see
+                        useClipLibrary. Without it this drew last year's still
+                        while the picker below drew this year's. */}
+                    <img
+                      src={videoPosterUrl(
+                        seq.hash,
+                        clips.items?.find((v) => v.hash === seq.hash)?.recutAt,
+                      )}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute bottom-0 left-0 flex items-center gap-1 bg-ink/80 px-1 py-0.5 text-caption text-surface">
+                      <Icon name="film" size={11} />
+                      {t('library.swapSeqBadge')}
+                    </span>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body text-ink">{t('library.swapSeqLabel')}</p>
+                    <p className="font-mono text-caption text-ink-faint">
+                      {seq.hash.slice(0, 12)} ·{' '}
+                      {t(seq.frames === 1 ? 'library.swapSeqFrames_one' : 'library.swapSeqFrames_other', {
+                        n: seq.frames,
+                      })}{' '}
+                      · {t('library.swapSlotLine', { n: seq.line })}
+                      {seq.element ? ` · <${seq.element}>` : ''}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={seqTarget === i ? 'primary' : 'ghost'}
+                    onClick={() => aimSequence(i)}
+                  >
+                    {seqTarget === i ? t('library.swapCancel') : t('library.swapReplace')}
+                  </Button>
+                </div>
+
+                {seqTarget === i && (
+                  <div className="border-t border-line-soft bg-ink/5 p-3">
+                    <SequencePicker
+                      heading={t('library.swapSeqChoose')}
+                      currentHash={seq.hash}
+                      items={clips.items}
+                      failed={clips.failed}
+                      onPick={(video) => applySequence(seq, video)}
+                    />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Point C: why there is no film row above, answered where the question is
+          asked rather than left to be inferred from an absence. */}
+      {!scanning && (
+        <p className="measure mt-3 text-caption text-ink-faint">{t('library.swapNoFilmInCode')}</p>
       )}
 
       {/* SECTION 2 — everything that is NOT the code. */}
@@ -280,6 +464,118 @@ export default function ScreenImagesDialog({
         }}
       />
     </Modal>
+  )
+}
+
+/**
+ * The clip library, fetched once for the whole of section 1.
+ *
+ * Shared between the sequence rows and the picker they open, deliberately. A row
+ * draws the poster of the clip already in the code, and `videoPosterUrl` needs
+ * that entry's `recutAt` to draw the CURRENT still: poster bytes are served
+ * immutable for a year while the hash comes from the SOURCE, so a re-cut clip
+ * keeps its URL and changes underneath. Fetched twice, the row and the picker
+ * three inches below it would disagree about the same clip — which is the exact
+ * defect the `recutAt` argument was added to fix, in this same dialog.
+ *
+ * Lazy: an instance that has never cut a sequence never asks. Failure is not
+ * fatal (Q1) — the rows still draw, the picker says the list is unavailable, and
+ * section 1's images are untouched by it.
+ */
+function useClipLibrary(enabled: boolean) {
+  const [items, setItems] = useState<LibraryVideo[] | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    if (!enabled) return
+    const ctrl = new AbortController()
+    let live = true
+    listVideos(undefined, ctrl.signal)
+      .then((v) => live && setItems(v))
+      .catch(() => {
+        if (!live || ctrl.signal.aborted) return
+        setItems([])
+        setFailed(true)
+      })
+    return () => {
+      live = false
+      ctrl.abort()
+    }
+  }, [enabled])
+
+  return { items, failed }
+}
+
+/**
+ * Pick one scroll sequence from the clip library.
+ *
+ * Hands back the whole entry, never a hash. The frame count is half of what
+ * identifies a sequence, and a picker that reported only the address would push
+ * the decision of where to find the count onto its caller — which is the shape
+ * that produces a hero addressed with the previous clip's count.
+ *
+ * Not `ImagePicker` with a flag, and not a fourth way into the clip library: no
+ * upload and no generate here on purpose. Both exist on the Media page, both
+ * take minutes and money for a video, and neither belongs one click away from
+ * "swap this hero for one you already have".
+ */
+function SequencePicker({
+  heading,
+  currentHash,
+  items,
+  failed,
+  onPick,
+}: {
+  heading: string
+  /** Marked in the grid as the one currently in the code. */
+  currentHash: string
+  items: LibraryVideo[] | null
+  failed: boolean
+  onPick: (video: LibraryVideo) => void
+}) {
+  const t = useT()
+
+  return (
+    <div>
+      <div className="kicker mb-2 text-accent-ink">{heading}</div>
+      {items === null ? (
+        <div className="flex justify-center py-6">
+          <Spinner />
+        </div>
+      ) : failed ? (
+        <Banner tone="warn">{t('library.swapSeqListFailed')}</Banner>
+      ) : items.length === 0 ? (
+        <p className="py-2 text-body-sm text-ink-faint">{t('library.swapSeqEmpty')}</p>
+      ) : (
+        <ul className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+          {items.map((v) => (
+            <li key={v.hash}>
+              <button
+                type="button"
+                title={v.prompt}
+                onClick={() => onPick(v)}
+                className={`block w-full overflow-hidden border text-left transition ${
+                  v.hash === currentHash ? 'border-accent' : 'border-line-soft hover:border-line'
+                }`}
+              >
+                <img
+                  src={videoPosterUrl(v.hash, v.recutAt)}
+                  alt=""
+                  className="block aspect-[4/3] w-full object-cover"
+                />
+                {/* The count is on the card because it is what the swap writes
+                    into the code beside the address, not decoration. */}
+                <span className="block px-1 py-0.5 font-mono text-caption text-ink-faint">
+                  {t(v.frames === 1 ? 'library.swapSeqFrames_one' : 'library.swapSeqFrames_other', {
+                    n: v.frames,
+                  })}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

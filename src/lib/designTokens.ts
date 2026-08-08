@@ -69,8 +69,33 @@ export function roleForLabel(label: string): TokenRole {
  * language of the request, by instruction, so on a French install that was most
  * labels in most documents. `\p{L}` under the `u` flag covers every alphabet,
  * which is the right scope: nothing about this is French-specific.
+ *
+ * `[*_`\s]*` before the separator is the same failure one layer out. A derived
+ * DESIGN.md is free-form Markdown written by a model, and models emphasise:
+ * `- **Papier**: #f6f4ee`. The leading `**` costs nothing — the scan just starts
+ * at the P — but the trailing one sits between the label and the colon, so the
+ * whole optional group failed and the token came back UNLABELLED. That is not a
+ * cosmetic loss: an unlabelled colour resolves to role 'other', and
+ * `inferBackground` then excludes it by its `label !== hex` test. One pair of
+ * asterisks made every colour in a document invisible to role resolution at
+ * once, which is how a green page previewed as slate-900.
+ *
+ * And a colon is not the only thing a model puts between a label and its value.
+ * Fixing the asterisks and stopping there left two shapes producing the SAME
+ * total loss, both of them ordinary output for a prompt that asks for plain
+ * Markdown: the em-dash list `- **Papier** — \`#F6F4EE\``, and the table row
+ * `| Papier | #F6F4EE |`. Neither has a colon anywhere, so every colour in those
+ * documents came back unlabelled and the whole slate cascade ran — which is the
+ * reported symptom exactly, not a variant of it. Hence `[:=|—–]`, and the marks
+ * are allowed on BOTH sides of it because the value gets emphasised as often as
+ * the label does.
+ *
+ * The ASCII hyphen is deliberately NOT a separator. These documents are bullet
+ * lists: `- ` opens every line, and accepting it would let one item's label bind
+ * to the next item's colour.
  */
-const COLOR_LINE_RE = /(?:(\p{L}[\p{L}\p{N} /_'’-]*?)\s*[:=]\s*)?(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))\b/gu
+const COLOR_LINE_RE =
+  /(?:(\p{L}[\p{L}\p{N} /_'’-]*?)[*_`\s]*[:=|—–]\s*[`*_]*)?(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))\b/gu
 
 /**
  * A role stated outright, right after the hex.
@@ -189,25 +214,91 @@ export function parseColors(markdown: string): DesignToken[] {
  * for pale ink, which is both cases at once. With no text either there is
  * nothing to reason from, and the lightest colour is the better bet: light
  * backgrounds are the overwhelming majority.
+ *
+ * And when the palette has no unassigned colour left to choose from, it still
+ * has evidence — see the second half of the body.
  */
 function inferBackground(colors: DesignToken[], text?: string): string | undefined {
   // Two exclusions, both about evidence. Colours that already have a job keep
   // it: a palette naming its surface, its border and its accent is telling us
   // those are not the page. And a bare hex with no label at all says nothing —
-  // a lone colour in a design document is a brand colour, and pages are rarely
-  // saturated cyan. `label === hex` is how parseColors records "unlabelled".
-  //
-  // If that leaves nothing, it leaves nothing: better the caller's default than
-  // a background invented from an accent.
+  // `label === hex` is how parseColors records "unlabelled".
   const pool = colors.filter((c) => (c.role === 'other' || c.role === 'bg') && c.label !== c.hex)
-  if (!pool.length) return undefined
-  if (text) {
-    const lt = luminance(text)
-    return pool.reduce((best, c) =>
-      Math.abs(luminance(c.hex) - lt) > Math.abs(luminance(best.hex) - lt) ? c : best,
-    ).hex
+  if (pool.length) {
+    if (text) {
+      const lt = luminance(text)
+      return pool.reduce((best, c) =>
+        Math.abs(luminance(c.hex) - lt) > Math.abs(luminance(best.hex) - lt) ? c : best,
+      ).hex
+    }
+    return pool.reduce((best, c) => (luminance(c.hex) > luminance(best.hex) ? c : best)).hex
   }
-  return pool.reduce((best, c) => (luminance(c.hex) > luminance(best.hex) ? c : best)).hex
+
+  // No candidate left is NOT the same as no evidence, and reading it that way is
+  // what put a slate-900 dashboard beside a green editorial page. A five-colour
+  // palette that names an ink, a muted, a border, a surface and an accent has
+  // assigned every one of its colours — the pool is empty by construction — while
+  // having said, twice over, that the page is light. Falling to the caller's
+  // `#0f172a` there does not merely miss: it flips `darkBg`, so the whole cascade
+  // behind it inverts too, and the mockup came out dark ink on navy.
+  //
+  // What those leftovers settle is the POLARITY, and only that. The first attempt
+  // returned the surface itself, on the grounds that it is a colour the document
+  // really contains — and it hands the same hex to two roles, because a card sits
+  // ON the page rather than being it. `parseDesignSystem` then resolves
+  // `surface` to that same value, so every panel in the mockup (the sidebar, the
+  // three stat cards, the chart) dissolved into the sheet behind it and the
+  // design card became a blank rectangle with a few hairlines. Trading a wrong
+  // page colour for an invisible one is not a fix.
+  //
+  // So: read the pole, do not borrow the neighbour. The ink first, because "the
+  // page is the furthest thing from the text" is this function's whole thesis;
+  // the surface second, since a pale card is never sitting on a black page. Only
+  // the two extremes are invented, and either is strictly better than slate-900,
+  // which is unreadable behind dark ink rather than merely approximate.
+  if (text) return isDarkColor(text) ? '#ffffff' : '#0b0b0f'
+  const surface = colors.find((c) => c.role === 'surface')?.hex
+  if (surface) return isDarkColor(surface) ? '#0b0b0f' : '#ffffff'
+  // Genuinely nothing said: the caller's default stands. A lone hex in a design
+  // document is a brand colour, and a page is rarely saturated cyan.
+  return undefined
+}
+
+/**
+ * The accent, when no label and no parenthetical claims that role.
+ *
+ * The fallback here used to be `colors[0]`, and it was wrong in the one way that
+ * cannot be seen in a swatch strip: a palette lists its page first, so the CTA
+ * button, the chart bars and the active nav item were all painted the colour of
+ * the sheet they sit on. `- **Papier**: #F6F4EE` at the top of a document is
+ * enough — every accent in the mockup vanished, while the swatches underneath it
+ * looked perfectly correct because they never resolve a role at all.
+ *
+ * Elimination first: a document that names its page, its ink, its rule and its
+ * card has said what everything else is NOT, so what is left over is the brand
+ * colour by construction. Among those, the most chromatic one — that is what
+ * distinguishes an accent from the greys a palette carries for text and edges,
+ * and "furthest from the background" alone just picks the darkest neutral.
+ *
+ * Never the background: whatever else an accent is, it is not invisible.
+ */
+function inferAccent(colors: DesignToken[], bg: string): string | undefined {
+  const spare = colors.filter((c) => c.role === 'other')
+  const pool = (spare.length ? spare : colors).filter(
+    (c) => c.hex.toLowerCase() !== bg.toLowerCase(),
+  )
+  if (!pool.length) return undefined
+  return pool.reduce((best, c) => (chroma(c.hex) > chroma(best.hex) ? c : best)).hex
+}
+
+/** How far a colour is from grey, 0…1. Saturation is what makes an accent one. */
+function chroma(hex: string): number {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const n = parseInt(full.slice(0, 6), 16)
+  if (!Number.isFinite(n)) return 0
+  const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+  return (Math.max(...rgb) - Math.min(...rgb)) / 255
 }
 
 /** Extract a radius token like "Radius: rounded-xl" or "16px"; falls back to 12px. */
@@ -227,7 +318,6 @@ export function parseDesignSystem(markdown: string): DesignSystem {
   const colors = parseColors(markdown)
   const first = (role: TokenRole) => colors.find((c) => c.role === role)?.hex
 
-  const accent = first('accent') || colors[0]?.hex || '#6366f1'
   // Ordered to break the circle: the stated ink decides the page when the page
   // is unstated, and the page decides the ink when the ink is.
   const statedText = first('text')
@@ -237,6 +327,9 @@ export function parseDesignSystem(markdown: string): DesignSystem {
   const surface = first('surface') || (darkBg ? '#1e293b' : '#f8fafc')
   const muted = first('muted') || (darkBg ? '#94a3b8' : '#64748b')
   const border = first('border') || (darkBg ? '#334155' : '#e2e8f0')
+  // After the page, not before it: an accent is chosen against the page it has
+  // to stand out from, and the old first-colour fallback picked the page itself.
+  const accent = first('accent') || inferAccent(colors, bg) || '#6366f1'
   const accentText = first('accentText') || (isDarkColor(accent) ? '#ffffff' : '#0f172a')
 
   return {

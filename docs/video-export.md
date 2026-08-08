@@ -353,12 +353,29 @@ the design. So a screen can carry one.
 **There are two relations between a screen and a media, and they must not be
 confused.** Everything about this feature follows from keeping them apart.
 
-1. **An image inside the code.** `src/lib/screenImages.ts` finds
+1. **A media inside the code.** `src/lib/screenImages.ts` finds
    `/api/images/HASH` in `Screen.code` and replaces it by string substitution at
    offsets an AST vouched for. That is generated **source** being rewritten — no
    model call, nothing restyled, and "Revert" undoes it like any other edit. It
    deliberately cannot ADD an image to a screen that has none: that changes the
    component's structure, which is a generation.
+
+   `src/lib/screenSequences.ts` does the same for a **scroll sequence**, and it
+   is a separate module because a sequence is not named by a URL. It is named by
+   a **pair** — `<ScrollSequence base="…/api/videos/HASH" frames={60}>` — and the
+   two halves have to move together, for the reason `Screen.videoFrames` exists:
+   the component walks 1…total, so a new address under an old count either stops
+   early and holds its last frame for the rest of the scroll, or asks for frames
+   that 404 and holds the last one that did not. Neither failure throws, neither
+   shows in the code view, and both look like the swap worked. So
+   `replaceScreenSequence` rewrites the address and the digits of the count in
+   one call, and an element whose count is an expression rather than a literal —
+   `frames={total}` — is not reported at all, because re-authoring it would mean
+   guessing what that expression evaluates to.
+
+   Matching is on the attribute pair, never on the element name: a model that
+   wrapped `ScrollSequence` in a component of its own still wrote a hero the user
+   must be able to re-point.
 
 2. **A media attached to the screen.** `Screen.attachedMedia` — like
    `imageHash` and `design` — is **metadata**. Nothing of it is in the code; the
@@ -374,6 +391,38 @@ That is why **"Change the media" has two sections with two headings**, one of
 which says it rewrites the screen's code and the other that it does not. In a
 single list, "replace" would mean "rewrite the source" on one row and "point the
 card elsewhere" on the next, with nothing on screen telling them apart.
+
+**Section 1 lists images and sequences, and no films — and says why.** An
+absence explains nothing: a user who wants their montage as the hero and finds
+it only under "attach" is owed the reason rather than left to infer it. One
+sentence carries it (`library.swapNoFilmInCode`): the generated component has no
+video tag, adding one is a regeneration, so ask the composer for it. A sequence
+belongs in that list because it already *is* a component the model was taught to
+write; a film is not.
+
+**A sequence row is a poster plus a badge, never a bare thumbnail.** A poster is
+a still cut from the clip, so on its own it reads as a photograph — and the one
+thing the row has to convey is that this slot is three viewport-heights of
+pinned scrolling. The row also prints the frame count, because that is half of
+what a swap writes back.
+
+**A swap of the hero moves `videoHash`/`videoFrames` with it**, and only when the
+record named the clip that was replaced. Those two are written at generation time
+to say which sequence Muse paid for; left behind after a swap they describe a
+clip the screen no longer shows. A screen carrying two sequences has one
+`videoHash`, so moving it to whichever one the user happened to swap would make
+the field state something nobody asked it to.
+
+**And "Revert" has to move it back, or the pair splits the other way round.**
+Reverting restored the source and left the record where the swap had put it: the
+screen drew clip A while `videoHash` named B — the same defect, reached through
+the button next to it. `onRevertScreen` therefore drops the pair when the
+restored source no longer contains that content address. Dropped rather than
+re-derived: what the old source pointed at cannot be known without a parse, and
+absent means "not recorded", which is what almost every screen says. Looking for
+a 64-hex string Mocky itself wrote is not reading structure out of generated
+source (I1) — there is no pattern and no name discovery, and the answer is only
+ever used to withdraw a claim.
 
 **The field is on the whitelist.** `normalizeScreen` rebuilds every screen from
 a fixed list of fields, so one that is missing from it is dropped in silence at
