@@ -9,6 +9,7 @@
 import express from 'express'
 import { VideoTimelineSchema, readableIssues, MAX_SCENES, MAX_TOTAL_DURATION_MS } from './timeline.js'
 import { proposeTimeline } from './compose.js'
+import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
 import { quotaError } from '../storage-quota.js'
 
@@ -25,6 +26,21 @@ const HASH_RE = /^[a-f0-9]{64}$/
 const publicJob = ({ userId, ...rest }) => rest
 
 /**
+ * The same strip `server/images/routes.js` applies to every library listing.
+ *
+ * `owners` holds account ids and the image library is instance-wide, so leaving
+ * it in hands an ordinary account its own id on the first variant it generates —
+ * and `publicUser()` deliberately withholds exactly that. Duplicated here rather
+ * than exported, because the two routers already share nothing and a helper
+ * imported across them would be the only reason to couple them.
+ */
+const withoutOwners = (meta) => {
+  if (!meta || typeof meta !== 'object') return meta ?? null
+  const { owners, ...rest } = meta
+  return rest
+}
+
+/**
  * How many ids /compose will even look at.
  *
  * The route runs one `existsSync` per id before anything else happens, so an
@@ -37,6 +53,49 @@ const publicJob = ({ userId, ...rest }) => rest
 const MAX_COMPOSE_IMAGES = 100
 
 /**
+ * Refuse a set of image ids that still contains something nobody has looked at.
+ *
+ * THE GUARD IS HERE, on the server, and that is the whole point of it. The
+ * multi-step flow's two confirmation gates are interface: they can be skipped by
+ * closing a modal, by a stale tab, by a client that never had them, or by
+ * anybody with a hash and curl. What makes "the user chose these pictures" true
+ * of a film is that the route which turns pictures into a film refuses the ones
+ * they did not choose.
+ *
+ * Both entry points, not just /render. /compose spends a model call and hands
+ * back a running order; letting it read unconfirmed images would put a discard
+ * into a proposal, name it scene four, and leave /render to reject the timeline
+ * the user was just shown — a refusal arriving one step after the decision that
+ * caused it, about a picture they thought they had thrown away.
+ *
+ * 409 rather than 400 or 404: the request is well formed and the images are all
+ * on disk. What is wrong is the STATE they are in, and it is a state the caller
+ * can change — confirm them, or drop them from the selection — which is exactly
+ * what a conflict means. A 400 would read as "you built the timeline wrong".
+ *
+ * @returns {boolean} whether it answered. The caller stops when it did.
+ */
+function refusedForPending(res, imageLibrary, ids) {
+  const pending = imageLibrary.pendingAmong(ids)
+  if (!pending.length) return false
+  res.status(409).json({
+    error: `${pending.length} image${pending.length > 1 ? 's are' : ' is'} still awaiting your confirmation. Confirm ${pending.length > 1 ? 'them' : 'it'} or drop ${pending.length > 1 ? 'them' : 'it'} from the selection — nothing was done.`,
+    pendingImageIds: pending,
+  })
+  return true
+}
+
+/**
+ * What one variant is assumed to weigh before anyone has generated it.
+ *
+ * The same reservation `POST /api/images/generate` makes, for the same reason: a
+ * generated image is a few hundred kilobytes, but its real size is only known
+ * once the provider has been paid. Reserving one typical image per requested
+ * variant keeps the check honest without pretending to know the answer.
+ */
+const TYPICAL_IMAGE_BYTES = 2 * 1024 * 1024
+
+/**
  * @param {object} deps
  * @param {import('./config.js').VideoConfigStore} deps.config
  * @param {import('./queue.js').VideoQueue} deps.queue
@@ -47,8 +106,22 @@ const MAX_COMPOSE_IMAGES = 100
  * @param {(profile:string)=>object|null} [deps.resolveTarget] Admin-configured text
  *   provider, resolved on the 'inspiration' profile like every other structured
  *   server-side call. Absent, /compose falls back to the browser's own credentials.
+ * @param {(profile:string)=>object|null} [deps.imageRegistryFor] the image providers
+ *   for a profile. `'edit'` answers null on an instance where no image-to-image
+ *   provider is configured, and /variants reads that null as "fall back to
+ *   siblings and say so" — never as "use the content profile", which is the one
+ *   substitution resolveImageProfile exists to forbid.
  */
-export function createVideoRouter({ config, queue, worker, imageLibrary, store, budget, resolveTarget }) {
+export function createVideoRouter({
+  config,
+  queue,
+  worker,
+  imageLibrary,
+  store,
+  budget,
+  resolveTarget,
+  imageRegistryFor,
+}) {
   const router = express.Router()
 
   /**
@@ -70,10 +143,31 @@ export function createVideoRouter({ config, queue, worker, imageLibrary, store, 
     res.json({
       enabled,
       worker: workerState,
+      /*
+       * Will a variant really be derived from the user's picture?
+       *
+       * The /variants response answers this after the fact, and after the fact
+       * is too late for the one person it matters to: somebody who expects a
+       * retouch of THEIR image has to know before they spend six provider calls
+       * discovering that an instance with no 'edit' profile can only make
+       * siblings from the same sentence. So it is quoted here, where the panel
+       * can print it beside the button rather than under the results.
+       *
+       * A statement about the instance, like `limits` beside it — not about the
+       * account, and it names no provider, no model and no key.
+       */
+      variantsDerived: Boolean(imageRegistryFor ? imageRegistryFor('edit') : null),
       // The UI has to be able to stop a user before they compose a timeline the
       // API will refuse. Quoting the bounds from the schema rather than the
-      // panel is what keeps the two from drifting apart.
-      limits: { maxScenes: MAX_SCENES, maxTotalDurationMs: MAX_TOTAL_DURATION_MS },
+      // panel is what keeps the two from drifting apart — and the variant bounds
+      // travel with them, so a picker cannot offer a count /variants would
+      // silently clamp.
+      limits: {
+        maxScenes: MAX_SCENES,
+        maxTotalDurationMs: MAX_TOTAL_DURATION_MS,
+        minVariants: MIN_VARIANTS,
+        maxVariants: MAX_VARIANTS,
+      },
     })
   })
 
@@ -130,6 +224,11 @@ export function createVideoRouter({ config, queue, worker, imageLibrary, store, 
         missingImageIds: missing,
       })
     }
+
+    // After "is it here", before the model call: a proposal built on a picture
+    // the user rejected is a proposal they have to unpick, and it costs tokens
+    // to produce.
+    if (refusedForPending(res, imageLibrary, ids)) return
 
     /*
      * The descriptions come from the LIBRARY, never from the body.
@@ -244,13 +343,20 @@ export function createVideoRouter({ config, queue, worker, imageLibrary, store, 
      * check and not a guarantee — the file can still be deleted between here and
      * the render, which is why collectImages() checks again.
      */
-    const missing = [...new Set(timeline.scenes.map((s) => s.imageId))].filter((id) => !imageLibrary.fileExists(id))
+    const ids = [...new Set(timeline.scenes.map((s) => s.imageId))]
+    const missing = ids.filter((id) => !imageLibrary.fileExists(id))
     if (missing.length) {
       return res.status(404).json({
         error: `${missing.length} image${missing.length > 1 ? 's are' : ' is'} not in the image library. Nothing was queued.`,
         missingImageIds: missing,
       })
     }
+
+    // The last thing about the pictures, before the first thing about the
+    // instance. A render is minutes of CPU on somebody else's behalf; it is not
+    // spent on an image whose only claim to being in the film is that a client
+    // put it in a JSON body.
+    if (refusedForPending(res, imageLibrary, ids)) return
 
     /*
      * Is there anywhere to put the result?
@@ -288,6 +394,128 @@ export function createVideoRouter({ config, queue, worker, imageLibrary, store, 
       return res.status(403).json({ error: 'This render job belongs to another account.' })
     }
     res.json(publicJob(job))
+  })
+
+  /**
+   * Several takes on one image the user already has, for them to choose from.
+   *
+   * The refusals run in the same order as /render and /compose, for the same
+   * reasons: access first, then the shape of the request, then the image, then
+   * the instance. What is specific here is the last one — a batch of variants is
+   * up to six files, and the volume has to be asked about all of them at once
+   * rather than discovering it is full on the fifth.
+   *
+   * The response carries `derived`. It is the only field in it that is about
+   * WHAT HAPPENED rather than about what came back, and it is the reason this
+   * route exists in this shape: with an 'edit' provider the pictures are of the
+   * user's picture, without one they are of the same description, and an
+   * interface that showed the two identically would be lying in the case that
+   * costs nothing to detect.
+   */
+  router.post('/variants', async (req, res) => {
+    if (!config.enabledFor(req.user)) {
+      return res.status(403).json({ error: 'Video export is not enabled for this account.' })
+    }
+
+    const imageId = typeof req.body?.imageId === 'string' ? req.body.imageId : ''
+    if (!HASH_RE.test(imageId)) {
+      return res.status(400).json({ error: 'An "imageId" from the image library is required.' })
+    }
+    if (!imageLibrary.fileExists(imageId)) {
+      return res.status(404).json({ error: 'That image is not in the image library. Nothing was generated.' })
+    }
+
+    const count = clampVariantCount(req.body?.count)
+
+    // The 'edit' registry decides the path, and `null` is a configuration, not a
+    // failure: it means image-to-image is off on this instance, which the
+    // fallback handles and `derived: false` reports.
+    const editRegistry = imageRegistryFor ? imageRegistryFor('edit') : null
+    const fallbackRegistry = imageRegistryFor ? imageRegistryFor('content') : null
+    if (!editRegistry && !fallbackRegistry) {
+      return res.status(503).json({ error: "Aucun fournisseur d'image n'est configuré sur cette instance." })
+    }
+
+    // Before writing, never after. A full volume fails its writes silently
+    // almost everywhere in this repository, so the refusal has to happen while
+    // there is still something to refuse.
+    if (budget?.wouldExceed(count * TYPICAL_IMAGE_BYTES)) {
+      return res.status(507).json({ error: quotaError(budget.usage()) })
+    }
+
+    /*
+     * Hang up with the caller, exactly as /compose does — and for a bigger
+     * stake. Six provider calls run here, sequentially, and a panel closed after
+     * the second one used to leave four more to be paid for and thrown away. On
+     * `res`, not on `req`: since Node 16 an IncomingMessage emits `close` when
+     * the request MESSAGE completes, which for a small JSON body is a tick after
+     * express.json() returns.
+     */
+    let gone = false
+    res.on('close', () => {
+      if (!res.writableFinished) gone = true
+    })
+
+    try {
+      const out = await makeVariants(
+        { imageId, count },
+        {
+          library: imageLibrary,
+          editRegistry,
+          fallbackRegistry,
+          // From the session, never from the body: an attribution the caller
+          // writes about itself is worth less than none (see images/routes.js).
+          owner: req.user?.id,
+          project: typeof req.body?.project === 'string' ? req.body.project : undefined,
+          aborted: () => gone,
+        },
+      )
+      /*
+       * Charge the volume for what was actually written — before anything else,
+       * including the hang-up check, because the files exist whether or not
+       * anybody is still listening.
+       *
+       * The reservation above is a guess made before the provider was paid;
+       * this is the measurement, and it is what every other write path in the
+       * repository does (POST /api/images/generate, /upload, the export store).
+       * This one did not, and the consequence is worse than an inaccurate
+       * number: `wouldExceed` reads an in-memory total that only `add` moves, so
+       * a route that reserves and never credits keeps passing its own check for
+       * ever. Six files a call is then the quickest way to fill a volume that is
+       * still reporting itself as well under the ceiling.
+       *
+       * `fromCache` is excluded for the reason /upload excludes it: the store is
+       * content-addressed, so a reused image wrote nothing and charging for it
+       * would leak quota on every duplicate.
+       */
+      for (const v of out.images) {
+        if (!v.fromCache) budget?.add(imageLibrary.fileSize?.(v.hash) ?? 0)
+      }
+
+      if (gone) return
+
+      /*
+       * Nothing at all came back, so this is not a degradation.
+       *
+       * Q1 is about a CHECK never failing what it checks; this route is the
+       * doing, and a 200 carrying an empty list would be a success message over
+       * six failed provider calls. Partial success stays a 200 with notices —
+       * that one really is the degradation — and the notices travel either way,
+       * because "which axis failed and why" is the only thing that lets an admin
+       * fix a misconfigured edit profile.
+       */
+      if (!out.images.length) {
+        return res.status(502).json({
+          error: 'Aucune variante n\'a pu être produite.',
+          derived: out.derived,
+          notices: out.notices,
+        })
+      }
+      res.json({ ...out, images: out.images.map((v) => ({ ...v, meta: withoutOwners(v.meta) })) })
+    } catch (err) {
+      if (gone) return
+      res.status(502).json({ error: err instanceof Error ? err.message : String(err) })
+    }
   })
 
   /**

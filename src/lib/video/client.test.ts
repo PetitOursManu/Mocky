@@ -7,6 +7,7 @@ import {
   fetchVideoJob,
   pollDeadlinePassed,
   proposeVideoTimeline,
+  requestVariants,
   startVideoRender,
   videoDownloadUrl,
 } from './client'
@@ -65,6 +66,7 @@ describe('startVideoRender', () => {
     [403, {}, 'no-access'],
     [400, { issues: [{ path: 'scenes', message: 'too long' }] }, 'invalid'],
     [404, { missingImageIds: [IMG] }, 'missing-images'],
+    [409, { pendingImageIds: [IMG] }, 'pending-images'],
     [507, {}, 'quota'],
     [500, {}, 'http'],
   ])('maps HTTP %i onto the code the panel translates', async (status, body, code) => {
@@ -79,6 +81,30 @@ describe('startVideoRender', () => {
     vi.stubGlobal('fetch', answer(404, { error: 'gone', missingImageIds: [IMG] }))
     const err = await startVideoRender(OK_TIMELINE).catch((e) => e)
     expect(err.missingImageIds).toEqual([IMG])
+  })
+
+  /**
+   * 409 is its own code because it is the one refusal that is not about the
+   * timeline: the document is valid and every file is on disk. It means the
+   * selection still holds a picture nobody confirmed — the server's guard firing
+   * where the panel's two gates did not — and the ids are what let the user find
+   * which scene to deal with.
+   */
+  it('carries the unconfirmed ids, kept apart from the missing ones', async () => {
+    vi.stubGlobal('fetch', answer(409, { error: 'awaiting confirmation', pendingImageIds: [IMG] }))
+    const err = await startVideoRender(OK_TIMELINE).catch((e) => e)
+    expect(err.code).toBe('pending-images')
+    expect(err.pendingImageIds).toEqual([IMG])
+    expect(err.missingImageIds).toEqual([])
+  })
+
+  it('does not choke when the server names ids that are not strings', async () => {
+    // It is a network body, not a type. A `null` in that array reached
+    // `id.slice(0, 16)` in the banner and took the dialog down through the error
+    // boundary — a crash while drawing an error.
+    vi.stubGlobal('fetch', answer(409, { error: 'x', pendingImageIds: [IMG, null, 7] }))
+    const err = await startVideoRender(OK_TIMELINE).catch((e) => e)
+    expect(err.pendingImageIds).toEqual([IMG])
   })
 
   it('calls a dead server "offline", not "the render failed"', async () => {
@@ -277,6 +303,61 @@ describe('fetchVideoAccess', () => {
     vi.stubGlobal('fetch', answer(200, { enabled: true, worker: { available: true }, limits: { maxScenes: 20, maxTotalDurationMs: 120000 } }))
     const access = await fetchVideoAccess()
     expect(access.limits.maxTotalDurationMs).toBe(120000)
+  })
+})
+
+describe('requestVariants', () => {
+  const batch = { derived: true, images: [{ hash: IMG, url: `/api/images/${IMG}`, axis: 'angle', fromCache: false }], notices: [] }
+
+  it('asks for the image and the count, and hands back what happened', async () => {
+    let sent: any = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        sent = JSON.parse(String(init.body))
+        return { ok: true, status: 200, json: async () => batch }
+      }),
+    )
+    const out = await requestVariants(IMG, 4, { project: 'p1' })
+    expect(sent).toEqual({ imageId: IMG, count: 4, project: 'p1' })
+    expect(out.derived).toBe(true)
+    expect(out.images).toHaveLength(1)
+  })
+
+  /**
+   * The field this whole path exists to publish, and the one place a falsy
+   * default would be a lie in the user's favour. A server too old to send it
+   * says nothing; `body.derived === true` reads that as "not derived", which is
+   * the cautious direction — claiming a derivation nobody performed is the
+   * failure this feature was written to prevent.
+   */
+  it('never reports a derivation the server did not claim', async () => {
+    vi.stubGlobal('fetch', answer(200, { images: [], notices: [] }))
+    expect((await requestVariants(IMG, 2)).derived).toBe(false)
+    vi.stubGlobal('fetch', answer(200, { derived: 'yes', images: [], notices: [] }))
+    expect((await requestVariants(IMG, 2)).derived).toBe(false)
+  })
+
+  it('keeps a partial batch, because a lost axis is not a lost request', async () => {
+    // Q1: one provider hiccup out of six is a degradation, and the notices are
+    // the only thing that says which one died.
+    vi.stubGlobal('fetch', answer(200, { derived: false, images: [], notices: ['Variante 3 : …', 7] }))
+    const out = await requestVariants(IMG, 6)
+    expect(out.notices).toEqual(['Variante 3 : …'])
+  })
+
+  it.each([
+    [403, 'no-access'],
+    [400, 'invalid'],
+    [404, 'missing-images'],
+    [503, 'no-provider'],
+    [507, 'quota'],
+    [502, 'http'],
+  ])('maps HTTP %i onto its own code', async (status, code) => {
+    vi.stubGlobal('fetch', answer(status as number, { error: 'server said so' }))
+    const err = await requestVariants(IMG, 4).catch((e) => e)
+    expect(err.code).toBe(code)
+    expect(err.message).toBe('server said so')
   })
 })
 

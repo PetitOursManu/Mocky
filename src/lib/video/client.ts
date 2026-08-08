@@ -42,7 +42,19 @@ export interface VideoWorkerState {
 export interface VideoAccess {
   enabled: boolean
   worker: VideoWorkerState
-  limits: { maxScenes: number; maxTotalDurationMs: number }
+  limits: { maxScenes: number; maxTotalDurationMs: number; minVariants?: number; maxVariants?: number }
+  /**
+   * Whether a variant will really be derived from the user's own picture.
+   *
+   * Quoted by /status so the panel can say it BEFORE the button is pressed. The
+   * /variants response carries the same field about what actually happened, and
+   * that one is the ground truth — this is a promise, not a receipt. Optional
+   * because a server that predates the field answers nothing, and `undefined`
+   * has to stay tellable apart from `false`: one is "we do not know yet", the
+   * other is "these will only be siblings", and printing the second for the
+   * first would be a claim nobody made.
+   */
+  variantsDerived?: boolean
 }
 
 /**
@@ -57,6 +69,17 @@ export type VideoErrorCode =
   | 'no-access'
   | 'invalid'
   | 'missing-images'
+  /**
+   * The selection still holds a picture nobody has confirmed.
+   *
+   * Its own code rather than a flavour of 'invalid', because it is the one
+   * refusal here that is not about the timeline at all: the document is well
+   * formed and every file is on disk. It sends the person back to the two
+   * confirmation gates, and the ids say which pictures to deal with.
+   */
+  | 'pending-images'
+  /** No image provider at all on this instance — nothing a different request fixes. */
+  | 'no-provider'
   | 'quota'
   | 'not-found'
   | 'offline'
@@ -74,11 +97,18 @@ export class VideoExportError extends Error {
   readonly issues: TimelineIssue[]
   /** Set when `code` is 'missing-images'. */
   readonly missingImageIds: string[]
+  /** Set when `code` is 'pending-images'. */
+  readonly pendingImageIds: string[]
 
   constructor(
     code: VideoErrorCode,
     message: string,
-    extra: { status?: number; issues?: TimelineIssue[]; missingImageIds?: string[] } = {},
+    extra: {
+      status?: number
+      issues?: TimelineIssue[]
+      missingImageIds?: string[]
+      pendingImageIds?: string[]
+    } = {},
   ) {
     super(message)
     this.name = 'VideoExportError'
@@ -86,8 +116,13 @@ export class VideoExportError extends Error {
     this.status = extra.status ?? 0
     this.issues = extra.issues ?? []
     this.missingImageIds = extra.missingImageIds ?? []
+    this.pendingImageIds = extra.pendingImageIds ?? []
   }
 }
+
+/** The ids the server named, filtered to strings — it is a network body, not a type. */
+const idsIn = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 
 /** The same projection `readableIssues()` makes server-side, so both read alike. */
 export function readableIssues(error: { issues?: { path: (string | number)[]; message: string }[] }): TimelineIssue[] {
@@ -167,7 +202,16 @@ export async function startVideoRender(input: VideoTimelineInput, signal?: Abort
   if (status === 404) {
     throw new VideoExportError('missing-images', said(body, 'Some images are gone.'), {
       status,
-      missingImageIds: Array.isArray(body?.missingImageIds) ? body.missingImageIds : [],
+      missingImageIds: idsIn(body?.missingImageIds),
+    })
+  }
+  // 409 Conflict. Not a malformed timeline — every file is there — but a
+  // selection that still holds something nobody looked at. See the guard in
+  // server/video/routes.js.
+  if (status === 409) {
+    throw new VideoExportError('pending-images', said(body, 'Some images are still awaiting confirmation.'), {
+      status,
+      pendingImageIds: idsIn(body?.pendingImageIds),
     })
   }
   // 507 Insufficient Storage. The one refusal that is about the instance rather
@@ -245,7 +289,13 @@ export async function proposeVideoTimeline(
     if (status === 404) {
       throw new VideoExportError('missing-images', said(body, 'Some images are gone.'), {
         status,
-        missingImageIds: Array.isArray(body?.missingImageIds) ? body.missingImageIds : [],
+        missingImageIds: idsIn(body?.missingImageIds),
+      })
+    }
+    if (status === 409) {
+      throw new VideoExportError('pending-images', said(body, 'Some images are still awaiting confirmation.'), {
+        status,
+        pendingImageIds: idsIn(body?.pendingImageIds),
       })
     }
     throw new VideoExportError('http', said(body, `HTTP ${status}`), { status })
@@ -306,6 +356,92 @@ export async function proposeVideoTimeline(
         ? [`…and ${issues.length - shown.length} more problems with the same document.`]
         : []),
     ],
+  }
+}
+
+/** One variant, as it comes back. `meta` is the library entry, minus `owners`. */
+export interface VariantImage {
+  hash: string
+  url: string
+  /** Which axis was moved — 'angle', 'light', or a pair joined with '+'. */
+  axis: string
+  fromCache: boolean
+  meta?: { hash: string; prompt: string; pending?: boolean }
+}
+
+export interface VariantBatch {
+  /**
+   * What actually happened, and the field this whole path exists to publish.
+   *
+   * `true` — the pictures were made FROM the user's image, by an image-to-image
+   * provider. `false` — no 'edit' profile is configured, so they are siblings
+   * born of the same sentence: of the same subject, not of the same picture.
+   * Reported after the fact because it is the only account that cannot be wrong;
+   * `VideoAccess.variantsDerived` promises it beforehand, and if the two ever
+   * disagree this one is what happened.
+   */
+  derived: boolean
+  images: VariantImage[]
+  /** The server's own sentences, one per axis that failed. English, verbatim. */
+  notices: string[]
+}
+
+/**
+ * Several takes on one image the user already has.
+ *
+ * Up to six provider calls, so the signal is not optional in spirit even though
+ * it is in the signature: the route stops the series when the socket closes, and
+ * the only thing that closes it is this fetch being aborted.
+ *
+ * A batch that came back short still RESOLVES, with the notices saying which
+ * axis died — one provider hiccup out of six is a degradation, not a failure of
+ * the request (Q1). Nothing at all is a 502 and throws, because a success
+ * message over six failed calls would be the lie the notices exist to prevent.
+ */
+export async function requestVariants(
+  imageId: string,
+  count: number,
+  opts: { project?: string; signal?: AbortSignal } = {},
+): Promise<VariantBatch> {
+  const { res, body } = await call('/api/video/variants', {
+    method: 'POST',
+    body: JSON.stringify({ imageId, count, project: opts.project }),
+    signal: opts.signal,
+  })
+
+  if (!res.ok) {
+    const status = res.status
+    if (status === 403) throw new VideoExportError('no-access', said(body, 'Not enabled for this account.'), { status })
+    if (status === 400) throw new VideoExportError('invalid', said(body, 'The request was refused.'), { status })
+    if (status === 404) {
+      throw new VideoExportError('missing-images', said(body, 'That image is gone.'), {
+        status,
+        missingImageIds: [imageId],
+      })
+    }
+    // 503: no image provider at all. Its own code because no different request
+    // fixes it — it is a thing an administrator has to configure.
+    if (status === 503) throw new VideoExportError('no-provider', said(body, 'No image provider.'), { status })
+    if (status === 507) throw new VideoExportError('quota', said(body, 'No room left on the volume.'), { status })
+    throw new VideoExportError('http', said(body, `HTTP ${status}`), { status })
+  }
+
+  return {
+    /*
+     * A plain boolean here, unlike `VideoAccess.variantsDerived` next door,
+     * which keeps `undefined` as its own answer.
+     *
+     * The asymmetry is about who can be silent. /status is quoted by panels that
+     * have to work against a server predating this feature, so "said nothing" is
+     * a real third state there. This route is not: a server that answers 200 to
+     * /api/video/variants at all is a server that computes `derived` on both
+     * paths and always sends it. So a missing field is a malformed body rather
+     * than an old instance, and `false` — "these are siblings, they never saw
+     * your picture" — is the reading that cannot overclaim.
+     */
+    derived: body?.derived === true,
+    images: Array.isArray(body?.images) ? (body.images as VariantImage[]) : [],
+    notices: Array.isArray(body?.notices) ? body.notices.filter((n: unknown) => typeof n === 'string') : [],
   }
 }
 

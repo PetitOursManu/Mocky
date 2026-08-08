@@ -298,9 +298,9 @@ background, 1024×1024 — and does not store it in the library.
 | `sd-webui` | No | Your own Automatic1111, Forge or SD.Next instance started with `--api`. Nothing leaves your machine |
 | `none` | — | Muse still runs. Image slots get palette-derived placeholders |
 
-### Two image profiles
+### Three image profiles
 
-The two jobs are genuinely different, so they have separate settings.
+The three jobs are genuinely different, so they have separate settings.
 
 **`content`** produces the pictures placed in the screen: hero images, products,
 backgrounds. There can be several per screen, so it should be fast and cheap.
@@ -309,6 +309,24 @@ This is the original zero-configuration path, and Pollinations is its default.
 **`inspiration`** produces the single art-direction reference shown to the model.
 It has to be convincing, so it is worth a slower and more expensive model.
 Leaving its provider empty makes it fall back to `content`.
+
+**`edit`** does image-to-image: an existing picture goes in, a derivative comes
+out. It is the profile behind the video export's variants. Optional like
+`inspiration`, but optional **the other way round**: leaving it empty falls back
+to nothing at all, and means image-to-image is off on this instance. A
+text-to-image model handed a source image would return a picture drawn from the
+prompt alone, presented as a derivative of the user's own — and nothing
+downstream could tell the two apart. Borrowing the `content` profile's key would
+therefore be exactly the lie this profile exists to prevent.
+
+Its provider list is shorter than the others, and the panel says why: only `fal`,
+`openai-image`, `cloudflare-workers-ai` and `sd-webui` accept an input image.
+Pollinations cannot — its API takes a URL that **its** servers fetch, and Mocky's
+images are served only by your own instance. The default models differ from the
+text-to-image ones too (`fal-ai/flux/dev/image-to-image`,
+`@cf/runwayml/stable-diffusion-v1-5-img2img`): inheriting the others would ship a
+profile configured to fail. The "Test" button sends a real source image, because
+a text-to-image test passes against a model that cannot edit at all.
 
 > `sd-webui` is called by Mocky's own server and points at a local address by
 > definition, so it **deliberately bypasses** the SSRF guard applied to untrusted

@@ -77,9 +77,23 @@ export class ImageLibrary {
   }
 
   // --- request identity (prompt+seed dedup) ---
+  /**
+   * What makes two generation requests "the same one".
+   *
+   * The source image and the strength join the key ONLY when there is a source
+   * image, and that asymmetry is load-bearing twice over. They have to be in
+   * there at all because a prompt no longer identifies a derivation: two
+   * variants of two different pictures share a prompt, a seed and a size, so
+   * without the source in the key the second one is served the first one's bytes
+   * — a picture of somebody else's photograph, reported as a cache hit. And they
+   * have to stay out of it otherwise, because appending two empty fields
+   * unconditionally changes every key ever written and makes the first boot
+   * after this change re-pay a provider for a library it already has.
+   */
   static requestKey(spec) {
     const s = `${spec.provider}|${spec.prompt}|${spec.negative || ''}|${spec.seed ?? ''}|${spec.width}x${spec.height}`
-    return sha256hex(Buffer.from(s, 'utf8')).slice(0, 32)
+    const derived = spec.initHash ? `|init:${spec.initHash}|strength:${spec.strength ?? ''}` : ''
+    return sha256hex(Buffer.from(s + derived, 'utf8')).slice(0, 32)
   }
 
   filePath(hash) {
@@ -109,7 +123,7 @@ export class ImageLibrary {
 
   /**
    * Generate (or reuse) an image for a spec.
-   * @param {object} spec  { prompt, negative?, seed?, width?, height?, tags?, project?, slotType?, providerId? }
+   * @param {object} spec  { prompt, negative?, seed?, width?, height?, tags?, project?, slotType?, providerId?, init?, strength?, pending? }
    * @param {object} deps  { registry, onNotice? }
    * @returns {Promise<{hash:string|null, fromCache:boolean, skipped?:boolean, meta?:object}>}
    */
@@ -124,6 +138,13 @@ export class ImageLibrary {
     const provider = spec.providerId ? registry.get(spec.providerId) : await registry.pick()
     if (!provider) throw new Error('No image provider available')
 
+    // The source image, when this is a derivation rather than a generation. Its
+    // content hash is also its id in this very library (M8), so hashing the
+    // bytes we are about to send identifies the request without having to trust
+    // the caller about which image it claims to be deriving.
+    const init = spec.init && Buffer.isBuffer(spec.init.buffer) && spec.init.buffer.length ? spec.init : null
+    const initHash = init ? sha256hex(init.buffer) : null
+
     const reqKey = ImageLibrary.requestKey({
       provider: provider.id,
       prompt: spec.prompt,
@@ -131,6 +152,8 @@ export class ImageLibrary {
       seed: spec.seed,
       width,
       height,
+      initHash,
+      strength: init ? spec.strength : null,
     })
 
     // Reuse an identical prior request (M8) — no provider call.
@@ -149,7 +172,19 @@ export class ImageLibrary {
     const result = await this.queue.add(() => {
       const raced = this.state.byRequest[reqKey]
       if (raced && this.fileExists(raced)) return { reusedHash: raced }
-      return provider.generate({ prompt: spec.prompt, negative: spec.negative, seed: spec.seed, width, height })
+      return provider.generate({
+        prompt: spec.prompt,
+        negative: spec.negative,
+        seed: spec.seed,
+        width,
+        height,
+        // Only on a derivation. Every provider reads `init` through readInit(),
+        // which treats absent and null alike, so passing the pair always would
+        // work — but it would also put an image-to-image request on the wire for
+        // every ordinary generation, where the honest answer from an incapable
+        // provider is now a refusal.
+        ...(init ? { init, strength: spec.strength } : {}),
+      })
     })
     if (result && result.reusedHash) {
       const meta = this._attachProject(result.reusedHash, spec.project, spec.owner)
@@ -158,6 +193,21 @@ export class ImageLibrary {
     if (!result || result.skipped) {
       onNotice(`Muse: image provider "${provider.id}" produced no image — using placeholder`)
       return { hash: null, fromCache: false, skipped: true }
+    }
+
+    // A derivation that comes back without `edited` is not a derivation.
+    //
+    // `refuseInit()` already makes an incapable provider throw, but that guard
+    // lives inside the providers Mocky ships and a custom base URL can put
+    // something else behind one. This is the same rule on the storage side,
+    // where nothing can route around it: the flag is the only thing that tells a
+    // real image-to-image result apart from a picture drawn from the prompt
+    // alone, and once bytes are in the library nothing can ever tell them apart
+    // again.
+    if (init && !result.edited) {
+      throw new Error(
+        `Le fournisseur « ${provider.id} » a rendu une image sans confirmer qu'elle dérive de la source. Mocky ne l'enregistre pas : elle serait présentée comme une variante de votre image alors que rien ne le garantit.`,
+      )
     }
 
     const buffer = result.buffer
@@ -199,10 +249,19 @@ export class ImageLibrary {
       projects: [],
       owners: [],
       favorite: false,
+      // Which image in this same library these bytes were derived from, or null
+      // on the ordinary path — a field that is always present reads as an
+      // answer, where an absent one reads as "nobody looked".
+      derivedFrom: initHash,
     }
     meta.tags = Array.from(new Set([...(meta.tags || []), ...tags])).slice(0, 20)
     const project = spec.project ? String(spec.project).slice(0, 100) : null
     if (project && !meta.projects.includes(project)) meta.projects.push(project)
+    // `pending` on a NEW entry only, and that is not a detail. The store is
+    // content-addressed, so an image whose bytes match one already here lands on
+    // THAT entry's metadata — marking it would pull a picture the user accepted
+    // weeks ago out of their own library because of a duplicate they never saw.
+    if (!existing && spec.pending) meta.pending = true
     this._addOwner(meta, spec.owner)
     this.state.byHash[contentHash] = meta
     this.state.byRequest[reqKey] = contentHash
@@ -299,6 +358,82 @@ export class ImageLibrary {
     return meta
   }
 
+  /**
+   * --- `pending`, and why the flag is that way round ---
+   *
+   * The obvious spelling is `confirmed: boolean`, defaulting to false. It is
+   * wrong here, and the reason is the upgrade rather than the code: this library
+   * already holds every image on the instance, none of them carries the field,
+   * and `confirmed !== true` would make the whole of it ineligible the moment
+   * this version boots. Video export works today; it would stop working on
+   * update, for everybody, with no failing test to show for it — the flag would
+   * be doing exactly what it was written to do, to a corpus it was never about.
+   *
+   * So the flag marks the exception instead of the rule. `pending: true` is set
+   * in ONE place — the multi-step flow, on images the user has not laid eyes on
+   * yet — and its ABSENCE means eligible. Every image that predates this field
+   * is therefore already correct, and the migration is not a migration: there is
+   * nothing to backfill, and nothing that can be forgotten.
+   *
+   * `confirm()` deletes the key rather than setting it false, for the same
+   * reason: a confirmed image and one from before the feature must be
+   * indistinguishable, or "eligible" quietly becomes two different questions.
+   */
+
+  /**
+   * The user has seen this image and kept it.
+   *
+   * One-way, deliberately. There is no un-confirm and no `pending: true` from
+   * outside the variant flow, because the flag's whole meaning is "nobody has
+   * looked at this yet" — a fact about the past that a later call cannot make
+   * untrue. A route that could re-arm it would let one account hide an image
+   * another account has already built a film out of.
+   *
+   * Idempotent: confirming twice is the same answer, which matters because the
+   * panel confirms a batch and a retry after a dropped response must not 404.
+   *
+   * @returns {object|null} the metadata, or null when the hash is unknown
+   */
+  confirm(hash) {
+    const meta = this.state.byHash[hash]
+    if (!meta) return null
+    if (!meta.pending) return meta
+    delete meta.pending
+    this._persist()
+    return meta
+  }
+
+  /**
+   * Which of these hashes are still awaiting a human. The guard's single source.
+   *
+   * Here rather than in each route, because /api/video/render and
+   * /api/video/compose both have to refuse the same set, and two callers reading
+   * `get(id)?.pending` for themselves is how they end up disagreeing — one of
+   * them skipping the unknown hash, the other counting it.
+   *
+   * An id that is not in the library at all is NOT reported here. It is a
+   * different fault with a different answer (404, "these images are gone"), and
+   * both routes check for it first.
+   */
+  pendingAmong(hashes) {
+    return [...new Set(hashes || [])].filter((h) => this.state.byHash[h]?.pending === true)
+  }
+
+  /**
+   * Did this account put this image here? Mirrors `VideoExportStore.ownedBy`.
+   *
+   * `owners` is a set because the library is content-addressed (M8), so this is
+   * membership rather than equality. Images that predate the field have an empty
+   * set and therefore belong to nobody: that is the honest answer, and it means
+   * nobody can confirm them — they were never pending either, so there is
+   * nothing to confirm.
+   */
+  ownedBy(hash, userId) {
+    if (!userId) return false
+    const meta = this.state.byHash[hash]
+    return Array.isArray(meta?.owners) && meta.owners.includes(userId)
+  }
+
   /** Toggle favorite; returns the updated metadata (or null if unknown). */
   toggleFavorite(hash) {
     const meta = this.state.byHash[hash]
@@ -310,11 +445,19 @@ export class ImageLibrary {
 
   /**
    * Filtered listing (newest first).
-   * @param {object} [f] { query, project, favorites, slotType }
+   *
+   * `includePending` is off by default because an image awaiting confirmation is
+   * not a library image yet: a batch of variants would otherwise land in the
+   * Media tab, in "Download all", and in the picker the moment it was generated,
+   * which is the whole thing a confirmation step is there to prevent. The flag
+   * exists so the panel that DOES the confirming can see them.
+   *
+   * @param {object} [f] { query, project, favorites, slotType, includePending }
    */
   list(f = {}) {
     const q = (f.query || '').toLowerCase().trim()
     let items = Object.values(this.state.byHash)
+    if (!f.includePending) items = items.filter((m) => !m.pending)
     if (q) {
       items = items.filter(
         (m) => m.prompt.toLowerCase().includes(q) || (m.tags || []).some((t) => t.toLowerCase().includes(q)),

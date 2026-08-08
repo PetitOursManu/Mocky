@@ -11,7 +11,10 @@ import {
   resolveImageProfile,
   PROVIDER_IDS,
   IMAGE_PROFILES,
+  EDIT_PROVIDER_IDS,
 } from './config.js'
+import { DEFAULT_CF_EDIT_MODEL } from './providers/cloudflare.js'
+import { DEFAULT_FAL_EDIT_MODEL } from './providers/fal.js'
 
 let dir
 beforeEach(() => {
@@ -79,7 +82,61 @@ describe('mergeImagesConfig', () => {
   })
 })
 
+describe('the edit profile', () => {
+  it('only accepts a provider that can take an input image', () => {
+    // Pollinations is a real provider id and would sail through the generic
+    // check; it just cannot derive an image from another one.
+    expect(mergeImagesConfig(null, { edit: { provider: 'fal' } }).edit.provider).toBe('fal')
+    expect(mergeImagesConfig(null, { edit: { provider: 'pollinations' } }).edit.provider).toBe('')
+    expect(mergeImagesConfig(null, { edit: { provider: 'none' } }).edit.provider).toBe('')
+    expect(EDIT_PROVIDER_IDS).not.toContain('pollinations')
+    expect(EDIT_PROVIDER_IDS).toEqual(['fal', 'openai-image', 'cloudflare-workers-ai', 'sd-webui'])
+  })
+
+  it('defaults to image-to-image model ids, not the text-to-image ones', () => {
+    // Cloudflare's flux default cannot take an input image at all, and fal's
+    // schnell endpoint has no image_url field: inheriting them would ship an
+    // edit profile pre-configured to fail.
+    const c = defaultImagesConfig()
+    expect(c.edit.cloudflare.model).toBe(DEFAULT_CF_EDIT_MODEL)
+    expect(c.edit.fal.model).toBe(DEFAULT_FAL_EDIT_MODEL)
+    expect(c.content.cloudflare.model).not.toBe(DEFAULT_CF_EDIT_MODEL)
+    // Clearing the field must land back on the edit default, not on the other.
+    const cleared = mergeImagesConfig(null, { edit: { provider: 'fal', fal: { model: '' } } })
+    expect(cleared.edit.fal.model).toBe(DEFAULT_FAL_EDIT_MODEL)
+  })
+
+  it('keeps its keys separate from the other two profiles', () => {
+    const c = mergeImagesConfig(null, {
+      content: { provider: 'pollinations', fal: { apiKey: 'k-content' } },
+      edit: { provider: 'fal', fal: { apiKey: 'k-edit', model: 'fal-ai/flux/dev/image-to-image' } },
+    })
+    expect(c.content.fal.apiKey).toBe('k-content')
+    expect(c.edit.fal.apiKey).toBe('k-edit')
+    expect(c.content.provider).toBe('pollinations')
+  })
+})
+
 describe('resolveImageProfile', () => {
+  it('NEVER falls back to content when edit is unconfigured', () => {
+    // The bug this prevents is silent and unreportable: a text-to-image provider
+    // handed a source image returns a fine picture made from the prompt alone,
+    // and the user is told it is a derivative of their own image. "Off" has to
+    // be an answer callers cannot mistake for a provider.
+    const onlyContent = mergeImagesConfig(null, content({ provider: 'fal', fal: { apiKey: 'k' } }))
+    expect(resolveImageProfile(onlyContent, 'edit')).toBeNull()
+    // …while inspiration, where the fallback is harmless, still inherits.
+    expect(resolveImageProfile(onlyContent, 'inspiration').provider).toBe('fal')
+
+    const withEdit = mergeImagesConfig(onlyContent, { edit: { provider: 'sd-webui' } })
+    expect(resolveImageProfile(withEdit, 'edit').provider).toBe('sd-webui')
+  })
+
+  it('reads a pre-image-to-image config file as "editing is off"', () => {
+    const legacy = { provider: 'fal', fal: { apiKey: 'old-key', model: 'fal-ai/flux/schnell', timeoutSec: 300 } }
+    expect(resolveImageProfile(mergeImagesConfig(null, legacy), 'edit')).toBeNull()
+  })
+
   it('falls back to content until inspiration has its own provider', () => {
     const onlyContent = mergeImagesConfig(null, content({ provider: 'fal', fal: { model: 'fal-ai/flux/schnell' } }))
     expect(resolveImageProfile(onlyContent, 'inspiration').fal.model).toBe('fal-ai/flux/schnell')
@@ -107,12 +164,33 @@ describe('publicImagesConfig', () => {
         fal: { apiKey: 'fal-secret', model: 'fal-ai/flux/dev' },
       },
       inspiration: { provider: 'fal', fal: { apiKey: 'insp-secret' } },
+      edit: {
+        provider: 'openai-image',
+        openai: { apiKey: 'edit-secret' },
+        cloudflare: { apiToken: 'edit-cf-secret' },
+        fal: { apiKey: 'edit-fal-secret' },
+      },
     })
     const view = publicImagesConfig(cfg)
     const serialized = JSON.stringify(view)
-    for (const s of ['sk-secret', 'cf-secret', 'po-secret', 'fal-secret', 'insp-secret']) {
+    // The third profile is a third place a key can leak from, and it is the one
+    // nobody thought to check when it was added.
+    for (const s of [
+      'sk-secret',
+      'cf-secret',
+      'po-secret',
+      'fal-secret',
+      'insp-secret',
+      'edit-secret',
+      'edit-cf-secret',
+      'edit-fal-secret',
+    ]) {
       expect(serialized).not.toContain(s)
     }
+    expect(view.edit.openai.hasApiKey).toBe(true)
+    expect(view.edit.cloudflare.hasApiToken).toBe(true)
+    expect(view.edit.provider).toBe('openai-image')
+    expect(view.editProviders).toEqual(EDIT_PROVIDER_IDS)
     expect(view.content.fal.hasApiKey).toBe(true)
     expect(view.content.fal.model).toBe('fal-ai/flux/dev') // non-secret field is shown
     expect(view.content.openai.hasApiKey).toBe(true)

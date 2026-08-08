@@ -23,10 +23,18 @@ const RENDERED_HASH = crypto.createHash('sha256').update(RENDERED).digest('hex')
 let server, base
 /** Rewritten per test — every refusal in this router depends on one of these. */
 let user, enabled, workerState, probed, adminProbed, present, enqueued, jobs, config, full
+/** Image ids the multi-step flow produced and nobody has confirmed yet. */
+let unconfirmed
 /** /compose only: the admin-configured provider, and what the fake one answers. */
 let providerTarget, providerRequests, providerAnswer, libraryMeta
 /** A provider that never answers, so an abandoned request can be watched. */
 let providerHangs, providerHungUpOn
+/** /variants only: which image registries exist, and what the library was asked. */
+let editRegistry, contentRegistry, generated, generateFails
+/** Every byte count handed to the disk budget, so a missing credit is visible. */
+let charged, variantsCached
+/** What one written variant weighs on the volume, in the fake library. */
+const VARIANT_BYTES = 4096
 
 function makeApp() {
   const app = express()
@@ -78,7 +86,14 @@ function makeApp() {
         hasVideo: (userId, hash) => jobs.some((j) => j.userId === userId && j.videoHash === hash),
       },
       store,
-      budget: { wouldExceed: () => full, usage: () => ({ bytes: 9, maxBytes: 9, ratio: 1 }) },
+      budget: {
+        wouldExceed: () => full,
+        usage: () => ({ bytes: 9, maxBytes: 9, ratio: 1 }),
+        // Real, not a spy on nothing: `createDiskBudget` tracks the total in
+        // memory and only `add` moves it, so a route that reserves and never
+        // credits passes its own ceiling check for ever.
+        add: (n) => charged.push(n),
+      },
       worker: {
         health: async () => {
           probed = true
@@ -88,7 +103,26 @@ function makeApp() {
       imageLibrary: {
         fileExists: (id) => present.includes(id),
         get: (id) => libraryMeta[id] || null,
+        pendingAmong: (ids) => [...new Set(ids)].filter((id) => unconfirmed.includes(id)),
+        // /variants reads the source's bytes off disk through these two. The
+        // fixture file is real so `readSource` exercises the real read.
+        filePath: () => path.join(storeDir, 'source.png'),
+        mimeFor: () => 'image/png',
+        // What a written variant weighs, so the budget credit is a number the
+        // test can check rather than a call it can only count.
+        fileSize: () => VARIANT_BYTES,
+        async generate(spec, deps) {
+          generated.push({ spec, registry: deps.registry.id })
+          if (generateFails) throw new Error('provider exploded')
+          const hash = crypto.createHash('sha256').update(String(spec.seed)).digest('hex')
+          return {
+            hash,
+            fromCache: variantsCached,
+            meta: { hash, prompt: spec.prompt, owners: ['u1'], pending: true },
+          }
+        },
       },
+      imageRegistryFor: (profile) => (profile === 'edit' ? editRegistry : contentRegistry),
       resolveTarget: () => providerTarget,
     }),
   )
@@ -114,6 +148,7 @@ function makeApp() {
 
 beforeAll(async () => {
   store.put(RENDERED, { owner: 'u1', format: 'mp4', aspectRatio: '16:9', scenes: 1, durationMs: 3000 })
+  fs.writeFileSync(path.join(storeDir, 'source.png'), Buffer.from('source-image-bytes'))
   const app = makeApp()
   await new Promise((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve)
@@ -132,6 +167,7 @@ beforeEach(() => {
   probed = false
   adminProbed = false
   present = [ID_A, ID_B]
+  unconfirmed = []
   enqueued = null
   jobs = []
   full = false
@@ -150,6 +186,12 @@ beforeEach(() => {
     [ID_A]: { hash: ID_A, prompt: 'a matte black kettle on concrete', width: 1024, height: 768 },
     [ID_B]: { hash: ID_B, prompt: 'the kettle pouring, steam in the light', width: 1024, height: 768 },
   }
+  editRegistry = { id: 'edit-registry' }
+  contentRegistry = { id: 'content-registry' }
+  generated = []
+  generateFails = false
+  charged = []
+  variantsCached = false
 })
 
 const post = (path, body) =>
@@ -176,12 +218,25 @@ describe('GET /status', () => {
     expect(probed).toBe(false)
   })
 
-  it('answers with three fields and nothing from the stored config', async () => {
+  it('answers with four fields and nothing from the stored config', async () => {
     const body = await (await fetch(`${base}/api/video/status`)).json()
     // Named explicitly rather than checked for the absence of one word: the
     // config holds a licence key and a worker URL, and this route is the one an
     // ordinary account is allowed to call.
-    expect(Object.keys(body).sort()).toEqual(['enabled', 'limits', 'worker'])
+    expect(Object.keys(body).sort()).toEqual(['enabled', 'limits', 'variantsDerived', 'worker'])
+  })
+
+  /**
+   * Six provider calls are spent before the answer's own `derived` field exists,
+   * and somebody expecting a retouch of THEIR picture has to know beforehand
+   * that this instance can only make siblings from the same sentence. It is a
+   * fact about the instance's image configuration — a boolean, naming no
+   * provider, no model and no key.
+   */
+  it('says up front whether a variant will really be derived from the image', async () => {
+    expect((await (await fetch(`${base}/api/video/status`)).json()).variantsDerived).toBe(true)
+    editRegistry = null
+    expect((await (await fetch(`${base}/api/video/status`)).json()).variantsDerived).toBe(false)
   })
 })
 
@@ -272,6 +327,47 @@ describe('POST /render', () => {
    * ceiling buys the same wait and a worse message: the store refuses at the
    * write, so the user watches a spinner to be told what was knowable up front.
    */
+  /**
+   * The guard, on the route rather than in the panel.
+   *
+   * The two confirmation gates in VideoExportDialog are interface: a closed
+   * modal, a stale tab, a client that never had them, or curl and a hash all get
+   * past them. What makes "the user chose these pictures" true of a film is that
+   * the route which turns pictures into a film refuses the ones they did not.
+   *
+   * 409, not 400 or 404: the request is well formed and every file is on disk.
+   * What is wrong is a STATE the caller can change — confirm them, or drop them
+   * — which is what a conflict means.
+   */
+  it('409s on an image nobody has confirmed, naming it, and queues nothing', async () => {
+    unconfirmed = [ID_B]
+    const res = await post('/api/video/render', { timeline: { scenes: [scene(), scene({ imageId: ID_B })] } })
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.pendingImageIds).toEqual([ID_B])
+    expect(String(body.error)).toMatch(/confirmation/i)
+    expect(enqueued).toBe(null)
+  })
+
+  it('queues the same timeline once the image has been confirmed', async () => {
+    // The other half of the pair: the guard has to stop being in the way, or it
+    // is indistinguishable from the feature being broken.
+    unconfirmed = []
+    expect((await post('/api/video/render', { timeline: { scenes: [scene({ imageId: ID_B })] } })).status).toBe(202)
+  })
+
+  /**
+   * An id that is not in the library at all is a different fault with a
+   * different answer, and it is checked first. Reporting it as pending would
+   * send somebody looking for a confirmation button for a picture that is gone.
+   */
+  it('still answers 404, not 409, when the bytes are simply missing', async () => {
+    present = [ID_A]
+    unconfirmed = [ID_B]
+    const res = await post('/api/video/render', { timeline: { scenes: [scene({ imageId: ID_B })] } })
+    expect(res.status).toBe(404)
+  })
+
   it('507s rather than queueing a render with nowhere to land', async () => {
     full = true
     const res = await post('/api/video/render', { timeline: { scenes: [scene()] } })
@@ -349,6 +445,23 @@ describe('POST /compose', () => {
     withModel()
     expect((await compose({ brief: '   ', images: [ID_A] })).status).toBe(400)
     expect((await compose({ brief: 'a calm slideshow', images: [] })).status).toBe(400)
+    expect(providerRequests).toHaveLength(0)
+  })
+
+  /**
+   * The same guard as /render, and it belongs on both doors.
+   *
+   * A proposal built on a discarded picture costs tokens to produce, names it
+   * scene four, and leaves /render to refuse the timeline the user was just
+   * shown — a refusal arriving one step after the decision that caused it, about
+   * an image they believed they had thrown away.
+   */
+  it('409s before spending a model call on an unconfirmed image', async () => {
+    withModel()
+    unconfirmed = [ID_B]
+    const res = await compose({ brief: 'a calm slideshow', images: [ID_A, ID_B] })
+    expect(res.status).toBe(409)
+    expect((await res.json()).pendingImageIds).toEqual([ID_B])
     expect(providerRequests).toHaveLength(0)
   })
 
@@ -460,6 +573,142 @@ describe('POST /compose', () => {
     withModel()
     const body = await (await compose({ brief: 'a calm slideshow', images: [ID_A, ID_B] })).json()
     expect(body.timeline.scenes).toHaveLength(2)
+  })
+})
+
+describe('POST /variants', () => {
+  const variants = (body) => post('/api/video/variants', body)
+
+  it('derives from the source image when an edit profile is configured, and says so', async () => {
+    const res = await variants({ imageId: ID_A, count: 3 })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.derived).toBe(true)
+    expect(body.images).toHaveLength(3)
+    expect(generated).toHaveLength(3)
+    // The edit registry, not the content one. Handing this to 'content' is the
+    // single substitution the whole feature is built to prevent.
+    expect(generated.every((g) => g.registry === 'edit-registry')).toBe(true)
+    expect(generated[0].spec.init.buffer.toString()).toBe('source-image-bytes')
+  })
+
+  it('falls back to siblings with no edit profile — and reports derived: false', async () => {
+    editRegistry = null
+    const body = await (await variants({ imageId: ID_A, count: 2 })).json()
+    expect(body.derived).toBe(false)
+    expect(generated.every((g) => g.registry === 'content-registry')).toBe(true)
+    expect(generated.every((g) => g.spec.init === undefined)).toBe(true)
+  })
+
+  /**
+   * M8, and the body is written by the client. Taking the prompt from the
+   * request would mean the text steering somebody's variants is text the request
+   * supplied about itself — and on the fallback path that text is the ONLY thing
+   * the pictures are made of.
+   */
+  it('takes the prompt from the library, never from the body', async () => {
+    await variants({ imageId: ID_A, count: 2, prompt: 'a photograph of a passport' })
+    for (const g of generated) {
+      expect(g.spec.prompt).toContain('a matte black kettle on concrete')
+      expect(g.spec.prompt).not.toContain('passport')
+    }
+  })
+
+  it('takes the owner from the session, and never sends account ids back', async () => {
+    const body = await (await variants({ imageId: ID_A, count: 2, owner: 'someone-else' })).json()
+    expect(generated[0].spec.owner).toBe('u1')
+    for (const image of body.images) expect(image.meta.owners).toBeUndefined()
+  })
+
+  it('marks everything it produces as pending', async () => {
+    await variants({ imageId: ID_A, count: 2 })
+    expect(generated.every((g) => g.spec.pending === true)).toBe(true)
+  })
+
+  it('clamps the count rather than trusting it', async () => {
+    await variants({ imageId: ID_A, count: 99 })
+    expect(generated).toHaveLength(6)
+    generated = []
+    await variants({ imageId: ID_A })
+    expect(generated).toHaveLength(2)
+  })
+
+  it('refuses an account the feature is not enabled for, before anything else', async () => {
+    enabled = false
+    const res = await variants({ imageId: 'not-a-hash' })
+    // 403 and not 400: someone with no right to the feature learns nothing about
+    // what a well-formed request looks like.
+    expect(res.status).toBe(403)
+    expect(generated).toHaveLength(0)
+  })
+
+  it('refuses an id that is not in the library', async () => {
+    present = []
+    expect((await variants({ imageId: ID_A })).status).toBe(404)
+    expect((await variants({ imageId: 'nope' })).status).toBe(400)
+    expect(generated).toHaveLength(0)
+  })
+
+  /**
+   * Asked for the whole batch at once. Discovering the volume is full on the
+   * fifth of six leaves four paid-for calls and a half-written set, and every
+   * _persist in this repository swallows its error — so the refusal has to
+   * happen while there is still something to refuse.
+   */
+  it('refuses before writing when the volume is at its ceiling', async () => {
+    full = true
+    expect((await variants({ imageId: ID_A, count: 6 })).status).toBe(507)
+    expect(generated).toHaveLength(0)
+  })
+
+  /**
+   * A partial batch is a degradation and stays a 200; a batch where nothing at
+   * all was produced is a failure, and answering 200 with an empty list would
+   * draw as a success over six failed provider calls. The notices travel either
+   * way — "which axis failed and why" is what lets an admin fix a broken edit
+   * profile.
+   */
+  it('answers 502 with the notices when nothing at all could be produced', async () => {
+    generateFails = true
+    const res = await variants({ imageId: ID_A, count: 2 })
+    expect(res.status).toBe(502)
+    const body = await res.json()
+    expect(body.derived).toBe(true)
+    expect(body.notices).toHaveLength(2)
+    expect(body.notices[0]).toMatch(/provider exploded/)
+  })
+
+  it('answers 503, not a 500, on an instance with no image provider at all', async () => {
+    editRegistry = null
+    contentRegistry = null
+    expect((await variants({ imageId: ID_A })).status).toBe(503)
+  })
+
+  /**
+   * The reservation above is a guess; this is the measurement, and without it the
+   * guess is the only thing the ceiling ever sees.
+   *
+   * `createDiskBudget` keeps its total in memory and only `add` moves it, so a
+   * route that reserves before writing and credits nothing afterwards passes its
+   * own check for ever — six files a call, indefinitely, on a budget still
+   * reporting itself well under the limit. Every other write path in the
+   * repository credits it; this one was the exception.
+   */
+  it('charges the volume for the files it actually wrote', async () => {
+    const res = await variants({ imageId: ID_A, count: 3 })
+    expect(res.status).toBe(200)
+    expect(charged).toEqual([VARIANT_BYTES, VARIANT_BYTES, VARIANT_BYTES])
+  })
+
+  /**
+   * Content addressing again (M8): a variant served out of the cache wrote no
+   * bytes, and charging for it would leak quota on every duplicate — the same
+   * exclusion POST /api/images/upload makes for a re-uploaded file.
+   */
+  it('charges nothing for a variant that came back out of the cache', async () => {
+    variantsCached = true
+    expect((await variants({ imageId: ID_A, count: 3 })).status).toBe(200)
+    expect(charged).toEqual([])
   })
 })
 

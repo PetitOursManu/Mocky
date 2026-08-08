@@ -63,12 +63,31 @@ function clampDimension(value, fallback) {
 export function createImagesRouter({ library, registryFor, budget }) {
   const router = express.Router()
 
-  /** Only two profiles exist; anything unknown is content (the default job). */
-  const profileOf = (v) => (v === 'inspiration' ? 'inspiration' : 'content')
+  /**
+   * Which profile a request names. Three of them now, and 'edit' is NOT folded
+   * into content.
+   *
+   * This read "only two profiles exist; anything unknown is content", which was
+   * true when it was written and became the one substitution the third profile
+   * exists to forbid. `resolveImageProfile` deliberately answers null for an
+   * unconfigured 'edit' so that a text-to-image provider can never stand in for
+   * an image-to-image one; quietly mapping the name to 'content' one layer above
+   * restores exactly that, with the extra sting that the picture is billed to a
+   * key the administrator chose for a different job.
+   *
+   * So the fallback survives only for a name nobody defined, where "content" is
+   * the honest reading of a caller who did not choose.
+   */
+  const profileOf = (v) => (v === 'inspiration' || v === 'edit' ? v : 'content')
 
   // Available providers + whether each needs a key (Advanced drawer).
   router.get('/providers', (req, res) => {
-    res.json({ providers: registryFor(profileOf(req.query.profile)).list() })
+    const registry = registryFor(profileOf(req.query.profile))
+    // An empty list, not a 500. `registryFor('edit')` is null on an instance
+    // where image-to-image was never configured, and that is a configuration
+    // rather than a fault: "nothing is available here" is the true answer, and
+    // it is the shape the Advanced drawer already knows how to draw (Q1).
+    res.json({ providers: registry ? registry.list() : [] })
   })
 
   function filtersFromQuery(q) {
@@ -152,6 +171,25 @@ export function createImagesRouter({ library, registryFor, budget }) {
     }
     if (spec.width != null) spec.width = clampDimension(spec.width, 1024)
     if (spec.height != null) spec.height = clampDimension(spec.height, 1024)
+    /*
+     * Which model runs — resolved here so that "there is none" is an answer
+     * rather than a crash.
+     *
+     * Only the 'edit' profile can come back null, and only on an instance where
+     * no image-to-image provider was ever configured. Before this line the null
+     * reached `library.generate` and died as a TypeError on `registry.pick`,
+     * reported as a 502 naming a provider failure that never happened. 503 says
+     * the true thing instead: nothing is wrong with the request, there is simply
+     * nothing configured to serve it, and that is an administrator's job.
+     */
+    const registry = registryFor(profileOf(spec.profile))
+    if (!registry) {
+      return res.status(503).json({
+        error:
+          'No provider is configured for the "edit" image profile on this instance. ' +
+          'Unlike the inspiration profile, it borrows nothing from the content one.',
+      })
+    }
     // A generated image is a few hundred kB, but its size is only known once the
     // provider has been paid. Reserving one typical image keeps the check honest
     // without pretending to know the answer in advance.
@@ -164,7 +202,22 @@ export function createImagesRouter({ library, registryFor, budget }) {
       // less than no attribution at all. `requireUser` guards this router in
       // server/index.js, so it is always there.
       spec.owner = req.user?.id
-      const out = await library.generate(spec, { registry: registryFor(profileOf(spec.profile)) })
+      /*
+       * A caller may ask for its image to arrive unconfirmed, and only that.
+       *
+       * The multi-step video flow generates its model image through this very
+       * route, and the whole point of that step is that nobody has seen the
+       * picture yet — so the flag has to be expressible from a browser. Coerced
+       * here rather than inherited from the body, because `spec` IS the body:
+       * left implicit, a truthy string would have set it and, more to the point,
+       * nothing in this file would have said the field was part of the contract.
+       *
+       * There is no way back through this route. Clearing the flag is
+       * POST /:hash/confirm, which checks ownership; `pending: false` in a
+       * generate body means nothing and is not read.
+       */
+      spec.pending = req.body?.pending === true
+      const out = await library.generate(spec, { registry })
       if (out.skipped) return res.json({ skipped: true })
       if (!out.fromCache) budget?.add(library.fileSize?.(out.hash) ?? 0)
       res.json({ hash: out.hash, url: `/api/images/${out.hash}`, fromCache: out.fromCache, meta: withoutOwners(out.meta) })
@@ -222,6 +275,36 @@ export function createImagesRouter({ library, registryFor, budget }) {
     const meta = library.toggleFavorite(req.params.hash)
     if (!meta) return res.status(404).json({ error: 'Not found' })
     res.json({ favorite: meta.favorite })
+  })
+
+  /**
+   * "I have seen this one, keep it." Clears the `pending` flag, for good.
+   *
+   * Ownership, not merely a session, and that is the one refusal worth spelling
+   * out. The image library is instance-wide: every signed-in account can list it
+   * and every hash in it is reachable by anyone who has the hash. Confirmation
+   * is different in kind from favouriting or downloading — it is what makes an
+   * image mountable into a film, and it is irreversible — so the account that
+   * asked for the picture is the only one entitled to say a human looked at it.
+   * Without the check, a second account could confirm a batch of variants the
+   * first one was still deciding about, and the first would find its own
+   * discards in the montage picker with nothing to explain how they got there.
+   *
+   * 404 before 403, unlike GET /api/video/:hash. There is no oracle to protect
+   * here — an authenticated listing already publishes every non-pending hash on
+   * the instance — and the two answers really do send someone to different
+   * places: "that image is gone" and "that image is not yours".
+   */
+  router.post('/:hash/confirm', (req, res) => {
+    const { hash } = req.params
+    if (!HASH_RE.test(hash)) return res.status(400).json({ error: 'Bad hash' })
+    if (!library.get(hash)) return res.status(404).json({ error: 'Not found' })
+    if (!library.ownedBy(hash, req.user?.id)) {
+      return res.status(403).json({ error: 'This image belongs to another account.' })
+    }
+    const meta = library.confirm(hash)
+    if (!meta) return res.status(404).json({ error: 'Not found' })
+    res.json({ confirmed: true, meta: withoutOwners(meta) })
   })
 
   // Explicit deletion (the only thing that removes a file — M8). Warns which

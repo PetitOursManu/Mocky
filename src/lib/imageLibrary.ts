@@ -16,6 +16,14 @@ export interface LibraryImage {
   tags: string[]
   projects: string[]
   favorite: boolean
+  /**
+   * Set — and only ever set to `true` — while the multi-step flow is waiting for
+   * a human to look at this picture. Optional because its ABSENCE is the normal
+   * state: every image made before this field existed carries no flag and is
+   * eligible, which is what made the upgrade a non-event (see the block comment
+   * above `confirm()` in server/images/library.js).
+   */
+  pending?: boolean
 }
 
 export interface LibraryFilters {
@@ -121,12 +129,42 @@ export async function uploadImage(
  */
 export async function generateImage(
   prompt: string,
-  opts: { project?: string; signal?: AbortSignal } = {},
+  opts: {
+    project?: string
+    signal?: AbortSignal
+    /**
+     * Arrive unconfirmed, awaiting a human.
+     *
+     * Only the multi-step video flow asks for this, and only because the whole
+     * point of that step is that nobody has seen the picture yet: an image made
+     * this way is kept out of every listing and refused by the montage until
+     * POST /api/images/:hash/confirm clears the flag.
+     */
+    pending?: boolean
+    /**
+     * A seed, when the caller needs a DIFFERENT picture rather than the same one.
+     *
+     * The library caches on provider+prompt+seed+size (M8), so "regenerate" with
+     * an unchanged prompt and no seed is served the previous image out of the
+     * cache — instantly, for free, and identically. That is exactly right for
+     * every other caller and exactly wrong for a button whose only job is to
+     * offer another take.
+     */
+    seed?: number
+    tags?: string[]
+  } = {},
 ): Promise<{ hash: string } | null> {
   const res = await fetch('/api/images/generate', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, project: opts.project, profile: 'content', tags: ['replacement'] }),
+    body: JSON.stringify({
+      prompt,
+      project: opts.project,
+      profile: 'content',
+      tags: opts.tags ?? ['replacement'],
+      seed: opts.seed,
+      pending: opts.pending === true,
+    }),
     signal: opts.signal,
   })
   const j = await res.json().catch(() => ({}))
@@ -137,6 +175,23 @@ export async function generateImage(
   // image either — the caller has to tell the difference.
   if (j.skipped || !j.hash) return null
   return { hash: String(j.hash) }
+}
+
+/**
+ * "I have looked at this one, keep it." One way, on purpose.
+ *
+ * There is no matching un-confirm anywhere, here or on the server: the flag says
+ * nobody has seen the picture yet, and that is a fact about the past which a
+ * later call cannot make untrue. What the interface offers instead is to leave
+ * an image alone — an unconfirmed one stays in the store, undeleted (M8), simply
+ * unlisted and unmountable.
+ */
+export async function confirmImage(hash: string, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`/api/images/${hash}/confirm`, { method: 'POST', signal })
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}))
+    throw new Error(j?.error ? String(j.error) : `Confirm HTTP ${res.status}`)
+  }
 }
 
 export async function toggleFavoriteImage(hash: string): Promise<boolean> {

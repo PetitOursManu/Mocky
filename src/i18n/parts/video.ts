@@ -117,6 +117,62 @@ export const video = {
     // phrases sont la seule explication de ce qui ne s’est pas produit.
     'video.composeNotices': 'À propos de cette proposition',
 
+    // ---- partir d’une image ------------------------------------------------
+    // Les trois phrases « variantsAre… » sont le cœur honnête de ce chemin, et
+    // elles servent DEUX FOIS : avant le clic, d’après ce que /status promet, et
+    // après coup, d’après ce que la réponse a réellement fait. D’où le présent —
+    // un futur mentirait dans la moitié des emplois. Le troisième cas existe
+    // parce qu’un serveur qui ne dit rien ne dit pas « non » : l’inventer serait
+    // affirmer un fait sur l’instance de quelqu’un d’autre, exactement là où
+    // cette fonctionnalité a promis de ne pas le faire.
+    'video.fromImageTitle': 'Partir d’une image',
+    'video.fromImageHint':
+      'Une image modèle, puis plusieurs variantes, et vous gardez celles qui vous conviennent. Chaque étape se confirme : rien n’entre dans le montage sans que vous l’ayez vu. Consomme des appels au fournisseur d’images.',
+    'video.fromImageSubject': 'Décrivez le sujet',
+    'video.fromImagePlaceholder': 'Une bouilloire noire mate posée sur du béton, lumière rasante.',
+    'video.makeModel': 'Générer une image modèle',
+    'video.makingModel': 'Génération…',
+    // Le fournisseur a répondu sans rien produire. Ce n'est pas une erreur de
+    // transport, et le dire autrement enverrait chercher une panne là où il n'y
+    // en a pas.
+    'video.modelSkipped': 'Le fournisseur d’images n’a rien produit. Réessayez, ou reformulez le sujet.',
+    'video.variantNeedSubject': 'Décrivez d’abord le sujet en une phrase.',
+
+    'video.gateKeepTitle': 'Gardez-vous cette image ?',
+    'video.gateKeepBody':
+      'Rien ne continue tant que vous n’avez pas choisi. Abandonnée, elle reste dans la médiathèque sans pouvoir être montée : elle n’est pas supprimée.',
+    'video.modelImageAlt': 'Image modèle proposée',
+    'video.keep': 'Garder',
+    'video.regenerate': 'Régénérer',
+    'video.abandon': 'Abandonner',
+
+    'video.variantsAreDerived':
+      'Dérivation réelle : les variantes sortent d’un modèle image-vers-image nourri de VOTRE image.',
+    'video.variantsAreSiblings':
+      'Pas de dérivation : aucun profil « Édition » n’est configuré sur cette instance. Les variantes naissent du même texte, pas de votre image — même sujet, autre photo.',
+    'video.variantsDerivationUnknown':
+      'Ce serveur ne dit pas si les variantes dériveront de votre image. La réponse, elle, le précisera.',
+
+    'video.variantCount': 'Nombre de variantes',
+    'video.makeVariants': 'Produire {n} variantes',
+    'video.makingVariants': 'Production des variantes…',
+
+    'video.gateChooseTitle': 'Cochez les variantes à monter',
+    'video.gateChooseBody':
+      'Sélection multiple. Ce qui n’est pas coché reste en attente, définitivement : ces images ne pourront jamais être montées.',
+    'video.variantNumber': 'Variante {n}',
+    'video.variantChosen': '{n} cochée(s)',
+    'video.variantDiscardNote': '{n} variante(s) resteront en attente, définitivement.',
+    'video.addChosen': 'Confirmer et ajouter au montage',
+    'video.adding': 'Ajout…',
+    'video.variantNeedChoice': 'Cochez au moins une variante.',
+    'video.variantNoRoom': 'Trop de variantes cochées : il reste {room} place(s) dans le montage.',
+    'video.variantNotices': 'À propos de ces variantes',
+    // Confirmation partielle : ce qui est passé entre dans le montage, ce qui a
+    // échoué reste en attente. Le taire donnerait une sélection plus courte que
+    // les cases cochées, sans rien pour l'expliquer.
+    'video.variantConfirmFailed': '{n} variante(s) n’ont pas pu être confirmées : elles ne sont pas entrées dans le montage.',
+
     'video.scenesTitle': 'Scènes',
     'video.sceneCount': '{n} sur {max}',
     'video.addSceneFull': 'Maximum atteint : {max} scènes',
@@ -192,6 +248,16 @@ export const video = {
       'Mocky a cessé d’attendre après {n} s. Le rendu a peut-être abouti côté serveur : rouvrez ce panneau pour le vérifier.',
     'video.errMissing': 'Des images ont quitté la médiathèque',
     'video.errMissingHint': 'Remplacez les scènes concernées, puis relancez.',
+    // Le refus qui n’est pas un problème de montage : le document est valide et
+    // tous les fichiers sont là. Ce qui bloque, c’est une image que personne n’a
+    // regardée — et le garde vit sur le serveur précisément pour que fermer un
+    // panneau ne suffise pas à la faire passer.
+    'video.errPending': 'Des images attendent votre confirmation',
+    'video.errPendingHint':
+      'Le montage refuse une image que personne n’a validée. Confirmez-la dans « Partir d’une image », ou retirez la scène concernée.',
+    'video.errNoProvider': 'Aucun fournisseur d’image',
+    'video.errNoProviderHint':
+      'Cette instance n’a aucun modèle d’image configuré. C’est un réglage d’administration, pas un problème de montage.',
     'video.errInvalid': 'Le montage a été refusé',
     'video.errNoAccess': 'L’export vidéo n’est plus activé pour ce compte.',
     'video.errOffline': 'Serveur injoignable',
@@ -292,6 +358,62 @@ export const video = {
     // sentences are the only account of what did not happen.
     'video.composeNotices': 'About this proposal',
 
+    // ---- starting from one image -------------------------------------------
+    // The three "variantsAre…" sentences are the honest core of this path, and
+    // each is used TWICE: before the click, from what /status promises, and
+    // afterwards, from what the answer actually did. Hence the present tense — a
+    // future one would be wrong in half its uses. The third case exists because
+    // a server that says nothing is not saying "no": inventing that would assert
+    // a fact about somebody else's instance, in the exact place this feature
+    // promised not to.
+    'video.fromImageTitle': 'Start from an image',
+    'video.fromImageHint':
+      'One model picture, then several variants, and you keep the ones that work. Every step is confirmed: nothing enters the cut before you have seen it. Spends image-provider calls.',
+    'video.fromImageSubject': 'Describe the subject',
+    'video.fromImagePlaceholder': 'A matte black kettle on concrete, raking light.',
+    'video.makeModel': 'Generate a model image',
+    'video.makingModel': 'Generating…',
+    // The provider answered and produced nothing. That is not a transport
+    // failure, and saying it as one sends somebody looking for a breakage that
+    // is not there.
+    'video.modelSkipped': 'The image provider produced nothing. Try again, or reword the subject.',
+    'video.variantNeedSubject': 'Describe the subject in one sentence first.',
+
+    'video.gateKeepTitle': 'Keeping this one?',
+    'video.gateKeepBody':
+      'Nothing continues until you choose. Abandoned, it stays in the media library without being mountable — it is not deleted.',
+    'video.modelImageAlt': 'The model image on offer',
+    'video.keep': 'Keep',
+    'video.regenerate': 'Regenerate',
+    'video.abandon': 'Abandon',
+
+    'video.variantsAreDerived':
+      'A real derivation: the variants come out of an image-to-image model fed with YOUR picture.',
+    'video.variantsAreSiblings':
+      'No derivation: this instance has no “Edit” image profile. The variants are born of the same text, not of your picture — same subject, another photograph.',
+    'video.variantsDerivationUnknown':
+      'This server does not say whether the variants will derive from your picture. The answer itself will.',
+
+    'video.variantCount': 'How many variants',
+    'video.makeVariants': 'Produce {n} variants',
+    'video.makingVariants': 'Producing the variants…',
+
+    'video.gateChooseTitle': 'Tick the variants worth cutting',
+    'video.gateChooseBody':
+      'Several at a time. Anything left unticked stays pending, for good: those pictures can never be cut into a film.',
+    'video.variantNumber': 'Variant {n}',
+    'video.variantChosen': '{n} ticked',
+    'video.variantDiscardNote': '{n} variant(s) will stay pending, permanently.',
+    'video.addChosen': 'Confirm and add to the cut',
+    'video.adding': 'Adding…',
+    'video.variantNeedChoice': 'Tick at least one variant.',
+    'video.variantNoRoom': 'Too many ticked: there is room for {room} more scene(s).',
+    'video.variantNotices': 'About these variants',
+    // A partial confirmation: what went through joins the cut, what failed stays
+    // pending. Left unsaid it is a selection shorter than the ticked boxes, with
+    // nothing to account for the difference.
+    'video.variantConfirmFailed': '{n} variant(s) could not be confirmed, and did not join the cut.',
+
     'video.scenesTitle': 'Scenes',
     'video.sceneCount': '{n} of {max}',
     'video.addSceneFull': 'At the ceiling: {max} scenes',
@@ -367,6 +489,16 @@ export const video = {
       'Mocky gave up waiting after {n} s. The render may still have finished on the server: reopen this panel to check.',
     'video.errMissing': 'Some images have left the media library',
     'video.errMissingHint': 'Replace the scenes concerned, then start again.',
+    // The refusal that is not a problem with the cut: the document is valid and
+    // every file is there. What blocks it is a picture nobody looked at — and
+    // the guard lives on the server precisely so that closing a panel is not
+    // enough to get one past it.
+    'video.errPending': 'Some images are awaiting your confirmation',
+    'video.errPendingHint':
+      'The cut refuses a picture nobody has confirmed. Confirm it under “Start from an image”, or remove that scene.',
+    'video.errNoProvider': 'No image provider',
+    'video.errNoProviderHint':
+      'This instance has no image model configured. That is an administration setting, not a problem with your cut.',
     'video.errInvalid': 'The cut was refused',
     'video.errNoAccess': 'Video export is no longer enabled for this account.',
     'video.errOffline': 'Server unreachable',

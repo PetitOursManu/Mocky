@@ -223,9 +223,9 @@ export const settings = {
     // ---- admin: image providers ----
     'settings.imagesSectionTitle': 'Génération d’images (Muse)',
     'settings.imagesBlurb1': 'Muse génère',
-    'settings.imagesBlurbStrong': 'deux sortes d’images',
+    'settings.imagesBlurbStrong': 'trois sortes d’images',
     'settings.imagesBlurb2':
-      ', et peu de modèles sont bons aux deux. Vous pouvez donc en choisir un pour chacune. Les clés sont stockées sur ce serveur et ne sont jamais renvoyées au navigateur ; si un service échoue, Muse retombe sur des placeholders.',
+      ', et peu de modèles sont bons aux trois. Vous pouvez donc en choisir un pour chacune. Les clés sont stockées sur ce serveur et ne sont jamais renvoyées au navigateur ; si un service échoue, Muse retombe sur des placeholders.',
 
     'settings.imgLabelPollinations': 'Pollinations — gratuit, sans clé (défaut)',
     'settings.imgLabelFal': 'fal.ai — FLUX & co.',
@@ -283,6 +283,19 @@ export const settings = {
     'settings.imgContent2':
       ' : hero, produits, arrière-plans (modes Contenu et Les deux). Il peut y en avoir plusieurs par écran — privilégiez un modèle',
     'settings.imgContentFastCheap': 'rapide et bon marché',
+
+    'settings.imgProfileEdit': 'Édition d’image (image-to-image)',
+    'settings.imgEdit1': 'Retoucher une image existante :',
+    'settings.imgEditFromImage': 'une image entre, une dérivée sort',
+    'settings.imgEdit2':
+      '. Ce n’est pas un modèle de texte-vers-image plus puissant, c’est un autre point d’entrée, que la plupart des identifiants de modèles n’ont pas.',
+    'settings.imgEditFaint':
+      'Laissez « Aucun » et l’édition d’image reste désactivée : rien ne prend le relais, car un modèle de texte-vers-image ne dériverait rien de votre image.',
+    'settings.imgEmptyEdit': 'Aucun — pas d’édition d’image sur cette instance',
+    'settings.imgHintEditOff':
+      'Désactivé. Contrairement à l’image d’inspiration, ce profil ne réutilise pas le modèle de contenu : un modèle de texte-vers-image ignorerait votre image et rendrait une création issue du seul texte, présentée comme une dérivée. Mocky préfère ne rien proposer.',
+    'settings.imgEditRestriction':
+      'Seuls les fournisseurs capables d’accepter une image en entrée sont proposés. Pollinations en est absent : son API ne prend qu’une URL publiquement joignable, or les images de Mocky ne sont servies que par ce serveur. Côté Cloudflare, indiquez un modèle « img2img » — celui du profil de contenu ne sait faire que du texte-vers-image.',
   } as Record<string, string>,
 
   en: {
@@ -495,9 +508,9 @@ export const settings = {
     // ---- admin: image providers ----
     'settings.imagesSectionTitle': 'Image generation (Muse)',
     'settings.imagesBlurb1': 'Muse generates',
-    'settings.imagesBlurbStrong': 'two kinds of image',
+    'settings.imagesBlurbStrong': 'three kinds of image',
     'settings.imagesBlurb2':
-      ', and few models are good at both, so you can pick one for each. Keys are stored on this server and are never sent back to the browser; if a service fails, Muse falls back to placeholders.',
+      ', and few models are good at all three, so you can pick one for each. Keys are stored on this server and are never sent back to the browser; if a service fails, Muse falls back to placeholders.',
 
     'settings.imgLabelPollinations': 'Pollinations — free, no key (default)',
     'settings.imgLabelFal': 'fal.ai — FLUX & co.',
@@ -555,5 +568,18 @@ export const settings = {
     'settings.imgContent2':
       ': hero, products, backgrounds (Content and Both modes). There can be several per screen — favour a model that is',
     'settings.imgContentFastCheap': 'fast and cheap',
+
+    'settings.imgProfileEdit': 'Image editing (image-to-image)',
+    'settings.imgEdit1': 'Reworking an existing picture:',
+    'settings.imgEditFromImage': 'an image goes in, a derivative comes out',
+    'settings.imgEdit2':
+      '. Not a stronger text-to-image model — a different endpoint, which most model ids do not have at all.',
+    'settings.imgEditFaint':
+      'Leave “None” and image editing stays off: nothing takes over, because a text-to-image model would derive nothing from your picture.',
+    'settings.imgEmptyEdit': 'None — no image editing on this instance',
+    'settings.imgHintEditOff':
+      'Off. Unlike the inspiration image, this profile does not reuse the content model: a text-to-image model would ignore your picture and return one made from the prompt alone, presented as a derivative. Mocky would rather offer nothing.',
+    'settings.imgEditRestriction':
+      'Only providers that can accept an input image are listed. Pollinations is absent: its API takes a publicly reachable URL, and Mocky’s images are served by this server alone. On Cloudflare, name an “img2img” model — the one in the content profile only does text-to-image.',
   } as Record<string, string>,
 }

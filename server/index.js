@@ -1107,7 +1107,7 @@ app.put('/api/admin/images/config', requireAdmin, (req, res) => {
 // works end-to-end. Can test a provider before selecting it via ?provider=.
 app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
   const id = typeof req.body?.provider === 'string' ? req.body.provider : undefined
-  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'content'
+  const profile = req.body?.profile === 'inspiration' || req.body?.profile === 'edit' ? req.body.profile : 'content'
   res.json(await images.testProvider(id, profile))
 })
 
@@ -1460,6 +1460,13 @@ app.use(
     if (req.method === 'POST' && req.path.startsWith('/compose')) {
       return authRateLimit(12, 60_000, 'video-compose')(req, res, next)
     }
+    // One request here is up to six provider calls and six files on the volume,
+    // so it is metered like /api/videos/generate rather than like /compose:
+    // the per-image limiter on /api/images is no help, because these calls never
+    // pass through that router.
+    if (req.method === 'POST' && req.path.startsWith('/variants')) {
+      return authRateLimit(6, 60_000, 'video-variants')(req, res, next)
+    }
     next()
   },
   createVideoRouter({
@@ -1470,6 +1477,11 @@ app.use(
     store: videoExports,
     budget: diskBudget,
     resolveTarget: (profile) => textConfig.target(profile),
+    // `registryFor` is a live closure over the registries, so an admin switching
+    // the edit provider takes effect on the next request; capturing
+    // `registries.edit` here instead would pin whatever was configured at boot,
+    // and reload() would appear to do nothing.
+    imageRegistryFor: images.registryFor,
   }),
 )
 

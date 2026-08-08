@@ -1,4 +1,5 @@
 import { fetchWithTimeout, PROBE_TIMEOUT_MS } from './timeout.js'
+import { readInit, clampStrength } from './init.js'
 
 // Local Stable-Diffusion provider using the Automatic1111 / Forge / SD.Next
 // HTTP API (`POST {baseUrl}/sdapi/v1/txt2img`). For power users with their own
@@ -17,6 +18,14 @@ export function createSdWebUi(opts = {}) {
   return {
     id: 'sd-webui',
     requiresKey: false,
+    /**
+     * Same server, same absence of a key, same response shape: only the path and
+     * two fields change. It is also the only one of the four whose strength
+     * parameter has a single documented direction — `denoising_strength`, high
+     * means far from the source — so it is the one the contract's own direction
+     * was copied from.
+     */
+    supportsInit: true,
 
     async healthy() {
       try {
@@ -28,6 +37,8 @@ export function createSdWebUi(opts = {}) {
     },
 
     async generate(req) {
+      const init = readInit(req, 'sd-webui')
+      const strength = clampStrength(req.strength)
       const body = {
         prompt: req.prompt,
         negative_prompt: req.negative || '',
@@ -37,8 +48,14 @@ export function createSdWebUi(opts = {}) {
         batch_size: 1,
       }
       if (req.seed != null) body.seed = Number(req.seed)
+      if (init) {
+        // A1111 tolerates the data-URL prefix, but sends raw base64 back — the
+        // same asymmetry `generate` already strips on the way out.
+        body.init_images = [init.buffer.toString('base64')]
+        if (strength != null) body.denoising_strength = strength
+      }
 
-      const res = await fetchWithTimeout(fetchImpl, `${baseUrl}/sdapi/v1/txt2img`, {
+      const res = await fetchWithTimeout(fetchImpl, `${baseUrl}/sdapi/v1/${init ? 'img2img' : 'txt2img'}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
@@ -51,7 +68,12 @@ export function createSdWebUi(opts = {}) {
       if (!b64) throw new Error('sd-webui returned no image')
       // A1111 sometimes prefixes a data URL.
       const clean = String(b64).replace(/^data:image\/[a-z]+;base64,/, '')
-      return { buffer: Buffer.from(clean, 'base64'), contentType: 'image/png', provider: 'sd-webui' }
+      return {
+        buffer: Buffer.from(clean, 'base64'),
+        contentType: 'image/png',
+        provider: 'sd-webui',
+        ...(init ? { edited: true, strengthApplied: strength != null } : {}),
+      }
     },
   }
 }

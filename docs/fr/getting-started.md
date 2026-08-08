@@ -310,9 +310,9 @@ fond blanc, en 1024×1024 — et ne la range pas dans la bibliothèque.
 | `sd-webui` | Non | Votre propre instance Automatic1111, Forge ou SD.Next lancée avec `--api`. Rien ne sort de votre machine |
 | `none` | — | Muse tourne quand même. Les emplacements d'image reçoivent des aplats issus de la palette |
 
-### Deux profils d'images
+### Trois profils d'images
 
-Les deux métiers sont réellement différents, donc ils ont des réglages séparés.
+Les trois métiers sont réellement différents, donc ils ont des réglages séparés.
 
 **`content`** produit les images posées dans l'écran : visuel principal, produits,
 fonds. Il peut y en avoir plusieurs par écran, donc ce profil doit être rapide et
@@ -322,6 +322,25 @@ le défaut.
 **`inspiration`** produit l'unique planche de direction artistique montrée au
 modèle. Elle doit convaincre, donc elle mérite un modèle plus lent et plus cher.
 Laisser son fournisseur vide le fait retomber sur `content`.
+
+**`edit`** fait de l'image-vers-image : une image existante entre, une dérivée
+sort. C'est le profil des variantes de l'export vidéo. Facultatif comme
+`inspiration`, mais facultatif **dans l'autre sens** : le laisser vide ne retombe
+sur rien du tout, cela veut dire que l'image-vers-image est désactivée sur cette
+instance. Un modèle texte-vers-image à qui l'on donne une image source rendrait
+une image issue du seul texte, présentée comme une dérivée de la vôtre — et rien
+en aval ne saurait faire la différence. Emprunter la clé du profil `content`
+serait donc exactement le mensonge que ce profil existe pour empêcher.
+
+Sa liste de fournisseurs est plus courte que les autres, et le panneau dit
+pourquoi : seuls `fal`, `openai-image`, `cloudflare-workers-ai` et `sd-webui`
+acceptent une image d'entrée. Pollinations ne le peut pas — son API prend une URL
+que **ses** serveurs vont chercher, or les images de Mocky ne sont servies que par
+votre instance. Les modèles par défaut diffèrent aussi de ceux du texte-vers-image
+(`fal-ai/flux/dev/image-to-image`, `@cf/runwayml/stable-diffusion-v1-5-img2img`) :
+hériter des autres livrerait un profil configuré pour échouer. Le bouton
+« Tester » envoie une vraie image source, parce qu'un test texte-vers-image
+réussit contre un modèle incapable d'éditer.
 
 > `sd-webui` est appelé par le serveur de Mocky et pointe par définition vers une
 > adresse locale. Il **contourne donc volontairement** la protection SSRF

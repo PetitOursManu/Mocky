@@ -121,7 +121,22 @@ export function splitOwnedBytes(items, known = null) {
  */
 function fileItems(lib) {
   if (!lib?.list) return []
-  return lib.list().map((m) => ({ owners: m.owners, bytes: lib.fileSize?.(m.hash) ?? 0 }))
+  /*
+   * `includePending: true`, and it is the whole point of this line.
+   *
+   * The image library's default listing now HIDES images awaiting a human — the
+   * variant flow's own gate, and correct there. It is wrong here: those files
+   * are on the volume like every other, `diskBudget.seed()` walks them, and a
+   * batch of six variants nobody ever confirmed is a few megabytes this report
+   * would simply not mention. That breaks the one promise M8's honesty
+   * corollary makes of this table, which is that it adds up to what the disk
+   * holds — the fastest way to make a dashboard untrusted is to have it
+   * disagree with `du`.
+   *
+   * The video-export store has no such filter and ignores the option, so the
+   * two callers can keep sharing this reader.
+   */
+  return lib.list({ includePending: true }).map((m) => ({ owners: m.owners, bytes: lib.fileSize?.(m.hash) ?? 0 }))
 }
 
 function videoItems(videos) {

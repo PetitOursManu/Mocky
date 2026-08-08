@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { imageUrl } from '../lib/imageLibrary'
+import { confirmImage, generateImage, imageUrl } from '../lib/imageLibrary'
 import {
   DURATION_STEP_MS,
   OVERLAY_MAX_LENGTH,
@@ -28,11 +28,27 @@ import {
   fetchVideoJob,
   pollDeadlinePassed,
   proposeVideoTimeline,
+  requestVariants,
   startVideoRender,
   videoDownloadUrl,
   type VideoAccess,
   type VideoJob,
 } from '../lib/video/client'
+import {
+  DERIVATION_KEYS,
+  VARIANT_BLOCKER_KEYS,
+  abandonModel,
+  clampVariantCount,
+  derivationOf,
+  discardedCount,
+  emptyVariantFlow,
+  keepModel,
+  stepOf,
+  toggleChosen,
+  variantBlocker,
+  variantLimits,
+  type VariantFlowState,
+} from '../lib/video/variantFlow'
 import {
   ASPECT_RATIOS,
   KEN_BURNS,
@@ -123,6 +139,8 @@ interface Failure {
   detail?: string
   /** Image ids the library no longer has. */
   missing?: string[]
+  /** Image ids the server refused because nobody has confirmed them. */
+  pending?: string[]
 }
 
 /**
@@ -399,9 +417,9 @@ export default function VideoExportDialog({
                 panel's voice is how a detail that names the actual file or host
                 gets lost on the way to whoever has to fix it. */}
             {failure.detail && <p className="mt-1 font-mono text-caption text-ink-faint">{failure.detail}</p>}
-            {failure.missing && failure.missing.length > 0 && (
+            {[...(failure.missing ?? []), ...(failure.pending ?? [])].length > 0 && (
               <ul className="mt-1 font-mono text-caption text-ink-faint">
-                {failure.missing.map((id) => (
+                {[...(failure.missing ?? []), ...(failure.pending ?? [])].map((id) => (
                   <li key={id}>{id.slice(0, 16)}…</li>
                 ))}
               </ul>
@@ -530,6 +548,21 @@ export default function VideoExportDialog({
           )}
         </div>
 
+        {/* Beside the picker, never instead of it. The picker is how somebody
+            uses pictures they already have, and it stays the short way in; this
+            one is for when they do not exist yet, and it costs up to seven
+            provider calls and two decisions to walk. */}
+        {draft.scenes.length < MAX_SCENES && (
+          <StartFromImage
+            projectId={projectId}
+            access={access}
+            room={MAX_SCENES - draft.scenes.length}
+            disabled={frozen}
+            onAdd={(hashes) => edit((d) => hashes.reduce(addScene, d))}
+            onFailure={setFailure}
+          />
+        )}
+
         <div className="section-head mt-5">
           <span className="kicker text-accent-ink">{t('video.output')}</span>
         </div>
@@ -639,6 +672,402 @@ export default function VideoExportDialog({
     <Modal title={t('video.exportTitle')} onClose={onClose} footer={footer} size="lg">
       {body}
     </Modal>
+  )
+}
+
+/**
+ * The other way to fill the timeline: describe a subject, keep one picture, take
+ * several variants of it, and tick the ones worth cutting.
+ *
+ * Beside the picker rather than instead of it. The picker is how you use images
+ * you already have, and it stays the shorter path — this one costs up to seven
+ * provider calls and two decisions, which is only worth it when the pictures do
+ * not exist yet.
+ *
+ * TWO GATES, and they are the point of the whole thing. Nothing generated here
+ * enters the media library's listings or the montage until a human has looked at
+ * it: the images arrive `pending: true`, and only `confirmImage` clears that.
+ * The gates are courtesy — the guard is `pendingAmong()` and the 409 in
+ * server/video/routes.js, which is what closing this panel cannot get past.
+ *
+ * The honesty about derivation is printed WHERE THE MONEY IS SPENT, next to the
+ * button, from what /status promised — and again over the results, from what the
+ * answer said actually happened. Somebody expecting a retouch of their own
+ * photograph and getting a second photograph of the same subject has to learn
+ * that before they pay for six of them, not in a footnote afterwards.
+ */
+function StartFromImage({
+  projectId,
+  access,
+  room,
+  disabled,
+  onAdd,
+  onFailure,
+}: {
+  projectId?: string
+  access: VideoAccess
+  /** How many more scenes the timeline can hold. `addScene` refuses past MAX_SCENES. */
+  room: number
+  disabled: boolean
+  onAdd: (hashes: string[]) => void
+  /** `null` clears the banner — a fresh attempt should not run under an old refusal. */
+  onFailure: (failure: Failure | null) => void
+}) {
+  const t = useT()
+  const [flow, setFlow] = useState<VariantFlowState>(() => emptyVariantFlow())
+  const [busy, setBusy] = useState<'model' | 'keep' | 'variants' | 'add' | null>(null)
+  const limits = variantLimits(access.limits)
+  const step = stepOf(flow)
+  const blocker = variantBlocker(flow, room)
+
+  /**
+   * The call in flight, so every step is cancellable and none survives the panel.
+   *
+   * A ref for the reason `proposeCtrl` above is one: nothing renders from it. It
+   * doubles as the "does this answer still own the flow?" token — a regeneration
+   * started while the first was still out must not have the first one's picture
+   * land on top of it.
+   */
+  const ctrl = useRef<AbortController | null>(null)
+  useEffect(
+    () => () => {
+      ctrl.current?.abort()
+      ctrl.current = null
+    },
+    [],
+  )
+
+  function begin() {
+    ctrl.current?.abort()
+    const mine = new AbortController()
+    ctrl.current = mine
+    return mine
+  }
+  const stale = (mine: AbortController) => ctrl.current !== mine
+
+  /** An abort is this panel cancelling, never something to report. */
+  const aborted = (e: unknown) => (e as { name?: string })?.name === 'AbortError'
+
+  async function makeModel() {
+    const mine = begin()
+    setBusy('model')
+    // Cleared at the start of every attempt in this flow, exactly as `propose`
+    // and `start` do: a red banner left standing over a step that has since
+    // succeeded is read as the step having failed.
+    onFailure(null)
+    try {
+      const out = await generateImage(flow.subject.trim(), {
+        project: projectId,
+        // Unconfirmed by construction: the whole point of the gate below is that
+        // nobody has seen this picture yet.
+        pending: true,
+        /*
+         * A fresh seed every time, and "Regenerate" is why.
+         *
+         * The library caches on provider+prompt+seed+size (M8), so asking twice
+         * with the same sentence and no seed is served the previous image out of
+         * the cache — instantly, free, and identical. Correct everywhere else,
+         * and the exact opposite of what a button offering another take means.
+         */
+        seed: Math.floor(Math.random() * 2_147_483_647),
+        tags: ['video-source'],
+        signal: mine.signal,
+      })
+      if (stale(mine)) return
+      // A provider that answered and produced nothing. Not a transport failure,
+      // and saying it as one sends somebody hunting a breakage that is not there.
+      if (!out) return onFailure({ titleKey: 'common.error', bodyKey: 'video.modelSkipped' })
+      setFlow((f) => ({ ...f, modelHash: out.hash, modelKept: false, batch: null, chosen: [] }))
+    } catch (e) {
+      if (aborted(e) || stale(mine)) return
+      onFailure(describe(e))
+    } finally {
+      if (!stale(mine)) setBusy(null)
+    }
+  }
+
+  async function keep() {
+    if (!flow.modelHash) return
+    const mine = begin()
+    setBusy('keep')
+    onFailure(null)
+    try {
+      await confirmImage(flow.modelHash, mine.signal)
+      if (stale(mine)) return
+      setFlow(keepModel)
+    } catch (e) {
+      if (aborted(e) || stale(mine)) return
+      onFailure(describe(e))
+    } finally {
+      if (!stale(mine)) setBusy(null)
+    }
+  }
+
+  async function makeBatch() {
+    if (!flow.modelHash) return
+    const mine = begin()
+    setBusy('variants')
+    onFailure(null)
+    try {
+      const batch = await requestVariants(flow.modelHash, flow.count, {
+        project: projectId,
+        signal: mine.signal,
+      })
+      if (stale(mine)) return
+      // Everything ticked by default would make the second gate a formality, and
+      // a formality is what people click through. The grid opens empty.
+      setFlow((f) => ({ ...f, batch, chosen: [] }))
+    } catch (e) {
+      if (aborted(e) || stale(mine)) return
+      onFailure(describe(e))
+    } finally {
+      if (!stale(mine)) setBusy(null)
+    }
+  }
+
+  /**
+   * Confirm what was ticked, then hand it to the timeline.
+   *
+   * Confirmed FIRST, and one at a time. `addScene` on an unconfirmed hash builds
+   * a draft that /render will refuse with a 409 — the guard doing exactly its
+   * job, to a user who did tick the box. So the flag is cleared before the
+   * picture is offered to the montage, and only the ones that really cleared are
+   * offered: a confirmation that failed leaves that variant out and says how many
+   * (Q1 — degrade, and say what degraded).
+   */
+  async function addChosen() {
+    const mine = begin()
+    setBusy('add')
+    onFailure(null)
+    const confirmed: string[] = []
+    let failed = 0
+    try {
+      for (const hash of flow.chosen) {
+        if (stale(mine)) return
+        try {
+          await confirmImage(hash, mine.signal)
+          confirmed.push(hash)
+        } catch (e) {
+          if (aborted(e)) return
+          failed++
+        }
+      }
+      if (stale(mine)) return
+      if (confirmed.length) onAdd(confirmed)
+      if (failed) onFailure({ titleKey: 'common.error', bodyKey: 'video.variantConfirmFailed', vars: { n: failed } })
+      // Back to the start, count remembered. The variants that were not ticked
+      // stay in the store, unconfirmed for good — that is what the note under
+      // the grid warned about, and undoing it here would make the warning false.
+      setFlow((f) => ({ ...emptyVariantFlow(f.count) }))
+    } finally {
+      if (!stale(mine)) setBusy(null)
+    }
+  }
+
+  function cancel() {
+    ctrl.current?.abort()
+    ctrl.current = null
+    setBusy(null)
+  }
+
+  /** What /status promised, before anything has been spent. */
+  const promised = derivationOf(access.variantsDerived)
+  /** What the answer says actually happened. The receipt wins over the promise. */
+  const actual = flow.batch ? derivationOf(flow.batch.derived) : null
+  const frozen = disabled || busy !== null
+
+  return (
+    <div className="mt-3 border border-line-soft bg-ink/5 p-3">
+      <div className="section-head">
+        <span className="kicker text-accent-ink">{t('video.fromImageTitle')}</span>
+      </div>
+      <p className="measure text-body-sm text-ink-muted">{t('video.fromImageHint')}</p>
+
+      {step === 'describe' && (
+        <>
+          <Field label={t('video.fromImageSubject')} className="mt-2">
+            {(p) => (
+              <Textarea
+                {...p}
+                rows={2}
+                value={flow.subject}
+                disabled={frozen}
+                maxLength={BRIEF_MAX_LENGTH}
+                placeholder={t('video.fromImagePlaceholder')}
+                onChange={(e) => {
+                  const subject = e.currentTarget.value
+                  setFlow((f) => ({ ...f, subject }))
+                }}
+              />
+            )}
+          </Field>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button variant="primary" size="sm" disabled={frozen || blocker !== null} onClick={makeModel}>
+              <Icon name="image" size={15} />
+              {busy === 'model' ? t('video.makingModel') : t('video.makeModel')}
+            </Button>
+            {busy === 'model' && (
+              <>
+                <Spinner />
+                <Button variant="ghost" size="sm" onClick={cancel}>
+                  {t('common.cancel')}
+                </Button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* GATE 1. Large, because deciding from a thumbnail is not deciding. */}
+      {step === 'keep' && flow.modelHash && (
+        <div className="mt-3">
+          <p className="text-body font-medium text-ink">{t('video.gateKeepTitle')}</p>
+          <p className="measure mt-1 text-body-sm text-ink-muted">{t('video.gateKeepBody')}</p>
+          <img
+            src={imageUrl(flow.modelHash)}
+            alt={t('video.modelImageAlt')}
+            className="mt-2 max-h-72 w-full border border-line-soft object-contain"
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button variant="primary" size="sm" disabled={frozen} onClick={keep}>
+              <Icon name="check" size={15} />
+              {t('video.keep')}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={frozen} onClick={makeModel}>
+              <Icon name="refresh" size={15} />
+              {busy === 'model' ? t('video.makingModel') : t('video.regenerate')}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={frozen} onClick={() => setFlow(abandonModel)}>
+              {t('video.abandon')}
+            </Button>
+            {busy !== null && <Spinner />}
+          </div>
+        </div>
+      )}
+
+      {step === 'ask' && (
+        <div className="mt-3">
+          <Field label={t('video.variantCount')}>
+            {(p) => (
+              <Select
+                {...p}
+                value={String(flow.count)}
+                disabled={frozen}
+                // Read outside the updater — a synthetic event's currentTarget is
+                // null by the time React runs one. See the container select.
+                onChange={(e) => {
+                  const count = clampVariantCount(Number(e.currentTarget.value), limits)
+                  setFlow((f) => ({ ...f, count }))
+                }}
+              >
+                {Array.from({ length: limits.max - limits.min + 1 }, (_, i) => limits.min + i).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          {/* The promise, at the click, before the money. */}
+          <p className="measure mt-2 text-body-sm text-ink-muted">{t(DERIVATION_KEYS[promised])}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button variant="primary" size="sm" disabled={frozen} onClick={makeBatch}>
+              <Icon name="grid" size={15} />
+              {busy === 'variants' ? t('video.makingVariants') : t('video.makeVariants', { n: flow.count })}
+            </Button>
+            {busy === 'variants' && (
+              <>
+                <Spinner />
+                <Button variant="ghost" size="sm" onClick={cancel}>
+                  {t('common.cancel')}
+                </Button>
+              </>
+            )}
+            <Button variant="ghost" size="sm" disabled={frozen} onClick={() => setFlow(abandonModel)}>
+              {t('video.abandon')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* GATE 2. Multiple selection, and nothing ticked to begin with. */}
+      {step === 'choose' && flow.batch && (
+        <div className="mt-3">
+          <p className="text-body font-medium text-ink">{t('video.gateChooseTitle')}</p>
+          <p className="measure mt-1 text-body-sm text-ink-muted">{t('video.gateChooseBody')}</p>
+          {/* The receipt. Same three sentences as the promise above, chosen from
+              what the server says actually happened — if the two ever disagree,
+              this is the one that is true. */}
+          {actual && <p className="measure mt-1 text-body-sm text-ink-muted">{t(DERIVATION_KEYS[actual])}</p>}
+          {flow.batch.notices.length > 0 && (
+            <Banner tone="warn" title={t('video.variantNotices')} className="mt-2">
+              <ul className="space-y-1">
+                {flow.batch.notices.map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+              </ul>
+            </Banner>
+          )}
+          <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {flow.batch.images.map((v, i) => (
+              <li key={v.hash}>
+                {/* A label wrapping the checkbox and the picture, so the whole
+                    cell is the hit area. A 96-pixel-high image with a 13-pixel
+                    box beside it is a target people miss. */}
+                <label
+                  className={`flex cursor-pointer flex-col gap-1 border p-1 ${
+                    flow.chosen.includes(v.hash) ? 'border-accent bg-accent/10' : 'border-line-soft'
+                  }`}
+                >
+                  <img src={imageUrl(v.hash)} alt="" className="h-24 w-full object-cover" />
+                  <span className="flex items-center gap-1.5 text-body-sm text-ink">
+                    <input
+                      type="checkbox"
+                      className="accent-accent"
+                      checked={flow.chosen.includes(v.hash)}
+                      disabled={frozen}
+                      onChange={() => setFlow((f) => toggleChosen(f, v.hash))}
+                    />
+                    {t('video.variantNumber', { n: i + 1 })}
+                  </span>
+                  {/* The axis, as the server named it. Untranslated on purpose:
+                      it is the server's own identifier, and inventing five
+                      French labels for a field that may grow a sixth is how a
+                      dropdown ends up showing a key. */}
+                  <span className="font-mono text-caption text-ink-faint">{v.axis}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button variant="primary" size="sm" disabled={frozen || blocker !== null} onClick={addChosen}>
+              <Icon name="plus" size={15} />
+              {busy === 'add' ? t('video.adding') : t('video.addChosen')}
+            </Button>
+            <span className="font-mono text-caption text-ink-faint">
+              {t('video.variantChosen', { n: flow.chosen.length })}
+            </span>
+            <Button variant="ghost" size="sm" disabled={frozen} onClick={() => setFlow(abandonModel)}>
+              {t('video.abandon')}
+            </Button>
+          </div>
+          {/* Said before the button, not after: what is left unticked stays
+              unconfirmed for good, and that is not a thing to discover later. */}
+          {discardedCount(flow) > 0 && (
+            <p className="measure mt-1.5 text-body-sm text-ink-muted">
+              {t('video.variantDiscardNote', { n: discardedCount(flow) })}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Next to the disabled control, as everywhere else on this panel. */}
+      {blocker && !frozen && (
+        <p className="measure mt-1.5 text-body-sm text-ink-muted">
+          {t(VARIANT_BLOCKER_KEYS[blocker], { room })}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -920,6 +1349,18 @@ export function describe(e: unknown): Failure {
       return { titleKey: 'video.errQuota', bodyKey: 'video.errQuotaHint', detail: e.message }
     case 'missing-images':
       return { titleKey: 'video.errMissing', bodyKey: 'video.errMissingHint', missing: e.missingImageIds }
+    /*
+     * Its own heading, and the ids with it.
+     *
+     * Reaching this means the server's guard fired where the panel's two gates
+     * did not — a tab left open across a reload, a montage assembled somewhere
+     * else, a client that never had the gates at all. The person has to be able
+     * to find WHICH picture, and the timeline is the only place it still shows.
+     */
+    case 'pending-images':
+      return { titleKey: 'video.errPending', bodyKey: 'video.errPendingHint', pending: e.pendingImageIds }
+    case 'no-provider':
+      return { titleKey: 'video.errNoProvider', bodyKey: 'video.errNoProviderHint', detail: e.message }
     case 'no-access':
       return { titleKey: 'video.errNoAccess' }
     case 'offline':

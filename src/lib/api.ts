@@ -83,13 +83,19 @@ export interface ServerData {
 }
 
 /**
- * Two image profiles, because the jobs differ: 'content' makes the pictures
+ * Three image profiles, because the jobs differ: 'content' makes the pictures
  * embedded in the screen (hero, produits — fast and cheap, several per screen),
  * 'inspiration' makes the single art-direction reference the model looks at
- * (must render a convincing layout — worth a stronger, slower model).
- * An empty 'inspiration' provider reuses 'content'.
+ * (must render a convincing layout — worth a stronger, slower model), and 'edit'
+ * derives a new picture from an existing one.
+ *
+ * An empty 'inspiration' provider reuses 'content'. An empty 'edit' provider
+ * does NOT: it means image-to-image is off on this instance. A text-to-image
+ * model handed a source image cannot derive anything from it, so borrowing one
+ * would produce a picture made from the prompt alone while claiming to be a
+ * derivative of the user's own image.
  */
-export type ImageProfile = 'content' | 'inspiration'
+export type ImageProfile = 'content' | 'inspiration' | 'edit'
 
 /** Admin view of one profile. Secrets are never sent back — only `has…`
  *  booleans, so the UI can show "key set" without exposing it. */
@@ -117,6 +123,9 @@ export interface ImagesConfig {
   profiles: ImageProfile[]
   content: ImagesProfileConfig
   inspiration: ImagesProfileConfig
+  /** Shorter than `providers`: only those that can take an input image. */
+  editProviders: string[]
+  edit: ImagesProfileConfig
   videoProviders: string[]
   video: ImagesVideoConfig
 }
@@ -138,6 +147,7 @@ export interface ImagesVideoPatch {
 export interface ImagesConfigPatch {
   content?: ImagesProfilePatch
   inspiration?: ImagesProfilePatch
+  edit?: ImagesProfilePatch
   video?: ImagesVideoPatch
 }
 

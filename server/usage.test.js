@@ -153,6 +153,31 @@ describe('collectUsage', () => {
     fs.rmSync(dir, { recursive: true, force: true })
   })
 
+  /**
+   * The image library's default listing hides images awaiting a human — right
+   * for the variant flow's gate, wrong for an accounting report. Those files are
+   * on the volume, `diskBudget` walks them at boot, and a batch of six variants
+   * nobody confirmed would otherwise be disk this table simply never mentions.
+   *
+   * The fake mirrors the real signature: `list()` filters, `list({
+   * includePending: true })` does not. A reader that drops the argument reads as
+   * a tidy-up and silently un-sums the column.
+   */
+  it('counts images nobody has confirmed yet — they are on the volume all the same', () => {
+    const dir = tmpDataDir()
+    const all = [
+      { hash: 'a', owners: ['u1'] },
+      { hash: 'p', owners: ['u1'], pending: true },
+    ]
+    const images = {
+      list: (f = {}) => (f.includePending ? all : all.filter((m) => !m.pending)),
+      fileSize: (h) => ({ a: 1000, p: 3000 })[h] || 0,
+    }
+    const out = collectUsage({ dataDir: dir, users, images })
+    expect(out.users.find((u) => u.username === 'ana').bytes.media).toBe(4000)
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
   it('walks a scroll sequence’s directory rather than stat-ing one file', () => {
     const dir = tmpDataDir()
     const seq = path.join(dir, 'video-library', 'v1')

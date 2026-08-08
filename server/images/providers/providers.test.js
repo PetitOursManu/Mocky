@@ -36,8 +36,8 @@ describe('createProviderRegistry', () => {
   it('lists providers with their key requirement', () => {
     const reg = createProviderRegistry([createPollinations(), createNone()])
     expect(reg.list()).toEqual([
-      { id: 'pollinations', requiresKey: false },
-      { id: 'none', requiresKey: false },
+      { id: 'pollinations', requiresKey: false, supportsInit: false },
+      { id: 'none', requiresKey: false, supportsInit: false },
     ])
   })
 })

@@ -1,4 +1,5 @@
 import { fetchWithTimeout, PROBE_TIMEOUT_MS } from './timeout.js'
+import { refuseInit } from './init.js'
 
 // Pollinations image provider — the DEFAULT, zero-key path (prompt §4.1).
 // URL-based API: https://image.pollinations.ai/prompt/{prompt}?width=&height=&seed=&model=flux
@@ -31,6 +32,19 @@ export function createPollinations(opts = {}) {
   return {
     id: 'pollinations',
     requiresKey: false,
+    /**
+     * The one capable-looking provider that is not.
+     *
+     * Pollinations DOES publish an image-to-image path — `?image=<url>` with the
+     * `kontext` model — and reading that documentation is exactly how someone
+     * "fixes" the refusal below. The parameter is a URL **its** servers fetch,
+     * and Mocky's images live at `${origin}/api/images/:hash` on a self-hosted
+     * instance: a LAN or localhost address that image.pollinations.ai cannot
+     * reach. Making it reachable means publishing the image store to the public
+     * internet, which is a far bigger decision than an image edit. There is no
+     * strength parameter either. So: no, and for that reason.
+     */
+    supportsInit: false,
     buildUrl,
 
     async healthy() {
@@ -43,6 +57,12 @@ export function createPollinations(opts = {}) {
     },
 
     async generate(req) {
+      if (req && req.init) {
+        refuseInit(
+          'pollinations',
+          "son API ne prend en entrée qu'une URL publiquement joignable, or les images de Mocky ne sont servies que par ce serveur.",
+        )
+      }
       const url = buildUrl(req)
       const res = await fetchWithTimeout(fetchImpl, url, { method: 'GET' })
       if (!res || !res.ok) {

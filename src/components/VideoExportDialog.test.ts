@@ -30,6 +30,8 @@ suite('describe', () => {
   it.each([
     ['quota', 'video.errQuota'],
     ['missing-images', 'video.errMissing'],
+    ['pending-images', 'video.errPending'],
+    ['no-provider', 'video.errNoProvider'],
     ['no-access', 'video.errNoAccess'],
     ['offline', 'video.errOffline'],
     ['invalid', 'video.errInvalid'],
@@ -40,6 +42,18 @@ suite('describe', () => {
   it('carries the ids of the images that went missing', () => {
     const f = describe(new VideoExportError('missing-images', 'gone', { missingImageIds: ['a'.repeat(64)] }))
     expect(f.missing).toHaveLength(1)
+  })
+
+  /**
+   * Kept in its own field rather than folded into `missing`, because the two
+   * mean opposite things to the person reading the banner: one picture has left
+   * the library and has to be replaced, the other is still there and has to be
+   * confirmed. The heading differs for the same reason.
+   */
+  it('keeps the unconfirmed ids apart from the vanished ones', () => {
+    const f = describe(new VideoExportError('pending-images', 'awaiting', { pendingImageIds: ['b'.repeat(64)] }))
+    expect(f.pending).toEqual(['b'.repeat(64)])
+    expect(f.missing).toBeUndefined()
   })
 
   it('keeps the server’s own sentence rather than paraphrasing it', () => {
