@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createProviderRegistry } from './index.js'
 import { createPollinations } from './pollinations.js'
+import { createFal } from './fal.js'
 import { createNone } from './none.js'
 
 describe('createProviderRegistry', () => {
@@ -90,5 +91,69 @@ describe('createPollinations', () => {
   it('healthy() is false when the probe throws', async () => {
     const p = createPollinations({ fetchImpl: async () => { throw new Error('net') } })
     expect(await p.healthy()).toBe(false)
+  })
+})
+
+/**
+ * Which field carries the input image to fal.
+ *
+ * fal has two families of editing model and they disagree on the name. The
+ * `image-to-image` endpoints take a single `image_url`; the instruction-led
+ * editors — Seedream, nano-banana, Qwen, flux Kontext — take `image_urls`, an
+ * array. fal validates strictly, so an unknown key is a 422 rather than a
+ * warning, and sending both to be safe breaks whichever model does not know the
+ * other one.
+ *
+ * The defect these pin down: a correctly configured
+ * `bytedance/seedream/v5/pro/edit` returned six failed calls, and the panel
+ * reported only "no variant could be produced".
+ */
+describe('fal image-to-image field shape', () => {
+  const INIT = { buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]), contentType: 'image/jpeg' }
+
+  /** Capture the body fal would receive, without letting the call go anywhere. */
+  async function bodySentFor(model) {
+    let sent = null
+    const fetchImpl = async (url, init) => {
+      if (init?.method === 'POST') sent = JSON.parse(init.body)
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ images: [{ url: 'https://example.invalid/x.jpg' }] }),
+        arrayBuffer: async () => new ArrayBuffer(4),
+      }
+    }
+    const p = createFal({ apiKey: 'k', model, fetchImpl })
+    await p.generate({ prompt: 'a cat', init: INIT }).catch(() => {})
+    return sent
+  }
+
+  it('sends a LIST to an instruction-led editor', async () => {
+    const body = await bodySentFor('bytedance/seedream/v5/pro/edit')
+    expect(Array.isArray(body.image_urls)).toBe(true)
+    expect(body.image_urls).toHaveLength(1)
+    // The singular must be ABSENT, not merely unused: fal 422s on unknown keys.
+    expect(body.image_url).toBeUndefined()
+  })
+
+  it('sends a single URL to an image-to-image endpoint', async () => {
+    const body = await bodySentFor('fal-ai/flux/dev/image-to-image')
+    expect(typeof body.image_url).toBe('string')
+    expect(body.image_urls).toBeUndefined()
+  })
+
+  it('recognises the other multi-image families by name', async () => {
+    for (const model of ['fal-ai/nano-banana/edit', 'fal-ai/qwen-image-edit', 'fal-ai/flux-pro/kontext']) {
+      const body = await bodySentFor(model)
+      expect(Array.isArray(body.image_urls), model).toBe(true)
+    }
+  })
+
+  it('never sends image_size with an input image', async () => {
+    // The field does not exist on the edit endpoints — the output follows the
+    // input — and fal answers an unknown key with a 422.
+    const body = await bodySentFor('fal-ai/flux/dev/image-to-image')
+    expect(body.image_size).toBeUndefined()
   })
 })

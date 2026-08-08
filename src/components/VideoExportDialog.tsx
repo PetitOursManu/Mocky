@@ -1374,7 +1374,21 @@ export function describe(e: unknown): Failure {
         detail: e.issues.length ? e.issues.map((i) => `${i.path}: ${i.message}`).join(' · ') : e.message,
       }
     default:
-      return { titleKey: 'common.error', detail: e.message }
+      /*
+       * The provider's own words, when it left any.
+       *
+       * A batch where every variant failed answers 502 with one notice per
+       * failed axis, and those sentences are the whole diagnosis: a 422 naming
+       * the field fal did not recognise, a key it refused, a model that turned
+       * out to be text-to-image. Dropping them left "no variant could be
+       * produced" — a sentence that tells the reader only what they had already
+       * seen on screen, and sent me reading container logs to find a field name
+       * the server had already been told.
+       */
+      return {
+        titleKey: 'common.error',
+        detail: e.notices.length ? e.notices.join(' · ') : e.message,
+      }
   }
 }
 

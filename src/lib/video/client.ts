@@ -99,6 +99,16 @@ export class VideoExportError extends Error {
   readonly missingImageIds: string[]
   /** Set when `code` is 'pending-images'. */
   readonly pendingImageIds: string[]
+  /**
+   * What the server said went wrong, axis by axis.
+   *
+   * Carried on the FAILURE and not only on the success, because a batch where
+   * every variant failed is exactly when these sentences are the only thing
+   * worth reading. The route already sent them — the client threw them away,
+   * and a correctly configured edit model returning six 422s surfaced as
+   * "no variant could be produced" with nothing to act on.
+   */
+  readonly notices: string[]
 
   constructor(
     code: VideoErrorCode,
@@ -108,6 +118,7 @@ export class VideoExportError extends Error {
       issues?: TimelineIssue[]
       missingImageIds?: string[]
       pendingImageIds?: string[]
+      notices?: string[]
     } = {},
   ) {
     super(message)
@@ -117,6 +128,7 @@ export class VideoExportError extends Error {
     this.issues = extra.issues ?? []
     this.missingImageIds = extra.missingImageIds ?? []
     this.pendingImageIds = extra.pendingImageIds ?? []
+    this.notices = extra.notices ?? []
   }
 }
 
@@ -423,7 +435,15 @@ export async function requestVariants(
     // fixes it — it is a thing an administrator has to configure.
     if (status === 503) throw new VideoExportError('no-provider', said(body, 'No image provider.'), { status })
     if (status === 507) throw new VideoExportError('quota', said(body, 'No room left on the volume.'), { status })
-    throw new VideoExportError('http', said(body, `HTTP ${status}`), { status })
+    // 502 lands here: every provider call failed. The route sends one notice per
+    // failed axis, and those sentences carry the provider's own words — a 422
+    // naming the field it did not recognise, a key it refused. Without them the
+    // panel can only say that nothing came back, which is the one thing the user
+    // already knows.
+    throw new VideoExportError('http', said(body, `HTTP ${status}`), {
+      status,
+      notices: idsIn((body as { notices?: unknown })?.notices),
+    })
   }
 
   return {

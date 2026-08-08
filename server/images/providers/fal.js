@@ -27,6 +27,36 @@ export const DEFAULT_FAL_MODEL = 'fal-ai/flux/schnell'
  * fal answers an unknown key with a 422 rather than a warning.
  */
 export const DEFAULT_FAL_EDIT_MODEL = 'fal-ai/flux/dev/image-to-image'
+
+/**
+ * Models that take a LIST of input images, under `image_urls`.
+ *
+ * fal has two families of editing model and they disagree on the field name.
+ * The `image-to-image` endpoints take a single `image_url`; the instruction-led
+ * editors — Seedream, nano-banana, Qwen and the flux Kontext family — take
+ * `image_urls`, an array, because they are built to reference several pictures
+ * at once.
+ *
+ * This matters more than a naming detail because fal validates strictly: an
+ * unknown key is a 422, not a warning. So sending both fields to be safe breaks
+ * whichever model does not know the other one — which is how a correctly
+ * configured `bytedance/seedream/v5/pro/edit` returned six failed calls and the
+ * panel reported only "no variant could be produced".
+ *
+ * Matched on the model id rather than declared per provider, because the id is
+ * the only thing Mocky knows: the admin types it, fal publishes hundreds, and
+ * new ones appear between releases. A model this list does not recognise gets
+ * the singular form, and if that is wrong fal says so — which is why the
+ * provider's error text now reaches the panel instead of being swallowed.
+ */
+const MULTI_IMAGE_EDIT = /(seedream|nano-banana|qwen-image-edit|kontext)/i
+
+/** The input-image field this model expects, already filled in. */
+function initField(model, dataUri) {
+  return MULTI_IMAGE_EDIT.test(String(model || ''))
+    ? { image_urls: [dataUri] }
+    : { image_url: dataUri }
+}
 /**
  * Text-to-video default. A different job and a different price bracket from the
  * image models above: seconds of inference become minutes, and one clip costs
@@ -198,7 +228,7 @@ export function createFal(opts = {}) {
             // no gain. NO `image_size`: the field does not exist on
             // flux/dev/image-to-image — the output follows the input — and fal
             // answers an unknown key with a 422.
-            image_url: toDataUri(init),
+            ...initField(model, toDataUri(init)),
             num_images: 1,
           }
         : {
