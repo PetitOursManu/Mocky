@@ -1,9 +1,19 @@
-# L’export vidéo
+# Motion
 
 Mocky transforme une liste d’images de la médiathèque en `.mp4`. Pas un écran,
 pas une séquence au défilement : un film, monté à partir d’images que
 l’utilisateur a choisies, rendu par [Remotion](https://www.remotion.dev/) dans un
 conteneur absent d’une installation par défaut.
+
+**La fonctionnalité s’appelle Motion ; le code s’appelle `video`.** Elle est
+sortie sous le nom « Export vidéo », qui nommait un format de fichier plutôt que
+ce qui est offert : toutes les chaînes que lit un utilisateur disent désormais
+Motion. Rien en dessous n’a suivi — `server/video/`, `src/lib/video/`,
+`/api/video/*`, le profil compose `video-export` et les clés de traduction
+`video.*` gardent leurs noms. Les renommer toucherait les deux moitiés d’un
+dictionnaire, tous les appels et les tests qui les épinglent, pour changer des
+identifiants qu’aucune interface n’imprime — et casserait la distinction d’une
+lettre ci-dessous, sur laquelle on trébuche déjà.
 
 Cette page traite des décisions. Ce que fait chaque contrôle est dans
 [l’interface](fr/interface.md) ; le contrat HTTP du worker lui-même est dans
@@ -297,11 +307,191 @@ rapport a besoin de la forme d’un rendu, pas de son contenu.
 
 ---
 
+## Le retrouver ensuite
+
+Tout ce qui précède dit où vont les octets. Rien n’y répondait à la question que
+l’utilisateur pose vraiment, et la fonctionnalité est partie sans cette réponse :
+*où est la vidéo que je viens de faire ?*
+
+Le magasin est adressé par contenu : un hash dit ce que contient un fichier, et
+rien sur qui l’a voulu. Le seul lien vers un rendu terminé était le job — et
+`VideoQueue._trim` ne garde que les cinquante derniers jobs achevés, tandis que
+le navigateur ne tient l’identifiant que le temps de l’onglet. Le bouton de
+téléchargement du panneau d’export était donc tout ce qu’il y avait : fermez le
+panneau, et un fichier posé sur le serveur devenait inaccessible. **Un export
+qu’on ne retrouve pas n’est pas un export.**
+
+Trois choses referment cela, et ce sont les trois que la bibliothèque d’images a
+déjà.
+
+**Un film est rattaché au projet où il a été monté.** `projects` dans les
+métadonnées du magasin, une **liste** et non un champ — exactement pour la raison
+qui fait d’`owners` un ensemble (M8) : le magasin déduplique, donc deux projets
+qui composent des montages identiques octet pour octet arrivent sur une seule
+entrée, et le second ne doit pas effacer le premier. L’identifiant circule de
+`POST /api/video/render` vers `VideoQueue.enqueue`, puis la fonction de rendu,
+puis `store.put` — parce que cette fonction est le dernier endroit qui le sait
+encore. Il voyage **à côté** du montage et jamais dedans : le schéma est
+`.strict()`, et un champ que le worker ne rend pas n’a rien à faire dans le
+document.
+
+Un rendu lancé hors d’un projet est classé sous aucun. `null`, jamais une
+supposition — le corollaire d’honnêteté que M8 énonce pour les images dont le
+propriétaire est inconnu.
+
+**`GET /api/video/exports` liste ce que ce compte a rendu.** Uniquement ses
+films, et le filtre vit dans `store.list({ owner })` plutôt que dans la route,
+pour qu’il ne puisse pas diverger d’`ownedBy` juste à côté : `GET
+/api/video/:hash` refuse un hash que le compte n’a pas rendu — avant même de
+regarder si le fichier existe, délibérément, pour que la route ne serve pas
+d’oracle — et une liste nommant les exports des autres rendrait précisément ce
+que ce contrôle retient. `owners` est retiré en sortie, comme dans toutes les
+listes de ce dépôt.
+
+**Média gagne un troisième onglet, « Motion ».** Son propre onglet, pas une ligne
+dans « Vidéos », et la raison est celle qui a fait naître le magasin. Une entrée
+`videos` est une séquence au défilement : vignette, nombre d’images, bouton
+« Redécouper », lue en parcourant `/f/1.jpg … /f/N.jpg`. Un film n’a rien de
+cela, et `VideoPlayer.tsx` à qui on en confierait un demanderait au serveur des
+images que personne n’a découpées — un 404 par position du curseur. Un film est
+un mp4 ; il se lit dans une balise `<video>` pointée sur `/api/video/:hash`, qui
+répond désormais **en lecture** sauf si `?download=1` est demandé, exactement
+comme `GET /api/images/:hash` l’écrit déjà. Le servir en pièce jointe et compter
+sur les navigateurs pour ignorer `Content-Disposition` sur une sous-ressource
+fonctionne par chance, et personne ne l’a promis.
+
+Téléchargement et suppression sont sur la carte, comme pour une image. La
+suppression est explicite et reste la seule chose qui efface un fichier (M8) ;
+elle nomme les projets qui pointaient encore sur le film, parce qu’un magasin
+dédupliqué signifie que le retirer d’un projet le retire de tous.
+
+Enfin, le panneau d’export **dit où le film est parti**, au lieu de seulement
+offrir un lien qui disparaît avec lui. Deux phrases, parce que la promesse n’est
+pas la même : un film monté dans un projet est classé sous ce projet, un film
+monté depuis la page Média n’est classé sous aucun — et prétendre le contraire
+serait un mensonge simple sur la bibliothèque de quelqu’un.
+
+---
+
+## Attacher un montage à un écran
+
+Un montage rangé dans Média est retrouvable. Il n’est toujours pas *dans le
+travail* : un projet est un plateau d’écrans, et un montage posé dans un onglet
+à côté reste un fichier, pas une pièce du design. Un écran peut donc en porter
+un.
+
+**Il y a deux relations entre un écran et un média, et elles ne se mélangent
+pas.** Tout le reste de cette fonctionnalité en découle.
+
+1. **Une image dans le code.** `src/lib/screenImages.ts` trouve les
+   `/api/images/HASH` dans `Screen.code` et les remplace par substitution de
+   chaîne, aux offsets qu’un AST a validés. C’est du **code généré** qu’on
+   réécrit — aucun appel au modèle, rien de restylé, et « Revenir en arrière »
+   l’annule comme n’importe quelle édition. Ce chemin ne sait délibérément pas
+   AJOUTER une image à un écran qui n’en a pas : cela change la structure du
+   composant, donc c’est une génération.
+
+2. **Un média attaché à l’écran.** `Screen.attachedMedia` — comme `imageHash` et
+   `design` — est une **métadonnée**. Rien n’en est dans le code ; le canevas le
+   dessine sur la colonne de cartes à côté du cadre (`CARD_W`, en unités monde,
+   non dessinée sous `CARD_MIN_SCALE`).
+
+Un montage ne peut jamais être que du second type. Le composant généré ne
+contient aucune balise `<video>`, et lui en injecter une serait une génération
+et non une substitution — une autre opération, avec un appel au modèle, une
+boucle de réparation et un annuler derrière.
+
+C’est pourquoi **« Changer les médias » a deux sections et deux intitulés**,
+dont l’un dit qu’il réécrit le code de l’écran et l’autre qu’il n’y touche pas.
+En une seule liste, « remplacer » voudrait dire « réécrire la source » sur une
+ligne et « pointer la carte ailleurs » sur la suivante, sans rien à l’écran pour
+les distinguer.
+
+**Le champ est dans la liste blanche.** `normalizeScreen` reconstruit chaque
+écran depuis une liste fixe de champs : un champ absent de cette liste est perdu
+en silence au rechargement suivant — il survit à toute la session qui l’a ajouté
+et disparaît le lendemain matin. `attachedMedia.test.ts` pose la question
+directement.
+
+**Deux genres, un champ.** `{ kind: 'film' | 'sequence', hash, frames? }`. Une
+séquence de défilement peut être attachée elle aussi, et elle emporte son nombre
+d’images pour la raison qui justifie `Screen.videoFrames` : une séquence adressée
+avec le mauvais compte dessine sa dernière image pendant tout le reste du
+défilement. Un hash plus un drapeau disant dans quel magasin chercher
+laisserait un appelant lire le hash d’un montage dans la bibliothèque de clips et
+récolter un 404 qu’il ne sait pas expliquer.
+
+**Aucune affiche n’est découpée.** Produire une image fixe depuis un .mp4 demande
+ffmpeg, la seule dépendance que ce chemin n’a délibérément pas. La carte utilise
+`<video preload="metadata">` et laisse le navigateur dessiner la première image,
+à partir d’octets qu’une lecture aurait de toute façon demandés — le serveur ne
+fait donc aucun travail supplémentaire, et la carte montre le montage plutôt
+qu’un rectangle gris. Une séquence, elle, a une vraie affiche découpée à
+l’ingestion : c’est une `<img>` — et elle emporte l’horodatage de re-découpe
+quand l’appelant le connaît, parce que les affiches sont servies `immutable` pour
+un an et que le hash vient de la SOURCE : sans cet horodatage, une séquence
+re-découpée affiche l’ancienne image pendant un an. La modale le passait dans sa
+grille de sélection et pas sur la vignette du média déjà attaché, à trois
+centimètres au-dessus.
+
+**Un hash inconnu ne casse rien** (Q1). Les bibliothèques sont des magasins
+séparés et peuvent perdre un fichier à tout moment, et seule une suppression
+explicite en retire un (M8) — donc un écran continue de pointer vers un média
+disparu, la carte se dessine quand même, et la modale dit que le média n’est plus
+là et propose de le détacher. Détacher est la seule chose qui vide le champ.
+
+**Et la carte le dit aussi**, ce qui a demandé une seconde passe. « La carte se
+dessine quand même » était vrai et insuffisant : ce qu’elle dessinait, c’était un
+rectangle noir sous la légende habituelle — soit exactement ce que dessine un
+montage qui commence sur une image noire. Un fichier disparu n’a aucun autre
+signe : `GET /api/video/:hash` répond `403` pour un export supprimé, puisqu’il
+vérifie la propriété avant l’existence délibérément, et ni un `403` ni un `404`
+ne se voient dans une balise `<video>`. C’est donc l’événement `error` de
+l’élément qui bascule la légende sur `Média introuvable`, et l’infobulle précise
+qu’il reste attaché tant qu’on ne le détache pas. Rien n’est réessayé, rien n’est
+détaché : seul un détachement explicite vide le champ.
+
+Un clic sur la carte lit le montage, comme un clic sur la carte image ouvre la
+visionneuse — `FilmLightbox`, partagé avec l’onglet Média pour qu’il y ait une
+balise `<video>` pour un fichier. Ce composant a reçu le même gestionnaire au
+même moment, pour une raison plus tranchante : l’onglet Média n’ouvre jamais
+qu’un montage que la liste vient de nommer, tandis que la carte ouvre le hash que
+porte l’écran, quel qu’il soit. Sans cela, un clic sur une carte morte répondait
+par un rectangle noir, une barre de lecture et pas un mot. Une séquence renvoie
+vers Média : elle se lit en scrubbant des images numérotées, ce que `VideoPlayer`
+fait déjà correctement, et un second scrubber écrit pour une carte fait deux
+lecteurs qui divergent.
+
+---
+
 ## Partir d’une image
 
-Le panneau d’export sait aussi fabriquer les images. On décrit un sujet, on
+Le panneau Motion sait aussi fabriquer les images. On décrit un sujet, on
 obtient une image modèle, on la garde ou on la régénère, puis on demande de deux
 à six variantes et on coche celles qui méritent d’être montées.
+
+**Ou l’on prend l’image modèle dans la médiathèque**, ce que ce chemin refusait
+au départ : le seul accès aux variantes était de payer un fournisseur pour une
+image, même avec exactement celle qu’on voulait déjà rangée dans la médiathèque.
+C’est le même `ImagePicker` que la liste des scènes, pour que « choisir une
+image » soit un composant dans ce panneau et non deux qui divergent.
+
+Une image de la médiathèque **saute la première porte**, et c’est une décision,
+pas un oubli. La porte 1 demande « gardez-vous CELLE-CI ? » à propos d’une image
+qu’un fournisseur vient d’inventer, que personne n’a vue, et qui est arrivée
+`pending` précisément pour cette raison. Une image de la médiathèque est
+l’inverse sur les trois points : elle existe, elle est confirmée, et
+l’utilisateur vient de la choisir dans une grille de ses propres vignettes. Une
+confirmation sans question dedans est de celles qu’on apprend à cliquer sans
+lire — et la porte qui compte, celle des variantes, est en aval de cette
+habitude. Le panneau le dit en une phrase, parce qu’une confirmation manquante
+sans explication est ce qu’on remet six mois plus tard.
+
+L’étape suivante montre désormais l’image source en petit. Elle se trouvait juste
+sous une porte qui l’affichait en pleine largeur, donc il n’y avait rien à dire ;
+deux des trois entrées ne passent plus par cette porte, et « Produire 4
+variantes » d’une image qu’on ne voit pas est un bouton que personne ne devrait
+avoir à croire sur parole.
 
 Les axes de variation sont un tableau figé — angle, cadrage, lumière, arrière-plan,
 orientation — et **aucun modèle n’est chargé de les inventer**. Ce que vaut un
@@ -493,7 +683,7 @@ dire oui.
 | `server/video/worker.js` | Le client HTTP du worker de rendu, et `assertWorkerTarget` |
 | `server/video/store.js` | Le fichier terminé, gardé entier. **Pas** `server/videos/` |
 | `server/video/routes.js` | `/api/video`, le garde des images en attente, et le routeur d’administration |
-| `src/components/VideoExportDialog.tsx` | Le panneau. Ouvert depuis la barre d’outils, jamais depuis un écran |
+| `src/components/VideoExportDialog.tsx` | Le panneau Motion. Ouvert depuis la barre d’outils, jamais depuis un écran |
 | `worker/video/` | Le worker Remotion : sous-projet séparé, image séparée, README séparé |
 | `tests/video-worker-separation.test.js` | Ce qui tient réellement Remotion hors du manifeste de Mocky |
 

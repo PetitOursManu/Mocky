@@ -10,6 +10,7 @@ import {
   derivationOf,
   discardedCount,
   emptyVariantFlow,
+  pickModel,
   stepOf,
   keepModel,
   toggleChosen,
@@ -68,6 +69,31 @@ describe('the step', () => {
     expect(stepOf(after)).toBe('describe')
     expect(after.subject).toBe('a kettle')
     expect(after.chosen).toEqual([])
+  })
+
+  /**
+   * The defect this prevents: a picture chosen out of the media library landing
+   * on gate 1, so the panel holds up a thumbnail the user had just clicked and
+   * asks whether they want to keep it. A confirmation with no question inside it
+   * is the kind people learn to click through, and the two gates that DO mean
+   * something are downstream of that habit.
+   */
+  it('sends a library picture straight to the variants', () => {
+    const after = pickModel(emptyVariantFlow(), 'p'.repeat(64))
+    expect(stepOf(after)).toBe('ask')
+    expect(after.modelKept).toBe(true)
+  })
+
+  /**
+   * And the other half: picking again after a batch came back must not leave the
+   * previous batch on screen under the new picture, which would offer variants
+   * of something else to tick.
+   */
+  it('drops a batch that belonged to the previous picture', () => {
+    const after = pickModel({ ...withModel(), batch: batch(), chosen: ['a'.repeat(64)] }, 'p'.repeat(64))
+    expect(after.batch).toBeNull()
+    expect(after.chosen).toEqual([])
+    expect(stepOf(after)).toBe('ask')
   })
 })
 

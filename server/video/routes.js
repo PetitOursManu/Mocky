@@ -53,6 +53,16 @@ const withoutOwners = (meta) => {
 const MAX_COMPOSE_IMAGES = 100
 
 /**
+ * How much of a project id is kept on a film.
+ *
+ * The same slice `ImageLibrary` applies to its own `project`, and for the same
+ * reason: the string comes from a request body and lands in an index that is
+ * re-serialised whole on every write. A caller sending a megabyte here would be
+ * writing a megabyte back to disk on every export from then on.
+ */
+const MAX_PROJECT_ID = 100
+
+/**
  * Refuse a set of image ids that still contains something nobody has looked at.
  *
  * THE GUARD IS HERE, on the server, and that is the whole point of it. The
@@ -373,9 +383,86 @@ export function createVideoRouter({
       return res.status(507).json({ error: quotaError(budget.usage()) })
     }
 
-    const job = queue.enqueue({ userId: req.user.id, timeline })
+    /*
+     * Where this film will be findable afterwards.
+     *
+     * From the body and not from the session, unlike `userId` beside it, and the
+     * asymmetry is not an oversight: the account is an attribution — a claim the
+     * caller must not be trusted to make about itself — while the project is
+     * simply which of this account's own projects the panel was opened from.
+     * There is nothing to escalate to. Bounded, and null when absent, because an
+     * export composed from the standalone Media page belongs to no project and
+     * inventing one for it would be a guess printed as a fact (M8).
+     */
+    const projectId =
+      typeof req.body?.projectId === 'string' && req.body.projectId
+        ? req.body.projectId.slice(0, MAX_PROJECT_ID)
+        : null
+
+    const job = queue.enqueue({ userId: req.user.id, timeline, projectId })
     // 202: accepted, not done. The body carries the id to poll.
     res.status(202).json(publicJob(job))
+  })
+
+  /**
+   * Every film this account rendered.
+   *
+   * The route that makes the feature finishable. Until it existed the only way
+   * back to a finished export was the job id the panel happened to be holding —
+   * which the journal forgets after fifty more renders, and the browser forgets
+   * on reload — so the ordinary outcome was a file on the volume that nothing in
+   * the interface could reach.
+   *
+   * **Owned films only, and the filter is not a convenience.** `GET /:hash`
+   * refuses a hash this account did not render, deliberately and before it
+   * checks whether the file exists; a listing that named other people's exports
+   * would hand back exactly what that check withholds, and their scene counts
+   * and durations with it. `list({ owner })` is therefore the whole query, not a
+   * default a caller may widen: there is no "all" parameter here to forget to
+   * guard.
+   *
+   * Declared before `/:hash`, and it would still be safe declared after —
+   * `HASH_RE` does not match the word "exports". Both, because a router whose
+   * safety rests on declaration order is one reordering away from serving a
+   * literal path as a hash.
+   */
+  router.get('/exports', (req, res) => {
+    if (!store?.list) return res.json({ videos: [] })
+    const userId = req.user?.id
+    // No session, no films. Not an error — this router sits behind requireUser,
+    // so it cannot happen in the running server; answering an empty list rather
+    // than throwing keeps a router built without one from 500ing (Q1).
+    if (!userId) return res.json({ videos: [] })
+    const project = typeof req.query?.project === 'string' ? req.query.project : ''
+    const videos = store.list({ owner: userId, project: project || undefined }).map(withoutOwners)
+    res.json({ videos })
+  })
+
+  /**
+   * Delete one finished render. The only thing that removes the file (M8).
+   *
+   * Ownership before existence, exactly as the download does and for the same
+   * reason: answering 404 for an unknown hash and 403 for somebody else's would
+   * turn this into an oracle for what other people have exported. Checked in
+   * this order it says the same thing either way.
+   *
+   * The store gives the bytes back to the disk budget itself, so unlike
+   * `DELETE /api/images/:hash` this route does not measure anything — the one
+   * place that knows the size is the one doing the unlink.
+   */
+  router.delete('/:hash', (req, res) => {
+    const hash = String(req.params.hash)
+    const userId = req.user?.id
+    const mine = HASH_RE.test(hash) && (queue.hasVideo?.(userId, hash) || store?.ownedBy?.(hash, userId))
+    if (!mine) {
+      return res.status(403).json({ error: 'This render belongs to another account.' })
+    }
+    const out = store?.remove?.(hash)
+    if (!out) return res.status(404).json({ error: 'This render is no longer stored on this instance.' })
+    // Which projects were still pointing at it, so the interface can say so
+    // afterwards rather than only before — the same courtesy the image library's
+    // `wasUsedBy` pays.
+    res.json({ removed: true, wasUsedBy: out.meta?.projects || [] })
   })
 
   /**
@@ -519,12 +606,20 @@ export function createVideoRouter({
   })
 
   /**
-   * Download one finished render.
+   * Play or download one finished render. `?download=1` → attachment.
    *
-   * Declared last, and matched on 64 hex characters: `/status` and `/render`
-   * are literals declared above it, so Express reaches them first, but a router
-   * whose safety depends on declaration order is one reordering away from
-   * serving `/status` as a hash. The regexp is the part that does not move.
+   * The two spellings mirror `GET /api/images/:hash`, and the default is inline
+   * for a reason that is about this route rather than about symmetry: the Media
+   * tab plays a film in a `<video src>`, and a response that always announced
+   * itself as an attachment would be relying on browsers ignoring
+   * `Content-Disposition` on a subresource load. They do today. Nobody promised
+   * it, and a silent regression there is a black rectangle with no error in it.
+   *
+   * Declared last, and matched on 64 hex characters: `/status`, `/render` and
+   * `/exports` are literals declared above it, so Express reaches them first,
+   * but a router whose safety depends on declaration order is one reordering
+   * away from serving `/status` as a hash. The regexp is the part that does not
+   * move.
    *
    * Ownership is checked BEFORE existence, which is the reverse of the usual
    * shape and deliberate: answering 404 for an unknown hash and 403 for a
@@ -560,8 +655,12 @@ export function createVideoRouter({
     // behind a session, and a shared cache holding it would hand one account's
     // export to the next request that asked.
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
-    res.setHeader('Content-Disposition', `attachment; filename="${store.downloadName(hash)}"`)
+    if (req.query.download === '1') {
+      res.setHeader('Content-Disposition', `attachment; filename="${store.downloadName(hash)}"`)
+    }
     res.type(store.mimeFor(hash) || 'video/mp4')
+    // `sendFile`, not `download`: it answers Range requests, which is what lets
+    // a two-minute film be scrubbed instead of buffered whole before it plays.
     res.sendFile(file)
   })
 

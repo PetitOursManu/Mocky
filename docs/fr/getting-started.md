@@ -324,7 +324,7 @@ modèle. Elle doit convaincre, donc elle mérite un modèle plus lent et plus ch
 Laisser son fournisseur vide le fait retomber sur `content`.
 
 **`edit`** fait de l'image-vers-image : une image existante entre, une dérivée
-sort. C'est le profil des variantes de l'export vidéo. Facultatif comme
+sort. C’est le profil des variantes de Motion. Facultatif comme
 `inspiration`, mais facultatif **dans l'autre sens** : le laisser vide ne retombe
 sur rien du tout, cela veut dire que l'image-vers-image est désactivée sur cette
 instance. Un modèle texte-vers-image à qui l'on donne une image source rendrait
@@ -368,7 +368,7 @@ toute la fonctionnalité avec ses propres images.
 
 ---
 
-## Export vidéo
+## Motion
 
 Une autre fonctionnalité que la précédente, et le singulier est ce qui permet de
 les distinguer dans le code : `server/videos/` découpe des séquences au
@@ -381,7 +381,7 @@ gratuit pour les particuliers, les organisations à but non lucratif et les
 sociétés jusqu'à trois salariés, et sa licence ne traite pas de la
 redistribution au sein d'un produit auto-hébergé — il vit donc dans une image
 séparée que personne ne construit par accident. Pourquoi toute la fonctionnalité
-est bâtie autour de cela est dans [l'export vidéo](fr/video-export.md).
+est bâtie autour de cela est dans [Motion](fr/video-export.md).
 
 Trois étapes, dans cet ordre.
 
@@ -397,11 +397,11 @@ est le moment où la question de licence devient la vôtre : lisez d'abord
 <https://www.remotion.dev/>, et notez que le seuil compte **les salariés de votre
 organisation, pas les comptes de cette instance**.
 
-**2. L'activer dans Administration → Export vidéo.**
+**2. L’activer dans Administration → Motion.**
 
 | Réglage | Détail |
 |---|---|
-| Activer l'export vidéo | L'interrupteur maître. Fermé, personne n'exporte, quelle que soit la portée |
+| Activer Motion | L’interrupteur maître. Fermé, personne n'exporte, quelle que soit la portée |
 | Portée | `Tout le monde`, ou une liste de comptes. Un administrateur n'est **pas** autorisé d'office — un rendu coûte du processeur et se compte par compte, donc l'accès s'accorde explicitement, y compris à soi-même |
 | URL du worker de rendu | `http://video-worker:3030` par défaut, c'est-à-dire le nom du service Compose sur un pont interne. Cela a l'air de ne pas pouvoir marcher : c'est la troisième dérogation réservée à l'administrateur au garde SSRF, et le raisonnement est dans [les invariants](fr/architecture/invariants.md) |
 | Clé de licence Remotion | Facultative. Stockée côté serveur, jamais renvoyée au navigateur. En renseigner une active la télémétrie sortante qu'un rendu sous licence exige à partir de Remotion 5.0 ; sans clé, le conteneur du worker n'a aucune sortie réseau |
@@ -412,7 +412,7 @@ Ce dernier cas mérite d'être lu attentivement : rien n'a été contacté, donc
 redémarrer le worker n'y changera rien — seuls `http://` et `https://` sont
 acceptés.
 
-**3. S'en servir.** `Plus → Vidéo` dans un projet. Vingt scènes au plus, deux
+**3. S'en servir.** `Plus → Motion` dans un projet. Vingt scènes au plus, deux
 minutes au plus, et pas de son.
 
 Les variantes — « Partir d'une image », dans ce panneau — sont la seule partie

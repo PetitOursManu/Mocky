@@ -171,7 +171,11 @@ export const project = {
     'project.pinReference': 'Épingler comme référence de mise en page',
     'project.unpinReference': 'Ne plus utiliser comme référence',
     'project.editDesign': 'Modifier DESIGN.md',
-    'project.changeImages': 'Changer les images…',
+    // « Médias » et pas « images » : l'entrée de menu et le titre de la modale
+    // doivent porter le même nom, et le mot d'ensemble de la médiathèque est
+    // « média ». La clé reste `changeImages`, comme `video.*` reste `video` —
+    // renommer une clé ne change rien à ce qui se lit.
+    'project.changeImages': 'Changer les médias…',
     'project.deriveDesign': 'Faire de cet écran mon DESIGN.md',
     'project.applyDesignConfirm':
       'Faire du DESIGN.md enregistré avec « {name} » la direction de ce projet ? Les écrans suivants la suivront ; la direction actuelle reste accessible depuis les écrans qui l’ont utilisée.',
@@ -384,7 +388,11 @@ export const project = {
     'project.pinReference': 'Pin as layout reference',
     'project.unpinReference': 'Unpin as reference',
     'project.editDesign': 'Edit DESIGN.md',
-    'project.changeImages': 'Change the images…',
+    // “Media”, not “images”: the menu entry and the dialog's own title have to
+    // read the same, and the library's collective word is media. The key stays
+    // `changeImages`, the way `video.*` stays `video` — renaming a key changes
+    // nothing anybody reads.
+    'project.changeImages': 'Change the media…',
     'project.deriveDesign': 'Make this screen my DESIGN.md',
     'project.applyDesignConfirm':
       'Make the DESIGN.md recorded with “{name}” this project’s direction? Later screens will follow it; the current direction stays reachable from the screens that used it.',

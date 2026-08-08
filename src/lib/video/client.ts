@@ -188,7 +188,10 @@ export async function fetchVideoAccess(signal?: AbortSignal): Promise<VideoAcces
  * sent because it is the document with the schema's defaults applied and unknown
  * keys refused, never because anything was corrected into it.
  */
-export async function startVideoRender(input: VideoTimelineInput, signal?: AbortSignal): Promise<VideoJob> {
+export async function startVideoRender(
+  input: VideoTimelineInput,
+  opts: { project?: string; signal?: AbortSignal } = {},
+): Promise<VideoJob> {
   const parsed = VideoTimelineSchema.safeParse(input)
   if (!parsed.success) {
     throw new VideoExportError('invalid', 'The timeline was refused before it was sent.', {
@@ -198,8 +201,18 @@ export async function startVideoRender(input: VideoTimelineInput, signal?: Abort
 
   const { res, body } = await call('/api/video/render', {
     method: 'POST',
-    body: JSON.stringify({ timeline: parsed.data }),
-    signal,
+    /*
+     * `projectId` travels beside the timeline rather than inside it.
+     *
+     * The schema is `.strict()`, so a field the worker does not render cannot be
+     * in the document at all — that is the whole guarantee, and smuggling an
+     * attribution through it would be the first exception. It is also not part
+     * of the film: two projects can compose byte-identical timelines and the
+     * store deduplicates them into one file with both projects on it, which a
+     * field inside the hashed document could not express.
+     */
+    body: JSON.stringify({ timeline: parsed.data, projectId: opts.project }),
+    signal: opts.signal,
   })
   if (res.ok) return body as VideoJob
 
@@ -511,11 +524,86 @@ export function pollDeadlinePassed(renderingSince: number | null, now: number, b
 /**
  * Where the finished file is. Content-addressed, like every other stored blob.
  *
- * A plain URL for a plain `<a download>`: the route already sets
+ * A plain URL for a plain `<a download>`: the route sets
  * `Content-Disposition: attachment` with a name built from a closed set, so
  * fetching the bytes into a Blob only to hand them back to the browser would
  * buy a second copy of a 40 MB file in memory and nothing else.
  */
 export function videoDownloadUrl(hash: string): string {
+  return `/api/video/${hash}?download=1`
+}
+
+/**
+ * The same bytes, for a `<video src>` rather than for a save dialog.
+ *
+ * Its own function, and not `videoDownloadUrl` reused, because the difference is
+ * the whole point: without `?download=1` the route answers inline and honours
+ * Range requests, so the player can seek. With it, the browser is being told to
+ * put the film in the downloads folder — which is what a play button must not
+ * do.
+ */
+export function videoStreamUrl(hash: string): string {
   return `/api/video/${hash}`
+}
+
+/**
+ * One finished film, as its owner sees it in the Media tab.
+ *
+ * Mirrors the metadata `VideoExportStore.put` writes, minus `owners` — the
+ * listing route strips it exactly as the image library's does, because the field
+ * holds account ids and `publicUser()` deliberately withholds those.
+ *
+ * `projects` is a LIST, and reading it as one is not pedantry: the store is
+ * content-addressed, so two projects that composed the same film share one entry
+ * and both are named on it.
+ */
+export interface VideoExport {
+  hash: string
+  bytes: number
+  container: string
+  mime: string
+  scenes: number
+  durationMs: number
+  aspectRatio: string
+  projects: string[]
+  createdAt: number
+}
+
+/**
+ * Every film this account has rendered.
+ *
+ * Owned films only, and that is the server's rule rather than this function's: a
+ * request without a project asks for all of them, never for everybody's. There
+ * is no parameter here that widens the answer.
+ *
+ * It throws like the rest of this module rather than resolving empty, because
+ * the Media tab has to be able to tell "you have exported nothing" apart from
+ * "the backend did not answer" — those are the same empty grid and they mean
+ * opposite things.
+ */
+export async function listVideoExports(
+  opts: { project?: string; signal?: AbortSignal } = {},
+): Promise<VideoExport[]> {
+  const q = opts.project ? `?project=${encodeURIComponent(opts.project)}` : ''
+  const { res, body } = await call(`/api/video/exports${q}`, { signal: opts.signal })
+  if (!res.ok) throw new VideoExportError('http', said(body, `HTTP ${res.status}`), { status: res.status })
+  return Array.isArray(body?.videos) ? (body.videos as VideoExport[]) : []
+}
+
+/**
+ * Delete one film. The only thing that removes the file (M8).
+ *
+ * `wasUsedBy` names the projects that were still pointing at it, so the
+ * interface can say what it just took away — the same courtesy
+ * `DELETE /api/images/:hash` pays.
+ */
+export async function deleteVideoExport(hash: string): Promise<{ removed: boolean; wasUsedBy: string[] }> {
+  const { res, body } = await call(`/api/video/${encodeURIComponent(hash)}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const status = res.status
+    if (status === 403) throw new VideoExportError('no-access', said(body, 'Not your render.'), { status })
+    if (status === 404) throw new VideoExportError('not-found', said(body, 'No longer stored.'), { status })
+    throw new VideoExportError('http', said(body, `HTTP ${status}`), { status })
+  }
+  return { removed: body?.removed === true, wasUsedBy: idsIn(body?.wasUsedBy) }
 }

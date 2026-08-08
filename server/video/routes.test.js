@@ -264,6 +264,38 @@ describe('POST /render', () => {
     expect(enqueued.userId).toBe('u1')
   })
 
+  /**
+   * The defect: a film nothing could find afterwards.
+   *
+   * The store is content-addressed, so once the render is done the hash says
+   * what the film contains and nothing about where it was cut. The job is the
+   * only thing that can carry that across, and this route is the only place it
+   * can be read — so a `projectId` dropped here is a finished export whose only
+   * route is a download link in one browser tab.
+   */
+  it('carries the project through to the job', async () => {
+    await post('/api/video/render', { timeline: { scenes: [scene()] }, projectId: 'proj-a' })
+    expect(enqueued.projectId).toBe('proj-a')
+  })
+
+  /**
+   * A render composed from the standalone Media page belongs to no project.
+   * `null` rather than an invented one: M8's honesty corollary — an attribution
+   * guessed from context is a guess printed as a fact.
+   */
+  it('files a render with no project under none, and bounds a silly one', async () => {
+    await post('/api/video/render', { timeline: { scenes: [scene()] } })
+    expect(enqueued.projectId).toBe(null)
+
+    await post('/api/video/render', { timeline: { scenes: [scene()] }, projectId: 42 })
+    expect(enqueued.projectId).toBe(null)
+
+    // The index is re-serialised whole on every write, so an unbounded string
+    // here is a megabyte written back on every export from then on.
+    await post('/api/video/render', { timeline: { scenes: [scene()] }, projectId: 'p'.repeat(500) })
+    expect(enqueued.projectId).toHaveLength(100)
+  })
+
   it('never sends the account id back', async () => {
     const body = await (await post('/api/video/render', { timeline: { scenes: [scene()] } })).json()
     expect(body.userId).toBeUndefined()
@@ -712,6 +744,100 @@ describe('POST /variants', () => {
   })
 })
 
+/**
+ * The listing that makes the feature finishable.
+ *
+ * Until it existed, the only route back to a finished export was the job id the
+ * panel happened to be holding — the journal drops it after MAX_JOURNAL_JOBS
+ * more renders, and the browser drops it on reload. The ordinary outcome of a
+ * successful export was therefore a file on the volume that nothing in the
+ * interface could reach.
+ */
+describe('GET /exports', () => {
+  // Their own bytes, so nothing here depends on what another describe did to
+  // RENDERED — and so the delete tests below have something they may destroy.
+  const MINE = Buffer.from('film-of-u1-project-a')
+  const THEIRS = Buffer.from('film-of-u2')
+  const MINE_HASH = crypto.createHash('sha256').update(MINE).digest('hex')
+  const THEIRS_HASH = crypto.createHash('sha256').update(THEIRS).digest('hex')
+
+  beforeAll(() => {
+    store.put(MINE, { owner: 'u1', project: 'proj-a', format: 'mp4', aspectRatio: '9:16', scenes: 2, durationMs: 6000 })
+    store.put(THEIRS, { owner: 'u2', project: 'proj-b', format: 'mp4', aspectRatio: '16:9', scenes: 1, durationMs: 3000 })
+  })
+
+  it('lists this account’s films, with the project they were cut in', async () => {
+    const body = await (await fetch(`${base}/api/video/exports`)).json()
+    const mine = body.videos.find((v) => v.hash === MINE_HASH)
+    expect(mine).toMatchObject({ projects: ['proj-a'], scenes: 2, durationMs: 6000, aspectRatio: '9:16' })
+  })
+
+  /**
+   * The rule GET /:hash already keeps, kept once more here.
+   *
+   * That route refuses a hash the account did not render — deliberately BEFORE
+   * it looks on disk, so it cannot be used as an oracle. A listing that named
+   * other people's exports would hand back exactly what that check withholds,
+   * along with their scene counts and durations.
+   */
+  it('never names a film another account rendered', async () => {
+    const res = await fetch(`${base}/api/video/exports`)
+    const body = await res.json()
+    expect(body.videos.map((v) => v.hash)).toContain(MINE_HASH)
+    expect(body.videos.map((v) => v.hash)).not.toContain(THEIRS_HASH)
+
+    user = { id: 'u2', role: 'user' }
+    const theirs = await (await fetch(`${base}/api/video/exports`)).json()
+    expect(theirs.videos.map((v) => v.hash)).toEqual([THEIRS_HASH])
+  })
+
+  /**
+   * `owners` holds account ids, and `publicUser()` deliberately withholds those.
+   * Left in, an ordinary account reads its own id off the first film it renders
+   * — the same leak the image library's listing strips for the same reason.
+   */
+  it('never sends the owners back', async () => {
+    const body = await (await fetch(`${base}/api/video/exports`)).json()
+    expect(body.videos.length).toBeGreaterThan(0)
+    for (const v of body.videos) expect(v.owners).toBeUndefined()
+  })
+
+  it('narrows to one project when asked, and answers the whole list when not', async () => {
+    const all = await (await fetch(`${base}/api/video/exports`)).json()
+    const one = await (await fetch(`${base}/api/video/exports?project=proj-a`)).json()
+    expect(one.videos.map((v) => v.hash)).toEqual([MINE_HASH])
+    expect(all.videos.length).toBeGreaterThan(one.videos.length)
+    // A project this account has no film in is an empty list, never everybody's.
+    const none = await (await fetch(`${base}/api/video/exports?project=proj-b`)).json()
+    expect(none.videos).toEqual([])
+  })
+
+  /**
+   * A film is minutes of somebody else's CPU and the only copy of a render, so
+   * the delete has the same ownership rule as the download — checked before
+   * existence, for the same oracle reason.
+   */
+  it('deletes only the caller’s own film, and says which projects lose it', async () => {
+    user = { id: 'u2', role: 'admin' }
+    expect((await fetch(`${base}/api/video/${MINE_HASH}`, { method: 'DELETE' })).status).toBe(403)
+    expect(store.filePath(MINE_HASH)).toBeTruthy()
+
+    user = { id: 'u1', role: 'user' }
+    const res = await fetch(`${base}/api/video/${MINE_HASH}`, { method: 'DELETE' })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ removed: true, wasUsedBy: ['proj-a'] })
+    expect(store.filePath(MINE_HASH)).toBeNull()
+    // Gone from the listing too, which is the only thing the user can see.
+    const body = await (await fetch(`${base}/api/video/exports`)).json()
+    expect(body.videos.map((v) => v.hash)).not.toContain(MINE_HASH)
+  })
+
+  it('403s rather than 404s on a hash nobody here rendered', async () => {
+    const res = await fetch(`${base}/api/video/${'7'.repeat(64)}`, { method: 'DELETE' })
+    expect(res.status).toBe(403)
+  })
+})
+
 describe('GET /:hash', () => {
   const owningJob = (over = {}) => {
     jobs.push({ id: 'job-1', userId: 'u1', status: 'done', videoHash: RENDERED_HASH, ...over })
@@ -719,11 +845,32 @@ describe('GET /:hash', () => {
 
   it('sends the whole file back to the account that rendered it', async () => {
     owningJob()
-    const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
+    const res = await fetch(`${base}/api/video/${RENDERED_HASH}?download=1`)
     expect(res.status).toBe(200)
     expect(Buffer.from(await res.arrayBuffer())).toEqual(RENDERED)
     expect(res.headers.get('content-type')).toContain('video/mp4')
     expect(res.headers.get('content-disposition')).toContain(`mocky-export-${RENDERED_HASH.slice(0, 12)}.mp4`)
+  })
+
+  /**
+   * The defect this stops: a play button in the Media tab that puts the film in
+   * the downloads folder instead of playing it.
+   *
+   * `Content-Disposition: attachment` is ignored by browsers on a subresource
+   * load today, so a `<video src>` pointing at an always-attachment route
+   * happens to work — on a behaviour nobody promised. Inline is the default and
+   * `?download=1` is the opt-in, exactly as `GET /api/images/:hash` already
+   * spells it.
+   */
+  it('plays inline unless a download was asked for', async () => {
+    owningJob()
+    const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-disposition')).toBe(null)
+    expect(res.headers.get('content-type')).toContain('video/mp4')
+    // Still private: inline is about the disposition, never about the cache.
+    expect(res.headers.get('cache-control')).toContain('private')
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(RENDERED)
   })
 
   /**

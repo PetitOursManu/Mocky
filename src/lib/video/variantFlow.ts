@@ -104,6 +104,26 @@ export function keepModel(state: VariantFlowState): VariantFlowState {
 }
 
 /**
+ * Adopt a picture the user chose out of the media library, and skip gate 1.
+ *
+ * `modelKept: true` in the same breath, and that is the decision this function
+ * exists to hold rather than a shortcut somebody took. Gate 1 asks "do you want
+ * to keep THIS one?" about a picture a provider has just invented, which nobody
+ * has ever seen, and which arrived `pending` for exactly that reason. A library
+ * image is the opposite on all three counts: it exists, it is confirmed, and the
+ * user picked it out of a grid of its own thumbnails one click ago. Re-asking
+ * would be a confirmation with no question inside it, and those are precisely
+ * the ones people learn to click through — which then costs the two gates that
+ * do mean something.
+ *
+ * It is written here, next to `keepModel`, so the exemption is visible from the
+ * gate it exempts. In the dialog it would read as a line somebody forgot.
+ */
+export function pickModel(state: VariantFlowState, hash: string): VariantFlowState {
+  return { ...state, modelHash: hash, modelKept: true, batch: null, chosen: [] }
+}
+
+/**
  * Give up on this picture and start again.
  *
  * The subject survives; the image does not — and "does not" here means the panel

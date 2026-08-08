@@ -149,16 +149,23 @@ below `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Frame` | `Show or hide the iPhone frame on mobile screens`. **Disabled when the project has no mobile screen** — and the preference is not cleared with it, because it lives in one browser-wide key shared by every project. Disabling the control rather than resetting the setting is what keeps your other projects framed. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `System` | `Live design system — your DESIGN.md tokens, and a way to recolor them`. Closes `Audit`, or `Link` mode, if one was open. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Evaluate SEO and accessibility`. Closes `System`, or `Link` mode, if one was open — all three want the same slot. **Opening the panel evaluates nothing.** | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion` | `Cut a video from the media library`. Opens the Motion panel — see below. | free to open |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Demo` | `Play the prototype — follows the links you placed`. Starts on the selected screen, or the first one if nothing is selected. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Export` | `Export a runnable Vite + React + Tailwind project`. Opens a menu of three stacks. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Video` | `Cut a video from the media library`. Opens the export panel — see below. | free to open |
 
-The last three form a group: they are the three ways to get something out of a
-project. `Video` sits there, beside `Demo` and `Export`, and **deliberately not
-in a screen's context menu**. The film is cut from the media library; it does not
-read a screen and cannot be derived from one. Hanging it off a screen would
-promise a relationship the pipeline does not have, and the first thing the panel
-does — ask which pictures to use — would contradict it.
+The rule falls before `Demo`. The last two are the two ways to get something
+**out** of a project: a demo of screens that already exist, an archive of code
+that already exists. `Motion` is on the other side of it, with the modes and the
+panels, because it is the opposite operation — it makes something that did not
+exist a minute ago, out of the media library, and it opens a panel exactly as
+`System` and `Audit` do. Beside `Export` it read as a fourth output format, which
+is the one thing it is not.
+
+It is still **deliberately not in a screen's context menu**. A cut is made from
+the media library; it does not read a screen and cannot be derived from one.
+Hanging it off a screen would promise a relationship the pipeline does not have,
+and the first thing the panel does — ask which pictures to use — would contradict
+it.
 
 ---
 
@@ -242,7 +249,22 @@ see by looking at it:
 - `Muse image` — the role was never written down. Not a fourth role: it is what
   a screen generated before the distinction existed says instead of guessing.
 
-Under it, the design system this screen was actually generated from. The card
+Under it, the media **attached** to the screen, when there is one — an exported
+cut, or a scroll sequence. Attached, never *used*: none of it is in the screen's
+code, which is the whole distinction `Change the media…` keeps in two sections.
+The still is drawn by the browser out of the file itself, because no poster is
+cut for a cut (that would mean ffmpeg, the one dependency Motion deliberately
+does not have). Clicking it plays the cut; a sequence opens in `Media`, where
+the frame-by-frame player already lives.
+
+A media the library has lost keeps its card, and the card **says so**:
+`Media not found`, and the caption tells you it is still attached until you
+detach it. That state is reached by the file failing to load — a deletion, or a
+hash belonging to another account — and it exists because the alternative was a
+black rectangle under the ordinary caption, which is also what a cut opening on
+a black frame looks like.
+
+Under that, the design system this screen was actually generated from. The card
 holds one of two buttons, **never both** — which is why they are easy to
 mistake for each other: you only ever see the one that applies, and the other
 is what the same corner of the screen shows on a different screen.
@@ -276,7 +298,7 @@ Right-click a screen, or use <svg width="20" height="20" viewBox="0 0 24 24" fil
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5"/></svg> | `Revert to the previous version` | Only present when there is a previous version. Every rewrite of the code records one — edit, automatic repair, polish, regenerate, add animations, audit fix, and the two free ones, an image swap and an instant text change. **One level, and it clears itself**: reverting drops the stored version, so the item disappears and there is no redo. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> | `Make this screen my DESIGN.md` | Reads the screen and writes the project's direction from it. Asks for confirmation when a direction already exists. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Edit DESIGN.md` | The full-page editor. | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Change the images…` | Lists the images actually present in the code and swaps them, one place or everywhere. Sources: the library, an upload, or a fresh generation. | free / image |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Change the media…` | Lists the images actually present in the code and swaps them, one place or everywhere. Sources: the library, an upload, or a fresh generation. | free / image |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Delete screen` | One confirmation. | free |
 
 ### The three groups of small buttons
@@ -397,25 +419,35 @@ in its product name, not in any screen's markup.
 
 ---
 
-## The video export panel
+## The Motion panel
 
-Open with `Video`. A slideshow cut from the media library: one image per scene,
+Open with `Motion`. A slideshow cut from the media library: one image per scene,
 with its duration, its motion and its transition. **The render runs on the
 Remotion worker, not in this browser** — and that worker is a separate, opt-in
 Docker service, so the first thing the panel does is say whether it is there. Why
-it is built that way is in [Video export](video-export.md).
+it is built that way is in [Motion](video-export.md).
+
+The feature was called "Video export" and the file names still are. That is
+deliberate and explained on the page above: what a user reads says Motion, what a
+developer greps says `video`.
 
 An account the feature is not enabled for gets one terse sentence and nothing
 else: it learns nothing about how the instance is configured, nor about what a
 valid cut looks like.
 
-There is **one form**, and two ways to fill it in.
+There is **one form**, and two ways to fill it in — behind a switch, one visible
+at a time. Stacked, the two of them filled a 900-pixel window on their own, so
+the scenes, the running total and the render button all started below the fold on
+a panel nobody had touched yet. They are alternatives, not steps, and two open
+forms said the opposite. Which one you last used survives inside the open panel
+and is not remembered afterwards: it is a fact about the cut you are making now.
 
 | Control | What it does | Cost |
 |---|---|---|
 | `Describe the video` → `Propose a cut` | Sends your sentence and the images you already picked to the model. It **orders and tunes** — durations, motion, transitions, captions. It does not choose the pictures and cannot add any. | model |
 | `Start from an image` → `Generate a model image` | Makes one picture from a subject you describe. Nothing continues until you `Keep`, `Regenerate` or `Abandon` it. | image |
-| `Produce {n} variants` | Two to six takes on that picture. Then you tick the ones worth cutting; anything left unticked stays pending, for good. | image, one call per variant |
+| `Or start from a picture in the media library` | The same picker the scene list uses. A library image already exists and you just looked at it to pick it, so it goes straight to the variants with no first confirmation. | free |
+| `Produce {n} variants` | Two to six takes on that picture, shown small above the button so you can see what they will derive from. Then you tick the ones worth cutting; anything left unticked stays pending, for good. | image, one call per variant |
 | A scene row | Duration, motion, transition to the next, and an optional line of burnt-in text. Move up, move down, remove. | free |
 | `Output` | Aspect ratio (`16:9`, `9:16`, `1:1`) and container (`mp4`, `webm`). | free |
 | `Start the render` | Queues the job. One render at a time on the instance; you can close the panel and find it again on reopening. | server (minutes of CPU) |
@@ -425,7 +457,10 @@ There is **one form**, and two ways to fill it in.
 same controls, all of them still live, and replacing a cut you arranged by hand
 asks first. A read-only preview would have to be taken whole or thrown away
 whole, and the first thing anyone wants to do with a proposed running order is
-move two scenes.
+move two scenes. The switch is about which assistant is on screen; neither of
+them is a state the timeline is in, and switching away loses nothing — a brief
+you typed, a picture you have not confirmed and a call still in flight all
+survive it.
 
 Three things the panel states rather than implies, because each is a fact about
 your instance that changes what you get:
@@ -452,6 +487,16 @@ failure at all — `Some images are awaiting your confirmation` means the server
 refused a picture nobody has looked at, which is the whole reason that guard is
 on the server and not in this panel.
 
+**Where the finished file goes**, and the panel says it rather than leaving a
+download link that disappears with it: `Media`, under the **`Motion`** tab —
+attached to the project you cut it in, or to no project at all when you cut it
+from the standalone Media page. That tab carries the name of the feature, not of
+the object, because it is where the panel sends you and the two have to read the
+same. The object itself is a **cut**, the word this panel already uses in
+`Propose a cut` and `New cut`; a scroll sequence in the `Videos` tab is a
+*sequence*, and calling both of them a video is what made an export impossible to
+find in the first place.
+
 ---
 
 ## The modals
@@ -467,7 +512,7 @@ actually made.
 | `Element` | Clicking an element in modify mode | See below — it holds three different costs in one card. | mixed |
 | `Code` | `Show code` | Read-only. | free |
 | `Share this screen` | `Share (QR code)` | A lifetime of `1 hour`, `24 hours` or `7 days`, a QR code, and `Revoke`. | server |
-| `Images in “{name}”` | `Change the images…` | Per image: `Replace`, or `Everywhere ({n})` when the same file appears several times, or one slot at a time. `Upload a file` is free; `Generate` calls the image provider. | free / image |
+| `Media in “{name}”` | `Change the media…` | **Two sections, never one list.** `Images in the screen’s code`: per image, `Replace`, or `Everywhere ({n})` when the same file appears several times, or one slot at a time — this **rewrites the source**, and `Revert` undoes it. `Media attached to the screen (not in the code)`: a cut or a sequence to hang on the canvas card, and `Detach` — this **leaves the code alone**. `Upload a file` is free; `Generate` calls the image provider. | free / image |
 
 The `Element` card, opened by clicking something in `Modify` mode, is the one
 place where three costs sit in one dialog:
@@ -560,12 +605,12 @@ this is the complete list.
 | `Apply change` | Element card | |
 | `Deep analysis` | Audit panel | Changes what `Evaluate` costs. Off by default. |
 | `Fix` / `Fix all` | Audit panel | |
-| `Generate` (an image) | `Change the images…`, image library | Calls the image provider, not the text model. |
-| `Propose a cut` | Video export panel | The only model call in video export. It orders and tunes the images you picked; it never picks one. |
-| `Generate a model image`, `Produce {n} variants` | Video export panel | The image provider, once per picture. Six variants is six calls. |
-| `Start the render` | Video export panel | No model and no provider — but minutes of CPU on the render worker, which is the most expensive click in the product on a small box. |
+| `Generate` (an image) | `Change the media…`, image library | Calls the image provider, not the text model. |
+| `Propose a cut` | Motion panel | The only model call in Motion. It orders and tunes the images you picked; it never picks one. |
+| `Generate a model image`, `Produce {n} variants` | Motion panel | The image provider, once per picture. Six variants is six calls. |
+| `Start the render` | Motion panel | No model and no provider — but minutes of CPU on the render worker, which is the most expensive click in the product on a small box. |
 
 And the notable absences — things that look expensive and are not:
 `Evaluate` in the audit panel with `Deep analysis` off, `Suggest links`, `Use this design`, `Export`,
 `Download .tsx`, `Duplicate`, `Arrange`, the whole `System` panel, opening the
-`Video` panel, and every format, frame and playback toggle in the product.
+`Motion` panel, and every format, frame and playback toggle in the product.

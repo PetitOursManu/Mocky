@@ -30,6 +30,7 @@ export function ImagePicker({
   heading,
   selected = [],
   disabled = false,
+  compact = false,
   onPick,
   onError,
 }: {
@@ -45,6 +46,22 @@ export function ImagePicker({
    */
   selected?: string[]
   disabled?: boolean
+  /**
+   * This is the SECOND picker on its panel. Two things follow, and the first is
+   * a correctness fix rather than a saving of pixels.
+   *
+   * **No generate form.** The Motion panel's "start from an image" path has its
+   * own generate button, and that one is the gated one: it marks the image
+   * `pending`, holds it up full width, and asks. This component's generate makes
+   * an ordinary library image, so side by side there would be two buttons
+   * reading "Generate", one of which quietly walks a picture nobody has seen
+   * past the confirmation the other one exists to impose.
+   *
+   * **A shorter grid.** Two 256-pixel scroll areas stacked inside a modal that
+   * already scrolls is three nested scrollbars and a panel half again as tall as
+   * the window. Here the grid is the secondary way in, not the subject.
+   */
+  compact?: boolean
   onPick: (hash: string) => void
   onError: (message: string) => void
 }) {
@@ -124,6 +141,11 @@ export function ImagePicker({
         </Button>
       </div>
 
+      {/* Not `hidden`: the class list sets `display: flex`, which beats
+          preflight's `[hidden] { display: none }` on source order alone — the
+          form would stay on screen with the attribute set. `compact` never
+          changes for a given call site, so there is no state to preserve. */}
+      {!compact && (
       <form
         className="mt-2 flex flex-wrap items-center gap-2"
         onSubmit={(e) => {
@@ -154,8 +176,9 @@ export function ImagePicker({
           {busy ? t('library.swapGenerating') : t('library.swapGenerate')}
         </Button>
       </form>
+      )}
 
-      <div className="mt-3 max-h-64 overflow-y-auto">
+      <div className={`mt-3 overflow-y-auto ${compact ? 'max-h-40' : 'max-h-64'}`}>
         {loading ? (
           <div className="flex justify-center py-6">
             <Spinner />

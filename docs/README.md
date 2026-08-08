@@ -55,7 +55,7 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 | Follow Discover, Distill and Dossier in detail | [Inspiration engine](muse/inspiration-engine.md) |
 | Understand the animation system | [Animations](muse/animations.md) |
 | Check a generated screen, and correct what the check finds | [Quality pass](quality.md) |
-| Turn a set of images into an `.mp4`, and know why its renderer ships separately | [Video export](video-export.md) |
+| Turn a set of images into an `.mp4`, and know why its renderer ships separately | [Motion](video-export.md) |
 | Deploy Mocky | [Deployment](deployment.md) |
 
 ---

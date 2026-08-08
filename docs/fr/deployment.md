@@ -363,7 +363,7 @@ Ce qui vit dans le volume `mocky-data` :
 | `muse-cache.json` | Les distillations, 7 jours, du texte | Petite |
 | `image-library.json` et `image-library/` | La bibliothèque d'images | Moyenne |
 | `video-library/` | Les séquences : un clip plus jusqu'à 150 images chacune | **De loin la plus grosse** |
-| `video-config.json` | Les réglages de l'export vidéo — **contient la clé de licence Remotion** | Minuscule |
+| `video-config.json` | Les réglages de Motion — **contient la clé de licence Remotion** | Minuscule |
 | `video-exports.json` et `video-exports/` | Les films exportés, entiers. Rien ne les élague : le hash d'un job est un lien que quelqu'un peut suivre des jours plus tard, c'est donc le budget disque qui borne le répertoire | Moyenne à grosse |
 
 ---

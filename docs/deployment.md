@@ -348,7 +348,7 @@ What lives in the `mocky-data` volume:
 | `muse-cache.json` | Distillations, 7-day TTL, text | Small |
 | `image-library.json` and `image-library/` | The image library | Medium |
 | `video-library/` | Sequences: one clip plus up to 150 frames each | **By far the largest** |
-| `video-config.json` | Video export settings — **includes the Remotion licence key** | Tiny |
+| `video-config.json` | Motion settings — **includes the Remotion licence key** | Tiny |
 | `video-exports.json` and `video-exports/` | Exported films, whole. Nothing prunes them: a job's hash is a link somebody may follow days later, so the disk budget bounds the directory instead | Medium to large |
 
 ---

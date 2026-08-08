@@ -61,6 +61,36 @@ describe('running a job', () => {
   })
 
   /**
+   * The defect: an export nothing could find.
+   *
+   * The render callback is the only thing that will ever know which project a
+   * film was cut in — the store is content-addressed, so by the time the bytes
+   * exist the hash says what they contain and nothing about where they came
+   * from. The job is the carrier, and the journal is what makes it survive a
+   * restart mid-queue.
+   */
+  it('hands the project to the render, and keeps it in the journal', async () => {
+    let seen = null
+    const q = new VideoQueue({
+      dataDir: dir,
+      render: async (job) => {
+        seen = job.projectId
+        return { videoHash: 'f'.repeat(64) }
+      },
+    })
+    const job = q.enqueue({ userId: 'u1', timeline: TIMELINE, projectId: 'proj-a' })
+    await q.whenIdle()
+    expect(seen).toBe('proj-a')
+    expect(journal().jobs.find((j) => j.id === job.id).projectId).toBe('proj-a')
+  })
+
+  /** A render started outside a project has none. Null, never a guess (M8). */
+  it('leaves the project null when there is none', async () => {
+    const q = new VideoQueue({ dataDir: dir, render: async () => ({}) })
+    expect(q.enqueue({ userId: 'u1', timeline: TIMELINE }).projectId).toBe(null)
+  })
+
+  /**
    * A render that produced no stored file is still a render that finished. The
    * queue does not decide what counts as a result — that belongs to whoever
    * wires it — and a queue that failed such a job would make the phase where

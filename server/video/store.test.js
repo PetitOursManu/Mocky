@@ -67,7 +67,10 @@ describe('VideoExportStore.put', () => {
    */
   it('cuts no frames and stays out of the scroll-sequence library', () => {
     const store = new VideoExportStore(dataDir)
-    const { hash } = store.put(MP4, spec)
+    // With a project, because that is the case the temptation is strongest:
+    // "attached to a project and listed in Media" sounds like "in the media
+    // library", and the media library for video is the scroll-sequence one.
+    const { hash } = store.put(MP4, { ...spec, project: 'proj-a' })
 
     // One file, and it is the film. No poster, no 0001.jpg, no directory.
     expect(fs.readdirSync(store.dir)).toEqual([`${hash}.mp4`])
@@ -75,7 +78,67 @@ describe('VideoExportStore.put', () => {
 
     const library = new VideoLibrary(dataDir)
     expect(library.list()).toEqual([])
+    // Not even through the project filter every other media store answers on:
+    // a film has no frames, and a row in this list promises `{frames, width,
+    // fps}` to `VideoPlayer.tsx`, which would then scrub 404s.
+    expect(library.list({ project: 'proj-a' })).toEqual([])
     expect(library.dirFor(hash) && fs.existsSync(library.dirFor(hash))).toBe(false)
+  })
+
+  /**
+   * The defect: a finished export that nothing could find.
+   *
+   * The store is content-addressed, so once the bytes exist the hash says what
+   * the film contains and nothing about where it came from. Without this field
+   * the only route back to a render was the job id the panel happened to be
+   * holding — which the journal forgets after MAX_JOURNAL_JOBS more exports, and
+   * the browser forgets on reload. A file on the volume that no interface can
+   * reach is not an export.
+   */
+  it('attaches the film to the project it was cut in', () => {
+    const store = new VideoExportStore(dataDir)
+    const { hash, meta } = store.put(MP4, { ...spec, project: 'proj-a' })
+
+    expect(meta.projects).toEqual(['proj-a'])
+    expect(store.list({ project: 'proj-a' }).map((m) => m.hash)).toEqual([hash])
+    expect(store.list({ project: 'proj-b' })).toEqual([])
+    // Reopened, because the whole value of the attachment is that it survives
+    // the process the panel was open in.
+    expect(new VideoExportStore(dataDir).meta(hash).projects).toEqual(['proj-a'])
+  })
+
+  /**
+   * `projects` is a LIST for the same reason `owners` is (M8), not a different
+   * one: two projects can compose byte-identical timelines from the same
+   * pictures, they land on ONE entry, and the second must not erase the first.
+   */
+  it('adds a second project to the same film rather than replacing the first', () => {
+    const store = new VideoExportStore(dataDir)
+    const first = store.put(MP4, { ...spec, project: 'proj-a' })
+    const second = store.put(MP4, { ...spec, owner: 'u1', project: 'proj-b' })
+
+    expect(second.fromCache).toBe(true)
+    expect(store.meta(first.hash).projects).toEqual(['proj-a', 'proj-b'])
+    // And it persisted: the cached branch returns early, so a `||` between the
+    // owner and the project would have skipped the write the moment the owner
+    // was already known — which is exactly this case.
+    expect(new VideoExportStore(dataDir).meta(first.hash).projects).toEqual(['proj-a', 'proj-b'])
+    expect(store.list({ project: 'proj-b' }).map((m) => m.hash)).toEqual([first.hash])
+  })
+
+  it('renders without a project rather than inventing one', () => {
+    const store = new VideoExportStore(dataDir)
+    const { hash } = store.put(MP4, spec)
+    expect(store.meta(hash).projects).toEqual([])
+    // Listed under no project, and still listed: an export composed from the
+    // standalone Media page belongs to nobody's project and must not vanish.
+    expect(store.list({ owner: 'u1' }).map((m) => m.hash)).toEqual([hash])
+  })
+
+  it('bounds the project id, because the index is rewritten whole on every write', () => {
+    const store = new VideoExportStore(dataDir)
+    const { hash } = store.put(MP4, { ...spec, project: 'p'.repeat(500) })
+    expect(store.meta(hash).projects[0]).toHaveLength(100)
   })
 
   it('does not store the same bytes twice, and remembers both owners', () => {
@@ -161,6 +224,18 @@ describe('VideoExportStore persistence', () => {
     fs.copyFileSync(store.filePath(hash), path.join(bare.dir, `${hash}.mp4`))
     expect(bare.filePath(hash)).toBeTruthy()
     expect(bare.fileSize(hash)).toBe(MP4.length)
+  })
+
+  /**
+   * `fileItems()` in server/usage.js walks this store and the image library with
+   * ONE reader, and calls `list({ includePending: true })` on both. The option
+   * means nothing here; the two only keep sharing that reader while an option
+   * this store never heard of costs nothing.
+   */
+  it('ignores an option it does not have rather than filtering everything away', () => {
+    const store = new VideoExportStore(dataDir)
+    store.put(MP4, spec)
+    expect(store.list({ includePending: true })).toHaveLength(1)
   })
 
   it('reads nothing outside its own directory', () => {

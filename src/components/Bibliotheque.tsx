@@ -23,11 +23,48 @@ import {
   type LibraryVideo,
   type PinnedVideo,
 } from '../lib/videoLibrary'
+import {
+  VideoExportError,
+  deleteVideoExport,
+  listVideoExports,
+  videoDownloadUrl,
+  type VideoExport,
+} from '../lib/video/client'
+import { runningTime } from '../lib/screenMedia'
 import VideoPlayer from './VideoPlayer'
+import FilmLightbox from './FilmLightbox'
 import { Banner, Button, Icon, IconButton, Spinner } from '../ui'
 import { useT } from '../i18n'
 
-type MediaTab = 'images' | 'videos'
+/**
+ * Three kinds of media, and `films` is its own tab rather than a row in
+ * `videos`.
+ *
+ * They are different objects that happen to both be video. A `videos` entry is a
+ * SCROLL SEQUENCE: it has a poster, a frame count, a "Recut" button, and it is
+ * played by scrubbing `/f/1.jpg … /f/N.jpg` — every control in that grid is
+ * about frames. An exported film has none: no poster (cutting one needs ffmpeg,
+ * which this path deliberately does not depend on), no frames, and it plays in a
+ * `<video>` element. Merging the two would mean a conditional in the poster, in
+ * the badge, in the play handler, in Recut and in the pin button — five branches
+ * so that one list could pretend to hold one kind of thing.
+ *
+ * The counts settle it: the tab strip already prints how many of each there are,
+ * and a single number over two incompatible kinds is the number nobody can act
+ * on.
+ *
+ * The tab READS "Motion" — the name of the feature that fills it, and the name
+ * the export panel uses when it says where the file went. The id stays `films`,
+ * like `video.*` stays `video`: renaming it would touch every call site to
+ * change a string no interface prints.
+ */
+export type MediaTab = 'images' | 'videos' | 'films'
+
+/** Bytes, rounded to something a person reads. MB is the useful unit for a film. */
+function formatBytes(bytes: number): string {
+  const mb = (Number(bytes) || 0) / (1024 * 1024)
+  return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`
+}
 
 /**
  * The global Image Library browser (Muse §4.3 / §6). Browse every generated
@@ -50,11 +87,21 @@ export default function Bibliotheque({
   onTogglePin,
   pinnedVideo = null,
   onPinVideo,
+  initialTab = 'images',
   onClose,
   onOpenImage,
 }: {
   variant?: 'modal' | 'page'
   projectId?: string
+  /**
+   * Which tab opens first.
+   *
+   * Exists so the Motion panel can send somebody straight to their film instead
+   * of naming a tab and leaving them to find it. A default rather than a
+   * controlled value: once the library is open, which tab is showing is the
+   * user's business.
+   */
+  initialTab?: MediaTab
   /** id → name, so a standalone page can show where an image is used. */
   projectNames?: Record<string, string>
   pinned?: PinnedImage[]
@@ -75,11 +122,45 @@ export default function Bibliotheque({
   const [onlyProject, setOnlyProject] = useState(false)
   const [onlyFav, setOnlyFav] = useState(false)
 
-  const [tab, setTab] = useState<MediaTab>('images')
+  const [tab, setTab] = useState<MediaTab>(initialTab)
   const [videos, setVideos] = useState<LibraryVideo[]>([])
   const [videoError, setVideoError] = useState<string | null>(null)
   /** The clip whose player is open, if any. */
   const [playing, setPlaying] = useState<LibraryVideo | null>(null)
+  const [films, setFilms] = useState<VideoExport[]>([])
+  /**
+   * Has the film listing answered yet?
+   *
+   * Starts `true`, like the image grid's own `loading`, and it is not decoration
+   * on the one path this whole tab exists for. "See it in Media" mounts this
+   * component with `initialTab: 'films'` and an empty list, so for the length of
+   * one round trip the reader is looking at "No films exported yet" — told they
+   * have nothing, on the click that came straight from making something. An
+   * empty list and an unanswered request draw identically and mean opposite
+   * things, which is the same distinction `coverage` draws in the quality report.
+   */
+  const [filmsLoading, setFilmsLoading] = useState(true)
+  /** The film whose `<video>` is open, if any. Never routed through VideoPlayer. */
+  const [playingFilm, setPlayingFilm] = useState<VideoExport | null>(null)
+  /**
+   * Why a film listing can be empty in two different ways.
+   *
+   * `null` — nothing to say. A translation key — the request failed, and the
+   * grid must say so rather than draw the same "no films yet" it draws for an
+   * account that has genuinely exported none. Those are the same empty box and
+   * they send the reader somewhere different.
+   */
+  const [filmError, setFilmError] = useState<string | null>(null)
+  /**
+   * A failed deletion, in the server's own words.
+   *
+   * Separate from `filmError` because the two are different types wearing the
+   * same name elsewhere in this file: that one holds a translation KEY so the
+   * banner follows a language switch, this one holds a sentence the server
+   * wrote. Merging them would mean running `t()` over an English sentence and
+   * relying on the missing-key fallback to hand it back unchanged.
+   */
+  const [filmActionError, setFilmActionError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -169,6 +250,96 @@ export default function Bibliotheque({
   useEffect(() => {
     void refreshVideos()
   }, [refreshVideos])
+
+  /**
+   * The films this account rendered.
+   *
+   * The project filter is the SAME checkbox the images and clips already obey,
+   * and that is the whole point of the change it belongs to: an export used to
+   * be reachable only through the job id the panel happened to be holding, so
+   * the ordinary outcome of the feature was a file on the volume nothing could
+   * find again. Attached to a project, it answers the question everybody
+   * actually asks — "where is the video I made for this?"
+   *
+   * An account without video export gets an empty list rather than a refusal, so
+   * nothing here needs to know whether the feature is on.
+   */
+  const refreshFilms = useCallback(async (signal?: AbortSignal) => {
+    setFilmError(null)
+    // Raised again on every run, not only the first: toggling "this project"
+    // re-queries, and leaving the previous answer on screen under a new filter
+    // shows films that are about to disappear as though they had been checked.
+    setFilmsLoading(true)
+    try {
+      const list = await listVideoExports({
+        project: onlyProject && projectId ? projectId : undefined,
+        signal,
+      })
+      if (signal?.aborted) return
+      setFilms(list)
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return
+      /*
+       * Two silences and one complaint, and the line between them matters.
+       *
+       * The route answers 200 with an empty list for an account that cannot
+       * export — there is nothing to withhold about a store it has never
+       * written to — so a 404 means the route is not there at all (a server
+       * older than this feature) and a 401/403 means nobody is signed in. Both
+       * are "this instance has no films to show", and complaining about them
+       * would put an error banner and a permanent third tab on every Mocky that
+       * never turned video export on.
+       *
+       * Anything else — a 500, a dropped connection — is a listing that failed
+       * for an account that may well HAVE films, and that is the case this
+       * whole change exists for: staying quiet there would draw an empty
+       * library over exports sitting on the server, which is the defect, back
+       * again with a nicer face.
+       */
+      const status = err instanceof VideoExportError ? err.status : 0
+      if (status === 401 || status === 403 || status === 404) return
+      setFilmError('library.backendDown')
+    } finally {
+      // In `finally`, so the three early returns above land here too. An abort
+      // is the exception: the component is unmounting or a newer request owns
+      // the state, and turning the spinner off from a call nobody is waiting on
+      // is how "no films yet" flashes over a listing that is still coming.
+      if (!signal?.aborted) setFilmsLoading(false)
+    }
+  }, [onlyProject, projectId])
+
+  useEffect(() => {
+    const ac = new AbortController()
+    void refreshFilms(ac.signal)
+    return () => ac.abort()
+  }, [refreshFilms])
+
+  /**
+   * Delete one film. Explicit, and the only thing that removes the file (M8).
+   *
+   * The confirmation names the other projects when there are any, exactly as
+   * deleting a shared image does: the store is content-addressed, so one film
+   * can be the export of two projects, and taking it out of this one takes it
+   * out of both.
+   */
+  async function onDeleteFilm(film: VideoExport) {
+    const others = (film.projects || []).filter((p) => p !== projectId)
+    const msg = others.length
+      ? t('library.deleteFilmSharedConfirm', { count: film.projects.length })
+      : t('library.deleteFilmConfirm')
+    if (!window.confirm(msg)) return
+    setFilmActionError(null)
+    try {
+      await deleteVideoExport(film.hash)
+      setFilms((arr) => arr.filter((f) => f.hash !== film.hash))
+      setPlayingFilm((cur) => (cur?.hash === film.hash ? null : cur))
+    } catch (err) {
+      // Said out loud rather than swallowed the way the image and clip handlers
+      // do: a film is minutes of somebody else's CPU, and a delete button that
+      // silently changes nothing invites a second press on a different row.
+      setFilmActionError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   /**
    * One control for both kinds.
@@ -266,9 +437,39 @@ export default function Bibliotheque({
     return names.length ? names.join(', ') : ''
   }
 
+  /**
+   * The same, for a film. A list and not a field, because the export store is
+   * content-addressed: two projects that composed identical timelines share one
+   * file, and both are named on it.
+   */
+  function filmUsedBy(film: VideoExport): string {
+    if (!projectNames || !film.projects?.length) return ''
+    const names = film.projects.map((id) => projectNames[id]).filter(Boolean)
+    return names.length ? names.join(', ') : ''
+  }
+
+  const TAB_KEYS: Record<MediaTab, string> = {
+    images: 'library.tabImages',
+    videos: 'library.tabVideos',
+    films: 'library.tabFilms',
+  }
+  const tabCount = (id: MediaTab) => (id === 'images' ? images.length : id === 'videos' ? videos.length : films.length)
+
+  /**
+   * The films tab appears only when there is something to say.
+   *
+   * Video export is an opt-in service on an opt-in Docker profile, and most
+   * instances never turn it on: a third tab reading a permanent zero would be
+   * furniture on every one of them. It shows once this account has a film, once
+   * the listing has something to report, or once somebody has deliberately been
+   * sent there — which is what `initialTab` is for.
+   */
+  const showFilms = films.length > 0 || filmError !== null || tab === 'films'
+  const visibleTabs = (['images', 'videos', ...(showFilms ? (['films'] as const) : [])] as MediaTab[])
+
   const tabs = (
     <span className="flex shrink-0 overflow-hidden border border-line-soft">
-      {(['images', 'videos'] as MediaTab[]).map((id) => (
+      {visibleTabs.map((id) => (
         <button
           key={id}
           type="button"
@@ -279,8 +480,8 @@ export default function Bibliotheque({
               : 'border-b-transparent text-ink-muted hover:bg-ink/5'
           }`}
         >
-          {t(id === 'images' ? 'library.tabImages' : 'library.tabVideos')}
-          <span className="ml-1.5 font-mono opacity-70">{id === 'images' ? images.length : videos.length}</span>
+          {t(TAB_KEYS[id])}
+          <span className="ml-1.5 font-mono opacity-70">{tabCount(id)}</span>
         </button>
       ))}
     </span>
@@ -587,7 +788,110 @@ export default function Bibliotheque({
     </div>
   )
 
-  const activeGrid = tab === 'images' ? grid : videoGrid
+  /**
+   * The films this account exported.
+   *
+   * Deliberately NOT routed through `VideoPlayer`. That component scrubs
+   * `/f/1.jpg … /f/N.jpg` out of a scroll sequence, and a film has no numbered
+   * stills — handing it one would produce a player asking the server for frames
+   * that were never cut, one 404 per position of the scrubber. A film is an mp4,
+   * and an mp4 is played by a `<video>` element pointed at `/api/video/:hash`.
+   *
+   * No poster, and no placeholder pretending to be one: cutting a still means
+   * ffmpeg, which is the one dependency this path deliberately does not have.
+   * The card states what it knows instead — how long, how many scenes, what
+   * shape — which is more than a grey rectangle says.
+   */
+  const filmGrid = filmsLoading ? (
+    <div className="flex h-40 items-center justify-center text-muse">
+      <Spinner className="h-5 w-5" />
+    </div>
+  ) : filmError ? (
+    <Banner tone="warn">{t(filmError)}</Banner>
+  ) : films.length === 0 ? (
+    <div className="flex h-40 flex-col items-center justify-center gap-1 text-body text-ink-faint">
+      <span>{t('library.noFilms')}</span>
+      <span className="text-body-sm">{t('library.noFilmsHint')}</span>
+    </div>
+  ) : (
+    <div
+      className={`grid gap-3 ${
+        isPage ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3'
+      }`}
+    >
+      {films.map((film) => (
+        <div key={film.hash} className="group relative overflow-hidden rounded-xl border border-line-soft bg-surface">
+          <button
+            type="button"
+            onClick={() => setPlayingFilm(film)}
+            aria-label={t('library.playFilm')}
+            className="relative flex aspect-[16/9] w-full items-center justify-center bg-sunken text-ink-faint"
+          >
+            <Icon name="film" size={28} />
+            <span className="absolute inset-0 flex items-center justify-center transition group-hover:bg-ink/10">
+              <span className="flex h-11 w-11 items-center justify-center border border-line bg-raised/90 text-ink opacity-0 transition group-hover:opacity-100">
+                <Icon name="play" size={18} />
+              </span>
+            </span>
+            <span className="absolute bottom-1 right-1 border border-line bg-raised/90 px-1.5 py-0.5 font-mono text-caption text-ink-muted">
+              {runningTime(film.durationMs)}
+            </span>
+          </button>
+          <div className="p-1.5">
+            {/* Picked here rather than interpolated into one string: this
+                dictionary has no plural engine — `translate()` only substitutes
+                `{name}` — so every counted noun in it carries `_one`/`_other`
+                and the caller chooses. A timeline may legally hold a single
+                scene (`scenes.min(1)`), so "1 scènes" was reachable. */}
+            <div className="truncate text-caption text-ink-muted">
+              {t(film.scenes === 1 ? 'library.filmScenes_one' : 'library.filmScenes_other', { count: film.scenes })}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1">
+              <span className="rounded border border-line-soft px-1 text-caption text-ink-faint">
+                .{film.container}
+              </span>
+              <span className="rounded bg-ink/5 px-1 text-caption text-ink-muted">{film.aspectRatio}</span>
+              <span className="rounded bg-ink/5 px-1 text-caption text-ink-muted">{formatBytes(film.bytes)}</span>
+            </div>
+            {isPage && filmUsedBy(film) && (
+              <div className="mt-0.5 truncate text-caption text-ink-faint" title={filmUsedBy(film)}>
+                {t('library.usedBy', { names: filmUsedBy(film) })}
+              </div>
+            )}
+          </div>
+          {/* Damped rather than hidden, like the two plates above: a phone has
+              no hover, and "download" was simply unreachable on one. */}
+          <div className="absolute right-1 top-1 flex border border-line bg-raised opacity-60 transition group-hover:opacity-100 group-focus-within:opacity-100">
+            <a
+              href={videoDownloadUrl(film.hash)}
+              aria-label={t('library.download')}
+              title={t('library.download')}
+              className="inline-flex min-h-8 w-8 items-center justify-center text-ink-muted transition hover:text-ink"
+            >
+              <Icon name="download" size={16} />
+            </a>
+            <IconButton label={t('library.deleteFilm')} variant="quiet" onClick={() => onDeleteFilm(film)}>
+              <Icon name="trash" size={16} />
+            </IconButton>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  /**
+   * Mounted in both branches like the lightbox and the clip player, because the
+   * standalone Media page and the in-project modal draw the same grid.
+   *
+   * The player itself moved out to `FilmLightbox` when the canvas gained a card
+   * that opens a film: two `<video>` tags for one file is how one of them ends
+   * up with `?download=1` in its `src` and saves instead of playing.
+   */
+  const filmPlayer = playingFilm ? (
+    <FilmLightbox hash={playingFilm.hash} onClose={() => setPlayingFilm(null)} />
+  ) : null
+
+  const activeGrid = tab === 'images' ? grid : tab === 'videos' ? videoGrid : filmGrid
 
   const zipLink = (
     <a href={libraryZipUrl(filters)} className="btn-ghost px-3 py-1 text-body-sm" title={t('library.zipHint')}>
@@ -608,6 +912,13 @@ export default function Bibliotheque({
             {' · '}
             <span className="font-mono text-accent-ink">{videos.length}</span>{' '}
             {t(videos.length === 1 ? 'library.videoWord_one' : 'library.videoWord_other')}
+            {films.length > 0 && (
+              <>
+                {' · '}
+                <span className="font-mono text-accent-ink">{films.length}</span>{' '}
+                {t(films.length === 1 ? 'library.filmWord_one' : 'library.filmWord_other')}
+              </>
+            )}
           </span>
           <div className="ml-auto flex items-center gap-2">
             {uploader}
@@ -624,10 +935,16 @@ export default function Bibliotheque({
             {uploadError}
           </Banner>
         )}
+        {filmActionError && (
+          <Banner tone="danger" className="mb-3">
+            {filmActionError}
+          </Banner>
+        )}
         {selectionNote && <div className="mb-4">{selectionNote}</div>}
         {activeGrid}
         {lightbox}
       {player}
+      {filmPlayer}
       </main>
     )
   }
@@ -674,6 +991,11 @@ export default function Bibliotheque({
               {uploadError}
             </Banner>
           )}
+          {filmActionError && (
+            <Banner tone="danger" className="mb-3">
+              {filmActionError}
+            </Banner>
+          )}
           {selectionNote && <div className="mb-3">{selectionNote}</div>}
           {activeGrid}
         </div>
@@ -699,6 +1021,7 @@ export default function Bibliotheque({
       </div>
       {lightbox}
       {player}
+      {filmPlayer}
     </div>
   )
 }

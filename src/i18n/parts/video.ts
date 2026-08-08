@@ -2,6 +2,15 @@
  * Translations for the "video" area — the admin block that governs video
  * export, and the panel that composes one.
  *
+ * THE AREA IS CALLED `video`; THE FEATURE IS CALLED **MOTION**. That is not an
+ * oversight left half-finished. The user-facing name changed — "Export vidéo"
+ * described a file format where the thing being offered is a way to put pictures
+ * in motion — and the keys did not, because a key is not read by anybody: turning
+ * `video.compose` into `motion.compose` would touch both halves of this
+ * dictionary, every call site, and the tests that pin them, to change a string no
+ * interface ever prints. The same reasoning keeps the file names, the routes and
+ * the `server/video/` tree as they are. Only the values below say Motion.
+ *
  * Rules (see parts/preview.ts): the key sets of `fr` and `en` must match, every
  * key is prefixed `video.`, placeholders are `{name}`.
  *
@@ -9,7 +18,7 @@
  * situations arrive at the browser as an HTTP status and an English sentence —
  * the volume is full, the worker is unreachable, the pictures left the library,
  * the render never answered — and every one of them sends the person somewhere
- * different: shorten the film, call the administrator, pick new images, wait.
+ * different: shorten the cut, call the administrator, pick new images, wait.
  * "L’export a échoué" covers all four and helps with none, which is why each has
  * its own heading and its own next step.
  *
@@ -23,11 +32,11 @@
  */
 export const video = {
   fr: {
-    'video.sectionTitle': 'Export vidéo',
+    'video.sectionTitle': 'Motion',
     'video.blurb':
       'Rend une suite d’images en .mp4 via un worker Remotion, service Docker séparé et facultatif (profil « video-export »). Désactivé par défaut : une instance qui n’a pas construit ce service ne gagne rien à l’activer.',
 
-    'video.enable': 'Activer l’export vidéo',
+    'video.enable': 'Activer Motion',
     'video.enableHelp':
       'Interrupteur maître. Fermé, personne n’exporte, quelle que soit la portée réglée ci-dessous.',
 
@@ -78,21 +87,28 @@ export const video = {
     'video.unsaved': 'Modifications non enregistrées',
 
     // ---- the export panel -------------------------------------------------
-    'video.toolbarLabel': 'Vidéo',
+    'video.toolbarLabel': 'Motion',
     'video.toolbarTitle': 'Monter une vidéo à partir des images de la médiathèque',
 
-    'video.exportTitle': 'Export vidéo',
+    'video.exportTitle': 'Motion',
     'video.exportBlurb':
       'Un diaporama monté à partir de la médiathèque : une image par scène, sa durée, son mouvement et sa transition. Le rendu tourne sur le worker Remotion, pas dans ce navigateur.',
 
     // Volontairement laconique : un compte sans accès n’apprend rien de la
     // configuration de l’instance, ni de ce à quoi ressemble un montage valide.
-    'video.notEnabled': 'L’export vidéo n’est pas activé pour ce compte.',
-    'video.statusUnknown': 'Impossible de savoir si l’export vidéo est disponible pour ce compte.',
+    'video.notEnabled': 'Motion n’est pas activé pour ce compte.',
+    'video.statusUnknown': 'Impossible de savoir si Motion est disponible pour ce compte.',
 
     'video.workerDown': 'Worker de rendu injoignable',
     'video.workerDownBody':
       'Le service de rendu ne répond pas. Rien ne peut être mis en file d’attente tant qu’il est absent ; c’est un réglage d’instance, pas un problème de montage.',
+
+    // ---- les deux chemins, derrière un interrupteur ------------------------
+    // Sert deux fois : titre du bloc fusionné, et nom accessible du groupe de
+    // boutons. Les deux positions se nomment elles-mêmes (composeTitle et
+    // fromImageTitle), donc ce libellé dit ce que le bloc FAIT, pas ce qu'il
+    // contient — sans quoi l'en-tête répéterait l'interrupteur placé à côté.
+    'video.sourceTitle': 'Remplir le montage',
 
     // ---- décrire plutôt que régler ---------------------------------------
     // Le mot « proposer » est tenu partout : le modèle ordonne et règle, il ne
@@ -138,6 +154,14 @@ export const video = {
     'video.modelSkipped': 'Le fournisseur d’images n’a rien produit. Réessayez, ou reformulez le sujet.',
     'video.variantNeedSubject': 'Décrivez d’abord le sujet en une phrase.',
 
+    // Le second chemin d'entrée du même flux : une image qui existe déjà. Le
+    // « ou » est là pour dire que c'est une alternative à la génération, pas une
+    // étape de plus. La note dit pourquoi la première confirmation n'apparaît
+    // pas — sans elle, son absence passe pour un oubli et quelqu'un la rajoute.
+    'video.pickModelHeading': 'Ou partir d’une image de la médiathèque',
+    'video.pickModelNote':
+      'Une image de la médiathèque existe déjà et vous venez de la regarder pour la choisir : elle passe directement aux variantes, sans première confirmation.',
+
     'video.gateKeepTitle': 'Gardez-vous cette image ?',
     'video.gateKeepBody':
       'Rien ne continue tant que vous n’avez pas choisi. Abandonnée, elle reste dans la médiathèque sans pouvoir être montée : elle n’est pas supprimée.',
@@ -178,7 +202,7 @@ export const video = {
     'video.addSceneFull': 'Maximum atteint : {max} scènes',
     'video.pickScene': 'Choisir l’image de la scène',
     'video.noScenes': 'Aucune scène pour l’instant.',
-    'video.noScenesHint': 'Choisissez une première image ci-dessous : elle ouvrira le film.',
+    'video.noScenesHint': 'Choisissez une première image ci-dessous : elle ouvrira le montage.',
 
     'video.sceneNumber': 'Scène {n}',
     'video.moveUp': 'Monter cette scène',
@@ -236,6 +260,33 @@ export const video = {
     'video.jobDone': 'Terminé',
     'video.jobFailed': 'Le rendu a échoué',
     'video.download': 'Télécharger la vidéo ({format})',
+    // Où le montage se trouve MAINTENANT. Le défaut que ces deux phrases
+    // réparent : le rendu produisait un fichier dont le seul chemin d'accès
+    // était un lien de téléchargement qui disparaissait à la fermeture du
+    // panneau. Deux phrases parce que la promesse diffère — un montage fait
+    // depuis la page Média n'appartient à aucun projet, et le ranger dans un
+    // serait faux.
+    //
+    // Le nom de l'onglet est cité tel quel : ces phrases sont un itinéraire, et
+    // un itinéraire qui nomme un onglet autrement que la barre d'onglets envoie
+    // chercher quelque chose qui n'existe pas.
+    'video.savedInProject':
+      'Le montage est enregistré dans Média, onglet « Motion », rattaché à ce projet. Vous le retrouverez là après avoir fermé ce panneau.',
+    'video.savedInMedia':
+      'Le montage est enregistré dans Média, onglet « Motion ». Vous le retrouverez là après avoir fermé ce panneau.',
+    'video.openInMedia': 'Voir dans Média',
+    // Rattacher le montage à un écran. La phrase dit explicitement que le code
+    // n'est pas touché : « attacher à un écran » se lit sinon comme « mettre la
+    // vidéo dans l'écran », et c'est justement l'opération que ce chemin ne fait
+    // pas — le composant généré n'a pas de balise vidéo, lui en injecter une
+    // serait une génération.
+    'video.attachTitle': 'Attacher ce montage à un écran',
+    'video.attachHint':
+      'Le montage s’affichera sur une carte à côté de l’écran, dans le canevas — à côté de l’image Muse et du DESIGN.md. Le code de l’écran n’est pas modifié.',
+    'video.attachedHere': 'Attaché ici',
+    'video.attachNoProject':
+      'Ce panneau a été ouvert depuis Média, hors d’un projet : il n’y a aucun écran auquel rattacher ce montage. Ouvrez un projet pour le faire.',
+    'video.attachNoScreens': 'Ce projet n’a encore aucun écran.',
     'video.downloadGone':
       'Le rendu s’est terminé sans fichier stocké. Relancez-le ; si cela se répète, c’est le worker qu’il faut regarder.',
     'video.pollRetry': 'Le serveur n’a pas répondu à la dernière interrogation. Nouvelle tentative…',
@@ -259,7 +310,7 @@ export const video = {
     'video.errNoProviderHint':
       'Cette instance n’a aucun modèle d’image configuré. C’est un réglage d’administration, pas un problème de montage.',
     'video.errInvalid': 'Le montage a été refusé',
-    'video.errNoAccess': 'L’export vidéo n’est plus activé pour ce compte.',
+    'video.errNoAccess': 'Motion n’est plus activé pour ce compte.',
     'video.errOffline': 'Serveur injoignable',
     'video.errOfflineHint': 'Rien n’a été mis en file d’attente.',
     'video.errJobGone': 'Ce rendu n’est plus suivi',
@@ -267,11 +318,11 @@ export const video = {
       'Le serveur ne garde qu’un historique borné, et il l’oublie au redémarrage. Relancez le montage.',
   } as Record<string, string>,
   en: {
-    'video.sectionTitle': 'Video export',
+    'video.sectionTitle': 'Motion',
     'video.blurb':
       'Renders a sequence of images to .mp4 through a Remotion worker — a separate, optional Docker service (the “video-export” profile). Off by default: an instance that has not built that service gains nothing by turning this on.',
 
-    'video.enable': 'Enable video export',
+    'video.enable': 'Enable Motion',
     'video.enableHelp': 'Master switch. Off, nobody exports, whatever the scope below is set to.',
 
     'video.accessTitle': 'Scope',
@@ -321,21 +372,28 @@ export const video = {
     'video.unsaved': 'Unsaved changes',
 
     // ---- the export panel -------------------------------------------------
-    'video.toolbarLabel': 'Video',
+    'video.toolbarLabel': 'Motion',
     'video.toolbarTitle': 'Cut a video from the media library',
 
-    'video.exportTitle': 'Video export',
+    'video.exportTitle': 'Motion',
     'video.exportBlurb':
       'A slideshow cut from the media library: one image per scene, with its duration, its motion and its transition. The render runs on the Remotion worker, not in this browser.',
 
     // Deliberately terse: an account without access learns nothing about how the
     // instance is configured, nor about what a valid timeline looks like.
-    'video.notEnabled': 'Video export is not enabled for this account.',
-    'video.statusUnknown': 'Could not tell whether video export is available for this account.',
+    'video.notEnabled': 'Motion is not enabled for this account.',
+    'video.statusUnknown': 'Could not tell whether Motion is available for this account.',
 
     'video.workerDown': 'Render worker unreachable',
     'video.workerDownBody':
       'The render service is not answering. Nothing can be queued while it is away; this is an instance setting, not a problem with your cut.',
+
+    // ---- the two paths, behind one switch ----------------------------------
+    // Used twice: as the merged block's heading, and as the accessible name of
+    // the button group. Both positions already name themselves (composeTitle and
+    // fromImageTitle), so this label says what the block is FOR rather than what
+    // is in it — otherwise the heading would read back the switch beside it.
+    'video.sourceTitle': 'Fill the cut',
 
     // ---- describing instead of dialling ------------------------------------
     // "Propose" is held to throughout: the model orders and tunes, it approves
@@ -379,6 +437,14 @@ export const video = {
     'video.modelSkipped': 'The image provider produced nothing. Try again, or reword the subject.',
     'video.variantNeedSubject': 'Describe the subject in one sentence first.',
 
+    // The same flow's other way in: a picture that already exists. "Or" is doing
+    // the work — this is an alternative to generating one, not another step. The
+    // note says why the first gate does not appear; without it, its absence
+    // reads as an oversight and somebody adds a confirmation back.
+    'video.pickModelHeading': 'Or start from a picture in the media library',
+    'video.pickModelNote':
+      'A picture from the library already exists, and you have just looked at it to pick it: it goes straight to the variants, with no first confirmation.',
+
     'video.gateKeepTitle': 'Keeping this one?',
     'video.gateKeepBody':
       'Nothing continues until you choose. Abandoned, it stays in the media library without being mountable — it is not deleted.',
@@ -400,7 +466,7 @@ export const video = {
 
     'video.gateChooseTitle': 'Tick the variants worth cutting',
     'video.gateChooseBody':
-      'Several at a time. Anything left unticked stays pending, for good: those pictures can never be cut into a film.',
+      'Several at a time. Anything left unticked stays pending, for good: those pictures can never join a cut.',
     'video.variantNumber': 'Variant {n}',
     'video.variantChosen': '{n} ticked',
     'video.variantDiscardNote': '{n} variant(s) will stay pending, permanently.',
@@ -419,7 +485,7 @@ export const video = {
     'video.addSceneFull': 'At the ceiling: {max} scenes',
     'video.pickScene': 'Choose the image for this scene',
     'video.noScenes': 'No scenes yet.',
-    'video.noScenesHint': 'Pick a first image below — it opens the film.',
+    'video.noScenesHint': 'Pick a first image below — it opens the cut.',
 
     'video.sceneNumber': 'Scene {n}',
     'video.moveUp': 'Move this scene up',
@@ -477,6 +543,32 @@ export const video = {
     'video.jobDone': 'Done',
     'video.jobFailed': 'The render failed',
     'video.download': 'Download the video ({format})',
+    // Where the cut is NOW. The defect these two sentences fix: a render
+    // produced a file whose only route was a download link that vanished when
+    // the panel closed. Two sentences because the promise differs — a cut made
+    // from the standalone Media page belongs to no project, and filing it under
+    // one would be untrue.
+    //
+    // The tab is quoted verbatim: these sentences are directions, and directions
+    // that name a tab differently from the tab strip send somebody looking for
+    // something that is not there.
+    'video.savedInProject':
+      'The cut is saved in Media, under “Motion”, attached to this project. It will be there after you close this panel.',
+    'video.savedInMedia':
+      'The cut is saved in Media, under “Motion”. It will be there after you close this panel.',
+    'video.openInMedia': 'See it in Media',
+    // Hanging the cut on a screen. The sentence says outright that the code is
+    // untouched: "attach to a screen" otherwise reads as "put the video in the
+    // screen", which is precisely the operation this path does NOT perform — the
+    // generated component has no video tag, and injecting one would be a
+    // generation rather than an attachment.
+    'video.attachTitle': 'Attach this cut to a screen',
+    'video.attachHint':
+      'The cut will show on a card beside the screen, on the canvas — next to the Muse image and the DESIGN.md. The screen’s code is not modified.',
+    'video.attachedHere': 'Attached here',
+    'video.attachNoProject':
+      'This panel was opened from Media, outside a project: there is no screen to attach the cut to. Open a project to do that.',
+    'video.attachNoScreens': 'This project has no screen yet.',
     'video.downloadGone':
       'The render finished with no stored file. Start it again; if it repeats, the worker is what to look at.',
     'video.pollRetry': 'The server did not answer the last poll. Trying again…',
@@ -500,7 +592,7 @@ export const video = {
     'video.errNoProviderHint':
       'This instance has no image model configured. That is an administration setting, not a problem with your cut.',
     'video.errInvalid': 'The cut was refused',
-    'video.errNoAccess': 'Video export is no longer enabled for this account.',
+    'video.errNoAccess': 'Motion is no longer enabled for this account.',
     'video.errOffline': 'Server unreachable',
     'video.errOfflineHint': 'Nothing was queued.',
     'video.errJobGone': 'This render is no longer tracked',

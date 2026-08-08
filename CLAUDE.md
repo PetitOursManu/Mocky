@@ -132,7 +132,12 @@ The judged rules in `catalog.js` are Mocky's own questions, written for this
 pipeline. The audit rubric follows the structure Impeccable documents publicly
 (five dimensions, 0–4, P0–P3); the scoring and the confidence model are ours.
 
-## Video export
+## Video export — the feature is called **Motion**
+
+Every string a user reads says Motion; every identifier still says `video`. That
+split is deliberate and documented in `docs/video-export.md`: renaming the keys,
+the routes and the directories would change nothing anybody reads. Do not "finish"
+the rename.
 
 Turns a list of image ids into an .mp4. **The model never writes Remotion code**
 — it writes one JSON object validated by `src/lib/video/timeline.ts`, and
@@ -179,6 +184,14 @@ Five things, and the first one is not negotiable.
    callers. The export store is content-addressed and atomic like its neighbours,
    shares the same `diskBudget`, and refuses **before** writing: a full volume
    fails writes silently everywhere in this repository.
+
+   The corollary, learned the hard way: **a separate store still has to be
+   findable.** The hash says what a file contains and nothing about who wanted
+   it, so a film carries `projects` — a list, for the reason `owners` is a set —
+   plumbed from `POST /render` through the job to `store.put`, and
+   `GET /api/video/exports` lists what an account owns. Media has a **third** tab
+   for them; do not merge it into the clip tab, and never route a film through
+   `VideoPlayer.tsx`.
 
 ## Conventions
 

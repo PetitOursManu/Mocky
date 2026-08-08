@@ -433,6 +433,15 @@ propriétaire », et elles y restent. Un propriétaire dont le compte a été su
 y retombe, parce que `splitOwnedBytes` filtre sur l'ensemble des identifiants qui
 existent encore.
 
+**L'usage par projet l'est tout autant, et pour la même raison.** `projects` est
+une liste sur une image, et désormais sur un film exporté : l'adressage par
+contenu fait que deux projets peuvent aboutir aux mêmes octets, donc le second
+rattachement s'ajoute au lieu de remplacer. C'est ce qui rend un fichier stocké
+retrouvable — l'empreinte dit ce qu'il contient et rien sur qui l'a voulu — et le
+magasin d'exports Motion est parti sans, ce qui produisait des fichiers sur le
+volume qu'aucune interface ne pouvait atteindre. Un fichier sans projet est
+classé sous aucun, jamais sous un projet supposé.
+
 ---
 
 ## Série Q — la passe de qualité
@@ -666,7 +675,7 @@ contrôle, puis répondait `302` vers l'adresse de métadonnées cloud.
 - une cible de texte configurée par un administrateur, parce que pointer vers un
   modèle local est un montage prévu ;
 - l'URL de base `sd-webui`, qui est locale par définition ;
-- l'**URL du worker** d'export vidéo, `assertWorkerTarget()` dans
+- l'**URL du worker** de rendu Motion, `assertWorkerTarget()` dans
   `server/video/worker.js`.
 
 Le troisième a été ajouté, pas hérité, et la raison vaut le paragraphe. Protégé,
@@ -690,7 +699,7 @@ injectable : qui exécute le worker sur un hôte public peut y remettre
 
 Le reste de la fonctionnalité à laquelle il appartient — pourquoi le worker est
 une image séparée, et pourquoi le modèle qui décrit un film n'écrit jamais le
-code qui le rend — est dans [l'export vidéo](fr/video-export.md).
+code qui le rend — est dans [Motion](fr/video-export.md).
 
 Toute URL venue d'un navigateur reste entièrement protégée — y compris sur
 `POST /api/text/vision`. C'était la seule route qui prenait une URL de base dans
@@ -708,7 +717,7 @@ choses. C'est lui qui a fait rejeter SQLite pour la persistance de Muse, et qui 
 fait réutiliser l'écrivain ZIP sans dépendance du dépôt au lieu d'ajouter
 `archiver`.
 
-La file d'attente de l'export vidéo est la plus récente chose que cet invariant a
+La file d'attente de rendu de Motion est la plus récente chose que cet invariant a
 tranchée, et la plus tentante à rater : un exécuteur de tâches est exactement la
 fonctionnalité pour laquelle on tend la main vers Redis. `server/video/queue.js`
 est une file en mémoire, avec un journal JSON atomique et une seule tâche à la

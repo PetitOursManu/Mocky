@@ -10,6 +10,9 @@ import {
   requestVariants,
   startVideoRender,
   videoDownloadUrl,
+  videoStreamUrl,
+  listVideoExports,
+  deleteVideoExport,
 } from './client'
 import type { VideoTimelineInput } from './timeline'
 import { defaultSettings } from '../settings'
@@ -41,6 +44,29 @@ describe('startVideoRender', () => {
     // journal cannot be read back from.
     expect(sent.timeline.scenes[0]).toMatchObject({ kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null })
     expect(sent.timeline.outputFormat).toBe('mp4')
+  })
+
+  /**
+   * The defect: a film nothing could find.
+   *
+   * `projectId` beside the timeline is the only link between a finished export
+   * and where it was cut, because the store is content-addressed — the hash says
+   * what the file contains and nothing about who wanted it. Beside and never
+   * inside: the schema is `.strict()`, so a field the worker does not render
+   * cannot be in the document at all.
+   */
+  it('sends the project beside the timeline, never inside it', async () => {
+    let sent: any = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        sent = JSON.parse(String(init.body))
+        return { ok: true, status: 202, json: async () => ({ id: 'j1', status: 'queued' }) }
+      }),
+    )
+    await startVideoRender(OK_TIMELINE, { project: 'p-42' })
+    expect(sent.projectId).toBe('p-42')
+    expect(sent.timeline.projectId).toBeUndefined()
   })
 
   it('refuses a bad timeline before spending a request on it', async () => {
@@ -385,6 +411,69 @@ describe('pollDeadlinePassed', () => {
 
 describe('videoDownloadUrl', () => {
   it('is a plain URL, for a plain link', () => {
-    expect(videoDownloadUrl('ab12')).toBe('/api/video/ab12')
+    expect(videoDownloadUrl('ab12')).toBe('/api/video/ab12?download=1')
+  })
+
+  /**
+   * The defect: one URL for both jobs. Reusing the download link as a `<video
+   * src>` asks the server to answer `Content-Disposition: attachment`, which is
+   * an instruction to save the file rather than play it — and the Media tab's
+   * play button would have put the film in the downloads folder.
+   */
+  it('is not the same URL the player uses', () => {
+    expect(videoStreamUrl('ab12')).toBe('/api/video/ab12')
+    expect(videoStreamUrl('ab12')).not.toBe(videoDownloadUrl('ab12'))
+  })
+})
+
+describe('listVideoExports', () => {
+  it('asks for the project when there is one, and for everything when there is not', async () => {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url)
+        return { ok: true, status: 200, json: async () => ({ videos: [] }) }
+      }),
+    )
+    await listVideoExports()
+    await listVideoExports({ project: 'p 1/2' })
+    expect(urls).toEqual(['/api/video/exports', '/api/video/exports?project=p%201%2F2'])
+  })
+
+  /**
+   * The defect: an empty grid that means two opposite things.
+   *
+   * "You have exported nothing" and "the backend did not answer" draw the same
+   * blank box, and a client that resolved `[]` on a failure would make the Media
+   * tab unable to tell them apart — so the tab would say "no films yet" to
+   * somebody whose films are sitting on the server.
+   */
+  it('throws when the listing fails rather than resolving empty', async () => {
+    vi.stubGlobal('fetch', answer(500, { error: 'nope' }))
+    const err = await listVideoExports().catch((e) => e)
+    expect(err).toBeInstanceOf(VideoExportError)
+    expect(err.code).toBe('http')
+  })
+
+  it('survives a body that is not the shape it promised', async () => {
+    vi.stubGlobal('fetch', answer(200, { videos: 'not-an-array' }))
+    expect(await listVideoExports()).toEqual([])
+  })
+})
+
+describe('deleteVideoExport', () => {
+  it('names the projects that were still pointing at the film', async () => {
+    vi.stubGlobal('fetch', answer(200, { removed: true, wasUsedBy: ['p1', 'p2', 7] }))
+    // `7` is dropped rather than rendered as a project name: this is a network
+    // body, not a type.
+    expect(await deleteVideoExport('ab12')).toEqual({ removed: true, wasUsedBy: ['p1', 'p2'] })
+  })
+
+  it('tells a stranger apart from a film that is already gone', async () => {
+    vi.stubGlobal('fetch', answer(403, { error: 'another account' }))
+    expect((await deleteVideoExport('ab12').catch((e) => e)).code).toBe('no-access')
+    vi.stubGlobal('fetch', answer(404, { error: 'gone' }))
+    expect((await deleteVideoExport('ab12').catch((e) => e)).code).toBe('not-found')
   })
 })

@@ -154,16 +154,23 @@ lui-même n’existe que sous `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Cadre` | `Afficher ou masquer le cadre iPhone sur les écrans mobiles`. **Désactivé quand le projet n’a aucun écran mobile** — et la préférence n’est pas effacée pour autant, car elle vit dans une clé unique partagée par tous les projets. Désactiver le contrôle plutôt que remettre le réglage à zéro, c’est ce qui garde vos autres projets encadrés. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Système` | `Système de design en direct — vos tokens DESIGN.md, et de quoi les recolorer`. Ferme `Audit`, ou le mode `Lier`, si l’un des deux était ouvert. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Évaluer le SEO et l’accessibilité`. Ferme `Système`, ou le mode `Lier`, si l’un des deux était ouvert — les trois veulent la même place. **Ouvrir le panneau n’évalue rien.** | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion` | `Monter une vidéo à partir des images de la médiathèque`. Ouvre le panneau Motion — voir plus bas. | libre à l’ouverture |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Démo` | `Lancer le prototype — suit les liens que vous avez posés`. Démarre sur l’écran sélectionné, ou sur le premier si rien ne l’est. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Exporter` | `Exporter un projet Vite + React + Tailwind prêt à lancer`. Ouvre un menu de trois piles. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Vidéo` | `Monter une vidéo à partir des images de la médiathèque`. Ouvre le panneau d’export — voir plus bas. | libre à l’ouverture |
 
-Les trois derniers forment un groupe : ce sont les trois façons de faire sortir
-quelque chose d’un projet. `Vidéo` s’y trouve, à côté de `Démo` et `Exporter`, et
-**délibérément pas dans le menu contextuel d’un écran**. Le film est monté depuis
-la médiathèque ; il ne lit aucun écran et ne peut pas en être tiré. L’accrocher à
-un écran promettrait une relation que le pipeline n’honore pas, et la première
-chose que fait le panneau — demander quelles images utiliser — la contredirait.
+Le séparateur tombe avant `Démo`. Les deux derniers sont les deux façons de faire
+**sortir** quelque chose d’un projet : une démo d’écrans qui existent déjà, une
+archive de code qui existe déjà. `Motion` est de l’autre côté, avec les modes et
+les panneaux, parce qu’il fait l’opération inverse — il fabrique ce qui n’existait
+pas il y a une minute, à partir de la médiathèque, et il ouvre un panneau
+exactement comme `Système` et `Audit`. À côté d’`Exporter`, il se lisait comme un
+quatrième format de sortie, ce qu’il n’est justement pas.
+
+Il reste **délibérément absent du menu contextuel d’un écran**. Le montage est
+fait depuis la médiathèque ; il ne lit aucun écran et ne peut pas en être tiré.
+L’accrocher à un écran promettrait une relation que le pipeline n’honore pas, et
+la première chose que fait le panneau — demander quelles images utiliser — la
+contredirait.
 
 ---
 
@@ -253,6 +260,22 @@ pas deviner en la regardant :
   c’est ce qu’affiche un écran généré avant que la distinction existe, plutôt
   que de deviner.
 
+En dessous, le média **attaché** à l’écran, quand il y en a un — un montage
+exporté, ou une séquence de défilement. Attaché, et non *utilisé* : rien de tout
+cela n’est dans le code de l’écran, et c’est exactement la distinction que
+`Changer les médias…` tient en deux sections. L’image fixe est dessinée par le
+navigateur à partir du fichier lui-même, parce qu’aucune affiche n’est découpée
+pour un montage — cela demanderait ffmpeg, la seule dépendance que Motion n’a
+délibérément pas. Un clic lit le montage ; une séquence s’ouvre dans `Média`, où
+vit déjà le lecteur image par image.
+
+Un média que la médiathèque a perdu garde sa carte, et la carte **le dit** :
+`Média introuvable`, et l’infobulle précise qu’il reste attaché tant qu’on ne le
+détache pas. Cet état s’obtient par l’échec de chargement du fichier — une
+suppression, ou un hash qui appartient à un autre compte — et il existe parce
+que l’alternative était un rectangle noir sous la légende habituelle, ce que
+dessine aussi un montage qui commence sur une image noire.
+
 En dessous, le système de design dont cet écran est réellement issu. La carte
 porte l’un des deux boutons, **jamais les deux** — et c’est bien pour cela
 qu’on les confond : on ne voit jamais que celui qui s’applique, et l’autre est
@@ -288,7 +311,7 @@ Clic droit sur un écran, ou <svg width="20" height="20" viewBox="0 0 24 24" fil
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5"/></svg> | `Revenir à la version précédente` | Présent seulement s’il y a une version précédente. Toute réécriture du code en enregistre une — édition, réparation automatique, peaufinage, régénération, ajout d’animations, correction d’audit, et les deux gratuites : le remplacement d’image et la modification de texte immédiate. **Un seul niveau, et il s’efface** : revenir en arrière jette la version stockée, l’entrée disparaît et il n’y a pas de « rétablir ». | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> | `Faire de cet écran mon DESIGN.md` | Lit l’écran et en écrit la direction du projet. Demande confirmation quand une direction existe déjà. | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Modifier DESIGN.md` | L’éditeur pleine page. | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Changer les images…` | Liste les images réellement présentes dans le code et les remplace, à un endroit ou partout. Sources : la bibliothèque, un import, ou une génération. | libre / image |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Changer les médias…` | Liste les images réellement présentes dans le code et les remplace, à un endroit ou partout. Sources : la bibliothèque, un import, ou une génération. | libre / image |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer l’écran` | Une confirmation. | libre |
 
 ### Les trois groupes de petits boutons
@@ -412,25 +435,36 @@ projet ou dans son nom de produit, pas dans le balisage d’un écran.
 
 ---
 
-## Le panneau d’export vidéo
+## Le panneau Motion
 
-S’ouvre avec `Vidéo`. Un diaporama monté à partir de la médiathèque : une image
+S’ouvre avec `Motion`. Un diaporama monté à partir de la médiathèque : une image
 par scène, avec sa durée, son mouvement et sa transition. **Le rendu tourne sur
 le worker Remotion, pas dans ce navigateur** — et ce worker est un service Docker
 séparé et facultatif, donc la première chose que fait le panneau est de dire s’il
-est là. Pourquoi c’est bâti ainsi est dans [l’export vidéo](fr/video-export.md).
+est là. Pourquoi c’est bâti ainsi est dans [Motion](fr/video-export.md).
+
+La fonctionnalité s’appelait « Export vidéo » et les fichiers s’appellent encore
+ainsi. C’est délibéré, et expliqué sur la page ci-dessus : ce que lit un
+utilisateur dit Motion, ce que cherche un développeur dit `video`.
 
 Un compte pour lequel la fonctionnalité n’est pas activée reçoit une phrase
 laconique et rien d’autre : il n’apprend rien de la configuration de l’instance,
 ni de ce à quoi ressemble un montage valide.
 
-Il y a **un seul formulaire**, et deux façons de le remplir.
+Il y a **un seul formulaire**, et deux façons de le remplir — derrière un
+interrupteur, une seule visible à la fois. Empilées, elles remplissaient à elles
+deux une fenêtre de 900 pixels : les scènes, le total et le bouton de rendu
+commençaient tous sous la ligne de flottaison d’un panneau que personne n’avait
+encore touché. Ce sont des alternatives, pas des étapes, et deux formulaires
+ouverts disaient le contraire. La position choisie survit tant que le panneau est
+ouvert et n’est pas retenue ensuite : c’est un fait sur le montage du moment.
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
 | `Décrivez la vidéo` → `Proposer un montage` | Envoie votre phrase et les images déjà choisies au modèle. Il **ordonne et règle** — durées, mouvements, transitions, textes. Il ne choisit pas les images et n’en ajoute aucune. | modèle |
 | `Partir d’une image` → `Générer une image modèle` | Fabrique une image à partir d’un sujet que vous décrivez. Rien ne continue tant que vous n’avez pas choisi `Garder`, `Régénérer` ou `Abandonner`. | image |
-| `Produire {n} variantes` | De deux à six prises de cette image. Vous cochez ensuite celles qui méritent d’être montées ; ce qui reste décoché reste en attente, définitivement. | image, un appel par variante |
+| `Ou partir d’une image de la médiathèque` | Le même sélecteur que la liste des scènes. Une image de la médiathèque existe déjà et vous venez de la regarder pour la choisir : elle passe directement aux variantes, sans première confirmation. | libre |
+| `Produire {n} variantes` | De deux à six prises de cette image, affichée en petit au-dessus du bouton pour qu’on voie de quoi elles dériveront. Vous cochez ensuite celles qui méritent d’être montées ; ce qui reste décoché reste en attente, définitivement. | image, un appel par variante |
 | Une ligne de scène | Durée, mouvement, transition vers la suivante, et une ligne facultative de texte incrusté. Monter, descendre, retirer. | libre |
 | `Sortie` | Format d’image (`16:9`, `9:16`, `1:1`) et conteneur (`mp4`, `webm`). | libre |
 | `Lancer le rendu` | Met le job en file. Un seul rendu à la fois sur l’instance ; vous pouvez fermer le panneau et le retrouver en le rouvrant. | serveur (des minutes de processeur) |
@@ -440,7 +474,10 @@ Il y a **un seul formulaire**, et deux façons de le remplir.
 dans les mêmes contrôles, tous encore actifs, et remplacer un montage que vous
 avez réglé à la main demande confirmation. Un aperçu en lecture seule devrait
 être pris en entier ou jeté en entier, alors que la première chose que l’on veut
-faire d’un ordre de passage proposé, c’est déplacer deux scènes.
+faire d’un ordre de passage proposé, c’est déplacer deux scènes. L’interrupteur
+dit quelle assistance est à l’écran ; aucune des deux n’est un état du montage,
+et changer de position ne perd rien — une phrase tapée, une image non confirmée
+et un appel encore en vol y survivent tous.
 
 Trois choses que le panneau énonce au lieu de les sous-entendre, parce que
 chacune est un fait sur votre instance qui change ce que vous obtenez :
@@ -468,6 +505,17 @@ images attendent votre confirmation` veut dire que le serveur a refusé une imag
 que personne n’a regardée, ce qui est toute la raison pour laquelle ce garde vit
 sur le serveur et non dans ce panneau.
 
+**Où va le fichier terminé**, et le panneau le dit au lieu de laisser un lien de
+téléchargement qui disparaît avec lui : dans `Média`, onglet **`Motion`** —
+rattaché au projet où vous l’avez monté, ou à aucun projet quand vous l’avez
+monté depuis la page Média autonome. Cet onglet porte le nom de la
+fonctionnalité, pas celui de l’objet, parce que c’est là que le panneau vous
+envoie et que les deux doivent se lire pareil. L’objet, lui, est un **montage**,
+le mot que ce panneau emploie déjà dans `Proposer un montage` et `Nouveau
+montage` ; une séquence de défilement, dans l’onglet `Vidéos`, est une
+*séquence*, et appeler les deux « vidéo » est ce qui rendait un export
+introuvable au départ.
+
 ---
 
 ## Les modales
@@ -483,7 +531,7 @@ fait réellement.
 | `Élément` | Un clic sur un élément en mode Modifier | Voir ci-dessous — elle réunit trois coûts dans une seule carte. | mixte |
 | `Code` | `Voir le code` | Lecture seule. | libre |
 | `Partager cet écran` | `Partager (QR code)` | Une durée de `1 heure`, `24 heures` ou `7 jours`, un QR code, et `Révoquer`. | serveur |
-| `Images de « {name} »` | `Changer les images…` | Par image : `Remplacer`, ou `Partout ({n})` quand le même fichier apparaît plusieurs fois, ou un emplacement à la fois. `Importer un fichier` est libre ; `Générer` appelle le fournisseur d’images. | libre / image |
+| `Médias de « {name} »` | `Changer les médias…` | **Deux sections, jamais une liste.** `Images dans le code de l’écran` : par image, `Remplacer`, ou `Partout ({n})` quand le même fichier apparaît plusieurs fois, ou un emplacement à la fois — cela **réécrit la source**, et `Revenir à la version précédente` l’annule. `Média attaché à l’écran (hors du code)` : un montage ou une séquence à poser sur la carte du canevas, et `Détacher` — cela **ne touche pas au code**. `Importer un fichier` est libre ; `Générer` appelle le fournisseur d’images. | libre / image |
 
 La carte `Élément`, ouverte en cliquant quelque chose en mode `Modifier`, est le
 seul endroit où trois coûts cohabitent dans un même dialogue :
@@ -581,14 +629,14 @@ ci-dessous est un clic, et la liste est complète.
 | `Appliquer` | Carte Élément | |
 | `Analyse approfondie` | Panneau Audit | Change ce que coûte `Évaluer`. Décochée par défaut. |
 | `Corriger` / `Tout corriger` | Panneau Audit | |
-| `Générer` (une image) | `Changer les images…`, bibliothèque d’images | Appelle le fournisseur d’images, pas le modèle de texte. |
-| `Proposer un montage` | Panneau d’export vidéo | Le seul appel au modèle de l’export vidéo. Il ordonne et règle les images que vous avez choisies ; il n’en choisit jamais une. |
-| `Générer une image modèle`, `Produire {n} variantes` | Panneau d’export vidéo | Le fournisseur d’images, une fois par image. Six variantes, six appels. |
-| `Lancer le rendu` | Panneau d’export vidéo | Ni modèle ni fournisseur — mais des minutes de processeur sur le worker de rendu, ce qui en fait le clic le plus cher du produit sur une petite machine. |
+| `Générer` (une image) | `Changer les médias…`, bibliothèque d’images | Appelle le fournisseur d’images, pas le modèle de texte. |
+| `Proposer un montage` | Panneau Motion | Le seul appel au modèle de Motion. Il ordonne et règle les images que vous avez choisies ; il n’en choisit jamais une. |
+| `Générer une image modèle`, `Produire {n} variantes` | Panneau Motion | Le fournisseur d’images, une fois par image. Six variantes, six appels. |
+| `Lancer le rendu` | Panneau Motion | Ni modèle ni fournisseur — mais des minutes de processeur sur le worker de rendu, ce qui en fait le clic le plus cher du produit sur une petite machine. |
 
 Et les absences notables — ce qui a l’air cher et ne l’est pas : `Évaluer` dans
 le panneau Audit avec `Analyse approfondie` décochée, `Proposer des liens`,
 `Reprendre ce design`, `Exporter`,
 `Télécharger le .tsx`, `Dupliquer`, `Réorganiser`, tout le panneau `Système`,
-l’ouverture du panneau `Vidéo`, et chacune des bascules de format, de cadre et de
+l’ouverture du panneau `Motion`, et chacune des bascules de format, de cadre et de
 lecture du produit.

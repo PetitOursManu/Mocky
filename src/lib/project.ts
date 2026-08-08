@@ -67,6 +67,25 @@ export interface Screen {
   videoHash?: string
   videoFrames?: number
   /**
+   * A media ATTACHED to this screen. Metadata, and never the screen's code.
+   *
+   * Two relations exist between a screen and a media, and confusing them is what
+   * this field's name is fighting. `src/lib/screenImages.ts` rewrites
+   * `/api/images/HASH` URLs INSIDE `Screen.code`, at offsets an AST vouched for
+   * — that is a substitution on generated source. This one is the other
+   * relation, the one `imageHash` and `design` already have: nothing is in the
+   * code, and the canvas draws it on a card beside the frame.
+   *
+   * A film could only ever be the second kind. The generated component contains
+   * no `<video>` tag, so putting one there would be a generation rather than a
+   * substitution — a different operation, with a model call, a repair loop and a
+   * "Revert" behind it.
+   *
+   * Absent on every screen made before this existed, which is the ordinary case
+   * and means "nothing attached" rather than "attached to nothing".
+   */
+  attachedMedia?: AttachedMedia
+  /**
    * This screen's own answer about motion, overriding the composer's switch.
    *
    * `undefined` — the common case — means "follow the global setting", which is
@@ -100,6 +119,32 @@ export interface Screen {
   device: 'iphone' | 'none'
   /** Interaction links to other screens (used by demo mode). */
   links: Hotspot[]
+}
+
+/**
+ * What is attached to a screen. See Screen.attachedMedia.
+ *
+ * Two kinds, one field, because a screen carries at most one and the alternative
+ * — a hash plus a flag saying which store to look in — is the shape that lets a
+ * caller read a film's hash out of the sequence library and get a 404 it cannot
+ * explain.
+ *
+ *  - 'film'     — an .mp4 from the Motion export store, `GET /api/video/:hash`
+ *  - 'sequence' — a scroll sequence from the clip library, `/api/videos/:hash`
+ *
+ * The hash is kept whatever the store currently holds: a media deleted from the
+ * library leaves a card that says so, and only an explicit detach clears the
+ * field (M8, Q1).
+ */
+export interface AttachedMedia {
+  kind: 'film' | 'sequence'
+  hash: string
+  /**
+   * Frames — sequences only, and mandatory for them, for the reason
+   * `Screen.videoFrames` exists: a sequence addressed with the wrong count draws
+   * its last frame for the rest of the scroll.
+   */
+  frames?: number
 }
 
 /** The compact record of one quality check. See Screen.quality. */
@@ -594,8 +639,17 @@ export function packScreens(screens: Box[], maxPerRow = COLS): { x: number; y: n
   return out
 }
 
-/** Backfill x/y/w/h on screens loaded from storage (older records lacked them). */
-function normalizeScreen(s: Partial<Screen>, index: number): Screen {
+/**
+ * Backfill x/y/w/h on screens loaded from storage (older records lacked them).
+ *
+ * Exported for the tests, and only for them. Nothing else should call it — the
+ * two entry points are `loadProjects` and `migrateLegacy` — but the whitelist
+ * below is the kind of thing that fails a week later, silently, at the reload
+ * nobody was watching. A field it forgets survives every save in the session
+ * that added it and is gone the next morning, so it is worth being able to ask
+ * the question directly.
+ */
+export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
   const pos =
     typeof s.x === 'number' && typeof s.y === 'number' ? { x: s.x, y: s.y } : slotPosition(index)
   return {
@@ -623,6 +677,7 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // Kept as a pair — see the note on Screen.videoHash.
     videoHash: typeof s.videoHash === 'string' && s.videoFrames ? s.videoHash : undefined,
     videoFrames: typeof s.videoFrames === 'number' && s.videoFrames > 0 ? s.videoFrames : undefined,
+    attachedMedia: normalizeAttachedMedia(s.attachedMedia),
     // Only a real boolean is an override; anything else means "follow the
     // composer", which is what every screen made before this field says.
     animations: typeof s.animations === 'boolean' ? s.animations : undefined,
@@ -631,6 +686,29 @@ function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // if it is named here.
     quality: normalizeQuality(s.quality),
   }
+}
+
+/**
+ * Validate a stored attachment, or drop it.
+ *
+ * A sequence with no frame count is dropped rather than kept as a bare hash,
+ * exactly as the `videoHash`/`videoFrames` pair above is: half a sequence is not
+ * a sequence, and a card drawing one from a count of `undefined` asks the server
+ * for frame `NaN`.
+ *
+ * An unknown hash is NOT dropped. The library is a separate store and can lose a
+ * file at any time; a screen whose media went away has to keep saying which one
+ * it was, so the interface can offer to detach it instead of silently pretending
+ * nothing was ever attached (M8, Q1).
+ */
+function normalizeAttachedMedia(m: Partial<AttachedMedia> | undefined): AttachedMedia | undefined {
+  if (!m || typeof m !== 'object') return undefined
+  if (typeof m.hash !== 'string' || !m.hash.trim()) return undefined
+  if (m.kind === 'film') return { kind: 'film', hash: m.hash }
+  if (m.kind === 'sequence' && typeof m.frames === 'number' && m.frames > 0) {
+    return { kind: 'sequence', hash: m.hash, frames: Math.floor(m.frames) }
+  }
+  return undefined
 }
 
 /** Validate a stored quality record, or drop it. */

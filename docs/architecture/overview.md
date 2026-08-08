@@ -839,9 +839,9 @@ The ZIP is written by `src/lib/zip.ts`, with no dependency: store method plus
 CRC32. The same writer serves the image library's "Download all" and
 `npm run backup`.
 
-**This is not the video export**, which shares only the word. That one turns
+**This is not Motion**, which shares only the word. That one turns
 images from the media library into an `.mp4` on a separate, opt-in Docker service
-and never touches a screen — see [Video export](video-export.md).
+and never touches a screen — see [Motion](video-export.md).
 
 ---
 
@@ -905,7 +905,7 @@ Remotion to every operator who never asked for it — which is a licensing
 regression, not a size one, and no later test can un-ship it. The same suite
 refuses a queue server or a database driver, because a job runner is exactly the
 feature somebody reaches for Redis to build. See
-[Video export](video-export.md).
+[Motion](video-export.md).
 
 Alongside those: `registry.test.ts` for registry invariants at load time,
 `ssrf-guard.test.js`, `routes-auth.test.js`,

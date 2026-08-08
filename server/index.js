@@ -138,6 +138,11 @@ const videoQueue = new VideoQueue({
      */
     const stored = videoExports.put(out.buffer, {
       owner: job.userId,
+      // Carried by the job because nothing downstream could reconstruct it: the
+      // store is content-addressed, so the bytes say what the film contains and
+      // nothing about where it was cut. Without this the Media tab has no
+      // question to ask, and a finished export is a file nobody can find.
+      project: job.projectId || undefined,
       format: job.timeline.outputFormat,
       aspectRatio: job.timeline.aspectRatio,
       scenes: job.timeline.scenes.length,

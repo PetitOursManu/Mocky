@@ -103,12 +103,19 @@ export function frameBox(
  * middle. Only screens that actually draw one are widened: adding the column's
  * width unconditionally would loosen the fit of a project that has no cards at
  * all, which is most of them.
+ *
+ * An attached media draws in that same column, so it widens the box the same
+ * way. It is a second reason for the column to exist rather than a second
+ * column — the test that matters is "does this screen draw one", and the answer
+ * has to stay in step with what Canvas actually renders.
  */
-export function contentBox(screens: Pick<Screen, 'x' | 'y' | 'w' | 'h' | 'imageHash'>[]): Box | null {
+export function contentBox(screens: Pick<Screen, 'x' | 'y' | 'w' | 'h' | 'imageHash' | 'attachedMedia'>[]): Box | null {
   if (screens.length === 0) return null
   const minX = Math.min(...screens.map((s) => s.x))
   const minY = Math.min(...screens.map((s) => s.y))
-  const maxX = Math.max(...screens.map((s) => s.x + s.w + (s.imageHash ? CARD_GUTTER + CARD_W : 0)))
+  const maxX = Math.max(
+    ...screens.map((s) => s.x + s.w + (s.imageHash || s.attachedMedia ? CARD_GUTTER + CARD_W : 0)),
+  )
   const maxY = Math.max(...screens.map((s) => s.y + s.h))
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }

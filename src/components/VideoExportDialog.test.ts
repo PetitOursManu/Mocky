@@ -2,6 +2,7 @@ import { describe as suite, it, expect } from 'vitest'
 import {
   BLOCKER_KEYS,
   COMPOSE_BLOCKER_KEYS,
+  FILL_MODE_KEYS,
   MOTION_KEYS,
   OVERLAY_KEYS,
   TRANSITION_KEYS,
@@ -145,6 +146,11 @@ suite('the enum labels', () => {
       ...Object.values(OVERLAY_KEYS),
       ...Object.values(BLOCKER_KEYS),
       ...Object.values(COMPOSE_BLOCKER_KEYS),
+      // The two positions of the switch. Same blind spot as the others — the
+      // component calls `t(FILL_MODE_KEYS.compose)`, so no repo-wide scan for
+      // `t('…')` literals would ever see these — and an unresolved one here is
+      // a segmented control with two blank buttons on it.
+      ...Object.values(FILL_MODE_KEYS),
     ]
     // `translate` hands back the key itself when it is missing, which is what
     // makes this checkable at all.

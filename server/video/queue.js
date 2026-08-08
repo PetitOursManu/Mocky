@@ -139,11 +139,20 @@ export class VideoQueue {
 
   // ---- public surface ----------------------------------------------------
 
-  /** @returns the job, by reference: the caller sees its status change. */
-  enqueue({ userId, timeline }) {
+  /**
+   * @returns the job, by reference: the caller sees its status change.
+   *
+   * `projectId` is carried rather than looked up later because the render
+   * callback is the only thing that will ever know it: the store is
+   * content-addressed, so by the time the bytes exist the only link back to
+   * where the film was cut is whatever the job wrote down. It is a plain string
+   * here — the route bounds it before it arrives.
+   */
+  enqueue({ userId, timeline, projectId = null }) {
     const job = {
       id: this.newId(),
       userId,
+      projectId,
       status: 'queued',
       timeline,
       createdAt: this.now(),

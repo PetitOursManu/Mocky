@@ -45,6 +45,15 @@ describe('contentBox', () => {
     const mixed = contentBox([box(0, 0, 400, 300, 'abc'), box(2000, 0, 400, 300)])
     expect(mixed?.w).toBe(2400)
   })
+
+  it('counts the column for a screen whose only card is an attached media', () => {
+    // The film card draws in the same column as the Muse image, so a screen
+    // that has one and no image still needs the room. Gating on `imageHash`
+    // alone framed those with the card sliced down the middle — the very bug
+    // the test above records, arriving by a second door.
+    const withFilm = contentBox([{ x: 0, y: 0, w: 400, h: 300, attachedMedia: { kind: 'film', hash: 'ff' } }])
+    expect(withFilm).toEqual({ x: 0, y: 0, w: 400 + CARD_GUTTER + CARD_W, h: 300 })
+  })
 })
 
 describe('frameBox', () => {

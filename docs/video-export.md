@@ -1,9 +1,18 @@
-# Video export
+# Motion
 
 Mocky turns a list of images from the media library into an `.mp4`. Not a screen,
 not a scroll sequence: a film, cut from pictures the user picked, rendered by
 [Remotion](https://www.remotion.dev/) in a container that is absent from a
 default install.
+
+**The feature is called Motion; the code is called `video`.** It shipped as
+"Video export", which named a file format rather than the thing on offer, so
+every string a user reads now says Motion. Nothing under the surface followed:
+`server/video/`, `src/lib/video/`, `/api/video/*`, the `video-export` compose
+profile and the `video.*` translation keys all keep their names. Renaming them
+would touch both halves of a dictionary, every call site and the tests that pin
+them, to change identifiers no interface ever prints — and it would break the
+one-letter distinction below, which people already trip over.
 
 This page is about the decisions. What each control does is in
 [the interface](interface.md); the worker's own HTTP contract is in
@@ -275,11 +284,174 @@ of a render, not its contents.
 
 ---
 
+## Finding it again
+
+Everything above is about where the bytes go. None of it answered the question a
+user actually asks, and the feature shipped without an answer: *where is the
+video I just made?*
+
+The store is content-addressed, so a hash says what a file contains and nothing
+about who wanted it. The only link back to a finished render was the job — and
+`VideoQueue._trim` keeps the newest fifty finished ones, while the browser holds
+the id for as long as the tab lives. The download button in the export panel was
+therefore the whole of it: close the panel, and a file that was sitting on the
+server became unreachable. **An export nobody can find is not an export.**
+
+Three things close it, and they are the same three the image library already
+has.
+
+**A film is attached to the project it was cut in.** `projects` on the store's
+metadata, a **list** and not a field — for exactly the reason `owners` is a set
+(M8): the store deduplicates, so two projects that compose byte-identical
+timelines land on one entry and the second must not erase the first. The id
+travels `POST /api/video/render` → `VideoQueue.enqueue` → the render callback →
+`store.put`, because that callback is the only place that will still know it. It
+travels **beside** the timeline and never inside it: the schema is `.strict()`,
+and a field the worker does not render has no business in the document.
+
+A render started outside a project is filed under none. `null`, never a guess —
+the honesty corollary M8 states about images whose owner is unknown.
+
+**`GET /api/video/exports` lists what this account rendered.** Owned films only,
+and the filter lives in `store.list({ owner })` rather than in the route, so it
+cannot drift from `ownedBy` next door: `GET /api/video/:hash` refuses a hash the
+account did not render — before it checks whether the file exists, deliberately,
+so the route cannot be used as an oracle — and a listing naming other people's
+exports would hand back exactly what that check withholds. `owners` is stripped
+on the way out, like every other listing in this repository.
+
+**Media grows a third tab, "Motion".** Its own tab, not a row in "Videos", and the
+reason is the one the store was built on. A `videos` entry is a scroll sequence:
+poster, frame count, a "Recut" button, played by scrubbing `/f/1.jpg …
+/f/N.jpg`. A film has none of those, and `VideoPlayer.tsx` handed one would ask
+the server for frames nobody ever cut — a 404 per position of the scrubber. A
+film is an mp4; it plays in a `<video>` element pointed at `/api/video/:hash`,
+which now answers **inline** unless `?download=1` is asked for, exactly as
+`GET /api/images/:hash` already spells it. Serving it as an attachment and
+relying on browsers ignoring `Content-Disposition` on a subresource happens to
+work, and nobody promised it would.
+
+Download and delete sit on the card, as they do for an image. Deletion is
+explicit and remains the only thing that removes a file (M8); it names the
+projects that were still pointing at the film, because a deduplicated store means
+taking it out of one project takes it out of all of them.
+
+Finally, the export panel **says where the film went** rather than only offering
+a link that disappears with it. Two sentences, because the promise is not the
+same: a film cut inside a project is filed under that project, and one cut from
+the standalone Media page is filed under none — and saying otherwise would be a
+plain untruth about somebody's own library.
+
+---
+
+## Attaching a film to a screen
+
+A film in Media is findable. It is still not *in the work*: a project is a board
+of screens, and a montage sitting in a tab beside it is a file, not a piece of
+the design. So a screen can carry one.
+
+**There are two relations between a screen and a media, and they must not be
+confused.** Everything about this feature follows from keeping them apart.
+
+1. **An image inside the code.** `src/lib/screenImages.ts` finds
+   `/api/images/HASH` in `Screen.code` and replaces it by string substitution at
+   offsets an AST vouched for. That is generated **source** being rewritten — no
+   model call, nothing restyled, and "Revert" undoes it like any other edit. It
+   deliberately cannot ADD an image to a screen that has none: that changes the
+   component's structure, which is a generation.
+
+2. **A media attached to the screen.** `Screen.attachedMedia` — like
+   `imageHash` and `design` — is **metadata**. Nothing of it is in the code; the
+   canvas draws it on the card column beside the frame (`CARD_W`, in world
+   units, not drawn below `CARD_MIN_SCALE`).
+
+A film can only ever be the second kind. The generated component contains no
+`<video>` tag, and injecting one would be a generation rather than a
+substitution — a different operation, with a model call, a repair loop and an
+undo behind it.
+
+That is why **"Change the media" has two sections with two headings**, one of
+which says it rewrites the screen's code and the other that it does not. In a
+single list, "replace" would mean "rewrite the source" on one row and "point the
+card elsewhere" on the next, with nothing on screen telling them apart.
+
+**The field is on the whitelist.** `normalizeScreen` rebuilds every screen from
+a fixed list of fields, so one that is missing from it is dropped in silence at
+the next reload — it survives the whole session that added it and is gone the
+next morning. `attachedMedia.test.ts` asks that question directly.
+
+**Two kinds, one field.** `{ kind: 'film' | 'sequence', hash, frames? }`. A
+scroll sequence can be attached too, and it carries its frame count for the
+reason `Screen.videoFrames` exists: a sequence addressed with the wrong count
+draws its last frame for the rest of the scroll. A hash plus a flag saying which
+store to look in would let a caller read a film's hash out of the sequence
+library and get a 404 it cannot explain.
+
+**No poster is cut.** Producing a still from an mp4 means ffmpeg, the one
+dependency this path deliberately does not have. The card uses
+`<video preload="metadata">` and lets the browser draw the first frame, out of
+bytes it would have fetched for a play anyway — so the server does no extra
+work and the card shows the film rather than a grey rectangle. A sequence has a
+real poster, cut at ingest, so that one is an `<img>` — and it carries the re-cut
+stamp whenever the caller knows it, because posters are served `immutable` for a
+year while the hash comes from the SOURCE: without the stamp, a re-cut sequence
+shows last year's still for a year. The dialog passed it in its picker grid and
+not on the thumbnail of the media already attached, three inches above.
+
+**An unknown hash does not break anything** (Q1). The libraries are separate
+stores and can lose a file at any time, and only an explicit deletion removes one
+(M8) — so a screen keeps pointing at a media that went away, the card still
+draws, and the dialog says the media is gone and offers to detach it. Detaching
+is the only thing that clears the field.
+
+**And the card says it too**, which took a second pass to get right. "The card
+still draws" was true and not enough: what it drew was a black rectangle under
+the ordinary caption, which is also exactly what a cut opening on a black frame
+draws. A missing file has no other tell — `GET /api/video/:hash` answers `403`
+for a deleted export, since it checks ownership before existence on purpose, and
+neither a `403` nor a `404` is visible inside a `<video>` tag. So the element's
+own `error` event switches the caption to `Media not found` and the tooltip says
+it stays attached until you detach it. Nothing is retried and nothing is
+detached: only an explicit detach clears the field.
+
+Clicking the card plays the film, the way clicking the image card opens the
+lightbox — `FilmLightbox`, shared with the Media tab so there is one `<video>`
+for one file. That component grew the same `error` handler at the same time, and
+for a sharper reason: the Media tab only ever opens a film the listing has just
+named, while the card opens whatever hash the screen carries. Without it, a click
+on a dead card answered with a black rectangle, a transport bar and not one word.
+A sequence goes to Média instead: it is played by scrubbing numbered stills, which
+`VideoPlayer` already does properly, and a second scrubber written for one card is
+two players that drift.
+
+---
+
 ## Starting from one image
 
-The export panel can also make the pictures. Describe a subject, get one model
+The Motion panel can also make the pictures. Describe a subject, get one model
 image, keep or regenerate it, then ask for two to six variants and tick the ones
 worth cutting.
+
+**Or take the model image out of the media library**, which the path refused to
+allow at first: the only way to a set of variants was to pay a provider for a
+picture, even with the exact one you wanted already sitting in the library. It is
+the same `ImagePicker` the scene list uses, so "choose an image" is one component
+in this panel rather than two that drift apart.
+
+A library picture **skips the first gate**, and that is a decision rather than an
+omission. Gate 1 asks "do you want to keep THIS one?" about a picture a provider
+has just invented, which nobody has seen, and which arrived `pending` for exactly
+that reason. A library image is the opposite on all three counts: it exists, it
+is confirmed, and the user picked it out of a grid of its own thumbnails one
+click ago. A confirmation with no question inside it is the kind people learn to
+click through — and the gate that does matter, the one over the variants, is
+downstream of that habit. The panel says so in a sentence, because an unexplained
+missing confirmation is what somebody puts back six months later.
+
+The step that follows now shows the source picture in small. It used to sit
+directly under a gate displaying it full width, so there was nothing to say; two
+of the three ways in no longer pass through that gate, and `Produce 4 variants`
+of an unnamed image is a button nobody should have to trust.
 
 The variation axes are a fixed table — angle, framing, light, background,
 orientation — and **no model is asked to invent them**. What a multi-step flow
@@ -457,7 +629,7 @@ accounts per file. Either is enough to say yes.
 | `server/video/worker.js` | HTTP client for the render worker, and `assertWorkerTarget` |
 | `server/video/store.js` | The finished file, kept whole. **Not** `server/videos/` |
 | `server/video/routes.js` | `/api/video`, the pending guard, and the admin router |
-| `src/components/VideoExportDialog.tsx` | The panel. Opened from the toolbar, never from a screen |
+| `src/components/VideoExportDialog.tsx` | The Motion panel. Opened from the toolbar, never from a screen |
 | `worker/video/` | The Remotion worker: separate sub-project, separate image, separate README |
 | `tests/video-worker-separation.test.js` | What actually keeps Remotion out of Mocky's manifest |
 

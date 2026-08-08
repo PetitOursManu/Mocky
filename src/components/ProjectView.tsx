@@ -2,7 +2,8 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
@@ -32,8 +33,9 @@ import { SaveDesignDialog } from './DesignLibrary'
 import DesignSpecSheet from './DesignSpecSheet'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
-import Bibliotheque from './Bibliotheque'
+import Bibliotheque, { type MediaTab } from './Bibliotheque'
 import ImageLightbox from './ImageLightbox'
+import FilmLightbox from './FilmLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
 import VideoExportDialog from './VideoExportDialog'
 import AuditPanel from './AuditPanel'
@@ -141,9 +143,11 @@ const EXPORT_TARGETS: [StackTarget, string, string][] = [
 /**
  * A toolbar action that folds into the "Plus" menu below md.
  *
- * Data rather than JSX because the bar and the menu offer the same six actions,
- * and the alternative was copying six blocks of `onClick` — which is how a mode
- * ends up toggling on the bar and doing nothing in the menu.
+ * Data rather than JSX because the bar and the menu offer the same eight
+ * actions, and the alternative was copying eight blocks of `onClick` — which is
+ * how a mode ends up toggling on the bar and doing nothing in the menu. (Count
+ * them in `foldedTools` before trusting that number; it said six for two tools
+ * longer than it was true.)
  */
 type FoldedTool = {
   id: string
@@ -235,8 +239,27 @@ export default function ProjectView({
     })
   }, [])
   const [showLibrary, setShowLibrary] = useState(false)
+  /**
+   * Which media tab the library opens on next time.
+   *
+   * Held here rather than inside `Bibliotheque` because the caller is what knows
+   * WHY it is being opened: "Media" in the toolbar means images, "see it in
+   * Media" after a render means the cut that was just made. Once the library is
+   * open, which tab is showing is the user's business again — this only decides
+   * the first one.
+   */
+  const [libraryTab, setLibraryTab] = useState<MediaTab>('images')
   /** Image opened full size (from the canvas card or the library grid). */
   const [lightboxHash, setLightboxHash] = useState<string | null>(null)
+  /**
+   * A film opened for playback from the attached-media card on the canvas.
+   *
+   * The counterpart of `lightboxHash` for the other kind of attachment. A
+   * sequence has no state here on purpose: it is played by scrubbing numbered
+   * stills, which `VideoPlayer` already does properly inside Média — a second
+   * scrubber written for one card is two players that would drift.
+   */
+  const [playingFilm, setPlayingFilm] = useState<string | null>(null)
   /** The screen whose images are being swapped, if any. Id, not the screen: the
    *  dialog must follow the record as it is rewritten, not a stale copy. */
   const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
@@ -1828,6 +1851,23 @@ export default function ProjectView({
   }
 
   /**
+   * Attach a film or a sequence to a screen, or detach it with null.
+   *
+   * The other relation between a screen and a media, and it is deliberately not
+   * `swapScreenImages` with a flag: nothing here reads or writes `code`, so
+   * there is no `previousCode` to keep and no component name to re-detect. Those
+   * belong to a source rewrite, and carrying them on a metadata write would
+   * make "Revert" offer to undo an attachment by restoring an old source.
+   *
+   * Every caller goes through here — the export panel's picker and the media
+   * dialog's second section — so a field that has to survive `normalizeScreen`
+   * has one writer to check.
+   */
+  function attachScreenMedia(screenId: string, media: AttachedMedia | null) {
+    onUpdateScreen(screenId, { attachedMedia: media ?? undefined })
+  }
+
+  /**
    * Change only the visible text of the picked element (Lot C.2). Tries a
    * deterministic in-place swap first (instant, free, no model) and falls back
    * to a targeted LLM edit when the text isn't a unique verbatim match.
@@ -1918,6 +1958,7 @@ export default function ProjectView({
       {showLibrary && (
         <Bibliotheque
           projectId={project.id}
+          initialTab={libraryTab}
           pinned={pinnedImages}
           onTogglePin={togglePin}
           pinnedVideo={pinnedVideo}
@@ -1933,20 +1974,44 @@ export default function ProjectView({
         />
       )}
       {lightboxHash && <ImageLightbox hash={lightboxHash} onClose={() => setLightboxHash(null)} />}
+      {playingFilm && <FilmLightbox hash={playingFilm} onClose={() => setPlayingFilm(null)} />}
       {imageSwapScreen && (
         <ScreenImagesDialog
           screenName={imageSwapScreen.name}
           code={imageSwapScreen.code}
           projectId={project.id}
+          attached={imageSwapScreen.attachedMedia}
           onReplace={(code) => swapScreenImages(imageSwapScreen.id, code)}
+          onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
         />
       )}
       {showVideoExport && (
         <VideoExportDialog
           projectId={project.id}
+          /* Read-only, and only what the picker draws — see AttachTarget. The
+             thumbnail cache is keyed on the code, so it travels with the name. */
+          screens={screens.map((s) => ({
+            id: s.id,
+            name: s.name,
+            code: s.code,
+            attachedHash: s.attachedMedia?.kind === 'film' ? s.attachedMedia.hash : undefined,
+          }))}
+          onAttachFilm={(screenId, hash) => attachScreenMedia(screenId, filmMedia(hash))}
           jobId={videoJobId}
           onJobId={setVideoJobId}
+          /*
+           * Closes this panel and opens the library on the cut. Both, in that
+           * order: leaving the export panel underneath would stack two modals
+           * over each other, and the render it was watching is finished — the
+           * job id survives in `videoJobId`, so reopening the panel still finds
+           * it.
+           */
+          onOpenMedia={() => {
+            setShowVideoExport(false)
+            setLibraryTab('films')
+            setShowLibrary(true)
+          }}
           onClose={() => setShowVideoExport(false)}
         />
       )}
@@ -1975,7 +2040,13 @@ export default function ProjectView({
         museResult={museResult}
         museImages={museImages}
         museStage={museStage}
-        onOpenLibrary={() => setShowLibrary(true)}
+        onOpenLibrary={() => {
+                      // Back to images. `libraryTab` is sticky so that "see it
+                      // in Media" can land on the cut; leaving it there would
+                      // make the ordinary Media button open on Motion ever after.
+                      setLibraryTab('images')
+                      setShowLibrary(true)
+                    }}
         pinned={pinnedImages}
         onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
         museImageError={museImageError}
@@ -2056,6 +2127,30 @@ export default function ProjectView({
       // cleared the one whose name was in the same paragraph. See lib/rightSlot.
       onClick: () => setRightSlot((s) => toggleSlot(s, 'audit')),
     },
+    /*
+     * Last of the first group — the panels and modes — and not with Démo and
+     * Export past the rule.
+     *
+     * That second group is what LEAVES the project: a demo of screens that
+     * exist, an archive of code that exists. Motion makes something that did not
+     * exist a minute ago, out of the media library, and it opens a panel exactly
+     * as Design System and Audit do. Sitting beside Export it read as a fourth
+     * output format, which is the one thing it is not.
+     *
+     * Still deliberately NOT in a screen's context menu: a cut is made from the
+     * media library, it does not read a screen and cannot be derived from one.
+     * Hanging it off a screen would promise a relationship the pipeline does not
+     * have, and the first thing the panel does — ask which pictures to use —
+     * would contradict it.
+     */
+    {
+      id: 'video',
+      icon: 'film',
+      label: t('video.toolbarLabel'),
+      title: t('video.toolbarTitle'),
+      active: showVideoExport,
+      onClick: () => setShowVideoExport((v) => !v),
+    },
     {
       id: 'demo',
       icon: 'play',
@@ -2072,23 +2167,6 @@ export default function ProjectView({
       title: t('project.exportTitle'),
       active: exportMenu,
       onClick: () => setExportMenu((v) => !v),
-    },
-    /*
-     * In the "produce something from this project" group, beside Démo and
-     * Export, and deliberately NOT in a screen's context menu.
-     *
-     * The film is cut from the media library; it does not read a screen, and it
-     * cannot be derived from one. Hanging it off a screen would have promised a
-     * relationship the pipeline does not have, and the first thing the dialog
-     * does — ask which pictures to use — would have contradicted it.
-     */
-    {
-      id: 'video',
-      icon: 'film',
-      label: t('video.toolbarLabel'),
-      title: t('video.toolbarTitle'),
-      active: showVideoExport,
-      onClick: () => setShowVideoExport((v) => !v),
     },
   ]
 
@@ -2125,6 +2203,20 @@ export default function ProjectView({
         onResizeScreen={(id, box) => onUpdateScreen(id, box)}
         onRenameScreen={(id, name) => onUpdateScreen(id, { name })}
         onOpenImage={setLightboxHash}
+        /*
+         * A film plays here; a sequence goes to Média.
+         *
+         * Not an omission. A scroll sequence is played by scrubbing
+         * `/f/1.jpg … /f/N.jpg`, which `VideoPlayer` already does properly in
+         * the Vidéos tab — writing a second scrubber for one card is two
+         * players that drift, and the first thing to drift would be the
+         * cache-busting `?v=` a re-cut depends on.
+         */
+        onOpenScreenMedia={(media) => {
+          if (media.kind === 'film') return setPlayingFilm(media.hash)
+          setLibraryTab('videos')
+          setShowLibrary(true)
+        }}
         onDeleteScreen={(id) => {
           if (confirm(t('project.deleteScreenConfirm'))) {
             onRemoveScreen(id)
@@ -2398,8 +2490,8 @@ export default function ProjectView({
           </Button>
 
           {/* `contents` and not `flex`: at md and above this wrapper must add no
-              box of its own, or the six buttons would space as one item against
-              the three before them. */}
+              box of its own, or the folded buttons would space as one item
+              against the three before them. */}
           <div className="hidden md:contents">
             {foldedTools.map((tool) => (
               <Fragment key={tool.id}>
@@ -2639,7 +2731,13 @@ export default function ProjectView({
                     images={museImages}
                     stage={museStage}
                     busy={busy}
-                    onOpenLibrary={() => setShowLibrary(true)}
+                    onOpenLibrary={() => {
+                      // Back to images. `libraryTab` is sticky so that "see it
+                      // in Media" can land on the cut; leaving it there would
+                      // make the ordinary Media button open on Motion ever after.
+                      setLibraryTab('images')
+                      setShowLibrary(true)
+                    }}
                     pinned={pinnedImages}
                     onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
                     imageError={museImageError}

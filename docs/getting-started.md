@@ -311,7 +311,7 @@ It has to be convincing, so it is worth a slower and more expensive model.
 Leaving its provider empty makes it fall back to `content`.
 
 **`edit`** does image-to-image: an existing picture goes in, a derivative comes
-out. It is the profile behind the video export's variants. Optional like
+out. It is the profile behind Motion's variants. Optional like
 `inspiration`, but optional **the other way round**: leaving it empty falls back
 to nothing at all, and means image-to-image is off on this instance. A
 text-to-image model handed a source image would return a picture drawn from the
@@ -354,7 +354,7 @@ with its own footage.
 
 ---
 
-## Video export
+## Motion
 
 A different feature from the one above, and the singular is how you tell them
 apart in the code: `server/videos/` cuts scroll sequences, `server/video/` builds
@@ -365,7 +365,7 @@ licensing decision rather than a technical one. Remotion is free for individuals
 non-profits and companies with up to three employees, and its licence does not
 address redistribution inside a self-hosted product — so it lives in a separate
 image nobody builds by accident. Why the whole feature is shaped around that is
-in [Video export](video-export.md).
+in [Motion](video-export.md).
 
 Three steps, in this order.
 
@@ -381,11 +381,11 @@ the moment the licence question becomes yours: read
 <https://www.remotion.dev/> first, and note that the threshold counts **your
 organisation's employees, not this instance's accounts**.
 
-**2. Turn it on in Admin → Video export.**
+**2. Turn it on in Admin → Motion.**
 
 | Setting | Detail |
 |---|---|
-| Enable video export | The master switch. Off, nobody exports, whatever the scope says |
+| Enable Motion | The master switch. Off, nobody exports, whatever the scope says |
 | Scope | `Everyone`, or an allowlist. An administrator is **not** allowed implicitly — a render costs CPU and is counted per account, so access is granted explicitly, to yourself included |
 | Render worker URL | `http://video-worker:3030` by default, which is the compose service name on an internal bridge. It looks like it should not work — it is the third administrator-only bypass of the SSRF guard, and the reasoning is in [the invariants](architecture/invariants.md) |
 | Remotion licence key | Optional. Stored server-side, never returned to the browser. Entering one turns on the outbound telemetry a licensed render requires from Remotion 5.0 onwards; with no key the worker container has no network egress at all |
@@ -395,7 +395,7 @@ The panel probes the worker and reports `Available` with its version,
 That last one is worth reading carefully: nothing was contacted, so restarting
 the worker changes nothing — only `http://` and `https://` are accepted.
 
-**3. Use it.** `More → Video` inside a project. Twenty scenes at most, two
+**3. Use it.** `More → Motion` inside a project. Twenty scenes at most, two
 minutes at most, and no audio.
 
 Variants — "Start from an image" in that panel — are the one part that leans on

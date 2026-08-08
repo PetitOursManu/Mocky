@@ -18,6 +18,14 @@
 //   • `owners` as a SET rather than a field, for exactly the reason M8 gives:
 //     the store deduplicates, so the second person to arrive must not erase the
 //     first, and `server/usage.js` splits the footprint between them;
+//   • `projects` as a LIST, for the same reason and not a different one. A film
+//     used to be reachable only through the job that made it, which the journal
+//     forgets after fifty more exports — so the ordinary outcome of the feature
+//     was a file on the volume that nothing in the interface could find again.
+//     Attaching it to the project it was cut in is what makes the Media tab able
+//     to ask for it; a single `project` field would have been wrong for the same
+//     reason a single `owner` was, because two projects can arrive at the same
+//     bytes and the second must not erase the first;
 //   • atomic writes, and an index that is rebuilt rather than trusted;
 //   • nothing is ever deleted implicitly. `remove()` is the only thing that
 //     unlinks a file.
@@ -172,8 +180,26 @@ export class VideoExportStore {
     }
   }
 
-  list() {
-    return Object.values(this.state.byHash).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+  /**
+   * Films, newest first.
+   *
+   * `owner` is the filter the listing route exists for, and it lives here rather
+   * than in the route so the answer cannot drift from `ownedBy` next door:
+   * `GET /api/video/:hash` refuses a hash the account did not render, and a list
+   * that named it anyway would hand back the one thing that check withholds.
+   *
+   * Unknown options are ignored on purpose — `fileItems()` in server/usage.js
+   * calls `list({ includePending: true })` against this store and the image
+   * library alike, and the two only keep sharing that reader while an option one
+   * of them has never heard of costs nothing.
+   *
+   * @param {object} [f] { owner, project }
+   */
+  list(f = {}) {
+    let items = Object.values(this.state.byHash)
+    if (f.owner) items = items.filter((m) => (m.owners || []).includes(f.owner))
+    if (f.project) items = items.filter((m) => (m.projects || []).includes(f.project))
+    return items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
   }
 
   /** See `owners` in `put`. */
@@ -184,6 +210,30 @@ export class VideoExportStore {
     // Bounded: this index is re-serialised whole on every write.
     if (meta.owners.length >= 20) return false
     meta.owners.push(owner)
+    return true
+  }
+
+  /**
+   * Record that this film was cut from `project`.
+   *
+   * Sliced and bounded exactly as `ImageLibrary` slices `project` and bounds
+   * `owners`: the string arrives from a request body and lands in an index that
+   * is re-serialised whole on every write, so an unbounded one is both a storage
+   * hole and a growing pause on the event loop.
+   *
+   * Absent on everything rendered before this field existed. Those films are
+   * listed under no project rather than guessed into one — the honesty
+   * corollary M8 states about unowned images, applied to the same shape.
+   *
+   * @returns {boolean} whether the list changed, so the caller can persist once
+   */
+  _addProject(meta, project) {
+    if (!meta || typeof project !== 'string' || !project) return false
+    if (!Array.isArray(meta.projects)) meta.projects = []
+    const id = project.slice(0, 100)
+    if (meta.projects.includes(id)) return false
+    if (meta.projects.length >= 20) return false
+    meta.projects.push(id)
     return true
   }
 
@@ -209,7 +259,7 @@ export class VideoExportStore {
    * lands on disk, byte for byte, which is also what makes the hash meaningful.
    *
    * @param {Buffer} buffer  the bytes the render worker returned
-   * @param {object} spec    { owner, format, aspectRatio, scenes, durationMs }
+   * @param {object} spec    { owner, project, format, aspectRatio, scenes, durationMs }
    * @returns {{hash:string, meta:object, fromCache:boolean}}
    */
   put(buffer, spec = {}) {
@@ -218,10 +268,17 @@ export class VideoExportStore {
 
     // Already here: two people rendering the same timeline from the same images
     // is the ordinary case for a shared instance, and re-writing identical bytes
-    // would charge the budget twice for one file. Both are recorded as owners.
+    // would charge the budget twice for one file. Both are recorded as owners,
+    // and both projects on the entry — the second arrival adds, it never
+    // replaces.
     const known = this.state.byHash[hash]
     if (known && this.filePath(hash)) {
-      if (this._addOwner(known, spec.owner)) this._persist()
+      // Both called, never short-circuited: `||` would skip the project the
+      // moment the owner was already known, which is exactly the case a second
+      // export of the same film from a second project produces.
+      const gainedOwner = this._addOwner(known, spec.owner)
+      const gainedProject = this._addProject(known, spec.project)
+      if (gainedOwner || gainedProject) this._persist()
       return { hash, meta: known, fromCache: true }
     }
 
@@ -273,9 +330,11 @@ export class VideoExportStore {
       durationMs: Number.isFinite(spec.durationMs) ? spec.durationMs : 0,
       aspectRatio: typeof spec.aspectRatio === 'string' ? spec.aspectRatio : '',
       owners: [],
+      projects: [],
       createdAt: this.now(),
     }
     this._addOwner(meta, spec.owner)
+    this._addProject(meta, spec.project)
     this.state.byHash[hash] = meta
     this._persist()
     return { hash, meta, fromCache: false }

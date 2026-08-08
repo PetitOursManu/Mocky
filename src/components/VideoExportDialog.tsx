@@ -43,6 +43,7 @@ import {
   discardedCount,
   emptyVariantFlow,
   keepModel,
+  pickModel,
   stepOf,
   toggleChosen,
   variantBlocker,
@@ -63,8 +64,22 @@ import {
   type OverlayPosition,
   type Transition,
 } from '../lib/video/timeline'
+import { getThumb } from '../lib/thumbnails'
 import { ImagePicker } from './ImagePicker'
-import { Banner, Button, ButtonLink, Field, Icon, IconButton, Input, Modal, Select, Spinner, Textarea } from '../ui'
+import {
+  Banner,
+  Button,
+  ButtonLink,
+  Field,
+  Icon,
+  IconButton,
+  Input,
+  Modal,
+  Segmented,
+  Select,
+  Spinner,
+  Textarea,
+} from '../ui'
 import { useLang, useT } from '../i18n'
 
 export const MOTION_KEYS: Record<KenBurns, string> = {
@@ -86,6 +101,27 @@ export const OVERLAY_KEYS: Record<OverlayPosition, string> = {
   top: 'video.overlayTop',
   center: 'video.overlayCenter',
   bottom: 'video.overlayBottom',
+}
+
+/**
+ * Which of the two ways of filling the timeline is on screen.
+ *
+ * They used to be two stacked blocks, both always drawn, and the panel was
+ * taller than a 900-pixel window before a single scene had been added — so the
+ * total, the ceiling and the render button, which live in the footer precisely
+ * to stay visible, were the only things anybody could see without scrolling.
+ * Behind a switch, one of them costs nothing.
+ *
+ * A session preference, deliberately not persisted: which form somebody wants is
+ * a fact about the film they are making now, and a setting that remembered it
+ * would open the panel on "start from an image" for a user who chose that once,
+ * months ago, for one project.
+ */
+export type FillMode = 'compose' | 'image'
+
+export const FILL_MODE_KEYS: Record<FillMode, string> = {
+  compose: 'video.composeTitle',
+  image: 'video.fromImageTitle',
 }
 
 /**
@@ -158,20 +194,53 @@ interface Failure {
  * field of a `VideoTimeline`, and a hand-written composition in the worker is
  * the only thing that ever turns those fields into pixels.
  *
- * There are two ways to fill it in and only one form. "Propose a cut" sends a
- * sentence and the images already picked to POST /api/video/compose, and what
- * comes back is written into the SAME controls, all of them still live — the
- * model proposes, the user disposes. It is a pre-fill, not a mode: a read-only
- * preview would have to be taken whole or thrown away whole, and the first thing
- * anyone wants to do with a proposed running order is move two scenes.
+ * There are two ways to fill it in, one switch between them, and only one form.
+ * "Propose a cut" sends a sentence and the images already picked to
+ * POST /api/video/compose, and what comes back is written into the SAME
+ * controls, all of them still live — the model proposes, the user disposes. It
+ * is a pre-fill, not a mode: a read-only preview would have to be taken whole or
+ * thrown away whole, and the first thing anyone wants to do with a proposed
+ * running order is move two scenes. The switch is about which *assistant* is on
+ * screen; neither of them is a mode the timeline is in.
  */
+/**
+ * One screen this panel may hang the finished film on.
+ *
+ * The three fields are what the picker draws and nothing more: `code` is there
+ * only because `getThumb` keys its cache on it — a thumbnail taken from an older
+ * source must not be shown for the screen as it is now. Handing the whole
+ * `Screen` would have made this panel a second reader of a record it has no
+ * business knowing, and the point of the picker is to be read-only.
+ */
+export interface AttachTarget {
+  id: string
+  name: string
+  code: string
+  /** The film already on that screen, if any — so the grid can say "this one". */
+  attachedHash?: string
+}
+
 export default function VideoExportDialog({
   projectId,
+  screens,
+  onAttachFilm,
   jobId,
   onJobId,
+  onOpenMedia,
   onClose,
 }: {
   projectId?: string
+  /**
+   * The screens the film could be attached to.
+   *
+   * Absent when the panel was opened outside a project — from the standalone
+   * Media page — and that is a real state rather than an empty list: there is no
+   * screen to choose, so the panel says why instead of drawing a picker with
+   * nothing in it.
+   */
+  screens?: AttachTarget[]
+  /** Hangs the finished film on a screen. The caller owns the write-back. */
+  onAttachFilm?: (screenId: string, hash: string) => void
   /**
    * A render this account started earlier in the session.
    *
@@ -182,6 +251,17 @@ export default function VideoExportDialog({
    */
   jobId: string | null
   onJobId: (id: string | null) => void
+  /**
+   * Take the user to the film, rather than only naming where it went.
+   *
+   * Optional because this panel has to work without a media library to open —
+   * and the sentence that says where the cut is stays either way. A download
+   * link that vanishes when the panel closes was the whole defect: the file was
+   * being produced and then being unreachable, so "it is in Media, under Motion,
+   * attached to this project" is the part that must not depend on a callback
+   * being wired.
+   */
+  onOpenMedia?: () => void
   onClose: () => void
 }) {
   const t = useT()
@@ -194,6 +274,11 @@ export default function VideoExportDialog({
   const [starting, setStarting] = useState(false)
   const [brief, setBrief] = useState('')
   const [proposing, setProposing] = useState(false)
+  /**
+   * Which form the switch is showing. Component state, so it survives every
+   * round trip inside the open panel and nothing more — see `FillMode`.
+   */
+  const [fill, setFill] = useState<FillMode>('compose')
   /** What the server said about the proposal. English, verbatim — see the banner. */
   const [notices, setNotices] = useState<string[]>([])
 
@@ -359,7 +444,10 @@ export default function VideoExportDialog({
     setFailure(null)
     setPollStumbled(false)
     try {
-      const queued = await startVideoRender(toTimelineInput(draft))
+      // The project travels with the render, and it is what makes the finished
+      // film findable afterwards: the store is content-addressed, so once the
+      // bytes exist nothing else knows where they were cut from.
+      const queued = await startVideoRender(toTimelineInput(draft), { project: projectId })
       setJob(queued)
       onJobId(queued.id)
     } catch (e) {
@@ -427,7 +515,17 @@ export default function VideoExportDialog({
           </Banner>
         )}
 
-        {job && <JobPanel job={job} stumbled={pollStumbled} onNewCut={newCut} />}
+        {job && (
+          <JobPanel
+            job={job}
+            stumbled={pollStumbled}
+            inProject={Boolean(projectId)}
+            screens={screens}
+            onAttachFilm={onAttachFilm}
+            onOpenMedia={onOpenMedia}
+            onNewCut={newCut}
+          />
+        )}
 
         {/* Shown whether or not a timeline came back, and that is the point:
             with `timeline: null` these sentences are the only account of what
@@ -453,55 +551,105 @@ export default function VideoExportDialog({
           picker it would sit under twenty scene rows in a body that scrolls,
           where nobody discovers it — and the panel would look like a manual
           editor with a hidden shortcut rather than two ways in.
+
+          ONE block for both ways in, and the switch is the section head. Stacked,
+          the two of them filled a 900-pixel window on their own: everything that
+          matters — the scenes, the total, the render button — started below the
+          fold on a panel nobody had touched yet. They are also alternatives, not
+          steps, and two open forms said the opposite.
         */}
         <div className="mt-4 border border-line-soft bg-ink/5 p-3">
           <div className="section-head">
-            <span className="kicker text-accent-ink">{t('video.composeTitle')}</span>
-          </div>
-          <Field label={t('video.composeBrief')} hint={t('video.composeHint')}>
-            {(p) => (
-              <Textarea
-                {...p}
-                rows={2}
-                value={brief}
-                disabled={frozen}
-                maxLength={BRIEF_MAX_LENGTH}
-                placeholder={t('video.composePlaceholder')}
-                onChange={(e) => setBrief(e.currentTarget.value)}
+            <span className="kicker text-accent-ink">{t('video.sourceTitle')}</span>
+            <span className="ml-auto flex">
+              <Segmented
+                label={t('video.sourceTitle')}
+                value={fill}
+                options={[
+                  { value: 'compose', label: t(FILL_MODE_KEYS.compose) },
+                  { value: 'image', label: t(FILL_MODE_KEYS.image) },
+                ]}
+                /* Segmented turns itself off when the active segment is clicked
+                   again — correct for a canvas mode, wrong here: there is no
+                   third state, and clicking the position you are already on
+                   would empty the block. */
+                onChange={(v) => v && setFill(v)}
               />
-            )}
-          </Field>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={frozen || composeBlocked !== null}
-              onClick={propose}
-            >
-              <Icon name="sparkle" size={15} />
-              {proposing ? t('video.composing') : t('video.compose')}
-            </Button>
-            {/* Cancellable, and visibly so: this is a model call on somebody
-                else's hardware, and the only alternative to a stop button is
-                closing the panel to get out of it. */}
-            {proposing && (
-              <>
-                <Spinner />
-                <Button variant="ghost" size="sm" onClick={cancelPropose}>
-                  {t('common.cancel')}
-                </Button>
-              </>
-            )}
-            <span className="ml-auto font-mono text-caption text-ink-faint">
-              {t('video.briefCount', { n: brief.length, max: BRIEF_MAX_LENGTH })}
             </span>
           </div>
-          {/* Next to the disabled button, for the reason the budget line exists:
-              a control that will not fire and will not say why is what this
-              whole panel was built to avoid. */}
-          {composeBlocked && !proposing && (
-            <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(COMPOSE_BLOCKER_KEYS[composeBlocked])}</p>
-          )}
+
+          {/*
+            Hidden, never unmounted, and that is load-bearing on the second one.
+
+            The variant flow holds a picture the provider has already been paid
+            for and nobody has confirmed yet, plus a call that may be in flight.
+            Unmounting it on a tab switch would abort that call and forget that
+            image — which is not a deletion (M8), so the picture would stay on
+            the volume, pending for good, with nothing left pointing at it. The
+            compose form is kept the same way for the ordinary reason: a brief
+            somebody typed must survive a look at the other tab.
+          */}
+          <div hidden={fill !== 'compose'}>
+            <Field label={t('video.composeBrief')} hint={t('video.composeHint')}>
+              {(p) => (
+                <Textarea
+                  {...p}
+                  rows={2}
+                  value={brief}
+                  disabled={frozen}
+                  maxLength={BRIEF_MAX_LENGTH}
+                  placeholder={t('video.composePlaceholder')}
+                  onChange={(e) => setBrief(e.currentTarget.value)}
+                />
+              )}
+            </Field>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={frozen || composeBlocked !== null}
+                onClick={propose}
+              >
+                <Icon name="sparkle" size={15} />
+                {proposing ? t('video.composing') : t('video.compose')}
+              </Button>
+              {/* Cancellable, and visibly so: this is a model call on somebody
+                  else's hardware, and the only alternative to a stop button is
+                  closing the panel to get out of it. */}
+              {proposing && (
+                <>
+                  <Spinner />
+                  <Button variant="ghost" size="sm" onClick={cancelPropose}>
+                    {t('common.cancel')}
+                  </Button>
+                </>
+              )}
+              <span className="ml-auto font-mono text-caption text-ink-faint">
+                {t('video.briefCount', { n: brief.length, max: BRIEF_MAX_LENGTH })}
+              </span>
+            </div>
+            {/* Next to the disabled button, for the reason the budget line
+                exists: a control that will not fire and will not say why is what
+                this whole panel was built to avoid. */}
+            {composeBlocked && !proposing && (
+              <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(COMPOSE_BLOCKER_KEYS[composeBlocked])}</p>
+            )}
+          </div>
+
+          {/* Beside the scene picker, never instead of it. The picker below is
+              how somebody uses pictures they already have, and it stays the
+              short way in; this one is for when they do not exist yet, and it
+              costs up to seven provider calls and two decisions to walk. */}
+          <div hidden={fill !== 'image'}>
+            <StartFromImage
+              projectId={projectId}
+              access={access}
+              room={MAX_SCENES - draft.scenes.length}
+              disabled={frozen}
+              onAdd={(hashes) => edit((d) => hashes.reduce(addScene, d))}
+              onFailure={setFailure}
+            />
+          </div>
         </div>
 
         <div className="section-head mt-5">
@@ -547,21 +695,6 @@ export default function VideoExportDialog({
             />
           )}
         </div>
-
-        {/* Beside the picker, never instead of it. The picker is how somebody
-            uses pictures they already have, and it stays the short way in; this
-            one is for when they do not exist yet, and it costs up to seven
-            provider calls and two decisions to walk. */}
-        {draft.scenes.length < MAX_SCENES && (
-          <StartFromImage
-            projectId={projectId}
-            access={access}
-            room={MAX_SCENES - draft.scenes.length}
-            disabled={frozen}
-            onAdd={(hashes) => edit((d) => hashes.reduce(addScene, d))}
-            onFailure={setFailure}
-          />
-        )}
 
         <div className="section-head mt-5">
           <span className="kicker text-accent-ink">{t('video.output')}</span>
@@ -676,19 +809,26 @@ export default function VideoExportDialog({
 }
 
 /**
- * The other way to fill the timeline: describe a subject, keep one picture, take
- * several variants of it, and tick the ones worth cutting.
+ * The other way to fill the timeline: settle on one picture, take several
+ * variants of it, and tick the ones worth cutting.
  *
- * Beside the picker rather than instead of it. The picker is how you use images
- * you already have, and it stays the shorter path — this one costs up to seven
- * provider calls and two decisions, which is only worth it when the pictures do
- * not exist yet.
+ * The second position of the panel's switch, beside "describe the video" rather
+ * than instead of it. It costs up to seven provider calls and two decisions,
+ * which is only worth it when the pictures do not exist yet — so the scene
+ * picker below the switch stays the short way in, and this path now offers the
+ * library as its own starting point too.
  *
  * TWO GATES, and they are the point of the whole thing. Nothing generated here
  * enters the media library's listings or the montage until a human has looked at
  * it: the images arrive `pending: true`, and only `confirmImage` clears that.
  * The gates are courtesy — the guard is `pendingAmong()` and the 409 in
  * server/video/routes.js, which is what closing this panel cannot get past.
+ *
+ * A picture taken from the media library skips the first gate, and that is a
+ * decision rather than a hole: it is not pending, nobody generated it here, and
+ * the user chose it out of a grid of its own thumbnails one click ago. See
+ * `pickModel`. The second gate is untouched — the variants it produces ARE
+ * generated here, and they arrive pending like every other.
  *
  * The honesty about derivation is printed WHERE THE MONEY IS SPENT, next to the
  * button, from what /status promised — and again over the results, from what the
@@ -876,11 +1016,23 @@ function StartFromImage({
   const actual = flow.batch ? derivationOf(flow.batch.derived) : null
   const frozen = disabled || busy !== null
 
+  /*
+   * The timeline is full: there is nothing to make variants FOR.
+   *
+   * An early return rather than the caller dropping this component, which is
+   * what it used to do. Unmounted, the flow's state goes with it — a model image
+   * already paid for and not yet confirmed, and possibly a provider call in
+   * flight — and forgetting a pending picture does not delete it (M8): it would
+   * stay on the volume, unlisted and unmountable, with nothing left pointing at
+   * it. Here the state survives the ceiling and comes back when a scene is
+   * removed.
+   */
+  if (room <= 0) {
+    return <p className="text-body-sm text-ink-faint">{t('video.addSceneFull', { max: MAX_SCENES })}</p>
+  }
+
   return (
-    <div className="mt-3 border border-line-soft bg-ink/5 p-3">
-      <div className="section-head">
-        <span className="kicker text-accent-ink">{t('video.fromImageTitle')}</span>
-      </div>
+    <div>
       <p className="measure text-body-sm text-ink-muted">{t('video.fromImageHint')}</p>
 
       {step === 'describe' && (
@@ -915,6 +1067,33 @@ function StartFromImage({
               </>
             )}
           </div>
+
+          {/*
+            The picture may already exist, and until now this path refused to
+            admit it: the only way to a set of variants was to pay a provider for
+            a model image, even with the very picture you wanted sitting in the
+            media library. The same ImagePicker the scene list uses, so "choose
+            an image" is one component in this panel rather than two that drift.
+
+            A library image goes STRAIGHT to the variants — see `pickModel` for
+            why gate 1 is skipped rather than forgotten — and the note below says
+            so, because an unexplained missing confirmation is the kind of thing
+            somebody puts back six months later.
+          */}
+          <div className="mt-3 border-t border-line-soft pt-3">
+            <ImagePicker
+              projectId={projectId}
+              heading={t('video.pickModelHeading')}
+              disabled={frozen}
+              /* The second picker on this panel — see the prop. Its own generate
+                 button would sit beside the gated one above it and mean
+                 something different. */
+              compact
+              onPick={(hash) => setFlow((f) => pickModel(f, hash))}
+              onError={(message) => onFailure({ titleKey: 'common.error', detail: message })}
+            />
+            <p className="measure mt-2 text-body-sm text-ink-muted">{t('video.pickModelNote')}</p>
+          </div>
         </>
       )}
 
@@ -947,6 +1126,18 @@ function StartFromImage({
 
       {step === 'ask' && (
         <div className="mt-3">
+          {/* What the variants will be taken FROM, small but present. The step
+              used to sit directly under a gate showing the picture full width,
+              so there was nothing to say; two of the three ways into it no
+              longer pass through that gate, and "produce 4 variants" of an
+              unnamed image is a button nobody should have to trust. */}
+          {flow.modelHash && (
+            <img
+              src={imageUrl(flow.modelHash)}
+              alt={t('video.modelImageAlt')}
+              className="mb-2 h-20 border border-line-soft object-contain"
+            />
+          )}
           <Field label={t('video.variantCount')}>
             {(p) => (
               <Select
@@ -1287,7 +1478,36 @@ function SceneRow({
   )
 }
 
-function JobPanel({ job, stumbled, onNewCut }: { job: VideoJob; stumbled: boolean; onNewCut: () => void }) {
+/**
+ * What happened to the render, and — once it is finished — WHERE THE FILM IS.
+ *
+ * The second half is the reason this panel was rewritten. A finished export used
+ * to offer one download link and nothing else, so closing the panel lost the
+ * only route to a file that was sitting on the server the whole time: the job id
+ * lives in this session, the journal forgets it after fifty more renders, and
+ * the store is content-addressed, which says what a file contains and nothing
+ * about who wanted it. The cut is now attached to the project it was made in and
+ * listed in Media under Motion — and this banner says so, because a place nobody
+ * is told about is the same as no place at all.
+ */
+function JobPanel({
+  job,
+  stumbled,
+  inProject,
+  screens,
+  onAttachFilm,
+  onOpenMedia,
+  onNewCut,
+}: {
+  job: VideoJob
+  stumbled: boolean
+  /** Whether the sentence may promise a project. The Media page has none. */
+  inProject: boolean
+  screens?: AttachTarget[]
+  onAttachFilm?: (screenId: string, hash: string) => void
+  onOpenMedia?: () => void
+  onNewCut: () => void
+}) {
   const t = useT()
   const format = job.timeline?.outputFormat ?? 'mp4'
 
@@ -1319,17 +1539,114 @@ function JobPanel({ job, stumbled, onNewCut }: { job: VideoJob; stumbled: boolea
         <p className="text-caption text-ink-faint">{t('video.pollRetry')}</p>
       )}
       {job.status === 'done' && job.videoHash && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <ButtonLink variant="primary" size="sm" href={videoDownloadUrl(job.videoHash)} download>
-            <Icon name="download" size={15} />
-            {t('video.download', { format: `.${format}` })}
-          </ButtonLink>
-          <Button variant="ghost" size="sm" onClick={onNewCut}>
-            {t('video.newCut')}
-          </Button>
-        </div>
+        <>
+          {/* Before the buttons, not after: the download is what somebody does
+              next, and where the film LIVES is what they need to know to come
+              back tomorrow. Two sentences because the promise is not the same —
+              a film cut from the standalone Media page belongs to no project,
+              and saying it was filed under one would be a plain untruth. */}
+          <p className="mt-1">{t(inProject ? 'video.savedInProject' : 'video.savedInMedia')}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <ButtonLink variant="primary" size="sm" href={videoDownloadUrl(job.videoHash)} download>
+              <Icon name="download" size={15} />
+              {t('video.download', { format: `.${format}` })}
+            </ButtonLink>
+            {onOpenMedia && (
+              <Button variant="ghost" size="sm" onClick={onOpenMedia}>
+                <Icon name="library" size={15} />
+                {t('video.openInMedia')}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={onNewCut}>
+              {t('video.newCut')}
+            </Button>
+          </div>
+          <AttachToScreen
+            hash={job.videoHash}
+            inProject={inProject}
+            screens={screens}
+            onAttach={onAttachFilm}
+          />
+        </>
       )}
     </Banner>
+  )
+}
+
+/**
+ * Hang the finished film on one of the project's screens.
+ *
+ * The third thing to do with a render, beside downloading it and going to find
+ * it in Media, and the one that gives it a place in the work rather than in a
+ * folder: `Screen.attachedMedia` is metadata, so the canvas draws the film on
+ * the card column beside the frame and the screen's code is not touched. That
+ * distinction is stated here rather than assumed, because "attach to a screen"
+ * is exactly the phrase somebody would read as "put the video in the screen".
+ *
+ * OUTSIDE A PROJECT THERE IS NO PICKER. The panel opens from the standalone
+ * Media page too, where there are no screens at all — a control that could only
+ * ever be empty is worse than a sentence saying why it is absent, because an
+ * empty grid reads as a listing that failed to load.
+ *
+ * Screens are drawn from the thumbnail cache and nothing else. `getThumb` keys
+ * on the code that produced the picture, so a screen edited since its last
+ * capture falls back to its name rather than showing a photograph of a version
+ * that no longer exists. Nothing here mounts a preview: the capture runs
+ * model-written code same-origin (see lib/thumbnails.ts), which belongs in the
+ * project view and not inside a modal.
+ */
+function AttachToScreen({
+  hash,
+  inProject,
+  screens,
+  onAttach,
+}: {
+  hash: string
+  inProject: boolean
+  screens?: AttachTarget[]
+  onAttach?: (screenId: string, hash: string) => void
+}) {
+  const t = useT()
+  if (!onAttach) return null
+  if (!inProject) return <p className="mt-3 text-body-sm">{t('video.attachNoProject')}</p>
+  const list = screens ?? []
+
+  return (
+    <div className="mt-3 border-t border-line-soft pt-3">
+      <p className="text-body font-medium text-ink">{t('video.attachTitle')}</p>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('video.attachHint')}</p>
+      {list.length === 0 ? (
+        <p className="mt-2 text-body-sm text-ink-faint">{t('video.attachNoScreens')}</p>
+      ) : (
+        <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {list.map((s) => {
+            const mine = s.attachedHash === hash
+            const thumb = getThumb(s.id, s.code)
+            return (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => onAttach(s.id, hash)}
+                  className={`block w-full overflow-hidden border p-1 text-left transition ${
+                    mine ? 'border-accent bg-accent/10' : 'border-line-soft hover:border-line'
+                  }`}
+                >
+                  {thumb ? (
+                    <img src={thumb} alt="" className="block aspect-[4/3] w-full object-cover object-top" />
+                  ) : (
+                    <span className="flex aspect-[4/3] w-full items-center justify-center bg-ink/5 text-ink-faint">
+                      <Icon name="image" size={20} />
+                    </span>
+                  )}
+                  <span className="mt-1 block truncate text-caption text-ink">{s.name}</span>
+                  {mine && <span className="block text-caption text-accent-ink">{t('video.attachedHere')}</span>}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 

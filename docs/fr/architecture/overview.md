@@ -877,10 +877,10 @@ Le ZIP est écrit par `src/lib/zip.ts`, sans aucune dépendance : méthode « st
 plus CRC32. Le même écrivain sert au « Tout télécharger » de la bibliothèque
 d'images et à `npm run backup`.
 
-**Ce n'est pas l'export vidéo**, avec lequel il ne partage que le mot. Celui-là
+**Ce n'est pas Motion**, avec lequel il ne partage que le mot. Celui-là
 transforme des images de la médiathèque en `.mp4` sur un service Docker séparé et
 facultatif, et ne touche jamais à un écran — voir
-[l'export vidéo](fr/video-export.md).
+[Motion](fr/video-export.md).
 
 ---
 
@@ -950,7 +950,7 @@ l'ont jamais demandé — ce qui est une régression de licence, pas de taille, 
 qu'aucun test ultérieur ne peut dé-livrer. La même suite refuse un serveur de
 file d'attente ou un pilote de base de données, car un exécuteur de tâches est
 exactement la fonctionnalité pour laquelle on tend la main vers Redis. Voir
-[l'export vidéo](fr/video-export.md).
+[Motion](fr/video-export.md).
 
 À côté : `registry.test.ts` pour les invariants du registre au chargement,
 `ssrf-guard.test.js`, `routes-auth.test.js`,
