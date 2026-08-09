@@ -343,6 +343,8 @@ worker/video/
   validate.js          what this worker will render, checked without trusting the caller
   validate.test.js     that check, and its agreement with server/video/timeline.js
   render.js            everything that imports @remotion/*, behind a dynamic import
+  encoding.js          the codec table, and what each codec is told about quality
+  encoding.test.js     that option object — the one part of a render a test can check
   remotion/
     index.js               registerRoot — bundled, never run by Node
     Root.jsx               the composition list; five entries, one calculateMetadata

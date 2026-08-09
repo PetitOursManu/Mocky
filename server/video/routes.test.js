@@ -35,6 +35,14 @@ let editRegistry, contentRegistry, generated, generateFails
 let charged, variantsCached
 /** What one written variant weighs on the volume, in the fake library. */
 const VARIANT_BYTES = 4096
+/**
+ * What every library image weighs, for the render route's payload check.
+ *
+ * Mutable, and separate from the constant above only because one test needs a
+ * photograph rather than a thumbnail: the ceiling being checked is 80 MB of
+ * request, which nothing a fixture would normally weigh comes close to.
+ */
+let fileBytes
 
 function makeApp() {
   const app = express()
@@ -110,7 +118,7 @@ function makeApp() {
         mimeFor: () => 'image/png',
         // What a written variant weighs, so the budget credit is a number the
         // test can check rather than a call it can only count.
-        fileSize: () => VARIANT_BYTES,
+        fileSize: () => fileBytes,
         async generate(spec, deps) {
           generated.push({ spec, registry: deps.registry.id })
           if (generateFails) throw new Error('provider exploded')
@@ -192,6 +200,7 @@ beforeEach(() => {
   generateFails = false
   charged = []
   variantsCached = false
+  fileBytes = VARIANT_BYTES
 })
 
 const post = (path, body) =>
@@ -473,6 +482,37 @@ describe('POST /render', () => {
     expect(res.status).toBe(507)
     expect((await res.json()).error).toMatch(/storage limit/i)
     expect(enqueued).toBe(null)
+  })
+
+  /*
+   * The pictures travel to the worker as base64 in one JSON body, and its
+   * `express.json()` stops at 80 MB. Before this check that ceiling was met at
+   * the far end of the queue — job accepted, minutes waited, "the render worker
+   * answered 413" — which is the same refusal with everything useful about it
+   * removed.
+   */
+  it('413s before queueing when the pictures cannot fit in the render request', async () => {
+    // Two photographs off a camera. 2 × 40 MB is 80 MB of file and 107 MB of
+    // base64, which is over the ceiling on the images alone.
+    fileBytes = 40 * 1024 * 1024
+    const res = await post('/api/video/render', {
+      timeline: { scenes: [scene(), scene({ imageId: ID_B })] },
+    })
+    expect(res.status).toBe(413)
+    expect((await res.json()).error).toMatch(/ceiling/i)
+    expect(enqueued).toBe(null)
+  })
+
+  it('counts each picture once, however many scenes name it', async () => {
+    // 60 MB is 80 MB of base64 — over the ceiling if it were counted twice, and
+    // under it once. A timeline that opens and closes on the same photograph is
+    // the common shape, and `collectImages` deduplicates before sending.
+    fileBytes = 55 * 1024 * 1024
+    const res = await post('/api/video/render', {
+      timeline: { scenes: [scene(), scene()] },
+    })
+    expect(res.status).toBe(202)
+    expect(enqueued).not.toBe(null)
   })
 })
 

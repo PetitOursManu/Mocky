@@ -15,6 +15,7 @@ import {
   planTimeline,
   productLayout,
   productPalette,
+  PICTURE_SHARE,
   resolveTheme,
   withAlpha,
 } from './composition.js'
@@ -52,8 +53,8 @@ import {
  * in the four hundred milliseconds before it rose and this one grows.
  */
 
-/** How much of the frame the picture takes, per layout. */
-const PICTURE_SHARE = { row: 0.5, column: 0.45 }
+// `PICTURE_SHARE` used to live here. It moved next to `productLayout` in
+// `composition.js` when Mocky's own panel had to read it — see the note there.
 
 /** The accent rule in the gutter between the picture and the card. */
 const GUTTER_RULE_PX = 5

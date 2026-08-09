@@ -11,32 +11,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { bundle } from '@remotion/bundler'
 import { ensureBrowser, makeCancelSignal, renderMedia, selectComposition } from '@remotion/renderer'
+import { codecFor, encodingOptionsFor, renderConcurrency } from './encoding.js'
 import { compositionIdFor } from './remotion/composition.js'
 import { stageImages, unstage } from './staging.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ENTRY_POINT = path.join(HERE, 'remotion', 'index.js')
-
-/**
- * The output format the timeline asks for, as a codec Remotion knows.
- *
- * vp8 rather than vp9 for webm. vp9 encodes several times slower for a gain
- * nobody watching a fifteen-second slideshow will see, and the budget is 110
- * seconds on a container limited to two cores — a format choice that turns a
- * working export into a timeout is not a quality improvement.
- */
-const CODECS = { mp4: 'h264', webm: 'vp8' }
-
-/** The codec for a container, or h264. See the note on the lookup below. */
-function codecFor(outputFormat) {
-  // `Object.hasOwn`, not a plain lookup, for the reason `server/video/store.js`
-  // spells out beside its own container table: a plain lookup answers for the
-  // whole prototype chain, so `outputFormat: "constructor"` returns a function
-  // that is perfectly truthy and reaches Remotion as a codec. Every caller today
-  // is validated — this is the second lock, so a validator loosened one day
-  // cannot silently become an encoder argument.
-  return typeof outputFormat === 'string' && Object.hasOwn(CODECS, outputFormat) ? CODECS[outputFormat] : CODECS.mp4
-}
 
 /*
  * Where a request's images are written so Chromium can load them: beside the
@@ -163,20 +143,38 @@ export async function renderTimeline({ timeline, images = [], licenseKey = null,
       logLevel: 'error',
     })
 
+    const codec = codecFor(timeline.outputFormat)
+
     const { buffer, contentType } = await renderMedia({
       composition,
       serveUrl,
-      codec: codecFor(timeline.outputFormat),
+      codec,
       inputProps,
       // No output location: the bytes come back in memory and go straight into
       // the HTTP response. A file would need a writable path, a name nobody
       // owns, and a cleanup step that runs even when the render throws — for a
-      // clip that is about to be sent over a socket anyway. The ceiling is the
-      // schema's: two minutes of 1080p, which is far smaller than the 80 MB
-      // request that carried the images in.
+      // clip that is about to be sent over a socket anyway. What bounds this
+      // buffer is `worstCaseBytes` next door and not the schema's duration on
+      // its own — 244 MB for the longest permitted mp4, which is larger than
+      // the 80 MB request that carried the images in, and is the number the
+      // disk budget has to be sized against.
       outputLocation: null,
       cancelSignal,
       logLevel: 'error',
+      // Stated, because the default is derived from a core count this container
+      // cannot see: `cpus: 2.0` is a quota, not an affinity mask, so Remotion
+      // reads the host's threads and opens half that many Chromium tabs to
+      // share two cores. It is next to the quality settings rather than inside
+      // them because it is what bounds how many quality-100 frames exist at
+      // once — see the note in `encoding.js`.
+      concurrency: renderConcurrency(),
+      // Spread rather than listed here, because a quality setting means
+      // different things to h264 and to vp8 and the difference is a table, not
+      // a line. Without them every Remotion default applied — an 80-quality
+      // JPEG capture in front of the encoder above all — which is what made a
+      // film of photographs come back blocky. `encoding.js` carries the whole
+      // argument, and `encoding.test.js` is what holds the numbers.
+      ...encodingOptionsFor(codec),
       // Spread rather than passed as null: from Remotion 5.0 a licensed render
       // is telemetered, so handing this key over is the moment this container
       // acquires an outbound connection. With no key configured the option is

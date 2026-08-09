@@ -255,6 +255,18 @@ export const video = {
     // les cases cochées, sans rien pour l'expliquer.
     'video.variantConfirmFailed': '{n} variante(s) n’ont pas pu être confirmées : elles ne sont pas entrées dans le montage.',
 
+    // ── Définition ──────────────────────────────────────────────────────────
+    //
+    // La moitié de « la vidéo est pixelisée » qu'aucun réglage d'encodeur
+    // n'atteint : l'image est plus petite que le cadre, `object-fit: cover`
+    // l'agrandit, et un mouvement de caméra en rajoute 12 %. Les deux phrases
+    // disent donc la mesure ET le seul remède — répondre « augmentez la
+    // qualité » enverrait chercher un réglage qui n'existe pas et qui ne
+    // servirait à rien s'il existait.
+    'video.resScene': '{w}×{h} · agrandie ×{factor}',
+    'video.resFooter':
+      '{n} image(s) plus petite(s) que le cadre {w}×{h} : agrandies jusqu’à ×{factor}, elles seront floues. Aucun encodage ne rend une définition absente — il faut une source plus grande.',
+
     'video.scenesTitle': 'Scènes',
     'video.sceneCount': '{n} sur {max}',
     'video.addSceneFull': 'Maximum atteint : {max} scènes',
@@ -653,6 +665,17 @@ export const video = {
     // pending. Left unsaid it is a selection shorter than the ticked boxes, with
     // nothing to account for the difference.
     'video.variantConfirmFailed': '{n} variant(s) could not be confirmed, and did not join the cut.',
+
+    // ── Definition ──────────────────────────────────────────────────────────
+    //
+    // The half of "the video is pixelated" that no encoder setting reaches: the
+    // picture is smaller than the frame, `object-fit: cover` enlarges it, and a
+    // camera move asks for 12% more. So the sentence states the measurement AND
+    // the only remedy — "raise the quality" would send somebody hunting for a
+    // setting that does not exist and would not help if it did.
+    'video.resScene': '{w}×{h} · enlarged ×{factor}',
+    'video.resFooter':
+      '{n} image(s) smaller than the {w}×{h} frame: enlarged up to ×{factor}, they will look soft. No encoder puts back detail the source never had — it needs a larger original.',
 
     'video.scenesTitle': 'Scenes',
     'video.sceneCount': '{n} of {max}',

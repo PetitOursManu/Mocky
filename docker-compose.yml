@@ -81,6 +81,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3030
+      # How many frames are rendered in parallel. It has to be stated, and it
+      # has to match `cpus` below: Remotion's own default is half the CPU
+      # threads it can see, and `cpus: 2.0` is a quota rather than an affinity
+      # mask — so the container reads the HOST's core count and opens eight
+      # Chromium tabs to share two cores. Raise them together or not at all.
+      RENDER_CONCURRENCY: 2
     restart: unless-stopped
     # A render is one Chromium plus one encoder, and neither is a polite guest.
     # Unbounded, a stuck render takes the host down with it — on the small VPS

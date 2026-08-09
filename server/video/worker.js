@@ -194,6 +194,36 @@ export function createVideoWorker({ config, fetchImpl = fetch, guard = assertWor
 }
 
 /**
+ * What the worker's `express.json()` will accept, restated here.
+ *
+ * A hand-copy of `MAX_BODY` in `worker/video/server.js`, and there is no way
+ * round it: the worker is a separate sub-project with its own package.json and
+ * its own image, so nothing in `server/` can import that constant. This is the
+ * same deliberate duplication as `server/video/timeline.js`, minus the parity
+ * test — which is affordable only because of the direction the check below runs
+ * in. It refuses when the pictures ALONE already exceed the ceiling, so a copy
+ * that has drifted low refuses a render the worker would have taken (visible,
+ * reported, fixable) and one that has drifted high simply falls through to the
+ * worker's own 413 (the behaviour before this existed).
+ */
+export const MAX_WORKER_PAYLOAD_BYTES = 80 * 1024 * 1024
+
+/**
+ * How many bytes of request `n` bytes of picture become.
+ *
+ * base64 is four characters per three bytes, rounded up to a four-character
+ * group. The JSON around them — the ids, the mime types, the timeline — is a few
+ * kilobytes and is deliberately NOT counted: this number is used to REFUSE, so
+ * it has to be a floor on the real payload rather than an estimate of it. An
+ * over-estimate here would turn "your pictures are too heavy" into a refusal of
+ * renders that fit.
+ */
+export function payloadBytesFor(imageBytes) {
+  const n = Math.max(0, Number(imageBytes) || 0)
+  return Math.ceil(n / 3) * 4
+}
+
+/**
  * The picture bytes a timeline needs, keyed by the id that names them.
  *
  * They travel inside the request rather than as `${origin}/api/images/:hash`

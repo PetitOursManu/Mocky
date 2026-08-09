@@ -77,6 +77,15 @@ import {
   type Transition,
   type VideoTheme,
 } from '../lib/video/timeline'
+import {
+  FRAME_DIMENSIONS,
+  SOURCE_DIMENSIONS,
+  formatMagnification,
+  undersizedScenes,
+  worstMagnification,
+  type PixelSize,
+  type UndersizedScene,
+} from '../lib/video/resolution'
 import { themeFromDesign } from '../lib/video/theme'
 import { getThumb } from '../lib/thumbnails'
 import { ImagePicker } from './ImagePicker'
@@ -242,6 +251,63 @@ export const COMPOSE_BLOCKER_KEYS: Record<ComposeBlocker, string> = {
  * the server refuses before it even reaches a model. `propose()` sends
  * `imageId`s filtered on truthiness; this is the same list, counted.
  */
+/**
+ * The real pixel size of every picture in the draft, measured by decoding it.
+ *
+ * The library's own `width`/`height` were the obvious source and they are the
+ * wrong one: they record what was ASKED of a provider, not what came back. An
+ * OpenAI request for 1344×768 is answered at 1536×1024 because `snapSize` reads
+ * the ratio; an upload whose dimensions failed to decode in the browser is stored
+ * as 0×0; entries that predate the field have nothing at all. A warning about
+ * definition that quotes a number the file does not have is worse than no
+ * warning, so this asks the file.
+ *
+ * It costs no network. Every one of these pictures is already on screen in a
+ * scene row, so `new Image()` on the same URL is served from the browser's cache
+ * — this is a decode, not a fetch, and it is the only way to learn a picture's
+ * intrinsic size without shipping an image parser to the server.
+ *
+ * Ids that were already measured are re-decoded when the SET changes, and that
+ * is deliberate rather than overlooked: skipping them would put `sizes` in the
+ * effect's dependencies, which is the loop this hook exists to avoid. The second
+ * decode is a cache hit and `setSizes` short-circuits on it.
+ */
+function useIntrinsicSizes(ids: readonly string[]): Record<string, PixelSize> {
+  const [sizes, setSizes] = useState<Record<string, PixelSize>>({})
+  // Sorted and joined, so a REORDER measures nothing new — the running order is
+  // the thing people change most often in this panel.
+  const key = useMemo(() => [...new Set(ids.filter(Boolean))].sort().join(' '), [ids])
+
+  useEffect(() => {
+    if (!key) return
+    let live = true
+    const decoding: HTMLImageElement[] = []
+    for (const id of key.split(' ')) {
+      const img = new Image()
+      img.onload = () => {
+        if (!live) return
+        const size = { width: img.naturalWidth, height: img.naturalHeight }
+        // Guarded, so a picture measured once is not a new object on every set
+        // change — the memo below is keyed on this record's identity.
+        setSizes((prev) => (prev[id] ? prev : { ...prev, [id]: size }))
+      }
+      // No `onerror` handler and nothing recorded on failure. An image that does
+      // not load has no honest size, and the panel already has a route for a
+      // picture that left the library: /render answers 404 naming it.
+      img.src = imageUrl(id)
+      decoding.push(img)
+    }
+    return () => {
+      live = false
+      // Detached as well as flagged: a decode that finishes after the panel
+      // closes would otherwise hold this component's state setter alive.
+      for (const img of decoding) img.onload = null
+    }
+  }, [key])
+
+  return sizes
+}
+
 export function composeBlocker(
   imageCount: number,
   brief: string,
@@ -398,6 +464,9 @@ export default function VideoExportDialog({
   onClose: () => void
 }) {
   const t = useT()
+  // Read here as well as in the rows below: the footer prints a magnification,
+  // and `1,9` and `1.9` are different numbers to a French reader.
+  const [lang] = useLang()
   const [access, setAccess] = useState<VideoAccess | null>(null)
   const [accessFailed, setAccessFailed] = useState(false)
   const [draft, setDraft] = useState<VideoDraft>(emptyDraft)
@@ -429,6 +498,37 @@ export default function VideoExportDialog({
    * no `theme` key at all, and the server writes it only after that validation.
    */
   const theme = useMemo<VideoTheme | null>(() => themeFromDesign(direction), [direction])
+
+  /**
+   * Which pictures are smaller than the frame they are about to fill.
+   *
+   * The other half of "the video is pixelated", and the half no encoder setting
+   * reaches: a 1024×1024 still in a 1920×1080 film is enlarged 1.88× by
+   * `object-fit: cover` before a byte gets to the encoder, and a camera move
+   * spends 12% more. `src/lib/video/resolution.ts` carries the arithmetic.
+   *
+   * Recomputed live rather than asked of the server, and that is the whole point
+   * of doing it here: the answer changes with the aspect ratio, the composition
+   * and every camera move on the panel, and it has to be on screen while those
+   * are still choices. A render is two minutes; a notice that arrives with the
+   * finished file is a receipt, not a warning.
+   */
+  const sceneIds = useMemo(() => draft.scenes.map((s) => s.imageId), [draft.scenes])
+  const sizes = useIntrinsicSizes(sceneIds)
+  const undersized = useMemo(
+    () =>
+      undersizedScenes(
+        draft.scenes,
+        { template: draft.template, aspectRatio: draft.aspectRatio },
+        (id) => sizes[id],
+      ),
+    [draft.scenes, draft.template, draft.aspectRatio, sizes],
+  )
+  /** By position, so a row can show its own number without scanning the list. */
+  const undersizedAt = useMemo(
+    () => new Map(undersized.map((found) => [found.index, found] as const)),
+    [undersized],
+  )
 
   // ---- access -----------------------------------------------------------
 
@@ -865,6 +965,7 @@ export default function VideoExportDialog({
             <StartFromImage
               projectId={projectId}
               access={access}
+              aspectRatio={draft.aspectRatio}
               room={cap - draft.scenes.length}
               cap={cap}
               disabled={frozen}
@@ -899,6 +1000,7 @@ export default function VideoExportDialog({
                 key={scene.key}
                 scene={scene}
                 template={draft.template}
+                undersized={undersizedAt.get(i)}
                 index={i}
                 isLast={i === draft.scenes.length - 1}
                 disabled={frozen}
@@ -1039,6 +1141,28 @@ export default function VideoExportDialog({
         cap={sceneCap(draft.template)}
         blockers={draftBlockers(draft)}
       />
+      {/*
+        In the FOOTER, beside the budget, for the reason the budget is here: this
+        is the pinned strip, and everything else scrolls. A note about definition
+        that lives next to the scenes is a note somebody scrolls past on their way
+        to the button — and this one has exactly one moment to be read, the moment
+        before two minutes of somebody else's CPU are spent.
+
+        It never disables the button. A soft still is a film people ship on
+        purpose, and refusing it would be the panel overruling a judgement that is
+        not its own (Q1). The rows carry the per-scene numbers; this says how bad
+        the worst of them is and what the only remedy is.
+      */}
+      {undersized.length > 0 && (
+        <p className="measure mt-1.5 text-body-sm text-warn">
+          {t('video.resFooter', {
+            n: undersized.length,
+            w: FRAME_DIMENSIONS[draft.aspectRatio].width,
+            h: FRAME_DIMENSIONS[draft.aspectRatio].height,
+            factor: formatMagnification(worstMagnification(undersized), lang),
+          })}
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
         {job && job.status !== 'queued' && job.status !== 'rendering' && (
           <Button variant="ghost" size="sm" onClick={newCut}>
@@ -1260,6 +1384,7 @@ function ThemeNote({ theme, hasDirection }: { theme: VideoTheme | null; hasDirec
 function StartFromImage({
   projectId,
   access,
+  aspectRatio,
   room,
   cap,
   disabled,
@@ -1268,6 +1393,16 @@ function StartFromImage({
 }: {
   projectId?: string
   access: VideoAccess
+  /**
+   * The film's shape, so the picture is MADE for it.
+   *
+   * This flow used to send no dimensions at all, which meant 1024×1024 — the
+   * library's default — for every film. In a 16:9 export that square is cropped
+   * of 44% of itself and what survives is enlarged 1.88×, and the provider call
+   * cost exactly the same as one that would have come back the right shape. See
+   * `SOURCE_DIMENSIONS` for why it is not simply the frame's own size.
+   */
+  aspectRatio: VideoDraft['aspectRatio']
   /** How many more scenes the timeline can hold. `addScene` refuses past the cap. */
   room: number
   /**
@@ -1340,6 +1475,10 @@ function StartFromImage({
          */
         seed: Math.floor(Math.random() * 2_147_483_647),
         tags: ['video-source'],
+        // The film's shape, not the library's square default — see the prop.
+        // `makeVariants` copies the source's geometry on the server, so every
+        // variant taken from this picture inherits it without being told.
+        ...SOURCE_DIMENSIONS[aspectRatio],
         signal: mine.signal,
       })
       if (stale(mine)) return
@@ -1775,6 +1914,7 @@ function Budget({
 function SceneRow({
   scene,
   template,
+  undersized,
   index,
   isLast,
   disabled,
@@ -1785,6 +1925,16 @@ function SceneRow({
 }: {
   scene: DraftScene
   template: TemplateChoice
+  /**
+   * This scene's picture is smaller than the box it will be painted into.
+   *
+   * On the ROW rather than in a banner of its own, because the only useful
+   * answer is "replace this picture" and the row is where that is done. A list
+   * of scene numbers at the top of the panel would be a second index of
+   * something already on screen, and it would go stale the moment anybody
+   * reorders.
+   */
+  undersized?: UndersizedScene
   index: number
   isLast: boolean
   disabled: boolean
@@ -1813,6 +1963,18 @@ function SceneRow({
           <p className="text-body font-medium text-ink">{label}</p>
           {showsPicture && scene.imageId && (
             <p className="font-mono text-caption text-ink-faint">{scene.imageId.slice(0, 12)}</p>
+          )}
+          {/* The measurement, next to the picture it is about. `warn` and not
+              `danger`: a soft still is a film somebody may well ship, and the
+              render is not refused over it (Q1). */}
+          {undersized && (
+            <p className="font-mono text-caption text-warn">
+              {t('video.resScene', {
+                w: undersized.source.width,
+                h: undersized.source.height,
+                factor: formatMagnification(undersized.magnification, lang),
+              })}
+            </p>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">

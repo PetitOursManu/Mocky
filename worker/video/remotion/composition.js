@@ -1246,6 +1246,19 @@ export function productLayout(width, height) {
   return Number(width) > Number(height) ? 'row' : 'column'
 }
 
+/**
+ * How much of the frame the product picture takes, per layout.
+ *
+ * Here rather than in `ProductSpotlightVideo.jsx`, where it was written, for the
+ * reason stated at the top of this file: a `.jsx` file cannot be imported by a
+ * test, and this is the one number in the catalogue that says a picture is NOT
+ * full-bleed. Mocky's panel reads it to work out how much a still is about to be
+ * enlarged — a product shot on half a landscape frame is asked for half as many
+ * pixels as the same shot in a slideshow — and a share that lived beside the
+ * component would have been a number the browser guessed at.
+ */
+export const PICTURE_SHARE = { row: 0.5, column: 0.45 }
+
 // ── Per-template palettes ────────────────────────────────────────────────────
 //
 // One function per composition, each answering with the colours that composition

@@ -152,6 +152,24 @@ export async function generateImage(
      */
     seed?: number
     tags?: string[]
+    /**
+     * The shape and size to ask the provider for. Omitted means the server's own
+     * default, which is 1024×1024.
+     *
+     * It is a caller's decision because only the caller knows what the picture is
+     * FOR. A replacement for a slot in a screen is looked at in a browser at
+     * whatever size the layout gives it; a still destined for a 1920×1080 film is
+     * enlarged by `object-fit: cover` until it fills the frame, and a square
+     * source is both blown up 1.88× and cropped of 44% of itself on the way (see
+     * `src/lib/video/resolution.ts`). Same endpoint, same price, a different
+     * request.
+     *
+     * Both are clamped to [256, 2048] by the route, and both join the library's
+     * cache key — so asking for a new size is a new picture, never a re-served
+     * old one (M8).
+     */
+    width?: number
+    height?: number
   } = {},
 ): Promise<{ hash: string } | null> {
   const res = await fetch('/api/images/generate', {
@@ -164,6 +182,11 @@ export async function generateImage(
       tags: opts.tags ?? ['replacement'],
       seed: opts.seed,
       pending: opts.pending === true,
+      // Omitted rather than sent as undefined-turned-null: the route reads
+      // `spec.width != null` and a null would clamp to the default instead of
+      // leaving the library's own to apply.
+      ...(opts.width ? { width: opts.width } : {}),
+      ...(opts.height ? { height: opts.height } : {}),
     }),
     signal: opts.signal,
   })

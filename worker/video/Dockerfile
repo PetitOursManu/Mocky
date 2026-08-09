@@ -89,7 +89,7 @@ RUN npm run ensure-browser
 
 # ---- The worker itself ----
 COPY --chown=node:node remotion ./remotion
-COPY --chown=node:node render.js server.js validate.js staging.js ./
+COPY --chown=node:node render.js server.js validate.js staging.js encoding.js ./
 
 ENV NODE_ENV=production
 ENV PORT=3030

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { createVideoWorker, collectImages } from './worker.js'
+import { createVideoWorker, collectImages, payloadBytesFor, MAX_WORKER_PAYLOAD_BYTES } from './worker.js'
 import { assertSafeTargetResolved } from '../provider-proxy.js'
 
 const TIMELINE = {
@@ -362,5 +362,39 @@ describe('collectImages', () => {
   it('names the image that disappeared between queueing and rendering', () => {
     fs.writeFileSync(path.join(dir, `${'a'.repeat(64)}.jpg`), Buffer.from([1]))
     expect(() => collectImages(libraryWith(['a'.repeat(64)]), TIMELINE)).toThrow(new RegExp('b'.repeat(64)))
+  })
+})
+
+/**
+ * The arithmetic behind the render route's 413.
+ *
+ * It is a FLOOR on the real request, never an estimate of it: the check that
+ * uses it refuses a render, so an over-count would turn away films that fit.
+ */
+describe('payloadBytesFor', () => {
+  it('is base64: four characters per three bytes', () => {
+    expect(payloadBytesFor(3)).toBe(4)
+    expect(payloadBytesFor(3 * 1024 * 1024)).toBe(4 * 1024 * 1024)
+  })
+
+  it('rounds up to a whole four-character group, the way an encoder pads', () => {
+    expect(payloadBytesFor(1)).toBe(4)
+    expect(payloadBytesFor(4)).toBe(8)
+  })
+
+  it('never answers NaN or a negative, whatever it is handed', () => {
+    // It is compared against a ceiling. A NaN compares false and would silently
+    // disable the check; a negative would do the same more quietly still.
+    expect(payloadBytesFor(0)).toBe(0)
+    expect(payloadBytesFor(-5)).toBe(0)
+    expect(payloadBytesFor(undefined)).toBe(0)
+    expect(payloadBytesFor('nonsense')).toBe(0)
+  })
+
+  it('stays under the ceiling for a film of generated stills, and over it for photographs', () => {
+    // Twenty 1344×768 JPEGs at 300 kB — what the panel now asks a provider for.
+    expect(payloadBytesFor(20 * 300 * 1024)).toBeLessThan(MAX_WORKER_PAYLOAD_BYTES)
+    // Twenty 8 MB photographs straight off a camera.
+    expect(payloadBytesFor(20 * 8 * 1024 * 1024)).toBeGreaterThan(MAX_WORKER_PAYLOAD_BYTES)
   })
 })

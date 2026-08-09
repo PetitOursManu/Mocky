@@ -18,6 +18,7 @@ import {
 import { proposeTimeline } from './compose.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
+import { MAX_WORKER_PAYLOAD_BYTES, payloadBytesFor } from './worker.js'
 import { quotaError } from '../storage-quota.js'
 
 const HASH_RE = /^[a-f0-9]{64}$/
@@ -406,6 +407,39 @@ export function createVideoRouter({
     // spent on an image whose only claim to being in the film is that a client
     // put it in a JSON body.
     if (refusedForPending(res, imageLibrary, ids)) return
+
+    /*
+     * Will the pictures even fit in the request that carries them?
+     *
+     * They travel as base64 inside one JSON body (`collectImages`), and the
+     * worker's `express.json()` stops at 80 MB. Without this check that ceiling
+     * was met at the far end of a queue: the job waited its turn, the images
+     * were read and encoded, and the answer came back as "The render worker
+     * answered 413" — a sentence about a machine, minutes after the only moment
+     * the user could have done anything about it. A film of twenty photographs
+     * straight off a camera reaches it easily; one cut from generated stills
+     * never comes close.
+     *
+     * `fileSize` and not the metadata: the index records the dimensions asked
+     * for, and this is a question about bytes on disk. It is measured on the
+     * DEDUPLICATED ids, because that is what actually gets sent — a timeline
+     * that opens and closes on the same photograph pays for it once.
+     *
+     * A floor, never an estimate — see `payloadBytesFor`. What is refused here
+     * is a payload whose pictures alone are already over the ceiling, so nothing
+     * that would have rendered is turned away; a body that clears this and fails
+     * on the JSON around it still meets the worker's own 413, exactly as before.
+     */
+    const imageBytes = ids.reduce((sum, id) => sum + (imageLibrary.fileSize ? imageLibrary.fileSize(id) : 0), 0)
+    const payload = payloadBytesFor(imageBytes)
+    if (payload > MAX_WORKER_PAYLOAD_BYTES) {
+      const mb = (n) => `${Math.round(n / (1024 * 1024))} MB`
+      return res.status(413).json({
+        error:
+          `These ${ids.length} image${ids.length > 1 ? 's' : ''} weigh ${mb(imageBytes)}, which becomes ${mb(payload)} once encoded into the render request — over the worker's ${mb(MAX_WORKER_PAYLOAD_BYTES)} ceiling. ` +
+          'Nothing was queued. Use fewer scenes, or lighter images.',
+      })
+    }
 
     /*
      * Is there anywhere to put the result?

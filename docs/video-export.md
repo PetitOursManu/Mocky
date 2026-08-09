@@ -747,6 +747,183 @@ that can be checked without producing one. Do not move the maths into the JSX.
 
 ---
 
+## What the encoder is told
+
+`renderMedia` was called with a codec and nothing else, and everything else was
+Remotion's default. The report that found it was one sentence — *the video
+quality is really bad, everything is pixelated* — from someone who had exported
+a 1920×1080 film of forest photographs.
+
+The defaults, at the pinned 4.0.507:
+
+| Option | Default | What it meant here |
+|---|---|---|
+| `imageFormat` | `jpeg` | every frame left Chromium as a JPEG |
+| `jpegQuality` | 80 | …quantised at 80, before the encoder had seen it |
+| `crf` | 18 (h264), 9 (vp8) | the same frame quantised a second time |
+| `pixelFormat` | `yuv420p` | correct, and inherited rather than chosen |
+| `scale`, `everyNthFrame` | 1, 1 | correct, and nothing to fix |
+
+Two quantisers on the same 8×8 grid, and the first bought nothing: the frames
+never touch a disk, they come back over the devtools socket and go straight into
+the encoder. On dark, high-frequency foliage that first pass **is** the blocking
+in the report.
+
+**The capture is still JPEG, at quality 100.** `imageFormat: 'png'` is the
+correct answer to "do not quantise twice" and it is refused on the render
+budget: the worker gives up at 110 s, serves one render at a time on two cores,
+and the schema permits 3600 frames. A 1080p PNG of a photograph is an order of
+magnitude larger than the JPEG of it, per frame, over the same socket — a
+setting that turns a thirty-second film into a 504 is not a quality improvement
+either. Quality 100 flattens libjpeg's quantisation tables, so the luma arrives
+intact; what it does not recover is chroma resolution, and that is why it is
+most of the distance rather than a compromise — the output is 4:2:0 regardless.
+
+**`yuv420p` is stated, not inherited, and it is deliberately the default.** The
+instinct for a film made of type over photographs is `yuv444p`, and it is the
+wrong move: h264 at 4:4:4 is the High 4:4:4 Predictive profile, which browsers
+do not decode, and Mocky's own Media tab plays these films in a `<video>`. The
+sharp export would be the one nobody can watch. Writing it down means a Remotion
+release changing its own default cannot change what a Mocky export can be opened
+in — v4 → v5 already moved the default `colorSpace`.
+
+**h264 gets CRF 16 and a cap; vp8 gets a bitrate.** They are not the same
+setting spelled differently:
+
+- CRF has no size bound at all, and the film comes back whole in an HTTP
+  response, crosses `server/video/worker.js` as one Buffer and is written
+  against the same `diskBudget` as the image and clip libraries. So `crf: 16`
+  travels with `encodingMaxRate: '16M'` and `encodingBufferSize: '32M'` — a
+  ceiling of **244 MB for the longest film the schema permits**, forty of them
+  against the default 10 GB budget, and every real film a fraction of it. The
+  cap sits above the rate CRF 18 spends on the same frames today, so it cannot
+  cost a film anything it currently has; it refuses the runaway and nothing
+  else.
+- vp8 gets `videoBitrate: '8M'` and no CRF, because Remotion emits `-crf` and
+  never `-b:v 0`. libvpx reads a CRF as *constrained* quality bounded by the
+  target bitrate, and with no `-b:v` that target is ffmpeg's own default for a
+  video encoder: 200 kbit/s. The webm path was not merely using a default — the
+  default it used capped a 1080p film at a rate meant for a thumbnail.
+
+**`concurrency` is stated too, and it is the one default a container makes
+actively wrong.** Remotion opens half the CPU threads it can see. `cpus: 2.0` in
+the compose file is a CFS quota, not an affinity mask, so nothing the worker can
+call reports two — neither `os.cpus()` nor `os.availableParallelism()`. It reads
+the host's threads, and on an ordinary sixteen-thread build machine the render
+opens eight Chromium tabs to time-share two cores. As waste that is merely a
+worse trade against a 110 s deadline; it stops being harmless the moment the
+capture is raised, because `concurrency` is how many captured frames are in
+flight at once and a quality-100 frame is several times the size of a quality-80
+one. Raising the capture and leaving the multiplier to whatever host the image
+happens to run on is how a worker that renders on one machine is OOM-killed on a
+bigger one, against `mem_limit: 4g`, with nothing in the job but "the worker
+could not be reached". So `RENDER_CONCURRENCY` sits in the compose file beside
+the `cpus` it has to match, defaults to 2 in code, and `encoding.test.js` reads
+both numbers out of `docker-compose.yml` so that raising one and forgetting the
+other fails a build rather than a render.
+
+All of it is in `worker/video/encoding.js`, with no Remotion import, for the
+same reason `composition.js` has none: `render.js` cannot be loaded by any test
+in this repository, and the construction of the call is the one part of a render
+that can be checked without producing one. `encoding.test.js` holds Remotion's
+defaults as literals — a test that read them from the module under test would
+agree with anything — and asserts that each codec receives the keys it reads and
+none it would ignore, that the five templates render at one quality, and that
+the 244 MB ceiling is arithmetic rather than a sentence.
+
+---
+
+## What the encoder cannot reach: a picture smaller than the frame
+
+The same one-sentence report had a second cause, upstream of every setting an
+encoder has. The pipeline was followed end to end and it loses nothing until the
+last step:
+
+| Step | What happens to the pixels |
+|---|---|
+| `server/images/library.js` | the provider's bytes, whole, at `data/image-library/<hash>.jpg`. No thumbnail, no second copy, no re-encode — the `.jpg` is a naming convention and `mime` records what the file really is |
+| `collectImages` (`server/video/worker.js`) | the file is read and base64'd. Deduplicated, never resized |
+| `POST /render` on the worker | an 80 MB body ceiling. It **refuses**; nothing there scales a picture down to fit |
+| `stageImages` (`worker/video/staging.js`) | the same bytes, written beside the bundle |
+| the composition | `object-fit: cover`, and this is where it is lost |
+
+Mocky's image library defaults to **1024×1024**. A `16:9` export is
+**1920×1080**. `cover` fills both edges, so the still is enlarged **1.88×** and
+44% of it is cropped away on the way — and a Ken Burns move asks for 12% more on
+top of that, a pan for the whole scene, a zoom at one end of it. At 2.1× a
+photograph of dark foliage is mush, and no `crf`, no `jpegQuality` and no
+bitrate puts back detail that was never in the file.
+
+So there are two changes, and the first is worth more than it looks.
+
+**A picture made FOR a film is asked for in the film's shape.** "Start from one
+image" sent no dimensions at all, which meant the library's square default for
+every export. It now sends `SOURCE_DIMENSIONS` — 1344×768 for `16:9`, 768×1344
+for `9:16`, 1024×1024 for `1:1`. The provider call costs exactly the same and
+both halves of the loss shrink at once: the shape matches, so `cover` stops
+throwing away nearly half the picture, and the long edge is 1344 rather than
+1024, so what is left is enlarged 1.43× instead of 1.88×. `makeVariants` copies
+a source's geometry, so every variant inherits it without being told.
+
+Those are **not the frame's own size**, and that is deliberate. A generator is
+not a scaler: diffusion models are trained at a handful of shapes and drift badly
+away from them, and a self-hosted sd-webui asked for 1920×1080 returns a slow,
+duplicated subject rather than a sharper one. 1344×768 and 768×1344 are SDXL's
+own buckets; Pollinations and fal take them verbatim, and OpenAI's `snapSize`
+reads the ratio and answers 1536×1024, which is better still.
+
+**What cannot be fixed is reported, before the render and not after.** 1.43 is
+not 1, uploads are whatever the user has, and a library full of square pictures
+predates all of this — so the panel measures every still against the box it will
+actually be painted into and says so. Each affected scene row carries its own
+`1024×1024 · enlarged ×1.9`, and one line in the pinned footer, beside the
+budget and under the button, gives the count and the worst factor.
+
+Four things about that check are decisions rather than details:
+
+- **It runs in the browser, live.** `/compose` and `/render` both answer with
+  notices and both are the wrong door: a draft assembled by hand out of the
+  picker never composes, and by the time `/render` answers the job is queued. The
+  answer changes with the aspect ratio, the composition and every camera move on
+  the panel, and it has to be on screen while those are still choices.
+- **It measures the file, not the index.** `width`/`height` in the image library
+  record what was *asked* of a provider: OpenAI snaps a request to its own
+  nearest bucket, an upload whose dimensions failed to decode is stored as 0×0,
+  and entries from before the field have nothing. The panel decodes the picture
+  it is already displaying — a cache hit, not a fetch — and reads
+  `naturalWidth`. A picture that cannot be measured is skipped rather than
+  guessed at.
+- **It knows which composition is being cut.** `product` stands its picture on
+  half a landscape frame, so the same still that is coarse in a slideshow is
+  sharp there; `titles` paints no picture at all and is silent. Under `auto` the
+  composition is not decided yet, so the report is the **floor** — no camera
+  move counted — because a warning that cries wolf is one people learn to ignore
+  the time it was right.
+- **It never disables anything.** A soft still is a film people ship on purpose.
+  The floor is 1.25 — a quarter more pixels than the picture has, strictly
+  greater, so 1536×1024 in a landscape film, which is the best OpenAI's models
+  return, passes.
+
+The frame geometry is a fourth hand-kept mirror: `src/lib/video/resolution.ts`
+copies `DIMENSIONS`, the two overscales and `PICTURE_SHARE` out of
+`worker/video/remotion/composition.js`, which cannot be imported by a Vite
+bundle. `tests/video-frame-geometry.test.js` holds them together, because this
+copy drifts in the silent direction — raise the worker's output to 4K and the
+panel keeps measuring against 1080p, so it stops reporting exactly the films that
+got worse. `PICTURE_SHARE` moved out of `ProductSpotlightVideo.jsx` into
+`composition.js` to make that possible, which is where the file's own rule said
+it belonged anyway.
+
+The 80 MB ceiling got the same treatment while the path was being walked. It is
+a refusal and never a resize, and it used to be met at the far end of the queue:
+job accepted, minutes waited, *the render worker answered 413*. `POST /render`
+now adds up the images on disk, applies base64's four-for-three, and refuses
+before enqueueing when the pictures **alone** are already over — a floor on the
+real body, never an estimate, so nothing that would have rendered is turned away
+and a body that clears it still meets the worker's own 413 exactly as before.
+
+---
+
 ## Where a finished film lands
 
 In `server/video/store.js`, under `data/video-exports/`. **Never** in the clip
@@ -1181,6 +1358,7 @@ accounts per file. Either is enough to say yes.
 | `src/lib/video/timeline.ts` | The zod schema — the five templates, the theme, and the reasoning behind every bound. The definition to read |
 | `server/video/timeline.js` | The same schema, mirrored by hand for Node, plus `attachTheme`. `timeline.test.js` holds the two together |
 | `src/lib/video/theme.ts` | The project's art direction, read into the handful of tokens a film can carry. Declared ones only |
+| `src/lib/video/resolution.ts` | How much a still is about to be enlarged, and what to ask a provider for. Mirrors the worker's frame geometry; `tests/video-frame-geometry.test.js` holds the two together |
 | `server/video/compose.js` | The one model call: it picks a composition and fills it in, it never picks the pictures |
 | `server/video/variants.js` | The two variant paths, and the fixed table of axes |
 | `server/video/config.js` | Admin settings. The licence key never leaves the server |
@@ -1190,9 +1368,11 @@ accounts per file. Either is enough to say yes.
 | `server/video/routes.js` | `/api/video`, the pending guard, and the admin router |
 | `src/components/VideoExportDialog.tsx` | The Motion panel. Opened from the toolbar, never from a screen |
 | `worker/video/` | The Remotion worker: separate sub-project, separate image, separate README |
+| `worker/video/encoding.js` | The codec table and what each codec is told about quality. No Remotion import, so the one testable part of a render can be tested |
 | `worker/video/remotion/composition.js` | The five compositions' shared arithmetic, their theme, and their palettes. No React, no Remotion, so a test can reach it |
 | `worker/video/remotion/contrast.js` | WCAG luminance and contrast, mirrored by hand from `src/lib/audit/colors.ts`. `contrast.test.js` holds the two together |
 | `tests/video-worker-separation.test.js` | What actually keeps Remotion out of Mocky's manifest |
+| `tests/video-frame-geometry.test.js` | The frame size, the overscales and the picture share, compared between the browser and the worker |
 
 The queue is in memory with a JSON journal on disk, and there is no Redis and no
 worker table — same posture as the rest of the store. A self-hosted Mocky is one
