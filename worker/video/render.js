@@ -11,7 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { bundle } from '@remotion/bundler'
 import { ensureBrowser, makeCancelSignal, renderMedia, selectComposition } from '@remotion/renderer'
-import { IMAGE_SEQUENCE } from './remotion/composition.js'
+import { compositionIdFor } from './remotion/composition.js'
 import { stageImages, unstage } from './staging.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -150,7 +150,18 @@ export async function renderTimeline({ timeline, images = [], licenseKey = null,
   if (signal?.aborted) cancel()
 
   try {
-    const composition = await selectComposition({ serveUrl, id: IMAGE_SEQUENCE.id, inputProps, logLevel: 'error' })
+    // The composition the document's own template names. A timeline whose
+    // template has no composition never reaches this line — `validate.js`
+    // refuses it by name, and `compositionIdFor` throws rather than falling back
+    // to the slideshow, because drawing a `product` with the slideshow would
+    // produce a film with its arguments and its call to action missing and
+    // report it as a success.
+    const composition = await selectComposition({
+      serveUrl,
+      id: compositionIdFor(timeline.template),
+      inputProps,
+      logLevel: 'error',
+    })
 
     const { buffer, contentType } = await renderMedia({
       composition,

@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+// Both copies of the contract, so "the project id is not inside the timeline"
+// can be asked of the schemas rather than of their source text.
+import * as node from '../server/video/timeline.js'
+import * as web from '../src/lib/video/timeline.ts'
 
 /**
  * A rendered film has to be findable, and the chain that makes it findable runs
@@ -41,6 +45,15 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8')
 
+/**
+ * Source with its prose removed, so a rule about what the CODE says is not
+ * broken by a comment explaining why.
+ *
+ * Block comments and whole-line `//` only: a trailing comment is rare in these
+ * files and stripping `//` anywhere would eat the middle of a URL.
+ */
+const withoutComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+
 describe('the project id reaches the stored film', () => {
   it('is handed to the panel by the project that opened it', () => {
     const source = read('src/components/ProjectView.tsx')
@@ -63,8 +76,22 @@ describe('the project id reaches the stored film', () => {
     // a field inside the hashed document could not express. Checked on the
     // schemas themselves, both of them, because that is where "inside" is
     // decided rather than at this call site.
-    expect(read('src/lib/video/timeline.ts')).not.toMatch(/project/i)
-    expect(read('server/video/timeline.js')).not.toMatch(/project/i)
+    //
+    // Asked of the schemas rather than of the word "project", which those files
+    // now have to be able to say: the theme they carry comes from the project's
+    // art direction, and the sentence that explains it is not the field being
+    // banned. A key declaration is, and so is a document that gets one past
+    // `.strict()` — the second check is the one that would still fail if the
+    // spelling changed.
+    expect(withoutComments(read('src/lib/video/timeline.ts'))).not.toMatch(/\bprojects?(Id)?\s*:/i)
+    expect(withoutComments(read('server/video/timeline.js'))).not.toMatch(/\bprojects?(Id)?\s*:/i)
+
+    const doc = { scenes: [{ imageId: 'a'.repeat(64), durationMs: 3000 }], projectId: 'p1' }
+    expect(web.VideoTimelineSchema.safeParse(doc).success).toBe(false)
+    expect(node.VideoTimelineSchema.safeParse(doc).success).toBe(false)
+    // The render document too, which is the one the server builds and the only
+    // place a project id could plausibly have been slipped in.
+    expect(node.RenderTimelineSchema.safeParse(doc).success).toBe(false)
   })
 
   it('is written onto the film by the render callback', () => {

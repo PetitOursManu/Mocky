@@ -301,16 +301,29 @@ function chroma(hex: string): number {
   return (Math.max(...rgb) - Math.min(...rgb)) / 255
 }
 
-/** Extract a radius token like "Radius: rounded-xl" or "16px"; falls back to 12px. */
-function parseRadius(markdown: string): string {
+/**
+ * The radius the document actually STATES, or null when it says nothing.
+ *
+ * Split out from `parseRadius` because a caller has to be able to tell the two
+ * apart. `parseDesignSystem` always returns a radius so the style sheet always
+ * renders, and its 12px fallback is an invention — harmless in a preview, a
+ * false claim anywhere it is presented as the project's own. The video theme is
+ * exactly that case: a corner radius nobody chose, burnt into a film.
+ */
+export function readRadius(markdown: string): string | null {
   const m = /radius[^\n#]*?(\d+\s?px|\d+(?:\.\d+)?\s?rem|rounded-[a-z0-9]+)/i.exec(markdown)
-  if (!m) return '12px'
+  if (!m) return null
   const v = m[1].replace(/\s+/g, '')
   const map: Record<string, string> = {
     'rounded-none': '0px', 'rounded-sm': '2px', rounded: '6px', 'rounded-md': '8px',
     'rounded-lg': '10px', 'rounded-xl': '14px', 'rounded-2xl': '18px', 'rounded-3xl': '26px', 'rounded-full': '9999px',
   }
   return map[v] ?? v
+}
+
+/** Extract a radius token like "Radius: rounded-xl" or "16px"; falls back to 12px. */
+function parseRadius(markdown: string): string {
+  return readRadius(markdown) ?? '12px'
 }
 
 /** Parse a DESIGN.md into a structured, always-renderable design system. */

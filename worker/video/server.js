@@ -20,7 +20,7 @@ import express from 'express'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { validateRenderRequest } from './validate.js'
-import { IMAGE_SEQUENCE } from './remotion/composition.js'
+import { COMPOSITIONS, compositionIdFor } from './remotion/composition.js'
 
 const pkg = createRequire(import.meta.url)('./package.json')
 
@@ -161,7 +161,12 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
       // network trace still wants to know what rendered it without opening the
       // file. It is also the fastest way to catch a container left behind on an
       // older image.
-      res.set('x-mocky-worker-composition', IMAGE_SEQUENCE.id)
+      //
+      // Derived from the template rather than fixed, now that there are five of
+      // them: a header naming the slideshow on every response would be worse
+      // than none at all, since the one question it is asked is which of the
+      // five drew this.
+      res.set('x-mocky-worker-composition', compositionIdFor(parsed.timeline.template))
       res.send(buffer)
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
@@ -208,7 +213,9 @@ export async function start({ port = Number(process.env.PORT) || DEFAULT_PORT, l
     app.listen(port, '0.0.0.0', resolve)
   })
 
-  log.log?.(`mocky-video-worker ${VERSION} listening on 0.0.0.0:${port} — composition ${IMAGE_SEQUENCE.id}`)
+  log.log?.(
+    `mocky-video-worker ${VERSION} listening on 0.0.0.0:${port} — compositions ${Object.values(COMPOSITIONS).join(', ')}`,
+  )
 
   // Caught, including the import itself. `warmUp` already degrades on its own,
   // but a renderer that will not even load — a half-finished `npm install`, a

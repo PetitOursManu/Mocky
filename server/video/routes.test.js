@@ -253,6 +253,7 @@ describe('POST /render', () => {
      * the worker — exactly the fields `.strict()` exists to keep out.
      */
     expect(enqueued.timeline).toEqual({
+      template: 'slideshow',
       scenes: [{ imageId: ID_A, durationMs: 3000, kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null }],
       outputFormat: 'mp4',
       aspectRatio: '16:9',
@@ -262,6 +263,72 @@ describe('POST /render', () => {
   it('takes the owner from the session, never from the body', async () => {
     await post('/api/video/render', { timeline: { scenes: [scene()] }, userId: 'someone-else' })
     expect(enqueued.userId).toBe('u1')
+  })
+
+  /**
+   * The look of the film is attached HERE, by the server, and never by the model.
+   *
+   * `VideoTimelineSchema` has no `theme`, so the document the composer wrote
+   * could not have carried one — the test below the next one is the other half
+   * of that rule. What reaches the queue is the accepted timeline plus the
+   * project's own direction, which is what makes an export resemble the product
+   * it was cut from instead of a stock template.
+   */
+  it('attaches the theme to the document that goes to the worker', async () => {
+    const res = await post('/api/video/render', {
+      timeline: { scenes: [scene()] },
+      theme: { colors: { accent: '#c0392b' }, fonts: { heading: 'Cormorant Garamond' }, radiusPx: 14 },
+    })
+    expect(res.status).toBe(202)
+    expect(enqueued.timeline.theme).toEqual({
+      colors: { accent: '#c0392b' },
+      fonts: { heading: 'Cormorant Garamond' },
+      radiusPx: 14,
+    })
+    expect((await res.json()).notices).toEqual([])
+  })
+
+  it('refuses a theme the model wrote into the timeline, like any unknown key', async () => {
+    const res = await post('/api/video/render', {
+      timeline: { scenes: [scene()], theme: { colors: { accent: '#c0392b' } } },
+    })
+    expect(res.status).toBe(400)
+    expect(JSON.stringify((await res.json()).issues)).toContain('theme')
+  })
+
+  /**
+   * The defect: losing a render over a decoration.
+   *
+   * A direction that will not parse costs the colours and nothing else (Q1) —
+   * the user has already waited in a queue for this — and the answer says so,
+   * because a film quietly rendered in the wrong palette looks exactly like one
+   * rendered in the right one to anybody who did not write the direction.
+   */
+  it('queues the film anyway when the theme is refused, and says what was dropped', async () => {
+    const res = await post('/api/video/render', {
+      timeline: { scenes: [scene()] },
+      // A CSS font stack: the schema takes one family name, because this value
+      // ends up in a `font-family` and a comma there is the start of a syntax.
+      theme: { fonts: { body: 'Inter, sans-serif' } },
+    })
+    expect(res.status).toBe(202)
+    expect(enqueued.timeline.theme).toBeUndefined()
+    expect((await res.json()).notices[0]).toMatch(/art direction/i)
+  })
+
+  /**
+   * A text-only film has no pictures, and the existence check has to know that.
+   *
+   * `scenes.map((s) => s.imageId)` would hand `fileExists` an `undefined`, and
+   * the route would answer 404 "1 image is not in the image library" about an
+   * image the timeline never named.
+   */
+  it('queues a titles film, which references no image at all', async () => {
+    const res = await post('/api/video/render', {
+      timeline: { template: 'titles', scenes: [{ headline: 'Cadence', durationMs: 3000 }] },
+    })
+    expect(res.status).toBe(202)
+    expect(enqueued.timeline.template).toBe('titles')
   })
 
   /**
@@ -473,11 +540,49 @@ describe('POST /compose', () => {
     expect(providerRequests).toHaveLength(0)
   })
 
-  it('400s on an empty brief and on an empty selection', async () => {
+  it('400s on an empty brief, without spending a model call', async () => {
     withModel()
     expect((await compose({ brief: '   ', images: [ID_A] })).status).toBe(400)
-    expect((await compose({ brief: 'a calm slideshow', images: [] })).status).toBe(400)
     expect(providerRequests).toHaveLength(0)
+  })
+
+  /**
+   * An empty selection used to be a 400, and that was right until the catalogue
+   * arrived: `titles` is words on a background and its scene schema has no
+   * `imageId` at all. Refusing here made the one composition written for a brief
+   * of words unreachable through the only route that composes.
+   */
+  it('composes a titles film from a brief with no image selected', async () => {
+    withModel()
+    providerAnswer = { template: 'titles', scenes: [{ headline: 'Coming in spring', durationMs: 3000 }] }
+    const res = await compose({ brief: 'an opening card', images: [] })
+    expect(res.status).toBe(200)
+    expect((await res.json()).timeline.template).toBe('titles')
+  })
+
+  /**
+   * The look of a film is the project's, and the server is what puts it on the
+   * document — after the model's answer has been validated, never before. The
+   * theme is not in the prompt and `VideoTimelineSchema` has no key for it, so a
+   * composer that wrote its own was refused a step earlier.
+   */
+  it('attaches the project’s direction to the proposal, and never shows it to the model', async () => {
+    withModel()
+    const res = await compose({
+      brief: 'a calm slideshow',
+      images: [ID_A, ID_B],
+      theme: { colors: { accent: '#c0392b' } },
+    })
+    expect((await res.json()).timeline.theme).toEqual({ colors: { accent: '#c0392b' } })
+    expect(JSON.stringify(providerRequests[0])).not.toContain('c0392b')
+  })
+
+  it('returns no timeline when the model wrote its own theme', async () => {
+    withModel()
+    providerAnswer = { ...providerAnswer, theme: { colors: { accent: '#000000' } } }
+    const body = await (await compose({ brief: 'a calm slideshow', images: [ID_A, ID_B] })).json()
+    expect(body.timeline).toBe(null)
+    expect(body.notices.join(' ')).toContain('theme')
   })
 
   /**
@@ -552,7 +657,7 @@ describe('POST /compose', () => {
 
   /**
    * The founding rule, on the route rather than in the unit test: the model
-   * orders and tunes, it does not choose the pictures. A hash it invented is
+   * picks the composition, it does not choose the pictures. A hash it invented is
    * sixty-four hex characters like any other, so only the selection can refuse
    * it — and refusing means refusing, not swapping in the nearest image.
    */

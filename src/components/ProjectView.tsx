@@ -2027,6 +2027,11 @@ export default function ProjectView({
       {showVideoExport && (
         <VideoExportDialog
           projectId={project.id}
+          /* The same direction the next generation will read, not the global
+             file: a film cut in a project with its own DESIGN.md must come out
+             in that project's colours, and `directionMd` is the one resolution
+             of that question the rest of this view already draws from. */
+          direction={directionMd}
           /* Read-only, and only what the picker draws — see AttachTarget. The
              thumbnail cache is keyed on the code, so it travels with the name. */
           screens={screens.map((s) => ({

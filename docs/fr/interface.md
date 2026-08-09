@@ -437,11 +437,12 @@ projet ou dans son nom de produit, pas dans le balisage d’un écran.
 
 ## Le panneau Motion
 
-S’ouvre avec `Motion`. Un diaporama monté à partir de la médiathèque : une image
-par scène, avec sa durée, son mouvement et sa transition. **Le rendu tourne sur
-le worker Remotion, pas dans ce navigateur** — et ce worker est un service Docker
-séparé et facultatif, donc la première chose que fait le panneau est de dire s’il
-est là. Pourquoi c’est bâti ainsi est dans [Motion](fr/video-export.md).
+S’ouvre avec `Motion`. Un film monté à partir de la médiathèque, dans l’une de
+**cinq compositions** : diaporama, bandeau sur capture, format téléphone,
+titrage animé, mise en avant produit. **Le rendu tourne sur le worker Remotion,
+pas dans ce navigateur** — et ce worker est un service Docker séparé et
+facultatif, donc la première chose que fait le panneau est de dire s’il est là.
+Pourquoi c’est bâti ainsi est dans [Motion](fr/video-export.md).
 
 La fonctionnalité s’appelait « Export vidéo » et les fichiers s’appellent encore
 ainsi. C’est délibéré, et expliqué sur la page ci-dessus : ce que lit un
@@ -450,6 +451,30 @@ utilisateur dit Motion, ce que cherche un développeur dit `video`.
 Un compte pour lequel la fonctionnalité n’est pas activée reçoit une phrase
 laconique et rien d’autre : il n’apprend rien de la configuration de l’instance,
 ni de ce à quoi ressemble un montage valide.
+
+**Le premier contrôle est `Composition`, et son défaut est `Automatique`.** Six
+cartes : automatique, puis les cinq compositions, chacune avec son nom, une
+phrase disant ce qu’elle fabrique, une autre disant ce qu’elle *exige*, et ses
+propres bornes. La troisième ligne est celle qui décide du choix — « titrage
+animé » ne dit pas qu’il n’utilise aucune image, et quelqu’un qui vient de passer
+une minute à choisir des photos doit l’apprendre avant de cliquer, pas après.
+
+Automatique est le défaut plutôt qu’une option plus bas dans la page, parce que
+c’est la position qui sert le mieux un brief : le modèle lit votre phrase et
+prend la composition faite pour elle. Sur automatique il n’y a encore rien à
+rendre — la sélection est ce qu’on donne au modèle — donc le bouton de rendu
+nomme cette raison au lieu de rester grisé, et c’est la proposition qui décide de
+la composition. Le sélecteur se place ensuite sur celle qui est revenue.
+
+**En choisir une à la main change le formulaire en dessous**, et c’est tout
+l’intérêt du choix : une composition sans image ne montre aucun sélecteur
+d’images mais un bouton `Ajouter un carton` ; une mise en avant produit montre
+une accroche, trois champs d’argument et un appel à l’action ; un bandeau sur
+capture montre un titre de bandeau et sa position, et aucun mouvement de caméra,
+parce qu’un travelling sur une capture fait sortir la moitié de l’interface du
+cadre. Changer de composition garde vos images et vos textes — rien n’est jeté,
+et un nombre de scènes au-dessus du plafond de la nouvelle composition est
+signalé pour que vous retiriez vous-même des lignes.
 
 Il y a **un seul formulaire**, et deux façons de le remplir — derrière un
 interrupteur, une seule visible à la fois. Empilées, elles remplissaient à elles
@@ -461,12 +486,13 @@ ouvert et n’est pas retenue ensuite : c’est un fait sur le montage du moment
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
-| `Décrivez la vidéo` → `Proposer un montage` | Envoie votre phrase et les images déjà choisies au modèle. Il **ordonne et règle** — durées, mouvements, transitions, textes. Il ne choisit pas les images et n’en ajoute aucune. | modèle |
+| `Composition` | Lequel des cinq types de film, ou `Automatique` — le défaut, où le modèle choisit. Choisie à la main, c’est elle qui décide des champs de tout ce qui suit. | libre |
+| `Décrivez la vidéo` → `Proposer un montage` | Envoie votre phrase et les images déjà choisies au modèle. Sur `Automatique` il **choisit une composition parmi les cinq** et la remplit ; sur une composition que vous avez choisie, il s’y tient, et une proposition qui en nomme une autre est refusée plutôt que chargée. Dans les deux cas il ne choisit pas les images et n’en ajoute aucune. | modèle |
 | `Partir d’une image` → `Générer une image modèle` | Fabrique une image à partir d’un sujet que vous décrivez. Rien ne continue tant que vous n’avez pas choisi `Garder`, `Régénérer` ou `Abandonner`. | image |
 | `Ou partir d’une image de la médiathèque` | Le même sélecteur que la liste des scènes. Une image de la médiathèque existe déjà et vous venez de la regarder pour la choisir : elle passe directement aux variantes, sans première confirmation. | libre |
 | `Produire {n} variantes` | De deux à six prises de cette image, affichée en petit au-dessus du bouton pour qu’on voie de quoi elles dériveront. Vous cochez ensuite celles qui méritent d’être montées ; ce qui reste décoché reste en attente, définitivement. | image, un appel par variante |
-| Une ligne de scène | Durée, mouvement, transition vers la suivante, et une ligne facultative de texte incrusté. Monter, descendre, retirer. | libre |
-| `Sortie` | Format d’image (`16:9`, `9:16`, `1:1`) et conteneur (`mp4`, `webm`). | libre |
+| Une ligne de scène | Les champs de la composition choisie, et d’aucune autre : toujours une durée et une transition, puis un mouvement de caméra et une légende sur un diaporama ou un format téléphone, un bandeau sur une capture, une accroche et une entrée sur un carton de titre, une accroche avec jusqu’à trois arguments et un appel à l’action sur un produit. Monter, descendre, retirer. Sur `Automatique`, une ligne est l’image et sa place dans l’ordre de passage : la composition qui lirait un réglage n’est pas encore décidée. | libre |
+| `Sortie` | Format d’image (`16:9`, `9:16`, `1:1`) et conteneur (`mp4`, `webm`). Un format téléphone n’a pas de format à choisir : le `9:16` EST la composition, et le panneau le dit au lieu d’offrir deux valeurs qui feraient refuser le document. | libre |
 | `Lancer le rendu` | Met le job en file. Un seul rendu à la fois sur l’instance ; vous pouvez fermer le panneau et le retrouver en le rouvrant. | serveur (des minutes de processeur) |
 | `Télécharger la vidéo` | Le fichier terminé. | libre |
 
@@ -479,9 +505,18 @@ dit quelle assistance est à l’écran ; aucune des deux n’est un état du mo
 et changer de position ne perd rien — une phrase tapée, une image non confirmée
 et un appel encore en vol y survivent tous.
 
-Trois choses que le panneau énonce au lieu de les sous-entendre, parce que
+Quatre choses que le panneau énonce au lieu de les sous-entendre, parce que
 chacune est un fait sur votre instance qui change ce que vous obtenez :
 
+- **D’où viennent les couleurs et les polices.** Elles viennent de la direction
+  artistique du projet, elles sont affichées sous les cartes de composition — les
+  pastilles et les noms de familles — et il n’y a ici aucun réglage pour les
+  changer. Ne rien dire inviterait la lecture inverse, celle d’un réglage de
+  couleur qui attendrait plus bas ; il n’y en a pas, et il ne peut pas y en
+  avoir, parce que le schéma qu’un document composé doit passer n’a pas de clé de
+  thème du tout. Seul ce que la direction *déclare* vraiment voyage : un projet
+  dont l’accent a été deviné plutôt qu’écrit n’affiche aucun accent, et la
+  composition applique son propre défaut. Sans direction, le panneau le dit.
 - **Si les variantes dériveront vraiment de votre image.** Avec un profil d’image
   « Édition » configuré, elles sortent d’un modèle image-vers-image nourri de
   votre propre image ; sans lui, elles naissent du même texte — même sujet, autre
@@ -630,7 +665,7 @@ ci-dessous est un clic, et la liste est complète.
 | `Analyse approfondie` | Panneau Audit | Change ce que coûte `Évaluer`. Décochée par défaut. |
 | `Corriger` / `Tout corriger` | Panneau Audit | |
 | `Générer` (une image) | `Changer les médias…`, bibliothèque d’images | Appelle le fournisseur d’images, pas le modèle de texte. |
-| `Proposer un montage` | Panneau Motion | Le seul appel au modèle de Motion. Il ordonne et règle les images que vous avez choisies ; il n’en choisit jamais une. |
+| `Proposer un montage` | Panneau Motion | Le seul appel au modèle de Motion. Il choisit une composition et monte les images que vous avez choisies ; il n’en choisit jamais une. |
 | `Générer une image modèle`, `Produire {n} variantes` | Panneau Motion | Le fournisseur d’images, une fois par image. Six variantes, six appels. |
 | `Lancer le rendu` | Panneau Motion | Ni modèle ni fournisseur — mais des minutes de processeur sur le worker de rendu, ce qui en fait le clic le plus cher du produit sur une petite machine. |
 

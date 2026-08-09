@@ -60,23 +60,63 @@ schéma, la file et le magasin — est documenté dans
 
 ## Ce qu'il rend
 
-Une seule composition, `ImageSequenceVideo`, et c'est tout ce qu'un appelant peut
-atteindre : `render.js` la sélectionne par son id, donc une requête ne peut en
-nommer aucune autre.
+Cinq compositions, une par modèle, et c'est tout ce qu'un appelant peut
+atteindre : `render.js` en sélectionne une par l'id que renvoie
+`compositionIdFor`, donc une requête ne peut en nommer aucune autre.
+
+| Modèle | Composition | Ce qu'elle dessine |
+|---|---|---|
+| `slideshow` | `ImageSequenceVideo` | Une image par scène, un effet Ken Burns, une légende facultative sur un panneau |
+| `overlay` | `OverlayBandVideo` | Une capture d'écran qui dérive de ±1,2 %, avec un bandeau dont le titre et le sous-titre arrivent en cascade sur un voile presque opaque |
+| `vertical` | `VerticalStoryVideo` | 9:16 plein cadre, gros titres, à l'intérieur des marges que les interfaces sociales recouvrent de leurs propres boutons |
+| `titles` | `AnimatedTitlesVideo` | Des mots sur le fond du thème, soulignés par l'accent. **Aucune image** |
+| `product` | `ProductSpotlightVideo` | Une image cadrée large, une accroche, un à trois arguments et un appel à l'action, énumérés |
 
 **Le modèle n'écrit jamais de code Remotion.** Il écrit un objet JSON, validé par
 `src/lib/video/timeline.ts`, et des compositions écrites à la main le consomment.
 Toutes les compositions de `remotion/` sont écrites par une personne, et c'est la
-règle fondatrice de la fonctionnalité, pas une étape qu'elle aurait traversée.
-Lisez les props comme hostiles et le reste suit : rien de la timeline n'est jamais
-interpolé dans du balisage, un nom de classe, une chaîne de style ou une URL. Le
-texte d'incrustation est un enfant React — échappé par React, et par rien d'autre.
-Les adresses d'images sont construites ici à partir d'une empreinte de 64
-caractères validée. `dangerouslySetInnerHTML` n'apparaît pas dans ce répertoire
-et ne doit pas commencer.
+règle fondatrice de la fonctionnalité, pas une étape qu'elle aurait traversée —
+un sixième rendu, c'est un composant, une entrée dans `COMPOSITIONS`, un lecteur
+dans `validate.js` et une revue de code ordinaire. Jamais une chaîne qu'un modèle
+aurait transformée en code.
 
-Une scène, c'est une image affichée pendant `durationMs`, avec son effet Ken
-Burns et sa transition vers celle qui suit.
+Lisez les props comme hostiles et le reste suit : rien de la timeline n'est jamais
+interpolé dans du balisage, un nom de classe, une chaîne de style ou une URL.
+Chaque chaîne est un enfant React — échappée par React, et par rien d'autre. Les
+adresses d'images sont construites ici à partir d'une empreinte de 64 caractères
+validée. `dangerouslySetInnerHTML` n'apparaît pas dans ce répertoire et ne doit
+pas commencer.
+
+### Le thème
+
+Un film porte quatre couleurs, deux familles de polices et un rayon d'angle,
+attachés par le serveur de Mocky et jamais écrits par le modèle. `resolveTheme`
+remplit avec `THEME_FALLBACK` tout ce que le projet n'a pas déclaré — les seules
+couleurs de ce répertoire qui ne viennent pas du document — et revérifie chaque
+valeur reçue : de l'hexadécimal et rien d'autre, un seul nom de famille dans un
+jeu de caractères sans syntaxe CSS, un rayon entier. Ce second verrou est ce qui
+maintient vraie la promesse « rien d'un document ne devient du CSS » même si
+quelqu'un desserre le validateur l'an prochain, puisque ces valeurs finissent
+dans `linear-gradient()` et dans `rgba()`.
+
+**Une police déclarée est nommée en premier, et `fonts-liberation` suit.** C'est
+la seule famille que cette image installe ; rien dans Mocky ne charge une
+webfont, et ce conteneur n'a aucune sortie réseau pour en chercher une. Une
+direction qui demande du Cormorant Garamond obtient donc du Liberation Sans,
+glyphe par glyphe, par le repli propre à CSS — jamais une rangée de carrés
+vides, et jamais un export perdu pour une décoration.
+
+Deux valeurs dérivées méritent d'être nommées, parce qu'elles évitent chacune une
+image illisible précise : `withAlpha` transforme une couleur déclarée en le voile
+qui garde une légende lisible sur une photo que personne n'a prévisualisée, et
+`readableInk` choisit le noir ou le blanc d'un appel à l'action à partir de la
+luminance relative de l'accent — un libellé coloré pour un bleu nuit est
+invisible sur un vert d'eau, et aucune direction ne déclare de jeton pour cela.
+
+### Une scène de diaporama
+
+Une image affichée pendant `durationMs`, avec son effet Ken Burns et sa
+transition vers celle qui suit.
 
 | Champ | Ce qu'il fait |
 |---|---|
@@ -102,6 +142,18 @@ sans React ni import Remotion, pour que `composition.test.js` puisse la vérifie
 dans la suite vitest de Mocky. Les comptes d'images, les décalages et la
 géométrie sont là où sont les défauts, et c'est la seule partie d'une vidéo
 vérifiable sans en produire une. Ne déplacez pas ces calculs dans le JSX.
+
+Le catalogue a rendu cette règle mordante : `entranceStyle`, `kenBurnsTransform`
+et `progressAt` y vivent aussi désormais — l'`interpolate` de Remotion était la
+seule chose qui gardait une interpolation linéaire bornée à l'intérieur d'un
+bundle. `cueFrames` est le plus récent des trois, et celui qui a un défaut
+derrière lui : une scène produit peut durer trois secondes et porter une
+accroche, trois arguments et un appel à l'action, et cinq repères à un rythme
+confortable placent le dernier après la fin de la scène. Elle comprime donc toute
+la cascade, pour que rien ne soit jamais programmé avec moins d'une demi-seconde
+de scène restante — un texte qui arrive après la fin de sa propre scène, c'est un
+film privé de la phrase pour laquelle il a été monté, rendu et annoncé comme une
+réussite.
 
 ### Comment les images arrivent jusqu'à Chromium
 
@@ -214,15 +266,17 @@ affichée à l'administrateur.
 ```
 
 Répond `200` avec les octets de la vidéo, un content-type vidéo, et
-`x-mocky-worker-composition: ImageSequenceVideo` — c'est aussi ainsi qu'un
-conteneur resté sur une image plus ancienne se trahit dans une trace réseau. Les
-corps sont acceptés jusqu'à 80 Mo, parce que les images voyagent dans la requête
-plutôt que sous forme d'URL vers Mocky : ce conteneur n'a aucune garantie d'avoir
-une route de retour, ni de sortie réseau pour l'emprunter.
+`x-mocky-worker-composition` qui nomme la composition qui les a produits — c'est
+aussi ainsi qu'un conteneur resté sur une image plus ancienne se trahit dans une
+trace réseau. Les corps sont acceptés jusqu'à 80 Mo, parce que les images
+voyagent dans la requête plutôt que sous forme d'URL vers Mocky : ce conteneur
+n'a aucune garantie d'avoir une route de retour, ni de sortie réseau pour
+l'emprunter.
 
 Chaque `imageId` de scène doit avoir ses octets dans `images`. Il n'y a aucun
 repli pour une image manquante : une vidéo avec une scène noire au milieu serait
-annoncée comme un export réussi.
+annoncée comme un export réussi. Un document `titles` ne nomme aucune image et
+n'en envoie aucune, et c'est le modèle lui-même, pas un cas limite.
 
 **Chaque échec tient en une ligne de texte brut, ni JSON ni page HTML.** Mocky
 recopie jusqu'à 300 caractères d'un corps non-2xx directement dans la phrase que
@@ -310,10 +364,14 @@ worker/video/
   render.js            tout ce qui importe @remotion/*, derrière un import dynamique
   remotion/
     index.js               registerRoot — bundlé, jamais exécuté par Node
-    Root.jsx               la liste des compositions ; une entrée, avec calculateMetadata
-    ImageSequenceVideo.jsx la composition. Du React, écrit à la main
-    composition.js         son id, sa géométrie et son arithmétique d'images, en JS simple
-                           pour que Node et le bundle puissent tous deux les importer
+    Root.jsx               la liste des compositions ; cinq entrées, un calculateMetadata
+    ImageSequenceVideo.jsx     slideshow  ⎫
+    OverlayBandVideo.jsx       overlay    ⎪ les compositions. Du React écrit à la
+    VerticalStoryVideo.jsx     vertical   ⎬ main, une par modèle, chacune une revue
+    AnimatedTitlesVideo.jsx    titles     ⎪ de code ordinaire et non une brèche
+    ProductSpotlightVideo.jsx  product    ⎭
+    composition.js         les ids, la géométrie, le thème et l'arithmétique d'images,
+                           en JS simple pour que Node et le bundle les importent tous deux
     composition.test.js    cette arithmétique, sans produire de vidéo
 ```
 

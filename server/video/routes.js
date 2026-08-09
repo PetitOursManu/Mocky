@@ -7,7 +7,14 @@
 // `express.json()` is applied at the /api level in server/index.js, so req.body
 // is parsed here.
 import express from 'express'
-import { VideoTimelineSchema, readableIssues, MAX_SCENES, MAX_TOTAL_DURATION_MS } from './timeline.js'
+import {
+  VideoTimelineSchema,
+  attachTheme,
+  readableIssues,
+  timelineImageIds,
+  MAX_SCENES,
+  MAX_TOTAL_DURATION_MS,
+} from './timeline.js'
 import { proposeTimeline } from './compose.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
@@ -184,10 +191,10 @@ export function createVideoRouter({
   /**
    * Propose a montage for images the user has ALREADY chosen.
    *
-   * The model orders and tunes; it never picks a picture and never writes a
-   * frame. `compose.js` holds the reasoning — this route's job is the three
-   * things a router owns: who may ask, what a well-formed question is, and where
-   * the credentials come from.
+   * The model picks one composition out of the catalogue and fills it in; it
+   * never picks a picture and never writes a frame. `compose.js` holds the
+   * reasoning — this route's job is the three things a router owns: who may ask,
+   * what a well-formed question is, and where the credentials come from.
    *
    * The refusals mirror /render for the same reasons, in the same order. Access
    * first, so an account without the feature learns nothing about the shape of
@@ -223,9 +230,19 @@ export function createVideoRouter({
           .filter(Boolean),
       ),
     ].slice(0, MAX_COMPOSE_IMAGES)
-    if (!ids.length) {
-      return res.status(400).json({ error: 'Select at least one image: the montage is built from your selection.' })
-    }
+
+    /*
+     * An empty selection is a request, not a mistake.
+     *
+     * It used to be a 400 — "select at least one image" — which was true of
+     * every film the catalogue could cut at the time. `titles` is text on a
+     * background and has no `imageId` in its scene schema at all, so refusing
+     * here would make the one composition that needs no picture unreachable
+     * through the one route that composes. What the selection now decides is
+     * which templates are on offer, and `compose.js` is where that is decided:
+     * it shows the model `titles` alone, and refuses a picture-bearing
+     * composition by naming the one that would have worked.
+     */
 
     const missing = ids.filter((id) => !imageLibrary.fileExists(id))
     if (missing.length) {
@@ -293,7 +310,29 @@ export function createVideoRouter({
     })
 
     try {
-      const { timeline, notices } = await proposeTimeline(brief, images, { llm, signal: abort.signal })
+      /*
+       * The theme travels with the request, exactly as it does to /render, and
+       * for the same reason: the direction lives inside a project the server
+       * keeps as an opaque blob, so the browser is the only party that can read
+       * it (`src/lib/video/theme.ts`). It is NOT shown to the model — nothing of
+       * it reaches the prompt — and it is attached to the composed document only
+       * after the schema has accepted it. A model that wrote its own was already
+       * refused by then, for the reason `VideoTimelineSchema` has no `theme` key.
+       */
+      const { timeline, notices } = await proposeTimeline(brief, images, {
+        llm,
+        theme: req.body?.theme ?? null,
+        /*
+         * The composition the panel's selector is on, or nothing for `auto`.
+         *
+         * Passed straight through rather than validated here: `compose.js` owns
+         * the catalogue, and it matches this against `VIDEO_TEMPLATES` before it
+         * reaches a prompt. A route that also knew the list would be a second
+         * copy of it, and the copy that drifts is the one nobody tests.
+         */
+        template: req.body?.template ?? null,
+        signal: abort.signal,
+      })
       // Nobody is on the other end any more. Writing to a socket the client
       // closed buys nothing and risks a write-after-end on the way out.
       if (abort.signal.aborted) return
@@ -353,7 +392,7 @@ export function createVideoRouter({
      * check and not a guarantee — the file can still be deleted between here and
      * the render, which is why collectImages() checks again.
      */
-    const ids = [...new Set(timeline.scenes.map((s) => s.imageId))]
+    const ids = timelineImageIds(timeline)
     const missing = ids.filter((id) => !imageLibrary.fileExists(id))
     if (missing.length) {
       return res.status(404).json({
@@ -399,9 +438,31 @@ export function createVideoRouter({
         ? req.body.projectId.slice(0, MAX_PROJECT_ID)
         : null
 
-    const job = queue.enqueue({ userId: req.user.id, timeline, projectId })
+    /*
+     * The look of the film is attached HERE, and never by the model.
+     *
+     * `VideoTimelineSchema` has no `theme`, so the document the composer wrote
+     * could not have carried one — a model that tried was refused on the line
+     * above with "Unrecognized key(s)". What goes to the worker is that accepted
+     * document plus the project's own direction, which is what makes an export
+     * look like the product it was cut from rather than a stock template.
+     *
+     * From the body, like `projectId` and for the same reason: the direction
+     * lives in a project the server keeps as an opaque blob, so the browser is
+     * the only party that can read it (see `src/lib/video/theme.ts`). Nothing is
+     * escalated by that — `VideoThemeSchema` accepts hex, one font family name
+     * and an integer, so the worst a hand-made request can do is render its own
+     * film in its own colours.
+     *
+     * A theme that will not parse costs the colours, never the export (Q1).
+     */
+    const themed = attachTheme(timeline, req.body?.theme ?? null)
+
+    const job = queue.enqueue({ userId: req.user.id, timeline: themed.timeline, projectId })
     // 202: accepted, not done. The body carries the id to poll.
-    res.status(202).json(publicJob(job))
+    // `notices` rather than a silent drop: Q2's rule that nothing is discarded
+    // without saying so applies to a direction as much as to a lint rule.
+    res.status(202).json({ ...publicJob(job), notices: themed.notice ? [themed.notice] : [] })
   })
 
   /**

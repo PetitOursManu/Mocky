@@ -20,10 +20,16 @@ FROM node:22-bookworm-slim
 # every render is worse than one that refuses to build.
 #
 # fonts-liberation is in the same line and is not padding. A container with no
-# fonts renders every glyph as a hollow box, and `ImageSequenceVideo.jsx` names
-# "Liberation Sans" for its burnt-in captions precisely because this line is what
-# puts a family on the machine. Drop it and every overlay renders as a row of
-# rectangles, burnt into an mp4 nobody previewed.
+# fonts renders every glyph as a hollow box, and `INSTALLED_FONT_STACK` in
+# `remotion/composition.js` names "Liberation Sans" for every burnt-in caption in
+# every one of the five compositions precisely because this line is what puts a
+# family on the machine. Drop it and every film renders as rows of rectangles,
+# burnt into an mp4 nobody previewed.
+#
+# It is also the only family here, which is why a theme that names a typeface
+# gets it FIRST and this stack second: nothing in Mocky loads a webfont and this
+# container has no egress to fetch one, so CSS's own fallback is what turns "the
+# project asked for Cormorant Garamond" into readable text instead of a failure.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         fonts-liberation \

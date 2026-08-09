@@ -111,6 +111,21 @@ describe('POST /render', () => {
   })
 
   /**
+   * And it names the RIGHT one, now that there are five.
+   *
+   * A header fixed to the slideshow would be worse than none at all: the single
+   * question it is ever asked is which of the five compositions drew this file,
+   * and an answer that is right one time in five is one people learn to ignore.
+   */
+  it('names a different composition for a different template', async () => {
+    const res = await post(
+      validBody({ timeline: { template: 'titles', scenes: [{ headline: 'Hello', durationMs: 2000 }] }, images: [] }),
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-mocky-worker-composition')).toBe('AnimatedTitlesVideo')
+  })
+
+  /**
    * Defence in depth: Mocky validates the same document before enqueuing it,
    * and this worker is still a plain HTTP endpoint with no authentication of
    * its own. A refusal must cost nothing — no Chromium, no render slot — and it

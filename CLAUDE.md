@@ -144,9 +144,11 @@ Turns a list of image ids into an .mp4. **The model never writes Remotion code**
 hand-written compositions consume it. That is the founding rule, not a phase.
 
 ```
-src/lib/video/timeline.ts   the zod schema (browser)
+src/lib/video/timeline.ts   the zod schema (browser): a five-template union
+src/lib/video/theme.ts      the project's direction → the theme a film carries
 server/video/timeline.js    the same schema, mirrored for Node — see below
-server/video/compose.js     the one model call: it ORDERS and TUNES, never picks
+server/video/compose.js     the one model call: it PICKS a composition and fills
+                            it in. It never picks the pictures
 server/video/config.js      admin settings; the licence key never leaves the server
 server/video/queue.js       in-memory queue + atomic JSON journal. No Redis, ever
 server/video/worker.js      HTTP client for the render worker
@@ -154,7 +156,7 @@ server/video/store.js       the finished file, kept whole. NOT server/videos/
 worker/video/               the Remotion worker: separate sub-project, separate image
 ```
 
-Five things, and the first one is not negotiable.
+Nine things, and the first one is not negotiable.
 
 1. **Remotion must never enter Mocky's `package.json`, `Dockerfile`, or default
    compose file.** Its licence is free for individuals, non-profits and companies
@@ -167,7 +169,10 @@ Five things, and the first one is not negotiable.
    `node server/index.js` cannot import a `.ts` file at the 22.12 floor. Same
    deliberate duplication as `server/images/zip.js`. `timeline.test.js` runs a
    corpus through both and requires identical answers, defaults included — edit
-   one side alone and the suite fails.
+   one side alone and the suite fails. There is now a **second** such mirror:
+   `worker/video/remotion/contrast.js` copies the WCAG half of
+   `src/lib/audit/colors.ts` because a Remotion bundle cannot import TypeScript
+   either, and `contrast.test.js` is its corpus.
 3. **The worker URL is the third administrator-only bypass of the SSRF guard.**
    Written down in `invariants.md` with the other two. Guarded, the feature had
    no working configuration at all: the worker sits on an internal compose bridge
@@ -192,6 +197,74 @@ Five things, and the first one is not negotiable.
    `GET /api/video/exports` lists what an account owns. Media has a **third** tab
    for them; do not merge it into the clip tab, and never route a film through
    `VideoPlayer.tsx`.
+6. **The schema is a catalogue: a union discriminated on `template`.** Five of
+   them, each with its own scene kind and its own bounds. That is how variety
+   arrives without the model ever describing its own rendering — a sixth look is
+   a hand-written composition and a normal review. A document with **no**
+   `template` is a slideshow, because saved drafts and the queue's journal are
+   full of them; the test that proves it is the one to keep. The worker refuses
+   a template it has no composition for, by name — and it has five, one per
+   template, in `worker/video/remotion/`. Their shared arithmetic lives in
+   `composition.js` with no React and no Remotion import, because that is the
+   only part of a video a test can check; `cueFrames` and `frameBase` are there
+   for the same reason as `planTimeline`. The container installs **one** font
+   family, so a declared typeface is named first and Liberation Sans follows it.
+
+   The same rule governs how things MOVE. One easing (`easeOutCubic` — linear was
+   what made the first version read as generated), one cue rhythm, one kicker,
+   one texture, all in `composition.js`: five compositions with five notions of
+   "an element arrives" is four of them drifting. A kicker says `sceneLabel`, the
+   film's own structure, and **not** a schema field — a surtitle a model writes
+   about a film it cannot see is the guessed token `theme.ts` refuses.
+7. **The model picks from that catalogue, and picking is not describing.** What
+   comes back is one name out of a closed enum, so the variety costs nothing the
+   founding rule was protecting. `compose.js` states the mapping from an
+   intention to a name (words → `titles`, a phone → `vertical`, a screen →
+   `overlay`, something being sold → `product`, otherwise `slideshow`), because a
+   model shown five compositions takes the most elaborate one. Every bound on
+   those cards is read off `TEMPLATE_LIMITS`/`TEXT_LIMITS` — a floor retyped in a
+   prompt drifts from the validator, and the call is already spent when it does.
+   The **selection** decides which are offered: four of the five need an
+   `imageId`, so an empty one leaves `titles` alone — and a picture-bearing
+   template proposed anyway is refused **by naming `titles`**, never with a bare
+   no. That is why `/compose` accepts an empty selection at all.
+8. **No text in a film is illegible, and arithmetic is what says so.** Two real
+   exports shipped a dark green headline on a near-black frame: `theme.ts` emits
+   only the tokens a direction *stated*, the rest were filled from a fallback,
+   and an ink written for paper met a ground written for a cinema inside an mp4.
+   So `resolveTheme` resolves background/ink/surface as a **pair** — a stated
+   dark ink gets paper, not the dark default — and then every run of text is
+   measured against the surface it is really painted on (`legibleOn`) and
+   corrected. Derivation respects the design; measurement makes it safe. The
+   floors are the audit's own 4.5/3, the repair tries the theme's own colours
+   before black or white, and a run that cannot clear the bar degrades rather
+   than failing the export (Q1). `composition.test.js` sweeps all five palettes
+   across a dozen real themes.
+
+   The list **ends at `INK_FLOOR`, pure black**, not at the `#101014` the
+   compositions prefer. Black and white cross at 4.58:1, so an opaque surface
+   always has an answer; a near-black moves that crossing to 4.36:1 and opens a
+   band of mid-tone grounds where the search stops a tenth of a point short of an
+   ink that was right there. Preferred first, reachable last.
+
+   Decorations are in the sweep too, and they are the two ways this guarantee
+   gets undone by accident. An accent run (`accentFirst`) is resolved with the
+   veil **locked**: darkening a photograph so a kicker can keep its colour is a
+   trade an ornament does not get to make. A background is a **`tint` on the
+   surface**, not a layer over it — a glyph on a field of hairlines sits on one of
+   two known colours, and the palette measures both, which is why the composition
+   paints the texture by reading that same object back. And measuring it is only
+   half: the texture is the one layer that cannot be raised, so `texturedGround`
+   **drops it** when the bare ground carries every run and the tinted one does
+   not. A decoration yields to a word; it never yields for nothing.
+9. **The `theme` is attached by the server, never written by the model.** It is
+   not in `VideoTimelineSchema` at all, so a model that invents one is refused
+   like an `audio` key; `attachTheme` puts it on `RenderTimelineSchema`, on both
+   `/compose` and `/render`, and always **after** the model's document has been
+   validated. Nothing of it reaches the prompt. It carries only what the
+   direction **declared** (`parseDesignSpec.stated`) — a guessed colour burnt
+   into a film cannot be seen through — and nothing in it can become CSS: hex
+   only, ONE font family name, an integer radius.
 
 ## Conventions
 

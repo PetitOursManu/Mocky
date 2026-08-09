@@ -7,7 +7,15 @@
 // here. The three failures this panel has to name — the volume is full, the
 // worker is unreachable, the images went away — are distinguished by the HTTP
 // status and by a field beside the message, and `req()` drops both on the floor.
-import { VideoTimelineSchema, type VideoTimelineInput, type VideoTimeline } from './timeline'
+import {
+  RenderTimelineSchema,
+  VideoTimelineSchema,
+  type RenderTimeline,
+  type VideoTemplate,
+  type VideoTheme,
+  type VideoTimelineInput,
+  type VideoTimeline,
+} from './timeline'
 import { loadSettings, type Settings } from '../settings'
 import { proxyHeaders } from '../proxy'
 
@@ -190,7 +198,7 @@ export async function fetchVideoAccess(signal?: AbortSignal): Promise<VideoAcces
  */
 export async function startVideoRender(
   input: VideoTimelineInput,
-  opts: { project?: string; signal?: AbortSignal } = {},
+  opts: { project?: string; theme?: VideoTheme | null; signal?: AbortSignal } = {},
 ): Promise<VideoJob> {
   const parsed = VideoTimelineSchema.safeParse(input)
   if (!parsed.success) {
@@ -210,8 +218,16 @@ export async function startVideoRender(
      * of the film: two projects can compose byte-identical timelines and the
      * store deduplicates them into one file with both projects on it, which a
      * field inside the hashed document could not express.
+     *
+     * `theme` travels beside it for a different reason, and the two must not be
+     * confused. The look of the film IS rendered — it is not an attribution —
+     * but it is not something a composed document may contain: the schema above
+     * has no `theme`, precisely so that a model which writes one is refused.
+     * `attachTheme` on the server is what puts it into the render document,
+     * after this timeline has been accepted, and the server is free to drop it
+     * (a 202 with a notice) without costing the export.
      */
-    body: JSON.stringify({ timeline: parsed.data, projectId: opts.project }),
+    body: JSON.stringify({ timeline: parsed.data, projectId: opts.project, theme: opts.theme ?? undefined }),
     signal: opts.signal,
   })
   if (res.ok) return body as VideoJob
@@ -267,8 +283,18 @@ const DRIFT_ISSUES_SHOWN = 4
 
 /** What POST /api/video/compose answers with, on the ordinary path and the sad one. */
 export interface VideoProposal {
-  /** Null when nothing usable came back. `notices` says why, in every case. */
-  timeline: VideoTimeline | null
+  /**
+   * Null when nothing usable came back. `notices` says why, in every case.
+   *
+   * A `RenderTimeline` and not a `VideoTimeline`, because the composer's answer
+   * comes back with the project's direction already on it: the server attaches
+   * the theme after the model's document has been validated, which is the whole
+   * point of there being two schemas. The panel is free to ignore that key — the
+   * form has no field for it and `/render` attaches it again from the same
+   * source — but a client parsing this with `VideoTimelineSchema` would refuse
+   * every themed proposal for an unrecognised key the server put there.
+   */
+  timeline: RenderTimeline | null
   /** The server's own sentences. English, and shown verbatim. */
   notices: string[]
 }
@@ -292,7 +318,22 @@ export interface VideoProposal {
 export async function proposeVideoTimeline(
   brief: string,
   imageIds: string[],
-  opts: { settings?: Settings; signal?: AbortSignal } = {},
+  opts: {
+    settings?: Settings
+    theme?: VideoTheme | null
+    /**
+     * The composition the panel's selector is on. Omitted on `auto`.
+     *
+     * A hint that narrows the catalogue the model is shown to one entry, for the
+     * reason an empty selection already narrows it: the form the answer lands in
+     * has that composition's fields, so a proposal in another one is a call
+     * spent on a document the panel would refuse. The server still decides — it
+     * matches this against its own enum, and a proposal that names something
+     * else is refused rather than loaded.
+     */
+    template?: VideoTemplate
+    signal?: AbortSignal
+  } = {},
 ): Promise<VideoProposal> {
   const s = opts.settings ?? loadSettings()
   const { res, body } = await call('/api/video/compose', {
@@ -303,7 +344,21 @@ export async function proposeVideoTimeline(
     // is how the SEO deep pass spent a release reporting "no model configured"
     // on an instance whose model picker was plainly set.
     headers: proxyHeaders(s),
-    body: JSON.stringify({ brief, images: imageIds, model: s.model }),
+    /*
+     * `theme` travels here for the same reason it travels to /render: the
+     * direction lives in a project the server keeps as an opaque blob, so this
+     * browser is the only party that can read it. It is never shown to the
+     * model — the server attaches it to the document the model's answer became,
+     * after that answer has been validated — and a composer that wrote its own
+     * was refused before this key was ever looked at.
+     */
+    body: JSON.stringify({
+      brief,
+      images: imageIds,
+      model: s.model,
+      theme: opts.theme ?? undefined,
+      template: opts.template ?? undefined,
+    }),
     signal: opts.signal,
   })
 
@@ -359,8 +414,14 @@ export async function proposeVideoTimeline(
    * refusal arrives from POST /render as if they had composed it themselves.
    * Refused here it is a notice on the panel that just proposed it, and the
    * timeline they already had is untouched — nothing is repaired into shape.
+   *
+   * `RenderTimelineSchema`, because this document has been through
+   * `attachTheme`: it is the same catalogue with the one key the server is
+   * allowed to write. The strictness that matters — the model may not invent a
+   * theme — was enforced server-side by `VideoTimelineSchema`, before the
+   * attachment; re-applying it here would refuse the server's own contribution.
    */
-  const parsed = VideoTimelineSchema.safeParse(body.timeline)
+  const parsed = RenderTimelineSchema.safeParse(body.timeline)
   if (parsed.success) return { timeline: parsed.data, notices }
   const issues = readableIssues(parsed.error)
   const shown = issues.slice(0, DRIFT_ISSUES_SHOWN)

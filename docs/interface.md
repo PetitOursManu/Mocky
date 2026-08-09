@@ -421,11 +421,12 @@ in its product name, not in any screen's markup.
 
 ## The Motion panel
 
-Open with `Motion`. A slideshow cut from the media library: one image per scene,
-with its duration, its motion and its transition. **The render runs on the
-Remotion worker, not in this browser** — and that worker is a separate, opt-in
-Docker service, so the first thing the panel does is say whether it is there. Why
-it is built that way is in [Motion](video-export.md).
+Open with `Motion`. A film cut from the media library, in one of **five
+compositions**: a slideshow, a banded screenshot, a phone-shaped cut, animated
+titling, a product spotlight. **The render runs on the Remotion worker, not in
+this browser** — and that worker is a separate, opt-in Docker service, so the
+first thing the panel does is say whether it is there. Why it is built that way
+is in [Motion](video-export.md).
 
 The feature was called "Video export" and the file names still are. That is
 deliberate and explained on the page above: what a user reads says Motion, what a
@@ -434,6 +435,29 @@ developer greps says `video`.
 An account the feature is not enabled for gets one terse sentence and nothing
 else: it learns nothing about how the instance is configured, nor about what a
 valid cut looks like.
+
+**The first control is `Composition`, and its default is `Automatic`.** Six
+cards: automatic, then the five compositions, each with its name, one sentence
+saying what it makes, one saying what it *requires*, and its own bounds. The
+third line is the one that decides the choice — "animated titling" does not say
+that it uses no picture at all, and somebody who has just spent a minute
+choosing images should learn that before the click rather than after it.
+
+Automatic is the default rather than an option further down the page, because it
+is the position that serves a brief best: the model reads your sentence and takes
+the composition built for it. On automatic there is nothing to render yet — the
+selection is what the model is given to work from — so the render button names
+that as the reason it will not fire, and a proposal is what decides the
+composition. The selector then moves to whatever came back.
+
+**Choosing one by hand changes the form under it**, which is the point of
+choosing: a composition that uses no image shows no image picker and an
+`Add a card` button instead; a product spotlight shows a headline, three
+argument boxes and a call to action; a banded screenshot shows a band title and
+where the band sits, and no camera move at all, because a pan across a
+screenshot slides half the interface out of frame. Switching composition keeps
+your pictures and your words — nothing is dropped, and a scene count over the new
+composition's ceiling is reported so you can remove rows yourself.
 
 There is **one form**, and two ways to fill it in — behind a switch, one visible
 at a time. Stacked, the two of them filled a 900-pixel window on their own, so
@@ -444,12 +468,13 @@ and is not remembered afterwards: it is a fact about the cut you are making now.
 
 | Control | What it does | Cost |
 |---|---|---|
-| `Describe the video` → `Propose a cut` | Sends your sentence and the images you already picked to the model. It **orders and tunes** — durations, motion, transitions, captions. It does not choose the pictures and cannot add any. | model |
+| `Composition` | Which of the five kinds of film this is, or `Automatic` — the default, where the model picks. Chosen by hand, it decides the fields of everything below. | free |
+| `Describe the video` → `Propose a cut` | Sends your sentence and the images you already picked to the model. On `Automatic` it **picks one composition out of the five** and fills it in; on one you chose, it holds to it, and a proposal naming another is refused rather than loaded. Either way it does not choose the pictures and cannot add any. | model |
 | `Start from an image` → `Generate a model image` | Makes one picture from a subject you describe. Nothing continues until you `Keep`, `Regenerate` or `Abandon` it. | image |
 | `Or start from a picture in the media library` | The same picker the scene list uses. A library image already exists and you just looked at it to pick it, so it goes straight to the variants with no first confirmation. | free |
 | `Produce {n} variants` | Two to six takes on that picture, shown small above the button so you can see what they will derive from. Then you tick the ones worth cutting; anything left unticked stays pending, for good. | image, one call per variant |
-| A scene row | Duration, motion, transition to the next, and an optional line of burnt-in text. Move up, move down, remove. | free |
-| `Output` | Aspect ratio (`16:9`, `9:16`, `1:1`) and container (`mp4`, `webm`). | free |
+| A scene row | The chosen composition's own fields, and none of the others: always a duration and a transition, then a camera move and a caption on a slideshow or a phone cut, a band on a screenshot, a headline and an entrance on a title card, a headline with up to three arguments and a call to action on a product. Move up, move down, remove. On `Automatic` a row is the picture and its place in the running order, because the composition that would read a setting is not decided yet. | free |
+| `Output` | Aspect ratio (`16:9`, `9:16`, `1:1`) and container (`mp4`, `webm`). A phone-shaped cut has no ratio to choose: `9:16` is the composition, and the panel says so instead of offering two values that would refuse the document. | free |
 | `Start the render` | Queues the job. One render at a time on the instance; you can close the panel and find it again on reopening. | server (minutes of CPU) |
 | `Download the video` | The finished file. | free |
 
@@ -462,9 +487,18 @@ them is a state the timeline is in, and switching away loses nothing — a brief
 you typed, a picture you have not confirmed and a call still in flight all
 survive it.
 
-Three things the panel states rather than implies, because each is a fact about
+Four things the panel states rather than implies, because each is a fact about
 your instance that changes what you get:
 
+- **Where the colours and the typefaces come from.** They come from the
+  project's art direction, they are shown under the composition cards — the
+  swatches and the family names — and there is no control here to change them.
+  Saying nothing would invite the opposite reading, that a colour setting waits
+  further down; there is none, and there cannot be, because the schema a composed
+  document is validated against has no theme key at all. Only what the direction
+  actually *states* travels: a project whose accent was inferred rather than
+  written shows no accent, and the composition uses its own default. With no
+  direction, the panel says that instead.
 - **Whether the variants will really derive from your picture.** With an `Edit`
   image profile configured they come out of an image-to-image model fed with your
   own image; without one they are born of the same text — same subject, another
@@ -606,7 +640,7 @@ this is the complete list.
 | `Deep analysis` | Audit panel | Changes what `Evaluate` costs. Off by default. |
 | `Fix` / `Fix all` | Audit panel | |
 | `Generate` (an image) | `Change the media…`, image library | Calls the image provider, not the text model. |
-| `Propose a cut` | Motion panel | The only model call in Motion. It orders and tunes the images you picked; it never picks one. |
+| `Propose a cut` | Motion panel | The only model call in Motion. It picks a composition and cuts the images you picked; it never picks one of the pictures. |
 | `Generate a model image`, `Produce {n} variants` | Motion panel | The image provider, once per picture. Six variants is six calls. |
 | `Start the render` | Motion panel | No model and no provider — but minutes of CPU on the render worker, which is the most expensive click in the product on a small box. |
 

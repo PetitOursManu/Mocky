@@ -10,6 +10,7 @@
 // function here is written for that as the normal case, not the error case.
 import fs from 'node:fs'
 import { assertSafeTargetResolved } from '../provider-proxy.js'
+import { timelineImageIds } from './timeline.js'
 
 /** A health probe is a liveness question. It must answer faster than a person gives up. */
 export const HEALTH_TIMEOUT_MS = 3000
@@ -213,7 +214,11 @@ export function createVideoWorker({ config, fetchImpl = fetch, guard = assertWor
  * job with a sentence naming it — not produce a video with a missing frame.
  */
 export function collectImages(library, timeline) {
-  const ids = [...new Set((timeline?.scenes || []).map((s) => s.imageId))]
+  // `timelineImageIds` and not `scenes.map(...)`: the `titles` template has no
+  // pictures at all, and the inline version handed this loop `[undefined]` — a
+  // text-only film would have failed with "Image undefined is no longer in the
+  // library", which is true of nothing and points at nothing.
+  const ids = timelineImageIds(timeline || { scenes: [] })
   return ids.map((id) => {
     const file = library.filePath(id)
     if (!file || !library.fileExists(id)) {

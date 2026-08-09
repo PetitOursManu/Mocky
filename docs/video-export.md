@@ -22,9 +22,19 @@ This page is about the decisions. What each control does is in
 
 ## What it makes, and what it does not
 
-A slideshow. One image per scene, each with a duration, a Ken Burns move and a
-transition into the next, optionally captioned with a line burnt into the frame.
-Twenty scenes at most, two minutes at most, 30 fps, in `16:9`, `9:16` or `1:1`.
+Five kinds of film, cut from pictures the user already picked.
+
+| Template | What it is |
+|---|---|
+| `slideshow` | One image per scene, a Ken Burns move, a transition, an optional caption burnt into the frame |
+| `overlay` | A screenshot that keeps its place, with a band of text above or below it |
+| `vertical` | A 9:16 cut for a phone feed: full bleed, short beats |
+| `titles` | Animated titling. Text only — **no image at all** |
+| `product` | One picture, a headline, up to three arguments and a call to action |
+
+Two minutes at most, 30 fps, in `16:9`, `9:16` or `1:1` — and each template
+narrows the rest to its own numbers, because a slideshow beat can be one second
+while a banded screenshot at one second is a flash rather than a reading.
 
 There is **no audio** — no music, no voice-over, no narration — and no field to
 ask for one. That absence is enforced rather than merely unimplemented: every
@@ -42,9 +52,16 @@ that feeds scroll sequences into a mockup. Two features, one letter apart.
 ## The founding rule: the model writes JSON, never Remotion
 
 A model is involved exactly once, in `server/video/compose.js`, and what it
-returns is one JSON object. It **orders and tunes** images the user has already
-chosen. It does not pick the pictures, and it never writes a frame of rendering
-code. Every composition under `worker/video/remotion/` is written by hand.
+returns is one JSON object. It **picks one composition out of the catalogue and
+fills in its parameters**, over images the user has already chosen. It does not
+pick the pictures, and it never writes a frame of rendering code. Every
+composition under `worker/video/remotion/` is written by hand.
+
+**Choosing a template is not choosing a rendering,** and the whole catalogue
+rests on that distinction. What comes back is one name out of a closed enum of
+five, and each of those names is a component somebody wrote and a reviewer read.
+The model gets the variety; it never gets a string that becomes code, a layout it
+described, or a file name.
 
 This is the only tenable architecture for a self-hosted product where anybody
 plugs in any model. The alternative — let the model emit Remotion/React source
@@ -76,6 +93,474 @@ forbid. Lower-case only, because `data/image-library/{hash}` is a path: `AB…` 
 `ab…` would be two names for one file on a case-sensitive volume and one file
 with two spellings elsewhere, a lookup miss that only reproduces on Linux.
 
+### The catalogue is a union, and that is what keeps the rule intact
+
+Variety was the obvious thing to want next, and there are exactly two ways to
+get it. One is to let the model describe its own rendering — a bit of layout, a
+bit of CSS, a component name — and that is the founding rule going out of the
+window one field at a time. The other is a **catalogue**: five templates
+discriminated on `template`, each with its own scene kind, its own bounds and
+its own `.strict()`, and each rendered by a composition somebody wrote and a
+reviewer read. A sixth look is an ordinary pull request. It is never a string
+that turns into code.
+
+Three things fall out of it and are worth stating.
+
+**A document with no `template` is a slideshow.** Not politeness: montages
+composed before the catalogue existed sit in saved drafts and in the queue's
+journal, and every one of them would have started failing validation the day
+this shipped — the panel refusing a timeline the user had built and been shown,
+with nothing anywhere naming the change that caused it. It is a default, in the
+same sense that `kenBurns` defaults to `static`, and it rescues nothing else: a
+`product` missing its headline is a refused product, never re-tried as the
+slideshow that would have passed.
+
+**The 120-second ceiling is written once, on the union.** Per-variant ceilings
+would be five numbers to keep under the queue's single `JOB_TIMEOUT_MS`, and the
+fifth one would be the one that got it wrong.
+
+**A ratio can be unreachable rather than discouraged.** `vertical` types its
+`aspectRatio` as the literal `9:16`, so there is no rule about not asking for
+16:9 — there is no way to ask. A vertical composition handed a landscape frame
+would letterbox and put its captions in the wrong third: a legal document
+rendering a film nobody described. Same trick as having no `fps` field at all.
+
+The worker plays its part by refusing what it cannot draw. `RENDERABLE_TEMPLATES`
+in `worker/video/validate.js` is that image's own list, and it is allowed to lag
+Mocky's — the worker is a separate service behind an opt-in profile, so an
+operator really can be running last month's build. A template it has no
+composition for is refused **by name**, with a sentence saying to rebuild, rather
+than drawn with the nearest composition it does have.
+
+That lag is between two *deployed images*, never between two files in one commit:
+a test requires `RENDERABLE_TEMPLATES` to equal the schema's `VIDEO_TEMPLATES`,
+because a template Mocky can compose with no composition behind it is an export
+that fails after the user was told it was queued.
+
+### Choosing from it: the brief decides, and the selection bounds the offer
+
+The system prompt in `compose.js` is a catalogue card per composition — what it
+is for, what it needs, what it puts on the screen — followed by the mapping from
+an intention to a name:
+
+| The brief is about | The composition |
+|---|---|
+| words alone, or there is no picture to work from | `titles` |
+| a phone, a story, a reel, a feed, portrait, vertical | `vertical` |
+| a screen, an interface, a dashboard, a capture to be read | `overlay` |
+| something being sold: arguments, a price, a call to action | `product` |
+| anything else, with pictures to show | `slideshow` |
+
+Written down rather than left to taste, because a model shown five compositions
+picks the most elaborate one it was shown. Every brief then comes back as a
+product card, with three arguments nobody wrote in it. The prompt says the
+opposite twice: take the narrower composition when two would fit, and do not
+choose one for being impressive.
+
+**Every number on those cards is read off `TEMPLATE_LIMITS` and `TEXT_LIMITS`,
+never typed twice.** A floor restated by hand drifts from the validator, and the
+drift is the expensive kind: the call is spent, the answer comes back with
+two-second product cards, and the refusal quotes a number the model was never
+told about.
+
+**The selection decides which compositions are even offered.** Four of the five
+require an `imageId`, so with nothing selected they have no valid document at
+all — the catalogue the model reads is therefore built from the selection, and
+with an empty one it holds `titles` alone. That is a hint and never the gate: a
+provider that ignores structured output will answer `product` anyway, and it is
+refused **by naming `titles`**. A bare "no" there would send the user back to
+reword a brief that was never the problem; the answer is that a film with no
+pictures in it is animated titling, and saying so costs one sentence.
+
+The corollary is that `POST /api/video/compose` accepts an empty selection. It
+used to answer `400`, which was right until the catalogue arrived and made the
+one composition written for a brief of words unreachable through the only route
+that composes.
+
+**An image left over is a notice, and the notice says which of two things
+happened.** A `titles` film has no pictures in it by construction, so "3 were
+left out" would read as an oversight the user could ask to have corrected — and
+asking again cannot correct it. A per-template cap is the other case: a `product`
+film holds six scenes, so ten selected images leave four over however good the
+proposal is, and a notice that does not name the cap sends somebody back to
+rewrite a brief that was never at fault.
+
+### The panel chooses too, and its default is not to
+
+The composition selector is the first control in the Motion panel, and it opens
+on **`Automatic`** — the model reads the brief and picks. That default is the
+argument for the catalogue restated as an interface decision: a form defaulting
+to `slideshow` makes the other four an option people find by accident, and the
+one thing the catalogue exists for is that the film matches what was asked for.
+
+Automatic is a real state, not a stand-in for slideshow. There is no timeline
+until a composition is decided, so `toTimelineInput` answers `null` and the
+render button names `no-template` as the reason it will not fire. Assembling the
+slideshow that would have passed is the repair this feature refuses everywhere
+else, reached through the one door nobody was watching: it hands back a film in a
+composition the user never chose.
+
+**A composition chosen by hand narrows the catalogue the model reads to one
+entry.** The same narrowing an empty selection already performs, for the same
+reason: the form the answer lands in has that composition's fields, so a proposal
+in another one is a call spent on a document the panel would refuse. The name
+travels as a `template` field on `POST /api/video/compose`, is matched against
+`VIDEO_TEMPLATES`, and anything else is ignored — a caller cannot name a
+composition that does not exist, and there would be nothing to draw it with if it
+could. The prompt then drops the intention table entirely: "the brief decides"
+three lines under "the composition is already chosen" is two contradictory
+instructions, and a model answers with whichever it read last.
+
+An answer naming something else anyway is **refused**, never loaded. A hint is
+not the gate here either, and loading it would move the selector under somebody
+who had just set it — and every field on the form with it.
+
+**The form is what made the other four expressible.** Until it had them the
+editor was a slideshow and nothing else: a brief about a phone came back
+`vertical`, was refused by the panel with a sentence, and the model call was
+spent for nothing. Each row now draws the chosen composition's own fields and
+none of the others — a caption box on a product card would be a line somebody
+writes and never sees, since `ProductSceneSchema` has no `textOverlay` and the
+document would be refused for carrying one.
+
+The draft behind that form is **one flat record holding every composition's
+fields**, which looks like the sloppier choice and is the deliberate one. A union
+would force a lossy conversion at every switch of the selector, and switching is
+exactly what happens: somebody picks `product` to see what it looks like and goes
+back to find the four pictures they had chosen gone. `toTimelineInput` switches
+on the template and emits only what that composition reads, so nothing left over
+reaches a schema that would refuse the whole document for it.
+
+Three smaller rules fall out, and the first two are about not being helpful:
+
+- **A scene count over the new composition's cap drops nothing.** Ten pictures
+  switched to a six-scene product card keeps ten rows and reports
+  `too-many-scenes`; the user removes four. Discarding somebody's images to
+  honour a click on a radio button is the helpfulness this feature refuses.
+- **Durations are pulled into the new window.** That one IS a correction, and it
+  is legal for the reason `clampDuration` always was: it runs on the way in, on a
+  slider that cannot express 15 s under `vertical` at all. Leaving the value
+  would put the draft in a state the form cannot show and the user cannot leave.
+- **A row that kept everything but its picture is named**, `image-missing`. That
+  is the price of the first rule, and it went out unpaid: `titles` is the one
+  scene kind with no `imageId`, so its rows carry `''`, and switching to a
+  composition that puts a picture on the screen keeps them. The form then looked
+  finished — no thumbnail is drawn because there is none to draw, no box is
+  empty — and the button fired a document the schema refuses for an empty
+  `imageId`, with the 400 arriving after the click. It is the one missing thing
+  no box on that row can supply, so the sentence says to remove the row and add
+  it back from the picker. The compose button counts pictures rather than rows
+  for the same reason, and because that is the list the request actually carries.
+
+### Five compositions, and one scene kind each
+
+`worker/video/remotion/` holds one component per template —
+`ImageSequenceVideo`, `OverlayBandVideo`, `VerticalStoryVideo`,
+`AnimatedTitlesVideo`, `ProductSpotlightVideo` — and `COMPOSITIONS` maps a
+template name to the one that draws it. `render.js` selects by that id and never
+falls back, so a `product` is never drawn by the slideshow: the film would come
+back without its arguments and its call to action, reported as a success.
+
+The refusal runs both ways, and the validator is where it is written. Each
+template has its **own scene reader** rather than one permissive reader plus a
+key list, because a `band` accepted on a slideshow scene is a field the
+composition does not read — a film missing the thing that was asked for,
+delivered as an export. `slideshow` and `vertical` are the one pair whose scene
+kinds are genuinely identical; what separates them is their bounds (8 s against
+15 s) and the ratio literal, and the test says so rather than pretending
+otherwise.
+
+**The arithmetic is shared, not copied.** Five compositions have one notion of a
+frame plan, one entrance, one easing, one Ken Burns transform and one type scale,
+and all of them live in `composition.js` where a test can reach them without
+Remotion. Two of those are newer than the catalogue and both exist because of a
+specific failure:
+
+- `frameBase` derives every type size from the **short** edge, which is 1080 in
+  all three ratios. Deriving from `height` made a title tuned on a 16:9 frame
+  come out at 1920/1080 times the size in `9:16`.
+- `cueFrames` schedules the elements of a cascade and compresses the whole thing
+  when the scene is too short for it. A product scene may be 3000 ms and carry a
+  headline, three arguments and a call to action; five cues at a comfortable pace
+  put the last one past the end of the scene. Text arriving after its own scene
+  has finished is a film missing the line it was cut to deliver.
+
+`VERTICAL_SAFE_TOP_PERCENT` and `VERTICAL_SAFE_BOTTOM_PERCENT` are the other
+constant worth naming here. A 9:16 export exists to be posted, and a feed
+application draws its own interface **over** the video: the caption and the sound
+row along the bottom, the action rail up the right, the tabs across the top. Text
+placed there is not close to an edge, it is behind a button — so the composition
+keeps the caption inside 12% from the top and 20% from the bottom. Those are not
+the slideshow's 6% padding under another name; that one is about broadcast
+overscan, and the two would drift for different reasons.
+
+### What each composition draws, and why it is more than a layout
+
+The catalogue's first version was five layouts that each worked: a headline that
+faded in and a bar under it, a full-width band, a caption over a picture, a
+column of dotted lines. Nothing in any of them was wrong and nothing in any of
+them was designed — one arrival, one ornament, one flat fill, and a viewer with
+three seconds and nothing to look at.
+
+What was missing was not effects. It was the devices Mocky's own interface
+already uses, and they are shared for the reason everything else in
+`composition.js` is: five compositions with five notions of "an element arrives"
+is four of them drifting.
+
+- **`easeOutCubic`, on every arrival.** Everything Mocky animates in a browser
+  eases — `Animate.ts` gives each preset `ease: 'easeOut'` and `CountUp` walks an
+  easeOutCubic — and everything the worker rendered was linear, because
+  `progressAt` was written for a Ken Burns drift and then reused for entrances. A
+  linear fade enters and stops at the speed it travelled, which nothing physical
+  does; it is the single thing that most makes motion read as generated.
+- **`cueFrames(…, { tailGap })`.** One extra beat before the last element of a
+  cascade, scaled with the rest rather than added to it, so a scene too short for
+  the pause loses the pause and never the element.
+- **`EMPHASIS_ENTER_FRAMES`.** One element per scene may arrive more slowly than
+  its neighbours — the stress mark of a cascade, and free, since the cue does not
+  move. It is capped at `MIN_CUE_TAIL_FRAMES`, which is what guarantees a slow
+  entrance still finishes before the cut.
+- **`sceneLabel` and `ordinalLabel`.** A kicker is the most profitable device in
+  the design system and it needs something to say. **No schema field was added
+  for it**, deliberately: a surtitle a model writes about a film it cannot see is
+  the guessed token `theme.ts` refuses, and it would be a sixth string to bound,
+  translate and validate. A counter is the timeline restating itself — right by
+  construction, and empty for a one-scene film, because `01 / 01` is a counter
+  admitting it had nothing to count.
+- **`hairlineTexture`.** 1 px rules are the house's own vocabulary, and a flat
+  fill behind a headline is the one place a film has nothing at all in it. It is
+  measured rather than painted over the measurement — see the legibility section.
+
+On top of those, each template gained what its own format was missing.
+
+| | What it was | What it does now |
+|---|---|---|
+| `titles` | A centred headline, a fade, a short bar | A left margin everything aligns to, a kicker, each word revealed from behind its own mask on `stagger`, the **last word in the accent** and arriving more slowly, a double rule that runs the measure, and a ground of hairlines |
+| `overlay` | A full-width band across the frame | A block that **stops where its text stops** (`bandInset`), an accent rule down its leading edge, a wipe in from that same edge, a kicker, and a title revealed from behind the block rather than faded onto it |
+| `vertical` | The slideshow in a portrait frame | A push-in on every cut (`punchTransform`), a type size that **ramps with the caption's length** (`verticalCaptionSize`) instead of being tuned for the longest legal one, a caption that arrives word by word, and a story rail |
+| `product` | Three lines behind three dots | Numerals that count the arguments, each sliding in from the margin and closing with a rule, an accent rule in the gutter, a picture that drifts, and a call to action that arrives **after a beat**, growing where everything above it rose |
+
+Two of those are worth their own sentence.
+
+**The `vertical` rail is the only thing in the catalogue outside a `Sequence`.**
+It has to be: a rail that restarted at every cut would be six rails, which is the
+opposite of what it is for. Six full-bleed pictures with nothing constant between
+them are six pictures, and the eye finds its place again at every one — which is
+why a feed application draws exactly this bar. `railSegments` fills a segment
+between its own start and the **next scene's** start rather than over its own
+duration, because transitions overlap: measured on durations, two segments would
+be in motion during every crossfade and the rail would contradict the picture.
+
+**The `overlay` band gives the capture back.** A band that runs the full width
+and touches three sides is a lower third from a news bulletin: it covers the
+screenshot edge to edge whatever the sentence on it is, and a four-word title
+then sits in the middle of a bar with two thirds of it empty. Nothing about the
+legibility promise changes — same colour, same density, measured over both
+extremes of what the capture can composite it to — the block simply covers less.
+
+### The typeface a container actually has
+
+The Dockerfile installs `fonts-liberation`, and that is the whole font situation:
+nothing in Mocky loads a webfont and this image has no egress to fetch one. A
+container with no matching family renders every glyph as a hollow box, burnt into
+an mp4 nobody previewed.
+
+So a declared family is named **first** and Liberation Sans follows it, in one
+`font-family` stack built by `fontStack`. CSS's own fallback then does the work,
+per glyph: an instance whose image really carries the face gets it, everyone else
+gets Liberation Sans, and nobody gets a failed export over a decoration (Q1). The
+quotes around the family name are safe only because the schema's charset has no
+quote, comma, semicolon or brace in it — which `composition.js` re-checks, since
+it is the file that would be wrong if the validator were ever loosened.
+
+Two derived values follow the same "prevent one specific unreadable frame" shape.
+`withAlpha` turns a declared hex into the veil that keeps a caption legible over a
+photograph nobody previewed. `readableInk` picks black or white for a call to
+action out of the accent's own relative luminance — a label coloured for a deep
+navy is invisible on a pale mint, and no direction states a token for it.
+
+### The look comes from the project, and the model never sees it
+
+A film carries a `theme`: four colours, two font families and a corner radius.
+It is what makes an export resemble the product it was cut from instead of a
+stock template, and it costs no tokens, because **the model does not write it**.
+
+`VideoTimelineSchema` — the schema a composed document is validated against —
+has no `theme` at all. Every object in it is `.strict()`, so a model that
+invents one is refused exactly like a model that invents an audio track, with
+the same message and no repair path. The server attaches the theme afterwards,
+through `attachTheme`, to `RenderTimelineSchema`: the same catalogue with the
+one extra key. Two schemas rather than one optional field, because the
+difference between them is *who is allowed to write which key*, and a single
+schema with an optional theme would accept the model that wrote its own.
+
+**Only what the direction declared.** `parseDesignSystem` always answers with
+seven filled roles and a radius, because a style sheet has to render something;
+most of those are inventions when the document is quiet. `parseDesignSpec`
+records which ones were actually stated, and `src/lib/video/theme.ts` emits
+those and no others. A guessed accent burnt into a film is a lie nobody can see
+through — the video is simply the wrong colour, with nothing saying so — while
+an absent one leaves the composition on a default somebody chose on purpose.
+The 12px `parseRadius` falls back to is the same case, which is why `readRadius`
+now exists to say "the document did not mention one".
+
+**Nothing in it can become CSS.** Colours are hex and only hex. A font is ONE
+family name from a charset of letters, digits, spaces and hyphens — never a
+stack — because that value ends up in a `font-family`, where a comma, a quote,
+a semicolon or a brace is the difference between naming a typeface and writing a
+declaration; the composition appends its own fallbacks, which it has to do
+anyway since nothing here loads a webfont. The radius is an integer number of
+pixels, so there is no unit to parse and no `calc()` to smuggle.
+
+**The derivation runs in the browser and the attachment on the server,** and
+that split is structural rather than stylistic: the server keeps a project as an
+opaque blob and could not import a `.ts` module at the Node 22.12 floor even if
+it held one — the same constraint that makes `server/video/timeline.js` a
+hand-kept mirror. A browser therefore hands the server a theme, which is fine
+and deliberate: the schema is bounded tightly enough that the worst a modified
+client can do is render its own film in its own colours.
+
+**A direction that will not parse costs the colours, never the export.** The
+user has already waited in a queue; `POST /render` answers 202 with a notice
+naming what was dropped ([Q1](architecture/invariants.md)). All or nothing,
+though — removing just the field that failed would be the repair this feature
+refuses everywhere else, and it would render a film in the project's colours
+with somebody else's typeface.
+
+**And the panel says so.** The tokens are printed under the composition cards —
+the swatches and the family names — because the alternative reading is the wrong
+one: a panel silent about colour invites the assumption that a colour control
+waits further down, and there is none, and there cannot be. Printed rather than
+summarised, too. "Your colours are applied" is unfalsifiable from the outside,
+and the failure this note exists to make visible is a direction that states less
+than its author thinks: a project whose accent was inferred shows no accent here,
+which is the difference between a film in the project's colours and a film in a
+guess. Three states and not two — a direction that states nothing this schema can
+carry is neither "your project's colours" nor "no direction at all", and it gets
+its own sentence.
+
+**Both doors attach it, and neither shows it to a model.** `/compose` runs
+`attachTheme` on the document the model's answer became, once the schema has
+accepted that answer — so a proposal comes back looking like the project it was
+composed in, and the panel does not have to wait for a render to find out. The
+order is what makes it safe: the model is validated against a schema with no
+`theme` key, and only then is the key written. Nothing of the direction reaches
+the prompt either. A colour quoted to a model is a colour it will improve on,
+it costs tokens on every call, and it is not the model's decision to make.
+
+### No text is illegible, and it is arithmetic that says so
+
+Two real exports settled this. A `titles` film put "Gemini 3" in dark green on a
+near-black frame and its subtitle in dark grey on the same; a `product` film did
+the same to "Porsche 911" and to its three arguments. In both, the call to action
+was the only legible thing on screen — because the pill was the only element in
+the catalogue that already chose its ink by measuring.
+
+The cause was not a colour. It was a **pairing**: `theme.ts` emits only the
+tokens a direction actually stated, `composition.js` filled the rest from a
+fallback, and a direction written for a page states an ink and leaves the ground
+unsaid. The two colours met for the first time inside an mp4, having never
+coexisted in the design they both came from.
+
+**The ground follows the ink, and then everything is measured anyway.** Both
+halves are needed and the order is the point:
+
+- `resolveTheme` resolves background, ink and surface as a **pair**. A stated
+  dark ink gets paper, a stated pale one keeps the dark ground, a stated ground
+  gets an ink measured against it, and a direction that stated both is never
+  overruled. This is the half that respects the design: a direction with a dark
+  green wanted that green on paper, and re-colouring its text to white would have
+  produced a legible film that is not the project's film — the same lie
+  `theme.ts` refuses when it declines to guess a token.
+- Every run of text is then held against the surface it is **really** painted on,
+  by `legibleOn`, and corrected if it does not clear its floor. Derivation makes
+  the common case right; measurement makes every case safe, including the two
+  the pairing cannot reach — a direction that stated both colours badly, and the
+  surfaces (`surface`, `accent`, the veils over photographs) that no pairing rule
+  touches.
+
+**The floors are the audit's own**, 4.5:1 and 3:1, so a film cannot ship a
+contrast the accessibility panel would report as a finding on the screen it was
+cut from. Which of the two applies is decided by the composition's type role and
+never by a pixel count: display type and bold labels take 3 — `rules.ts` would
+say the same, its threshold being 24 px or 18 px when bold — and running text
+takes 4.5 even though that rule would call it large too. Every glyph in a 1080p
+frame is past 24 px, and the lenient floor handed to everything is a subtitle
+nobody can read on a frame watched from a sofa.
+
+**What gives, and in what order.** When the declared ink does not clear its
+floor, `legibleOn` walks an ordered list of attempts and takes the first that
+does: the veil gets denser first (the least visible repair there is, and it keeps
+the project's colour), then the ink stops being quietened, then the theme's other
+colours are tried in turn, and only then black or white. A direction with two
+greens renders a legible green; a generic white would clear every threshold and
+erase the art direction, which is the failure the order exists to prevent. When
+nothing clears the bar — a mid-tone palette on a mid-tone surface genuinely can
+have no answer — the most legible pair found is used and the export still ships
+([Q1](architecture/invariants.md)).
+
+The list ends at pure black (`INK_FLOOR`) rather than at the near-black the
+compositions prefer, and that last entry is arithmetic rather than taste. Black
+and white cross at 4.58:1, so an opaque surface always has an ink that clears
+4.5 — while `INK_DARK`, a chosen `#101014`, carries a fifth of a point less and
+moves that crossing to 4.36:1. A sweep of forty thousand random directions put
+4164 runs in the band between the two: two thirds of every failure the search
+reported, each missing its floor by a tenth, with the answer one candidate
+further on. `#101014` is still tried first, so nothing about the look changed.
+
+**A photograph is not in the theme,** so text over one is measured against the
+veil at BOTH ends of what the picture can composite it to: over a backdrop that
+is all black and one that is all white. The cost is a veil denser than a dark
+photograph needs, and it is the price of a guarantee made without opening the
+picture. It is also why `vertical` no longer relies on a gradient anchored to one
+edge: what sits under a glyph in a ramp depends on where the line broke, and a
+caption positioned `center` landed on the raw photograph with the scrim already
+faded to nothing. A uniform dim has one value everywhere and can therefore be
+computed; the directional ramp stays on top of it as framing, where it only ever
+adds density.
+
+**A decoration is measured too, and it pays for itself.** A kicker, a numeral
+beside an argument, the rule under a headline: these exist to carry the project's
+colour, so they enter the same search at a different point — `accentFirst` puts
+the accent in front of the ordinary candidate list, which is otherwise unchanged,
+so an accent nobody can read still falls through to something legible. They are
+also resolved with the veil **locked** (`lockVeil`), and that is the whole
+difference between an ornament and a caption: raising a band to 0.94 so that an
+indigo kicker can stay indigo hides the capture the banded template exists to
+show. Locked, the search changes the ink instead of the picture. It cannot fail
+where the text succeeded, because `accentFirst` is a superset of `inkCandidates`
+and every shared surface already carries a run at the display floor resolved from
+that list — `composition.test.js` measures both, which is what keeps the sentence
+true. The story rail is the one exception and the code says why: its track
+carries no other run, so there is no density somebody else already proved, and it
+is allowed to thicken because it costs a bar three pixels tall.
+
+**A texture is part of the surface, not a layer over it.** The two flat-ground
+templates are drawn on a field of 1 px rules, and a background is the one
+decorative thing that can undo this entire section without touching a line of it:
+a glyph on a hairline field sits on one of two colours, and a palette that
+measured only one of them would go green on a texture dense enough to eat a
+headline's margin. Both colours are **known** here, unlike a photograph, so
+`surfaceRange` takes a `tint` and measures both — and the composition paints the
+texture by reading that same object back off the palette, so a density somebody
+nudges in a component cannot leave the measurement behind.
+
+Measuring it was half the answer. Every other layer here can move — a veil rises,
+a quiet ink goes back to full strength, an ink is replaced — and the texture was
+the one that could not, fixed at 4% and therefore able to spend contrast nothing
+could win back: a mid-tone ground with an answer at 4.5 bare, and none once the
+field split it into two colours. So it yields. `texturedGround` resolves the
+palette with the texture, and if any run fails while the bare ground would carry
+all of them, the tint is dropped and the composition paints no field at all. Only
+ever for a run that then **clears** — a ground where neither version works keeps
+its texture, since giving up the design buys nothing there.
+
+**And the contrast formula is a hand-kept mirror.** `worker/video/remotion/contrast.js`
+copies the WCAG half of `src/lib/audit/colors.ts`, because a Remotion bundle
+cannot import TypeScript — the same wall that makes `server/video/timeline.js` a
+copy of `timeline.ts`, and the same discipline: `contrast.test.js` runs a corpus
+through both and requires identical answers, unreadable inputs included.
+
 ### A refused document is refused, never repaired
 
 There is no clamping of a forty-second scene to fifteen, no truncation of a
@@ -98,6 +583,14 @@ only a notice, because the difference is who pays: a foreign id adds something,
 a missing one just makes the proposal shorter than the selection, and adding the
 scene back is one click in an editor the user is already looking at.
 
+And it applies to the composition itself. A `product` refused for a 2000 ms
+scene is refused as a product, never re-tried as the slideshow whose floor is
+1000 ms and which would have passed — that would hand back a different film from
+the one that was proposed, with nothing saying so. The one refusal that carries
+more than a "no" is the composition that needs a picture when nothing is
+selected: there the notice names `titles`, because the user cannot fix that one
+by rewording anything.
+
 A proposal that produced nothing answers **`200` with `timeline: null` and
 notices**, never a 4xx. The user still has the manual editor they opened the
 modal with, and a failed proposal is not a failed request
@@ -116,6 +609,22 @@ happens to run is a much worse trade than one mirrored file.
 identical answers, defaults included. Edit one side alone and the suite fails —
 which matters most in the dangerous direction: a bound loosened on the server
 alone means the API accepts what nothing downstream can render.
+
+**There is a third copy, and it is the one that found a real disagreement.**
+`worker/video/validate.js` is not a port of the schema — it asks whether the
+composition can draw the document — but it applies the same bounds, and
+`validate.test.js` runs its own corpus through both. That corpus is where
+`" "` turned up: `min(1)` counts characters, so a blank caption satisfied zod,
+while `readText` in the worker has always refused a string that trims to
+nothing. Mocky validated a document its own renderer throws back — the timeline
+passes, the job is queued, the user waits out a render, and the refusal arrives
+at the end of it about a caption they can see on screen. Every text field in the
+schema now takes `line()`, which is `min(1).max(n)` plus `/\S/`. A `regex` and
+not a `refine`, because a refinement wraps the string in a `ZodEffects` and
+`draft.ts` reads `TextOverlaySchema.shape.content.maxLength` off the schema
+precisely so a `maxLength` attribute cannot drift from the rule. And refused
+rather than trimmed: trimming is a repair, and the caller is a model that can be
+told.
 
 ---
 
@@ -669,9 +1178,10 @@ accounts per file. Either is enough to say yes.
 
 | File | What it holds |
 |---|---|
-| `src/lib/video/timeline.ts` | The zod schema, and the reasoning behind every bound. The definition to read |
-| `server/video/timeline.js` | The same schema, mirrored by hand for Node. `timeline.test.js` holds the two together |
-| `server/video/compose.js` | The one model call: it orders and tunes, it never picks |
+| `src/lib/video/timeline.ts` | The zod schema — the five templates, the theme, and the reasoning behind every bound. The definition to read |
+| `server/video/timeline.js` | The same schema, mirrored by hand for Node, plus `attachTheme`. `timeline.test.js` holds the two together |
+| `src/lib/video/theme.ts` | The project's art direction, read into the handful of tokens a film can carry. Declared ones only |
+| `server/video/compose.js` | The one model call: it picks a composition and fills it in, it never picks the pictures |
 | `server/video/variants.js` | The two variant paths, and the fixed table of axes |
 | `server/video/config.js` | Admin settings. The licence key never leaves the server |
 | `server/video/queue.js` | In-memory queue, atomic JSON journal, concurrency of one. No Redis, ever |
@@ -680,6 +1190,8 @@ accounts per file. Either is enough to say yes.
 | `server/video/routes.js` | `/api/video`, the pending guard, and the admin router |
 | `src/components/VideoExportDialog.tsx` | The Motion panel. Opened from the toolbar, never from a screen |
 | `worker/video/` | The Remotion worker: separate sub-project, separate image, separate README |
+| `worker/video/remotion/composition.js` | The five compositions' shared arithmetic, their theme, and their palettes. No React, no Remotion, so a test can reach it |
+| `worker/video/remotion/contrast.js` | WCAG luminance and contrast, mirrored by hand from `src/lib/audit/colors.ts`. `contrast.test.js` holds the two together |
 | `tests/video-worker-separation.test.js` | What actually keeps Remotion out of Mocky's manifest |
 
 The queue is in memory with a JSON journal on disk, and there is no Redis and no

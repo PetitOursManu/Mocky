@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as Standalone from '@babel/standalone'
+import { COMPOSITIONS } from './remotion/composition.js'
 
 /**
  * `render.js` and the two `.jsx` files, checked without Remotion.
@@ -64,12 +65,40 @@ function unbound(source) {
 }
 
 describe('the modules no test can import', () => {
-  it.each(['render.js', 'remotion/ImageSequenceVideo.jsx', 'remotion/Root.jsx', 'remotion/index.js'])(
-    '%s parses and references nothing that does not exist',
-    (file) => {
-      expect(unbound(read(file))).toEqual([])
-    },
-  )
+  it.each([
+    'render.js',
+    'remotion/Root.jsx',
+    'remotion/index.js',
+    // One line per composition, and the list grows with the catalogue: these
+    // five are the only React in the repository that nothing compiles until a
+    // container is already rendering.
+    'remotion/ImageSequenceVideo.jsx',
+    'remotion/OverlayBandVideo.jsx',
+    'remotion/VerticalStoryVideo.jsx',
+    'remotion/AnimatedTitlesVideo.jsx',
+    'remotion/ProductSpotlightVideo.jsx',
+  ])('%s parses and references nothing that does not exist', (file) => {
+    expect(unbound(read(file))).toEqual([])
+  })
+
+  /**
+   * Every composition `COMPOSITIONS` names has a file, and `Root.jsx` registers
+   * it.
+   *
+   * The failure this closes is the one the whole file is about, in its most
+   * expensive form: a template accepted by `validate.js`, selected by
+   * `compositionIdFor`, and then not found in the bundle — which surfaces as
+   * "No composition with the ID … found" after Chromium has already started, in
+   * a container log nobody is watching.
+   */
+  it('registers a component for every composition the catalogue names', () => {
+    const root = read('remotion/Root.jsx')
+    for (const [template, id] of Object.entries(COMPOSITIONS)) {
+      expect(fs.existsSync(path.join(HERE, 'remotion', `${id}.jsx`)), `${template} → ${id}.jsx`).toBe(true)
+      expect(root, `${id} is registered in Root.jsx`).toContain(`COMPOSITIONS.${template}`)
+      expect(root, `${id} is imported by Root.jsx`).toContain(`from './${id}.jsx'`)
+    }
+  })
 
   /**
    * The check has to be able to fail, or it is a green test that verifies

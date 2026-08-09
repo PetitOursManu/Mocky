@@ -69,6 +69,45 @@ describe('startVideoRender', () => {
     expect(sent.timeline.projectId).toBeUndefined()
   })
 
+  /**
+   * The theme travels beside the timeline too, and for a different reason.
+   *
+   * The look IS rendered — unlike the project id, which is an attribution — but
+   * a composed document may not contain it: `VideoTimelineSchema` has no
+   * `theme`, precisely so that a model which writes one is refused like any
+   * unknown key. The server attaches it afterwards, to the document it sends the
+   * worker. Sent inside, this request would be a 400.
+   */
+  it('sends the theme beside the timeline, never inside it', async () => {
+    let sent: any = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        sent = JSON.parse(String(init.body))
+        return { ok: true, status: 202, json: async () => ({ id: 'j1', status: 'queued' }) }
+      }),
+    )
+    await startVideoRender(OK_TIMELINE, { theme: { colors: { accent: '#c0392b' } } })
+    expect(sent.theme).toEqual({ colors: { accent: '#c0392b' } })
+    expect(sent.timeline.theme).toBeUndefined()
+  })
+
+  // A project with no direction sends no theme at all, rather than an empty one:
+  // "there is no direction" and "a direction asking for nothing" are different
+  // facts, and the schema refuses the second.
+  it('omits the theme entirely when the project has no direction', async () => {
+    let sent: any = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        sent = JSON.parse(String(init.body))
+        return { ok: true, status: 202, json: async () => ({ id: 'j1', status: 'queued' }) }
+      }),
+    )
+    await startVideoRender(OK_TIMELINE, { theme: null })
+    expect('theme' in sent).toBe(false)
+  })
+
   it('refuses a bad timeline before spending a request on it', async () => {
     const fetchSpy = answer(202)
     vi.stubGlobal('fetch', fetchSpy)
@@ -169,7 +208,7 @@ describe('proposeVideoTimeline', () => {
   }
 
   it('sends the brief, the picked ids and the model name in the body', async () => {
-    // The ids are the whole world the model is shown: it orders and tunes, it
+    // The ids are the whole world the model is shown: it picks the film, it
     // never chooses a picture, and the server refuses an id from outside this
     // list rather than substituting the nearest one.
     const sent = spy(200, { timeline: PROPOSAL, notices: [] })
@@ -213,6 +252,30 @@ describe('proposeVideoTimeline', () => {
     spy(200, { timeline: { scenes: [{ imageId: IMG, durationMs: 2000 }] }, notices: [] })
     const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
     expect(out.timeline!.scenes[0]).toMatchObject({ kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null })
+  })
+
+  /**
+   * The composer's answer comes back with the project's direction already on
+   * it: the server attaches the theme once the model's document has been
+   * validated. Parsed here with `VideoTimelineSchema` — which has no `theme`,
+   * deliberately, so that a MODEL cannot write one — every themed proposal was
+   * refused for an unrecognised key the server itself had put there.
+   */
+  it('accepts the theme the server attached, rather than refusing its own key', async () => {
+    const theme = { colors: { accent: '#c0392b' } }
+    spy(200, { timeline: { ...PROPOSAL, theme }, notices: [] })
+    const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    expect(out.timeline).not.toBeNull()
+    expect(out.notices).toEqual([])
+  })
+
+  it('sends the project’s direction so the server has one to attach', async () => {
+    const theme = { colors: { accent: '#c0392b' } }
+    const sent = spy(200, { timeline: { ...PROPOSAL, theme }, notices: [] })
+    await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS, theme })
+    // Beside the brief and never inside the timeline: the model is not shown it
+    // and may not write it, and the server is the only party that attaches it.
+    expect(JSON.parse(String(sent.init!.body)).theme).toEqual(theme)
   })
 
   it('refuses a timeline this browser’s schema rejects instead of filling the form with it', async () => {

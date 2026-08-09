@@ -56,21 +56,59 @@ the queue and the store — is documented in
 
 ## What it renders
 
-One composition, `ImageSequenceVideo`, and it is the only thing a caller can
-reach: `render.js` selects it by id, so a request cannot name anything else.
+Five compositions, one per template, and they are the only things a caller can
+reach: `render.js` selects one by the id `compositionIdFor` returns, so a request
+cannot name anything else.
+
+| Template | Composition | What it draws |
+|---|---|---|
+| `slideshow` | `ImageSequenceVideo` | One image per scene, a Ken Burns move, an optional caption on a panel |
+| `overlay` | `OverlayBandVideo` | A screenshot that drifts by ±1.2%, with a band of title and subtitle arriving in cascade over a near-opaque veil |
+| `vertical` | `VerticalStoryVideo` | 9:16 full bleed, large type, inside the safe areas a phone feed covers with its own buttons |
+| `titles` | `AnimatedTitlesVideo` | Words on the theme's background, underlined by the accent. **No image at all** |
+| `product` | `ProductSpotlightVideo` | A wide picture, a headline, one to three arguments and a call to action, enumerated |
 
 **The model never writes Remotion code.** It writes one JSON object, validated
 by `src/lib/video/timeline.ts`, and hand-written compositions consume it. Every
 composition in `remotion/` is written by a person, and that is the founding rule
-of the feature rather than a stage it went through. Read the props as hostile
-and the rest follows: nothing from the timeline is ever interpolated into
-markup, a class name, a style string or a URL. The overlay text is a React
-child — escaped by React, and by nothing else. The image addresses are built
-here from a validated 64-character hash. `dangerouslySetInnerHTML` does not
+of the feature rather than a stage it went through — a sixth look is a component,
+an entry in `COMPOSITIONS`, a reader in `validate.js` and an ordinary code
+review. It is never a string a model got to turn into code.
+
+Read the props as hostile and the rest follows: nothing from the timeline is ever
+interpolated into markup, a class name, a style string or a URL. Every string is
+a React child — escaped by React, and by nothing else. The image addresses are
+built here from a validated 64-character hash. `dangerouslySetInnerHTML` does not
 appear in this directory and must not start.
 
-A scene is one image, shown for `durationMs`, with a Ken Burns move and a
-transition into the scene that follows it.
+### The theme
+
+A film carries four colours, two font families and a corner radius, attached by
+Mocky's server and never written by the model. `resolveTheme` fills whatever the
+project did not declare from `THEME_FALLBACK` — the only colours in this
+directory that do not come from the document — and re-checks every value it was
+given: hex and only hex, one family name from a charset with no CSS syntax in
+it, an integer radius. That second check is what keeps "nothing from a document
+becomes CSS" true of a validator somebody loosens next year, since these values
+end up inside `linear-gradient()` and `rgba()`.
+
+**A declared typeface is named first and `fonts-liberation` follows it.** That is
+the only family this image installs; nothing in Mocky loads a webfont and this
+container has no egress to fetch one. So a direction asking for Cormorant
+Garamond gets Liberation Sans, per glyph, through CSS's own fallback — never a
+row of hollow boxes, and never a failed export over a decoration.
+
+Two derived values are worth naming because they prevent a specific unreadable
+frame: `withAlpha` turns a declared colour into the veil that keeps a caption
+legible over a photograph nobody previewed, and `readableInk` picks black or
+white for a call to action out of the accent's own relative luminance — a label
+coloured for a deep navy is invisible on a pale mint, and no direction states a
+token for it.
+
+### A slideshow scene
+
+One image, shown for `durationMs`, with a Ken Burns move and a transition into
+the scene that follows it.
 
 | Field | What it does |
 |---|---|
@@ -96,6 +134,16 @@ no React and no Remotion import, so `composition.test.js` can check it inside
 Mocky's own vitest suite. Frame counts, offsets and geometry are where the
 defects are, and they are the only part of a video that can be verified without
 producing one. Do not move the maths into the JSX.
+
+The catalogue made that rule bite, so `entranceStyle`, `kenBurnsTransform` and
+`progressAt` live there too — Remotion's `interpolate` was the only thing keeping
+clamped linear interpolation inside a bundle. `cueFrames` is the newest of them
+and the one with a defect behind it: a product scene may be three seconds and
+carry a headline, three arguments and a call to action, and five cues at a
+comfortable pace put the last one past the end of the scene. It compresses the
+whole cascade instead, so nothing is ever scheduled with less than half a second
+of scene left after it — text that arrives after its own scene has finished is a
+film missing the line it was cut to deliver, rendered and reported as a success.
 
 ### How the images reach Chromium
 
@@ -202,15 +250,16 @@ is this package's version, and it is displayed to the administrator.
 ```
 
 Answers `200` with the video bytes, a video content type, and
-`x-mocky-worker-composition: ImageSequenceVideo` — which is also how a container
-left behind on an older image gives itself away in a network trace. Bodies are
-accepted up to 80 MB, because the images travel inside the request rather than
-as URLs back to Mocky: this container has no guarantee of a route home, and no
-egress to use one with.
+`x-mocky-worker-composition` naming the composition that drew them — which is
+also how a container left behind on an older image gives itself away in a network
+trace. Bodies are accepted up to 80 MB, because the images travel inside the
+request rather than as URLs back to Mocky: this container has no guarantee of a
+route home, and no egress to use one with.
 
 Every scene's `imageId` must have matching bytes in `images`. There is no
 fallback for a missing one; a video with a blank scene in the middle would be
-reported as a successful export.
+reported as a successful export. A `titles` document names no image at all and
+sends none, which is the template rather than an edge case.
 
 **Every failure is one line of plain text, not JSON and not an HTML page.** Mocky
 splices up to 300 characters of a non-2xx body straight into the sentence the
@@ -296,10 +345,14 @@ worker/video/
   render.js            everything that imports @remotion/*, behind a dynamic import
   remotion/
     index.js               registerRoot — bundled, never run by Node
-    Root.jsx               the composition list; one entry, with calculateMetadata
-    ImageSequenceVideo.jsx the composition. React, written by hand
-    composition.js         its id, geometry and frame maths, in plain JS so both Node
-                           and the bundle can import them
+    Root.jsx               the composition list; five entries, one calculateMetadata
+    ImageSequenceVideo.jsx     slideshow  ⎫
+    OverlayBandVideo.jsx       overlay    ⎪ the compositions. React, written by
+    VerticalStoryVideo.jsx     vertical   ⎬ hand, one per template, each a normal
+    AnimatedTitlesVideo.jsx    titles     ⎪ code review rather than a breach
+    ProductSpotlightVideo.jsx  product    ⎭
+    composition.js         the ids, the geometry, the theme and the frame maths, in
+                           plain JS so both Node and the bundle can import them
     composition.test.js    that arithmetic, without rendering a video
 ```
 
