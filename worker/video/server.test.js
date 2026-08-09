@@ -167,7 +167,7 @@ describe('POST /render', () => {
       return { buffer: Buffer.from('x'), contentType: 'video/mp4' }
     }
     await post(validBody())
-    expect(seen.timeline.scenes[0]).toMatchObject({ kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null })
+    expect(seen.timeline.scenes[0]).toMatchObject({ kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null })
     expect(seen.timeline.aspectRatio).toBe('16:9')
     expect(Buffer.isBuffer(seen.images[0].bytes)).toBe(true)
     expect(seen.images[0].extension).toBe('.png')

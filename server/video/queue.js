@@ -9,19 +9,60 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { totalDurationMs } from './timeline.js'
 
 /**
- * How long one render may take before the queue stops waiting for it.
+ * The floor under a job's deadline, and what a job of unknown length gets.
  *
- * A hard ceiling rather than a heuristic, because the thing being waited on is
- * a separate container that may have been killed, be swapping, or be sitting on
- * a socket nobody will ever answer. A job stuck in `rendering` forever is the
- * single most confusing failure this feature can produce: the panel spins, no
- * error is ever shown, and the only cure is a restart the user has no reason to
- * suspect. 120 s matches MAX_TOTAL_DURATION_MS — a render that has taken longer
- * than the video is long is not going to finish.
+ * There is still a ceiling, and it is still a hard one: the thing being waited
+ * on is a separate container that may have been killed, be swapping, or be
+ * sitting on a socket nobody will ever answer. A job stuck in `rendering`
+ * forever is the single most confusing failure this feature can produce — the
+ * panel spins, no error is ever shown, and the only cure is a restart the user
+ * has no reason to suspect.
+ *
+ * What changed is the ARITHMETIC behind the number. It used to be a flat 120 s,
+ * justified by "120 s matches MAX_TOTAL_DURATION_MS — a render that has taken
+ * longer than the video is long is not going to finish". That sentence sounds
+ * right and is false: Remotion lays out and paints every frame in a headless
+ * browser, so 1080p renders at roughly a QUARTER of real time, not faster than
+ * it. Measured on the two-core worker, 6 s of film took 22 s and 30.5 s took
+ * 130 s. The old ceiling therefore refused every film longer than about 28 s —
+ * accepted by the schema, queued, watched, and then failed on the clock.
+ *
+ * @see JOB_BUDGET_PER_FILM_MS
  */
 export const JOB_TIMEOUT_MS = 120_000
+
+/**
+ * Wall-clock allowed per millisecond of finished film, plus a fixed start-up
+ * allowance for the bundle, the browser and the encoder flush.
+ *
+ * 6× against a measured 4.3× is deliberate headroom: the measurement is from
+ * one host, and the number that matters is the one a slower machine needs. A
+ * film that busts even this is a film that was never going to finish.
+ */
+export const JOB_BUDGET_PER_FILM_MS = 6
+export const JOB_BUDGET_BASE_MS = 45_000
+
+/**
+ * The deadline for a film of `totalDurationMs`, never below the old flat value.
+ *
+ * Never below, because that is what makes this change safe to ship: no render
+ * that fits today gets less time than it had. Short films keep a generous
+ * budget — most of their cost is start-up, which does not scale with length —
+ * and only the long ones, the ones that could not finish at all, get more.
+ *
+ * The worker computes the same thing ten seconds lower and refuses first, so
+ * the side that gives up is the side that can name the machine. That gap is
+ * asserted across a sweep of durations by `tests/video-render-budget.test.js`,
+ * because the two formulas live in two files that cannot import each other —
+ * `worker/` is excluded from Mocky's Docker build context on purpose.
+ */
+export function jobBudgetMs(totalDurationMs) {
+  const film = Math.max(0, Number(totalDurationMs) || 0)
+  return Math.max(JOB_TIMEOUT_MS, JOB_BUDGET_BASE_MS + film * JOB_BUDGET_PER_FILM_MS)
+}
 
 /** How much history the journal keeps. Bounded because nothing else prunes it. */
 export const MAX_JOURNAL_JOBS = 50
@@ -54,11 +95,11 @@ export class VideoQueue {
    *   Runs one job. Resolving means done; rejecting means error. The queue does
    *   NOT judge the result — whether a render without a stored file counts as a
    *   success is the composition root's call, not this module's.
-   * @param {number} [deps.timeoutMs]
+   * @param {number} [deps.timeoutMs]  fixed deadline, overriding `jobBudgetMs`. Tests only.
    * @param {()=>number} [deps.now]           injectable clock (tests)
    * @param {()=>string} [deps.newId]         injectable id source (tests)
    */
-  constructor({ dataDir, render, timeoutMs = JOB_TIMEOUT_MS, now = () => Date.now(), newId } = {}) {
+  constructor({ dataDir, render, timeoutMs = null, now = () => Date.now(), newId } = {}) {
     this.file = path.join(dataDir, 'video-jobs.json')
     this.render = render
     this.timeoutMs = timeoutMs
@@ -231,10 +272,18 @@ export class VideoQueue {
     job.startedAt = this.now()
     this._write()
 
+    // Read off the job's OWN timeline, not off a constructor field: a two-minute
+    // film and a three-second one do not cost the same, and a deadline that
+    // ignores the difference has to be wrong for one of them. An injected
+    // `timeoutMs` OVERRIDES rather than floors it — a test that asks for 20 ms
+    // and silently gets two minutes is a test that hangs.
+    const budgetMs =
+      typeof this.timeoutMs === 'number' ? this.timeoutMs : jobBudgetMs(totalDurationMs(job.timeline))
+
     const controller = new AbortController()
     let timer = null
     const expiry = new Promise((resolve) => {
-      timer = setTimeout(() => resolve({ timedOut: true }), this.timeoutMs)
+      timer = setTimeout(() => resolve({ timedOut: true }), budgetMs)
       // Unref'd: a pending render must not be the reason the process refuses to
       // exit on shutdown.
       timer.unref?.()
@@ -255,7 +304,7 @@ export class VideoQueue {
       if (outcome.timedOut) {
         controller.abort()
         this._finish(job, {
-          error: `The render did not finish within ${Math.round(this.timeoutMs / 1000)} seconds and was given up on.`,
+          error: `The render did not finish within ${Math.round(budgetMs / 1000)} seconds and was given up on.`,
         })
       } else {
         const hash = outcome.value?.videoHash

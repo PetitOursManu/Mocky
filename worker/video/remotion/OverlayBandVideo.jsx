@@ -1,21 +1,14 @@
 import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
 import {
-  CUE_ENTER_FRAMES,
-  EMPHASIS_ENTER_FRAMES,
   KICKER_SIZE,
   KICKER_TRACKING,
-  OVERLAY_DRIFT_PERCENT,
-  OVERLAY_DRIFT_SCALE,
   bandInset,
-  cueFrames,
-  cueProgress,
   entranceStyle,
   frameBase,
   overlayPalette,
   planTimeline,
-  progressAt,
   resolveTheme,
-  sceneLabel,
+  sceneMotion,
   withAlpha,
 } from './composition.js'
 
@@ -51,21 +44,34 @@ import {
  * None of it touches the legibility promise. The band is the same colour at the
  * same density as before, measured the same way over both extremes of what the
  * capture can composite it to — it simply covers less.
+ *
+ * ── Why the capture moves, when a camera move would ruin it ──────────────────
+ *
+ * "No camera move here at all" was written down as this template's discipline and
+ * then read as "nothing moves", which is how a film of still screenshots with
+ * titles on them got exported and reported as a montage. The discipline was never
+ * about movement; it was about AMPLITUDE. A pan spends 4% of travel on a 12%
+ * overscale — an eighth of the interface cropped before the first frame — while
+ * `overlayDriftTransform` spends 1.2% on 3%, which stays inside the margin the
+ * overscale leaves. Every pixel the frame shows at rest, it shows on every frame.
+ *
+ * Which of the three moves it makes is now the document's to choose (`move`), and
+ * the picture is the only thing that moves at all: the band is fixed in the frame,
+ * so nothing here can carry a run of text onto a surface `overlayPalette` did not
+ * measure.
  */
 
 /** The accent rule down the band's leading edge — the one thing that says whose film this is. */
 const RULE_PX = 6
 
-/** How long the band takes to wipe in: a third of a second, ahead of its own text. */
-const BAND_REVEAL_FRAMES = 10
-
 /** The hairline between the title and its subtitle, as a fraction of the subtitle's ink. */
 const HAIRLINE_ALPHA = 0.34
 
-const BandScene = ({ entry, index, total, src, theme, palette }) => {
+const BandScene = ({ entry, src, theme, palette }) => {
   const frame = useCurrentFrame()
   const { width, height } = useVideoConfig()
   const { scene } = entry
+  const motion = sceneMotion('overlay', entry, frame)
 
   if (!src) {
     // Loud, not blank, for the reason the slideshow gives: a scene with no
@@ -77,22 +83,12 @@ const BandScene = ({ entry, index, total, src, theme, palette }) => {
   const base = frameBase(width, height)
   const atTop = scene.band.position === 'top'
   const inset = bandInset(width, height)
-  const label = sceneLabel(index, total)
-
-  // Four cues: the block arrives, then its kicker, then the title, then the
-  // subtitle. One arrival carrying everything reads as a caption; four read as
-  // somebody putting a card down and then saying what is on it.
-  const [bandCue, kickerCue, titleCue, subtitleCue] = cueFrames(4, entry.durationInFrames, { offset: 2, step: 5 })
-
-  const bandProgress = cueProgress(frame, bandCue, BAND_REVEAL_FRAMES)
-  const kickerProgress = cueProgress(frame, kickerCue)
-  // The title takes the long entrance, because it is the one line of the scene
-  // that has to be read: see `EMPHASIS_ENTER_FRAMES`.
-  const titleProgress = cueProgress(frame, titleCue, EMPHASIS_ENTER_FRAMES)
-  const subtitleProgress = cueProgress(frame, subtitleCue, CUE_ENTER_FRAMES)
-
-  // Percent of the picture's own height, from +drift to −drift over the scene.
-  const drift = OVERLAY_DRIFT_PERCENT * (1 - 2 * progressAt(frame, Math.max(1, entry.durationInFrames - 1)))
+  // The counter comes off the plan rather than being computed here from an index
+  // and a total. It is the film's own structure, `sceneMotion` has to know
+  // whether there is one before it reports its arrival, and two computations of
+  // one string is how a kicker's entrance was reported on films that draw none.
+  const label = entry.label
+  const { band: bandProgress, kicker: kickerProgress, title: titleProgress, subtitle: subtitleProgress } = motion
 
   return (
     <AbsoluteFill
@@ -111,7 +107,9 @@ const BandScene = ({ entry, index, total, src, theme, palette }) => {
           // a tall screenshot of a page shows the middle of it and cuts off the
           // header the film exists to show.
           objectPosition: 'center top',
-          transform: `scale(${OVERLAY_DRIFT_SCALE}) translateY(${drift}%)`,
+          // The drift the document asked for, or the one it got by saying
+          // nothing. Never `none`: see `overlayDriftTransform`.
+          transform: motion.picture,
         }}
       />
 
@@ -245,14 +243,7 @@ export const OverlayBandVideo = ({ timeline, imageSrc }) => {
     <AbsoluteFill style={{ backgroundColor: theme.background }}>
       {plan.scenes.map((entry, index) => (
         <Sequence key={index} from={entry.from} durationInFrames={entry.durationInFrames}>
-          <BandScene
-            entry={entry}
-            index={index}
-            total={plan.scenes.length}
-            src={imageSrc?.[entry.scene.imageId]}
-            theme={theme}
-            palette={palette}
-          />
+          <BandScene entry={entry} src={imageSrc?.[entry.scene.imageId]} theme={theme} palette={palette} />
         </Sequence>
       ))}
     </AbsoluteFill>

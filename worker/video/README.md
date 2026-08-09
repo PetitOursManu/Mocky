@@ -62,8 +62,8 @@ cannot name anything else.
 
 | Template | Composition | What it draws |
 |---|---|---|
-| `slideshow` | `ImageSequenceVideo` | One image per scene, a Ken Burns move, an optional caption on a panel |
-| `overlay` | `OverlayBandVideo` | A screenshot that drifts by ±1.2%, with a band of title and subtitle arriving in cascade over a near-opaque veil |
+| `slideshow` | `ImageSequenceVideo` | One image per scene, a Ken Burns move, an optional caption arriving on a panel |
+| `overlay` | `OverlayBandVideo` | A screenshot drifting by ±1.2% in the direction its `move` names, with a band of title and subtitle arriving in cascade over a near-opaque veil |
 | `vertical` | `VerticalStoryVideo` | 9:16 full bleed, large type, inside the safe areas a phone feed covers with its own buttons |
 | `titles` | `AnimatedTitlesVideo` | Words on the theme's background, underlined by the accent. **No image at all** |
 | `product` | `ProductSpotlightVideo` | A wide picture, a headline, one to three arguments and a call to action, enumerated |
@@ -112,7 +112,7 @@ the scene that follows it.
 
 | Field | What it does |
 |---|---|
-| `kenBurns` | `zoom-in` / `zoom-out` drift between 1.0 and 1.12; `pan-left` / `pan-right` slide a 1.12-overscaled frame by ±4%; `static` does nothing. Small on purpose — the model picks the effect without ever seeing the result |
+| `kenBurns` | `zoom-in` / `zoom-out` drift between 1.0 and 1.12; `pan-left` / `pan-right` slide a 1.12-overscaled frame by ±4%; `static` does nothing. Small on purpose — the model picks the effect without ever seeing the result. It **defaults to `zoom-in`**: `static` is a value a document asks for, never what it gets by leaving the field out |
 | `transitionOut` | `crossfade`, `wipe-left`, `wipe-right`, `none`. It describes how a scene LEAVES, and it is implemented by how the next one arrives: only the incoming scene animates, on top of a predecessor that stays opaque, because a two-sided fade dips through the background at its midpoint and blinks |
 | `textOverlay` | Up to 120 characters at `top` / `center` / `bottom`, on a semi-opaque panel with a shadow — either alone loses, over a bright sky or a dark photograph |
 | `aspectRatio` | `16:9` → 1920×1080, `9:16` → 1080×1920, `1:1` → 1080×1080. 1080 on the long edge in all three, so a portrait export is not quietly the low-quality option |
@@ -120,6 +120,14 @@ the scene that follows it.
 
 Everything runs at **30 fps**, which is not configurable: the schema has no fps
 field, so an option here would be one nobody can reach.
+
+**Nothing holds still.** `sceneMotion` in `composition.js` answers, for any
+template and any frame, every quantity that changes between two frames of a
+scene, and the five compositions read it rather than working out their own
+arrivals. That is what lets `tests/video-motion.test.js` prove by arithmetic that
+the last frame of every scene differs from its first, on a document where the
+model filled in nothing optional — the regression it guards against shipped as a
+film of still pictures with titles on them, and every part of it was legal.
 
 **A transition never lengthens the video.** It bites into the end of the
 outgoing scene and the start of the incoming one. Appending its own duration

@@ -86,6 +86,22 @@ export const MAX_OVERLAY_LENGTH = TEXT_LIMITS.overlay
 export const RENDERABLE_TEMPLATES = ['slideshow', 'overlay', 'vertical', 'titles', 'product']
 
 export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static']
+
+/**
+ * The move a scene gets when the document names none.
+ *
+ * The same values Mocky's schema fills in, and `validate.test.js` holds the two
+ * together. It matters more than the other defaults in this file: a worker that
+ * still answered `static` where the schema now answers `zoom-in` would render a
+ * frozen film out of a document the panel had shown moving, and the only place
+ * the disagreement would ever surface is an mp4.
+ */
+export const DEFAULT_KEN_BURNS = { slideshow: 'zoom-in', vertical: 'zoom-in' }
+
+/** How an `overlay` scene moves. No `still`: a drift crops nothing, so nothing is bought by refusing it. */
+export const OVERLAY_MOVES = ['drift-up', 'drift-down', 'settle']
+export const DEFAULT_OVERLAY_MOVE = 'drift-up'
+
 export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none']
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom']
 export const BAND_POSITIONS = ['top', 'bottom']
@@ -261,23 +277,29 @@ function readSlideshowScene(value, where) {
   return {
     imageId: readImageId(value.imageId, where),
     durationMs: readDuration(value.durationMs, TEMPLATE_LIMITS.slideshow, where),
-    kenBurns: enumValue(value.kenBurns, KEN_BURNS, 'static', `${where}.kenBurns`),
+    // `zoom-in` and not `static`: a photograph nailed to the frame with a caption
+    // on it is what a user described as not being a film, and an optional field
+    // is a field a model omits.
+    kenBurns: enumValue(value.kenBurns, KEN_BURNS, DEFAULT_KEN_BURNS.slideshow, `${where}.kenBurns`),
     transitionOut: enumValue(value.transitionOut, TRANSITIONS, 'crossfade', `${where}.transitionOut`),
     textOverlay: readOverlay(value.textOverlay, `${where}.textOverlay`),
   }
 }
 
 function readOverlayScene(value, where) {
-  onlyKeys(value, ['imageId', 'durationMs', 'band', 'transitionOut'], where)
+  onlyKeys(value, ['imageId', 'durationMs', 'move', 'band', 'transitionOut'], where)
   // No `kenBurns`, and its absence is the template's discipline rather than an
   // oversight: a pan across a capture of an interface slides half the interface
   // out of frame and a zoom crops it, while the reason to show a screenshot is
-  // that it can be read.
+  // that it can be read. `move` is the amplitude that discipline permits — a
+  // drift inside the margin a 3% overscale leaves, which hides no pixel the
+  // frame showed at rest.
   const band = object(value.band, `${where}.band`)
   onlyKeys(band, ['title', 'subtitle', 'position'], `${where}.band`)
   return {
     imageId: readImageId(value.imageId, where),
     durationMs: readDuration(value.durationMs, TEMPLATE_LIMITS.overlay, where),
+    move: enumValue(value.move, OVERLAY_MOVES, DEFAULT_OVERLAY_MOVE, `${where}.move`),
     band: {
       title: readText(band.title, TEXT_LIMITS.bandTitle, `${where}.band.title`),
       subtitle: readOptionalText(band.subtitle, TEXT_LIMITS.bandSubtitle, `${where}.band.subtitle`),
@@ -294,7 +316,7 @@ function readVerticalScene(value, where) {
     durationMs: readDuration(value.durationMs, TEMPLATE_LIMITS.vertical, where),
     // `zoom-in` and not `static`: a full-bleed still on a feed reads as a
     // stalled player, and the schema defaults it the same way.
-    kenBurns: enumValue(value.kenBurns, KEN_BURNS, 'zoom-in', `${where}.kenBurns`),
+    kenBurns: enumValue(value.kenBurns, KEN_BURNS, DEFAULT_KEN_BURNS.vertical, `${where}.kenBurns`),
     transitionOut: enumValue(value.transitionOut, TRANSITIONS, 'crossfade', `${where}.transitionOut`),
     textOverlay: readOverlay(value.textOverlay, `${where}.textOverlay`),
   }

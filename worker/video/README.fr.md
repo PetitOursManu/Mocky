@@ -66,8 +66,8 @@ atteindre : `render.js` en sélectionne une par l'id que renvoie
 
 | Modèle | Composition | Ce qu'elle dessine |
 |---|---|---|
-| `slideshow` | `ImageSequenceVideo` | Une image par scène, un effet Ken Burns, une légende facultative sur un panneau |
-| `overlay` | `OverlayBandVideo` | Une capture d'écran qui dérive de ±1,2 %, avec un bandeau dont le titre et le sous-titre arrivent en cascade sur un voile presque opaque |
+| `slideshow` | `ImageSequenceVideo` | Une image par scène, un effet Ken Burns, une légende facultative qui arrive sur un panneau |
+| `overlay` | `OverlayBandVideo` | Une capture d'écran qui dérive de ±1,2 % dans le sens que nomme son `move`, avec un bandeau dont le titre et le sous-titre arrivent en cascade sur un voile presque opaque |
 | `vertical` | `VerticalStoryVideo` | 9:16 plein cadre, gros titres, à l'intérieur des marges que les interfaces sociales recouvrent de leurs propres boutons |
 | `titles` | `AnimatedTitlesVideo` | Des mots sur le fond du thème, soulignés par l'accent. **Aucune image** |
 | `product` | `ProductSpotlightVideo` | Une image cadrée large, une accroche, un à trois arguments et un appel à l'action, énumérés |
@@ -120,7 +120,7 @@ transition vers celle qui suit.
 
 | Champ | Ce qu'il fait |
 |---|---|
-| `kenBurns` | `zoom-in` / `zoom-out` dérivent entre 1.0 et 1.12 ; `pan-left` / `pan-right` déplacent de ±4 % une image surdimensionnée à 1.12 ; `static` ne fait rien. Volontairement discret — le modèle choisit l'effet sans jamais voir le résultat |
+| `kenBurns` | `zoom-in` / `zoom-out` dérivent entre 1.0 et 1.12 ; `pan-left` / `pan-right` déplacent de ±4 % une image surdimensionnée à 1.12 ; `static` ne fait rien. Volontairement discret — le modèle choisit l'effet sans jamais voir le résultat. Il vaut **`zoom-in` par défaut** : `static` est une valeur qu'un document demande, jamais celle qu'il obtient en omettant le champ |
 | `transitionOut` | `crossfade`, `wipe-left`, `wipe-right`, `none`. Le champ décrit comment une scène PART, et c'est l'arrivée de la suivante qui l'implémente : seule la scène entrante s'anime, par-dessus une sortante restée opaque, parce qu'un fondu à deux côtés passe par le fond à mi-parcours et clignote |
 | `textOverlay` | Jusqu'à 120 caractères en `top` / `center` / `bottom`, sur un panneau semi-opaque avec une ombre — l'un sans l'autre perd, sur un ciel clair ou sur une photo sombre |
 | `aspectRatio` | `16:9` → 1920×1080, `9:16` → 1080×1920, `1:1` → 1080×1080. 1080 sur le grand côté dans les trois cas, pour qu'un export vertical ne soit pas en silence l'option de moindre qualité |
@@ -128,6 +128,15 @@ transition vers celle qui suit.
 
 Tout tourne à **30 i/s**, et ce n'est pas configurable : le schéma n'a pas de
 champ fps, donc une option ici serait une option que personne ne peut atteindre.
+
+**Rien ne reste immobile.** `sceneMotion`, dans `composition.js`, répond pour
+n'importe quel modèle et n'importe quelle image toutes les quantités qui changent
+entre deux images d'une scène, et les cinq compositions la lisent au lieu de
+calculer leurs propres arrivées. C'est ce qui permet à
+`tests/video-motion.test.js` de prouver par le calcul que la dernière image de
+chaque scène diffère de la première, sur un document où le modèle n'a rempli aucun
+champ facultatif — la régression qu'il garde a été livrée sous la forme d'un film
+d'images fixes avec des titres dessus, et tout y était légal.
 
 **Une transition n'allonge jamais la vidéo.** Elle mord sur la fin de la scène
 sortante et sur le début de l'entrante. Ajouter sa durée ferait mentir le

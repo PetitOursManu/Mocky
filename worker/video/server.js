@@ -37,14 +37,51 @@ export const DEFAULT_PORT = 3030
 export const MAX_BODY = '80mb'
 
 /**
- * How long one render may run before the worker abandons it.
+ * The floor under a render's deadline.
  *
- * Ten seconds under Mocky's JOB_TIMEOUT_MS, deliberately. Whichever side gives
- * up first is the side that gets to explain what happened, and "the worker gave
- * up after 110 s" names the machine an administrator can go and look at, while
- * the queue's own timeout only says the render did not finish.
+ * Ten seconds under Mocky's JOB_TIMEOUT_MS, deliberately, and the gap is the
+ * point rather than the numbers: whichever side gives up first is the side that
+ * gets to explain what happened, and "the worker gave up after 110 s" names the
+ * machine an administrator can go and look at, while the queue's own timeout
+ * only says the render did not finish.
  */
 export const RENDER_TIMEOUT_MS = 110_000
+
+/**
+ * Wall-clock allowed per millisecond of finished film, and the fixed allowance
+ * on top of it for bundling, booting Chromium and flushing the encoder.
+ *
+ * A flat ceiling was wrong, and wrong in the direction that loses work.
+ * Remotion lays out and paints every frame in a headless browser, so 1080p
+ * renders at roughly a quarter of real time: measured here, 6 s of film took
+ * 22 s and 30.5 s took 130 s. Against a flat 110 s that meant every film longer
+ * than about 28 s was accepted by the schema, queued, watched, and then killed
+ * on the clock — while the schema goes on allowing 120 s.
+ *
+ * 6× against a measured 4.3× is headroom for a slower host. These two constants
+ * are Mocky's JOB_BUDGET_* by another name; `worker/` is excluded from Mocky's
+ * Docker build context, so neither side can import the other and
+ * `tests/video-render-budget.test.js` holds them to the same answer.
+ */
+export const RENDER_BUDGET_PER_FILM_MS = 6
+export const RENDER_BUDGET_BASE_MS = 35_000
+
+/** The deadline for a film of `totalDurationMs`, never below RENDER_TIMEOUT_MS. */
+export function renderBudgetMs(totalDurationMs) {
+  const film = Math.max(0, Number(totalDurationMs) || 0)
+  return Math.max(RENDER_TIMEOUT_MS, RENDER_BUDGET_BASE_MS + film * RENDER_BUDGET_PER_FILM_MS)
+}
+
+/**
+ * The film's length, from the document the validator already accepted.
+ *
+ * Not from a field the caller sends: the deadline is the one number a hostile
+ * body would most like to choose, and asking the timeline is asking something
+ * every bound in `validate.js` has already been applied to.
+ */
+function filmDurationMs(timeline) {
+  return (timeline?.scenes || []).reduce((sum, scene) => sum + (Number(scene?.durationMs) || 0), 0)
+}
 
 /** Plain text, one line, no stack. See the note about the 300-character splice above. */
 const fail = (res, status, message) => res.status(status).type('text/plain').send(message)
@@ -59,10 +96,10 @@ async function loadRenderer() {
  * @param {object} [deps]
  * @param {string} [deps.version]
  * @param {(opts:{timeline:object, images:Array<object>, licenseKey:string|null, signal:AbortSignal})=>Promise<{buffer:Buffer, contentType:string}>} [deps.renderVideo]
- * @param {number} [deps.timeoutMs]
+ * @param {number} [deps.timeoutMs]  fixed deadline, overriding `renderBudgetMs`. Tests only.
  * @param {Console} [deps.log]
  */
-export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_TIMEOUT_MS, log = console } = {}) {
+export function createApp({ version = VERSION, renderVideo, timeoutMs = null, log = console } = {}) {
   const app = express()
   app.disable('x-powered-by')
   app.use(express.json({ limit: MAX_BODY }))
@@ -115,10 +152,17 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
 
     busy = true
 
+    // Off the accepted timeline, so a two-minute film and a three-second one
+    // get deadlines that differ the way their costs differ. An injected
+    // `timeoutMs` OVERRIDES rather than floors it: a test that asks for 20 ms
+    // and silently gets 110 s is a test that hangs, and clamping it would make
+    // the one seam that can exercise this path unusable.
+    const budgetMs = typeof timeoutMs === 'number' ? timeoutMs : renderBudgetMs(filmDurationMs(parsed.timeline))
+
     const controller = new AbortController()
     let timer = null
     const expired = new Promise((resolve) => {
-      timer = setTimeout(() => resolve({ timedOut: true }), timeoutMs)
+      timer = setTimeout(() => resolve({ timedOut: true }), budgetMs)
       // Unref'd so a pending deadline cannot be the reason the container
       // refuses to stop when an administrator asks it to.
       timer.unref?.()
@@ -134,7 +178,7 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
        */
       const running = Promise.resolve().then(() =>
         // The PARSED timeline and images, never `req.body`. The validator
-        // applies the schema's own defaults — `kenBurns: 'static'`,
+        // applies the schema's own defaults — `kenBurns: 'zoom-in'`,
         // `transitionOut: 'crossfade'`, `aspectRatio: '16:9'` — and decodes the
         // base64 once, so the renderer never has to decide what an absent field
         // meant.
@@ -144,7 +188,7 @@ export function createApp({ version = VERSION, renderVideo, timeoutMs = RENDER_T
 
       if (outcome.timedOut) {
         controller.abort()
-        return fail(res, 504, `The render did not finish within ${Math.round(timeoutMs / 1000)} seconds and was abandoned.`)
+        return fail(res, 504, `The render did not finish within ${Math.round(budgetMs / 1000)} seconds and was abandoned.`)
       }
 
       const { buffer, contentType } = outcome.value || {}

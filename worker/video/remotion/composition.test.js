@@ -35,6 +35,11 @@ import {
   MAX_TRANSITION_SHARE,
   MAX_VEIL_ALPHA,
   MIN_CUE_TAIL_FRAMES,
+  MOTIONS,
+  OVERLAY_DRIFT_PERCENT,
+  OVERLAY_DRIFT_SCALE,
+  OVERLAY_SETTLE_FRAMES,
+  OVERLAY_SETTLE_SCALE,
   PALETTES,
   PAPER_FALLBACK,
   PUNCH_FRAMES,
@@ -66,6 +71,7 @@ import {
   msToFrames,
   ordinalLabel,
   overlayAlignment,
+  overlayDriftTransform,
   planTimeline,
   prefersPaper,
   productLayout,
@@ -75,6 +81,7 @@ import {
   readableInk,
   resolveTheme,
   sceneLabel,
+  sceneMotion,
   surfaceRange,
   verticalCaptionSize,
   withAlpha,
@@ -92,6 +99,16 @@ const scene = (durationMs, extra = {}) => ({
 })
 
 const timeline = (scenes, extra = {}) => ({ scenes, outputFormat: 'mp4', aspectRatio: '16:9', ...extra })
+
+/**
+ * The two halves of a `scale(x) translateY(y%)`, read back out.
+ *
+ * A transform is a string because that is what lands in a style, and asserting on
+ * the whole string would make every one of these tests a check on the formatting
+ * of a float. The numbers are the claim.
+ */
+const driftScale = (transform) => Number(transform.match(/scale\(([-\d.]+)\)/)[1])
+const driftPercent = (transform) => Number(transform.match(/translateY\(([-\d.]+)%\)/)[1])
 
 describe('dimensionsFor', () => {
   /**
@@ -291,6 +308,18 @@ describe('planTimeline', () => {
     expect(plan.scenes[0].scene.transitionOut).toBe('wipe-left')
     expect(plan.scenes[1].enterTransition).toBe('wipe-left')
   })
+
+  /**
+   * The kicker's text belongs to the plan, because it is the only place that
+   * knows how many scenes there are — and because two computations of it
+   * disagreed: `sceneMotion` reported a kicker arriving on every one-scene film,
+   * where the composition draws none.
+   */
+  it('carries the scene counter, and leaves it empty when there is nothing to count', () => {
+    const many = planTimeline(timeline([scene(2000), scene(2000), scene(2000)]))
+    expect(many.scenes.map((entry) => entry.label)).toEqual(['01 / 03', '02 / 03', '03 / 03'])
+    expect(planTimeline(timeline([scene(2000)])).scenes[0].label).toBe('')
+  })
 })
 
 describe('compositionIdFor', () => {
@@ -320,6 +349,193 @@ describe('compositionIdFor', () => {
     expect(() => compositionIdFor('karaoke')).toThrow(/karaoke/)
     for (const inherited of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
       expect(() => compositionIdFor(inherited), inherited).toThrow(/No composition for template/)
+    }
+  })
+})
+
+describe('sceneMotion', () => {
+  /**
+   * The five compositions read this object instead of working out their own
+   * arrivals, which is what makes "does this scene move" answerable without
+   * rendering an mp4. `tests/video-motion.test.js` asks the whole question, over
+   * documents parsed by the real schema; what belongs here is the shape.
+   */
+  it('has an entry for every composition, keyed the same way', () => {
+    expect(Object.keys(MOTIONS).sort()).toEqual(Object.keys(COMPOSITIONS).sort())
+    expect(Object.keys(MOTIONS).sort()).toEqual(Object.keys(PALETTES).sort())
+  })
+
+  /** A document from the queue's journal can predate the catalogue entirely. */
+  it('reads an absent template as a slideshow', () => {
+    const entry = { scene: scene(4000), durationInFrames: 120 }
+    expect(sceneMotion(undefined, entry, 10)).toEqual(sceneMotion('slideshow', entry, 10))
+    expect(sceneMotion(null, entry, 10)).toEqual(sceneMotion('slideshow', entry, 10))
+  })
+
+  /**
+   * Answers rather than throws, unlike `compositionIdFor`, and the difference is
+   * where each one runs: that function is called once, in Node, before anything
+   * is rendered — it is the refusal, and it names the template. This one runs on
+   * every frame inside Chromium, where a throw turns a message the caller could
+   * read into a render that dies half a minute in.
+   */
+  it('answers for anything it is handed rather than throwing inside a browser', () => {
+    for (const bad of ['karaoke', 'constructor', '__proto__', 42, {}]) {
+      expect(sceneMotion(bad, { scene: {}, durationInFrames: 90 }, 0), String(bad)).toEqual({})
+    }
+    expect(() => sceneMotion('titles', undefined, undefined)).not.toThrow()
+    expect(() => sceneMotion('product', { scene: null, durationInFrames: 0 }, NaN)).not.toThrow()
+  })
+
+  /**
+   * A term is reported only when the composition draws the thing it belongs to.
+   *
+   * Not tidiness: a `caption` progress running 0 → 1 on a scene that carries no
+   * caption is a number that changes while the frame does not, and the test that
+   * asks "did anything move between the first and last frame" would have accepted
+   * it. That is the same defect as a schema field the renderer ignores, arriving
+   * through the one thing written to catch it.
+   */
+  it('reports nothing for text a scene does not carry', () => {
+    const bare = { scene: scene(4000), durationInFrames: 120 }
+    expect(sceneMotion('slideshow', bare, 60)).not.toHaveProperty('caption')
+    expect(sceneMotion('slideshow', { ...bare, scene: scene(4000, { textOverlay: { content: 'Hi', position: 'top' } }) }, 60)).toHaveProperty(
+      'caption',
+    )
+
+    const noCta = { scene: { imageId: 'a'.repeat(64), durationMs: 4000, headline: 'A', bullets: ['b'] }, durationInFrames: 120 }
+    expect(sceneMotion('product', noCta, 60)).not.toHaveProperty('cta')
+    expect(sceneMotion('product', { ...noCta, scene: { ...noCta.scene, cta: 'Go' } }, 60)).toHaveProperty('cta')
+
+    const noSubtitle = { scene: { headline: 'A B', durationMs: 4000, animation: 'fade' }, durationInFrames: 120 }
+    expect(sceneMotion('titles', noSubtitle, 60)).not.toHaveProperty('subtitle')
+
+    // The band's subtitle is optional like the rest, and was the one term that
+    // was reported unconditionally.
+    const band = (subtitle) => ({
+      scene: { imageId: 'a'.repeat(64), durationMs: 4000, move: 'drift-up', band: { title: 'T', subtitle } },
+      durationInFrames: 120,
+      label: '01 / 02',
+    })
+    expect(sceneMotion('overlay', band(null), 60)).not.toHaveProperty('subtitle')
+    expect(sceneMotion('overlay', band('S'), 60)).toHaveProperty('subtitle')
+  })
+
+  /**
+   * The kicker is the same rule applied to a fact about the FILM rather than
+   * about the scene: `sceneLabel` is empty on a one-scene film, so neither the
+   * banded nor the titled composition draws a counter there — and both used to
+   * report one arriving.
+   *
+   * The label is read off the entry rather than counted here, so an entry built
+   * without one (a caller older than the field) means "no counter" instead of
+   * meaning `undefined` in an opacity.
+   */
+  it('reports the kicker only on a film that has a counter to draw', () => {
+    const overlay = (label) => ({
+      scene: { imageId: 'a'.repeat(64), durationMs: 4000, move: 'drift-up', band: { title: 'T', subtitle: null } },
+      durationInFrames: 120,
+      ...(label === undefined ? {} : { label }),
+    })
+    expect(sceneMotion('overlay', overlay(''), 60)).not.toHaveProperty('kicker')
+    expect(sceneMotion('overlay', overlay(undefined), 60)).not.toHaveProperty('kicker')
+    expect(sceneMotion('overlay', overlay('02 / 07'), 60)).toHaveProperty('kicker')
+
+    const titles = (label) => ({ scene: { headline: 'A B', durationMs: 4000, animation: 'fade' }, durationInFrames: 120, label })
+    expect(sceneMotion('titles', titles(''), 60)).not.toHaveProperty('kicker')
+    expect(sceneMotion('titles', titles('02 / 07'), 60)).toHaveProperty('kicker')
+  })
+
+  /**
+   * And the cascade does not move when a term stops being reported: the cues are
+   * placed for four elements whether or not the scene carries four, or a band
+   * with a subtitle and one without would put their titles on different frames.
+   */
+  it('places the overlay cues the same way whatever the band carries', () => {
+    const at = (subtitle, label) =>
+      sceneMotion(
+        'overlay',
+        {
+          scene: { imageId: 'a'.repeat(64), durationMs: 4000, move: 'drift-up', band: { title: 'T', subtitle } },
+          durationInFrames: 120,
+          label,
+        },
+        9,
+      ).title
+    expect(at(null, '')).toBe(at('S', '03 / 04'))
+  })
+
+  /**
+   * The emphasis is in the timing as well as in the colour: the last word of a
+   * headline of several takes `EMPHASIS_ENTER_FRAMES` where its neighbours take
+   * `CUE_ENTER_FRAMES`, so partway through a shared cue it has arrived less far.
+   * A single-word headline is left alone — that is not an accent, it is a
+   * different speed for the only word there is.
+   */
+  it('gives the last word of a headline the longer entrance', () => {
+    const entry = { scene: { headline: 'Conçu dans le navigateur', durationMs: 5000, animation: 'fade' }, durationInFrames: 150 }
+    // Partway through the cue the four words share: same start, different speeds.
+    const { words: arrived } = sceneMotion('titles', entry, 12)
+    expect(arrived).toHaveLength(4)
+    expect(arrived[0]).toBeGreaterThan(0)
+    expect(arrived[3]).toBeLessThan(arrived[0])
+    expect(arrived[0]).toBe(arrived[1])
+
+    const alone = { scene: { headline: 'Mocky', durationMs: 5000, animation: 'fade' }, durationInFrames: 150 }
+    expect(sceneMotion('titles', alone, 12).words).toHaveLength(1)
+  })
+})
+
+describe('overlayDriftTransform', () => {
+  /**
+   * The move that answered the report, and the one that had to be safe on a
+   * screenshot. Named after the side the PICTURE goes, the convention
+   * `kenBurnsTransform` already states for its pans.
+   */
+  it('drifts to the side it is named after, through its own rest position', () => {
+    const up = [0, 100, 199].map((f) => driftPercent(overlayDriftTransform('drift-up', f, 200)))
+    expect(up[0]).toBeCloseTo(OVERLAY_DRIFT_PERCENT, 5)
+    expect(up[1]).toBeCloseTo(0, 1)
+    expect(up[2]).toBeCloseTo(-OVERLAY_DRIFT_PERCENT, 5)
+
+    const down = [0, 199].map((f) => driftPercent(overlayDriftTransform('drift-down', f, 200)))
+    expect(down[0]).toBeCloseTo(-OVERLAY_DRIFT_PERCENT, 5)
+    expect(down[1]).toBeCloseTo(OVERLAY_DRIFT_PERCENT, 5)
+  })
+
+  /**
+   * `settle` is a LANDING added to the drift, never offered instead of it. A move
+   * that finished in twelve frames would leave fourteen seconds of frozen picture
+   * behind it — the defect this field exists to make unreachable, arriving
+   * through the field itself.
+   */
+  it('lands the settle onto the scale the other two hold, and keeps drifting after', () => {
+    expect(driftScale(overlayDriftTransform('settle', 0, 200))).toBeCloseTo(OVERLAY_DRIFT_SCALE + OVERLAY_SETTLE_SCALE, 5)
+    expect(driftScale(overlayDriftTransform('settle', OVERLAY_SETTLE_FRAMES, 200))).toBeCloseTo(OVERLAY_DRIFT_SCALE, 5)
+    expect(driftScale(overlayDriftTransform('settle', 199, 200))).toBeCloseTo(OVERLAY_DRIFT_SCALE, 5)
+    // Decelerating, like every other arrival in the catalogue.
+    expect(driftScale(overlayDriftTransform('settle', OVERLAY_SETTLE_FRAMES / 2, 200))).toBeLessThan(
+      OVERLAY_DRIFT_SCALE + OVERLAY_SETTLE_SCALE / 2,
+    )
+    // And still drifting once it has landed, which `drift-up` is doing all along.
+    expect(driftPercent(overlayDriftTransform('settle', OVERLAY_SETTLE_FRAMES, 200))).not.toBe(
+      driftPercent(overlayDriftTransform('settle', 199, 200)),
+    )
+  })
+
+  /**
+   * An unknown value drifts rather than freezing, which is the opposite of
+   * `kenBurnsTransform`'s answer for the same situation — and deliberately so.
+   * There, `static` is a value a document may legitimately hold, so `none` is a
+   * legal outcome; here there is no legitimate immobility, and the one thing this
+   * function must never do is hand back a still frame because a string was
+   * misspelt three validators ago.
+   */
+  it('never freezes on a value it does not know', () => {
+    for (const bad of [undefined, null, 'static', 'pan-left', 'constructor', 7]) {
+      const t = overlayDriftTransform(bad, 0, 200)
+      expect(t, String(bad)).toBe(overlayDriftTransform('drift-up', 0, 200))
+      expect(t).not.toBe('none')
     }
   })
 })

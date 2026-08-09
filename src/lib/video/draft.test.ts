@@ -24,6 +24,8 @@ import {
   type VideoDraft,
 } from './draft'
 import {
+  DEFAULT_KEN_BURNS,
+  DEFAULT_OVERLAY_MOVE,
   MAX_SCENES,
   MAX_TOTAL_DURATION_MS,
   TEMPLATE_LIMITS,
@@ -144,11 +146,16 @@ describe('setTemplate', () => {
 
   it('starts the scene settings on the new composition’s defaults when leaving automatic', () => {
     // Under `auto` no camera move is on screen, so the value in the record is a
-    // placeholder nobody chose — and `vertical` really does default to a zoom
-    // where `slideshow` defaults to still.
+    // placeholder nobody chose. It is READ off each scene schema rather than
+    // written down here, which is why this test kept passing the day `slideshow`
+    // stopped defaulting to a held frame — and the assertion that it is never
+    // `static` is the part that would have caught the defect.
     const picked = addScene(setTemplate(emptyDraft(), 'auto'), IMG)
-    expect(setTemplate(picked, 'vertical').scenes[0].kenBurns).toBe('zoom-in')
-    expect(setTemplate(picked, 'slideshow').scenes[0].kenBurns).toBe('static')
+    for (const template of ['vertical', 'slideshow'] as const) {
+      const move = setTemplate(picked, template).scenes[0].kenBurns
+      expect(move, template).toBe(DEFAULT_KEN_BURNS[template])
+      expect(move, template).not.toBe('static')
+    }
   })
 
   it('keeps a camera move the user did choose when swapping two real compositions', () => {
@@ -166,12 +173,16 @@ describe('setTemplate', () => {
 })
 
 describe('addScene', () => {
-  it('opens on the schema’s own defaults, not on something livelier', () => {
+  it('opens on the schema’s own defaults, neither livelier nor quieter', () => {
     // A hand-built timeline and a model-written one naming the same images must
-    // render the same film. They would not if the form defaulted to a zoom the
-    // schema does not.
+    // render the same film. They would not if the form opened on a move the
+    // schema does not default to — in either direction: the panel used to open on
+    // `static` because the schema did, and the day the schema stopped, a form
+    // still opening there would have been the defect surviving in the one place
+    // nobody thought to look.
     const [scene] = addScene(withScenes(0, 'slideshow'), IMG).scenes
-    expect(scene.kenBurns).toBe('static')
+    expect(scene.kenBurns).toBe(DEFAULT_KEN_BURNS.slideshow)
+    expect(scene.move).toBe(DEFAULT_OVERLAY_MOVE)
     expect(scene.transitionOut).toBe('crossfade')
     expect(scene.overlayText).toBe('')
   })

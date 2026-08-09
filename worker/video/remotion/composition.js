@@ -240,6 +240,18 @@ export function planTimeline(timeline) {
       scene,
       from: cursor,
       durationInFrames: durations[i],
+      // The kicker's text, decided here because it is a fact about the FILM and
+      // not about the scene: `03 / 08` needs the total, which no scene carries,
+      // and it is EMPTY on a one-scene film because `01 / 01` is a counter with
+      // nothing to count.
+      //
+      // It travels on the plan so that the composition which draws it and
+      // `sceneMotion`, which decides whether to report its arrival at all, read
+      // the same value. Computed twice, they disagreed: every one-scene film
+      // reported a `kicker` progress for a kicker no frame contained — a number
+      // that moves while the picture does not, which is the one thing the rule
+      // above this section forbids.
+      label: sceneLabel(i, scenes.length),
       enterTransition: i === 0 ? 'none' : (scenes[i - 1].transitionOut ?? 'crossfade'),
       enterFrames: i === 0 ? 0 : overlaps[i - 1],
     }
@@ -1230,9 +1242,57 @@ export function verticalCaptionSize(text, base) {
  * the frame drags the background in behind it, so the picture is 3% too big and
  * the drift stays inside the 1.5% of margin that leaves on each side. Same
  * arithmetic as `PAN_SCALE` and `PAN_SHIFT_PERCENT`, one order of magnitude down.
+ *
+ * Which is the whole argument for why THIS move is safe on a capture and a pan is
+ * not, and it is about amplitude rather than about direction. A pan spends 4% of
+ * travel on a 12% overscale: an eighth of the screenshot is cropped before the
+ * first frame, and a twentieth of what is left slides past — on an interface that
+ * is a sidebar. The drift spends 1.2% on 3%: a fortieth is cropped, the travel
+ * stays inside the margin, and every pixel the frame shows at rest it shows on
+ * every frame of the scene. Nothing the film exists to show ever leaves.
  */
 export const OVERLAY_DRIFT_PERCENT = 1.2
 export const OVERLAY_DRIFT_SCALE = 1.03
+
+/**
+ * `settle`: the capture arrives a hair large and eases onto its mark.
+ *
+ * 5.5% down to the 3% every overlay scene holds, over twelve frames — the same
+ * length and the same curve as `punchTransform`, because a cut landing is one
+ * idea and this file keeps one of those. It is a LANDING and not a zoom: it is
+ * over in four tenths of a second, so the scale the viewer actually reads the
+ * screenshot at is the same 1.03 the other two moves hold throughout.
+ *
+ * And it is added to the drift rather than offered instead of it. A move that
+ * finished in twelve frames would leave fourteen seconds of frozen picture behind
+ * it, which is the defect this field was added to make unreachable — arriving
+ * through the field itself, which is the way these things usually come back.
+ */
+export const OVERLAY_SETTLE_SCALE = 0.025
+export const OVERLAY_SETTLE_FRAMES = 12
+
+/**
+ * The `overlay` picture's transform for one frame.
+ *
+ * The picture drifts towards the side it is NAMED after, which is the convention
+ * `kenBurnsTransform` already states for its pans — the other reading (the camera
+ * drifts up, so the subject slides down) is just as defensible, which is exactly
+ * why it is written down in both places rather than left to the switch.
+ *
+ * An unknown move drifts rather than freezing, and the direction it takes is the
+ * schema's own default. Unknown kinds answering with `none` is right for
+ * `kenBurnsTransform`, where `static` is a value a document may legitimately hold;
+ * here there is no legitimate immobility, so the one thing this function must
+ * never do is hand back a still frame because a string was misspelt three
+ * validators ago.
+ */
+export function overlayDriftTransform(move, frame, durationInFrames) {
+  const progress = progressAt(frame, Math.max(1, durationInFrames - 1))
+  const away = move === 'drift-down' ? -1 : 1
+  const drift = OVERLAY_DRIFT_PERCENT * away * (1 - 2 * progress)
+  const landing = move === 'settle' ? OVERLAY_SETTLE_SCALE * (1 - easeOutCubic(progressAt(frame, OVERLAY_SETTLE_FRAMES))) : 0
+  return `scale(${OVERLAY_DRIFT_SCALE + landing}) translateY(${drift}%)`
+}
 
 /**
  * Whether a product card stands its picture beside its text or above it.
@@ -1258,6 +1318,239 @@ export function productLayout(width, height) {
  * component would have been a number the browser guessed at.
  */
 export const PICTURE_SHARE = { row: 0.5, column: 0.45 }
+
+// ── The motion of one scene ──────────────────────────────────────────────────
+//
+// Every quantity that CHANGES between two frames of a scene, for all five
+// compositions, computed here and read by the `.jsx` files rather than the other
+// way round.
+//
+// It was written the other way round first, and that is what the user's report
+// was about. Each composition worked out its own arrivals inline, so "does this
+// scene move at all" was a question you could only answer by rendering it — and
+// the answer for a `slideshow` whose document had left `kenBurns` unset was no.
+// A still photograph, a caption laid on it with no entrance, held for fifteen
+// seconds, delivered as a film. Every part of that was legal.
+//
+// So the motion joined the arithmetic, for the reason stated at the top of this
+// file: arithmetic is the only part of a video a test can check. `sceneMotion`
+// is what `tests/video-motion.test.js` compares between a scene's first frame
+// and its last, which is a proof that no template can silently go still — and it
+// is a proof about the FILM rather than about a model of it only because the
+// compositions read the same object.
+//
+// Nothing here is a new vocabulary. Every term is `cueProgress`, `easeOutCubic`
+// through `punchTransform`, or one of the two picture transforms; five notions of
+// "an element arrives" is four of them drifting, and this is the file that says so.
+//
+// One rule governs the SHAPE of what comes back: a term appears only when the
+// composition actually draws the thing it belongs to. A `caption` progress
+// reported for a scene that carries no caption is a number that changes while the
+// frame does not, and a test asking "did anything move" would have accepted it —
+// which is the same failure as a schema field the renderer ignores, arriving
+// through the one thing written to catch it.
+//
+// "Draws" is not only about what the SCENE carries, and that is where the rule
+// was first broken: a kicker exists when the FILM has more than one scene, so
+// every one-scene overlay and every one-scene titles card reported an arrival for
+// a counter no frame contained. The label is therefore computed once, in
+// `planTimeline`, and both this file and the composition read that one value.
+
+/**
+ * The beat before a slideshow caption arrives, in frames.
+ *
+ * Two frames, the same opening beat the banded template uses — long enough that
+ * the picture is on screen first, short enough not to read as a delay. The
+ * caption used to have no entrance at all: it was simply present from the first
+ * frame, which on a `static` scene made the whole composition one still image.
+ */
+export const SLIDESHOW_CAPTION_OFFSET = 2
+
+/** How long an `overlay` band takes to wipe in: a third of a second, ahead of its own text. */
+export const BAND_REVEAL_FRAMES = 10
+
+/**
+ * How far a `titles` block travels over a whole scene, as a fraction of the short
+ * edge — 1.6%, or 17 px.
+ *
+ * A drift and not an animation, and the same idea as `OVERLAY_DRIFT_PERCENT`
+ * applied to type instead of to a picture: a still frame held for five seconds
+ * reads as a stalled render even when it is exactly what was asked for, and the
+ * smallest amount of movement that fixes that is less than the eye can name.
+ *
+ * Applied to the BLOCK and never to the ground, which is the legibility half of
+ * the choice: the ground is the surface `titlesPalette` measured every run
+ * against, and a ground that moved under fixed type would be text crossing a
+ * surface nobody measured. Moving the type with its own ground behind it changes
+ * no pair the palette resolved.
+ */
+export const TITLE_BLOCK_DRIFT = 0.016
+
+/**
+ * The move a `product` picture makes. Not a document field — this template has
+ * none — but not nothing either: a product shot held perfectly still beside a
+ * cascade of arriving text is the half of the frame that looks broken.
+ */
+export const PRODUCT_PICTURE_MOVE = 'zoom-in'
+
+/** The `slideshow`: a picture that moves, and a caption that arrives on it. */
+function slideshowMotion(entry, frame) {
+  const { scene, durationInFrames } = entry
+  const [captionCue] = cueFrames(1, durationInFrames, { offset: SLIDESHOW_CAPTION_OFFSET })
+  return {
+    picture: kenBurnsTransform(scene?.kenBurns, frame, durationInFrames),
+    // The long entrance, like the banded title and the product headline: on a
+    // slideshow the caption is the only line in the scene, so it is by definition
+    // the one that has to be read.
+    ...(scene?.textOverlay ? { caption: cueProgress(frame, captionCue, EMPHASIS_ENTER_FRAMES) } : {}),
+  }
+}
+
+/** The `overlay`: a capture that drifts, and a block put down on it in four beats. */
+function overlayMotion(entry, frame) {
+  const { scene, durationInFrames } = entry
+  // The block arrives, then its kicker, then the title, then the subtitle. One
+  // arrival carrying everything reads as a caption; four read as somebody putting
+  // a card down and then saying what is on it.
+  //
+  // All four cues are PLACED whether or not the scene carries all four elements,
+  // for the reason `titlesMotion` gives: a title that landed at two different
+  // moments depending on whether there was a subtitle under it would be two
+  // rhythms in one film. Only the reporting is conditional.
+  const [band, kicker, title, subtitle] = cueFrames(4, durationInFrames, { offset: 2, step: 5 })
+  return {
+    picture: overlayDriftTransform(scene?.move, frame, durationInFrames),
+    band: cueProgress(frame, band, BAND_REVEAL_FRAMES),
+    ...(entry?.label ? { kicker: cueProgress(frame, kicker) } : {}),
+    title: cueProgress(frame, title, EMPHASIS_ENTER_FRAMES),
+    ...(scene?.band?.subtitle ? { subtitle: cueProgress(frame, subtitle, CUE_ENTER_FRAMES) } : {}),
+  }
+}
+
+/** The `vertical`: a cut that lands, a picture that moves, and a caption spoken word by word. */
+function verticalMotion(entry, frame) {
+  const { scene, durationInFrames } = entry
+  const parts = words(scene?.textOverlay?.content)
+  const cues = cueFrames(parts.length + 1, durationInFrames, { offset: 2, step: 3 })
+  return {
+    punch: punchTransform(frame),
+    picture: kenBurnsTransform(scene?.kenBurns, frame, durationInFrames),
+    ...(scene?.textOverlay
+      ? {
+          words: parts.map((_, i) => cueProgress(frame, cues[i])),
+          rule: cueProgress(frame, cues[cues.length - 1]),
+        }
+      : {}),
+  }
+}
+
+/** The `titles`: a block that drifts, and a cascade that lands on it. */
+function titlesMotion(entry, frame) {
+  const { scene, durationInFrames } = entry
+  const parts = words(scene?.headline)
+  const staggered = scene?.animation === 'stagger'
+  // One cascade for the whole scene. Four separate calls would each fit on their
+  // own and still overrun together, which is how a subtitle lands past the cut.
+  const cues = cueFrames((staggered ? parts.length : 1) + 3, durationInFrames, {
+    offset: 2,
+    step: staggered ? 4 : 6,
+    tailGap: CUE_TAIL_GAP_FRAMES,
+  })
+  const wordCues = cues.slice(1, cues.length - 2)
+  return {
+    // Halfway through the scene the block is where it would have been all along;
+    // it arrives a little low and leaves a little high.
+    drift: (0.5 - progressAt(frame, Math.max(1, durationInFrames - 1))) * TITLE_BLOCK_DRIFT,
+    // Only when there is one to draw: a one-scene film has no counter, and its
+    // cue is still placed above so the headline lands where it always does.
+    ...(entry?.label ? { kicker: cueProgress(frame, cues[0]) } : {}),
+    words: parts.map((_, i) =>
+      cueProgress(
+        frame,
+        staggered ? wordCues[i] : wordCues[0],
+        // The last word of a headline of several takes half a second where its
+        // neighbours take three tenths — the emphasis is in the timing as well as
+        // in the colour. See `EMPHASIS_ENTER_FRAMES`.
+        parts.length > 1 && i === parts.length - 1 ? EMPHASIS_ENTER_FRAMES : CUE_ENTER_FRAMES,
+      ),
+    ),
+    rule: cueProgress(frame, cues[cues.length - 2]),
+    // The cue is placed whether or not there is a subtitle — the cascade's shape
+    // must not depend on it, or a headline would land at two different moments in
+    // two otherwise identical scenes — but it is only REPORTED when there is one.
+    ...(scene?.subtitle ? { subtitle: cueProgress(frame, cues[cues.length - 1]) } : {}),
+  }
+}
+
+/** The `product`: a picture that pushes in, and a card that enumerates and then concludes. */
+function productMotion(entry, frame) {
+  const { scene, durationInFrames } = entry
+  const bullets = Array.isArray(scene?.bullets) ? scene.bullets : []
+  const hasCta = Boolean(scene?.cta)
+  const cues = cueFrames(1 + bullets.length + (hasCta ? 2 : 0), durationInFrames, {
+    offset: 3,
+    step: 7,
+    tailGap: CUE_TAIL_GAP_FRAMES,
+  })
+  return {
+    picture: kenBurnsTransform(PRODUCT_PICTURE_MOVE, frame, durationInFrames),
+    headline: cueProgress(frame, cues[0], EMPHASIS_ENTER_FRAMES),
+    bullets: bullets.map((_, i) => cueProgress(frame, cues[i + 1], CUE_ENTER_FRAMES)),
+    ...(hasCta
+      ? {
+          closing: cueProgress(frame, cues[cues.length - 2]),
+          cta: cueProgress(frame, cues[cues.length - 1]),
+        }
+      : {}),
+  }
+}
+
+/**
+ * The motion of a template, keyed exactly like `COMPOSITIONS` and `PALETTES`.
+ *
+ * Same shape and the same reason: a template that gains a composition without
+ * gaining an entry here is a template whose movement nothing checks, and
+ * `composition.test.js` iterates the three maps together so the omission fails
+ * the suite rather than shipping a film that holds still.
+ */
+export const MOTIONS = {
+  slideshow: slideshowMotion,
+  overlay: overlayMotion,
+  vertical: verticalMotion,
+  titles: titlesMotion,
+  product: productMotion,
+}
+
+/**
+ * Every moving quantity of one scene at one frame.
+ *
+ * Absent means `slideshow`, the same default `compositionIdFor` and the schema
+ * both apply, because a document out of the queue's journal may predate the
+ * catalogue. An unknown template answers with an empty object rather than
+ * throwing: `compositionIdFor` has already refused it by name long before a frame
+ * is drawn, and a throw inside Chromium turns a refusal the caller could read
+ * into a render that died half a minute in.
+ *
+ * @param {string|undefined} template
+ * @param {{scene: object, durationInFrames: number, label?: string}} entry  one entry of `planTimeline`
+ * @param {number} frame  the frame WITHIN the scene, as Remotion's Sequence gives it
+ */
+export function sceneMotion(template, entry, frame) {
+  const name = template === undefined || template === null ? 'slideshow' : template
+  if (typeof name !== 'string' || !Object.hasOwn(MOTIONS, name)) return {}
+  const at = Number.isFinite(Number(frame)) ? Number(frame) : 0
+  return MOTIONS[name](
+    {
+      scene: entry?.scene ?? {},
+      durationInFrames: Math.max(1, Number(entry?.durationInFrames) || 1),
+      // Normalised here rather than trusted, like every other field: an entry
+      // built by hand — a test, a caller that predates the field — has no label,
+      // and "there is no counter on this scene" is what an absent one means.
+      label: typeof entry?.label === 'string' ? entry.label : '',
+    },
+    at,
+  )
+}
 
 // ── Per-template palettes ────────────────────────────────────────────────────
 //

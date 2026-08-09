@@ -28,7 +28,7 @@ Cinq sortes de films, montés à partir d’images que l’utilisateur a déjà 
 | Modèle | Ce que c’est |
 |---|---|
 | `slideshow` | Un diaporama : une image par scène, un mouvement de caméra, une transition, une légende facultative incrustée dans l’image |
-| `overlay` | Une capture d’écran qui reste lisible, avec un bandeau de texte au-dessus ou en dessous |
+| `overlay` | Une capture d’écran qui reste entière, dérivant sous un bandeau de texte au-dessus ou en dessous |
 | `vertical` | Un montage 9:16 pour un fil de téléphone : plein cadre, scènes courtes |
 | `titles` | Un titrage animé. Du texte seul — **aucune image** |
 | `product` | Une image, une accroche, jusqu’à trois arguments et un appel à l’action |
@@ -120,7 +120,7 @@ enregistrés et dans le journal de la file, et chacun d’eux se serait mis à �
 à la validation le jour de la livraison — le panneau refusant un montage que
 l’utilisateur avait construit et qu’on lui avait montré, sans que rien nulle part
 ne nomme le changement responsable. C’est un défaut au sens où `kenBurns` vaut
-`static` par défaut, et il ne rattrape rien d’autre : un `product` sans accroche
+`zoom-in` par défaut et `move` `drift-up`, et il ne rattrape rien d’autre : un `product` sans accroche
 est un product refusé, jamais rejugé comme le diaporama qui serait passé.
 
 **Le plafond de 120 secondes est écrit une seule fois, sur l’union.** Des
@@ -387,6 +387,63 @@ bord à l’autre quelle que soit la phrase posée dessus, et un titre de quatre
 se retrouve au milieu d’une barre vide aux deux tiers. Rien ne change de la
 promesse de lisibilité — même couleur, même densité, mesurée contre les deux
 extrêmes de ce que la capture peut composer — le bloc couvre simplement moins.
+
+### Rien ne reste immobile, et le silence ne demande jamais un arrêt sur image
+
+Un utilisateur a regardé un export et a dit, d’un film de captures fixes avec des
+titres posés dessus, que ce n’était pas un film. Il avait raison, et quatre
+décisions distinctes se défendaient chacune sur le chemin qui y menait.
+
+`kenBurns` valait `static` par défaut. Un champ facultatif est un champ qu’un
+modèle omet : ce défaut n’était donc pas un cas limite, c’était ce que rendait
+réellement chaque diaporama généré. Le prompt de composition décrivait ensuite
+`static` comme « le choix calme, et le bon quand l’image porte du texte », et plus
+bas affirmait que calme veut dire « des scènes longues, des plans fixes ou des
+zooms lents » : un brief demandant de la retenue recevait de l’immobilité deux
+fois plutôt qu’une. Le modèle `overlay` n’avait aucun champ de mouvement, et sa
+fiche de catalogue disait « il n’y a aucun mouvement de caméra ici ». Et la
+légende du diaporama était simplement présente, de la première image de la scène à
+la dernière — un titre, sur une image, pendant quinze secondes.
+
+Chacun de ces points est désormais inversé.
+
+**Le défaut est un mouvement, et `static` se demande.** `DEFAULT_KEN_BURNS` vaut
+`zoom-in` sur les deux modèles qui portent le champ. `static` reste dans l’énum :
+une capture d’interface a de vraies raisons d’être immobile, et retirer une valeur
+d’énum ferait refuser tous les brouillons enregistrés et toutes les entrées du
+journal de la file qui la nomment. Ce qui change, c’est le cas qu’on obtient en se
+taisant. `zoom-in` et pas un travelling, parce que la bibliothèque mélange
+librement portraits et paysages — `cover` a déjà rogné une image verticale dans un
+cadre horizontal, si bien qu’un travelling y fait glisser le recadrage sans rien
+révéler, là où un zoom est le même mouvement sur tous les formats et tous les
+sujets.
+
+**L’`overlay` bouge, et la règle qu’il protégeait portait sur l’amplitude.** Un
+travelling est refusé parce qu’il dépense 4 % de course sur un surdimensionnement
+de 12 % : un huitième de l’interface rogné avant la première image, un vingtième
+qui défile. Le nouveau champ `move` dépense 1,2 % sur 3 % — l’image est un
+quarantième plus grande que le cadre, la course reste dans la marge que cela
+laisse, et chaque pixel visible au repos est visible sur chaque image. Trois
+valeurs, `drift-up`, `drift-down` et `settle`, et aucun `still` parmi elles :
+`static` existe ailleurs parce qu’un travelling et un zoom peuvent réellement
+détruire une capture et qu’un document doit pouvoir les refuser, et une dérive ne
+détruit rien.
+
+**Le mouvement des cinq compositions vit dans `composition.js`.** `sceneMotion`
+renvoie toutes les quantités qui changent entre deux images d’une scène, et les
+cinq fichiers `.jsx` la lisent au lieu de calculer leurs propres arrivées. C’est ce
+qui fait de « cette scène bouge-t-elle » une question qu’un test peut trancher —
+la même raison que pour le plan d’images et les palettes — et
+`tests/video-motion.test.js` la pose : pour chaque modèle, sur un document où le
+modèle n’a rempli aucun champ facultatif, la dernière image de chaque scène diffère
+de la première, et pas d’un seul saut. Un terme n’est renvoyé que si la composition
+le dessine, parce qu’une progression de `caption` sur une scène sans légende est un
+nombre qui change pendant que l’image, elle, ne change pas — et le test l’aurait
+acceptée. Cela ne concerne pas que ce que porte la scène : le surtitre existe quand
+le FILM a plus d’une scène, donc son texte est calculé une seule fois, dans
+`planTimeline`, et voyage sur l’entrée du plan. Calculé deux fois — une par le
+mouvement, une par la composition — les deux divergeaient, et tout film d’une seule
+scène annonçait l’arrivée d’un surtitre qu’aucune image ne contenait.
 
 ### La police qu’un conteneur possède vraiment
 
@@ -783,7 +840,45 @@ plus une image par scène.
 | `TRANSITION_MS` | 500 → 15 images | Assez long pour se lire comme intentionnel, assez court pour ne pas devenir ce qu’on regarde |
 | `MAX_TRANSITION_SHARE` | 3 | Une transition ne peut jamais manger plus d’un tiers de la plus courte des deux scènes qu’elle relie |
 | `MAX_TOTAL_DURATION_MS` | 120 000 | 20 × 15 s autoriserait un rendu de cinq minutes — des minutes de processeur sur un worker que personne ne regarde |
-| `JOB_TIMEOUT_MS` | 120 000 | Aligné sur le plafond : un rendu qui a pris plus de temps que la durée de la vidéo n’aboutira pas |
+| `JOB_TIMEOUT_MS` | 120 000 | Le PLANCHER sous l’échéance d’un travail, pas l’échéance. Voir ci-dessous |
+| `JOB_BUDGET_BASE_MS` / `JOB_BUDGET_PER_FILM_MS` | 45 000 + 6× | Le temps réel accordé à un film d’une longueur donnée |
+
+### L’échéance suit la longueur du film, parce qu’un rendu n’est pas du temps réel
+
+`JOB_TIMEOUT_MS` était toute la réponse, justifié par « 120 s correspond à
+`MAX_TOTAL_DURATION_MS` — un rendu qui a pris plus de temps que la durée de la
+vidéo n’aboutira pas ». La phrase sonne juste et elle est fausse. Remotion met
+en page et peint chaque image dans un navigateur sans écran, donc le 1080p rend
+à environ un QUART du temps réel. Mesuré sur le worker à deux cœurs : 6 s de
+film ont pris 22 s, 15,5 s en ont pris 66, 30,5 s en ont pris 130.
+
+Le plafond fixe refusait donc tout film de plus d’une trentaine de secondes — un
+film que le schéma accepte, que le panneau met en file, que l’utilisateur
+regarde, et que l’horloge tue ensuite. Le mouvement de caméra devenu le défaut
+rend ce régime plus fréquent, pas moins.
+
+`jobBudgetMs(totalDurationMs)` vaut `max(120 s, 45 s + 6 × film)`. Le multiple
+est 6 contre 4,3 mesuré, parce que la mesure vient d’une machine et que le
+nombre qui compte est celui dont une machine plus lente a besoin. Rien de ce qui
+tient aujourd’hui ne perd du temps : l’ancienne valeur fixe est le plancher.
+
+Cette arithmétique existe désormais en **trois** exemplaires —
+`server/video/queue.js`, `worker/video/server.js` (10 s plus bas, pour que le
+worker abandonne le premier et puisse nommer la machine), et
+`src/lib/video/timeline.ts` pour l’échéance de scrutation du panneau. Aucun des
+trois ne peut importer les autres : un bundle ne peut pas lire le `.js` du
+serveur, et `worker/` est exclu du contexte de construction de l’image Docker de
+Mocky pour que la licence de Remotion reste hors de l’image par défaut.
+`tests/video-render-budget.test.js` balaie toutes les durées que le schéma peut
+produire et tient les trois à la même réponse.
+
+L’exemplaire du panneau était le seul faux pour une deuxième raison : son
+échéance de scrutation valait `MAX_TOTAL_DURATION_MS`, ce qui confondait deux
+grandeurs qui se trouvaient valoir 120 s toutes les deux — la durée qu’un film
+peut AVOIR et le temps que son rendu peut PRENDRE. Laissé tel quel, il aurait
+annoncé un délai dépassé sur un film d’une minute pendant que le worker en était
+tranquillement à la moitié, et l’export terminé serait apparu dans Média sans
+plus aucun panneau pour le montrer.
 
 Le plafond de partage est atteignable, pas théorique. La scène minimale du schéma
 est de 1000 ms — 30 images — et une transition de 500 ms non plafonnée de chaque
@@ -827,16 +922,36 @@ les images ne touchent jamais un disque, elles reviennent par la socket devtools
 et entrent directement dans l’encodeur. Sur un feuillage sombre et très détaillé,
 cette première passe **est** le blocking du rapport.
 
-**La capture reste en JPEG, à la qualité 100.** `imageFormat: 'png'` est la
-bonne réponse à « ne quantifie pas deux fois », et elle est refusée sur le budget
-de rendu : le worker abandonne à 110 s, sert un rendu à la fois sur deux cœurs,
-et le schéma autorise 3600 images. Un PNG 1080p d’une photographie pèse un ordre
-de grandeur de plus que son JPEG, par image, sur la même socket — un réglage qui
-transforme un film de trente secondes en 504 n’est pas non plus une amélioration
-de qualité. La qualité 100 aplatit les tables de quantification de libjpeg : la
-luminance arrive intacte. Ce qu’elle ne récupère pas, c’est la résolution de
-chrominance — et c’est pour cela que c’est l’essentiel du chemin plutôt qu’un
-compromis, puisque la sortie est en 4:2:0 de toute façon.
+**La capture reste en JPEG, à la qualité 100 — et désormais pour une raison
+mesurée.** `imageFormat: 'png'` est la bonne réponse à « ne quantifie pas deux
+fois », et elle a été refusée la première fois sur une estimation : qu’un PNG
+1080p coûterait « un ordre de grandeur » de plus par image. Personne ne l’avait
+mesuré. Le même diaporama de photographies de la bibliothèque, en 1920×1080,
+rendu deux fois dans le conteneur du worker (`cpus: 2.0`, concurrency 2) :
+
+| | jpeg 100 | png | contre |
+|---|---|---|---|
+| 465 images (15,5 s) | 66,2 s | 106,5 s | `RENDER_TIMEOUT_MS` = 110 s |
+| 915 images (30,5 s) | 129,9 s | 212,8 s | |
+| pic mémoire du conteneur | 3081 Mo | 4096 Mo | `mem_limit: 4g` |
+| PSNR contre une référence sans perte | 43,15 dB | 44,32 dB | capture png, crf 1 |
+
+Pas un ordre de grandeur — environ 60 %. Et un refus quand même, pour une raison
+plus nette que l’estimation ne pouvait en donner : un film de quinze secondes
+finit 3,5 s avant l’échéance, et celui de trente secondes prend deux fois
+l’échéance en touchant exactement la limite mémoire. Le PNG n’achète pas un
+export plus net ; il achète un 504 sur le prochain film à peine plus long, et un
+OOM kill qui arrive à l’utilisateur sous la forme « le worker n’a pas pu être
+joint ».
+
+Ce qui tranche, c’est la dernière ligne. Tout le gain du PNG vaut **+1,17 dB**,
+et +1,00 dB était posé dans le plafond de débit ci-dessous — pour **+0,3 %** de
+temps de rendu. La capture n’a jamais été l’endroit où vivait la perte
+restante ; elle en avait seulement l’air. La qualité 100 aplatit les tables de
+quantification de libjpeg : la luminance arrive intacte. Ce qu’elle ne récupère
+pas, c’est la résolution de chrominance — et c’est pour cela que c’est
+l’essentiel du chemin plutôt qu’un compromis, puisque la sortie est en 4:2:0 de
+toute façon.
 
 **`yuv420p` est écrit, pas subi, et c’est délibérément le défaut.** L’instinct,
 pour un film fait de typographie sur photographies, est `yuv444p` — et c’est le
@@ -847,24 +962,60 @@ L’écrire signifie qu’une version de Remotion qui change son propre défaut 
 pas changer ce dans quoi un export Mocky s’ouvre — v4 → v5 a déjà déplacé le
 défaut de `colorSpace`.
 
-**h264 reçoit un CRF 16 et un plafond ; vp8 reçoit un débit.** Ce n’est pas le
-même réglage écrit autrement :
+**h264 reçoit un CRF 14 et un plafond qui dépend de la longueur du film ; vp8
+reçoit un débit.** Ce n’est pas le même réglage écrit autrement :
 
 - un CRF n’a aucune borne de taille, et le film revient entier dans une réponse
   HTTP, traverse `server/video/worker.js` en un seul Buffer et est écrit contre
-  le même `diskBudget` que les bibliothèques d’images et de clips. Donc `crf: 16`
-  voyage avec `encodingMaxRate: '16M'` et `encodingBufferSize: '32M'` — un
-  plafond de **244 Mo pour le film le plus long que le schéma autorise**,
-  quarante d’entre eux contre le budget par défaut de 10 Go, et chaque film réel
-  une fraction de cela. Le plafond est au-dessus du débit que le CRF 18 dépense
-  aujourd’hui sur les mêmes images : il ne peut donc rien coûter à un film de ce
-  qu’il a déjà, il refuse l’emballement et rien d’autre ;
+  le même `diskBudget` que les bibliothèques d’images et de clips. Le CRF voyage
+  donc avec `encodingMaxRate` et `encodingBufferSize` — un plafond de **244 Mo
+  pour le film le plus long que le schéma autorise**, quarante d’entre eux contre
+  le budget par défaut de 10 Go, et chaque film réel une fraction de cela ;
 - vp8 reçoit `videoBitrate: '8M'` et pas de CRF, parce que Remotion émet `-crf`
   et jamais `-b:v 0`. libvpx lit un CRF comme une qualité *contrainte*, bornée
   par le débit cible — et sans `-b:v`, ce cible est le défaut de ffmpeg pour un
   encodeur vidéo : 200 kbit/s. Le chemin webm ne subissait pas seulement un
   défaut : le défaut qu’il subissait plafonnait un film 1080p à un débit prévu
   pour une vignette.
+
+**Le plafond était devenu un réglage de qualité, et personne ne pouvait le
+voir.** Il valait 16 Mbit/s, justifiés comme étant « au-dessus du débit que le
+CRF 18 dépense, donc il ne peut rien coûter à un film ». Vrai du CRF 18 —
+13,1 Mbit/s mesurés — et faux dès l’instant où le CRF est passé à 16, qui en
+dépense 16,9. Un encodage écrêté ne signale aucune erreur : chaque export depuis
+perdait un décibel en silence. Mesuré, par CRF, plafond levé : 18 → 13,1 Mbit/s,
+16 → 16,9, 14 → 21,8, 12 → 28,3.
+
+Ce qui est borné, c’est donc désormais le **fichier** et non le débit — le
+magasin, le Buffer et la réponse comptent tous en octets — et le débit est ce
+qu’un film de cette longueur peut se payer dans un budget de 244 Mo, jusqu’à un
+plafond de 28 Mbit/s et jamais sous les 16 d’avant. Un débit qui dépend de la
+longueur est un vrai choix : deux minutes de 1080p et huit secondes de 1080p ne
+sont pas le même objet, et le plafond plat était la seule chose qui les rendait
+égaux. Aux 120 s du schéma la formule répond exactement 16, donc le pire cas est
+**inchangé** et strictement plus petit à toutes les autres longueurs ;
+`encoding.test.js` balaie chaque durée et tient la borne.
+
+28 plutôt que 24 parce que `maxrate` borne une crête quand le débit d’un CRF est
+une moyenne, et que passer la moyenne n’est pas passer le plafond : contre le
+même encodage sans aucun plafond (45,24 dB), un plafond à 24 coûtait 0,42 dB et
+28 en coûte 0,10. 28 est le plus petit plafond qui ne soit pas un réglage de
+qualité.
+
+**Ce que valent les deux changements, bout en bout**, sur des documents
+identiques :
+
+| | PSNR | SSIM | poids (3 s) | temps de rendu |
+|---|---|---|---|---|
+| avant — jpeg 100, crf 16, 16 Mbit/s | 43,15 dB | 0,9863 | 5594 ko | 168,0 ms/image |
+| **après — jpeg 100, crf 14, 28 Mbit/s** | **45,14 dB** | **0,9895** | 8137 ko | 172,4 ms/image |
+| la capture PNG qui a été écartée | 44,32 dB | 0,9884 | 5303 ko | 249,8 ms/image |
+
+**+1,98 dB pour +2,6 % de temps de rendu** — contre +1,17 dB pour +48,7 %. Et
+`x264Preset` reste absent, là aussi pour une raison mesurée maintenant : `slow`
+a rendu 43,14 dB contre les 43,15 de `medium` au même CRF, un fichier 1,5 % plus
+petit, pour 17 % de temps en plus. Un preset échange du poids contre du CPU à
+qualité constante ; il n’y a jamais eu un décibel dedans.
 
 **`concurrency` est déclaré aussi, et c’est le seul défaut qu’un conteneur rend
 activement faux.** Remotion ouvre la moitié des threads CPU qu’il *voit*. Or
@@ -891,7 +1042,10 @@ rendu vérifiable sans en produire un. `encoding.test.js` garde les défauts de
 Remotion en littéraux — un test qui les lirait dans le module testé serait
 d’accord avec n’importe quoi — et vérifie que chaque codec reçoit les clés qu’il
 lit et aucune qu’il ignorerait, que les cinq modèles rendent à une seule qualité,
-et que le plafond de 244 Mo est de l’arithmétique et pas une phrase.
+et que le plafond de 244 Mo est de l’arithmétique et pas une phrase. Il porte
+aussi le débit mesuré de chaque CRF, de sorte qu’un plafond descendu sous le CRF
+qu’il est censé garder casse un build au lieu de coûter un décibel à chaque
+export, en silence.
 
 ---
 

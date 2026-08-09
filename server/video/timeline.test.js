@@ -111,6 +111,16 @@ const CORPUS = [
   ['an overlay band across the middle', { template: 'overlay', scenes: [band({ band: { title: 'A', position: 'center' } })] }],
   ['an overlay with no band', { template: 'overlay', scenes: [scene()] }],
   ['an overlay panning a screenshot', { template: 'overlay', scenes: [band({ kenBurns: 'pan-left' })] }],
+  // The three moves the capture does allow, and the two ways of asking for one it
+  // does not. `move` is the field that stopped this template being a still
+  // picture with a title on it; a mirror that gained it on one side alone would
+  // put the drift back to hard-coded on the other.
+  ['an overlay drifting up', { template: 'overlay', scenes: [band({ move: 'drift-up' })] }],
+  ['an overlay drifting down', { template: 'overlay', scenes: [band({ move: 'drift-down' })] }],
+  ['an overlay that settles', { template: 'overlay', scenes: [band({ move: 'settle' })] }],
+  ['an overlay asked to hold still', { template: 'overlay', scenes: [band({ move: 'static' })] }],
+  ['an overlay asked to zoom', { template: 'overlay', scenes: [band({ move: 'zoom-in' })] }],
+  ['a slideshow asked to drift', { scenes: [scene({ move: 'drift-up' })] }],
   ['an overlay under its own floor', { template: 'overlay', scenes: [band({ durationMs: 1499 })] }],
   ['an overlay past its scene cap', { template: 'overlay', scenes: Array.from({ length: 11 }, () => band({ durationMs: 1500 })) }],
   ['an overlay past the total ceiling', { template: 'overlay', scenes: Array.from({ length: 10 }, () => band({ durationMs: 15000 })) }],

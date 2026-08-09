@@ -1,10 +1,10 @@
 import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
 import {
   entranceStyle,
-  kenBurnsTransform,
   overlayAlignment,
   planTimeline,
   resolveTheme,
+  sceneMotion,
   slideshowPalette,
   withAlpha,
 } from './composition.js'
@@ -26,11 +26,30 @@ import {
  * The arithmetic — the frame plan, the Ken Burns transform, the entrance — is in
  * `composition.js` and not here, because four other compositions need the same
  * answers and because nothing in a `.jsx` file can be tested without Remotion.
+ * That now includes the scene's own MOTION, `sceneMotion`, which is what makes
+ * "does this scene move at all" a question a test can answer.
+ *
+ * ── Why the caption arrives ──────────────────────────────────────────────────
+ *
+ * It used to be simply present, from the first frame of the scene to the last.
+ * On a document that left `kenBurns` unset — which the schema then read as
+ * `static` — this composition therefore rendered one still photograph with a line
+ * of text laid on it, held for up to fifteen seconds, and encoded it as a film. A
+ * user described the result in four words and was right about all of them.
+ *
+ * Two things changed and neither is an effect: the schema stopped reading silence
+ * as a freeze, and the caption block now arrives on a cue like every other piece
+ * of text in this directory. The block, not the text — the panel and the words
+ * move as ONE element, so the caption never travels across the photograph it was
+ * measured against. Its colour is resolved for the panel it sits on, and an
+ * entrance that slid it off that panel would spend its first frames on a surface
+ * nothing checked.
  */
 
 const SceneLayer = ({ entry, src, theme, palette, overlayFontSize }) => {
   const frame = useCurrentFrame()
   const { scene } = entry
+  const motion = sceneMotion('slideshow', entry, frame)
 
   if (!src) {
     // Loud, not blank. A scene with no picture would otherwise render as black
@@ -68,7 +87,7 @@ const SceneLayer = ({ entry, src, theme, palette, overlayFontSize }) => {
           // alternative letterboxes every mismatched still, which looks like a
           // broken export rather than a deliberate frame.
           objectFit: 'cover',
-          transform: kenBurnsTransform(scene.kenBurns, frame, entry.durationInFrames),
+          transform: motion.picture,
         }}
       />
       {scene.textOverlay ? (
@@ -83,6 +102,11 @@ const SceneLayer = ({ entry, src, theme, palette, overlayFontSize }) => {
         >
           <div
             style={{
+              // The panel and its words as one element: they fade and rise
+              // together, so no frame of the entrance puts the caption anywhere
+              // but on the surface its colour was measured against.
+              opacity: motion.caption,
+              transform: `translateY(${(1 - motion.caption) * overlayFontSize * 0.4}px)`,
               maxWidth: '82%',
               textAlign: 'center',
               // Measured against the panel at both ends of what the photograph

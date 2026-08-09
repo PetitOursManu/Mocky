@@ -1,22 +1,17 @@
 import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
 import {
-  CUE_ENTER_FRAMES,
-  CUE_TAIL_GAP_FRAMES,
-  EMPHASIS_ENTER_FRAMES,
   KICKER_SIZE,
   KICKER_TRACKING,
-  cueFrames,
-  cueProgress,
   entranceStyle,
   frameBase,
   hairlineTexture,
-  kenBurnsTransform,
   ordinalLabel,
   planTimeline,
   productLayout,
   productPalette,
   PICTURE_SHARE,
   resolveTheme,
+  sceneMotion,
   withAlpha,
 } from './composition.js'
 
@@ -84,18 +79,13 @@ const ProductScene = ({ entry, src, theme, palette }) => {
 
   /*
    * Headline, then each argument, then — only when there is one — the rule that
-   * closes the list and the call to action. One cascade, so the whole card is
-   * guaranteed to have landed before the scene ends, and one tail gap, which is
-   * the entire difference between a conclusion and a fourth argument.
+   * closes the list and the call to action. One cascade in `productMotion`, so
+   * the whole card is guaranteed to have landed before the scene ends, and one
+   * tail gap, which is the entire difference between a conclusion and a fourth
+   * argument.
    */
-  const cues = cueFrames(1 + bullets.length + (hasCta ? 2 : 0), entry.durationInFrames, {
-    offset: 3,
-    step: 7,
-    tailGap: CUE_TAIL_GAP_FRAMES,
-  })
-  const headlineProgress = cueProgress(frame, cues[0], EMPHASIS_ENTER_FRAMES)
-  const closingProgress = hasCta ? cueProgress(frame, cues[cues.length - 2]) : 0
-  const ctaProgress = hasCta ? cueProgress(frame, cues[cues.length - 1]) : 0
+  const motion = sceneMotion('product', entry, frame)
+  const { headline: headlineProgress, closing: closingProgress, cta: ctaProgress } = motion
 
   return (
     <AbsoluteFill
@@ -143,7 +133,7 @@ const ProductScene = ({ entry, src, theme, palette }) => {
             // template has no `kenBurns` field — the document does not get to
             // choose — but a product shot held perfectly still beside a cascade
             // of arriving text is the half of the frame that looks broken.
-            transform: kenBurnsTransform('zoom-in', frame, entry.durationInFrames),
+            transform: motion.picture,
           }}
         />
       </div>
@@ -187,7 +177,7 @@ const ProductScene = ({ entry, src, theme, palette }) => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(base * 0.014) }}>
           {bullets.map((bullet, index) => {
-            const arrived = cueProgress(frame, cues[index + 1], CUE_ENTER_FRAMES)
+            const arrived = motion.bullets[index]
             return (
               <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: Math.round(base * 0.01) }}>
                 <div

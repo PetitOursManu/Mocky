@@ -27,6 +27,8 @@
 // composition reads. Nothing left over ever reaches the schema, which is
 // `.strict()` and would refuse the whole document for it.
 import {
+  DEFAULT_KEN_BURNS,
+  DEFAULT_OVERLAY_MOVE,
   MAX_SCENES,
   MAX_TOTAL_DURATION_MS,
   OverlaySceneSchema,
@@ -41,6 +43,7 @@ import {
   type BandPosition,
   type KenBurns,
   type OutputFormat,
+  type OverlayMove,
   type OverlayPosition,
   type TitleAnimation,
   type Transition,
@@ -169,6 +172,8 @@ export interface DraftScene {
   transitionOut: Transition
   /** slideshow, vertical */
   kenBurns: KenBurns
+  /** overlay. Its own field rather than a sixth `kenBurns` value: a capture is never panned. */
+  move: OverlayMove
   /** slideshow, vertical. '' means no overlay; `toTimelineInput` makes that `null`. */
   overlayText: string
   overlayPosition: OverlayPosition
@@ -221,14 +226,20 @@ const emptyBullets = (): string[] => Array.from({ length: BULLET_FIELDS }, () =>
  *
  * The schema's own default and nothing livelier: a hand-built timeline and a
  * model-written one that named the same images must render the same film, and
- * they would not if the form opened on a zoom the schema does not default to.
- * `vertical` really does default to `zoom-in` where `slideshow` defaults to
- * `static` — a full-bleed phone cut on a still photograph is a freeze frame —
- * so this is read off the two schemas rather than fixed at one value.
+ * they would not if the form opened on a move the schema does not default to. So
+ * it is PARSED out of the scene schema rather than written down again — the day
+ * `slideshow` stopped defaulting to `static`, this function was already right.
+ *
+ * `auto` has no scene schema to ask, and takes the reading a document with no
+ * template gets: a slideshow. It is a placeholder either way — `setTemplate`
+ * re-applies the real default the moment a composition is chosen — but it must
+ * not be a held frame, because the panel shows that placeholder the moment the
+ * user picks slideshow and then leaves it alone.
  */
-function defaultKenBurns(template: VideoTemplate): KenBurns {
+function defaultKenBurns(template: TemplateChoice): KenBurns {
+  if (template === 'auto') return DEFAULT_KEN_BURNS.slideshow
   const shape = SCENE_SCHEMAS[template].shape as { kenBurns?: { parse: (v: unknown) => KenBurns } }
-  return shape.kenBurns ? shape.kenBurns.parse(undefined) : 'static'
+  return shape.kenBurns ? shape.kenBurns.parse(undefined) : DEFAULT_KEN_BURNS.slideshow
 }
 
 export function emptyDraft(): VideoDraft {
@@ -244,7 +255,8 @@ function blankScene(imageId: string, template: TemplateChoice): DraftScene {
     imageId,
     durationMs: DEFAULT_SCENE_DURATION_MS,
     transitionOut: 'crossfade',
-    kenBurns: template === 'auto' ? 'static' : defaultKenBurns(template),
+    kenBurns: defaultKenBurns(template),
+    move: DEFAULT_OVERLAY_MOVE,
     overlayText: '',
     overlayPosition: 'bottom',
     bandTitle: '',
@@ -419,6 +431,7 @@ export function draftFromTimeline(timeline: VideoTimeline): VideoDraft {
           ...row(s.imageId),
           durationMs: s.durationMs,
           transitionOut: s.transitionOut,
+          move: s.move,
           bandTitle: s.band.title,
           // No subtitle is an empty box, which `toTimelineInput` turns back into
           // `null`. The position falls back to the schema's own value rather
@@ -637,6 +650,7 @@ export function toTimelineInput(draft: VideoDraft): VideoTimelineInput | null {
         scenes: draft.scenes.map((s) => ({
           imageId: s.imageId,
           durationMs: s.durationMs,
+          move: s.move,
           band: { title: text(s.bandTitle), subtitle: optional(s.bandSubtitle), position: s.bandPosition },
           transitionOut: s.transitionOut,
         })),

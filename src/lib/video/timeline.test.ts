@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+  DEFAULT_KEN_BURNS,
+  DEFAULT_OVERLAY_MOVE,
+  OverlaySceneSchema,
   ProductTimelineSchema,
   RenderTimelineSchema,
   SlideshowSceneSchema,
@@ -33,7 +36,13 @@ const SCENE_FOR: Record<string, (patch?: Record<string, unknown>) => Record<stri
 describe('SlideshowSceneSchema', () => {
   it('applies the documented defaults so an omission is never an accident', () => {
     const s = SlideshowSceneSchema.parse({ imageId: HASH, durationMs: 2000 })
-    expect(s.kenBurns).toBe('static')
+    // `zoom-in`, and it used to be `static`. A model omits an optional field, so
+    // the default was what every generated slideshow actually rendered: a
+    // photograph nailed to the frame with a caption on it. `static` is still in
+    // the enum — a capture has real reasons to be held — but it has to be asked
+    // for now. `tests/video-motion.test.js` is what holds that.
+    expect(s.kenBurns).toBe(DEFAULT_KEN_BURNS.slideshow)
+    expect(s.kenBurns).not.toBe('static')
     expect(s.transitionOut).toBe('crossfade')
     expect(s.textOverlay).toBe(null)
   })
@@ -168,6 +177,36 @@ describe('a document with no template', () => {
     const res = VideoTimelineSchema.safeParse({ template: 'karaoke', scenes: [scene()] })
     expect(res.success).toBe(false)
     if (!res.success) expect(res.error.issues[0].path).toEqual(['template'])
+  })
+})
+
+describe('OverlaySceneSchema', () => {
+  /**
+   * The template the reported film was cut in. It had no movement field at all,
+   * which was read as "this template does not move" — and a still screenshot
+   * with a band of text on it is exactly what the user objected to.
+   *
+   * `move` is the amplitude the template's discipline actually permits: a drift
+   * inside the margin its overscale leaves, never a pan and never a zoom.
+   */
+  it('gives a capture a drift when the document names none', () => {
+    const s = OverlaySceneSchema.parse({ imageId: HASH, durationMs: 3000, band: { title: 'Ship it' } })
+    expect(s.move).toBe(DEFAULT_OVERLAY_MOVE)
+  })
+
+  it('refuses a camera move on a capture, whatever it is called', () => {
+    for (const bad of ['pan-left', 'zoom-in', 'static', 'none']) {
+      expect(
+        OverlaySceneSchema.safeParse({ imageId: HASH, durationMs: 3000, move: bad, band: { title: 'Ship it' } }).success,
+        bad,
+      ).toBe(false)
+    }
+    // And `kenBurns` remains unreachable here, which is the older half of the
+    // same rule: the field the model must not have is still absent, not renamed.
+    expect(
+      OverlaySceneSchema.safeParse({ imageId: HASH, durationMs: 3000, kenBurns: 'pan-left', band: { title: 'Ship it' } })
+        .success,
+    ).toBe(false)
   })
 })
 

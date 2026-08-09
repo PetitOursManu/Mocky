@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { proposeTimeline } from './compose.js'
-import { MAX_SCENES, TEMPLATE_LIMITS, VIDEO_TEMPLATES } from './timeline.js'
+import {
+  DEFAULT_KEN_BURNS,
+  DEFAULT_OVERLAY_MOVE,
+  KEN_BURNS,
+  MAX_SCENES,
+  OVERLAY_MOVES,
+  TEMPLATE_LIMITS,
+  VIDEO_TEMPLATES,
+} from './timeline.js'
 
 const id = (c) => String(c).repeat(64)
 const ID_A = id('a')
@@ -137,6 +145,74 @@ describe('proposeTimeline — the catalogue is what the model chooses from', () 
       const l = TEMPLATE_LIMITS[name]
       expect(system).toContain(`scenes: 1 to ${l.maxScenes}, each ${l.minSceneMs} to ${l.maxSceneMs} ms`)
     }
+  })
+
+  /**
+   * The prompt used to recommend the freeze.
+   *
+   * `static` was described as "the calm choice, and the right one when the image
+   * carries text", and further down "calm means long scenes, static shots or slow
+   * zooms" — so a brief asking for something restrained was answered with a film
+   * of still pictures, which is exactly what got reported. Three things have to
+   * hold now, and each of them failed differently before: every value the schema
+   * accepts is described, the vocabularies come from the enums rather than from a
+   * list somebody kept by hand, and calm is a slow movement rather than the
+   * absence of one.
+   */
+  it('tells the model that every scene moves, and never sells the held frame', async () => {
+    await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    const { system } = calls[0]
+
+    expect(system).toContain('THE MOVEMENT (every scene moves; what you choose is HOW)')
+    // Every value of both vocabularies, described. A move offered by the schema
+    // and left out of the prompt is one the model never picks.
+    for (const move of [...KEN_BURNS, ...OVERLAY_MOVES]) expect(system, move).toMatch(new RegExp(`\\n  ${move}\\s+\\S`))
+    // And described for real. `vocabulary()` prints "(no note)" for a value
+    // `MOVE_NOTES` has no line for, which satisfies the loop above while telling
+    // the model nothing — the shape a sixth move would arrive in, since the
+    // vocabulary is generated from the enum and the prose is not.
+    expect(system).not.toContain('(no note)')
+    // The defaults are quoted from the schema, so a default changed on one side
+    // cannot leave the prompt describing the other.
+    expect(system).toContain(`"${DEFAULT_KEN_BURNS.slideshow}"`)
+    expect(system).toContain(`"${DEFAULT_OVERLAY_MOVE}"`)
+
+    // The two sentences that made immobility the recommendation.
+    expect(system).not.toMatch(/static\s+no movement at all/)
+    expect(system).not.toMatch(/[Cc]alm means[^\n]*static/)
+    expect(system).toMatch(/Calm is a SLOW movement, never the absence of one/)
+    // `static` is still offered — a capture has real reasons to be held — and it
+    // is described as the exception rather than as the safe answer.
+    expect(system).toMatch(/static\s+the frame is HELD\. The exception, never the default/)
+  })
+
+  /**
+   * The banded template's card said there was no camera move in it at all, which
+   * is what "a title on a picture" was cut from. The rule it was protecting is
+   * about amplitude, and the card now says what amplitude IS allowed.
+   */
+  it('offers the overlay its own movement instead of denying it one', async () => {
+    await proposeTimeline('show the dashboard', IMAGES, { llm })
+    const { system } = calls[0]
+    expect(system).not.toContain('There is no camera move here at all')
+    expect(system).toMatch(new RegExp(`- overlay:[\\s\\S]*?move: ${OVERLAY_MOVES.join(', ')}`))
+    // And the field is on the scene shape the card prints, not only in the prose.
+    expect(system).toMatch(/- overlay:[\s\S]*?scene: \{"imageId","durationMs","move"/)
+  })
+
+  /**
+   * The decoder hint carries the move too, and asks for it.
+   *
+   * A hint is never the gate — the schema defaults `move`, so a document without
+   * one is legal — but a grammar that lets the field be skipped produces the same
+   * drift on every scene of every film, which is the variety this whole change is
+   * about.
+   */
+  it('asks the decoder for a move on every overlay scene', async () => {
+    await proposeTimeline('show the dashboard', IMAGES, { llm, template: 'overlay' })
+    const scene = calls[0].schema.properties.scenes.items
+    expect(scene.properties.move.enum).toEqual([...OVERLAY_MOVES])
+    expect(scene.required).toContain('move')
   })
 
   /**

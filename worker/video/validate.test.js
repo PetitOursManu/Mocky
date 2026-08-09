@@ -15,12 +15,15 @@ import { describe, it, expect } from 'vitest'
 import {
   ASPECT_RATIOS,
   BAND_POSITIONS,
+  DEFAULT_KEN_BURNS,
+  DEFAULT_OVERLAY_MOVE,
   KEN_BURNS,
   MAX_SCENES,
   MAX_SCENE_DURATION_MS,
   MAX_TOTAL_DURATION_MS,
   MIN_SCENE_DURATION_MS,
   OUTPUT_FORMATS,
+  OVERLAY_MOVES,
   OVERLAY_POSITIONS,
   RENDERABLE_TEMPLATES,
   TEMPLATE_LIMITS,
@@ -75,7 +78,7 @@ describe('a request the worker accepts', () => {
       // Absent means slideshow here as it does in Mocky's schema, and a document
       // from the queue's journal really can be older than the catalogue.
       template: 'slideshow',
-      scenes: [{ imageId: ID_A, durationMs: 3000, kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null }],
+      scenes: [{ imageId: ID_A, durationMs: 3000, kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null }],
       outputFormat: 'mp4',
       aspectRatio: '16:9',
     })
@@ -303,8 +306,17 @@ describe('the catalogue', () => {
    */
   it('accepts each template and applies its own defaults', () => {
     const expected = {
-      slideshow: { kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null },
-      overlay: { band: { title: 'The dashboard', subtitle: null, position: 'bottom' }, transitionOut: 'crossfade' },
+      // `zoom-in` and not `static`. The default used to be the freeze, and an
+      // optional field is one a model omits — so every generated slideshow was a
+      // photograph held still with a caption on it, which is what the defect was
+      // reported as. `static` is still accepted; it is no longer what silence
+      // means.
+      slideshow: { kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null },
+      overlay: {
+        move: 'drift-up',
+        band: { title: 'The dashboard', subtitle: null, position: 'bottom' },
+        transitionOut: 'crossfade',
+      },
       // `zoom-in` and not `static`: a full-bleed still on a feed reads as a
       // stalled player.
       vertical: { kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null },
@@ -541,12 +553,21 @@ describe('agreement with Mocky', () => {
     expect(TEMPLATE_LIMITS).toEqual(mocky.TEMPLATE_LIMITS)
     expect(TEXT_LIMITS).toEqual(mocky.TEXT_LIMITS)
     expect(KEN_BURNS).toEqual(mocky.KEN_BURNS)
+    expect(OVERLAY_MOVES).toEqual(mocky.OVERLAY_MOVES)
     expect(TRANSITIONS).toEqual(mocky.TRANSITIONS)
     expect(OVERLAY_POSITIONS).toEqual(mocky.OVERLAY_POSITIONS)
     expect(BAND_POSITIONS).toEqual(mocky.BAND_POSITIONS)
     expect(TITLE_ANIMATIONS).toEqual(mocky.TITLE_ANIMATIONS)
     expect(OUTPUT_FORMATS).toEqual(mocky.OUTPUT_FORMATS)
     expect(ASPECT_RATIOS).toEqual(mocky.ASPECT_RATIOS)
+    // The DEFAULTS as well as the enums, and this pair matters more than the
+    // others: a worker still reading an absent `kenBurns` as `static` where the
+    // schema now reads it as `zoom-in` would render a frozen film out of a
+    // document the panel had shown moving, and the only place that disagreement
+    // ever surfaces is an mp4.
+    expect(DEFAULT_KEN_BURNS).toEqual(mocky.DEFAULT_KEN_BURNS)
+    expect(DEFAULT_OVERLAY_MOVE).toBe(mocky.DEFAULT_OVERLAY_MOVE)
+    expect(Object.values(DEFAULT_KEN_BURNS)).not.toContain('static')
   })
 
   /**

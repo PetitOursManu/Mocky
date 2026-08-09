@@ -8,10 +8,14 @@ import {
   CODECS,
   DEFAULT_CONCURRENCY,
   H264_CRF,
+  H264_RATE_CEILING_MBPS,
+  H264_RATE_FLOOR_MBPS,
   MAX_CONCURRENCY,
+  MAX_FILE_MBIT,
   PIXEL_FORMAT,
   codecFor,
   encodingOptionsFor,
+  h264RateFor,
   renderConcurrency,
   worstCaseBytes,
 } from './encoding.js'
@@ -61,6 +65,36 @@ const COMPOSE = (() => {
 
 /** Remotion's own bounds per codec, from `crf.ts`. Out of range is a throw at render time. */
 const CRF_RANGE = { h264: [1, 51], vp8: [4, 63] }
+
+/**
+ * What x264 actually spends, per CRF, on the content the report was about.
+ *
+ * Measured — not derived, not guessed. A slideshow of 1080p library photographs
+ * with a Ken Burns move on every scene, encoded in this container with the cap
+ * lifted so the encoder was free to ask for what it wanted. The average rate it
+ * asked for, in Mbit/s:
+ *
+ *   crf 18   13.1      crf 16   16.9      crf 14   21.8      crf 12   28.3
+ *
+ * They are here because the ceiling's whole claim is an inequality against
+ * them: a cap under the rate its own CRF spends is not a guard, it is a second
+ * quality setting nobody can see, and that is exactly what the 16 Mbit/s cap
+ * had silently become when the CRF moved from 18 to 16.
+ *
+ * These are AVERAGES and `maxrate` bounds a peak, which is why the assertion
+ * below leaves headroom rather than testing `>`. A cap of 24 against CRF 14's
+ * 21.8 still cost 0.42 dB — clearing the average is not clearing the cap.
+ */
+const MEASURED_MBPS = { 18: 13.1, 16: 16.9, 14: 21.8, 12: 28.3 }
+
+/**
+ * How far above its own average the cap has to sit before it stops clipping.
+ *
+ * Measured, not a rule of thumb: at CRF 14 (21.8 Mbit/s average) a cap of 24 —
+ * 1.10× — cost 0.42 dB, and 28 — 1.28× — cost 0.10. The multiplier is what
+ * generalises to the next CRF somebody tries.
+ */
+const PEAK_HEADROOM = 1.25
 
 const codecs = Object.values(CODECS)
 
@@ -140,6 +174,24 @@ describe('each codec gets the keys it reads, and none it would ignore', () => {
     // Lower is better. Equal to the default would be a setting that says
     // nothing, which is how this whole area went unnoticed.
     expect(H264_CRF).toBeLessThan(REMOTION_DEFAULTS.crf.h264)
+  })
+
+  /**
+   * The inequality the ceiling exists to satisfy, and the one that had broken.
+   *
+   * A short film gets the ceiling, so if the ceiling is under the rate this CRF
+   * spends then every short film is silently rate-limited — no error, no
+   * notice, a decibel gone. Written as a lookup on the CRF actually configured
+   * rather than on the number 14, so that lowering the CRF one more notch fails
+   * here instead of re-creating the defect.
+   */
+  it('never caps a short film below what its own CRF spends', () => {
+    const wanted = MEASURED_MBPS[H264_CRF]
+    expect(wanted, `no measurement on record for crf ${H264_CRF} — measure it before shipping it`).toBeGreaterThan(0)
+    // A short film gets the ceiling, so this inequality IS what every short
+    // export looks like.
+    expect(h264RateFor(8000).maxRateMbps).toBe(H264_RATE_CEILING_MBPS)
+    expect(H264_RATE_CEILING_MBPS).toBeGreaterThanOrEqual(wanted * PEAK_HEADROOM)
   })
 
   /**
@@ -300,5 +352,98 @@ describe('the size these settings imply', () => {
     // than nothing — an estimate that must err upwards, erring upwards.
     expect(worstCaseBytes('h264', 0)).toBeGreaterThan(0)
     expect(worstCaseBytes('h264', -1)).toBe(worstCaseBytes('h264', 0))
+  })
+
+  /**
+   * The bound, now that the rate is a function of the length.
+   *
+   * This is the whole safety argument for making it one: a per-second allowance
+   * that grows as films get shorter is only sound if the FILE it implies stays
+   * inside the same budget at every length. Swept rather than spot-checked,
+   * because the interesting lengths are the ones nobody would think to write
+   * down — the crossover where the ceiling stops binding and the budget starts.
+   */
+  it('never exceeds the file budget, at any length the schema permits', () => {
+    const budgetBytes = (MAX_FILE_MBIT * 1_000_000) / 8
+    for (let ms = 0; ms <= MAX_TOTAL_DURATION_MS; ms += 250) {
+      expect(worstCaseBytes('h264', ms), `${ms} ms`).toBeLessThanOrEqual(budgetBytes)
+    }
+  })
+
+  it('is unchanged for the longest film, which is where the budget came from', () => {
+    // 244 MB, the number `render.js` quotes and the disk budget was sized
+    // against. A change here is a change to a claim written down elsewhere.
+    expect(h264RateFor(MAX_TOTAL_DURATION_MS).maxRateMbps).toBe(16)
+    expect(worstCaseBytes('h264', MAX_TOTAL_DURATION_MS)).toBe(244_000_000)
+  })
+})
+
+describe('the bitrate a film of a given length may spend', () => {
+  it('gives a short film the ceiling and a long one the budget', () => {
+    expect(h264RateFor(5_000).maxRateMbps).toBe(H264_RATE_CEILING_MBPS)
+    expect(h264RateFor(30_000).maxRateMbps).toBe(H264_RATE_CEILING_MBPS)
+    // Past the crossover the budget is what answers, and it answers less.
+    expect(h264RateFor(MAX_TOTAL_DURATION_MS).maxRateMbps).toBeLessThan(H264_RATE_CEILING_MBPS)
+  })
+
+  it('never goes below what a film got before the rate was a function', () => {
+    // The floor is the old flat cap. No length may come out of this worse than
+    // it did, which is what makes the change safe to reason about at all.
+    for (let ms = 0; ms <= MAX_TOTAL_DURATION_MS; ms += 500) {
+      expect(h264RateFor(ms).maxRateMbps, `${ms} ms`).toBeGreaterThanOrEqual(H264_RATE_FLOOR_MBPS)
+    }
+  })
+
+  it('never grants more to a longer film than to a shorter one', () => {
+    let previous = Infinity
+    for (let ms = 0; ms <= MAX_TOTAL_DURATION_MS; ms += 500) {
+      const mbps = h264RateFor(ms).maxRateMbps
+      expect(mbps, `${ms} ms`).toBeLessThanOrEqual(previous)
+      previous = mbps
+    }
+  })
+
+  it('takes the strictest answer for a duration it cannot read', () => {
+    // A caller that forgot to say how long the film is must not be handed the
+    // shortest film's allowance. "I don't know" is not short.
+    for (const bad of [undefined, null, Number.NaN, 'soon', '8000', {}]) {
+      expect(h264RateFor(bad).maxRateMbps, JSON.stringify(bad)).toBe(h264RateFor(MAX_TOTAL_DURATION_MS).maxRateMbps)
+    }
+    expect(encodingOptionsFor('h264').encodingMaxRate).toBe(`${H264_RATE_FLOOR_MBPS}M`)
+  })
+
+  it('treats an empty film as short rather than unreadable, and 0 is a number', () => {
+    // 0 ms is a legitimate degenerate answer — a film with nothing in it — and
+    // reading it as "unknown" would hand `worstCaseBytes(0)` the two-minute
+    // settings and quietly change a bound two tests up.
+    expect(h264RateFor(0).maxRateMbps).toBe(H264_RATE_CEILING_MBPS)
+    expect(h264RateFor(-1).maxRateMbps).toBe(h264RateFor(0).maxRateMbps)
+  })
+
+  it('always pairs the rate with a buffer twice its size', () => {
+    // Remotion refuses `encodingMaxRate` without `encodingBufferSize`, and
+    // ffmpeg measures the cap over that window. They are one object for that
+    // reason and must never be computed apart.
+    for (const ms of [0, 5_000, 45_000, MAX_TOTAL_DURATION_MS]) {
+      const { maxRateMbps, bufferMbit } = h264RateFor(ms)
+      expect(bufferMbit).toBe(maxRateMbps * 2)
+    }
+  })
+
+  it('reaches the encoder as the two keys, in step', () => {
+    const options = encodingOptionsFor('h264', 8_000)
+    const { maxRateMbps, bufferMbit } = h264RateFor(8_000)
+    expect(options.encodingMaxRate).toBe(`${maxRateMbps}M`)
+    expect(options.encodingBufferSize).toBe(`${bufferMbit}M`)
+  })
+
+  it('leaves webm alone, since nobody has profiled it', () => {
+    // The h264 allowance moves with the film; vp8's does not, and the asymmetry
+    // is deliberate — a length-dependent rate for a codec nobody has measured
+    // would be the same unmeasured guess that put the h264 cap under its own CRF.
+    const short = encodingOptionsFor('vp8', 5_000)
+    const long = encodingOptionsFor('vp8', MAX_TOTAL_DURATION_MS)
+    expect(short).toEqual(long)
+    expect(short).not.toHaveProperty('crf')
   })
 })

@@ -145,6 +145,17 @@ export async function renderTimeline({ timeline, images = [], licenseKey = null,
 
     const codec = codecFor(timeline.outputFormat)
 
+    // The film's real length, read off the composition rather than summed from
+    // the scenes, because the bitrate allowance below is divided by it and both
+    // ways of being wrong cost something. `planTimeline` overlaps every
+    // transition, so the scenes add up to MORE milliseconds than the video
+    // lasts — an over-statement, which buys a rate lower than the film is
+    // entitled to and pays quality for nothing. Under-stating it would be worse:
+    // the size bound would be computed for a film shorter than the one written.
+    // The frame count is neither, and it is the number the encoder is about to
+    // produce.
+    const durationMs = (composition.durationInFrames / composition.fps) * 1000
+
     const { buffer, contentType } = await renderMedia({
       composition,
       serveUrl,
@@ -174,7 +185,7 @@ export async function renderTimeline({ timeline, images = [], licenseKey = null,
       // JPEG capture in front of the encoder above all — which is what made a
       // film of photographs come back blocky. `encoding.js` carries the whole
       // argument, and `encoding.test.js` is what holds the numbers.
-      ...encodingOptionsFor(codec),
+      ...encodingOptionsFor(codec, durationMs),
       // Spread rather than passed as null: from Remotion 5.0 a licensed render
       // is telemetered, so handing this key over is the moment this container
       // acquires an outbound connection. With no key configured the option is

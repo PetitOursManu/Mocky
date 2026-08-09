@@ -184,6 +184,32 @@ export async function makeVariants({ imageId, count } = {}, deps = {}) {
 
   const requested = clampVariantCount(count)
   const notices = []
+
+  /*
+   * The one case where a variant CANNOT inherit its source's shape, said out
+   * loud rather than papered over.
+   *
+   * The spec below falls back to 1024×1024, and that fallback is the library's
+   * square default — the exact geometry `SOURCE_DIMENSIONS` exists to stop a
+   * film asking for, enlarged 1.88× on a 16:9 frame with 44% of it cropped away.
+   * It is reachable: `ingestUpload` records 0 when the browser could not decode
+   * the file, and rows from before the field existed carry nothing at all. So a
+   * 16:9 photograph somebody imported can hand back square variants, which is a
+   * crop nobody asked for, produced in silence.
+   *
+   * There is nothing better to send — this server decodes no images, by the
+   * same no-native-dependencies rule that keeps it on JSON files — so the honest
+   * move is the one this repository makes everywhere else: degrade, and say what
+   * was lost. The panel measures the file it gets back and will flag the
+   * enlargement too; this names the CAUSE, which the measurement cannot.
+   */
+  const geometryKnown = Number(source.width) > 0 && Number(source.height) > 0
+  if (!geometryKnown) {
+    notices.push(
+      "Cette image n'a pas de dimensions enregistrées : les variantes sont demandées en 1024×1024. " +
+        "Sur un film 16:9 ou 9:16, elles seront recadrées — réimportez l'image pour que sa géométrie soit reprise.",
+    )
+  }
   // Read once, outside the loop: the same bytes go to every variant, and
   // re-reading them per call is a few hundred kilobytes of disk for an identical
   // result. A failure here is fatal to the whole request rather than to one
@@ -217,7 +243,8 @@ export async function makeVariants({ imageId, count } = {}, deps = {}) {
       // The source's own geometry, not a slot's. A derivative that came back in
       // a different shape from the picture it derives would be a crop nobody
       // asked for; on the sibling path it is simply what makes the set look like
-      // one set.
+      // one set. When there is none recorded, the square below is a fallback the
+      // caller has already been warned about — see `geometryKnown`.
       width: Number(source.width) || 1024,
       height: Number(source.height) || 1024,
       tags: ['variant'],

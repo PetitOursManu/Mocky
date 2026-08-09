@@ -294,6 +294,11 @@ export const video = {
     'video.motionZoomOut': 'Zoom arrière',
     'video.motionPanLeft': 'Travelling gauche',
     'video.motionPanRight': 'Travelling droite',
+    // Le vocabulaire de la capture : jamais un travelling, jamais un zoom — une
+    // dérive d'un pour cent, dans laquelle rien ne sort du cadre.
+    'video.moveDriftUp': 'Dérive vers le haut',
+    'video.moveDriftDown': 'Dérive vers le bas',
+    'video.moveSettle': 'Se pose puis dérive',
 
     'video.transition': 'Transition vers la suivante',
     'video.transitionCrossfade': 'Fondu enchaîné',
@@ -704,6 +709,11 @@ export const video = {
     'video.motionZoomOut': 'Zoom out',
     'video.motionPanLeft': 'Pan left',
     'video.motionPanRight': 'Pan right',
+    // The capture's own vocabulary: never a pan, never a zoom — a drift of about
+    // one percent, inside which nothing leaves the frame.
+    'video.moveDriftUp': 'Drift up',
+    'video.moveDriftDown': 'Drift down',
+    'video.moveSettle': 'Settle, then drift',
 
     'video.transition': 'Transition to the next scene',
     'video.transitionCrossfade': 'Crossfade',

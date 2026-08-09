@@ -263,7 +263,7 @@ describe('POST /render', () => {
      */
     expect(enqueued.timeline).toEqual({
       template: 'slideshow',
-      scenes: [{ imageId: ID_A, durationMs: 3000, kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null }],
+      scenes: [{ imageId: ID_A, durationMs: 3000, kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null }],
       outputFormat: 'mp4',
       aspectRatio: '16:9',
     })

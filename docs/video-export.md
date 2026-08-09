@@ -27,7 +27,7 @@ Five kinds of film, cut from pictures the user already picked.
 | Template | What it is |
 |---|---|
 | `slideshow` | One image per scene, a Ken Burns move, a transition, an optional caption burnt into the frame |
-| `overlay` | A screenshot that keeps its place, with a band of text above or below it |
+| `overlay` | A screenshot that stays whole, drifting under a band of text above or below it |
 | `vertical` | A 9:16 cut for a phone feed: full bleed, short beats |
 | `titles` | Animated titling. Text only — **no image at all** |
 | `product` | One picture, a headline, up to three arguments and a call to action |
@@ -111,7 +111,8 @@ composed before the catalogue existed sit in saved drafts and in the queue's
 journal, and every one of them would have started failing validation the day
 this shipped — the panel refusing a timeline the user had built and been shown,
 with nothing anywhere naming the change that caused it. It is a default, in the
-same sense that `kenBurns` defaults to `static`, and it rescues nothing else: a
+same sense that `kenBurns` defaults to `zoom-in` and `move` to `drift-up`, and it
+rescues nothing else: a
 `product` missing its headline is a refused product, never re-tried as the
 slideshow that would have passed.
 
@@ -357,6 +358,59 @@ screenshot edge to edge whatever the sentence on it is, and a four-word title
 then sits in the middle of a bar with two thirds of it empty. Nothing about the
 legibility promise changes — same colour, same density, measured over both
 extremes of what the capture can composite it to — the block simply covers less.
+
+### Nothing holds still, and silence never asks for a freeze
+
+A user watched an export and said, of a film of still screenshots with titles laid
+on them, that it was not a film. He was right, and four separate decisions had
+each been defensible on the way there.
+
+`kenBurns` defaulted to `static`. An optional field is a field a model omits, so
+that default was not an edge case — it was what every generated slideshow
+actually rendered. The compose prompt then described `static` as "the calm
+choice, and the right one when the image carries text", and further down said
+that calm means "long scenes, static shots or slow zooms": a brief asking for
+something restrained was answered with immobility twice over. The `overlay`
+template had no movement field at all, and its catalogue card said "there is no
+camera move here at all". And the slideshow's caption was simply present from the
+first frame of the scene to the last — a title, on a picture, for fifteen seconds.
+
+Each of those is now the other way round.
+
+**The default is a move, and `static` is something a document asks for.**
+`DEFAULT_KEN_BURNS` is `zoom-in` on both templates that carry the field. `static`
+stays in the enum: a capture of an interface has real reasons to be held, and
+removing an enum value would refuse every saved draft and every entry in the
+queue's journal that names it. What changed is which case you get by saying
+nothing. `zoom-in` and not a pan, because the library mixes portrait and
+landscape freely — `cover` has already cropped a portrait still inside a landscape
+frame, so a pan there slides the crop instead of revealing anything, while a zoom
+is the same move on every ratio and every subject.
+
+**The `overlay` moves, and the rule it was protecting was about amplitude.** A
+pan is refused because it spends 4% of travel on a 12% overscale: an eighth of
+the interface cropped before the first frame, a twentieth of it sliding past. The
+new `move` field spends 1.2% on 3% — the picture is a fortieth larger than the
+frame, the travel stays inside the margin that leaves, and every pixel visible at
+rest is visible on every frame. Three values, `drift-up`, `drift-down` and
+`settle`, and no `still` among them: `static` exists elsewhere because a pan and a
+zoom really can destroy a capture and a document must be able to refuse them, and
+a drift destroys nothing.
+
+**The motion of all five compositions lives in `composition.js`.** `sceneMotion`
+returns every quantity that changes between two frames of a scene, and the five
+`.jsx` files read it rather than working out their own arrivals. That is what
+makes "does this scene move at all" a question a test can answer — the same reason
+the frame plan and the palettes are there — and `tests/video-motion.test.js` asks
+it: for each template, over a document where the model filled in nothing optional,
+the last frame of every scene differs from the first, and not by a single jump.
+A term is reported only when the composition draws it, because a `caption`
+progress on a scene with no caption is a number that changes while the frame does
+not, and the test would have accepted it. That is not only about what the scene
+carries: the kicker exists when the FILM has more than one scene, so its text is
+computed once in `planTimeline` and travels on the plan entry. Computed twice —
+once by the motion, once by the composition — the two disagreed, and every
+one-scene film reported a kicker arriving that no frame contained.
 
 ### The typeface a container actually has
 
@@ -727,7 +781,42 @@ whole — and the cost is at most one frame per scene.
 | `TRANSITION_MS` | 500 → 15 frames | Long enough to read as intentional, short enough not to become the thing being watched |
 | `MAX_TRANSITION_SHARE` | 3 | A transition may never eat more than a third of the shorter of the two scenes it joins |
 | `MAX_TOTAL_DURATION_MS` | 120 000 | 20 × 15 s would permit a five-minute render — minutes of CPU on a worker nobody is watching |
-| `JOB_TIMEOUT_MS` | 120 000 | Matches the ceiling: a render that has taken longer than the video is long is not going to finish |
+| `JOB_TIMEOUT_MS` | 120 000 | The FLOOR under a job's deadline, not the deadline. See below |
+| `JOB_BUDGET_BASE_MS` / `JOB_BUDGET_PER_FILM_MS` | 45 000 + 6× | Wall clock a film of a given length is allowed |
+
+### The deadline scales with the film, because rendering is not real time
+
+`JOB_TIMEOUT_MS` used to be the whole answer, justified by "120 s matches
+`MAX_TOTAL_DURATION_MS` — a render that has taken longer than the video is long
+is not going to finish". That sentence sounds right and is false. Remotion lays
+out and paints every frame in a headless browser, so 1080p renders at roughly a
+QUARTER of real time. Measured on the two-core worker: 6 s of film took 22 s,
+15.5 s took 66 s, 30.5 s took 130 s.
+
+So the flat ceiling refused every film longer than about 28 s — a film the
+schema accepts, the panel queues, the user watches, and the clock then kills.
+The default Ken Burns move made that regime more common, not less.
+
+`jobBudgetMs(totalDurationMs)` is `max(120 s, 45 s + 6 × film)`. The multiple is
+6 against a measured 4.3 because the measurement is from one host and the number
+that matters is what a slower one needs. Nothing that fits today loses time: the
+old flat value is the floor.
+
+There are now **three** copies of this arithmetic — `server/video/queue.js`,
+`worker/video/server.js` (10 s lower, so the worker gives up first and gets to
+name the machine), and `src/lib/video/timeline.ts` for the panel's own poll
+deadline. None of the three can import another: a bundle cannot read the
+server's `.js`, and `worker/` is excluded from Mocky's Docker build context so
+that Remotion's licence stays out of the default image.
+`tests/video-render-budget.test.js` sweeps every duration the schema can produce
+and holds all three to the same answer.
+
+The panel's copy is the one that was quietly wrong for a second reason: its poll
+deadline was `MAX_TOTAL_DURATION_MS`, which conflated two quantities that merely
+happened to both be 120 s — how long a film may BE and how long rendering it may
+TAKE. Left alone, it would have reported a timeout on a sixty-second film while
+the worker was calmly halfway through it, and the finished export would then
+have appeared in Media with no panel left to show it.
 
 The share cap is reachable, not theoretical. The schema's minimum scene is
 1000 ms — 30 frames — and an uncapped 500 ms transition on each side of one
@@ -769,15 +858,34 @@ never touch a disk, they come back over the devtools socket and go straight into
 the encoder. On dark, high-frequency foliage that first pass **is** the blocking
 in the report.
 
-**The capture is still JPEG, at quality 100.** `imageFormat: 'png'` is the
-correct answer to "do not quantise twice" and it is refused on the render
-budget: the worker gives up at 110 s, serves one render at a time on two cores,
-and the schema permits 3600 frames. A 1080p PNG of a photograph is an order of
-magnitude larger than the JPEG of it, per frame, over the same socket — a
-setting that turns a thirty-second film into a 504 is not a quality improvement
-either. Quality 100 flattens libjpeg's quantisation tables, so the luma arrives
-intact; what it does not recover is chroma resolution, and that is why it is
-most of the distance rather than a compromise — the output is 4:2:0 regardless.
+**The capture is still JPEG, at quality 100 — and now for a measured reason.**
+`imageFormat: 'png'` is the correct answer to "do not quantise twice", and it
+was refused the first time on an estimate: that a 1080p PNG is "an order of
+magnitude" dearer per frame. Nobody had measured it. The same slideshow of
+library photographs, 1920×1080, rendered twice in the worker container
+(`cpus: 2.0`, concurrency 2):
+
+| | jpeg 100 | png | against |
+|---|---|---|---|
+| 465 frames (15.5 s) | 66.2 s | 106.5 s | `RENDER_TIMEOUT_MS` = 110 s |
+| 915 frames (30.5 s) | 129.9 s | 212.8 s | |
+| peak container memory | 3081 MB | 4096 MB | `mem_limit: 4g` |
+| PSNR vs a lossless reference | 43.15 dB | 44.32 dB | png capture, crf 1 |
+
+Not an order of magnitude — about 60%. And still a refusal, for a sharper
+reason than the estimate could give: a fifteen-second film lands 3.5 s inside
+the deadline, and a thirty-second one takes twice the deadline while touching
+the memory limit exactly. PNG does not buy a sharper export; it buys a 504 on
+the next film that is slightly longer and an OOM kill that reaches the user as
+"the worker could not be reached".
+
+What settles it is the last row. PNG's entire gain is **+1.17 dB**, and +1.00 dB
+of that was sitting in the bitrate cap below — for **+0.3%** of render time. The
+capture was never where the remaining loss lived; it only looked like the
+obvious place. Quality 100 flattens libjpeg's quantisation tables, so the luma
+arrives intact; what it does not recover is chroma resolution, and that is why
+it is most of the distance rather than a compromise — the output is 4:2:0
+regardless.
 
 **`yuv420p` is stated, not inherited, and it is deliberately the default.** The
 instinct for a film made of type over photographs is `yuv444p`, and it is the
@@ -787,23 +895,56 @@ sharp export would be the one nobody can watch. Writing it down means a Remotion
 release changing its own default cannot change what a Mocky export can be opened
 in — v4 → v5 already moved the default `colorSpace`.
 
-**h264 gets CRF 16 and a cap; vp8 gets a bitrate.** They are not the same
-setting spelled differently:
+**h264 gets CRF 14 and a cap that depends on the film's length; vp8 gets a
+bitrate.** They are not the same setting spelled differently:
 
 - CRF has no size bound at all, and the film comes back whole in an HTTP
   response, crosses `server/video/worker.js` as one Buffer and is written
-  against the same `diskBudget` as the image and clip libraries. So `crf: 16`
-  travels with `encodingMaxRate: '16M'` and `encodingBufferSize: '32M'` — a
-  ceiling of **244 MB for the longest film the schema permits**, forty of them
-  against the default 10 GB budget, and every real film a fraction of it. The
-  cap sits above the rate CRF 18 spends on the same frames today, so it cannot
-  cost a film anything it currently has; it refuses the runaway and nothing
-  else.
+  against the same `diskBudget` as the image and clip libraries. So the CRF
+  travels with `encodingMaxRate` and `encodingBufferSize` — a ceiling of
+  **244 MB for the longest film the schema permits**, forty of them against the
+  default 10 GB budget, and every real film a fraction of it.
 - vp8 gets `videoBitrate: '8M'` and no CRF, because Remotion emits `-crf` and
   never `-b:v 0`. libvpx reads a CRF as *constrained* quality bounded by the
   target bitrate, and with no `-b:v` that target is ffmpeg's own default for a
   video encoder: 200 kbit/s. The webm path was not merely using a default — the
   default it used capped a 1080p film at a rate meant for a thumbnail.
+
+**The cap had become a quality setting, and nobody could see it.** It was a flat
+16 Mbit/s, justified as sitting "above the rate CRF 18 spends, so it cannot cost
+a film anything". True of CRF 18 — 13.1 Mbit/s measured — and false from the
+moment the CRF moved to 16, which spends 16.9. A clipped encode reports no
+error, so every export since was quietly losing a decibel. Measured, per CRF,
+with the cap lifted: 18 → 13.1 Mbit/s, 16 → 16.9, 14 → 21.8, 12 → 28.3.
+
+So the thing that is bounded is now the **file**, not the rate — the store, the
+Buffer and the response all care about bytes — and the rate is whatever a film
+of that length can afford inside a 244 MB budget, up to a ceiling of 28 Mbit/s
+and never below the old 16. A rate that depends on the length is a real choice:
+two minutes of 1080p and eight seconds of it are not the same object, and the
+flat cap was the only thing making them equal. At the schema's own 120 s the
+formula returns exactly 16, so the worst case is **unchanged** and strictly
+smaller at every other length; `encoding.test.js` sweeps every duration and
+holds the bound.
+
+28 rather than 24 because `maxrate` bounds a peak while a CRF's rate is an
+average, and clearing the average is not clearing the cap: against the same
+encode with no cap at all (45.24 dB), a cap of 24 cost 0.42 dB and 28 costs
+0.10. 28 is the smallest ceiling that is not a quality setting.
+
+**What the two changes are worth, end to end**, on identical documents:
+
+| | PSNR | SSIM | size (3 s) | render time |
+|---|---|---|---|---|
+| before — jpeg 100, crf 16, 16 Mbit/s | 43.15 dB | 0.9863 | 5594 kB | 168.0 ms/frame |
+| **after — jpeg 100, crf 14, 28 Mbit/s** | **45.14 dB** | **0.9895** | 8137 kB | 172.4 ms/frame |
+| the PNG capture that was rejected | 44.32 dB | 0.9884 | 5303 kB | 249.8 ms/frame |
+
+**+1.98 dB for +2.6% of render time** — against +1.17 dB for +48.7%. And
+`x264Preset` stays absent, now for a measured reason too: `slow` returned
+43.14 dB against `medium`'s 43.15 at the same CRF, a file 1.5% smaller, for 17%
+more render time. A preset trades size against CPU at constant quality; there
+was never a decibel in it.
 
 **`concurrency` is stated too, and it is the one default a container makes
 actively wrong.** Remotion opens half the CPU threads it can see. `cpus: 2.0` in
@@ -829,7 +970,9 @@ that can be checked without producing one. `encoding.test.js` holds Remotion's
 defaults as literals — a test that read them from the module under test would
 agree with anything — and asserts that each codec receives the keys it reads and
 none it would ignore, that the five templates render at one quality, and that
-the 244 MB ceiling is arithmetic rather than a sentence.
+the 244 MB ceiling is arithmetic rather than a sentence. It also carries the
+measured rate of each CRF, so that a cap lowered under the CRF it is supposed to
+be guarding fails a build instead of costing every export a decibel in silence.
 
 ---
 

@@ -173,6 +173,15 @@ Nine things, and the first one is not negotiable.
    `worker/video/remotion/contrast.js` copies the WCAG half of
    `src/lib/audit/colors.ts` because a Remotion bundle cannot import TypeScript
    either, and `contrast.test.js` is its corpus.
+
+   And a **third**, in three copies rather than two: the render deadline, in
+   `server/video/queue.js`, `worker/video/server.js` and
+   `src/lib/video/timeline.ts`, held together by
+   `tests/video-render-budget.test.js`. It is duration-scaled and not flat
+   because rendering 1080p in a headless browser costs about four times real
+   time — a flat 120 s refused every film over ~28 s, which the schema accepts
+   and the panel queues. The worker's copy sits 10 s lower so it gives up first
+   and its message names the machine.
 3. **The worker URL is the third administrator-only bypass of the SSRF guard.**
    Written down in `invariants.md` with the other two. Guarded, the feature had
    no working configuration at all: the worker sits on an internal compose bridge
@@ -216,6 +225,27 @@ Nine things, and the first one is not negotiable.
    "an element arrives" is four of them drifting. A kicker says `sceneLabel`, the
    film's own structure, and **not** a schema field — a surtitle a model writes
    about a film it cannot see is the guessed token `theme.ts` refuses.
+
+   **A film in which nothing moves must not be producible by accident**, and one
+   was: `kenBurns` defaulted to `static`, an optional field is one a model omits,
+   the compose prompt called `static` "the calm choice", and `overlay` had no
+   movement field at all. So the defaults are moves (`DEFAULT_KEN_BURNS`,
+   `DEFAULT_OVERLAY_MOVE`), `static` stays in the enum as something a document
+   ASKS for, and the whole motion of all five templates is `sceneMotion` in
+   `composition.js` — the `.jsx` files read it, which is what lets
+   `tests/video-motion.test.js` prove by arithmetic that no scene's last frame
+   equals its first on a document with nothing optional filled in. A term is
+   reported only when the composition draws it: a `caption` progress on a scene
+   with no caption is a number that moves while the frame does not. The kicker is
+   the case that catches people — it exists only when the FILM has several scenes,
+   so `planTimeline` puts `sceneLabel` on the entry and both the motion and the
+   composition read that one value.
+
+   `overlay` is the case worth understanding, because "no camera move here" was
+   read as "nothing moves". The rule is about AMPLITUDE. A pan spends 4% of travel
+   on a 12% overscale — an eighth of the interface cropped, a twentieth sliding
+   past; `move` spends 1.2% on 3%, which stays inside the margin, so every pixel
+   visible at rest is visible on every frame. That is why it has no `still`.
 7. **The model picks from that catalogue, and picking is not describing.** What
    comes back is one name out of a closed enum, so the variety costs nothing the
    founding rule was protecting. `compose.js` states the mapping from an

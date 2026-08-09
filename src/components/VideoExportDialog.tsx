@@ -63,7 +63,9 @@ import {
   BAND_POSITIONS,
   KEN_BURNS,
   MAX_TOTAL_DURATION_MS,
+  jobBudgetMs,
   OUTPUT_FORMATS,
+  OVERLAY_MOVES,
   OVERLAY_POSITIONS,
   TEMPLATE_LIMITS,
   TEXT_LIMITS,
@@ -72,6 +74,7 @@ import {
   VIDEO_TEMPLATES,
   type BandPosition,
   type KenBurns,
+  type OverlayMove,
   type OverlayPosition,
   type TitleAnimation,
   type Transition,
@@ -111,6 +114,17 @@ export const MOTION_KEYS: Record<KenBurns, string> = {
   'zoom-out': 'video.motionZoomOut',
   'pan-left': 'video.motionPanLeft',
   'pan-right': 'video.motionPanRight',
+}
+
+/**
+ * The overlay's own move. Its own map rather than five more entries in
+ * `MOTION_KEYS`, because the two vocabularies are not interchangeable: a capture
+ * is never panned or zoomed, and a photograph is never asked to "settle".
+ */
+export const OVERLAY_MOVE_KEYS: Record<OverlayMove, string> = {
+  'drift-up': 'video.moveDriftUp',
+  'drift-down': 'video.moveDriftDown',
+  settle: 'video.moveSettle',
 }
 
 export const TRANSITION_KEYS: Record<Transition, string> = {
@@ -552,6 +566,19 @@ export default function VideoExportDialog({
   // what "too long" means. The constant is only the answer before /status lands.
   const budgetMs = access?.limits.maxTotalDurationMs ?? MAX_TOTAL_DURATION_MS
 
+  /**
+   * How long to wait before saying the render stopped answering — a different
+   * quantity from `budgetMs` above, which is how long the FILM may be.
+   *
+   * They were the same expression once, because both were 120 s. They are not
+   * the same thing: rendering 1080p in a headless browser costs about four
+   * times real time, so a minute of film is minutes of render. Using the
+   * duration ceiling here told a user their long film had timed out while the
+   * worker was still calmly working on it — and then the finished export
+   * appeared in Media with no panel left to show it.
+   */
+  const pollBudgetMs = jobBudgetMs(draftTotalMs(draft))
+
   useEffect(() => {
     if (!jobId) return
     const ctrl = new AbortController()
@@ -574,8 +601,12 @@ export default function VideoExportDialog({
         // an answer that cannot change.
         if (next.status === 'done' || next.status === 'error') return
         if (next.status === 'rendering' && renderingSince.current === null) renderingSince.current = Date.now()
-        if (pollDeadlinePassed(renderingSince.current, Date.now(), budgetMs)) {
-          setFailure({ titleKey: 'video.errTimeout', bodyKey: 'video.errTimeoutHint', vars: { n: Math.round(budgetMs / 1000) } })
+        if (pollDeadlinePassed(renderingSince.current, Date.now(), pollBudgetMs)) {
+          setFailure({
+            titleKey: 'video.errTimeout',
+            bodyKey: 'video.errTimeoutHint',
+            vars: { n: Math.round(pollBudgetMs / 1000) },
+          })
           return
         }
         again()
@@ -608,7 +639,7 @@ export default function VideoExportDialog({
       ctrl.abort()
       clearTimeout(timer)
     }
-  }, [jobId, budgetMs])
+  }, [jobId, pollBudgetMs])
 
   // ---- actions ----------------------------------------------------------
 
@@ -2037,11 +2068,10 @@ function SceneRow({
             />
           </label>
 
-          {/* The camera move exists on two of the five scene kinds. An overlay
-              band and a product card lay text out beside a picture that has to
-              stay where it is, and a pan across a screenshot slides half the
-              interface out of frame — so this is absent there rather than
-              present and ignored. */}
+          {/* The camera move exists on two of the five scene kinds. A product
+              card lays its text out beside a picture that has to stay where it
+              is, and a title card has no picture at all — so this is absent
+              there rather than present and ignored. */}
           {(template === 'slideshow' || template === 'vertical') && (
             <Field label={t('video.motion')}>
               {(p) => (
@@ -2054,6 +2084,30 @@ function SceneRow({
                   {KEN_BURNS.map((k) => (
                     <option key={k} value={k}>
                       {t(MOTION_KEYS[k])}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          )}
+
+          {/* The banded template has a movement of its own and a vocabulary of
+              its own: a pan across a screenshot slides half the interface out of
+              frame, so what it offers are drifts of about a percent. The field
+              is here rather than absent because a move the model can choose and
+              the panel cannot is a setting somebody can only get by asking. */}
+          {template === 'overlay' && (
+            <Field label={t('video.motion')}>
+              {(p) => (
+                <Select
+                  {...p}
+                  value={scene.move}
+                  disabled={disabled}
+                  onChange={(e) => onPatch({ move: e.currentTarget.value as OverlayMove })}
+                >
+                  {OVERLAY_MOVES.map((m) => (
+                    <option key={m} value={m}>
+                      {t(OVERLAY_MOVE_KEYS[m])}
                     </option>
                   ))}
                 </Select>

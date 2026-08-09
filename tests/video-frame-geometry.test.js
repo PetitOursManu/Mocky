@@ -27,7 +27,10 @@ import {
   KEN_BURNS_PEAK,
   OVERLAY_DRIFT_PEAK,
   PICTURE_SHARE as WEB_PICTURE_SHARE,
+  SOURCE_DIMENSIONS,
 } from '../src/lib/video/resolution.ts'
+// The one provider that does not render what it is asked for. See below.
+import { snapSize } from '../server/images/providers/openai.js'
 
 describe('the browser and the worker agree on the frame', () => {
   it('has the same output geometry for every aspect ratio', () => {
@@ -58,5 +61,50 @@ describe('the browser and the worker agree on the overscale', () => {
 describe('the browser and the worker agree on how much frame a product picture takes', () => {
   it('shares one table', () => {
     expect(WEB_PICTURE_SHARE).toEqual(PICTURE_SHARE)
+  })
+})
+
+/**
+ * The other end of the same mirror: what is ASKED of a provider, against what a
+ * provider that does not take orders will answer.
+ *
+ * `SOURCE_DIMENSIONS` exists so that a picture made for a film arrives in the
+ * film's shape. Every provider here passes width and height through except
+ * OpenAI's, which snaps to one of three sizes — and the snap is done on the
+ * RATIO, so it is `SOURCE_DIMENSIONS` that decides which of the three comes
+ * back. A landscape tier whose ratio drifted towards 1 would be answered with
+ * 1024×1024: the exact square this table was written to stop asking for, cropped
+ * of 44% of itself, and nothing in the request would look wrong.
+ *
+ * It is here rather than in `resolution.test.ts` because it crosses the same
+ * kind of boundary the file above does — a browser table against a server one —
+ * and `tsc` only typechecks `src`.
+ */
+describe('a provider that snaps the request still answers in the film’s shape', () => {
+  it('keeps a landscape film landscape and a portrait one portrait', () => {
+    expect(snapSize(SOURCE_DIMENSIONS['16:9'].width, SOURCE_DIMENSIONS['16:9'].height)).toBe('1536x1024')
+    expect(snapSize(SOURCE_DIMENSIONS['9:16'].width, SOURCE_DIMENSIONS['9:16'].height)).toBe('1024x1536')
+    expect(snapSize(SOURCE_DIMENSIONS['1:1'].width, SOURCE_DIMENSIONS['1:1'].height)).toBe('1024x1024')
+  })
+
+  it('never turns a wide film’s request into a square', () => {
+    // The regression that would be invisible: a square answer to a 16:9 request
+    // is the library default this whole table replaced, and the enlargement it
+    // costs (1.88× before the camera move) is the number the report used.
+    for (const ratio of ['16:9', '9:16']) {
+      expect(snapSize(SOURCE_DIMENSIONS[ratio].width, SOURCE_DIMENSIONS[ratio].height)).not.toBe('1024x1024')
+    }
+  })
+
+  it('answers something at least as large as the tier that was asked for', () => {
+    // A provider recaling DOWNWARD would quietly undo the change while the
+    // library kept recording the size that was requested. The panel measures the
+    // file rather than the index precisely because of that, but a snap that lost
+    // pixels should fail here first.
+    for (const ratio of ['16:9', '9:16', '1:1']) {
+      const asked = SOURCE_DIMENSIONS[ratio]
+      const [w, h] = snapSize(asked.width, asked.height).split('x').map(Number)
+      expect(Math.max(w, h), ratio).toBeGreaterThanOrEqual(Math.max(asked.width, asked.height))
+    }
   })
 })

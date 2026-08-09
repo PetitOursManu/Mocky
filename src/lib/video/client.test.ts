@@ -42,7 +42,7 @@ describe('startVideoRender', () => {
     // The defaults are what make the sent document self-describing: the worker
     // reads `transitionOut`, and a timeline that never spells it out is one the
     // journal cannot be read back from.
-    expect(sent.timeline.scenes[0]).toMatchObject({ kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null })
+    expect(sent.timeline.scenes[0]).toMatchObject({ kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null })
     expect(sent.timeline.outputFormat).toBe('mp4')
   })
 
@@ -251,7 +251,7 @@ describe('proposeVideoTimeline', () => {
     // left half-specified arrives with the same defaults a hand-built one gets.
     spy(200, { timeline: { scenes: [{ imageId: IMG, durationMs: 2000 }] }, notices: [] })
     const out = await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
-    expect(out.timeline!.scenes[0]).toMatchObject({ kenBurns: 'static', transitionOut: 'crossfade', textOverlay: null })
+    expect(out.timeline!.scenes[0]).toMatchObject({ kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null })
   })
 
   /**

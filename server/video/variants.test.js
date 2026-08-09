@@ -113,8 +113,30 @@ describe('the nominal path — a real derivation', () => {
     // A derivative returned in a different shape from its source is a crop
     // nobody asked for.
     const provider = fakeProvider()
-    await makeVariants({ imageId: sourceId, count: 2 }, { library, editRegistry: registryOf(provider) })
+    const out = await makeVariants({ imageId: sourceId, count: 2 }, { library, editRegistry: registryOf(provider) })
     expect(provider.calls[0]).toMatchObject({ width: 1024, height: 768 })
+    // And nothing to report: a shape that was inherited is not news.
+    expect(out.notices).toEqual([])
+  })
+
+  it('says so when there is no geometry to keep, instead of quietly asking for a square', async () => {
+    /*
+     * The reachable case: `ingestUpload` records 0 when the browser could not
+     * decode the file, and rows from before the field existed carry nothing. The
+     * spec then falls back to 1024×1024 — the library's square default, which is
+     * exactly what `SOURCE_DIMENSIONS` exists to stop a film asking for, since a
+     * 16:9 frame crops 44% of a square and enlarges what is left by 1.88.
+     *
+     * This server decodes no images, so there is no better answer to send. What
+     * there is, is the difference between degrading and degrading in silence.
+     */
+    const unmeasured = library.ingestUpload(Buffer.from('an-undecodable-import'), { name: 'a wide photograph' }).hash
+    const provider = fakeProvider()
+    const out = await makeVariants({ imageId: unmeasured, count: 2 }, { library, editRegistry: registryOf(provider) })
+    expect(provider.calls[0]).toMatchObject({ width: 1024, height: 1024 })
+    expect(out.notices.join(' ')).toMatch(/dimensions enregistrées/)
+    // Still a full set: this is a notice, never a refusal (Q1).
+    expect(out.images).toHaveLength(2)
   })
 
   it('never falls back to text-only siblings when the edit provider fails', async () => {

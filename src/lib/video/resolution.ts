@@ -118,8 +118,11 @@ export const OVERLAY_DRIFT_PEAK = 1.03
 
 export function motionOverscale(template: TemplateOrAuto, kenBurns: KenBurns): number {
   switch (template) {
-    // The document does not get to choose here: the band drifts, always, and the
-    // card zooms, always. Both are hard-coded in their compositions.
+    // The document chooses WHICH drift an overlay scene makes and not whether it
+    // makes one, so all three spend the same 3%. `settle` briefly holds 5.5%,
+    // and it is left out for the reason the vertical push-in is below: it is gone
+    // in twelve frames, and a warning about the twelve frames nobody watches is a
+    // warning people learn to dismiss.
     case 'overlay':
       return OVERLAY_DRIFT_PEAK
     case 'product':

@@ -1,19 +1,13 @@
 import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig } from 'remotion'
 import {
-  CUE_ENTER_FRAMES,
-  CUE_TAIL_GAP_FRAMES,
-  EMPHASIS_ENTER_FRAMES,
   KICKER_SIZE,
   KICKER_TRACKING,
-  cueFrames,
-  cueProgress,
   entranceStyle,
   frameBase,
   hairlineTexture,
   planTimeline,
-  progressAt,
   resolveTheme,
-  sceneLabel,
+  sceneMotion,
   titlesPalette,
   withAlpha,
   words,
@@ -64,18 +58,10 @@ import {
  *      `groundTint`.
  */
 
-/**
- * How far the type block travels over a whole scene, as a fraction of the short
- * edge — 1.6%, or 17 px.
- *
- * A drift and not an animation. A still frame held for five seconds reads as a
- * stalled render even when it is exactly what was asked for, and the smallest
- * amount of movement that fixes it is less than the eye can name. Same idea as
- * `OVERLAY_DRIFT_PERCENT` on the banded template, applied to type rather than to
- * a picture — and applied to the block rather than to the ground, because the
- * ground is a surface somebody's contrast was measured against.
- */
-const BLOCK_DRIFT = 0.016
+// `BLOCK_DRIFT` used to live here. It moved to `composition.js` as
+// `TITLE_BLOCK_DRIFT` when the motion of every template did, for the reason that
+// file gives: a drift computed inside a `.jsx` is a drift no test can prove is
+// still there.
 
 /** How much of the running rule is the accent's, before the hairline takes over. */
 const RULE_ACCENT_SHARE = 0.14
@@ -94,7 +80,7 @@ const RULE_HAIRLINE_ALPHA = 0.3
  */
 const MASK_TRAVEL_PERCENT = 135
 
-const TitleScene = ({ entry, index, total, theme, palette }) => {
+const TitleScene = ({ entry, theme, palette }) => {
   const frame = useCurrentFrame()
   const { width, height } = useVideoConfig()
   const { scene } = entry
@@ -102,36 +88,26 @@ const TitleScene = ({ entry, index, total, theme, palette }) => {
 
   const parts = words(scene.headline)
   const staggered = scene.animation === 'stagger'
-  const label = sceneLabel(index, total)
+  // Off the plan, which is where the film's own structure is known — see
+  // `planTimeline`. Computed here as well, it disagreed with `sceneMotion`, and
+  // every single-scene card reported a kicker arriving that this branch never
+  // drew.
+  const label = entry.label
 
   /*
-   * One cascade for the whole scene: the kicker, every word (or the headline as
-   * a single beat), then the rule, then the subtitle.
-   *
-   * Asking `cueFrames` for the lot in one call is what keeps a twelve-word
-   * headline on a 1500 ms scene from putting its subtitle past the end. Four
-   * separate calls would each fit on their own and still overrun together.
-   *
-   * The tail gap is the beat before the subtitle. A subtitle that lands one even
-   * step after the last word of the headline reads as another word of it.
+   * One cascade for the whole scene — the kicker, every word (or the headline as
+   * a single beat), then the rule, then the subtitle — plus the block's own slow
+   * drift. `titlesMotion` places all of it in one call to `cueFrames`, which is
+   * what keeps a twelve-word headline on a 1500 ms scene from putting its
+   * subtitle past the end: four separate calls each fit on their own and still
+   * overrun together.
    */
-  const cues = cueFrames((staggered ? parts.length : 1) + 3, entry.durationInFrames, {
-    offset: 2,
-    step: staggered ? 4 : 6,
-    tailGap: CUE_TAIL_GAP_FRAMES,
-  })
-  const kickerCue = cues[0]
-  const wordCues = cues.slice(1, cues.length - 2)
-  const ruleCue = cues[cues.length - 2]
-  const subtitleCue = cues[cues.length - 1]
+  const motion = sceneMotion('titles', entry, frame)
+  const { kicker: kickerProgress, rule: ruleProgress, subtitle: subtitleProgress } = motion
 
-  const kickerProgress = cueProgress(frame, kickerCue)
-  const ruleProgress = cueProgress(frame, ruleCue)
-  const subtitleProgress = cueProgress(frame, subtitleCue)
-
-  // Halfway through the scene the block is where it would have been all along;
-  // it arrives a little low and leaves a little high.
-  const drift = (0.5 - progressAt(frame, Math.max(1, entry.durationInFrames - 1))) * base * BLOCK_DRIFT
+  // A fraction of the short edge on the way out of `composition.js`, pixels here:
+  // the movement is arithmetic and the size of the frame is layout.
+  const drift = motion.drift * base
   const ruleThickness = Math.max(1, Math.round(base * 0.0028))
 
   return (
@@ -226,10 +202,11 @@ const TitleScene = ({ entry, index, total, theme, palette }) => {
           }}
         >
           {parts.map((word, i) => {
-            const cue = staggered ? wordCues[i] : wordCues[0]
             /*
              * The last word of a headline of several, in the accent and taking
-             * half a second to arrive where its neighbours take three tenths.
+             * half a second to arrive where its neighbours take three tenths —
+             * `titlesMotion` gives it the longer entrance, this line gives it the
+             * colour.
              *
              * The last and not the first, because a headline is a sentence and a
              * sentence lands on its end: "Designed in the BROWSER". A single-word
@@ -237,7 +214,7 @@ const TitleScene = ({ entry, index, total, theme, palette }) => {
              * accent, it is a colour change.
              */
             const emphasis = parts.length > 1 && i === parts.length - 1
-            const arrived = cueProgress(frame, cue, emphasis ? EMPHASIS_ENTER_FRAMES : CUE_ENTER_FRAMES)
+            const arrived = motion.words[i]
             const color = emphasis ? palette.accented.color : undefined
 
             // `fade` holds still and only appears; `rise` lifts the whole block
@@ -372,17 +349,11 @@ export const AnimatedTitlesVideo = ({ timeline }) => {
     <AbsoluteFill style={{ backgroundColor: palette.ground.color }}>
       {plan.scenes.map((entry, index) => (
         <Sequence key={index} from={entry.from} durationInFrames={entry.durationInFrames}>
-          <TitleScene
-            entry={entry}
-            // The counter is the film's own structure, so it is passed down
-            // rather than recomputed: a scene does not know how many others
-            // there are, and a component that guessed would be right until the
-            // day a timeline was sliced.
-            index={index}
-            total={plan.scenes.length}
-            theme={theme}
-            palette={palette}
-          />
+          {/* The counter is the film's own structure and it rides on the plan
+              entry: a scene does not know how many others there are, and a
+              component that recomputed it would be right until the day it
+              disagreed with the motion that reports its arrival. */}
+          <TitleScene entry={entry} theme={theme} palette={palette} />
         </Sequence>
       ))}
     </AbsoluteFill>

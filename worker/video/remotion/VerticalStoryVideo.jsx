@@ -3,16 +3,13 @@ import {
   VERTICAL_SAFE_BOTTOM_PERCENT,
   VERTICAL_SAFE_SIDE_PERCENT,
   VERTICAL_SAFE_TOP_PERCENT,
-  cueFrames,
-  cueProgress,
   entranceStyle,
   frameBase,
-  kenBurnsTransform,
   overlayAlignment,
   planTimeline,
-  punchTransform,
   railSegments,
   resolveTheme,
+  sceneMotion,
   verticalCaptionSize,
   verticalPalette,
   withAlpha,
@@ -156,13 +153,11 @@ const StoryScene = ({ entry, src, theme, palette }) => {
   const position = overlay?.position ?? 'bottom'
   const parts = words(overlay?.content)
 
-  // Every word, then the rule under them. A caption that arrives whole is a
-  // caption; a caption that arrives word by word is somebody speaking, which is
-  // what this format is watched as. `cueFrames` compresses the lot on a one-
-  // second beat, so a twenty-word caption on a short scene simply arrives at
-  // once instead of arriving late.
-  const cues = cueFrames(parts.length + 1, entry.durationInFrames, { offset: 2, step: 3 })
-  const ruleProgress = cueProgress(frame, cues[cues.length - 1])
+  // The punch, the document's own move, every word, then the rule under them. A
+  // caption that arrives whole is a caption; a caption that arrives word by word
+  // is somebody speaking, which is what this format is watched as.
+  const motion = sceneMotion('vertical', entry, frame)
+  const ruleProgress = motion.rule
 
   // The scrim follows the caption. A gradient anchored to the bottom while the
   // text sits at the top darkens the wrong half of the picture and leaves the
@@ -183,14 +178,14 @@ const StoryScene = ({ entry, src, theme, palette }) => {
         to leave alone. `overflow: hidden` because the wrapper is what the
         overscale is clipped by.
       */}
-      <AbsoluteFill style={{ overflow: 'hidden', transform: punchTransform(frame) }}>
+      <AbsoluteFill style={{ overflow: 'hidden', transform: motion.punch }}>
         <Img
           src={src}
           style={{
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            transform: kenBurnsTransform(scene.kenBurns, frame, entry.durationInFrames),
+            transform: motion.picture,
           }}
         />
       </AbsoluteFill>
@@ -261,7 +256,7 @@ const StoryScene = ({ entry, src, theme, palette }) => {
                 }}
               >
                 {parts.map((word, index) => {
-                  const arrived = cueProgress(frame, cues[index])
+                  const arrived = motion.words[index]
                   return (
                     <span
                       key={index}

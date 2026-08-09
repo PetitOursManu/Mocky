@@ -7,6 +7,7 @@ import {
   FILL_MODE_KEYS,
   MOTION_KEYS,
   OVERLAY_KEYS,
+  OVERLAY_MOVE_KEYS,
   TEMPLATE_CHOICES,
   TEMPLATE_NAME_KEYS,
   TEMPLATE_NEEDS_KEYS,
@@ -20,6 +21,7 @@ import { addTextScene, emptyDraft, setTemplate, updateScene } from '../lib/video
 import {
   BAND_POSITIONS,
   KEN_BURNS,
+  OVERLAY_MOVES,
   OVERLAY_POSITIONS,
   TITLE_ANIMATIONS,
   TRANSITIONS,
@@ -192,6 +194,10 @@ suite('composeBlocker', () => {
 suite('the enum labels', () => {
   const cases: [string, readonly string[], Record<string, string>][] = [
     ['kenBurns', KEN_BURNS, MOTION_KEYS],
+    // Its own map rather than five more entries in MOTION_KEYS: the two
+    // vocabularies are not interchangeable, since a capture is never panned and a
+    // photograph is never asked to settle.
+    ['overlay moves', OVERLAY_MOVES, OVERLAY_MOVE_KEYS],
     ['transitions', TRANSITIONS, TRANSITION_KEYS],
     ['overlay positions', OVERLAY_POSITIONS, OVERLAY_KEYS],
     ['band positions', BAND_POSITIONS, BAND_KEYS],
@@ -211,6 +217,7 @@ suite('the enum labels', () => {
   it.each(['fr', 'en'] as const)('resolves every label in %s', (lang) => {
     const keys = [
       ...Object.values(MOTION_KEYS),
+      ...Object.values(OVERLAY_MOVE_KEYS),
       ...Object.values(TRANSITION_KEYS),
       ...Object.values(OVERLAY_KEYS),
       ...Object.values(BLOCKER_KEYS),

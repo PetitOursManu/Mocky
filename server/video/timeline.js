@@ -50,6 +50,22 @@ export const TEXT_LIMITS = {
 }
 
 export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static']
+
+/**
+ * The camera move a scene gets when the document does not name one, per template.
+ * `static` is still in the enum and is now something a document has to ASK for —
+ * see the long note in timeline.ts for the film that made silence stop meaning
+ * "hold the frame".
+ */
+export const DEFAULT_KEN_BURNS = {
+  slideshow: 'zoom-in',
+  vertical: 'zoom-in',
+}
+
+/** How an `overlay` scene moves without cropping the capture. See timeline.ts. */
+export const OVERLAY_MOVES = ['drift-up', 'drift-down', 'settle']
+export const DEFAULT_OVERLAY_MOVE = 'drift-up'
+
 export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none']
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom']
 export const BAND_POSITIONS = ['top', 'bottom']
@@ -126,7 +142,7 @@ export const SlideshowSceneSchema = z
   .object({
     imageId,
     durationMs: duration(TEMPLATE_LIMITS.slideshow),
-    kenBurns: z.enum(KEN_BURNS).default('static'),
+    kenBurns: z.enum(KEN_BURNS).default(DEFAULT_KEN_BURNS.slideshow),
     transitionOut: z.enum(TRANSITIONS).default('crossfade'),
     textOverlay: TextOverlaySchema.nullable().default(null),
   })
@@ -136,6 +152,7 @@ export const OverlaySceneSchema = z
   .object({
     imageId,
     durationMs: duration(TEMPLATE_LIMITS.overlay),
+    move: z.enum(OVERLAY_MOVES).default(DEFAULT_OVERLAY_MOVE),
     band: z
       .object({
         title: line(TEXT_LIMITS.bandTitle),
@@ -151,7 +168,7 @@ export const VerticalSceneSchema = z
   .object({
     imageId,
     durationMs: duration(TEMPLATE_LIMITS.vertical),
-    kenBurns: z.enum(KEN_BURNS).default('zoom-in'),
+    kenBurns: z.enum(KEN_BURNS).default(DEFAULT_KEN_BURNS.vertical),
     transitionOut: z.enum(TRANSITIONS).default('crossfade'),
     textOverlay: TextOverlaySchema.nullable().default(null),
   })

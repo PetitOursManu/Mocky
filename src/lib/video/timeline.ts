@@ -74,9 +74,36 @@ export const MAX_SCENE_DURATION_MS = TEMPLATE_LIMITS.slideshow.maxSceneMs
  *
  * It applies to EVERY template, and it is written once, on the union, for that
  * reason. Per-variant ceilings would be five numbers to keep under the queue's
- * single `JOB_TIMEOUT_MS`, and the fifth one would be the one that got it wrong.
+ * single deadline, and the fifth one would be the one that got it wrong.
  */
 export const MAX_TOTAL_DURATION_MS = 120000
+
+/**
+ * How long the browser should expect a render of `totalDurationMs` to take.
+ *
+ * The THIRD copy of this arithmetic — `server/video/queue.js` and
+ * `worker/video/server.js` carry the other two — and the reason is the same one
+ * that makes `VideoTimelineSchema` a hand-kept mirror: a bundle cannot import
+ * the server's `.js`, and `worker/` is excluded from Mocky's Docker build
+ * context so that Remotion's licence stays out of the default image.
+ * `tests/video-render-budget.test.js` holds all three to the same answer.
+ *
+ * The panel needs it because the poll deadline used to be
+ * `MAX_TOTAL_DURATION_MS`, and that conflated two different quantities that
+ * happened to both be 120 s: how long a film may BE, and how long rendering it
+ * may TAKE. Rendering 1080p in a headless browser costs about four times real
+ * time, so the two have now separated — and a panel still using the old number
+ * would tell a user their sixty-second film had timed out while the worker was
+ * calmly halfway through it.
+ */
+export const JOB_BUDGET_BASE_MS = 45_000
+export const JOB_BUDGET_PER_FILM_MS = 6
+export const JOB_TIMEOUT_MS = 120_000
+
+export function jobBudgetMs(totalDurationMs: number): number {
+  const film = Math.max(0, Number(totalDurationMs) || 0)
+  return Math.max(JOB_TIMEOUT_MS, JOB_BUDGET_BASE_MS + film * JOB_BUDGET_PER_FILM_MS)
+}
 
 /**
  * Every text bound in the catalogue, in one place, for the reason
@@ -101,6 +128,74 @@ export const TEXT_LIMITS = {
 } as const
 
 export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static'] as const
+
+/**
+ * The camera move a scene gets when the document does not name one, per template.
+ *
+ * It used to be `static` on `slideshow`, and that one word is the whole of a
+ * defect a user reported in four sentences: a model that omits an optional field
+ * — which is what a model does with an optional field — got a photograph nailed
+ * to the frame with a caption laid on it, for fifteen seconds, and said of the
+ * result that it was not a film. It was right. Nothing in the document asked for
+ * a freeze; the freeze was what silence meant.
+ *
+ * `static` stays IN the enum, and that is not a compromise. A capture of an
+ * interface has real reasons to hold still, and an enum value removed is every
+ * saved draft and every entry in the queue's journal that names it refused at
+ * validation. What changed is which case you get by saying nothing: immobility is
+ * now something a document ASKS for, and movement is what it gets by default.
+ *
+ * `zoom-in` on both, and the reason is the library rather than taste. A pan is
+ * only a camera move on a picture wider than its frame; the image library mixes
+ * portrait and landscape freely, and `cover` has already cropped a portrait still
+ * inside a landscape frame, so a pan there slides the crop instead of revealing
+ * anything. A zoom is the same move on every aspect ratio and every subject, and
+ * it is the one that cannot drag the background in behind the picture.
+ *
+ * A table rather than two literals because `draft.ts` reads the defaults back off
+ * these schemas — the panel has to open a new scene on the move the schema would
+ * have applied, or a hand-built timeline and a model-written one naming the same
+ * pictures render two different films.
+ */
+export const DEFAULT_KEN_BURNS = {
+  slideshow: 'zoom-in',
+  vertical: 'zoom-in',
+} as const
+
+/**
+ * How an `overlay` scene moves — the one template whose picture must survive the
+ * move intact.
+ *
+ * This template has no `kenBurns` and never will: a pan across a capture of an
+ * interface slides half the interface out of frame and a zoom crops it, and the
+ * reason to show a screenshot is that it can be read. That was taken to mean the
+ * scene simply did not move, which is how the template of the reported film came
+ * to be a still photograph with a band of text on it.
+ *
+ * The distinction the old reading missed is AMPLITUDE, not direction. A pan is
+ * refused because it spends 4% of travel on a 12% overscale — an eighth of the
+ * capture cropped, and a twentieth of it sliding past. A drift spends 1.2% on 3%:
+ * the picture is a fortieth larger than the frame, the travel stays inside the
+ * margin that leaves, and every pixel visible at rest is visible on every frame.
+ * One is a camera move over a screenshot; the other is the smallest amount of
+ * life that keeps a held frame from reading as a stalled render.
+ *
+ * There is no `still` here, deliberately, and it is the one place this file does
+ * not offer the calm option: `static` exists on the other two templates because a
+ * pan and a zoom really can destroy a capture and a document must be able to
+ * refuse them. A drift destroys nothing, so immobility here would buy the defect
+ * back and pay nothing for it.
+ */
+export const OVERLAY_MOVES = ['drift-up', 'drift-down', 'settle'] as const
+
+/**
+ * `drift-up`, so that a film composed before this field existed renders exactly
+ * as it did: the drift was already unconditional in `OverlayBandVideo`, always in
+ * that direction. The field turned one hard-coded move into a choice; it did not
+ * change what anybody's saved timeline looks like.
+ */
+export const DEFAULT_OVERLAY_MOVE = 'drift-up'
+
 export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none'] as const
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom'] as const
 /**
@@ -275,7 +370,7 @@ export const SlideshowSceneSchema = z
   .object({
     imageId,
     durationMs: duration(TEMPLATE_LIMITS.slideshow),
-    kenBurns: z.enum(KEN_BURNS).default('static'),
+    kenBurns: z.enum(KEN_BURNS).default(DEFAULT_KEN_BURNS.slideshow),
     transitionOut: z.enum(TRANSITIONS).default('crossfade'),
     // Absent and explicitly null mean the same thing — no overlay — because the
     // model writes this object and asking it to spell out `"textOverlay": null`
@@ -290,11 +385,18 @@ export const SlideshowSceneSchema = z
  * No `kenBurns`, and that is the template's whole discipline: a pan across a
  * capture of an interface slides half the interface out of frame, and a zoom
  * crops it. The reason to show a screenshot is that it can be read.
+ *
+ * `move` is what that discipline was missing. "No camera move" was written down
+ * as a rule and read as "no movement", and the film that came back was the
+ * complaint: a still capture with a title on it. The three moves this field
+ * offers are all inside the margin the 3% overscale leaves — see `OVERLAY_MOVES`
+ * for the arithmetic that separates them from the pan.
  */
 export const OverlaySceneSchema = z
   .object({
     imageId,
     durationMs: duration(TEMPLATE_LIMITS.overlay),
+    move: z.enum(OVERLAY_MOVES).default(DEFAULT_OVERLAY_MOVE),
     band: z
       .object({
         title: line(TEXT_LIMITS.bandTitle),
@@ -311,7 +413,7 @@ export const VerticalSceneSchema = z
   .object({
     imageId,
     durationMs: duration(TEMPLATE_LIMITS.vertical),
-    kenBurns: z.enum(KEN_BURNS).default('zoom-in'),
+    kenBurns: z.enum(KEN_BURNS).default(DEFAULT_KEN_BURNS.vertical),
     transitionOut: z.enum(TRANSITIONS).default('crossfade'),
     textOverlay: TextOverlaySchema.nullable().default(null),
   })
@@ -421,8 +523,8 @@ export const ProductTimelineSchema = z
  * failing validation the day this file shipped. That is a silent regression —
  * the export panel would refuse a timeline the user had built and been shown.
  *
- * This is a DEFAULT, not the repair the schema forbids. `kenBurns` defaults to
- * `static` in exactly the same way. It adds nothing a document did not already
+ * This is a DEFAULT, not the repair the schema forbids. `kenBurns` and `move`
+ * are filled in exactly the same way. It adds nothing a document did not already
  * say, it can only ever produce the one shape those documents already had, and
  * a document that names a template it does not match is still refused whole.
  */
@@ -554,6 +656,7 @@ export type VideoTimelineInput =
   | z.input<typeof ProductTimelineSchema>
 
 export type KenBurns = (typeof KEN_BURNS)[number]
+export type OverlayMove = (typeof OVERLAY_MOVES)[number]
 export type Transition = (typeof TRANSITIONS)[number]
 export type OverlayPosition = (typeof OVERLAY_POSITIONS)[number]
 export type BandPosition = (typeof BAND_POSITIONS)[number]
