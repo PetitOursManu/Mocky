@@ -1,38 +1,19 @@
 import { describe as suite, it, expect } from 'vitest'
-import {
-  ANIMATION_KEYS,
-  BAND_KEYS,
-  BLOCKER_KEYS,
-  COMPOSE_BLOCKER_KEYS,
-  FILL_MODE_KEYS,
-  MOTION_KEYS,
-  OVERLAY_KEYS,
-  OVERLAY_MOVE_KEYS,
-  TEMPLATE_CHOICES,
-  TEMPLATE_NAME_KEYS,
-  TEMPLATE_NEEDS_KEYS,
-  TEMPLATE_WHAT_KEYS,
-  TRANSITION_KEYS,
-  composeBlocker,
-  describe,
-} from './VideoExportDialog'
+import { BLOCKER_KEYS, COMPOSE_BLOCKER_KEYS, FILL_MODE_KEYS, describe } from './VideoExportDialog'
 import { VideoExportError } from '../lib/video/client'
-import { addTextScene, emptyDraft, setTemplate, updateScene } from '../lib/video/draft'
-import {
-  BAND_POSITIONS,
-  KEN_BURNS,
-  OVERLAY_MOVES,
-  OVERLAY_POSITIONS,
-  TITLE_ANIMATIONS,
-  TRANSITIONS,
-  VIDEO_TEMPLATES,
-} from '../lib/video/timeline'
 import { translate } from '../i18n'
 
 /**
  * Rendering the panel needs a DOM this repository does not have, so what is
  * pinned here is everything the panel decides *before* it draws: which words a
  * refusal gets, and whether those words exist at all.
+ *
+ * The list is much shorter than it was, and the reason is the panel itself. Six
+ * composition cards, a camera move, a transition, a band position and a title
+ * animation were all enum-to-label maps whose keys no repo-wide scan could see;
+ * none of those controls exists any more, because none of those decisions is a
+ * person's. What is left of that blind spot is three maps, and they are checked
+ * the same way.
  */
 
 suite('describe', () => {
@@ -111,152 +92,43 @@ suite('describe', () => {
   })
 })
 
-suite('composeBlocker', () => {
-  it('asks for the pictures before it asks for the sentence', () => {
-    // Both are missing when the panel opens. Naming the brief first sends
-    // somebody off to write one and then refuses them anyway, because a montage
-    // is proposed from a selection and there is nothing to propose it on.
-    expect(composeBlocker(0, '', 'slideshow')).toBe('no-images')
-    expect(composeBlocker(0, 'a calm slideshow', 'slideshow')).toBe('no-images')
-  })
-
-  it('treats a box full of spaces as an empty one', () => {
-    // It reaches the server as an empty brief and comes back a 400, having spent
-    // a request to say what the disabled button could have said for free.
-    expect(composeBlocker(2, '   \n ', 'slideshow')).toBe('no-brief')
-  })
-
-  it('clears once there is something to work from', () => {
-    expect(composeBlocker(1, 'a calm slideshow', 'slideshow')).toBeNull()
-  })
-
-  /**
-   * The picture gate follows the composition, which is what the third argument
-   * bought. It used to be unconditional, and the cost was the one composition
-   * written for a brief of words: `titles` puts no picture on the screen, so
-   * demanding a selection first made it unreachable through the panel that
-   * composes.
-   */
-  it('lets a text-only composition be proposed with nothing selected', () => {
-    expect(composeBlocker(0, 'an opening card', 'titles')).toBeNull()
-  })
-
-  it('lets automatic be proposed with nothing selected, because the server offers titles', () => {
-    // `compose.js` builds the catalogue from the selection: with none, it holds
-    // `titles` alone. Closing the button here would refuse a request the server
-    // is able to answer.
-    expect(composeBlocker(0, 'an opening card', 'auto')).toBeNull()
-  })
-
-  it('still asks for pictures for every composition that puts one on screen', () => {
-    for (const template of VIDEO_TEMPLATES) {
-      if (template === 'titles') continue
-      expect(composeBlocker(0, 'a film', template)).toBe('no-images')
-    }
-  })
-
-  /**
-   * It counts pictures, and the panel hands it pictures.
-   *
-   * The gate used to be given `draft.scenes.length`, which is not the same
-   * number: a `titles` row carries no `imageId`, and switching the selector
-   * keeps every row. Three title cards moved to `product` were three scenes and
-   * zero pictures — the button stayed live and spent a round trip on a request
-   * `proposeTimeline` refuses before it reaches a model, because the list it
-   * sends is the one filtered on truthiness.
-   */
-  it('counts the pictures a draft holds, not the rows it draws', () => {
-    let cards = setTemplate(emptyDraft(), 'titles')
-    for (let i = 0; i < 3; i++) cards = addTextScene(cards)
-    for (const scene of cards.scenes) cards = updateScene(cards, scene.key, { headline: 'Une accroche' })
-    const asProduct = setTemplate(cards, 'product')
-    expect(asProduct.scenes).toHaveLength(3)
-    const pictures = asProduct.scenes.filter((s) => s.imageId).length
-    expect(pictures).toBe(0)
-    expect(composeBlocker(pictures, 'a launch film', 'product')).toBe('no-images')
-    expect(composeBlocker(asProduct.scenes.length, 'a launch film', 'product')).toBeNull()
-  })
-})
-
 /**
- * The four enum-to-label maps: complete, and every label a real string.
+ * The maps whose keys no repo-wide check can see, because the component calls
+ * `t(BLOCKER_KEYS[blocker])` — the literal never appears next to a `t(`.
  *
- * These are the keys no repo-wide check can see, because the component calls
- * `t(MOTION_KEYS[scene.kenBurns])` — the literal never appears next to a `t(`.
  * Both halves matter and they fail differently. A missing entry gives an
- * `undefined` key and a blank `<option>`; a present entry naming a key nobody
- * wrote gives an option reading `video.motionPanLeft`, which is at least a
- * legible bug report but only for whoever opens that particular select.
- *
- * The lists come from the schema, so adding a transition there and forgetting
- * the label here fails at once rather than at the bottom of a dropdown.
+ * `undefined` key and a blank line where the reason should be; a present entry
+ * naming a key nobody wrote prints `video.blockedNoProposal` under the button,
+ * which is at least a legible bug report but only for whoever reaches that
+ * state.
  */
-suite('the enum labels', () => {
-  const cases: [string, readonly string[], Record<string, string>][] = [
-    ['kenBurns', KEN_BURNS, MOTION_KEYS],
-    // Its own map rather than five more entries in MOTION_KEYS: the two
-    // vocabularies are not interchangeable, since a capture is never panned and a
-    // photograph is never asked to settle.
-    ['overlay moves', OVERLAY_MOVES, OVERLAY_MOVE_KEYS],
-    ['transitions', TRANSITIONS, TRANSITION_KEYS],
-    ['overlay positions', OVERLAY_POSITIONS, OVERLAY_KEYS],
-    ['band positions', BAND_POSITIONS, BAND_KEYS],
-    ['title animations', TITLE_ANIMATIONS, ANIMATION_KEYS],
-    // Three maps over the same set, because a card carries three sentences and
-    // a composition missing one of them is a card with a blank line where the
-    // reason to pick it should be.
-    ['composition names', TEMPLATE_CHOICES, TEMPLATE_NAME_KEYS],
-    ['composition descriptions', TEMPLATE_CHOICES, TEMPLATE_WHAT_KEYS],
-    ['composition requirements', TEMPLATE_CHOICES, TEMPLATE_NEEDS_KEYS],
-  ]
-
-  it.each(cases)('covers every %s value the schema allows', (_name, values, map) => {
-    expect(Object.keys(map).sort()).toEqual([...values].sort())
+suite('the keys held in maps', () => {
+  it('names a reason for every way the compose button can be off', () => {
+    expect(Object.keys(COMPOSE_BLOCKER_KEYS)).toEqual(['no-brief'])
   })
 
-  it.each(['fr', 'en'] as const)('resolves every label in %s', (lang) => {
+  it('names a reason for every way the render button can be off', () => {
+    // One, and it is the shape of the whole panel: there is no timeline until a
+    // model has written one. The nine other blockers this map used to carry were
+    // a form catching a document it had built badly, and there is no form.
+    expect(Object.keys(BLOCKER_KEYS)).toEqual(['no-proposal'])
+  })
+
+  it('offers the two places a picture can come from, and only those', () => {
+    // Not two kinds of film. The switch used to choose between two ways of
+    // FILLING A TIMELINE, beside a grid of composition cards; what it separates
+    // now is a picture that already exists from one being generated.
+    expect(Object.keys(FILL_MODE_KEYS).sort()).toEqual(['generate', 'library'])
+  })
+
+  it.each(['fr', 'en'] as const)('resolves every one of them in %s', (lang) => {
     const keys = [
-      ...Object.values(MOTION_KEYS),
-      ...Object.values(OVERLAY_MOVE_KEYS),
-      ...Object.values(TRANSITION_KEYS),
-      ...Object.values(OVERLAY_KEYS),
       ...Object.values(BLOCKER_KEYS),
       ...Object.values(COMPOSE_BLOCKER_KEYS),
-      // The two positions of the switch. Same blind spot as the others — the
-      // component calls `t(FILL_MODE_KEYS.compose)`, so no repo-wide scan for
-      // `t('…')` literals would ever see these — and an unresolved one here is
-      // a segmented control with two blank buttons on it.
       ...Object.values(FILL_MODE_KEYS),
-      ...Object.values(BAND_KEYS),
-      ...Object.values(ANIMATION_KEYS),
-      ...Object.values(TEMPLATE_NAME_KEYS),
-      ...Object.values(TEMPLATE_WHAT_KEYS),
-      ...Object.values(TEMPLATE_NEEDS_KEYS),
     ]
     // `translate` hands back the key itself when it is missing, which is what
     // makes this checkable at all.
-    expect(keys.filter((k) => translate(lang, k) === k)).toEqual([])
-  })
-})
-
-/**
- * The catalogue on the panel, against the catalogue in the schema.
- *
- * A composition that exists in `VIDEO_TEMPLATES` and not on this list is one a
- * proposal can come back as and nobody can choose — and, worse, one whose card
- * the user never sees while the form is quietly editing it.
- */
-suite('the composition list', () => {
-  it('offers every composition the schema has, and automatic first', () => {
-    expect(TEMPLATE_CHOICES[0]).toBe('auto')
-    expect([...TEMPLATE_CHOICES].slice(1)).toEqual([...VIDEO_TEMPLATES])
-  })
-
-  it('says what each one requires, in a sentence of its own', () => {
-    // The requirement is the fact that decides the choice — "animated titling"
-    // does not say it uses no picture — so a card sharing another card's
-    // sentence would be the one nobody can pick correctly.
-    const needs = Object.values(TEMPLATE_NEEDS_KEYS)
-    expect(new Set(needs).size).toBe(needs.length)
+    expect(keys.filter((k) => translate(lang, k as never) === k)).toEqual([])
   })
 })

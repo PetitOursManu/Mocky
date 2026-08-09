@@ -91,8 +91,11 @@ export const video = {
     'video.toolbarTitle': 'Monter une vidéo à partir des images de la médiathèque',
 
     'video.exportTitle': 'Motion',
+    // Ce que le panneau demande, et ce qu'il ne demande plus. La deuxième phrase
+    // est là parce que l'absence de réglages se lit sinon comme un panneau
+    // inachevé : personne ne choisit de mise en scène ici, c'est le parti pris.
     'video.exportBlurb':
-      'Un film monté à partir de la médiathèque. Cinq compositions au catalogue, et le modèle choisit la sienne si vous le laissez faire. Le rendu tourne sur le worker Remotion, pas dans ce navigateur.',
+      'Un film écrit par le modèle : vous donnez le contexte et, si vous voulez, des images de départ. Il choisit le rythme, la mise en scène, les mouvements et les textes. Le rendu tourne sur le worker Remotion, pas dans ce navigateur.',
 
     // Volontairement laconique : un compte sans accès n’apprend rien de la
     // configuration de l’instance, ni de ce à quoi ressemble un montage valide.
@@ -103,47 +106,7 @@ export const video = {
     'video.workerDownBody':
       'Le service de rendu ne répond pas. Rien ne peut être mis en file d’attente tant qu’il est absent ; c’est un réglage d’instance, pas un problème de montage.',
 
-    // ---- le catalogue, et le thème du projet -------------------------------
-    // Trois phrases par composition : son nom, ce qu'elle fabrique, et ce
-    // qu'elle EXIGE. La troisième est celle dont on a besoin — « titrage animé »
-    // ne dit pas qu'il n'utilise aucune image, et quelqu'un qui vient de passer
-    // une minute à choisir des photos mérite de l'apprendre avant de cliquer,
-    // pas après.
-    //
-    // Aucun nombre n'est écrit ici : les bornes viennent de TEMPLATE_LIMITS, via
-    // templateBounds. Un plancher recopié dans un dictionnaire dérive du
-    // validateur, et la dérive ne se voit que sous la forme d'un refus citant un
-    // chiffre que personne n'a montré.
-    'video.templateTitle': 'Composition',
-    'video.templateHint':
-      'Le type de film. Automatique par défaut : le modèle lit votre phrase et prend la composition faite pour elle. Choisie à la main, c’est elle qui décide des champs du formulaire ci-dessous.',
-    'video.templateBounds': '{max} scènes au plus · {min} à {long} s',
-
-    'video.tplAuto': 'Automatique',
-    'video.tplAutoWhat': 'Le modèle choisit la composition d’après votre phrase.',
-    'video.tplAutoNeeds': 'Exige : une phrase. Des images, selon ce qu’il choisit.',
-
-    'video.tplSlideshow': 'Diaporama',
-    'video.tplSlideshowWhat': 'Une image par scène, un mouvement lent, une légende facultative.',
-    'video.tplSlideshowNeeds': 'Exige : des images. Le texte est facultatif.',
-
-    'video.tplOverlay': 'Bandeau sur capture',
-    'video.tplOverlayWhat':
-      'Une capture d’écran qui garde sa place, avec un bandeau de texte au-dessus ou en dessous.',
-    'video.tplOverlayNeeds': 'Exige : une capture et un titre de bandeau par scène.',
-
-    'video.tplVertical': 'Format téléphone',
-    'video.tplVerticalWhat': 'Un montage 9:16 plein cadre, scènes courtes, texte tenu à l’écart des bords.',
-    'video.tplVerticalNeeds': 'Exige : des images. Le format 9:16 est imposé.',
-
-    'video.tplTitles': 'Titrage animé',
-    'video.tplTitlesWhat': 'Des mots sur un fond uni : une accroche, un sous-titre facultatif, une entrée animée.',
-    'video.tplTitlesNeeds': 'Exige : du texte. Aucune image — celles que vous avez choisies n’y figureront pas.',
-
-    'video.tplProduct': 'Mise en avant produit',
-    'video.tplProductWhat': 'Une image, une accroche, jusqu’à trois arguments et un appel à l’action.',
-    'video.tplProductNeeds': 'Exige : une image, une accroche et au moins un argument par scène.',
-
+    // ---- le thème du projet ------------------------------------------------
     // Le thème, dit plutôt que sous-entendu. Un panneau qui ne parle pas de
     // couleur laisse croire qu'un réglage de couleur attend plus bas ; il n'y en
     // a aucun, et il ne peut pas y en avoir : le schéma qu'un document composé
@@ -157,38 +120,42 @@ export const video = {
     'video.themeNone':
       'Aucune direction artistique ici : chaque composition applique ses propres défauts, choisis une fois pour toutes dans son code.',
 
-    // ---- les deux chemins, derrière un interrupteur ------------------------
-    // Sert deux fois : titre du bloc fusionné, et nom accessible du groupe de
-    // boutons. Les deux positions se nomment elles-mêmes (composeTitle et
-    // fromImageTitle), donc ce libellé dit ce que le bloc FAIT, pas ce qu'il
-    // contient — sans quoi l'en-tête répéterait l'interrupteur placé à côté.
-    'video.sourceTitle': 'Remplir le montage',
+    // ---- les images de départ, et d'où elles viennent -----------------------
+    // Sert deux fois : titre du bloc, et nom accessible du groupe de boutons.
+    // « de départ » et « facultatif » font tout le travail : ces images sont ce
+    // qu'on OFFRE au modèle, pas le montage — il peut n'en retenir aucune, et un
+    // film de mots n'en demande pas.
+    'video.sourceTitle': 'Images de départ (facultatif)',
+    'video.sourceHint':
+      'Ce que le modèle a le droit d’utiliser. Il choisit lesquelles il garde, dans quel ordre et comment il les cadre. Sans image, le film sera fait de texte, de formes et de mouvement.',
+    'video.fromLibraryTitle': 'Depuis la médiathèque',
+    'video.imageCount': '{n} sur {max}',
+    'video.imagesFull': 'Maximum atteint : {max} images',
+    'video.removeImage': 'Retirer cette image',
+    // Dit en une phrase plutôt qu'en grille vide : une grille vide se lit comme
+    // un chargement raté, et « aucune image » est ici un film légitime, pas un
+    // formulaire inachevé.
+    'video.noImages': 'Aucune image pour l’instant. Ce n’est pas un manque : le modèle sait faire un film sans.',
 
-    // ---- décrire plutôt que régler ---------------------------------------
-    // Le mot « proposer » est tenu partout : le modèle choisit une composition
-    // et la règle, il ne valide rien et ne lance rien. Ce qui revient remplit le
-    // formulaire du dessous, que l’on peut reprendre entièrement — c’est un
-    // pré-remplissage, pas un second mode.
-    'video.composeTitle': 'Décrire la vidéo',
-    'video.composeBrief': 'Décrivez la vidéo',
-    // La phrase dit aussi qui décide de la composition, parce que cela dépend du
-    // sélecteur juste au-dessus : sur « Automatique » le modèle la choisit, sur
-    // une composition choisie à la main il s’y tient — et une proposition qui en
-    // nommerait une autre est refusée plutôt que chargée.
+    // ---- décrire, et rien régler -------------------------------------------
+    // Le mot « proposer » est tenu partout : le modèle écrit un film, il ne
+    // valide rien et ne lance aucun rendu. Le second bouton — « proposer autre
+    // chose » — est le seul recours que ce panneau garde, et il doit se lire
+    // comme tel : un appel au modèle, quelques secondes, pas deux minutes de CPU.
+    'video.composeTitle': 'Décrire le film',
+    'video.composeBrief': 'Le contexte',
     'video.composeHint':
-      'Le modèle monte les images que vous avez choisies : ordre, durées, mouvements, transitions et textes. Il ne choisit pas les images et n’en ajoute aucune. Sur « Automatique » il choisit aussi la composition ; sur une composition choisie à la main, il s’y tient. Rien n’est lancé, tout reste modifiable. Consomme des jetons.',
+      'Dites de quoi il s’agit, pour qui, sur quel ton. Le modèle écrit le film entier : découpage, mise en scène, mouvements, textes et durées. Rien n’est lancé — vous pourrez en redemander un autre. Consomme des jetons.',
     'video.composePlaceholder':
-      'Un diaporama calme de nos produits, une trentaine de secondes, sous-titré en français.',
+      'Le lancement de notre bouilloire : trois arguments, un ton calme, une trentaine de secondes, en français.',
     'video.briefCount': '{n} / {max}',
-    'video.compose': 'Proposer un montage',
+    'video.compose': 'Proposer un film',
+    'video.composeAgain': 'Proposer autre chose',
     'video.composing': 'Proposition en cours…',
-    'video.composeNeedImages': 'Choisissez d’abord au moins une image : le montage est bâti sur votre sélection.',
-    'video.composeNeedBrief': 'Décrivez la vidéo en une phrase.',
-    'video.composeOverwriteConfirm':
-      'Remplacer le montage que vous avez réglé à la main ? L’ordre, les durées, les mouvements, les transitions et les textes incrustés seront écrasés par la proposition.',
+    'video.composeNeedBrief': 'Écrivez d’abord le contexte, en une phrase suffit.',
     // Titre de la bannière des remarques. Elles arrivent aussi — et surtout —
-    // quand rien n’a été proposé : le formulaire reste alors tel quel, et ces
-    // phrases sont la seule explication de ce qui ne s’est pas produit.
+    // quand rien n’a été proposé : le film déjà accepté reste alors tel quel, et
+    // ces phrases sont la seule explication de ce qui ne s’est pas produit.
     'video.composeNotices': 'À propos de cette proposition',
 
     // ---- partir d’une image ------------------------------------------------
@@ -248,7 +215,7 @@ export const video = {
     'video.addChosen': 'Confirmer et ajouter au montage',
     'video.adding': 'Ajout…',
     'video.variantNeedChoice': 'Cochez au moins une variante.',
-    'video.variantNoRoom': 'Trop de variantes cochées : il reste {room} place(s) dans le montage.',
+    'video.variantNoRoom': 'Trop de variantes cochées : il reste {room} place(s) dans la sélection.',
     'video.variantNotices': 'À propos de ces variantes',
     // Confirmation partielle : ce qui est passé entre dans le montage, ce qui a
     // échoué reste en attente. Le taire donnerait une sélection plus courte que
@@ -259,129 +226,41 @@ export const video = {
     //
     // La moitié de « la vidéo est pixelisée » qu'aucun réglage d'encodeur
     // n'atteint : l'image est plus petite que le cadre, `object-fit: cover`
-    // l'agrandit, et un mouvement de caméra en rajoute 12 %. Les deux phrases
-    // disent donc la mesure ET le seul remède — répondre « augmentez la
-    // qualité » enverrait chercher un réglage qui n'existe pas et qui ne
-    // servirait à rien s'il existait.
-    'video.resScene': '{w}×{h} · agrandie ×{factor}',
+    // l'agrandit, et un mouvement de caméra en rajoute 12 %. La phrase dit donc
+    // la mesure ET le seul remède — répondre « augmentez la qualité » enverrait
+    // chercher un réglage qui n'existe pas et qui ne servirait à rien s'il
+    // existait.
     'video.resFooter':
       '{n} image(s) plus petite(s) que le cadre {w}×{h} : agrandies jusqu’à ×{factor}, elles seront floues. Aucun encodage ne rend une définition absente — il faut une source plus grande.',
 
-    'video.scenesTitle': 'Scènes',
-    'video.sceneCount': '{n} sur {max}',
-    'video.addSceneFull': 'Maximum atteint : {max} scènes',
-    'video.pickScene': 'Choisir l’image de la scène',
-    'video.noScenes': 'Aucune scène pour l’instant.',
-    'video.noScenesHint': 'Choisissez une première image ci-dessous : elle ouvrira le montage.',
-    // Deux phrases parce que deux choses manquent. Une composition sans image ne
-    // s’ouvre pas en choisissant une photo, et envoyer quelqu’un le faire, c’est
-    // une minute passée à chercher un sélecteur volontairement absent.
-    'video.noScenesHintText': 'Ajoutez un premier carton ci-dessous : il ouvrira le montage.',
-    'video.addCard': 'Ajouter un carton',
-    'video.addCardHint':
-      'Le titrage animé n’utilise aucune image : ses scènes sont des cartons de texte, pas des photos.',
-
-    'video.sceneNumber': 'Scène {n}',
-    'video.moveUp': 'Monter cette scène',
-    'video.moveDown': 'Descendre cette scène',
-    'video.removeScene': 'Retirer cette scène',
-
-    'video.duration': 'Durée',
-    'video.seconds': '{n} s',
-    'video.motion': 'Mouvement',
-    'video.motionStatic': 'Fixe',
-    'video.motionZoomIn': 'Zoom avant',
-    'video.motionZoomOut': 'Zoom arrière',
-    'video.motionPanLeft': 'Travelling gauche',
-    'video.motionPanRight': 'Travelling droite',
-    // Le vocabulaire de la capture : jamais un travelling, jamais un zoom — une
-    // dérive d'un pour cent, dans laquelle rien ne sort du cadre.
-    'video.moveDriftUp': 'Dérive vers le haut',
-    'video.moveDriftDown': 'Dérive vers le bas',
-    'video.moveSettle': 'Se pose puis dérive',
-
-    'video.transition': 'Transition vers la suivante',
-    'video.transitionCrossfade': 'Fondu enchaîné',
-    'video.transitionWipeLeft': 'Balayage vers la gauche',
-    'video.transitionWipeRight': 'Balayage vers la droite',
-    'video.transitionNone': 'Coupe franche',
-    // Le champ existe sur toutes les scènes parce que le schéma est uniforme ;
-    // sur la dernière il ne joue jamais. Le dire vaut mieux que de masquer le
-    // contrôle, ce qui donnerait une ligne différente des autres sans raison
-    // visible dès qu’on réordonne.
-    'video.transitionLast': 'Dernière scène : cette transition ne joue pas.',
-
-    'video.overlay': 'Texte incrusté (facultatif)',
-    'video.overlayPlaceholder': 'Une ligne, incrustée dans l’image',
-    'video.overlayCount': '{n} / {max}',
-    'video.overlayPosition': 'Position',
-    'video.overlayTop': 'En haut',
-    'video.overlayCenter': 'Au centre',
-    'video.overlayBottom': 'En bas',
-
-    // ---- les champs des quatre autres compositions -------------------------
-    // Le bandeau ne connaît que deux positions : le milieu, c’est justement là
-    // que vit la capture qu’on veut pouvoir lire.
-    'video.bandTitle': 'Titre du bandeau',
-    'video.bandTitleHint': 'Obligatoire. {max} caractères au plus.',
-    'video.bandTitlePlaceholder': 'Le tableau de bord, en un coup d’œil',
-    'video.bandSubtitle': 'Sous-titre du bandeau (facultatif)',
-    'video.bandSubtitlePlaceholder': 'Une ligne de plus, sous le titre',
-    'video.bandPosition': 'Position du bandeau',
-    'video.bandTop': 'Au-dessus de la capture',
-    'video.bandBottom': 'En dessous de la capture',
-
-    'video.headline': 'Accroche',
-    'video.headlineHint': 'Obligatoire. {max} caractères au plus.',
-    'video.headlinePlaceholder': 'Ce que cette scène annonce',
-    'video.titleSubtitle': 'Sous-titre (facultatif)',
-    'video.titleSubtitlePlaceholder': 'Une précision sous l’accroche',
-    'video.animation': 'Entrée du texte',
-    'video.animFade': 'Fondu',
-    'video.animRise': 'Montée',
-    'video.animStagger': 'Mot à mot',
-
-    'video.cta': 'Appel à l’action (facultatif)',
-    'video.ctaHint': '{max} caractères au plus.',
-    'video.ctaPlaceholder': 'Commander',
-    'video.bullets': 'Arguments ({max} au plus)',
-    // Trois cases toujours, et les vides ne sont pas rendues. Le schéma accepte
-    // un à trois arguments, jamais exactement trois : une carte à deux arguments
-    // est une carte à deux arguments, pas une carte trouée.
-    'video.bulletsHint':
-      'Les cases laissées vides ne sont pas rendues. {max} caractères chacune.',
-    'video.bulletNumber': 'Argument {n}',
-    'video.bulletPlaceholder': 'Argument {n}',
+    'video.pickScene': 'Choisir une image de départ',
 
     'video.output': 'Sortie',
     'video.aspectRatio': 'Format d’image',
     'video.container': 'Conteneur',
-    // Le format EST la composition : le schéma type ce champ sur le seul litéral
-    // « 9:16 ». Une liste offrant trois valeurs dont deux font refuser le
-    // document est un contrôle qui n’existe que pour être mal réglé.
+    // Le seul cas où le sélecteur ne décide pas. Un montage vertical est typé
+    // sur le seul litéral « 9:16 » : lui imposer un autre format ne l’élargirait
+    // pas, cela ferait refuser le document. Dit comme un fait, plutôt qu’en
+    // grisant la liste — ce qui laisserait chercher pourquoi elle ne répond plus.
     'video.aspectLockedVertical':
-      '9:16, imposé par la composition. Les deux autres formats sont hors d’atteinte, pas déconseillés.',
+      'Ce film est monté en 9:16, imposé par sa mise en scène : le format choisi ci-dessus ne s’y applique pas.',
 
-    'video.budget': 'Durée totale',
-    'video.budgetValue': '{used} s sur {max} s',
-    'video.budgetOver': 'Dépassement de {over} s : raccourcissez ou retirez des scènes.',
-    // Une phrase par raison, jamais une phrase commune : chacune nomme une case
-    // différente à aller remplir. Un formulaire de quatorze champs surmonté d’un
-    // « il manque quelque chose » est une chasse au trésor.
-    'video.blockedNoTemplate':
-      'Composition sur « Automatique » : proposez un montage pour que le modèle la choisisse, ou choisissez-en une à la main.',
-    'video.blockedEmpty': 'Ajoutez au moins une scène.',
-    'video.blockedTooMany': 'Plus de {max} scènes pour cette composition.',
-    // Le seul manque qu’aucune case de la ligne ne comble : une scène de
-    // titrage n’a pas d’image, et passer le sélecteur sur une composition qui en
-    // exige une garde la ligne telle quelle. D’où la marche à suivre dans la
-    // phrase — les autres se contentent de nommer la case.
-    'video.blockedImage': 'Une scène n’a pas d’image : retirez-la, puis rajoutez-la depuis la grille.',
-    'video.blockedHeadline': 'Une scène n’a pas d’accroche.',
-    'video.blockedBandTitle': 'Une scène n’a pas de titre de bandeau.',
-    'video.blockedBullets': 'Une scène n’a aucun argument.',
-    'video.blockedOverlay': 'Un texte incrusté dépasse {max} caractères.',
-    'video.blockedTextLong': 'Un texte dépasse la longueur admise par cette composition.',
+    // ---- le film proposé ----------------------------------------------------
+    // La seule chose que ce panneau dit d’un film qu’il ne montre pas. Trois
+    // nombres lus sur le document — jamais écrits par un modèle, ce qui en
+    // ferait une affirmation plutôt qu’un fait — et pas un mot sur la mise en
+    // scène : ni liste de scènes, ni nom de composition, sans quoi la question
+    // suivante serait « comment je change la scène 3 ? », qui n’a plus de
+    // réponse.
+    'video.proposalTitle': 'Le film proposé',
+    'video.proposalSummary': '{n} plan(s) · {s} s · {ratio}',
+    'video.blockedNoProposal':
+      'Rien à rendre pour l’instant : décrivez le film et demandez une proposition. C’est le modèle qui le monte.',
+    // Le film reste valable, donc c’est une remarque et jamais un refus : ce
+    // serait transformer une phrase utile en mur, alors que le recours — en
+    // redemander un — est à un clic dans les deux cas.
+    'video.proposalStale':
+      'Le contexte ou les images ont changé depuis cette proposition : elle répond à la demande précédente. Redemandez-en une pour en tenir compte.',
 
     'video.startRender': 'Lancer le rendu',
     'video.starting': 'Mise en file…',
@@ -433,14 +312,14 @@ export const video = {
     'video.errTimeoutHint':
       'Mocky a cessé d’attendre après {n} s. Le rendu a peut-être abouti côté serveur : rouvrez ce panneau pour le vérifier.',
     'video.errMissing': 'Des images ont quitté la médiathèque',
-    'video.errMissingHint': 'Remplacez les scènes concernées, puis relancez.',
+    'video.errMissingHint': 'Retirez-les de la sélection, puis redemandez une proposition.',
     // Le refus qui n’est pas un problème de montage : le document est valide et
     // tous les fichiers sont là. Ce qui bloque, c’est une image que personne n’a
     // regardée — et le garde vit sur le serveur précisément pour que fermer un
     // panneau ne suffise pas à la faire passer.
     'video.errPending': 'Des images attendent votre confirmation',
     'video.errPendingHint':
-      'Le montage refuse une image que personne n’a validée. Confirmez-la dans « Partir d’une image », ou retirez la scène concernée.',
+      'Le film utilise une image que personne n’a validée. Confirmez-la dans « Partir d’une image », ou retirez-la de la sélection.',
     'video.errNoProvider': 'Aucun fournisseur d’image',
     'video.errNoProviderHint':
       'Cette instance n’a aucun modèle d’image configuré. C’est un réglage d’administration, pas un problème de montage.',
@@ -511,8 +390,11 @@ export const video = {
     'video.toolbarTitle': 'Cut a video from the media library',
 
     'video.exportTitle': 'Motion',
+    // What the panel asks for, and what it no longer asks for. The second
+    // sentence is there because the absence of settings otherwise reads as an
+    // unfinished panel: nobody picks a layout here, and that is the point.
     'video.exportBlurb':
-      'A film cut from the media library. Five compositions in the catalogue, and the model picks its own if you let it. The render runs on the Remotion worker, not in this browser.',
+      'A film written by the model: you give the context and, if you want, some starting pictures. It decides the pacing, the staging, the motion and the words. The render runs on the Remotion worker, not in this browser.',
 
     // Deliberately terse: an account without access learns nothing about how the
     // instance is configured, nor about what a valid timeline looks like.
@@ -523,45 +405,7 @@ export const video = {
     'video.workerDownBody':
       'The render service is not answering. Nothing can be queued while it is away; this is an instance setting, not a problem with your cut.',
 
-    // ---- the catalogue, and the project's theme -----------------------------
-    // Three sentences per composition: its name, what it makes, and what it
-    // REQUIRES. The third is the one people need — "animated titling" does not
-    // say that it uses no picture at all, and somebody who has just spent a
-    // minute choosing images deserves to learn that before the click, not after.
-    //
-    // No number is written here: the bounds come from TEMPLATE_LIMITS, through
-    // templateBounds. A floor retyped into a dictionary drifts from the
-    // validator, and the drift only ever shows as a refusal quoting a figure
-    // nobody was shown.
-    'video.templateTitle': 'Composition',
-    'video.templateHint':
-      'What kind of film this is. Automatic by default: the model reads your sentence and takes the composition built for it. Chosen by hand, it decides the fields of the form below.',
-    'video.templateBounds': 'up to {max} scenes · {min} to {long} s',
-
-    'video.tplAuto': 'Automatic',
-    'video.tplAutoWhat': 'The model picks the composition from your sentence.',
-    'video.tplAutoNeeds': 'Requires: a sentence. Images, depending on what it picks.',
-
-    'video.tplSlideshow': 'Slideshow',
-    'video.tplSlideshowWhat': 'One image per scene, a slow camera move, an optional caption.',
-    'video.tplSlideshowNeeds': 'Requires: images. Text is optional.',
-
-    'video.tplOverlay': 'Banded screenshot',
-    'video.tplOverlayWhat': 'A screenshot that keeps its place, with a band of text above or below it.',
-    'video.tplOverlayNeeds': 'Requires: a screenshot and a band title per scene.',
-
-    'video.tplVertical': 'Phone format',
-    'video.tplVerticalWhat': 'A full-bleed 9:16 cut, short beats, text kept clear of the edges.',
-    'video.tplVerticalNeeds': 'Requires: images. The 9:16 ratio is fixed.',
-
-    'video.tplTitles': 'Animated titling',
-    'video.tplTitlesWhat': 'Words on a plain background: a headline, an optional subtitle, an animated entrance.',
-    'video.tplTitlesNeeds': 'Requires: text. No image — the ones you picked will not appear in it.',
-
-    'video.tplProduct': 'Product spotlight',
-    'video.tplProductWhat': 'One picture, a headline, up to three arguments and a call to action.',
-    'video.tplProductNeeds': 'Requires: a picture, a headline and at least one argument per scene.',
-
+    // ---- the project's theme ------------------------------------------------
     // The theme, said rather than implied. A panel that says nothing about
     // colour invites the assumption that a colour control is waiting further
     // down; there is none, and there cannot be: the schema a composed document
@@ -575,36 +419,42 @@ export const video = {
     'video.themeNone':
       'No art direction here: each composition uses its own defaults, chosen once and for all in its code.',
 
-    // ---- the two paths, behind one switch ----------------------------------
-    // Used twice: as the merged block's heading, and as the accessible name of
-    // the button group. Both positions already name themselves (composeTitle and
-    // fromImageTitle), so this label says what the block is FOR rather than what
-    // is in it — otherwise the heading would read back the switch beside it.
-    'video.sourceTitle': 'Fill the cut',
+    // ---- the starting pictures, and where they come from ---------------------
+    // Used twice: as the block's heading, and as the accessible name of the
+    // button group. "starting" and "optional" carry the whole sentence: these
+    // pictures are what the model is OFFERED, not the cut — it may keep none of
+    // them, and a film of words asks for none.
+    'video.sourceTitle': 'Starting pictures (optional)',
+    'video.sourceHint':
+      'What the model is allowed to use. It decides which ones it keeps, in what order and how they are framed. With none, the film is made of words, shapes and movement.',
+    'video.fromLibraryTitle': 'From the media library',
+    'video.imageCount': '{n} of {max}',
+    'video.imagesFull': 'At the ceiling: {max} images',
+    'video.removeImage': 'Remove this picture',
+    // Said in a sentence rather than shown as an empty grid: an empty grid reads
+    // as a listing that failed to load, and "no pictures" is a legitimate film
+    // here rather than an unfinished form.
+    'video.noImages': 'No pictures yet. That is not a gap: the model can make a film without any.',
 
-    // ---- describing instead of dialling ------------------------------------
-    // "Propose" is held to throughout: the model picks a composition and tunes
-    // it, it approves nothing and starts nothing. What comes back fills the form
-    // below, which stays entirely editable — a pre-fill, not a second mode.
-    'video.composeTitle': 'Describe the video',
-    'video.composeBrief': 'Describe the video',
-    // The sentence also says who decides the composition, because that depends
-    // on the selector just above it: on "Automatic" the model picks it, on a
-    // composition chosen by hand it holds to it — and a proposal naming another
-    // one is refused rather than loaded.
+    // ---- describing, and dialling nothing -----------------------------------
+    // "Propose" is held to throughout: the model writes a film, it approves
+    // nothing and starts no render. The second button — "propose something else"
+    // — is the one recourse this panel keeps, and it has to read as one: a model
+    // call and a few seconds, not two minutes of CPU.
+    'video.composeTitle': 'Describe the film',
+    'video.composeBrief': 'The context',
     'video.composeHint':
-      'The model cuts the images you chose: order, durations, motion, transitions and text. It does not choose the pictures and cannot add any. On "Automatic" it picks the composition too; on one chosen by hand, it holds to it. Nothing is started, and everything stays editable. Spends tokens.',
-    'video.composePlaceholder': 'A calm slideshow of our products, about thirty seconds, captioned in English.',
+      'Say what it is about, who it is for, in what tone. The model writes the whole film: how it is cut, how it is staged, how things move, what it says and how long it lasts. Nothing is started — you can ask for another one. Spends tokens.',
+    'video.composePlaceholder':
+      'Launching our kettle: three arguments, a calm tone, about thirty seconds, in English.',
     'video.briefCount': '{n} / {max}',
-    'video.compose': 'Propose a cut',
+    'video.compose': 'Propose a film',
+    'video.composeAgain': 'Propose something else',
     'video.composing': 'Proposing…',
-    'video.composeNeedImages': 'Pick at least one image first: the cut is built from your selection.',
-    'video.composeNeedBrief': 'Describe the video in one sentence.',
-    'video.composeOverwriteConfirm':
-      'Replace the cut you arranged by hand? The order, the durations, the motion, the transitions and the burnt-in text will be overwritten by the proposal.',
+    'video.composeNeedBrief': 'Write the context first — one sentence is enough.',
     // The heading of the notices banner. They also arrive — mostly — when
-    // nothing was proposed: the form is then left exactly as it was, and these
-    // sentences are the only account of what did not happen.
+    // nothing was proposed: the film already accepted is then left exactly as it
+    // was, and these sentences are the only account of what did not happen.
     'video.composeNotices': 'About this proposal',
 
     // ---- starting from one image -------------------------------------------
@@ -664,7 +514,7 @@ export const video = {
     'video.addChosen': 'Confirm and add to the cut',
     'video.adding': 'Adding…',
     'video.variantNeedChoice': 'Tick at least one variant.',
-    'video.variantNoRoom': 'Too many ticked: there is room for {room} more scene(s).',
+    'video.variantNoRoom': 'Too many ticked: there is room for {room} more picture(s).',
     'video.variantNotices': 'About these variants',
     // A partial confirmation: what went through joins the cut, what failed stays
     // pending. Left unsaid it is a selection shorter than the ticked boxes, with
@@ -678,124 +528,37 @@ export const video = {
     // camera move asks for 12% more. So the sentence states the measurement AND
     // the only remedy — "raise the quality" would send somebody hunting for a
     // setting that does not exist and would not help if it did.
-    'video.resScene': '{w}×{h} · enlarged ×{factor}',
     'video.resFooter':
       '{n} image(s) smaller than the {w}×{h} frame: enlarged up to ×{factor}, they will look soft. No encoder puts back detail the source never had — it needs a larger original.',
 
-    'video.scenesTitle': 'Scenes',
-    'video.sceneCount': '{n} of {max}',
-    'video.addSceneFull': 'At the ceiling: {max} scenes',
-    'video.pickScene': 'Choose the image for this scene',
-    'video.noScenes': 'No scenes yet.',
-    'video.noScenesHint': 'Pick a first image below — it opens the cut.',
-    // Two sentences because two different things are missing. A composition with
-    // no picture in it cannot be opened by choosing an image, and telling
-    // somebody to do that is a minute spent hunting for a picker that is
-    // deliberately absent.
-    'video.noScenesHintText': 'Add a first card below — it opens the cut.',
-    'video.addCard': 'Add a card',
-    'video.addCardHint': 'Animated titling uses no image: its scenes are text cards, not photographs.',
-
-    'video.sceneNumber': 'Scene {n}',
-    'video.moveUp': 'Move this scene up',
-    'video.moveDown': 'Move this scene down',
-    'video.removeScene': 'Remove this scene',
-
-    'video.duration': 'Duration',
-    'video.seconds': '{n} s',
-    'video.motion': 'Motion',
-    'video.motionStatic': 'Still',
-    'video.motionZoomIn': 'Zoom in',
-    'video.motionZoomOut': 'Zoom out',
-    'video.motionPanLeft': 'Pan left',
-    'video.motionPanRight': 'Pan right',
-    // The capture's own vocabulary: never a pan, never a zoom — a drift of about
-    // one percent, inside which nothing leaves the frame.
-    'video.moveDriftUp': 'Drift up',
-    'video.moveDriftDown': 'Drift down',
-    'video.moveSettle': 'Settle, then drift',
-
-    'video.transition': 'Transition to the next scene',
-    'video.transitionCrossfade': 'Crossfade',
-    'video.transitionWipeLeft': 'Wipe left',
-    'video.transitionWipeRight': 'Wipe right',
-    'video.transitionNone': 'Hard cut',
-    // The field is on every scene because the schema is uniform; on the last one
-    // it never plays. Saying so beats hiding the control, which would give one
-    // row a different shape from the others for no visible reason the moment
-    // anything is reordered.
-    'video.transitionLast': 'Last scene: this transition never plays.',
-
-    'video.overlay': 'Burnt-in text (optional)',
-    'video.overlayPlaceholder': 'One line, burnt into the frame',
-    'video.overlayCount': '{n} / {max}',
-    'video.overlayPosition': 'Position',
-    'video.overlayTop': 'Top',
-    'video.overlayCenter': 'Centre',
-    'video.overlayBottom': 'Bottom',
-
-    // ---- the fields of the other four compositions --------------------------
-    // A band has two positions and not three: the middle is exactly where the
-    // capture being read lives.
-    'video.bandTitle': 'Band title',
-    'video.bandTitleHint': 'Required. {max} characters at most.',
-    'video.bandTitlePlaceholder': 'The dashboard, at a glance',
-    'video.bandSubtitle': 'Band subtitle (optional)',
-    'video.bandSubtitlePlaceholder': 'One more line, under the title',
-    'video.bandPosition': 'Band position',
-    'video.bandTop': 'Above the screenshot',
-    'video.bandBottom': 'Below the screenshot',
-
-    'video.headline': 'Headline',
-    'video.headlineHint': 'Required. {max} characters at most.',
-    'video.headlinePlaceholder': 'What this scene announces',
-    'video.titleSubtitle': 'Subtitle (optional)',
-    'video.titleSubtitlePlaceholder': 'One detail under the headline',
-    'video.animation': 'Text entrance',
-    'video.animFade': 'Fade',
-    'video.animRise': 'Rise',
-    'video.animStagger': 'Word by word',
-
-    'video.cta': 'Call to action (optional)',
-    'video.ctaHint': '{max} characters at most.',
-    'video.ctaPlaceholder': 'Order now',
-    'video.bullets': 'Arguments (up to {max})',
-    // Three boxes always, and the empty ones are not rendered. The schema takes
-    // one to three arguments, never exactly three: a two-argument card is a
-    // two-argument card, not one with a gap in it.
-    'video.bulletsHint': 'Boxes left empty are not rendered. {max} characters each.',
-    'video.bulletNumber': 'Argument {n}',
-    'video.bulletPlaceholder': 'Argument {n}',
+    'video.pickScene': 'Choose a starting picture',
 
     'video.output': 'Output',
     'video.aspectRatio': 'Aspect ratio',
     'video.container': 'Container',
-    // The ratio IS the composition: the schema types this field as the single
-    // literal "9:16". A select offering three values, two of which refuse the
-    // document, is a control that exists to be got wrong.
+    // The one case where the selector does not decide. A vertical cut is typed
+    // on the single literal "9:16": forcing another ratio onto it would not
+    // widen the film, it would have the document refused. Said as a fact rather
+    // than by greying the select out, which would leave somebody wondering why
+    // their ratio stopped answering.
     'video.aspectLockedVertical':
-      '9:16, fixed by the composition. The other two ratios are unreachable rather than discouraged.',
+      'This film is cut at 9:16, fixed by its staging: the ratio chosen above does not apply to it.',
 
-    'video.budget': 'Total duration',
-    'video.budgetValue': '{used} s of {max} s',
-    'video.budgetOver': '{over} s over: shorten or remove scenes.',
-    // One sentence per reason and never a shared one: each names a different box
-    // to go and fill in. A form with fourteen inputs under a "something is
-    // missing" is a hunt.
-    'video.blockedNoTemplate':
-      'Composition is on "Automatic": propose a cut so the model picks one, or choose one by hand.',
-    'video.blockedEmpty': 'Add at least one scene.',
-    'video.blockedTooMany': 'More than {max} scenes for this composition.',
-    // The one missing thing no box on that row can supply: a title card carries
-    // no picture, and moving the selector to a composition that needs one keeps
-    // the row as it was. Hence the next step in the sentence — the others only
-    // name the box.
-    'video.blockedImage': 'One scene has no picture: remove it, then add it back from the grid.',
-    'video.blockedHeadline': 'One scene has no headline.',
-    'video.blockedBandTitle': 'One scene has no band title.',
-    'video.blockedBullets': 'One scene has no argument at all.',
-    'video.blockedOverlay': 'One burnt-in text is longer than {max} characters.',
-    'video.blockedTextLong': 'One text is longer than this composition allows.',
+    // ---- the proposed film ---------------------------------------------------
+    // The only thing this panel says about a film it does not show. Three
+    // numbers read off the document — never written by a model, which would make
+    // them a claim rather than a fact — and not one word about the staging:
+    // no scene list and no composition name, or the next question would be "how
+    // do I change scene 3?", which no longer has an answer.
+    'video.proposalTitle': 'The proposed film',
+    'video.proposalSummary': '{n} shot(s) · {s} s · {ratio}',
+    'video.blockedNoProposal':
+      'Nothing to render yet: describe the film and ask for a proposal. The model is what cuts it.',
+    // The film is still valid, so this is a remark and never a refusal: that
+    // would turn a useful sentence into a wall, when the recourse — ask for
+    // another — is one click away either way.
+    'video.proposalStale':
+      'The context or the pictures have changed since this proposal: it answers the previous request. Ask for another one to take that into account.',
 
     'video.startRender': 'Start the render',
     'video.starting': 'Queueing…',
@@ -846,14 +609,14 @@ export const video = {
     'video.errTimeoutHint':
       'Mocky gave up waiting after {n} s. The render may still have finished on the server: reopen this panel to check.',
     'video.errMissing': 'Some images have left the media library',
-    'video.errMissingHint': 'Replace the scenes concerned, then start again.',
+    'video.errMissingHint': 'Take them out of the selection, then ask for another proposal.',
     // The refusal that is not a problem with the cut: the document is valid and
     // every file is there. What blocks it is a picture nobody looked at — and
     // the guard lives on the server precisely so that closing a panel is not
     // enough to get one past it.
     'video.errPending': 'Some images are awaiting your confirmation',
     'video.errPendingHint':
-      'The cut refuses a picture nobody has confirmed. Confirm it under “Start from an image”, or remove that scene.',
+      'The film uses a picture nobody has confirmed. Confirm it under “Start from an image”, or take it out of the selection.',
     'video.errNoProvider': 'No image provider',
     'video.errNoProviderHint':
       'This instance has no image model configured. That is an administration setting, not a problem with your cut.',

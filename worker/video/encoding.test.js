@@ -250,17 +250,17 @@ describe('each codec gets the keys it reads, and none it would ignore', () => {
   })
 })
 
-describe('the five templates', () => {
+describe('every template in the catalogue', () => {
   /**
    * Quality is a property of the container, never of the composition.
    *
    * The catalogue is where a difference between films is supposed to live, and
-   * an encoder setting that varied with the template would be a sixth
-   * composition nobody could see — the `product` export coming back softer than
-   * the `slideshow` one, with nothing in the interface to explain it.
+   * an encoder setting that varied with the template would be a composition
+   * nobody could see — the `product` export coming back softer than the
+   * `slideshow` one, with nothing in the interface to explain it.
    */
   it('all render at the same quality, per container', () => {
-    expect(RENDERABLE_TEMPLATES).toHaveLength(5)
+    expect(RENDERABLE_TEMPLATES).toHaveLength(6)
     for (const format of OUTPUT_FORMATS) {
       // The path `render.js` takes, verbatim: a validated timeline in, a codec
       // out, settings for that codec. The template is carried along so that a

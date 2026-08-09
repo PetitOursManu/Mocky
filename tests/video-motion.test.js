@@ -27,6 +27,7 @@ import { describe, it, expect } from 'vitest'
 // so at the top, and its motion lives there rather than in the five `.jsx` files
 // for this exact reason: arithmetic is the only part of a video a test can check.
 import {
+  ANIMATED_BACKGROUNDS,
   MOTIONS,
   OVERLAY_DRIFT_PERCENT,
   OVERLAY_DRIFT_SCALE,
@@ -71,6 +72,20 @@ const MINIMAL = {
   product: (durationMs) => ({
     template: 'product',
     scenes: [{ imageId: ID, durationMs, headline: 'La station', bullets: ['Deux cœurs'] }],
+  }),
+  /*
+   * One block, no anchor, no arrival rank, and no background at all — the
+   * poorest composed document the schema accepts.
+   *
+   * It is the shape that matters most in this file, for the same reason
+   * `slideshow` does not name its template: the ground a silent document gets is
+   * `hairlines`, which is the one of the six that HOLDS STILL. So the scene has
+   * to move through its stack and its drift alone, and a version of this feature
+   * that leant on an animated ground would pass every other case and fail here.
+   */
+  composed: (durationMs) => ({
+    template: 'composed',
+    scenes: [{ durationMs, layers: [{ kind: 'heading', text: 'Conçu par blocs' }] }],
   }),
 }
 
@@ -165,6 +180,29 @@ describe('a motion term is reported only when the composition draws it', () => {
       ...(scene.subtitle ? ['subtitle'] : []),
     ],
     product: (scene) => ['picture', 'headline', 'bullets', ...(scene.cta ? ['closing', 'cta'] : [])],
+    /*
+     * A composed scene reports its drift and one progress per block, always —
+     * and its ground only when the ground moves, and its picture only when the
+     * ground is a photograph.
+     *
+     * That last pair is the rule this describe block is about, applied to the
+     * one template where it is a property of the SCENE rather than of the film:
+     * a `ground` progress on a field of static hairlines is a number that
+     * changes while the frame does not, which is exactly what the kicker used to
+     * report on every one-scene film.
+     *
+     * There is deliberately no kicker here. The counter is a device the other
+     * five draw because their layout has a place for it; a composed scene's
+     * layout is the document's, and a surtitle painted over a stack somebody
+     * arranged is an element nobody asked for. A film that wants one writes a
+     * `kicker` block.
+     */
+    composed: (scene) => [
+      'drift',
+      'layers',
+      ...(scene.background.kind === 'image' ? ['picture'] : []),
+      ...(ANIMATED_BACKGROUNDS.includes(scene.background.kind) ? ['ground'] : []),
+    ],
   }
 
   /** The same five documents as above, and the same five with every optional field filled. */
@@ -182,6 +220,24 @@ describe('a motion term is reported only when the composition draws it', () => {
     product: (d) => ({
       template: 'product',
       scenes: [{ imageId: ID, durationMs: d, headline: 'La station', bullets: ['Deux cœurs'], cta: 'Essayer' }],
+    }),
+    // Every optional field of a composed scene filled: a ground that moves on its
+    // own, a second block, an anchor and an arrival rank on both. The pair with
+    // MINIMAL above is what makes `ground` a conditional term rather than one
+    // this table happens never to see.
+    composed: (d) => ({
+      template: 'composed',
+      scenes: [
+        {
+          durationMs: d,
+          background: { kind: 'gridPulse', cells: 10 },
+          layers: [
+            { kind: 'kicker', text: 'Motion', anchor: 'top-left', enter: 0 },
+            { kind: 'heading', text: 'Conçu par blocs', level: 'display', anchor: 'center-left', enter: 1 },
+          ],
+          transitionOut: 'pixel',
+        },
+      ],
     }),
   }
 

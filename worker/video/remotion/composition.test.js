@@ -17,16 +17,23 @@
 // of trusting the ratio the palette computed. A test that read the palette's own
 // number would agree with it by construction.
 import { describe, it, expect } from 'vitest'
-import { blend, contrastRatio } from './contrast.js'
+import { blend, channels as colorChannels, contrastRatio } from './contrast.js'
 import {
+  ANCHORS,
   BAND_VEIL,
+  COMPOSED_CELL_GAP,
+  COMPOSED_IMAGE_VEIL,
+  COMPOSED_SAFE_PERCENT,
+  COMPOSED_STACK_GAP,
   COMPOSITIONS,
   CONTRAST_MIN,
   CONTRAST_MIN_LARGE,
   CUE_ENTER_FRAMES,
   CUE_TAIL_GAP_FRAMES,
+  DIMENSIONS,
   EMPHASIS_ENTER_FRAMES,
   FPS,
+  GRADIENT_RAMP,
   INK_DARK,
   INK_FLOOR,
   INK_LIGHT,
@@ -42,6 +49,8 @@ import {
   OVERLAY_SETTLE_SCALE,
   PALETTES,
   PAPER_FALLBACK,
+  PIXEL_CELL_PERCENT,
+  PULSE_FLOOR,
   PUNCH_FRAMES,
   PUNCH_SCALE,
   SLIDESHOW_PANEL_VEIL,
@@ -53,8 +62,18 @@ import {
   VERTICAL_CAPTION_MIN,
   VERTICAL_CAPTION_SHORT_CHARS,
   VERTICAL_DIM,
+  VERTICAL_SAFE_BOTTOM_PERCENT,
+  VERTICAL_SAFE_SIDE_PERCENT,
+  VERTICAL_SAFE_TOP_PERCENT,
+  FIELD_ALPHAS,
+  FIELD_RAMP,
   accentFirst,
+  anchorCell,
+  backgroundKind,
   bandInset,
+  composedLayout,
+  composedPalette,
+  composedSafeArea,
   compositionIdFor,
   cueFrames,
   cueProgress,
@@ -63,10 +82,12 @@ import {
   entranceStyle,
   fontStack,
   frameBase,
+  groundDensity,
   groundTint,
   hairlineTexture,
   inkCandidates,
   kenBurnsTransform,
+  layerCues,
   legibleOn,
   msToFrames,
   ordinalLabel,
@@ -82,6 +103,7 @@ import {
   resolveTheme,
   sceneLabel,
   sceneMotion,
+  stackedField,
   surfaceRange,
   verticalCaptionSize,
   withAlpha,
@@ -324,13 +346,17 @@ describe('planTimeline', () => {
 
 describe('compositionIdFor', () => {
   /**
-   * Five templates, five compositions, and `render.js` selects by the id this
+   * Six templates, six compositions, and `render.js` selects by the id this
    * returns. A template with no entry cannot be reached by any route into the
    * process — the same shape the schema has on the Mocky side.
+   *
+   * The sixth is the composable variant, and it is ONE composition rather than a
+   * sixth look: what varies inside it is which blocks it lays out, and those are
+   * components under `blocks/` that this map never names.
    */
   it('names a distinct composition for each template in the catalogue', () => {
-    expect(Object.keys(COMPOSITIONS)).toEqual(['slideshow', 'overlay', 'vertical', 'titles', 'product'])
-    expect(new Set(Object.values(COMPOSITIONS)).size).toBe(5)
+    expect(Object.keys(COMPOSITIONS)).toEqual(['slideshow', 'overlay', 'vertical', 'titles', 'product', 'composed'])
+    expect(new Set(Object.values(COMPOSITIONS)).size).toBe(6)
     for (const [template, id] of Object.entries(COMPOSITIONS)) expect(compositionIdFor(template)).toBe(id)
   })
 
@@ -1010,10 +1036,25 @@ const THEMES = {
  * headline's margin — the one way a decorative layer can undo the guarantee
  * without touching the code that makes it.
  */
+/** A colour with every channel multiplied, so the test can rebuild the dim end of a Lambert segment. */
+function scale(color, factor) {
+  const hex = colorChannels(color)
+    .map((c) => Math.max(0, Math.min(255, Math.round(c * factor))).toString(16).padStart(2, '0'))
+    .join('')
+  return `#${hex}`
+}
+
 function measure(run) {
   const { color, alpha, tint } = run.on
   const grounds = [color]
-  if (tint) grounds.push(blend(tint.color, color, tint.alpha))
+  // One layer or several: a hairline field is one tint over the ground, and a
+  // gradient is a RAMP sampled several times along its length. Rebuilt here from
+  // whatever the palette says it measured, rather than assuming the shape — a
+  // helper that only understood a single tint would silently stop checking the
+  // ground with the most colours in it.
+  for (const layer of Array.isArray(tint) ? tint : tint ? [tint] : []) {
+    grounds.push(blend(layer.color, color, layer.alpha))
+  }
   const backdrops = grounds.flatMap((ground) =>
     alpha >= 1 ? [ground] : [blend(ground, '#000000', alpha), blend(ground, '#ffffff', alpha)],
   )
@@ -1538,5 +1579,730 @@ describe('per-template geometry', () => {
     // A colour that could close a declaration becomes black, never itself.
     expect(hairlineTexture('red; } body {', 0.5, 8)).toContain('rgba(0, 0, 0, 0.5)')
     expect(hairlineTexture('#ffffff', 0.5, 'x')).toContain('transparent 2px')
+  })
+})
+
+// ── The composable variant ───────────────────────────────────────────────────
+
+/** Every ground a composed scene can be painted on, as a document states it. */
+const GROUNDS = {
+  solid: { kind: 'solid' },
+  gradient: { kind: 'gradient', direction: 'to-bottom' },
+  hairlines: { kind: 'hairlines' },
+  gridPulse: { kind: 'gridPulse', cells: 8 },
+  particles: { kind: 'particles', density: 2 },
+  image: { kind: 'image', imageId: 'a'.repeat(64), move: 'zoom-in' },
+}
+
+describe('composedPalette', () => {
+  /**
+   * The sweep the whole variant rests on: six grounds, a dozen real directions,
+   * every run re-measured from primitives.
+   *
+   * `PALETTES.composed` above is only ever handed the ground a silent document
+   * gets, which is one sixth of what this palette can be handed — and the other
+   * five are where the interesting failures are. A gradient is a ramp between two
+   * colours, a photograph is a colour nobody in this process has seen, and a
+   * pulsing grid is a tint that also moves.
+   */
+  for (const [ground, background] of Object.entries(GROUNDS)) {
+    describe(ground, () => {
+      for (const [label, document] of Object.entries(THEMES)) {
+        it(`clears every floor on: ${label}`, () => {
+          const palette = composedPalette(resolveTheme(document), background)
+          const failures = palette.runs
+            .map((run) => {
+              const ratio = measure(run)
+              return ratio >= run.threshold
+                ? null
+                : `${run.color} on ${run.on.color}@${run.on.alpha} = ${ratio.toFixed(2)}:1, needs ${run.threshold}:1`
+            })
+            .filter(Boolean)
+          expect(failures.join('\n')).toBe('')
+        })
+      }
+    })
+  }
+
+  /**
+   * The lit solid, which is the one surface in this directory that is not flat.
+   *
+   * A Lambert face is `material x (ambient + directional . n.l)`, so every face of
+   * a `solidScene` lies on the segment between `material x ambient` and
+   * `material`. Contrast against a fixed surface is monotone in luminance on each
+   * side of that surface, and luminance is monotone along a channel-wise ramp —
+   * so measuring the two ENDS measures every face between them. That is the whole
+   * claim `solidShading` makes, and this is where it stops being prose.
+   *
+   * Both ends against every ground and every direction, because the two failures
+   * are on opposite sides: on a dark ground the shading brightens and the DIM end
+   * is the one at the floor, on paper it darkens and the BRIGHT end is.
+   */
+  it('lights a solid so that every face of it clears the display floor', () => {
+    for (const [ground, background] of Object.entries(GROUNDS)) {
+      for (const [label, document] of Object.entries(THEMES)) {
+        const palette = composedPalette(resolveTheme(document), background)
+        const { color, ambient } = palette.solid
+        expect(ambient, `${ground} / ${label}`).toBeGreaterThan(0)
+        expect(ambient).toBeLessThanOrEqual(1)
+        for (const face of [color, scale(color, ambient)]) {
+          const ratio = measure({ color: face, on: palette.ground })
+          expect(ratio, `${ground} / ${label}: ${face} on ${palette.ground.color}`).toBeGreaterThanOrEqual(
+            CONTRAST_MIN_LARGE,
+          )
+        }
+      }
+    }
+  })
+
+  /**
+   * And it really is lit, on the directions where it can be.
+   *
+   * A guard on the degradation rather than on the shading: `solidShading` falls
+   * back to a flat material when neither end clears, which is legal (Q1) and
+   * would also be the answer if the arithmetic silently stopped working. A flat
+   * solid keeps its perspective and its silhouette; a catalogue of four solids
+   * that are all flat is a dependency paid for and not used.
+   */
+  it('shades rather than flattens on the directions that have room for it', () => {
+    const shaded = Object.values(THEMES).filter(
+      (document) => composedPalette(resolveTheme(document), GROUNDS.solid).solid.ambient < 1,
+    )
+    expect(shaded.length).toBeGreaterThan(Object.keys(THEMES).length / 2)
+  })
+
+  /**
+   * Guarding the guard, as the five templates already do: a palette that produced
+   * no runs would make every loop above green for having iterated nothing.
+   */
+  it('resolves the three surfaces a block can paint on, whatever the ground', () => {
+    for (const background of Object.values(GROUNDS)) {
+      const palette = composedPalette(resolveTheme(undefined), background)
+      // The ground, the panel and the accent fill. Twenty-four components read one
+      // of exactly these three, which is what stops twenty-four of them measuring.
+      expect(palette.runs).toHaveLength(7)
+      for (const key of ['display', 'body', 'accent', 'panelDisplay', 'panelBody', 'panelAccent', 'onFill']) {
+        expect(palette[key].color, key).toMatch(/^#[0-9a-f]{6}$/)
+        expect([CONTRAST_MIN, CONTRAST_MIN_LARGE]).toContain(palette[key].threshold)
+      }
+    }
+  })
+
+  /**
+   * A gradient is a RANGE and it is sampled along its length, not at its ends.
+   *
+   * Two ends clearing 4.5:1 does prove the ink is outside the band between them —
+   * the arithmetic forbids anything else, since two ends 4.5 apart in each
+   * direction would need a luminance past 1. At the DISPLAY floor of 3 it proves
+   * nothing: a ramp from black to a pale grey clears 3:1 at both ends against an
+   * ink whose own luminance sits between them, and somewhere along that ramp the
+   * contrast is 1:1. Every headline in this directory takes 3.
+   */
+  it('samples a gradient ground along its ramp', () => {
+    const palette = composedPalette(resolveTheme(THEMES['editorial paper']), GROUNDS.gradient)
+    expect(palette.ground.tint).toHaveLength(GRADIENT_RAMP.length)
+    // Densest last, so the composition can read the far end of the ramp off the
+    // same object the palette measured.
+    expect(palette.ground.tint[palette.ground.tint.length - 1].alpha).toBe(1)
+  })
+
+  /**
+   * The texture yields to a word, and never for nothing.
+   *
+   * `texturedGround` drops the tint when the bare ground carries every run and the
+   * tinted one does not — so a palette that comes back WITH a tint and a failing
+   * run is a palette that had no better option, and one that comes back without a
+   * tint had a reason. Stated as the invariant rather than as a fixture, because a
+   * theme chosen today to make the trade fire is a theme somebody rebalances into
+   * uselessness next year.
+   */
+  it('gives the ground its texture up before it gives a line up', () => {
+    for (const ground of ['hairlines', 'gridPulse', 'particles', 'gradient']) {
+      for (const document of Object.values(THEMES)) {
+        const theme = resolveTheme(document)
+        const palette = composedPalette(theme, GROUNDS[ground])
+        if (palette.ground.tint) continue
+        // No tint means the trade fired. It is only ever legitimate if the bare
+        // ground really does carry every run.
+        expect(palette.runs.every((run) => measure(run) >= run.threshold), `${ground} on a bare ground`).toBe(true)
+      }
+    }
+  })
+
+  /**
+   * A photographic ground is a veil, and a veil is measured over both extremes of
+   * what a picture can composite it to. The floor is the one `vertical` already
+   * uses; the ceiling is the one that keeps a band from hiding the capture.
+   */
+  it('dims a photographic ground, between the floor and the ceiling every veil has', () => {
+    for (const document of Object.values(THEMES)) {
+      const palette = composedPalette(resolveTheme(document), GROUNDS.image)
+      expect(palette.ground.alpha).toBeGreaterThanOrEqual(COMPOSED_IMAGE_VEIL)
+      expect(palette.ground.alpha).toBeLessThanOrEqual(MAX_VEIL_ALPHA)
+      // No tint over a photograph: the two things that make a surface a range are
+      // a veil and a tint, and stacking them would measure a texture over a
+      // picture nobody has opened.
+      expect(palette.ground.tint).toBeUndefined()
+    }
+  })
+
+  it('leaves an opaque ground opaque, so a flat film is exactly what it was', () => {
+    for (const ground of ['solid', 'hairlines', 'gradient', 'gridPulse', 'particles']) {
+      expect(composedPalette(resolveTheme(undefined), GROUNDS[ground]).ground.alpha, ground).toBe(1)
+    }
+  })
+
+  /**
+   * A palette depends on the theme and on the ground's KIND, and on nothing else.
+   *
+   * That is what lets `ComposedSceneVideo` resolve at most six of them for a
+   * twelve-scene film instead of one per scene — and it matters because the
+   * composition re-renders on every one of the 3600 frames a film can hold, while
+   * the search behind a palette really is a search. The claim is checked rather
+   * than asserted in a comment: a parameter that started changing what gets
+   * MEASURED, rather than only what gets painted, would make that memo wrong in
+   * the invisible direction.
+   */
+  it('depends on the ground’s kind and not on its parameters', () => {
+    const theme = resolveTheme(THEMES['editorial paper'])
+    const same = (a, b) => expect(composedPalette(theme, a).runs).toEqual(composedPalette(theme, b).runs)
+    same({ kind: 'gradient', direction: 'to-bottom' }, { kind: 'gradient', direction: 'radial' })
+    same({ kind: 'gridPulse', cells: 4 }, { kind: 'gridPulse', cells: 16 })
+    same({ kind: 'particles', density: 1 }, { kind: 'particles', density: 3 })
+    same({ kind: 'image', imageId: 'a'.repeat(64) }, { kind: 'image', imageId: 'b'.repeat(64), move: 'pan-left' })
+  })
+
+  /*
+   * ── A field is a surface, and a real export proved it ──────────────────────
+   *
+   * `equalizer` said of itself that it "carries no text, so the only thing it can
+   * get wrong is spending contrast something else needed — which it cannot".
+   * True of a block in a cell and false of one anchored `full`, which is painted
+   * UNDER the nine cells on purpose. The film that started this put eighteen
+   * accent bars across the middle of the frame and a headline over them whose
+   * last word is in the accent by design: the two met at 1:1, on a palette that
+   * had measured every run against a ground nothing was standing on.
+   */
+  describe('a field under a stack', () => {
+    /** A scene shaped like the export that failed: a field, and a headline on it. */
+    const stacked = (background) => ({
+      background,
+      layers: [
+        { kind: 'equalizer', anchor: 'full' },
+        { kind: 'heading', text: 'On dessine ce qui bouge', anchor: 'center' },
+      ],
+    })
+
+    it('is only a field when something stands on it', () => {
+      expect(stackedField(stacked(GROUNDS.solid))).toBe(true)
+      // Alone on the frame it owes nobody contrast: nothing is drawn over it.
+      expect(stackedField({ layers: [{ kind: 'equalizer', anchor: 'full' }] })).toBe(false)
+      // And a stack with no field sits on the ground the palette always measured.
+      expect(stackedField({ layers: [{ kind: 'heading', text: 'x', anchor: 'center' }] })).toBe(false)
+      // An anchor this build does not know lands in `center`, like `anchorName`'s
+      // own fallback — so it counts as something standing on the field, not as a
+      // second field.
+      expect(stackedField({ layers: [{ kind: 'equalizer', anchor: 'full' }, { kind: 'heading', anchor: 'nowhere' }] })).toBe(true)
+    })
+
+    /**
+     * The claim, over every ground and every real direction: with a field
+     * painted at the density the palette chose, every run still clears its own
+     * floor — measured from primitives rather than taken from the palette's word.
+     */
+    it('keeps every run legible over the field it is painted at', () => {
+      for (const ground of Object.keys(GROUNDS)) {
+        for (const [name, document] of Object.entries(THEMES)) {
+          const theme = resolveTheme(document)
+          const palette = composedPalette(theme, GROUNDS[ground], { field: true })
+          const plain = composedPalette(theme, GROUNDS[ground])
+          const colors = [plain.accent.color, theme.accent]
+          const over = colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: palette.field.alpha * step })))
+          const range = surfaceRange(
+            palette.ground.color,
+            palette.ground.alpha,
+            [...(palette.groundTint ?? []), ...over],
+          )
+          // `display` and `body` only: the accent IS the field, and a run
+          // measured against a surface made of itself resolves to a near-white
+          // that erases the direction. `composedPalette` says so at length.
+          for (const run of [palette.display, palette.body]) {
+            const ratio = worstRatio(run.color, range)
+            // Q1 all the way down: a palette with no answer at any density ships
+            // the faintest field rather than failing the export, and says so by
+            // marking the run. What must never happen is a run reported OK that
+            // a re-measurement contradicts.
+            if (!run.ok) continue
+            expect(ratio, `${name} · ${ground} · ${run.threshold}`).toBeGreaterThanOrEqual(run.threshold)
+          }
+        }
+      }
+    })
+
+    /**
+     * A decoration cedes to a word, and never for nothing.
+     *
+     * The ladder starts at 1 and the first entry that clears wins, so the claim
+     * worth checking is not "it sometimes stays at 1" — that depends on how
+     * saturated a direction's accent happens to be — but that the step it stopped
+     * on is the DENSEST one available: painting the same field one rung denser
+     * has to break something. A ladder that stepped down for company would be an
+     * ornament yielding for nothing, which is the trade `texturedGround` refuses
+     * in the same words.
+     */
+    it('takes the densest field every run clears', () => {
+      for (const ground of Object.keys(GROUNDS)) {
+        for (const [name, document] of Object.entries(THEMES)) {
+          const theme = resolveTheme(document)
+          const palette = composedPalette(theme, GROUNDS[ground], { field: true })
+          expect(FIELD_ALPHAS, `${name} · ${ground}`).toContain(palette.field.alpha)
+
+          const rung = FIELD_ALPHAS.indexOf(palette.field.alpha)
+          // A palette that found no answer at any density ships the faintest and
+          // says so by leaving a run not-ok (Q1). There is no denser rung to
+          // argue about there.
+          if (rung <= 0 || ![palette.display, palette.body].every((run) => run.ok)) continue
+
+          const colors = [composedPalette(theme, GROUNDS[ground]).accent.color, theme.accent]
+          const denser = FIELD_ALPHAS[rung - 1]
+          const range = surfaceRange(palette.ground.color, palette.ground.alpha, [
+            ...(palette.groundTint ?? []),
+            ...colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: denser * step }))),
+          ])
+          const survives = [palette.display, palette.body].every(
+            (run) => worstRatio(run.color, range) >= run.threshold,
+          )
+          expect(survives, `${name} · ${ground} gave up a density it did not have to`).toBe(false)
+        }
+      }
+    })
+
+    it('leaves a scene with no field exactly as it was', () => {
+      for (const ground of Object.keys(GROUNDS)) {
+        for (const document of Object.values(THEMES)) {
+          const theme = resolveTheme(document)
+          const palette = composedPalette(theme, GROUNDS[ground])
+          expect(palette.field.alpha, ground).toBe(1)
+          // The ornament keeps the project's colour on every scene, fielded or
+          // not — it is measured on the ground either way.
+          expect(composedPalette(theme, GROUNDS[ground], { field: true }).accent).toEqual(palette.accent)
+          // The whole point of the memo in `ComposedSceneVideo`: nothing about a
+          // film without a stacked field changed, byte for byte.
+          expect(palette.runs).toEqual(composedPalette(theme, GROUNDS[ground], { field: false }).runs)
+        }
+      }
+    })
+
+    /**
+     * What the composition PAINTS is not what the palette MEASURED, and the
+     * difference is exactly the field.
+     *
+     * `Ground` reads `groundTint`; a `Ground` reading `ground.tint` would paint
+     * the field twice — once as a texture behind everything, once as the block it
+     * is — and on a gradient it would take the ramp's far end off the accent,
+     * since that branch reads the last entry.
+     */
+    it('keeps the field out of the texture the ground is painted with', () => {
+      for (const document of Object.values(THEMES)) {
+        const theme = resolveTheme(document)
+        for (const ground of ['hairlines', 'gridPulse', 'particles', 'gradient']) {
+          const palette = composedPalette(theme, GROUNDS[ground], { field: true })
+          // One layer for a texture, `GRADIENT_RAMP.length` for a ramp, and
+          // nothing at all when the texture was the thing in the way — never the
+          // eight the field adds to the measurement.
+          const own = ground === 'gradient' ? GRADIENT_RAMP.length : 1
+          expect([0, own], `${ground} paints only its own texture`).toContain((palette.groundTint ?? []).length)
+          // A gradient still ends on its own far end, at full density, which is
+          // the entry `Ground` reads to draw the ramp.
+          if (ground === 'gradient' && palette.groundTint?.length) {
+            expect(palette.groundTint[palette.groundTint.length - 1].alpha).toBe(1)
+          }
+        }
+      }
+    })
+  })
+
+  it('reads a ground it does not know as the field of hairlines, rather than throwing', () => {
+    // The kind was refused by `validate.js` long before a frame. Reaching this
+    // branch means the two disagree, and a film in the wrong texture beats a
+    // render that died half a minute in (Q1).
+    for (const bad of [undefined, null, {}, { kind: 'video' }, { kind: 'constructor' }]) {
+      expect(backgroundKind(bad), JSON.stringify(bad)).toBe('hairlines')
+    }
+  })
+})
+
+describe('layerCues', () => {
+  const stack = (...enters) => enters.map((enter) => (enter === null ? {} : { enter }))
+
+  /**
+   * An absent rank is the position the block was written in.
+   *
+   * A default of zero would make every silent document a pile — everything at
+   * once — which is the `kenBurns: 'static'` mistake in another costume: an
+   * optional field is a field a model omits, so the case you get by saying
+   * nothing has to be the good one.
+   */
+  it('reads an absent rank as the order the blocks were written in', () => {
+    const cues = layerCues(stack(null, null, null), 300)
+    expect(cues).toEqual([...cues].sort((a, b) => a - b))
+    expect(new Set(cues).size).toBe(3)
+  })
+
+  /** Blocks sharing a rank arrive together — a heading and its rule are one arrival. */
+  it('lands two blocks of one rank on the same frame', () => {
+    const cues = layerCues(stack(0, 0, 1), 300)
+    expect(cues[0]).toBe(cues[1])
+    expect(cues[2]).toBeGreaterThan(cues[1])
+  })
+
+  /**
+   * The rank is an ORDER and not a position on a clock.
+   *
+   * A block at rank 5 after one at rank 2 is the same cascade as 5 after 4 — the
+   * gap between two ranks buys nothing, because the beat between two arrivals is
+   * `cueFrames`. A model writing 0 and 500 gets exactly what a model writing 0
+   * and 1 gets, which is why the field is bounded at the number of blocks a scene
+   * can hold rather than at anything resembling a duration.
+   */
+  it('orders by rank rather than by the numbers themselves', () => {
+    expect(layerCues(stack(5, 2), 300)).toEqual(layerCues(stack(1, 0), 300))
+    expect(layerCues(stack(2, 5), 300)).toEqual(layerCues(stack(0, 1), 300))
+  })
+
+  /**
+   * And the beat is `cueFrames`, unchanged: a scene too short for its own cascade
+   * compresses it rather than losing its last block, which is what
+   * `MIN_CUE_TAIL_FRAMES` has always guaranteed for the other five.
+   */
+  it('never places a block with less than half a second of scene left after it', () => {
+    for (const durationInFrames of [45, 90, 300, 450]) {
+      const cues = layerCues(stack(null, null, null, null, null, null, null, null), durationInFrames)
+      for (const cue of cues) expect(cue).toBeLessThanOrEqual(Math.max(0, durationInFrames - MIN_CUE_TAIL_FRAMES))
+    }
+  })
+
+  it('answers for an empty stack rather than throwing inside a browser', () => {
+    expect(layerCues([], 300)).toEqual([])
+    expect(layerCues(undefined, 300)).toEqual([])
+  })
+})
+
+describe('anchorCell', () => {
+  /**
+   * A zone and never a coordinate. Nine cells plus the whole frame, and two blocks
+   * in one zone stack inside it — which is what lets `anchor` default to `center`
+   * without anything landing on top of anything.
+   */
+  it('maps every zone the schema names', () => {
+    expect(ANCHORS).toHaveLength(10)
+    for (const anchor of ANCHORS) {
+      const cell = anchorCell(anchor)
+      expect(typeof cell.row, anchor).toBe('string')
+      expect(typeof cell.column, anchor).toBe('string')
+    }
+  })
+
+  it('does not take a cell off the prototype chain', () => {
+    for (const inherited of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      expect(anchorCell(inherited), inherited).toEqual(anchorCell('center'))
+    }
+    expect(anchorCell(undefined)).toEqual(anchorCell('center'))
+  })
+})
+
+// ── Where the blocks land ────────────────────────────────────────────────────
+//
+// The layout was a CSS grid inside `ComposedSceneVideo.jsx` first, and this whole
+// section is the argument for moving it: a `padding: '6%'` is a picture somebody
+// has to watch, while a box in pixels is a claim a test can refuse. The two
+// claims below are the ones a viewer would have made — nothing is off the frame,
+// and nothing is on top of anything.
+
+/** The three frames the catalogue renders, by name, so a failure says which. */
+const FRAMES = Object.entries(DIMENSIONS)
+
+/** A scene of blocks at the anchors named, in that order. */
+const stackOf = (...anchors) => ({ layers: anchors.map((anchor) => ({ kind: 'heading', text: 'Bloc', anchor })) })
+
+describe('composedSafeArea', () => {
+  it('stays inside the frame in every ratio', () => {
+    for (const [ratio, { width, height }] of FRAMES) {
+      const frame = composedSafeArea(width, height)
+      expect(frame.left, ratio).toBeGreaterThan(0)
+      expect(frame.top, ratio).toBeGreaterThan(0)
+      expect(frame.left + frame.width, ratio).toBeLessThanOrEqual(width)
+      expect(frame.top + frame.height, ratio).toBeLessThanOrEqual(height)
+    }
+  })
+
+  /**
+   * The margin is per AXIS, which is the defect the first version shipped: a
+   * percentage in a CSS `padding` resolves against the width on all four sides, so
+   * a portrait frame got 65 px off its 1920 px edge and a landscape one 115 px off
+   * its 1080 px edge — the wrong way round in both, from one number that looked
+   * symmetrical.
+   */
+  it('spends the same share of each axis on a frame nothing is drawn over', () => {
+    const { width, height } = DIMENSIONS['16:9']
+    const frame = composedSafeArea(width, height)
+    expect(frame.left / width).toBeCloseTo(COMPOSED_SAFE_PERCENT / 100, 3)
+    expect(frame.top / height).toBeCloseTo(COMPOSED_SAFE_PERCENT / 100, 3)
+  })
+
+  /**
+   * And a 9:16 export pays the feed's bands instead, because it exists to be
+   * posted: the caption and the sound row cover the bottom of the frame, the
+   * action rail the right edge, the tabs the top. A `bottom-center` block inside a
+   * 6% margin there is not close to an edge — it is behind a button.
+   */
+  it('keeps a portrait frame clear of the interface a feed draws over it', () => {
+    const { width, height } = DIMENSIONS['9:16']
+    const frame = composedSafeArea(width, height)
+    expect(frame.top).toBeGreaterThanOrEqual((VERTICAL_SAFE_TOP_PERCENT / 100) * height)
+    expect(height - (frame.top + frame.height)).toBeGreaterThanOrEqual((VERTICAL_SAFE_BOTTOM_PERCENT / 100) * height)
+    expect(width - (frame.left + frame.width)).toBeGreaterThanOrEqual((VERTICAL_SAFE_SIDE_PERCENT / 100) * width)
+    expect(frame.left).toBeGreaterThanOrEqual((VERTICAL_SAFE_SIDE_PERCENT / 100) * width)
+  })
+
+  /**
+   * A square is NOT a feed frame, and saying so is worth a test: 1:1 is posted
+   * into a grid rather than under a caption row, and a fifth of its height given
+   * away to an interface nobody draws is a fifth of the film.
+   */
+  it('does not make a square pay the feed’s price', () => {
+    const { width, height } = DIMENSIONS['1:1']
+    const frame = composedSafeArea(width, height)
+    expect(frame.top / height).toBeCloseTo(COMPOSED_SAFE_PERCENT / 100, 3)
+    expect(frame.height / height).toBeGreaterThan(1 - (2 * VERTICAL_SAFE_TOP_PERCENT) / 100)
+  })
+
+  it('answers a box rather than a NaN when it is handed nothing', () => {
+    // Reached only if `useVideoConfig` ever answers late. A zero-sized frame is a
+    // black film; a NaN is `left: NaN` in a style attribute and a scene with every
+    // block piled at the origin (Q1).
+    for (const [w, h] of [[undefined, undefined], [null, 0], ['x', 'y']]) {
+      const frame = composedSafeArea(w, h)
+      for (const value of Object.values(frame)) expect(Number.isFinite(value)).toBe(true)
+    }
+  })
+})
+
+describe('composedLayout', () => {
+  const { width, height } = DIMENSIONS['16:9']
+
+  /**
+   * Everything the document asked for is on the frame, exactly once.
+   *
+   * The failure this refuses is the quiet one: a block that matched no zone would
+   * simply not be drawn, and the export would come back a success missing a line
+   * somebody wrote. So the indices are compared as a set against the document's
+   * own — one missing and one duplicated are the same assertion.
+   */
+  it('places every block of a scene exactly once', () => {
+    const scenes = [
+      stackOf('center'),
+      stackOf('center', 'center', 'center'),
+      stackOf(...ANCHORS),
+      { layers: [{ kind: 'heading', text: 'Sans ancre' }, { kind: 'kicker', text: 'Ni rang' }] },
+      stackOf('constructor', '__proto__', 'nowhere'),
+    ]
+    for (const composed of scenes) {
+      const placed = composedLayout(composed, width, height).zones.flatMap((zone) => zone.layers.map((l) => l.index))
+      expect([...placed].sort((a, b) => a - b)).toEqual(composed.layers.map((_, i) => i))
+    }
+  })
+
+  /** An anchor no build knows lands in the middle, rather than nowhere. */
+  it('reads an anchor it does not know as the centre', () => {
+    const zones = composedLayout(stackOf('nowhere'), width, height).zones
+    expect(zones).toHaveLength(1)
+    expect(zones[0].anchor).toBe('center')
+  })
+
+  /**
+   * Two blocks in one zone STACK; they do not overlap and they do not refuse the
+   * document. The order is the document's, which is the whole of what a repeated
+   * anchor means.
+   */
+  it('stacks the blocks of one zone in the order the document listed them', () => {
+    const layout = composedLayout(stackOf('center', 'center', 'center'), width, height)
+    expect(layout.zones).toHaveLength(1)
+    expect(layout.zones[0].layers.map((l) => l.index)).toEqual([0, 1, 2])
+    // Stacked with air between them rather than touching: the gap is what makes
+    // three blocks in one zone read as three blocks.
+    expect(layout.gap).toBeGreaterThan(0)
+  })
+
+  /**
+   * Nothing crosses the safe margin — the claim the whole geometry exists to
+   * support, over every arrangement of anchors the schema can express.
+   */
+  it('keeps every zone inside the safe frame, in every ratio', () => {
+    for (const [ratio, size] of FRAMES) {
+      for (const anchors of [[...ANCHORS], ['top-left', 'bottom-right'], ['center'], ['full', 'center']]) {
+        const { frame, zones } = composedLayout(stackOf(...anchors), size.width, size.height)
+        for (const { anchor, box } of zones) {
+          const where = `${ratio} ${anchor}`
+          expect(box.left, where).toBeGreaterThanOrEqual(frame.left)
+          expect(box.top, where).toBeGreaterThanOrEqual(frame.top)
+          expect(box.left + box.width, where).toBeLessThanOrEqual(frame.left + frame.width)
+          expect(box.top + box.height, where).toBeLessThanOrEqual(frame.top + frame.height)
+          expect(box.width, where).toBeGreaterThan(0)
+          expect(box.height, where).toBeGreaterThan(0)
+        }
+      }
+    }
+  })
+
+  /**
+   * And no two of the nine overlap. `full` is excluded on purpose: it is the field
+   * the other nine are drawn ON, which is why it is first in the list and
+   * therefore painted first.
+   */
+  it('never lets two cells overlap, whichever of the nine are used', () => {
+    for (const [ratio, size] of FRAMES) {
+      const { zones } = composedLayout(stackOf(...ANCHORS), size.width, size.height)
+      const cells = zones.filter((zone) => zone.anchor !== 'full')
+      expect(zones[0].anchor, ratio).toBe('full')
+      for (const a of cells) {
+        for (const b of cells) {
+          if (a === b) continue
+          const apart =
+            a.box.left + a.box.width <= b.box.left ||
+            b.box.left + b.box.width <= a.box.left ||
+            a.box.top + a.box.height <= b.box.top ||
+            b.box.top + b.box.height <= a.box.top
+          expect(apart, `${ratio}: ${a.anchor} over ${b.anchor}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  /**
+   * A row belongs to the columns that are USED, and the default document is why.
+   *
+   * `anchor` defaults to `center`, so a scene that names none puts everything in
+   * one cell — and a fixed third of a 16:9 frame is 563 px, which is five
+   * characters of display type on a line. The commonest scene there is would have
+   * been the one this layout could not render.
+   */
+  it('gives a lone column the whole measure, and shares it when there is a neighbour', () => {
+    const alone = composedLayout(stackOf('center'), width, height).zones[0]
+    const paired = composedLayout(stackOf('center-left', 'center-right'), width, height).zones
+    const thirds = composedLayout(stackOf('center-left', 'center', 'center-right'), width, height).zones
+    const frame = composedSafeArea(width, height)
+    expect(alone.box.width).toBe(frame.width)
+    for (const zone of paired) expect(zone.box.width).toBeLessThan(frame.width / 2 + 1)
+    for (const zone of thirds) expect(zone.box.width).toBeLessThan(frame.width / 3 + 1)
+    // A neighbour in ANOTHER row costs nothing: the split is per band.
+    expect(composedLayout(stackOf('center', 'top-left'), width, height).zones.find((z) => z.anchor === 'center').box.width)
+      .toBe(frame.width)
+  })
+
+  /** The three bands are the same in every scene: a row's anchored edge is the safe edge. */
+  it('anchors the top band to the safe top and the bottom band to the safe bottom', () => {
+    const frame = composedSafeArea(width, height)
+    const { zones } = composedLayout(stackOf('top-center', 'bottom-center'), width, height)
+    const top = zones.find((zone) => zone.anchor === 'top-center')
+    const bottom = zones.find((zone) => zone.anchor === 'bottom-center')
+    expect(top.box.top).toBe(frame.top)
+    expect(bottom.box.top + bottom.box.height).toBe(frame.top + frame.height)
+    // Which is what makes an overflowing stack safe: it grows towards the middle.
+    expect(top.justify).toBe('flex-start')
+    expect(bottom.justify).toBe('flex-end')
+  })
+
+  /**
+   * `full` is the safe area and not the frame. A field that bled to the edge would
+   * be a map cropped by overscan and a gallery whose bottom row sits under a
+   * phone's caption box — the two failures the safe area exists to prevent,
+   * arriving through the one anchor that opts out of it.
+   */
+  it('gives a field the safe area, and makes two fields share it', () => {
+    const frame = composedSafeArea(width, height)
+    const one = composedLayout(stackOf('full'), width, height).zones[0]
+    expect(one.box).toEqual(frame)
+    expect(one.share).toBe(true)
+    // `stretch` is a legal `align-items` and not a legal `justify-content`: the
+    // sharing zone is reported as a flag plus a valid pair, never as a value the
+    // composition would have to translate.
+    expect(one.justify).toBe('flex-start')
+    expect(one.align).toBe('stretch')
+    expect(composedLayout(stackOf('full', 'full'), width, height).zones[0].layers).toHaveLength(2)
+  })
+
+  /** The gutter and the stack gap are two numbers, and the tighter one is inside a zone. */
+  it('separates two zones by more than it separates two blocks of one zone', () => {
+    const { gap, gutter } = composedLayout(stackOf('center'), width, height)
+    expect(gutter).toBeGreaterThan(gap)
+    expect(gap).toBe(Math.round(frameBase(width, height) * COMPOSED_STACK_GAP))
+    expect(gutter).toBe(Math.round(frameBase(width, height) * COMPOSED_CELL_GAP))
+  })
+
+  it('answers for a scene with no layers rather than throwing inside a browser', () => {
+    for (const empty of [undefined, null, {}, { layers: [] }, { layers: 'no' }]) {
+      expect(composedLayout(empty, width, height).zones).toEqual([])
+    }
+  })
+})
+
+describe('groundDensity', () => {
+  /**
+   * The one quantity a composed film has that could undo the legibility
+   * guarantee. `composedPalette` measured every run against the ground's tint at
+   * full strength, so a pulse above 1 is text on a surface nobody measured — and
+   * the asymmetry is the whole argument: a layer that can only get fainter cannot
+   * spend contrast the measurement promised.
+   */
+  it('never rises above the density that was measured, and never falls through the floor', () => {
+    for (const kind of ['gridPulse', 'particles']) {
+      for (let step = 0; step <= 100; step += 1) {
+        const density = groundDensity(kind, step / 100)
+        expect(density, `${kind} at ${step}%`).toBeLessThanOrEqual(1)
+        expect(density, `${kind} at ${step}%`).toBeGreaterThanOrEqual(PULSE_FLOOR)
+      }
+    }
+  })
+
+  it('holds a ground that does not animate at full strength', () => {
+    for (const kind of ['solid', 'hairlines', 'gradient', 'image', 'constructor', undefined]) {
+      expect(groundDensity(kind, 0.5), String(kind)).toBe(1)
+    }
+  })
+
+  it('actually moves the grounds that do animate', () => {
+    for (const kind of ['gridPulse', 'particles']) {
+      expect(groundDensity(kind, 0), kind).not.toBe(groundDensity(kind, 0.25))
+    }
+  })
+})
+
+describe('the mosaic dissolve', () => {
+  /**
+   * A transition that could leave the last frame of a scene partly masked would be
+   * a hole in the middle of a film, so the two ends are what this checks: nothing
+   * shows at the start, everything shows at the end.
+   */
+  it('reveals nothing at its start and everything at its end', () => {
+    const start = entranceStyle('pixel', 0, 20)
+    const end = entranceStyle('pixel', 20, 20)
+    expect(start.maskImage).toContain('0 0%')
+    expect(end.maskImage).toContain(`0 ${PIXEL_CELL_PERCENT}%`)
+    // At full reveal the transparent range is empty, so the mask is opaque
+    // whatever a renderer makes of `mask-composite`.
+    expect(end.maskImage).toContain(`${PIXEL_CELL_PERCENT}% ${PIXEL_CELL_PERCENT}%`)
+  })
+
+  it('carries the prefixed spelling beside the standard one', () => {
+    const style = entranceStyle('pixel', 10, 20)
+    expect(style.WebkitMaskImage).toBe(style.maskImage)
+    expect(style.maskComposite).toBe('intersect')
+  })
+
+  it('belongs to the arriving scene, like every other transition', () => {
+    // No entrance for the first scene, and none for `none`: this is shared code,
+    // so the rule is the same one the four older transitions follow.
+    expect(entranceStyle('pixel', 0, 0)).toBe(null)
   })
 })

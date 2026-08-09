@@ -184,10 +184,27 @@ beforeEach(() => {
   providerRequests = []
   providerHangs = false
   providerHungUpOn = false
+  /*
+   * A COMPOSED film, because that is what the composer now asks for: a ground
+   * and a stack of blocks, with the pictures on the ground and inside the stack
+   * rather than on the scene. The route's own job is unchanged — descriptions
+   * from the library, the theme attached afterwards, the call abandoned when the
+   * browser leaves — and this fixture is what those tests need in order to be
+   * about the route rather than about the shape of last month's document.
+   */
   providerAnswer = {
+    template: 'composed',
     scenes: [
-      { imageId: ID_A, durationMs: 4000, kenBurns: 'zoom-in', transitionOut: 'crossfade' },
-      { imageId: ID_B, durationMs: 5000, kenBurns: 'static', transitionOut: 'none' },
+      {
+        durationMs: 4000,
+        background: { kind: 'image', imageId: ID_A },
+        layers: [{ kind: 'heading', text: 'The kettle' }],
+      },
+      {
+        durationMs: 5000,
+        background: { kind: 'hairlines' },
+        layers: [{ kind: 'imageFrame', imageId: ID_B }],
+      },
     ],
   }
   libraryMeta = {
@@ -527,11 +544,15 @@ describe('POST /compose', () => {
     const res = await compose({ brief: 'a calm slideshow of the kettle', images: [ID_A, ID_B] })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.timeline.scenes.map((s) => s.imageId)).toEqual([ID_A, ID_B])
-    // The parsed document, so the renderer never receives a scene missing a
+    expect(body.timeline.template).toBe('composed')
+    // Both selected pictures are in the film, and neither is on the scene: one
+    // is the ground, the other is inside a block.
+    expect(body.timeline.scenes[0].background.imageId).toBe(ID_A)
+    expect(body.timeline.scenes[1].layers[0].imageId).toBe(ID_B)
+    // The parsed document, so the renderer never receives a block missing a
     // field it reads.
     expect(body.timeline.outputFormat).toBe('mp4')
-    expect(body.timeline.scenes[0].textOverlay).toBe(null)
+    expect(body.timeline.scenes[1].layers[0].caption).toBe(null)
   })
 
   /**
@@ -588,16 +609,19 @@ describe('POST /compose', () => {
 
   /**
    * An empty selection used to be a 400, and that was right until the catalogue
-   * arrived: `titles` is words on a background and its scene schema has no
-   * `imageId` at all. Refusing here made the one composition written for a brief
-   * of words unreachable through the only route that composes.
+   * arrived: twenty-one of the twenty-four blocks put no picture on the screen,
+   * and a film of type, numbers and motifs is a film. Refusing here made every
+   * brief of words unreachable through the only route that composes.
    */
-  it('composes a titles film from a brief with no image selected', async () => {
+  it('composes a film of type from a brief with no image selected', async () => {
     withModel()
-    providerAnswer = { template: 'titles', scenes: [{ headline: 'Coming in spring', durationMs: 3000 }] }
+    providerAnswer = {
+      template: 'composed',
+      scenes: [{ durationMs: 3000, layers: [{ kind: 'heading', text: 'Coming in spring' }] }],
+    }
     const res = await compose({ brief: 'an opening card', images: [] })
     expect(res.status).toBe(200)
-    expect((await res.json()).timeline.template).toBe('titles')
+    expect((await res.json()).timeline.template).toBe('composed')
   })
 
   /**
@@ -704,7 +728,16 @@ describe('POST /compose', () => {
   it('returns no timeline when the proposal names an image nobody selected', async () => {
     withModel()
     providerAnswer = {
-      scenes: [{ imageId: 'd'.repeat(64), durationMs: 4000, kenBurns: 'static', transitionOut: 'none' }],
+      // No `template` either, which on the composing path means `composed` — the
+      // constant field a model omits, read as what it was asked for rather than
+      // as the compatibility slideshow.
+      scenes: [
+        {
+          durationMs: 4000,
+          background: { kind: 'image', imageId: 'd'.repeat(64) },
+          layers: [{ kind: 'heading', text: 'The kettle' }],
+        },
+      ],
     }
     const body = await (await compose({ brief: 'a calm slideshow', images: [ID_A] })).json()
     expect(body.timeline).toBe(null)

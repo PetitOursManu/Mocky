@@ -45,10 +45,28 @@ La séparation est tenue à quatre endroits, et les quatre doivent tenir :
 
 | Où | Ce que ça garantit |
 |---|---|
-| `worker/video/package.json` | Les paquets Remotion vivent ici, jamais dans le manifeste de Mocky |
+| `worker/video/package.json` | Les paquets Remotion vivent ici, jamais dans le manifeste de Mocky — et tout le reste dont cette image a besoin et Mocky non plus |
 | `worker/video/Dockerfile` | Une seconde image, construite seulement sur demande |
 | `.dockerignore` (racine du dépôt) | `worker/` n'entre jamais dans le contexte de build de Mocky |
 | `docker-compose.yml` | `profiles: ["video-export"]` — absent tant qu'on ne le demande pas |
+
+**`three` est dans ce manifeste aussi, et c'est la même règle, pas une exception
+à celle-ci.** Un bloc — `solidScene` — dessine un solide éclairé en vraie
+perspective, ce qui demande `three`, `@react-three/fiber` et `@remotion/three`.
+Tous trois sont en MIT, aucun n'embarque de binaire natif, et ils ont été mesurés
+sur cette image avant d'être acceptés : +26,6 Mio installés, 1,57 → 1,60 Go une
+fois construite (+2,0 %), 83 s → 87 s de construction, et environ 0,9 s de rendu
+supplémentaire par seconde de film pour un solide plein cadre, contre les
+1,7 s/s que l'échéance proportionnelle à la durée laisse libres. Parce qu'ils
+vivent ici, ils tombent exactement sous les garanties du tableau ci-dessus : une
+instance qui ne construit jamais cette image ne les installe jamais.
+
+Deux paquets ont été mesurés puis refusés, et `docs/fr/video-export.md` porte le
+raisonnement : `@shopify/react-native-skia`, dont `@remotion/skia` a besoin,
+installe 443 Mio de binaires `.a` et `.so` précompilés pour quatre plateformes
+qui ne peuvent pas s'exécuter ici ; et un colorateur syntaxique, dont la sortie
+est une table de couleurs que personne n'a mesurées — la seule chose que
+`blocks.test.js` refuse net.
 
 Et tenue, plutôt que simplement écrite, par
 `tests/video-worker-separation.test.js` dans le dépôt Mocky : la prose ne fait pas
@@ -60,7 +78,7 @@ schéma, la file et le magasin — est documenté dans
 
 ## Ce qu'il rend
 
-Cinq compositions, une par modèle, et c'est tout ce qu'un appelant peut
+Six compositions, une par modèle, et c'est tout ce qu'un appelant peut
 atteindre : `render.js` en sélectionne une par l'id que renvoie
 `compositionIdFor`, donc une requête ne peut en nommer aucune autre.
 
@@ -70,6 +88,7 @@ atteindre : `render.js` en sélectionne une par l'id que renvoie
 | `overlay` | `OverlayBandVideo` | Une capture d'écran qui dérive de ±1,2 % dans le sens que nomme son `move`, avec un bandeau dont le titre et le sous-titre arrivent en cascade sur un voile presque opaque |
 | `vertical` | `VerticalStoryVideo` | 9:16 plein cadre, gros titres, à l'intérieur des marges que les interfaces sociales recouvrent de leurs propres boutons |
 | `titles` | `AnimatedTitlesVideo` | Des mots sur le fond du thème, soulignés par l'accent. **Aucune image** |
+| `composed` | `ComposedSceneVideo` | Un fond et une pile d'un à huit blocs typés, disposés dans neuf zones. Les blocs sont les vingt-sept composants de `blocks/`, et c'est le modèle qui les arrange |
 | `product` | `ProductSpotlightVideo` | Une image cadrée large, une accroche, un à trois arguments et un appel à l'action, énumérés |
 
 **Le modèle n'écrit jamais de code Remotion.** Il écrit un objet JSON, validé par
@@ -131,7 +150,7 @@ champ fps, donc une option ici serait une option que personne ne peut atteindre.
 
 **Rien ne reste immobile.** `sceneMotion`, dans `composition.js`, répond pour
 n'importe quel modèle et n'importe quelle image toutes les quantités qui changent
-entre deux images d'une scène, et les cinq compositions la lisent au lieu de
+entre deux images d'une scène, et chaque composition la lit au lieu de
 calculer leurs propres arrivées. C'est ce qui permet à
 `tests/video-motion.test.js` de prouver par le calcul que la dernière image de
 chaque scène diffère de la première, sur un document où le modèle n'a rempli aucun
@@ -363,7 +382,7 @@ exécute ceci sur un hôte public peut y remettre `assertSafeTargetResolved`.
 worker/video/
   README.md            la version anglaise — l'avertissement de licence en premier, exprès
   README.fr.md         ce fichier
-  package.json         les paquets Remotion, épinglés exactement. Jamais fusionnés dans ceux de Mocky
+  package.json         les paquets Remotion et ceux de three, épinglés exactement. Jamais fusionnés dans ceux de Mocky
   Dockerfile           node:22-bookworm-slim + les bibliothèques de Chromium + ffmpeg
   .dockerignore        ce répertoire est son propre contexte de build
   server.js            Express : GET /health, POST /render. N'importe aucun paquet Remotion
@@ -375,12 +394,18 @@ worker/video/
   encoding.test.js     cet objet d'options — la seule part d'un rendu qu'un test vérifie
   remotion/
     index.js               registerRoot — bundlé, jamais exécuté par Node
-    Root.jsx               la liste des compositions ; cinq entrées, un calculateMetadata
+    Root.jsx               la liste des compositions ; six entrées, un calculateMetadata
     ImageSequenceVideo.jsx     slideshow  ⎫
     OverlayBandVideo.jsx       overlay    ⎪ les compositions. Du React écrit à la
     VerticalStoryVideo.jsx     vertical   ⎬ main, une par modèle, chacune une revue
     AnimatedTitlesVideo.jsx    titles     ⎪ de code ordinaire et non une brèche
     ProductSpotlightVideo.jsx  product    ⎭
+    ComposedSceneVideo.jsx     composed
+    blocks/                un composant par sorte de bloc, plus index.js, le
+                           registre. Aucun import Remotion, aucune couleur et aucune
+                           courbe d'accélération dans aucun d'eux — blocks.test.js
+                           tient les trois, et le premier est ce qui lui permet de
+                           s'exécuter
     composition.js         les ids, la géométrie, le thème et l'arithmétique d'images,
                            en JS simple pour que Node et le bundle les importent tous deux
     composition.test.js    cette arithmétique, sans produire de vidéo

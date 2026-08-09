@@ -12,6 +12,9 @@ const scene = (over = {}) => ({ imageId: ID_A, durationMs: 3000, ...over })
 const band = (over = {}) => ({ imageId: ID_A, durationMs: 3000, band: { title: 'Ship it' }, ...over })
 const title = (over = {}) => ({ headline: 'Ship it', durationMs: 3000, ...over })
 const product = (over = {}) => ({ imageId: ID_A, durationMs: 4000, headline: 'Ship it', bullets: ['Fast'], ...over })
+/** One composed scene, and one block on it. Both at their own floors. */
+const block = (over = {}) => ({ kind: 'heading', text: 'Ship it', ...over })
+const composed = (over = {}) => ({ durationMs: 3000, layers: [block()], ...over })
 
 /**
  * Every document below is run through BOTH schemas and the answers compared.
@@ -137,6 +140,105 @@ const CORPUS = [
   ['a product with no arguments', { template: 'product', scenes: [product({ bullets: [] })] }],
   ['a product under its own floor', { template: 'product', scenes: [product({ durationMs: 2999 })] }],
   ['a product with a call to action', { template: 'product', scenes: [product({ cta: 'Try it free' })] }],
+
+
+  // ---- the composable variant ---------------------------------------------
+  // A stack of typed blocks is the widest surface in this schema by a long way,
+  // and the two copies of it were written twice by hand. Every entry below is a
+  // way one of them could have been written more permissively than the other —
+  // and the dangerous direction is the same as ever: the server accepting what
+  // nothing downstream can render.
+  ['a composed scene, defaults unapplied', { template: 'composed', scenes: [composed()] }],
+  [
+    'a composed scene with every field spelled out',
+    {
+      template: 'composed',
+      scenes: [
+        composed({
+          background: { kind: 'gradient', direction: 'diagonal' },
+          transitionOut: 'pixel',
+          layers: [
+            { kind: 'kicker', text: 'Motion', anchor: 'top-left', enter: 0 },
+            { kind: 'heading', text: 'Ship it', level: 'display', anchor: 'center-left', enter: 1 },
+            { kind: 'separator', treatment: 'double', extent: 'measure', anchor: 'center-left', enter: 1 },
+          ],
+        }),
+      ],
+      outputFormat: 'webm',
+      aspectRatio: '1:1',
+    },
+  ],
+  ['a composed film on a solid ground', { template: 'composed', scenes: [composed({ background: { kind: 'solid' } })] }],
+  [
+    'a composed film on a field of hairlines',
+    { template: 'composed', scenes: [composed({ background: { kind: 'hairlines' } })] },
+  ],
+  [
+    'a composed film on a pulsing grid',
+    { template: 'composed', scenes: [composed({ background: { kind: 'gridPulse', cells: 12 } })] },
+  ],
+  [
+    'a composed film on particles',
+    { template: 'composed', scenes: [composed({ background: { kind: 'particles', density: 3 } })] },
+  ],
+  [
+    'a composed film on a photograph',
+    { template: 'composed', scenes: [composed({ background: { kind: 'image', imageId: ID_A, move: 'pan-left' } })] },
+  ],
+  ['a composed film on a ground nobody paints', { template: 'composed', scenes: [composed({ background: { kind: 'video' } })] }],
+  ['a composed film on a photograph with no photograph', { template: 'composed', scenes: [composed({ background: { kind: 'image' } })] }],
+  ['a composed film with a grid past its cell cap', { template: 'composed', scenes: [composed({ background: { kind: 'gridPulse', cells: 17 } })] }],
+  ['a composed scene with no layers', { template: 'composed', scenes: [composed({ layers: [] })] }],
+  [
+    'a composed scene one layer past the cap',
+    { template: 'composed', scenes: [composed({ layers: Array.from({ length: 9 }, () => block()) })] },
+  ],
+  ['a block kind nobody wrote', { template: 'composed', scenes: [composed({ layers: [{ kind: 'video', src: 'x.mp4' }] })] }],
+  ['a block with an unknown key', { template: 'composed', scenes: [composed({ layers: [block({ tone: 'loud' })] })] }],
+  // The founding rule, as a corpus entry: a colour on a block is the theme the
+  // server attaches, arriving through a layer instead of through a key.
+  ['a block that names a colour', { template: 'composed', scenes: [composed({ layers: [block({ color: '#c0392b' })] })] }],
+  ['a block that names a font', { template: 'composed', scenes: [composed({ layers: [block({ fontFamily: 'Inter' })] })] }],
+  ['a block placed at a coordinate', { template: 'composed', scenes: [composed({ layers: [block({ x: 40, y: 12 })] })] }],
+  ['a block timed in milliseconds', { template: 'composed', scenes: [composed({ layers: [block({ delayMs: 400 })] })] }],
+  ['a block anchored to a zone that is not one', { template: 'composed', scenes: [composed({ layers: [block({ anchor: 'middle' })] })] }],
+  ['a block with an arrival rank past the stack', { template: 'composed', scenes: [composed({ layers: [block({ enter: 8 })] })] }],
+  ['a block with a fractional arrival rank', { template: 'composed', scenes: [composed({ layers: [block({ enter: 1.5 })] })] }],
+  ['a heading of whitespace', { template: 'composed', scenes: [composed({ layers: [block({ text: '  ' })] })] }],
+  ['a heading past its cap', { template: 'composed', scenes: [composed({ layers: [block({ text: 'x'.repeat(71) })] })] }],
+  [
+    'a gallery of one picture',
+    { template: 'composed', scenes: [composed({ layers: [{ kind: 'gallery', imageIds: [ID_A] }] })] },
+  ],
+  [
+    'a gallery of two pictures',
+    { template: 'composed', scenes: [composed({ layers: [{ kind: 'gallery', imageIds: [ID_A, ID_B] }] })] },
+  ],
+  ['a chart with one value', { template: 'composed', scenes: [composed({ layers: [{ kind: 'barChart', values: [40] }] })] }],
+  [
+    'a chart with a value past a percentage',
+    { template: 'composed', scenes: [composed({ layers: [{ kind: 'barChart', values: [40, 140] }] })] },
+  ],
+  // The three integers the catalogue gives no default to, left unsaid. A hole in
+  // a series is the one of the three that looks harmless: the array is the right
+  // length and the bar it describes has no height.
+  ['a chart with a hole in its series', { template: 'composed', scenes: [composed({ layers: [{ kind: 'barChart', values: [40, null] }] })] }],
+  ['a counter with nothing to count to', { template: 'composed', scenes: [composed({ layers: [{ kind: 'counter' }] })] }],
+  ['a progress bar with nothing to fill to', { template: 'composed', scenes: [composed({ layers: [{ kind: 'progressBar' }] })] }],
+  ['a clock reading a real time', { template: 'composed', scenes: [composed({ layers: [{ kind: 'clock', time: '09:30' }] })] }],
+  ['a clock reading nonsense', { template: 'composed', scenes: [composed({ layers: [{ kind: 'clock', time: 'now' }] })] }],
+  ['a composed scene under its own floor', { template: 'composed', scenes: [composed({ durationMs: 1499 })] }],
+  [
+    'a composed film past its scene cap',
+    { template: 'composed', scenes: Array.from({ length: 13 }, () => composed({ durationMs: 1500 })) },
+  ],
+  [
+    'a composed film past the total ceiling',
+    { template: 'composed', scenes: Array.from({ length: 12 }, () => composed({ durationMs: 15000 })) },
+  ],
+  // The mosaic dissolve is this variant's own vocabulary, and the five that
+  // shipped first keep theirs.
+  ['a slideshow asking for the mosaic dissolve', { scenes: [scene({ transitionOut: 'pixel' })] }],
 
   // ---- the theme ----------------------------------------------------------
   // Refused on BOTH copies, and that is the enforcement: the model writes a

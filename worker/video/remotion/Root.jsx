@@ -1,5 +1,6 @@
 import { Composition } from 'remotion'
 import { AnimatedTitlesVideo } from './AnimatedTitlesVideo.jsx'
+import { ComposedSceneVideo } from './ComposedSceneVideo.jsx'
 import { ImageSequenceVideo } from './ImageSequenceVideo.jsx'
 import { OverlayBandVideo } from './OverlayBandVideo.jsx'
 import { ProductSpotlightVideo } from './ProductSpotlightVideo.jsx'
@@ -38,13 +39,18 @@ const metadata = ({ props }) => {
 }
 
 /**
- * Every composition the worker can render, which is five.
+ * Every composition the worker can render, which is six.
  *
  * `render.js` selects by the id `compositionIdFor` returns, so this list is the
  * whole surface a caller can reach — the same shape the timeline schema has on
- * the Mocky side: what cannot be named cannot be asked for. Adding a sixth look
- * means a component, an entry in `COMPOSITIONS`, a reader in `validate.js` and a
+ * the Mocky side: what cannot be named cannot be asked for. Adding a look means
+ * a component, an entry in `COMPOSITIONS`, a reader in `validate.js` and a
  * normal code review. It is never a string a model got to write.
+ *
+ * The sixth is `ComposedSceneVideo`, and it is one composition rather than a
+ * sixth look: what varies inside it is which of the twenty-four components under
+ * `blocks/` a document asked for. The rule above is unchanged — every one of
+ * those is a name out of a closed enum and a file somebody wrote.
  */
 export const RemotionRoot = () => (
   <>
@@ -170,6 +176,39 @@ export const RemotionRoot = () => (
               headline: 'One screen, one film',
               bullets: ['No Remotion in the model', 'Your own colours', 'Two minutes at most'],
               cta: 'Try it',
+              transitionOut: 'none',
+            },
+          ],
+          outputFormat: 'mp4',
+          aspectRatio: '16:9',
+        },
+        imageSrc: PLACEHOLDER_SRC,
+      }}
+      calculateMetadata={metadata}
+    />
+
+    <Composition
+      id={COMPOSITIONS.composed}
+      component={ComposedSceneVideo}
+      fps={FPS}
+      width={dimensionsFor('16:9').width}
+      height={dimensionsFor('16:9').height}
+      durationInFrames={FPS}
+      // Three blocks on the ground a silent document gets, because that is the
+      // combination somebody opening the studio needs to see working: a stack in
+      // one cell, a block in another, and the field of hairlines under both.
+      defaultProps={{
+        timeline: {
+          template: 'composed',
+          scenes: [
+            {
+              durationMs: 4000,
+              background: { kind: 'hairlines' },
+              layers: [
+                { kind: 'kicker', text: 'Motion', anchor: 'top-left' },
+                { kind: 'heading', text: 'Composed from blocks', level: 'display', anchor: 'center-left' },
+                { kind: 'separator', treatment: 'double', extent: 'measure', anchor: 'center-left' },
+              ],
               transitionOut: 'none',
             },
           ],

@@ -22,7 +22,7 @@ This page is about the decisions. What each control does is in
 
 ## What it makes, and what it does not
 
-Five kinds of film, cut from pictures the user already picked.
+Six kinds of film, cut from pictures the user already picked.
 
 | Template | What it is |
 |---|---|
@@ -31,6 +31,7 @@ Five kinds of film, cut from pictures the user already picked.
 | `vertical` | A 9:16 cut for a phone feed: full bleed, short beats |
 | `titles` | Animated titling. Text only — **no image at all** |
 | `product` | One picture, a headline, up to three arguments and a call to action |
+| `composed` | A ground and a stack of typed blocks — the model arranges the frame itself, out of a closed catalogue of twenty-seven |
 
 Two minutes at most, 30 fps, in `16:9`, `9:16` or `1:1` — and each template
 narrows the rest to its own numbers, because a slideshow beat can be one second
@@ -52,16 +53,18 @@ that feeds scroll sequences into a mockup. Two features, one letter apart.
 ## The founding rule: the model writes JSON, never Remotion
 
 A model is involved exactly once, in `server/video/compose.js`, and what it
-returns is one JSON object. It **picks one composition out of the catalogue and
-fills in its parameters**, over images the user has already chosen. It does not
-pick the pictures, and it never writes a frame of rendering code. Every
-composition under `worker/video/remotion/` is written by hand.
+returns is one JSON object. It **composes each scene out of a fixed catalogue —
+a ground and a stack of typed blocks — and fills in their parameters**, over
+images the user has already chosen. It does not pick the pictures, and it never
+writes a frame of rendering code. Every composition and every block under
+`worker/video/remotion/` is written by hand.
 
-**Choosing a template is not choosing a rendering,** and the whole catalogue
-rests on that distinction. What comes back is one name out of a closed enum of
-five, and each of those names is a component somebody wrote and a reviewer read.
-The model gets the variety; it never gets a string that becomes code, a layout it
-described, or a file name.
+**Naming a block is not choosing a rendering,** and the whole catalogue rests on
+that distinction. What comes back is a name out of a closed enum — one of six
+templates, one of six grounds, one of twenty-seven blocks — and each of those
+names is a component somebody wrote and a reviewer read. The model gets the
+variety; it never gets a string that becomes code, a layout it described, or a
+file name.
 
 This is the only tenable architecture for a self-hosted product where anybody
 plugs in any model. The alternative — let the model emit Remotion/React source
@@ -138,53 +141,434 @@ a test requires `RENDERABLE_TEMPLATES` to equal the schema's `VIDEO_TEMPLATES`,
 because a template Mocky can compose with no composition behind it is an export
 that fails after the user was told it was queued.
 
-### Choosing from it: the brief decides, and the selection bounds the offer
+### The sixth entry is not a sixth look: it is a stack of blocks
 
-The system prompt in `compose.js` is a catalogue card per composition — what it
-is for, what it needs, what it puts on the screen — followed by the mapping from
-an intention to a name:
+Five monolithic templates buy variety by the handful. A brief either fits one of
+five layouts or it does not, and the interface made that everybody's problem: the
+first control in the panel was a composition selector, so the person who had come
+to describe a film was asked to pick a rendering before writing a sentence. The
+answer to "how do I get something original" was a radio button with five
+positions on it.
 
-| The brief is about | The composition |
+`composed` is the sixth entry in the union and the different kind of entry. A
+scene is a **background plus a stack of typed blocks**, the model chooses which
+blocks, in what order, in which zone and with what parameters, and the variety
+becomes combinatorial instead of a choice among five.
+
+**It does not reopen the founding rule, and the distinction is worth stating
+because it looks as though it might.** Every `kind` is one name out of a closed
+enum of twenty-seven. Every one of those names is a component in
+`worker/video/remotion/blocks/` that somebody wrote and a reviewer read. Every
+field of every block is a bounded integer, a closed enum or a `line(n)`, checked
+by all three readers. What the model gained is *arithmetic* — combinations rather
+than cards — not permission to describe its own rendering.
+
+| Family | Blocks |
 |---|---|
-| words alone, or there is no picture to work from | `titles` |
-| a phone, a story, a reel, a feed, portrait, vertical | `vertical` |
-| a screen, an interface, a dashboard, a capture to be read | `overlay` |
-| something being sold: arguments, a price, a call to action | `product` |
-| anything else, with pictures to show | `slideshow` |
+| Text | `heading`, `kicker`, `quote`, `textHighlight`, `funTitle` |
+| Animated text | `typewriter`, `animatedList`, `counter`, `logoType` |
+| Interface | `button`, `form`, `notification`, `lowerThird` |
+| Data | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map` |
+| Media and time | `imageFrame`, `gallery`, `carousel`, `clock`, `dateStamp` |
+| Misc | `separator`, `progressBar` |
+| Set pieces | `codeBlock`, `solidScene` |
+| Grounds | `solid`, `gradient`, `hairlines`, `gridPulse`, `particles`, `image` |
 
-Written down rather than left to taste, because a model shown five compositions
-picks the most elaborate one it was shown. Every brief then comes back as a
-product card, with three arguments nobody wrote in it. The prompt says the
-opposite twice: take the narrower composition when two would fit, and do not
-choose one for being impressive.
+**The five stay, whole and renderable.** Saved drafts and the queue's journal are
+full of them, and a template removed is every one of those documents refused at
+validation with nothing anywhere naming the change that caused it. The panel's
+selector and `draft.ts`'s flat record are keyed on `EDITABLE_TEMPLATES`, the five
+a person can fill in by hand; the schema, the worker, the palettes and the
+motions are keyed on `VIDEO_TEMPLATES`, which is now six. Two lists rather than
+one with a flag, because "can this be rendered" and "can this be typed in" are
+not the same question and have not had the same answer since the blocks arrived.
 
-**Every number on those cards is read off `TEMPLATE_LIMITS` and `TEXT_LIMITS`,
-never typed twice.** A floor restated by hand drifts from the validator, and the
-drift is the expensive kind: the call is spent, the answer comes back with
-two-second product cards, and the refusal quotes a number the model was never
-told about.
+#### Three blocks that cost a dependency, and what the measurements said
 
-**The selection decides which compositions are even offered.** Four of the five
-require an `imageId`, so with nothing selected they have no valid document at
-all — the catalogue the model reads is therefore built from the selection, and
-with an empty one it holds `titles` alone. That is a hint and never the gate: a
-provider that ignores structured output will answer `product` anyway, and it is
-refused **by naming `titles`**. A bare "no" there would send the user back to
-reword a brief that was never the problem; the answer is that a film with no
-pictures in it is animated titling, and saying so costs one sentence.
+The catalogue was asked for three more things — real 3D, "fun" titles and an
+animation of code — and all three have an obvious package behind them that this
+worker does not carry. `worker/video/` is a separate sub-project behind an opt-in
+profile and excluded from Mocky's Docker build context, so adding one there
+touches neither the root manifest, nor the root Dockerfile, nor the default
+compose file; `tests/video-worker-separation.test.js` is what says so. Adding one
+is therefore allowed. Whether it is worth it is a measurement, and each was
+measured on the image that actually ships.
+
+| | Installed | Image | Build | Render | Licence | Verdict |
+|---|---|---|---|---|---|---|
+| `three` + `@react-three/fiber` + `@remotion/three` | +26.6 MiB | 1.57 → 1.60 GB (+32 MB, +2.0%) | 83 s → 87 s | +0.9 s per second of film | MIT, no native binary | **taken** |
+| `@remotion/skia` + `@shopify/react-native-skia` + `canvaskit-wasm` | **+461 MiB** | +30% of the whole image | — | — | MIT / BSD-3, **prebuilt `.a` and `.so` for four platforms** | refused |
+| `shiki` / `prismjs` | +14.6 MiB / +2.1 MiB | negligible | negligible | — | MIT | refused, and not on cost |
+
+**3D is taken, and the wireframe inside it is not.** WebGL works in this
+container on Chromium's default backend — `swangle`, the software rasteriser —
+with no change to `render.js` and no `chromiumOptions`. What it costs was
+measured at 1080p on the two-core worker: a full-frame lit sphere took 14.9 s for
+6 s of film against 9.2 s for a plain title, and 65.6 s against 39.1 s for 30 s,
+which is an *additive* 0.9 s of render per second of film and linear across the
+range. The duration-scaled deadline allows 6 s of render per second of film and
+the measured worst case is 4.3, so 0.9 fits with 0.8 to spare. A wireframe torus
+did not: 25.4 s for the same 6 s — 2.7 s/s — and 9.8 MB of output against 0.6 MB,
+because a mesh of lines is the high-frequency detail h264 cannot compress and it
+spends the whole bitrate allowance `worstCaseBytes` sizes the disk budget
+against. So `SOLIDS` has four solids and no wireframe, and the absence is a
+measurement rather than a taste.
+
+Everything else about `solidScene` is the founding rule applied one more time. A
+document names a solid and a spin out of two closed enums; the geometry, the
+camera, the light rig and every colour are written by hand. The block imports
+neither `three` nor `@remotion/three` — what it returns is react-three-fiber
+intrinsics, which are lower-case strings the reconciler resolves, and the canvas
+that gives them a meaning is opened by `ComposedSceneVideo`. That is not
+tidiness: `blocks/index.js` is loaded inside Mocky's own vitest suite to prove the
+registry matches the schema in both directions, and a single import of a package
+that lives only in the worker would take the registry out of the one test that
+keeps it honest.
+
+The legibility guarantee had to be extended rather than reused, because this is
+the only thing in the catalogue painted at more than one brightness. A Lambert
+face is `material × (ambient + directional · n·l)`, so every face of a solid lies
+on the segment between `material × ambient` and `material`. Contrast against a
+fixed surface is monotone in luminance on each side of it, and luminance is
+monotone along a channel-wise ramp — so measuring the two ENDS measures every
+face between them. `solidShading` pins one end to the run the palette already
+resolved and measures the other: against a dark ground it brightens, against
+paper it darkens, and either way the shading only ever moves away from the
+surface. When neither end clears, the solid is painted flat and keeps its
+perspective (Q1). `composition.test.js` sweeps it across six grounds and a dozen
+real directions.
+
+**Skia is refused on a number that is not close.** `@remotion/skia` is 11 KB of
+glue; what it needs is `@shopify/react-native-skia`, which installs 443 MiB on
+its own — `libskia.xcframework`, `libsvg.a` and friends, prebuilt binaries for
+iOS, tvOS, macOS and Android, none of which can execute in a Debian container
+rendering in a headless browser. That is a third of this worker's whole image
+added for files it cannot run, in a repository whose stated rule is that it has
+no native dependencies. Its 2.x peer set also asks for React 19, `react-native`
+and `react-native-reanimated`, against a worker on React 18. The equivalent
+without it is the `funTitle` block: five treatments — an arc, a bounce, a
+stretch, one word swapped into the accent, a shadowed stack — each a per-letter
+transform, which is what a browser has always been able to do. It is less than
+Skia. It is not nothing, and it costs zero bytes.
+
+**A syntax highlighter is refused, and not on weight.** `prismjs` is 2.1 MiB,
+which against 1.57 GB is nothing at all, so the answer is not the one the numbers
+suggest. What a highlighter produces is a *theme*: twenty to forty hex values,
+one per token type, none of them measured against the surface a film paints them
+on. `composedPalette` offers three measured runs on a panel. Those thirty colours
+therefore have exactly two places to go — into a block as hex nobody measured,
+which is the defect that shipped a dark green headline on a near-black frame and
+which `blocks.test.js` refuses outright, or collapsed onto three runs, at which
+point the highlighter did nothing a role does not. So `codeBlock` carries a
+`role` per line, the model says what each line is, and no language is inferred
+from a string. That also keeps a regex engine off model-written text inside a
+render under a deadline.
+
+Both of those are in a family of their own, `setPiece`, and the family is not
+decoration either: the other six group blocks by what they ARE, and this one
+groups by what they COST. It is where the prompt gets to say "at most one in the
+whole film", which is the only thing about these two a model has to be warned
+about.
+
+#### A zone, and a rank
+
+Two fields ride on every block without exception, and both are the founding rule
+applied to layout.
+
+**`anchor` is a zone**, one of nine cells of a 3×3 grid plus `full`. A coordinate
+would be a layout the model described: it depends on a frame size the document
+cannot see, and it has no answer at all in the two ratios it was not written for.
+Two blocks anchored to the same zone **stack** inside it, in the order the
+document lists them — which is what lets `anchor` default to `center` without
+anything landing on top of anything, and it is `ComposedSceneVideo` that decides
+the stacking, never the document.
+
+**`enter` is a rank, not a delay.** A millisecond would mean the model had to know
+`cueFrames`, `MIN_CUE_TAIL_FRAMES` and the scene's own length to place an arrival
+that lands inside its scene, and it knows none of the three. A rank says "this
+comes after that", which is the only part of the timing that is an editorial
+decision; the beat is `layerCues`, which is `cueFrames` under another name.
+Blocks sharing a rank arrive together, so a heading and its rule are one arrival
+for the price of a repeated integer.
+
+An **absent** rank means "the position it was written in", and that default is
+the `kenBurns: 'static'` lesson repeated: an optional field is a field a model
+omits, so the case you get by saying nothing has to be the good one. Zero would
+have made every silent document a pile.
+
+#### A zone is a box, and the box is arithmetic
+
+`composedLayout` turns those zones into pixels, in `composition.js` and not in
+the composition, for the reason everything else is there: a `padding: '6%'` on a
+CSS grid draws a plausible picture and cannot be asked whether anything crossed
+it. Three things fall out of writing it down.
+
+**The margin is per axis, and a portrait frame does not get the landscape one.**
+A percentage in a CSS `padding` resolves against the *width* on all four sides,
+which put a 65 px margin on the 1920 px edge of a 9:16 frame and a 115 px one on
+the 1080 px edge of a 16:9 — the wrong way round in both, from one number that
+looked symmetrical. And 6% is a broadcast margin: it is the right answer for a
+frame nothing is drawn over, and the wrong one for the ratio that exists to be
+posted. A 9:16 composed export keeps the feed's own bands clear —
+`VERTICAL_SAFE_TOP_PERCENT`, `_BOTTOM_` and `_SIDE_`, the vertical template's own
+numbers rather than a second set that would drift from them — because a
+`bottom-center` block inside a 6% margin there is not close to an edge, it is
+behind a button. A square pays neither: 1:1 is posted into a grid, and a fifth of
+its height given to an interface nobody draws is a fifth of the film.
+
+**A row is divided among the columns that are used.** A fixed 3×3 of equal thirds
+is the obvious reading of "nine zones" and it makes the commonest scene there is
+unreadable: `anchor` defaults to `center`, so a document that names none puts
+everything in one cell — and a third of a 16:9 frame is 563 px, which is five
+characters of display type on a line. One column used takes the whole measure,
+two take half each, three take thirds, and the alignment still says which edge the
+content sits on. The rows are *not* treated that way, and the asymmetry is the
+point: a band's anchored edge is already the safe edge, so a stack too tall for
+its band grows towards the middle of the frame and never past the edge it was
+anchored to.
+
+**`full` is the safe area, not the frame**, and two `full` blocks share it. A
+field that bled to the frame's edge would be a map cropped by overscan and a
+gallery whose bottom row sits under a caption box — the two failures the margin
+exists to prevent, arriving through the one anchor that opts out of it. It is
+painted first, under the nine cells, because a map or a wave is what an element
+sits *on*.
+
+`tests/video-composed-frame.test.js` is where those become claims rather than
+prose: over the poorest document the schema accepts and one that uses all ten
+zones, in all three ratios, every block is placed exactly once, every box is
+inside the safe frame, every block has arrived by the end of its scene, and the
+last frame differs from the first.
+
+#### There is still no audio
+
+`equalizer`, `soundWave` and every rhythm on a composed scene are **visual
+motifs**. There is no audio track in this feature, no `@remotion/media-utils`, no
+sound file and nothing being listened to — and that absence is enforced rather
+than pending, because every object in the schema is `.strict()` and a document
+carrying an `audio` key is refused whole. An equalizer whose bars follow a
+deterministic curve is an equalizer; it would only be a lie if something claimed
+it was hearing anything, and nothing does.
+
+The same rule makes the clock and the date stamp state their own values.
+`clock.time` is `HH:MM` from the document and `dateStamp.text` is a line the model
+wrote — never the render host's own clock, which would burn a fact about the
+*machine* into somebody's film and make two renders of one timeline differ, which
+the content-addressed export store cannot have.
+
+#### The legibility guarantee extends to the blocks, through one door
+
+A block **never picks a colour**. It reads a run off `composedPalette` and paints
+with it, and that is the whole contract: twenty-seven components cannot each be
+trusted to measure, and twenty-seven components each measuring would be
+twenty-three copies of the same search.
+
+Three surfaces, because a block paints on exactly three things — the ground
+(`display`, `body`, `accent`), a panel (`panelDisplay`, `panelBody`,
+`panelAccent`), and the accent as a fill (`onFill`). A panel is opaque
+`theme.surface` and therefore its own surface whatever the ground is; the fill is
+where the product card's call to action proved the point, being the only legible
+element in the export that started the whole legibility section.
+
+**The ground is a range, and two of the six make it one.** `surfaceRange` already
+had the vocabulary: a veil measured at the two extremes an unknown picture can
+composite it to, and a tint measured beside its base. So every ground is a case
+of `{ color, alpha, tint }` — an opaque colour, a colour plus the house texture,
+a colour at a veil over a photograph, or a **ramp**.
+
+The ramp is the one that needed new arithmetic. Two ends clearing 4.5:1 does prove
+an ink is outside the band between them, since two ends 4.5 apart in each
+direction would need a relative luminance past 1. At the **display floor of 3 it
+proves nothing**: a ramp from black to a pale grey clears 3:1 at both ends against
+an ink whose own luminance sits between them, and somewhere along that ramp the
+contrast is 1:1. Every headline in this directory takes 3. So a gradient is
+sampled along its length (`GRADIENT_RAMP`), and an ink hiding between two adjacent
+samples is within a fraction of one of them — and a fraction is not three.
+
+An animated ground is measured at its **maximum** density and animates only
+downwards. `gridPulse` and `particles` fade to `PULSE_FLOOR` and never above what
+was measured, which is the same asymmetry `vertical` relies on when it keeps a
+directional gradient on top of a uniform dim: a layer that can only add legibility
+cannot invalidate a guarantee made without it.
+
+And the whole tint **yields**, exactly as `texturedGround` already made it yield
+for the two flat templates: a ground whose texture — or whose gradient — is what
+makes a line illegible is painted flat instead, and only ever when the bare ground
+carries every run. A decoration cedes to a word, and it never cedes for nothing.
+
+**And a `full` block is a second ground.** That sentence was missing and an export
+found it: `equalizer` said of itself that it "carries no text, so the only thing it
+can get wrong is spending contrast something else needed — which it cannot", which
+is true of a block in a cell and false of one anchored `full`, because that one is
+painted UNDER the nine cells on purpose. The film had eighteen accent bars across
+the middle of the frame and a heading standing on them whose last word is in the
+accent by design; the two met at 1:1, and every run in that palette had been
+measured against a ground nothing was standing on.
+
+So a scene that stacks something on a `full` block resolves a different palette
+(`stackedField`), and the field enters the measurement the way every other
+decorative layer does — as a tint, sampled along its own density for
+`GRADIENT_RAMP`'s reason, since a field is not one colour. What it cedes is
+DENSITY: `FIELD_ALPHAS` starts at 1, so a scene whose headline already clears over
+a field at full strength pays nothing, and the first rung that clears wins. The
+texture is given up only after the field has run out of rungs — both are
+decorations, and one of them is in the document.
+
+Two things fall out and both are load-bearing. The **accent run is measured on the
+bare ground**, not on the fielded surface: measured against a field made of
+itself it cannot clear, falls through `accentFirst` to a near-white, and the first
+version of this fix came back with grey bars behind a grey headline — legible, and
+the project's colour gone, which is the failure `theme.ts` refuses when it declines
+to guess a token. The gap that leaves is named rather than hidden: accent TEXT over
+a field of the same accent is not measured against it. And the density is an
+opacity on the **zone**, not a colour handed to five components: `full` is the only
+thing that makes a block a field, so the rule lives where `full` means something
+and the twenty-eighth block cannot forget it. `palette.groundTint` is what the
+composition paints and `palette.ground.tint` is what was measured — they differ by
+exactly the field, and reading the second in `Ground` would paint it twice and take
+a gradient's far end off the accent.
+
+#### And so does the guarantee that nothing holds still
+
+`tests/video-motion.test.js` asks its question of the composed variant too, on the
+poorest document the schema accepts: one block, no anchor, no rank, and no
+background at all. That last omission is the point — silence means `hairlines`,
+which is the one ground of the six that **holds still**, so the scene has to move
+through its stack and its drift alone. A version of this feature that leant on an
+animated ground would pass every other case and fail exactly there.
+
+What moves is the stack and not the ground, for the reason `TITLE_BLOCK_DRIFT`
+already gives: the ground is the surface every run was measured against, and a
+ground moving under fixed type would be text crossing a surface nobody measured.
+
+The reported terms are `drift` and one `layers` progress per block, always — plus
+`picture` only when the ground is a photograph and `ground` only when the ground
+animates. A term is reported when the composition draws it and never otherwise,
+which is the rule the kicker taught: a number that moves on a frame that does not
+is exactly what a "did anything move" test would have accepted.
+
+**There is deliberately no automatic kicker.** The other five draw the film's own
+counter because their layout has a place for it. A composed scene's layout is the
+document's, and a surtitle painted over a stack somebody arranged is an element
+nobody asked for — a film that wants one writes a `kicker` block.
+
+#### One file per block, and a registry nobody else edits
+
+`worker/video/remotion/blocks/` holds one `.jsx` per kind, named after the kind,
+plus `index.js` mapping kind to component. Two rules keep that arrangement
+working, and `blocks.test.js` enforces both:
+
+- **Nothing in the directory imports `remotion`.** A block is plain React — the
+  frame arrives as `progress` and `life`, computed by `sceneMotion` — so there is
+  no need for `useCurrentFrame` and no excuse for it. That is what lets the
+  registry be loaded inside Mocky's own vitest suite, where Remotion is not
+  installed and never will be, and therefore what lets a test prove the registry
+  is complete in both directions.
+- **No colour and no easing curve is written in a block.** A hex value in a
+  component is a colour nobody measured, which is the defect that shipped a dark
+  green headline on a near-black frame; a curve is a twenty-fifth notion of how
+  things move. The test strips comments before looking, so the sentence explaining
+  why the code is right does not fail the check that keeps it right.
+
+`index.js` is deliberately a map and nothing else. Twenty-seven people can each own
+one file in there without touching the same line, which is only true while it
+holds no logic — anything genuinely shared belongs in `composition.js`, where a
+test can reach it without React.
+
+### The prompt is a manual for the blocks, not a menu of layouts
+
+`compose.js` used to be five catalogue cards followed by a table mapping an
+intention to a name — words alone to `titles`, a phone to `vertical`, and so on
+down to `slideshow`. There is no name to arrive at any more. **The ordinary call
+offers `composed` and nothing else**, and the system turn is the manual for a
+catalogue: six grounds, twenty-seven blocks in six families, and the two fields
+every block carries. The five hand-filled compositions are still reachable, but
+only by NAME — a caller with a form for one gets that one card and no blocks —
+because a card plus twenty-seven blocks is a prompt holding two contradictory
+jobs.
+
+Each block gets three sentences and a shape: what it is, when it is the right
+one, and **how it fails**. The third is the one that earns its place. A model
+shown twenty-seven blocks uses twenty-seven of them, and a catalogue is the only
+thing that can argue against its own entries — so `counter` says a figure nobody
+gave you is a claim in somebody's film, `separator` says the layout already
+spaces things, and `equalizer` says nothing is being listened to.
+
+Around them, two sections do the work no card can. **THE STACK** states the
+discipline: a scene carries one idea, two or three blocks is the ordinary scene,
+a scene of one is often the best one in the film, and variety belongs to the film
+rather than to the frame. **STACKS THAT WORK** states the ambition, because a
+model told only what to avoid writes one heading per scene and stops: a gradient
+under a kicker and a heading that share a rank, a grid pulsing behind a counter,
+a lower third and a progress bar over a photograph. Five of them, each one scene,
+each two or three blocks.
+
+**No number and no vocabulary is typed into that prose.** Every bound, every enum
+and every default on a card is derived from the zod object the answer will be
+validated against: `signature()` walks the schema and prints `≤70`,
+`display|title|subtitle = title`, `[2–6 × …]`, and the legend at the top of the
+prompt explains that notation once. It is the rule from CLAUDE.md applied where
+it has already drawn blood — a floor restated by hand drifts from the validator,
+and the drift is the expensive kind, since the call is spent by the time the
+refusal quotes a number the model was never told. With twenty-seven blocks the
+surface is twenty-seven times larger, so the check runs both ways: the suite
+asserts the printed bounds are `BLOCK_LIMITS`'s own **and** that no line of prose
+in the catalogue contains a digit.
+
+The same walk builds the decoder hint, which is why the two cannot disagree. A
+node type the walker has never met prints `(unrecognised)` rather than throwing —
+Q1: a proposal must not fail over a description — and the suite fails on that
+marker, which is how a field added with a new zod type is found before a user
+finds it. Two things are restated in the hint that the five-card version leaves
+out, and both are measured rather than stylistic: **array bounds**, because
+llama.cpp compiles `minItems` into its grammar and a `gallery` hinted as
+accepting one id produces exactly the document `min(2)` refuses; and **`anchor`,
+`background` and `transitionOut` are marked required** although the schema
+defaults all three, for the reason `move` is required on an overlay scene — the
+default is a legal answer, and a grammar that lets the field be skipped puts
+every block of every film in the middle of the frame on the same ground with the
+same transition, which is the variety this variant exists to produce, thrown away
+by a hint. `enter` is deliberately not required: its absence means "the order I
+wrote them in", which is the good default.
+
+**The selection narrows the catalogue rather than adding a rule about it.** Three
+blocks and one ground put a picture on the screen, and how many they need is read
+off the schema — `gallery` wants two because its array says `min(2)`. So an empty
+selection is offered twenty-one blocks and five grounds, one picture adds
+`imageFrame` and the `image` ground, and two open the catalogue. That is a hint
+and never the gate: a provider that ignores structured output answers with a
+gallery of ids it made up, and the refusal **names what is still possible** —
+`imageFrame, gallery, carousel` and the `image` ground are the only parts that
+need a picture, and the other twenty-one draw type, numbers and motifs. A bare
+"no" would send somebody back to reword a brief that was never the problem, and
+so would "an image was not in your selection" when the selection is empty.
 
 The corollary is that `POST /api/video/compose` accepts an empty selection. It
-used to answer `400`, which was right until the catalogue arrived and made the
-one composition written for a brief of words unreachable through the only route
-that composes.
+used to answer `400`, which was right until a brief of words became the most
+ordinary request there is.
+
+**A document that names no template, on this path, is composed.** `template` is a
+constant here — the prompt states it, the hint pins it to a one-value enum — and
+a constant field is the field a model omits. Left alone, the schema's own
+compatibility default reads a stack of blocks as a slideshow and refuses it with
+half a dozen issues about keys nobody wrote. It is a default and not the repair
+this feature forbids: it adds nothing the document did not already say, it is
+applied before validation rather than to paper over a failure, and a document
+that does name a template keeps it.
+
+**An answer that filled in one of the five instead is accepted, with a notice.**
+The asymmetry with the refusal above is who loses what: there the user had set a
+form and loading another composition would move it under them; here they asked
+for a film and got one — validated, renderable, plainer. Refusing would hand back
+nothing over an answer that works (Q1). Saying nothing would be worse, because
+the whole point of composing is that the film is not one of five cards.
 
 **An image left over is a notice, and the notice says which of two things
-happened.** A `titles` film has no pictures in it by construction, so "3 were
-left out" would read as an oversight the user could ask to have corrected — and
-asking again cannot correct it. A per-template cap is the other case: a `product`
-film holds six scenes, so ten selected images leave four over however good the
-proposal is, and a notice that does not name the cap sends somebody back to
-rewrite a brief that was never at fault.
+happened.** A film that shows none of them — a composed film of type and motifs,
+or a `titles` card by construction — is not an oversight that asking again can
+correct, and a notice that reads like one sends somebody to try. A per-template
+cap is the other case: a `product` film holds six scenes, so ten selected images
+leave four over however good the proposal is.
 
 ### The panel chooses too, and its default is not to
 
@@ -202,15 +586,16 @@ else, reached through the one door nobody was watching: it hands back a film in 
 composition the user never chose.
 
 **A composition chosen by hand narrows the catalogue the model reads to one
-entry.** The same narrowing an empty selection already performs, for the same
-reason: the form the answer lands in has that composition's fields, so a proposal
-in another one is a call spent on a document the panel would refuse. The name
-travels as a `template` field on `POST /api/video/compose`, is matched against
-`VIDEO_TEMPLATES`, and anything else is ignored — a caller cannot name a
-composition that does not exist, and there would be nothing to draw it with if it
-could. The prompt then drops the intention table entirely: "the brief decides"
-three lines under "the composition is already chosen" is two contradictory
-instructions, and a model answers with whichever it read last.
+entry.** The form the answer lands in has that composition's fields, so a
+proposal in another one — or a stack of blocks it has no rows for — is a call
+spent on a document the panel would refuse. The name travels as a `template`
+field on `POST /api/video/compose` and is matched against `EDITABLE_TEMPLATES`;
+anything else is ignored and read as "compose", including `composed` itself,
+which is what asking for a film rather than for a layout already gets you. The
+prompt then drops the block catalogue entirely and prints that composition's card
+alone: a manual for twenty-seven blocks three lines under "the composition is
+already chosen" is two contradictory instructions, and a model answers with
+whichever it read last.
 
 An answer naming something else anyway is **refused**, never loaded. A hint is
 not the gate here either, and loading it would move the selector under somebody
@@ -1502,7 +1887,7 @@ accounts per file. Either is enough to say yes.
 | `server/video/timeline.js` | The same schema, mirrored by hand for Node, plus `attachTheme`. `timeline.test.js` holds the two together |
 | `src/lib/video/theme.ts` | The project's art direction, read into the handful of tokens a film can carry. Declared ones only |
 | `src/lib/video/resolution.ts` | How much a still is about to be enlarged, and what to ask a provider for. Mirrors the worker's frame geometry; `tests/video-frame-geometry.test.js` holds the two together |
-| `server/video/compose.js` | The one model call: it picks a composition and fills it in, it never picks the pictures |
+| `server/video/compose.js` | The one model call: it composes a scene out of the block catalogue, it never picks the pictures |
 | `server/video/variants.js` | The two variant paths, and the fixed table of axes |
 | `server/video/config.js` | Admin settings. The licence key never leaves the server |
 | `server/video/queue.js` | In-memory queue, atomic JSON journal, concurrency of one. No Redis, ever |
@@ -1512,7 +1897,9 @@ accounts per file. Either is enough to say yes.
 | `src/components/VideoExportDialog.tsx` | The Motion panel. Opened from the toolbar, never from a screen |
 | `worker/video/` | The Remotion worker: separate sub-project, separate image, separate README |
 | `worker/video/encoding.js` | The codec table and what each codec is told about quality. No Remotion import, so the one testable part of a render can be tested |
-| `worker/video/remotion/composition.js` | The five compositions' shared arithmetic, their theme, and their palettes. No React, no Remotion, so a test can reach it |
+| `worker/video/remotion/composition.js` | Every composition's shared arithmetic, their theme, and their palettes. No React, no Remotion, so a test can reach it |
+| `worker/video/remotion/ComposedSceneVideo.jsx` | The layout engine for the composable variant: the ground, the nine cells, and the stack that drifts |
+| `worker/video/remotion/blocks/` | One component per block kind, plus the registry. No Remotion import, no colour, no curve — `blocks.test.js` holds all three |
 | `worker/video/remotion/contrast.js` | WCAG luminance and contrast, mirrored by hand from `src/lib/audit/colors.ts`. `contrast.test.js` holds the two together |
 | `tests/video-worker-separation.test.js` | What actually keeps Remotion out of Mocky's manifest |
 | `tests/video-frame-geometry.test.js` | The frame size, the overscales and the picture share, compared between the browser and the worker |

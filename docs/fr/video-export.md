@@ -23,7 +23,7 @@ Cette page traite des décisions. Ce que fait chaque contrôle est dans
 
 ## Ce qu’il produit, et ce qu’il ne produit pas
 
-Cinq sortes de films, montés à partir d’images que l’utilisateur a déjà choisies.
+Six sortes de films, montés à partir d’images que l’utilisateur a déjà choisies.
 
 | Modèle | Ce que c’est |
 |---|---|
@@ -32,6 +32,7 @@ Cinq sortes de films, montés à partir d’images que l’utilisateur a déjà 
 | `vertical` | Un montage 9:16 pour un fil de téléphone : plein cadre, scènes courtes |
 | `titles` | Un titrage animé. Du texte seul — **aucune image** |
 | `product` | Une image, une accroche, jusqu’à trois arguments et un appel à l’action |
+| `composed` | Un fond et une pile de blocs typés — le modèle arrange lui-même l’image, à partir d’un catalogue fermé de vingt-sept |
 
 Deux minutes au plus, 30 images par seconde, en `16:9`, `9:16` ou `1:1` — et
 chaque modèle resserre le reste à ses propres nombres, parce qu’une scène de
@@ -56,16 +57,18 @@ maquette. Deux fonctionnalités, une lettre d’écart.
 ## La règle fondatrice : le modèle écrit du JSON, jamais du Remotion
 
 Un modèle intervient exactement une fois, dans `server/video/compose.js`, et ce
-qu’il renvoie est un unique objet JSON. Il **choisit une composition dans le
-catalogue et remplit ses paramètres**, sur des images que l’utilisateur a déjà
-choisies. Il ne choisit pas les images, et il n’écrit jamais une ligne de code de
-rendu. Toutes les compositions de `worker/video/remotion/` sont écrites à la main.
+qu’il renvoie est un unique objet JSON. Il **compose chaque scène à partir d’un
+catalogue fermé — un fond et une pile de blocs typés — et en remplit les
+paramètres**, sur des images que l’utilisateur a déjà choisies. Il ne choisit pas
+les images, et il n’écrit jamais une ligne de code de rendu. Toutes les
+compositions et tous les blocs de `worker/video/remotion/` sont écrits à la main.
 
-**Choisir un modèle n’est pas choisir un rendu,** et tout le catalogue repose sur
-cette distinction. Ce qui revient est un nom pris dans une énumération fermée de
-cinq, et chacun de ces noms est un composant écrit par quelqu’un et lu par un
-relecteur. Le modèle obtient la variété ; il n’obtient jamais une chaîne qui
-devient du code, une mise en page qu’il aurait décrite, ni un nom de fichier.
+**Nommer un bloc n’est pas choisir un rendu,** et tout le catalogue repose sur
+cette distinction. Ce qui revient est un nom pris dans une énumération fermée —
+un template sur six, un fond sur six, un bloc sur vingt-sept — et chacun de ces
+noms est un composant écrit par quelqu’un et lu par un relecteur. Le modèle
+obtient la variété ; il n’obtient jamais une chaîne qui devient du code, une mise
+en page qu’il aurait décrite, ni un nom de fichier.
 
 C’est la seule architecture tenable pour un produit auto-hébergé où n’importe qui
 branche n’importe quel modèle. L’alternative — laisser le modèle émettre du
@@ -148,54 +151,465 @@ d’un même commit : un test exige que `RENDERABLE_TEMPLATES` soit égal aux
 composition derrière lui, c’est un export qui échoue après qu’on a annoncé à
 l’utilisateur qu’il était en file.
 
-### Y choisir : c’est le brief qui décide, et la sélection qui borne l’offre
+### La sixième entrée n’est pas un sixième look : c’est une pile de blocs
 
-Le prompt système de `compose.js` est une fiche par composition — à quoi elle
-sert, ce qu’elle exige, ce qu’elle met à l’écran — suivie de la correspondance
-entre une intention et un nom :
+Cinq modèles monolithiques n’achètent la variété qu’à la poignée. Un brief entre
+dans l’une des cinq mises en page ou il n’y entre pas, et l’interface en faisait
+le problème de tout le monde : le premier contrôle du panneau était un sélecteur
+de composition, si bien qu’on demandait à quelqu’un venu décrire un film de
+choisir un rendu avant d’avoir écrit une phrase. La réponse à « comment
+j’obtiens quelque chose d’original » était un bouton radio à cinq positions.
 
-| Le brief parle de | La composition |
+`composed` est la sixième entrée de l’union, et l’entrée d’un autre genre. Une
+scène, c’est **un fond plus une pile de blocs typés** ; le modèle choisit quels
+blocs, dans quel ordre, dans quelle zone et avec quels paramètres, et la variété
+devient combinatoire au lieu d’être un choix parmi cinq.
+
+**Cela ne rouvre pas la règle fondatrice, et cela vaut la peine de le dire parce
+qu’on pourrait le croire.** Chaque `kind` est un nom pris dans une énumération
+fermée de vingt-sept. Chacun de ces noms est un composant de
+`worker/video/remotion/blocks/` que quelqu’un a écrit et qu’un relecteur a lu.
+Chaque champ de chaque bloc est un entier borné, une énumération fermée ou une
+`line(n)`, vérifiée par les trois lecteurs. Ce que le modèle a gagné, c’est de
+l’*arithmétique* — des combinaisons plutôt que des cartes — pas le droit de
+décrire son propre rendu.
+
+| Famille | Blocs |
 |---|---|
-| mots seuls, ou aucune image sur laquelle travailler | `titles` |
-| un téléphone, une story, un reel, un fil, du portrait, du vertical | `vertical` |
-| un écran, une interface, un tableau de bord, une capture à lire | `overlay` |
-| quelque chose qu’on vend : arguments, prix, appel à l’action | `product` |
-| tout le reste, avec des images à montrer | `slideshow` |
+| Texte | `heading`, `kicker`, `quote`, `textHighlight`, `funTitle` |
+| Texte animé | `typewriter`, `animatedList`, `counter`, `logoType` |
+| Interface | `button`, `form`, `notification`, `lowerThird` |
+| Données | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map` |
+| Média et temps | `imageFrame`, `gallery`, `carousel`, `clock`, `dateStamp` |
+| Divers | `separator`, `progressBar` |
+| Pièces d’apparat | `codeBlock`, `solidScene` |
+| Fonds | `solid`, `gradient`, `hairlines`, `gridPulse`, `particles`, `image` |
 
-Écrite noir sur blanc plutôt que laissée au goût, parce qu’un modèle à qui l’on
-montre cinq compositions prend la plus élaborée. Tous les briefs reviennent alors
-en fiche produit, avec trois arguments que personne n’a écrits. Le prompt dit
-deux fois le contraire : prendre la composition la plus étroite quand deux
-conviennent, et ne pas en choisir une parce qu’elle impressionne.
+**Les cinq restent, entiers et rendables.** Les brouillons enregistrés et le
+journal de la file en sont pleins, et un modèle retiré, ce sont tous ces
+documents refusés à la validation sans que rien nulle part ne nomme le changement
+qui l’a causé. Le sélecteur du panneau et l’enregistrement plat de `draft.ts`
+sont indexés sur `EDITABLE_TEMPLATES`, les cinq qu’une personne peut remplir à la
+main ; le schéma, le worker, les palettes et les mouvements le sont sur
+`VIDEO_TEMPLATES`, qui en compte six désormais. Deux listes plutôt qu’une avec un
+drapeau, parce que « est-ce que ça se rend » et « est-ce que ça se saisit » ne
+sont pas la même question, et n’ont plus la même réponse depuis que les blocs
+existent.
 
-**Tous les nombres de ces fiches sont lus dans `TEMPLATE_LIMITS` et
-`TEXT_LIMITS`, jamais retapés.** Un plancher recopié à la main dérive du
-validateur, et la dérive est du genre coûteux : l’appel est dépensé, la réponse
-revient avec des fiches produit de deux secondes, et le refus cite un nombre dont
-le modèle n’a jamais entendu parler.
+#### Trois blocs qui coûtent une dépendance, et ce que les mesures ont dit
 
-**C’est la sélection qui décide des compositions proposées.** Quatre des cinq
-exigent un `imageId` : sans image sélectionnée, elles n’ont aucun document
-valide. Le catalogue que lit le modèle est donc construit à partir de la
-sélection, et sur une sélection vide il ne contient que `titles`. C’est un indice
-et jamais la barrière : un fournisseur qui ignore la sortie structurée répondra
-`product` quand même, et le refus **nomme `titles`**. Un « non » sec renverrait
-l’utilisateur reformuler un brief qui n’était pas le problème ; la réponse, c’est
-qu’un film sans images est un titrage animé, et le dire coûte une phrase.
+On a demandé trois choses de plus au catalogue — de la vraie 3D, des titres
+« fun » et une animation de code — et les trois ont derrière elles un paquet
+évident que ce worker ne porte pas. `worker/video/` est un sous-projet séparé,
+derrière un profil facultatif et exclu du contexte de construction de l’image
+Docker de Mocky : une dépendance ajoutée là ne touche ni le manifeste racine, ni
+le Dockerfile racine, ni le compose par défaut, et
+`tests/video-worker-separation.test.js` est ce qui le dit. L’ajouter est donc
+permis. Savoir si ça en vaut la peine est une mesure, et chacune a été prise sur
+l’image qui part vraiment.
+
+| | Installé | Image | Construction | Rendu | Licence | Verdict |
+|---|---|---|---|---|---|---|
+| `three` + `@react-three/fiber` + `@remotion/three` | +26,6 Mio | 1,57 → 1,60 Go (+32 Mo, +2,0 %) | 83 s → 87 s | +0,9 s par seconde de film | MIT, aucun binaire natif | **pris** |
+| `@remotion/skia` + `@shopify/react-native-skia` + `canvaskit-wasm` | **+461 Mio** | +30 % de l’image entière | — | — | MIT / BSD-3, **binaires `.a` et `.so` précompilés pour quatre plateformes** | refusé |
+| `shiki` / `prismjs` | +14,6 Mio / +2,1 Mio | négligeable | négligeable | — | MIT | refusé, et pas sur le coût |
+
+**La 3D est prise, et le fil de fer qu’elle contient ne l’est pas.** WebGL
+fonctionne dans ce conteneur sur le backend par défaut de Chromium — `swangle`,
+le rastériseur logiciel — sans rien changer à `render.js` et sans
+`chromiumOptions`. Ce que ça coûte a été mesuré en 1080p sur le worker à deux
+cœurs : une sphère éclairée plein cadre a pris 14,9 s pour 6 s de film contre
+9,2 s pour un titre nu, et 65,6 s contre 39,1 s pour 30 s — soit 0,9 s de rendu
+*ajoutée* par seconde de film, linéaire sur toute la plage. L’échéance
+proportionnelle à la durée accorde 6 s de rendu par seconde de film et le pire
+cas mesuré est à 4,3 : 0,9 y tient, avec 0,8 de marge. Un tore en fil de fer,
+non : 25,4 s pour les mêmes 6 s — 2,7 s/s — et 9,8 Mo de sortie contre 0,6 Mo,
+parce qu’un maillage de lignes est exactement le détail haute fréquence que h264
+ne compresse pas, et qu’il dépense toute l’allocation de débit sur laquelle
+`worstCaseBytes` dimensionne le budget disque. `SOLIDS` a donc quatre solides et
+aucun fil de fer, et cette absence est une mesure, pas un goût.
+
+Tout le reste de `solidScene` est la règle fondatrice appliquée une fois de plus.
+Un document nomme un solide et une rotation dans deux énumérations fermées ; la
+géométrie, la caméra, l’éclairage et chaque couleur sont écrits à la main. Le
+bloc n’importe ni `three` ni `@remotion/three` — ce qu’il retourne, ce sont des
+intrinsèques react-three-fiber, des chaînes en minuscules que le réconciliateur
+résout, et le canevas qui leur donne un sens est ouvert par `ComposedSceneVideo`.
+Ce n’est pas du rangement : `blocks/index.js` est chargé dans la suite vitest de
+Mocky pour prouver que le registre correspond au schéma dans les deux sens, et un
+seul import d’un paquet qui ne vit que dans le worker sortirait le registre du
+seul test qui le tient honnête.
+
+La garantie de lisibilité a dû être étendue plutôt que réutilisée, parce que
+c’est la seule chose du catalogue peinte à plus d’une luminosité. Une face
+lambertienne vaut `matériau × (ambiante + directionnelle · n·l)` : toutes les
+faces d’un solide sont donc sur le segment entre `matériau × ambiante` et
+`matériau`. Le contraste contre une surface fixe est monotone en luminance de
+chaque côté d’elle, et la luminance est monotone le long d’une rampe canal par
+canal — mesurer les deux BOUTS mesure donc toutes les faces entre elles.
+`solidShading` épingle un bout sur le run que la palette a déjà résolu et mesure
+l’autre : sur un fond sombre elle éclaircit, sur du papier elle assombrit, et
+dans les deux cas l’ombrage ne s’éloigne jamais que de la surface. Quand aucun
+bout ne passe, le solide est peint à plat et garde sa perspective (Q1).
+`composition.test.js` le balaie sur six fonds et une douzaine de directions
+réelles.
+
+**Skia est refusé sur un chiffre qui n’est pas serré.** `@remotion/skia`, c’est
+11 ko de colle ; ce dont il a besoin, c’est `@shopify/react-native-skia`, qui
+installe 443 Mio à lui seul — `libskia.xcframework`, `libsvg.a` et le reste, des
+binaires précompilés pour iOS, tvOS, macOS et Android, dont aucun ne peut
+s’exécuter dans un conteneur Debian qui rend dans un navigateur sans tête. C’est
+un tiers de l’image entière de ce worker ajouté pour des fichiers qu’il ne peut
+pas lancer, dans un dépôt dont la règle écrite est qu’il n’a aucune dépendance
+native. Et son jeu de pairs en 2.x réclame React 19, `react-native` et
+`react-native-reanimated`, contre un worker en React 18. L’équivalent sans lui
+est le bloc `funTitle` : cinq traitements — un arc, un rebond, un étirement, un
+mot passé dans l’accent, une pile ombrée — chacun une transformation par lettre,
+ce qu’un navigateur a toujours su faire. C’est moins que Skia. Ce n’est pas rien,
+et ça coûte zéro octet.
+
+**Un colorateur syntaxique est refusé, et pas au poids.** `prismjs` fait
+2,1 Mio, ce qui face à 1,57 Go n’est rien du tout : la réponse n’est donc pas
+celle que les chiffres suggèrent. Ce qu’un colorateur produit, c’est un *thème* :
+vingt à quarante valeurs hexadécimales, une par type de jeton, dont aucune n’a
+été mesurée contre la surface sur laquelle un film les peint. `composedPalette`
+offre trois runs mesurés sur un panneau. Ces trente couleurs n’ont donc que deux
+endroits où aller — dans un bloc, en hexadécimal que personne n’a mesuré, ce qui
+est le défaut qui a livré un titre vert foncé sur une image presque noire et que
+`blocks.test.js` refuse net, ou rabattues sur trois runs, auquel cas le
+colorateur n’a rien fait qu’un rôle ne fasse. `codeBlock` porte donc un `role`
+par ligne, le modèle dit ce qu’est chaque ligne, et aucun langage n’est deviné à
+partir d’une chaîne. Ça évite aussi de faire tourner un moteur d’expressions
+régulières sur du texte écrit par un modèle, dans un rendu sous échéance.
+
+Ces deux-là forment une famille à part, `setPiece`, et la famille n’est pas
+décorative non plus : les six autres groupent les blocs par ce qu’ils SONT,
+celle-ci les groupe par ce qu’ils COÛTENT. C’est là que le prompt peut dire « au
+plus un dans tout le film », qui est la seule chose dont un modèle doive être
+averti à leur sujet.
+
+#### Une zone, et un rang
+
+Deux champs voyagent sur chaque bloc sans exception, et tous deux sont la règle
+fondatrice appliquée à la mise en page.
+
+**`anchor` est une zone**, l’une des neuf cases d’une grille 3×3, plus `full`.
+Une coordonnée serait une mise en page décrite par le modèle : elle dépend d’une
+taille d’image que le document ne voit pas, et elle n’a aucune réponse dans les
+deux formats pour lesquels elle n’a pas été écrite. Deux blocs ancrés à la même
+zone **s’empilent** dedans, dans l’ordre où le document les liste — c’est ce qui
+permet à `anchor` de valoir `center` par défaut sans que rien ne se pose sur rien,
+et c’est `ComposedSceneVideo` qui décide de l’empilement, jamais le document.
+
+**`enter` est un rang, pas un délai.** Une milliseconde supposerait que le modèle
+connaisse `cueFrames`, `MIN_CUE_TAIL_FRAMES` et la durée de la scène pour placer
+une arrivée qui tombe à l’intérieur de sa scène, et il n’en connaît aucun des
+trois. Un rang dit « ceci vient après cela », ce qui est la seule part du
+minutage qui soit une décision éditoriale ; le rythme, c’est `layerCues`, c’est-
+à-dire `cueFrames` sous un autre nom. Deux blocs de même rang arrivent ensemble :
+un titre et son filet sont une seule arrivée, au prix d’un entier répété.
+
+Un rang **absent** signifie « la position où il a été écrit », et ce défaut est
+la leçon de `kenBurns: 'static'` répétée : un champ facultatif est un champ que le
+modèle omet, donc le cas obtenu en ne disant rien doit être le bon. Zéro aurait
+fait de chaque document silencieux un tas.
+
+#### Une zone est une boîte, et la boîte est de l’arithmétique
+
+`composedLayout` traduit ces zones en pixels, dans `composition.js` et non dans la
+composition, pour la raison qui met tout le reste là-bas : un `padding: '6%'` sur
+une grille CSS dessine une image plausible et ne peut pas répondre à la question
+« est-ce que quelque chose a franchi la marge ». Trois choses en découlent.
+
+**La marge est par axe, et une image portrait n’hérite pas de celle du paysage.**
+Un pourcentage dans un `padding` CSS se résout sur la *largeur* pour les quatre
+côtés, ce qui posait une marge de 65 px sur le bord de 1920 px d’une image 9:16 et
+une de 115 px sur le bord de 1080 px d’une 16:9 — à l’envers dans les deux cas, à
+partir d’un nombre qui avait l’air symétrique. Et 6 %, c’est une marge de
+diffusion : la bonne réponse pour une image sur laquelle rien n’est dessiné, la
+mauvaise pour le format qui existe pour être publié. Un export composé en 9:16
+laisse libres les bandes du fil — `VERTICAL_SAFE_TOP_PERCENT`, `_BOTTOM_` et
+`_SIDE_`, les nombres du gabarit vertical plutôt qu’un second jeu qui dériverait
+d’eux — parce qu’un bloc `bottom-center` dans une marge de 6 % n’y est pas près du
+bord, il est derrière un bouton. Le carré ne paie ni l’un ni l’autre : le 1:1 se
+publie dans une grille, et un cinquième de sa hauteur cédé à une interface que
+personne ne dessine, c’est un cinquième du film.
+
+**Une rangée se partage entre les colonnes qui servent.** Une grille 3×3 de tiers
+égaux est la lecture évidente de « neuf zones », et elle rend illisible la scène
+la plus courante qui soit : `anchor` vaut `center` par défaut, donc un document
+qui n’en nomme aucune met tout dans une seule case — et un tiers d’une image 16:9
+fait 563 px, soit cinq caractères de titrage sur une ligne. Une colonne occupée
+prend toute la mesure, deux en prennent la moitié chacune, trois prennent des
+tiers, et l’alignement continue de dire sur quel bord le contenu se pose. Les
+rangées, elles, ne sont **pas** traitées ainsi, et l’asymétrie est le fond de
+l’affaire : le bord ancré d’une bande est déjà le bord sûr, donc une pile trop
+haute pour sa bande déborde vers le milieu de l’image et jamais au-delà du bord
+auquel elle est ancrée.
+
+**`full`, c’est la zone sûre et non l’image**, et deux blocs `full` la partagent.
+Un fond qui filerait jusqu’au bord de l’image, ce serait une carte rognée par la
+surbalayage et une galerie dont la dernière rangée passe sous une zone de légende
+— les deux échecs que la marge existe pour empêcher, arrivant par la seule ancre
+qui s’en exempte. Il est peint en premier, sous les neuf cases, parce qu’une carte
+ou une onde est ce sur quoi un élément *se pose*.
+
+`tests/video-composed-frame.test.js` est l’endroit où tout cela devient une
+affirmation plutôt qu’un texte : sur le document le plus pauvre que le schéma
+accepte et sur un autre qui utilise les dix zones, dans les trois formats, chaque
+bloc est placé exactement une fois, chaque boîte tient dans le cadre sûr, chaque
+bloc est arrivé avant la fin de sa scène, et la dernière image diffère de la
+première.
+
+#### Il n’y a toujours aucun son
+
+`equalizer`, `soundWave` et tout rythme d’une scène composée sont des **motifs
+visuels**. Il n’y a aucune piste audio dans cette fonctionnalité, aucun
+`@remotion/media-utils`, aucun fichier son et rien qui soit écouté — et cette
+absence est imposée, pas en attente, parce que chaque objet du schéma est
+`.strict()` et qu’un document portant une clé `audio` est refusé en entier. Un
+équaliseur dont les barres suivent une courbe déterministe est un équaliseur ; il
+ne mentirait que si quelque chose prétendait entendre quoi que ce soit, et rien ne
+le prétend.
+
+La même règle fait que l’horloge et la date énoncent leurs propres valeurs.
+`clock.time` est un `HH:MM` du document et `dateStamp.text` une ligne écrite par
+le modèle — jamais l’horloge de la machine de rendu, qui inscrirait un fait sur la
+*machine* dans le film de quelqu’un et ferait diverger deux rendus d’un même
+montage, ce que le stockage adressé par contenu ne peut pas se permettre.
+
+#### La garantie de lisibilité s’étend aux blocs, par une seule voie
+
+Un bloc **ne choisit jamais une couleur**. Il lit une entrée de `composedPalette`
+et peint avec, et c’est tout le contrat : on ne peut pas faire confiance à
+vingt-sept composants pour mesurer chacun, et vingt-sept composants qui
+mesurent, ce sont vingt-trois copies de la même recherche.
+
+Trois surfaces, parce qu’un bloc peint sur exactement trois choses — le fond
+(`display`, `body`, `accent`), un panneau (`panelDisplay`, `panelBody`,
+`panelAccent`) et l’accent en aplat (`onFill`). Un panneau est le `theme.surface`
+opaque, donc sa propre surface quel que soit le fond ; l’aplat est là où l’appel à
+l’action de la fiche produit avait déjà fait la démonstration, en étant le seul
+élément lisible de l’export qui a lancé toute la section lisibilité.
+
+**Le fond est une plage, et deux des six le rendent tel.** `surfaceRange` avait
+déjà le vocabulaire : un voile mesuré aux deux extrêmes qu’une image inconnue peut
+lui composer, et une teinte mesurée à côté de sa base. Chaque fond est donc un cas
+de `{ color, alpha, tint }` — une couleur opaque, une couleur plus la texture de
+la maison, une couleur sous un voile posé sur une photographie, ou une **rampe**.
+
+La rampe est celle qui a demandé une arithmétique nouvelle. Deux extrémités qui
+passent 4,5:1 prouvent bien qu’une encre est en dehors de la bande qui les sépare,
+puisque deux extrémités distantes de 4,5 dans chaque sens demanderaient une
+luminance relative supérieure à 1. Au **plancher d’affichage de 3, cela ne prouve
+rien** : une rampe du noir vers un gris pâle passe 3:1 aux deux bouts face à une
+encre dont la luminance se situe entre les deux, et quelque part sur cette rampe
+le contraste vaut 1:1. Chaque titre de ce répertoire prend 3. Un dégradé est donc
+échantillonné sur sa longueur (`GRADIENT_RAMP`), et une encre cachée entre deux
+échantillons voisins est à une fraction de l’un d’eux — et une fraction, ce n’est
+pas trois.
+
+Un fond animé est mesuré à sa densité **maximale** et ne s’anime que vers le bas.
+`gridPulse` et `particles` s’estompent jusqu’à `PULSE_FLOOR` et jamais au-delà de
+ce qui a été mesuré, ce qui est la même asymétrie que celle sur laquelle `vertical`
+s’appuie en gardant un dégradé directionnel par-dessus un assombrissement
+uniforme : une couche qui ne peut qu’ajouter de la lisibilité ne peut pas invalider
+une garantie établie sans elle.
+
+Et la teinte entière **cède**, exactement comme `texturedGround` la faisait déjà
+céder pour les deux modèles à fond plat : un fond dont la texture — ou le dégradé
+— est ce qui rend une ligne illisible est peint plat, et uniquement quand le fond
+nu porte toutes les entrées. Une décoration cède devant un mot, et elle ne cède
+jamais pour rien.
+
+**Et un bloc `full` est un second fond.** Cette phrase manquait et un export l’a
+trouvée : `equalizer` disait de lui-même qu’il « ne porte aucun texte, donc la
+seule chose qu’il puisse rater est de dépenser du contraste dont autre chose avait
+besoin — ce qu’il ne peut pas », ce qui est vrai d’un bloc dans une cellule et faux
+d’un bloc ancré `full`, puisque celui-là est peint SOUS les neuf cellules, exprès.
+Le film avait dix-huit barres d’accent en travers du cadre et un titre debout
+dessus dont le dernier mot est dans l’accent par construction ; les deux se sont
+rencontrés à 1:1, et chaque entrée de cette palette avait été mesurée contre un
+fond sur lequel rien ne se tenait.
+
+Une scène qui empile quelque chose sur un bloc `full` résout donc une palette
+différente (`stackedField`), et le champ entre dans la mesure comme toute autre
+couche décorative — en teinte, échantillonnée le long de sa propre densité pour la
+raison de `GRADIENT_RAMP`, puisqu’un champ n’est pas d’une seule couleur. Ce qu’il
+cède est la DENSITÉ : `FIELD_ALPHAS` commence à 1, donc une scène dont le titre
+passe déjà sur un champ à pleine force ne paie rien, et le premier barreau qui
+passe l’emporte. La texture n’est abandonnée qu’après que le champ a épuisé ses
+barreaux — ce sont deux décorations, et l’une des deux est dans le document.
+
+Deux conséquences, toutes deux porteuses. L’**entrée d’accent est mesurée sur le
+fond nu**, pas sur la surface champêtre : mesurée contre un champ fait d’elle-même
+elle ne peut pas passer, retombe par `accentFirst` sur un quasi-blanc, et la
+première version de ce correctif est revenue avec des barres grises derrière un
+titre gris — lisible, et la couleur du projet disparue, ce qui est exactement
+l’échec que `theme.ts` refuse quand il renonce à deviner un jeton. La brèche que
+cela laisse est nommée plutôt que cachée : un TEXTE d’accent posé sur un champ du
+même accent n’est pas mesuré contre lui. Et la densité est une opacité sur la
+**zone**, pas une couleur remise à cinq composants : `full` est la seule chose qui
+fasse d’un bloc un champ, donc la règle vit là où `full` veut dire quelque chose et
+le vingt-huitième bloc ne peut pas l’oublier. `palette.groundTint` est ce que la
+composition peint et `palette.ground.tint` ce qui a été mesuré — ils diffèrent
+exactement du champ, et lire le second dans `Ground` le peindrait deux fois et
+prendrait l’extrémité lointaine d’un dégradé sur l’accent.
+
+#### Et la garantie que rien ne reste immobile aussi
+
+`tests/video-motion.test.js` pose sa question à la variante composée également,
+sur le document le plus pauvre que le schéma accepte : un bloc, pas d’ancre, pas
+de rang, et aucun fond du tout. Cette dernière omission est le cœur du sujet — le
+silence vaut `hairlines`, le seul des six fonds qui **reste immobile**, donc la
+scène doit bouger par sa pile et sa dérive seules. Une version de cette
+fonctionnalité qui se serait appuyée sur un fond animé passerait tous les autres
+cas et échouerait exactement là.
+
+Ce qui bouge, c’est la pile et non le fond, pour la raison que `TITLE_BLOCK_DRIFT`
+donne déjà : le fond est la surface contre laquelle chaque entrée a été mesurée, et
+un fond qui glisserait sous une typographie fixe, ce serait du texte traversant une
+surface que personne n’a mesurée.
+
+Les termes annoncés sont `drift` et une progression `layers` par bloc, toujours —
+plus `picture` seulement quand le fond est une photographie et `ground` seulement
+quand le fond s’anime. Un terme est annoncé quand la composition le dessine et
+jamais autrement, ce qui est la règle que le kicker a enseignée : un nombre qui
+bouge sur une image qui ne bouge pas est exactement ce qu’un test « est-ce que
+quelque chose a bougé » aurait accepté.
+
+**Il n’y a délibérément aucun kicker automatique.** Les cinq autres dessinent le
+compteur du film parce que leur mise en page lui fait une place. La mise en page
+d’une scène composée est celle du document, et un surtitre peint par-dessus une
+pile que quelqu’un a arrangée est un élément que personne n’a demandé — un film qui
+en veut un écrit un bloc `kicker`.
+
+#### Un fichier par bloc, et un registre que personne d’autre n’édite
+
+`worker/video/remotion/blocks/` contient un `.jsx` par sorte, nommé d’après elle,
+plus `index.js` qui associe la sorte au composant. Deux règles font tenir cette
+organisation, et `blocks.test.js` impose les deux :
+
+- **Rien dans ce répertoire n’importe `remotion`.** Un bloc est du React ordinaire
+  — l’image arrive sous forme de `progress` et de `life`, calculés par
+  `sceneMotion` — donc il n’a nul besoin de `useCurrentFrame` et aucune excuse pour
+  en avoir un. C’est ce qui permet de charger le registre dans la suite vitest de
+  Mocky, où Remotion n’est pas installé et ne le sera jamais, et donc ce qui permet
+  à un test de prouver que le registre est complet dans les deux sens.
+- **Aucune couleur et aucune courbe d’accélération n’est écrite dans un bloc.** Une
+  valeur hexadécimale dans un composant est une couleur que personne n’a mesurée,
+  c’est-à-dire le défaut qui a livré un titre vert foncé sur une image presque
+  noire ; une courbe serait une vingt-cinquième notion de la façon dont les choses
+  bougent. Le test retire les commentaires avant de chercher, pour que la phrase
+  qui explique pourquoi le code est juste ne fasse pas échouer la vérification qui
+  le maintient juste.
+
+`index.js` est délibérément une table et rien d’autre. Vingt-sept personnes
+peuvent y posséder chacune un fichier sans jamais toucher la même ligne, ce qui
+n’est vrai que tant qu’il ne contient aucune logique — tout ce qui est réellement
+partagé appartient à `composition.js`, où un test peut l’atteindre sans React.
+
+### Le prompt est un mode d’emploi des blocs, pas un menu de mises en page
+
+`compose.js`, c’était cinq fiches suivies d’une table associant une intention à
+un nom — des mots seuls vers `titles`, un téléphone vers `vertical`, et ainsi de
+suite jusqu’à `slideshow`. Il n’y a plus de nom auquel arriver. **L’appel
+ordinaire ne propose que `composed`**, et le tour système est le mode d’emploi
+d’un catalogue : six fonds, vingt-sept blocs en six familles, et les deux
+champs que porte chaque bloc. Les cinq compositions à remplir à la main restent
+atteignables, mais seulement par leur NOM — un appelant qui a un formulaire pour
+l’une d’elles reçoit cette fiche et aucun bloc — parce qu’une fiche plus
+vingt-sept blocs, c’est un prompt qui porte deux consignes contradictoires.
+
+Chaque bloc a droit à trois phrases et une forme : ce qu’il est, quand il est le
+bon, et **comment il rate**. C’est la troisième qui mérite sa place. Un modèle à
+qui l’on montre vingt-sept blocs les utilise tous les vingt-sept, et un
+catalogue est la seule chose qui puisse plaider contre ses propres entrées — donc
+`counter` dit qu’un chiffre que personne ne vous a donné est une affirmation dans
+le film de quelqu’un d’autre, `separator` dit que la mise en page espace déjà les
+choses, et `equalizer` dit qu’il n’y a rien à écouter.
+
+Autour d’eux, deux sections font ce qu’aucune fiche ne peut faire. **THE STACK**
+énonce la discipline : une scène porte UNE idée, deux ou trois blocs est la scène
+ordinaire, une scène d’un seul bloc est souvent la meilleure du film, et la
+variété appartient au film, pas au cadre. **STACKS THAT WORK** énonce
+l’ambition, parce qu’un modèle à qui l’on dit seulement ce qu’il faut éviter
+écrit un titre par scène et s’arrête : un dégradé sous un kicker et un titre qui
+partagent un rang, une grille qui pulse derrière un compteur, un lower third et
+une barre de progression sur une photographie. Cinq exemples, chacun d’une scène,
+chacun de deux ou trois blocs.
+
+**Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
+chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre
+lequel la réponse sera validée : `signature()` parcourt le schéma et écrit `≤70`,
+`display|title|subtitle = title`, `[2–6 × …]`, et la légende en tête de prompt
+explique cette notation une fois. C’est la règle de CLAUDE.md appliquée là où
+elle a déjà fait mal — un plancher recopié à la main dérive du validateur, et la
+dérive est du genre coûteux, puisque l’appel est dépensé quand le refus cite un
+nombre dont le modèle n’a jamais entendu parler. Avec vingt-sept blocs la
+surface est vingt-sept fois plus grande, donc la vérification est à double
+sens : la suite exige que les bornes imprimées soient celles de `BLOCK_LIMITS`
+**et** qu’aucune ligne de prose du catalogue ne contienne un chiffre.
+
+Le même parcours construit l’indice du décodeur, ce qui interdit aux deux de se
+contredire. Un type de nœud que le parcours n’a jamais vu écrit `(unrecognised)`
+au lieu de lever — Q1 : une proposition ne doit pas échouer sur une description —
+et la suite tombe sur ce marqueur, ce qui fait trouver un champ d’un type
+nouveau avant qu’un utilisateur ne le trouve. Deux choses sont redites dans
+l’indice que la version à cinq fiches laissait de côté, et les deux sont mesurées
+plutôt que stylistiques : **les bornes de tableau**, parce que llama.cpp compile
+`minItems` dans sa grammaire et qu’une `gallery` annoncée comme acceptant un seul
+id produit exactement le document que `min(2)` refuse ; et **`anchor`,
+`background` et `transitionOut` sont marqués requis** bien que le schéma les
+remplisse tous les trois, pour la raison qui rend `move` requis sur une scène
+`overlay` — le défaut est une réponse légale, et une grammaire qui autorise à
+sauter le champ met tous les blocs de tous les films au milieu du cadre, sur le
+même fond, avec la même transition : la variété que cette variante existe pour
+produire, jetée par un indice. `enter` n’est délibérément pas requis : son
+absence veut dire « dans l’ordre où je les ai écrits », ce qui est le bon défaut.
+
+**La sélection rétrécit le catalogue plutôt que d’ajouter une règle à son
+sujet.** Trois blocs et un fond mettent une image à l’écran, et le nombre
+d’images qu’ils réclament est lu dans le schéma — `gallery` en veut deux parce
+que son tableau dit `min(2)`. Une sélection vide se voit donc offrir vingt et un
+blocs et cinq fonds, une image ajoute `imageFrame` et le fond `image`, et deux
+ouvrent le catalogue. C’est un indice et jamais la barrière : un fournisseur qui
+ignore la sortie structurée répond avec une galerie d’ids qu’il a inventés, et le
+refus **nomme ce qui reste possible** — `imageFrame, gallery, carousel` et le
+fond `image` sont les seules parties qui exigent une image, et les vingt et une
+autres dessinent du texte, des nombres et des motifs. Un « non » sec renverrait
+quelqu’un reformuler un brief qui n’était pas le problème, et « une image n’était
+pas dans votre sélection » aussi, quand la sélection est vide.
 
 Corollaire : `POST /api/video/compose` accepte une sélection vide. La route
-répondait `400`, ce qui était juste jusqu’à l’arrivée du catalogue — et rendait
-la seule composition écrite pour un brief de mots inatteignable par la seule
-route qui compose.
+répondait `400`, ce qui était juste jusqu’au jour où un brief de mots est devenu
+la demande la plus ordinaire qui soit.
+
+**Un document qui ne nomme aucun template, sur ce chemin, est un `composed`.**
+`template` y est une constante — le prompt l’énonce, l’indice l’épingle sur une
+énumération à une valeur — et un champ constant est le champ qu’un modèle omet.
+Laissé tel quel, le défaut de compatibilité du schéma lit une pile de blocs comme
+un diaporama et la refuse avec une demi-douzaine de problèmes portant sur des
+clés que personne n’a écrites. C’est un défaut, pas la réparation que cette
+fonctionnalité interdit : il n’ajoute rien que le document ne disait déjà, il
+s’applique avant la validation et non pour masquer un échec, et un document qui
+nomme vraiment un template le garde.
+
+**Une réponse qui a rempli l’une des cinq à la place est acceptée, avec une
+remarque.** L’asymétrie avec le refus ci-dessus tient à qui perd quoi : là,
+l’utilisateur avait réglé un formulaire et charger une autre composition le
+déplacerait sous lui ; ici, il a demandé un film et il en a un — validé, rendable,
+plus plat. Refuser rendrait néant contre une réponse qui marche (Q1). Se taire
+serait pire, puisque tout l’intérêt de composer est que le film ne soit pas l’une
+des cinq fiches.
 
 **Une image laissée de côté est une remarque, et la remarque dit laquelle des
-deux choses s’est produite.** Un film `titles` n’a pas d’images par construction,
-donc « 3 ont été laissées de côté » se lirait comme un oubli que l’utilisateur
-pourrait faire corriger — et redemander ne le corrigera pas. Un plafond par
-modèle est l’autre cas : un film `product` tient six scènes, donc dix images
-sélectionnées en laissent quatre dehors quelle que soit la qualité de la
-proposition, et une remarque qui ne nomme pas le plafond renvoie quelqu’un
-réécrire un brief qui n’y était pour rien.
+deux choses s’est produite.** Un film qui n’en montre aucune — un `composed` de
+texte et de motifs, ou une carte `titles` par construction — n’est pas un oubli
+que redemander corrigerait, et une remarque qui se lirait comme tel enverrait
+quelqu’un essayer. Un plafond par modèle est l’autre cas : un film `product`
+tient six scènes, donc dix images sélectionnées en laissent quatre dehors quelle
+que soit la qualité de la proposition.
 
 ### Le panneau choisit aussi, et son défaut est de ne pas choisir
 
@@ -215,16 +629,17 @@ personne ne surveillait — elle rendrait un film dans une composition que
 l’utilisateur n’a jamais choisie.
 
 **Une composition choisie à la main réduit à une entrée le catalogue que lit le
-modèle.** Le même rétrécissement qu’opère déjà une sélection vide, et pour la
-même raison : le formulaire où la réponse atterrit a les champs de cette
-composition, donc une proposition sur une autre est un appel dépensé pour un
-document que le panneau refuserait. Le nom voyage dans un champ `template` de
-`POST /api/video/compose`, il est comparé à `VIDEO_TEMPLATES`, et tout le reste
-est ignoré : un appelant ne peut pas nommer une composition qui n’existe pas, et
-il n’y aurait rien pour la dessiner s’il le pouvait. Le prompt laisse alors tomber
-toute la table des intentions : « c’est le brief qui décide » trois lignes sous
-« la composition est déjà choisie », ce sont deux consignes contradictoires, et un
-modèle répond avec celle qu’il a lue en dernier.
+modèle.** Le formulaire où la réponse atterrit a les champs de cette composition,
+donc une proposition sur une autre — ou une pile de blocs dont il n’a aucune
+ligne — est un appel dépensé pour un document que le panneau refuserait. Le nom
+voyage dans un champ `template` de `POST /api/video/compose` et il est comparé à
+`EDITABLE_TEMPLATES` ; tout le reste est ignoré et lu comme « compose », y
+compris `composed` lui-même, qui est déjà ce qu’on obtient en demandant un film
+plutôt qu’une mise en page. Le prompt laisse alors tomber tout le catalogue de
+blocs et n’imprime que la fiche de cette composition : un mode d’emploi de
+vingt-sept blocs trois lignes sous « la composition est déjà choisie », ce sont
+deux consignes contradictoires, et un modèle répond avec celle qu’il a lue en
+dernier.
 
 Une réponse qui en nomme malgré tout une autre est **refusée**, jamais chargée.
 Un indice n’est pas davantage le garde ici, et la charger déplacerait le
@@ -1620,7 +2035,7 @@ dire oui.
 | `server/video/timeline.js` | Le même schéma, recopié à la main pour Node, plus `attachTheme`. `timeline.test.js` tient les deux ensemble |
 | `src/lib/video/theme.ts` | La direction artistique du projet, lue en la poignée de jetons qu’un film peut porter. Les jetons déclarés seulement |
 | `src/lib/video/resolution.ts` | De combien une image va être agrandie, et ce qu’il faut demander à un fournisseur. Recopie la géométrie du cadre du worker ; `tests/video-frame-geometry.test.js` tient les deux ensemble |
-| `server/video/compose.js` | Le seul appel de modèle : il choisit une composition et la remplit, il ne choisit jamais les images |
+| `server/video/compose.js` | Le seul appel de modèle : il compose une scène à partir du catalogue de blocs, il ne choisit jamais les images |
 | `server/video/variants.js` | Les deux chemins de variantes, et le tableau figé des axes |
 | `server/video/config.js` | Les réglages d’administration. La clé de licence ne quitte jamais le serveur |
 | `server/video/queue.js` | File en mémoire, journal JSON atomique, une seule tâche à la fois. Jamais de Redis |
@@ -1630,7 +2045,9 @@ dire oui.
 | `src/components/VideoExportDialog.tsx` | Le panneau Motion. Ouvert depuis la barre d’outils, jamais depuis un écran |
 | `worker/video/` | Le worker Remotion : sous-projet séparé, image séparée, README séparé |
 | `worker/video/encoding.js` | Le tableau des codecs et ce qu’on dit à chacun sur la qualité. Aucun import Remotion, pour que la seule part testable d’un rendu le soit |
-| `worker/video/remotion/composition.js` | L’arithmétique partagée des cinq compositions, leur thème et leurs palettes. Ni React ni Remotion, pour qu’un test puisse y accéder |
+| `worker/video/remotion/composition.js` | L’arithmétique partagée de toutes les compositions, leur thème et leurs palettes. Ni React ni Remotion, pour qu’un test puisse y accéder |
+| `worker/video/remotion/ComposedSceneVideo.jsx` | Le moteur de mise en page de la variante composable : le fond, les neuf cases, et la pile qui dérive |
+| `worker/video/remotion/blocks/` | Un composant par sorte de bloc, plus le registre. Aucun import de Remotion, aucune couleur, aucune courbe — `blocks.test.js` tient les trois |
 | `worker/video/remotion/contrast.js` | Luminance et contraste WCAG, recopiés à la main depuis `src/lib/audit/colors.ts`. `contrast.test.js` tient les deux ensemble |
 | `tests/video-worker-separation.test.js` | Ce qui tient réellement Remotion hors du manifeste de Mocky |
 | `tests/video-frame-geometry.test.js` | La taille du cadre, les surdimensionnements et la part d’image, comparés entre le navigateur et le worker |

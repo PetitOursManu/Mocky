@@ -2,7 +2,7 @@
   "name": "mocky-video-worker",
   "private": true,
   "version": "0.1.0",
-  "description": "Remotion render worker for Mocky video export. A separate sub-project on purpose: these dependencies must never reach Mocky's own package.json, which is what keeps the default image free of Remotion and its licence question moot for anyone who does not turn the feature on. See README.md before building.",
+  "description": "Remotion render worker for Mocky video export. A separate sub-project on purpose: these dependencies must never reach Mocky's own package.json, which is what keeps the default image free of Remotion and its licence question moot for anyone who does not turn the feature on. three, @react-three/fiber and @remotion/three are here for the one solidScene block and are all MIT with no native binary: measured at 32 MB on a 1.57 GB image and 4 s on an 83 s build. @remotion/skia was measured too and refused, at 461 MB and a React Native peer stack. See README.md before building.",
   "type": "module",
   "engines": {
     "node": ">=22.12"
@@ -12,11 +12,14 @@
     "ensure-browser": "node -e \"import('@remotion/renderer').then((m) => m.ensureBrowser())\""
   },
   "dependencies": {
+    "@react-three/fiber": "8.18.0",
     "@remotion/bundler": "4.0.507",
     "@remotion/renderer": "4.0.507",
+    "@remotion/three": "4.0.507",
     "express": "^4.22.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "remotion": "4.0.507"
+    "remotion": "4.0.507",
+    "three": "0.185.1"
   }
 }

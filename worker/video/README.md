@@ -41,10 +41,26 @@ The separation is enforced in four places, and all four have to hold:
 
 | Where | What it guarantees |
 |---|---|
-| `worker/video/package.json` | Remotion's packages live here, never in Mocky's manifest |
+| `worker/video/package.json` | Remotion's packages live here, never in Mocky's manifest — and so does everything else this image needs and Mocky does not |
 | `worker/video/Dockerfile` | A second image, built only on request |
 | `.dockerignore` (repository root) | `worker/` never enters Mocky's own build context |
 | `docker-compose.yml` | `profiles: ["video-export"]` — absent unless asked for |
+
+**`three` is in that manifest too, and it is the same rule rather than an
+exception to it.** One block — `solidScene` — draws a lit solid in real
+perspective, which needs `three`, `@react-three/fiber` and `@remotion/three`.
+They are all MIT, none of them ships a native binary, and they were measured on
+this image before they were accepted: +26.6 MiB installed, 1.57 → 1.60 GB built
+(+2.0%), 83 s → 87 s to build, and about 0.9 s of extra render per second of film
+for a full-frame solid, against the 1.7 s/s the duration-scaled deadline leaves
+spare. Because they live here they are subject to exactly the guarantees the
+table above lists: an instance that never builds this image never installs them.
+
+Two packages were measured and refused, and `docs/video-export.md` carries the
+reasoning: `@shopify/react-native-skia`, which `@remotion/skia` needs, installs
+443 MiB of prebuilt `.a` and `.so` binaries for four platforms that cannot
+execute here; and a syntax highlighter, whose output is a table of colours nobody
+measured — the one thing `blocks.test.js` refuses outright.
 
 And enforced, rather than merely written down, by
 `tests/video-worker-separation.test.js` in the Mocky repository: prose does not
@@ -56,7 +72,7 @@ the queue and the store — is documented in
 
 ## What it renders
 
-Five compositions, one per template, and they are the only things a caller can
+Six compositions, one per template, and they are the only things a caller can
 reach: `render.js` selects one by the id `compositionIdFor` returns, so a request
 cannot name anything else.
 
@@ -67,6 +83,7 @@ cannot name anything else.
 | `vertical` | `VerticalStoryVideo` | 9:16 full bleed, large type, inside the safe areas a phone feed covers with its own buttons |
 | `titles` | `AnimatedTitlesVideo` | Words on the theme's background, underlined by the accent. **No image at all** |
 | `product` | `ProductSpotlightVideo` | A wide picture, a headline, one to three arguments and a call to action, enumerated |
+| `composed` | `ComposedSceneVideo` | A ground and a stack of one to eight typed blocks, laid out in nine zones. The blocks are the twenty-seven components under `blocks/`, and it is the model that arranges them |
 
 **The model never writes Remotion code.** It writes one JSON object, validated
 by `src/lib/video/timeline.ts`, and hand-written compositions consume it. Every
@@ -123,7 +140,7 @@ field, so an option here would be one nobody can reach.
 
 **Nothing holds still.** `sceneMotion` in `composition.js` answers, for any
 template and any frame, every quantity that changes between two frames of a
-scene, and the five compositions read it rather than working out their own
+scene, and every composition reads it rather than working out their own
 arrivals. That is what lets `tests/video-motion.test.js` prove by arithmetic that
 the last frame of every scene differs from its first, on a document where the
 model filled in nothing optional — the regression it guards against shipped as a
@@ -343,7 +360,7 @@ running this on a public host can hand `assertSafeTargetResolved` back in.
 ```
 worker/video/
   README.md            this file — the licence warning is the first section on purpose
-  package.json         Remotion's packages, pinned exactly. Never merged into Mocky's
+  package.json         Remotion's packages and three's, pinned exactly. Never merged into Mocky's
   Dockerfile           node:22-bookworm-slim + Chromium's libraries + ffmpeg
   .dockerignore        this directory is its own build context
   server.js            Express: GET /health, POST /render. Imports no Remotion package
@@ -355,12 +372,17 @@ worker/video/
   encoding.test.js     that option object — the one part of a render a test can check
   remotion/
     index.js               registerRoot — bundled, never run by Node
-    Root.jsx               the composition list; five entries, one calculateMetadata
+    Root.jsx               the composition list; six entries, one calculateMetadata
     ImageSequenceVideo.jsx     slideshow  ⎫
     OverlayBandVideo.jsx       overlay    ⎪ the compositions. React, written by
     VerticalStoryVideo.jsx     vertical   ⎬ hand, one per template, each a normal
     AnimatedTitlesVideo.jsx    titles     ⎪ code review rather than a breach
     ProductSpotlightVideo.jsx  product    ⎭
+    ComposedSceneVideo.jsx     composed
+    blocks/                one component per block kind, plus index.js, the
+                           registry. No Remotion import, no colour and no easing
+                           curve in any of them — blocks.test.js holds all three,
+                           and the first is what lets it run at all
     composition.js         the ids, the geometry, the theme and the frame maths, in
                            plain JS so both Node and the bundle can import them
     composition.test.js    that arithmetic, without rendering a video

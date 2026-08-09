@@ -1,31 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { confirmImage, generateImage, imageUrl } from '../lib/imageLibrary'
 import {
-  BULLET_FIELDS,
-  DURATION_STEP_MS,
-  OVERLAY_MAX_LENGTH,
-  addScene,
-  addTextScene,
-  clampDuration,
-  draftBlockers,
-  draftFromTimeline,
-  draftTotalMs,
-  durationWindow,
+  IMAGE_CAP,
+  addImage,
+  addImages,
+  aspectRatioOverridden,
+  composeBlocker,
+  effectiveAspectRatio,
   emptyDraft,
+  filmDurationMs,
+  filmSummary,
   formatSeconds,
-  moveScene,
-  removeScene,
-  sceneCap,
+  pictureScenes,
+  proposalStale,
+  removeImage,
+  renderBlocker,
   setAspectRatio,
-  setBullet,
+  setBrief,
   setOutputFormat,
-  setTemplate,
-  templateUsesImages,
-  toTimelineInput,
-  updateScene,
-  type DraftBlocker,
-  type DraftScene,
-  type TemplateChoice,
+  toRenderInput,
+  withProposal,
+  type ComposeBlocker,
+  type RenderBlocker,
   type VideoDraft,
 } from '../lib/video/draft'
 import {
@@ -60,24 +56,9 @@ import {
 } from '../lib/video/variantFlow'
 import {
   ASPECT_RATIOS,
-  BAND_POSITIONS,
-  KEN_BURNS,
-  MAX_TOTAL_DURATION_MS,
   jobBudgetMs,
   OUTPUT_FORMATS,
-  OVERLAY_MOVES,
-  OVERLAY_POSITIONS,
-  TEMPLATE_LIMITS,
-  TEXT_LIMITS,
-  TITLE_ANIMATIONS,
-  TRANSITIONS,
-  VIDEO_TEMPLATES,
-  type BandPosition,
   type KenBurns,
-  type OverlayMove,
-  type OverlayPosition,
-  type TitleAnimation,
-  type Transition,
   type VideoTheme,
 } from '../lib/video/timeline'
 import {
@@ -87,7 +68,7 @@ import {
   undersizedScenes,
   worstMagnification,
   type PixelSize,
-  type UndersizedScene,
+  type TemplateOrAuto,
 } from '../lib/video/resolution'
 import { themeFromDesign } from '../lib/video/theme'
 import { getThumb } from '../lib/thumbnails'
@@ -99,7 +80,6 @@ import {
   Field,
   Icon,
   IconButton,
-  Input,
   Modal,
   Segmented,
   Select,
@@ -108,163 +88,51 @@ import {
 } from '../ui'
 import { useLang, useT } from '../i18n'
 
-export const MOTION_KEYS: Record<KenBurns, string> = {
-  static: 'video.motionStatic',
-  'zoom-in': 'video.motionZoomIn',
-  'zoom-out': 'video.motionZoomOut',
-  'pan-left': 'video.motionPanLeft',
-  'pan-right': 'video.motionPanRight',
-}
-
 /**
- * The overlay's own move. Its own map rather than five more entries in
- * `MOTION_KEYS`, because the two vocabularies are not interchangeable: a capture
- * is never panned or zoomed, and a photograph is never asked to "settle".
- */
-export const OVERLAY_MOVE_KEYS: Record<OverlayMove, string> = {
-  'drift-up': 'video.moveDriftUp',
-  'drift-down': 'video.moveDriftDown',
-  settle: 'video.moveSettle',
-}
-
-export const TRANSITION_KEYS: Record<Transition, string> = {
-  crossfade: 'video.transitionCrossfade',
-  'wipe-left': 'video.transitionWipeLeft',
-  'wipe-right': 'video.transitionWipeRight',
-  none: 'video.transitionNone',
-}
-
-export const OVERLAY_KEYS: Record<OverlayPosition, string> = {
-  top: 'video.overlayTop',
-  center: 'video.overlayCenter',
-  bottom: 'video.overlayBottom',
-}
-
-/**
- * Where a band may sit. Two values, not three — see `BAND_POSITIONS`: the whole
- * point of that composition is that the capture underneath stays readable, and
- * `center` is exactly where the thing being shown lives.
- */
-export const BAND_KEYS: Record<BandPosition, string> = {
-  top: 'video.bandTop',
-  bottom: 'video.bandBottom',
-}
-
-export const ANIMATION_KEYS: Record<TitleAnimation, string> = {
-  fade: 'video.animFade',
-  rise: 'video.animRise',
-  stagger: 'video.animStagger',
-}
-
-/**
- * The catalogue, in the order the panel lists it: `auto` first, then the five
- * compositions in the schema's own order.
+ * Where the optional pictures come from. NOT what kind of film is being made.
  *
- * `auto` leads because it is the default and because it is the position that
- * serves a brief best — the model reads the sentence and picks the composition
- * built for it. Buried under the five it would be a setting nobody finds, which
- * is the thing this panel was rewritten to avoid.
+ * That distinction is the whole point of this rewrite. The switch used to choose
+ * between two ways of FILLING A TIMELINE, beside a grid of six composition cards
+ * — six layouts, twenty scene rows, and a duration slider each. None of that is
+ * on the panel any more: the model composes the film, and the only thing this
+ * switch still separates is where a picture comes from — one that already exists
+ * in the media library, or one being generated now.
+ *
+ * A session preference, deliberately not persisted: which way somebody wants
+ * their pictures is a fact about the film they are making now, and a setting
+ * that remembered it would open the panel on the paid path for a user who chose
+ * that once, months ago, for one project.
  */
-export const TEMPLATE_CHOICES: readonly TemplateChoice[] = ['auto', ...VIDEO_TEMPLATES] as const
-
-/**
- * Three sentences per composition: its name, what it makes, and what it asks of
- * you before it can make it.
- *
- * The third is the one people actually need. "Animated titling" does not say
- * that it uses no picture at all, and somebody who has spent a minute choosing
- * images deserves to know that before they pick it — the same way `product`
- * saying "an argument per line" is what stops it being chosen for a brief with
- * no arguments in it.
- *
- * Held as KEYS, like every other enum map on this panel: the component calls
- * `t(TEMPLATE_NAME_KEYS[choice])`, so no repo-wide scan for `t('…')` literals
- * would ever see these, and a test is the only thing that can.
- */
-export const TEMPLATE_NAME_KEYS: Record<TemplateChoice, string> = {
-  auto: 'video.tplAuto',
-  slideshow: 'video.tplSlideshow',
-  overlay: 'video.tplOverlay',
-  vertical: 'video.tplVertical',
-  titles: 'video.tplTitles',
-  product: 'video.tplProduct',
-}
-
-export const TEMPLATE_WHAT_KEYS: Record<TemplateChoice, string> = {
-  auto: 'video.tplAutoWhat',
-  slideshow: 'video.tplSlideshowWhat',
-  overlay: 'video.tplOverlayWhat',
-  vertical: 'video.tplVerticalWhat',
-  titles: 'video.tplTitlesWhat',
-  product: 'video.tplProductWhat',
-}
-
-export const TEMPLATE_NEEDS_KEYS: Record<TemplateChoice, string> = {
-  auto: 'video.tplAutoNeeds',
-  slideshow: 'video.tplSlideshowNeeds',
-  overlay: 'video.tplOverlayNeeds',
-  vertical: 'video.tplVerticalNeeds',
-  titles: 'video.tplTitlesNeeds',
-  product: 'video.tplProductNeeds',
-}
-
-/**
- * Which of the two ways of filling the timeline is on screen.
- *
- * They used to be two stacked blocks, both always drawn, and the panel was
- * taller than a 900-pixel window before a single scene had been added — so the
- * total, the ceiling and the render button, which live in the footer precisely
- * to stay visible, were the only things anybody could see without scrolling.
- * Behind a switch, one of them costs nothing.
- *
- * A session preference, deliberately not persisted: which form somebody wants is
- * a fact about the film they are making now, and a setting that remembered it
- * would open the panel on "start from an image" for a user who chose that once,
- * months ago, for one project.
- */
-export type FillMode = 'compose' | 'image'
+export type FillMode = 'library' | 'generate'
 
 export const FILL_MODE_KEYS: Record<FillMode, string> = {
-  compose: 'video.composeTitle',
-  image: 'video.fromImageTitle',
+  library: 'video.fromLibraryTitle',
+  generate: 'video.fromImageTitle',
 }
 
 /**
- * Why "Propose a cut" will not fire.
+ * Why "Propose a film" will not fire, and why "Start the render" will not.
  *
- * The same shape as `BLOCKER_KEYS`, and for the same reason: the panel names the
- * reason next to the disabled button, and a control that refuses to fire without
- * saying why is what this whole screen was built to avoid.
+ * Two maps of one entry each, which looks like an over-formality and is the
+ * convention this panel is held to: the reason is named next to the disabled
+ * button, in the reader's language, and a control that refuses to fire without
+ * saying why is what this whole screen was built to avoid. They are kept apart
+ * because they are about different buttons — and because the failure they guard
+ * is different in kind: one is a sentence nobody wrote, the other is a film
+ * nobody has composed yet.
+ *
+ * Held as KEYS rather than sentences, like every other map on this panel: the
+ * component calls `t(COMPOSE_BLOCKER_KEYS[blocker])`, so no repo-wide scan for
+ * `t('…')` literals would ever see these, and a test is the only thing that can.
  */
-export type ComposeBlocker = 'no-images' | 'no-brief'
-
 export const COMPOSE_BLOCKER_KEYS: Record<ComposeBlocker, string> = {
-  'no-images': 'video.composeNeedImages',
   'no-brief': 'video.composeNeedBrief',
 }
 
-/**
- * Ordered, not alphabetical: there is nothing to propose a montage ON before
- * there is a selection, so asking for a sentence first would send somebody to
- * write one and then refuse them anyway.
- *
- * **The picture gate now follows the composition,** which is the whole reason
- * this takes a third argument. It used to be unconditional: the form was a
- * slideshow and nothing else, so a text-only proposal had no field that fitted
- * and the button was closed rather than spend a call reaching a refusal. With a
- * selector on the panel and a form that reads all five, `titles` is words on a
- * background and needs no picture at all — and `auto` needs none either, because
- * the server offers `titles` alone against an empty selection. Keeping the old
- * gate would have made the one composition written for a brief of words
- * unreachable through the panel that composes.
- *
- * **It counts PICTURES, not rows**, and the two are not the same number. A
- * `titles` row carries no `imageId`, and switching the selector keeps every row
- * — so a draft of three title cards moved to `product` had three scenes and no
- * pictures, passed a gate that counted rows, and spent a round trip on a request
- * the server refuses before it even reaches a model. `propose()` sends
- * `imageId`s filtered on truthiness; this is the same list, counted.
- */
+export const BLOCKER_KEYS: Record<RenderBlocker, string> = {
+  'no-proposal': 'video.blockedNoProposal',
+}
+
 /**
  * The real pixel size of every picture in the draft, measured by decoding it.
  *
@@ -322,37 +190,6 @@ function useIntrinsicSizes(ids: readonly string[]): Record<string, PixelSize> {
   return sizes
 }
 
-export function composeBlocker(
-  imageCount: number,
-  brief: string,
-  template: TemplateChoice = 'slideshow',
-): ComposeBlocker | null {
-  const needsImages = template !== 'auto' && templateUsesImages(template)
-  if (needsImages && imageCount === 0) return 'no-images'
-  if (!brief.trim()) return 'no-brief'
-  return null
-}
-
-/**
- * What the panel shows instead of the button, when the button cannot fire.
- *
- * One sentence per reason and never a shared one, because each names a
- * different box to go and fill in. A form with fourteen inputs and "something is
- * missing" under the button is a hunt.
- */
-export const BLOCKER_KEYS: Record<DraftBlocker, string> = {
-  'no-template': 'video.blockedNoTemplate',
-  'no-scenes': 'video.blockedEmpty',
-  'too-many-scenes': 'video.blockedTooMany',
-  'over-budget': 'video.budgetOver',
-  'image-missing': 'video.blockedImage',
-  'headline-missing': 'video.blockedHeadline',
-  'band-title-missing': 'video.blockedBandTitle',
-  'bullets-missing': 'video.blockedBullets',
-  'overlay-too-long': 'video.blockedOverlay',
-  'text-too-long': 'video.blockedTextLong',
-}
-
 /**
  * A refusal, as a heading and a next step — held as KEYS, not as sentences.
  *
@@ -390,14 +227,33 @@ interface Failure {
  * field of a `VideoTimeline`, and a hand-written composition in the worker is
  * the only thing that ever turns those fields into pixels.
  *
- * There are two ways to fill it in, one switch between them, and only one form.
- * "Propose a cut" sends a sentence and the images already picked to
- * POST /api/video/compose, and what comes back is written into the SAME
- * controls, all of them still live — the model proposes, the user disposes. It
- * is a pre-fill, not a mode: a read-only preview would have to be taken whole or
- * thrown away whole, and the first thing anyone wants to do with a proposed
- * running order is move two scenes. The switch is about which *assistant* is on
- * screen; neither of them is a mode the timeline is in.
+ * ── Three fields, and the model does the rest ────────────────────────────────
+ *
+ * This panel used to open on a grid of composition cards and grow a row per
+ * scene, each with a duration slider, a camera move, a transition and its
+ * composition's own text boxes. It is gone. Choosing among five layouts and then
+ * dialling twenty rows is exactly what made every export look like the same five
+ * exports, and it asked the person with the least information — the one who has
+ * not seen a single frame — to make the decisions that need the most.
+ *
+ * What is left is what only a person knows: what the film is about, which
+ * pictures it may use, and what comes out of it. `POST /api/video/compose`
+ * answers with a whole document, and it is rendered as it came.
+ *
+ * ── The one recourse that stays ──────────────────────────────────────────────
+ *
+ * A plan nobody can see and nobody can refuse is a plan people submit to. So two
+ * things survive the scene editor's removal, and only two.
+ *
+ * **One sentence about the film.** How many shots, how long, what shape — read
+ * off the document, never written by a model. Not a scene list: that is the
+ * thing the user asked not to be shown, and it is also the thing that invites
+ * the question "how do I change scene 3?", which has no answer any more.
+ *
+ * **Ask again.** The compose button stays live after a proposal, and asking for
+ * another film is the whole of the recourse. It costs one model call and seconds;
+ * the render costs minutes of somebody else's CPU, which is precisely why the
+ * two are separate buttons and why the second one never fires by itself.
  */
 /**
  * One screen this panel may hang the finished film on.
@@ -478,8 +334,8 @@ export default function VideoExportDialog({
   onClose: () => void
 }) {
   const t = useT()
-  // Read here as well as in the rows below: the footer prints a magnification,
-  // and `1,9` and `1.9` are different numbers to a French reader.
+  // The footer prints a duration and a magnification, and `1,9` and `1.9` are
+  // different numbers to a French reader.
   const [lang] = useLang()
   const [access, setAccess] = useState<VideoAccess | null>(null)
   const [accessFailed, setAccessFailed] = useState(false)
@@ -488,13 +344,12 @@ export default function VideoExportDialog({
   const [failure, setFailure] = useState<Failure | null>(null)
   const [pollStumbled, setPollStumbled] = useState(false)
   const [starting, setStarting] = useState(false)
-  const [brief, setBrief] = useState('')
   const [proposing, setProposing] = useState(false)
   /**
-   * Which form the switch is showing. Component state, so it survives every
-   * round trip inside the open panel and nothing more — see `FillMode`.
+   * Where pictures are taken from. Component state, so it survives every round
+   * trip inside the open panel and nothing more — see `FillMode`.
    */
-  const [fill, setFill] = useState<FillMode>('compose')
+  const [fill, setFill] = useState<FillMode>('library')
   /** What the server said about the proposal. English, verbatim — see the banner. */
   const [notices, setNotices] = useState<string[]>([])
 
@@ -522,26 +377,39 @@ export default function VideoExportDialog({
    * spends 12% more. `src/lib/video/resolution.ts` carries the arithmetic.
    *
    * Recomputed live rather than asked of the server, and that is the whole point
-   * of doing it here: the answer changes with the aspect ratio, the composition
-   * and every camera move on the panel, and it has to be on screen while those
-   * are still choices. A render is two minutes; a notice that arrives with the
-   * finished file is a receipt, not a warning.
+   * of doing it here: the answer changes with the aspect ratio and with the film
+   * that has been proposed, and it has to be on screen while a picture can still
+   * be swapped for a bigger one. A render is two minutes; a notice that arrives
+   * with the finished file is a receipt, not a warning.
+   *
+   * It measures the PROPOSED film once there is one — the pictures it really
+   * paints, which for a composed scene are on the background and inside the
+   * blocks — and the selection before that. The two are not the same list: the
+   * model is free to leave a picture out, and warning about a photograph that
+   * ends up in no frame is the crying wolf that gets a warning ignored.
    */
-  const sceneIds = useMemo(() => draft.scenes.map((s) => s.imageId), [draft.scenes])
-  const sizes = useIntrinsicSizes(sceneIds)
-  const undersized = useMemo(
+  const film = draft.proposal?.timeline ?? null
+  const filmPictures = useMemo(
     () =>
-      undersizedScenes(
-        draft.scenes,
-        { template: draft.template, aspectRatio: draft.aspectRatio },
-        (id) => sizes[id],
-      ),
-    [draft.scenes, draft.template, draft.aspectRatio, sizes],
+      film
+        ? pictureScenes(film)
+        : draft.imageIds.map((imageId) => ({ imageId, kenBurns: 'static' as KenBurns })),
+    [film, draft.imageIds],
   )
-  /** By position, so a row can show its own number without scanning the list. */
-  const undersizedAt = useMemo(
-    () => new Map(undersized.map((found) => [found.index, found] as const)),
-    [undersized],
+  // The selection is measured as well as the film's own pictures, so the warning
+  // is already on screen when somebody picks a small image — before a call has
+  // been spent, which is the one moment it is cheapest to act on.
+  const measuredIds = useMemo(
+    () => [...draft.imageIds, ...filmPictures.map((p) => p.imageId)],
+    [draft.imageIds, filmPictures],
+  )
+  const sizes = useIntrinsicSizes(measuredIds)
+  /** `auto` until a film exists: the floor, never a guess. See `motionOverscale`. */
+  const filmTemplate: TemplateOrAuto = film?.template ?? 'auto'
+  const filmAspectRatio = effectiveAspectRatio(draft) ?? draft.aspectRatio
+  const undersized = useMemo(
+    () => undersizedScenes(filmPictures, { template: filmTemplate, aspectRatio: filmAspectRatio }, (id) => sizes[id]),
+    [filmPictures, filmTemplate, filmAspectRatio, sizes],
   )
 
   // ---- access -----------------------------------------------------------
@@ -561,23 +429,23 @@ export default function VideoExportDialog({
 
   /** When this browser first saw the job rendering. See `pollDeadlinePassed`. */
   const renderingSince = useRef<number | null>(null)
-  // The server's copy of the ceiling, not the bundled constant: /status quotes
-  // it precisely so a panel and a schema cannot drift into disagreeing about
-  // what "too long" means. The constant is only the answer before /status lands.
-  const budgetMs = access?.limits.maxTotalDurationMs ?? MAX_TOTAL_DURATION_MS
 
   /**
-   * How long to wait before saying the render stopped answering — a different
-   * quantity from `budgetMs` above, which is how long the FILM may be.
+   * How long to wait before saying the render stopped answering.
    *
-   * They were the same expression once, because both were 120 s. They are not
-   * the same thing: rendering 1080p in a headless browser costs about four
-   * times real time, so a minute of film is minutes of render. Using the
-   * duration ceiling here told a user their long film had timed out while the
-   * worker was still calmly working on it — and then the finished export
-   * appeared in Media with no panel left to show it.
+   * Not the duration ceiling, which is how long a FILM may be. Rendering 1080p
+   * in a headless browser costs about four times real time, so a minute of film
+   * is minutes of render, and using the ceiling here told a user their long film
+   * had timed out while the worker was calmly working on it — after which the
+   * finished export appeared in Media with no panel left to show it.
+   *
+   * The JOB's own timeline first, and the proposal only as a fallback. The case
+   * that made the order matter is a panel reopened on a render started before it
+   * was closed: there is no proposal in this browser then, and a deadline
+   * computed from an empty draft is the shortest possible one applied to the
+   * longest film somebody has.
    */
-  const pollBudgetMs = jobBudgetMs(draftTotalMs(draft))
+  const pollBudgetMs = jobBudgetMs(filmDurationMs(job?.timeline ?? film))
 
   useEffect(() => {
     if (!jobId) return
@@ -666,18 +534,21 @@ export default function VideoExportDialog({
   )
 
   /**
-   * Ask for a montage, and pre-fill the form with it.
+   * Ask the composer for a film.
    *
-   * The confirmation is the load-bearing part. A proposal replaces the running
-   * order, every duration, every motion and every caption at once, and doing
-   * that silently to somebody who has spent ten minutes in this panel is the
-   * worst possible moment to discover what the button does. It fires on hand
-   * work only — see `handEdited` — so the ordinary path, pick pictures then
-   * describe, never asks.
+   * No confirmation, and its absence is a decision rather than an oversight.
+   * This button used to overwrite a timeline somebody had spent ten minutes
+   * arranging by hand, which is why it asked; there is no hand work left to
+   * lose. What it replaces now is the previous PROPOSAL — a model's answer, not
+   * a person's — and replacing it is the whole point: asking again is the one
+   * recourse this panel keeps, and putting a dialog in front of it would make
+   * the recourse cost more than the thing it is a recourse for.
+   *
+   * No `template` either. The catalogue the model is shown is the whole
+   * catalogue, and picking from it is its job — naming one here is exactly the
+   * choice this panel stopped asking a person to make.
    */
   async function propose() {
-    if (draft.handEdited && !confirm(t('video.composeOverwriteConfirm'))) return
-
     proposeCtrl.current?.abort()
     const ctrl = new AbortController()
     proposeCtrl.current = ctrl
@@ -685,49 +556,30 @@ export default function VideoExportDialog({
     setFailure(null)
     setNotices([])
     try {
-      const proposal = await proposeVideoTimeline(
-        brief,
-        // `titles` has no picture on any scene, so its rows carry no id. Sending
-        // a list of empty strings would fail `fileExists` on the server and
-        // refuse the one composition written for a brief of words.
-        draft.scenes.map((s) => s.imageId).filter(Boolean),
-        {
-          signal: ctrl.signal,
-          theme,
-          // Omitted on `auto`, which is the whole difference between the two
-          // positions of the selector: named, the catalogue the model reads
-          // holds that composition alone.
-          template: draft.template === 'auto' ? undefined : draft.template,
-        },
-      )
-      // A newer proposal (or the panel closing) owns the form now. Writing this
+      const proposal = await proposeVideoTimeline(draft.brief, draft.imageIds, { signal: ctrl.signal, theme })
+      // A newer proposal (or the panel closing) owns the panel now. Writing this
       // one in would replace the answer the user is actually waiting for.
       if (proposeCtrl.current !== ctrl) return
       setNotices(proposal.notices)
       /*
-       * Nothing proposed leaves the form EXACTLY as it was.
+       * Nothing proposed leaves the panel EXACTLY as it was.
        *
-       * Clearing it would take a working timeline away as the price of asking a
-       * question, and the reasons a proposal comes back empty — no model
-       * configured, a provider that hung up, a document the schema refused —
-       * have nothing to do with the montage already on screen (Q1).
+       * Keeping the previous film is not politeness: the reasons a proposal
+       * comes back empty — no model configured, a provider that hung up, a
+       * document the schema refused — have nothing to do with the one already
+       * accepted, and taking a renderable film away as the price of asking a
+       * question is the opposite of a recourse (Q1).
        */
       /*
-       * Whichever composition came back, loaded into the form — including the
-       * selector, which follows it.
-       *
-       * This used to accept slideshows alone and refuse the other four with a
-       * sentence, because the editor had one row shape. That was a model call
-       * spent to produce something the panel then threw away: a brief about a
-       * phone comes back `vertical` and there was nowhere to put it. The
-       * selector is what made the other four expressible, and `draftFromTimeline`
-       * reads all five.
-       *
-       * On `auto` this is also how the composition gets decided at all — the
-       * proposal is the answer, and the selector moving to it is what tells the
-       * user which film they are now looking at.
+       * Whatever came back, kept whole — including `composed`, which is now the
+       * point rather than the exception. The panel used to refuse it and load
+       * only the five it had rows for; there are no rows, so there is nothing
+       * left for a stack of typed blocks to be incompatible with.
        */
-      if (proposal.timeline) setDraft(draftFromTimeline(proposal.timeline))
+      if (proposal.timeline) {
+        const timeline = proposal.timeline
+        setDraft((d) => withProposal(d, timeline))
+      }
     } catch (e) {
       // An abort is this panel cancelling, not something that went wrong.
       if ((e as { name?: string })?.name === 'AbortError') return
@@ -745,15 +597,15 @@ export default function VideoExportDialog({
 
   async function start() {
     /*
-     * No composition, no timeline — and no render.
+     * No proposal, no timeline — and no render.
      *
-     * `toTimelineInput` answers `null` on `auto` rather than assembling the
-     * slideshow that would have passed, which is the repair this feature refuses
-     * everywhere: it would hand back a film in a composition nobody chose. The
-     * button is already disabled by the `no-template` blocker; this is the guard
-     * that makes the rule true rather than merely displayed.
+     * `toRenderInput` answers `null` rather than assembling anything, which is
+     * the repair this feature refuses everywhere: a film nobody composed is not
+     * a film anybody asked for. The button is already disabled by the
+     * `no-proposal` blocker; this is the guard that makes the rule true rather
+     * than merely displayed.
      */
-    const timeline = toTimelineInput(draft)
+    const timeline = toRenderInput(draft)
     if (!timeline) return
 
     setStarting(true)
@@ -798,30 +650,13 @@ export default function VideoExportDialog({
 
     const live = job?.status === 'queued' || job?.status === 'rendering'
     const workerDown = !access.worker.available
-    // Every control the proposal is about to rewrite is frozen while it runs.
-    // A slider moved during the call is an edit that vanishes when the answer
-    // lands, with nothing to show it was ever made.
+    // Everything the next proposal will be composed from is frozen while a call
+    // is out. A picture added mid-call is one the model was never shown, on a
+    // film that comes back looking as though it had been.
     const frozen = live || proposing
-    // The pictures, not the rows — see `composeBlocker`. This is the same list
-    // `propose()` puts in the request, so the gate cannot pass a call the server
-    // is going to refuse for having no images in it.
-    const composeBlocked = composeBlocker(
-      draft.scenes.filter((s) => s.imageId).length,
-      brief,
-      draft.template,
-    )
-    /** The scene ceiling of the composition on the selector — see `sceneCap`. */
-    const cap = sceneCap(draft.template)
-    /*
-     * `auto` shows no picture controls either, and that is not an oversight.
-     *
-     * Four of the five compositions put a picture on the screen and one does
-     * not, so under `auto` the selection is what the MODEL is given to work
-     * from — which is exactly why the picker stays. What disappears with a
-     * composition that uses no image is the picker itself, because there is
-     * nothing for a picture to be added to.
-     */
-    const usesImages = draft.template === 'auto' || templateUsesImages(draft.template)
+    const composeBlocked = composeBlocker(draft)
+    /** How many more pictures the pool can hold — see `IMAGE_CAP`. */
+    const room = IMAGE_CAP - draft.imageIds.length
 
     return (
       <>
@@ -864,10 +699,10 @@ export default function VideoExportDialog({
 
         {/* Shown whether or not a timeline came back, and that is the point:
             with `timeline: null` these sentences are the only account of what
-            did not happen, and the form below is deliberately untouched. `warn`
-            rather than `danger` — an image left out of an otherwise good
-            proposal is a remark, not a failure. The server's own words, kept
-            verbatim, for the reason the error banner gives above. */}
+            did not happen, and the film already accepted is deliberately left
+            alone. `warn` rather than `danger` — an image left out of an
+            otherwise good proposal is a remark, not a failure. The server's own
+            words, kept verbatim, for the reason the error banner gives above. */}
         {notices.length > 0 && (
           <Banner tone="warn" title={t('video.composeNotices')} className="mt-3">
             <ul className="space-y-1">
@@ -879,47 +714,94 @@ export default function VideoExportDialog({
         )}
 
         {/*
-          The first decision, so the first control on the panel.
+          The one thing only a person knows, so the first thing on the panel.
 
-          Everything below reads differently depending on it: the scene rows are
-          the chosen composition's fields, the picker is there or absent, the
-          ratio is a choice or the template itself. Put lower down it would be a
-          setting that retroactively rearranges the form somebody had already
-          started filling in.
+          There is no composition picker above it any more, and that absence is
+          the feature: six cards asking somebody who has seen no frame to choose
+          a layout is the decision that made every export look alike. What is
+          asked for here is the film's subject; the model answers with the film.
         */}
-        <CompositionPicker
-          value={draft.template}
-          disabled={frozen}
-          theme={theme}
-          hasDirection={Boolean(direction && direction.trim())}
-          onChange={(choice) => edit((d) => setTemplate(d, choice))}
-        />
+        <div className="mt-4 border border-line-soft bg-ink/5 p-3">
+          <div className="section-head">
+            <span className="kicker text-accent-ink">{t('video.composeTitle')}</span>
+          </div>
+          <Field label={t('video.composeBrief')} hint={t('video.composeHint')}>
+            {(p) => (
+              <Textarea
+                {...p}
+                rows={3}
+                value={draft.brief}
+                disabled={frozen}
+                maxLength={BRIEF_MAX_LENGTH}
+                placeholder={t('video.composePlaceholder')}
+                // Read BEFORE the updater, never inside it — see the note on the
+                // container select below.
+                onChange={(e) => {
+                  const brief = e.currentTarget.value
+                  edit((d) => setBrief(d, brief))
+                }}
+              />
+            )}
+          </Field>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button variant="primary" size="sm" disabled={frozen || composeBlocked !== null} onClick={propose}>
+              <Icon name="sparkle" size={15} />
+              {/* The label changes once a film exists, because the button's
+                  meaning does: the second press is the recourse — "not this one,
+                  try again" — and a button still reading "Propose a film" beside
+                  a film that is already proposed reads as having done nothing. */}
+              {proposing ? t('video.composing') : t(draft.proposal ? 'video.composeAgain' : 'video.compose')}
+            </Button>
+            {/* Cancellable, and visibly so: this is a model call on somebody
+                else's hardware, and the only alternative to a stop button is
+                closing the panel to get out of it. */}
+            {proposing && (
+              <>
+                <Spinner />
+                <Button variant="ghost" size="sm" onClick={cancelPropose}>
+                  {t('common.cancel')}
+                </Button>
+              </>
+            )}
+            <span className="ml-auto font-mono text-caption text-ink-faint">
+              {t('video.briefCount', { n: draft.brief.length, max: BRIEF_MAX_LENGTH })}
+            </span>
+          </div>
+          {/* Next to the disabled button: a control that will not fire and will
+              not say why is what this whole panel was built to avoid. */}
+          {composeBlocked && !proposing && (
+            <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(COMPOSE_BLOCKER_KEYS[composeBlocked])}</p>
+          )}
+        </div>
 
         {/*
-          Above the scenes, not below them.
+          The pictures — optional, and said to be.
 
-          What this block produces is the list underneath it, so it reads in the
-          order it works: describe, and watch the form fill in. Put after the
-          picker it would sit under twenty scene rows in a body that scrolls,
-          where nobody discovers it — and the panel would look like a manual
-          editor with a hidden shortcut rather than two ways in.
+          They were the montage itself when a scene was a picture; a composed
+          film can be words, shapes and movement with no photograph anywhere in
+          it. So this is a POOL offered to the composer, not a running order: no
+          number beside a thumbnail, no arrows, nothing that implies scene three.
 
-          ONE block for both ways in, and the switch is the section head. Stacked,
-          the two of them filled a 900-pixel window on their own: everything that
-          matters — the scenes, the total, the render button — started below the
-          fold on a panel nobody had touched yet. They are also alternatives, not
-          steps, and two open forms said the opposite.
+          The switch is where a picture comes FROM. Both halves stay mounted —
+          hidden, never unmounted — because the variant flow holds a picture the
+          provider has already been paid for and nobody has confirmed yet, plus a
+          call that may be in flight. Unmounting it would abort that call and
+          forget that image, which is not a deletion (M8): it would stay on the
+          volume, pending for good, with nothing left pointing at it.
         */}
         <div className="mt-4 border border-line-soft bg-ink/5 p-3">
           <div className="section-head">
             <span className="kicker text-accent-ink">{t('video.sourceTitle')}</span>
-            <span className="ml-auto flex">
+            <span className="ml-auto flex items-center gap-3">
+              <span className="font-mono text-caption text-accent-ink">
+                {t('video.imageCount', { n: draft.imageIds.length, max: IMAGE_CAP })}
+              </span>
               <Segmented
                 label={t('video.sourceTitle')}
                 value={fill}
                 options={[
-                  { value: 'compose', label: t(FILL_MODE_KEYS.compose) },
-                  { value: 'image', label: t(FILL_MODE_KEYS.image) },
+                  { value: 'library', label: t(FILL_MODE_KEYS.library) },
+                  { value: 'generate', label: t(FILL_MODE_KEYS.generate) },
                 ]}
                 /* Segmented turns itself off when the active segment is clicked
                    again — correct for a canvas mode, wrong here: there is no
@@ -929,192 +811,68 @@ export default function VideoExportDialog({
               />
             </span>
           </div>
+          <p className="measure text-body-sm text-ink-muted">{t('video.sourceHint')}</p>
 
-          {/*
-            Hidden, never unmounted, and that is load-bearing on the second one.
+          <ChosenImages ids={draft.imageIds} disabled={frozen} onRemove={(id) => edit((d) => removeImage(d, id))} />
 
-            The variant flow holds a picture the provider has already been paid
-            for and nobody has confirmed yet, plus a call that may be in flight.
-            Unmounting it on a tab switch would abort that call and forget that
-            image — which is not a deletion (M8), so the picture would stay on
-            the volume, pending for good, with nothing left pointing at it. The
-            compose form is kept the same way for the ordinary reason: a brief
-            somebody typed must survive a look at the other tab.
-          */}
-          <div hidden={fill !== 'compose'}>
-            <Field label={t('video.composeBrief')} hint={t('video.composeHint')}>
-              {(p) => (
-                <Textarea
-                  {...p}
-                  rows={2}
-                  value={brief}
-                  disabled={frozen}
-                  maxLength={BRIEF_MAX_LENGTH}
-                  placeholder={t('video.composePlaceholder')}
-                  onChange={(e) => setBrief(e.currentTarget.value)}
-                />
-              )}
-            </Field>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={frozen || composeBlocked !== null}
-                onClick={propose}
-              >
-                <Icon name="sparkle" size={15} />
-                {proposing ? t('video.composing') : t('video.compose')}
-              </Button>
-              {/* Cancellable, and visibly so: this is a model call on somebody
-                  else's hardware, and the only alternative to a stop button is
-                  closing the panel to get out of it. */}
-              {proposing && (
-                <>
-                  <Spinner />
-                  <Button variant="ghost" size="sm" onClick={cancelPropose}>
-                    {t('common.cancel')}
-                  </Button>
-                </>
-              )}
-              <span className="ml-auto font-mono text-caption text-ink-faint">
-                {t('video.briefCount', { n: brief.length, max: BRIEF_MAX_LENGTH })}
-              </span>
-            </div>
-            {/* Next to the disabled button, for the reason the budget line
-                exists: a control that will not fire and will not say why is what
-                this whole panel was built to avoid. */}
-            {composeBlocked && !proposing && (
-              <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(COMPOSE_BLOCKER_KEYS[composeBlocked])}</p>
+          <div hidden={fill !== 'library'} className="mt-3">
+            {room <= 0 ? (
+              <p className="text-body-sm text-ink-faint">{t('video.imagesFull', { max: IMAGE_CAP })}</p>
+            ) : (
+              <ImagePicker
+                projectId={projectId}
+                heading={t('video.pickScene')}
+                selected={draft.imageIds}
+                disabled={frozen}
+                onPick={(hash) => edit((d) => addImage(d, hash))}
+                onError={(message) => setFailure({ titleKey: 'common.error', detail: message })}
+              />
             )}
           </div>
 
-          {/* Beside the scene picker, never instead of it. The picker below is
-              how somebody uses pictures they already have, and it stays the
-              short way in; this one is for when they do not exist yet, and it
-              costs up to seven provider calls and two decisions to walk. */}
-          <div hidden={fill !== 'image'}>
+          {/* Beside the library picker, never instead of it. That one is how
+              somebody uses pictures they already have and stays the short way
+              in; this one is for when they do not exist yet, and it costs up to
+              seven provider calls and two confirmations to walk. */}
+          <div hidden={fill !== 'generate'} className="mt-3">
             <StartFromImage
               projectId={projectId}
               access={access}
               aspectRatio={draft.aspectRatio}
-              room={cap - draft.scenes.length}
-              cap={cap}
+              room={room}
+              cap={IMAGE_CAP}
               disabled={frozen}
-              onAdd={(hashes) => edit((d) => hashes.reduce(addScene, d))}
+              onAdd={(hashes) => edit((d) => addImages(d, hashes))}
               onFailure={setFailure}
             />
           </div>
         </div>
 
         <div className="section-head mt-5">
-          <span className="kicker text-accent-ink">{t('video.scenesTitle')}</span>
-          <span className="ml-auto font-mono text-caption text-accent-ink">
-            {t('video.sceneCount', { n: draft.scenes.length, max: cap })}
-          </span>
-        </div>
-
-        {draft.scenes.length === 0 ? (
-          <div className="border border-line-soft bg-ink/5 p-4">
-            <p className="text-body text-ink">{t('video.noScenes')}</p>
-            {/* Two different next steps, because two different things are
-                missing. A composition with no picture in it cannot be opened by
-                choosing an image, and telling somebody to do that is a minute
-                spent looking for a picker that is deliberately absent. */}
-            <p className="measure mt-1 text-body-sm text-ink-muted">
-              {t(usesImages ? 'video.noScenesHint' : 'video.noScenesHintText')}
-            </p>
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {draft.scenes.map((scene, i) => (
-              <SceneRow
-                key={scene.key}
-                scene={scene}
-                template={draft.template}
-                undersized={undersizedAt.get(i)}
-                index={i}
-                isLast={i === draft.scenes.length - 1}
-                disabled={frozen}
-                onMove={(delta) => edit((d) => moveScene(d, scene.key, delta))}
-                onRemove={() => edit((d) => removeScene(d, scene.key))}
-                onPatch={(patch) => edit((d) => updateScene(d, scene.key, patch))}
-                onBullet={(index, text) => edit((d) => setBullet(d, scene.key, index, text))}
-              />
-            ))}
-          </ul>
-        )}
-
-        {/*
-          The picker, or the button that replaces it.
-
-          `titles` is the one composition whose scenes hold no picture, so it
-          gets an "add a card" button instead — a grid of thumbnails on a form
-          with nowhere to put a thumbnail is an offer that cannot be honoured,
-          and the user would reasonably conclude the picture goes somewhere they
-          have not found yet.
-        */}
-        <div className="mt-3 border border-line-soft bg-ink/5 p-3">
-          {draft.scenes.length >= cap ? (
-            <p className="text-body-sm text-ink-faint">{t('video.addSceneFull', { max: cap })}</p>
-          ) : usesImages ? (
-            <ImagePicker
-              projectId={projectId}
-              heading={t('video.pickScene')}
-              selected={draft.scenes.map((s) => s.imageId).filter(Boolean)}
-              disabled={frozen}
-              onPick={(hash) => edit((d) => addScene(d, hash))}
-              onError={(message) => setFailure({ titleKey: 'common.error', detail: message })}
-            />
-          ) : (
-            <>
-              <p className="measure text-body-sm text-ink-muted">{t('video.addCardHint')}</p>
-              <Button variant="primary" size="sm" className="mt-2" disabled={frozen} onClick={() => edit(addTextScene)}>
-                <Icon name="plus" size={15} />
-                {t('video.addCard')}
-              </Button>
-            </>
-          )}
-        </div>
-
-        <div className="section-head mt-5">
           <span className="kicker text-accent-ink">{t('video.output')}</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {/*
-            A vertical cut has no ratio to choose: `VerticalTimelineSchema` types
-            `aspectRatio` as the literal `9:16`, so the other two are unreachable
-            rather than discouraged. A select offering three values, two of which
-            refuse the document, is a control that exists to be got wrong — so it
-            is replaced by the fact.
-          */}
-          {draft.template === 'vertical' ? (
-            <div>
-              <p className="mb-1.5 text-body-sm font-medium text-ink">{t('video.aspectRatio')}</p>
-              <p className="text-body-sm text-ink-muted">{t('video.aspectLockedVertical')}</p>
-            </div>
-          ) : (
-            <Field label={t('video.aspectRatio')}>
-              {(p) => (
-                <Select
-                  {...p}
-                  value={draft.aspectRatio}
-                  disabled={frozen}
-                  // Read BEFORE the updater, never inside it — see the note on
-                  // the container select below.
-                  onChange={(e) => {
-                    const aspectRatio = e.currentTarget.value as VideoDraft['aspectRatio']
-                    edit((d) => setAspectRatio(d, aspectRatio))
-                  }}
-                >
-                  {ASPECT_RATIOS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-          )}
+          <Field label={t('video.aspectRatio')}>
+            {(p) => (
+              <Select
+                {...p}
+                value={draft.aspectRatio}
+                disabled={frozen}
+                // Read BEFORE the updater, never inside it — see the note on
+                // the container select below.
+                onChange={(e) => {
+                  const aspectRatio = e.currentTarget.value as VideoDraft['aspectRatio']
+                  edit((d) => setAspectRatio(d, aspectRatio))
+                }}
+              >
+                {ASPECT_RATIOS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
           <Field label={t('video.container')}>
             {(p) => (
               <Select
@@ -1150,46 +908,56 @@ export default function VideoExportDialog({
             )}
           </Field>
         </div>
+        {/* The one case where the selector above does not decide: a vertical cut
+            is typed on the literal `9:16`, so forcing another ratio onto it
+            would not widen the film, it would refuse the document. Said as a
+            fact rather than by disabling the control, which would leave somebody
+            wondering why their ratio stopped working. */}
+        {aspectRatioOverridden(draft) && (
+          <p className="measure mt-1.5 text-body-sm text-ink-muted">{t('video.aspectLockedVertical')}</p>
+        )}
+
+        {/* What the film will LOOK like, next to what comes out of it. Nobody
+            chooses this and nothing here can: see `ThemeNote`. */}
+        <div className="mt-3 border border-line-soft bg-ink/5 p-3">
+          <ThemeNote theme={theme} hasDirection={Boolean(direction && direction.trim())} />
+        </div>
       </>
     )
   })()
 
   /*
-   * The total, the ceiling and the button live in the Modal's FOOTER, which is
+   * The proposed film and the render button live in the Modal's FOOTER, which is
    * `shrink-0` while the body scrolls.
    *
-   * Put in the body they scroll away, and at twenty scenes they are a very long
-   * way down — which is the same failure as checking the budget on click, only
-   * slower: you compose the whole film with the one number that governs it out
-   * of sight, and meet the refusal at the end. Pinned, the button greys out
-   * under your hand the moment a slider crosses the line.
+   * The footer used to carry a duration budget, because the film was assembled
+   * upstairs a slider at a time and the sum could quietly cross two minutes. The
+   * schema is what refuses that now — nothing on this panel can build an
+   * over-long film — so what is pinned here is the pair of facts worth having
+   * under your eye at the moment of spending: what is about to be rendered, and
+   * whether any of its pictures is too small for the frame.
    */
   const footer = access?.enabled ? (
     <div className="w-full">
-      <Budget
-        total={draftTotalMs(draft)}
-        max={budgetMs}
-        cap={sceneCap(draft.template)}
-        blockers={draftBlockers(draft)}
-      />
+      <ProposalNote draft={draft} lang={lang} />
       {/*
-        In the FOOTER, beside the budget, for the reason the budget is here: this
-        is the pinned strip, and everything else scrolls. A note about definition
-        that lives next to the scenes is a note somebody scrolls past on their way
-        to the button — and this one has exactly one moment to be read, the moment
-        before two minutes of somebody else's CPU are spent.
+        In the FOOTER for the reason everything here is: this is the pinned
+        strip. A note about definition that lives next to a picker is a note
+        somebody scrolls past on the way to the button — and this one has exactly
+        one moment to be read, the moment before two minutes of somebody else's
+        CPU are spent.
 
         It never disables the button. A soft still is a film people ship on
         purpose, and refusing it would be the panel overruling a judgement that is
-        not its own (Q1). The rows carry the per-scene numbers; this says how bad
-        the worst of them is and what the only remedy is.
+        not its own (Q1). It says how bad the worst one is, and that the only
+        remedy is a larger original.
       */}
       {undersized.length > 0 && (
         <p className="measure mt-1.5 text-body-sm text-warn">
           {t('video.resFooter', {
             n: undersized.length,
-            w: FRAME_DIMENSIONS[draft.aspectRatio].width,
-            h: FRAME_DIMENSIONS[draft.aspectRatio].height,
+            w: FRAME_DIMENSIONS[filmAspectRatio].width,
+            h: FRAME_DIMENSIONS[filmAspectRatio].height,
             factor: formatMagnification(worstMagnification(undersized), lang),
           })}
         </p>
@@ -1206,13 +974,13 @@ export default function VideoExportDialog({
           onClick={start}
           disabled={
             starting ||
-            // A render started here would queue the timeline that is about to be
-            // replaced, and pay minutes of CPU for a film nobody will look at.
+            // A render started here would queue the film that is about to be
+            // replaced, and pay minutes of CPU for one nobody will look at.
             proposing ||
             job?.status === 'queued' ||
             job?.status === 'rendering' ||
             !access.worker.available ||
-            draftBlockers(draft).length > 0
+            renderBlocker(draft) !== null
           }
         >
           <Icon name="film" size={15} />
@@ -1230,99 +998,96 @@ export default function VideoExportDialog({
 }
 
 /**
- * Which of the five compositions the film is, or `auto` for "the model decides".
+ * The pictures the composer will be given, and the one thing that can be done to
+ * them: take one back out.
  *
- * A grid of radio cards rather than a `<Select>`, and the reason is the third
- * line on each card. A dropdown can carry a name and nothing else, and the
- * names alone are close to useless: "titrage animé" does not say that it uses no
- * picture, and somebody who has spent a minute choosing images will pick it and
- * then wonder where they went. What each composition REQUIRES is the fact that
- * decides the choice, so it has to be on screen at the moment of choosing rather
- * than discoverable by trying it.
+ * A strip and not a list of rows. The rows this replaces were SCENES — numbered,
+ * reorderable, each with a duration and a camera move — and every one of those
+ * affordances now belongs to the model. What is left is a pool, so the strip
+ * says nothing about order and nothing about what any picture becomes: it is the
+ * receipt for "these are the images it may use", and its only control is the one
+ * that would otherwise be impossible, since the picker below only ever adds.
  *
- * The bounds line is read off `TEMPLATE_LIMITS`, never typed into the
- * dictionary — the same discipline `templateCard()` follows in `compose.js`, and
- * for the same reason: a floor restated by hand drifts from the validator, and
- * the drift only shows as a refusal quoting a number nobody was shown.
- *
- * A native radio group, so arrow keys move between the cards and the whole set
- * is one tab stop. Buttons would have needed all of that written out, and
- * `Segmented` is the kit's control for two or three positions on one line — six
- * cards carrying three sentences each are not that control.
+ * The remove button is a real button with an accessible name rather than a cross
+ * drawn on the thumbnail, because this is the one destructive control in the
+ * block and it has to be reachable from the keyboard like everything else here.
  */
-function CompositionPicker({
-  value,
+function ChosenImages({
+  ids,
   disabled,
-  theme,
-  hasDirection,
-  onChange,
+  onRemove,
 }: {
-  value: TemplateChoice
+  ids: string[]
   disabled: boolean
-  /** The project's direction, as the tokens a film can carry. `null` = none stated. */
-  theme: VideoTheme | null
-  /**
-   * Whether a direction exists at all, which is NOT `theme !== null`.
-   *
-   * A project can have a DESIGN.md that states nothing this schema can carry —
-   * no colour, no typeface, no radius — and that is a third state: a direction
-   * was read and it asks for nothing. Telling that user "no art direction" would
-   * be false, and telling them their colours are applied would be worse.
-   */
-  hasDirection: boolean
-  onChange: (choice: TemplateChoice) => void
+  onRemove: (imageId: string) => void
 }) {
   const t = useT()
-  const [lang] = useLang()
+  // Nothing at all, said in a sentence: an empty strip would read as a grid that
+  // failed to load, and "no pictures" is a legitimate film here rather than an
+  // unfinished form.
+  if (ids.length === 0) return <p className="mt-2 text-body-sm text-ink-faint">{t('video.noImages')}</p>
 
   return (
-    <div className="mt-4 border border-line-soft bg-ink/5 p-3">
-      <fieldset disabled={disabled}>
-        <legend className="kicker text-accent-ink">{t('video.templateTitle')}</legend>
-        <p className="measure mt-1 text-body-sm text-ink-muted">{t('video.templateHint')}</p>
-        <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {TEMPLATE_CHOICES.map((choice) => {
-            const active = value === choice
-            const limits = choice === 'auto' ? null : TEMPLATE_LIMITS[choice]
-            return (
-              <li key={choice}>
-                {/* The whole card is the hit area, as in the variant grid below:
-                    a 13-pixel radio beside four lines of text is a target people
-                    miss, and they miss it on the control that decides the film. */}
-                <label
-                  className={`flex h-full cursor-pointer flex-col gap-1 border p-2 transition ${
-                    active ? 'border-accent bg-accent/10' : 'border-line-soft hover:border-line'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">
-                    <input
-                      type="radio"
-                      className="accent-accent"
-                      name="video-template"
-                      value={choice}
-                      checked={active}
-                      onChange={() => onChange(choice)}
-                    />
-                    {t(TEMPLATE_NAME_KEYS[choice])}
-                  </span>
-                  <span className="text-body-sm text-ink-muted">{t(TEMPLATE_WHAT_KEYS[choice])}</span>
-                  <span className="text-caption text-ink-faint">{t(TEMPLATE_NEEDS_KEYS[choice])}</span>
-                  {limits && (
-                    <span className="mt-auto pt-1 font-mono text-caption text-ink-faint">
-                      {t('video.templateBounds', {
-                        max: limits.maxScenes,
-                        min: formatSeconds(limits.minSceneMs, lang),
-                        long: formatSeconds(limits.maxSceneMs, lang),
-                      })}
-                    </span>
-                  )}
-                </label>
-              </li>
-            )
-          })}
-        </ul>
-      </fieldset>
-      <ThemeNote theme={theme} hasDirection={hasDirection} />
+    <ul className="mt-2 flex flex-wrap gap-2">
+      {ids.map((id) => (
+        <li key={id} className="relative">
+          <img src={imageUrl(id)} alt="" className="h-16 w-24 border border-line-soft object-cover" />
+          {/* On its own opaque ground rather than floated over the photograph:
+              a quiet icon on an arbitrary picture is a control whose contrast is
+              whatever that picture happens to be. */}
+          <span className="absolute right-0.5 top-0.5 border border-line-soft bg-surface">
+            <IconButton label={t('video.removeImage')} variant="quiet" disabled={disabled} onClick={() => onRemove(id)}>
+              <Icon name="trash" size={14} />
+            </IconButton>
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * The film that is about to be rendered, in one sentence — and the two things
+ * that can be said about it without showing its insides.
+ *
+ * This is the whole of what replaced the scene list, and the line it walks is
+ * deliberate. The user asked not to see the scenes and their settings; they did
+ * not ask to be handed a film they cannot recognise. Shot count, duration and
+ * shape are read off the document — never written by a model, which would make
+ * them a claim rather than a fact — and none of them names a layout or invites
+ * the question "how do I change scene 3?", which now has no answer.
+ *
+ * The stale line is the second thing. Editing the brief or the selection after a
+ * proposal leaves a film on the panel that answers a question nobody is asking
+ * any more, and nothing else on screen could tell. It never blocks the render:
+ * that film is still valid, and refusing it would turn a remark into a wall.
+ */
+function ProposalNote({ draft, lang }: { draft: VideoDraft; lang: string }) {
+  const t = useT()
+  const summary = filmSummary(draft)
+  const blocker = renderBlocker(draft)
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="kicker text-ink">{t('video.proposalTitle')}</span>
+        {summary && (
+          <span className="font-mono text-body-sm text-ink-muted">
+            {t('video.proposalSummary', {
+              n: summary.scenes,
+              s: formatSeconds(summary.durationMs, lang),
+              ratio: summary.aspectRatio,
+            })}
+          </span>
+        )}
+      </div>
+      {/* Muted, not red: "nothing has been proposed yet" is the state the panel
+          OPENS in, and a red line under a disabled button on a panel nobody has
+          touched reads as something already broken. */}
+      {blocker && <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(BLOCKER_KEYS[blocker])}</p>}
+      {proposalStale(draft) && (
+        <p className="measure mt-1.5 text-body-sm text-warn">{t('video.proposalStale')}</p>
+      )}
     </div>
   )
 }
@@ -1353,7 +1118,10 @@ function ThemeNote({ theme, hasDirection }: { theme: VideoTheme | null; hasDirec
   const fonts = [theme?.fonts?.heading, theme?.fonts?.body].filter(Boolean) as string[]
 
   return (
-    <div className="mt-3 border-t border-line-soft pt-3">
+    // No border of its own any more: it used to hang under the composition
+    // cards, inside their block, and it now IS a block — one rule drawn twice is
+    // the hairline nobody can explain.
+    <div>
       <p className="measure text-body-sm text-ink-muted">
         {t(theme ? 'video.themeFromProject' : hasDirection ? 'video.themeStatesNothing' : 'video.themeNone')}
       </p>
@@ -1434,13 +1202,12 @@ function StartFromImage({
    * `SOURCE_DIMENSIONS` for why it is not simply the frame's own size.
    */
   aspectRatio: VideoDraft['aspectRatio']
-  /** How many more scenes the timeline can hold. `addScene` refuses past the cap. */
+  /** How many more pictures the pool can hold. `addImage` refuses past the cap. */
   room: number
   /**
-   * The chosen composition's scene ceiling, only so the "full" sentence can
-   * quote it. Passed in rather than read here, because a product card holds six
-   * scenes and a slideshow twenty — a component that quoted the widest one would
-   * name a number the panel above it is not enforcing.
+   * The pool's ceiling, only so the "full" sentence can quote it. Passed in
+   * rather than read here, so this component states the number the panel above
+   * it is really enforcing rather than a second opinion about it.
    */
   cap: number
   disabled: boolean
@@ -1627,7 +1394,7 @@ function StartFromImage({
    * removed.
    */
   if (room <= 0) {
-    return <p className="text-body-sm text-ink-faint">{t('video.addSceneFull', { max: cap })}</p>
+    return <p className="text-body-sm text-ink-faint">{t('video.imagesFull', { max: cap })}</p>
   }
 
   return (
@@ -1858,502 +1625,6 @@ function StartFromImage({
         </p>
       )}
     </div>
-  )
-}
-
-/**
- * The running total against the ceiling.
- *
- * Not a check performed on click. Each per-scene slider looks reasonable while
- * the sum quietly passes two minutes, and learning that from a refusal — after
- * twenty scenes have been chosen, ordered and captioned — is the worst possible
- * moment for the information to arrive.
- */
-function Budget({
-  total,
-  max,
-  cap,
-  blockers,
-}: {
-  total: number
-  max: number
-  /** The chosen composition's scene ceiling, quoted by `too-many-scenes`. */
-  cap: number
-  blockers: DraftBlocker[]
-}) {
-  const t = useT()
-  const [lang] = useLang()
-  const over = total - max
-  return (
-    <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="kicker text-ink">{t('video.budget')}</span>
-        <span className={`font-mono text-body-sm ${over > 0 ? 'text-danger' : 'text-ink-muted'}`}>
-          {t('video.budgetValue', { used: formatSeconds(total, lang), max: Math.round(max / 1000) })}
-        </span>
-      </div>
-      {/* A bar, because "84 s of 120 s" is a number you have to read and this is
-          a proportion you can see. `aria-hidden`: the same fact is already in
-          the line above, in words. */}
-      <div className="mt-1.5 h-1 w-full bg-ink/10" aria-hidden>
-        <div
-          className={`h-full ${over > 0 ? 'bg-danger' : 'bg-accent'}`}
-          style={{ width: `${Math.min(100, (total / max) * 100)}%` }}
-        />
-      </div>
-      {/* Only the first, when several hold at once: the list is ordered from
-          "there is nothing to render" outwards, so the first is the one that has
-          to be dealt with before any of the others can be seen to matter.
-
-          An empty timeline is drawn muted rather than red, and so is a
-          composition nobody has chosen yet. Those are the two states the dialog
-          OPENS in, and a red line under a disabled button on a panel nobody has
-          touched reads as something already broken. */}
-      {blockers.length > 0 && (
-        <p
-          className={`measure mt-1.5 text-body-sm ${
-            blockers[0] === 'no-scenes' || blockers[0] === 'no-template' ? 'text-ink-muted' : 'text-danger'
-          }`}
-        >
-          {t(BLOCKER_KEYS[blockers[0]], {
-            max: blockers[0] === 'overlay-too-long' ? OVERLAY_MAX_LENGTH : cap,
-            over: formatSeconds(Math.max(0, over), lang),
-          })}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/**
- * One row of the editor, drawn with the fields of the composition on the
- * selector — and with none of the others.
- *
- * The rule this enforces is the one the panel was rewritten for: what is on
- * screen is what the chosen composition renders. A caption box on a product card
- * would be a line somebody writes and never sees, because `ProductSceneSchema`
- * has no `textOverlay` and `toTimelineInput` does not emit one; a camera-move
- * select on an overlay scene would offer a pan across a screenshot, which is
- * exactly what that composition exists to refuse.
- *
- * On `auto` the row is the picture and the running order, and nothing else. The
- * composition that would READ a duration or a camera move is not decided yet, so
- * every setting shown there would be a value the model is about to overwrite —
- * or worse, one it does not overwrite, silently kept from a form the user filled
- * in for a different film.
- */
-function SceneRow({
-  scene,
-  template,
-  undersized,
-  index,
-  isLast,
-  disabled,
-  onMove,
-  onRemove,
-  onPatch,
-  onBullet,
-}: {
-  scene: DraftScene
-  template: TemplateChoice
-  /**
-   * This scene's picture is smaller than the box it will be painted into.
-   *
-   * On the ROW rather than in a banner of its own, because the only useful
-   * answer is "replace this picture" and the row is where that is done. A list
-   * of scene numbers at the top of the panel would be a second index of
-   * something already on screen, and it would go stale the moment anybody
-   * reorders.
-   */
-  undersized?: UndersizedScene
-  index: number
-  isLast: boolean
-  disabled: boolean
-  onMove: (delta: number) => void
-  onRemove: () => void
-  onPatch: (patch: Partial<Omit<DraftScene, 'key'>>) => void
-  onBullet: (index: number, text: string) => void
-}) {
-  const t = useT()
-  const [lang] = useLang()
-  const label = t('video.sceneNumber', { n: index + 1 })
-  const window = template === 'auto' ? null : durationWindow(template)
-  const showsPicture = template === 'auto' || templateUsesImages(template)
-
-  return (
-    <li className="border border-line-soft bg-surface">
-      <div className="flex items-start gap-3 p-2">
-        {showsPicture && scene.imageId && (
-          <img
-            src={imageUrl(scene.imageId)}
-            alt=""
-            className="h-16 w-24 shrink-0 border border-line-soft object-cover"
-          />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-body font-medium text-ink">{label}</p>
-          {showsPicture && scene.imageId && (
-            <p className="font-mono text-caption text-ink-faint">{scene.imageId.slice(0, 12)}</p>
-          )}
-          {/* The measurement, next to the picture it is about. `warn` and not
-              `danger`: a soft still is a film somebody may well ship, and the
-              render is not refused over it (Q1). */}
-          {undersized && (
-            <p className="font-mono text-caption text-warn">
-              {t('video.resScene', {
-                w: undersized.source.width,
-                h: undersized.source.height,
-                factor: formatMagnification(undersized.magnification, lang),
-              })}
-            </p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <IconButton
-            label={t('video.moveUp')}
-            variant="quiet"
-            disabled={disabled || index === 0}
-            onClick={() => onMove(-1)}
-          >
-            {/* `chevronDown` turned over, rather than a left/right glyph
-                rotated: the kit has no `chevronUp`, and rotating a horizontal
-                chevron by a quarter turn gets the direction wrong as often as
-                right — the accessible name is on the button, but the arrow is
-                what everyone actually reads. */}
-            <Icon name="chevronDown" size={16} className="rotate-180" />
-          </IconButton>
-          <IconButton
-            label={t('video.moveDown')}
-            variant="quiet"
-            disabled={disabled || isLast}
-            onClick={() => onMove(1)}
-          >
-            <Icon name="chevronDown" size={16} />
-          </IconButton>
-          <IconButton label={t('video.removeScene')} variant="quiet" disabled={disabled} onClick={onRemove}>
-            <Icon name="trash" size={16} />
-          </IconButton>
-        </div>
-      </div>
-
-      {/* On `auto` the row stops here: a picture and its place in the running
-          order, which is exactly what the selection is — the model's input. */}
-      {window && template !== 'auto' && (
-        <div className="grid gap-3 border-t border-line-soft p-3 sm:grid-cols-3">
-          {/*
-            A slider, not a number box, and its bounds are the CHOSEN
-            composition's — a vertical beat stops at 8 s where a slideshow's runs
-            to 15. The document is refused outright when a duration strays
-            outside, with no clamping and no repair, so a control that cannot
-            express the illegal value in the first place is how that rule is
-            honoured here without ever correcting anything the user typed.
-          */}
-          <label className="block">
-            <span className="mb-1.5 flex items-baseline justify-between text-body-sm font-medium text-ink">
-              {t('video.duration')}
-              <output className="font-mono text-caption text-ink-muted">
-                {t('video.seconds', { n: formatSeconds(scene.durationMs, lang) })}
-              </output>
-            </span>
-            <input
-              type="range"
-              className="w-full accent-accent disabled:opacity-50"
-              min={window.minSceneMs}
-              max={window.maxSceneMs}
-              step={DURATION_STEP_MS}
-              value={scene.durationMs}
-              disabled={disabled}
-              aria-label={`${label} — ${t('video.duration')}`}
-              onChange={(e) => onPatch({ durationMs: clampDuration(Number(e.currentTarget.value), template) })}
-            />
-          </label>
-
-          {/* The camera move exists on two of the five scene kinds. A product
-              card lays its text out beside a picture that has to stay where it
-              is, and a title card has no picture at all — so this is absent
-              there rather than present and ignored. */}
-          {(template === 'slideshow' || template === 'vertical') && (
-            <Field label={t('video.motion')}>
-              {(p) => (
-                <Select
-                  {...p}
-                  value={scene.kenBurns}
-                  disabled={disabled}
-                  onChange={(e) => onPatch({ kenBurns: e.currentTarget.value as KenBurns })}
-                >
-                  {KEN_BURNS.map((k) => (
-                    <option key={k} value={k}>
-                      {t(MOTION_KEYS[k])}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-          )}
-
-          {/* The banded template has a movement of its own and a vocabulary of
-              its own: a pan across a screenshot slides half the interface out of
-              frame, so what it offers are drifts of about a percent. The field
-              is here rather than absent because a move the model can choose and
-              the panel cannot is a setting somebody can only get by asking. */}
-          {template === 'overlay' && (
-            <Field label={t('video.motion')}>
-              {(p) => (
-                <Select
-                  {...p}
-                  value={scene.move}
-                  disabled={disabled}
-                  onChange={(e) => onPatch({ move: e.currentTarget.value as OverlayMove })}
-                >
-                  {OVERLAY_MOVES.map((m) => (
-                    <option key={m} value={m}>
-                      {t(OVERLAY_MOVE_KEYS[m])}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-          )}
-
-          <Field label={t('video.transition')} hint={isLast ? t('video.transitionLast') : undefined}>
-            {(p) => (
-              <Select
-                {...p}
-                value={scene.transitionOut}
-                disabled={disabled}
-                onChange={(e) => onPatch({ transitionOut: e.currentTarget.value as Transition })}
-              >
-                {TRANSITIONS.map((tr) => (
-                  <option key={tr} value={tr}>
-                    {t(TRANSITION_KEYS[tr])}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-
-          {(template === 'slideshow' || template === 'vertical') && (
-            <>
-              <Field
-                label={t('video.overlay')}
-                className="sm:col-span-2"
-                hint={t('video.overlayCount', { n: scene.overlayText.length, max: OVERLAY_MAX_LENGTH })}
-              >
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={scene.overlayText}
-                    disabled={disabled}
-                    maxLength={OVERLAY_MAX_LENGTH}
-                    placeholder={t('video.overlayPlaceholder')}
-                    onChange={(e) => onPatch({ overlayText: e.currentTarget.value })}
-                  />
-                )}
-              </Field>
-
-              <Field label={t('video.overlayPosition')}>
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={scene.overlayPosition}
-                    // Nothing to position while the box is empty, and a live
-                    // control that changes nothing is the kind of thing people
-                    // click twice.
-                    disabled={disabled || !scene.overlayText.trim()}
-                    onChange={(e) => onPatch({ overlayPosition: e.currentTarget.value as OverlayPosition })}
-                  >
-                    {OVERLAY_POSITIONS.map((pos) => (
-                      <option key={pos} value={pos}>
-                        {t(OVERLAY_KEYS[pos])}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-            </>
-          )}
-
-          {template === 'overlay' && (
-            <>
-              {/* Required — `band.title` is `min(1)` in the schema, so an empty
-                  box is a refused document rather than a shorter film. The hint
-                  says so at the box instead of leaving the sentence under the
-                  render button to be the first anyone hears of it. */}
-              <Field
-                label={t('video.bandTitle')}
-                className="sm:col-span-2"
-                hint={t('video.bandTitleHint', { max: TEXT_LIMITS.bandTitle })}
-              >
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={scene.bandTitle}
-                    disabled={disabled}
-                    maxLength={TEXT_LIMITS.bandTitle}
-                    placeholder={t('video.bandTitlePlaceholder')}
-                    onChange={(e) => onPatch({ bandTitle: e.currentTarget.value })}
-                  />
-                )}
-              </Field>
-
-              <Field label={t('video.bandPosition')}>
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={scene.bandPosition}
-                    disabled={disabled}
-                    onChange={(e) => onPatch({ bandPosition: e.currentTarget.value as BandPosition })}
-                  >
-                    {BAND_POSITIONS.map((pos) => (
-                      <option key={pos} value={pos}>
-                        {t(BAND_KEYS[pos])}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-
-              <Field
-                label={t('video.bandSubtitle')}
-                className="sm:col-span-3"
-                hint={t('video.overlayCount', { n: scene.bandSubtitle.length, max: TEXT_LIMITS.bandSubtitle })}
-              >
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={scene.bandSubtitle}
-                    disabled={disabled}
-                    maxLength={TEXT_LIMITS.bandSubtitle}
-                    placeholder={t('video.bandSubtitlePlaceholder')}
-                    onChange={(e) => onPatch({ bandSubtitle: e.currentTarget.value })}
-                  />
-                )}
-              </Field>
-            </>
-          )}
-
-          {template === 'titles' && (
-            <>
-              <Field
-                label={t('video.headline')}
-                className="sm:col-span-2"
-                hint={t('video.headlineHint', { max: TEXT_LIMITS.titleHeadline })}
-              >
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={scene.headline}
-                    disabled={disabled}
-                    maxLength={TEXT_LIMITS.titleHeadline}
-                    placeholder={t('video.headlinePlaceholder')}
-                    onChange={(e) => onPatch({ headline: e.currentTarget.value })}
-                  />
-                )}
-              </Field>
-
-              <Field label={t('video.animation')}>
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={scene.animation}
-                    disabled={disabled}
-                    onChange={(e) => onPatch({ animation: e.currentTarget.value as TitleAnimation })}
-                  >
-                    {TITLE_ANIMATIONS.map((a) => (
-                      <option key={a} value={a}>
-                        {t(ANIMATION_KEYS[a])}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-
-              <Field
-                label={t('video.titleSubtitle')}
-                className="sm:col-span-3"
-                hint={t('video.overlayCount', { n: scene.subtitle.length, max: TEXT_LIMITS.titleSubtitle })}
-              >
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={scene.subtitle}
-                    disabled={disabled}
-                    maxLength={TEXT_LIMITS.titleSubtitle}
-                    placeholder={t('video.titleSubtitlePlaceholder')}
-                    onChange={(e) => onPatch({ subtitle: e.currentTarget.value })}
-                  />
-                )}
-              </Field>
-            </>
-          )}
-
-          {template === 'product' && (
-            <>
-              <Field
-                label={t('video.headline')}
-                className="sm:col-span-2"
-                hint={t('video.headlineHint', { max: TEXT_LIMITS.productHeadline })}
-              >
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={scene.headline}
-                    disabled={disabled}
-                    maxLength={TEXT_LIMITS.productHeadline}
-                    placeholder={t('video.headlinePlaceholder')}
-                    onChange={(e) => onPatch({ headline: e.currentTarget.value })}
-                  />
-                )}
-              </Field>
-
-              <Field label={t('video.cta')} hint={t('video.ctaHint', { max: TEXT_LIMITS.productCta })}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={scene.cta}
-                    disabled={disabled}
-                    maxLength={TEXT_LIMITS.productCta}
-                    placeholder={t('video.ctaPlaceholder')}
-                    onChange={(e) => onPatch({ cta: e.currentTarget.value })}
-                  />
-                )}
-              </Field>
-
-              {/*
-                Three boxes, always, and the empty ones are dropped on the way
-                out. The schema takes one to three arguments — never exactly
-                three — so a card with two is a two-argument card rather than one
-                with a gap in it. Drawn as a fixed set rather than an "add
-                another" button because three is the ceiling and a control that
-                can be pressed twice and then refuses is worse than three boxes
-                that are simply there.
-              */}
-              <div className="sm:col-span-3">
-                <p className="mb-1.5 text-body-sm font-medium text-ink">
-                  {t('video.bullets', { max: BULLET_FIELDS })}
-                </p>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {scene.bullets.map((bullet, i) => (
-                    <Input
-                      key={i}
-                      value={bullet}
-                      disabled={disabled}
-                      maxLength={TEXT_LIMITS.productBullet}
-                      aria-label={`${label} — ${t('video.bulletNumber', { n: i + 1 })}`}
-                      placeholder={t('video.bulletPlaceholder', { n: i + 1 })}
-                      onChange={(e) => onBullet(i, e.currentTarget.value)}
-                    />
-                  ))}
-                </div>
-                <p className="mt-1 text-caption text-ink-faint">
-                  {t('video.bulletsHint', { max: TEXT_LIMITS.productBullet })}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </li>
   )
 }
 

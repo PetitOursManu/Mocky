@@ -86,6 +86,10 @@ export const COMPOSITIONS = {
   vertical: 'VerticalStoryVideo',
   titles: 'AnimatedTitlesVideo',
   product: 'ProductSpotlightVideo',
+  // One composition for the composable variant, and twenty-four components under
+  // `blocks/` that it lays out. The catalogue did not grow a sixth LOOK; it grew
+  // a look that is a combination, and this entry is where the two meet.
+  composed: 'ComposedSceneVideo',
 }
 
 /**
@@ -380,9 +384,99 @@ export function entranceStyle(kind, frame, enterFrames) {
       return { clipPath: `inset(0 0 0 ${hidden}%)` }
     case 'wipe-right':
       return { clipPath: `inset(0 ${hidden}% 0 0)` }
+    case 'pixel':
+      return pixelMask(progress)
     default:
       return null
   }
+}
+
+/**
+ * How many cells across a `pixel` dissolve is, as a percentage of each edge.
+ *
+ * 5% is twenty cells on the long edge and, on a 16:9 frame, blocks of 96×54 —
+ * coarse enough to read as pixels at a glance and fine enough that the reveal is
+ * not four squares. Percentages and not pixels because `entranceStyle` is handed
+ * a frame count and never a frame size, which is deliberate: a transition that
+ * had to know the geometry would be a transition with a different amplitude in
+ * each of the three ratios.
+ */
+export const PIXEL_CELL_PERCENT = 5
+
+/**
+ * A grid of squares growing out of nothing — the mosaic dissolve.
+ *
+ * Two repeating gradients, one per axis, intersected: each on its own is a set of
+ * stripes, and their intersection is a grid of squares whose side grows with the
+ * progress. `mask-composite: intersect` is what performs the intersection, and
+ * the degradation if a renderer ignores it is deliberately harmless — the two
+ * masks then ADD, which is a grid of crosses rather than squares, still hidden at
+ * 0 and still fully opaque at 1. A transition that could leave the last frame of
+ * a scene partly masked would be a hole in the middle of a film.
+ *
+ * `-webkit-` alongside the standard property because Chromium still answers to
+ * both, and this string is only ever read by one browser in one container.
+ */
+function pixelMask(progress) {
+  const cell = PIXEL_CELL_PERCENT
+  const filled = Math.max(0, Math.min(1, progress)) * cell
+  const stripe = (direction) =>
+    `repeating-linear-gradient(${direction}, #000 0 ${filled}%, transparent ${filled}% ${cell}%)`
+  const mask = `${stripe('to right')}, ${stripe('to bottom')}`
+  return {
+    maskImage: mask,
+    WebkitMaskImage: mask,
+    maskComposite: 'intersect',
+    WebkitMaskComposite: 'source-in',
+  }
+}
+
+/**
+ * A block's anchor as the flex cell it lands in.
+ *
+ * Nine zones and the whole frame, and the zone is a CELL rather than a
+ * coordinate: two blocks anchored to the same zone stack inside it, in the order
+ * the document lists them. That is what lets `anchor` default to `center` without
+ * anything landing on top of anything, and it is the line the composable variant
+ * is drawn on — the model says which corner, the composition says where the
+ * corner is and what happens when two things want it.
+ *
+ * `Object.hasOwn` for the reason `overlayAlignment` gives: a plain lookup answers
+ * for the prototype chain, and `anchor: "constructor"` would put a function in
+ * `justifyContent`.
+ */
+const ANCHOR_CELLS = {
+  'top-left': { row: 'flex-start', column: 'flex-start' },
+  'top-center': { row: 'flex-start', column: 'center' },
+  'top-right': { row: 'flex-start', column: 'flex-end' },
+  'center-left': { row: 'center', column: 'flex-start' },
+  center: { row: 'center', column: 'center' },
+  'center-right': { row: 'center', column: 'flex-end' },
+  'bottom-left': { row: 'flex-end', column: 'flex-start' },
+  'bottom-center': { row: 'flex-end', column: 'center' },
+  'bottom-right': { row: 'flex-end', column: 'flex-end' },
+  // The one that is not a cell: a block that fills the frame, for the things that
+  // are a field rather than an element — a map, a wave, a gallery.
+  full: { row: 'stretch', column: 'stretch' },
+}
+
+/** The nine zones and the whole frame, in the schema's own order. */
+export const ANCHORS = Object.keys(ANCHOR_CELLS)
+
+/**
+ * The zone a value names, or `center`.
+ *
+ * One normalisation, read by `anchorCell` and by `composedLayout`. Two of them is
+ * a block whose alignment says one corner and whose box says another — the kind
+ * of disagreement that only shows up on the one anchor nobody wrote a fixture
+ * for.
+ */
+export function anchorName(anchor) {
+  return typeof anchor === 'string' && Object.hasOwn(ANCHOR_CELLS, anchor) ? anchor : 'center'
+}
+
+export function anchorCell(anchor) {
+  return ANCHOR_CELLS[anchorName(anchor)]
 }
 
 /** Where a `textOverlay` box sits in the frame. */
@@ -468,6 +562,38 @@ export function cueFrames(count, durationInFrames, { step = CUE_STEP_FRAMES, off
   return Array.from({ length: total }, (_, i) =>
     Math.floor((offset + i * step + (i === total - 1 ? gap : 0)) * scale),
   )
+}
+
+/**
+ * The frame each block of a composed scene arrives on.
+ *
+ * `enter` is a RANK, not a delay, and this is the one place that reading exists.
+ * Two things follow from it and both are the point of having a rank at all:
+ *
+ *   - **Blocks sharing a rank arrive together.** A heading and the rule under it
+ *     are one arrival, and saying so costs a repeated integer rather than a
+ *     millisecond somebody had to compute.
+ *   - **An absent rank is the position the block was written in.** A default of
+ *     zero would make every silent document a pile — everything at once — which
+ *     is the `kenBurns: 'static'` mistake in another costume: an optional field
+ *     is a field a model omits, so the case you get by saying nothing has to be
+ *     the good one.
+ *
+ * The beat itself is `cueFrames`, unchanged and shared with the five templates
+ * that had it first: a composed scene too short for its own cascade compresses
+ * it rather than losing its last block, and a second notion of "an element
+ * arrives" is the drift this whole file exists to prevent.
+ */
+export function layerCues(layers, durationInFrames) {
+  const list = Array.isArray(layers) ? layers : []
+  const ranks = list.map((layer, i) => {
+    const asked = Number(layer?.enter)
+    return Number.isInteger(asked) && asked >= 0 ? asked : i
+  })
+  const distinct = [...new Set(ranks)].sort((a, b) => a - b)
+  const cues = cueFrames(distinct.length, durationInFrames, { offset: 2 })
+  const byRank = new Map(distinct.map((rank, i) => [rank, cues[i]]))
+  return ranks.map((rank) => byRank.get(rank) ?? 0)
 }
 
 /**
@@ -565,6 +691,22 @@ function padded(n) {
  * losing an export over one would be the wrong trade (Q1).
  */
 export const INSTALLED_FONT_STACK = '"Liberation Sans", Arial, Helvetica, sans-serif'
+
+/**
+ * The same argument for the one block that needs a fixed pitch.
+ *
+ * `codeBlock` sets code, and code in a proportional face is code that stops
+ * looking like code — the alignment is half of what makes it readable as a
+ * listing rather than as a paragraph. The theme carries no monospace token and
+ * never will: `ThemeFontSchema` allows ONE family name and the direction states
+ * a heading and a body, so a third would be a token nobody declared.
+ *
+ * Liberation Mono is what `fonts-liberation` puts in the container, next to the
+ * Sans this file already relies on, and the generic `monospace` closes the stack
+ * so an image built without that package still sets code in something fixed
+ * rather than in rectangles.
+ */
+export const INSTALLED_MONO_STACK = '"Liberation Mono", "DejaVu Sans Mono", Consolas, monospace'
 
 /**
  * The look a film falls back to when the project declared nothing.
@@ -776,6 +918,10 @@ export function resolveTheme(theme) {
     surface,
     headingFont: fontStack(fonts.heading),
     bodyFont: fontStack(fonts.body),
+    // Not derived from a declared family, deliberately: a direction that states
+    // "Cormorant Garamond" states a display face, and setting a listing in it
+    // because it is the only name available is the guess `theme.ts` refuses.
+    monoFont: INSTALLED_MONO_STACK,
     radiusPx:
       Number.isInteger(radius) && radius >= 0 && radius <= 9999 ? radius : THEME_FALLBACK.radiusPx,
   }
@@ -897,18 +1043,31 @@ function ladder(from, to, step) {
  * is what stops a texture somebody added from quietly spending contrast a
  * headline had been promised, which is the one way a decorative layer can undo
  * the whole of this section without changing a single line of it.
+ *
+ * It may be an ARRAY, and that is what a gradient needs. Two colours measured at
+ * their ends is not the same claim as a ramp between them, and the difference has
+ * a counterexample rather than a doubt: on a ramp from black to a pale grey, an
+ * ink at a relative luminance of 0.10 clears 3:1 against BOTH ends and meets its
+ * own luminance somewhere in the middle, where the contrast is 1:1. At the 4.5
+ * floor the arithmetic forbids it — two ends 4.5 apart in each direction would
+ * need a luminance past 1 — but the display floor is 3, and every headline in
+ * this directory takes 3. So a ramp is handed several samples and the sampling is
+ * what closes the gap: an ink hiding between two adjacent samples is within a
+ * fraction of one of them, and a fraction is not 3:1.
  */
 export function surfaceRange(color, alpha, tint) {
   const base = safeColor(color, THEME_FALLBACK.background)
   const a = Number.isFinite(Number(alpha)) ? Math.min(1, Math.max(0, Number(alpha))) : 1
 
   const grounds = [base]
-  if (tint && typeof tint === 'object') {
-    const density = Number.isFinite(Number(tint.alpha)) ? Math.min(1, Math.max(0, Number(tint.alpha))) : 0
+  const layers = Array.isArray(tint) ? tint : tint ? [tint] : []
+  for (const layer of layers) {
+    if (!layer || typeof layer !== 'object') continue
+    const density = Number.isFinite(Number(layer.alpha)) ? Math.min(1, Math.max(0, Number(layer.alpha))) : 0
     // `safeColor(..., base)` and not a drop: an unreadable tint is a layer that
     // paints nothing, which is the same range as no tint at all.
-    const tinted = blend(safeColor(tint.color, base), base, density)
-    if (tinted && tinted !== base) grounds.push(tinted)
+    const tinted = blend(safeColor(layer.color, base), base, density)
+    if (tinted && !grounds.includes(tinted)) grounds.push(tinted)
   }
 
   const out = []
@@ -1319,6 +1478,266 @@ export function productLayout(width, height) {
  */
 export const PICTURE_SHARE = { row: 0.5, column: 0.45 }
 
+// ── The composable variant's geometry ────────────────────────────────────────
+//
+// A zone is a name in the document and a box in the frame, and this is where the
+// second one is worked out. It is here rather than in `ComposedSceneVideo.jsx`
+// for the reason the whole file exists: a `.jsx` cannot be imported by a test, so
+// a layout written there is a layout whose only proof is an mp4 somebody watched.
+// The first version WAS written there — a CSS grid with `padding: '6%'` on it —
+// and the defect that arrangement hides is the one below: 6% is a broadcast
+// margin, a feed application covers a fifth of a portrait frame with its own
+// interface, and a percentage cannot tell the two apart.
+
+/**
+ * The margin a composed frame keeps from its own edges, per axis, when nothing
+ * is drawn over it.
+ *
+ * Broadcast overscan, the same thing the slideshow's own padding is about: a
+ * frame can lose its outer few per cent to a display that crops, and a heading
+ * anchored `top-left` should not be the element that discovers it. Six per cent
+ * of EACH axis rather than of the width on all four sides — a percentage in CSS
+ * resolves against the width, which is why the first version put a 65 px margin
+ * on the 1920 px edge of a portrait frame and a 115 px one on the 1080 px edge of
+ * a landscape one, the wrong way round in both.
+ */
+export const COMPOSED_SAFE_PERCENT = 6
+
+/**
+ * The gutter between two zones of the 3×3 grid, as a fraction of the SHORT edge.
+ *
+ * Off the short edge like every other size in this directory (`frameBase` says
+ * why), so the grid of a 9:16 export has the same gutters as a 16:9 one instead
+ * of gutters 1.78× wider in one direction.
+ */
+export const COMPOSED_CELL_GAP = 0.03
+
+/** The gap between two blocks STACKED in one zone. Tighter than the gutter: they belong together. */
+export const COMPOSED_STACK_GAP = 0.024
+
+/**
+ * Which of the three tracks an alignment names, and how text sits in it.
+ *
+ * Derived from `ANCHOR_CELLS` rather than written a second time: a table of nine
+ * anchors against a grid position is a table that can disagree with the one above
+ * it, and the disagreement would be a block drawn in the wrong corner with
+ * nothing anywhere saying so. `stretch` names no track, which is exactly what
+ * `full` is — the zone that is not a cell.
+ *
+ * These two are looked up plainly rather than through `Object.hasOwn`, and that
+ * is the one place in this file where that is safe: the key is a value out of
+ * `ANCHOR_CELLS` above, never a string off a document. `anchorName` is where a
+ * document's own word is made safe, once.
+ */
+const TRACK_OF = { 'flex-start': 0, center: 1, 'flex-end': 2 }
+const TEXT_OF = { 'flex-start': 'left', center: 'center', 'flex-end': 'right', stretch: 'center' }
+
+/** `full` first: a field is what an element sits on. See `composedLayout`. */
+const ZONE_ORDER = ['full', ...ANCHORS.filter((anchor) => anchor !== 'full')]
+
+/**
+ * The part of the frame a composed scene is allowed to put things in.
+ *
+ * Two regimes, and the split is the one `VERTICAL_SAFE_TOP_PERCENT` already
+ * argues for: a 9:16 export exists to be POSTED, and a feed application draws its
+ * own interface over the video — the caption and the sound row along the bottom,
+ * the action rail up the right, the tabs across the top. A `bottom-center` block
+ * inside a 6% margin there is not close to an edge, it is behind a button. So a
+ * portrait frame pays the feed's bands and the other two pay overscan, and the
+ * numbers are the vertical template's own rather than a second set that would
+ * drift from them for no reason.
+ *
+ * `height > width` is the whole test because the catalogue has exactly three
+ * ratios and one of them is taller than it is wide — `productLayout` splits on
+ * the same comparison for the same reason. A square is not a feed frame: 1:1 is
+ * posted into a grid, not under a caption row.
+ *
+ * The edges are rounded OUTWARD — up on the near side, down on the far one — so
+ * the area is never a fraction of a pixel wider than the margin it promised. To
+ * nearest, a 230.4 px band came back as 230: invisible on a frame, and wrong in
+ * the one direction that matters, since the band is a promise about somebody
+ * else's interface rather than a taste in margins.
+ */
+export function composedSafeArea(width, height) {
+  const w = Math.max(0, Number(width) || 0)
+  const h = Math.max(0, Number(height) || 0)
+  const feed = h > w
+  const side = feed ? (VERTICAL_SAFE_SIDE_PERCENT / 100) * w : (COMPOSED_SAFE_PERCENT / 100) * w
+  const above = feed ? (VERTICAL_SAFE_TOP_PERCENT / 100) * h : (COMPOSED_SAFE_PERCENT / 100) * h
+  const below = feed ? (VERTICAL_SAFE_BOTTOM_PERCENT / 100) * h : (COMPOSED_SAFE_PERCENT / 100) * h
+  const left = Math.ceil(side)
+  const top = Math.ceil(above)
+  return {
+    left,
+    top,
+    width: Math.max(0, Math.floor(w - side) - left),
+    height: Math.max(0, Math.floor(h - below) - top),
+  }
+}
+
+/**
+ * `count` tracks and their gutters across a span, as start/size pairs.
+ *
+ * Each edge is rounded rather than each size, so the tracks tile the span
+ * exactly: the last one ends on `round(start + span)` whatever the arithmetic did
+ * in between. Rounding sizes instead spends a pixel per track, and three of them
+ * put the right-hand column past the margin it was measured from — a failure that
+ * shows up on one ratio out of three and reads as noise.
+ */
+function split(start, span, gap, count) {
+  const total = Math.max(1, count)
+  const track = (span - (total - 1) * gap) / total
+  return Array.from({ length: total }, (_, i) => {
+    const from = start + i * (track + gap)
+    const at = Math.round(from)
+    return { start: at, size: Math.max(0, Math.round(from + track) - at) }
+  })
+}
+
+/**
+ * Where every block of a composed scene goes: one entry per zone that holds
+ * something, in paint order.
+ *
+ * ── The rule for two blocks in one zone, and why it is stacking ──────────────
+ *
+ * They STACK, vertically, in the order the document listed them. The alternative
+ * was to refuse the document at validation, and it is the wrong trade twice over.
+ * A refusal there would have to be a rule the model can follow — "never anchor
+ * two blocks to the same zone" — which turns nine zones into a maximum of nine
+ * blocks and makes the common case (a kicker over its heading, a heading over its
+ * rule) something a document has to spell out by inventing an anchor for each
+ * line. And it would refuse the SILENT document: `anchor` defaults to `center`,
+ * so a model that omits it on two blocks would be told its film is illegal for
+ * saying nothing, which is the `kenBurns: 'static'` lesson in reverse.
+ *
+ * Stacking makes the default correct instead: a scene whose blocks name no anchor
+ * at all is a centred column, which is what a stack of blocks should look like
+ * when nobody said otherwise.
+ *
+ * The zone's own alignment is what keeps a crowded stack inside the frame. A
+ * column in the top row grows DOWNWARD from its cell, one in the bottom row grows
+ * upward, and the middle grows both ways — so a stack too tall for its cell
+ * spills towards the middle of the frame and never past the edge it was anchored
+ * to. That is a property of the alignment rather than a clamp, which matters
+ * because the height a block actually draws is not something this file can know.
+ *
+ * `full` is first in the list and therefore painted first, under the nine cells:
+ * a map, a wave or a gallery is a FIELD, and an element anchored `center` on top
+ * of it is the arrangement anybody writing those two blocks meant. Two `full`
+ * blocks share the safe area between them (`share`), for the same reason two
+ * blocks in a cell stack — one rule for all ten zones, not nine and an exception.
+ *
+ * ── A row is divided among the columns that are USED ─────────────────────────
+ *
+ * A fixed 3×3 of equal thirds is the obvious reading of "nine zones" and it makes
+ * the commonest scene there is unreadable. `anchor` defaults to `center`, so a
+ * document that names none puts everything in one cell — and a cell a third of a
+ * 16:9 frame wide is 563 px, which is five characters of display type on a line.
+ * The zone is a POSITION; the width belongs to whatever else is beside it.
+ *
+ * So each row band is split among the columns that hold something, in order. One
+ * column used takes the whole measure, two take half each, three take thirds —
+ * and the alignment still says which edge the content sits on, so a lone
+ * `top-left` block is at the left margin with room to run rather than boxed into
+ * a third. Nothing overlaps at any of the three, because the split is the same
+ * arithmetic the grid was.
+ *
+ * The ROWS are not treated the same way, and that asymmetry is deliberate: a
+ * band's anchored edge is already the safe edge (the top band starts at the safe
+ * top, the middle is centred in the frame, the bottom ends at the safe bottom),
+ * so a column that overflows its band grows into empty space in the right
+ * direction. A column's anchored edge is only the frame's when nothing else is in
+ * its row, which is exactly the case this split computes.
+ *
+ * Timing is deliberately absent: `layerCues` answers when a block arrives and
+ * this answers where it lands, and keeping them apart is what lets the motion be
+ * checked on a document with no frame size and the layout on a frame with no
+ * duration.
+ */
+export function composedLayout(scene, width, height) {
+  const layers = Array.isArray(scene?.layers) ? scene.layers : []
+  const frame = composedSafeArea(width, height)
+  const base = frameBase(width, height)
+  const gutter = Math.round(base * COMPOSED_CELL_GAP)
+
+  // Which blocks each zone holds, in the order the document listed them. An
+  // anchor this build does not know lands in `center`, like `anchorCell`'s own
+  // fallback: the value was refused by `validate.js` long before a frame, so
+  // reaching that branch means two lists disagree — and a block drawn in the
+  // middle beats a block that silently vanished from a film somebody waited for
+  // (Q1).
+  const held = new Map()
+  layers.forEach((block, index) => {
+    const anchor = anchorName(block?.anchor)
+    if (!held.has(anchor)) held.set(anchor, [])
+    held.get(anchor).push({ index, block })
+  })
+
+  const rows = split(frame.top, frame.height, gutter, 3)
+  const used = [new Set(), new Set(), new Set()]
+  for (const anchor of held.keys()) {
+    const cell = ANCHOR_CELLS[anchor]
+    if (TRACK_OF[cell.row] !== undefined) used[TRACK_OF[cell.row]].add(TRACK_OF[cell.column])
+  }
+  const columns = used.map((occupied) => {
+    const order = [...occupied].sort((a, b) => a - b)
+    const boxes = split(frame.left, frame.width, gutter, order.length)
+    return new Map(order.map((column, i) => [column, boxes[i]]))
+  })
+
+  const zones = []
+  for (const anchor of ZONE_ORDER) {
+    const inZone = held.get(anchor)
+    if (!inZone) continue
+    const cell = ANCHOR_CELLS[anchor]
+    const row = TRACK_OF[cell.row]
+    const column = columns[row]?.get(TRACK_OF[cell.column])
+    zones.push({
+      anchor,
+      box:
+        row === undefined || !column
+          ? { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
+          : { left: column.start, top: rows[row].start, width: column.size, height: rows[row].size },
+      // `stretch` is a legal `align-items` and not a legal `justify-content`, so
+      // the sharing zone is reported as a flag and a valid pair rather than as a
+      // value the composition would have to translate.
+      share: cell.row === 'stretch',
+      justify: cell.row === 'stretch' ? 'flex-start' : cell.row,
+      align: cell.column,
+      textAlign: TEXT_OF[cell.column] ?? 'left',
+      layers: inZone,
+    })
+  }
+  return { frame, gutter, gap: Math.round(base * COMPOSED_STACK_GAP), zones }
+}
+
+/**
+ * How dense an animated ground is at a given point in its scene.
+ *
+ * The curve lives here and not in the composition for the reason every other
+ * number in this file does — and for one more that is specific to it: this is the
+ * only quantity a composed film has that can UNDO the legibility guarantee.
+ * `composedPalette` measured every run against the ground's tint at full
+ * strength, so a pulse that ever went above 1 would be text on a surface nobody
+ * measured. It is bounded below by `PULSE_FLOOR` and above by the density that
+ * was measured, and the asymmetry is the whole argument: a layer that can only
+ * ever get fainter cannot spend contrast the measurement promised. Same reasoning
+ * `vertical` relies on when it keeps a directional gradient over a uniform dim.
+ *
+ * `gridPulse` beats faster than `particles` drift, which is the only difference
+ * between the two and is why they share one function rather than each owning a
+ * sine somewhere.
+ */
+export const PULSE_FLOOR = 0.4
+const PULSE_CYCLES = { gridPulse: 6, particles: 4 }
+
+export function groundDensity(kind, ground) {
+  const cycles = Object.hasOwn(PULSE_CYCLES, String(kind)) ? PULSE_CYCLES[kind] : 0
+  if (!cycles) return 1
+  const life = Math.min(1, Math.max(0, Number(ground) || 0))
+  return PULSE_FLOOR + (1 - PULSE_FLOOR) * (0.5 + 0.5 * Math.sin(life * Math.PI * cycles))
+}
+
 // ── The motion of one scene ──────────────────────────────────────────────────
 //
 // Every quantity that CHANGES between two frames of a scene, for all five
@@ -1506,6 +1925,66 @@ function productMotion(entry, frame) {
 }
 
 /**
+ * How much a composed stack drifts over its scene — the same 1.6% the titled
+ * card drifts, aliased rather than chosen again.
+ *
+ * Two notions of "a block breathes" is one of them drifting, which is the rule
+ * this whole file is written under. And the reason it is the STACK that moves and
+ * not the ground is the reason `TITLE_BLOCK_DRIFT` gives: the ground is the
+ * surface `composedPalette` measured every run against, and a ground moving under
+ * fixed type would be text crossing a surface nobody measured.
+ */
+export const COMPOSED_BLOCK_DRIFT = TITLE_BLOCK_DRIFT
+
+/**
+ * The grounds that move on their own, and therefore the ones that report a term.
+ *
+ * `solid` and `hairlines` do not, and that is the honest answer rather than a
+ * gap: a composed scene moves through its blocks and its drift whatever it is
+ * painted on, and reporting a `ground` progress for a field of static rules
+ * would be a number that changes while the frame does not — the exact thing
+ * `tests/video-motion.test.js` exists to catch.
+ */
+export const ANIMATED_BACKGROUNDS = ['gradient', 'gridPulse', 'particles']
+
+/** The ground a document names, or the field of hairlines silence means. */
+export function backgroundKind(background) {
+  const kind = background && typeof background === 'object' ? background.kind : undefined
+  return typeof kind === 'string' && BACKGROUND_SURFACES.includes(kind) ? kind : 'hairlines'
+}
+
+/** The composable variant: a stack that drifts, a cascade that lands on it, and a ground. */
+function composedMotion(entry, frame) {
+  const { scene, durationInFrames } = entry
+  const layers = Array.isArray(scene?.layers) ? scene.layers : []
+  const cues = layerCues(layers, durationInFrames)
+  const life = progressAt(frame, Math.max(1, durationInFrames - 1))
+  const kind = backgroundKind(scene?.background)
+
+  // The stress mark of a cascade goes to the block that arrives LAST, and only
+  // when it arrives alone: `enter` is a rank, so the last block written is not
+  // necessarily the last one on screen, and an emphasis given to two blocks at
+  // once is a tempo rather than an accent.
+  const latest = cues.length ? Math.max(...cues) : 0
+  const alone = cues.filter((cue) => cue === latest).length === 1
+
+  return {
+    // Halfway through the scene the stack is where it would have been all along;
+    // it arrives a little low and leaves a little high.
+    drift: (0.5 - life) * COMPOSED_BLOCK_DRIFT,
+    layers: layers.map((_, i) =>
+      cueProgress(
+        frame,
+        cues[i],
+        alone && layers.length > 1 && cues[i] === latest ? EMPHASIS_ENTER_FRAMES : CUE_ENTER_FRAMES,
+      ),
+    ),
+    ...(kind === 'image' ? { picture: kenBurnsTransform(scene?.background?.move, frame, durationInFrames) } : {}),
+    ...(ANIMATED_BACKGROUNDS.includes(kind) ? { ground: life } : {}),
+  }
+}
+
+/**
  * The motion of a template, keyed exactly like `COMPOSITIONS` and `PALETTES`.
  *
  * Same shape and the same reason: a template that gains a composition without
@@ -1519,6 +1998,7 @@ export const MOTIONS = {
   vertical: verticalMotion,
   titles: titlesMotion,
   product: productMotion,
+  composed: composedMotion,
 }
 
 /**
@@ -1645,10 +2125,10 @@ export function groundTint(theme) {
  * where neither version works keeps its texture, since giving up the design buys
  * nothing there.
  */
-function texturedGround(color, requests, inks, tint) {
-  const textured = sharedSurface(color, 1, requests, inks, tint)
+function texturedGround(color, requests, inks, tint, alpha = 1) {
+  const textured = sharedSurface(color, alpha, requests, inks, tint)
   if (textured.runs.every((run) => run.ok)) return textured
-  const bare = sharedSurface(color, 1, requests, inks, undefined)
+  const bare = sharedSurface(color, alpha, requests, inks, undefined)
   return bare.runs.every((run) => run.ok) ? bare : textured
 }
 
@@ -1804,6 +2284,392 @@ export function productPalette(theme) {
 }
 
 /**
+ * `composed` — a stack of blocks on one of six grounds.
+ *
+ * ── The one thing a block author has to know ────────────────────────────────
+ *
+ * A block never picks a colour. It reads one of the runs below and paints with
+ * it, and that is the whole of the legibility contract: twenty-four components
+ * cannot each be trusted to measure, and twenty-four components each measuring
+ * would be twenty-three copies of this function.
+ *
+ * Three surfaces, because a block paints on one of exactly three things:
+ *
+ *   - **the GROUND** (`display`, `body`, `accent`) — a heading, a quote, a rule;
+ *   - **a PANEL** (`panelDisplay`, `panelBody`, `panelAccent`) — the card a
+ *     notification, a form or a framed picture sits on, which is opaque
+ *     `theme.surface` and therefore its own surface whatever the ground is;
+ *   - **a FILL** (`onFill`) — the ink on something painted in the accent: a
+ *     button, a highlight marker, a bar of a chart carrying a number.
+ *
+ * ── Why the ground is a range and not a colour ──────────────────────────────
+ *
+ * Two of the six grounds are not one colour. A `gradient` runs between the
+ * project's background and its surface, and an `image` is a photograph nobody in
+ * this process has opened. `surfaceRange` already had the vocabulary for both —
+ * a veil measured at the two extremes a picture can composite it to, and a tint
+ * measured beside its base — so a ground is expressed as `{ color, alpha, tint }`
+ * and every one of the six is a case of that one shape:
+ *
+ *   solid       the colour, opaque, no tint
+ *   hairlines   the colour plus the house texture, as a tint
+ *   gridPulse   the same, and the pulse only ever goes BELOW the measured density
+ *   particles   the same, dots instead of rules
+ *   gradient    a RAMP of tints from the ground to the surface — see below
+ *   image       the colour at a veil, measured over black and over white
+ *
+ * The pulse and the drift are the trap worth naming. A texture that could get
+ * DENSER than what was measured would spend contrast nothing here knows about,
+ * so the animated grounds are measured at their maximum and animate downwards
+ * only. That is the same asymmetry `vertical` relies on when it keeps its
+ * directional gradient on top of a uniform dim: a layer that can only ever add
+ * legibility cannot invalidate a guarantee.
+ *
+ * And the whole tint yields, exactly as `texturedGround` already made it yield
+ * for the two flat templates: a ground whose texture — or whose gradient — is
+ * what makes a line illegible is painted flat instead. A decoration cedes to a
+ * word, and it never cedes for nothing, since the bare ground has to CLEAR what
+ * the tinted one failed.
+ */
+export const COMPOSED_BODY_QUIET = PRODUCT_BULLET_QUIET
+
+/**
+ * How dim a photographic ground is under a stack of blocks.
+ *
+ * `VERTICAL_DIM`, aliased: text over a picture nobody has opened is one problem
+ * with one answer, and a second number for it would be a second answer that
+ * drifts. Like every veil in this file it is a floor — `legibleOn` raises it when
+ * a run needs more, and never lowers it.
+ */
+export const COMPOSED_IMAGE_VEIL = VERTICAL_DIM
+
+/**
+ * Where a `gradient` ground is sampled, as fractions of the way from the
+ * background to the surface.
+ *
+ * Four samples plus the base. The reason there is more than one is in
+ * `surfaceRange`: two ends clearing 3:1 does NOT prove an ink is outside the
+ * band between them, and an ink inside the band meets its own luminance
+ * somewhere along the ramp, where the contrast is 1:1. Sampling closes it — an
+ * ink hiding between two adjacent samples sits within a fraction of one of them,
+ * and a fraction is not three.
+ */
+export const GRADIENT_RAMP = [0.25, 0.5, 0.75, 1]
+
+/**
+ * How dense a `full` field is allowed to be when something is stacked on it,
+ * densest first.
+ *
+ * This exists because a real export shipped a heading nobody could read, and the
+ * cause was a sentence in `equalizer.jsx` that was true of every other block and
+ * false of that one: "it carries no text, so the only thing it can get wrong is
+ * spending contrast something else needed — which it cannot". A block anchored
+ * `full` is painted UNDER the nine cells, on purpose, because a wave or a map is
+ * what an element sits on. That makes it a SURFACE, and `composedPalette`
+ * measured every run against the ground alone — so eighteen accent bars ran
+ * behind a white headline whose last word was in the accent, and the two met at
+ * 1:1 in the middle of the frame.
+ *
+ * The answer is the one this file already gives everywhere else: the field is a
+ * decoration, the heading is why anybody pressed export, and a decoration cedes
+ * to a word. It cedes DENSITY rather than colour — the project's own accent is
+ * the only excuse a field has for existing — and it cedes it in measured steps,
+ * the first of which is "not at all". A scene with no stack keeps the whole
+ * ladder unused: nothing is drawn over the field, so nothing has to be measured
+ * against it.
+ *
+ * 1 is in the list and is not padding. It is what makes the common case free and
+ * what makes the search honest: a pale field on a dark ground genuinely does
+ * carry a headline at full strength, and stepping it down anyway would be an
+ * ornament yielding for nothing — the trade `texturedGround` refuses in the same
+ * words one screen up.
+ */
+export const FIELD_ALPHAS = [1, 0.62, 0.4, 0.24]
+
+/**
+ * Where a field's own density is sampled, as fractions of the density it is
+ * painted at.
+ *
+ * `GRADIENT_RAMP`'s argument, one layer down and for the same reason. A field is
+ * not one colour: `map` draws its dots at full strength and its links at a
+ * fraction, `barChart` fills its columns and rules its axis, and everything
+ * inside a zone painted at α composites somewhere between the bare ground and
+ * the accent at α. Measuring only the two ends is exactly the claim
+ * `surfaceRange` has a counterexample for at the display floor of 3 — an ink
+ * whose luminance sits between them meets itself somewhere in the middle, where
+ * the contrast is 1:1.
+ */
+export const FIELD_RAMP = [0.25, 0.5, 0.75, 1]
+
+/** The six grounds, in the schema's own order. Anything else reads as `hairlines`. */
+const BACKGROUND_SURFACES = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image']
+
+/**
+ * One ground as the three things `surfaceRange` understands.
+ *
+ * The tint is always an ARRAY here, even when it holds one layer, so the
+ * composition has one shape to read back: `tint[0]` is the texture a field is
+ * painted with, and the last entry is the far end of a ramp. An absent tint means
+ * paint nothing — which is both "this ground has no second layer" and "the second
+ * layer was what made a line illegible", and the composition does not have to
+ * tell those apart.
+ */
+function groundSurface(theme, kind) {
+  switch (kind) {
+    case 'solid':
+      return { color: theme.background, alpha: 1, tint: undefined }
+    case 'gradient':
+      return {
+        color: theme.background,
+        alpha: 1,
+        tint: GRADIENT_RAMP.map((alpha) => ({ color: safeColor(theme.surface, THEME_FALLBACK.surface), alpha })),
+      }
+    case 'image':
+      return { color: theme.background, alpha: COMPOSED_IMAGE_VEIL, tint: undefined }
+    default:
+      // hairlines, gridPulse and particles are one measurement: the house texture
+      // in the project's accent, at the density the composition paints it.
+      return { color: theme.background, alpha: 1, tint: [groundTint(theme)] }
+  }
+}
+
+/**
+ * How dim a lit solid's darkest face is allowed to be, as a share of its
+ * material colour.
+ *
+ * Below this the object stops reading as lit and starts reading as two flat
+ * shapes; above it there is not enough difference between the faces for the
+ * perspective to be visible at all, which is the whole point of paying for a
+ * renderer.
+ */
+/**
+ * The shading depths a lit solid is allowed to try, darkest first.
+ *
+ * Darkest first because the deepest one that still clears the floor is the one
+ * that reads as lit; the last entry is a solid painted flat, which keeps its
+ * perspective and its silhouette and is what a ground with no room gets (Q1).
+ */
+export const SOLID_SHADES = [0.55, 0.7, 0.85, 1]
+
+/** The first of those, named because `setPiece.test.js` and this file both mean the same "as lit as it gets". */
+export const SOLID_SHADE_FLOOR = SOLID_SHADES[0]
+
+/** A colour with every channel multiplied, clamped to the byte. Not a mix: a Lambert term. */
+function scaleColor(color, factor) {
+  const rgb = channels(color)
+  if (!rgb) return color
+  const hex = rgb
+    .map((c) => Math.max(0, Math.min(255, Math.round(c * factor))).toString(16).padStart(2, '0'))
+    .join('')
+  return `#${hex}`
+}
+
+/**
+ * The material colour and the ambient share a lit solid is drawn with, so that
+ * EVERY face of it clears the same floor its ink did.
+ *
+ * This is the one block whose surface is not flat, and the legibility guarantee
+ * had to be extended rather than reused. A Lambert face is `material × (ambient +
+ * directional · n·l)` with the two intensities summing to one, so every face of a
+ * solid lies on the segment between `material × ambient` and `material`.
+ * Contrast against a fixed surface is monotone in luminance on each side of that
+ * surface, and luminance is monotone along a channel-wise ramp — so measuring the
+ * two ENDS measures every face between them. That is the whole proof, and it is
+ * why this returns two numbers rather than a light rig.
+ *
+ * The material is the run the palette already resolved, so the LIT end is
+ * measured by construction and only the dim end is measured here. Lambert can
+ * only ever darken, and that direction was written the other way round first: an
+ * ink brightened so that the DIM face landed exactly on the measured colour. It
+ * is arithmetically sound and it renders nothing — the ordinary case is a
+ * near-white ink on a dark ground, whose brightest channel is already at 96% of
+ * the byte, so the material came back one part in twenty-five brighter and the
+ * solid was flat. A near-white ink darkened to 55% still clears 3:1 on any ground
+ * it cleared at full strength by a wide margin, which is what the sweep in
+ * `composition.test.js` says.
+ *
+ * The depth is searched rather than fixed for the grounds where it does not:
+ * `SOLID_SHADES` is tried darkest first and the first that clears wins. A ground
+ * with no answer at all gets a flat solid rather than a failed export.
+ */
+export function solidShading(surface, ink) {
+  for (const ambient of SOLID_SHADES) {
+    if (ambient >= 1) break
+    if (legibleOn(surface, [scaleColor(ink, ambient)], CONTRAST_MIN_LARGE, { lockVeil: true }).ok) {
+      return { color: ink, ambient }
+    }
+  }
+  return { color: ink, ambient: 1 }
+}
+
+/**
+ * Whether this scene paints a field and then stands something on it.
+ *
+ * Both halves are needed and neither is enough. A `full` block alone on a frame
+ * is the whole picture and owes nobody contrast; a stack with no `full` block
+ * sits on the ground the palette already measured. It is the pair that creates a
+ * surface nothing measured, and it is the pair the panel and the model can both
+ * produce without asking for anything unusual — `anchor` defaults to `center`,
+ * so "an equalizer and a headline" is two lines of a document.
+ *
+ * Read off `anchorName` rather than the raw field, so a value this build does not
+ * know is counted where it will actually be drawn.
+ */
+export function stackedField(scene) {
+  const layers = Array.isArray(scene?.layers) ? scene.layers : []
+  let field = false
+  let over = false
+  for (const layer of layers) {
+    if (anchorName(layer?.anchor) === 'full') field = true
+    else over = true
+  }
+  return field && over
+}
+
+/**
+ * The ground with a field painted across it, at the densest density every run
+ * still clears.
+ *
+ * Two ladders nested, and the order is the priority `texturedGround` already
+ * settled: the field steps down first, and only when it has run out of steps is
+ * the house texture given up — because the texture is 4% of one colour and the
+ * field is the block somebody asked for. Both are decorations; one of them is in
+ * the document.
+ *
+ * When nothing clears at any density on either ground, the faintest field on the
+ * bare ground is returned and the export ships (Q1). That is a frame with a
+ * contrast this file could not fix, not a render that failed after the user
+ * waited in a queue.
+ */
+function fieldedGround(ground, requests, inks, colors) {
+  const own = Array.isArray(ground.tint) ? ground.tint : ground.tint ? [ground.tint] : []
+  const painted = (alpha) => colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: alpha * step })))
+  const resolve = (tint, alpha) => sharedSurface(ground.color, ground.alpha, requests(), inks, [...tint, ...painted(alpha)])
+
+
+  for (const tint of [own, []]) {
+    for (const alpha of FIELD_ALPHAS) {
+      const resolved = resolve(tint, alpha)
+      if (resolved.runs.every((run) => run.ok)) return { surface: resolved, alpha, tint }
+    }
+  }
+  const faintest = FIELD_ALPHAS[FIELD_ALPHAS.length - 1]
+  return { surface: resolve([], faintest), alpha: faintest, tint: [] }
+}
+
+/**
+ * @param {object} theme
+ * @param {object} [background]
+ * @param {{field?: boolean}} [scene]  `field` when a block anchored `full` has
+ *   something stacked on it — see `stackedField`.
+ */
+export function composedPalette(theme, background, { field = false } = {}) {
+  const ground = groundSurface(theme, backgroundKind(background))
+  /**
+   * The two runs of TEXT, which are the ones a field can make illegible.
+   *
+   * The accent is deliberately not among them, and the first version of this fix
+   * shipped because it was: measured against a surface that a field of the accent
+   * had already tinted, the accent run cannot clear against itself, falls through
+   * `accentFirst` to a near-white — and the frame came back with grey bars behind
+   * a grey headline. Legible, and the project's colour gone. That is the failure
+   * `theme.ts` refuses when it declines to guess a token, and the one
+   * `inkCandidates` is ordered to avoid: a generic white clears every threshold
+   * and erases the art direction.
+   *
+   * So the ornament is measured against the ground it is painted ON, exactly as
+   * before, and the words painted OVER it are measured against ground plus
+   * ornament. Which leaves one honest gap, named here rather than hidden: accent
+   * TEXT — a `kicker` — anchored over a field of the same accent is not measured
+   * against it. It is the one run whose colour is the point, so the alternative is
+   * the grey frame above.
+   */
+  const text = () => [{ threshold: CONTRAST_MIN_LARGE }, { threshold: CONTRAST_MIN, quiet: COMPOSED_BODY_QUIET }]
+  const requests = () => [...text(), accentRun(theme)]
+
+  const plain = texturedGround(ground.color, requests(), inkCandidates(theme), ground.tint, ground.alpha)
+  /*
+   * The two colours a field can be painted with, measured as one surface.
+   *
+   * Both, because the five blocks that can be anchored `full` reach for one or
+   * the other: `equalizer`, `soundWave`, `map` and `lineChart` paint the accent
+   * RUN, `barChart` fills its columns with the accent as a FILL. Measuring the
+   * run alone would leave the columns of a chart unmeasured, which is the same
+   * defect one block over.
+   *
+   * The run comes from the plain resolution rather than from this one, and it has
+   * to: the field is what is being measured, so a colour taken from the pass that
+   * includes it would be a fixpoint rather than an answer. It is also the right
+   * colour on its own terms — the field's job as a decoration was settled against
+   * the ground it is painted on.
+   */
+  const surface = field
+    ? fieldedGround(ground, text, inkCandidates(theme), [
+        plain.runs[2].color,
+        safeColor(theme.accent, THEME_FALLBACK.accent),
+      ])
+    : { surface: plain, alpha: 1, tint: plain.on.tint }
+  const measured = surface.surface
+  // The ornament's run is the plain one on every scene — see `text` above.
+  const accent = plain.runs[2]
+  // The card, resolved on its own surface: it is opaque `theme.surface`, so a
+  // photograph or a ramp behind it changes nothing about what a glyph on it
+  // lands on. Folding it into the ground would darken a whole frame to give a
+  // notification its contrast.
+  const panel = sharedSurface(theme.surface, 1, requests(), inkCandidates(theme))
+  // And the accent as a FILL: the pill, the marker, the pressed button. This is
+  // the surface the product card's call to action proved was worth measuring —
+  // it was the only legible element in the export that started all of this.
+  const fill = sharedSurface(theme.accent, 1, [{ threshold: CONTRAST_MIN_LARGE }], inkCandidates(theme))
+
+  return {
+    ground: measured.on,
+    /*
+     * What the composition PAINTS as the ground's second layer, which is not
+     * always what `ground.tint` holds.
+     *
+     * They differ by exactly the field: `ground.tint` is the whole stack that was
+     * measured, so that `composition.test.js` can re-derive every ratio from
+     * primitives and a layer nobody accounted for cannot hide, while this is the
+     * ground's own texture and nothing else. Reading `ground.tint` in `Ground`
+     * instead would paint the field twice — once as a texture behind everything,
+     * once as the block it is — and on a gradient it would take the ramp's far
+     * end from the accent, since that composition reads the LAST entry.
+     */
+    groundTint: surface.tint,
+    display: measured.runs[0],
+    body: measured.runs[1],
+    accent,
+    /*
+     * How dense a `full` zone is painted. 1 unless something stands on it — see
+     * `FIELD_ALPHAS`.
+     *
+     * An opacity on the ZONE rather than a colour handed to five components, and
+     * that is the whole reason this fix is eight lines instead of five files: a
+     * block that had to be told it was a field would be a rule every future block
+     * has to remember, and the one it forgets is the one that ships a heading
+     * nobody can read. The zone is where `full` means anything at all.
+     */
+    field: { alpha: surface.alpha },
+    // The lit solid's two numbers, resolved from the display run because that is
+    // the surface it turns against and the floor it has to clear. A block reads
+    // this rather than shading a colour itself, for the reason every other block
+    // reads a run: twenty-seven components cannot each be trusted to measure.
+    solid: solidShading(measured.on, measured.runs[0].color),
+    panel: panel.on,
+    panelDisplay: panel.runs[0],
+    panelBody: panel.runs[1],
+    panelAccent: panel.runs[2],
+    fill: fill.on,
+    onFill: fill.runs[0],
+    // Two from the surface the words are on, then the ornament from the ground
+    // it is painted on. Sliced rather than spread, because the fielded
+    // resolution is asked for two requests and the plain one for three.
+    runs: [measured.runs[0], measured.runs[1], accent, ...panel.runs, ...fill.runs],
+  }
+}
+
+/**
  * The palette for a template, keyed exactly like `COMPOSITIONS`.
  *
  * Same shape and the same reason: what cannot be named cannot be asked for, and
@@ -1817,4 +2683,10 @@ export const PALETTES = {
   vertical: verticalPalette,
   titles: titlesPalette,
   product: productPalette,
+  // One argument, like its neighbours, so the sweep in `composition.test.js`
+  // reaches it the same way — and it answers for the ground a document gets by
+  // saying nothing. The other five grounds are swept beside it, by name, because
+  // a palette that is only ever measured on its default is a palette measured on
+  // one sixth of what it can be handed.
+  composed: (theme) => composedPalette(theme),
 }

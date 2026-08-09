@@ -13,8 +13,14 @@
 // for the same reason `server.test.js` is safe: this file never ships.
 import { describe, it, expect } from 'vitest'
 import {
+  ANCHORS,
   ASPECT_RATIOS,
+  BACKGROUND_KINDS,
   BAND_POSITIONS,
+  BLOCK_LIMITS,
+  COMPOSED_TRANSITIONS,
+  GRADIENT_DIRECTIONS,
+  RENDERABLE_BLOCKS,
   DEFAULT_KEN_BURNS,
   DEFAULT_OVERLAY_MOVE,
   KEN_BURNS,
@@ -62,7 +68,16 @@ const DOCUMENTS = {
     template: 'product',
     scenes: [{ imageId: ID_A, durationMs: 4000, headline: 'One screen, one film', bullets: ['Your own colours'] }],
   },
+  composed: {
+    template: 'composed',
+    scenes: [{ durationMs: 3000, layers: [{ kind: 'heading', text: 'Composed from blocks' }] }],
+  },
 }
+
+/** One composed scene, and one block on it. Both at their own floors. */
+const block = (over = {}) => ({ kind: 'heading', text: 'Ship it', ...over })
+const composed = (over = {}) => ({ durationMs: 3000, layers: [block()], ...over })
+const film = (over = {}) => ({ template: 'composed', scenes: [composed(over)] })
 
 const refusal = (input) => {
   const result = validateRenderRequest(input)
@@ -322,6 +337,15 @@ describe('the catalogue', () => {
       vertical: { kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null },
       titles: { subtitle: null, animation: 'fade', transitionOut: 'crossfade' },
       product: { cta: null, transitionOut: 'crossfade' },
+      // The ground a silent document gets is the field of hairlines, and the
+      // block lands in the middle cell with no arrival rank at all: absent means
+      // 'the position it was written in', which is `layerCues`' reading and not
+      // a number this reader is allowed to invent.
+      composed: {
+        background: { kind: 'hairlines' },
+        transitionOut: 'crossfade',
+        layers: [{ kind: 'heading', anchor: 'center', level: 'title', text: 'Composed from blocks' }],
+      },
     }
     for (const [template, timeline] of Object.entries(DOCUMENTS)) {
       const result = validateRenderRequest({ timeline: structuredClone(timeline), images: imagesFor(timeline) })
@@ -552,6 +576,16 @@ describe('agreement with Mocky', () => {
     expect(MAX_TOTAL_DURATION_MS).toBe(mocky.MAX_TOTAL_DURATION_MS)
     expect(TEMPLATE_LIMITS).toEqual(mocky.TEMPLATE_LIMITS)
     expect(TEXT_LIMITS).toEqual(mocky.TEXT_LIMITS)
+    // The composable variant's own vocabularies. There are more of them than for
+    // any other template, which is exactly why they are compared rather than
+    // trusted: twenty-four block readers written by hand against twenty-four
+    // schema members is the widest surface in this feature for the two copies to
+    // drift across.
+    expect(BLOCK_LIMITS).toEqual(mocky.BLOCK_LIMITS)
+    expect(ANCHORS).toEqual(mocky.ANCHORS)
+    expect(BACKGROUND_KINDS).toEqual(mocky.BACKGROUND_KINDS)
+    expect(GRADIENT_DIRECTIONS).toEqual(mocky.GRADIENT_DIRECTIONS)
+    expect(COMPOSED_TRANSITIONS).toEqual(mocky.COMPOSED_TRANSITIONS)
     expect(KEN_BURNS).toEqual(mocky.KEN_BURNS)
     expect(OVERLAY_MOVES).toEqual(mocky.OVERLAY_MOVES)
     expect(TRANSITIONS).toEqual(mocky.TRANSITIONS)
@@ -595,6 +629,19 @@ describe('agreement with Mocky', () => {
    */
   it('accepts exactly the templates the worker can select a composition for', () => {
     expect([...RENDERABLE_TEMPLATES].sort()).toEqual(Object.keys(COMPOSITIONS).sort())
+  })
+
+  /**
+   * And every block kind, one level down.
+   *
+   * The same lag rule as the templates: this list is allowed to be older than
+   * Mocky's between two DEPLOYED IMAGES, and refusing by name is what turns that
+   * into a sentence rather than a blank corner of a frame. Inside one commit
+   * there is nothing to lag behind — a kind the schema accepts with no reader
+   * here is a render that fails after the user was told it was queued.
+   */
+  it('reads exactly the block kinds the schema can produce', () => {
+    expect([...RENDERABLE_BLOCKS].sort()).toEqual([...mocky.BLOCK_KINDS].sort())
   })
 
   /**
@@ -658,6 +705,76 @@ describe('agreement with Mocky', () => {
       { template: 'product', scenes: [{ imageId: ID_A, durationMs: 4000, headline: 'ok', bullets: [' '] }] },
       { template: 'product', scenes: [{ imageId: ID_A, durationMs: 4000, headline: 'ok', bullets: ['a'], cta: ' ' }] },
 
+      /*
+       * The composable variant, which is where the two copies have the most to
+       * disagree about: a background union, twenty-four block readers, a
+       * placement vocabulary and an arrival rank, all written twice by hand.
+       */
+      film(),
+      film({ background: { kind: 'solid' } }),
+      film({ background: { kind: 'gradient', direction: 'radial' } }),
+      film({ background: { kind: 'gridPulse', cells: 12 } }),
+      film({ background: { kind: 'particles', density: 3 } }),
+      film({ background: { kind: 'image', imageId: ID_B, move: 'pan-left' } }),
+      film({ background: { kind: 'image' } }),
+      film({ background: { kind: 'video' } }),
+      film({ background: { kind: 'gridPulse', cells: 17 } }),
+      film({ transitionOut: 'pixel' }),
+      film({ layers: [] }),
+      film({ layers: Array.from({ length: 8 }, () => block()) }),
+      film({ layers: Array.from({ length: 9 }, () => block()) }),
+      film({ layers: [block({ anchor: 'bottom-right', enter: 3 })] }),
+      film({ layers: [block({ anchor: 'middle' })] }),
+      film({ layers: [block({ enter: 8 })] }),
+      film({ layers: [block({ enter: 1.5 })] }),
+      film({ layers: [block({ text: '  ' })] }),
+      film({ layers: [block({ text: 'x'.repeat(71) })] }),
+      film({ layers: [{ kind: 'video', src: 'x.mp4' }] }),
+      film({ layers: [block({ color: '#c0392b' })] }),
+      film({ layers: [block({ fontSize: '32px' })] }),
+      film({ layers: [{ kind: 'animatedList', items: ['a', 'b'], marker: 'dot' }] }),
+      film({ layers: [{ kind: 'animatedList', items: [] }] }),
+      film({ layers: [{ kind: 'counter', to: 240, suffix: ' k' }] }),
+      film({ layers: [{ kind: 'counter', to: -1 }] }),
+      film({ layers: [{ kind: 'barChart', values: [10, 60, 90], labels: ['a', 'b', 'c'] }] }),
+      film({ layers: [{ kind: 'barChart', values: [10, 140] }] }),
+      /*
+       * The three REQUIRED numbers, left out and left null.
+       *
+       * The rest of this corpus asks whether a stated value is inside its window;
+       * these ask what silence means, and for `counter.to`, `progressBar.to` and
+       * a chart's values the answer is "nothing" — they are the only integers in
+       * the catalogue the schema gives no default to. The worker used to hand its
+       * own `undefined` fallback back for them, which is a block drawn as `NaN`
+       * out of a document Mocky refuses.
+       */
+      film({ layers: [{ kind: 'counter' }] }),
+      film({ layers: [{ kind: 'counter', to: null }] }),
+      film({ layers: [{ kind: 'progressBar' }] }),
+      film({ layers: [{ kind: 'barChart', values: [10, null] }] }),
+      film({ layers: [{ kind: 'lineChart', values: [10, undefined] }] }),
+      film({ layers: [{ kind: 'equalizer', bars: 24, tempo: 'fast' }] }),
+      film({ layers: [{ kind: 'equalizer', bars: 25 }] }),
+      film({ layers: [{ kind: 'soundWave', samples: 96 }] }),
+      film({ layers: [{ kind: 'clock', time: '09:30', face: 'digital' }] }),
+      film({ layers: [{ kind: 'clock', time: 'now' }] }),
+      film({ layers: [{ kind: 'gallery', imageIds: [ID_A, ID_B], layout: 'row' }] }),
+      film({ layers: [{ kind: 'gallery', imageIds: [ID_A] }] }),
+      film({ layers: [{ kind: 'carousel', imageIds: [ID_A, ID_B] }] }),
+      film({ layers: [{ kind: 'imageFrame', imageId: ID_B, caption: 'The dashboard' }] }),
+      film({ layers: [{ kind: 'form', fields: ['Name', 'Email'], submit: 'Send' }] }),
+      film({ layers: [{ kind: 'form', fields: [] }] }),
+      film({ layers: [{ kind: 'notification', title: 'Rendered', body: 'Your film is ready', mark: 'check' }] }),
+      film({ layers: [{ kind: 'lowerThird', title: 'Mocky', subtitle: 'Motion', side: 'right' }] }),
+      film({ layers: [{ kind: 'progressBar', to: 100 }] }),
+      film({ layers: [{ kind: 'progressBar', to: 101 }] }),
+      film({ layers: [{ kind: 'map', region: 'europe', markers: 8 }] }),
+      film({ layers: [{ kind: 'map', markers: 9 }] }),
+      film({ durationMs: 1499 }),
+      { template: 'composed', scenes: Array.from({ length: 13 }, () => composed({ durationMs: 1500 })) },
+      { template: 'composed', scenes: Array.from({ length: 12 }, () => composed({ durationMs: 15000 })) },
+      { template: 'composed', scenes: [composed()], theme: { colors: { accent: '#c0392b' } } },
+
       // The theme, which only the server may attach.
       { scenes: [scene()], theme: { colors: { background: '#F6F4EE' }, radiusPx: 4 } },
       { scenes: [scene()], theme: { fonts: { heading: 'Cormorant Garamond', body: 'Inter' } } },
@@ -673,7 +790,17 @@ describe('agreement with Mocky', () => {
       // Every distinct image the document names, so a rejection can only ever
       // come from the timeline itself and not from a missing picture. Filtered,
       // because a `titles` document names none.
-      const images = [...new Set((timeline.scenes || []).map((s) => s.imageId).filter(Boolean))].map((id) => image(id))
+      /*
+       * Every distinct image the document names, wherever it names it.
+       *
+       * `scenes.map((s) => s.imageId)` was right until a composed scene kept its
+       * pictures on the ground and on its blocks instead — and the failure would
+       * have been invisible here: the worker refuses a document with no bytes for
+       * a picture it names, so the whole composed half of this corpus would have
+       * disagreed with the schema for a reason that has nothing to do with the
+       * bounds under test.
+       */
+      const images = mocky.timelineImageIds(timeline).map((id) => image(id))
       const byWorker = validateRenderRequest({ timeline: structuredClone(timeline), images })
 
       expect(byWorker.ok, `disagreement on ${JSON.stringify(timeline).slice(0, 140)}`).toBe(bySchema.success)

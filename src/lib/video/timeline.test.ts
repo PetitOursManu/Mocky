@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import {
+  ANCHORS,
+  BACKGROUND_KINDS,
+  BLOCK_FAMILIES,
+  BLOCK_KINDS,
+  BLOCK_LIMITS,
+  BlockSchema,
+  COMPOSED_TRANSITIONS,
+  ComposedSceneSchema,
   DEFAULT_KEN_BURNS,
   DEFAULT_OVERLAY_MOVE,
+  EDITABLE_TEMPLATES,
   OverlaySceneSchema,
   ProductTimelineSchema,
   RenderTimelineSchema,
@@ -31,6 +40,10 @@ const SCENE_FOR: Record<string, (patch?: Record<string, unknown>) => Record<stri
   vertical: (patch = {}) => ({ imageId: HASH, durationMs: 3000, ...patch }),
   titles: (patch = {}) => ({ headline: 'Ship it', durationMs: 3000, ...patch }),
   product: (patch = {}) => ({ imageId: HASH, durationMs: 4000, headline: 'Ship it', bullets: ['Fast'], ...patch }),
+  // No `background`, so every loop below runs over the ground a silent document
+  // gets — which is the one that has to work, since it is the one a model that
+  // omits an optional field produces.
+  composed: (patch = {}) => ({ durationMs: 3000, layers: [{ kind: 'heading', text: 'Ship it' }], ...patch }),
 }
 
 describe('SlideshowSceneSchema', () => {
@@ -482,5 +495,233 @@ describe('ProductTimelineSchema', () => {
       scenes: [SCENE_FOR.product({ bullets: ['a', 'b', 'c', 'd'] })],
     })
     expect(res.success).toBe(false)
+  })
+})
+
+/**
+ * The composable variant, which is the one place a document gets to arrange
+ * itself — and therefore the one place the founding rule has to be checked by
+ * absence rather than by presence.
+ *
+ * Every test below is about something a block CANNOT say. That is the shape of
+ * the guarantee: the model picks blocks, their order, their zone and their
+ * parameters, and it never reaches a colour, a font, a CSS length, a coordinate
+ * or a millisecond. What it cannot express is unreachable rather than
+ * discouraged, exactly as there is no `fps` field and no `src`.
+ */
+describe('the composable variant', () => {
+  const composed = (patch: Record<string, unknown> = {}) => ({
+    template: 'composed',
+    scenes: [SCENE_FOR.composed(patch)],
+  })
+  const withLayers = (...layers: Record<string, unknown>[]) => composed({ layers })
+
+  it('applies the documented defaults, so an omission is never an accident', () => {
+    const s = ComposedSceneSchema.parse({ durationMs: 3000, layers: [{ kind: 'heading', text: 'Ship it' }] })
+    expect(s.background).toEqual({ kind: 'hairlines' })
+    expect(s.transitionOut).toBe('crossfade')
+    expect(s.layers[0].anchor).toBe('center')
+    // Absent and NOT filled in: "the position it was written in" is a reading
+    // `layerCues` owns, and a number written here would be a second one.
+    expect('enter' in s.layers[0]).toBe(false)
+  })
+
+  it('renders on every ground the schema names, and refuses one it does not', () => {
+    const grounds: Record<string, Record<string, unknown>> = {
+      solid: { kind: 'solid' },
+      gradient: { kind: 'gradient' },
+      hairlines: { kind: 'hairlines' },
+      gridPulse: { kind: 'gridPulse' },
+      particles: { kind: 'particles' },
+      image: { kind: 'image', imageId: HASH },
+    }
+    for (const kind of BACKGROUND_KINDS) {
+      expect(VideoTimelineSchema.safeParse(composed({ background: grounds[kind] })).success, kind).toBe(true)
+    }
+    expect(VideoTimelineSchema.safeParse(composed({ background: { kind: 'video' } })).success).toBe(false)
+    // A ground that is a picture needs the picture, like every other template.
+    expect(VideoTimelineSchema.safeParse(composed({ background: { kind: 'image' } })).success).toBe(false)
+  })
+
+  it('has one family per block kind, and a kind for every family entry', () => {
+    const flat = Object.values(BLOCK_FAMILIES).flat()
+    expect([...flat].sort()).toEqual([...BLOCK_KINDS].sort())
+    // No kind in two families: a prompt built from this map would offer it twice
+    // and a reader would have to guess which group is the real one.
+    expect(new Set(flat).size).toBe(flat.length)
+  })
+
+  /**
+   * The union and the catalogue, in both directions.
+   *
+   * A kind in `BLOCK_KINDS` with no member behind it is a name the compose prompt
+   * offers and the schema refuses — a call spent on a document that cannot pass.
+   * A member with no name is a component nothing can reach.
+   */
+  it('accepts exactly the block kinds it publishes', () => {
+    const members = BlockSchema.options.map((option) => option.shape.kind.value)
+    expect([...members].sort()).toEqual([...BLOCK_KINDS].sort())
+  })
+
+  it('refuses a block kind nobody wrote, by leaving it out of the union', () => {
+    expect(VideoTimelineSchema.safeParse(withLayers({ kind: 'video', src: 'x.mp4' })).success).toBe(false)
+    expect(VideoTimelineSchema.safeParse(withLayers({ kind: 'constructor' })).success).toBe(false)
+  })
+
+  /**
+   * The rule the whole variant rests on: a block says WHAT it is, never what it
+   * looks like.
+   *
+   * Each of these is a real way the founding rule would leak — a colour is the
+   * theme the server attaches, a font is the one family a container has, a
+   * className and a style are CSS, and a coordinate is a layout the model
+   * described. `.strict()` is what makes every one of them a refusal rather than
+   * a key nothing renders.
+   */
+  it('cannot express a colour, a font, a CSS length, a class or a coordinate', () => {
+    for (const smuggled of [
+      { color: '#ff0000' },
+      { background: '#ff0000' },
+      { fontFamily: 'Inter' },
+      { fontSize: '32px' },
+      { className: 'text-red-500' },
+      { style: { color: 'red' } },
+      { x: 120, y: 40 },
+      { delayMs: 400 },
+      { css: 'transform: scale(2)' },
+    ]) {
+      expect(
+        VideoTimelineSchema.safeParse(withLayers({ kind: 'heading', text: 'Ship it', ...smuggled })).success,
+        JSON.stringify(smuggled),
+      ).toBe(false)
+    }
+  })
+
+  it('places a block in a zone and never at a pixel', () => {
+    for (const anchor of ANCHORS) {
+      expect(VideoTimelineSchema.safeParse(withLayers({ kind: 'kicker', text: 'Motion', anchor })).success, anchor).toBe(
+        true,
+      )
+    }
+    expect(VideoTimelineSchema.safeParse(withLayers({ kind: 'kicker', text: 'Motion', anchor: 'middle' })).success).toBe(
+      false,
+    )
+  })
+
+  it('times a block by rank and never in milliseconds', () => {
+    const rank = (enter: unknown) => VideoTimelineSchema.safeParse(withLayers({ kind: 'kicker', text: 'Go', enter }))
+    expect(rank(0).success).toBe(true)
+    expect(rank(BLOCK_LIMITS.layersPerScene - 1).success).toBe(true)
+    // A rank past the number of blocks a scene can hold is a rank nothing can
+    // order, and a rank in milliseconds is the rhythm the composition owns.
+    expect(rank(BLOCK_LIMITS.layersPerScene).success).toBe(false)
+    expect(rank(-1).success).toBe(false)
+    expect(rank(400).success).toBe(false)
+    expect(rank(1.5).success).toBe(false)
+  })
+
+  it('bounds the stack at both ends', () => {
+    const heading = { kind: 'heading', text: 'Ship it' }
+    expect(VideoTimelineSchema.safeParse(composed({ layers: [] })).success).toBe(false)
+    expect(
+      VideoTimelineSchema.safeParse(
+        composed({ layers: Array.from({ length: BLOCK_LIMITS.layersPerScene }, () => heading) }),
+      ).success,
+    ).toBe(true)
+    expect(
+      VideoTimelineSchema.safeParse(
+        composed({ layers: Array.from({ length: BLOCK_LIMITS.layersPerScene + 1 }, () => heading) }),
+      ).success,
+    ).toBe(false)
+  })
+
+  it('bounds every text field, and refuses a line of whitespace in each', () => {
+    const cases: [Record<string, unknown>, string, number][] = [
+      [{ kind: 'heading' }, 'text', BLOCK_LIMITS.heading],
+      [{ kind: 'kicker' }, 'text', BLOCK_LIMITS.kicker],
+      [{ kind: 'quote' }, 'text', BLOCK_LIMITS.quote],
+      [{ kind: 'typewriter' }, 'text', BLOCK_LIMITS.typewriter],
+      [{ kind: 'logoType' }, 'text', BLOCK_LIMITS.logoType],
+      [{ kind: 'button' }, 'label', BLOCK_LIMITS.buttonLabel],
+      [{ kind: 'notification' }, 'title', BLOCK_LIMITS.noticeTitle],
+      [{ kind: 'lowerThird' }, 'title', BLOCK_LIMITS.lowerTitle],
+      [{ kind: 'dateStamp' }, 'text', BLOCK_LIMITS.dateStamp],
+    ]
+    for (const [base, field, max] of cases) {
+      const at = (value: string) => VideoTimelineSchema.safeParse(withLayers({ ...base, [field]: value })).success
+      expect(at('x'.repeat(max)), `${base.kind}.${field} at the cap`).toBe(true)
+      expect(at('x'.repeat(max + 1)), `${base.kind}.${field} past the cap`).toBe(false)
+      expect(at(''), `${base.kind}.${field} empty`).toBe(false)
+      expect(at('  '), `${base.kind}.${field} blank`).toBe(false)
+    }
+  })
+
+  it('bounds every array and every count', () => {
+    const ok = (layer: Record<string, unknown>) => VideoTimelineSchema.safeParse(withLayers(layer)).success
+    expect(ok({ kind: 'animatedList', items: [] })).toBe(false)
+    expect(ok({ kind: 'animatedList', items: Array.from({ length: BLOCK_LIMITS.listItems }, () => 'a') })).toBe(true)
+    expect(ok({ kind: 'animatedList', items: Array.from({ length: BLOCK_LIMITS.listItems + 1 }, () => 'a') })).toBe(
+      false,
+    )
+    expect(ok({ kind: 'barChart', values: [10] })).toBe(false)
+    expect(ok({ kind: 'barChart', values: [10, 200] })).toBe(false)
+    expect(ok({ kind: 'barChart', values: [10, 20] })).toBe(true)
+    expect(ok({ kind: 'equalizer', bars: BLOCK_LIMITS.equalizerBarsMin - 1 })).toBe(false)
+    expect(ok({ kind: 'equalizer', bars: BLOCK_LIMITS.equalizerBars + 1 })).toBe(false)
+    expect(ok({ kind: 'gallery', imageIds: [HASH] })).toBe(false)
+    expect(ok({ kind: 'gallery', imageIds: [HASH, OTHER] })).toBe(true)
+    expect(ok({ kind: 'progressBar', to: 101 })).toBe(false)
+    expect(ok({ kind: 'progressBar', to: 100 })).toBe(true)
+  })
+
+  /**
+   * A clock that read the render host's own time would burn a fact about the
+   * MACHINE into a film, and two renders of one timeline would differ — which the
+   * content-addressed export store cannot have. So the time is stated, in a
+   * charset with no letter in it.
+   */
+  it('takes a clock time from the document, in a shape that can never become anything', () => {
+    const time = (value: unknown) => VideoTimelineSchema.safeParse(withLayers({ kind: 'clock', time: value })).success
+    expect(time('09:30')).toBe(true)
+    expect(time('23:59')).toBe(true)
+    expect(time(null)).toBe(true)
+    expect(time('24:00')).toBe(false)
+    expect(time('now')).toBe(false)
+    expect(time('9:3')).toBe(false)
+  })
+
+  /**
+   * The mosaic dissolve belongs to this variant alone, and the other five keep
+   * the vocabulary their saved drafts were written against.
+   */
+  it('gives the composed scene one transition the others do not have', () => {
+    expect(COMPOSED_TRANSITIONS).toContain('pixel')
+    expect(VideoTimelineSchema.safeParse(composed({ transitionOut: 'pixel' })).success).toBe(true)
+    for (const template of EDITABLE_TEMPLATES) {
+      const doc = { template, scenes: [SCENE_FOR[template]({ transitionOut: 'pixel' })] }
+      expect(VideoTimelineSchema.safeParse(doc).success, template).toBe(false)
+    }
+  })
+
+  /**
+   * Where a composed film keeps its pictures, and why the walk had to change.
+   *
+   * They are nowhere near `scene.imageId`: one may be the ground, and the rest
+   * are on blocks anywhere in the stack — a gallery holds six. A caller still
+   * reading the scene would have staged one picture out of eight and left the
+   * composition pointing at addresses with no file behind them.
+   */
+  it('finds every picture, on the ground and anywhere in the stack', () => {
+    const third = 'c'.repeat(64)
+    const doc = VideoTimelineSchema.parse(
+      composed({
+        background: { kind: 'image', imageId: HASH },
+        layers: [
+          { kind: 'imageFrame', imageId: OTHER },
+          { kind: 'gallery', imageIds: [third, HASH] },
+        ],
+      }),
+    )
+    expect(timelineImageIds(doc)).toEqual([HASH, OTHER, third])
   })
 })

@@ -1,13 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { proposeTimeline } from './compose.js'
 import {
+  ANCHORS,
+  BLOCK_FAMILIES,
+  BLOCK_KINDS,
+  BLOCK_LIMITS,
+  BACKGROUND_KINDS,
+  COMPOSED_TRANSITIONS,
   DEFAULT_KEN_BURNS,
   DEFAULT_OVERLAY_MOVE,
   KEN_BURNS,
   MAX_SCENES,
   OVERLAY_MOVES,
   TEMPLATE_LIMITS,
-  VIDEO_TEMPLATES,
+  EDITABLE_TEMPLATES,
 } from './timeline.js'
 
 const id = (c) => String(c).repeat(64)
@@ -20,22 +26,50 @@ const IMAGES = [
   { id: ID_B, prompt: 'the same kettle pouring, steam catching the light', width: 1024, height: 1024 },
 ]
 
-/** What a well-behaved model returns: named, ordered, tuned, inside every bound. */
+/**
+ * What a well-behaved model returns now: a film COMPOSED out of blocks, not a
+ * card filled in. Three scenes, three grounds, and both selected pictures used —
+ * one as a ground, one inside a frame.
+ */
 const GOOD = {
-  template: 'slideshow',
+  template: 'composed',
   scenes: [
-    { imageId: ID_A, durationMs: 4000, kenBurns: 'zoom-in', transitionOut: 'crossfade' },
-    { imageId: ID_B, durationMs: 5000, kenBurns: 'static', transitionOut: 'none' },
+    {
+      durationMs: 4000,
+      background: { kind: 'gradient', direction: 'to-bottom' },
+      layers: [
+        { kind: 'kicker', text: 'Spring', anchor: 'center-left', enter: 0 },
+        { kind: 'heading', text: 'The kettle', anchor: 'center-left', enter: 0 },
+      ],
+      transitionOut: 'crossfade',
+    },
+    {
+      durationMs: 5000,
+      background: { kind: 'image', imageId: ID_A, move: 'zoom-in' },
+      layers: [{ kind: 'lowerThird', title: 'Brushed steel', anchor: 'bottom-left' }],
+      transitionOut: 'wipe-left',
+    },
+    {
+      durationMs: 3000,
+      background: { kind: 'hairlines' },
+      layers: [{ kind: 'imageFrame', imageId: ID_B, anchor: 'center' }],
+      transitionOut: 'none',
+    },
   ],
-  aspectRatio: '16:9',
+}
+
+/** The smallest composed film the schema accepts: one scene, one block, nothing optional. */
+const MINIMAL = {
+  template: 'composed',
+  scenes: [{ durationMs: 3000, layers: [{ kind: 'heading', text: 'Coming in spring' }] }],
 }
 
 /**
- * One legal answer per composition, each using only ID_A.
+ * One legal answer per hand-filled composition, each using only ID_A.
  *
- * They exist so the five can be exercised as a table: the point of the
- * catalogue is that the model picks the composition, so a suite that only ever
- * sees a slideshow would pass on the day four of the five stopped round-tripping.
+ * They are no longer what the model is offered — nothing was chosen means
+ * "compose" — but every one of them is still reachable by NAME, and a suite that
+ * stopped exercising them would pass on the day the five stopped round-tripping.
  */
 const ANSWERS = {
   slideshow: {
@@ -75,18 +109,47 @@ beforeEach(() => {
   answer = GOOD
 })
 
-describe('proposeTimeline — the happy path', () => {
+/** The catalogue as the model sees it, cut out of the system turn. */
+const catalogue = (system) => system.slice(system.indexOf('THE GROUNDS'), system.indexOf('STACKS THAT WORK'))
+/** Every branch of the layer union in the decoder hint, by kind. */
+const hintKinds = (schema) =>
+  schema.properties.scenes.items.properties.layers.items.anyOf.map((branch) => branch.properties.kind.enum[0])
+const hintGrounds = (schema) =>
+  schema.properties.scenes.items.properties.background.anyOf.map((branch) => branch.properties.kind.enum[0])
+
+describe('proposeTimeline — the happy path is a COMPOSED film', () => {
   it('returns the PARSED document, with the schema defaults applied', async () => {
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    // Not the model's object: the one the schema accepted. `textOverlay` and
-    // `outputFormat` were never written by the model, and the renderer reads
-    // both — handing back the raw answer is how a scene reaches a composition
-    // with a field missing rather than defaulted.
+    const { timeline, notices } = await proposeTimeline('a calm film about the kettle', IMAGES, { llm })
+    // Not the model's object: the one the schema accepted. `anchor`, `level`,
+    // `treatment` and `outputFormat` were never written and the renderer reads
+    // all of them — handing back the raw answer is how a block reaches a
+    // component with a field missing rather than defaulted.
     expect(timeline).toEqual({
-      template: 'slideshow',
+      template: 'composed',
       scenes: [
-        { imageId: ID_A, durationMs: 4000, kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null },
-        { imageId: ID_B, durationMs: 5000, kenBurns: 'static', transitionOut: 'none', textOverlay: null },
+        {
+          durationMs: 4000,
+          background: { kind: 'gradient', direction: 'to-bottom' },
+          layers: [
+            { kind: 'kicker', anchor: 'center-left', enter: 0, text: 'Spring' },
+            { kind: 'heading', anchor: 'center-left', enter: 0, text: 'The kettle', level: 'title' },
+          ],
+          transitionOut: 'crossfade',
+        },
+        {
+          durationMs: 5000,
+          background: { kind: 'image', imageId: ID_A, move: 'zoom-in' },
+          layers: [{ kind: 'lowerThird', anchor: 'bottom-left', title: 'Brushed steel', subtitle: null, side: 'left' }],
+          transitionOut: 'wipe-left',
+        },
+        {
+          durationMs: 3000,
+          background: { kind: 'hairlines' },
+          layers: [
+            { kind: 'imageFrame', anchor: 'center', imageId: ID_B, move: 'zoom-in', treatment: 'card', caption: null },
+          ],
+          transitionOut: 'none',
+        },
       ],
       outputFormat: 'mp4',
       aspectRatio: '16:9',
@@ -95,243 +158,420 @@ describe('proposeTimeline — the happy path', () => {
   })
 
   /**
-   * The compatibility default, which the catalogue must not have quietly taken
-   * away: montages saved before templates existed carry no `template`, and the
-   * queue's journal is full of them.
+   * `template` is a constant on this path — the prompt states it and the hint
+   * pins it to a one-value enum — and a constant field is the field a model
+   * omits. Left alone, the schema's own compatibility default reads a stack of
+   * blocks as a slideshow and refuses it with six issues about keys nobody
+   * wrote: the `kenBurns: 'static'` lesson in a third costume.
    */
-  it('reads an answer that named no template as a slideshow', async () => {
-    const { template } = GOOD
-    expect(template).toBe('slideshow')
-    answer = { scenes: GOOD.scenes }
-    const { timeline } = await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    expect(timeline.template).toBe('slideshow')
+  it('reads an answer that named no template as composed', async () => {
+    answer = { scenes: MINIMAL.scenes }
+    const { timeline, notices } = await proposeTimeline('an opening card', [], { llm })
+    expect(timeline?.template).toBe('composed')
+    expect(notices).toEqual([])
   })
 
   it('asks for structured output with a positive num_predict (I8)', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    await proposeTimeline('a calm film', IMAGES, { llm })
     const req = calls[0]
     expect(req.schema).toBeTruthy()
     // Ollama Cloud rejects a non-positive num_predict, and the window has to
-    // hold the catalogue plus twenty descriptions — llama.cpp truncates from
-    // the head, which drops the instructions and returns nothing at all.
+    // hold the block catalogue plus twenty descriptions — llama.cpp truncates
+    // from the head, which drops the instructions and returns nothing at all.
     expect(req.options.num_predict).toBeGreaterThan(0)
     expect(req.options.num_ctx).toBeGreaterThanOrEqual(16384)
+    // A composed document is longer than a filled-in card: a dozen scenes of
+    // three or four blocks, each an object with a line of text in it. Truncated,
+    // it comes back as "not valid JSON", which tells the user nothing.
+    await proposeTimeline('a calm film', IMAGES, { llm, template: 'slideshow' })
+    expect(req.options.num_predict).toBeGreaterThan(calls[1].options.num_predict)
   })
 })
 
-describe('proposeTimeline — the catalogue is what the model chooses from', () => {
-  it('describes all five compositions, and what each one needs', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    const { system } = calls[0]
-    for (const name of VIDEO_TEMPLATES) expect(system).toContain(`- ${name}: `)
-    // `titles` is the only one that renders without a picture, and a prompt that
-    // did not say so would send the model to a slideshow whenever the brief was
-    // words — the one case the composition was written for.
-    expect(system).toMatch(/- titles:[\s\S]*?images: NONE/)
-    expect(system).toMatch(/- product:[\s\S]*?images: one per scene/)
+describe('proposeTimeline — the catalogue of blocks', () => {
+  let system
+  beforeEach(async () => {
+    await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    system = calls[0].system
+  })
+
+  it('describes every block, in its family, and every ground', () => {
+    for (const kind of BLOCK_KINDS) expect(catalogue(system), kind).toContain(`- ${kind}: `)
+    for (const kind of BACKGROUND_KINDS) expect(catalogue(system), kind).toContain(`- ${kind}: `)
+    // The families are how twenty-four names stop being a list a model takes the
+    // first four of. A family with no title, or a block with no prose, prints a
+    // marker rather than throwing — and the marker is what fails here.
+    for (const family of Object.keys(BLOCK_FAMILIES)) expect(system).not.toContain(`(no title)`)
+    expect(system).not.toContain('(no note)')
+    // The signature of every field is derived from the zod object. A node type
+    // the walker has never seen prints this instead of a bound, which is a card
+    // that lies about what the validator accepts.
+    expect(system).not.toContain('(unrecognised)')
   })
 
   /**
-   * Every bound in the prompt is read off `TEMPLATE_LIMITS`, never typed twice.
+   * Every bound is READ from the schema, never retyped.
    *
-   * A restated floor drifts from the validator, and the drift is the expensive
-   * kind: the call is spent, the document comes back with 2-second product
-   * cards, and the refusal quotes a number the model was never told.
+   * This is the rule in CLAUDE.md and it has bitten this file before: a floor
+   * recopied into a prompt drifts from the validator, and the call is spent by
+   * the time the refusal quotes a number the model was never told. With
+   * twenty-four blocks the surface is twenty-four times larger, so the check is
+   * two-sided — the numbers that appear come from the tables, and the PROSE is
+   * asserted to carry no number at all.
    */
-  it('quotes each composition’s own bounds from the schema’s table', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    const { system } = calls[0]
-    for (const name of VIDEO_TEMPLATES) {
-      const l = TEMPLATE_LIMITS[name]
-      expect(system).toContain(`scenes: 1 to ${l.maxScenes}, each ${l.minSceneMs} to ${l.maxSceneMs} ms`)
+  it('quotes the scene, layer and rank bounds from the schema', () => {
+    const limits = TEMPLATE_LIMITS.composed
+    expect(system).toContain(`scenes: 1 to ${limits.maxScenes}, each ${limits.minSceneMs} to ${limits.maxSceneMs} ms`)
+    expect(system).toContain(`layers: 1 to ${BLOCK_LIMITS.layersPerScene} blocks`)
+    expect(system).toContain(`"enter": 0–${BLOCK_LIMITS.layersPerScene - 1}`)
+    expect(system).toContain(`"anchor": ${ANCHORS.join('|')} = center`)
+    expect(system).toContain(`transitionOut: ${COMPOSED_TRANSITIONS.join('|')}`)
+  })
+
+  it('quotes each block’s own bounds and its own vocabulary from the schema', () => {
+    expect(system).toContain(`{"kind":"heading", "text": ≤${BLOCK_LIMITS.heading}, "level": display|title|subtitle`)
+    expect(system).toContain(`"items": [1–${BLOCK_LIMITS.listItems} × ≤${BLOCK_LIMITS.listItem}]`)
+    expect(system).toContain(`"values": [${BLOCK_LIMITS.barValuesMin}–${BLOCK_LIMITS.barValues} × 0–100]`)
+    expect(system).toContain(`"bars": ${BLOCK_LIMITS.equalizerBarsMin}–${BLOCK_LIMITS.equalizerBars} = 12`)
+    expect(system).toContain(`"imageIds": [${BLOCK_LIMITS.galleryImagesMin}–${BLOCK_LIMITS.galleryImages} ×`)
+    // A defaulted field says what silence buys. Without it a model writes the
+    // key on every block, which is how twenty-four cards become one film.
+    expect(system).toContain('"treatment": bleed|inset|card = card')
+  })
+
+  /**
+   * The prose is prose. Every number and every enum value in a card comes from
+   * `signature()`, which reads the zod object the answer is validated against,
+   * so a bound moved in the schema moves here without anybody editing the
+   * catalogue — and a bound typed into the prose by hand fails this.
+   */
+  it('states no bound in the prose itself', () => {
+    const lines = catalogue(system)
+      .split('\n')
+      .filter((line) => /^(- \w+: |    take it when |    it goes wrong )/.test(line))
+    expect(lines.length).toBeGreaterThan(BLOCK_KINDS.length)
+    for (const line of lines) expect(line, line).not.toMatch(/\d/)
+  })
+
+  /**
+   * A model shown twenty-four blocks uses twenty-four of them. The catalogue is
+   * the only place that can argue against its own entries, so it does: each card
+   * says how the block FAILS, and the section above them says a scene carries
+   * one idea.
+   */
+  it('tells the model that a stack of everything is not a film', () => {
+    expect(system).toContain('THE STACK')
+    expect(system).toMatch(/A scene carries ONE idea/)
+    expect(system).toMatch(/Three ideas in one scene is none/)
+    expect(system).toMatch(/Never take a block because it is in the list/)
+    expect(system).toMatch(/Variety belongs to the FILM, not to the frame/)
+    // Every card carries the sentence that says when the block is the wrong one.
+    for (const kind of BLOCK_KINDS) {
+      expect(catalogue(system), kind).toMatch(new RegExp(`- ${kind}:[\\s\\S]*?\\n    it goes wrong \\S`))
     }
   })
 
   /**
-   * The prompt used to recommend the freeze.
-   *
-   * `static` was described as "the calm choice, and the right one when the image
-   * carries text", and further down "calm means long scenes, static shots or slow
-   * zooms" — so a brief asking for something restrained was answered with a film
-   * of still pictures, which is exactly what got reported. Three things have to
-   * hold now, and each of them failed differently before: every value the schema
-   * accepts is described, the vocabularies come from the enums rather than from a
-   * list somebody kept by hand, and calm is a slow movement rather than the
-   * absence of one.
+   * The ambition is the request. A model told only what not to do writes one
+   * heading per scene, so the prompt shows what a stack that WORKS looks like —
+   * a ground, two or three blocks, and a reason they are together.
+   */
+  it('shows stacks that work, so variety arrives by combination', () => {
+    const examples = system.slice(system.indexOf('STACKS THAT WORK'), system.indexOf('THE IMAGES'))
+    expect(examples).toMatch(/ground "gradient"/)
+    expect(examples).toMatch(/ground "gridPulse"/)
+    expect(examples).toMatch(/"lowerThird"/)
+    expect(examples).toMatch(/"progressBar"/)
+    expect(examples).toMatch(/"soundWave"/)
+    expect(examples.match(/\n- /g)).toHaveLength(5)
+    expect(examples).toMatch(/One scene with all of them in it is a poster/)
+  })
+
+  /** `anchor` is a zone and `enter` is a rank, and both are stated once rather than on 24 cards. */
+  it('states the two shared fields once, and says what silence means for each', () => {
+    expect(system).toMatch(/A ZONE, never a coordinate/)
+    expect(system).toMatch(/a RANK and not a delay/)
+    expect(system).toMatch(/Blocks sharing a rank arrive together/)
+    expect(system).toMatch(/Leave it out and the blocks arrive in the order you\n  wrote them/)
+    // Neither field is repeated on a card: `signature()` skips them, and 24
+    // repetitions of the same two lines is the prompt nobody reads to the end.
+    expect(catalogue(system)).not.toContain('"anchor"')
+    expect(catalogue(system)).not.toContain('"enter"')
+  })
+
+  /**
+   * There is no audio in this feature, and two blocks look as though there is.
+   * The card has to say so, or a model writes a film "synced to the beat" of
+   * something that does not exist.
+   */
+  it('says the equalizer and the wave are drawings', () => {
+    expect(system).toMatch(/- equalizer:[\s\S]*?This feature has no audio and nothing is being listened to/)
+    expect(system).toMatch(/There is NO audio/)
+    expect(system).toMatch(/The equalizer\nand the wave are drawings/)
+  })
+
+  /**
+   * A catalogue holding a button, a gradient and a notification is a catalogue a
+   * model expects to colour in. The schema refuses it — every object is
+   * `.strict()` — and the sentence only saves the wasted call.
+   */
+  it('says no colour, font, size or position can be written anywhere', () => {
+    expect(system).toMatch(/no colour, no font, no size and no position anywhere in this document/)
+    expect(system).toMatch(/that includes a colour on a block that seems to want one/)
+  })
+
+  it('refuses a colour written onto a block rather than dropping it', async () => {
+    answer = {
+      template: 'composed',
+      scenes: [{ durationMs: 3000, layers: [{ kind: 'heading', text: 'Hi', color: '#ff0000' }] }],
+    }
+    const { timeline, notices } = await proposeTimeline('a film', IMAGES, { llm })
+    expect(timeline).toBe(null)
+    expect(notices.join(' ')).toMatch(/color/)
+  })
+
+  it('refuses a ninth block rather than dropping one', async () => {
+    answer = {
+      template: 'composed',
+      scenes: [
+        {
+          durationMs: 3000,
+          layers: Array.from({ length: BLOCK_LIMITS.layersPerScene + 1 }, (_, i) => ({
+            kind: 'kicker',
+            text: `line ${i}`,
+          })),
+        },
+      ],
+    }
+    const { timeline, notices } = await proposeTimeline('everything at once', IMAGES, { llm })
+    expect(timeline).toBe(null)
+    expect(notices.join(' ')).toContain('layers')
+  })
+})
+
+describe('proposeTimeline — what the selection makes possible', () => {
+  /**
+   * Not a rule about images: a narrowing of the catalogue. Three blocks and one
+   * ground put a picture on the screen and their schemas require an id, so with
+   * an empty selection they have no valid document at all — offering them spends
+   * a call on an answer that cannot pass. The need is derived from the schema
+   * (`gallery` wants two because its array says so), never listed here.
+   */
+  it('drops every picture-bearing block and ground when nothing is selected', async () => {
+    answer = MINIMAL
+    await proposeTimeline('an opening card that says Coming in spring', [], { llm })
+    const { system, schema, user } = calls[0]
+    for (const kind of ['imageFrame', 'gallery', 'carousel']) {
+      expect(hintKinds(schema), kind).not.toContain(kind)
+      expect(catalogue(system), kind).not.toContain(`- ${kind}: `)
+    }
+    expect(hintGrounds(schema)).not.toContain('image')
+    // Said as a fact about the request rather than as a restriction: a model
+    // that decides the catalogue is wrong answers with a name that is not in it.
+    expect(system).toMatch(/no image: nothing was selected/)
+    expect(system).toMatch(/imageFrame, gallery, carousel and the "image" ground need more pictures than are selected/)
+    // And the offer that remains is named, so the absence reads as a film that
+    // can still be cut rather than as a feature that is off.
+    expect(system).toMatch(/a film made of type, numbers and motifs is a film/)
+    // An empty list under the header reads as a broken request rather than as a
+    // fact about the film.
+    expect(user).toMatch(/no image was selected/)
+  })
+
+  /**
+   * One picture is the case that used to fall between the two branches: a
+   * `gallery` wants two and is off the catalogue, while `imageFrame` is on it
+   * and its id still has to be copied exactly. Printed as alternatives, that
+   * selection lost the rule that says an invented identifier refuses the film.
+   */
+  it('keeps the single-picture blocks, and still says the ids must be copied', async () => {
+    answer = MINIMAL
+    await proposeTimeline('a film about the kettle', [IMAGES[0]], { llm })
+    const { system, schema } = calls[0]
+    expect(hintKinds(schema)).toContain('imageFrame')
+    expect(hintGrounds(schema)).toContain('image')
+    expect(hintKinds(schema)).not.toContain('gallery')
+    expect(hintKinds(schema)).not.toContain('carousel')
+    expect(system).toMatch(/copied EXACTLY/)
+    expect(system).toMatch(/gallery, carousel need more pictures than are selected/)
+  })
+
+  it('offers the whole catalogue once there are pictures for it', async () => {
+    await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    expect(hintKinds(calls[0].schema)).toEqual([...BLOCK_KINDS])
+    expect(hintGrounds(calls[0].schema)).toEqual([...BACKGROUND_KINDS])
+    expect(calls[0].system).not.toMatch(/need more pictures than are selected/)
+  })
+
+  /**
+   * The hint is never the gate: a provider that ignores `format` answers with a
+   * gallery of ids it made up. Left to the membership check, the user would be
+   * told an image "was not in your selection" — true, useless, and unfixable by
+   * rewording a brief, because the selection is empty.
+   */
+  it('refuses a picture-bearing film over an empty selection, and NAMES what is still possible', async () => {
+    answer = {
+      template: 'composed',
+      scenes: [{ durationMs: 3000, layers: [{ kind: 'gallery', imageIds: [ID_A, ID_B] }] }],
+    }
+    const { timeline, notices } = await proposeTimeline('a film about the kettle', [], { llm })
+    expect(timeline).toBe(null)
+    const said = notices.join(' ')
+    expect(said).toContain('imageFrame, gallery, carousel')
+    expect(said).toContain(`the other ${BLOCK_KINDS.length - 3} blocks draw type, numbers and motifs`)
+    expect(said).not.toMatch(/not in your selection/)
+  })
+
+  /**
+   * `timelineImageIds` walks the ground and the stack, and a gallery holds six.
+   * Read as `scenes.map(s => s.imageId)` this check sees `[undefined]` on every
+   * composed scene: every proposal would be refused for a picture nobody chose,
+   * and every invented id inside a block would sail through.
+   */
+  it('sees the ids on the ground and inside the blocks, not only on the scene', async () => {
+    answer = {
+      template: 'composed',
+      scenes: [
+        {
+          durationMs: 3000,
+          background: { kind: 'image', imageId: ID_A },
+          layers: [{ kind: 'gallery', imageIds: [ID_B, ID_C] }],
+        },
+      ],
+    }
+    const { timeline, notices } = await proposeTimeline('a film', IMAGES, { llm })
+    expect(timeline).toBe(null)
+    expect(notices.join(' ')).toMatch(/1 image that was not in your selection/)
+  })
+})
+
+describe('proposeTimeline — the five, when a caller names one', () => {
+  it.each(EDITABLE_TEMPLATES)('offers %s alone, with its own card', async (template) => {
+    answer = ANSWERS[template]
+    const { timeline } = await proposeTimeline('a film', IMAGES, { llm, template })
+    expect(timeline.template).toBe(template)
+    const { system, schema } = calls[0]
+    expect(schema.properties.template.enum).toEqual([template])
+    expect(system).toContain('THE COMPOSITION IS ALREADY CHOSEN')
+    expect(system).toContain(`- ${template}: `)
+    // The block catalogue is not printed: the form waiting for this answer has
+    // that composition's rows, and a card plus twenty-four blocks is a prompt
+    // holding two contradictory jobs.
+    expect(system).not.toContain('THE STACK')
+    expect(system).not.toContain('- heading: ')
+  })
+
+  it('quotes each composition’s own bounds from the schema’s table', async () => {
+    for (const name of EDITABLE_TEMPLATES) {
+      calls = []
+      answer = ANSWERS[name]
+      await proposeTimeline('a film', IMAGES, { llm, template: name })
+      const l = TEMPLATE_LIMITS[name]
+      expect(calls[0].system).toContain(`scenes: 1 to ${l.maxScenes}, each ${l.minSceneMs} to ${l.maxSceneMs} ms`)
+    }
+  })
+
+  /**
+   * The prompt used to recommend the freeze: `static` was "the calm choice" and
+   * calm was "long scenes, static shots". A brief asking for something restrained
+   * came back as a film of still pictures.
    */
   it('tells the model that every scene moves, and never sells the held frame', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    answer = ANSWERS.slideshow
+    await proposeTimeline('a calm slideshow', IMAGES, { llm, template: 'slideshow' })
     const { system } = calls[0]
-
     expect(system).toContain('THE MOVEMENT (every scene moves; what you choose is HOW)')
-    // Every value of both vocabularies, described. A move offered by the schema
-    // and left out of the prompt is one the model never picks.
     for (const move of [...KEN_BURNS, ...OVERLAY_MOVES]) expect(system, move).toMatch(new RegExp(`\\n  ${move}\\s+\\S`))
-    // And described for real. `vocabulary()` prints "(no note)" for a value
-    // `MOVE_NOTES` has no line for, which satisfies the loop above while telling
-    // the model nothing — the shape a sixth move would arrive in, since the
-    // vocabulary is generated from the enum and the prose is not.
     expect(system).not.toContain('(no note)')
-    // The defaults are quoted from the schema, so a default changed on one side
-    // cannot leave the prompt describing the other.
     expect(system).toContain(`"${DEFAULT_KEN_BURNS.slideshow}"`)
     expect(system).toContain(`"${DEFAULT_OVERLAY_MOVE}"`)
-
-    // The two sentences that made immobility the recommendation.
-    expect(system).not.toMatch(/static\s+no movement at all/)
     expect(system).not.toMatch(/[Cc]alm means[^\n]*static/)
     expect(system).toMatch(/Calm is a SLOW movement, never the absence of one/)
-    // `static` is still offered — a capture has real reasons to be held — and it
-    // is described as the exception rather than as the safe answer.
     expect(system).toMatch(/static\s+the frame is HELD\. The exception, never the default/)
   })
 
-  /**
-   * The banded template's card said there was no camera move in it at all, which
-   * is what "a title on a picture" was cut from. The rule it was protecting is
-   * about amplitude, and the card now says what amplitude IS allowed.
-   */
+  /** The banded template's card said there was no camera move in it at all. */
   it('offers the overlay its own movement instead of denying it one', async () => {
-    await proposeTimeline('show the dashboard', IMAGES, { llm })
-    const { system } = calls[0]
+    answer = ANSWERS.overlay
+    await proposeTimeline('show the dashboard', IMAGES, { llm, template: 'overlay' })
+    const { system, schema } = calls[0]
     expect(system).not.toContain('There is no camera move here at all')
     expect(system).toMatch(new RegExp(`- overlay:[\\s\\S]*?move: ${OVERLAY_MOVES.join(', ')}`))
-    // And the field is on the scene shape the card prints, not only in the prose.
-    expect(system).toMatch(/- overlay:[\s\S]*?scene: \{"imageId","durationMs","move"/)
-  })
-
-  /**
-   * The decoder hint carries the move too, and asks for it.
-   *
-   * A hint is never the gate — the schema defaults `move`, so a document without
-   * one is legal — but a grammar that lets the field be skipped produces the same
-   * drift on every scene of every film, which is the variety this whole change is
-   * about.
-   */
-  it('asks the decoder for a move on every overlay scene', async () => {
-    await proposeTimeline('show the dashboard', IMAGES, { llm, template: 'overlay' })
-    const scene = calls[0].schema.properties.scenes.items
-    expect(scene.properties.move.enum).toEqual([...OVERLAY_MOVES])
-    expect(scene.required).toContain('move')
-  })
-
-  /**
-   * The choice has to be driven by the brief rather than by taste, so the
-   * mapping is written down. Without it a model picks the most elaborate
-   * composition it was shown, and every brief comes back as a product card with
-   * arguments nobody wrote.
-   */
-  it('states which intention leads to which composition', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    const { system } = calls[0]
-    expect(system).toMatch(/no picture to work from\s+-> titles/)
-    expect(system).toMatch(/a phone, a story, a reel, a feed, portrait, vertical\s+-> vertical/)
-    expect(system).toMatch(/a screen, an interface, a dashboard, a capture to be read\s+-> overlay/)
-    expect(system).toMatch(/something being sold[^\n]*-> product/)
-    expect(system).toMatch(/anything else, with pictures to show\s+-> slideshow/)
-  })
-
-  it.each(VIDEO_TEMPLATES)('accepts a proposal of the %s composition', async (name) => {
-    answer = ANSWERS[name]
-    const { timeline } = await proposeTimeline('whatever the brief was', [IMAGES[0]], { llm })
-    // The whole catalogue has to survive the round trip, not only the one this
-    // module was written against: each template has its own scene kind, and a
-    // check that only ever saw a slideshow would pass the day the other four
-    // stopped parsing here.
-    expect(timeline?.template).toBe(name)
-  })
-
-  /**
-   * The decoder hint offers one scene shape per composition rather than one
-   * object carrying every field of all five. A flat union invites a grammar to
-   * put a `band` on a slideshow scene, which `.strict()` then refuses whole —
-   * a wasted call for a shape the hint itself suggested.
-   */
-  it('hints one scene shape per composition, with the identical pair listed once', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    const { schema } = calls[0]
-    expect(schema.properties.template.enum).toEqual([...VIDEO_TEMPLATES])
-    // Five templates, four shapes: `slideshow` and `vertical` have the same
-    // scene kind, and what separates them — the bounds and the ratio — is
-    // something no grammar enforces.
-    expect(schema.properties.scenes.items.anyOf).toHaveLength(4)
+    expect(schema.properties.scenes.items.properties.move.enum).toEqual([...OVERLAY_MOVES])
+    expect(schema.properties.scenes.items.required).toContain('move')
   })
 
   /**
    * A `product` that fails is refused as a product. Re-trying it as the
-   * slideshow that would have passed is the repair this feature refuses
-   * everywhere: it hands back a different film from the one described, with
-   * nothing saying which is on screen.
+   * slideshow that would have passed hands back a different film from the one
+   * proposed, with nothing saying which is on screen.
    */
   it('refuses a scene under its own composition’s floor, without falling back', async () => {
-    // 2000 ms is legal for a slideshow and below the product floor of 3000.
     answer = { ...ANSWERS.product, scenes: [{ ...ANSWERS.product.scenes[0], durationMs: 2000 }] }
-    const { timeline, notices } = await proposeTimeline('sell the kettle', [IMAGES[0]], { llm })
+    const { timeline, notices } = await proposeTimeline('sell the kettle', [IMAGES[0]], { llm, template: 'product' })
     expect(timeline).toBe(null)
     expect(notices.join(' ')).toContain('durationMs')
   })
 
   it('refuses a field belonging to another composition rather than dropping it', async () => {
-    // A camera move on a product card. The composition lays the picture out
-    // beside the text and never travels across it, so an accepted `kenBurns`
-    // would be a request that renders as nothing and reports as a success.
     answer = { ...ANSWERS.product, scenes: [{ ...ANSWERS.product.scenes[0], kenBurns: 'zoom-in' }] }
-    const { timeline, notices } = await proposeTimeline('sell the kettle', [IMAGES[0]], { llm })
+    const { timeline, notices } = await proposeTimeline('sell the kettle', [IMAGES[0]], { llm, template: 'product' })
     expect(timeline).toBe(null)
     expect(notices.join(' ')).toContain('kenBurns')
   })
-})
-
-describe('proposeTimeline — a composition that needs pictures, with none selected', () => {
-  it('offers titles alone, and says the others are not on the table', async () => {
-    answer = ANSWERS.titles
-    await proposeTimeline('an opening card that says Coming in spring', [], { llm })
-    const { system, schema, user } = calls[0]
-    // Not a matter of taste: the four other scene schemas require an `imageId`,
-    // so with an empty selection they have no valid document at all. Offering
-    // them spends a call on an answer that cannot pass.
-    expect(schema.properties.template.enum).toEqual(['titles'])
-    expect(system).toMatch(/no image is selected/)
-    for (const name of ['slideshow', 'overlay', 'vertical', 'product']) expect(system).toContain(name)
-    // An empty list under the header reads as a broken request rather than as a
-    // fact about the film, and the fact is the reason titles is the only offer.
-    expect(user).toMatch(/no image was selected/)
-  })
-
-  it('composes a titles film from a brief with no picture in it', async () => {
-    answer = ANSWERS.titles
-    const { timeline, notices } = await proposeTimeline('an opening card that says Coming in spring', [], { llm })
-    expect(timeline.template).toBe('titles')
-    expect(timeline.scenes[0]).toMatchObject({ headline: 'Coming in spring', animation: 'rise', subtitle: null })
-    expect(notices).toEqual([])
-  })
-
-  it.each(['slideshow', 'overlay', 'vertical', 'product'])(
-    'refuses a %s with nothing selected, and NAMES titles instead',
-    async (name) => {
-      // The hint offers titles alone, and a hint is never the gate: a provider
-      // that ignores `format` answers whatever it likes. Left to the membership
-      // check below, the user would be told an image "was not in your
-      // selection" — true, useless, and unfixable by rewording the brief.
-      answer = ANSWERS[name]
-      const { timeline, notices } = await proposeTimeline('a film about the kettle', [], { llm })
-      expect(timeline).toBe(null)
-      expect(notices.join(' ')).toContain('"titles"')
-      expect(notices.join(' ')).toContain(`"${name}"`)
-    },
-  )
 
   /**
-   * A titles film asked for with pictures selected is legal, and the notice has
-   * to say what happened to them: "3 were left out" reads as an oversight the
-   * user could ask to have corrected, and asking again cannot correct it.
+   * A hint is never the gate: a provider that ignores structured output answers
+   * `product` for anything that sounds commercial. Loading it would move the
+   * selector under somebody who had just set it, and every field on the form.
    */
-  it('says the selected images do not appear when the film is text only', async () => {
-    answer = ANSWERS.titles
-    const { timeline, notices } = await proposeTimeline('an opening card', IMAGES, { llm })
-    expect(timeline.template).toBe('titles')
-    expect(notices.join(' ')).toMatch(/no pictures in it/)
-    expect(notices.join(' ')).toContain('2 images')
+  it('refuses an answer naming a different composition, rather than loading it', async () => {
+    answer = ANSWERS.product
+    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm, template: 'slideshow' })
+    expect(timeline).toBe(null)
+    expect(notices.join(' ')).toContain('slideshow')
+    expect(notices.join(' ')).toContain('product')
+  })
+
+  /**
+   * Two facts on the same request that contradict each other, so the call is
+   * skipped: every picture-bearing scene schema requires an `imageId` and there
+   * is none to write. The notice names `titles` because no rewording fixes it.
+   */
+  it('refuses a picture-bearing composition over an empty selection, before calling', async () => {
+    const { timeline, notices } = await proposeTimeline('sell the kettle', [], { llm, template: 'product' })
+    expect(timeline).toBe(null)
+    expect(calls).toHaveLength(0)
+    expect(notices.join(' ')).toContain('titles')
+  })
+
+  /**
+   * A name that is not one of the five is treated as no name at all — which is
+   * now a request to COMPOSE. A caller cannot reach a composition that does not
+   * exist, and `composed` is not nameable either: it is what asking for a film
+   * rather than for a layout already gets you.
+   */
+  it('composes when the caller names nothing, or names something unknown', async () => {
+    for (const template of [undefined, 'cinematic-4d', 'composed']) {
+      calls = []
+      await proposeTimeline('a film about the kettle', IMAGES, { llm, template })
+      expect(calls[0].schema.properties.template.enum, String(template)).toEqual(['composed'])
+      expect(calls[0].system).toContain('THE STACK')
+    }
+  })
+
+  /**
+   * Nothing was chosen, the catalogue held blocks alone, and the answer is one
+   * of the five. A NOTICE and not a refusal — the film is valid and renderable,
+   * and refusing hands back nothing over an answer that works (Q1). Silence
+   * would be worse: the whole point of composing is that the film is not one of
+   * five cards, so a proposal that quietly is one has to say so.
+   */
+  it('accepts a ready-made composition on the composing path, and says it is plainer', async () => {
+    answer = ANSWERS.slideshow
+    const { timeline, notices } = await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    expect(timeline.template).toBe('slideshow')
+    expect(notices.join(' ')).toMatch(/instead of composing a film of its own/)
   })
 })
 
@@ -339,17 +579,19 @@ describe('proposeTimeline — the theme, which the model never writes', () => {
   const THEME = { colors: { accent: '#c0392b' }, fonts: { heading: 'Fraunces' }, radiusPx: 4 }
 
   it('attaches the project’s direction to a document the model got right', async () => {
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm, theme: THEME })
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm, theme: THEME })
     expect(timeline.theme).toEqual(THEME)
     expect(notices).toEqual([])
   })
 
   it('never shows it to the model', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm, theme: THEME })
+    await proposeTimeline('a calm film', IMAGES, { llm, theme: THEME })
     const sent = `${calls[0].system}\n${calls[0].user}\n${JSON.stringify(calls[0].schema)}`
     // It costs tokens, it is not the model's decision, and a colour quoted in a
     // prompt is a colour a model will "improve". The look is attached after the
-    // answer has been accepted, from the project the film is cut in.
+    // answer has been accepted, from the project the film is cut in — which
+    // matters more with a catalogue full of buttons and gradients than it did
+    // with five cards.
     expect(sent).not.toContain('c0392b')
     expect(sent).not.toContain('Fraunces')
     expect(sent).not.toContain('radiusPx')
@@ -357,21 +599,15 @@ describe('proposeTimeline — the theme, which the model never writes', () => {
 
   it('refuses a document in which the model wrote its own theme', async () => {
     answer = { ...GOOD, theme: { colors: { accent: '#000000' } } }
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm, theme: THEME })
-    // `VideoTimelineSchema` has no `theme` at all, so this is refused exactly
-    // like an invented `audio` key — the enforcement is the schema, and the
-    // sentence in the prompt only saves the wasted call.
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm, theme: THEME })
     expect(timeline).toBe(null)
     expect(notices.join(' ')).toContain('theme')
   })
 
   /** Q1: a direction that will not parse costs the colours, never the proposal. */
   it('keeps the montage when the theme itself is refused, and says what was dropped', async () => {
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, {
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, {
       llm,
-      // A CSS stack rather than one family name. `VideoThemeSchema` refuses it
-      // because that value ends up inside a `font-family`, where a comma is the
-      // difference between naming a typeface and writing a declaration.
       theme: { fonts: { heading: 'Inter, sans-serif' } },
     })
     expect(timeline).not.toBe(null)
@@ -394,7 +630,7 @@ describe('proposeTimeline — Q5: the brief and the images are data', () => {
   })
 
   it('shows the model every selected id, and says it may use no others', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    await proposeTimeline('a calm film', IMAGES, { llm })
     const { system, user } = calls[0]
     expect(user).toContain(ID_A)
     expect(user).toContain(ID_B)
@@ -404,11 +640,11 @@ describe('proposeTimeline — Q5: the brief and the images are data', () => {
 
 describe('proposeTimeline — refusals that must never become repairs', () => {
   it('refuses an imageId the user did not select, instead of substituting one', async () => {
-    // The model has seen a list of hashes and writes a plausible extra one; it
-    // is 64 hex characters, so the schema is happy. Substituting the nearest
-    // image would put a picture in somebody's film that they never chose.
-    answer = { scenes: [{ imageId: ID_C, durationMs: 4000, kenBurns: 'static', transitionOut: 'none' }] }
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    answer = {
+      template: 'composed',
+      scenes: [{ durationMs: 4000, background: { kind: 'image', imageId: ID_C }, layers: [MINIMAL.scenes[0].layers[0]] }],
+    }
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm })
     expect(timeline).toBe(null)
     expect(notices.join(' ')).toMatch(/not in your selection/i)
   })
@@ -423,33 +659,29 @@ describe('proposeTimeline — refusals that must never become repairs', () => {
   })
 
   it('refuses a scene longer than the ceiling rather than clamping it', async () => {
-    answer = { scenes: [{ imageId: ID_A, durationMs: 40000, kenBurns: 'static', transitionOut: 'none' }] }
+    answer = { template: 'composed', scenes: [{ durationMs: 40000, layers: MINIMAL.scenes[0].layers }] }
     const { timeline, notices } = await proposeTimeline('one long shot', IMAGES, { llm })
-    // Clamping 40 s to 15 s does not produce the film that was described; it
-    // produces a different one that happens to be legal, and nothing says which.
     expect(timeline).toBe(null)
     expect(notices.join(' ')).toContain('durationMs')
   })
 
   it('refuses a montage over the total ceiling, and the notice SAYS the ceiling', async () => {
     answer = {
-      scenes: Array.from({ length: 9 }, (_, i) => ({
-        imageId: i % 2 ? ID_B : ID_A,
-        durationMs: 15000,
-        kenBurns: 'static',
-        transitionOut: 'none',
-      })),
+      template: 'composed',
+      scenes: Array.from({ length: 9 }, () => ({ durationMs: 15000, layers: MINIMAL.scenes[0].layers })),
     }
     const { timeline, notices } = await proposeTimeline('the longest film you can', IMAGES, { llm })
     expect(timeline).toBe(null)
     // Truncating the tail silently would hand back a shorter film and no reason.
-    // The user can only ask for something shorter if they are told the number.
     expect(notices.join(' ')).toContain('120000 ms')
   })
 
   it('reports a handful of issues, not the whole tree', async () => {
-    answer = { scenes: Array.from({ length: 12 }, () => ({ imageId: 'nope', durationMs: 1 })) }
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    answer = {
+      template: 'composed',
+      scenes: Array.from({ length: 12 }, () => ({ durationMs: 1, layers: [{ kind: 'heading', text: '' }] })),
+    }
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm })
     expect(timeline).toBe(null)
     // A modal shows a few lines. Two dozen identical sentences is a wall the
     // user scrolls past, and the last one is the one that matters.
@@ -460,14 +692,14 @@ describe('proposeTimeline — refusals that must never become repairs', () => {
 
 describe('proposeTimeline — what degrades instead of failing (Q1)', () => {
   it('resolves with a notice when there is no model at all', async () => {
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm: null })
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm: null })
     expect(timeline).toBe(null)
     expect(notices.join(' ')).toMatch(/by hand/)
   })
 
   it('resolves with a notice when the provider throws', async () => {
     answer = new Error('Provider HTTP 503')
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm })
     // The modal is open and the user's selection is intact. A rejected promise
     // here is a dialog that breaks over a feature that still works by hand.
     expect(timeline).toBe(null)
@@ -476,27 +708,43 @@ describe('proposeTimeline — what degrades instead of failing (Q1)', () => {
 
   it('resolves when the answer is not a timeline at all', async () => {
     answer = { sorry: 'I cannot do that' }
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm })
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm })
     expect(timeline).toBe(null)
     expect(notices.length).toBeGreaterThan(0)
   })
 
-  it('keeps a valid montage that left an image out, and says so', async () => {
-    answer = { scenes: [{ imageId: ID_A, durationMs: 4000, kenBurns: 'static', transitionOut: 'none' }] }
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    // An omission is fixable in the editor in one click; a refusal hands back
-    // nothing. That asymmetry is the whole reason this is a notice and a foreign
-    // id is not.
+  /**
+   * A film that uses none of the selected pictures is legal — a composed film of
+   * type and motifs is a film — and the notice has to say that rather than
+   * "3 were left out", which reads as an oversight the user could ask to have
+   * corrected.
+   */
+  it('says the selected images do not appear when the film shows none', async () => {
+    answer = MINIMAL
+    const { timeline, notices } = await proposeTimeline('an opening card', IMAGES, { llm })
+    expect(timeline.template).toBe('composed')
+    expect(notices.join(' ')).toMatch(/no pictures in it/)
+    expect(notices.join(' ')).toContain('2 images')
+  })
+
+  it('keeps a valid montage that left one image out, and says so', async () => {
+    answer = {
+      template: 'composed',
+      scenes: [{ durationMs: 4000, background: { kind: 'image', imageId: ID_A }, layers: MINIMAL.scenes[0].layers }],
+    }
+    const { timeline, notices } = await proposeTimeline('a calm film', IMAGES, { llm })
+    // An omission is fixable by asking again; a refusal hands back nothing. That
+    // asymmetry is the whole reason this is a notice and a foreign id is not.
     expect(timeline.scenes).toHaveLength(1)
     expect(notices.join(' ')).toMatch(/left out/)
   })
 
   /**
-   * A composition's own scene cap can be the reason images were left over, and
-   * a notice that hides it sends the user back to reword a brief that was never
+   * A composition's own scene cap can be the reason images were left over, and a
+   * notice that hides it sends the user back to reword a brief that was never
    * the problem: a product film holds six scenes whatever anybody types.
    */
-  it('names the cap when the composition could not have used them all', async () => {
+  it('names the cap when a chosen composition could not have used them all', async () => {
     const many = Array.from({ length: 8 }, (_, i) => ({ id: i.toString(16).padStart(64, '0'), prompt: `image ${i}` }))
     answer = {
       template: 'product',
@@ -507,7 +755,7 @@ describe('proposeTimeline — what degrades instead of failing (Q1)', () => {
         bullets: ['One good reason'],
       })),
     }
-    const { timeline, notices } = await proposeTimeline('sell all of these', many, { llm })
+    const { timeline, notices } = await proposeTimeline('sell all of these', many, { llm, template: 'product' })
     expect(timeline.template).toBe('product')
     expect(notices.join(' ')).toContain(`holds at most ${TEMPLATE_LIMITS.product.maxScenes} scenes`)
   })
@@ -521,110 +769,30 @@ describe('proposeTimeline — what it refuses before spending a call', () => {
   })
 
   /**
-   * An empty selection is a request now, not a mistake: `titles` needs no
-   * picture, and refusing here made the one composition written for a brief of
-   * words unreachable through the one route that composes.
+   * An empty selection is a request, not a mistake: twenty-one blocks need no
+   * picture at all, and the panel's whole promise is a sentence and nothing else.
    */
   it('calls the model with an empty selection instead of refusing it', async () => {
-    answer = ANSWERS.titles
+    answer = MINIMAL
     const { timeline } = await proposeTimeline('an opening card', [], { llm })
     expect(calls).toHaveLength(1)
-    expect(timeline.template).toBe('titles')
+    expect(timeline.template).toBe('composed')
   })
 
   /**
-   * The prompt asks for the images to be used and the widest composition in the
-   * catalogue caps at MAX_SCENES, so a bigger selection has no film that can
-   * hold it. Discovering that from the model costs a wait and a bill for a
-   * contradiction visible in two numbers.
+   * The descriptions all travel in the user turn and no composition holds that
+   * many scenes, so a bigger selection is a contradiction visible from two
+   * numbers. Discovering it from the model costs a wait and a bill.
    */
   it('refuses a selection larger than the widest scene cap without calling the model', async () => {
     const many = Array.from({ length: MAX_SCENES + 1 }, (_, i) => ({
       id: i.toString(16).padStart(64, '0'),
       prompt: `image ${i}`,
     }))
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', many, { llm })
+    const { timeline, notices } = await proposeTimeline('a calm film', many, { llm })
     expect(timeline).toBe(null)
     expect(calls).toHaveLength(0)
     expect(notices.join(' ')).toContain(String(MAX_SCENES + 1))
-  })
-})
-
-/**
- * The panel's composition selector, seen from the server.
- *
- * `auto` is its default position and sends nothing; a composition chosen by
- * hand sends its name, and the catalogue offered to the model then holds that
- * one alone. It is the same narrowing an empty selection already performs, for
- * the same reason: the form the answer lands in has that composition's fields,
- * so a proposal in another one is a call spent on a document the panel refuses.
- *
- * None of it widens the founding rule. What arrives is matched against
- * VIDEO_TEMPLATES, and every name in that list is a component somebody wrote.
- */
-describe('proposeTimeline — a composition chosen in the panel', () => {
-  it.each(VIDEO_TEMPLATES)('offers %s alone when the panel asked for it', async (template) => {
-    answer = ANSWERS[template]
-    const { timeline } = await proposeTimeline('a film', IMAGES, { llm, template })
-    expect(timeline.template).toBe(template)
-    // The decoder hint carries a one-value enum, and the prose says the choice
-    // is already made. Both matter: most providers ignore `format` entirely.
-    expect(calls[0].schema.properties.template.enum).toEqual([template])
-    expect(calls[0].system).toContain('THE COMPOSITION IS ALREADY CHOSEN')
-    expect(calls[0].system).toContain(`"${template}"`)
-  })
-
-  it('drops the choosing table, which would tell the model to decide anyway', async () => {
-    // Left in, the prompt says "the brief decides" three lines under "the
-    // composition is already chosen" — and a model handed two contradictory
-    // instructions answers with whichever it read last.
-    answer = ANSWERS.product
-    await proposeTimeline('sell the kettle', IMAGES, { llm, template: 'product' })
-    expect(calls[0].system).not.toContain('CHOOSING')
-  })
-
-  it('lets the model choose when nothing was asked for', async () => {
-    await proposeTimeline('a calm slideshow', IMAGES, { llm })
-    expect(calls[0].schema.properties.template.enum).toEqual([...VIDEO_TEMPLATES])
-    expect(calls[0].system).toContain('CHOOSING')
-    expect(calls[0].system).not.toContain('THE COMPOSITION IS ALREADY CHOSEN')
-  })
-
-  /**
-   * A hint is never the gate, here as everywhere else in this file: a provider
-   * that ignores structured output answers `product` for anything that sounds
-   * commercial. Loading it would move the selector under somebody who had just
-   * set it, and every field on the form with it.
-   */
-  it('refuses an answer naming a different composition, rather than loading it', async () => {
-    answer = ANSWERS.product
-    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, {
-      llm,
-      template: 'slideshow',
-    })
-    expect(timeline).toBe(null)
-    expect(notices.join(' ')).toContain('slideshow')
-    expect(notices.join(' ')).toContain('product')
-  })
-
-  /**
-   * Two facts on the same request that contradict each other, so the model call
-   * is skipped: every picture-bearing scene schema requires an `imageId` and
-   * there is none to write. The notice names `titles` because no rewording of
-   * the brief fixes this one.
-   */
-  it('refuses a picture-bearing composition over an empty selection, before calling', async () => {
-    const { timeline, notices } = await proposeTimeline('sell the kettle', [], { llm, template: 'product' })
-    expect(timeline).toBe(null)
-    expect(calls).toHaveLength(0)
-    expect(notices.join(' ')).toContain('titles')
-  })
-
-  it('ignores a name that is not in the catalogue instead of trusting it', async () => {
-    // A caller cannot name a composition that does not exist, and there would be
-    // nothing to render if it could. Treated as `auto`, which is what a request
-    // that named nothing usable actually is.
-    await proposeTimeline('a calm slideshow', IMAGES, { llm, template: 'cinematic-4d' })
-    expect(calls[0].schema.properties.template.enum).toEqual([...VIDEO_TEMPLATES])
+    expect(notices.join(' ')).toContain(String(MAX_SCENES))
   })
 })

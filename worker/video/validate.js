@@ -48,7 +48,84 @@ export const TEMPLATE_LIMITS = {
   vertical: { maxScenes: 12, minSceneMs: 1000, maxSceneMs: 8000 },
   titles: { maxScenes: 8, minSceneMs: 1500, maxSceneMs: 10000 },
   product: { maxScenes: 6, minSceneMs: 3000, maxSceneMs: 15000 },
+  composed: { maxScenes: 12, minSceneMs: 1500, maxSceneMs: 15000 },
 }
+
+/**
+ * The bounds the composable variant applies, restated here for the reason
+ * `TEMPLATE_LIMITS` is: this process does not trust its caller, even when the
+ * caller is Mocky. `validate.test.js` compares the table against the schema's.
+ */
+export const BLOCK_LIMITS = {
+  layersPerScene: 8,
+
+  heading: 70,
+  kicker: 40,
+  quote: 180,
+  attribution: 40,
+  highlight: 90,
+  highlightMark: 40,
+  typewriter: 120,
+  listItem: 60,
+  listItems: 6,
+  counterTo: 1000000,
+  counterAffix: 8,
+  counterLabel: 40,
+  logoType: 24,
+  buttonLabel: 30,
+  formTitle: 40,
+  formField: 30,
+  formFields: 4,
+  formSubmit: 24,
+  noticeTitle: 40,
+  noticeBody: 90,
+  lowerTitle: 50,
+  lowerSubtitle: 70,
+  barValuesMin: 2,
+  barValues: 8,
+  barLabel: 12,
+  lineValuesMin: 2,
+  lineValues: 12,
+  lineLabel: 24,
+  equalizerBarsMin: 4,
+  equalizerBars: 24,
+  waveSamplesMin: 24,
+  waveSamples: 96,
+  mapMarkers: 8,
+  caption: 70,
+  galleryImagesMin: 2,
+  galleryImages: 6,
+  carouselImagesMin: 2,
+  carouselImages: 8,
+  clockLabel: 24,
+  dateStamp: 30,
+  progressLabel: 24,
+  gridCellsMin: 4,
+  gridCells: 16,
+  particleDensity: 3,
+
+  funTitle: 40,
+  codeLinesMin: 2,
+  codeLines: 10,
+  codeLine: 64,
+  codeCaption: 30,
+}
+
+export const ANCHORS = [
+  'top-left',
+  'top-center',
+  'top-right',
+  'center-left',
+  'center',
+  'center-right',
+  'bottom-left',
+  'bottom-center',
+  'bottom-right',
+  'full',
+]
+
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image']
+export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
 
 export const TEXT_LIMITS = {
   overlay: 120,
@@ -72,7 +149,7 @@ export const MAX_OVERLAY_LENGTH = TEXT_LIMITS.overlay
 /**
  * The templates THIS WORKER has a composition for.
  *
- * It happens to be all five today. It is still its own list rather than a
+ * It happens to be all six today. It is still its own list rather than a
  * reference to Mocky's, and it is allowed to lag: the worker is a separate
  * service behind an opt-in compose profile, so an operator really can be running
  * last month's build against today's Mocky. Refusing by name is what turns that
@@ -83,9 +160,21 @@ export const MAX_OVERLAY_LENGTH = TEXT_LIMITS.overlay
  * A template Mocky does not know is refused here too, for the ordinary reason:
  * this process does not trust its caller, even when the caller is Mocky.
  */
-export const RENDERABLE_TEMPLATES = ['slideshow', 'overlay', 'vertical', 'titles', 'product']
+export const RENDERABLE_TEMPLATES = ['slideshow', 'overlay', 'vertical', 'titles', 'product', 'composed']
 
 export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static']
+
+/** The five `funTitle` looks. Skia was measured at 461 MB and refused; see the schema. */
+export const FUN_TITLE_TREATMENTS = ['arc', 'bounce', 'stretch', 'swap', 'stack']
+
+/** The four solids a `solidScene` draws. No wireframe: it was measured at 2.7 s of render per second of film. */
+export const SOLIDS = ['cube', 'prism', 'sphere', 'torus']
+
+/** How a `solidScene` turns. A named move, never an axis and never an angle. */
+export const SPINS = ['tumble', 'turn', 'rock']
+
+/** What a `codeBlock` line is for. Three measured runs on a panel, so three roles. */
+export const CODE_ROLES = ['plain', 'accent', 'muted']
 
 /**
  * The move a scene gets when the document names none.
@@ -103,6 +192,10 @@ export const OVERLAY_MOVES = ['drift-up', 'drift-down', 'settle']
 export const DEFAULT_OVERLAY_MOVE = 'drift-up'
 
 export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none']
+
+/** The four above plus a mosaic dissolve, for `composed` alone. See timeline.ts. */
+export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel']
+
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom']
 export const BAND_POSITIONS = ['top', 'bottom']
 export const TITLE_ANIMATIONS = ['fade', 'rise', 'stagger']
@@ -125,6 +218,7 @@ const TEMPLATE_RATIOS = {
   vertical: ['9:16'],
   titles: ASPECT_RATIOS,
   product: ASPECT_RATIOS,
+  composed: ASPECT_RATIOS,
 }
 
 /**
@@ -354,12 +448,413 @@ function readProductScene(value, where) {
   }
 }
 
+/*
+ * ── The composable variant ──────────────────────────────────────────────────
+ *
+ * A background and a stack of typed blocks. Same discipline as the five scene
+ * readers above and for the same reason: ONE reader per block kind, never a
+ * permissive reader plus a key list. A `values` array accepted on a `heading` is
+ * a field the component does not read — a film rendered without the thing that
+ * was asked for, delivered as an export.
+ *
+ * The absences are the interesting part, and each is a promise this file keeps
+ * rather than a field nobody got round to. There is no colour anywhere, no font,
+ * no CSS length and no free string: a block says what it IS, and what it looks
+ * like is the palette's business and the component's. Anything else here would be
+ * a way around the theme the server attaches — the guessed token `theme.ts`
+ * refuses, arriving through a layer instead of through a key.
+ */
+
+/** A boolean, or the default. Never truthiness: `"false"` is a string, and it is true. */
+function readBool(value, fallback, where) {
+  if (value === undefined || value === null) return fallback
+  if (typeof value !== 'boolean') refuse(`${where} must be true or false; it is ${JSON.stringify(value)}.`)
+  return value
+}
+
+/**
+ * A whole number inside its own window, or the default — and a REFUSAL when
+ * there is no default.
+ *
+ * The absent-fallback case is the one that had to be spelled out. Three fields
+ * in the catalogue are integers the schema gives no default to — `counter.to`,
+ * `progressBar.to` and every entry of a chart's `values` — and this function
+ * used to hand `undefined` straight back for them. So a `{ kind: "counter" }`
+ * with no target, or a `values: [40, null]` with a hole in it, was refused by
+ * both of Mocky's copies and ACCEPTED here, then drawn as `NaN` into a frame
+ * this worker had reported as rendered. `undefined` as a fallback is how the
+ * three required numbers spell "required"; treating it as a value is what let
+ * them through.
+ */
+function readInt(value, min, max, fallback, where) {
+  if (value === undefined || value === null) {
+    if (fallback === undefined) {
+      refuse(`${where} is required; it must be a whole number between ${min} and ${max}.`)
+    }
+    return fallback
+  }
+  if (!Number.isInteger(value) || value < min || value > max) {
+    refuse(`${where} must be a whole number between ${min} and ${max}; it is ${JSON.stringify(value)}.`)
+  }
+  return value
+}
+
+/** An array of lines, each one something somebody will read. */
+function readTextArray(value, min, max, maxLength, where) {
+  if (!Array.isArray(value) || value.length < min || value.length > max) {
+    refuse(`${where} must be an array of ${min} to ${max} strings; it has ${Array.isArray(value) ? value.length : 'none'}.`)
+  }
+  return value.map((entry, i) => readText(entry, maxLength, `${where}[${i}]`))
+}
+
+/** The same, where absent and explicitly null both mean "there is none". */
+function readOptionalTextArray(value, max, maxLength, where) {
+  if (value === undefined || value === null) return null
+  return readTextArray(value, 0, max, maxLength, where)
+}
+
+/**
+ * The lines of a `codeBlock`: the only array of OBJECTS in the catalogue.
+ *
+ * Written out rather than folded into `readTextArray`, because each entry has
+ * its own unknown-key refusal. A line carrying `{ text, colour }` has to be
+ * refused by name here exactly as a block would be — the whole argument for
+ * having no highlighter is that no colour reaches this file, and a permissive
+ * reader on the one shape that mentions roles is where that would arrive.
+ */
+function readCodeLines(value, where) {
+  if (!Array.isArray(value) || value.length < BLOCK_LIMITS.codeLinesMin || value.length > BLOCK_LIMITS.codeLines) {
+    refuse(
+      `${where} must be an array of ${BLOCK_LIMITS.codeLinesMin} to ${BLOCK_LIMITS.codeLines} lines; ` +
+        `it has ${Array.isArray(value) ? value.length : 'none'}.`,
+    )
+  }
+  return value.map((entry, i) => {
+    const at = `${where}[${i}]`
+    object(entry, at)
+    onlyKeys(entry, ['text', 'role'], at)
+    return {
+      text: readText(entry.text, BLOCK_LIMITS.codeLine, `${at}.text`),
+      role: enumValue(entry.role, CODE_ROLES, 'plain', `${at}.role`),
+    }
+  })
+}
+
+/** An array of whole numbers, each a percentage: a chart in a film has no axis to read. */
+function readValues(value, min, max, where) {
+  if (!Array.isArray(value) || value.length < min || value.length > max) {
+    refuse(`${where} must be an array of ${min} to ${max} whole numbers between 0 and 100.`)
+  }
+  return value.map((entry, i) => readInt(entry, 0, 100, undefined, `${where}[${i}]`))
+}
+
+/** An array of library addresses. Never a URL, for the reason `readImageId` gives. */
+function readImageIdArray(value, min, max, where) {
+  if (!Array.isArray(value) || value.length < min || value.length > max) {
+    refuse(`${where} must be an array of ${min} to ${max} image ids.`)
+  }
+  return value.map((entry, i) => {
+    // Its own message rather than `readImageId`'s, which names a FIELD called
+    // imageId — `imageIds[0].imageId` would send the reader looking for a key
+    // that is not in the schema.
+    if (typeof entry !== 'string' || !IMAGE_ID.test(entry)) {
+      refuse(`${where}[${i}] must be a 64-character lower-case SHA-256 from the image library, not a URL.`)
+    }
+    return entry
+  })
+}
+
+/** `HH:MM` on a 24-hour dial, or nothing. A charset with no letter in it. */
+const CLOCK_TIME = /^([01]?\d|2[0-3]):[0-5]\d$/
+function readClockTime(value, where) {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string' || !CLOCK_TIME.test(value)) {
+    refuse(`${where} must read HH:MM on a 24-hour clock, such as 09:30; it is ${JSON.stringify(value)}.`)
+  }
+  return value
+}
+
+/**
+ * Where a block sits and when it arrives — the two fields every one of them has.
+ *
+ * `enter` is left ABSENT when the document did not state it, never filled with a
+ * number here. Absent means "the position it was written in", and `layerCues` in
+ * the composition is the one place that reading exists; a default invented here
+ * would be a second one, disagreeing with it the first time either moves.
+ */
+function readPlacement(value, where) {
+  const out = { anchor: enumValue(value.anchor, ANCHORS, 'center', `${where}.anchor`) }
+  if (value.enter !== undefined && value.enter !== null) {
+    out.enter = readInt(value.enter, 0, BLOCK_LIMITS.layersPerScene - 1, undefined, `${where}.enter`)
+  }
+  return out
+}
+
+/** One block reader: its own keys plus the two everything carries. */
+const blockReader = (own, read) => ({
+  keys: ['kind', 'anchor', 'enter', ...own],
+  read,
+})
+
+const BLOCK_READERS = {
+  heading: blockReader(['text', 'level'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.heading, `${w}.text`),
+    level: enumValue(v.level, ['display', 'title', 'subtitle'], 'title', `${w}.level`),
+  })),
+  kicker: blockReader(['text'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.kicker, `${w}.text`),
+  })),
+  quote: blockReader(['text', 'attribution'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.quote, `${w}.text`),
+    attribution: readOptionalText(v.attribution, BLOCK_LIMITS.attribution, `${w}.attribution`),
+  })),
+  textHighlight: blockReader(['text', 'mark', 'treatment'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.highlight, `${w}.text`),
+    mark: readOptionalText(v.mark, BLOCK_LIMITS.highlightMark, `${w}.mark`),
+    treatment: enumValue(v.treatment, ['marker', 'underline', 'box'], 'marker', `${w}.treatment`),
+  })),
+  funTitle: blockReader(['text', 'treatment'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.funTitle, `${w}.text`),
+    treatment: enumValue(v.treatment, FUN_TITLE_TREATMENTS, 'bounce', `${w}.treatment`),
+  })),
+  typewriter: blockReader(['text', 'caret'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.typewriter, `${w}.text`),
+    caret: readBool(v.caret, true, `${w}.caret`),
+  })),
+  animatedList: blockReader(['items', 'marker'], (v, w) => ({
+    items: readTextArray(v.items, 1, BLOCK_LIMITS.listItems, BLOCK_LIMITS.listItem, `${w}.items`),
+    marker: enumValue(v.marker, ['numeral', 'rule', 'dot'], 'numeral', `${w}.marker`),
+  })),
+  counter: blockReader(['to', 'from', 'prefix', 'suffix', 'label'], (v, w) => ({
+    to: readInt(v.to, 0, BLOCK_LIMITS.counterTo, undefined, `${w}.to`),
+    from: readInt(v.from, 0, BLOCK_LIMITS.counterTo, 0, `${w}.from`),
+    prefix: readOptionalText(v.prefix, BLOCK_LIMITS.counterAffix, `${w}.prefix`),
+    suffix: readOptionalText(v.suffix, BLOCK_LIMITS.counterAffix, `${w}.suffix`),
+    label: readOptionalText(v.label, BLOCK_LIMITS.counterLabel, `${w}.label`),
+  })),
+  logoType: blockReader(['text', 'mark'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.logoType, `${w}.text`),
+    mark: enumValue(v.mark, ['none', 'square', 'circle', 'slash'], 'square', `${w}.mark`),
+  })),
+  button: blockReader(['label', 'variant', 'press'], (v, w) => ({
+    label: readText(v.label, BLOCK_LIMITS.buttonLabel, `${w}.label`),
+    variant: enumValue(v.variant, ['filled', 'outline'], 'filled', `${w}.variant`),
+    press: readBool(v.press, true, `${w}.press`),
+  })),
+  form: blockReader(['title', 'fields', 'submit'], (v, w) => ({
+    title: readOptionalText(v.title, BLOCK_LIMITS.formTitle, `${w}.title`),
+    fields: readTextArray(v.fields, 1, BLOCK_LIMITS.formFields, BLOCK_LIMITS.formField, `${w}.fields`),
+    submit: readOptionalText(v.submit, BLOCK_LIMITS.formSubmit, `${w}.submit`),
+  })),
+  notification: blockReader(['title', 'body', 'mark'], (v, w) => ({
+    title: readText(v.title, BLOCK_LIMITS.noticeTitle, `${w}.title`),
+    body: readOptionalText(v.body, BLOCK_LIMITS.noticeBody, `${w}.body`),
+    mark: enumValue(v.mark, ['none', 'dot', 'check', 'bell'], 'dot', `${w}.mark`),
+  })),
+  lowerThird: blockReader(['title', 'subtitle', 'side'], (v, w) => ({
+    title: readText(v.title, BLOCK_LIMITS.lowerTitle, `${w}.title`),
+    subtitle: readOptionalText(v.subtitle, BLOCK_LIMITS.lowerSubtitle, `${w}.subtitle`),
+    side: enumValue(v.side, ['left', 'right'], 'left', `${w}.side`),
+  })),
+  barChart: blockReader(['values', 'labels', 'baseline'], (v, w) => ({
+    values: readValues(v.values, BLOCK_LIMITS.barValuesMin, BLOCK_LIMITS.barValues, `${w}.values`),
+    labels: readOptionalTextArray(v.labels, BLOCK_LIMITS.barValues, BLOCK_LIMITS.barLabel, `${w}.labels`),
+    baseline: readBool(v.baseline, true, `${w}.baseline`),
+  })),
+  lineChart: blockReader(['values', 'label', 'area'], (v, w) => ({
+    values: readValues(v.values, BLOCK_LIMITS.lineValuesMin, BLOCK_LIMITS.lineValues, `${w}.values`),
+    label: readOptionalText(v.label, BLOCK_LIMITS.lineLabel, `${w}.label`),
+    area: readBool(v.area, true, `${w}.area`),
+  })),
+  // No audio anywhere in this feature, deliberately, so these two are a MOTIF:
+  // bars and a waveform driven by a curve the composition owns. Nothing is being
+  // listened to and nothing claims to be.
+  equalizer: blockReader(['bars', 'tempo'], (v, w) => ({
+    bars: readInt(v.bars, BLOCK_LIMITS.equalizerBarsMin, BLOCK_LIMITS.equalizerBars, 12, `${w}.bars`),
+    tempo: enumValue(v.tempo, ['slow', 'steady', 'fast'], 'steady', `${w}.tempo`),
+  })),
+  soundWave: blockReader(['samples', 'shape'], (v, w) => ({
+    samples: readInt(v.samples, BLOCK_LIMITS.waveSamplesMin, BLOCK_LIMITS.waveSamples, 48, `${w}.samples`),
+    shape: enumValue(v.shape, ['pulse', 'sweep', 'breathe'], 'sweep', `${w}.shape`),
+  })),
+  map: blockReader(['region', 'markers', 'connections'], (v, w) => ({
+    region: enumValue(v.region, ['world', 'europe', 'americas', 'asia', 'africa'], 'world', `${w}.region`),
+    markers: readInt(v.markers, 0, BLOCK_LIMITS.mapMarkers, 3, `${w}.markers`),
+    connections: readBool(v.connections, true, `${w}.connections`),
+  })),
+  imageFrame: blockReader(['imageId', 'move', 'treatment', 'caption'], (v, w) => ({
+    imageId: readImageId(v.imageId, w),
+    move: enumValue(v.move, KEN_BURNS, 'zoom-in', `${w}.move`),
+    treatment: enumValue(v.treatment, ['bleed', 'inset', 'card'], 'card', `${w}.treatment`),
+    caption: readOptionalText(v.caption, BLOCK_LIMITS.caption, `${w}.caption`),
+  })),
+  gallery: blockReader(['imageIds', 'layout'], (v, w) => ({
+    imageIds: readImageIdArray(v.imageIds, BLOCK_LIMITS.galleryImagesMin, BLOCK_LIMITS.galleryImages, `${w}.imageIds`),
+    layout: enumValue(v.layout, ['grid', 'row', 'stack'], 'grid', `${w}.layout`),
+  })),
+  carousel: blockReader(['imageIds', 'direction'], (v, w) => ({
+    imageIds: readImageIdArray(v.imageIds, BLOCK_LIMITS.carouselImagesMin, BLOCK_LIMITS.carouselImages, `${w}.imageIds`),
+    direction: enumValue(v.direction, ['left', 'right'], 'left', `${w}.direction`),
+  })),
+  // The clock does not read this machine's own. Two renders of one timeline have
+  // to produce the same bytes, or the content-addressed export store is storing
+  // two files for one film.
+  clock: blockReader(['face', 'time', 'sweep', 'label'], (v, w) => ({
+    face: enumValue(v.face, ['analog', 'digital'], 'analog', `${w}.face`),
+    time: readClockTime(v.time, `${w}.time`),
+    sweep: enumValue(v.sweep, ['real', 'fast'], 'fast', `${w}.sweep`),
+    label: readOptionalText(v.label, BLOCK_LIMITS.clockLabel, `${w}.label`),
+  })),
+  dateStamp: blockReader(['text', 'treatment'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.dateStamp, `${w}.text`),
+    treatment: enumValue(v.treatment, ['plain', 'boxed', 'rule'], 'rule', `${w}.treatment`),
+  })),
+  separator: blockReader(['treatment', 'extent'], (v, w) => ({
+    treatment: enumValue(v.treatment, ['rule', 'double', 'dots'], 'rule', `${w}.treatment`),
+    extent: enumValue(v.extent, ['short', 'measure', 'full'], 'measure', `${w}.extent`),
+  })),
+  progressBar: blockReader(['to', 'label', 'showValue'], (v, w) => ({
+    to: readInt(v.to, 0, 100, undefined, `${w}.to`),
+    label: readOptionalText(v.label, BLOCK_LIMITS.progressLabel, `${w}.label`),
+    showValue: readBool(v.showValue, true, `${w}.showValue`),
+  })),
+  // No language and no theme: the roles ARE the schema, because the palette
+  // offers three measured runs on a panel and a highlighter's thirty token
+  // colours have nowhere to land. See `CODE_ROLES` in the schema.
+  codeBlock: blockReader(['lines', 'caption', 'reveal'], (v, w) => ({
+    lines: readCodeLines(v.lines, `${w}.lines`),
+    caption: readOptionalText(v.caption, BLOCK_LIMITS.codeCaption, `${w}.caption`),
+    reveal: enumValue(v.reveal, ['type', 'lines'], 'lines', `${w}.reveal`),
+  })),
+  // The one block whose renderer is a dependency. This worker refusing a solid
+  // it has no geometry for is the same refusal `RENDERABLE_TEMPLATES` makes one
+  // level up, and it matters more here: an image built before `three` was added
+  // has no canvas at all, so the failure would be a blank zone reported as a
+  // successful export.
+  solidScene: blockReader(['solid', 'spin', 'size'], (v, w) => ({
+    solid: enumValue(v.solid, SOLIDS, 'cube', `${w}.solid`),
+    spin: enumValue(v.spin, SPINS, 'tumble', `${w}.spin`),
+    size: enumValue(v.size, ['small', 'medium', 'large'], 'medium', `${w}.size`),
+  })),
+}
+
+/** Every block this worker has a component for, in the schema's own order. */
+export const RENDERABLE_BLOCKS = Object.keys(BLOCK_READERS)
+
+/**
+ * One layer.
+ *
+ * Refused by NAME when the kind is unknown, exactly as a template is, and for
+ * the same reason: this image can be older than the Mocky pointed at it, and a
+ * block drawn with the nearest component it does have is a film missing the
+ * thing that was asked for, reported as a success.
+ */
+function readBlock(value, where) {
+  object(value, where)
+  const kind = value.kind
+  if (typeof kind !== 'string' || !Object.hasOwn(BLOCK_READERS, kind)) {
+    refuse(
+      `${where}.kind is ${JSON.stringify(kind)}; this worker draws ${RENDERABLE_BLOCKS.join(', ')}. ` +
+        'Rebuild the worker image if Mocky is newer than it.',
+    )
+  }
+  const reader = BLOCK_READERS[kind]
+  onlyKeys(value, reader.keys, where)
+  return { kind, ...readPlacement(value, where), ...reader.read(value, where) }
+}
+
+const BACKGROUND_READERS = {
+  solid: { keys: [], read: () => ({}) },
+  hairlines: { keys: [], read: () => ({}) },
+  gradient: {
+    keys: ['direction'],
+    read: (v, w) => ({ direction: enumValue(v.direction, GRADIENT_DIRECTIONS, 'to-bottom', `${w}.direction`) }),
+  },
+  gridPulse: {
+    keys: ['cells'],
+    read: (v, w) => ({ cells: readInt(v.cells, BLOCK_LIMITS.gridCellsMin, BLOCK_LIMITS.gridCells, 8, `${w}.cells`) }),
+  },
+  particles: {
+    keys: ['density'],
+    read: (v, w) => ({ density: readInt(v.density, 1, BLOCK_LIMITS.particleDensity, 2, `${w}.density`) }),
+  },
+  image: {
+    keys: ['imageId', 'move'],
+    read: (v, w) => ({ imageId: readImageId(v.imageId, w), move: enumValue(v.move, KEN_BURNS, 'zoom-in', `${w}.move`) }),
+  },
+}
+
+/**
+ * The ground a composed scene is painted on.
+ *
+ * Absent means `hairlines`, the same reading the schema gives it: the house's
+ * own field of 1 px rules, and the one surface `composedPalette` measures every
+ * run against by default.
+ */
+function readBackground(value, where) {
+  if (value === undefined || value === null) return { kind: 'hairlines' }
+  object(value, where)
+  const kind = value.kind
+  if (typeof kind !== 'string' || !Object.hasOwn(BACKGROUND_READERS, kind)) {
+    refuse(`${where}.kind is ${JSON.stringify(kind)}; this worker paints ${BACKGROUND_KINDS.join(', ')}.`)
+  }
+  const reader = BACKGROUND_READERS[kind]
+  onlyKeys(value, ['kind', ...reader.keys], where)
+  return { kind, ...reader.read(value, where) }
+}
+
+function readComposedScene(value, where) {
+  onlyKeys(value, ['durationMs', 'background', 'layers', 'transitionOut'], where)
+  if (!Array.isArray(value.layers) || value.layers.length === 0) {
+    refuse(`${where}.layers must be an array of 1 to ${BLOCK_LIMITS.layersPerScene} blocks.`)
+  }
+  if (value.layers.length > BLOCK_LIMITS.layersPerScene) {
+    refuse(
+      `${where}.layers has ${value.layers.length} blocks; a composed scene draws at most ${BLOCK_LIMITS.layersPerScene}. ` +
+        'A frame carrying more elements than that is denser than any composition in this image.',
+    )
+  }
+  return {
+    durationMs: readDuration(value.durationMs, TEMPLATE_LIMITS.composed, where),
+    background: readBackground(value.background, `${where}.background`),
+    layers: value.layers.map((layer, i) => readBlock(layer, `${where}.layers[${i}]`)),
+    // Its own vocabulary, one value wider than the shared one: see the note on
+    // `COMPOSED_TRANSITIONS`. `entranceStyle` draws all five.
+    transitionOut: enumValue(value.transitionOut, COMPOSED_TRANSITIONS, 'crossfade', `${where}.transitionOut`),
+  }
+}
+
 const SCENE_READERS = {
   slideshow: readSlideshowScene,
   overlay: readOverlayScene,
   vertical: readVerticalScene,
   titles: readTitleScene,
   product: readProductScene,
+  composed: readComposedScene,
+}
+
+/**
+ * Every picture one scene needs, wherever it sits on it.
+ *
+ * Four of the six templates keep theirs on the scene. A composed scene keeps
+ * none there: the ground carries one when it is a photograph, and `imageFrame`,
+ * `gallery` and `carousel` blocks carry theirs anywhere in the stack — a gallery
+ * holds six. A `scenes.map((s) => s.imageId)` here would have staged one picture
+ * out of seven and left the composition pointing at addresses with no file
+ * behind them, which is a blank frame rendered and reported as a success.
+ */
+function sceneImageIds(scene) {
+  const ids = []
+  const push = (value) => {
+    if (typeof value === 'string' && value) ids.push(value)
+  }
+  push(scene?.imageId)
+  if (scene?.background?.kind === 'image') push(scene.background.imageId)
+  for (const layer of scene?.layers || []) {
+    push(layer?.imageId)
+    for (const id of layer?.imageIds || []) push(id)
+  }
+  return ids
 }
 
 /**
@@ -545,11 +1040,12 @@ function readImages(value, timeline) {
     byId.set(entry.id, { id: entry.id, mime: entry.mime, extension, bytes })
   })
 
-  // Only the scenes that HAVE an image. A `titles` document has none at all, and
-  // `scenes.map((s) => s.imageId)` would hand this loop `[undefined]` — a
-  // perfectly valid film refused for not sending bytes for a picture it never
-  // named. The same trap `timelineImageIds` exists to close on the Mocky side.
-  const needed = [...new Set(timeline.scenes.map((scene) => scene.imageId).filter((id) => typeof id === 'string'))]
+  // Only the scenes that HAVE an image, and every place one can sit on a scene.
+  // A `titles` document has none at all, and `scenes.map((s) => s.imageId)`
+  // would hand this loop `[undefined]` — a perfectly valid film refused for not
+  // sending bytes for a picture it never named. The same trap `timelineImageIds`
+  // exists to close on the Mocky side.
+  const needed = [...new Set(timeline.scenes.flatMap(sceneImageIds))]
   const missing = needed.filter((id) => !byId.has(id))
   if (missing.length) {
     // Named, because the alternative is a video with a blank scene in the

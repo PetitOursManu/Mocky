@@ -22,7 +22,14 @@
 // on the server what the browser refuses — or, far worse, the reverse.
 import { z } from 'zod'
 
-export const VIDEO_TEMPLATES = ['slideshow', 'overlay', 'vertical', 'titles', 'product']
+export const VIDEO_TEMPLATES = ['slideshow', 'overlay', 'vertical', 'titles', 'product', 'composed']
+
+/**
+ * The five a person can fill in by hand. `composed` is not one of them — see the
+ * note in timeline.ts. The compose catalogue and the panel are keyed on this
+ * list; the schema and the worker on the one above.
+ */
+export const EDITABLE_TEMPLATES = ['slideshow', 'overlay', 'vertical', 'titles', 'product']
 
 export const TEMPLATE_LIMITS = {
   slideshow: { maxScenes: 20, minSceneMs: 1000, maxSceneMs: 15000 },
@@ -30,6 +37,7 @@ export const TEMPLATE_LIMITS = {
   vertical: { maxScenes: 12, minSceneMs: 1000, maxSceneMs: 8000 },
   titles: { maxScenes: 8, minSceneMs: 1500, maxSceneMs: 10000 },
   product: { maxScenes: 6, minSceneMs: 3000, maxSceneMs: 15000 },
+  composed: { maxScenes: 12, minSceneMs: 1500, maxSceneMs: 15000 },
 }
 
 export const MAX_SCENES = TEMPLATE_LIMITS.slideshow.maxScenes
@@ -49,6 +57,114 @@ export const TEXT_LIMITS = {
   productCta: 30,
 }
 
+/** Every bound the composable variant applies. The reasoning is in timeline.ts. */
+export const BLOCK_LIMITS = {
+  layersPerScene: 8,
+
+  heading: 70,
+  kicker: 40,
+  quote: 180,
+  attribution: 40,
+  highlight: 90,
+  highlightMark: 40,
+  typewriter: 120,
+  listItem: 60,
+  listItems: 6,
+  counterTo: 1000000,
+  counterAffix: 8,
+  counterLabel: 40,
+  logoType: 24,
+  buttonLabel: 30,
+  formTitle: 40,
+  formField: 30,
+  formFields: 4,
+  formSubmit: 24,
+  noticeTitle: 40,
+  noticeBody: 90,
+  lowerTitle: 50,
+  lowerSubtitle: 70,
+  barValuesMin: 2,
+  barValues: 8,
+  barLabel: 12,
+  lineValuesMin: 2,
+  lineValues: 12,
+  lineLabel: 24,
+  equalizerBarsMin: 4,
+  equalizerBars: 24,
+  waveSamplesMin: 24,
+  waveSamples: 96,
+  mapMarkers: 8,
+  caption: 70,
+  galleryImagesMin: 2,
+  galleryImages: 6,
+  carouselImagesMin: 2,
+  carouselImages: 8,
+  clockLabel: 24,
+  dateStamp: 30,
+  progressLabel: 24,
+  gridCellsMin: 4,
+  gridCells: 16,
+  particleDensity: 3,
+
+  funTitle: 40,
+  codeLinesMin: 2,
+  codeLines: 10,
+  codeLine: 64,
+  codeCaption: 30,
+}
+
+/** Where a block sits: a zone of the frame, never a coordinate. See timeline.ts. */
+export const ANCHORS = [
+  'top-left',
+  'top-center',
+  'top-right',
+  'center-left',
+  'center',
+  'center-right',
+  'bottom-left',
+  'bottom-center',
+  'bottom-right',
+  'full',
+]
+
+/** The block catalogue, by family. The compose prompt reads this map. */
+export const BLOCK_FAMILIES = {
+  text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
+  animatedText: ['typewriter', 'animatedList', 'counter', 'logoType'],
+  interface: ['button', 'form', 'notification', 'lowerThird'],
+  data: ['barChart', 'lineChart', 'equalizer', 'soundWave', 'map'],
+  media: ['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp'],
+  misc: ['separator', 'progressBar'],
+  /** The two blocks that cost a scene rather than a corner of one. See timeline.ts. */
+  setPiece: ['codeBlock', 'solidScene'],
+}
+
+/** Every block kind, flattened. The discriminator of the layer union. */
+export const BLOCK_KINDS = [
+  ...BLOCK_FAMILIES.text,
+  ...BLOCK_FAMILIES.animatedText,
+  ...BLOCK_FAMILIES.interface,
+  ...BLOCK_FAMILIES.data,
+  ...BLOCK_FAMILIES.media,
+  ...BLOCK_FAMILIES.misc,
+  ...BLOCK_FAMILIES.setPiece,
+]
+
+/** How a `funTitle` treats its line. Five looks; Skia was measured and refused. See timeline.ts. */
+export const FUN_TITLE_TREATMENTS = ['arc', 'bounce', 'stretch', 'swap', 'stack']
+
+/** What a `solidScene` draws. Four solids, and no wireframe: it was measured. See timeline.ts. */
+export const SOLIDS = ['cube', 'prism', 'sphere', 'torus']
+
+/** How a `solidScene` turns. A named move, never an axis and never an angle. */
+export const SPINS = ['tumble', 'turn', 'rock']
+
+/** What a `codeBlock` line is for. Three measured runs, so three roles. See timeline.ts. */
+export const CODE_ROLES = ['plain', 'accent', 'muted']
+
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image']
+export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
+
 export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static']
 
 /**
@@ -67,6 +183,10 @@ export const OVERLAY_MOVES = ['drift-up', 'drift-down', 'settle']
 export const DEFAULT_OVERLAY_MOVE = 'drift-up'
 
 export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none']
+
+/** The four above plus a mosaic dissolve, for `composed` alone. See timeline.ts. */
+export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel']
+
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom']
 export const BAND_POSITIONS = ['top', 'bottom']
 export const TITLE_ANIMATIONS = ['fade', 'rise', 'stagger']
@@ -195,6 +315,254 @@ export const ProductSceneSchema = z
   })
   .strict()
 
+// ── The composable variant ───────────────────────────────────────────────────
+//
+// One union discriminated on `kind`, plus the ground it is painted on. The
+// reasoning — why a block never names a colour, why `anchor` is a zone and
+// `enter` a rank, why the default ground is the one that holds still — is in
+// `src/lib/video/timeline.ts` and is not repeated here.
+
+const bounded = (min, max) => z.number().int().min(min).max(max)
+
+const placement = {
+  anchor: z.enum(ANCHORS).default('center'),
+  enter: bounded(0, BLOCK_LIMITS.layersPerScene - 1).optional(),
+}
+
+const block = (kind, shape) => z.object({ kind: z.literal(kind), ...placement, ...shape }).strict()
+
+export const HeadingBlockSchema = block('heading', {
+  text: line(BLOCK_LIMITS.heading),
+  level: z.enum(['display', 'title', 'subtitle']).default('title'),
+})
+
+export const KickerBlockSchema = block('kicker', {
+  text: line(BLOCK_LIMITS.kicker),
+})
+
+export const QuoteBlockSchema = block('quote', {
+  text: line(BLOCK_LIMITS.quote),
+  attribution: line(BLOCK_LIMITS.attribution).nullable().default(null),
+})
+
+export const TextHighlightBlockSchema = block('textHighlight', {
+  text: line(BLOCK_LIMITS.highlight),
+  mark: line(BLOCK_LIMITS.highlightMark).nullable().default(null),
+  treatment: z.enum(['marker', 'underline', 'box']).default('marker'),
+})
+
+export const FunTitleBlockSchema = block('funTitle', {
+  text: line(BLOCK_LIMITS.funTitle),
+  treatment: z.enum(FUN_TITLE_TREATMENTS).default('bounce'),
+})
+
+export const TypewriterBlockSchema = block('typewriter', {
+  text: line(BLOCK_LIMITS.typewriter),
+  caret: z.boolean().default(true),
+})
+
+export const AnimatedListBlockSchema = block('animatedList', {
+  items: z.array(line(BLOCK_LIMITS.listItem)).min(1).max(BLOCK_LIMITS.listItems),
+  marker: z.enum(['numeral', 'rule', 'dot']).default('numeral'),
+})
+
+export const CounterBlockSchema = block('counter', {
+  to: bounded(0, BLOCK_LIMITS.counterTo),
+  from: bounded(0, BLOCK_LIMITS.counterTo).default(0),
+  prefix: line(BLOCK_LIMITS.counterAffix).nullable().default(null),
+  suffix: line(BLOCK_LIMITS.counterAffix).nullable().default(null),
+  label: line(BLOCK_LIMITS.counterLabel).nullable().default(null),
+})
+
+export const LogoTypeBlockSchema = block('logoType', {
+  text: line(BLOCK_LIMITS.logoType),
+  mark: z.enum(['none', 'square', 'circle', 'slash']).default('square'),
+})
+
+export const ButtonBlockSchema = block('button', {
+  label: line(BLOCK_LIMITS.buttonLabel),
+  variant: z.enum(['filled', 'outline']).default('filled'),
+  press: z.boolean().default(true),
+})
+
+export const FormBlockSchema = block('form', {
+  title: line(BLOCK_LIMITS.formTitle).nullable().default(null),
+  fields: z.array(line(BLOCK_LIMITS.formField)).min(1).max(BLOCK_LIMITS.formFields),
+  submit: line(BLOCK_LIMITS.formSubmit).nullable().default(null),
+})
+
+export const NotificationBlockSchema = block('notification', {
+  title: line(BLOCK_LIMITS.noticeTitle),
+  body: line(BLOCK_LIMITS.noticeBody).nullable().default(null),
+  mark: z.enum(['none', 'dot', 'check', 'bell']).default('dot'),
+})
+
+export const LowerThirdBlockSchema = block('lowerThird', {
+  title: line(BLOCK_LIMITS.lowerTitle),
+  subtitle: line(BLOCK_LIMITS.lowerSubtitle).nullable().default(null),
+  side: z.enum(['left', 'right']).default('left'),
+})
+
+export const BarChartBlockSchema = block('barChart', {
+  values: z.array(bounded(0, 100)).min(BLOCK_LIMITS.barValuesMin).max(BLOCK_LIMITS.barValues),
+  labels: z.array(line(BLOCK_LIMITS.barLabel)).max(BLOCK_LIMITS.barValues).nullable().default(null),
+  baseline: z.boolean().default(true),
+})
+
+export const LineChartBlockSchema = block('lineChart', {
+  values: z.array(bounded(0, 100)).min(BLOCK_LIMITS.lineValuesMin).max(BLOCK_LIMITS.lineValues),
+  label: line(BLOCK_LIMITS.lineLabel).nullable().default(null),
+  area: z.boolean().default(true),
+})
+
+export const EqualizerBlockSchema = block('equalizer', {
+  bars: bounded(BLOCK_LIMITS.equalizerBarsMin, BLOCK_LIMITS.equalizerBars).default(12),
+  tempo: z.enum(['slow', 'steady', 'fast']).default('steady'),
+})
+
+export const SoundWaveBlockSchema = block('soundWave', {
+  samples: bounded(BLOCK_LIMITS.waveSamplesMin, BLOCK_LIMITS.waveSamples).default(48),
+  shape: z.enum(['pulse', 'sweep', 'breathe']).default('sweep'),
+})
+
+export const MapBlockSchema = block('map', {
+  region: z.enum(['world', 'europe', 'americas', 'asia', 'africa']).default('world'),
+  markers: bounded(0, BLOCK_LIMITS.mapMarkers).default(3),
+  connections: z.boolean().default(true),
+})
+
+export const ImageFrameBlockSchema = block('imageFrame', {
+  imageId,
+  move: z.enum(KEN_BURNS).default('zoom-in'),
+  treatment: z.enum(['bleed', 'inset', 'card']).default('card'),
+  caption: line(BLOCK_LIMITS.caption).nullable().default(null),
+})
+
+export const GalleryBlockSchema = block('gallery', {
+  imageIds: z.array(imageId).min(BLOCK_LIMITS.galleryImagesMin).max(BLOCK_LIMITS.galleryImages),
+  layout: z.enum(['grid', 'row', 'stack']).default('grid'),
+})
+
+export const CarouselBlockSchema = block('carousel', {
+  imageIds: z.array(imageId).min(BLOCK_LIMITS.carouselImagesMin).max(BLOCK_LIMITS.carouselImages),
+  direction: z.enum(['left', 'right']).default('left'),
+})
+
+export const ClockBlockSchema = block('clock', {
+  face: z.enum(['analog', 'digital']).default('analog'),
+  time: z
+    .string()
+    .regex(/^([01]?\d|2[0-3]):[0-5]\d$/, 'time must read HH:MM on a 24-hour clock, such as 09:30')
+    .nullable()
+    .default(null),
+  sweep: z.enum(['real', 'fast']).default('fast'),
+  label: line(BLOCK_LIMITS.clockLabel).nullable().default(null),
+})
+
+export const DateStampBlockSchema = block('dateStamp', {
+  text: line(BLOCK_LIMITS.dateStamp),
+  treatment: z.enum(['plain', 'boxed', 'rule']).default('rule'),
+})
+
+export const SeparatorBlockSchema = block('separator', {
+  treatment: z.enum(['rule', 'double', 'dots']).default('rule'),
+  extent: z.enum(['short', 'measure', 'full']).default('measure'),
+})
+
+export const ProgressBarBlockSchema = block('progressBar', {
+  to: bounded(0, 100),
+  label: line(BLOCK_LIMITS.progressLabel).nullable().default(null),
+  showValue: z.boolean().default(true),
+})
+
+export const CodeBlockSchema = block('codeBlock', {
+  lines: z
+    .array(
+      z
+        .object({
+          text: line(BLOCK_LIMITS.codeLine),
+          role: z.enum(CODE_ROLES).default('plain'),
+        })
+        .strict(),
+    )
+    .min(BLOCK_LIMITS.codeLinesMin)
+    .max(BLOCK_LIMITS.codeLines),
+  caption: line(BLOCK_LIMITS.codeCaption).nullable().default(null),
+  reveal: z.enum(['type', 'lines']).default('lines'),
+})
+
+export const SolidSceneBlockSchema = block('solidScene', {
+  solid: z.enum(SOLIDS).default('cube'),
+  spin: z.enum(SPINS).default('tumble'),
+  size: z.enum(['small', 'medium', 'large']).default('medium'),
+})
+
+export const BlockSchema = z.discriminatedUnion('kind', [
+  HeadingBlockSchema,
+  KickerBlockSchema,
+  QuoteBlockSchema,
+  TextHighlightBlockSchema,
+  FunTitleBlockSchema,
+  TypewriterBlockSchema,
+  AnimatedListBlockSchema,
+  CounterBlockSchema,
+  LogoTypeBlockSchema,
+  ButtonBlockSchema,
+  FormBlockSchema,
+  NotificationBlockSchema,
+  LowerThirdBlockSchema,
+  BarChartBlockSchema,
+  LineChartBlockSchema,
+  EqualizerBlockSchema,
+  SoundWaveBlockSchema,
+  MapBlockSchema,
+  ImageFrameBlockSchema,
+  GalleryBlockSchema,
+  CarouselBlockSchema,
+  ClockBlockSchema,
+  DateStampBlockSchema,
+  SeparatorBlockSchema,
+  ProgressBarBlockSchema,
+  CodeBlockSchema,
+  SolidSceneBlockSchema,
+])
+
+const bg = (kind, shape) => z.object({ kind: z.literal(kind), ...shape }).strict()
+
+export const SolidBackgroundSchema = bg('solid', {})
+export const HairlinesBackgroundSchema = bg('hairlines', {})
+export const GradientBackgroundSchema = bg('gradient', {
+  direction: z.enum(GRADIENT_DIRECTIONS).default('to-bottom'),
+})
+export const GridPulseBackgroundSchema = bg('gridPulse', {
+  cells: bounded(BLOCK_LIMITS.gridCellsMin, BLOCK_LIMITS.gridCells).default(8),
+})
+export const ParticlesBackgroundSchema = bg('particles', {
+  density: bounded(1, BLOCK_LIMITS.particleDensity).default(2),
+})
+export const ImageBackgroundSchema = bg('image', {
+  imageId,
+  move: z.enum(KEN_BURNS).default('zoom-in'),
+})
+
+export const BackgroundSchema = z.discriminatedUnion('kind', [
+  SolidBackgroundSchema,
+  GradientBackgroundSchema,
+  HairlinesBackgroundSchema,
+  GridPulseBackgroundSchema,
+  ParticlesBackgroundSchema,
+  ImageBackgroundSchema,
+])
+
+export const ComposedSceneSchema = z
+  .object({
+    durationMs: duration(TEMPLATE_LIMITS.composed),
+    background: BackgroundSchema.default({ kind: 'hairlines' }),
+    layers: z.array(BlockSchema).min(1).max(BLOCK_LIMITS.layersPerScene),
+    transitionOut: z.enum(COMPOSED_TRANSITIONS).default('crossfade'),
+  })
+  .strict()
+
 const OUTPUT_SHAPE = {
   outputFormat: z.enum(OUTPUT_FORMATS).default('mp4'),
   aspectRatio: z.enum(ASPECT_RATIOS).default('16:9'),
@@ -241,6 +609,14 @@ export const ProductTimelineSchema = z
   })
   .strict()
 
+export const ComposedTimelineSchema = z
+  .object({
+    template: z.literal('composed'),
+    scenes: z.array(ComposedSceneSchema).min(1).max(TEMPLATE_LIMITS.composed.maxScenes),
+    ...OUTPUT_SHAPE,
+  })
+  .strict()
+
 /** A document with no `template` is a slideshow. See the note in timeline.ts. */
 const withDefaultTemplate = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value
@@ -269,6 +645,7 @@ export const VideoTimelineSchema = z
       VerticalTimelineSchema,
       TitlesTimelineSchema,
       ProductTimelineSchema,
+      ComposedTimelineSchema,
     ]),
   )
   .superRefine(refuseOverBudget)
@@ -284,6 +661,7 @@ export const RenderTimelineSchema = z
       VerticalTimelineSchema.extend(THEME_SHAPE),
       TitlesTimelineSchema.extend(THEME_SHAPE),
       ProductTimelineSchema.extend(THEME_SHAPE),
+      ComposedTimelineSchema.extend(THEME_SHAPE),
     ]),
   )
   .superRefine(refuseOverBudget)
@@ -303,8 +681,18 @@ export function totalDurationMs(timeline) {
  */
 export function timelineImageIds(timeline) {
   const ids = []
+  const push = (value) => {
+    if (typeof value === 'string' && value && !ids.includes(value)) ids.push(value)
+  }
   for (const scene of timeline?.scenes || []) {
-    if (typeof scene?.imageId === 'string' && !ids.includes(scene.imageId)) ids.push(scene.imageId)
+    push(scene?.imageId)
+    // A composed scene keeps its pictures on the ground and on its blocks, never
+    // on the scene — and a gallery holds six. See the note in timeline.ts.
+    if (scene?.background?.kind === 'image') push(scene.background.imageId)
+    for (const layer of scene?.layers || []) {
+      push(layer?.imageId)
+      for (const id of layer?.imageIds || []) push(id)
+    }
   }
   return ids
 }
