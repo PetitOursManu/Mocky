@@ -1,4 +1,5 @@
-// `gallery`, held to arithmetic — and to the panel's own report about sharpness.
+// `gallery`, held to arithmetic — to the box it was given, and to the panel's
+// own report about sharpness.
 //
 // The imports of `server/video/timeline.js` and `src/lib/video/resolution.ts`
 // are TEST-ONLY, exactly as in `blocks.test.js` and
@@ -13,16 +14,15 @@ import { composedSafeArea, frameBase } from '../composition.js'
 import { BLOCK_LIMITS } from '../../../../server/video/timeline.js'
 import { FRAME_DIMENSIONS, KEN_BURNS_PEAK, SOURCE_DIMENSIONS, magnification } from '../../../../src/lib/video/resolution.ts'
 import {
-  GALLERY_GAP,
   GALLERY_STAGGER,
   GALLERY_TILE_SCALE,
   GALLERY_TILE_TRAVEL,
-  galleryGrid,
-  galleryHeight,
-  galleryTileHeight,
+  galleryRows,
   galleryTileProgress,
   galleryTileTravel,
-} from './gallery.jsx'
+  galleryTiles,
+  tileGutter,
+} from './media.js'
 
 const LAYOUTS = ['grid', 'row', 'stack']
 const COUNTS = Array.from(
@@ -30,32 +30,74 @@ const COUNTS = Array.from(
   (_, i) => BLOCK_LIMITS.galleryImagesMin + i,
 )
 
-/** The widest a tile can ever be: an anchor of `full` gives the whole safe area. */
-function widestTile(layout, count, ratio) {
+/** The whole safe area of a ratio, which is what an anchor of `full` gives a gallery. */
+function fullBox(ratio) {
   const frame = FRAME_DIMENSIONS[ratio]
   const safe = composedSafeArea(frame.width, frame.height)
-  const base = frameBase(frame.width, frame.height)
-  const { columns, rows } = galleryGrid(layout, count)
-  const gap = Math.round(base * GALLERY_GAP)
-  return {
-    width: (safe.width - (columns - 1) * gap) / columns,
-    height: galleryTileHeight(rows, base),
-  }
+  return { box: { left: 0, top: 0, width: safe.width, height: safe.height }, base: frameBase(frame.width, frame.height) }
 }
 
-describe('the grid a layout makes', () => {
-  it('holds every picture the document listed, and no empty row', () => {
+/** The three shapes a zone turns out to be: the field, a band, a column. */
+const SHAPES = Object.keys(FRAME_DIMENSIONS).flatMap((ratio) => {
+  const { box, base } = fullBox(ratio)
+  return [
+    [`${ratio} full`, box, base],
+    [`${ratio} band`, { ...box, height: Math.round(box.height / 3) }, base],
+    [`${ratio} column`, { ...box, width: Math.round(box.width / 3) }, base],
+  ]
+})
+
+describe('the grid follows the box, not only the count', () => {
+  /**
+   * The defect the user named in one sentence: three pictures in a wide band are
+   * not three pictures in a column. The table this block used to carry answered
+   * `columns = count <= 3 ? count : ...` and could not tell the two apart,
+   * because it was never shown the box — so the same document drew a row in one
+   * zone and three slivers in another.
+   */
+  it('lays a wide band as a row and a narrow column as a stack', () => {
+    const band = { width: 1688, height: 300 }
+    const column = { width: 400, height: 1305 }
+    expect(galleryRows('grid', 3, band, 13)).toEqual([3])
+    expect(galleryRows('grid', 3, column, 13)).toEqual([1, 1, 1])
+  })
+
+  it('lays four pictures two by two in a square box, and five as three and two', () => {
+    expect(galleryRows('grid', 4, { width: 950, height: 950 }, 13)).toEqual([2, 2])
+    expect(galleryRows('grid', 5, { width: 1688, height: 950 }, 13)).toEqual([3, 2])
+  })
+
+  /**
+   * Balanced rather than filled greedily, which is what removes the orphan: five
+   * pictures over two rows are three and two, never four and one, and no cell is
+   * ever empty. A hole in a grid is the arrangement everybody reads as a mistake,
+   * and the old table's `count === 4 ? 2 : 3` was a special case written for
+   * exactly one of the five counts the schema allows.
+   */
+  it('holds every picture the document listed, in rows with no empty cell', () => {
     for (const layout of LAYOUTS) {
       for (const count of COUNTS) {
-        const { columns, rows } = galleryGrid(layout, count)
-        expect(columns * rows, `${layout}/${count}`).toBeGreaterThanOrEqual(count)
-        expect(rows, `${layout}/${count}`).toBe(Math.ceil(count / columns))
+        for (const [where, box, base] of SHAPES) {
+          const rows = galleryRows(layout, count, box, tileGutter(base, box))
+          const at = `${layout}/${count} @ ${where}`
+          expect(rows.reduce((sum, n) => sum + n, 0), at).toBe(count)
+          for (const held of rows) expect(held, at).toBeGreaterThan(0)
+          // Fuller rows first, consistently: a gallery that grows denser downwards
+          // reads as a paragraph. Being consistent is what stops two scenes of one
+          // film disagreeing.
+          for (let i = 1; i < rows.length; i += 1) expect(rows[i - 1], at).toBeGreaterThanOrEqual(rows[i])
+        }
       }
     }
   })
 
-  it('lays four pictures two by two rather than three and an orphan', () => {
-    expect(galleryGrid('grid', 4)).toEqual({ columns: 2, rows: 2 })
+  /** `row` and `stack` are the document saying so, and they are honoured whatever the box. */
+  it('honours an arrangement the document named', () => {
+    for (const [, box, base] of SHAPES) {
+      const gap = tileGutter(base, box)
+      expect(galleryRows('row', 5, box, gap)).toEqual([5])
+      expect(galleryRows('stack', 5, box, gap)).toEqual([1, 1, 1, 1, 1])
+    }
   })
 
   /**
@@ -65,8 +107,54 @@ describe('the grid a layout makes', () => {
    * drawn as a grid beats one that vanished from a film somebody waited for (Q1).
    */
   it('falls back to the schema’s default rather than to nothing', () => {
+    const box = { width: 1688, height: 950 }
     for (const unknown of ['mosaic', undefined, 'constructor']) {
-      expect(galleryGrid(unknown, 5), String(unknown)).toEqual(galleryGrid('grid', 5))
+      expect(galleryRows(unknown, 5, box, 13), String(unknown)).toEqual(galleryRows('grid', 5, box, 13))
+    }
+  })
+})
+
+describe('the tiles inhabit the box', () => {
+  /**
+   * They tile it exactly: no pixel left over on either axis, and none borrowed.
+   *
+   * This is the whole of "a block fills the box it is given" for this block. What
+   * was here before was a grid `GALLERY_BUDGET = 0.5` of the frame's short edge
+   * tall, so a gallery handed the entire safe area drew itself across half of it
+   * and left the rest black — the void six real exports came back as.
+   */
+  it('covers every pixel of it, in every layout, count and shape', () => {
+    for (const layout of LAYOUTS) {
+      for (const count of COUNTS) {
+        for (const [where, box, base] of SHAPES) {
+          const gap = tileGutter(base, box)
+          const tiles = galleryTiles(layout, count, box, gap)
+          const at = `${layout}/${count} @ ${where}`
+          expect(tiles, at).toHaveLength(count)
+          expect(Math.min(...tiles.map((t) => t.left)), at).toBe(0)
+          expect(Math.min(...tiles.map((t) => t.top)), at).toBe(0)
+          expect(Math.max(...tiles.map((t) => t.left + t.width)), at).toBe(box.width)
+          expect(Math.max(...tiles.map((t) => t.top + t.height)), at).toBe(box.height)
+          for (const tile of tiles) {
+            expect(tile.width, at).toBeGreaterThan(0)
+            expect(tile.height, at).toBeGreaterThan(0)
+          }
+        }
+      }
+    }
+  })
+
+  /** Double the box, double the tiles — the property a fraction of the frame fails. */
+  it('doubles what it draws when its box doubles', () => {
+    for (const layout of LAYOUTS) {
+      for (const count of COUNTS) {
+        const one = galleryTiles(layout, count, { width: 800, height: 600 }, 0)
+        const two = galleryTiles(layout, count, { width: 1600, height: 1200 }, 0)
+        for (let i = 0; i < count; i += 1) {
+          expect(two[i].width / one[i].width, `${layout}/${count}`).toBeCloseTo(2, 1)
+          expect(two[i].height / one[i].height, `${layout}/${count}`).toBeCloseTo(2, 1)
+        }
+      }
     }
   })
 })
@@ -76,46 +164,30 @@ describe('a tile is not a frame, and the panel’s warning may only err one way'
    * `src/lib/video/resolution.ts` reports how much a still is about to be
    * ENLARGED, before anybody spends two minutes rendering — and it measures
    * against the whole frame, because that is what four of the five monolithic
-   * compositions paint. A gallery tile is a fraction of the measure, so the same
-   * picture is enlarged less here than it would be full-bleed.
+   * compositions paint. A gallery tile is a share of the box, so the same picture
+   * is enlarged less here than it would be full-bleed.
    *
-   * That is the direction the warning is allowed to be wrong in, and this test
-   * is what keeps it that way: a tile geometry that ever exceeded the frame's
-   * own enlargement would make the panel UNDER-report exactly the films that got
+   * That is the direction the warning is allowed to be wrong in, and this test is
+   * what keeps it that way: a tile geometry that ever exceeded the frame's own
+   * enlargement would make the panel UNDER-report exactly the films that got
    * worse — the silent failure `tests/video-frame-geometry.test.js` exists for,
    * arriving through a block instead of through a table.
    *
    * Measured at the widest a tile can be, which is an anchor of `full`: every
-   * other zone is narrower, so the bound holds for all ten of them.
+   * other zone is smaller, so the bound holds for all ten of them.
    */
   it('never enlarges a picture more than the same still full-bleed with its camera move', () => {
     for (const ratio of Object.keys(FRAME_DIMENSIONS)) {
       const frame = FRAME_DIMENSIONS[ratio]
       const source = SOURCE_DIMENSIONS[ratio]
       const bleeding = magnification(source, frame, KEN_BURNS_PEAK)
+      const { box, base } = fullBox(ratio)
       for (const layout of LAYOUTS) {
         for (const count of COUNTS) {
-          const tile = widestTile(layout, count, ratio)
-          expect(magnification(source, tile, GALLERY_TILE_SCALE), `${ratio}/${layout}/${count}`).toBeLessThan(bleeding)
+          for (const tile of galleryTiles(layout, count, box, tileGutter(base, box))) {
+            expect(magnification(source, tile, GALLERY_TILE_SCALE), `${ratio}/${layout}/${count}`).toBeLessThan(bleeding)
+          }
         }
-      }
-    }
-  })
-
-  /**
-   * The grid the component actually sets is `rows` tracks of `galleryTileHeight`
-   * plus its gutters, so this is a claim about the drawn box and not about a
-   * number beside it — which is the failure a second copy of a geometry always
-   * turns out to be.
-   */
-  it('keeps the whole grid inside the height it asks for', () => {
-    for (const base of [1080, 1920]) {
-      for (const rows of [1, 2, 3, 6]) {
-        const gap = Math.round(base * GALLERY_GAP)
-        const total = galleryTileHeight(rows, base) * rows + (rows - 1) * gap
-        // Rounding a row up may cost a pixel per row and never more, which is
-        // what `split` in `composition.js` already spends on the zones.
-        expect(total, `${base}/${rows}`).toBeLessThanOrEqual(galleryHeight(base) + rows)
       }
     }
   })
@@ -173,9 +245,9 @@ describe('nothing in a tile holds still', () => {
 
   /**
    * The amplitude rule, and the one that keeps this from undoing `cover`: the
-   * overscale leaves half of itself as margin on each side, and the travel
-   * spends less than that — so every pixel visible at rest is visible on every
-   * frame, which is the argument `OVERLAY_DRIFT_PERCENT` makes at frame scale.
+   * overscale leaves half of itself as margin on each side, and the travel spends
+   * less than that — so every pixel visible at rest is visible on every frame,
+   * which is the argument `OVERLAY_DRIFT_PERCENT` makes at frame scale.
    */
   it('never travels further than the overscale pays for', () => {
     const margin = ((GALLERY_TILE_SCALE - 1) / 2) * 100

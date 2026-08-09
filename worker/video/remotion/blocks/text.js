@@ -22,7 +22,49 @@
 // which slice of the arrival a phase owns — and a schedule composed with a curve
 // is still that curve. A second curve applied here would be the block easing
 // twice, which is exactly what `blocks.test.js` forbids in the components.
-import { CUE_ENTER_FRAMES, EMPHASIS_ENTER_FRAMES } from '../composition.js'
+//
+// ── What changed when a block started inhabiting its box ─────────────────────
+//
+// This file used to hold four tables of SIZES — `HEADING_SIZES`, `QUOTE_SIZE`,
+// `HIGHLIGHT_SIZE` and a rule length — each a fraction of the frame's short edge,
+// and three tables of MEASURES in ems capping how far a line could run. Both are
+// the defect the rule at the top of `composition.js` is about, in the two forms it
+// takes in a family of type. A size read off the frame is a heading set for a
+// frame it cannot see: alone in a scene it was 96 px of display type floating in
+// 950 px of safe height, which is the "small element in a large void" six real
+// exports showed. A measure in ems is the same mistake wearing a better argument —
+// it is right that a measure is a character count rather than a share of a frame,
+// and it is wrong that a block should cap itself at all, because `composedLayout`
+// has ALREADY divided the row among whatever is beside it. Two caps on one
+// quantity is the narrower one winning, and the narrower one was always this file.
+//
+// So there is one size table and it is `TYPE_ROLES`, one measure and it is the
+// box, and this file reads both rather than owning either. `textLayout` is where
+// that happens; everything else here is motion and ornament.
+//
+// One consequence is worth stating because it decided the shape of all four
+// components: **no furniture of this family stands BESIDE its text.** The rule
+// under a heading, the kicker's rule and the quote's mark are horizontal bands
+// stacked with the runs, never a column in the margin. A column would take room
+// out of the measure, the runs would wrap one line more than `textLines`
+// predicted, and the block would leave the box `composedLayout` promised it fits
+// in — the estimate is what the whole promise rests on, and a gutter drawn here
+// is an estimate made somewhere else and quietly falsified here.
+import {
+  CONSTANT_CEILING,
+  CUE_ENTER_FRAMES,
+  EMPHASIS_ENTER_FRAMES,
+  RUN_GAP,
+  blockShape,
+  hairline,
+  runAdvanceEm,
+  shapeCeiling,
+  solveTypeUnit,
+  textLines,
+  textWidth,
+  typeRole,
+  typeScale,
+} from '../composition.js'
 
 /** A number pulled into 0…1, answering 0 for anything that is not one. */
 const clamp01 = (value) => {
@@ -44,50 +86,100 @@ const clamp01 = (value) => {
 const pick = (table, name, fallback) =>
   typeof name === 'string' && Object.hasOwn(table, name) ? table[name] : fallback
 
-// ── Sizes and measures ───────────────────────────────────────────────────────
+// ── The block, laid out in the box it was given ──────────────────────────────
 
 /**
- * The three heading roles, as fractions of the SHORT edge.
+ * Everything a text block needs to draw itself in ONE box: the type unit its
+ * stack agreed on, the size and leading of each run, and the height of the band
+ * its furniture stands in.
  *
- * `level` is a role and the sizes are the composition's, which is why they are
- * here rather than in the schema: a document says a line is a display line, and
- * what that costs in pixels is a decision somebody made once for all three
- * ratios. `display` is `AnimatedTitlesVideo`'s own headline size, so a composed
- * scene and a titled card set the same word at the same size.
+ * This is the whole of "a block inhabits its box" for this family, and it is one
+ * function rather than four because the four blocks are the same object with
+ * different furniture: a stack of runs, at one unit, over or under a band of
+ * ornament. Every number in it is READ rather than chosen —
+ *
+ *   - the ROLE of each run and the weight of the furniture come out of
+ *     `BLOCK_APPETITE`, through `blockShape`. That table is what `composedLayout`
+ *     divided the zone with, so a component that decided its own roles would be
+ *     drawing something other than the thing the layout made room for. It is also
+ *     why `heading.level` is not read here: the table already maps it to a step,
+ *     and mapping it a second time is the two-tables-one-question failure this
+ *     file was full of.
+ *   - the SIZE is `typeScale`, on the stack's unit. Two blocks in one zone
+ *     therefore read two steps of one scale instead of two fractions of a frame,
+ *     which is what stopped a counter from crushing the heading beside it.
+ *   - the LINE COUNT is `textLines`, against the box's own width — so a long
+ *     heading wraps and a short one does not, and the size falls out of the
+ *     length instead of being tuned for the longest legal string.
+ *
+ * `unit` is the stack's when there is one and solved on this box when there is
+ * not. The second case is a lone caller rather than a repair: `composedLayout`
+ * always publishes one, and a block re-solving on its own box beside a neighbour
+ * can land a step above it.
+ *
+ * The height it answers is `blockExtent`'s, computed from the other end — the
+ * component's own sizes rather than the layout's estimate — which is what
+ * `text.test.js` holds the two to.
  */
-export const HEADING_SIZES = { display: 0.096, title: 0.062, subtitle: 0.042 }
+export function textLayout(block, box, unit) {
+  const shape = blockShape(block)
+  const width = Math.max(0, Number(box?.width) || 0)
+  const height = Math.max(0, Number(box?.height) || 0)
+  const given = Number(unit)
+  const solved = Number.isFinite(given) && given > 0 ? given : solveTypeUnit([shape], width, height)
 
-/**
- * How wide a heading is allowed to run, in ems of its OWN size.
- *
- * A measure is a count of characters and never a share of the frame, which is
- * what makes one number right in `16:9`, `9:16` and `1:1` at once — and right
- * again inside a zone that a second block has already halved, where a percentage
- * would cap a display line at a fifth of the frame and set five characters to a
- * line. Twelve ems of display type is roughly twenty-four characters; a display
- * line running past two thirds of a landscape frame is not a heading any more,
- * it is a paragraph, and `text.test.js` holds this table to that sentence.
- *
- * It is a `max-width` and never a width: a zone narrower than the measure wins,
- * because the safe area is a promise and this is a preference.
- */
-export const HEADING_MEASURE_EMS = { display: 12, title: 15, subtitle: 20 }
+  const drawn = []
+  const list = Array.isArray(shape.runs) ? shape.runs : []
+  // The unit this shape can actually SPEND, which is the one `shapeHeight` spent
+  // when the layout decided how much of the zone to reserve: a run that cannot
+  // break stops the whole shape growing once it has filled the measure.
+  const spent = Math.min(solved, shapeCeiling(shape, width))
+  for (let index = 0; index < list.length; index += 1) {
+    const run = list[index] ?? {}
+    const size = typeScale(run.role, run.text, { width, height }, {
+      tracking: run.tracking,
+      mono: run.mono,
+      nowrap: run.nowrap,
+      unit: solved,
+    })
+    // `runAdvanceEm` and not the constant, so this file measures a run exactly as
+    // `shapeHeight` did when the layout reserved room for it. Two readings of one
+    // question is how a block and its box disagree.
+    const advance = runAdvanceEm(run)
+    // Counted on the UNROUNDED size, which is the one the layout counted on.
+    // `size` is what CSS is given and it is that number rounded to a pixel; a
+    // line count taken from the rounded value can differ by one where the measure
+    // falls on a boundary, and then the component and `blockExtent` disagree
+    // about how tall this block is — which is the disagreement the whole box rule
+    // exists to remove. The rounding itself is half a pixel on a size of forty
+    // and sits well inside `LINE_SAFETY`'s six per cent.
+    const lines = run.nowrap
+      ? String(run.text ?? '').trim().length
+        ? 1
+        : 0
+      : textLines(run.text, spent * typeRole(run.role).step, width, run.tracking, advance)
+    // A run with nothing in it costs nothing, which is how an absent attribution
+    // leaves a quote its whole box instead of a blank line in the middle of it.
+    if (lines === 0) continue
+    const leading = typeRole(run.role).leading
+    drawn.push({ index, role: run.role, size, leading, lines, height: lines * size * leading })
+  }
 
-/** A pull quote, and the line that says who said it. */
-export const QUOTE_SIZE = 0.05
-export const QUOTE_ATTRIBUTION_SIZE = 0.028
-export const QUOTE_MEASURE_EMS = 22
-
-/** A marked line: running text, at the size the family sets running text. */
-export const HIGHLIGHT_SIZE = 0.04
-export const HIGHLIGHT_MEASURE_EMS = 24
-
-export function headingSize(level) {
-  return pick(HEADING_SIZES, level, HEADING_SIZES.title)
+  const gap = RUN_GAP * solved
+  const furniture = Math.max(0, (Number(shape.fixed) || 0) * solved)
+  const stacked = drawn.reduce((sum, run) => sum + run.height, 0)
+  return {
+    unit: solved,
+    furniture,
+    gap,
+    runs: drawn,
+    height: furniture + stacked + Math.max(0, drawn.length - 1) * gap,
+  }
 }
 
-export function headingMeasure(level) {
-  return pick(HEADING_MEASURE_EMS, level, HEADING_MEASURE_EMS.title)
+/** The `n`th run of the weight table, or nothing — a text block reads its runs by position. */
+export function runAt(layout, index) {
+  return (layout?.runs ?? []).find((run) => run.index === index) ?? null
 }
 
 // ── The masked word cascade ──────────────────────────────────────────────────
@@ -164,6 +256,21 @@ export function wordReveal(progress, index, count) {
   return clamp01((at - i * step) / window)
 }
 
+/**
+ * How far a run rises into place, in ems of ITS OWN size.
+ *
+ * An em and not a fraction of the short edge, which is what it was: a quotation
+ * set at 120 px in a full frame and one set at 30 px in a corner cell were both
+ * travelling the same 17 px, so the small one arrived from another zone and the
+ * large one barely moved. A gesture scaled to the thing making it is the same
+ * gesture at every box, which is `MEAN_GLYPH_EM`'s argument applied to motion.
+ */
+export const RUN_RISE_EM = 0.2
+
+export function runRise(size, progress) {
+  return (1 - clamp01(progress)) * Math.max(0, Number(size) || 0) * RUN_RISE_EM
+}
+
 // ── Slices of one arrival ────────────────────────────────────────────────────
 
 /**
@@ -204,24 +311,35 @@ export function quoteCue(name, progress) {
 
 // ── Rules, and the thing that keeps moving ───────────────────────────────────
 
-/**
- * A 1 px rule at the scale of a 1080p frame.
- *
- * Mocky's own direction is "filets de 1px, aucune ombre", and one CSS pixel on a
- * frame that is 1080 tall survives an h.264 encode as a flicker rather than as a
- * line. Three device pixels is what a hairline looks like here — the same number
- * `AnimatedTitlesVideo` draws its double rule with, off the same short edge.
- */
-export const RULE_THICKNESS = 0.0028
-
 /** How much of a running rule is the accent's, before the hairline takes over. */
 export const RULE_ACCENT_SHARE = 0.14
 
 /** The quiet half of a rule, as a fraction of the ink beside it. */
 export const RULE_QUIET_ALPHA = 0.3
 
-export function ruleThickness(base) {
-  return Math.max(1, Math.round((Number(base) || 0) * RULE_THICKNESS))
+/** How many hairlines thick the heavy segment of a double rule is. */
+export const RULE_HEAVY_WEIGHT = 3
+
+/**
+ * The two thicknesses of the family's double rule, bounded by the band it is
+ * drawn in.
+ *
+ * A thickness is a CONSTANT METRIC — one of exactly three quantities still read
+ * off the frame, because a hairline 3 px under one heading and 9 px under a
+ * smaller one is not a hairline, it is two design systems in one film. So it
+ * comes from `hairline`, which is where that exception is written down and
+ * bounded; this file only says how many of them the heavy segment is worth.
+ *
+ * The second bound is the reason this is a function rather than two constants:
+ * an exception with no ceiling is the rule going back out of the window. A
+ * 9 px segment inside a furniture band of 6 px is a block drawing past the box
+ * `composedLayout` measured, so the band caps it and the hairline is the floor —
+ * a rule that thinned to nothing would be furniture that is not there.
+ */
+export function ruleWeights(base, box, band) {
+  const hair = hairline(base, box)
+  const room = Math.max(hair, Math.floor(Math.max(0, Number(band) || 0)))
+  return { hair, heavy: Math.max(hair, Math.min(hair * RULE_HEAVY_WEIGHT, room)) }
 }
 
 /**
@@ -251,12 +369,31 @@ export function ruleExtent(progress, life, rest) {
 /** Where the rule under a heading stands when the words land: a third of the measure. */
 export const HEADING_RULE_REST = 0.34
 
-/** The kicker's rule, as a fraction of the short edge, and how much of it lands with the text. */
-export const KICKER_RULE_MAX = 0.06
+/** The kicker's rule, and how much of it lands with the text. */
 export const KICKER_RULE_REST = 0.55
 
-/** The rail down the side of a quote: a quarter of it at rest, the rest across the scene. */
-export const QUOTE_RAIL_REST = 0.26
+/** The rule beside a quote's mark: a quarter of it at rest, the rest across the scene. */
+export const QUOTE_RULE_REST = 0.26
+
+/**
+ * How much of its band the quotation mark stands in, and the aspect of the two
+ * slabs that draw it.
+ *
+ * A share of the band and not of the frame, for the reason the whole file was
+ * rewritten: the mark is the quote's furniture, `BLOCK_APPETITE` says how much
+ * of the stack that furniture is worth, and the band is that number in pixels. A
+ * mark sized off the short edge was the same mark in a corner cell and in a full
+ * frame — enormous in the first and lost in the second.
+ */
+export const QUOTE_MARK_SHARE = 0.86
+export const QUOTE_MARK_ASPECT = 24 / 20
+export const QUOTE_MARK_GAP_SHARE = 0.3
+
+export function quoteMark(band) {
+  const room = Math.max(0, Number(band) || 0)
+  const height = room * QUOTE_MARK_SHARE
+  return { height, width: height * QUOTE_MARK_ASPECT, gap: room * QUOTE_MARK_GAP_SHARE }
+}
 
 // ── The marker, which is drawn and never posed ───────────────────────────────
 
@@ -285,6 +422,27 @@ export function markerDraw(progress) {
 export function markerSoak(life) {
   return MARK_SOAK_FLOOR + (1 - MARK_SOAK_FLOOR) * clamp01(life)
 }
+
+/**
+ * How much of a marked line's furniture stands above it, the rest standing below.
+ *
+ * Half and half, and the number it has to cover is `BOX_PAD_EM + BOX_TRAVEL_EM`:
+ * the drawn box stands off the word by that much at the start of the scene and
+ * closes onto it, and the underline drops by `UNDERLINE_DROP_EM +
+ * UNDERLINE_TRAVEL_EM`. Both are ems of the run, the run is the body step, and
+ * the band is `fixed * unit` - so the two are comparable numbers and
+ * `text.test.js` compares them. An ornament drawn outside the block's own band is
+ * an ornament in the stack gap or over its neighbour, which is the same failure
+ * as a block through the bottom of its box, arriving through a decoration.
+ */
+export const HIGHLIGHT_ROOM_SHARE = 0.5
+
+export function highlightRoom(band) {
+  return Math.max(0, Number(band) || 0) * HIGHLIGHT_ROOM_SHARE
+}
+
+/** The rule a line with nothing marked draws instead: it lands at a third and runs the rest. */
+export const HIGHLIGHT_RULE_REST = 0.33
 
 /** A fraction as a CSS percentage, at two decimals so a frame's clip is a stable string. */
 const percent = (value) => `${Math.round(clamp01(value) * 10000) / 100}%`
@@ -340,6 +498,39 @@ export const BOX_TRAVEL_EM = 0.1
 
 export function boxPadEm(life) {
   return BOX_PAD_EM + (1 - markerSoak(life)) * BOX_TRAVEL_EM
+}
+
+/**
+ * The corner radius of the `box` treatment: the project's own, bounded by the
+ * marked run it is drawn around.
+ *
+ * A radius is one of the three `CONSTANT_METRICS` — it comes off the theme rather
+ * than off a box, because a corner that grew with the thing it rounds is a shape
+ * that changed from one scene to the next. The same paragraph of `composition.js`
+ * says in the next breath that the exception has a CEILING, and this treatment was
+ * one of the two places in the catalogue that did not apply it: the component
+ * wrote `borderRadius: theme.radiusPx` raw, while `button`, `form`,
+ * `notification`, `gallery` and `carousel` all clamp theirs.
+ *
+ * It is reachable rather than theoretical. `ThemeSchema` accepts a whole number of
+ * pixels up to 9999 and `parseDesignSpec` reads whatever a direction stated, so an
+ * ordinary "generous corners" of 40 px drew a marked word inside a lozenge and a
+ * larger one drew an ellipse around it — on the one block whose whole job is to
+ * put a mark on a WORD.
+ *
+ * Both dimensions are the family's own estimate rather than a measurement: the
+ * line box for the height, `textWidth` for the measure, exactly as `textLayout`
+ * counts lines. Both are FLOORS of the drawn box — it stands off the word by
+ * `boxPadEm` and closes onto it across the scene, and the fill adds its own
+ * padding — so the bound errs the way `LINE_SAFETY` does, tight rather than
+ * generous.
+ */
+export function markerRadius(radiusPx, run, mark) {
+  const size = Math.max(0, Number(run?.size) || 0)
+  const leading = Math.max(0, Number(run?.leading) || 0)
+  const room = Math.min(size * leading, textWidth(mark, size))
+  const asked = Math.max(0, Math.round(Number(radiusPx) || 0))
+  return Math.max(0, Math.min(asked, Math.floor(room * CONSTANT_CEILING)))
 }
 
 /**

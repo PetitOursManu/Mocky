@@ -1,37 +1,63 @@
-// The arithmetic of the four animated-text blocks, against the cues a composed
-// scene really produces.
+// The arithmetic of the four animated-text blocks: the cues a composed scene
+// really produces, and the boxes `composedLayout` really hands out.
 //
-// It imports `../composition.js` rather than re-deriving the beat, and that is
-// the point of the file: `layerCues`, `cueProgress` and `MIN_CUE_TAIL_FRAMES` are
+// It imports `../composition.js` rather than re-deriving either, and that is the
+// point of the file. `layerCues`, `cueProgress` and `MIN_CUE_TAIL_FRAMES` are
 // what decide when a block is on screen, so a claim about "before the cut" that
-// used its own idea of a cue would prove nothing about a render. Nothing here
-// touches a `.jsx`: the components draw what these numbers say and own no beat of
-// their own, which is what makes every sentence below checkable at all.
+// used its own idea of a cue would prove nothing about a render; `composedLayout`
+// and `TYPE_ROLES` are what decide how big it is, so a claim about "it fills its
+// box" measured against a box this file invented would prove nothing about a
+// frame. Nothing here touches a `.jsx`: the components draw what these numbers
+// say and own neither the beat nor a size, which is what makes every sentence
+// below checkable at all.
 import { describe, it, expect } from 'vitest'
 import {
   CARET_BLINKS_PER_SCENE,
+  COUNTER_LABEL_ROLE,
+  COUNTER_ROLE,
   COUNT_SHARE,
-  FIGURE_SIZE,
   GROUP_SEPARATOR,
   LETTER_SPAN,
+  LIST_ROLE,
   LIST_SHARE,
+  LOGO_ROLE,
   LOGO_SHARE,
-  LOGO_SIZE,
+  TYPEWRITER_ROLE,
   TYPE_SHARE,
   caretOn,
+  counterLayout,
+  counterText,
   counterValue,
-  fittedSize,
+  counterWidest,
   groupedNumber,
   letterShift,
   letters,
+  listLayout,
+  logoLayout,
   markerLabel,
   revealRamp,
   staggerRamp,
   typedCount,
   typedSplit,
+  typewriterLayout,
   wordGlyphs,
 } from './animatedText.js'
-import { CUE_ENTER_FRAMES, EMPHASIS_ENTER_FRAMES, MIN_CUE_TAIL_FRAMES, cueProgress, layerCues, msToFrames } from '../composition.js'
+import {
+  BLOCK_APPETITE,
+  BOX_FILL_FLOOR,
+  CUE_ENTER_FRAMES,
+  EMPHASIS_ENTER_FRAMES,
+  MIN_CUE_TAIL_FRAMES,
+  blockShape,
+  composedLayout,
+  composedSafeArea,
+  cueProgress,
+  frameBase,
+  layerCues,
+  msToFrames,
+  textWidth,
+  typeSize,
+} from '../composition.js'
 
 /** The two ends of what `ComposedSceneSchema` accepts, and one ordinary scene. */
 const SHORTEST = msToFrames(1500)
@@ -366,23 +392,327 @@ describe('the wordmark', () => {
   })
 })
 
-describe('the type size a long string gets', () => {
-  it('falls as the string grows, and stops at both ends', () => {
-    const base = 1080
-    for (const ramp of [LOGO_SIZE, FIGURE_SIZE]) {
-      const short = fittedSize('x'.repeat(ramp.short), base, ramp)
-      const long = fittedSize('x'.repeat(ramp.long), base, ramp)
-      expect(short).toBe(Math.round(base * ramp.max))
-      expect(long).toBe(Math.round(base * ramp.min))
-      expect(fittedSize('x', base, ramp)).toBe(short)
-      expect(fittedSize('x'.repeat(ramp.long * 4), base, ramp)).toBe(long)
-      expect(fittedSize('x'.repeat(Math.round((ramp.short + ramp.long) / 2)), base, ramp)).toBeLessThan(short)
-      expect(fittedSize('x'.repeat(Math.round((ramp.short + ramp.long) / 2)), base, ramp)).toBeGreaterThan(long)
+// ── The geometry: a block inhabits the box it is given ──────────────────────
+//
+// Six real exports were rendered and looked at, and every scene in them was a
+// small element floating in a large void. A `typewriter` alone in a frame was a
+// line of text in the middle of a black one; a `counter` was an eighth of the
+// picture; a `counter` beside a `heading` was three times its neighbour. Every
+// one of those is the same defect — a size that was a fraction of the FRAME —
+// and the claims below are what stop it coming back one block at a time.
+
+const KINDS = ['typewriter', 'animatedList', 'counter', 'logoType']
+
+/** The poorest block of each kind the schema accepts, and the richest. */
+const POOREST = {
+  typewriter: { kind: 'typewriter', text: 'Ship it.', caret: true },
+  animatedList: { kind: 'animatedList', items: ['One'], marker: 'numeral' },
+  counter: { kind: 'counter', from: 0, to: 7, prefix: null, suffix: null, label: null },
+  logoType: { kind: 'logoType', text: 'M', mark: 'square' },
+}
+const ITEM = 'a list item that runs right up to the bound the schema sets'.slice(0, 60)
+const RICHEST = {
+  typewriter: { kind: 'typewriter', text: 'typing '.repeat(17).trim(), caret: true },
+  animatedList: { kind: 'animatedList', items: Array.from({ length: 6 }, () => ITEM), marker: 'numeral' },
+  counter: {
+    kind: 'counter',
+    from: 0,
+    to: 1000000,
+    prefix: '€',
+    suffix: ' / an',
+    label: 'requests served in the last quarter, all'.slice(0, 40),
+  },
+  logoType: { kind: 'logoType', text: 'Mocky Studio Amsterdam', mark: 'slash' },
+}
+
+const FRAMES = [
+  { name: '16:9', width: 1920, height: 1080 },
+  { name: '9:16', width: 1080, height: 1920 },
+  { name: '1:1', width: 1080, height: 1080 },
+]
+
+/**
+ * The shapes of box a block really gets, and the last three are the ones nobody
+ * looks at: a third of a column, a band across the bottom, a narrow strip. They
+ * are what a model produces the moment it anchors two blocks in one row.
+ */
+function boxesOf(frame) {
+  const safe = composedSafeArea(frame.width, frame.height)
+  return [
+    ['the whole safe area', safe],
+    ['a third of a column', { ...safe, width: Math.round(safe.width / 3), height: Math.round(safe.height / 3) }],
+    ['a low band', { ...safe, height: Math.round(safe.height / 6) }],
+    ['a narrow strip', { ...safe, width: Math.round(safe.width / 4) }],
+  ]
+}
+
+const layoutOf = (block, box, unit, base) => {
+  if (block.kind === 'typewriter') return typewriterLayout(block, box, unit)
+  if (block.kind === 'animatedList') return listLayout(block, box, unit, base)
+  if (block.kind === 'counter') return counterLayout(block, box, unit)
+  return logoLayout(block, box, unit)
+}
+
+/** The type size a kind's own subject is set at — the figure for a counter, the line for the rest. */
+const sizeOf = (kind, layout) => (kind === 'counter' ? layout.figure : layout.size)
+
+/** What the block puts on the frame horizontally, where that is not simply the measure. */
+function drawnWidth(kind, layout) {
+  if (kind === 'counter') return layout.width
+  if (kind === 'logoType') return layout.width + 2 * layout.travel
+  return 0
+}
+
+describe('a block inhabits the box it is given', () => {
+  /**
+   * The two tables have to name the same roles, and this is the only thing
+   * holding them together.
+   *
+   * `BLOCK_APPETITE` is what measured each of these blocks into its box, run by
+   * run — a typewriter's line as a `title`, a counter's label as a `caption`. A
+   * component that drew the same run one step up would be past the bottom of a
+   * box that was measured without it, and the box is a promise rather than a
+   * clip: nothing would say so.
+   */
+  it('draws every run at the role the weight table budgeted for it', () => {
+    expect(blockShape(RICHEST.typewriter).runs.map((run) => run.role)).toEqual([TYPEWRITER_ROLE])
+    expect(blockShape(RICHEST.animatedList).runs.map((run) => run.role)).toEqual(RICHEST.animatedList.items.map(() => LIST_ROLE))
+    expect(blockShape(RICHEST.counter).runs.map((run) => run.role)).toEqual([COUNTER_ROLE, COUNTER_LABEL_ROLE])
+    expect(blockShape(RICHEST.logoType).runs.map((run) => run.role)).toEqual([LOGO_ROLE])
+  })
+
+  it('never draws taller than its box, in any ratio, on any shape of box', () => {
+    for (const frame of FRAMES) {
+      const base = frameBase(frame.width, frame.height)
+      for (const [shape, box] of boxesOf(frame)) {
+        for (const kind of KINDS) {
+          for (const sample of [POOREST[kind], RICHEST[kind]]) {
+            const layout = layoutOf(sample, box, undefined, base)
+            const where = `${kind} in ${shape} of ${frame.name}`
+            expect(sizeOf(kind, layout), where).toBeGreaterThan(0)
+            expect(layout.content, where).toBeGreaterThan(0)
+            // Two pixels of tolerance and no more: every quantity is rounded
+            // once, and a rounding that could grow is a block whose overflow
+            // nobody would ever notice on a frame.
+            expect(layout.content, where).toBeLessThanOrEqual(box.height + 2)
+          }
+        }
+      }
     }
   })
 
-  it('measures characters and not UTF-16 units', () => {
-    expect(fittedSize('🚀'.repeat(LOGO_SIZE.short), 1080, LOGO_SIZE)).toBe(Math.round(1080 * LOGO_SIZE.max))
+  /**
+   * The leftover is spent, and it is spent as air rather than left at the
+   * bottom: a block pinned to the top of a box it did not fill is the void this
+   * whole pass is about, arriving through the alignment instead of the size.
+   */
+  it('occupies its whole box, and gives up its rhythm before it gives up the box', () => {
+    for (const frame of FRAMES) {
+      const base = frameBase(frame.width, frame.height)
+      for (const [shape, box] of boxesOf(frame)) {
+        for (const kind of KINDS) {
+          for (const sample of [POOREST[kind], RICHEST[kind]]) {
+            const layout = layoutOf(sample, box, undefined, base)
+            const where = `${kind} in ${shape} of ${frame.name}`
+            if (layout.content <= box.height) expect(Math.abs(layout.height - box.height), where).toBeLessThanOrEqual(2)
+            else expect(layout.air, where).toBe(0)
+          }
+        }
+      }
+    }
+  })
+
+  it('never draws wider than its box either', () => {
+    for (const frame of FRAMES) {
+      const base = frameBase(frame.width, frame.height)
+      for (const [shape, box] of boxesOf(frame)) {
+        for (const kind of ['counter', 'logoType']) {
+          for (const sample of [POOREST[kind], RICHEST[kind]]) {
+            const layout = layoutOf(sample, box, undefined, base)
+            expect(drawnWidth(kind, layout), `${kind} in ${shape} of ${frame.name}`).toBeLessThanOrEqual(box.width)
+          }
+        }
+      }
+    }
+    // And the list's marker column is a column, not the box: an item with no
+    // measure left to wrap in is a list of single characters down the frame.
+    for (const frame of FRAMES) {
+      const base = frameBase(frame.width, frame.height)
+      for (const [shape, box] of boxesOf(frame)) {
+        const layout = listLayout(RICHEST.animatedList, box, undefined, base)
+        expect(layout.column, `${shape} of ${frame.name}`).toBeLessThan(box.width / 2)
+      }
+    }
+  })
+
+  /**
+   * The claim that makes "it comes off the box" checkable rather than stated:
+   * the same block in a box twice the size draws twice as large. It is exact
+   * arithmetic rather than a tendency — a line count is `floor(width / advance)`
+   * and both halves double — so the tolerance is rounding and nothing else.
+   */
+  it('draws twice as large in a box twice the size', () => {
+    for (const frame of FRAMES) {
+      const base = frameBase(frame.width, frame.height)
+      const [, small] = boxesOf(frame)[1]
+      const large = { ...small, width: small.width * 2, height: small.height * 2 }
+      for (const kind of KINDS) {
+        for (const sample of [POOREST[kind], RICHEST[kind]]) {
+          const one = sizeOf(kind, layoutOf(sample, small, undefined, base))
+          const two = sizeOf(kind, layoutOf(sample, large, undefined, base * 2))
+          expect(Math.abs(two - 2 * one), `${kind} in ${frame.name}`).toBeLessThanOrEqual(2)
+        }
+      }
+    }
+  })
+
+  /**
+   * And the headline case, end to end: a block alone in a scene is handed the
+   * frame and has to occupy it.
+   *
+   * Measured through `composedLayout` rather than against a box this file made
+   * up, because the box is half the answer — `stackIn` divides a zone by appetite
+   * and publishes one unit per stack, and a claim about filling that used its own
+   * idea of a box would prove nothing about a frame.
+   *
+   * On EITHER axis, which is `BLOCK_APPETITE`'s own word for all four of these
+   * kinds and not a weakening of the claim. A wordmark of one letter beside its
+   * mark fills the measure of a portrait frame and is one line tall; a hundred
+   * and eighteen characters fill the height. Which of the two happens is the
+   * content's business rather than the layout's, and a block forced to fill both
+   * would be a block stretching type. The height is compared against the ink PLUS
+   * the furniture the weight table budgeted, because that is what the box was
+   * measured to hold; `BOX_FILL_FLOOR` is the same three quarters `blockExtent`
+   * is held to, a floor rather than an equality because a line count is an
+   * integer.
+   */
+  it('fills the frame when it is the only block in the scene', () => {
+    for (const frame of FRAMES) {
+      const base = frameBase(frame.width, frame.height)
+      for (const kind of KINDS) {
+        for (const sample of [POOREST[kind], RICHEST[kind]]) {
+          const plan = composedLayout({ layers: [sample] }, frame.width, frame.height)
+          const only = plan.zones[0].layers[0]
+          const layout = layoutOf(sample, only.box, only.unit, base)
+          const where = `${kind} alone in ${frame.name}`
+          const down = (layout.content + BLOCK_APPETITE[kind].fixed * layout.unit) / only.box.height
+          const across = layout.width / only.box.width
+          expect(Math.max(down, across), `${where} (${down.toFixed(2)} down, ${across.toFixed(2)} across)`).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+        }
+      }
+    }
+  })
+
+  /**
+   * The second defect, as a number: 0.13 of the short edge against 0.042 of it
+   * was a figure crushing the title beside it by a factor of three, in a frame
+   * nobody had asked for that emphasis in. Two steps of one scale are 1.8, and
+   * the ratio is now a property of `TYPE_ROLES` rather than of whoever wrote the
+   * two blocks.
+   */
+  it('no longer crushes the heading stacked beside it', () => {
+    const scene = {
+      layers: [
+        { kind: 'counter', from: 0, to: 4200, prefix: null, suffix: null, label: null },
+        { kind: 'heading', text: 'Requests served every second', level: 'title' },
+      ],
+    }
+    for (const frame of FRAMES) {
+      const plan = composedLayout(scene, frame.width, frame.height)
+      const [counter, heading] = plan.zones[0].layers
+      const figure = counterLayout(counter.block, counter.box, counter.unit).figure
+      const title = typeSize('title', heading.unit)
+      expect(counter.unit, frame.name).toBe(heading.unit)
+      expect(figure, frame.name).toBeLessThanOrEqual(typeSize(COUNTER_ROLE, counter.unit))
+      expect(figure / title, frame.name).toBeLessThan(2)
+      expect(figure / title, frame.name).toBeGreaterThan(1)
+    }
+  })
+})
+
+describe('the two blocks that measure something the weight table cannot see', () => {
+  /**
+   * A counter is grouped for reading, and `counterFace` counts the digits it was
+   * given: `1000000` is seven characters and `1 000 000` is nine. Measured on the
+   * table's own string, the widest figure a document can produce would be set 28%
+   * wider than the measure it was cleared for — which in a narrow column is a
+   * figure with its thousands outside the frame.
+   */
+  it('measures the counter on the figure it actually paints, separators and affixes included', () => {
+    expect(counterWidest(RICHEST.counter)).toBe(counterText(RICHEST.counter, 1000000))
+    expect(counterWidest(RICHEST.counter)).toContain(GROUP_SEPARATOR)
+    for (const frame of FRAMES) {
+      for (const [shape, box] of boxesOf(frame)) {
+        const layout = counterLayout(RICHEST.counter, box, undefined)
+        const painted = textWidth(counterWidest(RICHEST.counter), layout.figure)
+        expect(painted, `${shape} of ${frame.name}`).toBeLessThanOrEqual(box.width)
+      }
+    }
+  })
+
+  /**
+   * A counter may count DOWN, and `from` defaults to 0 rather than being absent:
+   * a block measured on `to` alone would be set for `100` and paint `900` on its
+   * first frame, a third wider than the box it was cleared for.
+   */
+  it('measures the counter on the wider of its two ends, not on the one it stops at', () => {
+    const down = { kind: 'counter', from: 900000, to: 100, prefix: null, suffix: null, label: null }
+    expect(counterWidest(down)).toBe(counterText(down, 900000))
+    const box = { left: 0, top: 0, width: 600, height: 400 }
+    expect(textWidth(counterWidest(down), counterLayout(down, box, undefined).figure)).toBeLessThanOrEqual(box.width)
+  })
+
+  /**
+   * A wordmark has three claims on its measure and `shapeCeiling` can see one of
+   * them. The mark beside the word is width the table has no term for, and the
+   * room the letters need to start apart in is the animation itself: solved
+   * against the bare measure, a wordmark that fills its box closes onto nothing,
+   * and a block that has stopped moving is what the whole `sceneMotion` section
+   * exists to prevent.
+   */
+  it('leaves a wordmark room for its mark and for its own assembly', () => {
+    for (const frame of FRAMES) {
+      for (const [shape, box] of boxesOf(frame)) {
+        for (const mark of ['none', 'square', 'circle', 'slash']) {
+          const block = { ...RICHEST.logoType, mark }
+          const layout = logoLayout(block, box, undefined)
+          const where = `${mark} in ${shape} of ${frame.name}`
+          expect(layout.width + 2 * layout.travel, where).toBeLessThanOrEqual(box.width)
+          expect(layout.travel, where).toBeGreaterThan(0)
+          expect(layout.mark.width > 0, where).toBe(mark !== 'none')
+          // The slash is a slash and not a thin square: same height, less width.
+          if (mark === 'slash') expect(layout.mark.width, where).toBeLessThan(layout.mark.height)
+        }
+      }
+    }
+  })
+
+  /**
+   * The list is the third, and the one that would have overflowed rather than
+   * merely spilled a little: six items each landing within a marker's width of a
+   * line break are six lines the weight table did not budget — 8.4 units against
+   * 1.75 of give. The list takes the smaller of its stack's unit and its own,
+   * which is what `shapeCeiling` already does for a run that cannot break.
+   */
+  it('wraps its items against the measure its markers leave, and never past its box', () => {
+    for (const frame of FRAMES) {
+      const base = frameBase(frame.width, frame.height)
+      for (const [shape, box] of boxesOf(frame)) {
+        const plan = composedLayout({ layers: [RICHEST.animatedList] }, frame.width, frame.height)
+        const only = plan.zones[0].layers[0]
+        for (const [name, at, unit] of [
+          [shape, box, undefined],
+          ['its own zone', only.box, only.unit],
+        ]) {
+          const layout = listLayout(RICHEST.animatedList, at, unit, base)
+          const where = `${name} of ${frame.name}`
+          expect(layout.rows, where).toHaveLength(6)
+          expect(layout.content, where).toBeLessThanOrEqual(at.height + 2)
+          expect(layout.unit, where).toBeLessThanOrEqual(unit ?? Infinity)
+          for (const row of layout.rows) expect(row.height, where).toBeGreaterThan(0)
+        }
+      }
+    }
   })
 })
 

@@ -1,11 +1,16 @@
 import {
-  HIGHLIGHT_MEASURE_EMS,
-  HIGHLIGHT_SIZE,
+  HIGHLIGHT_RULE_REST,
   boxPadEm,
+  highlightRoom,
   markerClip,
+  markerRadius,
   markerWipe,
-  ruleThickness,
+  runAt,
+  runRise,
+  ruleExtent,
+  ruleWeights,
   splitMark,
+  textLayout,
   underlineDropEm,
 } from './text.js'
 
@@ -19,15 +24,20 @@ import {
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       **the box THIS block was given**, in pixels. Every size drawn here
+ *             comes out of it, through `textLayout`. Never the zone's box, and
+ *             never a fraction of the frame.
+ *   unit      the type unit its whole STACK agreed on, so a marked line beside a
+ *             heading is a step of one scale rather than a fraction of a frame.
+ *   base      the frame's short edge, and it is now reserved for the three
+ *             CONSTANT METRICS named in `composition.js` - here, the hairline.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
  *
- * SURFACE: the ground for the whole line (`palette.body`), and the accent FILL for whatever the marker has already covered - those glyphs take `palette.onFill`, the ink measured against the accent itself. The underline and the box are ornaments and take `palette.accent`; the run they mark stays on the ground.
+ * SURFACE: the ground for the whole line (`palette.body`), and the accent FILL for whatever the marker has already covered - those glyphs take `palette.onFill`, the ink measured against the accent itself. The underline, the box and the rule an unmarked line draws instead are ornaments and take `palette.accent`; the run they mark stays on the ground.
  *
- * LEGIBILITY: This is the block where reading the wrong entry is invisible until it ships, and there are two ways to get it wrong. The first is the surface: text on the marker sits on `palette.fill` and not on the ground, so it takes `palette.onFill` - which is why the marker is never merely painted behind the word. See the two-layer note below. The second is the FLOOR: a marked run is running text, and running text takes 4.5:1 wherever it sits. On the ground that is `palette.body`, resolved at exactly that. On the fill, `palette.onFill` was resolved at the 3:1 display floor - the pill's floor - so the marked run is set at weight 700, which is what licences it: the audit's own rule calls bold text past 18.66 px large, and 4% of the short edge is 43 px. Take the weight off and the run keeps a floor it no longer earns. It is `palette.accent` that this block deliberately does NOT use for text: the accent is a decoration run at 3:1, and a body-size sentence in it is a run measured at the wrong bar.
+ * LEGIBILITY: This is the block where reading the wrong entry is invisible until it ships, and there are two ways to get it wrong. The first is the surface: text on the marker sits on `palette.fill` and not on the ground, so it takes `palette.onFill` - which is why the marker is never merely painted behind the word. See the two-layer note below. The second is the FLOOR: a marked run is running text, and running text takes 4.5:1 wherever it sits. On the ground that is `palette.body`, resolved at exactly that. On the fill, `palette.onFill` was resolved at the 3:1 display floor - the pill's floor - so the marked run is set at weight 700, which is what licences it: the audit's own rule calls bold text past 18.66 px large. That size is now the `body` step of the stack's own unit rather than 4% of the short edge, so what holds the licence is the arithmetic of the grid; `text.test.js` sweeps the arrangements a document is likely to produce, and the body step stays past that bar even at the schema's ceiling of eight blocks in one cell, where it lands at 26 px. Where a box really is too small for it, the SIZE is what yields and never the ink - the box is a promise about somebody else's interface and the type is a preference. It is `palette.accent` that this block deliberately does NOT use for text: the accent is a decoration run at 3:1, and a body-size sentence in it is a run measured at the wrong bar.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -58,16 +68,35 @@ import {
  * on the accent. There is no third state during the wipe, and none while the
  * stroke soaks upward through the word afterwards.
  *
- * The soak is also what keeps this block moving after its nine frames of arrival
- * are spent: it runs on `life` and rises for the whole scene. The underline and
- * the box get the same term as a position rather than as a mask, because a rule
- * two device pixels tall clipped by 28% of its own height is a rule nobody sees.
+ * -- The band, and the line that has nothing marked ------------------------------
+ *
+ * The furniture this kind is priced at is the ROOM its ornaments need: the drawn
+ * box stands off the word and the underline drops below the baseline, and both of
+ * those are outside the line box. Half the band above and half below
+ * (`highlightRoom`), which is what keeps an ornament inside the block's own box
+ * instead of in the stack gap or over its neighbour - the em figures and the band
+ * are comparable numbers, and `text.test.js` compares them.
+ *
+ * The soak is what keeps this block moving after its nine frames of arrival are
+ * spent: it runs on `life` and rises for the whole scene. The underline and the
+ * box get the same term as a position rather than as a mask, because a rule two
+ * device pixels tall clipped by 28% of its own height is a rule nobody sees. A
+ * line whose `mark` is absent or does not occur has none of those, and it would
+ * be the one block in this family that freezes for four hundred frames - so it
+ * draws the family's rule in the room below it instead, on `ruleExtent` like
+ * every other. `mark` is nullable and an optional field is a field a model omits;
+ * the case you get by saying nothing has to be the good one.
  */
 
 /** Where the fill and the two ornaments sit relative to the run, in ems of the line. */
 const MARKER_PAD_EM = 0.18
 
-export const TextHighlight = ({ block, palette, theme, base, progress, life }) => {
+export const TextHighlight = ({ block, palette, theme, box, unit, base, progress, life }) => {
+  const layout = textLayout(block, box, unit)
+  const line = runAt(layout, 0)
+  const room = highlightRoom(layout.furniture)
+  const rule = ruleWeights(base, box, room)
+
   const [before, marked, after] = splitMark(block.text, block.mark)
   // Anything this build does not recognise is a marker, for the reason
   // `anchorName` and `blockComponent` both answer with a default: the value was
@@ -75,26 +104,30 @@ export const TextHighlight = ({ block, palette, theme, base, progress, life }) =
   // means two lists disagree - and a marked run drawn the commonest way beats a
   // marked run with nothing on it at all (Q1).
   const underline = block.treatment === 'underline'
-  const box = block.treatment === 'box'
-  const filled = !underline && !box
+  const drawn = block.treatment === 'box'
+  const filled = !underline && !drawn
 
-  const thickness = ruleThickness(base)
   // Called ONCE and handed to both layers. Two calls would be two clips, and two
   // clips are the third state this construction exists to prevent.
   const clip = markerClip(progress, life)
   const wipe = markerWipe(progress)
-  const pad = filled || box ? `0 ${MARKER_PAD_EM}em` : undefined
+  const pad = filled || drawn ? `0 ${MARKER_PAD_EM}em` : undefined
 
   return (
     <div
       style={{
+        position: 'relative',
+        width: '100%',
+        paddingTop: room,
+        paddingBottom: room,
         opacity: progress,
-        transform: `translateY(${(1 - progress) * base * 0.02}px)`,
+        // An em of its own size rather than a fraction of the frame, so the
+        // gesture is the same in a corner cell and in a full frame.
+        transform: `translateY(${runRise(line?.size ?? 0, progress)}px)`,
         fontFamily: theme.bodyFont,
-        fontSize: Math.round(base * HIGHLIGHT_SIZE),
-        lineHeight: 1.5,
+        fontSize: line?.size,
+        lineHeight: line?.leading,
         color: palette.body.color,
-        maxWidth: `min(100%, ${HIGHLIGHT_MEASURE_EMS}em)`,
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
       }}
@@ -157,14 +190,14 @@ export const TextHighlight = ({ block, palette, theme, base, progress, life }) =
                 left: 0,
                 right: 0,
                 bottom: `-${underlineDropEm(life)}em`,
-                height: thickness * 2,
+                height: rule.heavy,
                 backgroundColor: palette.accent.color,
                 clipPath: wipe,
               }}
             />
           ) : null}
 
-          {box ? (
+          {drawn ? (
             <span
               style={{
                 position: 'absolute',
@@ -172,10 +205,13 @@ export const TextHighlight = ({ block, palette, theme, base, progress, life }) =
                 right: 0,
                 top: `-${boxPadEm(life)}em`,
                 bottom: `-${boxPadEm(life)}em`,
-                border: `${thickness}px solid ${palette.accent.color}`,
-                // The project's own radius, integer pixels out of the theme -
-                // the one corner shape this film is allowed to have.
-                borderRadius: theme.radiusPx,
+                border: `${rule.hair}px solid ${palette.accent.color}`,
+                // The project's own radius - the one corner shape this film is
+                // allowed to have - bounded by the run it is drawn around. Raw
+                // out of the theme it was one of the two corners in the catalogue
+                // with no ceiling on it, and a stated 40 px turned a marked word
+                // into a lozenge. See `markerRadius`.
+                borderRadius: markerRadius(theme.radiusPx, line, marked),
                 clipPath: wipe,
               }}
             />
@@ -183,6 +219,24 @@ export const TextHighlight = ({ block, palette, theme, base, progress, life }) =
         </span>
       ) : null}
       {after}
+
+      {marked ? null : (
+        <span
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            // In the room the band already holds open below the line, so the one
+            // block in this family that would otherwise hold still keeps drawing
+            // without asking the layout for a pixel it did not reserve.
+            bottom: Math.max(0, (room - rule.hair) / 2),
+            height: rule.hair,
+            backgroundColor: palette.accent.color,
+            transform: `scaleX(${ruleExtent(progress, life, HIGHLIGHT_RULE_REST)})`,
+            transformOrigin: 'left center',
+          }}
+        />
+      )}
     </div>
   )
 }

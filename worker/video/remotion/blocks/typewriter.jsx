@@ -8,8 +8,12 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       THIS block's own box in pixels, `{left, top, width, height}` -
+ *             never its zone's. Every size drawn here comes out of it.
+ *   unit      the type unit its whole STACK reads, in pixels. A role is a step
+ *             on that one scale; a fraction invented here is the defect.
+ *   base      the frame's short edge. Reserved for the three constant metrics
+ *             named in `CONSTANT_METRICS`, and this block draws none of them.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
@@ -32,38 +36,49 @@
  *
  * ── What this file draws, and what `animatedText.js` decides ────────────────
  *
- * The typing is arithmetic and lives next door, for the reason every quantity in
- * this feature does: "is the line finished before the cut" is a question a test
- * has to be able to ask. This file draws three things and owns none of the beat.
+ * The typing AND the type size are arithmetic and live next door, for the reason
+ * every quantity in this feature does: "is the line finished before the cut" and
+ * "does this line fill the box it was given" are both questions a test has to be
+ * able to ask. This file draws three things and owns neither the beat nor a size.
+ *
+ * It was the worst example of the defect this pass answers. The line was set at
+ * `base * 0.038` - a fraction of the FRAME - so a typewriter alone in a scene,
+ * handed the whole safe area, drew a small line of text in the middle of a black
+ * frame and left the other nine tenths of its box empty. The size is now a step
+ * of the stack's own scale (`title`), solved by `composedLayout` against this
+ * box: the same block in a corner of a frame is small because its box is, and in
+ * a scene of its own it is a paragraph across the safe area.
  *
  * The one layout decision it does own is the UNTYPED TAIL, and it is not
  * decoration. A line that grows character by character re-wraps as it goes, and
  * the block above it in the same zone moves every time the wrap changes - the
- * stack is a flex column, so the whole scene twitches while somebody reads. The
- * tail is therefore rendered, hidden, from the first frame: the box is the size
- * of the finished line before the first character lands, and nothing below it
- * ever moves.
+ * stack is a column of fixed boxes, but the line inside this one would still
+ * jump. The tail is therefore rendered, hidden, from the first frame: the box is
+ * the size of the finished line before the first character lands, and nothing
+ * ever moves under it.
  */
 
-import { TYPE_SHARE, caretOn, revealRamp, typedSplit } from './animatedText.js'
+import { TYPE_SHARE, caretOn, revealRamp, typedSplit, typewriterLayout } from './animatedText.js'
 
-/** Body copy, and the caret cut from its own size rather than from the frame. */
-const SIZE = 0.038
-const CARET_WIDTH = 0.075
-const CARET_HEIGHT = 0.92
-
-export const Typewriter = ({ block, palette, theme, base, progress, life }) => {
+export const Typewriter = ({ block, palette, theme, box, unit, progress, life }) => {
+  const layout = typewriterLayout(block, box, unit)
   const ramp = revealRamp(progress, life, TYPE_SHARE)
   const { typed, rest } = typedSplit(block.text, ramp)
-  const size = Math.round(base * SIZE)
   return (
     <div
       style={{
+        // The block fills the measure it was given and the leftover height is
+        // air, split above and below: a line that wrapped one fewer time than
+        // `textLines` predicted stays centred in its box instead of sitting on
+        // its top edge. The alignment across the measure is the ZONE's, inherited
+        // - that is the edge the document chose by naming an anchor.
+        width: '100%',
+        paddingTop: layout.air,
+        paddingBottom: layout.air,
         fontFamily: theme.bodyFont,
-        fontSize: size,
-        lineHeight: 1.4,
+        fontSize: layout.size,
+        lineHeight: layout.leading,
         color: palette.body.color,
-        maxWidth: '100%',
         // `pre-wrap`, so a double space the author wrote survives being typed.
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
@@ -75,12 +90,13 @@ export const Typewriter = ({ block, palette, theme, base, progress, life }) => {
         <span
           style={{
             display: 'inline-block',
-            width: Math.max(2, Math.round(size * CARET_WIDTH)),
-            height: Math.round(size * CARET_HEIGHT),
+            width: layout.caret.width,
+            height: layout.caret.height,
             verticalAlign: '-0.1em',
             backgroundColor: palette.accent.color,
             // A block caret and not the `|` glyph: a rectangle exists in every
-            // renderer, and the pipe is a different width in every face.
+            // renderer, and the pipe is a different width in every face. Cut from
+            // the line's own size, so it is a cursor at 130 px of type and at 34.
             // Opacity 0 rather than an unmounted element, so the line does not
             // shift by a caret's width twice a second.
             opacity: caretOn(ramp, life) ? 1 : 0,

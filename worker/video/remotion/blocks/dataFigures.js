@@ -17,7 +17,29 @@
  * `composition.js` because the five were written in parallel with five other
  * families and a shared file is exactly what that arrangement could not afford.
  * If a reviewer would rather see it merged upwards, nothing in it resists: it
- * imports nothing and holds no state.
+ * imports nothing of its own and holds no state.
+ *
+ * ── A block inhabits the box it is given ────────────────────────────────────
+ *
+ * The rule is at the top of `composition.js` and this file is one family's half
+ * of it. Every `*Layout` function below takes the block's OWN box — the one
+ * `composedLayout` published at `zone.layers[i].box` — and answers in pixels
+ * inside it. Nothing here reads the frame except through the three constant
+ * metrics `composition.js` names, and there is one of them in this file:
+ * `hairline`, which is what an axis, a trace and a link are drawn with, bounded
+ * to a quarter of the box it is drawn in.
+ *
+ * That is not a refactor, it is the defect six real exports showed. `equalizer`
+ * drew `base * 0.18` — a fraction of the FRAME's short edge — whether it had been
+ * anchored to a third of a cell or to the whole safe area, so a field given the
+ * frame occupied 18% of it and every scene was a small element floating in a
+ * large void. The same number appeared in all five: a plot at `base * 0.3`, a
+ * wave at `base * 0.14`, a map at `base * 0.42`.
+ *
+ * The type sizes come from the one scale for the same reason — `typeSize(role,
+ * unit)` off the unit the block's own STACK solved — never from a fraction this
+ * file invents. A chart's caption and the heading beside it are two steps of one
+ * scale or they are two authors disagreeing.
  *
  * ── The rules it keeps, which are the blocks' rules ─────────────────────────
  *
@@ -41,6 +63,8 @@
  * in the middle. Giving a block its own `durationInFrames` would fix it properly;
  * that is a change to the composition's props and not to a block.
  */
+
+import { CONSTANT_CEILING, hairline, textLines, textWidth, typeRole, typeSize } from '../composition.js'
 
 /**
  * The golden ratio, used everywhere below as a frequency ratio and an index
@@ -71,6 +95,123 @@ function unit(x) {
 function count(n, min = 1) {
   const v = Math.trunc(Number(n))
   return Number.isFinite(v) && v > min ? v : min
+}
+
+/** A positive length, or nothing. Same argument as `count`: a `NaN` in a style is an invisible block. */
+function length(value) {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/**
+ * The block's own box, as two positive numbers.
+ *
+ * Everything in this file measures against this and never against `base`. A box
+ * with no size answers zero rather than throwing, because a block that draws
+ * nothing beats a render that dies half a minute in (Q1).
+ */
+export function room(box) {
+  return { width: length(box?.width), height: length(box?.height) }
+}
+
+// ── The two shapes every figure in this family is built out of ───────────────
+
+/**
+ * How much of a column's pitch is the air beside it.
+ *
+ * A share of the PITCH and not a fraction of the frame, which is the whole rule
+ * one level down: twelve bars across a full safe area are twelve wide columns
+ * with wide gaps, and the same twelve across a third of a cell are twelve
+ * hairlines with hairline gaps. One number, two scales, decided by the box.
+ */
+export const FIGURE_GAP_SHARE = 0.3
+
+/**
+ * `total` columns across a measure, as start/size pairs.
+ *
+ * Each EDGE is rounded rather than each size, exactly as `split` does in
+ * `composition.js` and for the same reason: rounding sizes spends a pixel per
+ * column, and eight of them leave the last bar short of the box it was measured
+ * against. The last column therefore ends on `round(measure)` whatever the
+ * arithmetic did in between, which is what makes "it fills its box" a thing a
+ * test can assert rather than a thing a screenshot suggests.
+ */
+export function tracks(measure, total, gap = 0) {
+  const n = count(total)
+  const span = length(measure)
+  // The air can never eat the columns: a gap wider than half a pitch would leave
+  // `size` negative and the row would be gaps with nothing between them.
+  const air = Math.max(0, Math.min(length(gap), span / n / 2))
+  const size = (span - (n - 1) * air) / n
+  return Array.from({ length: n }, (_, i) => {
+    const from = i * (size + air)
+    const start = Math.round(from)
+    return { start, size: Math.max(1, Math.round(from + size) - start) }
+  })
+}
+
+/** The air between two columns of a figure, off the pitch the box turned out to have. */
+export function figureGap(measure, total, share = FIGURE_GAP_SHARE) {
+  return Math.max(1, Math.round((length(measure) / count(total)) * share))
+}
+
+/**
+ * How wide a column may get before it stops being one.
+ *
+ * Two bars across a full safe area are two 800 px slabs, and a slab is not a bar
+ * — it is a rectangle the eye reads as a panel. So a column is capped against the
+ * height it stands in and CENTRED in its own track: the row still spans the box,
+ * which is the rule, and what fills the extra is air rather than ink. 0.55
+ * because a column as wide as it is tall is already a square.
+ */
+export const FIGURE_MAX_RATIO = 0.55
+
+export function capped(list, cap) {
+  const limit = Math.max(1, Math.round(length(cap)))
+  return (Array.isArray(list) ? list : []).map(({ start, size }) =>
+    size <= limit ? { start, size } : { start: start + Math.round((size - limit) / 2), size: limit },
+  )
+}
+
+/**
+ * A corner radius, which is a CONSTANT METRIC: the same object from one scene to
+ * the next, so it comes off the theme and not off the box.
+ *
+ * Bounded at `CONSTANT_CEILING` of whatever it rounds, because an exception with
+ * no ceiling is the rule going back out of the window — a 12 px radius on a 14 px
+ * bar is a pill, and a row of pills is a row of tags rather than a level meter.
+ */
+export function figureRadius(radiusPx, extent, share = 1) {
+  const asked = Math.max(0, Math.round(Math.max(0, Number(radiusPx) || 0) * share))
+  return Math.max(0, Math.min(asked, Math.floor(length(extent) * CONSTANT_CEILING)))
+}
+
+/**
+ * A run of text under a figure: its size on the one scale, and the band it needs.
+ *
+ * The size is `typeSize(role, unit)` and never a fraction of anything this file
+ * chose — that is the second half of the same defect, and the one that made a
+ * counter three times the heading beside it. The `gap` is stated in UNITS for the
+ * same reason `BLOCK_APPETITE` states furniture in units: a block's own spacing
+ * has to scale with the block, and the unit is the only quantity that already
+ * does.
+ */
+export const CAPTION_GAP = 0.3
+
+export function textBand(role, text, unit, measure) {
+  const at = Math.max(1, length(unit))
+  const size = typeSize(role, at)
+  const leading = typeRole(role).leading
+  const lines = textLines(text, size, measure)
+  if (lines === 0) return { shown: false, size: 0, lines: 0, leading, height: 0, gap: 0 }
+  return {
+    shown: true,
+    size,
+    lines,
+    leading,
+    height: Math.round(lines * size * leading),
+    gap: Math.round(at * CAPTION_GAP),
+  }
 }
 
 // ── barChart ─────────────────────────────────────────────────────────────────
@@ -134,17 +275,105 @@ export function axisTick(life) {
   return 0.5 + 0.4 * Math.sin(t * AXIS_SWEEP_CYCLES) + 0.1 * Math.sin(t * AXIS_WOBBLE_CYCLES + 1.1)
 }
 
+/** How far the reading mark hangs below the axis, and how much air sits under the bars. In units. */
+export const BAR_AXIS_GAP = 0.22
+export const MARK_OVERHANG = 0.32
+
+/**
+ * How small a caption may get before it stops being a caption.
+ *
+ * A label under a column has the COLUMN's width and not the block's, so eight
+ * twelve-character labels in a cell are asking for eight 26 px measures, and the
+ * size that fits is a size nobody reads. The rule the brief states is the one
+ * implemented here: it shortens, or it disappears — it never overflows. Shrinking
+ * is what `labelBand` does down to this floor; below it the whole row goes, all of
+ * them together, because one label present and seven missing reads as a bug
+ * rather than as a decision.
+ */
+export const LABEL_FLOOR = 0.55
+
+/**
+ * The band of labels under a chart: the size they fit at, or nothing.
+ *
+ * The measure is one COLUMN, which is the fix. Sized against the block's whole
+ * width, a twelve-character label was drawn at the caption step and then wrapped
+ * or spilled into its neighbour, and no test could see it because the size was
+ * legal.
+ */
+export function labelBand(labels, unit, measure) {
+  const list = (Array.isArray(labels) ? labels : []).map((text) => String(text ?? '').trim()).filter(Boolean)
+  const at = Math.max(1, length(unit))
+  const step = typeSize('caption', at)
+  const room = length(measure)
+  const nothing = { shown: false, size: 0, height: 0, gap: 0 }
+  if (list.length === 0 || room === 0) return nothing
+  const widest = list.reduce((wide, text) => Math.max(wide, textWidth(text, step)), 0)
+  const size = widest > room ? Math.floor((step * room) / widest) : step
+  if (size < Math.max(1, Math.round(step * LABEL_FLOOR))) return nothing
+  return {
+    shown: true,
+    size,
+    height: Math.round(size * typeRole('caption').leading),
+    gap: Math.round(at * CAPTION_GAP),
+  }
+}
+
+/**
+ * Everything a bar chart draws, in pixels, inside the box it was given.
+ *
+ * The order matters and it is the only subtle thing here: the columns are laid
+ * out first because the LABEL's measure is one column, the label band is sized
+ * next because the plot is what is left of the box under it, and the columns are
+ * capped last against that plot's height. Solving it the other way round is
+ * circular, and solving it against the block's width is the defect this whole
+ * pass is about, one axis over.
+ */
+export function barChartLayout(block, box, { base, unit: at, radiusPx } = {}) {
+  const { width, height } = room(box)
+  const values = Array.isArray(block?.values) ? block.values : []
+  const total = Math.max(1, values.length)
+  const lanes = tracks(width, total, figureGap(width, total))
+  const label = labelBand(block?.labels, at, lanes.reduce((narrow, lane) => Math.min(narrow, lane.size), Infinity))
+  const axis = {
+    thickness: block?.baseline === false ? 0 : hairline(base, box),
+    gap: Math.round(Math.max(1, length(at)) * BAR_AXIS_GAP),
+  }
+  const band = label.shown ? label.height + label.gap : 0
+  const plot = Math.max(1, Math.round(height - band - axis.thickness - axis.gap))
+  return {
+    width,
+    height,
+    plot,
+    axis,
+    label,
+    // The tracks the row is divided into, and the bars drawn inside them. A label
+    // is centred on its TRACK and never on its bar: a capped bar is centred in its
+    // own track, so the two agree, and a caption pinned to the ink would jump
+    // sideways the moment a chart of two values capped and one of six did not.
+    lanes,
+    bars: capped(lanes, plot * FIGURE_MAX_RATIO),
+    radius: figureRadius(radiusPx, lanes[0]?.size ?? 0, 0.3),
+    mark: {
+      thickness: hairline(base, box),
+      overhang: Math.round(Math.max(1, length(at)) * MARK_OVERHANG),
+    },
+  }
+}
+
+/** A bar's height in pixels: the value the document stated, grown by its own share of the arrival. */
+export function barHeight(value, growth, plot) {
+  return Math.round(length(plot) * unit(Number(value) / 100) * unit(growth))
+}
+
 // ── lineChart ────────────────────────────────────────────────────────────────
 
 /**
  * The series as points in the unit square, `y` measured DOWNWARD.
  *
- * Normalised rather than in pixels because a block does not know how wide its box
- * is — `composedLayout` owns the boxes and hands the component only the frame's
- * short edge. So the chart is drawn in a unit box that CSS stretches, and
- * everything round (the head, its ping) is positioned in percent by the component
- * instead of being drawn inside that box, where a non-uniform stretch would turn
- * a circle into an ellipse.
+ * Normalised rather than in pixels because the trace is drawn in a unit box that
+ * CSS stretches to the plot's own rectangle. Everything ROUND is positioned in
+ * percent by the component instead of being drawn inside that box, where a
+ * non-uniform stretch would turn a circle into an ellipse.
  *
  * A single value is a point and not a line: `x` divides by `length - 1`, so the
  * degenerate case is answered here rather than by a NaN travelling into a `d`
@@ -248,6 +477,55 @@ export function pingFade(phase) {
   return PING_ALPHA * (1 - unit(phase))
 }
 
+/** The head of the trace, as a share of the plot's SHORT side. A mark scales with the figure it marks. */
+export const LINE_DOT_SHARE = 0.032
+
+/**
+ * How much taller than it is wide a plot may get.
+ *
+ * The one place in this family where filling the box is the wrong answer. The
+ * schema bounds a value to 0–100 and nothing rescales, so the vertical exaggeration
+ * of the plot IS the exaggeration of the data: a series stretched three times
+ * taller than it is wide draws a ten-point difference as a cliff. 1.25 leaves
+ * every ordinary cell filled — a third of a 16:9 safe area is wider than it is
+ * tall — and only bites on a column, where the leftover is air split above and
+ * below rather than a chart making a claim the numbers do not.
+ */
+export const LINE_MAX_ASPECT = 1.25
+
+/**
+ * Everything a line chart draws, in pixels, inside its box.
+ *
+ * The plot is inset by the widest the ping ever gets, on ALL FOUR sides: the last
+ * sample sits at `x = 1` and a value of 100 sits at `y = 0`, so a ring centred on
+ * either hangs half its width past the box — and the box's edge is the margin
+ * `composedSafeArea` promises nothing crosses.
+ */
+export function lineChartLayout(block, box, { base, unit: at } = {}) {
+  const { width, height } = room(box)
+  const label = textBand('caption', block?.label, at, width)
+  const band = label.shown ? label.height + label.gap : 0
+  const dot = Math.max(3, Math.round(Math.min(width, Math.max(1, height - band)) * LINE_DOT_SHARE))
+  const inset = Math.round((dot * PING_REACH) / 2)
+  const measure = Math.max(1, width - 2 * inset)
+  const room0 = Math.max(1, height - band - 2 * inset)
+  const plotHeight = Math.min(room0, Math.round(measure * LINE_MAX_ASPECT))
+  return {
+    width,
+    height,
+    dot,
+    inset,
+    stroke: hairline(base, box),
+    label,
+    plot: {
+      left: inset,
+      top: inset + Math.round((room0 - plotHeight) / 2),
+      width: measure,
+      height: plotHeight,
+    },
+  }
+}
+
 // ── equalizer and soundWave: motifs, and there is no audio ──────────────────
 //
 // Neither of these hears anything. This feature has no audio track, no
@@ -295,6 +573,30 @@ export function equalizerLevels(bars, tempo, life) {
   })
 }
 
+/**
+ * The row, in pixels, across the box it was given — which is the whole fix for
+ * this block.
+ *
+ * `base * 0.18` is the number this family is named after in `composition.js`: a
+ * field anchored to the entire safe area drew 18% of the frame's short edge and
+ * left the rest empty. Here the row IS the box, so the same twelve bars are a
+ * field when the box is the frame and a figure when the box is a third of a cell.
+ * Two scales, one expression, decided by the box.
+ */
+export function equalizerLayout(block, box, { radiusPx } = {}) {
+  const { width, height } = room(box)
+  const total = count(block?.bars)
+  const lanes = capped(tracks(width, total, figureGap(width, total)), height * FIGURE_MAX_RATIO)
+  return {
+    width,
+    height,
+    bars: lanes,
+    // The top corners only, and barely: an equalizer bar is a column of light, and
+    // a fully rounded one is a pill, which reads as a tag rather than as a level.
+    radius: figureRadius(radiusPx, lanes[0]?.size ?? 0, 0.2),
+  }
+}
+
 /** How fast the wave travels, per shape. A rate, never a frequency in hertz: see the cadence note. */
 export const WAVE_TRAVEL = { pulse: 3, sweep: 1.6, breathe: 0.7 }
 
@@ -320,6 +622,12 @@ export function waveGain(shape, life) {
  * the edge of its box reads as a crop rather than as a figure. Three harmonics
  * travelling at ratios of 1, φ and a slow counter-drift, for the reason above:
  * one sine is a test signal.
+ *
+ * The three amplitudes sum to exactly 1 and they do line up: the crest reaches the
+ * edge of the box at its loudest moment, and sits near four fifths of it on an
+ * ordinary frame of a `sweep`. That is what stops the amplitude needing a
+ * normalisation nobody could justify — a wave scaled so that its median frame
+ * touched the edge would clip on the frame where the harmonics agree.
  */
 export function waveHeights(samples, shape, life) {
   const total = count(samples, 2)
@@ -336,31 +644,109 @@ export function waveHeights(samples, shape, life) {
   })
 }
 
+/**
+ * Which way the wave runs, decided by the box and by nothing else.
+ *
+ * The figure has about five crests across its length, so its amplitude wants to
+ * stay near the spacing between them. Drawn across the width of a column — 845 px
+ * of measure under 950 px of band — that puts a ±475 px swing on a 169 px crest
+ * spacing, which is not a waveform, it is a zigzag. A wave in a tall box therefore
+ * runs DOWN it. Same arithmetic, transposed at the last moment, and the block
+ * still fills the box it was given: this is the "narrow or short" case the brief
+ * names, and the one a model produces the moment two blocks share a row.
+ */
+export function waveOrientation(box) {
+  const { width, height } = room(box)
+  return height > width ? 'vertical' : 'horizontal'
+}
+
+/**
+ * The waveform as points in the box, in pixels.
+ *
+ * `progress` opens the wave out of its own axis rather than fading it in: a
+ * waveform that appeared at full height would be a picture of a wave, one that
+ * opens is a wave. It is a WINDOW on the arrival and not a second curve.
+ */
+export function wavePoints(heights, box, progress) {
+  const { width, height } = room(box)
+  const list = Array.isArray(heights) ? heights : []
+  const last = Math.max(1, list.length - 1)
+  const along = waveOrientation(box) === 'vertical' ? height : width
+  const across = waveOrientation(box) === 'vertical' ? width : height
+  const middle = across / 2
+  return list.map((sample, i) => {
+    const travel = (i / last) * along
+    const swing = middle - sample * middle * unit(progress)
+    return waveOrientation(box) === 'vertical' ? { x: swing, y: travel } : { x: travel, y: swing }
+  })
+}
+
+/** The axis a wave opens from, as the two ends of a line in the box. */
+export function waveAxis(box) {
+  const { width, height } = room(box)
+  return waveOrientation(box) === 'vertical'
+    ? { x1: width / 2, y1: 0, x2: width / 2, y2: height }
+    : { x1: 0, y1: height / 2, x2: width, y2: height / 2 }
+}
+
+/**
+ * Everything a wave draws, in pixels, inside its box.
+ *
+ * The stroke is the one constant metric this block has: a wave two pixels thick in
+ * one scene and eight in the next is two design systems in one film, which is what
+ * `CONSTANT_METRICS` exists to say. Everything else is the box.
+ */
+export function waveLayout(box, { base } = {}) {
+  const { width, height } = room(box)
+  return {
+    width,
+    height,
+    orientation: waveOrientation(box),
+    axis: waveAxis(box),
+    stroke: hairline(base, box),
+  }
+}
+
 // ── map ──────────────────────────────────────────────────────────────────────
 //
 // A schematic planisphere, as a field of dots, and everything about it is a
 // deliberate limit rather than a first version.
 //
 // The container has no egress and no map asset, so whatever a composition draws
-// has to fit in a source file. What fits is a coarse LAND MASK — a plate carrée
-// grid at 5.6° per column and 4.4° per row, where a cell is land when its centre
-// falls on land. That resolution is the honest part: it is far too coarse to draw
-// a border, a coastline or a disputed line, so it does not draw one. There are no
-// names, no frontiers, no islands smaller than a dot, and no country is
-// identifiable except by its shape at continental scale.
+// has to fit in a source file. What fits is a LAND MASK — a plate carrée grid at
+// 2° per column and 1.5° per row, where a cell is land when its centre falls on
+// land. It is a picture rather than a generator: what ships is what a reviewer can
+// read as a map, and 15 840 cells is 16.4 KB of this file's 65.5 — the whole price
+// of the fix, paid once, in a sub-project that is absent from a default install.
 //
-// Antarctica is out of the window rather than absent from the mask: the field
-// stops at 54°S, because on a plate carrée the pole stretches into a solid band
-// across the bottom of every frame it appears in and says nothing.
+// **That resolution is the fix, and the number is why.** The first mask was 64×30
+// — 5.6° per column — and `world` was the only window it could carry: `europe`
+// cropped 14 columns by 9 rows out of it, which is not a coarse Europe, it is a
+// cloud of nine dots that says nothing, and `asia` (23×18) and `africa` (14×15)
+// were the same failure. A window is a CROP of one mask, so the mask has to hold
+// the smallest window's worth of detail: `europe` is 80° of longitude, and at 2°
+// that is 40 columns by 26 rows, which is a silhouette with Iberia, Italy, the
+// Aegean, Scandinavia and the Black Sea in it. The alternative was to take the
+// four sub-regions out of the schema and let `map` draw the world alone — a map
+// that does not resemble the territory is worse than no map — and that is a change
+// to three validators and a prompt rather than to a block.
 //
-// A region is a CROP of this one mask and never a second drawing, which is what
-// keeps `europe` and `world` from disagreeing about where a coast is.
+// The resolution of the DRAWING is not the resolution of the mask, and that is
+// what keeps the cost where it was: `mapStride` samples the mask down to about
+// sixty columns, so a world crop is the same six hundred dots it always drew while
+// `europe` reads the mask whole. A finer mask is bytes; more dots would be frames.
+//
+// What it still refuses to draw is unchanged. There are no borders, no names, no
+// disputed lines, no island smaller than a dot, and nothing identifiable below the
+// scale of a country's outline. Antarctica is out of the window rather than absent
+// from the mask: on a plate carrée the pole stretches into a solid band across the
+// bottom of every frame it appears in and says nothing.
 
 /** The character a land cell is written with. Everything else in a row is sea. */
 export const LAND_MARK = '#'
 
-export const MAP_COLUMNS = 64
-export const MAP_ROWS = 30
+export const MAP_COLUMNS = 180
+export const MAP_ROWS = 88
 /** The window the mask itself covers, in degrees. Plate carrée: one cell is one rectangle of it. */
 export const MAP_NORTH = 78
 export const MAP_SOUTH = -54
@@ -368,47 +754,105 @@ export const MAP_SOUTH = -54
 /**
  * The mask, one string per row of latitude, north first.
  *
- * Generated once by rasterising a dozen coarse polygons and pasted here, because
+ * Rasterised once from about sixty coarse coastline rings and pasted here, because
  * a generator in the source is a dependency on the generator: what ships is the
- * picture, and a reviewer can read it as a picture. Every row is `MAP_COLUMNS`
- * long and `dataFigures.test.js` asserts it, since a row one character short
- * would silently shift a continent east for the rows below it.
+ * picture. Every row is `MAP_COLUMNS` long and `dataFigures.test.js` asserts it,
+ * since a row one character short would silently shift a continent east for every
+ * row below it.
  */
 export const LAND_ROWS = [
-  '......................######....................####............',
-  '...............##.....######...............#####################',
-  '..#################...#####.......#############################.',
-  '..##################...##........############################...',
-  '...#....#############.............#######################.......',
-  '.........#############.........#.########################.......',
-  '..........############..........#########################.......',
-  '..........##########...........#########################........',
-  '..........#########...........##..#####################.........',
-  '...........########...........##....##################..#.......',
-  '...........#######..............#####.################..........',
-  '............###..#............#######################...........',
-  '.............##...............############..#########...........',
-  '..............##.............#############...##..##.............',
-  '................#............############....##..##..#..........',
-  '.................####.........###########.........#..#..........',
-  '..................#####.......##########..........#.............',
-  '..................######.........#######...........##...........',
-  '..................#######.........#####...........#.....#.......',
-  '...................#######........#####............#.....#......',
-  '...................######.........#####................#........',
-  '...................######.........#####.#.............####......',
-  '....................####..........#####.#...........######......',
-  '...................####............###..............#######.....',
-  '...................####............##...............#######.....',
-  '...................###..................................###.....',
-  '...................##.........................................##',
-  '...................##.........................................#.',
-  '...................##...........................................',
-  '...................#............................................',
+    '.............................................................##################.....................................................................................................',
+  '.............................................................##################.......................................................##########....................................',
+  '.............................................................##################..........................................#.........###############..................................',
+  '..............................................................##################................................................############################........................',
+  '..............................................................##################...........................................#######################################..................',
+  '..........#########.......########.............................#################....................#####...............###################################################.........',
+  '........#################################......................###############....................###########.........##########################################################....',
+  '.......##########################################...............############.....................####.############################################################################..',
+  '......############################################...............#########......###.............#####.#############################################################################.',
+  '.......#####################################.....##...............######.......#...............###################################################################################..',
+  '.......###################################........................####.......................######.####.#######################################################################....',
+  '.......###################################.........###.............#........................#######..########################################################################.......',
+  '.........#######...#######################.........######...................................#######...#####################################################################.........',
+  '.......................###################.........#######..............................#.......###...#############################################################...#####.........',
+  '........................####################################...........................##.....####...#############################################################.....####.........',
+  '.........................####################################.........................###.....#.....#############################################################.......##..........',
+  '.........................#####################################.......................##.##...#################################################################..........#...........',
+  '..........................####################################.......................#.####.#################################################################...#...................',
+  '...........................####################################...........................###################################################################...#...................',
+  '............................###################################.........................#####################################################################...#...................',
+  '............................#################...############.##.........................####################################################################....#...................',
+  '............................################.....#########..............................#################.########..########################################........................',
+  '............................#################.....#######................................###############......####..########################################.....#..................',
+  '............................##################...#######.............................######....#########......####...######################################......#..................',
+  '............................##########################...............................######......#.####..########....#####################################......#...................',
+  '.............................########################................................#####.......#..##.##########....####################################...........................',
+  '.............................########################................................#####..........##.##########....#################################..##..........................',
+  '.............................#######################..................................###...............##############################################...#....#.....................',
+  '..............................######################...................................######...............##########################################...#..........................',
+  '...............................####################...................................#########.............##########################################..............................',
+  '................................##################....................................###########..........###########################################..............................',
+  '................................#.################...................................#####################.###########################################..............................',
+  '..................................############..##..................................##############################.###################################..............................',
+  '.................................#.#######......##.................................########################.#######.##################################..............................',
+  '....................................######.......#.................................########################.#######...################################..............................',
+  '..................................#.#####..........................................#################################.......############################.............................',
+  '.....................................####.........................................##########################.########.......########################..#.............................',
+  '.....................................####........##...............................##########################.##########......#####################..................................',
+  '.....................................#####...#....................................##########################..#########......########....#######....................................',
+  '.......................................#######.......###..........................###########################.#########.......######.....#######....................................',
+  '........................................######....................................###########################.########........#####.......######......#.............................',
+  '...........................................###....................................###########################..#####..........####.........#####......##............................',
+  '.............................................##...................................############################.###.............###.........#####......##............................',
+  '...............................................#..................................#############################................###.........#####......##............................',
+  '...............................................#.....###...........................################################.............##.........#####......###...........................',
+  '................................................###.######.........................################################.............##.........####.......###...........................',
+  '....................................................########........................###############################.............#.#........###.........##...........................',
+  '...................................................###########.......................#############################................#.........##.........##...........................',
+  '...................................................#############......................###....#####################..........................##......................................',
+  '...................................................#############...............................##################............................#......#...............................',
+  '...................................................##############..............................##################............................#...####...............................',
+  '..................................................###############..............................#################...........................#.....#######............................',
+  '..................................................################.............................#################............................#....#######............................',
+  '..................................................##################...........................################.............................##...####.##...####.....................',
+  '..................................................####################..........................##############...............................#......#......######...................',
+  '..................................................#####################.........................##############................................#.............#######.................',
+  '..................................................######################........................##############................................####............######................',
+  '..................................................######################........................##############....................................#............#####................',
+  '...................................................#####################........................##############......................................................#...............',
+  '...................................................####################.........................##############..................................................#...................',
+  '....................................................###################.........................##############.............................................#..###...................',
+  '....................................................##################..........................##############..##......................................#..##.####..................',
+  '.....................................................#################..........................##############..###.....................................##########..................',
+  '......................................................################..........................##############..###....................................############.................',
+  '.......................................................###############..........................#############...###...................................#############.................',
+  '.......................................................###############..........................#############...###.................................################................',
+  '.......................................................##############............................###########....###................................##################...............',
+  '.......................................................#############.............................###########....###................................##################...............',
+  '.......................................................###########...............................##########.....###................................###################..............',
+  '.......................................................###########...............................##########........................................###################..............',
+  '.......................................................##########.................................########.........................................###################..............',
+  '.......................................................##########.................................########.........................................###################..............',
+  '.......................................................#########..................................#######..........................................###################..............',
+  '.......................................................#########...................................#####...........................................#######.###########..............',
+  '......................................................#########....................................####............................................#####......########..............',
+  '......................................................#######..................................................................................................######...........#...',
+  '......................................................#######...................................................................................................#####...........###.',
+  '......................................................#######....................................................................................................###.............##.',
+  '......................................................#####......................................................................................................................##.',
+  '.....................................................######.......................................................................................................##...........##...',
+  '.....................................................#####........................................................................................................##...........##...',
+  '.....................................................#####....................................................................................................................##....',
+  '.....................................................####....................................................................................................................##.....',
+  '.....................................................####...........................................................................................................................',
+  '.....................................................###............................................................................................................................',
+  '.....................................................###............................................................................................................................',
+  '.....................................................###............................................................................................................................',
+  '......................................................##............................................................................................................................',
 ]
 
 /**
- * Which part of the mask each region shows, as inclusive cell indices.
+ * Which part of the mask each region names, as inclusive cell indices.
  *
  * Cells and not degrees, so a window can only ever be a crop of the grid that
  * exists — a window in degrees would need rounding, and a rounding that landed
@@ -418,12 +862,12 @@ export const LAND_ROWS = [
  */
 export const MAP_WINDOWS = {
   world: { col0: 0, col1: MAP_COLUMNS - 1, row0: 0, row1: MAP_ROWS - 1 },
-  // 22°W–58°E, 67°N–32°N. Starts below the Greenland cells rather than at the
-  // meridian, because a lone dot in a corner reads as dirt on the lens.
-  europe: { col0: 28, col1: 41, row0: 2, row1: 10 },
-  americas: { col0: 1, col1: 26, row0: 0, row1: MAP_ROWS - 1 },
-  asia: { col0: 36, col1: 58, row0: 0, row1: 17 },
-  africa: { col0: 28, col1: 41, row0: 10, row1: 24 },
+  // 22°W–58°E, 68.25°N–30.75°N: 40 columns by 26 rows, which is the window the
+  // mask's resolution was chosen for.
+  europe: { col0: 79, col1: 118, row0: 6, row1: 31 },
+  americas: { col0: 5, col1: 74, row0: 0, row1: MAP_ROWS - 1 },
+  asia: { col0: 101, col1: 165, row0: 0, row1: 59 },
+  africa: { col0: 79, col1: 118, row0: 28, row1: 76 },
 }
 
 /** The window a region names, or the world. An unknown name was refused by `validate.js` long ago (Q1). */
@@ -431,32 +875,200 @@ export function mapWindow(region) {
   return Object.hasOwn(MAP_WINDOWS, String(region)) ? MAP_WINDOWS[region] : MAP_WINDOWS.world
 }
 
-/** How many cells wide and tall a region is — the SVG's own viewBox, so the dots stay round. */
-export function mapExtent(region) {
-  const w = mapWindow(region)
-  return { columns: w.col1 - w.col0 + 1, rows: w.row1 - w.row0 + 1 }
+/**
+ * How far a named window may be opened up to meet the shape of its box.
+ *
+ * A crop has a fixed aspect and a box does not, so one of the two axes is always
+ * left over: `europe` is 1.54 wide for 1 tall and a 16:9 safe area is 1.78, which
+ * letterboxes 13% of the measure. Growing the window instead spends that leftover
+ * on more of the same mask — the region stays centred and the map stays a crop of
+ * one drawing — and it is bounded at half again, because a `europe` opened until
+ * it fitted a banner would be the world with a French accent.
+ */
+export const MAP_CROP_GROWTH = 1.5
+
+/** A span of cells opened to `want`, centred on what it had, and never off the mask. */
+function grown(from, to, want, limit) {
+  const have = to - from + 1
+  const wide = Math.max(have, Math.min(limit, Math.round(length(want))))
+  const extra = wide - have
+  let a = from - Math.floor(extra / 2)
+  let b = to + Math.ceil(extra / 2)
+  if (a < 0) {
+    b = Math.min(limit - 1, b - a)
+    a = 0
+  }
+  if (b > limit - 1) {
+    a = Math.max(0, a - (b - (limit - 1)))
+    b = limit - 1
+  }
+  return [a, b]
 }
 
 /**
- * Every land cell of a region, positioned in cell units within the crop.
+ * The window actually drawn: the region's own, opened towards the shape of the
+ * box, and never outside the mask.
  *
- * `x` and `y` are cell CENTRES, so a dot drawn at that point sits in the middle
- * of its cell whatever the viewBox is scaled to. The order is row-major, north to
- * south, which is what makes the marker stride below spread over the whole field
- * rather than along one latitude.
+ * With no box it is the region's window unchanged, which is what keeps the crop
+ * claim testable on its own.
  */
-export function mapCells(region) {
-  const w = mapWindow(region)
+export function mapCrop(region, box) {
+  const window = mapWindow(region)
+  const { width, height } = room(box)
+  if (width === 0 || height === 0) return window
+  const columns = window.col1 - window.col0 + 1
+  const rows = window.row1 - window.row0 + 1
+  const want = width / height
+  if (want > columns / rows) {
+    const [col0, col1] = grown(window.col0, window.col1, Math.min(rows * want, columns * MAP_CROP_GROWTH), MAP_COLUMNS)
+    return { col0, col1, row0: window.row0, row1: window.row1 }
+  }
+  const [row0, row1] = grown(window.row0, window.row1, Math.min(columns / want, rows * MAP_CROP_GROWTH), MAP_ROWS)
+  return { col0: window.col0, col1: window.col1, row0, row1 }
+}
+
+/**
+ * How many columns the field is drawn at, and how small a dot's own cell may get.
+ *
+ * The mask is finer than any frame needs, deliberately (see the note above), so
+ * the drawing samples it down. Sixty columns is what the old 64-column mask drew a
+ * world at and it is the resolution that reads: past it the dots are closer
+ * together than they are wide, which is sand rather than a map, and a world crop
+ * would be six times the nodes on every one of a scene's 450 frames.
+ */
+export const MAP_TARGET_COLUMNS = 60
+export const MAP_MIN_COLUMNS = 10
+export const MAP_MIN_PITCH = 9
+
+/**
+ * The stride the mask is sampled at: never finer than the target, and coarser
+ * still when the box cannot give a dot its nine pixels.
+ *
+ * That second half is the box deciding the scale, exactly as it does for the bars:
+ * the same `world` is sixty columns across a safe area and thirty-odd inside a
+ * cell, because a 4 px dot beside a 4 px gap is a grey rectangle.
+ */
+export function mapStride(crop, box) {
+  const columns = Math.max(1, crop.col1 - crop.col0 + 1)
+  const rows = Math.max(1, crop.row1 - crop.row0 + 1)
+  const { width, height } = room(box)
+  let stride = Math.max(1, Math.ceil(columns / MAP_TARGET_COLUMNS))
+  if (width === 0 || height === 0) return stride
+  const pitchAt = (s) => Math.min(width / Math.ceil(columns / s), height / Math.ceil(rows / s))
+  while (
+    stride < columns &&
+    pitchAt(stride) < MAP_MIN_PITCH &&
+    Math.ceil(columns / (stride + 1)) >= MAP_MIN_COLUMNS
+  ) {
+    stride += 1
+  }
+  return stride
+}
+
+/**
+ * How much of a sampled block has to be land for its dot to be drawn.
+ *
+ * A quarter, and it is measured rather than chosen: swept over the mask at the
+ * strides the boxes really produce, a quarter keeps Britain, Japan and New Zealand
+ * — three places a viewer notices are missing — while a half erodes every coast by
+ * a cell and turns the Indonesian arc into three dots. It is counted against the
+ * cells actually COVERED, not against the stride squared, or the partial block at
+ * the mask's edge would need a quorum it cannot reach and the last column of the
+ * world would always be sea.
+ */
+export const MAP_LAND_QUORUM = 0.25
+
+/**
+ * Every dot of a crop, sampled at a stride, positioned in DRAWN cell units.
+ *
+ * `x` and `y` are cell centres, so a dot drawn at that point sits in the middle of
+ * its own cell whatever the viewBox is scaled to. `col` and `row` stay the mask's
+ * own indices — the top-left of the block that was sampled — because that is what
+ * makes a key unique and what lets a test ask whether a marker landed on land.
+ * The order is row-major, north to south, which is what makes the marker stride
+ * below spread over the whole field rather than along one latitude.
+ */
+export function mapField(crop, stride = 1) {
+  const step = count(stride)
+  const columns = Math.max(1, Math.ceil((crop.col1 - crop.col0 + 1) / step))
+  const rows = Math.max(1, Math.ceil((crop.row1 - crop.row0 + 1) / step))
   const cells = []
-  for (let row = w.row0; row <= w.row1; row++) {
-    const line = LAND_ROWS[row] ?? ''
-    for (let col = w.col0; col <= w.col1; col++) {
-      if (line[col] === LAND_MARK) {
-        cells.push({ col, row, x: col - w.col0 + 0.5, y: row - w.row0 + 0.5 })
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < columns; c++) {
+      const col = crop.col0 + c * step
+      const row = crop.row0 + r * step
+      let covered = 0
+      let land = 0
+      for (let dr = 0; dr < step && row + dr <= crop.row1; dr++) {
+        const line = LAND_ROWS[row + dr]
+        if (!line) continue
+        for (let dc = 0; dc < step && col + dc <= crop.col1; dc++) {
+          covered += 1
+          if (line[col + dc] === LAND_MARK) land += 1
+        }
+      }
+      if (covered > 0 && land >= Math.max(1, Math.ceil(covered * MAP_LAND_QUORUM))) {
+        cells.push({ col, row, x: c + 0.5, y: r + 0.5 })
       }
     }
   }
-  return cells
+  return { columns, rows, cells }
+}
+
+/**
+ * How many dots one field may hold, whatever the crop and the box worked out to.
+ *
+ * The only quantity in this family that is a RENDER cost rather than a look: the
+ * component's tree is rebuilt on each of a scene's 450 frames, so a dot is a
+ * React element four hundred and fifty times. The old mask drew about six hundred
+ * for a world, the new one draws 618 for the same crop, and a sweep of the boxes a
+ * composed scene really produces — three ratios, seven zone shapes, five regions —
+ * puts the worst case at 1340: Africa at stride 1 filling a 9:16 safe area. 1600
+ * is above every one of them on purpose. It is a ceiling against a window somebody
+ * adds later rather than a budget the ordinary case spends, and `mapSampling` pays
+ * it by sampling one step coarser rather than by dropping dots off the end of a
+ * list, which would take a continent away without saying so.
+ */
+export const MAP_MAX_DOTS = 1600
+
+/**
+ * The stride and the field together, which is the only way to bound the DOT count
+ * — how many dots a stride yields depends on how much land the crop holds, and
+ * that is not a formula.
+ */
+export function mapSampling(crop, box) {
+  let stride = mapStride(crop, box)
+  let field = mapField(crop, stride)
+  while (field.cells.length > MAP_MAX_DOTS && field.columns > MAP_MIN_COLUMNS) {
+    stride += 1
+    field = mapField(crop, stride)
+  }
+  return { stride, field }
+}
+
+/**
+ * Everything a map draws, in pixels, inside its box.
+ *
+ * The field keeps its own aspect — this is the one block in the family holding
+ * circles, and a circle in a stretched viewBox is an ellipse — so the pitch is
+ * whichever of the two axes runs out first, and `mapCrop` has already spent most
+ * of the difference on more mask. `base * 0.42`, which is what this block used to
+ * be tall, is gone: a map given the safe area is now the size of the safe area.
+ */
+export function mapLayout(block, box, { base } = {}) {
+  const { width, height } = room(box)
+  const crop = mapCrop(block?.region, box)
+  const { stride, field } = mapSampling(crop, box)
+  const pitch = Math.min(width / field.columns, height / field.rows)
+  return {
+    ...field,
+    crop,
+    stride,
+    pitch,
+    width: Math.round(pitch * field.columns),
+    height: Math.round(pitch * field.rows),
+    stroke: hairline(base, box),
+  }
 }
 
 /**

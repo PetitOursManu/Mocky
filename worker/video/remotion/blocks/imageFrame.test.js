@@ -2,9 +2,11 @@
 //
 // A block cannot be rendered in this suite — Remotion is not installed here and
 // never will be — so what is checkable about one is exactly what it computes
-// before React sees it. The two claims below are the two ways this block could
-// be wrong in a file nobody watches: a camera move that has drifted from the one
-// the rest of the film makes, and a picture that stops moving inside its frame.
+// before React sees it. Three ways this block could be wrong in a file nobody
+// watches: a camera move that has drifted from the one the rest of the film
+// makes, a picture that stops moving inside its frame, and — the defect this
+// pass is about — a picture that draws a fraction of the frame instead of the
+// box it was handed.
 //
 // The import of `server/video/timeline.js` is TEST-ONLY, exactly as it is in
 // `blocks.test.js` and `validate.test.js`: the Docker build copies
@@ -15,9 +17,9 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { FPS, kenBurnsTransform } from '../composition.js'
-import { KEN_BURNS, TEMPLATE_LIMITS } from '../../../../server/video/timeline.js'
-import { FRAME_PICTURE_HEIGHT, FRAME_WIDTH_PERCENT, framedMove, imageFrameBox } from './imageFrame.jsx'
+import { BOX_FILL_FLOOR, FPS, composedSafeArea, dimensionsFor, frameBase, kenBurnsTransform } from '../composition.js'
+import { BLOCK_LIMITS, KEN_BURNS, TEMPLATE_LIMITS } from '../../../../server/video/timeline.js'
+import { FRAME_CAPTION_CEILING, FRAME_INNER_RADIUS, frameTreatment, framedMove, imageFrameBox } from './media.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const source = fs.readFileSync(path.join(here, 'imageFrame.jsx'), 'utf8')
@@ -27,6 +29,30 @@ const LONGEST = Math.round((TEMPLATE_LIMITS.composed.maxSceneMs / 1000) * FPS)
 const SHORTEST = Math.round((TEMPLATE_LIMITS.composed.minSceneMs / 1000) * FPS)
 
 const MOVES = KEN_BURNS.filter((kind) => kind !== 'static')
+const TREATMENTS = ['bleed', 'inset', 'card']
+
+/**
+ * The boxes a zone can actually turn out to be, in all three ratios.
+ *
+ * The whole safe area is what an anchor of `full` gives; a third of a band and a
+ * third of a column are what a crowded scene gives. The narrow ones are the case
+ * nobody looks at and the one the model produces, which is why they are swept
+ * with the same weight as the generous ones.
+ */
+const SHAPES = ['16:9', '9:16', '1:1'].flatMap((ratio) => {
+  const { width, height } = dimensionsFor(ratio)
+  const safe = composedSafeArea(width, height)
+  const base = frameBase(width, height)
+  return [
+    [`${ratio} full`, { left: 0, top: 0, width: safe.width, height: safe.height }, base],
+    [`${ratio} band`, { left: 0, top: 0, width: safe.width, height: Math.round(safe.height / 3) }, base],
+    [`${ratio} column`, { left: 0, top: 0, width: Math.round(safe.width / 3), height: safe.height }, base],
+  ]
+})
+
+/** The poorest legal block and the longest one: no caption, and a caption at its bound. */
+const POOREST = { kind: 'imageFrame', imageId: 'img-1', move: 'zoom-in', caption: null }
+const LONGEST_BLOCK = { ...POOREST, caption: 'é'.repeat(BLOCK_LIMITS.caption) }
 
 describe('the move a framed picture makes', () => {
   /**
@@ -35,9 +61,10 @@ describe('the move a framed picture makes', () => {
    *
    * Two of them would be discovered to disagree by watching an mp4 — a slideshow
    * scene and a composed scene of the same picture drifting at different rates,
-   * with nothing anywhere naming the difference. So the delegation is checked
-   * rather than described: at the same fraction of a scene, the two answers are
-   * the same string, for every kind and at both ends of the duration window.
+   * with nothing anywhere naming the difference. It is also what BOUNDS the
+   * amplitude: a pan spends 4% of travel on a 12% overscale, so nothing visible
+   * at rest slides out of the frame, and a block that rewrote the move at its own
+   * scale is the one place that guarantee could be lost.
    */
   it('is the same transform a slideshow scene gets at the same point of its own duration', () => {
     for (const frames of [SHORTEST, 90, LONGEST]) {
@@ -77,13 +104,107 @@ describe('the move a framed picture makes', () => {
   })
 })
 
+describe('the picture inhabits the box it is given', () => {
+  /**
+   * The three sums put the box back together, which is the whole of the rule at
+   * the top of `composition.js` for this block: the picture takes the box less
+   * its margin and less the band the caption needs, and there is no third case.
+   * A leftover here is a picture floating in its own allotment — the "small
+   * element in a large void" six real exports came back as.
+   */
+  it.each([['poorest', POOREST], ['longest', LONGEST_BLOCK]])('spends every pixel of it, with the %s block', (_label, block) => {
+    for (const treatment of TREATMENTS) {
+      for (const [where, box, base] of SHAPES) {
+        const geometry = imageFrameBox({ ...block, treatment }, box, undefined, base, 12)
+        const at = `${treatment} @ ${where}`
+        expect(geometry.picture.width + 2 * geometry.margin, at).toBe(box.width)
+        expect(geometry.picture.height + geometry.caption.band + 2 * geometry.margin, at).toBe(box.height)
+      }
+    }
+  })
+
+  /**
+   * And the picture, not its framing, is what the box is made of.
+   *
+   * `BOX_FILL_FLOOR` is the number `composition.test.js` holds `blockExtent` to,
+   * reused here on the drawn geometry: the two are computed by different code
+   * from different directions, and a block whose framing had quietly eaten a
+   * third of its box would satisfy the sums above and still be the defect. On the
+   * block with no caption the picture IS the block, so the floor applies to it
+   * whole — which is the case a `bleed` picture handed the safe area used to fail
+   * by drawing 42% of the short edge.
+   */
+  it('gives a captionless block’s whole box to its picture', () => {
+    for (const treatment of TREATMENTS) {
+      for (const [where, box, base] of SHAPES) {
+        const geometry = imageFrameBox({ ...POOREST, treatment }, box, undefined, base, 12)
+        const at = `${treatment} @ ${where}`
+        expect(geometry.picture.width / box.width, at).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+        expect(geometry.picture.height / box.height, at).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+      }
+    }
+  })
+
+  /**
+   * A caption at the schema's bound in a narrow column really does want half the
+   * box, and it is allowed to have it — but not more. `FRAME_CAPTION_CEILING` is
+   * the degradation for a caption and a box that disagree, and its direction is
+   * the point: a picture block whose picture has been squeezed to nothing has
+   * failed, whereas a caption clipped by a line is still a caption (Q1).
+   */
+  it('never lets a caption squeeze the picture out of its own box', () => {
+    for (const treatment of TREATMENTS) {
+      for (const [where, box, base] of SHAPES) {
+        const geometry = imageFrameBox({ ...LONGEST_BLOCK, treatment }, box, undefined, base, 12)
+        const at = `${treatment} @ ${where}`
+        expect(geometry.caption.band, at).toBeLessThanOrEqual(Math.floor(box.height * FRAME_CAPTION_CEILING))
+        expect(geometry.picture.height, at).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  /**
+   * Double the box, double the picture — the property that says a size came off
+   * the box rather than off the frame, and the one a fraction of the short edge
+   * fails however plausible the picture it drew. Stated as an equality rather
+   * than as a ratio because the margin is the named exception: it is a constant
+   * metric, so it is spent once whatever the box, and a ratio would have hidden
+   * it inside a tolerance.
+   */
+  it('doubles the picture when the box doubles, and leaves the margin alone', () => {
+    for (const treatment of TREATMENTS) {
+      const one = imageFrameBox({ ...POOREST, treatment }, { width: 800, height: 400 }, undefined, 1080, 12)
+      const two = imageFrameBox({ ...POOREST, treatment }, { width: 1600, height: 800 }, undefined, 1080, 12)
+      expect(two.margin, treatment).toBe(one.margin)
+      expect(two.picture.width, treatment).toBe(2 * one.picture.width + 2 * one.margin)
+      expect(two.picture.height, treatment).toBe(2 * one.picture.height + 2 * one.margin)
+    }
+  })
+
+  /** A longer caption takes more of the box, and the picture is what pays for it. */
+  it('lets the caption take its band out of the picture and out of nothing else', () => {
+    const box = { width: 900, height: 600 }
+    const bare = imageFrameBox(POOREST, box, undefined, 1080, 12)
+    const captioned = imageFrameBox(LONGEST_BLOCK, box, undefined, 1080, 12)
+    expect(captioned.caption.band).toBeGreaterThan(0)
+    expect(bare.caption.band).toBe(0)
+    expect(bare.picture.height - captioned.picture.height).toBe(captioned.caption.band)
+  })
+})
+
 describe('the box a treatment makes', () => {
   it('gives a panel to `card` alone, and rounds nothing that bleeds', () => {
-    expect(imageFrameBox('card', 1080, 12).panel).toBe(true)
-    expect(imageFrameBox('inset', 1080, 12).panel).toBe(false)
-    expect(imageFrameBox('bleed', 1080, 12).panel).toBe(false)
-    expect(imageFrameBox('bleed', 1080, 12).pictureRadius).toBe(0)
-    expect(imageFrameBox('card', 1080, 12).pictureRadius).toBeGreaterThan(0)
+    const at = (treatment) => imageFrameBox({ ...POOREST, treatment }, { width: 900, height: 600 }, undefined, 1080, 12)
+    expect(at('card').panel).toBe(true)
+    expect(at('inset').panel).toBe(false)
+    expect(at('bleed').panel).toBe(false)
+    expect(at('bleed').pictureRadius).toBe(0)
+    expect(at('bleed').margin).toBe(0)
+    expect(at('card').pictureRadius).toBe(Math.round(at('card').radius * FRAME_INNER_RADIUS))
+    // `inset` is the one that stands off its box with the ground showing, which
+    // is what the word names — and it is one gutter now, not 12% of the measure.
+    expect(at('inset').margin).toBeGreaterThan(0)
+    expect(at('inset').margin).toBe(at('card').margin)
   })
 
   /**
@@ -94,29 +215,18 @@ describe('the box a treatment makes', () => {
    * somebody waited for (Q1).
    */
   it('falls back to the schema’s default rather than to nothing', () => {
-    expect(imageFrameBox('poster', 1080, 12)).toEqual(imageFrameBox('card', 1080, 12))
-    expect(imageFrameBox(undefined, 1080, 12)).toEqual(imageFrameBox('card', 1080, 12))
-    // A name off `Object.prototype` answers for the prototype chain under a plain
-    // lookup, which is the failure `blockComponent` is written against.
-    expect(imageFrameBox('constructor', 1080, 12)).toEqual(imageFrameBox('card', 1080, 12))
-  })
-
-  it('spends more height the less framing it draws', () => {
-    expect(FRAME_PICTURE_HEIGHT.bleed).toBeGreaterThan(FRAME_PICTURE_HEIGHT.inset)
-    expect(FRAME_PICTURE_HEIGHT.inset).toBeGreaterThan(FRAME_PICTURE_HEIGHT.card)
-    for (const treatment of Object.keys(FRAME_WIDTH_PERCENT)) {
-      expect(FRAME_WIDTH_PERCENT[treatment], treatment).toBeLessThanOrEqual(100)
+    for (const unknown of ['poster', undefined, 'constructor', '__proto__']) {
+      expect(frameTreatment(unknown), String(unknown)).toBe('card')
     }
   })
 
   it('answers in whole pixels, and never in negative ones', () => {
-    for (const treatment of ['bleed', 'inset', 'card']) {
-      for (const base of [0, 1080, 1920]) {
-        const box = imageFrameBox(treatment, base, 9999)
-        for (const [key, value] of Object.entries(box)) {
-          if (typeof value !== 'number' || key === 'widthPercent') continue
-          expect(Number.isInteger(value), `${treatment}.${key}`).toBe(true)
-          expect(value, `${treatment}.${key}`).toBeGreaterThanOrEqual(0)
+    for (const treatment of [...TREATMENTS, 'poster']) {
+      for (const box of [{ width: 0, height: 0 }, { width: 40, height: 12 }, { width: 1688, height: 950 }]) {
+        const geometry = imageFrameBox({ ...LONGEST_BLOCK, treatment }, box, undefined, 1080, 9999)
+        for (const value of [geometry.margin, geometry.radius, geometry.pictureRadius, geometry.picture.width, geometry.picture.height, geometry.caption.band]) {
+          expect(Number.isInteger(value), `${treatment} ${JSON.stringify(box)}`).toBe(true)
+          expect(value, `${treatment} ${JSON.stringify(box)}`).toBeGreaterThanOrEqual(0)
         }
       }
     }

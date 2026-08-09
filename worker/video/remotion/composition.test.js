@@ -29,6 +29,7 @@ import { RULE_EXTENTS } from './blocks/misc.js'
 import { solidCanvas } from './blocks/setPiece.js'
 import {
   ANCHORS,
+  ANIMATED_BACKGROUNDS,
   BAND_VEIL,
   COMPOSED_CELL_GAP,
   COMPOSED_IMAGE_VEIL,
@@ -80,7 +81,10 @@ import {
   BOX_FILL_FLOOR,
   CONSTANT_CEILING,
   DECLARED_SHARE,
+  KICKER_TRACKING_EM,
+  LINE_SAFETY,
   MEAN_GLYPH_EM,
+  MEAN_MONO_EM,
   TYPE_ROLES,
   accentFirst,
   anchorCell,
@@ -88,6 +92,7 @@ import {
   bandInset,
   blockExtent,
   blockHeight,
+  blockShape,
   composedLayout,
   composedPalette,
   composedSafeArea,
@@ -100,12 +105,14 @@ import {
   fontStack,
   frameBase,
   groundDensity,
+  groundPainted,
   groundTint,
   hairlineTexture,
   inkCandidates,
   kenBurnsTransform,
   layerCues,
   legibleOn,
+  meanAdvanceEm,
   msToFrames,
   ordinalLabel,
   overlayAlignment,
@@ -118,8 +125,11 @@ import {
   railSegments,
   readableInk,
   resolveTheme,
+  runAdvanceEm,
   sceneLabel,
   sceneMotion,
+  shapeCeiling,
+  solveTypeUnit,
   stackedField,
   surfaceRange,
   textLines,
@@ -466,6 +476,63 @@ describe('sceneMotion', () => {
     })
     expect(sceneMotion('overlay', band(null), 60)).not.toHaveProperty('subtitle')
     expect(sceneMotion('overlay', band('S'), 60)).toHaveProperty('subtitle')
+  })
+
+  /**
+   * The same rule again, on the one term whose answer is not in the document.
+   *
+   * A `gradient`, a `gridPulse` and a `particles` ground all move by moving the
+   * ground's SECOND layer, and `Ground` paints no second layer at all when the
+   * palette dropped it — which it does when that layer is what made a line
+   * illegible (`texturedGround`, `fieldedGround`). A decoration cedes to a word,
+   * and the frame it cedes on is a flat colour. Reporting a progress there is a
+   * number that moves on an image that does not, which is what the kicker taught
+   * two describe blocks up.
+   *
+   * The kind alone cannot answer it, so the composition passes what it paints.
+   * The sweep says the tint survives on every direction in this corpus, so this
+   * is theoretical today — and a claim about the corpus is not a claim about the
+   * next direction somebody writes.
+   */
+  it('reports a ground progress only when there is a ground layer to move', () => {
+    const composed = (kind) => ({
+      scene: { durationMs: 4000, background: { kind }, layers: [{ kind: 'heading', text: 'A' }] },
+      durationInFrames: 120,
+    })
+    for (const kind of ANIMATED_BACKGROUNDS) {
+      expect(sceneMotion('composed', composed(kind), 60), kind).toHaveProperty('ground')
+      expect(sceneMotion('composed', composed(kind), 60, { ground: true }), kind).toHaveProperty('ground')
+      expect(sceneMotion('composed', composed(kind), 60, { ground: false }), kind).not.toHaveProperty('ground')
+    }
+    // A ground that never animates reports nothing either way: the flag says
+    // whether there is a layer, not whether the layer moves.
+    for (const kind of ['solid', 'hairlines', 'image']) {
+      expect(sceneMotion('composed', composed(kind), 60, { ground: true }), kind).not.toHaveProperty('ground')
+    }
+    // And the drift and the stack are untouched by it, so a scene whose ground
+    // gave up its texture still moves.
+    const dropped = sceneMotion('composed', composed('gradient'), 60, { ground: false })
+    expect(dropped.layers).toHaveLength(1)
+    expect(dropped.drift).not.toBe(sceneMotion('composed', composed('gradient'), 0, { ground: false }).drift)
+  })
+
+  /**
+   * The flag is read off the palette, and `Ground` reads the same function to
+   * decide it has nothing to draw. Two readings of "is there a layer" is one of
+   * them reporting a term the frame does not contain.
+   */
+  it('agrees with the palette about whether a ground has a layer at all', () => {
+    const theme = resolveTheme(THEMES['editorial paper'])
+    for (const [ground, background] of Object.entries(GROUNDS)) {
+      const palette = composedPalette(theme, background)
+      const layers = palette.groundTint ?? []
+      expect(groundPainted(palette), ground).toBe(layers.length > 0)
+    }
+    // `solid` and `image` have no second layer at all, which is not the same
+    // statement as "a photograph does not move" — the picture is its own term.
+    expect(groundPainted(composedPalette(theme, GROUNDS.solid))).toBe(false)
+    expect(groundPainted(composedPalette(theme, GROUNDS.image))).toBe(false)
+    expect(groundPainted(composedPalette(theme, GROUNDS.hairlines))).toBe(true)
   })
 
   /**
@@ -1697,14 +1764,68 @@ describe('composedPalette', () => {
    * no runs would make every loop above green for having iterated nothing.
    */
   it('resolves the three surfaces a block can paint on, whatever the ground', () => {
+    /*
+     * The floor each run is resolved at, stated here rather than inferred.
+     *
+     * It is the half of the guarantee the sweep above cannot see: that loop
+     * checks every run against ITS OWN threshold, so a run whose threshold was
+     * wrong passes it by construction. Which floor applies is decided by the type
+     * ROLE — display type and bold labels take 3, running text takes 4.5 — and a
+     * run mapped to the wrong one is exactly the defect `panelText` was added
+     * for: `codeBlock`'s majority role read `panelDisplay` and shipped a wall of
+     * 21 px monospace measured at 3:1.
+     */
+    const FLOORS = {
+      display: CONTRAST_MIN_LARGE,
+      body: CONTRAST_MIN,
+      accent: CONTRAST_MIN_LARGE,
+      panelDisplay: CONTRAST_MIN_LARGE,
+      panelBody: CONTRAST_MIN,
+      panelAccent: CONTRAST_MIN_LARGE,
+      panelText: CONTRAST_MIN,
+      onFill: CONTRAST_MIN_LARGE,
+    }
     for (const background of Object.values(GROUNDS)) {
       const palette = composedPalette(resolveTheme(undefined), background)
-      // The ground, the panel and the accent fill. Twenty-four components read one
-      // of exactly these three, which is what stops twenty-four of them measuring.
-      expect(palette.runs).toHaveLength(7)
-      for (const key of ['display', 'body', 'accent', 'panelDisplay', 'panelBody', 'panelAccent', 'onFill']) {
+      // The ground, the panel and the accent fill. Twenty-seven components read
+      // one of these, which is what stops twenty-seven of them measuring.
+      expect(palette.runs).toHaveLength(Object.keys(FLOORS).length)
+      for (const [key, floor] of Object.entries(FLOORS)) {
         expect(palette[key].color, key).toMatch(/^#[0-9a-f]{6}$/)
-        expect([CONTRAST_MIN, CONTRAST_MIN_LARGE]).toContain(palette[key].threshold)
+        expect(palette[key].threshold, key).toBe(floor)
+      }
+    }
+  })
+
+  /**
+   * The panel carries running text at full strength, and that is a floor rather
+   * than a shade.
+   *
+   * `codeBlock` is why. Its `plain` role is the MAJORITY of a listing — running
+   * text at the `body` step, 21 px on an ordinary stack — and it read
+   * `panelDisplay`, resolved at 3:1, because the panel had no full-strength run
+   * at 4.5. The worst case across this corpus measured 3.19:1, which the audit
+   * would report as a finding on the screen the film was cut from.
+   *
+   * Two claims, and the second is what makes the first free: the run clears 4.5
+   * on every ground and every direction, and it is never quieter than
+   * `panelBody`, because quieting an ink blends it towards the surface it is
+   * measured against.
+   */
+  it('gives the panel a full-strength run for the text that is not display type', () => {
+    for (const ground of Object.keys(GROUNDS)) {
+      for (const [label, document] of Object.entries(THEMES)) {
+        const palette = composedPalette(resolveTheme(document), GROUNDS[ground])
+        const where = `${ground} / ${label}`
+        expect(palette.panelText.threshold, where).toBe(CONTRAST_MIN)
+        // An opaque panel always has an answer, which is `INK_FLOOR`'s argument
+        // one surface over: black and white cross at 4.58:1, so one of the two
+        // clears 4.5 whatever `theme.surface` turns out to be.
+        expect(palette.panelText.ok, where).toBe(true)
+        expect(measure(palette.panelText), where).toBeGreaterThanOrEqual(CONTRAST_MIN)
+        // Never the quieter of the two. `panelBody` starts its ladder at
+        // `COMPOSED_BODY_QUIET` and walks up; this one starts at full strength.
+        expect(measure(palette.panelText), where).toBeGreaterThanOrEqual(measure(palette.panelBody) - 1e-9)
       }
     }
   })
@@ -2247,8 +2368,10 @@ describe('composedLayout', () => {
     expect(one.share).toBe(true)
     // `stretch` is a legal `align-items` and not a legal `justify-content`: the
     // sharing zone is reported as a flag plus a valid pair, never as a value the
-    // composition would have to translate.
-    expect(one.justify).toBe('flex-start')
+    // composition would have to translate. `center` and not `flex-start`, because
+    // a `full` zone has no edge of its own to anchor to — see `composedLayout`,
+    // and the counter that shipped in the upper two thirds of a frame.
+    expect(one.justify).toBe('center')
     expect(one.align).toBe('stretch')
     expect(composedLayout(stackOf('full', 'full'), width, height).zones[0].layers).toHaveLength(2)
   })
@@ -2581,6 +2704,78 @@ describe('the type scale', () => {
     const implied = measure / ((VERTICAL_CAPTION_LONG_CHARS / 4) * verticalCaptionSize(long, base))
     expect(implied).toBeGreaterThan(MEAN_GLYPH_EM * 0.95)
     expect(implied).toBeLessThan(MEAN_GLYPH_EM * 1.1)
+  })
+
+  /**
+   * The sentence average is not the average of a COUNTER, and a run that cannot
+   * break has no line to give back when the difference bites.
+   *
+   * Liberation Sans Bold sets `91%` in 2.00 em — digits at 0.556 twice and a per
+   * cent sign at 0.889 — against the 1.56 em that 0.52 predicts. That gap is 172
+   * px on a 828 px column, and what a frame showed was the per cent sign sliced
+   * off by the edge of the video, because `shapeCeiling` had licensed a size the
+   * measure could not hold.
+   */
+  it('measures an unbreakable run on its own glyphs, and never narrower than the average', () => {
+    // Digits and a per cent sign are wider than a sentence; the estimate follows.
+    expect(meanAdvanceEm('91%')).toBeGreaterThan(MEAN_GLYPH_EM)
+    expect(meanAdvanceEm('MOCKY')).toBeGreaterThan(meanAdvanceEm('mocky'))
+    // …and it still covers the real face, which is the whole point. Measured
+    // WITH `LINE_SAFETY`, because that is the product `cappedByWidth` divides by
+    // and the six per cent is what a class average is allowed to lean on: `MOCKY`
+    // is five of the widest capitals there are and lands at 0.756 against a class
+    // written for 0.71.
+    const real = { '9': 0.556, '1': 0.556, '%': 0.889, M: 0.889, O: 0.778, C: 0.722, K: 0.722, Y: 0.667 }
+    for (const word of ['91%', 'MOCKY']) {
+      const drawn = [...word].reduce((sum, glyph) => sum + real[glyph], 0) / word.length
+      expect(meanAdvanceEm(word) * LINE_SAFETY).toBeGreaterThanOrEqual(drawn)
+    }
+    // A floor, never a discount: an empty or unclassifiable run keeps the average.
+    expect(meanAdvanceEm('')).toBe(MEAN_GLYPH_EM)
+    expect(meanAdvanceEm(null)).toBe(MEAN_GLYPH_EM)
+    expect(meanAdvanceEm('...')).toBeGreaterThanOrEqual(MEAN_GLYPH_EM)
+  })
+
+  /** Four runs, four advances — and only the two middle ones are new. */
+  it('reads a monospace run at the mono advance and a breakable one at the average', () => {
+    expect(runAdvanceEm({ mono: true, nowrap: true, text: '91%' })).toBe(MEAN_MONO_EM)
+    expect(runAdvanceEm({ text: '91%' })).toBe(MEAN_GLYPH_EM)
+    expect(runAdvanceEm({ nowrap: true, text: '91%' })).toBe(meanAdvanceEm('91%'))
+    // The case the composition chose, not the one the document typed.
+    expect(runAdvanceEm({ caps: true, text: 'trafic' })).toBe(meanAdvanceEm('TRAFIC'))
+    expect(runAdvanceEm({ caps: true, text: 'trafic' })).toBeGreaterThan(runAdvanceEm({ text: 'trafic' }))
+  })
+
+  /**
+   * A `kicker` is the block where the two ways of being wrong meet: capitals it
+   * did not ask for, plus a fifth of an em of tracking it did. Six letters came
+   * back on two lines with a lone `C` under the bottom of the box.
+   */
+  it('fits a kicker on the line the layout reserved for it', () => {
+    const box = { left: 116, top: 65, width: 1688, height: 950 }
+    const block = { kind: 'kicker', text: 'Trafic' }
+    const shape = blockShape(block)
+    const unit = solveTypeUnit([shape], box.width, box.height)
+    const size = typeSize('caption', Math.min(unit, shapeCeiling(shape, box.width)))
+    // Liberation Sans Bold sets TRAFIC at 0.611 em a glyph; the tracking is real
+    // width too, and both together still have to hold one line.
+    expect(size * (0.611 + KICKER_TRACKING_EM) * 6).toBeLessThanOrEqual(box.width)
+    expect(blockHeight(block, box.width, unit)).toBeLessThanOrEqual(box.height)
+  })
+
+  /**
+   * The defect, end to end: a counter drawn in the box `composedLayout` gave it
+   * has to FIT that box. `blockExtent` is the arithmetic a test can ask, and the
+   * real width of the face is what it is checked against.
+   */
+  it('keeps a nowrap figure inside its own measure', () => {
+    const box = { left: 0, top: 0, width: 828, height: 950 }
+    const block = { kind: 'counter', to: 91, suffix: '%', label: 'de couverture' }
+    const unit = solveTypeUnit([blockShape(block)], box.width, box.height)
+    const size = typeSize('figure', Math.min(unit, shapeCeiling(blockShape(block), box.width)))
+    // 2.00 em is what Liberation Sans Bold actually sets `91%` in.
+    expect(size * 2.0).toBeLessThanOrEqual(box.width)
+    expect(blockExtent(block, box, 1080, unit).width).toBeLessThanOrEqual(box.width)
   })
 
   /** The estimate errs WIDE, never narrow: a line more than predicted is a block through its own edge. */

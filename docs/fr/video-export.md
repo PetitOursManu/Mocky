@@ -273,20 +273,48 @@ et ça coûte zéro octet.
 celle que les chiffres suggèrent. Ce qu’un colorateur produit, c’est un *thème* :
 vingt à quarante valeurs hexadécimales, une par type de jeton, dont aucune n’a
 été mesurée contre la surface sur laquelle un film les peint. `composedPalette`
-offre trois runs mesurés sur un panneau. Ces trente couleurs n’ont donc que deux
+offre quatre runs mesurés sur un panneau. Ces trente couleurs n’ont donc que deux
 endroits où aller — dans un bloc, en hexadécimal que personne n’a mesuré, ce qui
 est le défaut qui a livré un titre vert foncé sur une image presque noire et que
-`blocks.test.js` refuse net, ou rabattues sur trois runs, auquel cas le
+`blocks.test.js` refuse net, ou rabattues sur des runs mesurés, auquel cas le
 colorateur n’a rien fait qu’un rôle ne fasse. `codeBlock` porte donc un `role`
 par ligne, le modèle dit ce qu’est chaque ligne, et aucun langage n’est deviné à
 partir d’une chaîne. Ça évite aussi de faire tourner un moteur d’expressions
 régulières sur du texte écrit par un modèle, dans un rendu sous échéance.
 
+**Le quatrième de ces runs appartient à ce bloc, et c’est un plancher, pas une
+nuance.** Un panneau portait le même trio que le fond — du display à 3:1, du
+texte courant à 4,5:1 et assourdi, un ornement — parce que tous les panneaux du
+catalogue étaient un titre, un sous-titre et une marque. Un listing n’a pas cette
+forme : ses lignes `plain` sont la MAJORITÉ du panneau, elles sont du texte
+courant au pas `body`, et elles allaient sur `panelDisplay` parce que c’était le
+seul run restant qui ne fût pas l’assourdi. Vingt lignes de monospace à 21 px
+partaient donc mesurées à 3:1, 3,19:1 au pire cas du balayage, sur un plancher que
+l’audit accorde à la TAILLE — 24 px, ou 18,66 px en gras — et un mur de code n’est
+ni l’un ni l’autre. Grossir le texte n’est pas l’issue : 64 caractères, le plafond
+que le schéma pose sur une ligne, à 24 px font 921 px pour 906 px de mesure sûre
+en `9:16`, et une ligne de code qui se replie est un autre programme à l’écran.
+C’est donc le run qui a bougé. `panelText` est du texte courant à pleine force sur
+le panneau, `panelBody` reste l’assourdi, et `plain`, `muted` et `accent` sont
+trois rôles sur quatre runs plutôt que trois rôles ajustés à trois. Ça ne coûte
+rien aux trois autres — un panneau opaque n’a pas de voile à partager — et il a
+toujours une réponse là où `panelBody` en a une, puisqu’assourdir une encre la
+mélange VERS la surface contre laquelle on la mesure.
+
 Ces deux-là forment une famille à part, `setPiece`, et la famille n’est pas
 décorative non plus : les six autres groupent les blocs par ce qu’ils SONT,
-celle-ci les groupe par ce qu’ils COÛTENT. C’est là que le prompt peut dire « au
-plus un dans tout le film », qui est la seule chose dont un modèle doive être
-averti à leur sujet.
+celle-ci les groupe par ce qu’ils COÛTENT. Ce dernier mot mérite d’être précis,
+parce que la moitié de ce qu’il voulait dire est désormais bornée par
+l’arithmétique. Le canevas d’un `solidScene` est une part de la boîte PROPRE du
+bloc — voir plus bas — et une boîte est une part de la zone sûre : une scène qui
+en nomme huit dessine ce que dessine une seule image, et
+`tests/video-composed-frame.test.js` le prouve au lieu de le demander. La facture
+de rendu est donc plafonnée quoi qu’un fournisseur fasse du conseil. Ce qui ne
+l’est pas, et ce à quoi sert le prompt, c’est l’ATTENTION : chacun de ces deux
+blocs est une scène entière, « au plus un dans tout le film » est donc une règle
+éditoriale, et la fiche dit qu’un set piece entassé dans une pile ne devient pas
+cher — il devient petit, ce qui est un moteur de rendu entier occupé à dessiner
+une vignette.
 
 #### Une zone, et un rang
 
@@ -546,6 +574,23 @@ composition peint et `palette.ground.tint` ce qui a été mesuré — ils diffè
 exactement du champ, et lire le second dans `Ground` le peindrait deux fois et
 prendrait l’extrémité lointaine d’un dégradé sur l’accent.
 
+**Une deuxième brèche porte un nom, et c’est celle que la phrase ci-dessus existe
+pour empêcher.** Un champ est mesuré comme l’ACCENT, parce que les cinq blocs qui
+vont chercher `full` — `equalizer`, `soundWave`, `map`, `lineChart`, `barChart` —
+peignent l’accent en run ou en aplat. `gallery`, `carousel` et `imageFrame`
+peuvent aussi être ancrés `full`, et ce qu’ils peignent, ce sont des
+photographies : une pile posée sur l’un d’eux, c’est du texte sur des images que
+personne ici n’a ouvertes, mesuré contre un accent qui n’est pas à l’image. Aucun
+voile ne le couvre non plus, `COMPOSED_IMAGE_VEIL` appartenant au FOND `image`.
+C’est écrit dans `gallery.jsx` et dans ce paragraphe plutôt que laissé à
+redécouvrir, parce que la façon dont cette fonctionnalité perd une garantie, c’est
+un commentaire disant qu’un bloc « ne porte aucun texte, donc la seule chose qu’il
+puisse rater est de dépenser du contraste dont autre chose avait besoin » — vrai
+d’un bloc dans une cellule, faux d’un bloc qui est une surface, et cette phrase a
+survécu à six passes sur ces fichiers avant qu’un export ne la démente. Le
+correctif, le jour où il sera fait, appartient à `composedPalette` à côté de
+`FIELD_ALPHAS`, et à rien sous `blocks/`.
+
 #### Et la garantie que rien ne reste immobile aussi
 
 `tests/video-motion.test.js` pose sa question à la variante composée également,
@@ -567,6 +612,20 @@ quand le fond s’anime. Un terme est annoncé quand la composition le dessine e
 jamais autrement, ce qui est la règle que le kicker a enseignée : un nombre qui
 bouge sur une image qui ne bouge pas est exactement ce qu’un test « est-ce que
 quelque chose a bougé » aurait accepté.
+
+**`ground` est le terme pour lequel « la composition le dessine » n’est pas un
+fait du document.** Les trois fonds animés bougent tous en bougeant la seconde
+couche du fond, et cette couche CÈDE : `texturedGround` l’abandonne quand le fond
+nu porte tous les runs et que le fond teinté ne les porte pas, et `fieldedGround`
+l’abandonne une fois que le champ a épuisé ses échelons. Une décoration cède à un
+mot — et l’image sur laquelle elle cède est un aplat, avec une progression
+`ground` qui court de 0 à 1 dessus. Sa survie est une réponse de lisibilité, donc
+il lui faut un thème, et `sceneMotion` n’en a jamais reçu : c’est la composition
+qui fait descendre ce qu’elle peint réellement (`groundPainted`, que `Ground` lit
+pour la même décision) plutôt que le mouvement qui devine. C’est théorique sur le
+corpus d’aujourd’hui — six fonds sur une douzaine de directions réelles, et la
+teinte survit à chacune — ce qui est une affirmation sur le corpus, pas sur la
+prochaine direction que quelqu’un écrira.
 
 **Il n’y a délibérément aucun kicker automatique.** Les cinq autres dessinent le
 compteur du film parce que leur mise en page lui fait une place. La mise en page

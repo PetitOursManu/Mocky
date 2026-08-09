@@ -8,8 +8,14 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       THIS block's own box in pixels, off `composedLayout`. Every length
+ *             below comes out of it — never out of the frame.
+ *   unit      the type unit its stack agreed on. This block sets no type.
+ *   base      the frame's SHORT edge. Legitimate here for exactly one quantity,
+ *             the hairline: a CONSTANT METRIC, one of the three named in
+ *             `CONSTANT_METRICS`. A rule 3 px thick under one headline and 9 px
+ *             under a smaller one in the next scene is not a hairline, it is two
+ *             design systems in one film.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
@@ -41,17 +47,30 @@
  * rules, or a dotted band. The stub drew the dots underneath a solid stroke,
  * which made `dots` mean `rule` and something, and left the enum with two entries
  * that differed by an ornament instead of three a document chooses between.
+ *
+ * -- Its LENGTH is the box's, and that is the half that was wrong -------------
+ *
+ * `extent` is a share of the measure the zone gave THIS block — `DECLARED_SHARE`,
+ * the one table `blockExtent` answers from — so a rule across a third of a column
+ * is a third as long as the same rule across a whole frame, and the number a test
+ * measures is the number the frame draws. Only the thickness is the frame's, and
+ * `hairline` bounds even that at a quarter of the box: a rule inside a tiny zone
+ * thins to fit rather than becoming the block.
  */
 import { separatorGeometry } from './misc.js'
 
-export const Separator = ({ block, palette, base, progress, life }) => {
-  const rule = separatorGeometry(block, base, progress, life)
+export const Separator = ({ block, palette, box, base, progress, life }) => {
+  const rule = separatorGeometry(block, box, base, progress, life)
   const stroke = { height: rule.thickness, backgroundColor: palette.accent.color }
 
   return (
     <div
       style={{
-        width: `${rule.width * 100}%`,
+        // Pixels off `separatorGeometry`, not a percentage of whatever the parent
+        // turns out to be: the box is a number `composedLayout` published and
+        // `video-composed-frame.test.js` can prove nothing crosses the safe
+        // margin. A `%` here draws the same rule and answers no question.
+        width: rule.length,
         // Clipped rather than scaled, and the reason is in `separatorGeometry`:
         // a `scaleX` squashes what it reveals, so the dotted treatment arrived as
         // a row of ellipses that grew round as the rule finished. `inset()` reads

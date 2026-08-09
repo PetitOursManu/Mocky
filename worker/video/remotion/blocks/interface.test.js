@@ -29,20 +29,47 @@ import {
   FORM_FILLED_BY,
   NOTICE_GONE_BY,
   NOTICE_LEAVES_AT,
+  NOTICE_TRAVEL,
+  PANEL_SEPARATION,
   REST_CREEP,
   bandExit,
+  bandGeometry,
   bandReveal,
   bandWidth,
+  buttonGeometry,
   buttonPress,
   buttonScale,
+  constantMetric,
   controlClock,
   formCadence,
+  formGeometry,
   markSwing,
   noticeExit,
+  noticeGeometry,
   noticeSlide,
+  noticeTravel,
+  panelEdge,
+  panelInks,
   restOffset,
 } from './interface.js'
-import { ANCHORS, COMPOSED_BLOCK_DRIFT, CUE_ENTER_FRAMES, composedPalette, cueProgress, layerCues, resolveTheme } from '../composition.js'
+import {
+  ANCHORS,
+  COMPOSED_BLOCK_DRIFT,
+  CONSTANT_CEILING,
+  CUE_ENTER_FRAMES,
+  DIMENSIONS,
+  blockExtent,
+  composedLayout,
+  composedPalette,
+  contrastRatio,
+  cueProgress,
+  frameBase,
+  layerCues,
+  resolveTheme,
+  surfaceRange,
+  typeSize,
+  worstRatio,
+} from '../composition.js'
 // The four components, and the schema that decides what they are handed. Both
 // imports are TEST-ONLY and the second one has to stay that way, for the reason
 // `blocks.test.js` spells out: the Docker build copies `worker/video/` and
@@ -56,7 +83,7 @@ import { Button } from './button.jsx'
 import { Form } from './form.jsx'
 import { LowerThird } from './lowerThird.jsx'
 import { Notification } from './notification.jsx'
-import { BlockSchema } from '../../../../server/video/timeline.js'
+import { BLOCK_LIMITS, BlockSchema } from '../../../../server/video/timeline.js'
 
 /** A sweep fine enough that a window 0.12 wide cannot hide between two samples. */
 const sweep = (steps = 400) => Array.from({ length: steps + 1 }, (_, i) => i / steps)
@@ -439,9 +466,33 @@ describe('what the four of them actually paint', () => {
     { progress: 1, life: 1 },
   ]
 
-  const paint = (Component, block, frame) =>
+  /**
+   * The box and the unit a block would really be handed, off the layout itself.
+   *
+   * Not a plausible rectangle: `composedLayout` is what divides a zone by
+   * appetite and solves the stack's type unit, and a component fed a box nothing
+   * computed is a component tested against a picture rather than against the
+   * contract. It is also the cheapest way to keep these fixtures honest when the
+   * weight table moves.
+   */
+  const laid = (block, ratio = '16:9') => {
+    const { width, height } = DIMENSIONS[ratio]
+    const [zone] = composedLayout({ layers: [block] }, width, height).zones
+    return { box: zone.layers[0].box, unit: zone.layers[0].unit, base: frameBase(width, height) }
+  }
+
+  const paint = (Component, block, frame, where = laid(block)) =>
     renderToStaticMarkup(
-      createElement(Component, { block, palette: PALETTE, theme: THEME, base: BASE, images: {}, ...frame }),
+      createElement(Component, {
+        block,
+        palette: PALETTE,
+        theme: THEME,
+        images: {},
+        box: where.box,
+        unit: where.unit,
+        base: where.base ?? BASE,
+        ...frame,
+      }),
     )
 
   const cases = [
@@ -495,5 +546,338 @@ describe('what the four of them actually paint', () => {
     const markup = paint(Form, parse({ kind: 'form', fields: ['Email'], submit: 'Create' }), { progress: 1, life: 0.95 })
     expect(markup.match(/clip-path:inset\(/g) ?? []).toHaveLength(1)
     expect(markup.match(/>Create</g) ?? []).toHaveLength(2)
+  })
+})
+
+// ── A block inhabits the box it is given ────────────────────────────────────
+//
+// The defect a reading of six real exports named, in this family's own words: a
+// pill was `base * 0.03` of type inside `base * 0.018` of padding and a card was
+// `base * 0.56` wide, whether the zone was a third of a portrait column or the
+// whole safe area. Every scene was a small element floating in a large void.
+//
+// Three claims, and each one fails a fraction of the frame however plausible the
+// picture it drew: what the four of them draw IS the box they were handed; it
+// stays inside it; and doubling the box doubles it while the frame stays put.
+
+const parseBlock = (input) => BlockSchema.parse(input)
+const filler = (n) => 'Mot '.repeat(Math.ceil(n / 4)).slice(0, n).trim()
+
+/** The poorest and the longest legal block of each of the four, at the schema's own bounds. */
+const POOREST = {
+  button: parseBlock({ kind: 'button', label: 'Go' }),
+  form: parseBlock({ kind: 'form', fields: ['Nom'] }),
+  notification: parseBlock({ kind: 'notification', title: 'Ok', mark: 'none' }),
+  lowerThird: parseBlock({ kind: 'lowerThird', title: 'Ada' }),
+}
+const LONGEST = {
+  button: parseBlock({ kind: 'button', label: filler(BLOCK_LIMITS.buttonLabel) }),
+  form: parseBlock({
+    kind: 'form',
+    title: filler(BLOCK_LIMITS.formTitle),
+    fields: Array.from({ length: BLOCK_LIMITS.formFields }, () => filler(BLOCK_LIMITS.formField)),
+    submit: filler(BLOCK_LIMITS.formSubmit),
+  }),
+  notification: parseBlock({
+    kind: 'notification',
+    title: filler(BLOCK_LIMITS.noticeTitle),
+    body: filler(BLOCK_LIMITS.noticeBody),
+    mark: 'bell',
+  }),
+  lowerThird: parseBlock({
+    kind: 'lowerThird',
+    title: filler(BLOCK_LIMITS.lowerTitle),
+    subtitle: filler(BLOCK_LIMITS.lowerSubtitle),
+  }),
+}
+
+const KINDS = ['button', 'form', 'notification', 'lowerThird']
+const GEOMETRY = {
+  button: buttonGeometry,
+  form: formGeometry,
+  notification: noticeGeometry,
+  lowerThird: bandGeometry,
+}
+/** The two the weight table puts in the `both` row: a panel owes its box both axes. */
+const PANELS = new Set(['form', 'notification'])
+
+/** Every shape a zone can turn out to be, in all three ratios — the same sweep `blockExtent` gets. */
+const SHAPES = []
+for (const [ratio, { width, height }] of Object.entries(DIMENSIONS)) {
+  const base = frameBase(width, height)
+  const safe = { left: 0, top: 0, width: Math.round(width * 0.88), height: Math.round(height * 0.88) }
+  SHAPES.push([`${ratio} whole`, safe, base])
+  SHAPES.push([`${ratio} band`, { ...safe, height: Math.round(safe.height / 3) }, base])
+  SHAPES.push([`${ratio} cell`, { ...safe, width: Math.round(safe.width / 3), height: Math.round(safe.height / 3) }, base])
+  SHAPES.push([`${ratio} strip`, { ...safe, width: Math.round(safe.width / 3), height: Math.round(safe.height / 8) }, base])
+}
+
+describe('the box a block of this family is given, and what it draws in it', () => {
+  /**
+   * The claim itself, against the layout that hands out the boxes.
+   *
+   * `composedLayout` divides a zone by appetite and solves one type unit for the
+   * stack; these four then answer for one box each. The two computations come
+   * from opposite directions and have to agree, which is what would catch this
+   * family drifting from the weight table that sized its allotment — the exact
+   * shape of the defect, since `BLOCK_APPETITE` is where "a notification is a
+   * title, a line and 1.6 units of card" is written down.
+   */
+  it('draws exactly the box `composedLayout` gave it, in every ratio', () => {
+    for (const [ratio, { width, height }] of Object.entries(DIMENSIONS)) {
+      const base = frameBase(width, height)
+      for (const corpus of [POOREST, LONGEST]) {
+        for (let count = 1; count <= KINDS.length; count += 1) {
+          for (let seed = 0; seed < KINDS.length; seed += 1) {
+            const layers = Array.from({ length: count }, (_, i) => corpus[KINDS[(seed + i) % KINDS.length]])
+            for (const zone of composedLayout({ layers }, width, height).zones) {
+              for (const { block, box, unit } of zone.layers) {
+                const drawn = GEOMETRY[block.kind](block, box, base, unit)
+                const where = `${ratio} ${block.kind} in a stack of ${count}`
+                // The height, whole, on all four: the box IS the allotment, and
+                // a block that drew less than it would be the void this pass is
+                // about, one level in.
+                expect(drawn.height, where).toBe(box.height)
+                expect(drawn.height, where).toBeCloseTo(blockExtent(block, box, base, unit).height, -0.5)
+                if (PANELS.has(block.kind)) expect(drawn.width, where).toBe(box.width)
+                else {
+                  // A run of type owes its box whichever axis its own words
+                  // reach — two letters cannot fill a landscape measure without
+                  // being taller than the box — so what is asserted here is that
+                  // it is at least the measure `blockExtent` predicted and never
+                  // past the box.
+                  expect(drawn.width, where).toBeGreaterThan(0)
+                  expect(drawn.width, where).toBeLessThanOrEqual(box.width)
+                  // To within one line of its own type, which is exactly what
+                  // the difference is: `blockExtent` caps a run by the measure
+                  // and this family caps it by the measure its padding leaves,
+                  // so a label that already ran the measure comes back one
+                  // floored type size under the extent's own answer.
+                  expect(drawn.width + (drawn.size ?? drawn.title), where).toBeGreaterThanOrEqual(
+                    blockExtent(block, box, base, unit).width,
+                  )
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+
+  /**
+   * And nothing it draws crosses that box.
+   *
+   * `content` is what each geometry says it needs — the runs at the size it
+   * solved, plus its own furniture — so this is the padding question asked
+   * arithmetically: a card that spends 130 px of measure on padding wraps a line
+   * the box was never sized for, which is `fitUnit`'s whole reason to exist.
+   * Swept over both ends of the schema and every shape a zone can be, with and
+   * without a stack's unit, because the lone block in a big box and the block in
+   * a strip fail it in opposite directions.
+   */
+  it('keeps what it draws inside the box, at both ends of the schema', () => {
+    for (const corpus of [POOREST, LONGEST]) {
+      for (const kind of KINDS) {
+        for (const [where, box, base] of SHAPES) {
+          for (const unit of [undefined, typeSize('body', 40)]) {
+            const drawn = GEOMETRY[kind](corpus[kind], box, base, unit)
+            const at = `${kind} @ ${where}${unit ? ' in a stack' : ' alone'}`
+            expect(drawn.width, at).toBeLessThanOrEqual(box.width)
+            expect(drawn.height, at).toBeLessThanOrEqual(box.height)
+            if (drawn.content !== undefined) expect(drawn.content, at).toBeLessThanOrEqual(box.height)
+            // A control has one line and no card around it, so its own check is
+            // that the line fits the pill the box turned out to be.
+            if (kind === 'button') expect(drawn.size * 1.4, at).toBeLessThanOrEqual(box.height)
+          }
+        }
+      }
+    }
+  })
+
+  /**
+   * The property a fraction of the frame cannot have: double the box and the
+   * stack's unit, hold the FRAME still, and everything doubles.
+   *
+   * `base` is deliberately the same number in both halves. A size read off it —
+   * which is what all four of these files did — comes back identical rather than
+   * doubled, so this is the assertion that would have failed before the pass and
+   * the one that fails if somebody puts a fraction of the frame back.
+   */
+  it('doubles everything it draws when its box doubles, with the frame held still', () => {
+    const base = frameBase(1920, 1080)
+    for (const corpus of [POOREST, LONGEST]) {
+      for (const kind of KINDS) {
+        for (const [w, h] of [[900, 400], [500, 500], [320, 700]]) {
+          const unit = 30
+          const one = GEOMETRY[kind](corpus[kind], { left: 0, top: 0, width: w, height: h }, base, unit)
+          const two = GEOMETRY[kind](corpus[kind], { left: 0, top: 0, width: w * 2, height: h * 2 }, base, unit * 2)
+          for (const [term, value] of Object.entries(one)) {
+            if (typeof value !== 'number' || value === 0) continue
+            // The constant metrics are the exception, and the only one: a rule
+            // 3 px thick under a heading in one scene and 6 px under a smaller
+            // one in the next is two design systems in one film.
+            if (term === 'border' || term === 'caret') {
+              expect(two[term], `${kind} ${term} @ ${w}×${h}`).toBe(value)
+              continue
+            }
+            // Double, to within rounding — and rounding is the whole reason the
+            // claim is not an equality: a type size is an INTEGER number of
+            // pixels, so twice a floored 17 is 34 and the doubled box's own
+            // answer is 35. Either form of "within rounding" will do, because
+            // what is being caught is a term that does not move at all: a
+            // fraction of `base` comes back at a ratio of exactly 1.
+            const drift = Math.abs(two[term] - 2 * value)
+            const ratio = two[term] / value
+            expect(drift <= 4 || Math.abs(ratio - 2) <= 0.1, `${kind} ${term} @ ${w}×${h} → ${ratio}`).toBe(true)
+          }
+        }
+      }
+    }
+  })
+
+  /**
+   * The same question asked of the markup, which is the half the arithmetic
+   * cannot reach: a component that computed a size correctly and then painted a
+   * fraction of `base` anyway would pass everything above.
+   */
+  it('paints type that doubles with the box, in the four components themselves', () => {
+    const theme = resolveTheme({ colors: { background: '#101014', text: '#f4f4f6', accent: '#7f5af0' } })
+    const palette = composedPalette(theme)
+    const base = frameBase(1920, 1080)
+    const sizes = (markup) => (markup.match(/font-size:(\d+(?:\.\d+)?)px/g) ?? []).map((hit) => Number(hit.slice(10, -2)))
+    const components = { button: Button, form: Form, notification: Notification, lowerThird: LowerThird }
+
+    for (const kind of KINDS) {
+      const draw = (box, unit) =>
+        renderToStaticMarkup(
+          createElement(components[kind], {
+            block: LONGEST[kind],
+            palette,
+            theme,
+            box,
+            unit,
+            base,
+            images: {},
+            progress: 1,
+            life: 0.5,
+          }),
+        )
+      const one = sizes(draw({ left: 0, top: 0, width: 700, height: 320 }, 26))
+      const two = sizes(draw({ left: 0, top: 0, width: 1400, height: 640 }, 52))
+      expect(one.length, kind).toBeGreaterThan(0)
+      expect(two.length, kind).toBe(one.length)
+      one.forEach((size, i) => expect(two[i] / size, `${kind} run ${i}`).toBeCloseTo(2, 1))
+    }
+  })
+
+  /** The exception, bounded: a radius wider than a quarter of its row is a lozenge, not a card. */
+  it('bounds a constant metric inside the box it is drawn in', () => {
+    expect(constantMetric(12, { width: 900, height: 400 })).toBe(12)
+    expect(constantMetric(12, { width: 900, height: 20 })).toBe(Math.floor(20 * CONSTANT_CEILING))
+    // A direction that states a square corner has stated one: rounding it up to
+    // a pixel would be the layout overruling the document.
+    expect(constantMetric(0, { width: 900, height: 400 })).toBe(0)
+    expect(constantMetric(undefined, { width: 900, height: 400 })).toBe(0)
+  })
+
+  /** An amplitude belongs to the thing that moves, not to the frame it moves in. */
+  it('travels a share of its own box and not of the film', () => {
+    expect(noticeTravel({ width: 800, height: 400 })).toBeCloseTo(400 * NOTICE_TRAVEL, 6)
+    expect(noticeTravel({ width: 200, height: 400 })).toBeCloseTo(200 * NOTICE_TRAVEL, 6)
+    expect(noticeTravel(undefined)).toBe(0)
+  })
+})
+
+/**
+ * A panel has to be SEEN, and that is arithmetic too.
+ *
+ * The export that named it: on a light direction — surface `#ffffff` over a
+ * background `#f7f5f0` — a notification had neither border nor shadow, so the
+ * card was invisible and the notice read as a rectangle of text floating on the
+ * frame. Every run on it had been measured against the panel and nothing had
+ * asked whether the panel itself could be told apart from what it sits on.
+ */
+describe('a panel is distinguished from the ground, and it is measured', () => {
+  const directions = {
+    'the light direction that shipped the defect': {
+      colors: { background: '#f7f5f0', surface: '#ffffff', text: '#111111', accent: '#20796c' },
+    },
+    'a dark direction whose card is a shade of its ground': {
+      colors: { background: '#101014', surface: '#1d1d24', text: '#f4f4f6', accent: '#7f5af0' },
+    },
+    'a direction whose surface is the far end of its own scale': {
+      colors: { background: '#0b0b0d', surface: '#e9e9ef', text: '#111111', accent: '#e4572e' },
+    },
+    'a direction that stated nothing at all': {},
+  }
+
+  for (const [name, spec] of Object.entries(directions)) {
+    it(`draws a rule on ${name} exactly when the value alone does not carry it`, () => {
+      const palette = composedPalette(resolveTheme(spec))
+      const edge = panelEdge(palette.panel, palette.ground, panelInks(palette))
+      const apart = worstRatio(
+        palette.panel.color,
+        surfaceRange(palette.ground.color, palette.ground.alpha, palette.ground.tint),
+      )
+      // The two branches are one question: an edge exists when the card cannot
+      // be told apart from the ground on its own value, and never otherwise —
+      // drawing one always would undo the "trois niveaux de surface" the design
+      // system asks for with an ornament.
+      expect(edge === null, name).toBe(apart >= PANEL_SEPARATION)
+      if (!edge) return
+      // And it is visible from BOTH sides. A rule that clears only against the
+      // ground is a card with a halo; one that clears only against the panel is
+      // a rule nobody can see the outside of.
+      const inside = contrastRatio(edge.color, palette.panel.color)
+      const outside = worstRatio(
+        edge.color,
+        surfaceRange(palette.ground.color, palette.ground.alpha, palette.ground.tint),
+      )
+      expect(Math.min(inside, outside), `${name} ${edge.color}`).toBeGreaterThanOrEqual(PANEL_SEPARATION)
+    })
+  }
+
+  /** It measures; it never invents. Every candidate is a colour the palette already resolved. */
+  it('draws its rule in a colour the palette resolved', () => {
+    const palette = composedPalette(resolveTheme(directions['the light direction that shipped the defect']))
+    const edge = panelEdge(palette.panel, palette.ground, panelInks(palette))
+    expect(panelInks(palette)).toContain(edge.color)
+  })
+
+  /**
+   * And the card really carries it. The arithmetic above is only half the claim —
+   * a component that never read `panelEdge` would pass every one of those.
+   */
+  it('puts that rule on the card the light direction made invisible', () => {
+    const theme = resolveTheme(directions['the light direction that shipped the defect'])
+    const palette = composedPalette(theme)
+    const block = parseBlock({ kind: 'notification', title: 'Deployed', body: 'Two minutes ago.' })
+    const markup = renderToStaticMarkup(
+      createElement(Notification, {
+        block,
+        palette,
+        theme,
+        box: { left: 0, top: 0, width: 900, height: 320 },
+        unit: 34,
+        base: 1080,
+        images: {},
+        progress: 1,
+        life: 0.5,
+      }),
+    )
+    expect(markup).toContain('border:')
+  })
+
+  /**
+   * Nothing clears on a mid-tone panel over a mid-tone ground, and the answer is
+   * the most visible candidate rather than none: a faint edge is a card, and no
+   * edge is the rectangle of text this whole section is about (Q1).
+   */
+  it('degrades to the most visible rule rather than to none', () => {
+    const edge = panelEdge({ color: '#808080' }, { color: '#7d7d7d' }, ['#8a8a8a', '#000000'])
+    expect(edge).not.toBeNull()
+    expect(edge.color).toBe('#000000')
+    expect(panelEdge({ color: '#808080' }, { color: '#7d7d7d' }, [])).toBeNull()
   })
 })

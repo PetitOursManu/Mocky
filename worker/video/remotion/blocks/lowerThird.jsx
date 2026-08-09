@@ -8,15 +8,20 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       **the box THIS block was given**, in pixels. Every size drawn here
+ *             comes off it - see the rule at the top of `composition.js`, and
+ *             `blockExtent`, which is what a block owes the box it is handed.
+ *   unit      the type unit its STACK agreed on, so two blocks in one zone are
+ *             two steps of one scale rather than two fractions of a frame.
+ *   base      the frame's short edge. Reserved for the three constant metrics
+ *             named in `CONSTANT_METRICS` - here, the band's own edge.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
  *
  * SURFACE: a PANEL: the block sits on `palette.panel`, its title takes `palette.panelDisplay`, its subtitle `palette.panelBody`, and the rule `palette.panelAccent`.
  *
- * LEGIBILITY: The panel is opaque, which is the whole reason this device works over anything: a band letting the ground through would be a run measured against a surface that changes with whatever background the scene carries.
+ * LEGIBILITY: The panel is opaque, which is the whole reason this device works over anything: a band letting the ground through would be a run measured against a surface that changes with whatever background the scene carries. Being opaque is not the same as being visible, though - `panelEdge` measures the band against the ground and gives it a rule when the two cannot be told apart.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -29,6 +34,23 @@
  *      frame arrives as `progress` and `life` - and staying free of it is what
  *      lets `blocks.test.js` load the whole registry inside Mocky's own suite,
  *      where Remotion is not installed.
+ *
+ * -- The band is as tall as its box, and as wide as its name ------------------
+ *
+ * Both halves of that are the rule at the top of `composition.js`, and the first
+ * one is what was wrong: the type was `base * 0.042` and the padding
+ * `base * 0.02`, so a band given the bottom third of a frame drew a 100 px
+ * stripe inside a 300 px allotment and the scene was a small element floating in
+ * a large void. It is now the box, whole, with the type solved against the room
+ * its padding leaves - `bandGeometry`.
+ *
+ * The width is the type's, and that is `bandInset`'s lesson rather than an
+ * oversight: a band that runs the full measure and touches three sides is a
+ * lower third from a news bulletin, with two thirds of it empty behind a
+ * four-word title. In a box solved against a stack the two usually coincide,
+ * because the unit grows until the title wraps and a wrapped title has used the
+ * whole measure by definition. What is gone is the arbitrary fraction, not the
+ * measure.
  *
  * -- It arrives sideways, and it leaves the same way -------------------------
  *
@@ -48,7 +70,9 @@
  *
  * **The rule leads.** It is at the leading edge, so the wipe reveals it first and
  * the band unrolls from it: an accent stripe that arrived with everything else
- * would be an ornament rather than the thing the band comes out of.
+ * would be an ornament rather than the thing the band comes out of. It is the one
+ * piece of furniture in this family that scales with its box instead of being a
+ * constant metric - see `BAND_RULE` for why an edge is not a hairline.
  *
  * This is also the intro and the outro the catalogue is asked for. That is the
  * reason it leaves later than a notification does - `BAND_LEAVES_AT` - since an
@@ -58,9 +82,12 @@
 
 import {
   BAND_SUBTITLE_FROM,
+  bandGeometry,
   bandReveal,
   bandWidth,
   controlClock,
+  panelEdge,
+  panelInks,
   restOffset,
 } from './interface.js'
 
@@ -71,15 +98,18 @@ const Revealed = ({ reveal, children, style }) => (
   </div>
 )
 
-export const LowerThird = ({ block, palette, theme, base, progress, life }) => {
+export const LowerThird = ({ block, palette, theme, box, unit, base, progress, life }) => {
   const fromLeft = block.side === 'left'
   const clock = controlClock(progress, life)
   const open = bandWidth(progress, clock)
+  const band = bandGeometry(block, box, base, unit)
+  const edge = panelEdge(palette.panel, palette.ground, panelInks(palette))
   // Positive is INWARD, whichever edge the band came from: the settle approaches
   // the mark `composedLayout` gave it and never passes it, which is what keeps a
   // full-measure band off the safe margin on every frame rather than on most of
-  // them.
-  const settle = restOffset(clock) * base * (fromLeft ? 1 : -1)
+  // them. A share of the band's own width, for the reason the notice's travel is
+  // a share of its own box: an amplitude belongs to the thing that moves.
+  const settle = restOffset(clock) * band.width * (fromLeft ? 1 : -1)
 
   return (
     <div
@@ -87,24 +117,46 @@ export const LowerThird = ({ block, palette, theme, base, progress, life }) => {
         display: 'flex',
         flexDirection: fromLeft ? 'row' : 'row-reverse',
         alignItems: 'stretch',
+        // The box's own height, whole; the width its type runs, capped by the
+        // box. See `bandGeometry`, and the header for why those are not the same
+        // sentence.
+        width: band.width,
+        height: band.height,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
         // Wiped in from its own edge rather than faded, and wiped back out to it:
         // a band that appears is a caption, a band that arrives is a device.
         clipPath: fromLeft ? `inset(0 ${(1 - open) * 100}% 0 0)` : `inset(0 0 0 ${(1 - open) * 100}%)`,
         transform: `translateX(${settle}px)`,
         backgroundColor: palette.panel.color,
-        maxWidth: '100%',
+        // A band the same value as the ground behind it is a caption that lost
+        // its block: opaque and invisible at once. Measured, and drawn as a rule
+        // rather than as a shadow — the house has no shadows.
+        ...(edge ? { border: `${band.border}px solid ${edge.color}` } : null),
       }}
     >
-      <div style={{ width: Math.max(3, Math.round(base * 0.005)), backgroundColor: palette.panelAccent.color }} />
-      <div style={{ padding: `${Math.round(base * 0.02)}px ${Math.round(base * 0.03)}px`, minWidth: 0 }}>
+      <div style={{ flex: '0 0 auto', width: band.rule, backgroundColor: palette.panelAccent.color }} />
+      <div
+        style={{
+          flex: '1 1 auto',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          // The staircase's leftover is air inside the band rather than a band
+          // shorter than the box it was given: the type stops one tread below the
+          // height, and the padding is what fills the difference.
+          justifyContent: 'center',
+          padding: `${band.padY}px ${band.padX}px`,
+        }}
+      >
         <Revealed
           reveal={bandReveal(progress)}
           style={{
             fontFamily: theme.headingFont,
-            fontSize: Math.round(base * 0.042),
+            fontSize: band.title,
             fontWeight: 800,
             letterSpacing: '-0.01em',
-            lineHeight: 1.2,
+            lineHeight: 1.14,
             color: palette.panelDisplay.color,
           }}
         >
@@ -114,10 +166,10 @@ export const LowerThird = ({ block, palette, theme, base, progress, life }) => {
           <Revealed
             reveal={bandReveal(progress, BAND_SUBTITLE_FROM)}
             style={{
-              marginTop: Math.round(base * 0.008),
+              marginTop: band.gap,
               fontFamily: theme.bodyFont,
-              fontSize: Math.round(base * 0.026),
-              lineHeight: 1.3,
+              fontSize: band.subtitle,
+              lineHeight: 1.35,
               color: palette.panelBody.color,
             }}
           >

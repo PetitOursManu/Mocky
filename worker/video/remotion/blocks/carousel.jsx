@@ -1,5 +1,5 @@
 /**
- * `carousel` - pictures sliding past, one after another.
+ * `carousel` - pictures sliding past, one after another, across the whole box.
  *
  * -- The contract every block in this directory is written to ----------------
  *
@@ -8,8 +8,12 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       {left, top, width, height} in pixels - **this block's own box**,
+ *             not its zone's. The view size and the stride both come out of it.
+ *   unit      the type unit of this block's STACK, in pixels. A carousel carries
+ *             no run, so it reads it only for the travel of its own arrival.
+ *   base      the frame's short edge. Reserved for the three constant metrics
+ *             `CONSTANT_METRICS` names - here, the gutter and the radius.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
@@ -18,7 +22,10 @@
  * No text.
  *
  * LEGIBILITY: Same as `gallery`: no run, nothing to measure, and a caption added
- * later belongs on a panel.
+ * later belongs on a panel - including the gap that file names, which this one
+ * has in the same shape. A `full` carousel under a stack is a surface made of
+ * photographs, and the fielded palette measures a field as the ACCENT; a moving
+ * strip of pictures is neither. Read the note in `gallery.jsx`.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -32,11 +39,21 @@
  *      lets `blocks.test.js` load the whole registry inside Mocky's own suite,
  *      where Remotion is not installed.
  *
+ * -- The view comes from the box, and that is the fix ------------------------
+ *
+ * A view used to be `0.3 x the frame's short edge` across and `0.24` tall,
+ * whatever box the block was handed. A carousel anchored `full` in a 16:9 frame
+ * therefore drew a 259 px strip inside a zone 950 px tall - a ribbon floating in
+ * a black field, which is the "rudimentary" the user kept naming. Now the view
+ * is as tall as the box and as wide as its share of the measure: `carouselView`
+ * decides how many fit, from the box's own shape, and the stride is one view and
+ * one gutter.
+ *
  * -- One loop per scene, and why that is the honest rate ---------------------
  *
  * A speed is a distance over a TIME, and this block is handed neither: `life` is
  * the scene's own clock already normalised, so a rate in pixels per second is
- * not something it can express — the same wall the clock's `sweep` runs into one
+ * not something it can express - the same wall the clock's `sweep` runs into one
  * file along. Any constant rate would therefore be a rate tuned for one scene
  * length and wrong at the other end of a window that runs from 1.5 s to 15 s.
  *
@@ -46,117 +63,56 @@
  * asks for a shorter scene, which is a thing it can say.
  *
  * The strip is drawn several times over for the same reason a loop is seamless
- * at all — `carouselCopies` guarantees there is always another picture where the
- * eye is about to look, and `carousel.test.js` holds it to that rather than to
- * this paragraph. A gap arriving at the edge of a frame is a film showing its
- * own machinery.
+ * at all - `carouselCopies` guarantees there is always another picture where the
+ * eye is about to look, and it is handed the window the BOX turned out to show
+ * rather than a bound written for the widest frame. A gap arriving at the edge
+ * of a frame is a film showing its own machinery.
  */
+import {
+  carouselCopies,
+  carouselOffset,
+  carouselView,
+  clamp01,
+  constantMetric,
+  enterRise,
+  stackUnit,
+  tileGutter,
+} from './media.js'
 
-/** 0 to 1, for a clock this file is handed rather than one it computes. */
-const clamp01 = (value) => Math.min(1, Math.max(0, Number(value) || 0))
-
-/** A tile, as fractions of the short edge: three tenths across and a quarter tall. */
-export const CAROUSEL_TILE = 0.3
-export const CAROUSEL_HEIGHT = 0.24
-export const CAROUSEL_GAP = 0.012
-
-/** A tile's corner, as a share of the project's declared radius — `gallery`'s own. */
-export const CAROUSEL_TILE_RADIUS = 0.7
-
-/** How far the track rises as it arrives, as a fraction of the short edge. */
-export const CAROUSEL_RISE = 0.02
-
-/** How many tile widths the track advances over one scene. See the header. */
-export const CAROUSEL_LOOPS = 1
-
-/**
- * The most tiles a frame can show at once, and therefore how much strip has to
- * exist beyond the one being looked at.
- *
- * A 16:9 safe area is 1690 px across and a tile with its gutter is 337, so five
- * whole tiles and a sliver: six covers it, and six covers the other two ratios
- * with room to spare since both are narrower. It is a bound rather than a
- * measurement because this block is never told its own width — the zone comes
- * from `composedLayout`, one level up.
- */
-export const CAROUSEL_WINDOW = 6
-
-/** The distance from one tile to the next, in pixels. */
-export function carouselStride(base) {
-  const edge = Math.max(0, Number(base) || 0)
-  return Math.round(edge * CAROUSEL_TILE) + Math.round(edge * CAROUSEL_GAP)
-}
-
-/**
- * How many times the document's pictures are laid end to end.
- *
- * Enough that the strip still reaches past the right-hand edge when the track
- * has travelled its whole length: the loop is seamless because there is another
- * copy of the same picture where the first one was, and never because anything
- * jumps back to the start. Two copies are enough for eight pictures and four are
- * needed for two, which is why this is arithmetic and not a constant.
- */
-export function carouselCopies(count) {
-  const total = Math.max(1, Math.floor(Number(count) || 0))
-  return Math.max(2, Math.ceil((total * CAROUSEL_LOOPS + CAROUSEL_WINDOW) / total))
-}
-
-/**
- * Where the track sits at a given point of the scene, in TILES, signed.
- *
- * Monotonic in `life` and never wrapped, which is what makes "the track is
- * somewhere else on every frame" a claim a test can check: a modulo would put
- * one frame per loop back where an earlier one was, and that frame is the whole
- * point of the rule. The seam is paid for in copies instead — cheaper, since a
- * tile is a `div` and a discontinuity is a film that stutters once a scene.
- *
- * `left` means the pictures travel leftwards, which is the direction a reader of
- * a left-to-right language expects a strip of them to move. `right` is the same
- * travel begun a full length back, so the strip arrives from off-frame rather
- * than uncovering the ground behind it.
- */
-export function carouselOffset(direction, count, life) {
-  const total = Math.max(1, Math.floor(Number(count) || 0))
-  const travelled = clamp01(life) * CAROUSEL_LOOPS * total
-  return direction === 'right' ? travelled - total * CAROUSEL_LOOPS : -travelled
-}
-
-export const Carousel = ({ block, palette, theme, base, progress, life, images }) => {
+export const Carousel = ({ block, palette, theme, box, unit, base, progress, life, images }) => {
   const ids = block.imageIds
-  const stride = carouselStride(base)
-  const copies = carouselCopies(ids.length)
-  const arrival = clamp01(progress)
-  const radius = Math.round(Math.max(0, Number(theme.radiusPx) || 0) * CAROUSEL_TILE_RADIUS)
+  const gap = tileGutter(base, box)
+  const view = carouselView(box, gap)
+  const copies = carouselCopies(ids.length, view.visible)
+  const radius = constantMetric(theme.radiusPx, view.tile)
+  const rise = stackUnit(block, box, unit)
   const strip = Array.from({ length: copies * ids.length }, (_, i) => ids[i % ids.length])
   return (
     <div
       style={{
+        // The box, and all of it: the window the strip runs behind. Everything
+        // outside it is another picture, never the ground - that is what the
+        // copies buy.
         width: '100%',
-        maxWidth: '100%',
-        // The window the strip runs behind. Everything outside it is another
-        // picture, never the ground: that is what the copies buy.
+        height: '100%',
         overflow: 'hidden',
-        height: Math.round(base * CAROUSEL_HEIGHT),
-        maxHeight: '100%',
-        minHeight: 0,
-        flex: '0 1 auto',
-        opacity: arrival,
-        transform: `translateY(${(1 - arrival) * base * CAROUSEL_RISE}px)`,
+        opacity: clamp01(progress),
+        transform: `translateY(${enterRise(rise, progress)}px)`,
       }}
     >
       <div
         style={{
           display: 'flex',
-          gap: Math.round(base * CAROUSEL_GAP),
+          gap,
           height: '100%',
-          transform: `translateX(${carouselOffset(block.direction, ids.length, life) * stride}px)`,
+          transform: `translateX(${carouselOffset(block.direction, ids.length, life) * view.stride}px)`,
         }}
       >
         {strip.map((id, index) => (
           <div
             key={index}
             style={{
-              flex: `0 0 ${Math.round(base * CAROUSEL_TILE)}px`,
+              flex: `0 0 ${view.tile.width}px`,
               height: '100%',
               overflow: 'hidden',
               borderRadius: radius,

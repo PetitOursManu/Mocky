@@ -371,6 +371,22 @@ Ten things, and the first one is not negotiable.
       is an opacity on the ZONE, so the twenty-eighth block cannot forget it.
       `palette.groundTint` is what gets painted, `palette.ground.tint` is what got
       measured, and they differ by exactly the field.
+
+      Three corollaries, and the third is the one to read first. **A floor is
+      chosen by type ROLE, never by the run a surface happens to offer** — a
+      `codeBlock`'s `plain` lines are the bulk of a panel and are running text, so
+      the panel carries a FOURTH run, `panelText`, at 4.5 and full strength;
+      before it, twenty lines of 21 px monospace shipped on `panelDisplay`'s 3:1.
+      **A `ground` progress follows the PAINT and not the kind**: the three
+      animated grounds move by moving a tint that yields, so `ComposedSceneVideo`
+      passes `groundPainted(palette)` into `sceneMotion` instead of the motion
+      guessing. And **the sentence that hid all of this is still in the tree, as
+      history**: "it carries no text, so the only thing it can get wrong is
+      spending contrast something else needed". Every block that is a surface now
+      says why that is false of it. `gallery`, `carousel` and `imageFrame`
+      anchored `full` are a field of PHOTOGRAPHS and the fielded palette measures
+      the accent — that gap is named in `gallery.jsx` and in the doc rather than
+      quietly true.
     - **One block costs a dependency, and it was measured before it was taken.**
       `solidScene` needs `three`, `@react-three/fiber` and `@remotion/three` —
       MIT, no native binary, +32 MB on a 1.57 GB image, +4 s on an 83 s build,
@@ -380,9 +396,15 @@ Ten things, and the first one is not negotiable.
       the enum until it measured 2.7 s/s and 16× the bitrate; Skia was refused at
       +461 MB of prebuilt binaries for four platforms this container cannot run;
       a syntax highlighter was refused because its output is thirty unmeasured
-      hex values and the palette offers three measured runs. `funTitle` and
+      hex values and the palette offers four measured runs. `funTitle` and
       `codeBlock` are what those two became without a package. The numbers and
       the reasoning are in `docs/video-export.md`.
+      Half of what `setPiece` means is now **bounded by the layout rather than by
+      the prompt**: a solid's canvas is a share of its own BOX, so a scene naming
+      eight of them draws what one frame draws, and
+      `tests/video-composed-frame.test.js` proves it. "At most one in the whole
+      film" is therefore about attention, and the card says the true cost — a set
+      piece in a crowded stack does not get expensive, it gets small.
     - **Nothing in `blocks/` imports `remotion`, writes a colour, or eases.** The
       frame arrives as `progress` and `life`; that is what lets `blocks.test.js`
       load the registry in Mocky's own suite and prove it matches the schema in

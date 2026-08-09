@@ -372,12 +372,15 @@ export const SPINS = ['tumble', 'turn', 'rock'] as const
  * `shiki` costs 14.6 MB and `prismjs` 2.1 MB — neither is expensive, and neither
  * was refused on weight. A highlighter's output is a theme: twenty to forty hex
  * values, one per token type, none of them measured against the surface the film
- * paints them on. `composedPalette` offers three measured runs on a panel, so
+ * paints them on. `composedPalette` offers four measured runs on a panel, so
  * thirty-odd token colours have nowhere to land: either the block writes hex
  * nobody measured — which `blocks.test.js` refuses and which is exactly the
  * defect that shipped a dark green headline on a near-black frame — or the
- * highlighter's thirty colours collapse onto three, at which point the
- * highlighter did nothing a four-role reader does not.
+ * highlighter's thirty colours collapse onto a handful, at which point the
+ * highlighter did nothing a role does not. The count moved from three to four
+ * when `panelText` was added — `plain` is running text and had been reading a
+ * run measured at the display floor — and the argument is untouched by it: the
+ * trade is thirty unmeasured values against any number of measured ones.
  *
  * So the roles ARE the schema. The model says what each line is, the block draws
  * it in the run the palette resolved, and nothing infers language from a string.

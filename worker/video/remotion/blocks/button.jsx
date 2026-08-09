@@ -8,15 +8,20 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       **the box THIS block was given**, in pixels. Every size drawn here
+ *             comes off it - see the rule at the top of `composition.js`, and
+ *             `blockExtent`, which is what a block owes the box it is handed.
+ *   unit      the type unit its STACK agreed on, so two blocks in one zone are
+ *             two steps of one scale rather than two fractions of a frame.
+ *   base      the frame's short edge. Reserved for the three constant metrics
+ *             named in `CONSTANT_METRICS` - here, the outline's weight.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
  *
  * SURFACE: its own FILL: `palette.fill` painted, `palette.onFill` for the label. The outline variant sits on the ground instead and takes `palette.accent`.
  *
- * LEGIBILITY: This is where the measured-ink discipline came from - the product card's call to action was the only legible element in the export that started all of it, because it was the only one choosing its ink by measuring. Filled: read `onFill`. Outline: read `accent`. Never the other way round.
+ * LEGIBILITY: This is where the measured-ink discipline came from - the product card's call to action was the only legible element in the export that started all of it, because it was the only one choosing its ink by measuring. Filled: read `onFill`. Outline: read `accent`. Never the other way round. And a filled pill is itself a SURFACE, so `panelEdge` asks whether it can be told apart from the ground before trusting its own fill to draw its edge.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -30,7 +35,7 @@
  *      lets `blocks.test.js` load the whole registry inside Mocky's own suite,
  *      where Remotion is not installed.
  *
- * -- Why it grows, and why it presses ----------------------------------------
+ * -- It is a conclusion, at the size of its box ------------------------------
  *
  * A button is the end of a frame, never a fifth line of it, and everything about
  * this block is that one sentence. The product card names three devices that turn
@@ -39,6 +44,14 @@
  * control GROWS onto its mark while everything above it rose onto theirs.
  * `buttonScale` is where that lives, with the reason `layerCues` cannot hand it a
  * beat of silence.
+ *
+ * What it was NOT was the size of the frame it was in. Every dimension in here
+ * used to be a fraction of `base` - `base * 0.03` of type inside `base * 0.018`
+ * of padding - so the same 19 px pill was drawn in a third of a portrait column
+ * and in a zone that had the whole safe area, and a button alone on a scene was a
+ * small control floating in a large void. `buttonGeometry` answers off the box
+ * instead: the pill is as tall as the box, its label as large as the box and the
+ * stack's own unit allow, and its width is what that label takes.
  *
  * Then it is pressed - once, late, and back. A control that arrives and holds
  * still is a picture of a control, and the press is the only thing that says the
@@ -53,47 +66,62 @@
  * to prevent, arriving as an ornament.
  */
 
-import { buttonScale, controlClock } from './interface.js'
+import { PILL_TRACKING, buttonGeometry, buttonScale, constantMetric, controlClock, panelEdge } from './interface.js'
 
-/**
- * The outline's own weight, and the filled variant's invisible one.
- *
- * The filled pill carries the same border in its own fill colour rather than
- * none, so the two variants have the same box to the pixel: a document that
- * switches between them would otherwise move every block stacked under it in the
- * zone by four pixels, for a change that was supposed to be a colour.
- */
-const OUTLINE_PX = 2
-
-export const Button = ({ block, palette, theme, base, progress, life }) => {
+export const Button = ({ block, palette, theme, box, unit, base, progress, life }) => {
   const filled = block.variant === 'filled'
   const clock = controlClock(progress, life)
+  const pill = buttonGeometry(block, box, base, unit)
+  /*
+   * A filled pill is a surface of its own, and a surface nobody can tell apart
+   * from the ground behind it is a label floating on the frame. It is the same
+   * defect the notification named on a light direction, one block over: the ink
+   * on the fill was measured, the fill against the ground was not. Its own
+   * colour when it stands on its own - which is what keeps the two variants the
+   * same box to the pixel - and a measured edge when it does not.
+   */
+  const edge = filled
+    ? panelEdge(palette.fill, palette.ground, [palette.onFill.color, palette.display.color, palette.accent.color])
+    : null
   return (
     <span
       style={{
-        display: 'inline-flex',
+        display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
+        // The box's own height, whole: `BLOCK_APPETITE` sizes a button at one
+        // line of body type inside 1.3 units of furniture, so the box a button
+        // is handed IS a pill of that shape and the padding is what centring the
+        // label spends. The width is the label's, capped by the box - see
+        // `buttonGeometry` for why a control owes its box the height and not the
+        // measure.
+        width: pill.width,
+        height: pill.height,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        padding: `0 ${pill.padX}px`,
         opacity: progress,
         // Never above 1, on any frame: `buttonScale` is an approach and a
         // subtraction, never an overshoot. A pill larger than its mark is a pill
         // past the margin on the four anchors that sit against one.
         transform: `scale(${buttonScale(progress, clock, block.press)})`,
-        padding: `${Math.round(base * 0.018)}px ${Math.round(base * 0.034)}px`,
-        borderRadius: theme.radiusPx,
-        boxSizing: 'border-box',
+        borderRadius: constantMetric(theme.radiusPx, box),
         backgroundColor: filled ? palette.fill.color : 'transparent',
-        border: `${OUTLINE_PX}px solid ${filled ? palette.fill.color : palette.accent.color}`,
+        border: `${pill.border}px solid ${filled ? (edge?.color ?? palette.fill.color) : palette.accent.color}`,
         color: filled ? palette.onFill.color : palette.accent.color,
         fontFamily: theme.bodyFont,
-        fontSize: Math.round(base * 0.03),
+        fontSize: pill.size,
         fontWeight: 700,
-        letterSpacing: '0.01em',
-        // Deliberately allowed to wrap, and bounded by the zone it was given. A
-        // label is thirty characters and a three-column portrait zone is a fifth
-        // of 1080 px, so a pill that refused to wrap would be a pill leaving the
-        // frame - and a control past the safe margin is a worse picture than a
-        // control on two lines.
-        maxWidth: '100%',
+        letterSpacing: PILL_TRACKING,
+        lineHeight: 1,
+        // It used to be allowed to wrap, and that was the right answer while the
+        // type size was a fraction of the frame: a thirty-character label at a
+        // size nothing had measured against the zone really could leave the
+        // frame, and two lines beat that. It is now solved against the measure
+        // the padding leaves, so the label fits by construction - and a wrapped
+        // second line inside a pill whose height is its box would be the line
+        // that hangs outside it.
+        whiteSpace: 'nowrap',
         textAlign: 'center',
       }}
     >

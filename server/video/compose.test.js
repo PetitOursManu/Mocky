@@ -300,6 +300,45 @@ describe('proposeTimeline — the catalogue of blocks', () => {
   })
 
   /**
+   * The anchor decides what a block IS, and the prompt has to say so.
+   *
+   * It did not, and the omission was invisible while every block drew a fixed
+   * fraction of the FRAME: a chart was the same chart in a cell and in `full`,
+   * only placed differently. Since a block fills the box its zone gives it, the
+   * two are a figure beside a sentence and a surface a sentence stands on — the
+   * same word buying two different scenes. A model that does not know it anchors
+   * a heading `full` and gets a headline set as large as the frame with the rest
+   * of the stack on top of it.
+   */
+  it('says that an anchor decides a block’s size, not only its place', () => {
+    expect(system).toMatch(/It also decides how BIG a block is/)
+    expect(system).toMatch(/Every block FILLS\n  the space its zone gives it/)
+    expect(system).toMatch(/the same chart in "full" is the surface your words stand on/)
+    // And the one thing about a field that is done FOR the document, said as a
+    // fact rather than as an option: there is no field for it and `.strict()`
+    // refuses a document that invents one.
+    expect(system).toMatch(/quietened for you so the words on it stay readable/)
+  })
+
+  /**
+   * A set piece is bounded by the layout; the prompt bounds what the layout
+   * cannot.
+   *
+   * "At most one in the whole film" is a request, and a request is not a budget —
+   * the schema accepts eight `solidScene` blocks in one scene and a provider that
+   * ignores the advice would have spent somebody's render deadline. It cannot any
+   * more: the canvas is a share of the block's own box, so a scene of eight draws
+   * what one frame draws, which `tests/video-composed-frame.test.js` proves. What
+   * is left for the prompt is the cost arithmetic cannot bound, and the card has
+   * to say the true reason rather than the one that used to be true.
+   */
+  it('tells the truth about what a set piece costs now that the box bounds it', () => {
+    expect(system).toContain('SET PIECES — each of these is a whole scene')
+    expect(catalogue(system)).toMatch(/- solidScene:[\s\S]*?it makes it small/)
+    expect(catalogue(system)).toMatch(/- solidScene:[\s\S]*?a whole renderer drawing a thumbnail/)
+  })
+
+  /**
    * There is no audio in this feature, and two blocks look as though there is.
    * The card has to say so, or a model writes a film "synced to the beat" of
    * something that does not exist.

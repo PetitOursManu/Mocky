@@ -8,15 +8,20 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       THIS block's own box in pixels. This component never reads it: the
+ *             canvas is sized by `solidCanvas(box, size)` and opened around this
+ *             block by `ComposedSceneVideo`, so what arrives here is already a
+ *             square of the right number of pixels. Inside it there is no box —
+ *             there is a camera, and `SOLID_BOUND` is the box's stand-in.
+ *   unit      the type unit its stack agreed on. This block sets no type.
+ *   base      the frame's SHORT edge. Unused here, for the same reason as `box`.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
  *
  * SURFACE: the ground, through `palette.solid` - a material colour and an ambient share, resolved by `solidShading`.
  *
- * LEGIBILITY: No text. The solid is the one thing in this directory painted at more than one brightness, so the guarantee had to be extended rather than reused: a Lambert face lies on the segment between `material x ambient` and `material`, both ends are measured against the ground, and contrast is monotone between them. `solidShading` carries the proof. A light placed here instead would be the first face of an object nobody could see.
+ * LEGIBILITY: No text. The solid is the one thing in this directory painted at more than one brightness, so the guarantee had to be extended rather than reused: a Lambert face lies on the segment between `material x ambient` and `material`, both ends are measured against the ground, and contrast is monotone between them. `solidShading` carries the proof. A light placed here instead would be the first face of an object nobody could see. AND ONE GAP, NAMED RATHER THAN LEFT QUIETLY TRUE, the way `gallery` names its own: this block anchored `full` UNDER A STACK is a second ground that `composedPalette` does not measure. `fieldedGround` samples a field painted in the ACCENT — which is what `equalizer`, `soundWave`, `map` and the two charts paint — and this one is painted in `palette.solid.color`, which is `palette.display.color`: the same ink a `heading` over it would use, so the two meet at 1:1 wherever they overlap. `field.alpha` still dims the zone, but the ladder it walks was measured against a colour this block does not paint. The compose prompt is what keeps that out of a film — `full` is for the things the rest of the scene sits ON, a set piece is a whole scene, and at most one of them exists in a film — and the schema does not enforce any of it. Closing it properly means the palette knowing WHICH ink a field paints, not just that there is one, and that is a change to `composedPalette`'s contract rather than a line here.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -48,6 +53,17 @@
  * `ComposedSceneVideo` around this block and around no other. The renderer is
  * the composition's business, as the frame, the layout and the palette already
  * are.
+ *
+ * -- What `size` means, and what it used to mean -----------------------------
+ *
+ * `small`, `medium` and `large` are shares of the block's own box, and until this
+ * pass they were shares of a canvas the four solids then filled by four different
+ * amounts: a sphere of radius 1.9 drew 82% of it, a torus of 1.7 + 0.62 drew all
+ * of it, a cube of side 2.6 drew barely half. Three documents asking for `large`
+ * got three sizes, and the worst of them shipped as a torus at 15% of the frame's
+ * height. Every geometry is now built to one bounding radius, `SOLID_BOUND`,
+ * which is the exact radius at which the camera's frustum touches the edge of the
+ * canvas — so a solid fills the box the layout gave it, whichever solid it is.
  *
  * -- What this block costs, because it is the one that costs ------------------
  *

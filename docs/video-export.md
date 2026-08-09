@@ -255,20 +255,45 @@ Skia. It is not nothing, and it costs zero bytes.
 which against 1.57 GB is nothing at all, so the answer is not the one the numbers
 suggest. What a highlighter produces is a *theme*: twenty to forty hex values,
 one per token type, none of them measured against the surface a film paints them
-on. `composedPalette` offers three measured runs on a panel. Those thirty colours
+on. `composedPalette` offers four measured runs on a panel. Those thirty colours
 therefore have exactly two places to go — into a block as hex nobody measured,
 which is the defect that shipped a dark green headline on a near-black frame and
-which `blocks.test.js` refuses outright, or collapsed onto three runs, at which
-point the highlighter did nothing a role does not. So `codeBlock` carries a
+which `blocks.test.js` refuses outright, or collapsed onto measured runs, at
+which point the highlighter did nothing a role does not. So `codeBlock` carries a
 `role` per line, the model says what each line is, and no language is inferred
 from a string. That also keeps a regex engine off model-written text inside a
 render under a deadline.
 
+**The fourth of those runs is this block's, and it is a floor rather than a
+shade.** A panel used to carry the same trio the ground does — display type at
+3:1, running text at 4.5:1 and quieted, an ornament — because every panel in the
+catalogue was a title, a subtitle and a mark. A listing is not that shape: its
+`plain` lines are the MAJORITY of the panel, they are running text at the `body`
+step, and they went to `panelDisplay` because that was the only run left that was
+not the quiet one. So twenty lines of 21 px monospace shipped measured at 3:1,
+worst case 3.19:1 across the sweep, on a floor the audit licenses by SIZE — 24 px,
+or 18.66 px bold — and a wall of code is neither. Raising the type is not the way
+out: 64 characters, the schema's own ceiling for a line, at 24 px are 921 px
+across a 906 px safe measure in `9:16`, and a line of code that wraps is a
+different program on the screen. So the run moved instead. `panelText` is running
+text at full strength on the panel, `panelBody` stays the quiet one, and `plain`,
+`muted` and `accent` are three roles on four runs rather than three roles fitted
+to three. It costs the other three nothing — an opaque panel has no veil to
+share — and it always has an answer wherever `panelBody` does, since quieting an
+ink blends it towards the surface it is measured against.
+
 Both of those are in a family of their own, `setPiece`, and the family is not
 decoration either: the other six group blocks by what they ARE, and this one
-groups by what they COST. It is where the prompt gets to say "at most one in the
-whole film", which is the only thing about these two a model has to be warned
-about.
+groups by what they COST. That last word is worth being exact about, because half
+of what it used to mean is now bounded by arithmetic. A `solidScene` canvas is a
+share of the block's OWN box — see below — and a box is a share of the safe area,
+so a scene naming eight of them draws what one frame draws, and
+`tests/video-composed-frame.test.js` proves it rather than asking for it. The
+render bill is therefore capped whatever a provider does with the advice. What is
+not capped, and what the prompt is for, is ATTENTION: each of these two is a whole
+scene, so "at most one in the whole film" is an editorial rule, and the card says
+that a set piece crowded into a stack does not become expensive — it becomes
+small, which is a whole renderer drawing a thumbnail.
 
 #### A zone, and a rank
 
@@ -510,6 +535,21 @@ composition paints and `palette.ground.tint` is what was measured — they diffe
 exactly the field, and reading the second in `Ground` would paint it twice and take
 a gradient's far end off the accent.
 
+**A second gap has a name, and it is the one the sentence above is written to
+prevent.** A field is measured as the ACCENT, because the five blocks that reach
+for `full` — `equalizer`, `soundWave`, `map`, `lineChart`, `barChart` — paint the
+accent as a run or as a fill. `gallery`, `carousel` and `imageFrame` can be
+anchored `full` too, and what they paint is photographs: a stack over one of them
+is text on pictures nobody in this process has opened, measured against an accent
+that is not on the frame. No veil covers it either, since `COMPOSED_IMAGE_VEIL`
+belongs to the `image` GROUND. It is written down in `gallery.jsx` and in this
+paragraph rather than left to be rediscovered, because the way this feature loses
+a guarantee is a comment that says a block "carries no text, so the only thing it
+can get wrong is spending contrast something else needed" — true of a block in a
+cell, false of a block that is a surface, and it survived six passes over these
+files before an export found it. The fix, when it is made, belongs in
+`composedPalette` beside `FIELD_ALPHAS` and in nothing under `blocks/`.
+
 #### And so does the guarantee that nothing holds still
 
 `tests/video-motion.test.js` asks its question of the composed variant too, on the
@@ -528,6 +568,19 @@ The reported terms are `drift` and one `layers` progress per block, always — p
 animates. A term is reported when the composition draws it and never otherwise,
 which is the rule the kicker taught: a number that moves on a frame that does not
 is exactly what a "did anything move" test would have accepted.
+
+**`ground` is the term where "the composition draws it" is not a fact about the
+document.** All three animated grounds move by moving the ground's second layer,
+and that layer YIELDS: `texturedGround` drops it when the bare ground carries
+every run and the tinted one does not, and `fieldedGround` drops it once the field
+has run out of rungs. A decoration cedes to a word — and the frame it cedes on is
+a flat colour with a `ground` progress running 0 → 1 over it. Whether it survives
+is a legibility answer, so it needs a theme, and `sceneMotion` has never been
+given one; the composition passes down what it is actually painting
+(`groundPainted`, which `Ground` reads for the same decision) rather than the
+motion guessing. It is theoretical on today's corpus — six grounds across a dozen
+real directions and the tint survives every one — which is a statement about the
+corpus and not about the next direction somebody writes.
 
 **There is deliberately no automatic kicker.** The other five draw the film's own
 counter because their layout has a place for it. A composed scene's layout is the

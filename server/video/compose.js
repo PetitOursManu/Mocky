@@ -806,7 +806,7 @@ const BLOCK_NOTES = {
   },
   soundWave: {
     what: 'a waveform running across the frame.',
-    right: 'the equalizer is the right idea and a wider, calmer one is wanted: it sits well under other blocks.',
+    right: 'the equalizer is the right idea and a calmer one is wanted: it is the quieter of the two and it sits well under other blocks.',
     wrong: 'described as a recording, for the reason above: there is nothing to record.',
   },
   map: {
@@ -857,7 +857,7 @@ const BLOCK_NOTES = {
   solidScene: {
     what: 'a lit solid, turning in real perspective.',
     right: 'the film needs an object rather than a picture: an opening, an abstract subject, a product that has no photograph.',
-    wrong: 'twice in one film, or with a stack around it. It is the most expensive thing in this catalogue and it is at its best alone on the frame with one line of type.',
+    wrong: 'twice in one film, or crowded into a stack. It draws inside the space its anchor gives it, so a busy cell does not make it costly — it makes it small, and a lit solid the size of a caption is a whole renderer drawing a thumbnail. It is at its best alone on the frame with one line of type.',
   },
 }
 
@@ -903,7 +903,15 @@ const FAMILY_TITLES = {
   data: 'DATA — numbers you state, drawn on a scale the composition owns',
   media: 'PICTURES AND TIME',
   misc: 'THE SMALL PIECES',
-  setPiece: 'SET PIECES — the expensive ones. At most one in the whole film',
+  /*
+   * The header used to read "the expensive ones", and the render bill is no
+   * longer what makes them one family: a set piece draws inside the box its
+   * anchor gave it, so eight of them in a scene cost what one frame costs — which
+   * `tests/video-composed-frame.test.js` proves rather than asks for. What a
+   * sentence in a prompt cannot bound, and what stays true, is ATTENTION: each of
+   * these two is a whole scene, and a scene holding both holds neither.
+   */
+  setPiece: 'SET PIECES — each of these is a whole scene. At most one in the whole film',
 }
 
 /** One card: three sentences of prose, then the shape, with every bound read off the schema. */
@@ -1010,9 +1018,16 @@ function buildComposedSystem(imageCount, kinds, grounds) {
     'EVERY BLOCK ALSO TAKES THESE TWO. They are not repeated on the cards.',
     `- "anchor": ${ANCHORS.join('|')} = ${scene.anchorDefault}.`,
     '  A ZONE, never a coordinate. Two blocks anchored to the same zone STACK there, in the order you',
-    '  wrote them — that is how a kicker sits over a heading, and it costs one repeated word. "full" is',
-    '  the whole safe frame and is painted UNDER the nine cells: give it to a map, a wave or a gallery,',
-    '  something the other blocks sit on.',
+    '  wrote them — that is how a kicker sits over a heading, and it costs one repeated word.',
+    '  It also decides how BIG a block is, and that is the part worth reading twice. Every block FILLS',
+    '  the space its zone gives it: alone in a scene it is the scene, sharing a cell it takes the share',
+    '  of that cell its own kind is worth. So the same block in two places is two different things, and',
+    '  the anchor is the only thing you write that says which — a chart in a cell is a figure beside',
+    '  your words, and the same chart in "full" is the surface your words stand on.',
+    '  "full" is the whole safe frame and is painted UNDER the nine cells. Give it to a map, a wave, a',
+    '  gallery, a chart — something the rest of the scene sits ON — and not to type, which in "full" is',
+    '  a headline set as large as the frame with the other blocks on top of it. A field carrying a stack',
+    '  is quietened for you so the words on it stay readable; you do not write that and cannot ask for it.',
     `- "enter": ${scene.enterSpec}, a RANK and not a delay. Blocks sharing a rank arrive together, so a`,
     '  heading and the rule under it are one arrival. Leave it out and the blocks arrive in the order you',
     '  wrote them, which is right most of the time; write it when two things are one gesture, or when the',

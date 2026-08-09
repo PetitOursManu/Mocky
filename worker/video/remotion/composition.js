@@ -1578,6 +1578,73 @@ export const MEAN_GLYPH_EM = 0.52
 export const MEAN_MONO_EM = 0.6
 
 /**
+ * The advance of one glyph CLASS, in ems of the same family — used for the runs
+ * where the average above is not good enough.
+ *
+ * 0.52 is the mean of a SENTENCE, and a sentence is mostly lowercase. A run that
+ * cannot break is usually not a sentence: a counter's face is digits and a sign,
+ * a wordmark is capitals. Two real exports are why this table exists. `91%`
+ * measured 2.00 em against the 1.56 the average predicted, so a counter anchored
+ * `center-right` was sized to a box it then ran 172 px past — and since a nowrap
+ * run has no line to give back, what a frame shows is a per cent sign sliced off
+ * by the edge of the video. `MOCKY` did the same into the column beside it.
+ *
+ * The numbers are Liberation Sans Bold's own, rounded UP within each class:
+ * digits are tabular at 0.556, its capitals average 0.71, its lowercase 0.53,
+ * and `%` is 0.889 — the one glyph wide enough to be its own class, because a
+ * three-character counter is two thirds of a per cent sign. `other` is generous
+ * on purpose: `+` is 0.584 while a comma is 0.278, and the asymmetry says which
+ * of the two to be wrong about.
+ */
+export const GLYPH_CLASS_EM = { digit: 0.58, upper: 0.73, lower: 0.53, space: 0.29, wide: 0.93, other: 0.5 }
+
+/** The glyphs wide enough that averaging them away is what clipped a counter. */
+const WIDE_GLYPHS = '%‰@&№'
+
+/**
+ * The mean advance of ONE STRING, rather than of a language.
+ *
+ * Floored at `MEAN_GLYPH_EM` so this can only ever widen an estimate: it is
+ * reached from `runAdvanceEm` for unbreakable runs alone, where an underestimate
+ * is a glyph outside the frame and an overestimate is a slightly smaller block.
+ */
+export function meanAdvanceEm(text) {
+  const line = [...String(text ?? '').trim()]
+  if (line.length === 0) return MEAN_GLYPH_EM
+  let sum = 0
+  for (const glyph of line) {
+    if (glyph >= '0' && glyph <= '9') sum += GLYPH_CLASS_EM.digit
+    else if (WIDE_GLYPHS.includes(glyph)) sum += GLYPH_CLASS_EM.wide
+    else if (glyph === ' ') sum += GLYPH_CLASS_EM.space
+    else if (glyph.toLowerCase() !== glyph.toUpperCase()) {
+      sum += glyph === glyph.toUpperCase() ? GLYPH_CLASS_EM.upper : GLYPH_CLASS_EM.lower
+    } else sum += GLYPH_CLASS_EM.other
+  }
+  return Math.max(MEAN_GLYPH_EM, sum / line.length)
+}
+
+/**
+ * The advance one run is measured at — the one reading of that question.
+ *
+ * Three cases and the middle one is the whole point: a monospace face has one
+ * advance, an unbreakable run is measured on its own glyphs because it has no
+ * line to give back, and everything else keeps the sentence average that
+ * `LINE_SAFETY` already insures.
+ */
+export function runAdvanceEm(run) {
+  if (run?.mono) return MEAN_MONO_EM
+  if (run?.nowrap) return meanAdvanceEm(run?.text)
+  // A run the COMPOSITION sets in capitals is measured in capitals, whatever the
+  // document typed. `kicker` is the only one, and it is the case where the two
+  // ways of being wrong meet: capitals are half an em wider than the sentence
+  // average and the block adds 0.2 em of tracking on top, so a six-letter
+  // surtitle the estimate put on one line came back on two — the second holding
+  // the single letter `C`, below the bottom of a box the layout had already
+  // divided the frame by.
+  return run?.caps ? meanAdvanceEm(String(run?.text ?? '').toUpperCase()) : MEAN_GLYPH_EM
+}
+
+/**
  * The margin the wrap estimate keeps for itself.
  *
  * Words are not glyphs of equal width, and CSS breaks between them rather than
@@ -1689,7 +1756,7 @@ function shapeHeight(shape, width, unit) {
   let drawn = 0
   for (const run of shape?.runs ?? []) {
     const role = typeRole(run?.role)
-    const advance = run?.mono ? MEAN_MONO_EM : MEAN_GLYPH_EM
+    const advance = runAdvanceEm(run)
     const size = at * role.step
     // A run that cannot break has ONE line whatever it costs — a seven-digit
     // counter wrapped onto three lines is not a counter, and nothing in `words()`
@@ -1733,7 +1800,7 @@ export function shapeCeiling(shape, width) {
   for (const run of shape?.runs ?? []) {
     if (!run?.nowrap) continue
     if (String(run?.text ?? '').trim().length === 0) continue
-    const advance = run.mono ? MEAN_MONO_EM : MEAN_GLYPH_EM
+    const advance = runAdvanceEm(run)
     ceiling = Math.min(ceiling, cappedByWidth(run, width, advance) / typeRole(run.role).step)
   }
   return ceiling
@@ -1971,7 +2038,14 @@ export const BLOCK_APPETITE = {
     fills: 'either',
     runs: (b) => [{ role: b?.level === 'display' ? 'display' : b?.level === 'subtitle' ? 'body' : 'title', text: b?.text }],
   },
-  kicker: { fixed: 0.7, fills: 'either', runs: (b) => [{ role: 'caption', text: b?.text, tracking: KICKER_TRACKING_EM }] },
+  // `caps` because `kicker.jsx` sets a `text-transform`, and a run measured in
+  // the case the document typed is a run measured in the wrong face. See
+  // `runAdvanceEm`.
+  kicker: {
+    fixed: 0.7,
+    fills: 'either',
+    runs: (b) => [{ role: 'caption', text: b?.text, tracking: KICKER_TRACKING_EM, caps: true }],
+  },
   quote: { fixed: 0.9, fills: 'either', runs: (b) => [{ role: 'title', text: b?.text }, { role: 'caption', text: b?.attribution }] },
   textHighlight: { fixed: 0.5, fills: 'either', runs: (b) => [{ role: 'body', text: b?.text }] },
   funTitle: { fixed: 0.9, fills: 'either', runs: (b) => [{ role: 'display', text: b?.text }] },
@@ -2110,7 +2184,7 @@ export function blockExtent(block, box, base, unit) {
   const spent = Math.min(solved, shapeCeiling(shape, width))
   for (const run of shape.runs) {
     const role = typeRole(run.role)
-    const advance = run.mono ? MEAN_MONO_EM : MEAN_GLYPH_EM
+    const advance = runAdvanceEm(run)
     const size = spent * role.step
     const lines = run.nowrap
       ? (String(run.text ?? '').trim().length ? 1 : 0)
@@ -2394,7 +2468,19 @@ export function composedLayout(scene, width, height) {
     // `stretch` is a legal `align-items` and not a legal `justify-content`, so
     // the sharing zone is reported as a flag and a valid pair rather than as a
     // value the composition would have to translate.
-    const justify = cell.row === 'stretch' ? 'flex-start' : cell.row
+    //
+    // The pair is `center` and it used to be `flex-start`, which was the wrong
+    // half of the same sentence. A field fills both axes and does not care; a
+    // block anchored `full` that fills only ONE — a counter whose figure has
+    // stopped growing at the measure, a `codeBlock` whose lines cannot wrap —
+    // takes the height it takes and leaves the rest. Pinned to the top, that
+    // leftover is a band of nothing under the block, which is exactly the void
+    // this pass exists to remove: two real exports put a seven-digit counter in
+    // the upper two thirds of a frame and eight lines of code in the top third of
+    // a square. A band's own edge is the safe edge and that is why the nine cells
+    // keep theirs; `full` has no edge to anchor to, so its leftover is spent
+    // symmetrically.
+    const justify = cell.row === 'stretch' ? 'center' : cell.row
     const stack = stackIn(box, inZone, gap, justify)
     zones.push({
       anchor,
@@ -2650,6 +2736,39 @@ export const COMPOSED_BLOCK_DRIFT = TITLE_BLOCK_DRIFT
  */
 export const ANIMATED_BACKGROUNDS = ['gradient', 'gridPulse', 'particles']
 
+/**
+ * Whether the composition will actually paint the ground's second layer.
+ *
+ * The three animated grounds all move by moving that layer — a ramp slid across
+ * the frame, a grid pulsing, a field of dots drifting — and `Ground` paints
+ * nothing at all when `palette.groundTint` is empty. Which it can be: the tint
+ * YIELDS. `texturedGround` drops it when the bare ground carries every run and
+ * the tinted one does not, and `fieldedGround` drops it after the field has run
+ * out of rungs. A decoration cedes to a word, and when it does, a `gradient`
+ * scene is a flat colour.
+ *
+ * So the ground's progress has to follow the paint and not the kind. Otherwise
+ * it is a number that changes while the frame does not — which is exactly what
+ * the kicker used to report on every one-scene film, and exactly what a "did
+ * anything move" test would accept.
+ *
+ * It is theoretical on today's corpus: `composition.test.js` sweeps six grounds
+ * across a dozen real directions and the tint survives on every one of them. It
+ * is written down anyway, because "no theme in the corpus fires this" is a
+ * statement about the corpus, and the next direction somebody types is not in it.
+ *
+ * It answers for `solid` and `image` too, and the answer is no: neither has a
+ * second layer at all. That costs the motion nothing — neither is in
+ * `ANIMATED_BACKGROUNDS` — and it is what `Ground` reads to decide it has
+ * nothing to draw, which is the point of having one function rather than two
+ * readings of the same field.
+ */
+export function groundPainted(palette) {
+  const tint = palette?.groundTint
+  const layers = Array.isArray(tint) ? tint : tint ? [tint] : []
+  return layers.length > 0
+}
+
 /** The ground a document names, or the field of hairlines silence means. */
 export function backgroundKind(background) {
   const kind = background && typeof background === 'object' ? background.kind : undefined
@@ -2657,7 +2776,7 @@ export function backgroundKind(background) {
 }
 
 /** The composable variant: a stack that drifts, a cascade that lands on it, and a ground. */
-function composedMotion(entry, frame) {
+function composedMotion(entry, frame, { ground: paints = true } = {}) {
   const { scene, durationInFrames } = entry
   const layers = Array.isArray(scene?.layers) ? scene.layers : []
   const cues = layerCues(layers, durationInFrames)
@@ -2683,7 +2802,9 @@ function composedMotion(entry, frame) {
       ),
     ),
     ...(kind === 'image' ? { picture: kenBurnsTransform(scene?.background?.move, frame, durationInFrames) } : {}),
-    ...(ANIMATED_BACKGROUNDS.includes(kind) ? { ground: life } : {}),
+    // The KIND says the ground can move; `paints` says the composition still has
+    // a layer to move. Both, because the tint yields — see `groundPainted`.
+    ...(ANIMATED_BACKGROUNDS.includes(kind) && paints ? { ground: life } : {}),
   }
 }
 
@@ -2714,11 +2835,20 @@ export const MOTIONS = {
  * is drawn, and a throw inside Chromium turns a refusal the caller could read
  * into a render that died half a minute in.
  *
+ * The fourth argument is what the composition has decided to PAINT, for the one
+ * term no arithmetic here can work out on its own. A composed ground's second
+ * layer survives or is dropped by the legibility search, which needs a theme, and
+ * this file's motion has never been given one — so the composition passes the
+ * answer down rather than the motion guessing it. Everything in it defaults to
+ * the ordinary case, so a caller that knows nothing gets the film it always got
+ * (`groundPainted` says why that is the right default).
+ *
  * @param {string|undefined} template
  * @param {{scene: object, durationInFrames: number, label?: string}} entry  one entry of `planTimeline`
  * @param {number} frame  the frame WITHIN the scene, as Remotion's Sequence gives it
+ * @param {{ground?: boolean}} [paints]  which optional layers the composition is drawing
  */
-export function sceneMotion(template, entry, frame) {
+export function sceneMotion(template, entry, frame, paints = {}) {
   const name = template === undefined || template === null ? 'slideshow' : template
   if (typeof name !== 'string' || !Object.hasOwn(MOTIONS, name)) return {}
   const at = Number.isFinite(Number(frame)) ? Number(frame) : 0
@@ -2732,6 +2862,9 @@ export function sceneMotion(template, entry, frame) {
       label: typeof entry?.label === 'string' ? entry.label : '',
     },
     at,
+    // Normalised the same way, and for the same reason: a caller that passes
+    // nothing, or a shape this build does not know, gets the ordinary film.
+    { ground: paints?.ground !== false },
   )
 }
 
@@ -2999,11 +3132,36 @@ export function productPalette(theme) {
  * Three surfaces, because a block paints on one of exactly three things:
  *
  *   - **the GROUND** (`display`, `body`, `accent`) — a heading, a quote, a rule;
- *   - **a PANEL** (`panelDisplay`, `panelBody`, `panelAccent`) — the card a
- *     notification, a form or a framed picture sits on, which is opaque
+ *   - **a PANEL** (`panelDisplay`, `panelText`, `panelBody`, `panelAccent`) — the
+ *     card a notification, a form or a framed picture sits on, which is opaque
  *     `theme.surface` and therefore its own surface whatever the ground is;
  *   - **a FILL** (`onFill`) — the ink on something painted in the accent: a
  *     button, a highlight marker, a bar of a chart carrying a number.
+ *
+ * ── Why the panel has four runs where the ground has three ──────────────────
+ *
+ * Because of `codeBlock`, and it is a floor rather than a shade. The ground's
+ * three runs are a hierarchy: display type at 3:1, running text at 4.5:1 and
+ * quieted, an ornament. Every panel in the catalogue was that same trio — a
+ * title, a subtitle under it, a mark beside it — until a block arrived whose
+ * MAJORITY run is neither: a wall of monospace at the `body` step, where the
+ * plain lines are most of the panel and the quiet ones are the aside.
+ *
+ * With three runs it had two places to go and both were wrong. `panelBody` is
+ * the quiet run, so the listing would have been painted in the colour of its own
+ * commentary — and `panelDisplay` is measured at `CONTRAST_MIN_LARGE`, so that is
+ * where it went, and twenty lines of 21 px monospace shipped at a floor of 3:1
+ * (3.19:1 in the worst case of the sweep). That floor is licensed by SIZE — the
+ * audit's own rule reads 24 px, or 18.66 px bold — and a listing is neither.
+ * Which of the two floors applies is decided by the type ROLE and never by what
+ * the surface happens to offer, exactly as `contrast.js` says.
+ *
+ * Raising the type instead does not work, and the arithmetic is why: 64
+ * monospace characters — the schema's own ceiling for a line — at 24 px are
+ * 921 px across, and the safe measure of a 9:16 frame is 906. The code would have
+ * to wrap, and a break somebody did not write is a different program on the
+ * screen. So the run moves rather than the type: `panelText` is running text at
+ * FULL strength on the panel, at 4.5:1, and `panelBody` stays what it was.
  *
  * ── Why the ground is a range and not a colour ──────────────────────────────
  *
@@ -3289,6 +3447,22 @@ export function composedPalette(theme, background, { field = false } = {}) {
    */
   const text = () => [{ threshold: CONTRAST_MIN_LARGE }, { threshold: CONTRAST_MIN, quiet: COMPOSED_BODY_QUIET }]
   const requests = () => [...text(), accentRun(theme)]
+  /*
+   * The panel's own list: the same three, plus running text at FULL strength.
+   *
+   * Fourth rather than second, so the three indices every other block already
+   * reads keep their meaning — and on the PANEL only, because the ground has no
+   * block whose bulk is running text. Adding it to the ground would put a fourth
+   * request into `fieldedGround`'s ladder, which would step a field's density
+   * down for a run nothing paints.
+   *
+   * It costs the other three nothing: the panel is opaque, so `sharedSurface`'s
+   * shared veil is 1 before this request and 1 after it, and a run that asks for
+   * no veil cannot move a run that already had one. And it always has an answer
+   * wherever `panelBody` does — quieting an ink blends it TOWARDS the surface, so
+   * the full-strength ink's contrast is never the lower of the two.
+   */
+  const panelRequests = () => [...requests(), { threshold: CONTRAST_MIN }]
 
   const plain = texturedGround(ground.color, requests(), inkCandidates(theme), ground.tint, ground.alpha)
   /*
@@ -3319,7 +3493,7 @@ export function composedPalette(theme, background, { field = false } = {}) {
   // photograph or a ramp behind it changes nothing about what a glyph on it
   // lands on. Folding it into the ground would darken a whole frame to give a
   // notification its contrast.
-  const panel = sharedSurface(theme.surface, 1, requests(), inkCandidates(theme))
+  const panel = sharedSurface(theme.surface, 1, panelRequests(), inkCandidates(theme))
   // And the accent as a FILL: the pill, the marker, the pressed button. This is
   // the surface the product card's call to action proved was worth measuring —
   // it was the only legible element in the export that started all of this.
@@ -3363,6 +3537,10 @@ export function composedPalette(theme, background, { field = false } = {}) {
     panelDisplay: panel.runs[0],
     panelBody: panel.runs[1],
     panelAccent: panel.runs[2],
+    // The panel's running text at full strength, for the block whose bulk IS
+    // running text. See `panelRequests` for why it is a fourth run and not a
+    // reuse of one of the three above.
+    panelText: panel.runs[3],
     fill: fill.on,
     onFill: fill.runs[0],
     // Two from the surface the words are on, then the ornament from the ground

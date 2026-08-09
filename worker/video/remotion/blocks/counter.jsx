@@ -8,8 +8,12 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       THIS block's own box in pixels, `{left, top, width, height}` -
+ *             never its zone's. Every size drawn here comes out of it.
+ *   unit      the type unit its whole STACK reads, in pixels. A role is a step
+ *             on that one scale; a fraction invented here is the defect.
+ *   base      the frame's short edge. Reserved for the three constant metrics
+ *             named in `CONSTANT_METRICS`, and this block draws none of them.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
@@ -30,6 +34,23 @@
  *      lets `blocks.test.js` load the whole registry inside Mocky's own suite,
  *      where Remotion is not installed.
  *
+ * ── The figure takes the box, and it no longer takes its neighbour's ────────
+ *
+ * A counter is the subject of the scene it is in, so it fills the box it was
+ * given - and it is the SCALE that says how, not this file. The size was
+ * `FIGURE_SIZE`, a ramp from 0.13 of the frame's short edge, while a heading was
+ * 0.042 of it: two fractions decided by two authors, so a counter and a heading
+ * stacked in one zone came out at three to one, in a frame nobody had asked for
+ * that emphasis in. Now both read the unit `composedLayout` solved for their
+ * stack, the figure at the `figure` step and the heading at `title`, and the
+ * ratio between them is 1.8 by construction.
+ *
+ * What the ramp was doing, the box does better: `solveTypeUnit` grows the unit
+ * until the block fills its box, and `counterLayout` caps it where the widest
+ * figure this counter can paint fills the measure. A seven-digit total in a
+ * narrow column is small because it is seven digits, not because somebody drew a
+ * line at thirteen characters.
+ *
  * ── Two clocks, and the reason there are two ────────────────────────────────
  *
  * The ARRIVAL - the opacity and the rise - walks `progress`, which is the house
@@ -49,27 +70,32 @@
  * of them drifting.
  */
 
-import { COUNT_SHARE, FIGURE_SIZE, counterValue, fittedSize, groupedNumber, revealRamp } from './animatedText.js'
+import { COUNT_SHARE, counterLayout, counterText, counterValue, revealRamp } from './animatedText.js'
 
-const LABEL_SIZE = 0.028
-const LABEL_GAP = 0.016
-const RISE = 0.02
-
-export const Counter = ({ block, palette, theme, base, progress, life }) => {
+export const Counter = ({ block, palette, theme, box, unit, progress, life }) => {
   const ramp = revealRamp(progress, life, COUNT_SHARE)
-  const figure = `${block.prefix ?? ''}${groupedNumber(counterValue(block.from, block.to, ramp))}${block.suffix ?? ''}`
-  // Measured on the FINISHED string and not on the one being drawn, or the type
-  // size would shrink as the count grew and the figure would breathe a size at a
-  // time.
-  const settled = `${block.prefix ?? ''}${groupedNumber(block.to)}${block.suffix ?? ''}`
+  const layout = counterLayout(block, box, unit)
+  const figure = counterText(block, counterValue(block.from, block.to, ramp))
   return (
-    <div style={{ opacity: progress, transform: `translateY(${(1 - progress) * base * RISE}px)`, maxWidth: '100%' }}>
+    <div
+      style={{
+        width: '100%',
+        paddingTop: layout.air,
+        paddingBottom: layout.air,
+        opacity: progress,
+        transform: `translateY(${(1 - progress) * layout.rise}px)`,
+      }}
+    >
       <div
         style={{
           fontFamily: theme.headingFont,
-          fontSize: fittedSize(settled, base, FIGURE_SIZE),
+          // Sized against the box, and measured on the widest figure this
+          // document can produce rather than on the one being painted - a size
+          // that fell as the count grew would be a figure breathing a type size
+          // at a time.
+          fontSize: layout.figure,
           fontWeight: 800,
-          lineHeight: 1,
+          lineHeight: layout.figureLeading,
           letterSpacing: '-0.03em',
           // Tabular figures, or the number jumps a character wide as it counts.
           fontVariantNumeric: 'tabular-nums',
@@ -85,11 +111,11 @@ export const Counter = ({ block, palette, theme, base, progress, life }) => {
       {block.label ? (
         <div
           style={{
-            marginTop: Math.round(base * LABEL_GAP),
+            marginTop: layout.gap,
             fontFamily: theme.bodyFont,
-            fontSize: Math.round(base * LABEL_SIZE),
+            fontSize: layout.label,
+            lineHeight: layout.labelLeading,
             color: palette.body.color,
-            maxWidth: '100%',
             wordBreak: 'break-word',
           }}
         >

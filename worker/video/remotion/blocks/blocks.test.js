@@ -20,6 +20,9 @@ import { BLOCK_KINDS } from '../../../../server/video/timeline.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const read = (file) => fs.readFileSync(path.join(here, file), 'utf8')
+/** The directory above: the six compositions and the arithmetic they share. */
+const above = path.resolve(here, '..')
+const readAbove = (file) => fs.readFileSync(path.join(above, file), 'utf8')
 
 /**
  * A block's source with its comments removed.
@@ -30,29 +33,42 @@ const read = (file) => fs.readFileSync(path.join(here, file), 'utf8')
  * writes a second one. A check that read the comments would fail on the sentence
  * explaining why the code is right, which teaches people to delete the sentence.
  */
-const code = (file) =>
-  read(file)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|\s)\/\/.*$/gm, '$1')
+const strip = (source) =>
+  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1')
+const code = (file) => strip(read(file))
 const sources = fs
   .readdirSync(here)
   .filter((name) => name.endsWith('.jsx'))
   .sort()
 
 /**
- * The components AND the family modules beside them.
+ * The components, the family modules beside them, AND the directory above.
  *
  * `sources` is the components, because the three checks it feeds are about what a
  * COMPONENT may contain — a colour, a curve, a Remotion import. The determinism
- * check below is about the whole directory: `dataFigures.js`, `animatedText.js`
+ * check below is about the whole renderer: `dataFigures.js`, `animatedText.js`
  * and their neighbours are where a "scattered" particle field or a "lively"
  * equalizer would most plausibly reach for `Math.random`, and none of them is a
  * `.jsx`.
+ *
+ * The parent directory is in the list for the same reason one directory later:
+ * the scan used to stop at `blocks/`, so `composition.js` — which owns every
+ * quantity that changes between two frames — and the six compositions that read it
+ * were the one part of the renderer where a die or a clock would have gone
+ * unnoticed. `groundDensity` is a sine of the scene's own progress precisely
+ * because a "shimmering" texture is where somebody reaches for a random, and the
+ * check has to cover the file that would tempt them.
  */
-const modules = fs
-  .readdirSync(here)
-  .filter((name) => (name.endsWith('.js') || name.endsWith('.jsx')) && !name.endsWith('.test.js'))
-  .sort()
+const renderable = (name) => (name.endsWith('.js') || name.endsWith('.jsx')) && !name.endsWith('.test.js')
+const modules = [
+  ...fs.readdirSync(here).filter(renderable).sort().map((name) => [name, read(name)]),
+  ...fs
+    .readdirSync(above, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && renderable(entry.name))
+    .map((entry) => entry.name)
+    .sort()
+    .map((name) => [`../${name}`, readAbove(name)]),
+]
 
 describe('the registry', () => {
   /**
@@ -164,7 +180,51 @@ describe('what a block may not contain', () => {
    */
   it('reads no die and no clock: one document renders to one film', () => {
     const forbidden = /\bMath\.random\b|\bDate\.now\b|\bnew Date\b|\bperformance\.now\b|getRandomValues|randomUUID/
-    const offenders = modules.filter((name) => forbidden.test(code(name)))
+    const offenders = modules.filter(([, source]) => forbidden.test(strip(source))).map(([name]) => name)
+    expect(offenders).toEqual([])
+  })
+
+  /**
+   * Guarding the guard: the scan above is a loop over files, and a loop over the
+   * wrong glob is green for having read nothing. It has to see both directories —
+   * the twenty-seven components, the six family modules beside them, and the six
+   * compositions with the arithmetic they share.
+   */
+  it('scans the whole renderer and not just this directory', () => {
+    const names = modules.map(([name]) => name)
+    expect(names.length).toBeGreaterThan(BLOCK_KINDS.length)
+    expect(names).toContain('index.js')
+    expect(names).toContain('../composition.js')
+    expect(names).toContain('../ComposedSceneVideo.jsx')
+    expect(names.filter((name) => name.endsWith('.test.js'))).toEqual([])
+  })
+
+  /**
+   * A corner radius is bounded by the thing it rounds, and nothing may write the
+   * theme's own number straight into a style.
+   *
+   * `radiusPx` is one of the three `CONSTANT_METRICS`: read off the theme rather
+   * than off a box, because a corner that grew with its card is a card that
+   * changed shape between two scenes. The exception has a CEILING —
+   * `CONSTANT_CEILING` of whatever it rounds — and two blocks shipped without it,
+   * `codeBlock` and `textHighlight`, while five of their neighbours clamped
+   * theirs. `ThemeSchema` accepts up to 9999 px and a direction stating an
+   * ordinary 40 px drew a marked word inside a lozenge.
+   *
+   * A source check rather than an arithmetic one, because this is the one part of
+   * the rule that lives in the `.jsx`: `blockExtent` cannot see a `borderRadius`,
+   * and a `.jsx` cannot be imported here. Same shape as the colour check above,
+   * and it catches the same class of thing — a value that reached the frame
+   * without passing the function that bounds it.
+   */
+  it('never writes the theme’s radius into a style without bounding it', () => {
+    const offenders = sources
+      .map((name) => [name, code(name).match(/borderRadius:[^,\n]*/g) ?? []])
+      .flatMap(([name, hits]) =>
+        hits
+          .filter((hit) => /radiusPx/.test(hit) && !/(constantMetric|figureRadius|panelRadius|markerRadius)\(/.test(hit))
+          .map((hit) => `${name}: ${hit.trim()}`),
+      )
     expect(offenders).toEqual([])
   })
 

@@ -8,8 +8,10 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       THIS block's own box in pixels, off `composedLayout`. The line is
+ *             set against it and wraps inside it.
+ *   unit      the type unit its stack agreed on: the line takes the `display`
+ *             step of the one shared scale, exactly as a `heading` does.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
@@ -42,11 +44,27 @@
  * per-letter transform. It is less than Skia and it is not nothing, and the five
  * treatments are five COMPOSITIONS rather than one with an amplitude, for the
  * reason `anchor` is a zone: a number a model tunes is a rendering it described.
+ *
+ * -- One baseline, and why that sentence is here -----------------------------
+ *
+ * Four of the five leave every letter at rest on one baseline; `arc` is a curve
+ * because a curve is what it is for. `bounce` was the fifth and it was wrong: a
+ * sine of the scene's clock, phase-shifted per letter, is never zero for two
+ * letters at once, so the word sat permanently crooked - and `bounce` is the
+ * DEFAULT treatment, the one a silent document gets. See `bounceLift`.
  */
-import { funTitleAccentFrom, funTitleGlyphs, funTitleLetter, funTitleShadow, funTitleSize } from './setPiece.js'
+import {
+  FUN_TITLE_LEADING,
+  funTitleAccentFrom,
+  funTitleGlyphs,
+  funTitleHeadroom,
+  funTitleLetter,
+  funTitleShadow,
+  funTitleSize,
+} from './setPiece.js'
 
-export const FunTitle = ({ block, palette, theme, base, progress, life }) => {
-  const size = funTitleSize(block.text, base)
+export const FunTitle = ({ block, palette, theme, box, unit, progress, life }) => {
+  const size = funTitleSize(block.text, box, unit)
   const glyphs = funTitleGlyphs(block.text)
   const accentFrom = block.treatment === 'swap' ? funTitleAccentFrom(block.text) : glyphs.length
   const shadow = funTitleShadow(block.treatment, size, progress)
@@ -83,16 +101,34 @@ export const FunTitle = ({ block, palette, theme, base, progress, life }) => {
         fontFamily: theme.headingFont,
         fontSize: size,
         fontWeight: 800,
-        lineHeight: 1.12,
+        // The display role's own leading, not a fifth number: the block's height
+        // was divided on it.
+        lineHeight: FUN_TITLE_LEADING,
         letterSpacing: '-0.015em',
-        maxWidth: '100%',
+        // The whole measure the layout gave this block, so the line wraps where
+        // `typeScale` said it would rather than where the longest word happened
+        // to end.
+        width: '100%',
+        // The room the arc and the bounce lift their letters into. It is the
+        // block's own appetite read back — see `funTitleHeadroom` — so what the
+        // line draws is what `stackIn` divided the zone by, and a rise does not
+        // land on whatever the zone above holds.
+        paddingTop: funTitleHeadroom(unit),
       }}
     >
       {shadow ? (
         // Behind, offset, and drawn in the accent - see LEGIBILITY above. It is
         // `aria-hidden` in spirit and simply absent from the flow: a second copy
         // in the flow would double the measure and break the line.
-        <div style={{ position: 'absolute', left: shadow, top: shadow, width: '100%' }}>
+        //
+        // `top` counts the headroom in, and the omission is what made `stack`
+        // unreadable in a real export. An absolutely positioned child is placed
+        // against its container's PADDING BOX, so `top: shadow` measured from
+        // above the padding while the line it shadows starts below it: the copy
+        // landed `headroom - shadow` px ABOVE the word instead of below it, two
+        // full-strength lines of display type crossing each other. The offset is
+        // the same number on both axes, which is the whole of what `stack` means.
+        <div style={{ position: 'absolute', left: shadow, top: funTitleHeadroom(unit) + shadow, width: '100%' }}>
           {line(palette.accent, palette.accent)}
         </div>
       ) : null}

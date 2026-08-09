@@ -8,15 +8,20 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       **the box THIS block was given**, in pixels. Every size drawn here
+ *             comes off it - see the rule at the top of `composition.js`, and
+ *             `blockExtent`, which is what a block owes the box it is handed.
+ *   unit      the type unit its STACK agreed on, so two blocks in one zone are
+ *             two steps of one scale rather than two fractions of a frame.
+ *   base      the frame's short edge. Reserved for the three constant metrics
+ *             named in `CONSTANT_METRICS` - here, the card's own edge.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
  *
  * SURFACE: a PANEL: `palette.panel`, `palette.panelDisplay`, `palette.panelBody`, and the mark in `palette.panelAccent`.
  *
- * LEGIBILITY: `mark` is a SHAPE and not a tone, and that is a legibility decision rather than a stylistic one: a `success` tone would have to become green, green is not a token any direction states, and a colour nobody declared is a colour nobody measured.
+ * LEGIBILITY: `mark` is a SHAPE and not a tone, and that is a legibility decision rather than a stylistic one: a `success` tone would have to become green, green is not a token any direction states, and a colour nobody declared is a colour nobody measured. And the card itself has to be SEEN: `panelEdge` measures the panel against the ground and draws a rule when the two cannot be told apart, which is the export named below.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -29,6 +34,28 @@
  *      frame arrives as `progress` and `life` - and staying free of it is what
  *      lets `blocks.test.js` load the whole registry inside Mocky's own suite,
  *      where Remotion is not installed.
+ *
+ * -- The card nobody could see, and the card that was a stamp -----------------
+ *
+ * Two defects, one export each, and they are the same sentence twice.
+ *
+ * **It was invisible.** On a light direction - surface `#ffffff` over a
+ * background `#f7f5f0` - the card had neither border nor shadow, so a notice
+ * read as a rectangle of text floating on the frame. Every run on it had been
+ * measured against the panel and nothing had asked whether the panel could be
+ * told apart from what it sits on, because `composedPalette` resolves what is
+ * painted ON a surface and a surface nobody can see is not a legibility failure
+ * by that definition. `panelEdge` is that question, measured, with the house's
+ * own answer to it: a rule, never a blur.
+ *
+ * **It was 605 px wide whatever it was given.** `maxWidth: min(base * 0.56,
+ * 100%)` is a fraction of the FRAME, so a notice alone on a scene occupied an
+ * eighth of the picture and a notice in a narrow column overflowed it.
+ * `BLOCK_APPETITE` puts this kind in the `both` row - a panel that leaves a
+ * quarter of its box empty has nothing else in the box - and `noticeGeometry` is
+ * what makes that true: the card is the box, the type is solved against the room
+ * the padding leaves, and the mark scales with the card rather than with the
+ * film.
  *
  * -- Three beats, and the middle one is the hard one -------------------------
  *
@@ -54,7 +81,17 @@
  * `restOffset` is where that half-percent lives.
  */
 
-import { controlClock, markSwing, noticeExit, noticeSlide, NOTICE_TRAVEL, restOffset } from './interface.js'
+import {
+  constantMetric,
+  controlClock,
+  markSwing,
+  noticeExit,
+  noticeGeometry,
+  noticeSlide,
+  panelEdge,
+  panelInks,
+  restOffset,
+} from './interface.js'
 
 /** How much of itself a dot gains and loses on the pulse, and how far a bell swings, in degrees. */
 const DOT_SWING = 0.16
@@ -136,51 +173,66 @@ const Mark = ({ kind, color, size, progress, swing }) => {
   )
 }
 
-export const Notification = ({ block, palette, theme, base, progress, life }) => {
+export const Notification = ({ block, palette, theme, box, unit, base, progress, life }) => {
   const clock = controlClock(progress, life)
   const exit = noticeExit(clock)
   const slide = noticeSlide(block.anchor)
+  const card = noticeGeometry(block, box, base, unit)
+  const edge = panelEdge(palette.panel, palette.ground, panelInks(palette))
   // One distance for both ends of the card's life: how far it still is from its
   // mark on the way in, and how far past it on the way out. The two are the same
-  // travel in the same direction, which is what makes it leave the way it came.
-  const away = base * NOTICE_TRAVEL * (1 - progress + exit)
+  // travel in the same direction, which is what makes it leave the way it came —
+  // and it is a share of the card's OWN box, so a notice in a narrow column
+  // arrives from just outside itself rather than from half a frame away.
+  const away = card.travel * (1 - progress + exit)
 
   return (
     <div
       style={{
         display: 'flex',
-        alignItems: 'flex-start',
-        gap: Math.round(base * 0.018),
+        // Centred rather than pinned to the top: the card is the box now, so on
+        // a zone that gave it the safe area there is real height to distribute,
+        // and a mark hanging off the first line of a card three lines taller
+        // than its text is furniture in a corner.
+        alignItems: 'center',
+        gap: card.markGap,
+        // The box, whole, on both axes — `fills: 'both'` in the weight table. The
+        // padding and the edge are drawn INSIDE it, which is what `border-box`
+        // is doing here: the allotment was measured against the safe area.
+        width: card.width,
+        height: card.height,
+        boxSizing: 'border-box',
         opacity: progress * (1 - exit),
         transform: `translate(${slide.x * away}px, ${slide.y * away}px) scale(${1 - restOffset(clock)})`,
-        padding: Math.round(base * 0.024),
-        borderRadius: theme.radiusPx,
+        padding: card.pad,
+        borderRadius: constantMetric(theme.radiusPx, box),
         backgroundColor: palette.panel.color,
-        // The narrower of a card's own measure and the zone it was given. A fixed
-        // 56% of the short edge is right in a zone that has the frame to itself
-        // and is twice the width of a three-column portrait cell, where it would
-        // be a card hanging over the safe margin.
-        maxWidth: `min(${Math.round(base * 0.56)}px, 100%)`,
+        // The rule that makes the card a card. Absent when the panel already
+        // stands off the ground on its own value, which is the "trois niveaux de
+        // surface" the design system asks for — an edge drawn there would be an
+        // ornament undoing it. See `panelEdge`.
+        ...(edge ? { border: `${card.border}px solid ${edge.color}` } : null),
       }}
     >
       {/* Tested here rather than inside `Mark`, so a notice that asked for no
           mark does not pay for the flex gap of the one it does not have. */}
-      {block.mark !== 'none' ? (
-        <div style={{ flex: '0 0 auto', marginTop: Math.round(base * 0.004) }}>
+      {card.mark ? (
+        <div style={{ flex: '0 0 auto' }}>
           <Mark
             kind={block.mark}
             color={palette.panelAccent.color}
-            size={Math.round(base * 0.028)}
+            size={card.mark}
             progress={progress}
             swing={markSwing(life)}
           />
         </div>
       ) : null}
-      <div>
+      <div style={{ flex: '1 1 auto', minWidth: 0 }}>
         <div
           style={{
             fontFamily: theme.headingFont,
-            fontSize: Math.round(base * 0.03),
+            fontSize: card.title,
+            lineHeight: 1.4,
             fontWeight: 700,
             color: palette.panelDisplay.color,
           }}
@@ -190,9 +242,9 @@ export const Notification = ({ block, palette, theme, base, progress, life }) =>
         {block.body ? (
           <div
             style={{
-              marginTop: Math.round(base * 0.008),
+              marginTop: card.gap,
               fontFamily: theme.bodyFont,
-              fontSize: Math.round(base * 0.025),
+              fontSize: card.body,
               lineHeight: 1.35,
               color: palette.panelBody.color,
             }}

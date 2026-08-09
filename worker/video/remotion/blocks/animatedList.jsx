@@ -8,8 +8,12 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       THIS block's own box in pixels, `{left, top, width, height}` -
+ *             never its zone's. Every size drawn here comes out of it.
+ *   unit      the type unit its whole STACK reads, in pixels. A role is a step
+ *             on that one scale; a fraction invented here is the defect.
+ *   base      the frame's short edge. Reserved for the three constant metrics -
+ *             here, the thickness of the `rule` marker and nothing else.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
@@ -30,6 +34,18 @@
  *      lets `blocks.test.js` load the whole registry inside Mocky's own suite,
  *      where Remotion is not installed.
  *
+ * ── The height, and how three items spend a large box ───────────────────────
+ *
+ * The items were `base * 0.034` and the rows `base * 0.014` apart - two
+ * fractions of the FRAME, so a list of three handed a whole safe area drew three
+ * small lines against the top of it and left the rest empty. Both are gone. The
+ * item size is the stack's unit at the `body` step, solved by `composedLayout`
+ * against this box, so a list alone in a zone is set at whatever size makes it
+ * fill the zone; the rhythm between rows is `RUN_GAP`, the same one `shapeHeight`
+ * budgeted, and the leftover is air above and below rather than a rhythm that
+ * grows with the box - a list that spaced itself out to fill would be a stack
+ * coming apart rather than a list.
+ *
  * ── The cadence, and why it is not this block's arrival ─────────────────────
  *
  * The items used to share one `progress`, which is nine frames: six items inside
@@ -45,31 +61,31 @@
  * the house for the same reason, on the product card's arguments.
  */
 
-import { LIST_SHARE, markerLabel, revealRamp, staggerRamp } from './animatedText.js'
+import { LIST_SHARE, listLayout, markerLabel, revealRamp, staggerRamp } from './animatedText.js'
 
-const SIZE = 0.034
-const ROW_GAP = 0.014
-/** The marker column: wide enough for `01`, so the items align whatever the mark. */
-const MARKER_COLUMN = 1.7
-const MARKER_SIZE = 0.72
-const DOT = 0.3
-const RULE_LENGTH = 0.62
-const RULE_WEIGHT = 0.09
-const SLIDE = 0.018
-
-export const AnimatedList = ({ block, palette, theme, base, progress, life }) => {
+export const AnimatedList = ({ block, palette, theme, box, unit, base, progress, life }) => {
   const ramp = revealRamp(progress, life, LIST_SHARE)
-  const size = Math.round(base * SIZE)
-  const line = Math.round(size * 1.35)
+  const layout = listLayout(block, box, unit, base)
   const shape = {
     // Drawn, not typed. `borderRadius` full for the disc, and the rule keeps the
-    // weight a hairline has everywhere else in this directory.
-    dot: { width: Math.round(size * DOT), height: Math.round(size * DOT), borderRadius: '50%' },
-    rule: { width: Math.round(size * RULE_LENGTH), height: Math.max(2, Math.round(size * RULE_WEIGHT)), borderRadius: 0 },
+    // thickness a hairline has everywhere else in this directory - a constant
+    // metric, because a mark 1 px under a small list and 4 px under a large one
+    // is two design systems in one film.
+    dot: { flex: '0 0 auto', width: layout.marker.dot, height: layout.marker.dot, borderRadius: '50%' },
+    rule: { flex: '0 0 auto', width: layout.marker.rule.width, height: layout.marker.rule.thickness, borderRadius: 0 },
   }
 
   return (
-    <ol style={{ margin: 0, padding: 0, listStyle: 'none', maxWidth: '100%', width: '100%' }}>
+    <ol
+      style={{
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
+        width: '100%',
+        paddingTop: layout.air,
+        paddingBottom: layout.air,
+      }}
+    >
       {block.items.map((item, i) => {
         const at = staggerRamp(block.items.length, i, ramp)
         const label = markerLabel(block.marker, i)
@@ -79,28 +95,30 @@ export const AnimatedList = ({ block, palette, theme, base, progress, life }) =>
             style={{
               display: 'flex',
               alignItems: 'flex-start',
-              marginBottom: i === block.items.length - 1 ? 0 : Math.round(base * ROW_GAP),
+              marginBottom: i === block.items.length - 1 ? 0 : layout.gap,
               opacity: at,
               // Arriving from the marker's side, so the eye is already where the
-              // next item will start. A fraction of the short edge, like every
-              // other distance here.
-              transform: `translateX(${(1 - at) * base * SLIDE}px)`,
+              // next item will start. One marker column, which is the distance
+              // between the two things being related - and a distance off the
+              // type rather than off the frame, so it stays proportional to an
+              // item at every size the box can produce.
+              transform: `translateX(${(1 - at) * layout.slide}px)`,
               fontFamily: theme.bodyFont,
-              fontSize: size,
-              lineHeight: 1.35,
+              fontSize: layout.size,
+              lineHeight: layout.leading,
               color: palette.body.color,
             }}
           >
             <span
               style={{
                 flex: '0 0 auto',
-                width: Math.round(size * MARKER_COLUMN),
-                height: line,
+                width: layout.column,
+                height: layout.line,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-start',
                 color: palette.accent.color,
-                fontSize: Math.round(size * MARKER_SIZE),
+                fontSize: layout.marker.size,
                 fontWeight: 700,
                 // Tabular figures, or `01` and `06` are two different widths and
                 // the items they belong to no longer line up.
@@ -120,8 +138,15 @@ export const AnimatedList = ({ block, palette, theme, base, progress, life }) =>
                 />
               )}
             </span>
-            {/* Model-written text as a React child: escaped here and nowhere else. */}
-            <span style={{ minWidth: 0, wordBreak: 'break-word' }}>{item}</span>
+            {/*
+              The item takes the rest of the measure, which is exactly the measure
+              `listLayout` wrapped it against. Left-aligned whatever the zone's
+              own alignment says: a list is a column of items hanging off one mark
+              column, and a ragged left edge under a row of marks is not a list.
+
+              Model-written text as a React child: escaped here and nowhere else.
+            */}
+            <span style={{ flex: '1 1 auto', minWidth: 0, textAlign: 'left', wordBreak: 'break-word' }}>{item}</span>
           </li>
         )
       })}

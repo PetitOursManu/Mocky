@@ -8,15 +8,19 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       **this block's own box**, in pixels, out of `composedLayout`. The
+ *             plot is what is left of it under the label, inset by the ping.
+ *   unit      the type unit this block's STACK solved. The label is the
+ *             `caption` step of it, never a fraction of the frame.
+ *   base      the frame's SHORT edge. For the constant metrics named in
+ *             `CONSTANT_METRICS`: here the stroke, and nothing else.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
  *
  * SURFACE: the ground: the line, the area, the head and its ping are all `palette.accent`, the label is `palette.body`.
  *
- * LEGIBILITY: The area is the accent at a low opacity, and it is the one place this block can spend contrast: it is painted UNDER the line and never under text. A label laid over the area would be a run on a surface the palette never measured, so the label sits outside it.
+ * LEGIBILITY: The area is the accent at a low opacity, and inside a CELL it is the one place this block can spend contrast: it is painted under the line and under nothing else, so a label laid over it - a run on a surface the palette never measured - sits outside it instead. That sentence was the whole of this note, and it is the sentence that was false the moment somebody anchored the chart `full`: a `full` block is painted UNDER the nine cells on purpose, so the area is then the surface a headline stands on. `stackedField` is what notices, `composedPalette` measures every run over the chart as a tint sampled along `FIELD_RAMP`, and the density the field cedes is `palette.field.alpha` on the ZONE. Nothing about that is in this file, and that is deliberate: `full` is what makes a block a field, so the rule lives where `full` means something.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -32,42 +36,61 @@
  *
  * -- Two geometries that are not the same one --------------------------------
  *
- * The curve is drawn in a unit box that CSS STRETCHES to the width of whatever
- * cell the block landed in, because a block never learns how wide its box is:
- * `composedLayout` owns the boxes and hands a component only `base`. Everything
- * round is therefore drawn OUTSIDE that box, as absolutely positioned elements in
- * percent - a circle inside a non-uniformly stretched viewBox is an ellipse, and
- * the head of a trace is the one element in this file that has to look like a
- * point.
+ * The curve is drawn in a unit box that CSS STRETCHES to the plot's own rectangle,
+ * which `lineChartLayout` computes off `box` - it used to be `base * 0.24`, a
+ * fraction of the frame, so a chart given the safe area drew a quarter of the
+ * short edge in the middle of it. Everything ROUND is drawn OUTSIDE that unit box,
+ * as absolutely positioned elements in percent: a circle inside a non-uniformly
+ * stretched viewBox is an ellipse, and the head of a trace is the one element in
+ * this file that has to look like a point.
+ *
+ * The plot is inset by the widest the ping ever gets, on all four sides. The last
+ * sample sits at `x = 1` and a value of 100 sits at `y = 0`, so a ring centred on
+ * either would hang half its width past the box - and the box's edge is the margin
+ * `composedSafeArea` promises nothing crosses.
+ *
+ * The one place this family does NOT fill its box is `LINE_MAX_ASPECT`, and the
+ * argument is in `dataFigures.js`: nothing rescales the values, so stretching the
+ * plot taller than it is wide draws a ten-point difference as a cliff. In a column
+ * the leftover is air, split above and below.
  *
  * The trace itself is a shorter polyline, not a clipped long one and not a dash
  * offset; `tracedPoints` says why both of those are worse than they look.
  */
 
-import { PING_REACH, pingFade, pingPhase, pingReach, pointAtX, seriesPoints, tracedPoints } from './dataFigures.js'
+import {
+  lineChartLayout,
+  pingFade,
+  pingPhase,
+  pingReach,
+  pointAtX,
+  seriesPoints,
+  tracedPoints,
+} from './dataFigures.js'
 
-export const LineChart = ({ block, palette, theme, base, progress, life }) => {
+export const LineChart = ({ block, palette, theme, box, unit, base, progress, life }) => {
+  const layout = lineChartLayout(block, box, { base, unit })
   const points = seriesPoints(block.values)
   const drawn = tracedPoints(points, progress)
   const head = pointAtX(points, progress)
-  const plot = Math.round(base * 0.24)
   const phase = pingPhase(life)
-  const dot = Math.max(4, Math.round(base * 0.012))
-  const stroke = Math.max(1, Math.round(base * 0.0028))
   const path = drawn.map((p) => `${p.x.toFixed(4)},${p.y.toFixed(4)}`).join(' ')
   // A ring is placed by its centre, so it is offset by half of whatever it has
   // grown to - `transform` would be a second way of moving something in a
   // directory where movement comes from one place.
-  const ring = dot * pingReach(phase)
-  // The plot is inset by the widest the ring ever gets, because the last sample
-  // is AT `x = 1`: a mark centred on it hangs half its width past the box, and the
-  // box's edge is the safe margin `composedSafeArea` promises nothing crosses. The
-  // curve loses 4% of a 900 px measure; the guarantee is worth more than that.
-  const reach = Math.round((dot * PING_REACH) / 2)
+  const ring = layout.dot * pingReach(phase)
 
   return (
-    <div style={{ width: '100%', paddingLeft: reach, paddingRight: reach, boxSizing: 'border-box' }}>
-      <div style={{ position: 'relative', height: plot }}>
+    <div style={{ position: 'relative', width: layout.width, height: layout.height }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: layout.plot.left,
+          top: layout.plot.top,
+          width: layout.plot.width,
+          height: layout.plot.height,
+        }}
+      >
         <svg
           viewBox="0 0 1 1"
           preserveAspectRatio="none"
@@ -91,7 +114,7 @@ export const LineChart = ({ block, palette, theme, base, progress, life }) => {
                 points={path}
                 fill="none"
                 stroke={palette.accent.color}
-                strokeWidth={stroke}
+                strokeWidth={layout.stroke}
                 strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
               />
@@ -116,7 +139,7 @@ export const LineChart = ({ block, palette, theme, base, progress, life }) => {
             marginLeft: -ring / 2,
             marginTop: -ring / 2,
             borderRadius: '50%',
-            border: `${stroke}px solid ${palette.accent.color}`,
+            border: `${layout.stroke}px solid ${palette.accent.color}`,
             opacity: pingFade(phase) * progress,
           }}
         />
@@ -125,10 +148,10 @@ export const LineChart = ({ block, palette, theme, base, progress, life }) => {
             position: 'absolute',
             left: `${head.x * 100}%`,
             top: `${head.y * 100}%`,
-            width: dot,
-            height: dot,
-            marginLeft: -dot / 2,
-            marginTop: -dot / 2,
+            width: layout.dot,
+            height: layout.dot,
+            marginLeft: -layout.dot / 2,
+            marginTop: -layout.dot / 2,
             borderRadius: '50%',
             backgroundColor: palette.accent.color,
             opacity: progress,
@@ -136,12 +159,16 @@ export const LineChart = ({ block, palette, theme, base, progress, life }) => {
         />
       </div>
 
-      {block.label ? (
+      {layout.label.shown ? (
         <div
           style={{
-            marginTop: Math.round(base * 0.016),
+            position: 'absolute',
+            left: 0,
+            top: layout.height - layout.label.height,
+            width: layout.width,
             fontFamily: theme.bodyFont,
-            fontSize: Math.round(base * 0.022),
+            fontSize: layout.label.size,
+            lineHeight: layout.label.leading,
             color: palette.body.color,
             opacity: progress,
           }}

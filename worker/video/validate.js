@@ -719,7 +719,7 @@ const BLOCK_READERS = {
     showValue: readBool(v.showValue, true, `${w}.showValue`),
   })),
   // No language and no theme: the roles ARE the schema, because the palette
-  // offers three measured runs on a panel and a highlighter's thirty token
+  // offers four measured runs on a panel and a highlighter's thirty token
   // colours have nowhere to land. See `CODE_ROLES` in the schema.
   codeBlock: blockReader(['lines', 'caption', 'reveal'], (v, w) => ({
     lines: readCodeLines(v.lines, `${w}.lines`),

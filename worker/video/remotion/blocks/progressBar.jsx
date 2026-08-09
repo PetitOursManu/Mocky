@@ -9,8 +9,11 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       THIS block's own box in pixels, off `composedLayout`. The bar's
+ *             length is its width and nothing here reads the frame.
+ *   unit      the type unit its stack agreed on. The label is a step on that one
+ *             scale and the bar's thickness a share of the same number, so a bar
+ *             beside a heading is not two fractions of a frame.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
@@ -44,11 +47,18 @@
  * layers - the phase is shared and both layers start at the track's left edge,
  * which is what makes the ticks line up across the boundary instead of two
  * patterns meeting at a seam.
+ *
+ * And its PITCH comes from the thickness, which comes from the box. It used to be
+ * 1.4% of the frame's short edge on a track that was 1.2% of it - a step 1.15
+ * times the thickness of the bar it crossed - and at 1080p the result was not a
+ * ruler at all: a hatched band, in which the ticks ate the fill and the eye
+ * counted stripes instead of measuring a length, which is the one thing this
+ * block exists to show. See `HATCH_PITCH_TRACKS` and `HATCH_MIN_TICKS`.
  */
 import { FILL_TICK_QUIET, TICK_QUIET, TRACK_QUIET, progressBarGeometry } from './misc.js'
 
-export const ProgressBar = ({ block, palette, theme, base, progress, life }) => {
-  const bar = progressBarGeometry(block, base, progress, life, theme.radiusPx)
+export const ProgressBar = ({ block, palette, theme, box, unit, progress, life }) => {
+  const bar = progressBarGeometry(block, box, unit, progress, life, theme.radiusPx)
 
   /**
    * The ruler, in whichever ink the surface underneath it takes.
@@ -63,20 +73,29 @@ export const ProgressBar = ({ block, palette, theme, base, progress, life }) => 
   })
 
   return (
-    <div style={{ width: '100%', opacity: progress }}>
+    /*
+     * The block draws exactly `BLOCK_APPETITE.progressBar.fixed` units of
+     * furniture plus its label — the height `stackIn` divided the zone by — and
+     * the slack goes above and below the group rather than inside it. See the
+     * note on `gap` and `pad`: left INSIDE it, a bar capped in a narrow column
+     * put half a frame of nothing between the label and the rule, which is the
+     * same void the whole pass is about arriving through a margin.
+     */
+    <div style={{ width: '100%', opacity: progress, paddingTop: bar.pad, paddingBottom: bar.pad }}>
       {block.label ? (
         <div
           style={{
-            marginBottom: Math.round(bar.labelSize * 0.4),
+            marginBottom: bar.gap,
             fontFamily: theme.bodyFont,
             fontSize: bar.labelSize,
+            lineHeight: bar.labelLeading,
             color: palette.body.color,
           }}
         >
           {block.label}
         </div>
       ) : null}
-      <div style={{ display: 'flex', alignItems: 'center', gap: bar.gap }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: bar.valueGap, height: bar.track }}>
         <div
           style={{
             flex: '1 1 auto',
@@ -115,7 +134,13 @@ export const ProgressBar = ({ block, palette, theme, base, progress, life }) => 
           <span
             style={{
               fontFamily: theme.bodyFont,
-              fontSize: bar.labelSize,
+              // The bar's own height, not the label's: the value sits BESIDE the
+              // track, so its line is what would decide the row's height, and a
+              // row taller than the track is height the block never asked the
+              // layout for. `lineHeight: 1` for the same reason - a leading of
+              // 1.35 around a numeral is a third of a line of air nobody sees.
+              fontSize: bar.valueSize,
+              lineHeight: 1,
               // Tabular figures, so a value counting from 0 to 100 does not
               // change the width of the line it is on twice on its way there.
               fontVariantNumeric: 'tabular-nums',

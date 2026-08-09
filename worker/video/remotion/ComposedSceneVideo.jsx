@@ -6,6 +6,7 @@ import {
   entranceStyle,
   frameBase,
   groundDensity,
+  groundPainted,
   hairlineTexture,
   planTimeline,
   resolveTheme,
@@ -137,7 +138,13 @@ const Ground = ({ kind, background, palette, motion, imageSrc }) => {
     )
   }
 
-  if (!tint || tint.length === 0) return null
+  // Nothing left to paint: this ground either never had a second layer, or the
+  // layer was what made a line illegible and the palette dropped it. Read through
+  // `groundPainted` rather than checked here, because `composedMotion` asks the
+  // same question to decide whether to report a `ground` progress at all — two
+  // readings of "is there a layer" is one of them reporting a number that moves
+  // on a frame that does not.
+  if (!groundPainted(palette)) return null
 
   if (kind === 'gradient') {
     const far = tint[tint.length - 1].color
@@ -207,7 +214,11 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
   const base = frameBase(width, height)
 
   const kind = backgroundKind(scene.background)
-  const motion = sceneMotion('composed', entry, frame)
+  // What this scene is actually going to PAINT, handed to the motion rather than
+  // guessed by it. A ground's second layer is dropped when it is what made a line
+  // illegible, and that is a legibility answer: it needs the theme, which the
+  // motion has never been given. See `groundPainted`.
+  const motion = sceneMotion('composed', entry, frame, { ground: groundPainted(palette) })
   // Where every block goes, worked out where a test can reach it. This file
   // paints the boxes it is handed and decides none of them.
   const layout = composedLayout(scene, width, height)
@@ -216,7 +227,7 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
   // the movement is arithmetic and the size of the frame is layout.
   const drift = motion.drift * base
 
-  const draw = (layer, index, box, unit) => {
+  const draw = (layer, index, box, unit, align) => {
     const Block = blockComponent(layer.kind)
     // Null only if the registry and the schema disagree, which `blocks.test.js`
     // is what prevents. A gap in a frame beats a render that dies half a minute
@@ -271,7 +282,22 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
     if (layer.kind !== 'solidScene') return drawn
     const side = solidCanvas(box, layer.size, base)
     return (
-      <div key={index} style={{ width: side, height: side, flex: '0 0 auto' }}>
+      <div
+        key={index}
+        style={{
+          width: side,
+          height: side,
+          flex: '0 0 auto',
+          // The one child with an intrinsic width, and therefore the one that
+          // `stretch` cannot place. A `full` zone has no horizontal edge the
+          // document chose — `align` is `stretch` there, which stretches a block
+          // that has no width of its own and leaves this canvas at the start.
+          // A real export showed it: a torus asked for the whole frame drew a
+          // square against the left margin with the heading crossing it. Every
+          // other zone keeps the edge the anchor named.
+          ...(align === 'stretch' ? { alignSelf: 'center' } : null),
+        }}
+      >
         <ThreeCanvas width={side} height={side} camera={SOLID_CAMERA}>
           {drawn}
         </ThreeCanvas>
@@ -348,7 +374,7 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
                   minWidth: 0,
                 }}
               >
-                {draw(block, index, box, unit)}
+                {draw(block, index, box, unit, zone.align)}
               </div>
             ))}
           </div>

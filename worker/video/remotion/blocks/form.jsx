@@ -8,15 +8,20 @@
  *             re-check it, and never repair it.
  *   palette   `composedPalette`. **The only source of colour in this file.**
  *   theme     `resolveTheme`: `headingFont`, `bodyFont`, `radiusPx`.
- *   base      the frame's SHORT edge in pixels. Every size here is a fraction of
- *             it, so one number reads the same in 16:9, 9:16 and 1:1.
+ *   box       **the box THIS block was given**, in pixels. Every size drawn here
+ *             comes off it - see the rule at the top of `composition.js`, and
+ *             `blockExtent`, which is what a block owes the box it is handed.
+ *   unit      the type unit its STACK agreed on, so two blocks in one zone are
+ *             two steps of one scale rather than two fractions of a frame.
+ *   base      the frame's short edge. Reserved for the three constant metrics
+ *             named in `CONSTANT_METRICS` - here, the rules around the fields.
  *   progress  0 to 1, this block's own arrival, already eased by `cueProgress`.
  *   life      0 to 1 across the whole scene, for anything that runs continuously.
  *   images    staged pictures by id. Only the three media blocks read it.
  *
  * SURFACE: a PANEL - `palette.panel` painted, `palette.panelDisplay` and `palette.panelBody` for its text. The submit is the accent fill, so its label is `palette.onFill`.
  *
- * LEGIBILITY: A panel is opaque `theme.surface` and therefore its OWN surface: a run on it measured against the ground would be measured against a colour it never touches. That is why the palette resolves the card separately from the field it sits on.
+ * LEGIBILITY: A panel is opaque `theme.surface` and therefore its OWN surface: a run on it measured against the ground would be measured against a colour it never touches. That is why the palette resolves the card separately from the field it sits on - and why `panelEdge` then asks the question the palette does not: whether the card can be told apart from the ground at all.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -29,6 +34,20 @@
  *      frame arrives as `progress` and `life` - and staying free of it is what
  *      lets `blocks.test.js` load the whole registry inside Mocky's own suite,
  *      where Remotion is not installed.
+ *
+ * -- The card is the box, and the fields run its measure ---------------------
+ *
+ * `BLOCK_APPETITE` puts a form in the `both` row: a card with a quarter of its
+ * box empty has nothing else in that box. So the card takes the box on both
+ * axes and every field runs the card's whole measure. What was there before is
+ * the defect this pass is about - `min(base * 0.42, 100%)` drew the same 454 px
+ * card in a zone of 1688 px and in one of 530, so a form alone on a scene was a
+ * small panel in the middle of a large void, with rows a third of its width.
+ *
+ * `formGeometry` is where the arithmetic lives, for the reason everything else
+ * in this directory lives outside its component: a `.jsx` cannot be tested, and
+ * "does this card fill the box it was given" is a question a number answers and
+ * an mp4 does not.
  *
  * -- It is a mockup of a form, and that decides three things ------------------
  *
@@ -64,7 +83,7 @@
  * blend is the one thing `legibleOn` cannot be asked about.
  */
 
-import { controlClock, formCadence, restOffset } from './interface.js'
+import { constantMetric, controlClock, formCadence, formGeometry, panelEdge, panelInks, restOffset } from './interface.js'
 
 /**
  * How much of its ink a row that has not had its turn keeps.
@@ -75,40 +94,55 @@ import { controlClock, formCadence, restOffset } from './interface.js'
  */
 const ROW_REST = 0.45
 
-export const Form = ({ block, palette, theme, base, progress, life }) => {
+export const Form = ({ block, palette, theme, box, unit, base, progress, life }) => {
   const clock = controlClock(progress, life)
   const { fields, caret, submit } = formCadence(block.fields.length, clock)
-  const rowFont = Math.round(base * 0.026)
-  const pad = `${Math.round(base * 0.014)}px ${Math.round(base * 0.028)}px`
+  const card = formGeometry(block, box, base, unit)
+  const edge = panelEdge(palette.panel, palette.ground, panelInks(palette))
+  const radius = constantMetric(theme.radiusPx, box)
+  const submitPad = `${card.submitPadY}px ${card.submitPadX}px`
 
   return (
     <div
       style={{
+        // The box, whole, on both axes - `fills: 'both'` in the weight table.
+        // `border-box` because the padding and the edge below are drawn INSIDE
+        // the allotment `composedLayout` measured against the safe area.
+        width: card.width,
+        height: card.height,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        // The staircase's leftover is air inside the card rather than a card
+        // shorter than its box: a line count is an integer, so the type stops one
+        // tread below the height, and the card is what fills the difference.
+        justifyContent: 'center',
+        gap: card.gap,
         opacity: progress,
         // The card keeps closing the last half-percent of its own arrival for the
         // whole scene and lands on its mark at the cut. It is the family's answer
         // to a control that reaches its position and freezes, and it only ever
         // approaches: see `restOffset`.
-        transform: `translateY(${(1 - progress) * base * 0.02}px) scale(${1 - restOffset(clock)})`,
-        padding: Math.round(base * 0.028),
-        borderRadius: theme.radiusPx,
+        transform: `translateY(${(1 - progress) * card.travel}px) scale(${1 - restOffset(clock)})`,
+        padding: card.pad,
+        borderRadius: radius,
         backgroundColor: palette.panel.color,
-        // A measure a form needs to be readable, or the zone it was given if that
-        // is narrower - a plain `minWidth` wins against `maxWidth` in CSS, so the
-        // pair on its own is a panel that hangs over the safe margin in a
-        // three-column portrait cell rather than a panel that fits.
-        minWidth: `min(${Math.round(base * 0.42)}px, 100%)`,
-        maxWidth: '100%',
+        // A card that cannot be told apart from the ground behind it is a
+        // rectangle of text floating on the frame - the export that named this
+        // put a white panel on a `#f7f5f0` ground with neither border nor
+        // shadow. `panelEdge` measures it, and the house's own answer is a rule
+        // rather than a blur.
+        ...(edge ? { border: `${card.border}px solid ${edge.color}` } : null),
       }}
     >
       {block.title ? (
         <div
           style={{
             fontFamily: theme.headingFont,
-            fontSize: Math.round(base * 0.034),
+            fontSize: card.title,
+            lineHeight: 1.14,
             fontWeight: 700,
             color: palette.panelDisplay.color,
-            marginBottom: Math.round(base * 0.02),
           }}
         >
           {block.title}
@@ -125,16 +159,20 @@ export const Form = ({ block, palette, theme, base, progress, life }) => {
             style={{
               display: 'flex',
               alignItems: 'center',
+              // The card's whole measure, which is the half of "inhabit your box"
+              // a form fails one level down: a field narrower than the card it
+              // sits in is the same small-element-in-a-void, inside the element.
+              width: '100%',
+              boxSizing: 'border-box',
               // Fixed against its own type size, so a row does not grow as it
               // fills and push the submit down the panel on every frame.
-              minHeight: Math.round(rowFont * 1.5),
-              marginBottom: Math.round(base * 0.014),
-              padding: `${Math.round(base * 0.014)}px ${Math.round(base * 0.016)}px`,
-              borderRadius: Math.max(2, Math.round(theme.radiusPx * 0.6)),
-              border: `1px solid ${palette.panelAccent.color}`,
+              minHeight: Math.round(card.row * 1.4) + 2 * card.rowPadY,
+              padding: `${card.rowPadY}px ${card.rowPadX}px`,
+              borderRadius: constantMetric(theme.radiusPx * 0.6, { width: card.measure, height: card.row }),
+              border: `${card.border}px solid ${palette.panelAccent.color}`,
               fontFamily: theme.bodyFont,
-              fontSize: rowFont,
-              lineHeight: 1,
+              fontSize: card.row,
+              lineHeight: 1.4,
               color: palette.panelBody.color,
               opacity: typed === 0 && !focused ? ROW_REST : 1,
             }}
@@ -144,9 +182,9 @@ export const Form = ({ block, palette, theme, base, progress, life }) => {
               <span
                 style={{
                   display: 'inline-block',
-                  width: Math.max(2, Math.round(base * 0.003)),
-                  height: rowFont,
-                  marginLeft: Math.round(base * 0.004),
+                  width: card.caret,
+                  height: card.row,
+                  marginLeft: card.caret * 2,
                   backgroundColor: palette.panelBody.color,
                 }}
               />
@@ -160,18 +198,22 @@ export const Form = ({ block, palette, theme, base, progress, life }) => {
           style={{
             position: 'relative',
             display: 'inline-block',
-            marginTop: Math.round(base * 0.02),
+            // The control is as wide as its own label and no wider: it is the one
+            // element of the card that is a conclusion rather than a field, and a
+            // submit stretched across the measure is a fifth row.
+            alignSelf: 'flex-start',
           }}
         >
           <span
             style={{
               display: 'inline-block',
               boxSizing: 'border-box',
-              padding: pad,
-              borderRadius: theme.radiusPx,
-              border: `2px solid ${palette.panelAccent.color}`,
+              padding: submitPad,
+              borderRadius: radius,
+              border: `${card.border}px solid ${palette.panelAccent.color}`,
               fontFamily: theme.bodyFont,
-              fontSize: rowFont,
+              fontSize: card.row,
+              lineHeight: 1.4,
               fontWeight: 700,
               color: palette.panelBody.color,
               whiteSpace: 'nowrap',
@@ -192,12 +234,13 @@ export const Form = ({ block, palette, theme, base, progress, life }) => {
               boxSizing: 'border-box',
               width: '100%',
               height: '100%',
-              padding: pad,
-              borderRadius: theme.radiusPx,
-              border: `2px solid ${palette.fill.color}`,
+              padding: submitPad,
+              borderRadius: radius,
+              border: `${card.border}px solid ${palette.fill.color}`,
               backgroundColor: palette.fill.color,
               fontFamily: theme.bodyFont,
-              fontSize: rowFont,
+              fontSize: card.row,
+              lineHeight: 1.4,
               fontWeight: 700,
               color: palette.onFill.color,
               whiteSpace: 'nowrap',

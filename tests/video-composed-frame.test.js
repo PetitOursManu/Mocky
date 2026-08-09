@@ -28,10 +28,15 @@ import {
   composedLayout,
   composedSafeArea,
   dimensionsFor,
+  frameBase,
   layerCues,
   planTimeline,
   sceneMotion,
 } from '../worker/video/remotion/composition.js'
+// The one block whose wasted pixels are measured in render seconds. It is here
+// rather than in `setPiece.test.js` because the claim below is not about the
+// block: it is about what the LAYOUT lets a document ask a renderer for.
+import { solidCanvas } from '../worker/video/remotion/blocks/setPiece.js'
 // The anchors come from the SCHEMA and are fed to the worker's layout, which is
 // half the point of this file: a zone Mocky can express and the worker cannot
 // place is a block that vanishes from a film somebody waited two minutes for.
@@ -151,6 +156,76 @@ describe('everything a composed document asks for is on the frame', () => {
    */
   it('gives every block kind an appetite, and invents none', () => {
     expect(Object.keys(BLOCK_APPETITE).sort()).toEqual([...BLOCK_KINDS].sort())
+  })
+
+  /**
+   * What a set piece COSTS is bounded by the layout, and not by a sentence in a
+   * prompt.
+   *
+   * `solidScene` is the only block in the catalogue that opens a renderer, and it
+   * is the only one whose waste is measured in render seconds rather than in
+   * bytes: a full-frame lit solid adds about 0.9 s of render per second of film
+   * on the two-core worker, against the 1.7 s/s the duration-scaled deadline
+   * leaves spare. The compose prompt asks for at most one in the whole film, and
+   * a prompt is a request — the schema accepts eight in one scene, and a provider
+   * that ignores the advice spends somebody's deadline rather than somebody's
+   * taste.
+   *
+   * It used to be able to. The canvas was a share of the FRAME, so eight of them
+   * were eight full-size canvases: 4712 px of content inside 950 px of safe
+   * height, and a GL bill that grew with the block count with nothing capping it.
+   * Now the canvas is a share of the block's OWN box, and that changes the
+   * question from editorial to arithmetic:
+   *
+   *   - a canvas is `min(box.width, box.height) × share` with `share ≤ 1`, so its
+   *     AREA is at most the area of its own box;
+   *   - the boxes of a zone tile that zone and never overlap (`stackIn`), and the
+   *     ten zones are the nine cells — which tile the safe area — plus `full`,
+   *     which IS the safe area.
+   *
+   * So whatever a document asks for, one frame of it draws at most twice the safe
+   * area of GL. The prompt's sentence is then about attention, which is what a
+   * prompt can actually be trusted with.
+   */
+  it('bounds what a stack of set pieces can ask a renderer to draw', () => {
+    const cells = ANCHORS.filter((anchor) => anchor !== 'full')
+    const arrangements = {
+      // The three shapes that matter: everything piled in one cell, everything
+      // spread across the grid, and the one that used to be unbounded — a stack
+      // of eight fields, each of which used to take the whole frame.
+      'one zone': Array.from({ length: BLOCK_LIMITS.layersPerScene }, () => 'center'),
+      'every cell': cells.slice(0, BLOCK_LIMITS.layersPerScene),
+      'a field and a grid': ['full', ...cells.slice(0, BLOCK_LIMITS.layersPerScene - 1)],
+      'eight fields': Array.from({ length: BLOCK_LIMITS.layersPerScene }, () => 'full'),
+    }
+
+    for (const [label, anchors] of Object.entries(arrangements)) {
+      // `large` throughout: the biggest share a document may ask for, so the
+      // bound is measured at the top of what the schema allows.
+      const build = (durationMs) => ({
+        template: 'composed',
+        scenes: [{ durationMs, layers: anchors.map((anchor) => ({ kind: 'solidScene', size: 'large', anchor })) }],
+      })
+      for (const { aspectRatio, width, height, plan } of films(build, 6000)) {
+        const safe = composedSafeArea(width, height)
+        const base = frameBase(width, height)
+        let drawn = 0
+        for (const zone of composedLayout(plan.scenes[0].scene, width, height).zones) {
+          for (const { block, box } of zone.layers) {
+            const side = solidCanvas(box, block.size, base)
+            // The per-block claim, which is the one with content in it: a set
+            // piece cannot draw outside the box it was given, so N of them cost
+            // no more than the frame does.
+            expect(side * side, `${label} · ${aspectRatio} · one canvas`).toBeLessThanOrEqual(box.width * box.height)
+            drawn += side * side
+          }
+        }
+        // And the whole scene, which is that claim summed over a layout that
+        // tiles: the nine cells cover the safe area once and `full` covers it
+        // again.
+        expect(drawn, `${label} · ${aspectRatio} · the whole scene`).toBeLessThanOrEqual(2 * safe.width * safe.height)
+      }
+    }
   })
 })
 
