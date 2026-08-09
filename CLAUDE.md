@@ -330,8 +330,27 @@ Ten things, and the first one is not negotiable.
       CSS percentage resolves against the WIDTH on all four sides, and 6% is a
       broadcast margin on the one ratio that exists to be posted (9:16 keeps the
       feed's own bands, `VERTICAL_SAFE_*`). A row is split among the columns that
-      are USED, because `anchor` defaults to `center` and a fixed third of a 16:9
-      frame is five characters of display type on a line.
+      are USED and a band among the rows that are, because `anchor` defaults to
+      `center` and a fixed third of a 16:9 frame is five characters of display
+      type on a line and 295 px of height for the whole scene.
+    - **A block inhabits the box it is given, and that box is its OWN.** The rule
+      is at the top of `composition.js`; six real exports are why. A block drew a
+      fixed fraction of the FRAME — `base * 0.18` for an `equalizer` whether it
+      was anchored `center` or `full` — so every scene was a small element
+      floating in a large void, which is the "rudimentary" the user kept naming.
+      Three pieces, and none of them is optional: `composedLayout` publishes one
+      box per block (`zone.layers[i].box`), divided by `BLOCK_APPETITE` — the one
+      weight table, in units of the body type size, because a title wants height
+      and a rule wants almost none; `TYPE_ROLES` + `solveTypeUnit` are the one
+      type scale, solved per STACK against its zone, which is what stops a
+      `counter` from crushing the `heading` beside it (four fractions of `base`
+      decided by four authors is what did); and `blockExtent` is what a block
+      draws in a box, pure, so `composition.test.js` can prove that doubling a box
+      doubles the drawing and that the content fills `BOX_FILL_FLOOR` of it.
+      The only reads of the frame left are the three `CONSTANT_METRICS` — a
+      hairline, a radius, the grid's gutters — each bounded at a quarter of its
+      box. `MEAN_GLYPH_EM` is not a new number: it is the constant
+      `verticalCaptionSize` was calibrated on, now written down once and tested.
     - **Legibility runs through `composedPalette` and nothing else.** Three
       surfaces — the ground, a panel, the accent fill — and a block reads a run
       rather than choosing a colour. The ground is a RANGE: a gradient is sampled

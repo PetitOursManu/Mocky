@@ -61,6 +61,17 @@ import { solidCanvas } from './blocks/setPiece.js'
  * clear of the feed's own interface. A number a test can read is also a margin a
  * test can prove nothing crosses.
  *
+ * ── One box per BLOCK, and it is the prop that matters ──────────────────────
+ *
+ * What this file hands a block is `zone.layers[i].box` — the box that block was
+ * allotted — and the type unit its stack agreed on. Never the zone's box, which
+ * is what it used to pass to every block in the zone: eight fields anchored
+ * `full` were eight canvases of 589 px each, 4712 px of content inside 950 px of
+ * safe height. The rule the blocks are written to is at the top of
+ * `composition.js`, the arithmetic that divides a zone is `stackIn`, and what a
+ * block is supposed to draw in the box it gets is `blockExtent`. `base` is still
+ * passed, for the three constant metrics named there and for nothing else.
+ *
  * Everything is an `AbsoluteFill` or an absolutely positioned box, which is what
  * makes DOM order the paint order. `AnimatedTitlesVideo` learned that the other
  * way round: an absolutely positioned child paints above its in-flow siblings
@@ -205,7 +216,7 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
   // the movement is arithmetic and the size of the frame is layout.
   const drift = motion.drift * base
 
-  const draw = (layer, index, box) => {
+  const draw = (layer, index, box, unit) => {
     const Block = blockComponent(layer.kind)
     // Null only if the registry and the schema disagree, which `blocks.test.js`
     // is what prevents. A gap in a frame beats a render that dies half a minute
@@ -217,6 +228,15 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
         block={layer}
         palette={palette}
         theme={theme}
+        // The box this block was actually given — its own, never its zone's. It
+        // is the prop every size in a block is derived from; see the rule at the
+        // top of `composition.js` and `blockExtent`, which is what a block draws
+        // in it. `base` stays for the three constant metrics named there and for
+        // nothing else.
+        box={box}
+        // The type unit its whole stack reads, so two blocks in one zone are two
+        // steps of one scale rather than two fractions of a frame.
+        unit={unit}
         base={base}
         progress={motion.layers[index] ?? 1}
         // The scene's own clock, for the blocks that run continuously rather
@@ -286,17 +306,6 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
               top: zone.box.top,
               width: zone.box.width,
               height: zone.box.height,
-              display: 'flex',
-              flexDirection: 'column',
-              // Several blocks in one zone STACK, in the order the document listed
-              // them — see `composedLayout` for why that is the rule rather than a
-              // refusal. The alignment is also what keeps a crowded stack in the
-              // frame: a column anchored to the top grows downward, one anchored
-              // to the bottom grows upward, and neither grows past its own edge.
-              justifyContent: zone.justify,
-              alignItems: zone.align,
-              gap: layout.gap,
-              minWidth: 0,
               textAlign: zone.textAlign,
               // The field cedes density to whatever stands on it, at the value
               // `composedPalette` measured — 1 on every scene that stacks
@@ -308,21 +317,40 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
               ...(zone.anchor === 'full' ? { opacity: palette.field.alpha } : null),
             }}
           >
-            {zone.layers.map(({ block, index }) =>
-              zone.share ? (
-                // The one zone whose blocks divide their box instead of sitting in
-                // it: `full` is a field, and two fields painted over each other is
-                // the illegible overlap stacking exists to prevent.
-                <div
-                  key={index}
-                  style={{ flex: '1 1 0', minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
-                >
-                  {draw(block, index, zone.box)}
-                </div>
-              ) : (
-                draw(block, index, zone.box)
-              ),
-            )}
+            {/*
+              One wrapper per block, at the box `composedLayout` gave THAT block
+              — not the zone's box repeated. A flex column with `gap` drew the
+              same picture and answered a different question: the height a block
+              ended up with was whatever it decided to draw, so a stack of eight
+              fields was eight full-size fields overflowing a zone nobody could
+              measure. Here the boxes tile the zone, the arithmetic that divided
+              it is in `stackIn`, and a test can ask what any of them got.
+
+              The vertical alignment is `center` inside a box a block is expected
+              to fill: it decides nothing when the block fills its box, and it
+              keeps a block that draws less than its box in the middle of it
+              rather than pinned to a corner. The horizontal one is the zone's,
+              because that is the edge the DOCUMENT chose by naming an anchor.
+            */}
+            {zone.layers.map(({ block, index, box, unit }) => (
+              <div
+                key={index}
+                style={{
+                  position: 'absolute',
+                  left: box.left - zone.box.left,
+                  top: box.top - zone.box.top,
+                  width: box.width,
+                  height: box.height,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: zone.align,
+                  minWidth: 0,
+                }}
+              >
+                {draw(block, index, box, unit)}
+              </div>
+            ))}
           </div>
         ))}
       </AbsoluteFill>

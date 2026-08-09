@@ -316,16 +316,23 @@ numbers rather than a second set that would drift from them — because a
 behind a button. A square pays neither: 1:1 is posted into a grid, and a fifth of
 its height given to an interface nobody draws is a fifth of the film.
 
-**A row is divided among the columns that are used.** A fixed 3×3 of equal thirds
-is the obvious reading of "nine zones" and it makes the commonest scene there is
-unreadable: `anchor` defaults to `center`, so a document that names none puts
-everything in one cell — and a third of a 16:9 frame is 563 px, which is five
-characters of display type on a line. One column used takes the whole measure,
-two take half each, three take thirds, and the alignment still says which edge the
-content sits on. The rows are *not* treated that way, and the asymmetry is the
-point: a band's anchored edge is already the safe edge, so a stack too tall for
-its band grows towards the middle of the frame and never past the edge it was
-anchored to.
+**A row is divided among the columns that are used, and a band among the rows.**
+A fixed 3×3 of equal thirds is the obvious reading of "nine zones" and it makes
+the commonest scene there is unreadable: `anchor` defaults to `center`, so a
+document that names none puts everything in one cell — and a third of a 16:9
+frame is 563 px wide, which is five characters of display type on a line, and 295
+px tall, which is a stack sized for a third of a picture with the other two thirds
+empty. One column used takes the whole measure, two take half each, three take
+thirds, and the same arithmetic runs down the other axis. The alignment still says
+which edge the content sits on.
+
+The rows were fixed at first and the asymmetry was deliberate: a band's anchored
+edge is already the safe edge, so a stack too tall for its band grew towards the
+middle of the frame rather than past the edge it was anchored to. That was an
+argument about OVERFLOW, and it stopped applying the day a stack's type size
+started being solved against its own band — a stack that cannot be taller than its
+band does not need two thirds of the frame held empty in case it is. What survives
+of it is the alignment, which now decides which way the leftover is spent.
 
 **`full` is the safe area, not the frame**, and two `full` blocks share it. A
 field that bled to the frame's edge would be a map cropped by overscan and a
@@ -336,9 +343,84 @@ sits *on*.
 
 `tests/video-composed-frame.test.js` is where those become claims rather than
 prose: over the poorest document the schema accepts and one that uses all ten
-zones, in all three ratios, every block is placed exactly once, every box is
-inside the safe frame, every block has arrived by the end of its scene, and the
-last frame differs from the first.
+zones, in all three ratios, every block is placed exactly once, every box — the
+zone's and every block's inside it — is inside the safe frame, every block has
+arrived by the end of its scene, and the last frame differs from the first.
+
+#### A block inhabits the box it is given
+
+Six real exports were rendered and looked at, and what they showed was one defect
+wearing three costumes. A block drew at a fixed fraction of the FRAME and ignored
+the box it had been handed: `equalizer` was `base * 0.18` whether it had been
+anchored `center` or `full`, so a field occupied 18% of the height of a frame it
+had been given all of. A `typewriter` alone in a scene was a small line of text in
+the middle of a black frame; a `counter` alone was an eighth of the picture. Every
+scene was a small element floating in a large void — which is what the user had
+been calling "rudimentary" from the first export onwards.
+
+The rule is at the top of `composition.js` and it is three sentences. **One box
+per block**, published by `composedLayout` at `zone.layers[i].box`, never the
+zone's box repeated — that alone is the third costume, since eight `solidScene`
+blocks anchored `full` were eight canvases of 589 px, 4712 px of content inside
+950 px of safe height. **Every size a block draws comes off that box.** And the
+one legitimate use of the frame's own dimension is a **constant metric**: a
+quantity that must be identical from one scene to the next because a viewer reads
+it as the same object. There are exactly three — a hairline's thickness, a corner
+radius, the grid's own gutters — they are named in `CONSTANT_METRICS`, and each is
+bounded at a quarter of the box it is drawn in, because an exception with no
+ceiling is the rule going back out of the window.
+
+**A zone is divided by appetite, never by count.** A vertical stack of N blocks in
+a zone of height H does not divide into H/N, because a title wants height and a
+rule wants almost none: split evenly, a `separator` above a `heading` takes half
+the column for three pixels of ink. `BLOCK_APPETITE` is the one table that says
+what each kind is made of, in units of the body type size — the text runs, which
+are wrapped against the measure the zone turned out to have, and the furniture
+that is not type. The tiers are argued in the table itself and the question behind
+every number is the same one: below what height does this stop being what it is?
+A motif of bars is a row of ticks under about four lines of type; a bar chart is a
+bar code under six; a map, a gallery and a lit solid are the scene when they are
+in it, and they are worth nine — a little over half a 16:9 safe area, so one of
+them beside a heading takes two thirds of the column.
+
+**And there is one type scale.** `headingSize`, the counter's figure, the
+typewriter's line and the wordmark used to be four fractions of `base` decided by
+four authors, which is how a `counter` and a `heading` stacked in one zone came
+out at 0.13 and 0.042 of the short edge — the figure crushing the title by a
+factor of three in a frame nobody had asked for that emphasis in. Now a role is a
+STEP on one scale (`TYPE_ROLES`: display, title, body, caption, figure, in the
+ratios the catalogue already had), and the unit those steps multiply is solved per
+STACK against its zone rather than read off the frame. Two blocks in one zone
+therefore read one unit, and the ratio between them is a ratio between two steps.
+
+Solving it needs to know where a line will break, which is a measurement a
+Remotion bundle cannot make before it has laid out and a test cannot make at all.
+It does not have to: the container installs one font family, so the average glyph
+advance is a known number — `MEAN_GLYPH_EM`, 0.52. That is not a new constant
+either. It is the one `verticalCaptionSize` was calibrated on by hand, recovered
+from its own two ends and now written down once, with the test that keeps the two
+agreeing. The size is then the largest one whose wrapped lines still fit the box,
+which is `verticalCaptionSize`'s lesson generalised: a size tuned so the longest
+legal caption fits renders every short one at the size a long one needed, and the
+box is what does that arithmetic now instead of a ramp between two character
+counts.
+
+Two things a document may still ask to be smaller, and they are named:
+`solidScene.size` and `separator.extent`, both closed enums of three shares. A
+`small` solid fills 42% of its box because somebody wrote `small`, and refusing
+that would be the layout overruling the document.
+
+`composition.test.js` is what makes this a rule rather than a paragraph.
+`blockExtent` is pure — a box in, the dimensions a block draws out — so doubling a
+box has to double every one of them, and the hairline is the only thing that does
+not move. What it draws has to fill at least three quarters of its box on the axis
+its own row claims (`BOX_FILL_FLOOR`), which is measured rather than chosen: a
+sweep of twenty-seven kinds, each at both ends of what the schema allows, across
+twelve box shapes in all three ratios, puts the worst case at 0.82, and nothing
+can do better in general because a line count is an integer. And the box a block
+is given has to be exactly what it draws in it — two computations from opposite
+directions, `stackIn` solving a unit for a stack and `blockExtent` answering for
+one box, which is what would catch a weight table drifting from the type scale.
 
 #### There is still no audio
 

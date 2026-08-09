@@ -335,17 +335,25 @@ bord, il est derrière un bouton. Le carré ne paie ni l’un ni l’autre : le 
 publie dans une grille, et un cinquième de sa hauteur cédé à une interface que
 personne ne dessine, c’est un cinquième du film.
 
-**Une rangée se partage entre les colonnes qui servent.** Une grille 3×3 de tiers
-égaux est la lecture évidente de « neuf zones », et elle rend illisible la scène
-la plus courante qui soit : `anchor` vaut `center` par défaut, donc un document
-qui n’en nomme aucune met tout dans une seule case — et un tiers d’une image 16:9
-fait 563 px, soit cinq caractères de titrage sur une ligne. Une colonne occupée
-prend toute la mesure, deux en prennent la moitié chacune, trois prennent des
-tiers, et l’alignement continue de dire sur quel bord le contenu se pose. Les
-rangées, elles, ne sont **pas** traitées ainsi, et l’asymétrie est le fond de
-l’affaire : le bord ancré d’une bande est déjà le bord sûr, donc une pile trop
-haute pour sa bande déborde vers le milieu de l’image et jamais au-delà du bord
-auquel elle est ancrée.
+**Une rangée se partage entre les colonnes qui servent, et une bande entre les
+rangées.** Une grille 3×3 de tiers égaux est la lecture évidente de « neuf zones »,
+et elle rend illisible la scène la plus courante qui soit : `anchor` vaut `center`
+par défaut, donc un document qui n’en nomme aucune met tout dans une seule case —
+et un tiers d’une image 16:9 fait 563 px de large, soit cinq caractères de titrage
+sur une ligne, et 295 px de haut, soit une pile dimensionnée pour un tiers d’image
+avec les deux autres tiers vides. Une colonne occupée prend toute la mesure, deux
+en prennent la moitié chacune, trois prennent des tiers, et la même arithmétique
+descend sur l’autre axe. L’alignement continue de dire sur quel bord le contenu se
+pose.
+
+Les rangées étaient fixes au début, et l’asymétrie était délibérée : le bord ancré
+d’une bande est déjà le bord sûr, donc une pile trop haute pour sa bande débordait
+vers le milieu de l’image plutôt qu’au-delà du bord auquel elle était ancrée.
+C’était un argument sur le DÉBORDEMENT, et il a cessé de valoir le jour où la
+taille de texte d’une pile s’est résolue contre sa propre bande — une pile qui ne
+peut pas être plus haute que sa bande n’a pas besoin qu’on garde deux tiers de
+l’image vides au cas où. Ce qui en survit, c’est l’alignement, qui décide
+maintenant de quel côté part le reste.
 
 **`full`, c’est la zone sûre et non l’image**, et deux blocs `full` la partagent.
 Un fond qui filerait jusqu’au bord de l’image, ce serait une carte rognée par la
@@ -357,9 +365,91 @@ ou une onde est ce sur quoi un élément *se pose*.
 `tests/video-composed-frame.test.js` est l’endroit où tout cela devient une
 affirmation plutôt qu’un texte : sur le document le plus pauvre que le schéma
 accepte et sur un autre qui utilise les dix zones, dans les trois formats, chaque
-bloc est placé exactement une fois, chaque boîte tient dans le cadre sûr, chaque
-bloc est arrivé avant la fin de sa scène, et la dernière image diffère de la
-première.
+bloc est placé exactement une fois, chaque boîte — celle de la zone et celle de
+chaque bloc dedans — tient dans le cadre sûr, chaque bloc est arrivé avant la fin
+de sa scène, et la dernière image diffère de la première.
+
+#### Un bloc habite la boîte qu’on lui donne
+
+Six vrais exports ont été rendus et regardés, et ils montraient un seul défaut
+sous trois costumes. Un bloc dessinait à une fraction fixe du CADRE et ignorait la
+boîte qu’on lui donnait : `equalizer` faisait `base * 0.18` qu’il soit ancré
+`center` ou `full`, donc un champ occupait 18 % de la hauteur d’une image dont on
+lui avait donné la totalité. Un `typewriter` seul dans une scène était une petite
+ligne de texte au milieu d’un cadre noir ; un `counter` seul occupait un huitième
+de l’image. Chaque scène était un petit élément flottant dans un grand vide — ce
+que l’utilisateur appelait « rudimentaire » depuis le premier export.
+
+La règle est en tête de `composition.js` et tient en trois phrases. **Une boîte par
+bloc**, publiée par `composedLayout` dans `zone.layers[i].box`, jamais celle de la
+zone répétée — c’est à soi seul le troisième costume, puisque huit blocs
+`solidScene` ancrés `full` donnaient huit toiles de 589 px, soit 4712 px de contenu
+dans 950 px de hauteur sûre. **Toute taille dessinée par un bloc sort de cette
+boîte.** Et le seul usage légitime de la dimension du cadre est une **grandeur
+constante** : ce qui doit être identique d’une scène à l’autre parce que le
+spectateur y lit le même objet. Il y en a exactement trois — l’épaisseur d’un
+filet, un rayon d’angle, les gouttières de la grille —, elles sont nommées dans
+`CONSTANT_METRICS`, et chacune est bornée au quart de la boîte où elle est
+dessinée, parce qu’une exception sans plafond, c’est la règle qui ressort par la
+fenêtre.
+
+**Une zone se partage selon la faim, jamais selon le nombre.** Une pile verticale
+de N blocs dans une zone de hauteur H ne se partage pas en H/N, parce qu’un titre
+veut de la hauteur et qu’un filet n’en veut presque pas : à parts égales, un
+`separator` au-dessus d’un `heading` prend la moitié de la colonne pour trois
+pixels d’encre. `BLOCK_APPETITE` est la table unique qui dit de quoi chaque kind
+est fait, en unités de la taille du texte courant — les passages de texte, qui
+sont repliés contre la mesure que la zone s’est trouvée, et le mobilier qui n’est
+pas du texte. Les paliers sont argumentés dans la table même, et la question
+derrière chaque nombre est la même : en dessous de quelle hauteur est-ce que ça
+cesse d’être ce que c’est ? Un motif de barres est une rangée de tirets sous quatre
+lignes de texte environ ; un diagramme en barres est un code-barres sous six ; une
+carte, une galerie et un solide éclairé sont la scène quand ils y sont, et ils
+valent neuf — un peu plus de la moitié d’une zone sûre en 16:9, donc l’un d’eux à
+côté d’un titre prend les deux tiers de la colonne.
+
+**Et il y a une seule échelle typographique.** `headingSize`, le chiffre du
+compteur, la ligne du typewriter et le logotype étaient quatre fractions de `base`
+décidées par quatre auteurs, ce qui faisait sortir un `counter` et un `heading`
+empilés dans la même zone à 0,13 et 0,042 du petit côté — le chiffre écrasant le
+titre d’un facteur trois, dans une image où personne n’avait demandé cette emphase.
+Un rôle est désormais un ÉCHELON sur une échelle unique (`TYPE_ROLES` : display,
+title, body, caption, figure, dans les rapports que le catalogue avait déjà), et
+l’unité que ces échelons multiplient se résout par PILE contre sa zone plutôt que
+de se lire sur le cadre. Deux blocs d’une même zone lisent donc une seule unité, et
+le rapport entre eux est un rapport entre deux échelons.
+
+La résoudre demande de savoir où une ligne va se couper, une mesure qu’un bundle
+Remotion ne peut pas faire avant d’avoir mis en page et qu’un test ne peut pas
+faire du tout. Ce n’est pas nécessaire : le conteneur installe une seule famille de
+police, donc la chasse moyenne d’un glyphe est un nombre connu — `MEAN_GLYPH_EM`,
+0,52. Ce n’est pas non plus une constante nouvelle : c’est celle sur laquelle
+`verticalCaptionSize` avait été calibré à la main, retrouvée par ses deux extrémités
+et écrite une fois, avec le test qui tient les deux d’accord. La taille est ensuite
+la plus grande dont les lignes repliées tiennent encore dans la boîte, ce qui est
+la leçon de `verticalCaptionSize` généralisée : une taille réglée pour que la plus
+longue légende légale tienne rend toutes les courtes à la taille qu’il fallait à
+une longue, et c’est la boîte qui fait cette arithmétique maintenant, plutôt qu’une
+rampe entre deux nombres de caractères.
+
+Deux choses qu’un document peut encore demander plus petites, et elles sont
+nommées : `solidScene.size` et `separator.extent`, deux énumérations fermées de
+trois parts. Un solide `small` remplit 42 % de sa boîte parce que quelqu’un a écrit
+`small`, et le refuser serait la mise en page passant par-dessus le document.
+
+`composition.test.js` est ce qui en fait une règle plutôt qu’un paragraphe.
+`blockExtent` est pure — une boîte en entrée, les dimensions qu’un bloc dessine en
+sortie —, donc doubler une boîte doit doubler chacune d’elles, et le filet est la
+seule chose qui ne bouge pas. Ce qu’elle dessine doit remplir au moins les trois
+quarts de sa boîte sur l’axe que sa propre ligne revendique (`BOX_FILL_FLOOR`), et
+ce nombre est mesuré plutôt que choisi : un balayage des vingt-sept kinds, chacun
+aux deux extrémités de ce que le schéma autorise, sur douze formes de boîte dans
+les trois formats, place le pire cas à 0,82 — et on ne peut pas faire mieux en
+général, parce qu’un nombre de lignes est un entier. Enfin, la boîte donnée à un
+bloc doit être exactement ce qu’il y dessine : deux calculs pris par les deux
+bouts, `stackIn` qui résout une unité pour une pile et `blockExtent` qui répond
+pour une boîte, ce qui est ce qui rattraperait une table de poids dérivant de
+l’échelle typographique.
 
 #### Il n’y a toujours aucun son
 

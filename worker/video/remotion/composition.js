@@ -26,6 +26,37 @@
 // — they are clamped linear interpolation and string building, not rendering,
 // and Remotion's own `interpolate` was the only thing keeping them out of a test.
 
+// ── THE RULE EVERY BLOCK IS WRITTEN TO: it inhabits the box it is given ──────
+//
+// A composed scene hands each block a BOX, and the block dimensions everything it
+// draws on that box. Not on the frame. The defect that made this a rule was in
+// six real exports, in every one of the twenty-seven blocks, and it looked like
+// arithmetic rather than like a mistake: `equalizer` drew `base * 0.18`, a
+// fraction of the frame's short edge, whether it had been anchored `center` or
+// `full`. A field that occupies 18% of the height is not a field. A `typewriter`
+// alone in a scene was one small line of text in the middle of a black frame; a
+// `counter` alone was an eighth of the picture. Twenty-seven blocks each drew a
+// fixed fraction of the FRAME, so every scene was a small element floating in a
+// large void — which is what the user had been calling "rudimentary" from the
+// first export onwards, and he was right.
+//
+// So: a block that is given half the frame fills half the frame. Concretely —
+//
+//   1. `composedLayout` publishes one box PER BLOCK (`zone.layers[i].box`), never
+//      the zone's box repeated. A zone shared by three blocks is three boxes; a
+//      stack of two is two boxes, one above the other.
+//   2. Every size a block draws is derived from that box: through `blockExtent`
+//      for its outer dimensions, through the shared type unit for its type.
+//   3. **The one legitimate use of the FRAME's own dimension is a constant
+//      metric**: a quantity that must not change from one scene to the next
+//      because it is the same object in both. There are exactly three, they are
+//      named in `CONSTANT_METRICS`, and each is bounded — see the note there.
+//
+// `composition.test.js` holds the rule rather than this comment: `blockExtent` is
+// pure, so doubling a box has to double every dimension a block draws (the three
+// constants aside), and the content of a box has to fill a stated fraction of it.
+// A rule a test cannot ask about is a rule that lasts until the next block.
+
 // The contrast arithmetic is next door rather than here, for the reason this
 // file exists at all: it is a hand-kept mirror of `src/lib/audit/colors.ts` and
 // `contrast.test.js` holds the two together. Mixing it into this file would put
@@ -1237,7 +1268,14 @@ export function frameBase(width, height) {
  * reason: it costs one line and it says "this is a heading" without a size.
  */
 export const KICKER_SIZE = 0.026
-export const KICKER_TRACKING = '0.2em'
+/**
+ * As a number, because the type scale has to MEASURE it: a fifth of an em added
+ * to every glyph is a fifth of a line's width, which is the difference between a
+ * kicker that fits its box and one that wraps. The string is derived from it so
+ * the two cannot drift.
+ */
+export const KICKER_TRACKING_EM = 0.2
+export const KICKER_TRACKING = `${KICKER_TRACKING_EM}em`
 
 /**
  * A field of 1-pixel rules, as one CSS background — the house texture.
@@ -1489,6 +1527,600 @@ export const PICTURE_SHARE = { row: 0.5, column: 0.45 }
 // margin, a feed application covers a fifth of a portrait frame with its own
 // interface, and a percentage cannot tell the two apart.
 
+// ── One type scale, for every block ──────────────────────────────────────────
+//
+// The second defect the six exports showed was the first one wearing a hat.
+// `headingSize`, the counter's figure, the typewriter's line and the wordmark
+// were four fractions of `base` decided by four authors, so a `counter` and a
+// `heading` stacked in one zone came out at 0.13 and 0.042 of the short edge —
+// the figure crushing the title by a factor of three, in a frame nobody had
+// asked for that emphasis in. Twenty-seven blocks choosing their own type size
+// is twenty-six of them disagreeing, which is the argument this whole file is
+// written under, applied to typography instead of to easing.
+//
+// So there is ONE scale. A role — display, title, body, caption, figure — is a
+// STEP on it, and a step is a multiple of a unit that is solved per stack rather
+// than read off the frame. The ratios between the steps are the ones the
+// catalogue already had (0.096 / 0.062 / 0.040 / 0.026 / 0.130 of the short edge,
+// normalised on the body step), so nothing about the relationship between a
+// heading and its kicker changes. What changes is the denominator: a box instead
+// of a frame.
+
+/**
+ * The average advance width of a glyph, in ems, in the family this container
+ * actually has.
+ *
+ * The Dockerfile installs `fonts-liberation` and nothing loads a webfont, so the
+ * face a film is set in is Liberation Sans (metric-compatible with Arial) unless
+ * the direction named one the image happens to carry. That makes the average
+ * advance a KNOWN number rather than a guess, and a known average is what lets
+ * this file estimate where a line will break without measuring a glyph — which a
+ * Remotion bundle cannot do before it has laid out, and a test cannot do at all.
+ *
+ * The number is not new. It is the one `verticalCaptionSize` was calibrated on by
+ * hand, recovered from its own two ends: 110 characters at 0.058 of the short
+ * edge "in four lines inside the safe area" and 24 characters at 0.115 in
+ * "roughly two lines" both solve to 0.527 across the 84% of 1080 that
+ * `VERTICAL_SAFE_SIDE_PERCENT` leaves. Rounded down to 0.52, because the whole
+ * point of the estimate is that it must not UNDER-count lines — a line more than
+ * predicted is a block through the edge of its box, a line fewer is a block a
+ * little short of it. `composition.test.js` re-derives the caption ramp from this
+ * constant, which is what stops the two drifting now that the number is written
+ * down once instead of being implied twice.
+ *
+ * Arial's own metrics agree: unweighted, its lowercase averages 0.49 em and its
+ * capitals 0.68, so a Title Case line lands near 0.52 and a sentence of lowercase
+ * below it.
+ */
+export const MEAN_GLYPH_EM = 0.52
+
+/** The same, for `Liberation Mono` — a monospace face is one advance by definition. */
+export const MEAN_MONO_EM = 0.6
+
+/**
+ * The margin the wrap estimate keeps for itself.
+ *
+ * Words are not glyphs of equal width, and CSS breaks between them rather than
+ * across them: a measure that holds 27 average characters holds 24 or 25 real
+ * ones once the last word of each line has to fit whole. Six per cent is the
+ * cheapest insurance there is against the failure that is not symmetrical — a
+ * block that wraps one line more than this file predicted is a block past the
+ * bottom of its box, and the safe area it sits in is a promise about a feed
+ * application's own interface.
+ */
+export const LINE_SAFETY = 1.06
+
+/**
+ * The five roles, as a step on one scale and a leading.
+ *
+ * `step` is a multiple of the BODY step, which is 1 by definition — so a unit of
+ * 40 px sets running text at 40 px and a display line at 96 px, exactly the
+ * 0.040 / 0.096 of the short edge the blocks were each computing on their own.
+ * `leading` is the line box, and each of the five is the one its own family
+ * already drew with: 1.08 on a heading, 1.4 on running text, 1.02 on a figure
+ * that has no descenders to clear.
+ *
+ * Five and not twenty-seven, and the ordering is the whole point: a `figure` is
+ * above a `display` because a number is the scene when it is there, and a
+ * `caption` is below `body` because a surtitle that is not smaller than the line
+ * under it is not a surtitle. A block picks a role and never a size, exactly as
+ * it picks a run off the palette and never a colour.
+ *
+ * A role names a SIZE and never a run: which ink a block paints with, and at
+ * which contrast floor, stays `composedPalette`'s answer. The two tables are
+ * deliberately not the same table — a `subtitle` is display type set small, so it
+ * takes the body STEP and the display RUN, and folding them together would make
+ * the smaller of two sizes quietly the stricter of two floors.
+ *
+ * `figure` is one step above `display` and not three, which is where the old
+ * numbers were: `FIGURE_SIZE` was a ramp from 0.13 down to 0.072 of the short
+ * edge, and reading its top as the figure size is what made a counter beside a
+ * heading three times its neighbour. The ramp is exactly what the box does now,
+ * so what is left of it is a step.
+ */
+export const TYPE_ROLES = {
+  display: { step: 2.4, leading: 1.08 },
+  figure: { step: 2.8, leading: 1.02 },
+  title: { step: 1.55, leading: 1.14 },
+  body: { step: 1, leading: 1.4 },
+  caption: { step: 0.65, leading: 1.35 },
+}
+
+/**
+ * A role, or `body`.
+ *
+ * `Object.hasOwn` for the reason `anchorCell` and `blockComponent` both spell
+ * out: a plain lookup answers for the prototype chain, so `role: "constructor"`
+ * would hand a function to a multiplication and set every line of a film at
+ * `NaN` px. The value comes from this file's own tables, so reaching the fallback
+ * means two of them disagree — and running text beats an invisible line (Q1).
+ */
+export function typeRole(role) {
+  return typeof role === 'string' && Object.hasOwn(TYPE_ROLES, role) ? TYPE_ROLES[role] : TYPE_ROLES.body
+}
+
+/** The type size of a role in pixels, once a stack's unit has been solved. */
+export function typeSize(role, unit) {
+  return Math.max(1, Math.round((Number(unit) || 0) * typeRole(role).step))
+}
+
+/**
+ * How many lines a run of text takes at a size, across a measure.
+ *
+ * An estimate and not a measurement, deliberately: the alternative is laying the
+ * text out, which needs a browser, which is the one thing this file is written
+ * not to need. It is conservative in the direction that matters (see
+ * `LINE_SAFETY`) and it answers 0 for an absent run, which is how an optional
+ * subtitle costs a block nothing rather than costing it a blank line.
+ */
+export function textLines(text, size, width, tracking = 0, advanceEm = MEAN_GLYPH_EM) {
+  const chars = String(text ?? '').trim().length
+  if (chars === 0) return 0
+  const advance = (advanceEm + Math.max(0, Number(tracking) || 0)) * LINE_SAFETY * Math.max(0, Number(size) || 0)
+  const measure = Math.max(1, Number(width) || 0)
+  if (advance <= 0) return 1
+  return Math.max(1, Math.ceil(chars / Math.max(1, Math.floor(measure / advance))))
+}
+
+/** How wide one line of `text` runs at a size. The other half of the same estimate. */
+export function textWidth(text, size, tracking = 0, advanceEm = MEAN_GLYPH_EM) {
+  const chars = String(text ?? '').trim().length
+  return chars * (advanceEm + Math.max(0, Number(tracking) || 0)) * LINE_SAFETY * Math.max(0, Number(size) || 0)
+}
+
+/** The air between two runs of one block, in units. A block is not a stack: the gap is tighter. */
+export const RUN_GAP = 0.35
+
+/**
+ * The height a shape draws at a given unit: its runs, wrapped, plus its furniture.
+ *
+ * A "shape" is what a kind is MADE OF — see `BLOCK_APPETITE`. `fixed` is the part
+ * that is not type: a plot, a dial, a card's padding, the rule under a heading.
+ * It is counted in units too, so the whole block scales with one number and a
+ * chart cannot quietly stay the size of the frame while its labels shrink.
+ *
+ * Monotone non-decreasing in `unit`, which is what makes `solveTypeUnit` a
+ * bisection rather than a search: more unit is more size, more size is the same
+ * or more lines, and both terms only ever add.
+ */
+function shapeHeight(shape, width, unit) {
+  const at = Math.min(Math.max(0, Number(unit) || 0), shapeCeiling(shape, width))
+  let height = (Number(shape?.fixed) || 0) * at
+  let drawn = 0
+  for (const run of shape?.runs ?? []) {
+    const role = typeRole(run?.role)
+    const advance = run?.mono ? MEAN_MONO_EM : MEAN_GLYPH_EM
+    const size = at * role.step
+    // A run that cannot break has ONE line whatever it costs — a seven-digit
+    // counter wrapped onto three lines is not a counter, and nothing in `words()`
+    // can break "1 000 000" anyway. What gives instead is the size, through
+    // `shapeCeiling` above: the unit itself stops rising once such a run has
+    // filled the measure.
+    const lines = run?.nowrap
+      ? (String(run?.text ?? '').trim().length ? 1 : 0)
+      : textLines(run?.text, size, width, run?.tracking, advance)
+    if (lines === 0) continue
+    height += lines * size * role.leading
+    drawn += 1
+  }
+  return height + Math.max(0, drawn - 1) * RUN_GAP * at
+}
+
+/** The largest size at which an unbreakable run still fits the measure it was given. */
+function cappedByWidth(run, width, advance) {
+  const chars = String(run?.text ?? '').trim().length
+  if (chars === 0) return 0
+  const per = (advance + Math.max(0, Number(run?.tracking) || 0)) * LINE_SAFETY * chars
+  return per > 0 ? Math.max(0, Number(width) || 0) / per : 0
+}
+
+/**
+ * The largest unit a shape can USE, which is not always the largest one that
+ * fits — and the difference is a wordmark.
+ *
+ * A run that cannot break is bounded by the measure rather than by the box: 24
+ * characters across 1688 px is 127 px of type and there is no taller version of
+ * it. Past that point nothing about the block changes, so the ceiling has to
+ * apply to the WHOLE shape and not only to that run. It was written the other way
+ * round first, and a `logoType` alone in a zone came back with a 128 px word
+ * beside a 760 px mark: the type had stopped growing and its furniture had not.
+ *
+ * `Infinity` for a shape that can always spend more — anything with a run that
+ * wraps. That is the common case, and the one where the box decides.
+ */
+export function shapeCeiling(shape, width) {
+  let ceiling = Infinity
+  for (const run of shape?.runs ?? []) {
+    if (!run?.nowrap) continue
+    if (String(run?.text ?? '').trim().length === 0) continue
+    const advance = run.mono ? MEAN_MONO_EM : MEAN_GLYPH_EM
+    ceiling = Math.min(ceiling, cappedByWidth(run, width, advance) / typeRole(run.role).step)
+  }
+  return ceiling
+}
+
+/** How finely the unit is solved. 24 halvings of a 1080 px room lands inside a millionth of a pixel. */
+const UNIT_STEPS = 24
+
+/**
+ * The type unit a stack of shapes reads, in pixels: the largest one at which
+ * everything still fits the room.
+ *
+ * This is where "inhabit your box" stops being a slogan. The unit is solved
+ * AGAINST THE BOX — the blocks of a stack then take the height they take at that
+ * unit, and the stack fills its zone rather than sitting in the middle of it at
+ * whatever size the frame's short edge implied. Two blocks in one zone read the
+ * SAME unit, which is the half of the fix that stops a figure from crushing a
+ * title: their sizes are two steps of one scale, 3.25 against 1.55, and never two
+ * fractions of a frame neither of them can see.
+ *
+ * A bisection because `shapeHeight` is monotone and it JUMPS: a line count is an
+ * integer, so the height of a stack is a staircase in the unit and there is no
+ * formula to invert. What is left over at the answer is at most one line of the
+ * run that jumped, which `composition.test.js` bounds rather than assumes.
+ */
+export function solveTypeUnit(shapes, width, height, gap = 0) {
+  const list = Array.isArray(shapes) ? shapes : []
+  const room = Math.max(0, Number(height) || 0) - Math.max(0, list.length - 1) * Math.max(0, Number(gap) || 0)
+  if (!(room > 0) || list.length === 0) return 0
+  const total = (unit) => list.reduce((sum, shape) => sum + shapeHeight(shape, width, unit), 0)
+
+  // The bracket is grown rather than assumed. A unit CAN exceed the room it is
+  // solved in — `blockAppetite` counts a block's furniture in units too, so a
+  // shape whose fixed part is under 1 draws less than one unit of height and the
+  // answer is above the box. Doubling eight times covers 256×, past anything the
+  // schema's bounds can reach.
+  let high = Math.max(1, room)
+  for (let i = 0; i < 8 && total(high) <= room; i += 1) high *= 2
+  if (total(high) <= room) {
+    // Nothing in this stack grows any more: every run is unbreakable and already
+    // at its measure. The answer is the point where that happened, not the last
+    // number the loop tried — see `shapeCeiling`.
+    const ceiling = Math.max(...list.map((shape) => shapeCeiling(shape, width)))
+    return Number.isFinite(ceiling) ? ceiling : high
+  }
+
+  let low = 0
+  for (let i = 0; i < UNIT_STEPS; i += 1) {
+    const mid = (low + high) / 2
+    if (total(mid) <= room) low = mid
+    else high = mid
+  }
+  return low
+}
+
+/**
+ * The type size of ONE run of a role in ONE box — the whole of section B, for a
+ * caller that has a box and a line rather than a stack.
+ *
+ * It takes the LENGTH of the text and the number of lines that length will take
+ * in that box, because both are the difference between a size that fits and a
+ * size that reads as timid. That lesson is `verticalCaptionSize`'s and it is
+ * older than this scale: a caption size tuned so the longest legal one still fits
+ * renders every short one at the size a 120-character one needed, which in the
+ * one template where three words should fill the frame is three words in the
+ * middle of it. Here the ramp is not a ramp any more — the size is solved against
+ * the box, so a long line lands smaller for the reason a long line is smaller,
+ * rather than because somebody drew a line between 24 and 110 characters.
+ */
+export function typeScale(role, text, box, { tracking = 0, mono = false, nowrap = false, unit } = {}) {
+  const shape = { fixed: 0, runs: [{ role, text, tracking, mono, nowrap }] }
+  const width = Math.max(0, Number(box?.width) || 0)
+  const given = Number(unit)
+  // The stack's unit when there is one, this box's own when there is not. A block
+  // in a zone MUST pass the one `composedLayout` published: re-solving on its own
+  // box can land a step above its neighbour, which is the disagreement the whole
+  // scale exists to remove.
+  const solved =
+    Number.isFinite(given) && given > 0 ? given : solveTypeUnit([shape], width, Math.max(0, Number(box?.height) || 0))
+  return Math.max(1, Math.round(Math.min(solved, shapeCeiling(shape, width)) * typeRole(role).step))
+}
+
+// ── What a kind is made of, and how much of a stack it is worth ──────────────
+
+/**
+ * The two quantities a document states that are a SHARE of a box rather than a
+ * size — the second half of the exception the file header names.
+ *
+ * A block fills the box it is given unless the document asked for less, and
+ * exactly two fields may ask: `solidScene.size` and `separator.extent`. Both are
+ * closed enums of three, both are shares and never pixels (which is what keeps
+ * them the `anchor` argument applied to depth and to measure), and both are
+ * reproduced from the block that owns them — `SOLID_SHARE` in `blocks/setPiece.js`
+ * and `RULE_EXTENTS` in `blocks/misc.js` — so that `blockExtent` can answer for a
+ * block without importing one. Those two copies collapse into this one the day
+ * the blocks are rewritten against this contract; until then
+ * `composition.test.js` is the only thing holding them equal.
+ */
+export const DECLARED_SHARE = {
+  solidScene: { small: 0.42, medium: 0.62, large: 0.86 },
+  separator: { short: 0.18, measure: 0.62, full: 1 },
+}
+
+/** A named share, or the middle one. Same `Object.hasOwn` argument as everywhere else in this file. */
+function declaredShare(kind, name, fallback) {
+  const table = Object.hasOwn(DECLARED_SHARE, String(kind)) ? DECLARED_SHARE[kind] : null
+  if (!table) return 1
+  return typeof name === 'string' && Object.hasOwn(table, name) ? table[name] : table[fallback]
+}
+
+/**
+ * The three quantities that are still allowed to be read off the FRAME, and why
+ * each of them has to be.
+ *
+ * The rule at the top of this file says a block sizes everything on its box. A
+ * constant metric is the exception, and it is one exception rather than a list
+ * of nice-to-haves: it covers what must be IDENTICAL from one scene to the next
+ * because a viewer reads it as the same object. A hairline that is 3 px under a
+ * headline in scene one and 9 px under a smaller one in scene two is not a
+ * hairline, it is two different design systems in one film; a corner radius that
+ * grew with its card is a card that changed shape.
+ *
+ * Each is bounded, because an exception with no ceiling is the rule going back
+ * out of the window: none of the three may exceed `CONSTANT_CEILING` of the box
+ * it is drawn in, so a rule inside a tiny zone thins to fit rather than becoming
+ * the block. The grid's own gutters are in here for the same reason as the
+ * hairline — `COMPOSED_CELL_GAP` and `COMPOSED_STACK_GAP` are the film's spacing,
+ * not a block's dimension, and a gutter that changed per zone would be a grid
+ * with no rhythm.
+ */
+export const CONSTANT_METRICS = ['hairline', 'radius', 'gutter']
+export const HAIRLINE_SHARE = 0.0028
+export const CONSTANT_CEILING = 0.25
+
+/**
+ * How much of its box a block has to fill on the axis its own row claims —
+ * "reasonable", as a number, because the rule at the top of this file is not
+ * checkable without one.
+ *
+ * Three quarters, and it is measured rather than chosen. A sweep of the whole
+ * catalogue — twenty-seven kinds, each at both ends of what the schema allows
+ * (the poorest legal block and the longest legal one), across twelve box shapes
+ * in all three ratios — puts the worst case at 0.82: a `notification` whose card
+ * lands one line short of a box that happened to fall between two line counts.
+ * Nothing can do better than that in general, because a line count is an integer
+ * and the leftover of a staircase is bounded by one line of whichever run jumped;
+ * and nothing should do much worse, because at three quarters a box already holds
+ * more void than ink — which is the whole complaint this pass answers.
+ *
+ * The two shares a document may ask for (`DECLARED_SHARE`) are divided out before
+ * the comparison. A `small` solid fills 42% of its box because somebody wrote
+ * `size: "small"`, and refusing that would be the layout overruling the document.
+ */
+export const BOX_FILL_FLOOR = 0.75
+
+/** The house's 1 px rule at the scale of a 1080p frame, clamped into the box it is drawn in. */
+export function hairline(base, box) {
+  const thickness = Math.max(1, Math.round((Number(base) || 0) * HAIRLINE_SHARE))
+  const room = Math.min(Number(box?.width) || Infinity, Number(box?.height) || Infinity)
+  return Number.isFinite(room) ? Math.max(1, Math.min(thickness, Math.floor(room * CONSTANT_CEILING))) : thickness
+}
+
+/** A line of text, as the runs of a block see it: absent, or a string. */
+const runs = (list) => (Array.isArray(list) ? list : [])
+
+/** What a counter puts on the frame, which is what decides how wide it is. */
+function counterFace(block) {
+  const to = Number(block?.to)
+  const digits = Number.isFinite(to) ? String(Math.trunc(Math.abs(to))) : ''
+  return `${block?.prefix ?? ''}${digits}${block?.suffix ?? ''}`
+}
+
+/**
+ * What every kind is made of, in units of the body type size — the weight table.
+ *
+ * ── Why a weight at all ──────────────────────────────────────────────────────
+ *
+ * A vertical stack of N blocks in a zone of height H does not divide into H/N,
+ * because the blocks are not equally hungry. A title wants height; a rule wants
+ * almost none. Split evenly, a `separator` above a `heading` takes half the
+ * column for three pixels of ink and the heading is set at half the size the zone
+ * could carry — which is the same "small element in a large void" the whole rule
+ * at the top of this file is about, arriving through the split instead of through
+ * the block.
+ *
+ * ── The unit, and why the table is written in it ─────────────────────────────
+ *
+ * One unit is one BODY type size. A block's appetite is therefore "how many
+ * body-sizes of height do I draw", which is the only currency in which a chart, a
+ * quote and a hairline can be compared at all. Two parts to it:
+ *
+ *   - `runs` — the text. Its height is not in the table, because it depends on
+ *     the measure the zone turned out to have: `shapeHeight` wraps every run at
+ *     the unit being tried, which is what makes a 70-character heading in a
+ *     narrow column ask for more of the column than a two-word one.
+ *   - `fixed` — everything that is not type, in units: a plot, a dial, a card's
+ *     padding, the rule under a heading, the pill around a label.
+ *
+ * ── The numbers, and the argument for each tier ──────────────────────────────
+ *
+ * The text blocks carry almost nothing fixed: 1.1 for a heading is its rule and
+ * the 0.34 em of air above it; 0.7 for a kicker is its own short rule; 1.3 for a
+ * button is the padding that makes a label a pill. Those are read off what the
+ * blocks already draw, so a stack of text keeps the proportions it had.
+ *
+ * The FIELDS are the tier that had to be decided rather than measured, and the
+ * question behind every number is "below what height does this stop being what
+ * it is":
+ *
+ *   - 4 to 5 for `equalizer` and `soundWave` — a motif of bars reads as a motif
+ *     from about four lines of type up, and below that it is a row of ticks;
+ *   - 6.4 for a chart — a plot needs enough height for its tallest column to be
+ *     three or four times its shortest, and under about six lines a bar chart is
+ *     a bar code;
+ *   - 9 for a `map`, a `gallery`, an `imageFrame`, a `solidScene` — these are the
+ *     scene when they are in it. Nine body-sizes is a little over half a 16:9
+ *     safe area, so one of them beside a heading takes two thirds of the column
+ *     and the heading takes a third, which is the arrangement anybody who writes
+ *     those two blocks meant;
+ *   - 6 for a `carousel` and a `clock` — a strip and a dial are elements, not
+ *     fields: they hold their own shape and the rest of the stack still reads.
+ *
+ * `fills` says which axis a kind is entitled to fill, and it is the claim
+ * `composition.test.js` checks. `both` for a field, because a field that leaves a
+ * quarter of its box empty has nothing else in the box; `either` for anything
+ * whose governing axis depends on its own text — a two-letter heading fills its
+ * height and a seven-digit counter fills its width, and which of the two happens
+ * is the content's business rather than the layout's; `width` for a rule, whose
+ * thickness is a constant metric; `minor` for the one square block.
+ */
+export const BLOCK_APPETITE = {
+  // ── TEXT ──
+  heading: {
+    fixed: 1.1,
+    fills: 'either',
+    runs: (b) => [{ role: b?.level === 'display' ? 'display' : b?.level === 'subtitle' ? 'body' : 'title', text: b?.text }],
+  },
+  kicker: { fixed: 0.7, fills: 'either', runs: (b) => [{ role: 'caption', text: b?.text, tracking: KICKER_TRACKING_EM }] },
+  quote: { fixed: 0.9, fills: 'either', runs: (b) => [{ role: 'title', text: b?.text }, { role: 'caption', text: b?.attribution }] },
+  textHighlight: { fixed: 0.5, fills: 'either', runs: (b) => [{ role: 'body', text: b?.text }] },
+  funTitle: { fixed: 0.9, fills: 'either', runs: (b) => [{ role: 'display', text: b?.text }] },
+
+  // ── ANIMATED TEXT ──
+  typewriter: { fixed: 0.4, fills: 'either', runs: (b) => [{ role: 'title', text: b?.text }] },
+  animatedList: { fixed: 0.4, fills: 'either', runs: (b) => runs(b?.items).map((text) => ({ role: 'body', text })) },
+  counter: {
+    fixed: 0.3,
+    fills: 'either',
+    runs: (b) => [{ role: 'figure', text: counterFace(b), nowrap: true }, { role: 'caption', text: b?.label }],
+  },
+  logoType: { fixed: 0.8, fills: 'either', runs: (b) => [{ role: 'title', text: b?.text, nowrap: true }] },
+
+  // ── INTERFACE ──
+  button: { fixed: 1.3, fills: 'either', runs: (b) => [{ role: 'body', text: b?.label, nowrap: true }] },
+  form: {
+    fixed: 2.2,
+    fills: 'both',
+    runs: (b) => [
+      { role: 'title', text: b?.title },
+      ...runs(b?.fields).map((text) => ({ role: 'body', text })),
+      { role: 'body', text: b?.submit },
+    ],
+  },
+  notification: { fixed: 1.6, fills: 'both', runs: (b) => [{ role: 'body', text: b?.title }, { role: 'caption', text: b?.body }] },
+  lowerThird: { fixed: 1.1, fills: 'either', runs: (b) => [{ role: 'title', text: b?.title }, { role: 'caption', text: b?.subtitle }] },
+
+  // ── DATA ──
+  barChart: { fixed: 6.4, fills: 'both', runs: (b) => [{ role: 'caption', text: runs(b?.labels)[0] }] },
+  lineChart: { fixed: 6.4, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.label }] },
+  equalizer: { fixed: 5, fills: 'both', runs: () => [] },
+  soundWave: { fixed: 4, fills: 'both', runs: () => [] },
+  map: { fixed: 9, fills: 'both', runs: () => [] },
+
+  // ── MEDIA AND TIME ──
+  imageFrame: { fixed: 9, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.caption }] },
+  gallery: { fixed: 9, fills: 'both', runs: () => [] },
+  carousel: { fixed: 6, fills: 'both', runs: () => [] },
+  clock: { fixed: 6, fills: 'either', runs: (b) => [{ role: 'caption', text: b?.label }] },
+  dateStamp: { fixed: 0.6, fills: 'either', runs: (b) => [{ role: 'body', text: b?.text, nowrap: true }] },
+
+  // ── MISC ──
+  separator: { fixed: 1, fills: 'width', runs: () => [] },
+  progressBar: { fixed: 1.2, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.label }] },
+
+  // ── SET PIECES ──
+  codeBlock: {
+    fixed: 1.8,
+    // `either`, and it is the wordmark's case rather than a panel's: a line of
+    // code cannot wrap — a break somebody did not write is a different program on
+    // the screen — so 64 monospace characters across a 906 px measure are 22 px of
+    // type and the panel is as tall as that makes it. It fills its measure; the
+    // height is the content's answer.
+    fills: 'either',
+    runs: (b) => runs(b?.lines).map((line) => ({ role: 'body', text: line?.text, mono: true, nowrap: true })),
+  },
+  solidScene: { fixed: 9, fills: 'minor', runs: () => [] },
+}
+
+/**
+ * A kind's appetite, or a body-sized one.
+ *
+ * The fallback is reached only if this table and `BLOCK_KINDS` disagree, which
+ * `blocks.test.js` is what prevents — and a block laid out as a line of running
+ * text beats a block laid out at `NaN` px, which is a scene with everything piled
+ * at the origin (Q1).
+ */
+export function blockAppetite(kind) {
+  return typeof kind === 'string' && Object.hasOwn(BLOCK_APPETITE, kind)
+    ? BLOCK_APPETITE[kind]
+    : { fixed: 1.4, fills: 'either', runs: () => [] }
+}
+
+/** A block as the solver sees it: its furniture, and its runs of text. */
+export function blockShape(block) {
+  const appetite = blockAppetite(block?.kind)
+  return { fixed: appetite.fixed, runs: appetite.runs(block ?? {}) }
+}
+
+/** How tall a block draws at a given unit, across a given measure. */
+export function blockHeight(block, width, unit) {
+  return shapeHeight(blockShape(block), width, unit)
+}
+
+/**
+ * What a block DRAWS in the box it was given — the contract, as arithmetic.
+ *
+ * Every one of the twenty-seven is written against this function: the dimensions
+ * it answers are the dimensions the component has to produce, so a block that
+ * quietly kept a fraction of `base` disagrees with a number a test can compute.
+ * That is the whole of section D — it is pure, it takes a box, and doubling the
+ * box doubles everything in the answer except the constant metrics.
+ *
+ * The width is where the kinds differ, and the difference is honest rather than
+ * tidy. A field takes its box, because a field with a quarter of its box empty
+ * has nothing else in that box. A run of type takes the width its own words take
+ * at the size the box allowed — which is a fraction the layout does not get to
+ * choose, since two letters cannot fill a landscape measure without being taller
+ * than the box. A rule takes the share the document asked for.
+ *
+ * `unit` is the stack's, when there is a stack. Left out, the block is solved
+ * alone in the box — which is the right answer for a lone block and the WRONG one
+ * for a block with a neighbour: a staircase has flat treads, so a block re-solved
+ * on its own box can come back a step larger than the unit its zone agreed on,
+ * and two blocks in one zone at two units is the defect this scale exists to
+ * close. `composedLayout` therefore publishes the unit next to the box, and a
+ * block reads both.
+ */
+export function blockExtent(block, box, base, unit) {
+  const width = Math.max(0, Number(box?.width) || 0)
+  const height = Math.max(0, Number(box?.height) || 0)
+  const kind = String(block?.kind ?? '')
+  const appetite = blockAppetite(kind)
+  const shape = blockShape(block)
+  const at = Number(unit)
+  const solved = Number.isFinite(at) && at > 0 ? at : solveTypeUnit([shape], width, height)
+  const drawn = Math.min(height, shapeHeight(shape, width, solved))
+
+  if (kind === 'separator') {
+    // The air IS the block: a rule with nothing around it is a border, and what
+    // makes a separator a separation is the room it holds open. Its thickness is
+    // the constant metric, which is why its height is not measured against its
+    // box and its width is.
+    return { width: width * declaredShare('separator', block?.extent, 'measure'), height, thickness: hairline(base, box) }
+  }
+  if (kind === 'solidScene') {
+    const side = Math.min(width, height) * declaredShare('solidScene', block?.size, 'medium')
+    return { width: side, height: side }
+  }
+  if (appetite.fills === 'both') return { width, height: drawn }
+
+  // Type: the longest run wins the measure, and a run that wrapped has used all
+  // of it by definition.
+  let widest = 0
+  const spent = Math.min(solved, shapeCeiling(shape, width))
+  for (const run of shape.runs) {
+    const role = typeRole(run.role)
+    const advance = run.mono ? MEAN_MONO_EM : MEAN_GLYPH_EM
+    const size = spent * role.step
+    const lines = run.nowrap
+      ? (String(run.text ?? '').trim().length ? 1 : 0)
+      : textLines(run.text, size, width, run.tracking, advance)
+    if (lines === 0) continue
+    widest = Math.max(widest, lines > 1 ? width : Math.min(width, textWidth(run.text, size, run.tracking, advance)))
+  }
+  return { width: widest, height: drawn }
+}
+
 /**
  * The margin a composed frame keeps from its own edges, per axis, when nothing
  * is drawn over it.
@@ -1595,6 +2227,52 @@ function split(start, span, gap, count) {
 }
 
 /**
+ * The blocks of one zone, each with the box it actually gets.
+ *
+ * This is the first clause of the rule at the top of the file, and it is the
+ * arithmetic the other two rest on: until a block is handed its OWN box, "fill
+ * your box" has nothing to mean. The zone's box was what every block received —
+ * eight `solidScene` blocks anchored `full` were eight canvases of 589 px each,
+ * 4712 px of content inside 950 px of safe height, in a picture of 2.07 Mpx.
+ *
+ * The split is by APPETITE and never by count: `solveTypeUnit` finds the one type
+ * unit at which the whole stack fits the zone, and each block then takes the
+ * height it draws at that unit. That is what makes a rule take a rule's worth of
+ * the column and a heading take a heading's — see `BLOCK_APPETITE` for the table
+ * and for the argument behind each tier.
+ *
+ * There is a leftover and it is content-bound rather than a slack somebody chose:
+ * a line count is an integer, so the stack's height is a staircase in the unit and
+ * the answer sits on the last tread that fits. Six list items of the same length
+ * gain a line together, which is why the tread can be deep — and no size between
+ * the two exists. It is spent according to the zone's own alignment, the property
+ * that was already keeping a crowded stack inside the frame: a column in the top
+ * band grows downward, one in the bottom band grows upward, and the middle one
+ * grows both ways. Nothing here can put a box outside the zone, because the unit
+ * was solved so that it could not.
+ *
+ * Edges are rounded rather than heights, for `split`'s own reason: rounding each
+ * height spends a pixel per block, and eight of them put the last box past the
+ * margin it was measured from.
+ */
+function stackIn(box, layers, gap, justify) {
+  const shapes = layers.map(({ block }) => blockShape(block))
+  const unit = solveTypeUnit(shapes, box.width, box.height, gap)
+  const heights = shapes.map((shape) => Math.max(0, shapeHeight(shape, box.width, unit)))
+  const drawn = heights.reduce((sum, at) => sum + at, 0) + Math.max(0, layers.length - 1) * gap
+  const slack = Math.max(0, box.height - drawn)
+  let cursor = box.top + (justify === 'center' ? slack / 2 : justify === 'flex-end' ? slack : 0)
+
+  const placed = layers.map((layer, i) => {
+    const top = Math.round(cursor)
+    const bottom = Math.round(cursor + heights[i])
+    cursor += heights[i] + gap
+    return { ...layer, unit, box: { left: box.left, top, width: box.width, height: Math.max(0, bottom - top) } }
+  })
+  return { unit, layers: placed }
+}
+
+/**
  * Where every block of a composed scene goes: one entry per zone that holds
  * something, in paint order.
  *
@@ -1624,8 +2302,11 @@ function split(start, span, gap, count) {
  * `full` is first in the list and therefore painted first, under the nine cells:
  * a map, a wave or a gallery is a FIELD, and an element anchored `center` on top
  * of it is the arrangement anybody writing those two blocks meant. Two `full`
- * blocks share the safe area between them (`share`), for the same reason two
- * blocks in a cell stack — one rule for all ten zones, not nine and an exception.
+ * blocks divide the safe area between them by the same arithmetic that divides a
+ * cell (`stackIn`) — one rule for all ten zones, not nine and an exception. They
+ * used to divide it EQUALLY, through a `flex: 1 1 0` in the composition, which is
+ * the same defect as an even split anywhere else: a field and a rule are not
+ * equally hungry.
  *
  * ── A row is divided among the columns that are USED ─────────────────────────
  *
@@ -1659,6 +2340,7 @@ export function composedLayout(scene, width, height) {
   const frame = composedSafeArea(width, height)
   const base = frameBase(width, height)
   const gutter = Math.round(base * COMPOSED_CELL_GAP)
+  const gap = Math.round(base * COMPOSED_STACK_GAP)
 
   // Which blocks each zone holds, in the order the document listed them. An
   // anchor this build does not know lands in `center`, like `anchorCell`'s own
@@ -1673,7 +2355,6 @@ export function composedLayout(scene, width, height) {
     held.get(anchor).push({ index, block })
   })
 
-  const rows = split(frame.top, frame.height, gutter, 3)
   const used = [new Set(), new Set(), new Set()]
   for (const anchor of held.keys()) {
     const cell = ANCHOR_CELLS[anchor]
@@ -1684,31 +2365,53 @@ export function composedLayout(scene, width, height) {
     const boxes = split(frame.left, frame.width, gutter, order.length)
     return new Map(order.map((column, i) => [column, boxes[i]]))
   })
+  // The bands are divided among the rows that are USED, exactly as a row is
+  // divided among its columns — and it is the same defect one axis over. A fixed
+  // third of the safe height is 295 px of a 16:9 frame, so the commonest scene
+  // there is (everything in `center`, because that is what `anchor` defaults to)
+  // was a stack sized for a third of a picture with the other two thirds empty:
+  // the void the rule at the top of this file is about, arriving through the
+  // grid rather than through a block. The asymmetry the first version kept —
+  // rows fixed, columns shared — was an argument about OVERFLOW, and it no
+  // longer applies: a stack whose unit was solved against its band cannot be
+  // taller than the band. What survives of it is the alignment, which still
+  // decides which way the leftover is spent.
+  const usedRows = [0, 1, 2].filter((row) => used[row].size > 0)
+  const bands = split(frame.top, frame.height, gutter, usedRows.length)
+  const rows = new Map(usedRows.map((row, i) => [row, bands[i]]))
 
   const zones = []
   for (const anchor of ZONE_ORDER) {
     const inZone = held.get(anchor)
     if (!inZone) continue
     const cell = ANCHOR_CELLS[anchor]
-    const row = TRACK_OF[cell.row]
-    const column = columns[row]?.get(TRACK_OF[cell.column])
+    const row = rows.get(TRACK_OF[cell.row])
+    const column = columns[TRACK_OF[cell.row]]?.get(TRACK_OF[cell.column])
+    const box =
+      !row || !column
+        ? { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
+        : { left: column.start, top: row.start, width: column.size, height: row.size }
+    // `stretch` is a legal `align-items` and not a legal `justify-content`, so
+    // the sharing zone is reported as a flag and a valid pair rather than as a
+    // value the composition would have to translate.
+    const justify = cell.row === 'stretch' ? 'flex-start' : cell.row
+    const stack = stackIn(box, inZone, gap, justify)
     zones.push({
       anchor,
-      box:
-        row === undefined || !column
-          ? { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
-          : { left: column.start, top: rows[row].start, width: column.size, height: rows[row].size },
-      // `stretch` is a legal `align-items` and not a legal `justify-content`, so
-      // the sharing zone is reported as a flag and a valid pair rather than as a
-      // value the composition would have to translate.
+      box,
       share: cell.row === 'stretch',
-      justify: cell.row === 'stretch' ? 'flex-start' : cell.row,
+      justify,
       align: cell.column,
       textAlign: TEXT_OF[cell.column] ?? 'left',
-      layers: inZone,
+      // The type unit this zone's stack reads — ONE per stack, which is the half
+      // of the fix that stops a figure from crushing a title beside it. See
+      // `solveTypeUnit`.
+      unit: stack.unit,
+      // Every block with the box it actually gets, never the zone's repeated.
+      layers: stack.layers,
     })
   }
-  return { frame, gutter, gap: Math.round(base * COMPOSED_STACK_GAP), zones }
+  return { frame, gutter, gap, zones }
 }
 
 /**

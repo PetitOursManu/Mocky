@@ -22,6 +22,7 @@ import { describe, it, expect } from 'vitest'
 // No Remotion and no React on either side of this import — `composition.js` holds
 // no JSX precisely so that a test can ask these questions without rendering.
 import {
+  BLOCK_APPETITE,
   EMPHASIS_ENTER_FRAMES,
   MIN_CUE_TAIL_FRAMES,
   composedLayout,
@@ -34,7 +35,14 @@ import {
 // The anchors come from the SCHEMA and are fed to the worker's layout, which is
 // half the point of this file: a zone Mocky can express and the worker cannot
 // place is a block that vanishes from a film somebody waited two minutes for.
-import { ANCHORS, ASPECT_RATIOS, BLOCK_LIMITS, TEMPLATE_LIMITS, VideoTimelineSchema } from '../src/lib/video/timeline.ts'
+import {
+  ANCHORS,
+  ASPECT_RATIOS,
+  BLOCK_KINDS,
+  BLOCK_LIMITS,
+  TEMPLATE_LIMITS,
+  VideoTimelineSchema,
+} from '../src/lib/video/timeline.ts'
 
 /**
  * The poorest composed document the schema accepts: one block, no anchor, no
@@ -112,15 +120,37 @@ describe('everything a composed document asks for is on the frame', () => {
       expect(safe.left + safe.width).toBeLessThanOrEqual(width)
       expect(safe.top + safe.height).toBeLessThanOrEqual(height)
       for (const entry of plan.scenes) {
-        for (const { anchor, box } of composedLayout(entry.scene, width, height).zones) {
-          const where = `${aspectRatio} ${anchor}`
-          expect(box.left, where).toBeGreaterThanOrEqual(safe.left)
-          expect(box.top, where).toBeGreaterThanOrEqual(safe.top)
-          expect(box.left + box.width, where).toBeLessThanOrEqual(safe.left + safe.width)
-          expect(box.top + box.height, where).toBeLessThanOrEqual(safe.top + safe.height)
+        for (const zone of composedLayout(entry.scene, width, height).zones) {
+          // The zone, and then every block inside it. Both are claims and they
+          // are not the same claim: the zone's box is the grid's, and a block's is
+          // the share of that zone its own appetite bought. Until the second one
+          // existed every block was handed the first, which is how eight fields
+          // anchored `full` came to be 4712 px of content in 950 px of frame.
+          for (const { anchor, box } of [zone, ...zone.layers.map((layer) => ({ anchor: layer.block.kind, box: layer.box }))]) {
+            const where = `${aspectRatio} ${anchor}`
+            expect(box.left, where).toBeGreaterThanOrEqual(safe.left)
+            expect(box.top, where).toBeGreaterThanOrEqual(safe.top)
+            expect(box.left + box.width, where).toBeLessThanOrEqual(safe.left + safe.width)
+            expect(box.top + box.height, where).toBeLessThanOrEqual(safe.top + safe.height)
+          }
         }
       }
     }
+  })
+
+  /**
+   * Every kind the schema can name has a row in the weight table, and nothing
+   * else does.
+   *
+   * The same both-directions check `blocks.test.js` runs on the registry, for the
+   * same two failures. A kind with no row is laid out by `blockAppetite`'s
+   * fallback — a body-sized block, which for a `map` or a `gallery` is a field
+   * squeezed into one line of running text, in an export that succeeded. A row
+   * with no kind is a number nobody can reach that reads as a decision somebody
+   * made.
+   */
+  it('gives every block kind an appetite, and invents none', () => {
+    expect(Object.keys(BLOCK_APPETITE).sort()).toEqual([...BLOCK_KINDS].sort())
   })
 })
 

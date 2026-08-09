@@ -18,6 +18,15 @@
 // number would agree with it by construction.
 import { describe, it, expect } from 'vitest'
 import { blend, channels as colorChannels, contrastRatio } from './contrast.js'
+// The two block files that hold a share table this one mirrors — `RULE_EXTENTS`
+// and `SOLID_SHARE`. They are plain arithmetic with no React and no Remotion in
+// them (that is the rule `blocks.test.js` enforces), so importing them here costs
+// this file none of the portability its own header is about, and it is the only
+// thing that can hold `DECLARED_SHARE` equal to the two copies it was taken from.
+import { RULE_EXTENTS } from './blocks/misc.js'
+// `SOLID_SHARE` is not exported from its file, so the share is read back through
+// the one function that applies it. Same claim, one step further out.
+import { solidCanvas } from './blocks/setPiece.js'
 import {
   ANCHORS,
   BAND_VEIL,
@@ -67,10 +76,18 @@ import {
   VERTICAL_SAFE_TOP_PERCENT,
   FIELD_ALPHAS,
   FIELD_RAMP,
+  BLOCK_APPETITE,
+  BOX_FILL_FLOOR,
+  CONSTANT_CEILING,
+  DECLARED_SHARE,
+  MEAN_GLYPH_EM,
+  TYPE_ROLES,
   accentFirst,
   anchorCell,
   backgroundKind,
   bandInset,
+  blockExtent,
+  blockHeight,
   composedLayout,
   composedPalette,
   composedSafeArea,
@@ -105,6 +122,10 @@ import {
   sceneMotion,
   stackedField,
   surfaceRange,
+  textLines,
+  typeScale,
+  typeSize,
+  hairline,
   verticalCaptionSize,
   withAlpha,
   words,
@@ -2240,9 +2261,471 @@ describe('composedLayout', () => {
     expect(gutter).toBe(Math.round(frameBase(width, height) * COMPOSED_CELL_GAP))
   })
 
+  /**
+   * The three bands belong to the rows that are USED, for the reason the columns
+   * already did — it is the same defect one axis over. A fixed third of the safe
+   * height is 295 px of a 16:9 frame, and `anchor` defaults to `center`, so the
+   * commonest scene there is was a stack sized for a third of a picture with the
+   * other two thirds empty.
+   */
+  it('gives a lone band the whole height, and shares it when there is a neighbour', () => {
+    const frame = composedSafeArea(width, height)
+    expect(composedLayout(stackOf('center'), width, height).zones[0].box.height).toBe(frame.height)
+    const pair = composedLayout(stackOf('top-center', 'bottom-center'), width, height).zones
+    for (const zone of pair) expect(zone.box.height).toBeLessThan(frame.height / 2 + 1)
+    const three = composedLayout(stackOf('top-left', 'center', 'bottom-right'), width, height).zones
+    for (const zone of three) expect(zone.box.height).toBeLessThan(frame.height / 3 + 1)
+    // A neighbour in another COLUMN costs a band nothing: the split is per axis.
+    expect(composedLayout(stackOf('center-left', 'center-right'), width, height).zones[0].box.height).toBe(frame.height)
+  })
+
+  /**
+   * Every block gets its OWN box, and the boxes tile the zone in the document's
+   * order without overlapping or leaving it.
+   *
+   * This is the defect the whole pass is about, at its root: the zone's box was
+   * handed to every block in it. Eight `solidScene` blocks anchored `full` were
+   * eight canvases of 589 px — 4712 px of content inside 950 px of safe height,
+   * in a picture 1080 px tall.
+   */
+  it('gives every block its own box, tiling its zone in order', () => {
+    for (const [ratio, size] of FRAMES) {
+      for (const kinds of [['heading'], ['kicker', 'heading', 'separator'], KINDS.slice(0, 8)]) {
+        const layers = kinds.map((kind) => ({ ...LONGEST[kind], anchor: 'center' }))
+        const { zones, gap } = composedLayout({ layers }, size.width, size.height)
+        const [zone] = zones
+        expect(zone.layers.map((l) => l.index), ratio).toEqual(kinds.map((_k, i) => i))
+        let previous = zone.box.top
+        for (const layer of zone.layers) {
+          const where = `${ratio} ${layer.block.kind}`
+          expect(layer.box.top, where).toBeGreaterThanOrEqual(previous - 1)
+          expect(layer.box.left, where).toBe(zone.box.left)
+          expect(layer.box.width, where).toBe(zone.box.width)
+          expect(layer.box.top + layer.box.height, where).toBeLessThanOrEqual(zone.box.top + zone.box.height + 1)
+          previous = layer.box.top + layer.box.height + gap
+        }
+      }
+    }
+  })
+
+  /** Eight fields anchored `full` are eight boxes, not the safe area eight times. */
+  it('divides `full` among the fields that share it', () => {
+    const layers = Array.from({ length: 8 }, () => ({ ...POOREST.solidScene, anchor: 'full' }))
+    const { zones, gap } = composedLayout({ layers }, width, height)
+    const [zone] = zones
+    expect(zone.layers).toHaveLength(8)
+    const total = zone.layers.reduce((sum, l) => sum + l.box.height, 0) + 7 * gap
+    expect(total).toBeLessThanOrEqual(zone.box.height + 1)
+    for (const layer of zone.layers) expect(layer.box.height).toBeLessThan(zone.box.height / 7)
+  })
+
+  /**
+   * A stack is divided by APPETITE and never by count: a title wants height and a
+   * rule wants almost none. Split evenly, a separator above a heading takes half
+   * the column for three pixels of ink.
+   */
+  it('divides a zone by what its blocks are made of, not by how many there are', () => {
+    const layers = [
+      { ...POOREST.separator, anchor: 'center' },
+      { ...LONGEST.heading, anchor: 'center' },
+      { ...POOREST.kicker, anchor: 'center' },
+    ]
+    const [zone] = composedLayout({ layers }, width, height).zones
+    const [rule, title, kicker] = zone.layers.map((l) => l.box.height)
+    expect(title).toBeGreaterThan(rule * 3)
+    expect(title).toBeGreaterThan(kicker * 2)
+  })
+
+  /**
+   * The box a block is given is the box it draws — the two halves of the
+   * arithmetic agreeing.
+   *
+   * They are computed by different code from different directions: `stackIn`
+   * solves a unit for the whole stack and lays out the heights it implies, while
+   * `blockExtent` is handed one box and answers what fits in it. A weight table
+   * that drifted from the type scale would show up here as a block whose box is
+   * not what it draws, which is a block floating in its own allotment.
+   *
+   * `solidScene` is out of it and the reason is geometric rather than a licence:
+   * it is a SQUARE with a share the document asked for, so it cannot fill the
+   * height of a landscape box at all — its own claim is on the minor axis, and
+   * `blockExtent` is where that is checked.
+   */
+  it('hands a block a box that is exactly what it draws in it', () => {
+    for (const [ratio, size] of FRAMES) {
+      const base = frameBase(size.width, size.height)
+      for (let count = 1; count <= 8; count += 1) {
+        for (let seed = 0; seed < KINDS.length; seed += 1) {
+          const layers = Array.from({ length: count }, (_, i) => ({
+            ...LONGEST[KINDS[(seed + i * 5) % KINDS.length]],
+            anchor: 'center',
+          }))
+          for (const zone of composedLayout({ layers }, size.width, size.height).zones) {
+            for (const layer of zone.layers) {
+              if (layer.block.kind === 'solidScene') continue
+              const drawn = blockExtent(layer.block, layer.box, base, layer.unit)
+              expect(drawn.height, `${ratio} ${layer.block.kind} in a stack of ${count}`).toBeCloseTo(layer.box.height, -0.5)
+            }
+          }
+        }
+      }
+    }
+  })
+
+  /**
+   * And the stack is as large as its zone allows, which is the claim that makes
+   * "fills its box" mean something at the level of a scene: two per cent more type
+   * would not fit.
+   *
+   * A staircase is why this is an assertion about the UNIT rather than about the
+   * leftover: a line count is an integer, so a stack can be a line short of its
+   * zone with no size between the two that fits. What can be proved is that the
+   * unit is the largest one that does — which is the same sentence a designer
+   * means by "as big as it goes".
+   */
+  it('sets a stack as large as its zone allows', () => {
+    for (const [ratio, size] of FRAMES) {
+      for (let count = 1; count <= 8; count += 1) {
+        for (let seed = 0; seed < KINDS.length; seed += 1) {
+          const layers = Array.from({ length: count }, (_, i) => ({
+            ...LONGEST[KINDS[(seed + i * 3) % KINDS.length]],
+            anchor: 'center',
+          }))
+          const { zones, gap } = composedLayout({ layers }, size.width, size.height)
+          for (const zone of zones) {
+            const room = zone.box.height - (zone.layers.length - 1) * gap
+            const at = (unit) => zone.layers.reduce((sum, l) => sum + blockHeight(l.block, zone.box.width, unit), 0)
+            const taller = at(zone.unit * 1.02)
+            // Or the stack cannot spend more at all: a run that cannot break is
+            // bounded by the measure rather than by the box, and 24 characters
+            // across 1688 px is 127 px of type with no taller version of it.
+            // `shapeCeiling` is where that is worked out; here it shows up as a
+            // stack whose height does not answer a larger unit.
+            expect(taller > room || taller === at(zone.unit), `${ratio} ${count} blocks, seed ${seed}`).toBe(true)
+          }
+        }
+      }
+    }
+  })
+
+  /**
+   * One unit per zone, which is the other half of the fix: a `counter` and a
+   * `heading` stacked together used to come out at 0.13 and 0.042 of the short
+   * edge — the figure crushing the title by a factor of three, in a frame nobody
+   * had asked for that emphasis in. Two steps of one scale is 2.8 against 1.55,
+   * and it is the same ratio in every zone of every film.
+   */
+  it('reads one type unit per zone, so two blocks are two steps of one scale', () => {
+    const layers = [
+      { ...POOREST.heading, anchor: 'center' },
+      { kind: 'counter', to: 250, from: 0, prefix: null, suffix: null, label: null, anchor: 'center' },
+    ]
+    const [zone] = composedLayout({ layers }, width, height).zones
+    expect(zone.layers.every((l) => l.unit === zone.unit)).toBe(true)
+    const ratio = typeSize('figure', zone.unit) / typeSize('title', zone.unit)
+    expect(ratio).toBeCloseTo(TYPE_ROLES.figure.step / TYPE_ROLES.title.step, 1)
+    expect(ratio).toBeLessThan(2)
+  })
+
   it('answers for a scene with no layers rather than throwing inside a browser', () => {
     for (const empty of [undefined, null, {}, { layers: [] }, { layers: 'no' }]) {
       expect(composedLayout(empty, width, height).zones).toEqual([])
+    }
+  })
+})
+
+// ── The type scale, and the rule that a block inhabits its box ───────────────
+//
+// Three claims, and they are the three the six real exports failed:
+//
+//   1. a block draws on its BOX and not on the frame — so doubling the box has to
+//      double the drawing, and the three constant metrics are the only exception;
+//   2. what it draws FILLS that box, which is what a `typewriter` alone in the
+//      middle of a black frame did not;
+//   3. two blocks in one zone read ONE scale, which is what a counter three times
+//      its neighbouring heading did not.
+//
+// The corpus is both ends of what the schema allows rather than a handful of
+// plausible blocks: the poorest legal one and the longest legal one. A layout is
+// wrong at its extremes long before it is wrong in the middle, and the extremes
+// are what a model writes when a brief is short or a heading is a sentence.
+
+/** The poorest legal block of every kind: nothing optional, everything at its floor. */
+const POOREST = {
+  heading: { kind: 'heading', text: 'Ok', level: 'title' },
+  kicker: { kind: 'kicker', text: 'A' },
+  quote: { kind: 'quote', text: 'Non.', attribution: null },
+  textHighlight: { kind: 'textHighlight', text: 'Un', mark: null },
+  funTitle: { kind: 'funTitle', text: 'Go' },
+  typewriter: { kind: 'typewriter', text: 'Un' },
+  animatedList: { kind: 'animatedList', items: ['Un'] },
+  counter: { kind: 'counter', to: 9, from: 0, prefix: null, suffix: null, label: null },
+  logoType: { kind: 'logoType', text: 'M' },
+  button: { kind: 'button', label: 'Go' },
+  form: { kind: 'form', title: null, fields: ['Nom'], submit: null },
+  notification: { kind: 'notification', title: 'Ok', body: null },
+  lowerThird: { kind: 'lowerThird', title: 'Ana', subtitle: null },
+  barChart: { kind: 'barChart', values: [1, 2], labels: null },
+  lineChart: { kind: 'lineChart', values: [1, 2], label: null },
+  equalizer: { kind: 'equalizer', bars: 4 },
+  soundWave: { kind: 'soundWave', samples: 24 },
+  map: { kind: 'map', markers: 0 },
+  imageFrame: { kind: 'imageFrame', imageId: 'a'.repeat(64), caption: null },
+  gallery: { kind: 'gallery', imageIds: ['a'.repeat(64), 'b'.repeat(64)] },
+  carousel: { kind: 'carousel', imageIds: ['a'.repeat(64), 'b'.repeat(64)] },
+  clock: { kind: 'clock', label: null },
+  dateStamp: { kind: 'dateStamp', text: '2026' },
+  separator: { kind: 'separator', extent: 'measure' },
+  progressBar: { kind: 'progressBar', to: 0, label: null },
+  codeBlock: { kind: 'codeBlock', lines: [{ text: 'a' }, { text: 'b' }], caption: null },
+  solidScene: { kind: 'solidScene', size: 'medium' },
+}
+
+/** Words rather than a repeated letter: the wrap estimate breaks between words. */
+const filler = (n) => 'Mot '.repeat(Math.ceil(n / 4)).slice(0, n).trim()
+
+/** The longest legal block of every kind, at the schema's own bounds. */
+const LONGEST = {
+  heading: { kind: 'heading', text: filler(70), level: 'display' },
+  kicker: { kind: 'kicker', text: filler(40) },
+  quote: { kind: 'quote', text: filler(180), attribution: filler(40) },
+  textHighlight: { kind: 'textHighlight', text: filler(90), mark: filler(40) },
+  funTitle: { kind: 'funTitle', text: filler(40) },
+  typewriter: { kind: 'typewriter', text: filler(120) },
+  animatedList: { kind: 'animatedList', items: Array.from({ length: 6 }, () => filler(60)) },
+  counter: { kind: 'counter', to: 1000000, prefix: filler(8), suffix: filler(8), label: filler(40) },
+  logoType: { kind: 'logoType', text: filler(24) },
+  button: { kind: 'button', label: filler(30) },
+  form: { kind: 'form', title: filler(40), fields: Array.from({ length: 4 }, () => filler(30)), submit: filler(24) },
+  notification: { kind: 'notification', title: filler(40), body: filler(90) },
+  lowerThird: { kind: 'lowerThird', title: filler(50), subtitle: filler(70) },
+  barChart: { kind: 'barChart', values: Array(8).fill(50), labels: Array(8).fill(filler(12)) },
+  lineChart: { kind: 'lineChart', values: Array(12).fill(50), label: filler(24) },
+  equalizer: { kind: 'equalizer', bars: 24 },
+  soundWave: { kind: 'soundWave', samples: 96 },
+  map: { kind: 'map', markers: 8 },
+  imageFrame: { kind: 'imageFrame', imageId: 'a'.repeat(64), caption: filler(70) },
+  gallery: { kind: 'gallery', imageIds: Array(6).fill('a'.repeat(64)) },
+  carousel: { kind: 'carousel', imageIds: Array(8).fill('a'.repeat(64)) },
+  clock: { kind: 'clock', label: filler(24) },
+  dateStamp: { kind: 'dateStamp', text: filler(30) },
+  separator: { kind: 'separator', extent: 'short' },
+  progressBar: { kind: 'progressBar', to: 100, label: filler(24) },
+  codeBlock: { kind: 'codeBlock', lines: Array.from({ length: 10 }, () => ({ text: filler(64) })), caption: filler(30) },
+  solidScene: { kind: 'solidScene', size: 'small' },
+}
+
+const KINDS = Object.keys(BLOCK_APPETITE)
+
+/** Boxes of every shape a zone can turn out to be, in all three ratios. */
+const SHAPES = []
+for (const [ratio, { width, height }] of FRAMES) {
+  const safe = composedSafeArea(width, height)
+  const base = frameBase(width, height)
+  SHAPES.push([`${ratio} whole`, safe, base])
+  SHAPES.push([`${ratio} band`, { ...safe, height: Math.round(safe.height / 2) }, base])
+  SHAPES.push([`${ratio} cell`, { ...safe, width: Math.round(safe.width / 3), height: Math.round(safe.height / 3) }, base])
+  SHAPES.push([`${ratio} strip`, { ...safe, width: Math.round(safe.width / 3), height: Math.round(safe.height / 8) }, base])
+}
+
+/** The share a document itself asked for, which is divided out before a fill is judged. */
+const asked = (block) =>
+  block.kind === 'separator'
+    ? DECLARED_SHARE.separator[block.extent]
+    : block.kind === 'solidScene'
+      ? DECLARED_SHARE.solidScene[block.size]
+      : 1
+
+describe('the type scale', () => {
+  /**
+   * One scale, five steps, in the order the roles mean something in.
+   *
+   * The defect this refuses is the one that shipped: `headingSize`, the counter's
+   * figure, the typewriter's line and the wordmark were four fractions of the
+   * frame decided by four authors, and a counter beside a heading came out three
+   * times its size. Two blocks in one zone now read one unit, so the ratio between
+   * them is a ratio between two steps of this table and nothing else.
+   */
+  it('orders its five roles and derives every size from one unit', () => {
+    const unit = 40
+    const sizes = Object.fromEntries(Object.keys(TYPE_ROLES).map((role) => [role, typeSize(role, unit)]))
+    expect(sizes.caption).toBeLessThan(sizes.body)
+    expect(sizes.body).toBeLessThan(sizes.title)
+    expect(sizes.title).toBeLessThan(sizes.display)
+    expect(sizes.display).toBeLessThan(sizes.figure)
+    // A number is the scene when it is there, and it is still ONE step above a
+    // headline rather than three: `FIGURE_SIZE`'s 0.13 was the top of a ramp.
+    expect(sizes.figure / sizes.display).toBeLessThan(1.4)
+    // The body step is 1 by definition, which is what makes the table readable.
+    expect(sizes.body).toBe(unit)
+  })
+
+  /**
+   * `MEAN_GLYPH_EM` is not a new number: it is the one `verticalCaptionSize` was
+   * calibrated on by hand, and this is the test that stops the two drifting now
+   * that it is written down.
+   *
+   * The long end is what pins it. The ramp's own comment says a full-length
+   * caption holds "in four lines inside the safe area" at 0.058 of the short edge
+   * — 110 characters over four lines of 907 px at 63 px is an average advance of
+   * 0.524 em. The short end is the looser claim ("roughly two lines") and it is
+   * checked as an inequality for that reason.
+   */
+  it('is the constant `verticalCaptionSize` was calibrated on', () => {
+    const { width, height } = DIMENSIONS['9:16']
+    const base = frameBase(width, height)
+    const measure = width * (1 - (2 * VERTICAL_SAFE_SIDE_PERCENT) / 100)
+    const short = 'x'.repeat(VERTICAL_CAPTION_SHORT_CHARS)
+    const long = 'x'.repeat(VERTICAL_CAPTION_LONG_CHARS)
+    expect(textLines(short, verticalCaptionSize(short, base), measure)).toBeLessThanOrEqual(2)
+    const implied = measure / ((VERTICAL_CAPTION_LONG_CHARS / 4) * verticalCaptionSize(long, base))
+    expect(implied).toBeGreaterThan(MEAN_GLYPH_EM * 0.95)
+    expect(implied).toBeLessThan(MEAN_GLYPH_EM * 1.1)
+  })
+
+  /** The estimate errs WIDE, never narrow: a line more than predicted is a block through its own edge. */
+  it('counts lines conservatively, and none at all for an absent run', () => {
+    expect(textLines('', 40, 500)).toBe(0)
+    expect(textLines(null, 40, 500)).toBe(0)
+    expect(textLines('x'.repeat(40), 40, 500)).toBeGreaterThan(textLines('x'.repeat(10), 40, 500))
+    expect(textLines('x'.repeat(40), 40, 250)).toBeGreaterThan(textLines('x'.repeat(40), 40, 500))
+    // Twenty characters at 40 px is 416 px of advance in a 500 px measure, which
+    // one line holds and a narrower estimate would have put on two.
+    expect(textLines('x'.repeat(20), 40, 500)).toBe(1)
+  })
+
+  /**
+   * The lesson `verticalCaptionSize` taught, generalised: a size tuned on the
+   * longest legal line renders every short one at the size a long one needed. Here
+   * the length is not a ramp any more — it is the box doing the arithmetic.
+   */
+  it('sets a short line larger than a long one in the same box', () => {
+    const box = { left: 0, top: 0, width: 900, height: 300 }
+    expect(typeScale('title', 'Trois mots ici', box)).toBeGreaterThan(typeScale('title', filler(140), box))
+  })
+
+  /** And a bigger box is a bigger line: the whole point of solving against a box. */
+  it('sets the same line larger in a bigger box', () => {
+    const text = 'Une ligne de titre'
+    const small = typeScale('title', text, { width: 450, height: 150 })
+    const large = typeScale('title', text, { width: 900, height: 300 })
+    expect(large / small).toBeGreaterThan(1.9)
+    expect(large / small).toBeLessThan(2.1)
+  })
+})
+
+describe('blockExtent — a block inhabits the box it is given', () => {
+  /**
+   * Nothing a block draws crosses the box it was handed, at either end of what
+   * the schema allows, in every shape a zone can turn out to be.
+   *
+   * The box's own edge is the safe margin `composedSafeArea` promises nothing
+   * crosses, and in a 9:16 export that margin is a promise about a feed
+   * application's interface rather than a taste in margins.
+   */
+  it.each([['poorest', POOREST], ['longest', LONGEST]])('keeps the %s block of every kind inside its box', (_label, corpus) => {
+    for (const kind of KINDS) {
+      for (const [where, box, base] of SHAPES) {
+        const drawn = blockExtent(corpus[kind], box, base)
+        expect(drawn.width, `${kind} @ ${where}`).toBeLessThanOrEqual(box.width + 1)
+        expect(drawn.height, `${kind} @ ${where}`).toBeLessThanOrEqual(box.height + 1)
+      }
+    }
+  })
+
+  /**
+   * And it fills it. This is the defect, stated as arithmetic: `equalizer` drew
+   * `base * 0.18` whether it had been anchored `center` or `full`, so a field
+   * occupied 18% of the height of a frame it had been given all of — and every
+   * scene was a small element floating in a large void.
+   *
+   * The axis is the one the kind's own row claims, because they are not the same
+   * for all twenty-seven: a field owes both, a rule owes its measure, a square owes
+   * its minor side, and a run of type owes whichever its own words reach — two
+   * letters cannot fill a landscape measure without being taller than the box.
+   */
+  it.each([['poorest', POOREST], ['longest', LONGEST]])('fills its box with the %s block of every kind', (_label, corpus) => {
+    for (const kind of KINDS) {
+      for (const [where, box, base] of SHAPES) {
+        const block = corpus[kind]
+        const drawn = blockExtent(block, box, base)
+        const across = drawn.width / box.width
+        const down = drawn.height / box.height
+        const fills = BLOCK_APPETITE[kind].fills
+        const filled =
+          fills === 'both'
+            ? Math.min(across, down)
+            : fills === 'width'
+              ? across
+              : fills === 'minor'
+                ? Math.min(drawn.width, drawn.height) / Math.min(box.width, box.height)
+                : Math.max(across, down)
+        expect(filled / asked(block), `${kind} @ ${where}`).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+      }
+    }
+  })
+
+  /**
+   * Double the box, double the drawing — the property that says a size came off
+   * the box rather than off the frame, and the one a fraction of `base` fails
+   * however plausible the picture it drew.
+   *
+   * Exactly double, not approximately: the estimate is linear in the size and the
+   * measure grows with it, so the same words break in the same places. A kind that
+   * kept one number in frame units would show up here as a ratio drifting towards
+   * 1.
+   */
+  it('doubles everything it draws when its box doubles', () => {
+    for (const corpus of [POOREST, LONGEST]) {
+      for (const kind of KINDS) {
+        for (const [w, h] of [[800, 400], [500, 500], [300, 700]]) {
+          const one = blockExtent(corpus[kind], { left: 0, top: 0, width: w, height: h }, 1080)
+          const two = blockExtent(corpus[kind], { left: 0, top: 0, width: w * 2, height: h * 2 }, 1080)
+          for (const axis of ['width', 'height']) {
+            if (one[axis] === 0) continue
+            expect(two[axis] / one[axis], `${kind} ${axis} @ ${w}×${h}`).toBeCloseTo(2, 1)
+          }
+        }
+      }
+    }
+  })
+
+  /**
+   * The named exception, and its ceiling.
+   *
+   * A hairline is the one thing that must NOT double with its box: 3 px under a
+   * headline in one scene and 9 px under a smaller one in the next is not a
+   * hairline, it is two design systems in one film. It is also bounded, because an
+   * exception with no ceiling is the rule going back out of the window — inside a
+   * box too small to hold it, the rule thins rather than becoming the block.
+   */
+  it('keeps a hairline constant across box sizes, and bounded inside a small one', () => {
+    const big = { width: 1600, height: 900 }
+    const small = { width: 800, height: 450 }
+    expect(hairline(1080, big)).toBe(hairline(1080, small))
+    expect(hairline(1080, big)).toBe(3)
+    // 4 px of box cannot hold 3 px of rule and still be a rule under something.
+    expect(hairline(1080, { width: 40, height: 4 })).toBeLessThanOrEqual(Math.floor(4 * CONSTANT_CEILING) || 1)
+    // A separator is the one block whose thickness is that metric rather than a
+    // share of its box, which is why its own height is air by design.
+    const rule = blockExtent(POOREST.separator, { left: 0, top: 0, width: 900, height: 200 }, 1080)
+    const wider = blockExtent(POOREST.separator, { left: 0, top: 0, width: 1800, height: 400 }, 1080)
+    expect(rule.thickness).toBe(wider.thickness)
+    expect(wider.width / rule.width).toBeCloseTo(2, 1)
+  })
+
+  /**
+   * The two shares a document may ask for are the blocks' own, and this is the
+   * only thing holding the copies equal until the blocks read `DECLARED_SHARE`
+   * themselves. A rule that ran to 62% of its box here and 18% in `misc.js` is a
+   * block drawing something a test measured differently.
+   */
+  it('mirrors the two share tables the blocks still own', () => {
+    expect(DECLARED_SHARE.separator).toEqual(RULE_EXTENTS)
+    for (const [size, share] of Object.entries(DECLARED_SHARE.solidScene)) {
+      // Read back through the function that applies it: `SOLID_SHARE` is private
+      // to its file, and a square canvas in a square box is exactly its share.
+      expect(solidCanvas({ width: 1000, height: 1000 }, size, 4000) / 1000).toBeCloseTo(share, 2)
     }
   })
 })
