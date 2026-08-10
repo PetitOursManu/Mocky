@@ -125,6 +125,14 @@ export const project = {
     'project.playOffTitle': 'Cet écran ne bouge pas, même si le composer autorise les animations.',
     'project.museStageVideo': 'Génération de la vidéo (30 s à 3 min)…',
     'project.museVideoFailed': 'La vidéo n’a pas pu être générée : {detail}. L’écran est produit sans séquence.',
+    // Motion : deux étapes parce qu’elles ratent différemment. La composition
+    // est un appel modèle qui peut refuser en une phrase ; le rendu est une
+    // attente. Une seule ligne pour les deux laisserait l’utilisateur devant
+    // « en cours » sans savoir laquelle il regarde.
+    'project.motionStageCompose': 'Composition du film Motion…',
+    'project.motionStageRender': 'Rendu du film Motion (1 à 3 min)…',
+    'project.motionFailed':
+      'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
     'project.briefImageFailed': 'Image non générée — {reason}',
     'project.briefBackend': 'Backend Mocky requis',
@@ -343,6 +351,10 @@ export const project = {
     'project.playOffTitle': 'This screen holds still, even when the composer allows animations.',
     'project.museStageVideo': 'Generating the video (30 s to 3 min)…',
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
+    'project.motionStageCompose': 'Composing the Motion film…',
+    'project.motionStageRender': 'Rendering the Motion film (1 to 3 min)…',
+    'project.motionFailed':
+      'The Motion film could not be produced: {detail}. The screen is produced without a film.',
     'project.museNoImage': 'the dossier proposed no image',
     'project.briefImageFailed': 'No image generated — {reason}',
     'project.briefBackend': 'Mocky backend required',

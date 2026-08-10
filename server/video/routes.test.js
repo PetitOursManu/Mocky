@@ -6,8 +6,9 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { createVideoRouter, createVideoAdminRouter } from './routes.js'
 import { VideoExportStore } from './store.js'
-import { MAX_SCENES } from './timeline.js'
+import { MAX_SCENES, ASPECT_RATIOS } from './timeline.js'
 import { THREE_D_BLOCKS } from './three-d.js'
+import { MOTION_KINDS } from './kinds.js'
 
 const ID_A = 'a'.repeat(64)
 const ID_B = 'b'.repeat(64)
@@ -252,14 +253,47 @@ describe('GET /status', () => {
     expect(probed).toBe(false)
   })
 
-  it('answers with five fields and nothing from the stored config', async () => {
+  it('answers with six fields and nothing from the stored config', async () => {
     const body = await (await fetch(`${base}/api/video/status`)).json()
     // Named explicitly rather than checked for the absence of one word: the
     // config holds a licence key and a worker URL, and this route is the one an
     // ordinary account is allowed to call. `threeD` is a boolean ABOUT THIS
     // ACCOUNT for the same reason `enabled` is — the mode and the allowlist stay
     // behind requireAdmin, in publicView().
-    expect(Object.keys(body).sort()).toEqual(['enabled', 'limits', 'threeD', 'variantsDerived', 'worker'])
+    expect(Object.keys(body).sort()).toEqual([
+      'enabled',
+      'limits',
+      'motionKinds',
+      'threeD',
+      'variantsDerived',
+      'worker',
+    ])
+  })
+
+  /**
+   * The kinds are published so nothing in the browser holds a copy of the enum —
+   * the same argument `limits` makes, and the reason this feature wants no sixth
+   * hand-kept mirror. Ids and bounds only: the three sentences in
+   * `MOTION_KIND_SPECS` are a prompt in English addressed to a model, and what a
+   * person reads is a translation key.
+   */
+  it('publishes the kinds of Motion, ids and bounds only', async () => {
+    const body = await (await fetch(`${base}/api/video/status`)).json()
+    expect(body.motionKinds.map((k) => k.id)).toEqual(MOTION_KINDS)
+    for (const entry of body.motionKinds) {
+      expect(ASPECT_RATIOS).toContain(entry.aspectRatio)
+      expect(JSON.stringify(entry)).not.toContain(' ')
+    }
+  })
+
+  /**
+   * A fact about the BUILD and not about the account, unlike `threeD` beside it:
+   * a panel that has to draw a disabled selector still needs the names in it.
+   */
+  it('publishes them to an account the feature is off for', async () => {
+    enabled = false
+    const body = await (await fetch(`${base}/api/video/status`)).json()
+    expect(body.motionKinds.map((k) => k.id)).toEqual(MOTION_KINDS)
   })
 
   /**

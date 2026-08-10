@@ -95,6 +95,34 @@ export interface MuseConfig {
    * the checkbox it would otherwise contradict.
    */
   videoPin: MuseVideoPin | null
+  /**
+   * Also cut a Motion film for this screen, from the dossier that was just
+   * written.
+   *
+   * Off by default and asked for explicitly, for the reason `video` above it is:
+   * it spends a model call and a render, and it adds a wait a person who ticked
+   * a box at project creation has no reason to expect. Nobody should discover it
+   * by leaving a box ticked.
+   *
+   * What it is NOT is a way of putting a film inside the mockup. The preview
+   * iframe is sandboxed to an opaque origin and its CSP has no `media-src`, so
+   * an `.mp4` cannot be played in it and the authenticated route that serves one
+   * would answer 403 to it anyway. The film is attached to the SCREEN
+   * (`AttachedMedia`) and drawn on the canvas beside the frame, which is what
+   * `docs/video-export.md` says and what the interface already does.
+   */
+  motion: boolean
+  /**
+   * What the film is FOR — a hero, a background, a globe.
+   *
+   * A plain string and not a union, deliberately: the enum lives in
+   * `server/video/kinds.js` and travels on `GET /api/video/status`, so a copy
+   * here would be the sixth hand-kept mirror in a feature that has been bitten
+   * by five. An id this build no longer offers is read as "no kind" by the
+   * panel — the selector falls back to its first entry rather than showing a
+   * blank — and `/compose` refuses it by name if it ever reaches the server.
+   */
+  motionKind: string
 }
 
 /**
@@ -107,7 +135,19 @@ export type MuseVideoPin = PinnedVideo
 const STORAGE_KEY = 'mocky.muse.v1'
 
 export function defaultMuseConfig(): MuseConfig {
-  return { enabled: false, urls: '', useFetch: false, imageMode: 'content', video: false, videoPin: null }
+  return {
+    enabled: false,
+    urls: '',
+    useFetch: false,
+    imageMode: 'content',
+    video: false,
+    videoPin: null,
+    motion: false,
+    // 'hero' rather than '' so a saved config from before this field parses to a
+    // usable selector instead of an empty one. `loadMuseConfig` spreads the
+    // defaults under the stored object, which is what makes that true.
+    motionKind: 'hero',
+  }
 }
 
 /** What the backend says about the scroll-video feature being usable at all. */

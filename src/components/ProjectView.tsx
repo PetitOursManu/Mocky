@@ -67,6 +67,16 @@ import {
 } from '../lib/muse'
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
 import { videoBase, videoPosterUrl, type PinnedVideo } from '../lib/videoLibrary'
+import {
+  fetchVideoAccess,
+  fetchVideoJob,
+  proposeVideoTimeline,
+  startVideoRender,
+  POLL_INTERVAL_MS,
+  type MotionKindOffer,
+} from '../lib/video/client'
+import { themeFromDesign } from '../lib/video/theme'
+import { directionBriefFrom } from '../lib/video/directionBrief'
 import { matchImagesToScreens } from '../lib/imageBackfill'
 import {
   applyAnimationMode,
@@ -415,6 +425,38 @@ export default function ProjectView({
       alive = false
     }
   }, [museConfig.enabled, videoAvail])
+
+  /*
+   * And can it cut a Motion FILM? A different question with a different answer.
+   *
+   * `checkVideoAvailability` above is about the clip library: a video provider
+   * in Admin and ffmpeg in the container. Motion needs neither — it needs the
+   * export feature enabled for this ACCOUNT and a render worker that answers. So
+   * it is `GET /api/video/status`, the route the export panel already polls, and
+   * the two probes are kept apart for the reason the two features are: one letter
+   * of directory name apart, and nothing else in common.
+   *
+   * Degrades to "not available" on any failure (Q1): a probe that throws must
+   * not take the composer down, and a control that is not drawn is the honest
+   * outcome of not knowing.
+   */
+  const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
+  useEffect(() => {
+    if (!museConfig.enabled || motionAvail !== null) return
+    let alive = true
+    fetchVideoAccess()
+      .then((access) => {
+        if (!alive) return
+        setMotionAvail({
+          available: Boolean(access.enabled && access.worker?.available),
+          kinds: Array.isArray(access.motionKinds) ? access.motionKinds : [],
+        })
+      })
+      .catch(() => alive && setMotionAvail({ available: false, kinds: [] }))
+    return () => {
+      alive = false
+    }
+  }, [museConfig.enabled, motionAvail])
 
   // Screens generated before the canvas image card existed have no imageHash,
   // even though the library still records which project each image belongs to
@@ -1345,6 +1387,99 @@ export default function ProjectView({
         setGeneratingIds(new Set())
 
         /*
+         * The Motion film, cut from the dossier that was just written.
+         *
+         * ── Why it runs HERE, after the screen exists ───────────────────────
+         *
+         * A film is a model call and a render, and the render is minutes. Run
+         * before generation it would hold the screen — the thing the person
+         * actually asked for — behind a wait for something they ticked as an
+         * extra. Run here, the screen is already on the canvas and finished, and
+         * the film arrives on it when it arrives. `muse.motionCost` says the
+         * number before the box is ticked; this is what makes the wait bearable
+         * rather than merely announced.
+         *
+         * ── What it does NOT do, and cannot ─────────────────────────────────
+         *
+         * It does not put the film inside the mockup. The preview iframe is
+         * sandboxed without `allow-same-origin`, so its origin is opaque: its
+         * CSP resolves `media-src` to `default-src 'none'` and blocks a
+         * `<video>` outright, and `GET /api/video/:hash` sits behind a session
+         * cookie that an opaque origin does not send — it would answer 403 even
+         * if the element were allowed. Both are load-bearing security controls
+         * (I2, and the route's own ownership check), so the film is attached to
+         * the SCREEN and drawn on the canvas beside the frame, which is the path
+         * `AttachedMedia` already exists for.
+         *
+         * ── And it degrades, always (Q1) ────────────────────────────────────
+         *
+         * Every failure here leaves exactly the screen the user would have had
+         * with the box unticked. It is REPORTED, unlike an image failure,
+         * because this one cost a model call and minutes of a render.
+         */
+        if (museConfig.motion && motionAvail?.available && motionAvail.kinds.length > 0) {
+          try {
+            setMuseStage(t('project.motionStageCompose'))
+            const theme = themeFromDesign(dir.markdown)
+            const proposal = await proposeVideoTimeline(
+              text,
+              // The pictures Muse just made, and nothing else. The composer
+              // never picks a picture (the founding rule), so this list is the
+              // whole world it is shown — and a kind that needs none composes
+              // from the twenty-one blocks that need none.
+              museImgs.map((im) => im.url.split('/').pop() || '').filter((h) => /^[a-f0-9]{64}$/.test(h)),
+              {
+                settings,
+                theme,
+                motionKind: museConfig.motionKind,
+                // The dossier in its own words. Not the theme, which travels
+                // separately and never reaches the model: this is what makes a
+                // film RESEMBLE the direction rather than merely carry its
+                // colours. See lib/video/directionBrief.ts.
+                direction: directionBriefFrom(dir.markdown),
+                signal: ac.signal,
+              },
+            )
+            if (!proposal.timeline) {
+              // A proposal that could not be made is not a request that failed —
+              // the server says why in its own sentence, and it is the only
+              // thing here worth repeating verbatim.
+              setMuseImageError(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
+            } else {
+              setMuseStage(t('project.motionStageRender'))
+              const job = await startVideoRender(proposal.timeline, { project: project.id, theme, signal: ac.signal })
+              /*
+               * Polled until it lands, and bounded by the queue's own deadline
+               * rather than by a number invented here.
+               *
+               * `pollDeadlinePassed` is the panel's rule and it needs a budget
+               * this call does not have, so the bound is the job itself: the
+               * queue kills a render that overruns and reports it as failed, and
+               * this loop simply stops when the job stops being queued.
+               */
+              let finished = await fetchVideoJob(job.id, ac.signal)
+              while (finished.status === 'queued' || finished.status === 'rendering') {
+                await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
+                if (ac.signal.aborted) throw new DOMException('aborted', 'AbortError')
+                finished = await fetchVideoJob(job.id, ac.signal)
+              }
+              if (finished.status === 'done' && finished.videoHash) {
+                onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
+              } else {
+                setMuseImageError(t('project.motionFailed', { detail: finished.error || '' }))
+              }
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            setMuseImageError(
+              t('project.motionFailed', { detail: err instanceof Error ? err.message : String(err) }),
+            )
+          } finally {
+            setMuseStage(null)
+          }
+        }
+
+        /*
          * The direction is kept only once the screen exists.
          *
          * Doing it at onAddScreen time would have changed what the whole project
@@ -1415,7 +1550,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, redesign])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, motionAvail, redesign])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2095,6 +2230,7 @@ export default function ProjectView({
         museImageError={museImageError}
         museVision={museVision}
         museVideo={videoAvail}
+        museMotion={motionAvail}
         animationMode={animationMode}
         onCycleAnimations={cycleAnimations}
       />
@@ -2786,6 +2922,7 @@ export default function ProjectView({
                     imageError={museImageError}
                     vision={museVision}
                     video={videoAvail}
+                    motion={motionAvail}
                   />
                 </div>
               )}

@@ -320,6 +320,66 @@ cette scène ; un `solidChart` peint un `solid`, le même segment de Lambert que
 `solidScene`, parce que ses colonnes sont éclairées. Ses étiquettes sont hors du
 canevas et sont mesurées comme du texte courant ordinaire sur le fond.
 
+##### Une coque n’est pas le dessin, et un bord de canevas est un couteau
+
+Deux exports sont revenus avec la moitié droite du globe s’arrêtant sur une ligne
+verticale nette au tiers du cadre — la seule classe de défaut qu’un spectateur lit
+comme un logiciel cassé plutôt que comme un choix, et le rapport de l’utilisateur
+disait seulement que « les rendus 3D ne sont pas toujours bien découpés ». C’est la
+mesure qui a tranché entre les trois causes possibles : le canevas n’est pas plus
+petit que sa boîte (il vaut `min(box.width, box.height)` au pixel près), et la
+caméra n’est pas trop près (c’est l’objectif du catalogue). **L’objet est plus
+grand que le volume de vue, et l’objet n’est pas la sphère.**
+
+`GLOBE_RADIUS` vaut `SOLID_BOUND`, dont la phrase est « le rayon exact auquel une
+boule centrée sur l’origine touche le bord de son canevas sans jamais le
+franchir ». La boule ne l’a jamais franchi. Quatre choses que ce bloc accroche à
+cette boule ne sont pas dessus :
+
+| quoi | à quelle distance de la coque | en plein cadre 16:9 |
+|---|---|---|
+| une connexion, bombée de `GLOBE_ARC_LIFT` | `1,16 · R` | 64 px hors du canevas |
+| un repère, une sphère centrée SUR la surface | `R + m` | 39 px |
+| une onde, un anneau dans le plan tangent | `√(R² + (3m)²)` | 22 px |
+| un point, un sprite de `dot` px | un demi-point | 7 px |
+
+contre les 2 % d’arrondi que laisse `SOLID_MARGIN`. C’est un corpus rendu qui l’a
+mesuré : sur un export 1920×1080, l’encre était collée à la dernière colonne du
+canevas sur 93 lignes consécutives, à toutes les images — un faisceau d’arcs
+partant d’un même repère se coupe comme une seule droite, ce qui est exactement ce
+que décrit « sa moitié droite s’arrête sur une ligne verticale ». C’était
+intermittent en `life`, parce que le globe tourne et qu’une bombure croise le limbe
+pendant la scène ; c’est le « pas toujours ».
+
+Le canevas ne peut pas grandir — un canevas plus grand que sa boîte peint sur la
+zone d’à côté —, donc ce qui cède est le rayon auquel les points sont posés.
+`globeShell` est cette borne, en forme close parce que chacune des quatre portées
+est linéaire ou pythagoricienne en le rayon, et elle lit le BLOC : un globe sans
+repère ni connexion garde le rayon qu’il a toujours eu, et on ne paie que ce qu’un
+document a réellement dessiné. Rien ne change de ce que le bloc réclame du cadre —
+`blockExtent` dit toujours qu’un globe dessine jusqu’au petit côté de sa boîte, et
+c’est toujours vrai après. Ce qui change, c’est quelle partie du dessin touche le
+bord.
+
+Le même corpus, rendu à nouveau : la colonne extrême se déplace d’une image à
+l’autre (1340, 1381, 1385, 1412 px) au lieu de rester à 1425 sur toutes, ce que
+fait une silhouette et que ne fait pas une coupure. `dataVolume.test.js` tient la
+garantie en unités de monde plutôt qu’en pixels — chaque point de chaque nuage,
+plus son sprite, plus le bord de chaque repère et de chaque onde, à l’intérieur de
+la boule que décrit `SOLID_BOUND` — parce qu’une garantie en pixels serait une
+garantie sur la projection dont `SOLID_BOUND` est tiré.
+
+Les huit autres blocs 3D ont été mesurés de la même façon, par l’encre d’un corpus
+rendu, et aucun ne franchit son canevas : `solidScene` est normalisé sur sa propre
+sphère englobante, `photoStage` et `photoRing` font tenir chaque coin par
+`frustumScale`, `extrudedType` plafonne son canevas à ce que `blockExtent` annonce
+et réserve son propre débattement, et les trois champs sont faits pour couvrir leur
+boîte. `solidChart` remplit son canevas exactement — l’enveloppe projetée occupe
+`[0, canvas.width]` au dixième de pixel près — ce qui est juste et ne laisse
+aucune marge ; les arêtes verticales de 19 à 32 px à chaque bout de son socle sont
+les faces d’about de la boîte et non une coupure, et il vaut mieux le savoir avant
+de lire l’une pour l’autre.
+
 #### Trois champs en volume : une poussière, une surface qui gonfle, un sol
 
 La demande qui les nomme, c'est « le fond devrait être en 3D », et la réponse est
@@ -1419,6 +1479,34 @@ entière sous `LABEL_FLOOR` — parce qu’une bande un peu plus haute que le te
 s’y pose coûte quelques pixels à une cellule, et qu’une bande trop courte est le
 défaut qui revient.
 
+**Et cela ne s’étend pas à un sujet au milieu**, qui est la lecture qu’invite
+l’export suivant : un titre en travers de l’équateur d’un `globe` ancré `full`
+ressemble à ce défaut d’un cran, un champ dont le SUJET gêne plutôt que dont la
+LÉGENDE gêne. Trois propriétés du pied font marcher la soustraction, et un sujet
+n’en a aucune. Un pied est sur un BORD, donc ce que reçoivent les cellules est une
+plage contiguë et `split` y répartit les bandes ; un bloc `fills: 'minor'` occupe
+le milieu de sa boîte sur les deux axes, donc le réserver laisse deux restes
+disjoints, et une pile ne se dispose pas dans un trou. Un pied est déclaré par un
+bloc qui REMPLIT l’axe sur lequel il réserve — la condition d’entrée écrite, et
+`clock` est le cas déjà exclu pour exactement cette raison. Et un pied vaut un
+vingtième du cadre, là où le carré d’un globe couvre les trois rangées d’une zone
+sûre 16:9 : la réservation ne laisserait rien du tout aux cellules, ce qui est un
+refus, quand cette fonctionnalité dégrade (Q1).
+
+Trois réparations existent et deux sont déjà tranchées. Déplacer la CELLULE est
+exclu — `anchor` est la seule décision de composition qu’un document prend.
+Rétrécir le sujet n’achète rien, puisqu’il reste centré et qu’un globe plus petit
+est un globe plus petit avec la même ligne en travers. Reste à déplacer le SUJET,
+la seule qui n’enlève rien au document, parce que `full` est le seul ancrage qui ne
+nomme aucune position ; elle reste ouverte, et sa condition est que les rangées de
+la grille qu’aucune cellule n’occupe soient CONTIGUËS — ce qu’une cellule `center`
+est précisément ce qui les empêche d’être. D’ici là, l’arrangement est celui pour
+lequel `globe.jsx` dit avoir été écrit — « les mots qui appartiennent à un globe
+sont un `kicker` ou un `heading` ancré par-dessus, mesuré contre une surface que
+`composedPalette` a résolue avec le champ dedans » — et ce qui faisait lire l’image
+rapportée comme cassée n’était pas le mot sur la sphère mais le faisceau d’arcs
+tranché derrière lui, qui est le défaut de `globeShell` et se corrige là.
+
 `composition.test.js` le tient contre les fonctions de mise en page DES BLOCS plutôt
 que contre la réservation : `barChartLayout`, `lineChartLayout` et `imageFrameBox`
 sont ce qui décide réellement où atterrit une légende, donc demander les deux
@@ -2106,6 +2194,11 @@ composition sur un défaut choisi exprès. Les 12px vers lesquels `parseRadius` 
 rabat sont le même cas, et c’est pourquoi `readRadius` existe désormais pour dire
 « le document n’en a pas parlé ».
 
+(« La direction » est l’une des **deux** sources possibles d’une déclaration —
+voir *Une couleur demandée dans le brief passe devant le dossier du projet*,
+plus bas. Ce qui ne change jamais : une couleur que personne n’a énoncée
+n’atteint rien.)
+
 **Rien là-dedans ne peut devenir du CSS.** Les couleurs sont hexadécimales et
 rien d’autre. Une police est UNE famille, dans un jeu de caractères fait de
 lettres, chiffres, espaces et traits d’union — jamais une pile — parce que cette
@@ -2151,6 +2244,80 @@ chose sûre : le modèle est validé contre un schéma sans clé `theme`, et la 
 n’est écrite qu’ensuite. Rien de la direction n’atteint le prompt non plus. Une
 couleur citée à un modèle est une couleur qu’il va « améliorer », elle coûte des
 jetons à chaque appel, et ce n’est pas au modèle d’en décider.
+
+### Une couleur demandée dans le brief passe devant le dossier du projet
+
+La règle ci-dessus dit que le thème ne porte que ce qui a été **déclaré**, et
+pendant un temps « déclaré » a voulu dire un seul document. C’est une erreur : la
+distinction qu’elle faisait vraiment, c’est *l’utilisateur l’a énoncé* contre *le
+modèle l’a deviné* — et un brief qui dit « texte blanc sur fond noir » est un
+énoncé de la même personne que le DESIGN.md, plus récent, plus précis, et à
+propos de CE film plutôt que du produit en général. `src/lib/video/briefTheme.ts`
+lit donc le brief, et ce qu’il y trouve l’emporte.
+
+**Jeton par jeton, jamais en bloc.** C’est ce que « priorité » veut dire ici : un
+brief qui nomme un fond n’a rien dit de la typographie, et jeter celle du projet
+ferait payer toutes les autres couleurs pour une seule demandée. `mergeFilmTheme`
+superpose les couleurs du brief au thème de la direction et passe le résultat aux
+deux portes sans rien changer d’autre — même champ `theme`, même `attachTheme`,
+même `RenderTimelineSchema`. **Rien de la règle 9 ne bouge.** Le modèle ne peut
+toujours pas écrire un thème, `VideoTimelineSchema` n’a toujours pas cette clé,
+et rien de l’une ni de l’autre source n’atteint un prompt.
+
+**L’extraction est celle du design system.** `designTokens.ts` sait déjà trouver
+des couleurs dans de la prose, et il a déjà été corrigé deux fois par des
+documents réels — un fond déduit d’un vivier vide, une regex d’étiquette mangée
+par les emphases Markdown. Un second lecteur ici aurait été un sixième miroir
+tenu à la main dans un module qui en a déjà cinq ; `briefTheme.ts` fait donc la
+seule chose que l’existant ne sait pas faire : il traduit la prose française et
+anglaise dans la grammaire `- Étiquette : #hex` pour laquelle `parseColors` a été
+écrit, puis appelle `themeFromDesign` dessus. La résolution des rôles est
+`roleForLabel`, le jeu de caractères hexadécimal est `ThemeColorSchema`,
+« déclaré » est `parseDesignSpec.stated`. Une implémentation, une porte.
+
+**Un nom est une déclaration ; la nuance est celle de Mocky, une fois, dans le
+code.** Personne ne tape `#c0392b` dans un brief — on tape « en rouge et noir » —
+donc une table fermée associe un mot de couleur à un hex, bilingue, avec les
+formes féminines dedans parce que l’accord n’est pas facultatif en français. Cet
+hex est un choix, et c’est le même genre de choix que `THEME_FALLBACK.accent` :
+fait une fois, dans un fichier relu, et visible dans le résultat. « or » est
+délibérément absent alors que « doré » est présent : seul, c’est l’une des
+conjonctions les plus courantes du français écrit, et une table qui s’y
+déclencherait peindrait un film en doré à cause d’une phrase qui parle d’autre
+chose. Un modificateur — « foncé », « dark » — déplace la couleur nommée vers le
+noir ou le blanc d’une constante unique plutôt que par une seconde table d’hex,
+pour que « vert » et « vert foncé » ne puissent pas dériver vers deux verts sans
+rapport.
+
+**Un rôle n’est jamais deviné.** « En rouge et noir » énonce deux couleurs et
+aucun rôle, et rien n’en est retenu : laquelle des deux est le fond, c’est
+exactement la supposition qui grave dans un film une couleur qu’on ne peut pas
+voir à travers. Une couleur ne compte que si le brief dit aussi à quoi elle sert
+— un mot de rôle à trois mots derrière elle ou deux devant (« fond noir »,
+« white text »), le mot `sur`/`on` immédiatement avant, ou l’idiome « X sur Y »
+qui nomme les deux d’un coup. La fenêtre s’arrête à une frontière de proposition,
+virgule comprise : « black background, white text » plaçait un mot de rôle à un
+mot derrière une couleur qui appartient au groupe suivant, et lu en arrière il
+peignait le fond en blanc. Le deux-points n’est pas une frontière, parce que
+« Fond : noir » est quelqu’un qui énonce un jeton.
+
+**Et le panneau dit quels rôles il a compris**, dans la ligne sous les pastilles.
+Ce n’est pas une politesse : une lecture que personne ne voit ne se distingue pas
+d’une demande ignorée, et tout l’intérêt de ne rien retenir d’une phrase ambiguë
+est que son auteur puisse la corriger en une modification. La phrase nomme les
+rôles et montre comment en demander un ; les pastilles au-dessus disent déjà la
+couleur.
+
+**Le fond d’un brief peut rencontrer l’encre d’un dossier, et c’est sûr plutôt
+que chanceux.** Le quasi-noir d’une direction crème sur un fond noir qu’on vient
+de demander est un appariement qu’aucun document de design n’a modéré. C’est
+précisément le cas dont traite la section suivante : `resolveTheme` apparie ce
+qui reste non déclaré, chaque texte est mesuré contre la surface sur laquelle il
+est réellement peint, et celui qui ne peut pas franchir son plancher est dégradé
+plutôt que de faire échouer l’export ([Q1](architecture/invariants.md)). Le
+corpus de `composition.test.js` porte cette demande exacte — un vert foncé sur
+noir — pour que la garantie soit balayée sur les cinq palettes plutôt
+qu’argumentée.
 
 ### Aucun texte illisible, et c’est l’arithmétique qui le dit
 
@@ -3374,6 +3541,7 @@ rend un bloc tridimensionnel, c’est son rendu.
 | `src/lib/video/timeline.ts` | Le schéma zod — les cinq modèles, le thème, et le raisonnement derrière chaque borne. La définition à lire |
 | `server/video/timeline.js` | Le même schéma, recopié à la main pour Node, plus `attachTheme`. `timeline.test.js` tient les deux ensemble |
 | `src/lib/video/theme.ts` | La direction artistique du projet, lue en la poignée de jetons qu’un film peut porter. Les jetons déclarés seulement |
+| `src/lib/video/briefTheme.ts` | Les couleurs demandées par l’UTILISATEUR, lues dans le brief. Elles battent le dossier jeton par jeton ; une couleur sans rôle énoncé à côté n’est pas lue |
 | `src/lib/video/resolution.ts` | De combien une image va être agrandie, et ce qu’il faut demander à un fournisseur. Recopie la géométrie du cadre du worker ; `tests/video-frame-geometry.test.js` tient les deux ensemble |
 | `server/video/compose.js` | Le seul appel de modèle : il compose une scène à partir du catalogue de blocs, il ne choisit jamais les images |
 | `server/video/variants.js` | Les deux chemins de variantes, et le tableau figé des axes |
@@ -3403,3 +3571,201 @@ l’utilisateur ce qu’est devenu le rendu qu’il regardait. Rien n’est repr
 remettre en file tiendrait en une ligne, mais un rendu que personne n’a demandé
 deux fois est du processeur dépensé dans son dos, et sur une instance qui
 redémarre en boucle il est dépensé à chaque démarrage.
+
+---
+
+## Motion au début d’un projet : les types
+
+Motion a commencé comme un panneau qu’on ouvre sur un projet qui existe déjà, au-
+dessus d’images déjà choisies. La demande qui a produit cette section en est
+l’autre bout : une case cochée à côté de Muse, au tout premier prompt, pour que
+le film soit coupé dans le dossier au moment où le dossier s’écrit.
+
+Trois choses devaient exister pour cela, et une quatrième qui a été demandée n’a
+pas pu être construite. Elles sont séparées ci-dessous parce que la dernière est
+une frontière de sécurité, et que la chose honnête à faire d’une frontière est de
+la nommer plutôt que de la contourner.
+
+### Un type est une porte d’entrée dans le catalogue, jamais un sixième modèle
+
+« Des templates de création Motion » — un globe, un fond, un bouton, un héro. Lus
+comme des modèles, ce sont quatre entrées de plus dans `VIDEO_TEMPLATES` : quatre
+compositions à écrire, quatre branches dans le worker, et tout l’argument du
+sixième modèle jeté. `composed` existe précisément pour qu’un look neuf soit une
+COMBINAISON et non une carte que quelqu’un a écrite.
+
+Un type est donc une **porte d’entrée**. `server/video/kinds.js` tient une
+énumération fermée de huit — `hero`, `background`, `banner`, `showcase`,
+`figure`, `globe`, `mark`, `story` — et chacune se résout en rien d’autre qu’un
+sous-ensemble de `BLOCK_KINDS`, un sous-ensemble de `BACKGROUND_KINDS`, une
+valeur d’`ASPECT_RATIOS` et une fenêtre à l’intérieur de
+`TEMPLATE_LIMITS.composed`. Un film composé sous un type est un document
+`composed` ordinaire : le worker n’apprend jamais que le type a existé,
+`validate.js` n’est pas touché, et un brouillon enregistré avant cette version se
+lit exactement comme avant.
+
+Quatre conséquences valent d’être dites, parce que chacune est une décision.
+
+**Un type RESSERRE ; il n’argumente jamais.** Le prompt ne dit pas « préférez ces
+six blocs » — les vingt et un autres ne sont pas dans le catalogue qu’il imprime,
+ni dans l’indice de décodage. C’est la leçon qu’`availableBlocks` a déjà apprise
+deux fois, sur les images et sur la 3D : un modèle à qui l’on montre un bloc en
+lui disant de ne pas s’en servir s’en sert, et le refus arrive une fois les
+jetons dépensés. Un type ne peut pas non plus remettre un bloc que la sélection
+ou la permission 3D avaient déjà retiré, ce qui serait une permission écrite deux
+fois.
+
+**`background` est le type qui prouve le mécanisme.** On ne lui offre aucun bloc
+qui pose du texte, et pas le fond `image`. Non parce qu’une règle l’interdit : un
+`heading` n’est simplement pas dans son catalogue. Le défaut que ce type existe
+pour éviter, c’est un titre gravé dans un fond, en concurrence avec le titre que
+la page pose par-dessus — à une taille choisie par le film, corrigible seulement
+par un nouveau rendu.
+
+**Un resserrement peut affamer un type, et cela se refuse par son nom.** `globe`
+sur un compte sans la permission 3D laisse debout `map`, `heading` et `kicker` :
+rien en aval ne le remarquerait, et ce qui reviendrait serait un film plat avec
+une légende sur le monde, depuis un bouton qui disait globe. `starvedMotionKind`
+pose donc la question aux blocs de SIGNATURE du type et non à leur nombre, et le
+refus dit à quelle porte frapper. `showcase` sur une sélection vide est le même
+cas avec l’autre cause.
+
+**Et il se dégrade au lieu de disparaître.** Les trois blocs CHAMP sont dessinés
+en GL, donc un `background` fait uniquement d’eux serait retiré à tout compte
+sans 3D — le type dont une page se sert le plus, refusé pour une raison de moteur
+de rendu. Il porte aussi `soundWave` et `equalizer` : une surface en mouvement
+sans un seul glyphe, la même image dessinée à plat, et l’exemple travaillé du
+prompt composé en ancre déjà un en `full` (Q1).
+
+Chaque borne qu’un type énonce est lue dans l’entrée qui l’énonce, et
+`kinds.test.js` tient trois affirmations là-dessus : chaque fenêtre est comprise
+dans `TEMPLATE_LIMITS.composed`, `scenes.max` fois `sceneMs.max` reste sous le
+plafond total, et aucune phrase de prose de la table ne contient de chiffre — la
+même règle que `BLOCK_NOTES` suit un fichier plus loin.
+
+### La liste est publiée plutôt que recopiée
+
+Cette fonctionnalité tient cinq miroirs à la main et s’est fait mordre par quatre
+d’entre eux. Le panneau a besoin des types pour dessiner un sélecteur, et un
+sixième miroir est exactement ce que cela serait devenu.
+
+`GET /api/video/status` les publie donc à côté de `limits`, ce qui est l’argument
+que `maxScenes` fait déjà : citer une borne depuis sa source est ce qui empêche
+le panneau et le schéma de dériver. Ce qui voyage, ce sont les identifiants et
+les bornes — jamais la prose. Les trois phrases de `MOTION_KIND_SPECS` sont un
+prompt écrit en anglais à l’adresse d’un modèle ; la phrase qu’une personne lit
+est `muse.motionKind.<id>` dans les deux dictionnaires, et
+`tests/video-motion-kinds.test.js` en exige une par identifiant dans chaque
+langue, et aucune orpheline dans l’autre sens.
+
+`motionKinds` est publié quoi que dise `enabled`, contrairement à `threeD` juste
+à côté : c’est un fait sur la CONSTRUCTION et non sur le compte, et cela ne nomme
+rien qu’un compte ne pourrait lire dans les sources.
+
+### La direction atteint le modèle, et le thème toujours pas
+
+Un thème fait porter à un film les couleurs du projet. Il ne peut pas faire
+qu’un film RESSEMBLE au dossier, et c’était la moitié de la demande : retirez les
+couleurs de deux films et il reste le même document — une direction qui dit
+« éditorial, silence généreux, une idée par écran » et une qui dit « dense,
+saturé, tout à la fois » composaient des scènes identiques.
+
+`src/lib/video/directionBrief.ts` lit le même markdown que lit `theme.ts`, pour
+l’autre moitié : les MOTS. Ils voyagent vers `/compose` sous `direction`,
+atterrissent dans le tour UTILISATEUR sous un en-tête qui dit que ce sont des
+données, et changent ce qui est composé — combien de scènes, une pile plus ou
+moins chargée, un fond de filets ou un dégradé.
+
+Deux règles l’empêchent de devenir un thème par la porte de derrière.
+
+**Aucune couleur ne passe.** Chaque triplet hexadécimal est retiré, et ce n’est
+pas de la propreté : les couleurs voyagent déjà, exactement, comme `theme`,
+attachées par le serveur après que la réponse du modèle a été validée. Les
+répéter en prose n’apporte rien qu’une composition puisse utiliser et fait la
+seule chose qu’un paragraphe entier interdit ici — cela invite un modèle à écrire
+une couleur, et un document qui en porte une est refusé EN ENTIER, une fois
+l’appel payé.
+
+**C’est de la prose, jamais un tableau.** Une ligne de jetons lue comme de la
+prose est une liste de valeurs, et un modèle à qui l’on tend des valeurs remplit
+des champs avec. Les blocs de code, les lignes de tableau, les liens nus et les
+images intégrées sont retirés ; un titre dont toutes les lignes ont été retirées
+part avec, au lieu d’arriver comme le mot « Tokens » pointant vers rien.
+
+La règle 9 est inchangée et reste appliquée là où elle l’a toujours été :
+`VideoTimelineSchema` n’a pas de clef `theme`, donc un modèle qui en invente une
+est refusé comme une clef `audio`, et `attachTheme` l’écrit sur
+`RenderTimelineSchema` après validation. N’extraire rien n’est pas un échec —
+cela renvoie une chaîne vide, le bloc est omis, et le film est composé avec le
+prompt qui existait avant ce module.
+
+### Pourquoi le film ne peut pas se jouer dans la maquette
+
+C’est la partie de la demande qui n’a pas pu être construite, et la raison est
+une frontière de sécurité et non un oubli.
+
+Un écran généré tourne dans une iframe en bac à sable avec `allow-scripts` et
+**sans** `allow-same-origin`, donc son origine est opaque (I2). Deux choses
+indépendantes en découlent, et chacune suffit à elle seule.
+
+**La CSP bloque l’élément.** `cspMeta()` dans `src/components/Preview.tsx` pose
+`default-src 'none'` puis nomme `script-src`, `style-src`, `img-src`, `font-src`,
+`connect-src`, `form-action`, `frame-src`, `object-src` et `base-uri`. Il n’y a
+pas de `media-src`, donc il retombe sur `default-src` et une balise `<video>` est
+refusée d’emblée. `connect-src 'none'` ferme les autres voies en même temps :
+pas de `fetch`, donc pas de WebCodecs, et une URL `blob:` fabriquée dans le
+parent est liée à l’origine du parent et illisible depuis une origine opaque.
+
+**Et de toute façon les octets ne seraient pas servis.** `GET /api/video/:hash`
+est derrière `requireUser`, vérifie la propriété AVANT l’existence pour ne pas
+devenir un oracle, et envoie `Cache-Control: private` sans
+`Access-Control-Allow-Origin`. Le cookie de session est `SameSite=Lax` ; un
+document d’origine opaque a un site-for-cookies nul, donc un chargement de
+sous-ressource depuis l’aperçu ne porte aucune session et la route répond 403 —
+correctement.
+
+C’est pour cela qu’une séquence au défilement fonctionne et pas un film. Une
+séquence est découpée en JPEG par ffmpeg à l’ingestion et servie par
+`server/videos/routes.js`, délibérément non authentifiée avec
+`Access-Control-Allow-Origin: *`, donc `<ScrollSequence>` a besoin d’`img-src` et
+de rien d’autre. Un film est un seul `.mp4`, privé au compte qui l’a rendu, et il
+n’y a pas de ffmpeg sur le chemin d’export pour le découper — ce qui est aussi
+pourquoi `mediaPoster` pointe un `<video preload="metadata">` sur le fichier au
+lieu de montrer une vignette.
+
+Le faire jouer voudrait dire ajouter `media-src` à la CSP de l’aperçu, ou servir
+les octets d’un film sans authentification par leur empreinte. Ce sont deux
+modifications d’un contrôle qui existe pour une raison écrite, et ce n’est pas à
+cette fonctionnalité de les décider seule.
+
+Le film va donc là où un film va déjà : il est attaché à l’ÉCRAN comme un
+`AttachedMedia` de type `film`, et dessiné sur le canevas à côté du cadre, dans
+le document de même origine de Mocky où la session marche et où aucune CSP ne
+gêne. `muse.motionCost` le dit avant que la case soit cochée plutôt qu’après le
+rendu — quelqu’un qui attend un film dans la maquette et trouve une carte à côté
+a été surpris par l’interface, et c’est le seul échec qu’une phrase peut empêcher
+entièrement.
+
+### Ce que cette passe n’a pas construit
+
+Dit plutôt que laissé à découvrir.
+
+- **Aucune capacité, et aucun composant `<MotionFilm>`.** Ce serait un composant
+  incapable de dessiner son propre sujet, pour les deux raisons ci-dessus.
+  L’entrée du registre est délibérément absente plutôt que présente et inerte :
+  `scrollvideo` est le précédent, et tout son commentaire dit de ne jamais offrir
+  un composant qui n’a rien à montrer.
+- **Les types sont accessibles depuis le composer, pas encore depuis le panneau
+  d’export.** `VideoExportDialog` propose toujours les cinq compositions
+  éditables et `auto` ; un sélecteur `motionKind` là-bas est un incrément direct,
+  laissé de côté dans cette passe plutôt qu’à moitié câblé.
+- **Un film par écran, coupé une fois.** Rien ne recoupe un film quand la
+  direction change, et rien n’en propose un second pour une autre section du même
+  écran. `AttachedMedia` en tient un, ce qui est la forme qui a rendu la carte du
+  canevas possible ; un écran qui voudrait un film de héro et un film de fond
+  demande d’abord que ce champ devienne une liste, et les raisons pour lesquelles
+  `owners` est un ensemble s’y appliquent.
+- **Le rendu est attendu jusqu’au bout.** L’écran est terminé et sur le canevas
+  avant que cela commence, donc rien n’est bloqué — mais fermer le composer
+  interrompt l’attente, et le film est alors rendu, stocké et retrouvable dans
+  Média sans être attaché à quoi que ce soit.

@@ -36,6 +36,16 @@
 // nobody can see through — the video is simply the wrong colour, with nothing
 // saying so — while an absent one leaves the composition on a default somebody
 // chose on purpose, once, in code a reviewer read.
+//
+// ── This is one of two declarers, and the other one comes first ──────────────
+//
+// The distinction above is "the user stated it" against "the model guessed it",
+// and the direction is not the only place a user states something: a brief that
+// says "fond noir" is the same person, more recently, about this film. That
+// reading lives in `briefTheme.ts` — which is deliberately built ON this
+// function rather than beside it, so the hex charset, the role resolution and
+// `parseDesignSpec.stated` have exactly one implementation — and
+// `mergeFilmTheme` lays it over this one token by token.
 import { parseDesignSpec } from '../designSpec'
 import { readRadius } from '../designTokens'
 import { ThemeColorSchema, ThemeFontSchema, VideoThemeSchema, type VideoTheme } from './timeline'

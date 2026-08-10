@@ -6,6 +6,7 @@ import { Banner, Button, Icon, MockyLoader } from '../ui'
 import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability } from '../lib/muse'
 import type { AnimationMode } from '../lib/animations'
 import type { PinnedImage } from '../lib/imageLibrary'
+import type { MotionKindOffer } from '../lib/video/client'
 
 type Props = {
   prompt: string
@@ -32,6 +33,8 @@ type Props = {
   museImageError: string | null
   museVision: boolean | null
   museVideo: MuseVideoAvailability | null
+  /** Whether a Motion film can be cut, and which kinds this build offers. */
+  museMotion: { available: boolean; kinds: MotionKindOffer[] } | null
   /** auto · on · off — owned by ProjectView so both composers agree. */
   animationMode: AnimationMode
   onCycleAnimations: () => void
@@ -69,6 +72,7 @@ export default function Welcome({
   museImageError,
   museVision,
   museVideo,
+  museMotion,
   animationMode,
   onCycleAnimations,
 }: Props) {
@@ -204,6 +208,7 @@ export default function Welcome({
               imageError={museImageError}
               vision={museVision}
               video={museVideo}
+              motion={museMotion}
             />
           </div>
         )}

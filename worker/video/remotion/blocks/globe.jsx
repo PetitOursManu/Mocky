@@ -92,7 +92,6 @@
 import {
   GLOBE_CAMERA,
   GLOBE_LAND_ALPHA,
-  GLOBE_RADIUS,
   GLOBE_GRID_ALPHA,
   GLOBE_RIPPLE_WIDTH,
   globeArcs,
@@ -109,6 +108,7 @@ import {
   globeOrientation,
   globePointCount,
   globeScale,
+  globeShell,
   globeVisible,
 } from './dataVolume.js'
 import { SPRITE_ARGS } from './pointSprite.js'
@@ -172,6 +172,13 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
   const field = globeField(count)
   const { yaw, tilt } = globeOrientation(block.region, life)
   const dot = globeDotPx(side, count)
+  // The radius the DOTS sit at, which is not the radius the canvas was sized
+  // for. A connection bows 16% off the surface, a marker stands proud of it and
+  // a ripple lies across it, and a real export came back with the whole bundle
+  // sliced by a vertical line at the right edge of the frame. `globeShell` is
+  // the closed-form bound and carries the argument; a globe with no ornament on
+  // it gets `GLOBE_RADIUS` back unchanged.
+  const shell = globeShell(block, side, dot)
   const ink = palette.accent.color
 
   const markers = globeMarkers(field, block.markers)
@@ -180,7 +187,7 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
   // rather than a second lattice of the same dots in the same ink. That is the
   // whole distinction a connection has on this block - see `globeArcSteps`.
   const arcs = block.connections
-    ? globeArcs(markers, yaw, tilt, GLOBE_RADIUS, life, { side, dot })
+    ? globeArcs(markers, yaw, tilt, shell, life, { side, dot })
     : new Float32Array(0)
 
   return (
@@ -191,7 +198,7 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
           block is allowed and ten times the bitrate of a plain title.
           `globeField` carries the numbers. */}
       <Dots
-        positions={globeVisible(globeGraticule(), yaw, tilt, GLOBE_RADIUS)}
+        positions={globeVisible(globeGraticule(), yaw, tilt, shell)}
         color={ink}
         size={Math.max(1, Math.round(dot * 0.6))}
         opacity={GLOBE_GRID_ALPHA * progress}
@@ -203,7 +210,7 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
           makes a dense arc free: the bill is per BUFFER, so the points that turn
           a trail into a stroke are added to a buffer already being rebuilt. */}
       <Dots
-        positions={joinPoints(globeVisible(field.land, yaw, tilt, GLOBE_RADIUS), arcs)}
+        positions={joinPoints(globeVisible(field.land, yaw, tilt, shell), arcs)}
         color={ink}
         size={dot}
         opacity={GLOBE_LAND_ALPHA * progress}
@@ -211,7 +218,7 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
 
       {lit.map((marker, i) => {
         if (!marker.shown) return null
-        const place = [marker.x * GLOBE_RADIUS, marker.y * GLOBE_RADIUS, marker.z * GLOBE_RADIUS]
+        const place = [marker.x * shell, marker.y * shell, marker.z * shell]
         const radius = globeMarkerRadius(side, dot)
         const ripple = globeMarkerRipple(life, i)
         return (
@@ -269,11 +276,17 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
 /**
  * The canvas this block needs, for `BLOCK_CANVASES` in `blocks/canvases.js`.
  *
- * Square, on the smaller side of the box: the object is a ball drawn to
+ * Square, on the smaller side of the box: the drawing is bounded by
  * `GLOBE_RADIUS`, which is the radius at which a ball about the origin touches
  * the edge of its canvas and never crosses it. There is no `size` to divide it
  * by — a globe is the subject of its scene when it is in one, and a document that
  * wants a smaller one anchors it to a smaller zone.
+ *
+ * The SPHERE is not that radius, and the difference is the whole of `globeShell`:
+ * an arc bows off the surface, a marker stands on it and a ripple lies across it,
+ * so the ball yields whatever those three need and the DRAWING is what touches
+ * the edge. The canvas is unchanged by it, which is why this function is: what a
+ * globe is entitled to is still the minor side of its box.
  */
 export const GLOBE_CANVAS = (block, box, base) => {
   const side = globeCanvas(box, base)

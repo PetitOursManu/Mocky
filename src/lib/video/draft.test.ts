@@ -20,6 +20,7 @@ import {
   setForceThreeD,
   setOutputFormat,
   toRenderInput,
+  toRenderInputFrom,
   withProposal,
   type VideoDraft,
 } from './draft'
@@ -324,6 +325,31 @@ describe('toRenderInput', () => {
     // with, and a warning about one would be a sentence about nothing.
     expect(aspectRatioOverridden(emptyDraft())).toBe(false)
     expect(effectiveAspectRatio(emptyDraft())).toBeNull()
+  })
+})
+
+describe('toRenderInputFrom', () => {
+  /**
+   * The pure half `launchRender` calls in the panel, so a render can be built
+   * from the timeline a compose call just answered with — before `setDraft`'s
+   * update has necessarily reached `draft.proposal`. This corpus is the proof
+   * that it agrees with `toRenderInput(draft)` once state HAS caught up, rather
+   * than being a second, drifting implementation of the same rule.
+   */
+  it('agrees with toRenderInput once the draft carries the same proposal', () => {
+    const draft = setOutputFormat(setAspectRatio(withFilm(SLIDESHOW), '1:1'), 'webm')
+    const timeline = draft.proposal!.timeline
+    expect(toRenderInputFrom(timeline, draft.outputFormat, draft.aspectRatio)).toEqual(toRenderInput(draft))
+  })
+
+  it('leaves a vertical cut at 9:16, exactly as the draft-reading half does', () => {
+    const out = toRenderInputFrom(proposalOf(VERTICAL), 'mp4', '16:9') as Record<string, unknown>
+    expect(out.aspectRatio).toBe('9:16')
+  })
+
+  it('drops the theme here too', () => {
+    const out = toRenderInputFrom(proposalOf(SLIDESHOW), 'mp4', '16:9')
+    expect(out).not.toHaveProperty('theme')
   })
 })
 

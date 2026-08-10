@@ -300,10 +300,29 @@ Ten things, and the first one is not negotiable.
    not in `VideoTimelineSchema` at all, so a model that invents one is refused
    like an `audio` key; `attachTheme` puts it on `RenderTimelineSchema`, on both
    `/compose` and `/render`, and always **after** the model's document has been
-   validated. Nothing of it reaches the prompt. It carries only what the
-   direction **declared** (`parseDesignSpec.stated`) — a guessed colour burnt
-   into a film cannot be seen through — and nothing in it can become CSS: hex
-   only, ONE font family name, an integer radius.
+   validated. Nothing of it reaches the prompt. It carries only what somebody
+   **declared** — a guessed colour burnt into a film cannot be seen through —
+   and nothing in it can become CSS: hex only, ONE font family name, an integer
+   radius.
+
+   **And "declared" has two sources, in that order: the BRIEF, then the
+   dossier.** The distinction the rule was always making is *the user stated it*
+   versus *the model guessed it*, not brief versus direction — a brief that says
+   "fond noir" is a statement by the same person the DESIGN.md came from, made
+   more recently and about this film, so it wins **token by token**
+   (`mergeFilmTheme`): asking for one colour must not cost the project's
+   typefaces. `briefTheme.ts` turns the prose into the `- Label: #hex` grammar
+   `designTokens.ts` was written for and hands it to `themeFromDesign`, so role
+   resolution, the hex charset and `parseDesignSpec.stated` stay one
+   implementation. Three things keep it a reading rather than a guess: a colour
+   is taken only when the brief also says what it is FOR (a role word within
+   three words, or the `X sur Y` idiom) — "en rouge et noir" yields **nothing**,
+   because which of the two is the ground is exactly the unseeable guess; the
+   named-colour table is closed and its hexes are chosen once in code, like
+   `THEME_FALLBACK`'s; and the panel PRINTS which roles it understood, because a
+   reading nobody is shown cannot be told apart from a request that was ignored.
+   A brief's ground meeting a dossier's ink is safe rather than lucky — every run
+   is still measured by rule 8 and degraded until it can be read.
 10. **The sixth template is not a sixth look: `composed` is a stack of BLOCKS.**
     A scene is a background plus one to eight typed layers, the model picks the
     blocks, their order, their zone and their parameters, and the variety becomes
@@ -593,11 +612,70 @@ Ten things, and the first one is not negotiable.
       white, and `MOTION` came back struck twice. `STACK_SEPARATION` is just past
       "the same colour" on purpose — the copy carries no glyph, so a 3:1 bar would
       delete the treatment on the themes that render it correctly.
+    - **A GL canvas is sized for what a block DRAWS, not for the object it is a
+      picture of.** Two exports came back with the globe's right half stopping on a
+      straight vertical line — the defect a viewer reads as broken software — and
+      the sphere was innocent. `GLOBE_RADIUS` is `SOLID_BOUND`, "the exact radius at
+      which a ball touches the edge of its canvas and never crosses it", and the
+      block hangs four things off that ball that are not on it: a connection bowed
+      by `GLOBE_ARC_LIFT` (`1.16 R`, 64 px outside at full frame), a marker sphere
+      centred ON the surface, a ripple ring in the tangent plane, and the dot
+      SPRITES, which are pixels around their own point. Against 2% of rounding.
+      `globeShell` is the closed-form bound and it reads the BLOCK, so a globe with
+      no ornament pays nothing; `blockExtent`'s claim is untouched, since a globe
+      still draws to the minor side of its box — what changed is which part of the
+      drawing touches the edge. The other eight were measured the same way, by the
+      ink of a rendered corpus, and none of them crosses.
+
+      The COLLISION is a different question and `FIELD_FOOT` does not extend to it:
+      a foot is at an edge and leaves one contiguous run, a `fills: 'minor'` subject
+      is in the middle and leaves two disjoint ones — a stack cannot be laid out in a
+      hole, and on 16:9 the reservation would leave the cells nothing at all. The
+      repair still open is moving the SUBJECT, because `full` is the one anchor that
+      names no position; its condition is written beside `FIELD_FOOT`.
     - **Nothing in `blocks/` imports `remotion`, writes a colour, or eases.** The
       frame arrives as `progress` and `life`; that is what lets `blocks.test.js`
       load the registry in Mocky's own suite and prove it matches the schema in
       both directions. `blocks/index.js` is a map and nothing else, so
       twenty-seven people can each own one file without touching the same line.
+11. **A Motion KIND is a doorway into that catalogue, never a sixth template.**
+    `server/video/kinds.js` — eight of them (`hero`, `background`, `banner`,
+    `showcase`, `figure`, `globe`, `mark`, `story`), and each resolves to nothing
+    but a subset of `BLOCK_KINDS`, a subset of `BACKGROUND_KINDS`, one
+    `ASPECT_RATIOS` value and a window inside `TEMPLATE_LIMITS.composed`. What
+    comes out is an ordinary `composed` document: the worker never learns a kind
+    existed and a draft saved before this parses unchanged. It NARROWS and never
+    argues — the blocks it does not offer are absent from the catalogue and from
+    the decoder hint, which is `availableBlocks`'s own lesson a third time — and
+    it may never add back what the selection or the 3D permission withheld.
+    Three things to know. A narrowing can STARVE a kind without emptying it:
+    `globe` with no 3D still has `map`, `heading` and `kicker`, so the question is
+    asked of `signature` and the refusal names the door to knock on. `background`
+    is the proof of the mechanism (no block that sets type, no `image` ground) and
+    of the degradation (`soundWave` and `equalizer` keep it alive on an account
+    without 3D). And the enum is **published on `/status`, not mirrored** — a
+    sixth hand-kept mirror in a feature bitten by four is the one thing this could
+    not afford, so the panel reads ids and bounds off the server and the prose a
+    person reads is `muse.motionKind.<id>` in both dictionaries.
+
+    The **direction** now reaches the model and the **theme** still does not.
+    `directionBriefFrom` reads the same markdown `theme.ts` reads, for the WORDS:
+    they travel in the USER turn as data (Q5) and decide what gets COMPOSED, while
+    the colours keep travelling as `theme`, attached after validation, never in a
+    prompt. Every hex triplet is dropped from the extract — the colours are
+    already exact elsewhere, and repeating them only invites the one refusal that
+    costs a whole paid call.
+
+    **A film cannot enter the preview iframe, and that is a boundary rather than a
+    gap.** The srcDoc's CSP has no `media-src`, so it falls back to
+    `default-src 'none'` and a `<video>` is refused; and `GET /api/video/:hash` is
+    session-guarded while the frame's origin is opaque, so a `SameSite=Lax` cookie
+    is not sent and the route answers 403. Either alone is decisive. A scroll
+    sequence works because it is JPEGs under `img-src *` from a deliberately
+    unauthenticated route; a film is one private `.mp4` and there is no ffmpeg on
+    the export path. So the film is attached to the SCREEN (`AttachedMedia`) and
+    drawn on the canvas, and `muse.motionCost` says so before the box is ticked.
+    Do not "fix" this by adding `media-src` or by opening the route.
 
 ## Conventions
 

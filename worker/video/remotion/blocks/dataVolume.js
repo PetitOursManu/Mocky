@@ -522,6 +522,89 @@ export function globeMarkerRadius(canvasPx, dotPx) {
 }
 
 /**
+ * A SHELL IS NOT THE DRAWING: HOW LARGE THE SPHERE MAY BE SO THAT EVERYTHING
+ * HUNG OFF IT IS STILL INSIDE THE CANVAS.
+ *
+ * ── The export that made it necessary ───────────────────────────────────────
+ *
+ * A globe on a pale ground whose right half stopped on a straight vertical line,
+ * a third of the way down the frame — the one defect a viewer reads as broken
+ * software rather than as a choice. It was not the sphere. `GLOBE_RADIUS` is
+ * `SOLID_BOUND`, and `SOLID_BOUND`'s own sentence is "the exact radius at which a
+ * ball about the origin touches the edge of its canvas and never crosses it". The
+ * ball did not cross it. Four things this block draws are NOT on that ball, and
+ * every one of them did:
+ *
+ *   - a CONNECTION is a great circle lifted by `GLOBE_ARC_LIFT`, so its bulge
+ *     sits at `1.16 · R` — 14% of the radius outside a canvas that had 2% of
+ *     rounding to spare, which at a full frame is 64 px of arc sliced off by a
+ *     vertical edge. That is the frame that was reported, and a bundle of arcs
+ *     leaving the same marker cuts as one straight line;
+ *   - a MARKER is a sphere of `GLOBE_MARKER_SHARE` dots CENTRED on the surface,
+ *     so it stands `m` proud of it everywhere and half outside the canvas at the
+ *     limb;
+ *   - a RIPPLE is a ring lying in the tangent plane, so its rim is at
+ *     `√(R² + (SPAN·m)²)` from the centre;
+ *   - and a dot is a SPRITE of `dot` pixels centred on its own point, so the
+ *     lattice itself reaches half a dot past the silhouette.
+ *
+ * ── Why the shell yields, and why that costs the block nothing ──────────────
+ *
+ * The canvas cannot grow: it is `min(box.width, box.height)` and a canvas larger
+ * than its box paints over the zone next door (`spatialLayout` says the same
+ * thing one block over). So the only free quantity is the radius the dots sit at,
+ * and it is the right one: `blockExtent` claims this kind draws to the minor side
+ * of its box, and after this it still does — the arcs and the ripples are what
+ * reaches the edge now. What changes is which part of the drawing is the sphere,
+ * and a globe carrying five connections is a globe with five connections on it
+ * rather than a globe with five connections cut off it.
+ *
+ * It is the same trade `SOLID_BOUND` already makes one file over, and its sentence
+ * is the answer to "but the sphere is smaller now": a cube is normalised on its
+ * BOUNDING SPHERE and not on its face-on silhouette, because it spins and a corner
+ * through the edge is not a smaller cube but a broken render. A globe turns, an
+ * arc's bulge crosses the limb during the scene, and the frames where the drawing
+ * really does reach the edge are the frames the bound is for. Measured on a
+ * rendered corpus: the extreme column moves from frame to frame afterwards
+ * (1340, 1381, 1385, 1412 px) where it sat at 1425 on every one of them before,
+ * which is what a silhouette does and a clip does not.
+ *
+ * A globe that draws no ornament pays nothing, which is why this reads the BLOCK:
+ * `markers: 0` keeps the sphere where it was, and `connections: false` keeps the
+ * 14% the bow costs. The bound is closed form because every reach is linear or
+ * Pythagorean in the radius — no search, no margin anybody chose.
+ *
+ * The floor is `Q1`: a degenerate canvas whose marker is wider than its own
+ * bound would otherwise solve a shell of zero, and a globe that vanished from a
+ * film somebody waited two minutes for is worse than a small one.
+ */
+export const GLOBE_SHELL_FLOOR = 0.25
+
+export function globeShell(block, canvasPx, dotPx) {
+  const side = px(canvasPx)
+  if (side === 0) return GLOBE_RADIUS
+  const bound = GLOBE_RADIUS
+  // The one px↔world scale this block has, and the one `globeMarkerRadius` is
+  // already written in: the canvas is `2·GLOBE_RADIUS` across.
+  const sprite = (px(dotPx) / 2 / side) * 2 * bound
+  const marks = Math.max(0, Math.trunc(Number(block?.markers)) || 0)
+  // Consecutive markers, so one place draws no arc — `globeArcs` loops on pairs.
+  const arcs = block?.connections !== false && marks >= 2
+  const m = globeMarkerRadius(side, dotPx)
+
+  // The lattice itself, sprite included. Every other reach is measured from the
+  // same room, so this subtraction happens once.
+  const room = Math.max(0, bound - sprite)
+  let shell = room
+  if (arcs) shell = Math.min(shell, room / (1 + GLOBE_ARC_LIFT))
+  if (marks > 0) {
+    shell = Math.min(shell, bound - m)
+    shell = Math.min(shell, Math.sqrt(Math.max(0, bound * bound - (GLOBE_RIPPLE_SPAN * m) ** 2)))
+  }
+  return Math.max(bound * GLOBE_SHELL_FLOOR, shell)
+}
+
+/**
  * How many points one connection is drawn with — and it is derived from the arc's
  * own length rather than fixed, which is the whole of the second defect.
  *
@@ -661,13 +744,19 @@ export function globeArc(from, to, steps = GLOBE_ARC_STEPS) {
 export function globeArcs(markers, yaw, tilt, radius, life, canvas) {
   const list = Array.isArray(markers) ? markers : []
   const r = px(radius) || GLOBE_RADIUS
+  // The width the arc is really drawn across, which is the canvas only when the
+  // shell fills it. `globeShell` shrinks the sphere so that the bow, the markers
+  // and the ripples stay inside the frame, and the spacing below is a length in
+  // PIXELS — measured on the canvas it would ask a shorter arc for the points of
+  // a longer one, which is bitrate spent on a continuity it already has.
+  const drawnSide = (px(canvas?.side) * r) / GLOBE_RADIUS
   const out = []
   for (let i = 0; i + 1 < list.length; i++) {
     const drawn = linkPulse(life, i)
     // The steps this arc needs to read as a stroke rather than as more land —
     // see `globeArcSteps`. A caller with no canvas gets the floor, which is a
     // trail of separated points: honest, and the case no render reaches (Q1).
-    const arc = globeArc(list[i], list[i + 1], globeArcSteps(list[i], list[i + 1], canvas?.side, canvas?.dot))
+    const arc = globeArc(list[i], list[i + 1], globeArcSteps(list[i], list[i + 1], drawnSide, canvas?.dot))
     for (let k = 0; k < arc.length; k++) {
       if (k / (arc.length - 1) > drawn) break
       const turned = globeRotate(arc[k], yaw, tilt)

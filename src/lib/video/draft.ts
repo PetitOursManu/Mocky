@@ -287,10 +287,30 @@ export function renderBlocker(draft: VideoDraft): RenderBlocker | null {
  * error banner over a proposal that was fine. So the film keeps its own ratio
  * there and the panel SAYS so, rather than pretending the selector applied.
  */
-export function effectiveAspectRatio(draft: VideoDraft): AspectRatio | null {
-  const timeline = draft.proposal?.timeline
+/**
+ * The pure half of `effectiveAspectRatio`, taking a timeline directly rather
+ * than a draft's `proposal`.
+ *
+ * Split out for `launchRender` in the panel: the single-gesture render (see
+ * `CLAUDE.md`'s note on `propose`, and the docstring above `propose` in
+ * `VideoExportDialog.tsx`) fires from the document a compose call just
+ * answered with, before `setDraft(withProposal(...))`'s update has reached
+ * `draft.proposal` — `React.useState`'s setter does not run synchronously, so
+ * reading `draft.proposal` in the same tick would still see the PREVIOUS
+ * proposal, or nothing at all. The timeline is already in hand as a plain
+ * value; this function is what lets the render be built from it directly,
+ * with no state round trip in between.
+ */
+export function effectiveAspectRatioFor(
+  timeline: { template: string } | null,
+  aspectRatio: AspectRatio,
+): AspectRatio | null {
   if (!timeline) return null
-  return timeline.template === 'vertical' ? '9:16' : draft.aspectRatio
+  return timeline.template === 'vertical' ? '9:16' : aspectRatio
+}
+
+export function effectiveAspectRatio(draft: VideoDraft): AspectRatio | null {
+  return effectiveAspectRatioFor(draft.proposal?.timeline ?? null, draft.aspectRatio)
 }
 
 /** Whether the selector's ratio had to give way to the film's own. */
@@ -321,14 +341,28 @@ export function aspectRatioOverridden(draft: VideoDraft): boolean {
  * `startVideoRender` parses it again with `VideoTimelineSchema` before it is
  * sent. A mistake here is a refusal at the click, never a bad film.
  */
+/**
+ * The pure half of `toRenderInput`, taking the timeline and the two output
+ * settings directly rather than a draft. See `effectiveAspectRatioFor` for why
+ * this exists — `launchRender` builds a render document from a timeline that
+ * has not necessarily reached `draft.proposal` yet.
+ */
+export function toRenderInputFrom(
+  timeline: RenderTimeline,
+  outputFormat: OutputFormat,
+  aspectRatio: AspectRatio,
+): VideoTimelineInput {
+  const document: Record<string, unknown> = { ...timeline }
+  delete document.theme
+  document.outputFormat = outputFormat
+  document.aspectRatio = effectiveAspectRatioFor(timeline, aspectRatio)
+  return document as VideoTimelineInput
+}
+
 export function toRenderInput(draft: VideoDraft): VideoTimelineInput | null {
   const timeline = draft.proposal?.timeline
   if (!timeline) return null
-  const document: Record<string, unknown> = { ...timeline }
-  delete document.theme
-  document.outputFormat = draft.outputFormat
-  document.aspectRatio = effectiveAspectRatio(draft)
-  return document as VideoTimelineInput
+  return toRenderInputFrom(timeline, draft.outputFormat, draft.aspectRatio)
 }
 
 /**

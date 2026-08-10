@@ -135,6 +135,19 @@ export const video = {
     'video.themeNone':
       'Aucune direction artistique ici : chaque composition applique ses propres défauts, choisis une fois pour toutes dans son code.',
 
+    // Et les couleurs demandées dans le brief, qui passent devant le dossier.
+    // Dite, parce qu'une lecture que personne ne voit ne se distingue pas d'une
+    // demande ignorée : « en rouge et noir » ne donne rien — laquelle des deux
+    // est le fond ? — et seule cette phrase transforme ce silence en une
+    // correction d'une ligne au lieu d'un mystère. Elle nomme les rôles ; les
+    // pastilles au-dessus disent déjà la couleur.
+    'video.themeFromBrief':
+      'Couleurs demandées dans le brief, reprises en priorité sur la direction du projet : {roles}. Pour en demander une, nommez son rôle — « fond noir », « texte blanc », « un accent #c0392b ».',
+    'video.themeRoleBackground': 'le fond',
+    'video.themeRoleText': 'le texte',
+    'video.themeRoleAccent': 'l’accent',
+    'video.themeRoleSurface': 'les cartes',
+
     // ---- les images de départ, et d'où elles viennent -----------------------
     // Sert deux fois : titre du bloc, et nom accessible du groupe de boutons.
     // « de départ » et « facultatif » font tout le travail : ces images sont ce
@@ -195,22 +208,25 @@ export const video = {
 
     // ---- décrire, et rien régler -------------------------------------------
     // Le VERBE du bouton est « générer », le NOM du résultat reste « la
-    // proposition ». Les deux disent chacun leur moitié : le bouton dit ce qu'on
-    // fait — le modèle écrit un film — et le vocabulaire du résultat dit ce que
-    // ça n'est pas, à savoir un rendu. Le risque introduit par « générer » est
-    // qu'on le lise comme « lancer le rendu » ; c'est pour ça que la phrase
-    // d'aide le dit noir sur blanc et que l'autre bouton s'appelle « Lancer le
-    // rendu ».
+    // proposition ». Le bouton dit ce qu'on fait — le modèle écrit un film — et
+    // le vocabulaire du résultat dit ce que ça n'est pas, à savoir un rendu écrit
+    // à la main.
     //
-    // Deux libellés et pas un seul mot, et c'est la même leçon qu'ailleurs dans
-    // ce fichier : c'est le MÊME bouton qui demande le premier film et qui en
-    // redemande un autre, et « Générer » posé à côté d'un film déjà là se lit
-    // comme un bouton qui n'a rien fait. Le verbe est donc commun aux deux états
-    // et c'est le complément qui change.
+    // « Générer le film » lance désormais le rendu du même geste, sans second
+    // clic : c'est ce que l'utilisateur a demandé, après avoir jugé qu'un
+    // deuxième bouton pour voir le résultat était un pas de trop. La phrase
+    // d'aide le dit noir sur blanc plutôt que de prétendre le contraire — elle
+    // disait autrefois que générer ne lançait PAS le rendu, ce qui serait
+    // maintenant un mensonge.
+    //
+    // Un seul libellé et pas deux : c'est le MÊME bouton qui demande le premier
+    // film et qui en redemande un autre, et « Générer » posé à côté d'un film
+    // déjà là se lit comme un bouton qui n'a rien fait. Le verbe est donc commun
+    // aux deux états et c'est le complément qui change.
     'video.composeTitle': 'Décrire le film',
     'video.composeBrief': 'Le contexte',
     'video.composeHint':
-      'Dites de quoi il s’agit, pour qui, sur quel ton. Le modèle écrit le film entier : découpage, mise en scène, mouvements, textes et durées. Générer un film n’en lance pas le rendu — vous pourrez en demander un autre avant de rendre. Consomme des jetons.',
+      'Dites de quoi il s’agit, pour qui, sur quel ton. Le modèle écrit le film entier : découpage, mise en scène, mouvements, textes et durées, puis le rendu démarre aussitôt la proposition reçue. Consomme des jetons, et du temps de rendu.',
     'video.composePlaceholder':
       'Le lancement de notre bouilloire : trois arguments, un ton calme, une trentaine de secondes, en français.',
     'video.briefCount': '{n} / {max}',
@@ -346,6 +362,11 @@ export const video = {
     'video.proposalStale':
       'Le contexte ou les images ont changé depuis cette proposition : elle répond à la demande précédente. Redemandez-en une pour en tenir compte.',
 
+    // Le rendu part maintenant tout seul dès qu'une proposition arrive — voir
+    // `video.composeHint`. Ce bouton reste pour la seule reprise qu'il sert
+    // encore : le rendu automatique a échoué (worker indisponible, quota) alors
+    // que le film composé, lui, est resté bon, et redemander un rendu du MÊME
+    // film coûte moins qu'en redemander un nouveau au modèle.
     'video.startRender': 'Lancer le rendu',
     'video.starting': 'Mise en file…',
     'video.newCut': 'Nouveau montage',
@@ -523,6 +544,19 @@ export const video = {
     'video.themeNone':
       'No art direction here: each composition uses its own defaults, chosen once and for all in its code.',
 
+    // And the colours asked for in the brief, which come before the dossier.
+    // Said out loud, because a reading nobody is shown is indistinguishable from
+    // a request that was ignored: "in red and black" yields nothing — which of
+    // the two is the ground? — and this sentence is the only thing that turns
+    // that silence into a one-line edit rather than a mystery. It names the
+    // roles; the swatches above already say the colour.
+    'video.themeFromBrief':
+      'Colours asked for in the brief, taken before the project’s direction: {roles}. To ask for one, name what it is for — “black background”, “white text”, “a #c0392b accent”.',
+    'video.themeRoleBackground': 'the background',
+    'video.themeRoleText': 'the text',
+    'video.themeRoleAccent': 'the accent',
+    'video.themeRoleSurface': 'the cards',
+
     // ---- the starting pictures, and where they come from ---------------------
     // Used twice: as the block's heading, and as the accessible name of the
     // button group. "starting" and "optional" carry the whole sentence: these
@@ -582,21 +616,24 @@ export const video = {
     'video.briefImagesNeedChoice': 'Tick at least one picture.',
 
     // ---- describing, and dialling nothing -----------------------------------
-    // The button's VERB is "generate"; the result is still "the proposal". Each
-    // says its own half: the button says what happens — the model writes a film
-    // — and the noun says what it is not, namely a render. The risk "generate"
-    // introduces is being read as "start the render", which is why the hint says
-    // so outright and why the other button is called "Start the render".
+    // The button's VERB is "generate"; the result is still "the proposal". The
+    // button says what happens — the model writes a film — and the noun says
+    // what it is not, namely a render written by hand.
     //
-    // Two labels rather than one word, and it is the lesson recorded elsewhere
-    // in this file: the SAME button asks for the first film and asks for another
-    // one, and "Generate" sitting beside a film that is already there reads as a
-    // button that did nothing. So the verb is common to both states and the
-    // object is what changes.
+    // "Generate the film" now starts the render in the same gesture, no second
+    // click: that is what the user asked for, having judged a second button just
+    // to see the result one step too many. The hint says so outright rather than
+    // claiming the opposite — it used to say generating did NOT start a render,
+    // which would now be a lie.
+    //
+    // One label rather than two: the SAME button asks for the first film and
+    // asks for another one, and "Generate" sitting beside a film that is already
+    // there reads as a button that did nothing. So the verb is common to both
+    // states and the object is what changes.
     'video.composeTitle': 'Describe the film',
     'video.composeBrief': 'The context',
     'video.composeHint':
-      'Say what it is about, who it is for, in what tone. The model writes the whole film: how it is cut, how it is staged, how things move, what it says and how long it lasts. Generating a film does not start its render — you can ask for another one before rendering. Spends tokens.',
+      'Say what it is about, who it is for, in what tone. The model writes the whole film: how it is cut, how it is staged, how things move, what it says and how long it lasts — then the render starts as soon as the proposal arrives. Spends tokens, and render time.',
     'video.composePlaceholder':
       'Launching our kettle: three arguments, a calm tone, about thirty seconds, in English.',
     'video.briefCount': '{n} / {max}',
@@ -731,6 +768,11 @@ export const video = {
     'video.proposalStale':
       'The context or the pictures have changed since this proposal: it answers the previous request. Ask for another one to take that into account.',
 
+    // The render now starts by itself as soon as a proposal arrives — see
+    // `video.composeHint`. This button survives for the one recourse it still
+    // serves: the automatic render failed (worker unreachable, quota) while the
+    // composed film stayed good, and asking for a render of the SAME film costs
+    // less than asking the model for a new one.
     'video.startRender': 'Start the render',
     'video.starting': 'Queueing…',
     'video.newCut': 'New cut',

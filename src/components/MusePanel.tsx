@@ -1,5 +1,6 @@
 import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability } from '../lib/muse'
 import { imageUrl, type PinnedImage } from '../lib/imageLibrary'
+import type { MotionKindOffer } from '../lib/video/client'
 import { Button, Icon, Spinner } from '../ui'
 import { useT } from '../i18n'
 
@@ -34,6 +35,7 @@ export default function MusePanel({
   imageError,
   vision,
   video,
+  motion,
 }: {
   config: MuseConfig
   onChange: (c: MuseConfig) => void
@@ -51,6 +53,15 @@ export default function MusePanel({
   vision?: boolean | null
   /** null = not probed, or no backend. Carries WHY when unavailable. */
   video?: MuseVideoAvailability | null
+  /**
+   * Motion: whether this ACCOUNT may export, and which kinds this BUILD offers.
+   *
+   * Two facts and not one, because they fail differently. `available` false with
+   * kinds present is a control drawn disabled with a sentence saying why; no
+   * kinds at all is a build that offers none, and the whole block is left out
+   * rather than drawn empty. null = not probed yet.
+   */
+  motion?: { available: boolean; kinds: MotionKindOffer[] } | null
 }) {
   const t = useT()
   const d = result?.dossier
@@ -255,6 +266,74 @@ export default function MusePanel({
             </button>
           </div>
         )
+      )}
+
+      {/*
+        Motion, beside the sequence and never merged with it.
+
+        They look like one control — both spend money and minutes, both are off
+        by default — and they produce different things that end up in different
+        places. A sequence is cut into stills and SCROLLS INSIDE the mockup, in
+        the preview iframe, through the `scrollvideo` capability. A film is an
+        .mp4 that cannot enter that iframe at all: it is sandboxed to an opaque
+        origin, its CSP has no `media-src`, and the route that serves a film sits
+        behind a session an opaque origin does not carry. So it is attached to
+        the screen and drawn on the canvas beside the frame, and the help text
+        below says so rather than letting somebody discover it.
+
+        Drawn only when the instance offers kinds at all: `motion.enabled` is
+        about the ACCOUNT and `motionKinds` about the build, and a selector with
+        nothing in it is a control that cannot be used for a reason it cannot
+        state.
+      */}
+      {motion && motion.kinds.length > 0 && (
+        <div className="mt-2">
+          <label
+            className={`flex items-start gap-2 ${motion.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-accent"
+              checked={config.motion && motion.available}
+              onChange={(e) => onChange({ ...config, motion: e.target.checked })}
+              disabled={busy || !motion.available}
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-ink-muted">
+                <Icon name="play" size={14} />
+                {t('muse.motion')}
+              </span>
+              <span className="mt-0.5 block text-caption text-ink-faint">
+                {motion.available ? t('muse.motionCost') : t('muse.motionUnavailable')}
+              </span>
+            </span>
+          </label>
+          {config.motion && motion.available && (
+            <div className="mt-1.5 pl-6">
+              <label className="block text-caption text-ink-faint" htmlFor="muse-motion-kind">
+                {t('muse.motionKindLabel')}
+              </label>
+              <select
+                id="muse-motion-kind"
+                className="mt-0.5 w-full border border-line-soft bg-surface px-2 py-1 text-body-sm"
+                value={motion.kinds.some((k) => k.id === config.motionKind) ? config.motionKind : motion.kinds[0].id}
+                onChange={(e) => onChange({ ...config, motionKind: e.target.value })}
+                disabled={busy}
+              >
+                {motion.kinds.map((kind) => (
+                  <option key={kind.id} value={kind.id}>
+                    {t(`muse.motionKind.${kind.id}`)}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-caption text-ink-faint">
+                {t(`muse.motionKindHelp.${
+                  motion.kinds.some((k) => k.id === config.motionKind) ? config.motionKind : motion.kinds[0].id
+                }`)}
+              </span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* The saved choice is never rewritten — say plainly that THIS run will

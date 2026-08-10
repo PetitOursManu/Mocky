@@ -1146,6 +1146,21 @@ const THEMES = {
   'one colour, four times': {
     colors: { background: '#3b82f6', text: '#3b82f6', accent: '#3b82f6', surface: '#3b82f6' },
   },
+  /*
+   * The pair a BRIEF can now ask for, and the reason it is in the sweep.
+   *
+   * `src/lib/video/briefTheme.ts` lets a user state colours in the brief — "vert
+   * foncé sur noir" — and those beat the project's dossier. That is a second
+   * source for the same two tokens, and it is a source with no design document
+   * behind it moderating the pair: a dossier states an ink alongside the ground
+   * it was chosen for, a sentence states whatever somebody wanted. This is that
+   * request at its worst, and the guarantee is unchanged — the ink is measured
+   * against the ground it really lands on and degraded until it can be read
+   * (Q1), which is the whole reason the extraction was allowed to exist.
+   */
+  'a dark green on black, as a brief can ask for it': {
+    colors: { text: '#0c5a29', background: '#000000' },
+  },
   'a ground and no ink': { colors: { background: '#f6f4ee' } },
   'an ink and no ground': { colors: { text: '#f6f4ee' } },
   'an amber accent': { colors: { accent: '#f59e0b' } },

@@ -298,6 +298,62 @@ that scene at all; a `solidChart` paints a `solid`, the same Lambert segment as
 `solidScene`, because its columns are lit. Its labels are outside the canvas and
 are measured as ordinary running text on the ground.
 
+##### A shell is not the drawing, and a canvas edge is a knife
+
+Two exports came back with the globe's right half stopping on a straight vertical
+line a third of the way down the frame — the one class of defect a viewer reads as
+broken software rather than as a choice, and the user's report said only that "the
+3D renders are not always well cropped". The measurement is what settled which of
+the three candidate causes it was: the canvas is not smaller than its box (it is
+`min(box.width, box.height)` to the pixel), and the camera is not too near (it is
+the catalogue's own lens). **The object is larger than the view volume, and the
+object is not the sphere.**
+
+`GLOBE_RADIUS` is `SOLID_BOUND`, whose own sentence is "the exact radius at which a
+ball about the origin touches the edge of its canvas and never crosses it". The
+ball never did. Four things this block hangs off that ball are not on it:
+
+| what | how far off the shell | at a full 16:9 frame |
+|---|---|---|
+| a connection, bowed by `GLOBE_ARC_LIFT` | `1.16 · R` | 64 px outside the canvas |
+| a marker, a sphere centred ON the surface | `R + m` | 39 px |
+| a ripple, a ring in the tangent plane | `√(R² + (3m)²)` | 22 px |
+| a dot, a sprite `dot` px across | half a dot | 7 px |
+
+against the 2 % of rounding `SOLID_MARGIN` leaves. A rendered corpus is what
+measured it: on a 1920×1080 export the ink was pinned to the canvas's last column
+for 93 consecutive rows, on every frame — an arc bundle leaving one marker cuts as
+one straight line, which is exactly what "its right half stops on a vertical line"
+describes. It was intermittent in `life`, because the globe turns and a bulge
+crosses the limb during the scene; that is the "not always".
+
+The canvas cannot grow — a canvas larger than its box paints over the zone next
+door — so what yields is the radius the dots sit at. `globeShell` is that bound,
+closed form because every one of the four reaches is linear or Pythagorean in the
+radius, and it reads the BLOCK: a globe with no marker and no connection keeps the
+radius it always had, and only what a document actually drew is paid for. Nothing
+about the block's claim on the frame changes — `blockExtent` still says a globe
+draws to the minor side of its box, and after this it still does. What changed is
+which part of the drawing touches the edge.
+
+The same corpus, re-rendered: the extreme column moves from frame to frame
+(1340, 1381, 1385, 1412 px) instead of sitting at 1425 on all of them, which is
+what a silhouette does and a clip does not. `dataVolume.test.js` holds the claim in
+world units rather than in pixels — every point of every cloud, plus its sprite,
+plus the rim of every marker and every ripple, inside the ball `SOLID_BOUND`
+describes — because a claim about pixels would be a claim about the projection
+`SOLID_BOUND` was derived from.
+
+The other eight 3D blocks were measured the same way, by the ink of a rendered
+corpus, and none of them crosses: `solidScene` is normalised on its own bounding
+sphere, `photoStage` and `photoRing` fit every corner through `frustumScale`,
+`extrudedType` caps its canvas at what `blockExtent` claims and reserves its own
+swing, and the three fields are meant to cover their box. `solidChart` fits its
+canvas exactly — the projected hull spans `[0, canvas.width]` to the tenth of a
+pixel — which is correct and has no margin at all; the 19–32 px vertical edges at
+each end of its plinth are the box's own end faces and not a cut, and it is worth
+knowing that before reading one as the other.
+
 #### Three fields in volume: a dust, a swelling surface, and a floor
 
 The request that names them is "the background should be in 3D", and the answer
@@ -1359,6 +1415,33 @@ and drops the row entirely below `LABEL_FLOOR` — because a band a little talle
 the type that lands in it costs a cell a few pixels, and one too short is the defect
 back.
 
+**And it does not extend to a subject in the middle**, which is the reading the
+next export invites: a heading straight across the equator of a `full` globe looks
+like this defect one notch up, a field whose SUBJECT is in the way rather than
+whose CAPTION is. Three properties of a foot are what make the subtraction work,
+and a subject has none of them. A foot is at an EDGE, so what the cells get is one
+contiguous run and `split` lays the bands over it; a `fills: 'minor'` block sits in
+the middle of its box on both axes, so reserving it leaves two disjoint remainders
+and a stack cannot be laid out in a hole. A foot is declared by a block that FILLS
+the axis it reserves on — the stated entry condition, and `clock` is the case
+already excluded for exactly this reason. And a foot is a twentieth of the frame,
+where a globe's square covers all three rows of a 16:9 safe area, so the
+reservation would leave the cells nothing at all: a refusal, where this feature
+degrades (Q1).
+
+Three repairs exist and two are already ruled out. Moving the CELL is out —
+`anchor` is the one composition decision a document makes. Shrinking the subject
+buys nothing, since it stays centred and a smaller globe is a smaller globe with
+the same line across it. What is left is moving the SUBJECT, the only one that
+takes nothing from the document, because `full` is the one anchor that names no
+position; it is open, and its condition is that the grid rows no cell holds are
+CONTIGUOUS, which a `center` cell is precisely what they stop being. Until then the
+arrangement is the one `globe.jsx` says it was written for — "the words that belong
+to a globe are a `kicker` or a `heading` anchored over it, measured against a
+surface `composedPalette` resolved with the field in it" — and what made the
+reported frame read as broken was not the word on the sphere but the arc bundle
+sliced off behind it, which is `globeShell`'s defect and is fixed there.
+
 `composition.test.js` holds it against the BLOCKS' own layout functions rather than
 against the reservation: `barChartLayout`, `lineChartLayout` and `imageFrameBox` are
 what really decide where a caption lands, so asking `composition.js` for both halves
@@ -1993,6 +2076,10 @@ an absent one leaves the composition on a default somebody chose on purpose.
 The 12px `parseRadius` falls back to is the same case, which is why `readRadius`
 now exists to say "the document did not mention one".
 
+("The direction" is one of **two** places a declaration can come from — see *A
+colour asked for in the brief comes before the project's dossier*, below. What
+never changes is that a colour nobody stated reaches nothing.)
+
 **Nothing in it can become CSS.** Colours are hex and only hex. A font is ONE
 family name from a charset of letters, digits, spaces and hyphens — never a
 stack — because that value ends up in a `font-family`, where a comma, a quote,
@@ -2036,6 +2123,73 @@ order is what makes it safe: the model is validated against a schema with no
 `theme` key, and only then is the key written. Nothing of the direction reaches
 the prompt either. A colour quoted to a model is a colour it will improve on,
 it costs tokens on every call, and it is not the model's decision to make.
+
+### A colour asked for in the brief comes before the project's dossier
+
+The rule above says the theme carries what was **declared**, and for a while
+"declared" meant one document. It should not: the distinction it was really
+making is *the user stated it* versus *the model guessed it*, and a brief that
+says "texte blanc sur fond noir" is a statement by the same person the DESIGN.md
+came from — more recent, more specific, and about this film rather than about the
+product in general. So `src/lib/video/briefTheme.ts` reads the brief, and what it
+finds wins.
+
+**Token by token, never whole.** That is what priority means here: a brief that
+names a ground has said nothing about the typeface, and throwing the project's
+away would make asking for one colour cost every other one. `mergeFilmTheme`
+overlays the brief's colours on the direction's theme and hands the result to
+both doors unchanged — the same `theme` field, the same `attachTheme`, the same
+`RenderTimelineSchema`. **Nothing about rule 9 moves.** The model still cannot
+write a theme, `VideoTimelineSchema` still has no such key, and nothing of either
+source reaches a prompt.
+
+**The extraction is the design system's own.** `designTokens.ts` already finds
+colours in prose and has been corrected twice by real documents — a background
+inferred from an empty pool, a label regex eaten by Markdown emphasis. A second
+reader here would have been a sixth hand-kept mirror in a module that already has
+five, so `briefTheme.ts` does the one thing the existing one cannot: it turns
+French and English prose into the `- Label: #hex` grammar `parseColors` was
+written for, and then calls `themeFromDesign` on it. Role resolution is
+`roleForLabel`, the hex charset is `ThemeColorSchema`, "declared" is
+`parseDesignSpec.stated`. One implementation, reached through one door.
+
+**A name is a declaration; the shade is Mocky's, once, in code.** Nobody types
+`#c0392b` into a brief — they type "en rouge et noir" — so a closed table maps a
+colour word to one hex, bilingual, with the feminine forms in it because French
+agreement is not optional in prose. That hex is a choice, and it is the same kind
+of choice as `THEME_FALLBACK.accent`: made once, in a file under review, and
+visible in the result. `or` is deliberately absent while `doré` is present: as a
+bare word it is one of the commonest conjunctions in written French, and a table
+that fired on it would paint a film gold because of a sentence about something
+else. A modifier — "foncé", "dark" — moves the named colour toward black or white
+by one constant rather than by a second table of hexes, so "vert" and "vert
+foncé" cannot drift onto unrelated greens.
+
+**A role is never guessed.** "En rouge et noir" states two colours and no roles,
+and this reads **nothing** from it: which of the two is the ground is exactly the
+guess that burns an unseeable colour into a film. A colour counts only when the
+brief also says what it is for — a role word within three words behind it or two
+ahead ("fond noir", "white text"), the word `sur`/`on` immediately before it, or
+the `X sur Y` idiom that names both at once. The window stops at a clause
+boundary, comma included: "black background, white text" put a role word one word
+behind a colour belonging to the next phrase, and read backwards it painted the
+ground white. A colon is not a boundary, because "Fond : noir" is a person
+stating a token.
+
+**And the panel says which roles it understood,** in the line under the swatches.
+That is not a courtesy: a reading nobody is shown is indistinguishable from a
+request that was ignored, and the whole point of taking nothing from an ambiguous
+sentence is that the writer can fix it in one edit. The sentence names the roles
+and shows how to state one; the swatches above already say the colour.
+
+**A brief's ground can meet a dossier's ink, and that is safe rather than
+lucky.** A cream direction's near-black text over a black ground somebody just
+asked for is a pair no design document moderated. It is the case the next section
+exists for: `resolveTheme` pairs whatever is left unstated, every run is measured
+against the surface it is really painted on, and one that cannot clear its floor
+is degraded rather than failing the export ([Q1](architecture/invariants.md)).
+The corpus in `composition.test.js` carries that exact request — a dark green on
+black — so the guarantee is swept across all five palettes rather than argued.
 
 ### No text is illegible, and it is arithmetic that says so
 
@@ -3172,6 +3326,7 @@ renderer.
 | `src/lib/video/timeline.ts` | The zod schema — the five templates, the theme, and the reasoning behind every bound. The definition to read |
 | `server/video/timeline.js` | The same schema, mirrored by hand for Node, plus `attachTheme`. `timeline.test.js` holds the two together |
 | `src/lib/video/theme.ts` | The project's art direction, read into the handful of tokens a film can carry. Declared ones only |
+| `src/lib/video/briefTheme.ts` | The colours the USER asked for, read out of the brief. They beat the dossier token by token; a colour with no role stated beside it is read as nothing |
 | `src/lib/video/resolution.ts` | How much a still is about to be enlarged, and what to ask a provider for. Mirrors the worker's frame geometry; `tests/video-frame-geometry.test.js` holds the two together |
 | `server/video/compose.js` | The one model call: it composes a scene out of the block catalogue, it never picks the pictures |
 | `server/video/variants.js` | The two variant paths, and the fixed table of axes |
@@ -3200,3 +3355,189 @@ so a restart can tell the user what happened to the render they were watching.
 Nothing is resumed. Re-queueing would be one line, but a render nobody asked for
 twice is CPU spent behind their back, and on an instance that crash-loops it is
 spent on every boot.
+
+---
+
+## Motion at the start of a project: the kinds
+
+Motion began as a panel you open on a project that already exists, over pictures
+you have already chosen. The request that produced this section is the other end
+of it: a box ticked beside Muse, on the very first prompt, so that the film is
+cut from the dossier at the moment the dossier is written.
+
+Three things had to exist for that, and one that was asked for could not be
+built. They are separated below because the third is a security boundary, and the
+honest thing to do with one is to name it rather than route around it.
+
+### A kind is a doorway into the catalogue, never a sixth template
+
+"Templates de création Motion" — a globe, a background, a button, a hero. Read as
+templates those are four more entries in `VIDEO_TEMPLATES`: four compositions to
+write, four branches in the worker, and the sixth template's whole argument
+thrown away. `composed` exists precisely so that a new look is a COMBINATION
+rather than a card somebody wrote.
+
+So a kind is a **doorway**. `server/video/kinds.js` holds a closed enum of eight
+— `hero`, `background`, `banner`, `showcase`, `figure`, `globe`, `mark`, `story`
+— and each one resolves to nothing but a subset of `BLOCK_KINDS`, a subset of
+`BACKGROUND_KINDS`, one `ASPECT_RATIOS` value and a window inside
+`TEMPLATE_LIMITS.composed`. A film composed under a kind is an ordinary
+`composed` document: the worker never learns the kind existed, `validate.js` is
+untouched, and a draft saved before this shipped parses exactly as it did.
+
+Four consequences are worth stating, because each was a decision.
+
+**A kind NARROWS; it never argues.** The prompt does not say "prefer these six
+blocks" — the other twenty-one are not in the catalogue it prints, and they are
+not in the decoder hint either. That is the lesson `availableBlocks` already
+learned twice, about pictures and about 3D: a model shown a block and told not to
+use it uses it, and the refusal arrives after the tokens are spent. A kind also
+cannot add back a block the selection or the 3D permission already withheld,
+which would be a permission written twice.
+
+**`background` is the kind that proves the mechanism.** It is offered no block
+that sets type at all, and no `image` ground. Not because a rule forbids it: a
+`heading` is simply not in its catalogue. The defect the kind exists to avoid is
+a headline burnt into a backdrop, competing with the headline the page sets on
+top of it — at a size chosen by the film, correctable only by re-rendering.
+
+**A narrowing can starve a kind, and that is refused by name.** `globe` on an
+account without the 3D permission leaves `map`, `heading` and `kicker` standing,
+so nothing downstream would notice; what would come back is a flat film with a
+caption about the world, from a button that said globe. So `starvedMotionKind`
+asks the question of the kind's SIGNATURE blocks rather than of the count, and
+the refusal says which door to knock on. `showcase` over an empty selection is
+the same case with the other cause.
+
+**And it degrades rather than disappearing.** All three FIELD blocks are drawn in
+GL, so a `background` made only of them would be withheld from every account
+without 3D — the kind a page uses most, refused for a reason about renderers. It
+carries `soundWave` and `equalizer` too: a moving surface with no glyph on it,
+the same picture drawn flat, and the composed prompt's own worked example already
+anchors one `full` (Q1).
+
+Every bound a kind states is read from the entry that states it, and
+`kinds.test.js` holds three claims about that: every window sits inside
+`TEMPLATE_LIMITS.composed`, `scenes.max` times `sceneMs.max` stays under the
+total ceiling, and no sentence of prose in the table contains a digit — the same
+rule `BLOCK_NOTES` follows one file over.
+
+### The list is published rather than mirrored
+
+This feature has five hand-kept mirrors and has been bitten by four of them. The
+panel needs the kinds to draw a selector, and a sixth mirror is exactly what that
+would have become.
+
+So `GET /api/video/status` publishes them beside `limits`, which is the same
+argument `maxScenes` already makes: quoting a bound from its source is what keeps
+the panel and the schema from drifting. What travels is ids and bounds — never
+the prose. `MOTION_KIND_SPECS`'s three sentences are a prompt written in English
+addressed to a model; the sentence a person reads is `muse.motionKind.<id>` in
+both dictionaries, and `tests/video-motion-kinds.test.js` requires one per id in
+each language, and no orphan in either direction.
+
+`motionKinds` is published whatever `enabled` says, unlike `threeD` beside it: it
+is a fact about the BUILD rather than about the account, and it names nothing an
+account could not read in the source.
+
+### The direction reaches the model, and the theme still does not
+
+A theme makes a film carry the project's colours. It cannot make a film RESEMBLE
+the dossier, and that turned out to be half the request: strip the colours out of
+two films and what is left is the same document — a direction that says
+"editorial, generous silence, one idea per screen" and one that says "dense,
+saturated, everything at once" composed identical scenes.
+
+`src/lib/video/directionBrief.ts` reads the same markdown `theme.ts` reads, for
+the other half: the WORDS. They travel to `/compose` as `direction`, land in the
+USER turn under a header saying they are data, and change what gets composed —
+how many scenes, how crowded a stack, a hairline ground or a gradient.
+
+Two rules keep it from becoming a theme by the back door.
+
+**No colour crosses.** Every hex triplet is dropped, and that is not tidiness:
+the colours already travel, exactly, as `theme`, attached by the server after the
+model's answer has been validated. Repeating them in prose adds nothing a
+composition can use and does the one thing this feature spends a paragraph
+forbidding — it invites a model to write a colour, and a document carrying one is
+refused WHOLE, after the call is paid for.
+
+**It is prose, never a table.** A row of tokens read as prose is a list of
+values, and a model handed values fills fields with them. Fenced blocks, table
+rows, bare links and image embeds are dropped; a heading whose every line was
+dropped goes with them, rather than arriving as the word "Tokens" pointing at
+nothing.
+
+Rule 9 is unchanged and is still enforced where it always was:
+`VideoTimelineSchema` has no `theme` key, so a model that invents one is refused
+like an `audio` key, and `attachTheme` writes it onto `RenderTimelineSchema`
+after validation. Extracting nothing is not a failure — it returns an empty
+string, the block is left out, and the film is composed from the prompt that
+existed before this module did.
+
+### Why the film cannot play inside the mockup
+
+This is the part of the request that could not be built, and the reason is a
+security boundary rather than an omission.
+
+A generated screen runs in an iframe sandboxed with `allow-scripts` and **no**
+`allow-same-origin`, so its origin is opaque (I2). Two independent things follow,
+and either one alone is decisive.
+
+**The CSP blocks the element.** `cspMeta()` in `src/components/Preview.tsx` sets
+`default-src 'none'` and then names `script-src`, `style-src`, `img-src`,
+`font-src`, `connect-src`, `form-action`, `frame-src`, `object-src` and
+`base-uri`. There is no `media-src`, so it falls back to `default-src` and a
+`<video>` is refused outright. `connect-src 'none'` closes the other routes at
+the same time: no `fetch`, so no WebCodecs, and a `blob:` URL minted in the
+parent is scoped to the parent's origin and unreadable from an opaque one.
+
+**And the bytes would not be served anyway.** `GET /api/video/:hash` sits behind
+`requireUser`, checks ownership BEFORE existence so it cannot be used as an
+oracle, and sends `Cache-Control: private` with no `Access-Control-Allow-Origin`.
+The session cookie is `SameSite=Lax`; a document with an opaque origin has a null
+site-for-cookies, so a subresource load from the preview carries no session and
+the route answers 403 — correctly.
+
+That is why a scroll sequence works and a film does not. A sequence is cut into
+JPEGs by ffmpeg at ingest and served by `server/videos/routes.js`, deliberately
+unauthenticated with `Access-Control-Allow-Origin: *`, so `<ScrollSequence>`
+needs `img-src` and nothing else. A film is one `.mp4`, private to the account
+that rendered it, and there is no ffmpeg on the export path to cut it — which is
+also why `mediaPoster` points a `<video preload="metadata">` at the file instead
+of showing a still.
+
+Making it play would mean adding `media-src` to the preview CSP, or serving film
+bytes unauthenticated by hash. Both are changes to a control that exists for a
+stated reason, and neither is a decision this feature gets to take on its own.
+
+So the film goes where a film already goes: it is attached to the SCREEN as an
+`AttachedMedia` of kind `film`, and drawn on the canvas beside the frame, in
+Mocky's own same-origin document where the session works and no CSP is in the
+way. `muse.motionCost` says so before the box is ticked rather than after the
+render — somebody who expects a film inside the mockup and finds a card beside it
+has been surprised by the interface, and that is the one failure a sentence can
+prevent outright.
+
+### What this pass did not build
+
+Stated rather than left to be discovered.
+
+- **No capability, and no `<MotionFilm>` component.** It would be a component
+  that cannot draw its own subject, for the two reasons above. The registry entry
+  is deliberately absent rather than present and inert: `scrollvideo` is the
+  precedent, and its whole comment is about never offering a component with
+  nothing to show.
+- **The kinds are reachable from the composer, not yet from the export panel.**
+  `VideoExportDialog` still offers the five editable templates and `auto`; a
+  `motionKind` selector there is a straightforward increment, left out of this
+  pass rather than half-wired.
+- **One film per screen, cut once.** Nothing re-cuts a film when the direction
+  changes, and nothing offers a second one for another section of the same
+  screen. `AttachedMedia` holds one, which is the shape that made the canvas card
+  possible; a screen wanting a hero film and a background film needs that field
+  to become a list first, and the reasons `owners` is a set apply to it.
+- **The render is polled to completion.** The screen is finished and on the
+  canvas before this starts, so nothing is blocked — but closing the composer
+  aborts the poll, and the film is then rendered, stored and findable in Media
+  without being attached to anything.

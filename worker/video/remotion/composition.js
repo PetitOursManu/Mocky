@@ -2929,6 +2929,40 @@ export function blockExtent(block, box, base, unit) {
  * out for the same reason from the other side: a `heading` anchored `full` is type
  * all the way through, and a cell stacked on it is an arrangement no reservation
  * can rescue.
+ *
+ * ── AND THE ONE THIS DOES NOT EXTEND TO: A SUBJECT IN THE MIDDLE ────────────
+ *
+ * A rendered frame put a heading straight across the equator of a `full` globe,
+ * and the obvious reading is that it is this defect one notch up — a field whose
+ * SUBJECT is in the way of a cell rather than whose CAPTION is. It is not, and the
+ * reason is the shape of what is left over.
+ *
+ * A foot is at an EDGE, so what the cells get is one contiguous run and `split`
+ * lays the bands over it. A `fills: 'minor'` block occupies the MIDDLE of its box
+ * on both axes at once, so reserving it leaves two disjoint remainders, and a
+ * stack cannot be laid out in a hole. And the size is not a caption's: on 16:9 a
+ * globe's square covers every one of the three rows, so the reservation would
+ * leave the cells nothing at all — which is a refusal, and this feature degrades
+ * instead (Q1). `clock`'s exclusion above is the same sentence read from the other
+ * end: a round block cannot promise where its foot is, and it cannot promise where
+ * its silhouette is not.
+ *
+ * Three repairs exist and the module has already ruled on two. Moving the CELL is
+ * out — `anchor` is the one composition decision a document makes. Shrinking the
+ * subject buys nothing, because it stays centred and a smaller globe is a smaller
+ * globe with the same line across it. What is left is moving the SUBJECT, and it
+ * is the only one that takes nothing from the document: `full` is the one anchor
+ * that names no position. It is still open, and its exact condition is written
+ * here so the next person does not rediscover it — the free grid rows are the ones
+ * no cell holds, and the move is available exactly when they are CONTIGUOUS, which
+ * a `center` cell is precisely what they stop being.
+ *
+ * Until then the arrangement is the one `globe.jsx` says it was written for: "the
+ * words that belong to a globe are a `kicker` or a `heading` anchored over it,
+ * measured against a surface `composedPalette` resolved with the field in it".
+ * What made the reported frame read as broken was not the word on the sphere; it
+ * was the bundle of connection arcs sliced off by the canvas edge behind it, which
+ * is `globeShell`'s defect and is fixed there.
  */
 export const FIELD_FOOT = ['barChart', 'lineChart', 'imageFrame', 'solidChart']
 

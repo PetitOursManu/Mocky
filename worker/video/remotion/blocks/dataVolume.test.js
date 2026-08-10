@@ -37,6 +37,7 @@ import {
   GLOBE_POINTS_MIN,
   GLOBE_RADIUS,
   GLOBE_RIPPLE_SPAN,
+  GLOBE_SHELL_FLOOR,
   GLOBE_TURNS,
   SCENE_LIGHT,
   chartLightAt,
@@ -62,6 +63,7 @@ import {
   globePointCount,
   globeRotate,
   globeScale,
+  globeShell,
   globeVisible,
   joinPoints,
 } from './dataVolume.js'
@@ -484,6 +486,137 @@ describe('the globe’s markers and its connections', () => {
   it('arrives rather than appearing, and at full size when it has', () => {
     expect(globeScale(0)).toBeLessThan(1)
     expect(globeScale(1)).toBe(1)
+  })
+})
+
+/**
+ * NOTHING THIS BLOCK DRAWS LEAVES THE CANVAS — and the sphere is not the drawing.
+ *
+ * The export that made this section necessary: a globe on a pale ground whose
+ * right half stopped on a straight vertical line a third of the way down the
+ * frame. The sphere was innocent. `GLOBE_RADIUS` is `SOLID_BOUND`, whose own
+ * sentence is "the exact radius at which a ball about the origin touches the edge
+ * of its canvas and never crosses it" — and this block hangs four things off that
+ * ball that are not on it: a connection bowing by `GLOBE_ARC_LIFT`, a marker
+ * sphere standing proud of the surface, a ripple lying across it, and the dot
+ * SPRITES themselves, which are pixels centred on their own point.
+ *
+ * So the claim held below is about the DRAWING and not about the shell: every
+ * point of every cloud, plus the sprite that is painted around it, plus the rim
+ * of every marker and of every ripple, lies inside the ball `SOLID_BOUND`
+ * describes. That is a statement about world units and therefore about any
+ * renderer — the alternative, measuring pixels, would be measuring the projection
+ * `SOLID_BOUND` was derived from.
+ *
+ * It sweeps `life` because the failure was intermittent in exactly that
+ * parameter: the globe turns, an arc's bulge crosses the limb during the scene,
+ * and "not always well cropped" is what a user calls a frame that is cut on some
+ * frames and not on others.
+ */
+describe('a globe draws inside its own canvas', () => {
+  const LIVES = [0, 0.17, 0.33, 0.5, 0.68, 0.84, 1]
+  const DOCUMENTS = [
+    ['bare', { kind: 'globe', markers: 0, connections: false }],
+    ['one place', { kind: 'globe', markers: 1, connections: true }],
+    ['three places, no lines', { kind: 'globe', markers: 3, connections: false }],
+    ['the schema’s own default', { kind: 'globe', markers: 3, connections: true }],
+    ['eight places, all joined', { kind: 'globe', markers: 8, connections: true }],
+  ]
+
+  /** The furthest any point of one frame's drawing stands from the centre. */
+  const reach = (block, side) => {
+    const count = globePointCount(side)
+    const field = globeField(count)
+    const dot = globeDotPx(side, count)
+    const shell = globeShell(block, side, dot)
+    // The sprite is drawn in PIXELS around its point, so it comes back into world
+    // units through the conversion the block itself makes — `globeMarkerRadius`
+    // written the other way round.
+    const sprite = ((dot / 2) * 2 * GLOBE_RADIUS) / side
+    const radius = globeMarkerRadius(side, dot)
+    const markers = globeMarkers(field, block.markers)
+    let far = 0
+    for (const life of LIVES) {
+      const { yaw, tilt } = globeOrientation('world', life)
+      const clouds = [
+        globeVisible(globeGraticule(), yaw, tilt, shell),
+        globeVisible(field.land, yaw, tilt, shell),
+        block.connections ? globeArcs(markers, yaw, tilt, shell, life, { side, dot }) : new Float32Array(0),
+      ]
+      for (const cloud of clouds) {
+        for (let i = 0; i + 2 < cloud.length; i += 3) {
+          far = Math.max(far, Math.hypot(cloud[i], cloud[i + 1], cloud[i + 2]) + sprite)
+        }
+      }
+      markers.forEach((point, i) => {
+        const lit = globeMarkerLight(point, yaw, tilt, life, i)
+        if (!lit.shown) return
+        // A marker is a ball CENTRED on the surface, so it stands its own radius
+        // proud of it; a ripple is a ring in the tangent plane, so its rim is the
+        // hypotenuse. Both are measured at the widest the frame draws them.
+        far = Math.max(far, shell + radius)
+        far = Math.max(far, Math.hypot(shell, globeMarkerRipple(life, i).at * radius))
+      })
+    }
+    return far
+  }
+
+  it('keeps every dot, arc, marker and ripple inside the ball the canvas was sized for', () => {
+    for (const [, shape] of BOXES) {
+      const side = globeCanvas(shape, 900)
+      // A hundredth of a PIXEL, and it is stated in pixels on purpose: the
+      // lattice arrives as unit vectors a square root built, so `|p|` is 1 to
+      // within a few ulps and the shell multiplies that error by itself. A
+      // tolerance written as `1e-9` would be a claim about floating point; this
+      // one is a claim about the frame, which is what the section is about.
+      const grain = (2 * GLOBE_RADIUS) / side / 100
+      for (const [label, block] of DOCUMENTS) {
+        expect(reach(block, side), `${label} on ${side}px`).toBeLessThanOrEqual(GLOBE_RADIUS + grain)
+      }
+    }
+  })
+
+  /**
+   * And it is the ORNAMENTS that are paid for, not the block. A globe a document
+   * hung nothing on keeps the radius it always had — the fix is a debt the
+   * drawing owes, and a document that draws nothing owes nothing.
+   */
+  it('charges a globe for what it draws and for nothing else', () => {
+    const side = globeCanvas(box(1690, 950), 900)
+    const dot = globeDotPx(side, globePointCount(side))
+    const sprite = ((dot / 2) * 2 * GLOBE_RADIUS) / side
+    expect(globeShell({ kind: 'globe', markers: 0, connections: false }, side, dot)).toBeCloseTo(
+      GLOBE_RADIUS - sprite,
+      9,
+    )
+    // A single place draws no arc — `globeArcs` walks consecutive pairs — so it
+    // pays for its own ball and its ripple and not for a bow nobody drew.
+    const alone = globeShell({ kind: 'globe', markers: 1, connections: true }, side, dot)
+    const joined = globeShell({ kind: 'globe', markers: 2, connections: true }, side, dot)
+    expect(joined).toBeLessThan(alone)
+    expect(globeShell({ kind: 'globe', markers: 2, connections: false }, side, dot)).toBe(alone)
+  })
+
+  /**
+   * The floor is `Q1` and it is unreachable on any canvas a layout produces: a
+   * box small enough for a marker to be wider than the world it stands on is a
+   * box no zone of any of the three ratios can be. A globe drawn small beats a
+   * globe that vanished from a film somebody waited two minutes for.
+   */
+  it('never solves a shell of nothing, however small the canvas', () => {
+    for (const side of [1, 4, 17, 60]) {
+      const dot = globeDotPx(side, globePointCount(side))
+      const shell = globeShell({ kind: 'globe', markers: 8, connections: true }, side, dot)
+      expect(shell, `${side}px`).toBeGreaterThanOrEqual(GLOBE_RADIUS * GLOBE_SHELL_FLOOR)
+    }
+    for (const [, shape] of BOXES) {
+      const side = globeCanvas(shape, 900)
+      const dot = globeDotPx(side, globePointCount(side))
+      expect(
+        globeShell({ kind: 'globe', markers: 8, connections: true }, side, dot),
+        `${side}px is above the floor`,
+      ).toBeGreaterThan(GLOBE_RADIUS * GLOBE_SHELL_FLOOR)
+    }
   })
 })
 

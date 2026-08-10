@@ -1,5 +1,12 @@
 import { describe as suite, it, expect } from 'vitest'
-import { BLOCKER_KEYS, COMPOSE_BLOCKER_KEYS, FILL_MODE_KEYS, describe } from './VideoExportDialog'
+import {
+  BLOCKER_KEYS,
+  COMPOSE_BLOCKER_KEYS,
+  FILL_MODE_KEYS,
+  THEME_ROLE_KEYS,
+  describe,
+} from './VideoExportDialog'
+import { THEME_COLOR_ROLES } from '../lib/video/briefTheme'
 import { VideoExportError } from '../lib/video/client'
 import { translate } from '../i18n'
 
@@ -129,11 +136,22 @@ suite('the keys held in maps', () => {
     expect(Object.keys(FILL_MODE_KEYS).sort()).toEqual(['generate', 'library'])
   })
 
+  it('names every colour role a brief can state, and only those', () => {
+    // Held level with the schema's own list rather than retyped: a fifth role
+    // added to `VideoThemeSchema.colors` and forgotten here would print an
+    // `undefined` key in the middle of the sentence that says what was read.
+    expect(Object.keys(THEME_ROLE_KEYS)).toEqual([...THEME_COLOR_ROLES])
+  })
+
   it.each(['fr', 'en'] as const)('resolves every one of them in %s', (lang) => {
     const keys = [
       ...Object.values(BLOCKER_KEYS),
       ...Object.values(COMPOSE_BLOCKER_KEYS),
       ...Object.values(FILL_MODE_KEYS),
+      // The roles named in `video.themeFromBrief`, for the same reason: the
+      // sentence is built by interpolation, so nothing can see these but this.
+      ...Object.values(THEME_ROLE_KEYS),
+      'video.themeFromBrief',
       // The panel's own literals, which no `t('…')` scan can see either: they
       // are only ever named inside a conditional, and a missing one draws as a
       // blank line or as a key printed under a button.

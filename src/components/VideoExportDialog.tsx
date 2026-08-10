@@ -20,7 +20,7 @@ import {
   setBrief,
   setForceThreeD,
   setOutputFormat,
-  toRenderInput,
+  toRenderInputFrom,
   withProposal,
   type ComposeBlocker,
   type RenderBlocker,
@@ -75,6 +75,7 @@ import {
   jobBudgetMs,
   OUTPUT_FORMATS,
   type KenBurns,
+  type RenderTimeline,
   type VideoTheme,
 } from '../lib/video/timeline'
 import {
@@ -87,6 +88,8 @@ import {
   type TemplateOrAuto,
 } from '../lib/video/resolution'
 import { themeFromDesign } from '../lib/video/theme'
+import { directionBriefFrom } from '../lib/video/directionBrief'
+import { mergeFilmTheme, themeFromBrief, type ThemeColorRole } from '../lib/video/briefTheme'
 import { getThumb } from '../lib/thumbnails'
 import { ImagePicker } from './ImagePicker'
 import {
@@ -273,9 +276,24 @@ interface Failure {
  * the question "how do I change scene 3?", which has no answer any more.
  *
  * **Ask again.** The compose button stays live after a proposal, and asking for
- * another film is the whole of the recourse. It costs one model call and seconds;
- * the render costs minutes of somebody else's CPU, which is precisely why the
- * two are separate buttons and why the second one never fires by itself.
+ * another film is the whole of the recourse.
+ *
+ * ── One press renders, too ────────────────────────────────────────────────────
+ *
+ * A proposal used to be inert: it costs one model call and seconds, a render
+ * costs minutes of somebody else's CPU, and keeping them behind two buttons
+ * meant nobody paid for a render before deciding the proposal was worth looking
+ * at. That was deliberate, and it cost a second click to see the one thing this
+ * whole panel exists to produce — a film. The user asked for the obvious fix:
+ * pressing "Generate the film" now renders what comes back, without a second
+ * gesture, and the button never turns into a different one to do it — see
+ * `propose` for how, and for what still guards the render nobody asked for.
+ *
+ * "Start the render" is not gone. It survives as the retry for the render half
+ * alone: a worker briefly unreachable or a quota hit fails the automatic render
+ * without touching the film that was composed, and re-asking the model for a new
+ * one to try again would spend a call this panel already paid for. Pressing it
+ * asks for nothing new — see `launchRender`.
  *
  * ── Two modifiers, and neither is a setting ──────────────────────────────────
  *
@@ -399,7 +417,9 @@ export default function VideoExportDialog({
    *
    * Derived once per direction rather than per keystroke: `parseDesignSpec` walks
    * a markdown document, and this panel re-renders on every character typed into
-   * the brief.
+   * the brief. That is also why the brief's own colours are a SECOND memo below
+   * rather than a second argument here — the cheap parse runs on every character,
+   * the expensive one does not.
    *
    * It travels to BOTH doors — `/compose` and `/render` — because both attach it
    * server-side, and a proposal that came back in the project's colours while the
@@ -407,7 +427,39 @@ export default function VideoExportDialog({
    * shows it to a model: the schema a composed document is validated against has
    * no `theme` key at all, and the server writes it only after that validation.
    */
-  const theme = useMemo<VideoTheme | null>(() => themeFromDesign(direction), [direction])
+  const projectTheme = useMemo<VideoTheme | null>(() => themeFromDesign(direction), [direction])
+  /**
+   * And the same document read for its WORDS, which travel to `/compose` alone.
+   *
+   * The two halves of one direction, and this panel was sending only the first:
+   * the composer at project creation has sent both since `directionBrief.ts`
+   * existed, so the same project composed from here produced films the direction
+   * had coloured and not shaped. That is the asymmetry, not a decision — strip
+   * the colours out of two films and the prose is the only thing left that tells
+   * them apart.
+   *
+   * It does not reach `/render`, and the difference is the whole of rule 9: a
+   * theme is attached to the document after validation and is part of the film,
+   * while this is prose shown to a model in the user turn as data (Q5) and is
+   * spent the moment the composition comes back. Memoised on the same document
+   * for the same reason as the theme above it.
+   */
+  const directionWords = useMemo(() => directionBriefFrom(direction), [direction])
+  /**
+   * And the colours the user asked for, which come FIRST.
+   *
+   * Not a loosening of the rule that the model never writes a theme — the model
+   * is not involved at all here, and nothing of this reaches the prompt. What it
+   * says is that "declared" has two sources: a brief that names a ground is a
+   * statement by the same person the dossier came from, made more recently and
+   * about this film. It wins token by token, so asking for one colour does not
+   * cost the project's typefaces. See `src/lib/video/briefTheme.ts`.
+   */
+  const briefTheme = useMemo<VideoTheme | null>(() => themeFromBrief(draft.brief), [draft.brief])
+  const { theme, fromBrief } = useMemo(
+    () => mergeFilmTheme(projectTheme, briefTheme),
+    [projectTheme, briefTheme],
+  )
 
   /**
    * Which pictures are smaller than the frame they are about to fill.
@@ -593,7 +645,7 @@ export default function VideoExportDialog({
   )
 
   /**
-   * Ask the composer for a film.
+   * Ask the composer for a film — and, once one comes back, render it.
    *
    * No confirmation, and its absence is a decision rather than an oversight.
    * This button used to overwrite a timeline somebody had spent ten minutes
@@ -606,6 +658,40 @@ export default function VideoExportDialog({
    * No `template` either. The catalogue the model is shown is the whole
    * catalogue, and picking from it is its job — naming one here is exactly the
    * choice this panel stopped asking a person to make.
+   *
+   * ── The old proposal does not wait around ────────────────────────────────
+   *
+   * A fresh press clears the panel first — the previous film AND whatever job
+   * came of it — exactly as pressing "Nouveau montage" does. That reverses a
+   * choice this file used to make on purpose: a proposal used to survive a
+   * re-compose that came back empty, because the reasons a compose call fails —
+   * no model configured, a provider that hung up, a document the schema
+   * refused — have nothing to do with the film already accepted, and taking a
+   * renderable film away as the price of asking a question was the opposite of
+   * a recourse. The user asked for the other trade-off: a second press should
+   * read as starting over, not as "maybe". The cost is real, so it is named
+   * rather than hidden — if THIS call fails, or if it succeeds but the render
+   * that follows does not, the panel is back to `no-proposal` with nothing to
+   * show and nothing to attach to a screen. That is exactly the state the old
+   * behaviour existed to avoid, and it is the price of the trade the user chose.
+   *
+   * ── One press, one film ───────────────────────────────────────────────────
+   *
+   * A successful answer is handed straight to `launchRender`, built from
+   * `timeline` — the document this call just received — and not from
+   * `draft.proposal`: `setDraft` below has not been applied to `draft` yet in
+   * this closure, `React.useState`'s setter runs on the next render, and
+   * `launchRender` firing off state that has not caught up would either render
+   * nothing (`draft.proposal` still cleared) or the film this call just
+   * replaced. `toRenderInputFrom` is what lets it read `timeline` directly.
+   *
+   * The recourse that survives this is the spinner's own cancel: pressed while
+   * `proposing` is true, it aborts the compose call before a render is ever
+   * asked for, so nobody pays for a render built from a document they changed
+   * their mind about mid-call. Once the compose answer is in hand, though, the
+   * render follows without asking again — unless `/status` already said the
+   * worker is unreachable, which is the one refusal the panel can read off a
+   * fact instead of discovering by spending the attempt. See the call site.
    */
   async function propose() {
     proposeCtrl.current?.abort()
@@ -614,6 +700,11 @@ export default function VideoExportDialog({
     setProposing(true)
     setFailure(null)
     setNotices([])
+    // Disappears on sight, like "Nouveau montage" — see the docstring above.
+    setJob(null)
+    setPollStumbled(false)
+    onJobId(null)
+    setDraft((d) => (d.proposal ? { ...d, proposal: null } : d))
     /*
      * What was really asked for, computed once and used twice — in the request
      * and in what the proposal records about it.
@@ -628,20 +719,14 @@ export default function VideoExportDialog({
         signal: ctrl.signal,
         theme,
         forceThreeD: threeD,
+        // The dossier's own words. See `directionWords`: not the theme, and it
+        // stops at this door.
+        direction: directionWords,
       })
       // A newer proposal (or the panel closing) owns the panel now. Writing this
       // one in would replace the answer the user is actually waiting for.
       if (proposeCtrl.current !== ctrl) return
       setNotices(proposal.notices)
-      /*
-       * Nothing proposed leaves the panel EXACTLY as it was.
-       *
-       * Keeping the previous film is not politeness: the reasons a proposal
-       * comes back empty — no model configured, a provider that hung up, a
-       * document the schema refused — have nothing to do with the one already
-       * accepted, and taking a renderable film away as the price of asking a
-       * question is the opposite of a recourse (Q1).
-       */
       /*
        * Whatever came back, kept whole — including `composed`, which is now the
        * point rather than the exception. The panel used to refuse it and load
@@ -651,6 +736,25 @@ export default function VideoExportDialog({
       if (proposal.timeline) {
         const timeline = proposal.timeline
         setDraft((d) => withProposal(d, timeline, threeD))
+        /*
+         * Single gesture: see the docstring above. `draft.outputFormat` and
+         * `draft.aspectRatio` are read from THIS closure rather than a fresher
+         * one — both selectors are disabled while `proposing` is true, so
+         * neither can have moved since this call started.
+         *
+         * Except when the panel already KNOWS the render cannot start. An
+         * unreachable worker is the one refusal `/status` reports before it is
+         * asked for, and the panel has been showing `video.workerDown` at the
+         * top of the body the whole time; firing anyway would replace that
+         * sentence — which says what to do — with a transport error under the
+         * footer, and would do it for a film that composed correctly. The
+         * footer's own button carries the same condition, so the film simply
+         * waits there for a worker that answers, which is what "Lancer le
+         * rendu" survives for.
+         */
+        if (access?.worker.available) {
+          await launchRender(timeline, draft.outputFormat, draft.aspectRatio)
+        }
       }
     } catch (e) {
       // An abort is this panel cancelling, not something that went wrong.
@@ -686,27 +790,34 @@ export default function VideoExportDialog({
     setProposing(false)
   }
 
-  async function start() {
-    /*
-     * No proposal, no timeline — and no render.
-     *
-     * `toRenderInput` answers `null` rather than assembling anything, which is
-     * the repair this feature refuses everywhere: a film nobody composed is not
-     * a film anybody asked for. The button is already disabled by the
-     * `no-proposal` blocker; this is the guard that makes the rule true rather
-     * than merely displayed.
-     */
-    const timeline = toRenderInput(draft)
-    if (!timeline) return
-
+  /**
+   * Queue a render for a document the composer already wrote.
+   *
+   * Takes the timeline and the two output settings as plain values rather than
+   * reading `draft.proposal` — see the note above `propose` on why: the
+   * single-gesture render fires the instant a compose call answers, before
+   * `setDraft(withProposal(...))`'s update has necessarily reached `draft` in
+   * that closure. `toRenderInputFrom` (the pure half of `toRenderInput`) is
+   * what makes building the request from a plain timeline possible at all.
+   *
+   * Called from two places, and that is the whole reason it exists apart from
+   * `propose`: automatically, the instant a proposal comes back, and by hand
+   * from `start` — the footer's "Lancer le rendu" — when the automatic one
+   * failed. A worker briefly unreachable or a quota hit fails the RENDER
+   * without touching the film that was composed for it, and asking the model
+   * again to get back the SAME document would spend a call this panel already
+   * paid for.
+   */
+  async function launchRender(timeline: RenderTimeline, outputFormat: VideoDraft['outputFormat'], aspectRatio: VideoDraft['aspectRatio']) {
     setStarting(true)
     setFailure(null)
     setPollStumbled(false)
     try {
+      const input = toRenderInputFrom(timeline, outputFormat, aspectRatio)
       // The project travels with the render, and it is what makes the finished
       // film findable afterwards: the store is content-addressed, so once the
       // bytes exist nothing else knows where they were cut from.
-      const queued = await startVideoRender(timeline, { project: projectId, theme })
+      const queued = await startVideoRender(input, { project: projectId, theme })
       setJob(queued)
       onJobId(queued.id)
     } catch (e) {
@@ -714,6 +825,30 @@ export default function VideoExportDialog({
     } finally {
       setStarting(false)
     }
+  }
+
+  /**
+   * The footer's "Lancer le rendu" — a render, and never a new film.
+   *
+   * The single gesture in `propose` covers the ordinary case; this is what is
+   * left for the one it does not: the automatic render failed and the film it
+   * failed on is still on the panel, still good. Re-composing would ask the
+   * model for a new document to try again, on a call this panel already paid
+   * for — this asks `launchRender` for the SAME one instead.
+   */
+  async function start() {
+    /*
+     * No proposal, no timeline — and no render.
+     *
+     * `draft.proposal` answers nothing rather than assembling anything, which
+     * is the repair this feature refuses everywhere: a film nobody composed is
+     * not a film anybody asked for. The button is already disabled by the
+     * `no-proposal` blocker; this is the guard that makes the rule true rather
+     * than merely displayed.
+     */
+    const timeline = draft.proposal?.timeline
+    if (!timeline) return
+    await launchRender(timeline, draft.outputFormat, draft.aspectRatio)
   }
 
   function newCut() {
@@ -1072,7 +1207,12 @@ export default function VideoExportDialog({
         {/* What the film will LOOK like, next to what comes out of it. Nobody
             chooses this and nothing here can: see `ThemeNote`. */}
         <div className="mt-3 border border-line-soft bg-ink/5 p-3">
-          <ThemeNote theme={theme} hasDirection={Boolean(direction && direction.trim())} />
+          <ThemeNote
+            theme={theme}
+            fromProject={Boolean(projectTheme)}
+            fromBrief={fromBrief}
+            hasDirection={Boolean(direction && direction.trim())}
+          />
         </div>
       </>
     )
@@ -1653,8 +1793,49 @@ function ProposalNote({ draft, lang }: { draft: VideoDraft; lang: string }) {
  * `parseDesignSpec` saw DECLARED travels, so a project whose accent was inferred
  * shows no accent here — which is the difference between a film in the project's
  * colours and a film in a guess.
+ *
+ * And the brief's own colours get the second line, for a reason the first one
+ * does not cover: a colour read out of prose is a READING, and a reading nobody
+ * is shown is indistinguishable from a request that was ignored. Somebody who
+ * writes "en rouge et noir" gets nothing — which of the two is the ground is the
+ * guess this feature refuses to make — and the only thing that turns that into
+ * one edit rather than a mystery is the panel saying which roles it understood.
+ * The sentence names them; the swatches above already say what colour.
  */
-function ThemeNote({ theme, hasDirection }: { theme: VideoTheme | null; hasDirection: boolean }) {
+/**
+ * The four roles, named for a reader rather than by their schema key.
+ *
+ * Held as a record beside the component and not inlined, for the reason
+ * `BRIEF_IMAGE_BLOCKER_KEYS` gives one module over: a repo-wide scan for
+ * `t('video.…')` cannot see a key built by interpolation, so the keys have to be
+ * written out somewhere a grep and the parity test can both reach them.
+ */
+export const THEME_ROLE_KEYS: Record<ThemeColorRole, string> = {
+  background: 'video.themeRoleBackground',
+  text: 'video.themeRoleText',
+  accent: 'video.themeRoleAccent',
+  surface: 'video.themeRoleSurface',
+}
+
+function ThemeNote({
+  theme,
+  hasDirection,
+  fromProject,
+  fromBrief,
+}: {
+  theme: VideoTheme | null
+  hasDirection: boolean
+  /**
+   * Whether the DIRECTION contributed, as opposed to the merged theme existing.
+   *
+   * The two came apart the moment a brief could state a colour: a project with
+   * no direction and a brief that names a ground has a theme, and printing "the
+   * colours come from this project's art direction" over it would be a sentence
+   * about a document that does not exist.
+   */
+  fromProject: boolean
+  fromBrief: ThemeColorRole[]
+}) {
   const t = useT()
   const colors = theme?.colors ?? {}
   const swatches = (Object.entries(colors) as [string, string | undefined][]).filter(
@@ -1668,8 +1849,16 @@ function ThemeNote({ theme, hasDirection }: { theme: VideoTheme | null; hasDirec
     // the hairline nobody can explain.
     <div>
       <p className="measure text-body-sm text-ink-muted">
-        {t(theme ? 'video.themeFromProject' : hasDirection ? 'video.themeStatesNothing' : 'video.themeNone')}
+        {t(fromProject ? 'video.themeFromProject' : hasDirection ? 'video.themeStatesNothing' : 'video.themeNone')}
       </p>
+      {fromBrief.length > 0 && (
+        // `text-ink` and not `text-ink-muted`: this is the one line on the block
+        // that reports something the reader just did, and it has to be findable
+        // from the box they typed it in.
+        <p className="measure mt-1.5 text-body-sm text-ink">
+          {t('video.themeFromBrief', { roles: fromBrief.map((role) => t(THEME_ROLE_KEYS[role])).join(', ') })}
+        </p>
+      )}
       {theme && (
         <div className="mt-2 flex flex-wrap items-center gap-3">
           {swatches.length > 0 && (

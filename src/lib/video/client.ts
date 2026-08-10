@@ -78,6 +78,36 @@ export interface VideoAccess {
    * first would be a claim nobody made.
    */
   variantsDerived?: boolean
+  /**
+   * The kinds of Motion this BUILD offers — what a film is for, not what it
+   * looks like.
+   *
+   * Read off the server rather than held here, exactly as `limits` is, and for
+   * the reason this feature has five hand-kept mirrors and wants no sixth: a
+   * list retyped in the panel drifts from `server/video/kinds.js`, and the drift
+   * shows up as a selector offering a name `/compose` refuses — after the call
+   * is spent.
+   *
+   * Ids and bounds, never prose: the sentences in `MOTION_KIND_SPECS` are a
+   * prompt written in English for a model, and what a person reads is
+   * `muse.motionKind.<id>` in both dictionaries — the selector is in the Muse
+   * panel, which is the only place a kind is chosen.
+   *
+   * Optional, and an absent list is read as "no kinds offered" — a server that
+   * predates the field cannot be asked for one, and a selector drawn from an
+   * empty array is a selector that is simply not there.
+   */
+  motionKinds?: MotionKindOffer[]
+}
+
+/** One entry of `VideoAccess.motionKinds`. See there. */
+export interface MotionKindOffer {
+  id: string
+  aspectRatio: string
+  minScenes: number
+  maxScenes: number
+  minSceneMs: number
+  maxSceneMs: number
 }
 
 /**
@@ -399,6 +429,33 @@ export async function proposeVideoTimeline(
      * one an older server ignores rather than misreads.
      */
     forceThreeD?: boolean
+    /**
+     * What the film is FOR — a hero, a background, a globe — out of the enum
+     * `GET /api/video/status` publishes as `motionKinds`.
+     *
+     * A DOORWAY into the catalogue and not a template: it narrows which blocks
+     * the model is shown, pins the ratio and the scene window, and nothing
+     * downstream ever learns it existed — what comes back is an ordinary
+     * `composed` document. That is why it is a hint and the server still owns
+     * the enum: a name this build does not offer comes back as a proposal that
+     * did not happen, with a notice naming every name that would have worked.
+     *
+     * Typed as a plain string on purpose. The list lives in `server/video/
+     * kinds.js` and is read off /status, so a union retyped here would be the
+     * sixth hand-kept mirror in a feature that has been bitten by five.
+     */
+    motionKind?: string
+    /**
+     * The project's art direction, in its own words — `directionBriefFrom`.
+     *
+     * NOT the theme, and it does not become one. The theme is four colours and
+     * a font, it is attached by the server after the model's answer has been
+     * validated, and nothing of it reaches a prompt; this is prose, it travels
+     * in the user turn as data (Q5), and it decides what gets COMPOSED. Strip
+     * the colours out of two films and the direction is the only thing left
+     * that tells them apart.
+     */
+    direction?: string
     signal?: AbortSignal
   } = {},
 ): Promise<VideoProposal> {
@@ -426,6 +483,8 @@ export async function proposeVideoTimeline(
       theme: opts.theme ?? undefined,
       template: opts.template ?? undefined,
       forceThreeD: opts.forceThreeD ? true : undefined,
+      motionKind: opts.motionKind || undefined,
+      direction: opts.direction || undefined,
     }),
     signal: opts.signal,
   })

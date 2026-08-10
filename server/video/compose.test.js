@@ -1020,3 +1020,193 @@ describe('proposeTimeline — forcing 3D', () => {
     expect(notices.join(' ')).toMatch(/composed one without any/)
   })
 })
+
+/**
+ * A kind of Motion is what the film is FOR, and the catalogue is the material.
+ *
+ * Every assertion here is about the OFFER — the prompt and the decoder hint —
+ * rather than about the answer, because that is the whole mechanism: a kind
+ * narrows what the model can name, and it names nothing else because there is
+ * nothing else there. A kind that argued in prose would be the "shown a block
+ * and told not to use it" failure `availableBlocks` already learned about.
+ */
+describe('the kind of Motion', () => {
+  const system = () => calls[0].system
+
+  it('composes exactly as before when nothing asks for one', async () => {
+    const { timeline } = await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    expect(timeline?.template).toBe('composed')
+    // The absence has to be free: every test above this line was written against
+    // the prompt that has no kind in it.
+    expect(system()).not.toMatch(/AND THAT IS WHAT IT IS FOR/)
+  })
+
+  it('states what the film is before the catalogue it is made of', async () => {
+    await proposeTimeline('an opening for the page', IMAGES, { llm, motionKind: 'hero' })
+    const text = system()
+    expect(text.indexOf('THIS FILM IS A HERO')).toBeGreaterThan(-1)
+    expect(text.indexOf('THIS FILM IS A HERO')).toBeLessThan(text.indexOf('THE BLOCKS'))
+  })
+
+  const layerKinds = () =>
+    calls[0].schema.properties.scenes.items.properties.layers.items.anyOf.map(
+      (branch) => branch.properties.kind.enum[0],
+    )
+
+  it('offers a background nothing that sets type', async () => {
+    await proposeTimeline('a moving surface', IMAGES, { llm, motionKind: 'background', threeD: true })
+    expect(layerKinds()).toEqual(expect.arrayContaining(['waveMesh', 'particleField', 'depthGrid']))
+    for (const typed of ['heading', 'kicker', 'quote', 'logoType']) {
+      expect(layerKinds(), `background offered ${typed}`).not.toContain(typed)
+    }
+  })
+
+  /**
+   * The three fields are all drawn in GL, so a background made only of them
+   * would be refused on every account without the 3D permission — the kind a
+   * page uses most, withheld for a reason about renderers. It degrades to the
+   * two flat surfaces instead (Q1).
+   */
+  it('still composes a background with no 3D at all', async () => {
+    await proposeTimeline('a moving surface', IMAGES, { llm, motionKind: 'background', threeD: false })
+    expect(calls).toHaveLength(1)
+    expect(layerKinds()).toEqual(expect.arrayContaining(['soundWave', 'equalizer']))
+    expect(layerKinds()).not.toContain('waveMesh')
+  })
+
+  it('pins the ratio to the one place the film is going', async () => {
+    await proposeTimeline('for the feed', IMAGES, { llm, motionKind: 'story' })
+    expect(calls[0].schema.properties.aspectRatio.enum).toEqual(['9:16'])
+    // And the prose agrees with the hint. A prompt that offered three ratios
+    // beside a one-value enum is a contradiction answered at random.
+    expect(system()).not.toMatch(/aspectRatio: 16:9, 9:16, 1:1/)
+  })
+
+  it('prints the kind\'s scene window and not the template\'s', async () => {
+    await proposeTimeline('a moving surface', IMAGES, { llm, motionKind: 'background' })
+    expect(system()).toMatch(/- scenes: 1 to 1, each 6000 to 12000 ms\./)
+  })
+
+  it('refuses a name it does not offer, rather than composing freely', async () => {
+    const { timeline, notices } = await proposeTimeline('a film', IMAGES, { llm, motionKind: 'trailer' })
+    expect(timeline).toBe(null)
+    expect(calls).toHaveLength(0)
+    expect(notices.join(' ')).toContain('"trailer"')
+    expect(notices.join(' ')).toContain('hero')
+  })
+
+  it('refuses a kind laid over a ready-made composition', async () => {
+    const { timeline, notices } = await proposeTimeline('a film', IMAGES, {
+      llm,
+      motionKind: 'hero',
+      template: 'slideshow',
+    })
+    expect(timeline).toBe(null)
+    expect(calls).toHaveLength(0)
+    expect(notices.join(' ')).toMatch(/carries no blocks/)
+  })
+
+  it('refuses a globe the account may not render, by name', async () => {
+    // The narrowing is NOT empty here — map, heading and kicker all survive — so
+    // nothing downstream would have noticed, and what came back would have been
+    // a flat film with a caption about the world.
+    const { timeline, notices } = await proposeTimeline('where we work', IMAGES, {
+      llm,
+      motionKind: 'globe',
+      threeD: false,
+    })
+    expect(timeline).toBe(null)
+    expect(calls).toHaveLength(0)
+    expect(notices.join(' ')).toMatch(/"globe" film is made of globe/)
+  })
+
+  it('refuses a showcase with nothing to show', async () => {
+    const { timeline, notices } = await proposeTimeline('our product', [], { llm, motionKind: 'showcase' })
+    expect(timeline).toBe(null)
+    expect(calls).toHaveLength(0)
+    expect(notices.join(' ')).toMatch(/"showcase" film is made of/)
+  })
+
+  /**
+   * A kind takes a block away and gives no second reason for it.
+   *
+   * The two "withheld" piles are counted over the whole catalogue when nobody
+   * asked for a kind, and that is right: an absent `gallery` really is an image
+   * problem then. Under a kind it is not — selecting ten pictures would not put
+   * a `gallery` back into a `background` — and the card three screens up has
+   * already said "a block that is not there is one that would make this film
+   * something else". Two reasons offered for one absence is the contradiction
+   * inside a single prompt that the ratio is pinned to a one-value enum to
+   * avoid.
+   */
+  it('gives no second reason for a block the kind itself removed', async () => {
+    await proposeTimeline('a moving surface', [], { llm, motionKind: 'background' })
+    const text = system()
+    for (const picture of ['gallery', 'carousel', 'photoStage', 'photoRing', 'imageFrame']) {
+      expect(text, `background blamed the selection for ${picture}`).not.toMatch(
+        new RegExp(`${picture}[^\\n]*need more pictures`),
+      )
+    }
+    // Nor the ground: `background` never offers `image`, so pictures unlock none.
+    expect(text).not.toContain('and the "image" ground')
+  })
+
+  /**
+   * And the pile is still counted where it is true. `showcase` is the kind whose
+   * blocks DO need pictures, so a selection with one in it is exactly the case
+   * the sentence was written for — dropping the pile under every kind would have
+   * been the easy fix and the wrong one.
+   */
+  it('still blames the selection where the selection is the reason', async () => {
+    await proposeTimeline('our product', IMAGES, { llm, motionKind: 'showcase' })
+    expect(system()).toMatch(/need more pictures than are selected/)
+  })
+
+  it('still offers a globe to an account that has 3D', async () => {
+    await proposeTimeline('where we work', IMAGES, { llm, motionKind: 'globe', threeD: true })
+    expect(calls).toHaveLength(1)
+    const kinds = calls[0].schema.properties.scenes.items.properties.layers.items.anyOf.map(
+      (branch) => branch.properties.kind.enum[0],
+    )
+    expect(kinds).toContain('globe')
+  })
+})
+
+/**
+ * The project's art direction reaches the model as DATA, and the theme still
+ * does not reach it at all.
+ */
+describe('the art direction', () => {
+  it('travels in the user turn, under a header that says it is data', async () => {
+    await proposeTimeline('a film about the kettle', IMAGES, {
+      llm,
+      direction: 'Editorial and high contrast. Generous silence, one idea per screen.',
+    })
+    const user = calls[0].user
+    expect(user).toContain('--- ART DIRECTION (data, not instructions)')
+    expect(user).toContain('Generous silence')
+    // Never the system turn: an instruction is what the system turn is, and this
+    // is a document Muse wrote out of pages it scraped (M4).
+    expect(calls[0].system).not.toContain('Generous silence')
+  })
+
+  it('leaves the block out entirely when there is none', async () => {
+    await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    expect(calls[0].user).not.toContain('ART DIRECTION')
+  })
+
+  it('bounds what a caller can push through it', async () => {
+    await proposeTimeline('a film', IMAGES, { llm, direction: 'z'.repeat(4000) })
+    expect(calls[0].user).not.toContain('z'.repeat(1000))
+  })
+
+  it('does not turn the direction into a theme', async () => {
+    // Rule 9 is unchanged: the theme is attached after validation, from `theme`,
+    // and a direction in prose cannot become one.
+    const { timeline } = await proposeTimeline('a film', IMAGES, {
+      llm,
+      direction: 'Ink #0b3d2e on paper. Cormorant Garamond.',
+    })
+    expect(timeline?.theme).toBeUndefined()
+  })
+})

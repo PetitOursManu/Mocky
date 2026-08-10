@@ -87,9 +87,23 @@ describe('config', () => {
       imageMode: 'inspiration' as const,
       video: true,
       videoPin: { hash: 'a'.repeat(64), frames: 60, poster: '/api/videos/x/poster.jpg', label: 'clip' },
+      motion: true,
+      motionKind: 'background',
     }
     saveMuseConfig(cfg)
     expect(loadMuseConfig()).toEqual(cfg)
+  })
+
+  it('reads a config saved before Motion existed as Motion off', () => {
+    // `loadMuseConfig` spreads the defaults UNDER the stored object, which is
+    // what makes an old save parse rather than arrive with `motionKind`
+    // undefined and a selector drawn blank.
+    localStorage.setItem(
+      'mocky.muse.v1',
+      JSON.stringify({ enabled: true, urls: '', useFetch: false, imageMode: 'content', video: false, videoPin: null }),
+    )
+    expect(loadMuseConfig().motion).toBe(false)
+    expect(loadMuseConfig().motionKind).toBe('hero')
   })
 
   it('defaults the image mode to "content" (works without vision)', () => {

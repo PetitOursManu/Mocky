@@ -23,6 +23,7 @@ import {
   threeDLoadRefusal,
   threeDRefusal,
 } from './three-d.js'
+import { publicMotionKinds } from './kinds.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
 import { MAX_WORKER_PAYLOAD_BYTES, payloadBytesFor } from './worker.js'
@@ -220,6 +221,24 @@ export function createVideoRouter({
         minVariants: MIN_VARIANTS,
         maxVariants: MAX_VARIANTS,
       },
+      /*
+       * The kinds of Motion this build offers, so a selector can be drawn
+       * without the browser holding a copy of the enum.
+       *
+       * The same argument `limits` makes one line up, and the reason this
+       * feature has five hand-kept mirrors and wants no sixth: a list retyped in
+       * the panel drifts from `kinds.js`, and the drift shows up as a selector
+       * offering a name `/compose` refuses — after the call is spent.
+       *
+       * Ids and bounds, never the prose. `MOTION_KIND_SPECS`'s three sentences
+       * are a prompt written in English for a model; what a person reads is
+       * `muse.motionKind.<id>` in both dictionaries.
+       *
+       * Published whatever `enabled` says, unlike `threeD` beside it: this is a
+       * fact about the BUILD, not about the account, and it names nothing an
+       * account without the feature could not read in the source.
+       */
+      motionKinds: publicMotionKinds(),
     })
   })
 
@@ -388,6 +407,31 @@ export function createVideoRouter({
          * copy of it, and the copy that drifts is the one nobody tests.
          */
         template: req.body?.template ?? null,
+        /*
+         * What the film is FOR — a hero, a background, a globe.
+         *
+         * Passed straight through for the same reason `template` above it is:
+         * `kinds.js` owns the enum and `compose.js` matches against it before a
+         * prompt exists, and a route that also knew the list would be a second
+         * copy of it. An unknown name comes back as a 200 with `timeline: null`
+         * and a notice naming the whole enum, which is this route's rule — a
+         * proposal that could not be made is not a request that failed.
+         */
+        motionKind: req.body?.motionKind ?? null,
+        /*
+         * The project's art direction, in its own words.
+         *
+         * From the BODY, and it has to be: the direction lives inside a project
+         * the server keeps as an opaque blob, so the browser is the only party
+         * that can read it — the same reason `theme` travels this way. What is
+         * different is where it lands. A theme is attached AFTER validation and
+         * never reaches the model; this is shown to the model, as data, in the
+         * user turn under a header that says so (Q5).
+         *
+         * Bounded by `compose.js`, not here, so a second caller cannot have a
+         * different ceiling from the one the prompt was written against.
+         */
+        direction: req.body?.direction ?? null,
         // What the account may spend, and what this request asked for. Read from
         // the config on every call rather than cached: an administrator who takes
         // 3D away should have taken it away by the next compose, not by the next
