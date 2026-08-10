@@ -343,6 +343,22 @@ Ten things, and the first one is not negotiable.
       `composedSafeArea` stays the PROMISE, so "the boxes are inside the frame"
       and "the frame plus the drift is inside the promise" are two sentences a
       test can say separately. Same trade `overlay` makes with its amplitude.
+
+      **And the drift is not the whole movement.** The same defect one amplitude
+      over, on a witness with no 3D block in it: `imageFrame` over `dateStamp` on
+      9:16, and the stamp's ink under the safe bottom on every frame it was still
+      arriving on — every entrance in this catalogue comes from BELOW, 26 px there
+      against the drift's 9. `BLOCK_ENTER_TRAVEL` is the amplitude as a table,
+      because five families measure an arrival against different things (a body
+      line, the run's own size, the card's own box), and it is a MIRROR of
+      constants under `blocks/` — `composition.js` cannot import a block, since
+      `blocks/media.js` imports it — held row by row by `composition.test.js`. The
+      room comes off the GRID and not off one band: taken out of the bottom band
+      alone a 105 px band paid a quarter of itself, taken off the grid it is 2% of
+      the frame. Only the last used band is measured (the only one ending on the
+      frame's bottom) and only with no foot reserved; a `full` zone pays its own,
+      off its own box. `funTitle` is deliberately absent: it travels UP and bought
+      the room in its own appetite, which is the better fix and the block's.
     - **A block inhabits the box it is given, and that box is its OWN.** The rule
       is at the top of `composition.js`; six real exports are why. A block drew a
       fixed fraction of the FRAME — `base * 0.18` for an `equalizer` whether it
@@ -415,6 +431,20 @@ Ten things, and the first one is not negotiable.
       catalogue), and the declaration stays as the last resort it always was —
       `blocks.test.js` still requires it of every kind with a wrapping run, and the
       panel family still asks the same bound about the width its padding leaves.
+
+      **A band is bounded by what its stack can DRAW, and the rest of an empty
+      frame is the DOCUMENT's.** An appetite is a want and `shapeCeiling` is where
+      a run stops growing, and for one pass they were read as one number: a
+      measure-bound stack asked for a band on its appetite and drew a fifth of it,
+      and the four fifths came out of the blocks beside it. `waterFill` caps a
+      band at what can be drawn in it and hands the surplus to the bands that can
+      spend it. When none can — `extrudedType` with the word RELIEF alone on 9:16,
+      7% of the frame's height — there is no arrangement of boxes that fills it: a
+      line of type has an aspect ratio and a portrait safe area has another, and
+      the only two things that would are cutting the word (`wordCeiling` refuses,
+      and a rendered frame is why) or crossing the feed's own margin. What the
+      layout owes there is that nobody is CHARGED for the air, which is the box
+      being the block's own extent and the band being bounded.
 
       Three consequences, and none of them is optional. `runAdvanceEm` measures
       every run on its OWN glyphs: the flat sentence average is 0.52 against the
@@ -493,8 +523,15 @@ Ten things, and the first one is not negotiable.
       a tint sampled along its own density, and it cedes DENSITY
       down `FIELD_ALPHAS` — which starts at 1, so the common case pays nothing —
       before the texture is given up. Two consequences: the accent run stays
-      measured on the BARE ground, because measured against a field made of
-      itself it resolves to a near-white and erases the direction; and the density
+      measured on the BARE ground when the field READS that run — `globe`, the
+      two flat charts and the rest of the accent family paint `palette.accent`
+      itself, so republishing it in a fallback ink repaints the field in it and
+      the surface measured stops being the surface painted. That is ONE case and
+      the code had it as the general one: a `kicker` over a `gallery` measured
+      1.03:1 at the pixel, over a `waveMesh` 1.36:1, against a floor of 3. The
+      ornament a scene publishes is resolved a second time on the surface that
+      WON — never inside the ladder, which would fade a photograph so a surtitle
+      could keep its colour. And the density
       is an opacity on the ZONE, so the twenty-eighth block cannot forget it.
       `palette.groundTint` is what gets painted, `palette.ground.tint` is what got
       measured, and they differ by exactly the field.
@@ -510,10 +547,22 @@ Ten things, and the first one is not negotiable.
       guessing. And **the sentence that hid all of this is still in the tree, as
       history**: "it carries no text, so the only thing it can get wrong is
       spending contrast something else needed". Every block that is a surface now
-      says why that is false of it. `gallery`, `carousel` and `imageFrame`
-      anchored `full` are a field of PHOTOGRAPHS and the fielded palette measures
-      the accent — that gap is named in `gallery.jsx` and in the doc rather than
-      quietly true.
+      says why that is false of it.
+
+      **A PHOTOGRAPH is the fourth paint, and it is BOUNDED rather than measured.**
+      `gallery`, `carousel`, `imageFrame`, `photoStage` and `photoRing` anchored
+      `full` are a field of pictures nobody in this process has opened, and the
+      gap was named in `gallery.jsx` for two passes before an export made it
+      urgent: a `heading` over a `photoStage` — the plainest scene there is —
+      measured the panel's BODY and shipped white on pale wood at 1.68:1. So
+      `picture` enters as the two ends any picture lies between, black and white,
+      as two tint LAYERS at the field's density and never as an alpha on the
+      ground (a stage paints a lit body BESIDE its photograph, so an alpha is a
+      product where a union was wanted), with no `FIELD_RAMP` (one opacity, not a
+      range) and with the veil LOCKED (a picture block is painted over the ground's
+      veil, so raising it buys a run on the picture nothing). What cedes is the
+      density, and the rung it lands on is measured: 0.4, which is MORE of the
+      picture than the same theme keeps on an `image` ground.
     - **One block costs a dependency, and it was measured before it was taken.**
       `solidScene` needs `three`, `@react-three/fiber` and `@remotion/three` —
       MIT, no native binary, +32 MB on a 1.57 GB image, +4 s on an 83 s build,

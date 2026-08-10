@@ -652,15 +652,18 @@ where the full tap count fires and measured 20.1 s at sixteen taps, 16.0 at four
 and 13.4 with it off, against a 12.3 s control. Four is where that curve stops
 being worth it.
 
-**Their legibility is half closed and half named.** The body — the rim, the mount,
-the case, the back of a card — is `palette.solid`: the ornament's run resolved on
-the bare ground and shaded along the Lambert segment `solidShading` measures, so
-`FIELD_PAINTS` names both blocks `solid` and a heading standing on one of them is
-measured against the two ends of that segment. The other half is the PHOTOGRAPH,
-and it is the honest gap `gallery`, `carousel` and `imageFrame` already carry:
-nobody in this process has opened the picture. Neither block paints text over one —
-a caption belongs to a `kicker` in a zone of its own, on a surface somebody
-computed — and that is the part this pair can decide rather than name.
+**Their legibility is closed on both halves, and the second half is why `picture`
+exists.** The body — the rim, the mount, the case, the back of a card — is
+`palette.solid`: the ornament's run resolved on the bare ground and shaded along
+the Lambert segment `solidShading` measures. The other half is the PHOTOGRAPH,
+and `solid` alone said "the body of the panel" while a title stands on the
+PICTURE — the panel is what holds it up. A real export of exactly this scene, a
+`heading` over a `photoStage` anchored `full`, shipped white on pale wood at
+1.68:1. So `FIELD_PAINTS` names both blocks `solid` AND `picture`, and the
+photograph is bounded at black and at white with the zone's density as what cedes
+— the legibility section carries the whole of that argument. Neither block paints
+text over a picture either: a caption belongs to a `kicker` in a zone of its own,
+on a surface somebody computed.
 
 #### Type in three dimensions, and the two things that were refused to get it
 
@@ -838,6 +841,34 @@ promise, so a test can say "the boxes are inside the frame" and "the frame plus 
 drift is inside the promise" as two sentences. It is the trade `overlay` already
 makes with its own amplitude: a move gets the room the layout leaves it.
 
+**And the drift was not the whole movement of a scene.** The same defect, one
+amplitude over, found the same way and on a witness with no 3D block in it at all:
+`imageFrame` over `dateStamp` on 9:16, and the stamp's ink sat below the safe
+bottom on every frame it was still arriving on. Every block in this catalogue that
+arrives arrives from BELOW — `ENTER_RISE` is half a body line, 26 px on that
+frame, against the drift's 9 — and nothing had bought that room.
+
+`BLOCK_ENTER_TRAVEL` is the amplitude, as a table, because the five families that
+have an entrance measure it against different things: half a body line for the
+media blocks, a fifth of the RUN's own size for the text ones, a twentieth of the
+card's own box for a notice. Those are mirrors of constants that live under
+`blocks/` — `composition.js` cannot import a block, since `blocks/media.js`
+imports it — and `composition.test.js` holds every row against its original, the
+arrangement `contrast.js` and `server/video/timeline.js` already have.
+
+The reservation is the SCENE's rather than the band's, and the difference is
+measurable: taken out of the bottom band alone, a 105 px band paid a quarter of
+itself and the date stamp came back at three quarters of its size; taken off the
+grid it is 2% of the frame spread over every row, which is what the drift already
+costs. Only the last used band is measured, because it is the only one that ends
+on the bottom of the frame, and only when no foot is reserved — a field's declared
+caption band is already between the cells and the edge. A `full` zone pays for its
+own, off its own box, because it is in no band. What is absent from the table is a
+decision too: `funTitle` travels UP by a third of its type and bought the room in
+its own appetite (`funTitleHeadroom`), which is the better fix and the block's to
+make; `heading`, `kicker` and `lowerThird` reveal their type from behind a mask,
+and everything else arrives by opacity or by scale.
+
 **A row is divided among the columns that are used, and a band among the rows.**
 A fixed 3×3 of equal thirds is the obvious reading of "nine zones" and it makes
 the commonest scene there is unreadable: `anchor` defaults to `center`, so a
@@ -872,6 +903,64 @@ The consequence is the one that makes the rest of this section simpler: weighted
 bands make every zone read the same unit *by construction*, since each ends up
 with `safeHeight × (its share of what the scene asked for)`. `harmoniseUnits`
 below then tidies a remainder instead of rescuing a frame.
+
+**And a band is never larger than what its stack can DRAW, which is not the same
+number as what it wants.** An appetite is a want; `shapeCeiling` is where a run of
+type stops growing, because a word is bounded by its MEASURE and not by its box —
+`RELIEF` in display type across 906 px is 195 px of type and there is no taller
+version of it that keeps the word whole. For one pass the two were read as one
+number, so a measure-bound stack asked for a band on its appetite and then drew a
+fifth of it, and the four fifths came out of the blocks beside it, which had a use
+for them. `waterFill` caps each band at what its stack can draw and hands the
+surplus to the bands that can spend it, by the same weights, repeated because
+giving a track more can push it over its own ceiling in turn.
+
+**When no band can spend it, the empty frame is the DOCUMENT's.** That is the rest
+of the answer to the 9:16 witness this pass was given: an `extrudedType` with the
+word `RELIEF` alone on a portrait frame draws 7% of its height, and no
+arrangement of boxes changes that. A line of type has an aspect ratio — chars ×
+advance wide, one leading tall — and a 9:16 safe area has another; only one of the
+two can be filled, and `fills: 'either'` already says which axis is the content's
+business. Making the type larger needs the word broken, which `wordCeiling`
+refuses because a rendered frame said what that looks like, or the margin a feed
+draws its own interface over. There is no third lever.
+
+So what the layout owes is not a rescue, it is that nobody is CHARGED for the air:
+the block's box is its own extent, so `BOX_FILL_FLOOR` is measured against
+something real; the band is bounded by what can be drawn in it, so no neighbour
+pays; and the frame around it belongs to the ground. `composition.test.js` states
+that as arithmetic rather than as prose — the same shape solved in a box ten times
+as tall answers the same unit, which is the proof that the height was never what
+bound it.
+
+**And a band is never larger than what its stack can DRAW, which is not the same
+number as what it wants.** An appetite is a want; `shapeCeiling` is where a run of
+type stops growing, because a word is bounded by its MEASURE and not by its box —
+`RELIEF` in display type across 906 px is 195 px of type and there is no taller
+version of it that keeps the word whole. For one pass the two were read as one
+number, so a measure-bound stack asked for a band on its appetite and then drew a
+fifth of it, and the four fifths came out of the blocks beside it, which had a use
+for them. `waterFill` caps each band at what its stack can draw and hands the
+surplus to the bands that can spend it, by the same weights, repeated because
+giving a track more can push it over its own ceiling in turn.
+
+**When no band can spend it, the empty frame is the DOCUMENT's.** That is the rest
+of the answer to the 9:16 witness this pass was given: an `extrudedType` with the
+word `RELIEF` alone on a portrait frame draws 7% of its height, and no
+arrangement of boxes changes that. A line of type has an aspect ratio — chars ×
+advance wide, one leading tall — and a 9:16 safe area has another; only one of the
+two can be filled, and `fills: 'either'` already says which axis is the content's
+business. Making the type larger needs the word broken, which `wordCeiling`
+refuses because a rendered frame said what that looks like, or the margin a feed
+draws its own interface over. There is no third lever.
+
+So what the layout owes is not a rescue, it is that nobody is CHARGED for the air:
+the block's box is its own extent, so `BOX_FILL_FLOOR` is measured against
+something real; the band is bounded by what can be drawn in it, so no neighbour
+pays; and the frame around it belongs to the ground. `composition.test.js` states
+that as arithmetic rather than as prose — the same shape solved in a box ten times
+as tall answers the same unit, which is the proof that the height was never what
+bound it.
 
 **`full` is the safe area, not the frame**, and two `full` blocks share it. A
 field that bled to the frame's edge would be a map cropped by overscan and a
@@ -1350,12 +1439,27 @@ texture is given up only after the field has run out of rungs — both are
 decorations, and one of them is in the document.
 
 Two things fall out and both are load-bearing. The **accent run is measured on the
-bare ground**, not on the fielded surface: measured against a field made of
-itself it cannot clear, falls through `accentFirst` to a near-white, and the first
-version of this fix came back with grey bars behind a grey headline — legible, and
-the project's colour gone, which is the failure `theme.ts` refuses when it declines
-to guess a token. The gap that leaves is named rather than hidden: accent TEXT over
-a field of the same accent is not measured against it. And the density is an
+bare ground when the field READS it**, not on the fielded surface: measured against
+a field made of itself it cannot clear, falls through `accentFirst` to a near-white,
+and — because `globe`, `equalizer`, `soundWave`, `map` and the two flat charts paint
+`palette.accent` **itself** — republishing that run in the fallback ink repaints the
+field in it. The first version of this fix came back with grey bars behind a grey
+headline: legible, the project's colour gone, and the surface measured no longer the
+surface painted.
+
+**That is one case, and for two passes the code had it as the general one.** A
+surtitle over a field the accent does not paint was measured on the bare ground
+too, and four rendered frames say what it costs: a `kicker` over a `gallery` at
+**1.03:1**, over a `carousel` at 2.46:1, over a `waveMesh` at 1.36:1, over a
+`solidChart`'s plinth at 1.27:1, against a floor of 3. So the ornament a scene
+publishes is resolved a second time, on the surface that WON — never as a request
+inside the ladder, which would step the density down so a surtitle could keep its
+colour, the exact trade `accentRun`'s locked veil refuses. The test is whether the
+field READS the run, not whether it happens to be the same colour: `waveMesh`,
+`solidScene`, `solidChart` and the two picture stages read `palette.solid`, whose
+material is resolved from the plain accent and never republished, so there is no
+loop to protect them from. The gap that is left is the real one: accent TEXT over
+a field painted in `palette.accent`. And the density is an
 opacity on the **zone**, not a colour handed to five components: `full` is the only
 thing that makes a block a field, so the rule lives where `full` means something
 and the twenty-eighth block cannot forget it. `palette.groundTint` is what the
@@ -1380,19 +1484,49 @@ layer out. Its material is resolved on the BARE ground for the reason the accent
 run is: the field is what is being measured, and a colour taken from the pass that
 includes it would be a fixpoint rather than an answer.
 
-**The gap that is left is the one that needs a picture, not a row in a table.**
-`gallery`, `carousel` and `imageFrame` can be anchored `full` too, and what they
-paint is photographs: a stack over one of them is text on pictures nobody in this
-process has opened, and they fall to the table's default and are measured as an
-accent that is not on the frame. No veil covers it either, since
-`COMPOSED_IMAGE_VEIL` belongs to the `image` GROUND. It is written down in
-`gallery.jsx` and in this paragraph rather than left to be rediscovered, because
-the way this feature loses a guarantee is a comment that says a block "carries no
-text, so the only thing it can get wrong is spending contrast something else
-needed" — true of a block in a cell, false of a block that is a surface, and it
-survived six passes over these files before an export found it. The fix, when it
-is made, belongs in `composedPalette` beside `FIELD_ALPHAS` and in nothing under
-`blocks/`.
+**A PHOTOGRAPH IS NOT A COLOUR, SO IT IS BOUNDED AND NEVER MEASURED.** The
+paragraph that used to be here said the remaining gap "needs a picture, not a row
+in a table", and it was wrong about which row. `gallery`, `carousel`,
+`imageFrame`, `photoStage` and `photoRing` anchored `full` paint photographs, and
+a surface nobody in this process has opened cannot be measured — but it can be
+BOUNDED, which is a thing this file has done since the first export. An `image`
+GROUND is measured at the two extremes a veil can composite an unknown picture
+to, black and white, and the veil rises until both ends clear. `picture` is that
+same answer moved one layer in.
+
+An export made it urgent, and it is the plainest scene in the catalogue: a
+`heading` over a `photoStage` anchored `full` — the thing a model writes most
+often — measured the panel's BODY and never the picture on it, so white type
+crossing pale wood shipped at 1.68:1 against a display floor of 3.
+
+Two mechanics, and each was got wrong once before it was got right. The picture
+enters as two tint LAYERS — black at the field's density and white at the field's
+density — and not as an alpha on the ground: a `photoStage` puts a lit body AND a
+photograph on the frame, beside each other, so taking the picture out of the
+ground's alpha veils the body through the picture as well, and the pair composed
+down a whole rung of density for nothing. Two grounds in one list is a union; an
+alpha is a product. And there is no `FIELD_RAMP` on it, unlike every other paint:
+a `map` draws its dots at full strength and its links at a fraction, while a
+photograph is an opaque picture at ONE opacity whose content black and white
+already bracket.
+
+What cedes is the density, and it cedes because a decoration cedes to a word —
+the sentence `FIELD_ALPHAS` was written under. The two ways of getting that trade
+wrong are both in this document already: ceding density to the last rung
+FANTOMISES the picture, and a band drawn over it to carry the words is the
+`lowerThird` that came back as a card hiding three fifths of a photograph. What
+settles it is the rung the ladder actually lands on, which is a measurement: over
+the dozen real directions `composition.test.js` sweeps, a stack over a picture
+field composes at 0.4 — MORE of the photograph than the same theme keeps on an
+`image` BACKGROUND, whose veil `legibleOn` walks from `COMPOSED_IMAGE_VEIL` up to
+0.7 to carry the same two runs. This feature has shipped photographs at three
+tenths since its first export and nobody has called them ghosts.
+
+One clause is not a detail: the veil is LOCKED for a picture field. A picture
+block is painted OVER the ground and over the ground's own veil, so raising that
+veil buys a run standing on the picture exactly nothing, and `sharedSurface` would
+publish a contrast the frame does not have. The levers left are the ink, which
+`legibleOn` still walks in full, and the density.
 
 #### And so does the guarantee that nothing holds still
 

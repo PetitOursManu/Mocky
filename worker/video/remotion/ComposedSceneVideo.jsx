@@ -132,6 +132,11 @@ const Ground = ({ kind, background, palette, motion, imageSrc }) => {
           black and one that is all white. The cost is a veil denser than a dark
           photograph needs; it is the price of a guarantee made without opening
           the picture.
+
+          A picture BLOCK is not paid for here and cannot be: it is painted over
+          this veil rather than under it, so what it cedes is its own density on
+          the zone — see `FIELD_ALPHAS` and `fieldedGround`, where the veil is
+          locked for exactly that reason.
         */}
         <AbsoluteFill style={{ backgroundColor: withAlpha(palette.ground.color, palette.ground.alpha) }} />
       </>

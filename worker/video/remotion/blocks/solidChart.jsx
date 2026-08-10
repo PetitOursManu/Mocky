@@ -72,6 +72,7 @@
 
 import { barGrowths } from './dataFigures.js'
 import { CHART_AZIMUTH, CHART_CAMERA, CHART_ELEVATION, chartLightAt, solidChartLayout } from './dataVolume.js'
+import { litAmbient } from './shading.js'
 
 /**
  * What "intensity 1" means to this renderer.
@@ -90,6 +91,11 @@ export const SolidChart = ({ block, palette, box, unit, base, progress, life }) 
   const layout = solidChartLayout(block, box, { unit, base })
   const growths = barGrowths(block.values.length, progress)
   const light = chartLightAt(life)
+  // The palette's share, in the space this renderer shades in: `solidShading`
+  // measures a multiplier on BYTES and `three` multiplies in linear light. See
+  // `shading.js` - handing the byte share to a light left every column two
+  // thirds of the way to its own material and the row of them read as flat.
+  const ambient = litAmbient(palette.solid.color, palette.solid.ambient)
 
   return (
     <>
@@ -99,8 +105,8 @@ export const SolidChart = ({ block, palette, box, unit, base, progress, life }) 
         together they are the Lambert term the proof is written about. A third
         light would put a face outside the segment that was measured.
       */}
-      <ambientLight intensity={palette.solid.ambient * LIGHT_UNIT} />
-      <directionalLight position={light} intensity={(1 - palette.solid.ambient) * LIGHT_UNIT} />
+      <ambientLight intensity={ambient * LIGHT_UNIT} />
+      <directionalLight position={light} intensity={(1 - ambient) * LIGHT_UNIT} />
 
       {/*
         Offset, then scaled, then turned - and the turn is TWO groups rather than
@@ -115,7 +121,7 @@ export const SolidChart = ({ block, palette, box, unit, base, progress, life }) 
             {block.plinth === false ? null : (
               <mesh position={[0, -layout.world.plinth / 2, 0]}>
                 <boxGeometry args={[layout.world.plate.width, layout.world.plinth, layout.world.plate.depth]} />
-                <meshLambertMaterial color={palette.solid.color} />
+                <meshLambertMaterial color={palette.solid.color} toneMapped={false} />
               </mesh>
             )}
 
@@ -134,8 +140,15 @@ export const SolidChart = ({ block, palette, box, unit, base, progress, life }) 
                     nobody set, which is a face brighter than the material colour -
                     outside the segment the palette measured, and therefore outside
                     the guarantee. It is also the cheaper shader.
+
+                    `toneMapped` off, for `extrudedType`'s reason: react-three-
+                    fiber turns ACES tone mapping on by default, and a curve
+                    applied after the light is computed paints a colour nobody
+                    measured - lower than the material at both ends of the
+                    segment, which on a dark ground is less contrast than what
+                    was cleared.
                   */}
-                  <meshLambertMaterial color={palette.solid.color} />
+                  <meshLambertMaterial color={palette.solid.color} toneMapped={false} />
                 </mesh>
               )
             })}

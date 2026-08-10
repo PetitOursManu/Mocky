@@ -61,14 +61,22 @@
  * word dilated by the step it takes so the stack has no seam. Turn the group and
  * the stack slides out from behind the face, which is what an extrusion is.
  *
+ * And the line STANDS turned, which is the other half of that sentence and the
+ * one this block shipped without: a swing centred on nothing crosses square to
+ * the camera once a scene, where the stack is exactly behind the face and the
+ * whole block draws a flat title with a coloured edge. It rests at a
+ * three-quarter attitude and swings around it, on both axes — up and to the
+ * left, which is the one direction no viewer reads as a drop shadow.
+ * `SPATIAL_REST_YAW_DEG` carries the measurement.
+ *
  * A word and not a letter, and that is the second measurement rather than a
  * taste: per-glyph geometry was measured at eight times what the deadline leaves
  * and refused with its figure, exactly as the wireframe was one block over. What
  * it gives back is the kerning the face was drawn with.
  *
- * The dilation is why a word carries a hairline of the accent around it even
- * head-on: the copy behind the face is fractionally larger than the face, so a
- * sliver of it shows all the way round. That is a bevel, it is a treatment
+ * The dilation is why a word carries a hairline of the accent around it: the
+ * copy behind the face is fractionally larger than the face, so a sliver of it
+ * shows all the way round. That is a bevel, it is a treatment
  * rather than an accident, and it is bounded - the stroke stays under a
  * twentieth of the em, so the aperture of an `e` never closes.
  */
@@ -86,7 +94,6 @@ import {
   spatialGroupTurn,
   spatialGroups,
   spatialLayout,
-  spatialLineTurn,
   spatialFloat,
   spatialRestTurn,
   SPATIAL_NO_SHADE,
@@ -214,8 +221,8 @@ export const ExtrudedType = ({ block, palette, theme, box, unit, progress, life 
    * How far apart two copies of the stack sit, in raster pixels, and therefore
    * how much each copy has to be dilated to close the seam.
    *
-   * Measured on the RESTING angle - the line's own move plus a word's roll - and
-   * not on the entrance, which is wider. A seam shows where the stack is spread
+   * Measured on the RESTING angle - the widest this line really turns in this
+   * box, plus a word's roll - and not on the entrance, which is wider. A seam shows where the stack is spread
    * furthest across the frame, and during the nine frames of an entrance the
    * group is at the back of its own travel and drawn at three quarters of its
    * size, where the same step projects to a fraction of a pixel. Dilating for the
@@ -226,12 +233,15 @@ export const ExtrudedType = ({ block, palette, theme, box, unit, progress, life 
    * to cover it in every direction a contour runs.
    */
   const dilate = useMemo(() => {
-    const swing = Math.sin(spatialLineTurn(block.spin) + spatialRestTurn(block.spin))
+    // `layout.turned` and not `spatialLineTurn`: the keystone bound may have
+    // lowered this line's attitude, and dilating for an angle the frame does not
+    // show is a bevel the whole scene carries for a seam that never opens.
+    const swing = Math.sin(layout.turned + spatialRestTurn(block.spin))
     const stepPx = (layout.depthPx * swing) / SPATIAL_LAYERS
     // `ceil` and not `round`: the whole point of the number is that it is not
     // smaller than the step, and a dilation rounded down is a seam.
     return Math.max(1, Math.ceil(((stepPx * 1.4) / Math.max(1, layout.size)) * layout.rasterEm))
-  }, [block.spin, layout.depthPx, layout.size, layout.rasterEm])
+  }, [block.spin, layout.turned, layout.depthPx, layout.size, layout.rasterEm])
 
   /*
    * The two rasters, memoised on everything they are drawn from.
@@ -288,11 +298,13 @@ export const ExtrudedType = ({ block, palette, theme, box, unit, progress, life 
   // Every length below is one of the two applied to a number the browser or
   // `spatialLayout` produced; nothing here invents a size.
   const scale = perRaster * layout.worldPerPx * drawn
-  // The move, at the share of its yaw this box allows - see `spatialLayout`'s
-  // `sway`. A line given the whole safe area of a 16:9 frame is thirty world
+  // The move, at the shares of its yaw this box allows - see `spatialLayout`'s
+  // two budgets. A line given the whole safe area of a 16:9 frame is thirty world
   // units wide, and seven degrees on that is a near end 7% larger than the far
-  // one: one line set at two sizes.
-  const spin = spatialSpin(block.spin, life, layout.sway)
+  // one: one line set at two sizes. The SWING keeps its floor and the resting
+  // attitude is what yields, which is why a full-frame line still reads as thick
+  // - the pitch is not bounded by a measure.
+  const spin = spatialSpin(block.spin, life, layout.turn)
   const depth = layout.depthPx * layout.worldPerPx * drawn
 
   // The line is centred on its own real measure rather than on the estimate, so

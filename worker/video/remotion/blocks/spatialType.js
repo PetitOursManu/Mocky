@@ -114,9 +114,10 @@ export function spatialRole(block) {
  * (`dilate` in `extrudedType.jsx`) whose width is proportional to it, and a
  * stroke past about five per cent of the em fills the aperture of an `e` — a
  * word of filled letters is a word nobody reads, which is the one thing this
- * family may not produce. `deep` at 0.27 lands the stroke at 4.6% on the widest
- * of the three moves, and `spatialType.test.js` holds the inequality over every
- * combination the schema can state.
+ * family may not produce. `deep` at 0.27 lands the stroke at 2.0% of the em on
+ * the widest angle any move reaches — the thickness is `SPATIAL_LAYERS` copies
+ * and each closes only the step it takes — and `spatialType.test.js` holds the
+ * inequality over every combination the schema can state.
  */
 export const SPATIAL_DEPTHS = { shallow: 0.10, medium: 0.19, deep: 0.27 }
 
@@ -311,7 +312,7 @@ export const SPATIAL_HALF = 1
 export const SPATIAL_CAMERA_Z = SPATIAL_HALF / Math.tan((SPATIAL_FOV / 2) * RAD)
 
 /**
- * How far the line turns, per named move, in degrees.
+ * How far the line SWINGS, per named move, in degrees.
  *
  * All three are small, and that is the difference between type in three
  * dimensions and a solid in them. `solidScene` may turn through a whole
@@ -324,6 +325,117 @@ export const SPATIAL_CAMERA_Z = SPATIAL_HALF / Math.tan((SPATIAL_FOV / 2) * RAD)
  */
 export const SPATIAL_SWAY_DEG = 7
 export const SPATIAL_TILT_DEG = 5
+
+/**
+ * THE ATTITUDE THE LINE STANDS AT, and the defect it was written for.
+ *
+ * The swing above is a SINE, centred on nothing: it crosses zero once in every
+ * scene, and at that frame the extrusion is exactly behind the face and the
+ * block draws a flat title. Away from it the parallax was
+ * `depth · sin(7°)` — 3.3% of the type size at the widest depth the schema
+ * offers, about nine pixels on a 280 px cap, and only at the peak. Three crops
+ * of a real export came back as flat type with a green drop shadow, which is
+ * what `funTitle`'s `stack` draws with a `text-shadow` and no renderer.
+ *
+ * A block whose whole subject is volume has to draw volume on EVERY frame, which
+ * is `DEFAULT_KEN_BURNS`'s rule read one level down: a term is announced only
+ * when it is drawn, and "thickness" was being announced on the frames it was not.
+ *
+ * ── Why a resting angle rather than a wider swing ───────────────────────────
+ *
+ * They are two different costs and only one of them is worth paying. A swing is
+ * MOTION: doubling it is a title that tacks across the frame, which is the
+ * sea-sickness the small amplitudes above were chosen against, and it still
+ * spends part of every scene at zero. A resting angle costs no motion at all —
+ * it is where the object STANDS — and it is what a photographer does with a
+ * three-quarter view: the object is turned so that two of its faces are visible
+ * at once, and then it barely moves.
+ *
+ * What it costs is foreshortening and keystoning, and the long lens is what
+ * makes both nearly free. At eleven degrees a word is condensed by `1 − cos 11°`
+ * = 1.8%, and at the peak of its swing by 4.9% — a WHOLE-WORD condensation and
+ * not a distortion, since no letter differs from its neighbour. What it buys is
+ * an extrusion showing a quarter of its own thickness at rest and a third at the
+ * peak, against an eighth at the peak and NOTHING at the crossing before it. The
+ * keystone, which is the thing an eye does read as a mistake, is bounded
+ * separately and by the box: `spatialLayout` lowers the turn on a wide line until
+ * the near end is within `SPATIAL_KEYSTONE_MAX` of the far one, and the attitude
+ * is inside that bound like everything else — on the widest line the schema can
+ * state it is taken away entirely.
+ *
+ * ── And why the PITCH has one too, which is the half that survives ──────────
+ *
+ * The yaw slides the extrusion sideways, out from behind the vertical stems. The
+ * pitch slides it UP, out from behind the horizontals — and the two together are
+ * what stops the result reading as a drop shadow: a shadow falls down and to the
+ * right, and this falls up and to the left, which no viewer reads as one.
+ *
+ * It also survives the case the yaw does not. Keystoning is a property of the
+ * MEASURE and a line is wide, not tall — nine degrees of pitch on a line box
+ * keystones by half a per cent where the same angle across a full-frame measure
+ * spends the whole budget — so `spatialLayout` clips the yaw of a long line and
+ * never the pitch, and on the widest line the schema can state the pitch is the
+ * whole of the relief. Nine degrees, which is above every pitch amplitude below,
+ * so the line is never level and the extrusion never closes.
+ */
+export const SPATIAL_REST_YAW_DEG = 11
+export const SPATIAL_REST_PITCH_DEG = 9
+
+/**
+ * How much of each amplitude a named move uses, on each axis.
+ *
+ * One table read by both the MOVE and the BOUNDS, which it was not: the bound
+ * for `tilt` said five degrees of yaw where the move used two and a half, so the
+ * layout reserved room for an angle the frame never showed. Two spellings of one
+ * quantity is how a reservation and a drawing drift apart.
+ */
+const SPIN_SHARES = {
+  sway: { yaw: 1, pitch: 0.4 },
+  tilt: { yaw: 0.35, pitch: 1 },
+  float: { yaw: 0.25, pitch: 0.25 },
+}
+
+function spinShare(spin) {
+  return typeof spin === 'string' && Object.hasOwn(SPIN_SHARES, spin) ? SPIN_SHARES[spin] : SPIN_SHARES.sway
+}
+
+/** How far a named move swings each axis, in radians. The rest angle is not in these. */
+export function spatialYawSwing(spin) {
+  return spinShare(spin).yaw * SPATIAL_SWAY_DEG * RAD
+}
+
+export function spatialPitchSwing(spin) {
+  return spinShare(spin).pitch * SPATIAL_TILT_DEG * RAD
+}
+
+/**
+ * How much of its own thickness the side shows on the WORST frame of the worst
+ * line — the number `SPATIAL_REST_PITCH_DEG` exists to keep off zero.
+ *
+ * Six per cent, and it is a floor rather than the value: the ordinary line runs
+ * between a seventh and a third of its thickness, and this is what is left in the
+ * worst corner of the sweep — a `tilt`, whose pitch is its move and therefore
+ * swings closest to level, on a line wide enough that the keystone has taken the
+ * whole attitude away and clipped the yaw to `SPATIAL_SWAY_FLOOR` as well. It
+ * measures 7.2% there. `spatialType.test.js` sweeps every move against every clip
+ * and holds the inequality; before the resting attitude the same sweep answered
+ * ZERO, once per scene, for all three moves.
+ */
+export const SPATIAL_RELIEF_FLOOR = 0.06
+
+/**
+ * The share of its own thickness the extrusion projects on one frame.
+ *
+ * An extrusion runs along the depth axis, so what it puts on the FRAME is its
+ * length times the sine of whatever the line is turned by — `sin(yaw)` across
+ * and `sin(pitch)` up, and the two are perpendicular on the frame, so the offset
+ * is their hypotenuse. It is a pure function of the move so that the claim above
+ * is arithmetic rather than a crop somebody looked at.
+ */
+export function spatialRelief(spin, life, allowed) {
+  const at = spatialSpin(spin, life, allowed)
+  return Math.hypot(Math.sin(at.yaw), Math.sin(at.pitch))
+}
 
 /**
  * How far a word breathes in DEPTH under `float`, in type sizes.
@@ -509,9 +621,21 @@ export function spatialGroups(text) {
  * The ENTRANCE is in the word's number and not in a third one: every move
  * arrives with its words turned, so the widest a word is ever set at is the
  * larger of its roll and its entrance.
+ *
+ * The line's number is its resting attitude PLUS its swing, which is what makes
+ * every caller correct without knowing about the attitude at all: the dilation
+ * closes the seam at the angle the stack is spread furthest at, the layout
+ * reserves the room the thickness projects to at that same angle, and the
+ * keystone bound lowers exactly the quantity it is bounding. A rest angle added
+ * to the move and not to this would be an angle nothing reserved room for.
  */
 export function spatialLineTurn(spin) {
-  return (spin === 'tilt' ? SPATIAL_TILT_DEG : SPATIAL_SWAY_DEG) * RAD
+  return SPATIAL_REST_YAW_DEG * RAD + spatialYawSwing(spin)
+}
+
+/** The same, on the other axis: the widest the line is ever pitched. Never clipped — see the rest angle. */
+export function spatialLinePitch(spin) {
+  return SPATIAL_REST_PITCH_DEG * RAD + spatialPitchSwing(spin)
 }
 
 export function spatialGroupTurn(spin) {
@@ -649,11 +773,16 @@ export function spatialLayout(block, box, unit) {
    * times its whole appetite - for a projection that is under a fifth of that.
    *
    * The two angles ADD on the horizontal, because `roll` turns each letter inside
-   * a line that is itself swaying; the vertical takes the tilt alone, since
+   * a line that is itself swaying; the vertical takes the pitch alone, since
    * neither the line's yaw nor a letter's moves anything up or down.
+   *
+   * Both are read off the same functions the MOVE is drawn from, so the resting
+   * attitude is reserved for without appearing here: a rest angle the layout did
+   * not know about would be an extrusion projecting outside the canvas the block
+   * opened for it.
    */
   const swingX = Math.sin(spatialLineTurn(block?.spin)) + Math.sin(spatialGroupTurn(block?.spin))
-  const swingY = Math.sin(SPATIAL_TILT_DEG * RAD)
+  const swingY = Math.sin(spatialLinePitch(block?.spin))
   const needWidth = measure + 2 * depthPx * swingX
   const needHeight = lineHeight + 2 * depthPx * swingY
 
@@ -687,12 +816,34 @@ export function spatialLayout(block, box, unit) {
    * floor is what stops the trade going all the way: a scene in which nothing
    * moves must not be producible by accident, so past `SPATIAL_SWAY_FLOOR` the
    * keystone is accepted rather than the motion given up (Q1).
+   *
+   * ── Two budgets, because a turn is now two things ───────────────────────────
+   *
+   * The line's yaw is a resting ATTITUDE plus a SWING around it, and they answer
+   * to the keystone differently. The swing is the MOVE and keeps its floor, for
+   * the reason the floor exists. The attitude is where the object stands: it is
+   * the relief on an ordinary line and it is worth nothing at all if the price is
+   * a title set at two sizes, so it takes what the budget has left after the move
+   * and goes to zero when there is none. On the widest line the schema can state
+   * that is exactly what happens, and the relief that survives is the PITCH,
+   * which no keystone bound touches — a line is wide, not tall.
+   *
+   * Folding the two into one share was the first version and it broke the bound
+   * it was written for: the floor then guaranteed a minimum ANGLE rather than a
+   * minimum motion, and a twenty-three character line came back keystoned past
+   * `SPATIAL_KEYSTONE_MAX` with nothing in the arithmetic to say so.
    */
-  const asked = spatialLineTurn(block?.spin)
+  const swingMax = spatialYawSwing(block?.spin)
+  const restMax = SPATIAL_REST_YAW_DEG * RAD
   const halfWorld = (measure / 2) * worldPerPx
   const swungMax = (SPATIAL_CAMERA_Z * (SPATIAL_KEYSTONE_MAX - 1)) / SPATIAL_KEYSTONE_MAX
-  const allowed = halfWorld > 0 ? Math.asin(Math.min(1, swungMax / halfWorld)) : asked
-  const sway = Math.max(SPATIAL_SWAY_FLOOR, Math.min(1, asked > 0 ? allowed / asked : 1))
+  const allowed = halfWorld > 0 ? Math.asin(Math.min(1, swungMax / halfWorld)) : spatialLineTurn(block?.spin)
+  const swing = swingMax > 0 ? Math.max(SPATIAL_SWAY_FLOOR, Math.min(1, allowed / swingMax)) : 1
+  const rest = restMax > 0 ? Math.max(0, Math.min(1, (allowed - swing * swingMax) / restMax)) : 1
+  // The widest the line really turns in this box, which is what the stack is
+  // spread by and what the camera magnifies. Published, so the component's
+  // dilation closes the seam this line has rather than the one the move asks for.
+  const turned = rest * restMax + swing * swingMax
 
   /*
    * How much the nearest thing the block draws is magnified by the camera.
@@ -711,7 +862,7 @@ export function spatialLayout(block, box, unit) {
    * `d / (d - dz)`; this is the residue the long lens leaves, and reserving it
    * is what the header means by "reserved rather than hoped for".
    */
-  const swung = halfWorld * Math.sin(asked * sway)
+  const swung = halfWorld * Math.sin(turned)
   const near = swung + (measure / 2 / Math.max(1, spatialGroups(block?.text).length)) * Math.sin(spatialGroupTurn(block?.spin)) * worldPerPx
   const magnify = SPATIAL_CAMERA_Z / Math.max(0.001, SPATIAL_CAMERA_Z - near)
   /*
@@ -760,8 +911,14 @@ export function spatialLayout(block, box, unit) {
      * about. The component scales up to this and no further; see `boost`.
      */
     claim: { width: claimWidth, height: claimHeight },
-    /** How much of its move the line is allowed, so that a long one does not keystone. */
-    sway,
+    /**
+     * How much of its move and how much of its attitude this box allows, so that
+     * a long line does not keystone. `spatialSpin` takes the pair; see the two
+     * budgets above for why it is a pair and not a number.
+     */
+    turn: { swing, rest },
+    /** The widest the line really turns here, in radians: what the stack is spread by. */
+    turned,
     /** The share of its own size the line is drawn at, so that the turn stays inside the canvas. */
     fit,
     /** The raster's em size, in pixels: what the browser is asked to draw one glyph at. */
@@ -785,6 +942,9 @@ export function spatialExtent(block, box, unit) {
   }
 }
 
+/** The whole move, for a caller with no box to be bounded by. */
+export const WHOLE_TURN = Object.freeze({ swing: 1, rest: 1 })
+
 /**
  * How far the LINE has turned on this frame, in radians.
  *
@@ -797,30 +957,40 @@ export function spatialExtent(block, box, unit) {
  * two frequencies are different and neither is whole, so the pair never returns
  * to where it started inside one scene.
  */
-export function spatialSpin(spin, life, allowed = 1) {
+export function spatialSpin(spin, life, allowed = WHOLE_TURN) {
   const t = Number(life) || 0
-  // The share of its own yaw a line in THIS box is allowed — `spatialLayout`'s
-  // `sway`, so that a wide line does not keystone. It multiplies the yaw and
-  // never the pitch: keystoning is a property of the MEASURE, and a line is
-  // wide, not tall. Defaulted to the whole move, so a caller with no layout —
-  // `spatialMoved`, and any test asking what the move IS — reads the move.
-  const share = Number.isFinite(allowed) ? Math.max(0, Math.min(1, allowed)) : 1
-  const sway = Math.sin(2 * Math.PI * (SWAY_PERIODS * t + SWAY_PHASE)) * share
+  // What THIS box allows of the two halves of the yaw — `spatialLayout`'s `turn`,
+  // so that a wide line does not keystone. Neither touches the pitch: keystoning
+  // is a property of the MEASURE, and a line is wide, not tall. Defaulted to the
+  // whole of both, so a caller with no layout — `spatialMoved`, and any test
+  // asking what the move IS — reads the move.
+  const share = (name) => {
+    const value = Number(allowed?.[name])
+    return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1
+  }
+  const sway = Math.sin(2 * Math.PI * (SWAY_PERIODS * t + SWAY_PHASE))
   const tilt = Math.sin(2 * Math.PI * (TILT_PERIODS * t + TILT_PHASE))
-  switch (spin) {
-    case 'tilt':
-      // Leaning away from the viewer and back: the move for a line that should
-      // feel like a plaque rather than like a sign turning.
-      return { yaw: sway * SPATIAL_SWAY_DEG * 0.35 * RAD, pitch: tilt * SPATIAL_TILT_DEG * RAD }
-    case 'float':
-      // The line barely moves; the words do, in depth. Two amplitudes at once
-      // would be words breathing inside a swinging line, which reads as a wobble.
-      return { yaw: sway * SPATIAL_SWAY_DEG * 0.25 * RAD, pitch: tilt * SPATIAL_TILT_DEG * 0.25 * RAD }
-    case 'sway':
-    default:
-      return { yaw: sway * SPATIAL_SWAY_DEG * RAD, pitch: tilt * SPATIAL_TILT_DEG * 0.4 * RAD }
+  /*
+   * A swing AROUND an attitude, and never around nothing.
+   *
+   * The three moves differ in how much of each axis they use — a `tilt` is a
+   * plaque leaning away and back, a `float` barely moves the line at all because
+   * its words are moving in depth — and none of them may bring the line square
+   * to the camera, where the extrusion is exactly behind the face and the block
+   * draws a flat title with a coloured edge. `SPATIAL_REST_YAW_DEG` carries that
+   * argument and the measurement.
+   *
+   * The two shares are the box's, and they are two because the keystone takes
+   * them in an order: the MOVE keeps at least its floor and the ATTITUDE takes
+   * what is left, down to nothing on the widest line the schema can state. See
+   * `spatialLayout`, where the budget is divided.
+   */
+  return {
+    yaw: share('rest') * SPATIAL_REST_YAW_DEG * RAD + share('swing') * sway * spatialYawSwing(spin),
+    pitch: SPATIAL_REST_PITCH_DEG * RAD + tilt * spatialPitchSwing(spin),
   }
 }
+
 
 
 

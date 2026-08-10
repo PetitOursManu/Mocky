@@ -23,6 +23,8 @@
  *
  * SURFACE: the ground, through `palette.accent` - the ornament's run, resolved with the veil locked. Both point clouds and every marker are that one colour at an opacity, so a globe is exactly as loud as the accent was allowed to be and never louder. Anchored `full` under a stack this block IS a surface: `FIELD_PAINTS` says it paints the accent, which is what `fieldedGround` then samples, and nothing about that appears here for the reason the equalizer gives - `full` is what makes a block a field, so the rule lives where `full` means something.
  *
+ * TWO FIELDS A DOCUMENT FILLS AND A VIEWER COULD NOT READ. `markers` and `connections` were both drawn in the land's own ink at the land's own strength, on a shell of several thousand dots of that ink, and a rendered frame showed neither: six places nobody could find and five arcs indistinguishable from more coastline. A second colour is not available and would be wrong if it were - this block paints `accent`, `FIELD_PAINTS` says so, and a marker in the display ink would be a full-frame surface painted in the ink of the heading standing on it. So the distinction is everything else a drawing has. A marker is never DIMMER than the continent it stands on (`GLOBE_LIMB_BAND` - the near-side fade was dimming every marker that was not dead centre) and it sends out a RIPPLE, a ring of ground inside a ring of ink, laid on the surface and leaving the place as it lights. A connection is a CONTINUITY: its points are spaced so they overlap on the frame, so what a viewer sees is an unbroken stroke crossing a lattice of separated dots. `dataVolume.js` carries both arguments and the arithmetic.
+ *
  * LEGIBILITY: No text, and that is a decision rather than an omission. A label on a globe is a label on a moving surface: it is drawn at a size the projection chose, it passes behind the object twice a scene, and it is the one run in this catalogue no measurement could hold still. So the words that belong to a globe are a `kicker` or a `heading` anchored over it, measured against a surface `composedPalette` resolved with the field in it. What this block can still get wrong is spending contrast something else needed, and it cannot: every opacity below is a fraction of a run the palette resolved, and an opacity only ever makes a decoration quieter than what was measured.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
@@ -92,14 +94,17 @@ import {
   GLOBE_LAND_ALPHA,
   GLOBE_RADIUS,
   GLOBE_GRID_ALPHA,
+  GLOBE_RIPPLE_WIDTH,
   globeArcs,
   globeCanvas,
   globeDotPx,
+  globeFaceRotation,
   globeField,
   globeGraticule,
   joinPoints,
   globeMarkerLight,
   globeMarkerRadius,
+  globeMarkerRipple,
   globeMarkers,
   globeOrientation,
   globePointCount,
@@ -153,6 +158,7 @@ const Dots = ({ positions, color, size, opacity }) => {
         transparent
         depthWrite={false}
         opacity={opacity}
+        toneMapped={false}
       >
         {SPRITE_ARGS ? <canvasTexture attach="map" args={SPRITE_ARGS} /> : null}
       </pointsMaterial>
@@ -170,7 +176,12 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
 
   const markers = globeMarkers(field, block.markers)
   const lit = markers.map((point, i) => globeMarkerLight(point, yaw, tilt, life, i))
-  const arcs = block.connections ? globeArcs(markers, yaw, tilt, GLOBE_RADIUS, life) : new Float32Array(0)
+  // The canvas and the dot, so an arc is drawn with enough points to be a STROKE
+  // rather than a second lattice of the same dots in the same ink. That is the
+  // whole distinction a connection has on this block - see `globeArcSteps`.
+  const arcs = block.connections
+    ? globeArcs(markers, yaw, tilt, GLOBE_RADIUS, life, { side, dot })
+    : new Float32Array(0)
 
   return (
     <group scale={globeScale(progress)}>
@@ -188,7 +199,9 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
       {/* The land and the connections in ONE buffer: a cloud costs about fifteen
           milliseconds a frame whatever is in it, so a third one would be almost a
           second of render per second of film for an ink the land is already
-          painted in. `joinPoints` carries the measurement. */}
+          painted in. `joinPoints` carries the measurement, and it is also what
+          makes a dense arc free: the bill is per BUFFER, so the points that turn
+          a trail into a stroke are added to a buffer already being rebuilt. */}
       <Dots
         positions={joinPoints(globeVisible(field.land, yaw, tilt, GLOBE_RADIUS), arcs)}
         color={ink}
@@ -196,31 +209,59 @@ export const Globe = ({ block, palette, box, base, progress, life }) => {
         opacity={GLOBE_LAND_ALPHA * progress}
       />
 
-      {lit.map((marker, i) =>
-        marker.shown ? (
-          <mesh key={i} position={[marker.x * GLOBE_RADIUS, marker.y * GLOBE_RADIUS, marker.z * GLOBE_RADIUS]}>
+      {lit.map((marker, i) => {
+        if (!marker.shown) return null
+        const place = [marker.x * GLOBE_RADIUS, marker.y * GLOBE_RADIUS, marker.z * GLOBE_RADIUS]
+        const radius = globeMarkerRadius(side, dot)
+        const ripple = globeMarkerRipple(life, i)
+        return (
+          <group key={i}>
+            <mesh position={place}>
+              {/*
+                Coarse on purpose: a marker is a few pixels across, so segments past
+                this buy nothing an encoder keeps and cost the one budget this block
+                spends. `sphereGeometry` and not a point, and the reason is no longer
+                the one written here — it used to say a round sprite needed a file,
+                which `pointSprite.js` disproved. What is left is that a marker is
+                its OWN object: `globeMarkerLight` gives each one its own opacity
+                and the ripple below gives each one its own geometry, and a
+                per-point alpha is the one thing `<points>` cannot be given without
+                vertex colours, which is a second material at a density nobody
+                measured.
+              */}
+              <sphereGeometry args={[radius, 10, 8]} />
+              {/*
+                Basic and not Lambert: there is no light in this scene at all. A
+                shell of points is unlit by construction, and a lit marker beside
+                unlit dots would be the one object in the block painted at a
+                brightness the palette did not resolve.
+              */}
+              <meshBasicMaterial color={ink} transparent opacity={marker.light * progress} toneMapped={false} />
+            </mesh>
             {/*
-              Coarse on purpose: a marker is a few pixels across, so segments past
-              this buy nothing an encoder keeps and cost the one budget this block
-              spends. `sphereGeometry` and not a point, and the reason is no longer
-              the one written here — it used to say a round sprite needed a file,
-              which `pointSprite.js` disproved. What is left is that a marker
-              PULSES: `globeMarkerLight` gives each one its own opacity, and a
-              per-point alpha is the one thing `<points>` cannot be given without
-              vertex colours, which is a second material at a density nobody
-              measured.
+              THE RIPPLE, and it is the answer to a field a viewer could not read.
+              A marker is the accent on a shell of the accent, so brightness is
+              worth a tenth and no more - see `GLOBE_LIMB_BAND`. What a single ink
+              still has is a SHAPE that moves: a ring of ground inside a ring of
+              ink, leaving the place as it lights. Laid on the surface rather than
+              facing the camera, so it turns into an ellipse towards the limb and
+              reads as being ON the world; `globeFaceRotation` is that orientation,
+              and it is arithmetic because `lookAt` is a `three` import this
+              directory may not make.
             */}
-            <sphereGeometry args={[globeMarkerRadius(side, dot), 10, 8]} />
-            {/*
-              Basic and not Lambert: there is no light in this scene at all. A
-              shell of points is unlit by construction, and a lit marker beside
-              unlit dots would be the one object in the block painted at a
-              brightness the palette did not resolve.
-            */}
-            <meshBasicMaterial color={ink} transparent opacity={marker.light * progress} />
-          </mesh>
-        ) : null,
-      )}
+            <mesh position={place} rotation={globeFaceRotation(marker)}>
+              <ringGeometry args={[radius * ripple.at * (1 - GLOBE_RIPPLE_WIDTH), radius * ripple.at, 24]} />
+              <meshBasicMaterial
+                color={ink}
+                transparent
+                depthWrite={false}
+                opacity={ripple.light * marker.light * progress}
+                toneMapped={false}
+              />
+            </mesh>
+          </group>
+        )
+      })}
     </group>
   )
 }

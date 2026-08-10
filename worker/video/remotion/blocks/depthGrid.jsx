@@ -82,6 +82,12 @@ import {
  * rules' positions rather than scaling the group, because a negative scale turns
  * every box inside out - and a `meshBasicMaterial` draws front faces only, so
  * the ceiling of the tunnel would have been an empty half of the frame.
+ *
+ * `toneMapped` is off on both materials, for the reason `shading.js` measures:
+ * react-three-fiber turns ACES tone mapping on by default, so a rule painted in
+ * an ink the palette resolved against this ground reached the frame lower than
+ * the value that was cleared - and this block's whole claim is that every pixel
+ * of it lies between the bare ground and the accent.
  */
 const Rules = ({ rules, thickness, color, flip, presence }) => (
   <>
@@ -89,12 +95,12 @@ const Rules = ({ rules, thickness, color, flip, presence }) => (
       rule.axis === 'depth' ? (
         <mesh key={i} position={[rule.at, 0, 0]}>
           <boxGeometry args={[thickness, GRID_DEPTH, thickness]} />
-          <meshBasicMaterial color={color} transparent opacity={rule.opacity * presence} />
+          <meshBasicMaterial color={color} transparent opacity={rule.opacity * presence} toneMapped={false} />
         </mesh>
       ) : (
         <mesh key={i} position={[0, rule.at * flip, 0]}>
           <boxGeometry args={[GRID_SPAN, thickness, thickness]} />
-          <meshBasicMaterial color={color} transparent opacity={rule.opacity * presence} />
+          <meshBasicMaterial color={color} transparent opacity={rule.opacity * presence} toneMapped={false} />
         </mesh>
       ),
     )}

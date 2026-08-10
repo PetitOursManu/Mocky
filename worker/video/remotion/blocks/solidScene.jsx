@@ -21,7 +21,7 @@
  *
  * SURFACE: the ground, through `palette.solid` - a material colour and an ambient share, resolved by `solidShading`. Anchored `full` under a stack this block IS a surface, and `FIELD_PAINTS` is where that is written down; nothing about it appears here, for the reason the equalizer gives - `full` is what makes a block a field, so the rule lives where `full` means something.
  *
- * LEGIBILITY: No text. The solid is the one thing in this directory painted at more than one brightness, so the guarantee had to be extended rather than reused: a Lambert face lies on the segment between `material x ambient` and `material`, both ends are measured against the ground, and contrast is monotone between them. `solidShading` carries the proof. A light placed here instead would be the first face of an object nobody could see. TWO THINGS THAT WERE WRONG AND ARE NAMED HERE BECAUSE A RENDERED FILM IS WHAT FOUND THEM. The material used to be `palette.display.color`, the same ink a `heading` standing on this block uses, so the object and the word met at 1:1 wherever they overlapped; it is the ORNAMENT's run now - the accent, which is what a decoration carries everywhere else in this file. And this block anchored `full` under a stack used to escape the measurement entirely: `fieldedGround` sampled a field painted in the accent, which is what `equalizer`, `soundWave`, `map` and the two charts paint and what this one did not, so `field.alpha` walked its whole ladder against a colour nothing on the frame carried and dimmed the solid without ever helping the heading - a flat grey torus behind a title, in a real export. The palette knows which ink a field paints now (`FIELD_PAINTS`), and the two ends of the segment above are what it samples for this one.
+ * LEGIBILITY: No text. The solid is the one thing in this directory painted at more than one brightness, so the guarantee had to be extended rather than reused: a Lambert face lies on the segment between `material x ambient` and `material`, both ends are measured against the ground, and contrast is monotone between them. `solidShading` carries the proof. A light placed here instead would be the first face of an object nobody could see. TWO THINGS THAT WERE WRONG AND ARE NAMED HERE BECAUSE A RENDERED FILM IS WHAT FOUND THEM. The material used to be `palette.display.color`, the same ink a `heading` standing on this block uses, so the object and the word met at 1:1 wherever they overlapped; it is the ORNAMENT's run now - the accent, which is what a decoration carries everywhere else in this file. And this block anchored `full` under a stack used to escape the measurement entirely: `fieldedGround` sampled a field painted in the accent, which is what `equalizer`, `soundWave`, `map` and the two charts paint and what this one did not, so `field.alpha` walked its whole ladder against a colour nothing on the frame carried and dimmed the solid without ever helping the heading - a flat grey torus behind a title, in a real export. The palette knows which ink a field paints now (`FIELD_PAINTS`), and the two ends of the segment above are what it samples for this one. AND A THIRD, which is that the frame carried neither end of it: an ambient share measured on BYTES was handed to a renderer that shades in linear light, and react-three-fiber's default tone curve then moved what was left — 37 levels painted of the 109 that were measured. `shading.js` is that conversion and `toneMapped={false}` is the other half; both are named below.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -75,6 +75,7 @@
  * schema has no wireframe rather than why this file avoids drawing one.
  */
 import { SOLID_CAMERA_FOV, SOLID_CAMERA_Z, SOLID_LIGHT, solidGeometry, solidScale, solidSpin } from './setPiece.js'
+import { litAmbient } from './shading.js'
 
 /**
  * What "intensity 1" means to this renderer.
@@ -106,6 +107,12 @@ export const SolidScene = ({ block, palette, progress, life }) => {
   const spin = solidSpin(block.spin, life)
   const scale = solidScale(progress)
   const Geometry = GEOMETRIES[geometry] ?? GEOMETRIES.box
+  // The palette's share, in the space this renderer shades in. `solidShading`
+  // measures a multiplier on the material's BYTES and `three` multiplies in
+  // linear light, so handing 0.55 to a light painted a darkest face two thirds of
+  // the way back to the material — half the segment the palette had already
+  // measured and cleared, never drawn. See `shading.js`.
+  const ambient = litAmbient(palette.solid.color, palette.solid.ambient)
 
   return (
     <>
@@ -115,8 +122,8 @@ export const SolidScene = ({ block, palette, progress, life }) => {
         term the proof is written about: any third light would put a face outside
         the segment that was measured.
       */}
-      <ambientLight intensity={palette.solid.ambient * LIGHT_UNIT} />
-      <directionalLight position={SOLID_LIGHT} intensity={(1 - palette.solid.ambient) * LIGHT_UNIT} />
+      <ambientLight intensity={ambient * LIGHT_UNIT} />
+      <directionalLight position={SOLID_LIGHT} intensity={(1 - ambient) * LIGHT_UNIT} />
       <mesh rotation={[spin.x, spin.y, spin.z]} scale={scale}>
         <Geometry args={args} />
         {/*
@@ -125,8 +132,14 @@ export const SolidScene = ({ block, palette, progress, life }) => {
           material colour — outside the segment above, and therefore outside the
           guarantee. It is also the cheaper shader, on the one block whose cost is
           measured in render seconds.
+
+          `toneMapped` off, for `extrudedType`'s reason and with a measurement
+          behind it: react-three-fiber turns ACES tone mapping on by default, so
+          this material's near-white came off the renderer at 200 where the
+          palette measured 242 — a colour nobody cleared, and lower, which on a
+          dark ground is less contrast than what was measured.
         */}
-        <meshLambertMaterial color={palette.solid.color} />
+        <meshLambertMaterial color={palette.solid.color} toneMapped={false} />
       </mesh>
     </>
   )

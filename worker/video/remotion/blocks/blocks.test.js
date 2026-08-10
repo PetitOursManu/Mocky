@@ -148,6 +148,33 @@ describe('what a block may not contain', () => {
   })
 
   /**
+   * And no material paints through the renderer's own tone curve.
+   *
+   * react-three-fiber turns ACES Filmic tone mapping ON by default. It is a
+   * curve whose purpose is to be non-linear, applied AFTER the light has been
+   * computed — so a colour chosen by measuring it against a ground reaches the
+   * frame as something else. Measured on the shipped `waveMesh`: a material of
+   * `#f2f2f2` came off the renderer at 200 and its darkest face at 163, against
+   * the 242 and 133 the palette measured and cleared. Lower at both ends, and on
+   * a dark ground lower is LESS contrast than what was measured — the one
+   * direction the guarantee cannot absorb.
+   *
+   * `extrudedType` has always known this and said so in its header; the other
+   * eight GL blocks shipped without it, which is the shape of defect this check
+   * exists for. A rule in one header is a rule the tenth block does not read.
+   * The arithmetic that goes with it is `shading.js`.
+   */
+  it('paints through no tone curve: a material is the colour that was measured', () => {
+    const offenders = []
+    for (const name of sources) {
+      for (const tag of code(name).match(/<(?:mesh\w*Material|pointsMaterial|lineBasicMaterial)\b[^>]*>/g) ?? []) {
+        if (!/toneMapped=\{false\}/.test(tag)) offenders.push(`${name}: ${tag.replace(/\s+/g, ' ').slice(0, 60)}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  /**
    * And no easing curve either.
    *
    * `easeOutCubic` is the house curve and `cueProgress` is the one notion of "an

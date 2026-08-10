@@ -30,15 +30,14 @@
  * because the neighbouring version of it shipped a heading nobody could read:
  * "no run" is a statement about what this block PAINTS, never about what may be
  * painted over it. Anchored `full` it is drawn under the nine cells, so a heading
- * in a cell stands on photographs. `composedPalette` handles a fielded scene by
- * measuring the field as the ACCENT (`equalizer`, `soundWave`, `map`,
- * `lineChart`, `barChart` are what reach for it), and a picture is not the
- * accent - so that measurement does not cover this case, and no veil covers it
- * either, since `COMPOSED_IMAGE_VEIL` belongs to the `image` GROUND. A stack over
- * a `full` gallery is therefore text on a photograph nobody opened. It is a
- * legibility gap with a name, not an oversight: the fix belongs in
- * `composedPalette` beside `FIELD_ALPHAS`, and it is not in this file, which
- * chooses no colour at all.
+ * in a cell stands on photographs. That case used to be a NAMED GAP here: a
+ * fielded scene was measured as the accent, a picture is not the accent, and no
+ * veil covered it either since `COMPOSED_IMAGE_VEIL` belongs to the `image`
+ * GROUND. It is closed, and it was closed where the note said it belonged —
+ * `FIELD_PAINTS` names this block `picture`, and `fieldedGround` measures a
+ * photograph the only way an unopened surface can be measured, at black and at
+ * white, with the zone's density as what cedes. Nothing about that is in this
+ * file, which still chooses no colour at all.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:

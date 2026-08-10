@@ -120,7 +120,11 @@ describe('the 3D block list and the worker agree', () => {
         Object.hasOwn(FIELD_PAINTS, kind),
         `${kind} is drawn by a renderer and names no paint in FIELD_PAINTS, so it is measured as the accent`,
       ).toBe(true)
-      expect(FIELD_PAINT_KINDS, kind).toContain(FIELD_PAINTS[kind])
+      // A value may be a LIST: the two picture stages paint a lit body AND a
+      // photograph, and neither of them covers the other.
+      for (const paint of Array.isArray(FIELD_PAINTS[kind]) ? FIELD_PAINTS[kind] : [FIELD_PAINTS[kind]]) {
+        expect(FIELD_PAINT_KINDS, kind).toContain(paint)
+      }
     }
   })
 })

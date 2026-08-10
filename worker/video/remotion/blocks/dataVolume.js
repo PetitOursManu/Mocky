@@ -52,6 +52,8 @@ import {
   MAP_NORTH,
   MAP_ROWS,
   MAP_SOUTH,
+  MARKER_PULSES,
+  PHI,
   labelBand,
   linkPulse,
   mapWindow,
@@ -442,6 +444,68 @@ export const GLOBE_MARKER_SHARE = 2.6
 export const GLOBE_ARC_LIFT = 0.16
 
 /**
+ * TWO FIELDS OF THE SCHEMA THAT NOBODY COULD SEE, AND WHY THE ANSWER IS NOT A
+ * SECOND COLOUR.
+ *
+ * A rendered frame: six markers and five connections, on a globe where neither
+ * was findable. Both were drawn in the ink the land is drawn in, at the land's
+ * own strength, on a field of several thousand dots of that ink — and a document
+ * that fills a field a viewer cannot read is a document that was lied to.
+ *
+ * The obvious repair is a second colour, and it is refused. This block paints
+ * `accent` and `FIELD_PAINTS` says so; a marker in `palette.display` would be a
+ * full-frame surface painting the ink of the heading standing on it, which is the
+ * 1:1 meeting the whole legibility section exists to have prevented, and a hex
+ * value here would be a colour nobody measured. What is left is everything else a
+ * drawing has: BRIGHTNESS, SIZE, SHAPE and MOTION. All four are used, and the
+ * first of them was pointing the wrong way.
+ *
+ * ── Brightness: a marker was DIMMER than the continent it stands on ──────────
+ *
+ * `globeMarkerLight` multiplied a pulse of `0.45 + 0.55·pulse` by `z`, the cosine
+ * of the angle off the line of sight — so a marker halfway to the limb ran
+ * between 0.31 and 0.70 against the land's 0.90. The near-side fade is right at
+ * the LIMB, where a marker is about to pass behind the globe and would otherwise
+ * blink out; across the rest of the disc it was spending the one thing a marker
+ * had. It is a BAND now: full strength until the last of the disc, then down to
+ * nothing at the silhouette. `GLOBE_LIMB_BAND` is a cosine, so 0.3 is the outer
+ * 5% of the projected radius — the edge, and nothing else.
+ *
+ * And the pulse now rides ABOVE the land rather than around it. That is worth
+ * one tenth and no more, since the land is already at 0.9 of an ink that is as
+ * loud as the accent was allowed to be, which is why the pulse is also drawn as
+ * a RIPPLE — see below. A field that cannot get louder gets a shape instead.
+ */
+export const GLOBE_LIMB_BAND = 0.3
+export const GLOBE_MARKER_FLOOR = GLOBE_LAND_ALPHA
+
+/**
+ * The ripple: a ring on the surface, leaving each marker as it lights.
+ *
+ * The one distinction available to a block painted in a single ink that is not a
+ * brightness a viewer has to compare with its neighbours — a circle of GROUND
+ * inside a circle of ink is a shape nothing else on this frame has, and it moves.
+ * It is the language a map has used for a place reporting itself since radar.
+ *
+ * `SPAN` is how many marker radii the ring grows to, and the unit it is really
+ * measured against is `GLOBE_PITCH_PX` — the spacing of the land lattice. A ring
+ * narrower than the pitch sits between two dots and reads as one more dot; three
+ * marker radii is about three and a half pitches on a full-frame globe, so it
+ * CROSSES the lattice, which is what makes it read as something laid over the
+ * world rather than as part of it. Much wider and eight of them tile the sphere.
+ * `WIDTH` is the ring's own thickness as a share of its radius; under about a
+ * tenth it disappears into the antialiasing at the far end of its growth.
+ *
+ * It is drawn TANGENT to the sphere and not as a billboard: a circle facing the
+ * camera on a ball reads as a bubble in front of the object, and one lying on the
+ * surface turns into an ellipse towards the limb, which is what says the place is
+ * ON the world. `globeFaceRotation` is that orientation and it is arithmetic
+ * rather than a `lookAt`, which is a `three` import this directory may not make.
+ */
+export const GLOBE_RIPPLE_SPAN = 3
+export const GLOBE_RIPPLE_WIDTH = 0.16
+
+/**
  * A marker's radius in WORLD units, from the two quantities that are already in
  * pixels.
  *
@@ -457,8 +521,81 @@ export function globeMarkerRadius(canvasPx, dotPx) {
   return (GLOBE_MARKER_SHARE * px(dotPx) * GLOBE_RADIUS) / side
 }
 
-/** How many points one connection is drawn with. A trail rather than a stroke: see `globeArc`. */
-export const GLOBE_ARC_STEPS = 26
+/**
+ * How many points one connection is drawn with — and it is derived from the arc's
+ * own length rather than fixed, which is the whole of the second defect.
+ *
+ * Twenty-six was a constant, and a constant cannot be right: a connection between
+ * two neighbours and one between two antipodes are the same twenty-six points
+ * spread over lengths that differ by a factor of six. On a globe whose land is a
+ * lattice of dots in the same ink at the same size, a row of widely spaced dots
+ * is NOT a line — it is more land. The five connections of a rendered frame were
+ * invisible for exactly that reason, and no brightness would have fixed it: a
+ * brighter row of dots is a brighter row of dots.
+ *
+ * What distinguishes a connection from a field of dots is CONTINUITY, which is a
+ * density and not a colour. So the step count is whatever makes consecutive
+ * points overlap on the frame — `GLOBE_ARC_KNIT` of a dot's diameter apart — and
+ * what the frame then carries is an unbroken stroke over a lattice of separated
+ * dots. `dataVolume.test.js` holds the spacing rather than the count.
+ *
+ * The RENDER cost is nothing this block can feel, and the measurement is already
+ * in this file: a cloud costs about fifteen milliseconds a frame WHATEVER is in
+ * it, and the same globe at 7854 dots and at 2827 rendered within noise of each
+ * other. The arcs travel in the land's buffer, so a denser trail adds points to a
+ * buffer that was already being rebuilt.
+ *
+ * The ENCODER's is not measured in the container and it is not nothing: seven
+ * unbroken strokes are more ink on the frame than seven rows of eight dots. It is
+ * bounded rather than claimed — `GLOBE_ARC_STEPS_MAX` is a whole hemisphere of
+ * stroke at the largest canvas the schema allows, past which the extra points
+ * fall inside one device pixel of each other — and what it puts on the frame is a
+ * smooth curve, which is the opposite of the high-frequency detail that got a
+ * wireframe and an unfogged floor refused at sixteen times the bitrate. A film
+ * that names connections is also a film that asked for them.
+ */
+export const GLOBE_ARC_KNIT = 0.8
+export const GLOBE_ARC_STEPS_MIN = 12
+export const GLOBE_ARC_STEPS_MAX = 320
+
+/**
+ * The step count for one arc, from the angle it spans and the dot it is drawn
+ * with.
+ *
+ * Bounded on the FASTEST the drawing moves along the arc rather than on its
+ * length, because the points are evenly spaced in the ANGLE and not in the
+ * distance: the widest gap is where the curve is quickest, and dividing the
+ * length by the count is a spacing that is right on average and leaves a hole
+ * somewhere on every connection. A short arc is where it bites — the lift is a
+ * sine bulging by `GLOBE_ARC_LIFT`, and on an arc of thirty degrees the RADIAL
+ * part of the motion is larger than the tangential one, so the gap opens near the
+ * markers rather than at the bulge. The first version divided the length and
+ * missed by 9% exactly there.
+ *
+ * `√((θ(1+lift))² + (lift·π)²)` takes each term at its own maximum as though the
+ * two happened together, which they do not: it is a bound, it is one line, and a
+ * short connection pays a few points for it. `canvasPx / (2 · GLOBE_RADIUS)` is
+ * the same world-to-pixel conversion `globeMarkerRadius` makes, the other way.
+ */
+export function globeArcSteps(from, to, canvasPx, dotPx) {
+  const side = px(canvasPx)
+  const dot = px(dotPx)
+  if (side === 0 || dot === 0) return GLOBE_ARC_STEPS_MIN
+  const cos = clamp(
+    (Number(from?.x) || 0) * (Number(to?.x) || 0) +
+      (Number(from?.y) || 0) * (Number(to?.y) || 0) +
+      (Number(from?.z) || 0) * (Number(to?.z) || 0),
+    -1,
+    1,
+  )
+  const angle = Math.acos(cos)
+  const quickest = Math.hypot(angle * (1 + GLOBE_ARC_LIFT), GLOBE_ARC_LIFT * Math.PI) * (side / 2)
+  const steps = Math.ceil(quickest / Math.max(1e-6, dot * GLOBE_ARC_KNIT)) + 1
+  return Math.max(GLOBE_ARC_STEPS_MIN, Math.min(GLOBE_ARC_STEPS_MAX, steps))
+}
+
+/** The floor, kept as the default so a caller with no canvas still draws a trail (Q1). */
+export const GLOBE_ARC_STEPS = GLOBE_ARC_STEPS_MIN
 
 /**
  * Where the markers go — decided HERE, which is the point, and by the same walk
@@ -521,13 +658,16 @@ export function globeArc(from, to, steps = GLOBE_ARC_STEPS) {
  * which is a ball of string rather than a network, and the count the document
  * asked for is the count of PLACES.
  */
-export function globeArcs(markers, yaw, tilt, radius, life) {
+export function globeArcs(markers, yaw, tilt, radius, life, canvas) {
   const list = Array.isArray(markers) ? markers : []
   const r = px(radius) || GLOBE_RADIUS
   const out = []
   for (let i = 0; i + 1 < list.length; i++) {
     const drawn = linkPulse(life, i)
-    const arc = globeArc(list[i], list[i + 1])
+    // The steps this arc needs to read as a stroke rather than as more land —
+    // see `globeArcSteps`. A caller with no canvas gets the floor, which is a
+    // trail of separated points: honest, and the case no render reaches (Q1).
+    const arc = globeArc(list[i], list[i + 1], globeArcSteps(list[i], list[i + 1], canvas?.side, canvas?.dot))
     for (let k = 0; k < arc.length; k++) {
       if (k / (arc.length - 1) > drawn) break
       const turned = globeRotate(arc[k], yaw, tilt)
@@ -593,19 +733,66 @@ export function globeScale(progress) {
  * mask is: two blocks marking the same places at two rhythms are two films. What
  * is added here is the near-side fade — a marker at the limb is a marker about to
  * pass behind the globe, and one that vanished at full brightness would blink.
+ *
+ * The fade is a BAND and the pulse rides above the land, which is the half of
+ * this that shipped wrong: `z` is the cosine of the angle off the line of sight,
+ * so multiplying by it dimmed every marker that was not dead centre — halfway to
+ * the limb a place ran at a third of the strength of the continent it stands on.
+ * See `GLOBE_LIMB_BAND`.
  */
 export function globeMarkerLight(point, yaw, tilt, life, index) {
   const turned = globeRotate(point, yaw, tilt)
   if (turned.z <= 0) return { shown: false, x: 0, y: 0, z: 0, light: 0 }
+  const limb = Math.min(1, turned.z / GLOBE_LIMB_BAND)
   return {
     shown: true,
     x: turned.x,
     y: turned.y,
     z: turned.z,
-    // `z` is the cosine of the angle off the line of sight, so it is already the
-    // fade: full at the centre of the disc, zero at the silhouette.
-    light: turned.z * (0.45 + 0.55 * unit(markerPulse(life, index))),
+    light: limb * (GLOBE_MARKER_FLOOR + (1 - GLOBE_MARKER_FLOOR) * unit(markerPulse(life, index))),
   }
+}
+
+/**
+ * The ripple leaving one marker on this frame: how far out it has travelled, and
+ * how present it still is.
+ *
+ * One ramp per cycle of the marker's OWN pulse, so the ring leaves the place as
+ * the place lights rather than on a rhythm of its own — the phase is
+ * `markerPulse`'s, less the quarter turn a sine takes to reach its peak, and the
+ * stride between markers is the same φ. Two rhythms for one event would read as
+ * two events.
+ *
+ * It fades as it grows, on a square: a ring of constant strength expanding to
+ * three times its radius reads as a bubble arriving rather than as a signal
+ * leaving, and the strength has to be gone before the next one starts or the
+ * ripples pile up into a target.
+ */
+export function globeMarkerRipple(life, index) {
+  const at = Number.isFinite(Number(index)) ? Number(index) : 0
+  const phase = unit(life) * MARKER_PULSES + at * PHI - 0.25
+  const t = phase - Math.floor(phase)
+  return { at: 1 + (GLOBE_RIPPLE_SPAN - 1) * t, light: (1 - t) * (1 - t) }
+}
+
+/**
+ * The rotation that lays a flat ring on the sphere at one point — an Euler
+ * triple, in the order `three` builds one in.
+ *
+ * A ring geometry lies in the XY plane with its normal along +z, and the default
+ * `XYZ` order applies `Rx·Ry·Rz`, so `(0,0,1)` maps to
+ * `(sin b, −sin a·cos b, cos a·cos b)`. Reading that backwards gives `b` from the
+ * x of the point and `a` from the other two, which is the whole function.
+ *
+ * It is here rather than in the component for the reason every conversion in this
+ * file is: `lookAt` is a `three` method and this directory imports none, and a
+ * rotation written in a `.jsx` is a rotation no test can call.
+ */
+export function globeFaceRotation(point) {
+  const x = clamp(Number(point?.x) || 0, -1, 1)
+  const y = Number(point?.y) || 0
+  const z = Number(point?.z) || 0
+  return [Math.atan2(-y, z), Math.asin(x), 0]
 }
 
 // ── solidChart ───────────────────────────────────────────────────────────────

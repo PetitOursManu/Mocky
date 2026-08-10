@@ -33,7 +33,14 @@ import { solidCanvas } from './blocks/setPiece.js'
 // that would be a test agreeing with itself.
 import { barChartLayout, lineChartLayout } from './blocks/dataFigures.js'
 import { solidChartLayout } from './blocks/dataVolume.js'
-import { imageFrameBox } from './blocks/media.js'
+import { ENTER_RISE, enterRise, imageFrameBox } from './blocks/media.js'
+// And the four amplitudes an ARRIVAL is measured in, each from the file that owns
+// it. `composition.js` cannot import a block — `blocks/media.js` imports it — so
+// `BLOCK_ENTER_TRAVEL` is a mirror, and this is the only place the copy and the
+// original can be held equal.
+import { RUN_RISE_EM, runRise } from './blocks/text.js'
+import { COUNTER_RISE_EM } from './blocks/animatedText.js'
+import { FORM_RISE, NOTICE_TRAVEL } from './blocks/interface.js'
 // The worker's own reader, used on the two block corpora below and on nothing
 // else. It is in this sub-project and it holds no React and no Remotion, so it
 // costs this file none of the portability its header is about — see the
@@ -122,6 +129,8 @@ import {
   groundStack,
   isGround,
   driftRoom,
+  enterRoom,
+  BLOCK_ENTER_TRAVEL,
   compositionIdFor,
   cueFrames,
   cueProgress,
@@ -1977,6 +1986,15 @@ describe('composedPalette', () => {
       accent: { kinds: ['equalizer'], paints: ['accent'] },
       solid: { kinds: ['solidScene'], paints: ['solid'] },
       both: { kinds: ['equalizer', 'solidScene'], paints: ['accent', 'solid'] },
+      // The surface that is not a colour. A grid of stills paints photographs and
+      // nothing else, so it is measured at the only two things an unopened
+      // picture is guaranteed to lie between.
+      picture: { kinds: ['gallery'], paints: ['picture'] },
+      // And the one that paints both at once: a lit body beside a photograph. It
+      // is the scene the export failed on — a heading over a `photoStage` — and
+      // the case where measuring the picture as a veil on the ground rather than
+      // as a layer beside the body cost a whole rung of density.
+      stage: { kinds: ['photoStage'], paints: ['solid', 'picture'] },
     }
 
     /** A scene shaped like the export that failed: a field, and a headline on it. */
@@ -2003,6 +2021,9 @@ describe('composedPalette', () => {
     const fieldInks = (paints, theme, plain) => {
       const colors = []
       for (const paint of paints) {
+        // A photograph contributes no colour here on purpose: it is not one. It
+        // comes back through `fieldRange` as the pair it is bounded by.
+        if (paint === 'picture') continue
         const pair =
           paint === 'solid'
             ? [plain.solid.color, scale(plain.solid.color, plain.solid.ambient)]
@@ -2012,11 +2033,20 @@ describe('composedPalette', () => {
       return colors
     }
 
-    /** The surface a run over that field really lands on, at a given density. */
-    const fieldRange = (palette, colors, alpha) =>
+    /**
+     * The surface a run over that field really lands on, at a given density.
+     *
+     * The picture's two ends are LAYERS beside the field's own colours and not a
+     * veil over them, which is the whole of what makes a `photoStage` compose at
+     * the same density as a `gallery`: a lit body and a photograph sit next to
+     * each other on the frame, so the surface is their union rather than one
+     * seen through the other.
+     */
+    const fieldRange = (palette, colors, alpha, picture = false) =>
       surfaceRange(palette.ground.color, palette.ground.alpha, [
         ...(palette.groundTint ?? []),
         ...colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: alpha * step }))),
+        ...(picture ? ['#000000', '#ffffff'].map((color) => ({ color, alpha })) : []),
       ])
 
     /**
@@ -2071,7 +2101,7 @@ describe('composedPalette', () => {
       // A kind this build does not know is measured as the accent, which is what
       // every field meant before the table existed. `constructor` is in here
       // because `FIELD_PAINTS` is an object and a lookup on it is a lookup.
-      for (const kind of ['carousel', 'constructor', undefined]) {
+      for (const kind of ['clock', 'constructor', undefined]) {
         expect(fieldPaints(stacked(GROUNDS.solid, [kind])), String(kind)).toEqual(['accent'])
       }
       // And the table names blocks that exist and paints that are measured. A
@@ -2079,7 +2109,11 @@ describe('composedPalette', () => {
       // correctly and is a field measured as the accent it does not paint.
       for (const [kind, paint] of Object.entries(FIELD_PAINTS)) {
         expect(BLOCK_APPETITE, kind).toHaveProperty(kind)
-        expect(FIELD_PAINT_KINDS, kind).toContain(paint)
+        // A value may be a LIST, because a picture stage paints two surfaces —
+        // a lit body and a photograph — and neither of them covers the other.
+        for (const named of Array.isArray(paint) ? paint : [paint]) {
+          expect(FIELD_PAINT_KINDS, kind).toContain(named)
+        }
       }
     })
 
@@ -2105,7 +2139,7 @@ describe('composedPalette', () => {
           for (const name of Object.keys(THEMES)) {
             const theme = resolveTheme(THEMES[name])
             const palette = paletteOf(name, ground, paints)
-            const range = fieldRange(palette, fieldInks(paints, theme, paletteOf(name, ground)), palette.field.alpha)
+            const range = fieldRange(palette, fieldInks(paints, theme, paletteOf(name, ground)), palette.field.alpha, paints.includes('picture'))
             // `display` and `body` only: the accent IS the field, and a run
             // measured against a surface made of itself resolves to a near-white
             // that erases the direction. `composedPalette` says so at length.
@@ -2147,7 +2181,7 @@ describe('composedPalette', () => {
             if (rung <= 0 || ![palette.display, palette.body].every((run) => run.ok)) continue
 
             const colors = fieldInks(paints, theme, paletteOf(name, ground))
-            const range = fieldRange(palette, colors, FIELD_ALPHAS[rung - 1])
+            const range = fieldRange(palette, colors, FIELD_ALPHAS[rung - 1], paints.includes('picture'))
             const survives = [palette.display, palette.body].every(
               (run) => worstRatio(run.color, range) >= run.threshold,
             )
@@ -2198,6 +2232,103 @@ describe('composedPalette', () => {
         }
       }
       expect(differs.length, 'a solid field never resolved differently from an accent one').toBeGreaterThan(0)
+    })
+
+    /**
+     * THE ORNAMENT IS A RUN TOO, and four rendered frames are what said so.
+     *
+     * The accent was resolved on the bare ground under every field, on the
+     * argument that a run measured against a surface made of itself resolves to a
+     * near-white and erases the direction. True of a field painted IN the accent;
+     * false of the four that are not, and the frames measured at the pixel say how
+     * false: a `kicker` over a `gallery` at 1.03:1, over a `carousel` at 2.46:1,
+     * over a `waveMesh` at 1.36:1, over a `solidChart`'s plinth at 1.27:1, against
+     * a floor of 3.
+     *
+     * Two claims, and the second is what keeps the fix from costing the picture.
+     * The ornament clears its floor against the field it really stands on — and
+     * the DENSITY is untouched, which the neighbouring sweep already pins by
+     * asking only `display` and `body` whether the rung above breaks: an ornament
+     * that had joined the ladder would have stepped it down for a surtitle, which
+     * is the trade `accentRun`'s locked veil exists to refuse.
+     */
+    it('measures the ornament against a field it does not paint', () => {
+      for (const [label, { paints }] of Object.entries(FIELD_CASES)) {
+        // The two the fixpoint is real for: `equalizer` and the rest of the accent
+        // family READ `palette.accent`, so republishing it in a fallback ink
+        // repaints the field in it — the surface measured and the surface painted
+        // stop being the same object.
+        if (paints.includes('accent') || paints.includes('type')) continue
+        for (const ground of Object.keys(GROUNDS)) {
+          for (const name of Object.keys(THEMES)) {
+            const theme = resolveTheme(THEMES[name])
+            const palette = paletteOf(name, ground, paints)
+            const range = fieldRange(
+              palette,
+              fieldInks(paints, theme, paletteOf(name, ground)),
+              palette.field.alpha,
+              paints.includes('picture'),
+            )
+            const run = palette.accent
+            if (!run.ok) continue
+            expect(worstRatio(run.color, range), `${label} · ${name} · ${ground}`).toBeGreaterThanOrEqual(
+              CONTRAST_MIN_LARGE,
+            )
+          }
+        }
+      }
+    })
+
+    /**
+     * A PHOTOGRAPH IS BOUNDED, NEVER MEASURED — and the export that says why is
+     * the plainest scene in the catalogue.
+     *
+     * A `heading` over a `photoStage` anchored `full`: white type crossing pale
+     * wood at 1.68:1 against a display floor of 3. Nothing was broken about the
+     * palette — it had measured the panel's BODY, which `FIELD_PAINTS` named
+     * `solid`, and the picture the panel exists to hold was not in the
+     * measurement at all. The same hole was open for `gallery`, `carousel` and
+     * `imageFrame`, where it was written down as a known gap for two passes.
+     *
+     * The claim below is the one that closes it, and it is deliberately about
+     * WHITE and BLACK rather than about a corpus: a run that clears its floor
+     * against both of those clears it against every photograph that could ever be
+     * handed to this scene, because every pixel of every picture lies between
+     * them. That is a proof, and it is the only kind available for a surface
+     * nobody in this process has opened.
+     */
+    it('bounds a photograph at both ends, on every ground and every direction', () => {
+      const PICTURE_KINDS = ['gallery', 'carousel', 'imageFrame', 'photoStage', 'photoRing']
+      for (const kind of PICTURE_KINDS) {
+        expect(fieldPaints(stacked(GROUNDS.solid, [kind])), kind).toContain('picture')
+      }
+
+      let bounded = 0
+      for (const ground of Object.keys(GROUNDS)) {
+        for (const name of Object.keys(THEMES)) {
+          const theme = resolveTheme(THEMES[name])
+          const asPicture = paletteOf(name, ground, ['picture'])
+          // The two ends of the worst picture there is, at the density the
+          // palette chose to paint the field at.
+          const ends = fieldRange(asPicture, [], asPicture.field.alpha, true)
+          for (const run of [asPicture.display, asPicture.body]) {
+            if (!run.ok) continue
+            expect(worstRatio(run.color, ends), `${name} · ${ground} · ${run.threshold}`).toBeGreaterThanOrEqual(
+              run.threshold,
+            )
+          }
+
+          // And the defect itself: measured as an accent nothing on the frame
+          // carries, the same runs would have been shipped against a picture they
+          // do not clear. It has to happen SOMEWHERE or the row is not read.
+          const asAccent = paletteOf(name, ground, ['accent'])
+          const unmeasured = fieldRange(asAccent, fieldInks(['accent'], theme, paletteOf(name, ground)), asAccent.field.alpha, true)
+          if ([asAccent.display, asAccent.body].some((run) => run.ok && worstRatio(run.color, unmeasured) < run.threshold)) {
+            bounded += 1
+          }
+        }
+      }
+      expect(bounded, 'measuring a picture as an accent was never wrong on this corpus').toBeGreaterThan(0)
     })
 
     /**
@@ -2546,6 +2677,171 @@ describe('composedLayout', () => {
         }
       }
     }
+  })
+
+  /**
+   * AND NOTHING CROSSES IT WHILE IT IS ARRIVING EITHER.
+   *
+   * The test above is about the boxes at rest, and a rendered frame is what said
+   * that is only half the promise: on a witness with no 3D block in it —
+   * `imageFrame` over `dateStamp`, 9:16 — the stamp's ink sat below the safe
+   * bottom on every frame it was still arriving on. 26 px of rise against a drift
+   * of 9 the frame had bought, and nothing had bought the rest.
+   *
+   * So the claim is made on the WHOLE movement of the scene: the box, plus the
+   * drift at that frame, plus what the block's own entrance still has to travel.
+   * Every term comes from somewhere a test can reach — `composedLayout` for the
+   * box, `sceneMotion` for the drift and the cue, and the blocks' own constants
+   * for the amplitude, which is the point of importing them here rather than
+   * trusting the mirror in `BLOCK_ENTER_TRAVEL`.
+   */
+  describe('an arrival is an amplitude, and the layout reserves it', () => {
+    /** What a block really translates by, straight out of the file that owns it. */
+    const travelOf = (kind, unit, box) => {
+      if (['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp'].includes(kind)) return enterRise(unit, 0)
+      if (kind === 'quote') return runRise(typeSize('title', unit), 0)
+      if (kind === 'textHighlight') return runRise(typeSize('body', unit), 0)
+      if (kind === 'counter') return typeSize('figure', unit) * COUNTER_RISE_EM
+      if (kind === 'notification') return NOTICE_TRAVEL * Math.min(box.width, box.height)
+      if (kind === 'form') return FORM_RISE * Math.min(box.width, box.height)
+      return 0
+    }
+
+    /**
+     * The mirror, held against its originals.
+     *
+     * `composition.js` cannot import a block — `blocks/media.js` imports IT — so
+     * the amplitudes are copied, and a copy nothing checks is a layout reserving
+     * room for a gesture somebody has since made larger. Same arrangement as
+     * `contrast.js` and `server/video/timeline.js`, same reason.
+     */
+    it('mirrors every amplitude a block actually travels', () => {
+      expect(BLOCK_ENTER_TRAVEL.imageFrame.unit).toBe(ENTER_RISE)
+      for (const kind of ['gallery', 'carousel', 'clock', 'dateStamp']) {
+        expect(BLOCK_ENTER_TRAVEL[kind].unit, kind).toBe(ENTER_RISE)
+      }
+      expect(BLOCK_ENTER_TRAVEL.quote.unit).toBe(RUN_RISE_EM * TYPE_ROLES.title.step)
+      expect(BLOCK_ENTER_TRAVEL.textHighlight.unit).toBe(RUN_RISE_EM * TYPE_ROLES.body.step)
+      expect(BLOCK_ENTER_TRAVEL.counter.unit).toBe(COUNTER_RISE_EM * TYPE_ROLES.figure.step)
+      expect(BLOCK_ENTER_TRAVEL.notification.box).toBe(NOTICE_TRAVEL)
+      expect(BLOCK_ENTER_TRAVEL.form.box).toBe(FORM_RISE)
+      // Every row names a kind the catalogue has. A misspelt one is room reserved
+      // for nothing beside a block that still crosses the margin.
+      for (const kind of Object.keys(BLOCK_ENTER_TRAVEL)) expect(KINDS, kind).toContain(kind)
+    })
+
+    /**
+     * The guarantee itself, on every ratio and on the arrangements that put a
+     * travelling block against the bottom of the frame — alone, under a
+     * neighbour, and as the field of a scene.
+     */
+    it('keeps every block inside the safe area on the frames it is arriving on', () => {
+      const TRAVELLERS = Object.keys(BLOCK_ENTER_TRAVEL)
+      for (const [ratio, size] of FRAMES) {
+        const safe = composedSafeArea(size.width, size.height)
+        const base = frameBase(size.width, size.height)
+        for (const kind of TRAVELLERS) {
+          for (const anchors of [['bottom-center'], ['center', 'bottom-center'], ['full'], ['full', 'bottom-right']]) {
+            const layers = anchors.map((anchor, i) => ({
+              ...LONGEST[i === anchors.length - 1 ? kind : 'heading'],
+              anchor,
+            }))
+            const scene = { layers }
+            const entry = { scene, durationInFrames: msToFrames(4000), label: '' }
+            const { zones } = composedLayout(scene, size.width, size.height)
+            for (const zone of zones) {
+              for (const layer of zone.layers) {
+                const travel = travelOf(layer.block.kind, layer.unit, layer.box)
+                const where = `${ratio} · ${kind} · ${anchors.join('+')}`
+                for (let f = 0; f < entry.durationInFrames; f += 1) {
+                  const motion = sceneMotion('composed', entry, f)
+                  const arriving = 1 - Math.min(1, Math.max(0, motion.layers[layer.index] ?? 1))
+                  const bottom = layer.box.top + layer.box.height + motion.drift * base + arriving * travel
+                  expect(bottom, where).toBeLessThanOrEqual(safe.top + safe.height)
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+  })
+
+  /**
+   * A BAND IS DIVIDED BY APPETITE, AND NEVER LARGER THAN WHAT IT CAN DRAW.
+   *
+   * The vertical format's complaint, and the half of it the layout owns. A run
+   * of type bounded by its MEASURE stops growing long before a wide band is
+   * full — `shapeCeiling` is where — so a band divided on the appetite alone
+   * hands that stack room nothing can be put in, and takes it from the blocks
+   * beside it, which had a use for it.
+   */
+  describe('a band is bounded by what its stack can draw', () => {
+    const SHORT = { kind: 'heading', text: 'OUI', level: 'display', anchor: 'top-center' }
+    const LONG = {
+      kind: 'textHighlight',
+      text: 'Une ligne de texte courante qui occupe la mesure et se replie sur plusieurs lignes sans jamais cesser de grandir avec la boite qu on lui donne',
+      anchor: 'bottom-center',
+    }
+
+    it('gives the surplus to the band that can spend it', () => {
+      for (const [ratio, size] of FRAMES) {
+        const { frame, zones } = composedLayout({ layers: [SHORT, LONG] }, size.width, size.height)
+        const short = zones.find((zone) => zone.anchor === 'top-center')
+        const long = zones.find((zone) => zone.anchor === 'bottom-center')
+        const ceiling = shapeCeiling(blockShape(SHORT), frame.width)
+        const drawable = blockHeight(SHORT, frame.width, ceiling)
+        // The measure-bound band is its own ceiling, to the pixel the rounding
+        // of `split` leaves — not the share its appetite asked for.
+        expect(short.box.height, ratio).toBeLessThanOrEqual(Math.ceil(drawable))
+        // And it is still the LARGER appetite, so without the cap it would have
+        // taken the majority of the frame and drawn this same height inside it.
+        expect(blockHeight(SHORT, frame.width, 1), ratio).toBeGreaterThan(
+          blockHeight(LONG, frame.width, 1),
+        )
+        expect(long.box.height, ratio).toBeGreaterThan(frame.height - short.box.height - drawable)
+        // Nothing is lost between them: the bands still tile the frame.
+        expect(long.box.top + long.box.height, ratio).toBeLessThanOrEqual(frame.top + frame.height)
+        expect(short.box.top, ratio).toBeGreaterThanOrEqual(frame.top)
+      }
+    })
+
+    /**
+     * AND WHEN NO BAND CAN SPEND IT, THE EMPTY FRAME IS THE DOCUMENT'S.
+     *
+     * The witness is a single unbreakable line alone on a portrait frame:
+     * `extrudedType` with the word RELIEF, which draws 7% of the height of a
+     * 9:16 export. It is not a layout that lost the frame, and the arithmetic
+     * says which of the two it is. A line of type has an aspect ratio — chars ×
+     * advance wide by one leading tall — and a 9:16 safe area has another; only
+     * one of the two can be filled, and the block fills the one it is entitled
+     * to. Making the type any larger needs the word broken, which `wordCeiling`
+     * refuses because a rendered frame said what that looks like, or the margin
+     * a feed draws its own interface over. There is no third lever, and the
+     * assertions below are that claim rather than a picture somebody preferred.
+     */
+    it('fills the measure it was given when the height cannot be filled', () => {
+      const { width, height } = DIMENSIONS['9:16']
+      const block = { kind: 'extrudedType', text: 'RELIEF', level: 'display', anchor: 'full' }
+      const { frame, zones } = composedLayout({ layers: [block] }, width, height)
+      const [zone] = zones
+      const [layer] = zone.layers
+      const extent = blockExtent(block, layer.box, frameBase(width, height), layer.unit)
+
+      // The unit is the MEASURE's answer and not the box's: the box has room and
+      // the word does not.
+      expect(zone.unit).toBeCloseTo(shapeCeiling(blockShape(block), frame.width), 9)
+      // Ten times the height answers the same unit: the box is not what bound
+      // it, so there is no room this layout could have given the block that it
+      // would have grown into.
+      expect(solveTypeUnit([blockShape(block)], frame.width, frame.height * 10)).toBeCloseTo(zone.unit, 9)
+      // So it fills its measure exactly — the axis it can fill…
+      expect(extent.width / layer.box.width).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+      // …and its box is its own extent, so the air is charged to nobody: the
+      // frame around it belongs to the ground.
+      expect(layer.box.height).toBe(Math.round(blockHeight(block, frame.width, zone.unit)))
+      expect(layer.box.height).toBeLessThan(frame.height / 4)
+    })
   })
 
   /**
@@ -4040,22 +4336,33 @@ describe('un sujet prend la scène, le mobilier prend sa part', () => {
   /**
    * The guarantee the previous pass bought, unspent: a subject alone in a scene
    * reads the unit its box allows, and the fields among them fill the frame.
+   *
+   * "The whole scene" is the frame less what its own ARRIVAL needs, and the
+   * qualification is `composedFrame`'s own relationship to `composedSafeArea`
+   * one level in: a block that translates out of its box on the way in has to be
+   * given the room to, or the promise it was laid out inside is broken by exactly
+   * that translation. It is nothing for most kinds — `enterRoom` answers 0 for
+   * every kind absent from `BLOCK_ENTER_TRAVEL`, which is most of the catalogue —
+   * and about 2% for the six that rise.
    */
   it('gives a subject alone the whole scene, in every ratio', () => {
     for (const [ratio, size] of FRAMES) {
       const frame = composedFrame(size.width, size.height)
       for (const kind of KINDS.filter((name) => !isFurniture(name))) {
-        const [zone] = composedLayout({ layers: [{ ...LONGEST[kind], anchor: 'center' }] }, size.width, size.height).zones
+        const block = { ...LONGEST[kind], anchor: 'center' }
+        const [zone] = composedLayout({ layers: [block] }, size.width, size.height).zones
         const where = `${ratio} ${kind}`
-        expect(zone.box.height, where).toBe(frame.height)
+        const room = enterRoom([block], solveTypeUnit([blockShape(block)], frame.width, frame.height), frame)
+        const height = frame.height - room
+        expect(zone.box.height, where).toBe(height)
         expect(zone.box.width, where).toBe(frame.width)
         // Not bounded by anything but its own box — the same answer `solveTypeUnit`
         // gives for that box, to the last bit.
-        expect(zone.unit, where).toBeCloseTo(solveTypeUnit([blockShape(LONGEST[kind])], frame.width, frame.height), 9)
+        expect(zone.unit, where).toBeCloseTo(solveTypeUnit([blockShape(block)], frame.width, height), 9)
         // And a kind entitled to fill both axes really does: a field alone in a
         // scene is the picture, not an element in it.
         if (BLOCK_APPETITE[kind].fills === 'both') {
-          expect(zone.layers[0].box.height / frame.height, where).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+          expect(zone.layers[0].box.height / height, where).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
         }
       }
     }

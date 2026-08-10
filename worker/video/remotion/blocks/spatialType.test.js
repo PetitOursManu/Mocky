@@ -32,6 +32,9 @@ import {
   SPATIAL_HALF,
   SPATIAL_KEYSTONE_MAX,
   SPATIAL_LAYERS,
+  SPATIAL_RELIEF_FLOOR,
+  SPATIAL_REST_PITCH_DEG,
+  SPATIAL_REST_YAW_DEG,
   SPATIAL_NO_SHADE,
   SPATIAL_SHADE_FLOOR,
   spatialShade,
@@ -44,8 +47,10 @@ import {
   spatialGroupTurn,
   spatialGroups,
   spatialLayout,
+  spatialLinePitch,
   spatialLineTurn,
   spatialMoved,
+  spatialRelief,
   spatialRestTurn,
   spatialRole,
   spatialFloat,
@@ -366,6 +371,84 @@ describe('nothing about it holds still', () => {
     // for the whole scene. See `spatialRestTurn`.
     for (const spin of EXTRUDED_SPINS) expect(spatialRestTurn(spin), spin).toBe(0)
   })
+
+  /**
+   * THE DEFECT THIS FAMILY WAS REPORTED FOR, AS ARITHMETIC.
+   *
+   * The swing is a sine, so before the resting attitude every move crossed zero
+   * once a scene — and at that frame the extrusion is exactly behind the face and
+   * the block draws a flat title with a coloured edge. Three crops of a real
+   * export came back reading as a drop shadow, which is what `funTitle` draws
+   * with a `text-shadow` and no renderer.
+   *
+   * The clip is in the sweep and it is the case that decides the floor: on the
+   * widest line the schema can state the keystone bound takes the whole attitude
+   * away, and what is left is the PITCH, which no bound on a measure touches.
+   */
+  it('never lets the extrusion close, on any move, on any frame, in any box', () => {
+    for (const spin of EXTRUDED_SPINS) {
+      for (const swing of [1, SPATIAL_SWAY_FLOOR]) {
+        for (const rest of [1, 0.5, 0]) {
+          let least = Infinity
+          for (let i = 0; i <= 200; i += 1) least = Math.min(least, spatialRelief(spin, i / 200, { swing, rest }))
+          expect(least, `${spin} @ swing ${swing} rest ${rest}`).toBeGreaterThanOrEqual(SPATIAL_RELIEF_FLOOR)
+        }
+      }
+    }
+    // And the ordinary line — nothing clipped — shows a good deal more than the
+    // floor: about a fifth of its own thickness at rest and a third at the peak,
+    // against the 12% peak and 0% trough of a line swinging around nothing.
+    for (const spin of EXTRUDED_SPINS) {
+      let least = Infinity
+      let most = 0
+      for (let i = 0; i <= 200; i += 1) {
+        const at = spatialRelief(spin, i / 200)
+        least = Math.min(least, at)
+        most = Math.max(most, at)
+      }
+      expect(least, spin).toBeGreaterThan(0.12)
+      expect(most, spin).toBeGreaterThan(0.2)
+    }
+  })
+
+  /**
+   * The attitude is an attitude and not a second swing: it is above every
+   * amplitude on its own axis, so the line never comes square to the camera and
+   * the pitch never levels. That is the whole mechanism, in two inequalities.
+   */
+  it('rests further from the camera’s axis than it swings', () => {
+    for (const spin of EXTRUDED_SPINS) {
+      expect(spatialLineTurn(spin), spin).toBeLessThanOrEqual(2 * SPATIAL_REST_YAW_DEG * (Math.PI / 180))
+      expect(spatialLinePitch(spin), spin).toBeLessThanOrEqual(2 * SPATIAL_REST_PITCH_DEG * (Math.PI / 180))
+      for (let i = 0; i <= 100; i += 1) {
+        const at = spatialSpin(spin, i / 100)
+        expect(at.yaw, spin).toBeGreaterThan(0)
+        expect(at.pitch, spin).toBeGreaterThan(0)
+        expect(Math.abs(at.pitch), spin).toBeLessThanOrEqual(spatialLinePitch(spin) + 1e-12)
+      }
+    }
+  })
+
+  /**
+   * And the layout's two budgets do what they say: the MOVE keeps at least its
+   * floor whatever the box, the attitude is what yields, and a line short enough
+   * to have room gets both whole.
+   */
+  it('takes the attitude away before the move, when a box has no room for both', () => {
+    const wide = spatialLayout(line('A'.repeat(BLOCK_LIMITS.extrudedType)), composedSafeArea(1920, 1080))
+    const short = spatialLayout(line('Go'), composedSafeArea(1920, 1080))
+    expect(wide.turn.swing).toBeGreaterThanOrEqual(SPATIAL_SWAY_FLOOR)
+    expect(wide.turn.rest).toBeLessThan(short.turn.rest)
+    expect(short.turn.rest).toBe(1)
+    expect(short.turn.swing).toBe(1)
+    for (const [name, box] of SHAPES) {
+      for (const block of CORPUS) {
+        const layout = spatialLayout(block, box)
+        expect(layout.turn.swing, `${name} ${block.text.length}`).toBeGreaterThanOrEqual(SPATIAL_SWAY_FLOOR)
+        expect(layout.turned).toBeLessThanOrEqual(spatialLineTurn(block.spin) + 1e-12)
+      }
+    }
+  })
 })
 
 describe('the words arrive out of the depth, and only out of it', () => {
@@ -464,7 +547,7 @@ describe('the extrusion is a stack, and it has no seams', () => {
   it('dilates each copy by at least the step the stack takes', () => {
     for (const block of CORPUS) {
       const layout = spatialLayout(block, { left: 0, top: 0, width: 1690, height: 950 })
-      const swing = Math.sin(spatialLineTurn(block.spin) + spatialRestTurn(block.spin))
+      const swing = Math.sin(layout.turned + spatialRestTurn(block.spin))
       const step = (layout.depthPx * swing) / SPATIAL_LAYERS
       const dilate = Math.max(1, Math.ceil(((step * 1.4) / Math.max(1, layout.size)) * layout.rasterEm))
       // In raster pixels on both sides of the comparison.
@@ -487,7 +570,7 @@ describe('the extrusion is a stack, and it has no seams', () => {
   it('keeps the bevel under a twentieth of the em', () => {
     for (const block of CORPUS) {
       const layout = spatialLayout(block, { left: 0, top: 0, width: 1690, height: 950 })
-      const swing = Math.sin(spatialLineTurn(block.spin) + spatialRestTurn(block.spin))
+      const swing = Math.sin(layout.turned + spatialRestTurn(block.spin))
       const step = (layout.depthPx * swing) / SPATIAL_LAYERS
       expect((step * 1.4) / Math.max(1, layout.size), `${block.depth}/${block.spin}`).toBeLessThan(0.05)
     }
@@ -524,13 +607,14 @@ describe('the world the type stands in', () => {
       expect(layout.keystone, `${block.text.length}/${block.spin}`).toBeLessThanOrEqual(SPATIAL_KEYSTONE_MAX)
       // And the bound bites rather than being decorative: the widest line the
       // schema allows is one the lens alone does not rescue, which is what
-      // `spatialLayout`'s sway is for.
-      if (block.text.length >= 24 && block.spin !== 'tilt') expect(layout.sway).toBeLessThan(1)
+      // `spatialLayout`'s two budgets are for. The ATTITUDE is what it takes
+      // first — it is not the move — so that is where the clip shows.
+      if (block.text.length >= 24) expect(layout.turn.rest, `${block.spin}`).toBeLessThan(1)
     }
-    // Never all the way down, though: a line reduced to a fraction of a degree
-    // is a flat title somebody paid a renderer for.
+    // Never all the way down on the MOVE, though: a line reduced to a fraction
+    // of a degree is a flat title somebody paid a renderer for.
     for (const block of CORPUS) {
-      expect(spatialLayout(block, box).sway, `${block.text.length}`).toBeGreaterThanOrEqual(SPATIAL_SWAY_FLOOR)
+      expect(spatialLayout(block, box).turn.swing, `${block.text.length}`).toBeGreaterThanOrEqual(SPATIAL_SWAY_FLOOR)
     }
   })
 

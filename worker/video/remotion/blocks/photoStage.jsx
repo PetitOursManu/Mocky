@@ -30,7 +30,7 @@
  *
  * SURFACE: the ground, through `palette.solid` - a material colour and an ambient share, resolved by `solidShading`. The body of the panel is painted with it and nothing else in this file chooses a colour. Anchored `full` under a stack this block IS a surface, and `FIELD_PAINTS` is where that is written down.
  *
- * LEGIBILITY: This block sets no type, and it is a SURFACE rather than a run. Two halves, and only one of them is closed. The body — the rim, the mount, the case, the back of the card — is `palette.solid`: the ornament's run resolved on the bare ground, shaded on the Lambert segment `solidShading` measured, so every face of it clears the display floor against the ground it stands on. `FIELD_PAINTS` names this block `solid` for that reason, and `fieldColors` samples the two ends of that segment when a stack is laid over it. The other half is the PICTURE, and it is the honest gap `gallery`, `carousel` and `imageFrame` already name: nobody in this process has opened the photograph, so what a heading standing on it is measured against is the accent rather than the pixels. Closing that one needs a picture, not a row in a table. Nothing here paints text over a photograph, which is the part this file can decide: a caption belongs to a `kicker` in a zone of its own, measured against a surface somebody computed.
+ * LEGIBILITY: This block sets no type, and it is a SURFACE rather than a run. Two halves, and only one of them is closed. The body — the rim, the mount, the case, the back of the card — is `palette.solid`: the ornament's run resolved on the bare ground, shaded on the Lambert segment `solidShading` measured, so every face of it clears the display floor against the ground it stands on. `FIELD_PAINTS` names this block `solid` for that reason, and `fieldColors` samples the two ends of that segment when a stack is laid over it. The other half is the PICTURE, and it used to be the honest gap `gallery`, `carousel` and `imageFrame` also carried: what a heading standing on it was measured against was the accent rather than the pixels, and a real export of this exact scene put white type on pale wood at 1.68:1. It is closed. `FIELD_PAINTS` names this block `solid` AND `picture`, because it paints both, and `fieldedGround` bounds a photograph at black and at white with the zone density as what cedes. Nothing here paints text over a photograph, which is the part this file can decide: a caption belongs to a `kicker` in a zone of its own, measured against a surface somebody computed.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -80,6 +80,7 @@ import {
   stageEnter,
   stageRotation,
 } from './stage.js'
+import { litAmbient } from './shading.js'
 
 export const PhotoStage = ({ block, palette, box, base, progress, life, textures }) => {
   const ids = block.imageIds
@@ -95,6 +96,11 @@ export const PhotoStage = ({ block, palette, box, base, progress, life, textures
   const layout = photoStageLayout(block, pictureAspect(front, canvas), canvas)
   const turn = stageRotation(block.move, life)
   const scale = layout.scale * stageEnter(progress)
+  // The palette's share, in the space this renderer shades in - `solidShading`
+  // measures a multiplier on BYTES and `three` multiplies in linear light, so
+  // the body of the panel was painted two thirds of the way back to its own
+  // material and the rig stopped reading as light. See `shading.js`.
+  const ambient = litAmbient(palette.solid.color, palette.solid.ambient)
 
   return (
     <>
@@ -107,8 +113,8 @@ export const PhotoStage = ({ block, palette, box, base, progress, life, textures
         turn with the panel and the object would read as a flat picture being
         squeezed rather than as a panel coming round.
       */}
-      <ambientLight intensity={palette.solid.ambient * LIGHT_UNIT} />
-      <directionalLight position={STAGE_LIGHT} intensity={(1 - palette.solid.ambient) * LIGHT_UNIT} />
+      <ambientLight intensity={ambient * LIGHT_UNIT} />
+      <directionalLight position={STAGE_LIGHT} intensity={(1 - ambient) * LIGHT_UNIT} />
       <group scale={scale} rotation={[turn.pitch, turn.yaw, 0]}>
         <mesh>
           <boxGeometry args={[2 * layout.body.x, 2 * layout.body.y, 2 * layout.body.z]} />
@@ -118,8 +124,13 @@ export const PhotoStage = ({ block, palette, box, base, progress, life, textures
             set, which is a face brighter than the material colour — outside the
             segment above, and therefore outside the guarantee. It is also the
             cheaper shader, in a family whose cost is measured in render seconds.
+
+            `toneMapped` off: react-three-fiber turns ACES tone mapping on by
+            default, so this body came off the renderer at a value the palette
+            never measured - and lower, which on a dark ground is less contrast
+            than what was cleared. `shading.js` carries the measurement.
           */}
-          <meshLambertMaterial color={palette.solid.color} />
+          <meshLambertMaterial color={palette.solid.color} toneMapped={false} />
         </mesh>
         {front ? (
           <mesh position={[0, layout.offsetY, layout.faceZ]}>
@@ -131,15 +142,18 @@ export const PhotoStage = ({ block, palette, box, base, progress, life, textures
               who made it already lit, and it would do it by an amount that
               changes as the panel turns — a photograph whose brightness animates
               reads as a fault. The body is what carries the light and therefore
-              the depth.
+              the depth. `toneMapped` is off for the same reason it is off on the
+              body: a photograph put through a tone curve is not the photograph
+              somebody staged, and the bound `fieldedGround` places on an
+              unopened picture is a bound on the picture itself.
             */}
-            <meshBasicMaterial map={front} />
+            <meshBasicMaterial map={front} toneMapped={false} />
           </mesh>
         ) : null}
         {back ? (
           <mesh position={[0, layout.offsetY, -layout.faceZ]} rotation={[0, BACK_TURN, 0]}>
             <planeGeometry args={[2 * layout.picture.x, 2 * layout.picture.y]} />
-            <meshBasicMaterial map={back} />
+            <meshBasicMaterial map={back} toneMapped={false} />
           </mesh>
         ) : null}
       </group>

@@ -694,16 +694,18 @@ les angles rasants où le nombre de prélèvements complet se déclenche, et a m
 20,1 s à seize prélèvements, 16,0 à quatre et 13,4 sans, contre un contrôle à
 12,3 s. Quatre est l’endroit où cette courbe cesse d’en valoir la peine.
 
-**Leur lisibilité est à moitié close et à moitié nommée.** Le corps — le liseré, le
-montage, le boîtier, le dos d’une carte — est `palette.solid` : le run de
-l’ornement résolu sur le fond nu et ombré le long du segment de Lambert que mesure
-`solidShading`, donc `FIELD_PAINTS` nomme les deux blocs `solid` et un titre posé
-sur l’un d’eux est mesuré contre les deux bouts de ce segment. L’autre moitié est
-la PHOTOGRAPHIE, et c’est le manque honnête que `gallery`, `carousel` et
-`imageFrame` portent déjà : personne dans ce processus n’a ouvert l’image. Aucun
-des deux blocs ne pose de texte dessus — une légende appartient à un `kicker` dans
-une zone à lui, sur une surface que quelqu’un a calculée — et c’est la part que
-cette paire peut décider plutôt que nommer.
+**Leur lisibilité est close des deux côtés, et le second est la raison d’être de
+`picture`.** Le corps — le liseré, le montage, le boîtier, le dos d’une carte —
+est `palette.solid` : le run de l’ornement résolu sur le fond nu et ombré le long
+du segment de Lambert que mesure `solidShading`. L’autre moitié est la
+PHOTOGRAPHIE, et `solid` seul disait « le corps du panneau » quand un titre se
+tient sur l’IMAGE — le panneau est ce qui la porte. Un export réel de cette scène
+exacte, un `heading` sur un `photoStage` ancré `full`, a livré du blanc sur du
+bois clair à 1,68:1. `FIELD_PAINTS` nomme donc les deux blocs `solid` ET
+`picture`, et la photographie est bornée au noir et au blanc, la densité de la
+zone étant ce qui cède — voir la section lisibilité pour tout l’argument. Aucun des
+deux blocs ne pose de texte sur une image : une légende appartient à un `kicker`
+dans une zone à lui, sur une surface que quelqu’un a calculée.
 
 #### Du type en trois dimensions, et les deux choses refusées pour l’obtenir
 
@@ -893,6 +895,36 @@ dans le cadre » et « le cadre plus la dérive est dans la promesse » en deux 
 C’est l’échange qu’`overlay` fait déjà avec sa propre amplitude : un mouvement a
 droit à la place que la mise en page lui laisse.
 
+**Et la dérive n’était pas tout le mouvement d’une scène.** Le même défaut, une
+amplitude plus loin, trouvé de la même façon et sur un témoin sans aucun bloc 3D :
+`imageFrame` sur `dateStamp` en 9:16, et l’encre du tampon passait sous le bas de
+la zone sûre à chaque image où il arrivait encore. Tout bloc de ce catalogue qui
+arrive arrive PAR LE BAS — `ENTER_RISE` vaut une demi-ligne de texte courant, 26 px
+sur cette image, contre les 9 de la dérive — et personne n’avait acheté cette place.
+
+`BLOCK_ENTER_TRAVEL` est l’amplitude, sous forme de table, parce que les cinq
+familles qui ont une entrée la mesurent contre des choses différentes : une
+demi-ligne pour les blocs média, un cinquième de la taille du RUN pour ceux de
+texte, un vingtième de sa propre boîte pour une notification. Ce sont des miroirs
+de constantes qui vivent sous `blocks/` — `composition.js` ne peut pas importer un
+bloc, puisque `blocks/media.js` l’importe — et `composition.test.js` tient chaque
+ligne contre son original, l’arrangement qu’ont déjà `contrast.js` et
+`server/video/timeline.js`.
+
+La réservation est celle de la SCÈNE et non de la bande, et l’écart se mesure :
+prise sur la seule bande basse, une bande de 105 px en payait un quart et le tampon
+revenait aux trois quarts de sa taille ; prise sur la grille, elle vaut 2 % de
+l’image répartis sur toutes les rangées, ce que la dérive coûte déjà. Seule la
+dernière bande occupée est mesurée, parce que c’est la seule qui finit sur le bas
+du cadre, et seulement si aucun pied n’est réservé — la bande de légende qu’un
+champ déclare est déjà entre les cellules et le bord. Une zone `full` paie la
+sienne sur sa propre boîte, n’étant dans aucune bande. Ce qui est absent de la
+table est aussi une décision : `funTitle` voyage vers le HAUT d’un tiers de son
+type et a acheté la place dans son propre appétit (`funTitleHeadroom`), ce qui est
+le meilleur correctif et appartient au bloc ; `heading`, `kicker` et `lowerThird`
+révèlent leur type depuis derrière un masque, et tout le reste arrive par opacité
+ou par échelle.
+
 **Une rangée se partage entre les colonnes qui servent, et une bande entre les
 rangées.** Une grille 3×3 de tiers égaux est la lecture évidente de « neuf zones »,
 et elle rend illisible la scène la plus courante qui soit : `anchor` vaut `center`
@@ -930,6 +962,38 @@ La conséquence est celle qui simplifie tout le reste de cette section : des ban
 pondérées font que chaque zone lit la même unité *par construction*, puisque
 chacune reçoit `hauteurSûre × (sa part de ce que la scène a demandé)`.
 `harmoniseUnits` ci-dessous range alors un reste au lieu de sauver une image.
+
+**Et une bande n’est jamais plus grande que ce que sa pile peut DESSINER, qui
+n’est pas le même nombre que ce qu’elle veut.** Un appétit est une envie ;
+`shapeCeiling` est l’endroit où une ligne de type cesse de grandir, parce qu’un mot
+est borné par sa MESURE et non par sa boîte — `RELIEF` en titrage sur 906 px fait
+195 px de type et il n’en existe aucune version plus haute qui garde le mot
+entier. Pendant une passe les deux ont été lus comme un seul nombre : une pile
+bornée par la mesure demandait une bande sur son appétit puis en dessinait un
+cinquième, et les quatre cinquièmes étaient pris aux blocs d’à côté, qui en
+avaient l’usage. `waterFill` plafonne chaque bande à ce que sa pile peut dessiner
+et rend le surplus aux bandes qui savent le dépenser, avec les mêmes poids, en
+répétant parce qu’en donner plus à une piste peut la faire passer à son tour
+au-dessus de son propre plafond.
+
+**Quand aucune bande ne peut le dépenser, l’image vide est celle du DOCUMENT.**
+C’est le reste de la réponse au témoin 9:16 de cette passe : un `extrudedType`
+portant le mot `RELIEF` seul sur une image portrait en dessine 7 % de la hauteur,
+et aucun agencement de boîtes n’y change rien. Une ligne de type a un rapport de
+forme — caractères × chasse de large, une interligne de haut — et une zone sûre en
+9:16 en a un autre ; un seul des deux peut être rempli, et `fills: 'either'` dit
+déjà quel axe appartient au contenu. Agrandir le type demande de couper le mot, ce
+que `wordCeiling` refuse parce qu’une image rendue a montré à quoi cela ressemble,
+ou de franchir la marge sur laquelle un fil dessine sa propre interface. Il n’y a
+pas de troisième levier.
+
+Ce que la mise en page doit n’est donc pas un sauvetage : c’est que personne ne
+PAIE ce vide. La boîte du bloc est sa propre étendue, donc `BOX_FILL_FLOOR` se
+mesure contre quelque chose de réel ; la bande est bornée par ce qu’on peut y
+dessiner, donc aucun voisin ne paie ; et le cadre autour appartient au fond.
+`composition.test.js` le dit en arithmétique plutôt qu’en prose — la même forme
+résolue dans une boîte dix fois plus haute répond le même unit, ce qui prouve que
+la hauteur n’a jamais été ce qui la bornait.
 
 **`full`, c’est la zone sûre et non l’image**, et deux blocs `full` la partagent.
 Un fond qui filerait jusqu’au bord de l’image, ce serait une carte rognée par la
@@ -1441,13 +1505,28 @@ passe l’emporte. La texture n’est abandonnée qu’après que le champ a ép
 barreaux — ce sont deux décorations, et l’une des deux est dans le document.
 
 Deux conséquences, toutes deux porteuses. L’**entrée d’accent est mesurée sur le
-fond nu**, pas sur la surface champêtre : mesurée contre un champ fait d’elle-même
-elle ne peut pas passer, retombe par `accentFirst` sur un quasi-blanc, et la
-première version de ce correctif est revenue avec des barres grises derrière un
-titre gris — lisible, et la couleur du projet disparue, ce qui est exactement
-l’échec que `theme.ts` refuse quand il renonce à deviner un jeton. La brèche que
-cela laisse est nommée plutôt que cachée : un TEXTE d’accent posé sur un champ du
-même accent n’est pas mesuré contre lui. Et la densité est une opacité sur la
+fond nu quand le champ la LIT**, pas sur la surface champêtre : mesurée contre un
+champ fait d’elle-même elle ne peut pas passer, retombe par `accentFirst` sur un
+quasi-blanc — et comme `globe`, `equalizer`, `soundWave`, `map` et les deux
+graphiques plats peignent `palette.accent` **elle-même**, republier cette entrée
+dans l’encre de repli repeint le champ avec. La première version de ce correctif
+est revenue avec des barres grises derrière un titre gris : lisible, la couleur du
+projet disparue, et la surface mesurée n’était plus la surface peinte.
+
+**C’est UN cas, et pendant deux passes le code en a fait le cas général.** Un
+surtitre posé sur un champ que l’accent ne peint pas était mesuré sur le fond nu
+lui aussi, et quatre images rendues disent ce que ça coûte : un `kicker` sur une
+`gallery` à **1,03:1**, sur un `carousel` à 2,46:1, sur un `waveMesh` à 1,36:1, sur
+le socle d’un `solidChart` à 1,27:1, contre un plancher de 3. L’ornement qu’une
+scène publie est donc résolu une seconde fois, sur la surface qui a GAGNÉ — jamais
+comme une requête dans l’échelle, qui ferait céder la densité pour qu’un surtitre
+garde sa couleur, l’échange exact que le voile verrouillé d’`accentRun` refuse. Le
+test est de savoir si le champ LIT l’entrée, pas s’il se trouve être de la même
+couleur : `waveMesh`, `solidScene`, `solidChart` et les deux scènes à photographie
+lisent `palette.solid`, dont le matériau est résolu depuis l’accent nu et n’est
+jamais republié — il n’y a pas de boucle dont les protéger. La brèche qui reste est
+la vraie : un TEXTE d’accent sur un champ peint en `palette.accent`. Et la densité
+est une opacité sur la
 **zone**, pas une couleur remise à cinq composants : `full` est la seule chose qui
 fasse d’un bloc un champ, donc la règle vit là où `full` veut dire quelque chose et
 le vingt-huitième bloc ne peut pas l’oublier. `palette.groundTint` est ce que la
@@ -1473,20 +1552,49 @@ sur le fond NU pour la raison qui vaut pour l’entrée d’accent : le champ es
 qu’on mesure, et une couleur prise dans la passe qui l’inclut serait un point fixe
 et non une réponse.
 
-**La brèche qui reste demande une image, pas une ligne de table.** `gallery`,
-`carousel` et `imageFrame` peuvent aussi être ancrés `full`, et ce qu’ils peignent,
-ce sont des photographies : une pile posée sur l’un d’eux, c’est du texte sur des
-images que personne ici n’a ouvertes, et ils retombent sur le défaut de la table,
-mesurés contre un accent qui n’est pas à l’image. Aucun
-voile ne le couvre non plus, `COMPOSED_IMAGE_VEIL` appartenant au FOND `image`.
-C’est écrit dans `gallery.jsx` et dans ce paragraphe plutôt que laissé à
-redécouvrir, parce que la façon dont cette fonctionnalité perd une garantie, c’est
-un commentaire disant qu’un bloc « ne porte aucun texte, donc la seule chose qu’il
-puisse rater est de dépenser du contraste dont autre chose avait besoin » — vrai
-d’un bloc dans une cellule, faux d’un bloc qui est une surface, et cette phrase a
-survécu à six passes sur ces fichiers avant qu’un export ne la démente. Le
-correctif, le jour où il sera fait, appartient à `composedPalette` à côté de
-`FIELD_ALPHAS`, et à rien sous `blocks/`.
+**UNE PHOTOGRAPHIE N’EST PAS UNE COULEUR : ON LA BORNE, ON NE LA MESURE JAMAIS.**
+Le paragraphe qui était ici disait que la brèche restante « demande une image, pas
+une ligne de table », et il se trompait de ligne. `gallery`, `carousel`,
+`imageFrame`, `photoStage` et `photoRing` ancrés `full` peignent des
+photographies, et une surface que personne ici n’a ouverte ne se mesure pas — mais
+elle se BORNE, ce que ce fichier fait depuis le premier export. Un FOND `image`
+est mesuré aux deux extrêmes auxquels un voile peut composer une image inconnue,
+le noir et le blanc, et le voile monte jusqu’à ce que les deux bouts passent.
+`picture`, c’est cette réponse déplacée d’une couche.
+
+Un export l’a rendue urgente, et c’est la scène la plus banale du catalogue : un
+`heading` sur un `photoStage` ancré `full` — ce qu’un modèle écrit le plus
+souvent — mesurait le CORPS du panneau et jamais l’image qu’il porte, si bien que
+du blanc traversant un bois clair est parti à 1,68:1 contre un plancher de 3.
+
+Deux mécaniques, et chacune a d’abord été prise à l’envers. L’image entre comme
+deux CALQUES de teinte — du noir à la densité du champ, du blanc à la même
+densité — et non comme un alpha sur le fond : un `photoStage` met un corps éclairé
+ET une photographie à l’image, côte à côte, donc retirer l’image de l’alpha du
+fond voile aussi le corps à travers l’image, et la paire descendait d’un cran de
+densité pour rien. Deux fonds dans une liste, c’est une union ; un alpha, c’est un
+produit. Et aucun `FIELD_RAMP` dessus, contrairement à toutes les autres
+peintures : une `map` dessine ses points à pleine force et ses liens à une
+fraction, alors qu’une photographie est une image opaque à UNE opacité, dont le
+contenu est déjà encadré par le noir et le blanc.
+
+Ce qui cède, c’est la densité, et elle cède parce qu’une décoration cède devant un
+mot — la phrase sous laquelle `FIELD_ALPHAS` a été écrit. Les deux façons de rater
+cet arbitrage sont déjà dans ce document : céder la densité jusqu’au dernier
+barreau FANTOMISE l’image, et un bandeau posé dessus pour porter les mots, c’est
+le `lowerThird` revenu en carte cachant trois cinquièmes d’une photographie. Ce
+qui tranche, c’est le barreau où l’échelle s’arrête vraiment, et c’est une mesure :
+sur la douzaine de directions réelles que balaie `composition.test.js`, une pile
+sur un champ d’images compose à 0,4 — PLUS de photographie que le même thème n’en
+garde sur un FOND `image`, dont le voile monte de `COMPOSED_IMAGE_VEIL` à 0,7 pour
+porter les deux mêmes runs. Cette fonctionnalité livre des photographies à trois
+dixièmes depuis son premier export et personne ne les a appelées des fantômes.
+
+Une clause n’est pas un détail : le voile est VERROUILLÉ pour un champ d’images.
+Un bloc-image est peint AU-DESSUS du fond et du voile du fond, donc monter ce
+voile n’achète rien à un run posé sur l’image, et `sharedSurface` publierait un
+contraste que l’image n’a pas. Restent l’encre, que `legibleOn` parcourt en
+entier, et la densité.
 
 #### Et la garantie que rien ne reste immobile aussi
 

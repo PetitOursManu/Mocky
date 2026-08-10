@@ -75,8 +75,13 @@ import { constantMetric, hairline, textLines, textWidth, typeRole, typeSize } fr
  * inside a scene, so an equalizer does not settle into a visible beat and a row of
  * bars never reads as one bar repeated. A ratio like 2 or 3/2 does exactly that
  * within a second, which is what made the first waveform read as a test signal.
+ *
+ * Exported for `dataVolume.js` alone, and for the reason `markerPulse` is
+ * imported there rather than rewritten: a globe's ripple has to leave a marker on
+ * the frame that marker lights, and a phase stride spelled out twice is two
+ * rhythms for one event the day somebody changes one of them.
  */
-const PHI = 1.618033988749895
+export const PHI = 1.618033988749895
 
 /** `x`, clamped to the unit interval, with anything unreadable landing at 0. */
 function unit(x) {

@@ -3020,6 +3020,106 @@ export function composedFrame(width, height) {
 }
 
 /**
+ * HOW FAR A BLOCK'S ARRIVAL CARRIES IT OUT OF ITS OWN BOX, AND IN WHICH
+ * CURRENCY.
+ *
+ * `driftRoom`'s defect, one amplitude over, and found the same way — by
+ * measuring the ink of a rendered frame rather than by reading. A witness with
+ * no 3D block in it at all: `imageFrame` over `dateStamp` on 9:16, and the
+ * stamp's ink crossed the safe bottom on the frames it was still arriving on.
+ * The drift was reserved and it was not the whole movement of the scene. Every
+ * block in this catalogue that arrives arrives from BELOW — 26 px on that frame
+ * against the drift's 9 — and nothing had bought that room.
+ *
+ * ── Why a table, and why two currencies ─────────────────────────────────────
+ *
+ * Because a block owns its own entrance, and the five families that have one
+ * measure it against different things. `ENTER_RISE` is half a body line;
+ * `RUN_RISE_EM` is a fifth of the RUN's own size, so the role's step is part of
+ * the answer; `NOTICE_TRAVEL` is a share of the card's own box, since a notice
+ * arrives from just outside itself and a card in a corner should not fly in from
+ * half a frame away. Folding those into one number would be a fifth notion of
+ * "an element arrives", which is the drift this file exists to prevent.
+ *
+ * These are MIRRORS of constants that live in `blocks/`, and they are mirrors on
+ * purpose: `composition.js` cannot import a block — `blocks/media.js` imports
+ * THIS file — so the alternative is a layout that guesses at an amplitude a
+ * component owns. `composition.test.js` holds every row against its original,
+ * which is the same arrangement `contrast.js` and `server/video/timeline.js`
+ * already have.
+ *
+ * ── The absences, each of which is a decision ───────────────────────────────
+ *
+ * `funTitle` travels UP by a third of its type and is not here, because it
+ * already bought the room: `funTitleHeadroom` is `BLOCK_APPETITE.funTitle.fixed`
+ * read back, so the lift happens inside a box the layout allotted. That is the
+ * better fix and it is the block's to make; this table is for the ones that
+ * translate their whole box instead.
+ *
+ * `heading`, `kicker` and `lowerThird` reveal their type from behind a mask with
+ * `overflow: hidden`, so nothing they do leaves the box. Every 3D block, every
+ * chart and every field arrives by opacity or by scale, which cannot either. A
+ * kind that is absent from this table is a kind that draws inside its box on
+ * every frame, and `blocks.test.js` is where a new one would have to say so.
+ */
+export const BLOCK_ENTER_TRAVEL = {
+  // `ENTER_RISE`, `blocks/media.js` — half a body line, from below.
+  imageFrame: { unit: 0.5 },
+  gallery: { unit: 0.5 },
+  carousel: { unit: 0.5 },
+  clock: { unit: 0.5 },
+  dateStamp: { unit: 0.5 },
+  // `RUN_RISE_EM`, `blocks/text.js` — a fifth of the run's own size, which is the
+  // unit times the role's step. Two rows and not one, because a pull quote and a
+  // highlighted line are two roles.
+  quote: { unit: 0.2 * TYPE_ROLES.title.step },
+  textHighlight: { unit: 0.2 * TYPE_ROLES.body.step },
+  // `COUNTER_RISE_EM`, `blocks/animatedText.js` — a figure travels less than a
+  // sentence, because it is larger and a proportional gesture would be a lurch.
+  counter: { unit: 0.08 * TYPE_ROLES.figure.step },
+  // `NOTICE_TRAVEL` and `FORM_RISE`, `blocks/interface.js` — a share of the
+  // block's OWN box, and the only two in the catalogue measured that way. A
+  // notice anchored to a bottom cell comes from below (`noticeSlide`); one in a
+  // corner comes from the side, which crosses no edge this reserves and costs
+  // nothing to have covered.
+  notification: { box: 0.05 },
+  form: { box: 0.025 },
+}
+
+/**
+ * How much of a zone a block's arrival may take before it stops being an
+ * arrival. A quarter, which is `CONSTANT_CEILING` and `FIELD_FOOT_CEILING`'s own
+ * number and the same argument: an exception with no ceiling is the rule going
+ * back out of the window.
+ */
+export const ENTER_ROOM_CEILING = 0.25
+
+/**
+ * The room a stack's arrival needs at the edge it arrives from, in pixels.
+ *
+ * The MAX over the stack and not the sum: the blocks of a zone arrive on their
+ * own cues but each of them travels its own distance from its own resting box,
+ * so what has to be clear below the stack is the furthest any one of them goes.
+ *
+ * `unit` is the stack's type unit and `box` is the zone, because the table is
+ * written in both currencies — see it for why. Nothing in the table means no
+ * room, which is most stacks.
+ */
+export function enterRoom(blocks, unit, box) {
+  const list = Array.isArray(blocks) ? blocks : []
+  const at = Math.max(0, Number(unit) || 0)
+  const minor = Math.min(Math.max(0, Number(box?.width) || 0), Math.max(0, Number(box?.height) || 0))
+  let room = 0
+  for (const block of list) {
+    const kind = String(block?.kind ?? '')
+    if (!Object.hasOwn(BLOCK_ENTER_TRAVEL, kind)) continue
+    const travel = BLOCK_ENTER_TRAVEL[kind]
+    room = Math.max(room, (Number(travel.unit) || 0) * at, (Number(travel.box) || 0) * minor)
+  }
+  return Math.min(Math.ceil(room), Math.floor(Math.max(0, Number(box?.height) || 0) * ENTER_ROOM_CEILING))
+}
+
+/**
  * The gutter between two zones of the 3×3 grid, as a fraction of the SHORT edge.
  *
  * Off the short edge like every other size in this directory (`frameBase` says
@@ -3126,20 +3226,99 @@ export function composedSafeArea(width, height) {
  * A zero weight is floored rather than honoured: a track nothing wants is a track
  * of no height, and a box of no height is a stack solved at a unit of zero (Q1).
  */
-function split(start, span, gap, count, weights = null) {
+function split(start, span, gap, count, weights = null, caps = null) {
   const total = Math.max(1, count)
   const asked = Array.isArray(weights) && weights.length === total ? weights : null
   const shares = Array.from({ length: total }, (_, i) => Math.max(WEIGHT_FLOOR, Number(asked?.[i]) || (asked ? 0 : 1)))
-  const sum = shares.reduce((a, b) => a + b, 0)
   const room = span - (total - 1) * gap
+  const sizes = waterFill(shares, room, Array.isArray(caps) && caps.length === total ? caps : null)
   let cursor = start
-  return shares.map((share) => {
-    const track = (room * share) / sum
+  return sizes.map((track) => {
     const at = Math.round(cursor)
     const end = Math.round(cursor + track)
     cursor += track + gap
     return { start: at, size: Math.max(0, end - at) }
   })
+}
+
+/**
+ * THE SHARES, EXCEPT THAT A TRACK IS NEVER GIVEN MORE THAN IT CAN DRAW.
+ *
+ * An appetite says what a stack WANTS and a ceiling says what it can use, and
+ * for one pass those were the same number. They are not, and the difference is
+ * the whole of the vertical format's complaint: `shapeCeiling` bounds a run of
+ * type by its MEASURE, so a short word in a wide column stops growing long
+ * before its band is full — `RELIEF` in display type across 906 px is 195 px of
+ * type and there is no taller version of it that keeps the word whole. A band
+ * divided on the appetite alone hands that stack room nothing can be put in, and
+ * the room comes out of the blocks BESIDE it, which can.
+ *
+ * So the surplus goes to the tracks that can spend it, and it goes there by the
+ * same weights — `stackIn`'s rule one level up, again, with a ceiling on it.
+ * Repeated rather than done once, because giving a track more can push it over
+ * its own ceiling in turn.
+ *
+ * ── When nothing can spend it, nothing is capped, and that is the argument ───
+ *
+ * If EVERY track is bound by its measure there is nobody to give the surplus to,
+ * and this returns the proportional shares unchanged — the frame stays divided
+ * the way it was and the leftover is air the zones' own alignment spends. That
+ * is not a shrug: a line of type has an aspect ratio and a 9:16 safe area has
+ * another, and no arrangement of boxes makes one word fill a portrait frame. The
+ * only two things that would are cutting the word, which `wordCeiling` refuses
+ * for the reason a rendered frame gave it, and crossing the margin a feed draws
+ * its own interface over. A scene whose whole stack is one short word is an empty
+ * frame because the DOCUMENT is one short word; what this function guarantees is
+ * that it is never empty because of the SPLIT.
+ */
+function waterFill(shares, room, caps) {
+  const limits = shares.map((_, i) => {
+    const cap = Number(caps?.[i])
+    return Number.isFinite(cap) ? Math.max(0, cap) : Infinity
+  })
+  const fixed = new Map()
+  for (let pass = 0; pass < shares.length && limits.some((limit) => Number.isFinite(limit)); pass += 1) {
+    const free = shares.map((_, i) => i).filter((i) => !fixed.has(i))
+    const spare = room - [...fixed.values()].reduce((a, b) => a + b, 0)
+    const sum = free.reduce((a, i) => a + shares[i], 0)
+    if (free.length === 0 || !(sum > 0) || !(spare > 0)) break
+    const over = free.filter((i) => (spare * shares[i]) / sum > limits[i])
+    // Every free track over its ceiling means nobody left to hand the surplus to.
+    if (over.length === 0 || over.length === free.length) break
+    for (const i of over) fixed.set(i, limits[i])
+  }
+  const free = shares.map((_, i) => i).filter((i) => !fixed.has(i))
+  const spare = room - [...fixed.values()].reduce((a, b) => a + b, 0)
+  const sum = free.reduce((a, i) => a + shares[i], 0)
+  if (fixed.size === 0 || free.length === 0 || !(sum > 0)) {
+    const all = shares.reduce((a, b) => a + b, 0)
+    return shares.map((share) => (room * share) / all)
+  }
+  return shares.map((share, i) => (fixed.has(i) ? fixed.get(i) : (spare * share) / sum))
+}
+
+/**
+ * The most a stack can DRAW, whatever room it is handed — `Infinity` when
+ * nothing bounds it, which is most stacks.
+ *
+ * Its shapes at their own ceilings, which is `shapeHeight`'s own answer for an
+ * unbounded unit: `shapeCeiling` is where a run stops growing, and past that
+ * point nothing about the block changes. Written as one function rather than
+ * inlined in the weights because the same sentence is asked twice — once of a
+ * band, once of the columns inside it — and two readings of "how tall can this
+ * get" is one of them drifting.
+ */
+function stackCeiling(blocks, width, gap) {
+  const list = Array.isArray(blocks) ? blocks : []
+  if (list.length === 0) return Infinity
+  let total = Math.max(0, list.length - 1) * Math.max(0, Number(gap) || 0)
+  for (const block of list) {
+    const shape = blockShape(block)
+    const at = shapeCeiling(shape, width)
+    if (!Number.isFinite(at)) return Infinity
+    total += shapeHeight(shape, width, at)
+  }
+  return total
 }
 
 /** The share a track nothing asked for still gets. See `split`. */
@@ -3447,23 +3626,78 @@ export function composedLayout(scene, width, height) {
    * a weight it cannot appear in would divide the frame among the cells as if the
    * field were not there.
    */
-  const weights = field
-    ? null
-    : usedRows.map((row) => {
-        let most = 0
-        for (const column of used[row]) {
-          const box = columns[row].get(column)
-          for (const [anchor, inZone] of held) {
-            const cell = ANCHOR_CELLS[anchor]
-            if (TRACK_OF[cell.row] !== row || TRACK_OF[cell.column] !== column) continue
-            most = Math.max(most, stackAppetite(inZone, box?.size ?? frame.width))
-          }
-        }
-        return most
-      })
+  const rowOf = (row, measure) => {
+    let appetite = 0
+    let ceiling = 0
+    for (const column of used[row]) {
+      const box = columns[row].get(column)
+      for (const [anchor, inZone] of held) {
+        const cell = ANCHOR_CELLS[anchor]
+        if (TRACK_OF[cell.row] !== row || TRACK_OF[cell.column] !== column) continue
+        appetite = Math.max(appetite, stackAppetite(inZone, box?.size ?? measure))
+        ceiling = Math.max(ceiling, stackCeiling(blocksOf(inZone), box?.size ?? measure, gap))
+      }
+    }
+    return { appetite, ceiling }
+  }
+  const tracks = field ? null : usedRows.map((row) => rowOf(row, frame.width))
+  const weights = tracks ? tracks.map((track) => track.appetite) : null
+  /*
+   * And a band is never larger than what its stack can DRAW.
+   *
+   * The appetite says what a stack wants; `shapeCeiling` says where its type
+   * stops growing, and for one pass those were read as the same number. A 9:16
+   * export is what showed the difference — a display line bounded by its MEASURE
+   * asks for a band on its appetite and then draws a fifth of it, and the fifth
+   * that is left over is taken from the blocks beside it, which had a use for it.
+   * `waterFill` is the redistribution and it carries the rest of the argument,
+   * including what happens when no band can spend the surplus.
+   *
+   * Only where the weights are, and for their reason: with a field on the frame
+   * the bands are the grid's own three, and a `full` block is painted across all
+   * of them rather than being the appetite — or the ceiling — of any one.
+   */
+  const caps = tracks ? tracks.map((track) => track.ceiling) : null
+  /*
+   * And less the room the LAST band's arrival needs, which is `driftRoom`'s trade
+   * one amplitude over.
+   *
+   * A witness with no 3D block in it: `imageFrame` over `dateStamp` on 9:16, and
+   * the stamp's ink crossed the safe bottom on the frames it was still arriving
+   * on — 26 px of rise against a drift of 9 that the frame had already bought.
+   * `BLOCK_ENTER_TRAVEL` is the amplitude and the argument; this is the
+   * subtraction, and it is the SCENE's rather than the band's on purpose. Taken
+   * out of the bottom band alone, a 105 px band paid a quarter of itself and the
+   * date stamp came back at three quarters of its size; taken off the grid it is
+   * 2% of the frame spread over every row, which is what the drift already costs
+   * and nobody has ever seen.
+   *
+   * Only the last used row, because it is the only band that ends on the bottom
+   * of the frame — and only when no foot is reserved, since a field's declared
+   * caption band is already between the cells and the edge.
+   *
+   * The unit is solved on the band BEFORE the subtraction, so the room is an
+   * over-estimate: a shorter band can only solve a smaller unit, and a smaller
+   * unit travels less. `footBand` one screen up makes the same trade in the same
+   * direction and says why it is the safe one.
+   */
+  const provisional = split(frame.top, frame.height - foot, gutter, usedRows.length, weights, caps)
+  const lastRow = usedRows[usedRows.length - 1]
+  let arrival = 0
+  if (foot === 0 && lastRow !== undefined) {
+    const band = provisional[provisional.length - 1]
+    for (const [anchor, inZone] of held) {
+      const cell = ANCHOR_CELLS[anchor]
+      if (TRACK_OF[cell.row] !== lastRow) continue
+      const column = columns[lastRow]?.get(TRACK_OF[cell.column])
+      if (!column || !band) continue
+      const box = { left: column.start, top: band.start, width: column.size, height: band.size }
+      arrival = Math.max(arrival, enterRoom(blocksOf(inZone), unitFor(inZone, box), box))
+    }
+  }
   // Less the field's foot: the cells share what is left of the safe area, so the
   // bottom band ends where the field's caption begins.
-  const bands = split(frame.top, frame.height - foot, gutter, usedRows.length, weights)
+  const bands = split(frame.top, frame.height - foot - arrival, gutter, usedRows.length, weights, caps)
   const rows = new Map(usedRows.map((row, i) => [row, bands[i]]))
 
   // Every zone with the box it gets, before a single unit is solved: the scale is
@@ -3480,11 +3714,28 @@ export function composedLayout(scene, width, height) {
     // a surface stops at the frame. Everything else keeps the safe frame, which
     // is what it has always had. See `BLOCK_GROUNDS`.
     const bleeds = anchor === 'full' && groundStack(blocksOf(inZone))
-    const box = bleeds
+    const track = bleeds
       ? bledFrame
       : !row || !column
         ? { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
         : { left: column.start, top: row.start, width: column.size, height: row.size }
+    /*
+     * A `full` zone pays for its own arrival, because it is in no band.
+     *
+     * The bands were shortened above, which covers every cell; a zone that reads
+     * no row takes the whole frame and ends on the frame's own bottom whenever
+     * its stack fills it — which is what a field does by definition. The room
+     * comes off its own box for that reason and costs it about 2%, its appetite
+     * being what it is. A bled ground is untouched: nothing in `BLOCK_GROUNDS`
+     * translates, so `enterRoom` answers 0 and the box is the one it was.
+     *
+     * The unit is solved twice and the first answer thrown away, which is the
+     * price of not making this a fixpoint — see the subtraction above for why an
+     * over-estimate is the safe direction.
+     */
+    const cell9 = row && column
+    const room = cell9 ? 0 : enterRoom(blocksOf(inZone), unitFor(inZone, track), track)
+    const box = room > 0 ? { ...track, height: Math.max(0, track.height - room) } : track
     // `stretch` is a legal `align-items` and not a legal `justify-content`, so
     // the sharing zone is reported as a flag and a valid pair rather than as a
     // value the composition would have to translate.
@@ -4478,11 +4729,25 @@ export function solidShading(surface, ink) {
  * the object without ever helping the word.
  *
  * A kind that names nothing takes the accent: that is what a field meant until
- * this pass, and it is the loudest thing a decoration reaches for. The three
- * MEDIA blocks are the honest gap and it stays named — `gallery`, `carousel` and
- * `imageFrame` anchored `full` paint photographs nobody in this process has
- * opened, so what gets measured for them is an accent that is not on the frame.
- * Closing that one needs a picture, not a row in a table.
+ * this pass, and it is the loudest thing a decoration reaches for.
+ *
+ * ── The third answer: a surface nobody in this process has opened ────────────
+ *
+ * The row above used to end "closing that one needs a picture, not a row in a
+ * table", and it was wrong about which row. A PHOTOGRAPH cannot be measured and
+ * it can be BOUNDED, which is a thing this file has done since the first export:
+ * an `image` GROUND is measured at the two extremes a veil can composite an
+ * unknown picture to, black and white, and the veil rises until both ends clear.
+ * `picture` is that same answer moved one layer in, and it is what closes the gap
+ * `gallery`, `carousel` and `imageFrame` carried — plus the half of the two
+ * picture stages that `solid` never covered. A real export is what made it
+ * urgent: a `heading` over a `photoStage` anchored `full` — the commonest scene a
+ * model writes — measured the panel's BODY and never the picture on it, and white
+ * on the pale wood it crossed came back at 1.68:1 against a floor of 3.
+ *
+ * A value may therefore be a LIST, because a stage paints two surfaces at once:
+ * a lit body, which is a segment `solidShading` measures, and a photograph, which
+ * is a bound. Neither covers the other, and the frame carries both.
  */
 export const FIELD_PAINTS = {
   equalizer: 'accent',
@@ -4496,22 +4761,36 @@ export const FIELD_PAINTS = {
   globe: 'accent',
   solidScene: 'solid',
   /*
-   * The two picture stages, and the row is only half of what they paint.
+   * The two picture stages, and they paint TWO surfaces rather than one.
    *
    * Their BODIES — the rim, the mount, the case, the back of a card — are
    * `palette.solid`, lit by the same two-light rig as a solid, so every face of
    * them lies on the segment `solidShading` measured and `fieldColors` samples
-   * its two ends. That half is closed.
+   * its two ends.
    *
-   * The other half is the PHOTOGRAPH, and it is the honest gap `gallery`,
-   * `carousel` and `imageFrame` already carry: nobody in this process has opened
-   * the picture, so a heading standing on one of these fields is measured against
-   * an ink the frame may not contain. Naming `solid` rather than leaving them to
-   * the default is what makes the measurable half measured — the default would
-   * sample the accent, which a body painted at `ambient × material` is not.
+   * And the PHOTOGRAPH they carry, which is the half that shipped unmeasured and
+   * the reason `picture` exists. `solid` alone said "the body of the panel", and
+   * a title stands on the PICTURE — the panel is what holds it up. The witness is
+   * the plainest scene in the catalogue: a `heading` over a `photoStage` anchored
+   * `full`, white type crossing pale wood at 1.68:1 with the display floor at 3.
+   * Naming both is the whole fix, and the order is the paint order.
    */
-  photoStage: 'solid',
-  photoRing: 'solid',
+  photoStage: ['solid', 'picture'],
+  photoRing: ['solid', 'picture'],
+  /*
+   * The three flat media blocks, and the gap this file named for two passes
+   * before it closed it.
+   *
+   * A grid of stills, a strip of them and one framed picture paint PHOTOGRAPHS
+   * and nothing else — `imageFrame` adds an opaque panel under a `card`, which is
+   * `theme.surface` and therefore already the panel run's own surface. Left to
+   * `DEFAULT_FIELD_PAINT` they were measured as an accent no pixel of the frame
+   * carried, which is the same defect `solidScene` had and the same one the
+   * boolean version of this table had for everybody.
+   */
+  gallery: 'picture',
+  carousel: 'picture',
+  imageFrame: 'picture',
   // Lit boxes in `palette.solid`, so the same segment a solid is measured on:
   // every face lies between `material × ambient` and `material`, and two ends
   // measure everything between them. Its LABELS are flat type on the ground and
@@ -4561,10 +4840,26 @@ export const FIELD_PAINTS = {
  * distinct key, and two scenes that paint the same two surfaces in the other
  * order are one search, not two.
  */
-export const FIELD_PAINT_KINDS = ['accent', 'solid', 'type']
+export const FIELD_PAINT_KINDS = ['accent', 'solid', 'type', 'picture']
 
 /** The one a kind that names none is measured as. See `FIELD_PAINTS`. */
 export const DEFAULT_FIELD_PAINT = 'accent'
+
+/**
+ * The paint that is not a colour: a surface nobody in this process has opened.
+ *
+ * Named rather than compared inline, because three functions ask the same
+ * question of it and each of them asks it for a different reason — `fieldColors`
+ * has no colour to give, `fieldedGround` turns it into a veil rather than a tint,
+ * and `composedPalette` publishes the two densities apart because of it.
+ */
+export const UNKNOWN_FIELD_PAINT = 'picture'
+
+/** What a kind paints, always as a list. A string is one paint; a list is a stage. */
+function paintsOf(kind) {
+  const named = Object.hasOwn(FIELD_PAINTS, kind) ? FIELD_PAINTS[kind] : DEFAULT_FIELD_PAINT
+  return Array.isArray(named) ? named : [named]
+}
 
 /**
  * Which surfaces this scene paints UNDER its stack — empty when it paints none.
@@ -4594,8 +4889,7 @@ export function fieldPaints(scene) {
       over = true
       continue
     }
-    const kind = String(layer?.kind ?? '')
-    paints.add(Object.hasOwn(FIELD_PAINTS, kind) ? FIELD_PAINTS[kind] : DEFAULT_FIELD_PAINT)
+    for (const paint of paintsOf(String(layer?.kind ?? ''))) paints.add(paint)
   }
   return over ? FIELD_PAINT_KINDS.filter((paint) => paints.has(paint)) : []
 }
@@ -4624,21 +4918,96 @@ export function stackedField(scene) {
  * paint, which is the accent for five of them and a lit solid's two ends for the
  * sixth. This function measures whatever it is handed; deciding what a field is
  * made of belongs to `FIELD_PAINTS`, one screen up.
+ *
+ * ── A PHOTOGRAPH IS NOT A COLOUR, SO IT IS MEASURED AT ITS TWO ENDS ──────────
+ *
+ * `unknown` is the field that carries pictures, and the answer for it is the one
+ * this file has given since its first export: a surface nobody in this process
+ * has opened cannot be measured and CAN be bounded, at the darkest and the
+ * lightest thing it could possibly be. `surfaceRange` does that for an `image`
+ * GROUND through the veil; here the same pair arrives as two tint layers — black
+ * at the field's density and white at the field's density — so a glyph is
+ * measured against both ends of every photograph that could ever be handed to
+ * this scene.
+ *
+ * Two ends and no `FIELD_RAMP`, unlike every other paint. A `map` draws its dots
+ * at full strength and its links at a fraction, so what it puts on the frame runs
+ * the whole way from the ground to the accent; a photograph is an opaque picture
+ * at ONE opacity, and what varies inside it is content, which black and white
+ * already bracket.
+ *
+ * And two LAYERS rather than an alpha on the ground, which was the first version
+ * of this fix and is wrong wherever a field paints two things. A `photoStage`
+ * puts a lit body AND a picture on the frame, beside each other; taking the
+ * picture out of the ground's alpha veils the BODY through the picture as well,
+ * and the pair composed down to a density of 0.24 on a scene where 0.4 carries
+ * every run. Two grounds in one list is a union; an alpha is a product.
+ *
+ * ── What cedes, and the trade that decides it ────────────────────────────────
+ *
+ * Ceding density FANTOMISES the picture: at the last rung a photograph is a
+ * quarter of itself over the ground's own colour, which is a scene about a wash.
+ * A band drawn over it to carry the words fails the other way, and this file has
+ * that export too — a `lowerThird` alone over a photograph came back as a card
+ * hiding three fifths of it. Between the two the density wins, for `FIELD_ALPHAS`'s
+ * own reason: a decoration cedes to a word, and density is the only lever a
+ * picture has. What settles the trade is the rung it actually lands on, and that
+ * is a measurement rather than a hope: on the dozen real directions
+ * `composition.test.js` sweeps, a stack over a picture field composes at 0.4 —
+ * MORE of the photograph than the same theme keeps on an `image` BACKGROUND,
+ * whose veil `legibleOn` walks from `COMPOSED_IMAGE_VEIL` up to 0.7 to carry the
+ * same two runs. This feature has shipped photographs at three tenths since its
+ * first export and nobody has called them ghosts. The rung under this one is the
+ * honest price of white type over a white photograph, which no arithmetic
+ * anywhere makes legible while leaving the picture alone.
+ *
+ * The veil is LOCKED for an unknown field, and that is not a detail. A picture
+ * block is painted OVER the ground and over the ground's own veil, so raising
+ * that veil buys a run standing on the picture exactly nothing —
+ * `sharedSurface` would publish a contrast the frame does not have. The levers
+ * left are the ink, which `legibleOn` still walks in full, and the density, which
+ * is the ladder this function is.
  */
-function fieldedGround(ground, requests, inks, colors) {
+function fieldedGround(ground, requests, inks, colors, unknown = false, ornament = null) {
   const own = Array.isArray(ground.tint) ? ground.tint : ground.tint ? [ground.tint] : []
   const painted = (alpha) => colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: alpha * step })))
-  const resolve = (tint, alpha) => sharedSurface(ground.color, ground.alpha, requests(), inks, [...tint, ...painted(alpha)])
-
+  // The two ends of an unopened picture, at the density the zone is painted at.
+  const pictured = (alpha) => (unknown ? [INK_FLOOR, INK_LIGHT].map((color) => ({ color, alpha })) : [])
+  const asked = () => (unknown ? requests().map((request) => ({ ...request, lockVeil: true })) : requests())
+  const layers = (tint, alpha) => [...tint, ...painted(alpha), ...pictured(alpha)]
+  const resolve = (tint, alpha) => sharedSurface(ground.color, ground.alpha, asked(), inks, layers(tint, alpha))
+  /*
+   * The ORNAMENT, resolved on the surface that won and never on the ladder.
+   *
+   * A second call rather than a third request, and the difference is the whole
+   * point: a request would join `runs.every(ok)` and step the density down until
+   * a SURTITLE could keep its colour, which is the trade `accentRun`'s locked
+   * veil refuses one layer out — an ornament does not get to fade a photograph.
+   * Resolved after the fact it changes nothing about how dense the field is; it
+   * changes which ink the ornament is, and `accentFirst` is ordered so that the
+   * accent is still the first answer wherever the field leaves it legible.
+   *
+   * `null` is the fixpoint case and it is decided by the caller: an accent run
+   * measured against a field made of the accent resolves to a near-white and
+   * erases the direction. See `composedPalette`.
+   */
+  const answer = (tint, alpha, surface) => ({
+    surface,
+    alpha,
+    tint,
+    ornament: ornament
+      ? sharedSurface(ground.color, ground.alpha, [ornament], inks, layers(tint, alpha)).runs[0]
+      : null,
+  })
 
   for (const tint of [own, []]) {
     for (const alpha of FIELD_ALPHAS) {
       const resolved = resolve(tint, alpha)
-      if (resolved.runs.every((run) => run.ok)) return { surface: resolved, alpha, tint }
+      if (resolved.runs.every((run) => run.ok)) return answer(tint, alpha, resolved)
     }
   }
   const faintest = FIELD_ALPHAS[FIELD_ALPHAS.length - 1]
-  return { surface: resolve([], faintest), alpha: faintest, tint: [] }
+  return answer([], faintest, resolve([], faintest))
 }
 
 /**
@@ -4682,10 +5051,16 @@ function fieldRequest(field) {
  * thickness is too: a scene that stacks a wave, a torus and an extruded line
  * measures four colours rather than six, and the ramp `fieldedGround` builds over
  * them is a third shorter for it.
+ *
+ * A `picture` contributes NOTHING here, and the omission is the point rather than
+ * a gap: it is the one paint that is not a colour, so it is measured as an alpha
+ * instead — see `fieldedGround`. A stage that paints both still contributes its
+ * body, which is why the two are separate rows of `FIELD_PAINTS` and not one.
  */
 function fieldColors(paints, { accent, display, theme, solid }) {
   const colors = []
   for (const paint of paints) {
+    if (paint === UNKNOWN_FIELD_PAINT) continue
     const painted =
       paint === 'solid'
         ? [solid.color, scaleColor(solid.color, solid.ambient)]
@@ -4718,12 +5093,19 @@ export function composedPalette(theme, background, { field = false } = {}) {
    * `inkCandidates` is ordered to avoid: a generic white clears every threshold
    * and erases the art direction.
    *
-   * So the ornament is measured against the ground it is painted ON, exactly as
-   * before, and the words painted OVER it are measured against ground plus
+   * So the ornament is measured against the ground it is painted ON — the
+   * TEXTURE's ornament, the material of a solid, the ink `fieldColors` hands the
+   * field — and the words painted OVER it are measured against ground plus
    * ornament. Which leaves one honest gap, named here rather than hidden: accent
    * TEXT — a `kicker` — anchored over a field of the same accent is not measured
    * against it. It is the one run whose colour is the point, so the alternative is
    * the grey frame above.
+   *
+   * That gap is the ONE case, and for two passes the code had it as the general
+   * one: a `kicker` over a field painted in anything else was measured on the bare
+   * ground too, and came back at 1.03:1 on a photograph. The ornament a scene
+   * PUBLISHES is resolved further down, against the field, whenever the field's
+   * colours do not contain it — `ornament` and `ink`, below.
    */
   const text = () => [{ threshold: CONTRAST_MIN_LARGE }, { threshold: CONTRAST_MIN, quiet: COMPOSED_BODY_QUIET }]
   const requests = () => [...text(), accentRun(theme)]
@@ -4769,6 +5151,44 @@ export function composedPalette(theme, background, { field = false } = {}) {
    * runs come from the plain resolution for the same reason the accent's does.
    */
   const paints = fieldRequest(field)
+  // Whether anything under the stack is a PHOTOGRAPH — a surface this process has
+  // not opened and cannot open. It changes which door the field enters the
+  // measurement through, not whether it enters: see `fieldedGround`.
+  const unknown = paints.includes(UNKNOWN_FIELD_PAINT)
+  const fieldInk = fieldColors(paints, { accent, display: plain.runs[0], theme, solid })
+  /*
+   * Whether the ORNAMENT is measured against the field, and the gap this closes.
+   *
+   * The paragraph above says the accent is deliberately not among the fielded
+   * requests, and the reason it gives is a FIXPOINT: an accent measured against a
+   * field painted in the accent cannot clear against itself, falls through to a
+   * near-white, and the frame comes back with the direction's colour gone. That
+   * argument is exactly as wide as its premise, and the code was wider — the
+   * ornament was measured on the bare ground under EVERY field, including the
+   * ones that carry no accent at all.
+   *
+   * Four rendered frames are what found it. A `kicker` over a `gallery` anchored
+   * `full` measured 1.03:1 at the pixel, over a `carousel` 2.46:1, over a
+   * `waveMesh` 1.36:1, over a `solidChart`'s plinth 1.27:1 — a surtitle in the
+   * accent standing on a photograph, on a lit sheet and on a lit slab, none of
+   * which is the accent. The floor is 3.
+   *
+   * The question to ask is not whether the field is the same COLOUR — it is
+   * whether the field READS THIS RUN. `globe`, `equalizer`, `soundWave`, `map`
+   * and the two flat charts paint `palette.accent` itself, so republishing that
+   * run in a fallback ink repaints the field in it, and the frame comes back with
+   * grey bars behind a grey headline: the surface measured and the surface
+   * painted are no longer the same object. `extrudedType` is in that list through
+   * its thickness, which is `FIELD_PAINTS`'s `type`.
+   *
+   * A `solid` field is NOT, and that is the half a colour test would have got
+   * wrong: `waveMesh`, `solidScene`, `solidChart` and the two picture stages read
+   * `palette.solid`, whose material is resolved from the PLAIN accent above and
+   * never republished. Their colour cannot move when this run does, so there is
+   * no loop to protect them from — only a surtitle at 1.36:1 on a lit sheet.
+   */
+  const reads = paints.includes('accent') || paints.includes('type')
+  const ornament = paints.length && !reads ? accentRun(theme) : null
   const surface = paints.length
     ? fieldedGround(
         ground,
@@ -4781,10 +5201,22 @@ export function composedPalette(theme, background, { field = false } = {}) {
         // the right one — a full-frame line of type in the display ink with a
         // heading stacked on it walks the whole density ladder, because those two
         // really cannot both be read.
-        fieldColors(paints, { accent, display: plain.runs[0], theme, solid }),
+        fieldInk,
+        unknown,
+        ornament,
       )
-    : { surface: plain, alpha: 1, tint: plain.on.tint }
+    : { surface: plain, alpha: 1, tint: plain.on.tint, ornament: null }
   const measured = surface.surface
+  /*
+   * The ornament the palette PUBLISHES: the one measured against the field when
+   * there is a field it does not paint, and the plain one everywhere else.
+   *
+   * Two things keep reading `accent` above rather than this: `solidShading`'s
+   * material and `fieldColors`'s list, both of which describe what the field is
+   * MADE of. A colour taken from the pass that measures the field would be a
+   * fixpoint, which is the same sentence three objects in this function share.
+   */
+  const ink = surface.ornament ?? accent
   // The card, resolved on its own surface: it is opaque `theme.surface`, so a
   // photograph or a ramp behind it changes nothing about what a glyph on it
   // lands on. Folding it into the ground would darken a whole frame to give a
@@ -4812,7 +5244,7 @@ export function composedPalette(theme, background, { field = false } = {}) {
     groundTint: surface.tint,
     display: measured.runs[0],
     body: measured.runs[1],
-    accent,
+    accent: ink,
     /*
      * How dense a `full` zone is painted. 1 unless something stands on it — see
      * `FIELD_ALPHAS`.
@@ -4822,6 +5254,12 @@ export function composedPalette(theme, background, { field = false } = {}) {
      * block that had to be told it was a field would be a rule every future block
      * has to remember, and the one it forgets is the one that ships a heading
      * nobody can read. The zone is where `full` means anything at all.
+     *
+     * It is also the only lever a PHOTOGRAPH has, which is why the same number
+     * carries both: a picture cannot change colour to be told apart from a word,
+     * so what it gives up is how much of it is on the frame. The arithmetic is in
+     * `fieldedGround` — the density and the ground's veil are one quantity read
+     * from the two ends.
      */
     field: { alpha: surface.alpha },
     // The lit solid's two numbers, resolved above from the ORNAMENT's run and on
@@ -4839,10 +5277,11 @@ export function composedPalette(theme, background, { field = false } = {}) {
     panelText: panel.runs[3],
     fill: fill.on,
     onFill: fill.runs[0],
-    // Two from the surface the words are on, then the ornament from the ground
-    // it is painted on. Sliced rather than spread, because the fielded
-    // resolution is asked for two requests and the plain one for three.
-    runs: [measured.runs[0], measured.runs[1], accent, ...panel.runs, ...fill.runs],
+    // Two from the surface the words are on, then the ornament — from the field
+    // when there is one it does not paint, and from the ground otherwise. Sliced
+    // rather than spread, because the fielded resolution is asked for two
+    // requests and the plain one for three.
+    runs: [measured.runs[0], measured.runs[1], ink, ...panel.runs, ...fill.runs],
   }
 }
 

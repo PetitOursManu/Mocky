@@ -24,14 +24,19 @@ import {
   CHART_BAR_MIN,
   CHART_ELEVATION,
   CHART_LIGHT_CYCLES,
+  GLOBE_ARC_KNIT,
   GLOBE_ARC_LIFT,
+  GLOBE_ARC_STEPS_MAX,
   GLOBE_GRATICULE_STEPS,
+  GLOBE_LAND_ALPHA,
+  GLOBE_LIMB_BAND,
   GLOBE_MAX_TILT,
   GLOBE_MERIDIANS,
   GLOBE_PITCH_PX,
   GLOBE_POINTS_MAX,
   GLOBE_POINTS_MIN,
   GLOBE_RADIUS,
+  GLOBE_RIPPLE_SPAN,
   GLOBE_TURNS,
   SCENE_LIGHT,
   chartLightAt,
@@ -39,9 +44,11 @@ import {
   chartProject,
   chartRowWidth,
   globeArc,
+  globeArcSteps,
   globeArcs,
   globeCanvas,
   globeDotPx,
+  globeFaceRotation,
   globeFacing,
   globeField,
   globeGraticule,
@@ -49,6 +56,7 @@ import {
   globeLattice,
   globeMarkerLight,
   globeMarkerRadius,
+  globeMarkerRipple,
   globeMarkers,
   globeOrientation,
   globePointCount,
@@ -318,6 +326,89 @@ describe('the globe’s markers and its connections', () => {
   })
 
   /**
+   * A MARKER IS NEVER DIMMER THAN THE CONTINENT IT STANDS ON, which is the
+   * defect: the near-side fade was `z`, the cosine of the angle off the line of
+   * sight, so a place halfway to the limb ran at a third of the land's own
+   * strength while being drawn in the land's own ink. Six markers nobody could
+   * find, on a rendered frame.
+   *
+   * The fade belongs at the limb — a marker about to pass behind the globe would
+   * otherwise blink — and `GLOBE_LIMB_BAND` is where it starts: a cosine of 0.3
+   * is the outer twentieth of the projected radius and nothing else.
+   */
+  it('never draws a place fainter than the land it is standing on', () => {
+    const field = globeField(3000)
+    const markers = globeMarkers(field, 8)
+    for (let step = 0; step <= 40; step += 1) {
+      const life = step / 40
+      for (const [i, point] of markers.entries()) {
+        const at = globeMarkerLight(point, 0, 0, life, i)
+        if (!at.shown) continue
+        // Anywhere but the limb band, a marker is at least as loud as the land.
+        if (at.z >= GLOBE_LIMB_BAND) expect(at.light, `${i} @ ${life}`).toBeGreaterThanOrEqual(GLOBE_LAND_ALPHA - 1e-9)
+        expect(at.light).toBeLessThanOrEqual(1 + 1e-9)
+      }
+    }
+    // And it still goes out rather than blinking out: at the silhouette itself
+    // there is nothing left of it.
+    const edge = globeMarkerLight({ x: 0, y: 0, z: 1e-9 }, Math.PI / 2, 0, 0.3, 0)
+    expect(edge.shown).toBe(true)
+    expect(edge.light).toBeLessThan(0.01)
+  })
+
+  /**
+   * THE RIPPLE, which is the distinction a single ink can still make.
+   *
+   * It has to leave the marker as the marker lights — two rhythms for one event
+   * read as two events — so its phase is `markerPulse`'s own, and it has to be
+   * GONE before the next one starts or six places become six targets.
+   */
+  it('sends a ripple out of each marker, in step with its own pulse', () => {
+    for (const index of [0, 1, 5, 7]) {
+      let seen = 0
+      for (let step = 0; step < 60; step += 1) {
+        const at = globeMarkerRipple(step / 60, index)
+        expect(at.at, `${index} @ ${step}`).toBeGreaterThanOrEqual(1)
+        expect(at.at).toBeLessThanOrEqual(GLOBE_RIPPLE_SPAN)
+        expect(at.light).toBeGreaterThanOrEqual(0)
+        expect(at.light).toBeLessThanOrEqual(1)
+        // It fades as it grows: no ripple is both wide and loud.
+        if (at.at > 1 + (GLOBE_RIPPLE_SPAN - 1) * 0.8) expect(at.light).toBeLessThan(0.05)
+        if (at.light > 0.5) seen += 1
+      }
+      expect(seen).toBeGreaterThan(0)
+    }
+    // Two markers are never rippling in step, for `markerPulse`'s own reason.
+    const together = [0, 1, 2, 3].map((i) => Math.round(globeMarkerRipple(0.31, i).at * 1000))
+    expect(new Set(together).size).toBe(4)
+  })
+
+  /**
+   * The ring lies ON the sphere rather than facing the camera, and the claim is
+   * the one thing an Euler triple can get wrong: applied in `three`'s own `XYZ`
+   * order it has to carry the ring's normal, `(0,0,1)`, onto the marker.
+   */
+  it('lays the ripple flat on the surface, wherever the place is', () => {
+    const field = globeField(1500)
+    for (const point of globeMarkers(field, 8)) {
+      const [a, b] = globeFaceRotation(point)
+      // Rx(a)·Ry(b)·(0,0,1), written out — the same composition `poseCorners`
+      // derives one file over, and the reason this is arithmetic and not a
+      // `lookAt`: that is a `three` method and this directory imports none.
+      const turned = {
+        x: Math.sin(b),
+        y: -Math.sin(a) * Math.cos(b),
+        z: Math.cos(a) * Math.cos(b),
+      }
+      expect(turned.x).toBeCloseTo(point.x, 9)
+      expect(turned.y).toBeCloseTo(point.y, 9)
+      expect(turned.z).toBeCloseTo(point.z, 9)
+    }
+    // `Math.abs`, because `atan2(-0, 0)` is `-0` and that is the same angle.
+    expect(globeFaceRotation(undefined).map((v) => Math.abs(v))).toEqual([0, 0, 0])
+  })
+
+  /**
    * A connection follows the sphere rather than cutting through it — a chord
    * between two distant markers passes inside a shell whose far side is not
    * drawn — and it is lifted off the surface so it can be seen at all.
@@ -336,10 +427,57 @@ describe('the globe’s markers and its connections', () => {
     for (const point of globeArc(from, from)) expect(Number.isFinite(point.x)).toBe(true)
   })
 
+  /**
+   * A CONNECTION IS A STROKE AND NOT A SECOND LATTICE, which is the other field
+   * a rendered frame showed nobody could read.
+   *
+   * It is drawn in the land's ink, at the land's size, in the land's own buffer —
+   * so the ONLY thing that tells it from the continents it crosses is that its
+   * points touch. Twenty-six of them did not: a fixed count spread over arcs whose
+   * lengths differ by a factor of six is a row of separated dots on any
+   * connection longer than a country, which is more land. The spacing is what is
+   * held here, and the count is whatever delivers it.
+   */
+  it('spaces a connection so it reads as a stroke rather than as more land', () => {
+    const field = globeField(3000)
+    const markers = globeMarkers(field, 8)
+    for (const [, shape] of BOXES) {
+      const side = globeCanvas(shape, 900)
+      const dot = globeDotPx(side, globePointCount(side))
+      // The world-to-pixel conversion `globeMarkerRadius` makes, the other way.
+      const perWorld = side / (2 * GLOBE_RADIUS)
+      for (let i = 0; i + 1 < markers.length; i += 1) {
+        const steps = globeArcSteps(markers[i], markers[i + 1], side, dot)
+        expect(steps).toBeLessThanOrEqual(GLOBE_ARC_STEPS_MAX)
+        const arc = globeArc(markers[i], markers[i + 1], steps)
+        let widest = 0
+        for (let k = 1; k < arc.length; k += 1) {
+          const a = arc[k - 1]
+          const b = arc[k]
+          widest = Math.max(widest, Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) * GLOBE_RADIUS * perWorld)
+        }
+        // Consecutive points closer than a dot's own width, so the discs overlap
+        // and what the frame carries is one unbroken curve.
+        expect(widest, `${i} on ${side}px`).toBeLessThanOrEqual(dot * GLOBE_ARC_KNIT + 1e-6)
+      }
+    }
+    // A caller with no canvas still draws a trail rather than nothing (Q1).
+    expect(globeArcs(markers, 0, 0, GLOBE_RADIUS, 0.5).length).toBeGreaterThan(0)
+  })
+
+  /**
+   * The travel, at two frames that are NOT a whole number of link cycles apart —
+   * which is the trap this test fell into for one pass. `LINK_PULSES` is 2, so
+   * `life` 0.1 and 0.6 are exactly one cycle apart and the two frames really do
+   * draw the same prefix of the same arcs; the assertion passed on the ULP that
+   * separated `0.2` from `0.19999999999999996`. `solidSpin`'s lesson, arriving
+   * through the test rather than through the code.
+   */
   it('travels: the arcs drawn on one frame are not the arcs drawn on the next', () => {
     const markers = globeMarkers(globeField(3000), 5)
-    const early = globeArcs(markers, 0, 0, GLOBE_RADIUS, 0.1)
-    const later = globeArcs(markers, 0, 0, GLOBE_RADIUS, 0.6)
+    const canvas = { side: 900, dot: 6 }
+    const early = globeArcs(markers, 0, 0, GLOBE_RADIUS, 0.1, canvas)
+    const later = globeArcs(markers, 0, 0, GLOBE_RADIUS, 0.43, canvas)
     expect(Array.from(early)).not.toEqual(Array.from(later))
   })
 

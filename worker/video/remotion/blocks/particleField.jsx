@@ -125,6 +125,13 @@ export const ParticleField = ({ block, palette, progress, life }) => {
         of the origin is a cloud converging on a point, and a field has no centre
         to converge on. See the legibility note above for why an opacity is free
         here and a second colour would not have been.
+
+        `toneMapped` off, and it is the same class of thing as the colour
+        space: react-three-fiber turns ACES tone mapping ON by default, so an
+        ink chosen by measuring it against a ground comes off the renderer
+        somewhere else - lower at every value, which on a dark ground is less
+        contrast than what was cleared. `shading.js` carries the measurement,
+        and `blocks.test.js` is what keeps the next material from forgetting it.
       */}
       <pointsMaterial
         size={particleSize(count)}
@@ -133,6 +140,7 @@ export const ParticleField = ({ block, palette, progress, life }) => {
         transparent
         depthWrite={false}
         opacity={progress}
+        toneMapped={false}
       >
         {SPRITE_ARGS ? <canvasTexture attach="map" args={SPRITE_ARGS} /> : null}
       </pointsMaterial>

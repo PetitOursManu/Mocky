@@ -24,7 +24,7 @@
  *
  * SURFACE: the ground, through `palette.solid` - the material colour and ambient share `solidShading` resolved. Every panel's body is painted with it; nothing else in this file chooses a colour. Anchored `full` under a stack this block IS a surface, and `FIELD_PAINTS` names it `solid`.
  *
- * LEGIBILITY: This block sets no type. As a surface it is `photoStage`'s case exactly, and the sentence is worth repeating rather than cross-referencing because a block that carries no text is the one whose author stops thinking about contrast: the BODIES are `palette.solid`, the ornament's run resolved on the bare ground and shaded along a Lambert segment both of whose ends were measured, so a heading standing on this field is measured against what the field paints. The PICTURES are the honest gap `gallery` and `carousel` already name — nobody in this process has opened them — and nothing here paints text over one. A caption belongs to a `kicker` in a zone of its own, on a surface somebody computed.
+ * LEGIBILITY: This block sets no type. As a surface it is `photoStage`'s case exactly, and the sentence is worth repeating rather than cross-referencing because a block that carries no text is the one whose author stops thinking about contrast: the BODIES are `palette.solid`, the ornament's run resolved on the bare ground and shaded along a Lambert segment both of whose ends were measured, so a heading standing on this field is measured against what the field paints. The PICTURES are bounded rather than measured, which is the only thing an unopened surface allows: `FIELD_PAINTS` names this block `solid` AND `picture`, and `fieldedGround` puts black and white on the frame at the zone density. Nothing here paints text over one either. A caption belongs to a `kicker` in a zone of its own, on a surface somebody computed.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -69,6 +69,7 @@ import {
   ringPlacement,
   stageEnter,
 } from './stage.js'
+import { litAmbient } from './shading.js'
 
 export const PhotoRing = ({ block, palette, box, base, progress, life, textures }) => {
   const ids = block.imageIds
@@ -78,6 +79,11 @@ export const PhotoRing = ({ block, palette, box, base, progress, life, textures 
   const shapes = ids.map((id) => pictureAspect(textures?.[id], canvas))
   const layout = photoRingLayout(block, shapes, canvas)
   const scale = layout.scale * stageEnter(progress)
+  // The palette's share, in the space this renderer shades in - `solidShading`
+  // measures a multiplier on BYTES and `three` multiplies in linear light, so
+  // the body of a panel was painted two thirds of the way back to its own
+  // material and the light stopped reading as light. See `shading.js`.
+  const ambient = litAmbient(palette.solid.color, palette.solid.ambient)
 
   return (
     <>
@@ -88,8 +94,8 @@ export const PhotoRing = ({ block, palette, box, base, progress, life, textures 
         the ring's tilt never changes, so without it a turning ring is a row of
         pictures changing width.
       */}
-      <ambientLight intensity={palette.solid.ambient * LIGHT_UNIT} />
-      <directionalLight position={STAGE_LIGHT} intensity={(1 - palette.solid.ambient) * LIGHT_UNIT} />
+      <ambientLight intensity={ambient * LIGHT_UNIT} />
+      <directionalLight position={STAGE_LIGHT} intensity={(1 - ambient) * LIGHT_UNIT} />
       {/* The lean is the LAYOUT's, never a constant read a second time here: the
           fit sampled the panels at it, and a ring drawn at another one is a
           carousel fitted to a frame it is not in. It opens on a portrait canvas
@@ -110,8 +116,13 @@ export const PhotoRing = ({ block, palette, box, base, progress, life, textures 
                   which is a face brighter than the material colour and therefore
                   outside the segment that was measured. It is also the cheaper
                   shader, on the block of this family that draws the most of them.
+
+                  `toneMapped` off: react-three-fiber turns ACES tone mapping
+                  on by default, so this body came off the renderer at a value
+                  the palette never measured - and lower, which on a dark ground
+                  is less contrast than what was cleared.
                 */}
-                <meshLambertMaterial color={palette.solid.color} />
+                <meshLambertMaterial color={palette.solid.color} toneMapped={false} />
               </mesh>
               {texture ? (
                 <mesh position={[0, panel.offsetY, panel.faceZ]}>
@@ -121,8 +132,12 @@ export const PhotoRing = ({ block, palette, box, base, progress, life, textures 
                     `photoStage` gives at length: a picture carries its own
                     exposure, and shading it again would animate the brightness of
                     something somebody already lit. The body carries the light.
+                    `toneMapped` off for the same reason it is off on the body: a
+                    photograph put through a tone curve is not the photograph
+                    somebody staged, and the bound `fieldedGround` places on an
+                    unopened picture is a bound on the picture itself.
                   */}
-                  <meshBasicMaterial map={texture} />
+                  <meshBasicMaterial map={texture} toneMapped={false} />
                 </mesh>
               ) : null}
               {/*
@@ -140,7 +155,7 @@ export const PhotoRing = ({ block, palette, box, base, progress, life, textures 
               {texture ? (
                 <mesh position={[0, panel.offsetY, -panel.faceZ]} rotation={[0, BACK_TURN, 0]}>
                   <planeGeometry args={face} />
-                  <meshBasicMaterial map={texture} />
+                  <meshBasicMaterial map={texture} toneMapped={false} />
                 </mesh>
               ) : null}
             </group>

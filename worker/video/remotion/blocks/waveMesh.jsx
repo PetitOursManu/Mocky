@@ -21,7 +21,7 @@
  *
  * SURFACE: the ground, through `palette.solid` - a material colour and an ambient share, resolved by `solidShading`. Anchored `full` under a stack this block IS a surface, and `FIELD_PAINTS` is where that is written down; nothing about it appears below, for the reason the equalizer gives - `full` is what makes a block a field, so the rule lives where `full` means something.
  *
- * LEGIBILITY: No text, and the same extension of the guarantee `solidScene` needed rather than the flat one every other field gets. A Lambert face is `material x (ambient + directional . n.l)` with the two intensities summing to one, so every point of this sheet lies on the segment between `material x ambient` and `material`; contrast against a fixed surface is monotone in luminance on each side of it, so measuring the two ENDS measures the whole sheet. That is what `solidShading` returns and what `fieldColors` samples for this kind. The material is the ORNAMENT's run - the accent, resolved on the bare ground - and never the display ink: a surface painted in the ink of the words standing on it meets them at 1:1 wherever they overlap, which is the founding mistake of the whole legibility section and one a full-frame sheet would repeat at the largest possible scale.
+ * LEGIBILITY: No text, and the same extension of the guarantee `solidScene` needed rather than the flat one every other field gets. A Lambert face is `material x (ambient + directional . n.l)` with the two intensities summing to one, so every point of this sheet lies on the segment between `material x ambient` and `material` - once the share has been converted into the space the renderer shades in and the renderer has been told not to tone-map it, which is `shading.js` and is what this block's own defect report was about; contrast against a fixed surface is monotone in luminance on each side of it, so measuring the two ENDS measures the whole sheet. That is what `solidShading` returns and what `fieldColors` samples for this kind. The material is the ORNAMENT's run - the accent, resolved on the bare ground - and never the display ink: a surface painted in the ink of the words standing on it meets them at 1:1 wherever they overlap, which is the founding mistake of the whole legibility section and one a full-frame sheet would repeat at the largest possible scale.
  *
  * TWO RULES that are not negotiable, because the three guarantees of this
  * feature rest on them:
@@ -64,6 +64,7 @@
  * card in the compose prompt says so. The numbers are in
  * `docs/video-export.md`.
  */
+import { litAmbient } from './shading.js'
 import {
   LIGHT_UNIT,
   WAVE_DEPTH,
@@ -78,6 +79,11 @@ import { useLayoutEffect, useRef } from 'react'
 
 export const WaveMesh = ({ block, palette, progress, life }) => {
   const geometry = useRef(null)
+  // The palette's share, converted into the one this renderer shades with — see
+  // `shading.js`. This is the block the defect was measured on: the whole sheet
+  // spanned 39 levels of luminance out of 255, and the geometry was never what
+  // was wrong with it.
+  const ambient = litAmbient(palette.solid.color, palette.solid.ambient)
 
   useLayoutEffect(() => {
     const sheet = geometry.current
@@ -107,7 +113,7 @@ export const WaveMesh = ({ block, palette, progress, life }) => {
         exists to prevent, arriving through a renderer rather than through a hex
         value.
       */}
-      <ambientLight intensity={palette.solid.ambient * LIGHT_UNIT} />
+      <ambientLight intensity={ambient * LIGHT_UNIT} />
       {/*
         Placed to the side and high rather than over the camera's shoulder, which
         is where `solidScene` puts its light and where this one had it in the
@@ -117,7 +123,7 @@ export const WaveMesh = ({ block, palette, progress, life }) => {
         flat slab with a contour drawn on it. Grazing light is what a relief is
         read by.
       */}
-      <directionalLight position={WAVE_LIGHT} intensity={(1 - palette.solid.ambient) * LIGHT_UNIT} />
+      <directionalLight position={WAVE_LIGHT} intensity={(1 - ambient) * LIGHT_UNIT} />
       {/*
         The arrival is a rake that settles rather than a fade: the sheet swings
         the last few degrees into its tilt as it arrives, which is a camera move
@@ -140,8 +146,18 @@ export const WaveMesh = ({ block, palette, progress, life }) => {
           it passes through is a blend of the ground and the material, which is
           inside the pair `fieldColors` samples for this kind, so arriving costs
           the guarantee nothing.
+
+          `toneMapped` off, which is the other half of the defect this block was
+          reported for: react-three-fiber turns ACES tone mapping on by default,
+          and a curve applied after the light has been computed compresses the
+          whole sheet into the top third of the segment it was measured on.
         */}
-        <meshLambertMaterial color={palette.solid.color} transparent={progress < 1} opacity={progress} />
+        <meshLambertMaterial
+          color={palette.solid.color}
+          transparent={progress < 1}
+          opacity={progress}
+          toneMapped={false}
+        />
       </mesh>
     </>
   )
