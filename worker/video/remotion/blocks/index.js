@@ -36,9 +36,11 @@ import { Counter } from './counter.jsx'
 import { DateStamp } from './dateStamp.jsx'
 import { Equalizer } from './equalizer.jsx'
 import { CodeBlock } from './codeBlock.jsx'
+import { ExtrudedType } from './extrudedType.jsx'
 import { Form } from './form.jsx'
 import { FunTitle } from './funTitle.jsx'
 import { Gallery } from './gallery.jsx'
+import { Globe } from './globe.jsx'
 import { Heading } from './heading.jsx'
 import { ImageFrame } from './imageFrame.jsx'
 import { Kicker } from './kicker.jsx'
@@ -46,14 +48,20 @@ import { LineChart } from './lineChart.jsx'
 import { LogoType } from './logoType.jsx'
 import { LowerThird } from './lowerThird.jsx'
 import { WorldMap } from './map.jsx'
+import { DepthGrid } from './depthGrid.jsx'
 import { Notification } from './notification.jsx'
+import { ParticleField } from './particleField.jsx'
+import { PhotoRing } from './photoRing.jsx'
+import { PhotoStage } from './photoStage.jsx'
 import { ProgressBar } from './progressBar.jsx'
 import { Quote } from './quote.jsx'
 import { Separator } from './separator.jsx'
+import { SolidChart } from './solidChart.jsx'
 import { SolidScene } from './solidScene.jsx'
 import { SoundWave } from './soundWave.jsx'
 import { TextHighlight } from './textHighlight.jsx'
 import { Typewriter } from './typewriter.jsx'
+import { WaveMesh } from './waveMesh.jsx'
 
 /**
  * Every block kind the schema can name, and the component that draws it.
@@ -92,15 +100,23 @@ export const BLOCKS = {
   equalizer: Equalizer,
   soundWave: SoundWave,
   map: WorldMap,
+  globe: Globe,
+  solidChart: SolidChart,
   imageFrame: ImageFrame,
   gallery: Gallery,
   carousel: Carousel,
   clock: Clock,
   dateStamp: DateStamp,
+  photoStage: PhotoStage,
+  photoRing: PhotoRing,
   separator: Separator,
   progressBar: ProgressBar,
   codeBlock: CodeBlock,
   solidScene: SolidScene,
+  extrudedType: ExtrudedType,
+  particleField: ParticleField,
+  waveMesh: WaveMesh,
+  depthGrid: DepthGrid,
 }
 
 /**

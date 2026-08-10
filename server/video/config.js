@@ -20,6 +20,44 @@ import crypto from 'node:crypto'
 export const ACCESS_MODES = ['all', 'allowlist']
 
 /**
+ * Who may put a 3D block in a film — and why this one default is NOT the closed
+ * one, in a file whose header says the defaults are the most closed available.
+ *
+ * The rule that header states is about a feature nothing on the instance has
+ * agreed to yet. This is not that: it is a NARROWING of a permission that is
+ * already closed one level up. `videoThreeDEnabledFor` asks `videoEnabledFor`
+ * first, so "all" here does not mean every account on the instance — it means
+ * every account an administrator already put on Motion's own list, or an
+ * instance where they deliberately opened Motion to everyone. A second closed
+ * default would be the same door locked twice, and the second lock is the one
+ * nobody knows about.
+ *
+ * Three more reasons, and the third is the one that decided it.
+ *
+ * The cost is a surcharge, not a new bill. A render already spends about 4.3 s
+ * of real time per second of film; a lit solid adds about 0.9 s/s, inside the
+ * 1.7 s/s the duration-scaled deadline leaves spare (see
+ * `tests/video-render-budget.test.js`). That is a fifth more of something
+ * already being paid for — and it is bounded by the layout rather than by an
+ * honour system, because a set piece in a crowded stack does not get expensive,
+ * it gets small.
+ *
+ * `solidScene` shipped, and it is on. A default of `allowlist` with an empty
+ * list would be an upgrade that silently deletes a block from every instance
+ * that already renders films with it. The first symptom is a compose prompt that
+ * has quietly stopped offering it, which reads as a regression rather than as a
+ * policy, and nobody connects it to a setting they have never seen.
+ *
+ * And the accounting rule is untouched, which is what made the closed default
+ * unnecessary rather than merely inconvenient: renders still appear against a
+ * name, because the list that names people is the one above this.
+ *
+ * An administrator who is short of CPU switches this to 'allowlist' and the
+ * empty list means nobody, exactly as it does for Motion itself.
+ */
+export const DEFAULT_THREE_D_ACCESS = 'all'
+
+/**
  * Where the worker answers in the topology this repository ships.
  *
  * A default rather than an empty field, because the value is not the
@@ -42,6 +80,12 @@ export function defaultVideoConfig() {
     licenseKey: null,
     access: 'allowlist',
     allowedUserIds: [],
+    // The 3D permission follows the template above rather than inventing one:
+    // the same two modes, the same "a list is replaced, never merged", the same
+    // absence of anything secret. Only the default differs, and
+    // DEFAULT_THREE_D_ACCESS argues that.
+    threeDAccess: DEFAULT_THREE_D_ACCESS,
+    threeDAllowedUserIds: [],
     workerUrl: DEFAULT_WORKER_URL,
   }
 }
@@ -122,6 +166,8 @@ export function mergeVideoConfig(current, patch) {
     licenseKey: secret(p.licenseKey, base.licenseKey ?? null),
     access: ACCESS_MODES.includes(p.access) ? p.access : base.access,
     allowedUserIds: mergeAllowedUserIds(p.allowedUserIds, base.allowedUserIds),
+    threeDAccess: ACCESS_MODES.includes(p.threeDAccess) ? p.threeDAccess : base.threeDAccess,
+    threeDAllowedUserIds: mergeAllowedUserIds(p.threeDAllowedUserIds, base.threeDAllowedUserIds),
     workerUrl: mergeWorkerUrl(p.workerUrl, base.workerUrl),
   }
 }
@@ -135,6 +181,13 @@ export function publicVideoConfig(cfg) {
     hasLicenseKey: Boolean(c.licenseKey),
     access: ACCESS_MODES.includes(c.access) ? c.access : 'allowlist',
     allowedUserIds: Array.isArray(c.allowedUserIds) ? [...c.allowedUserIds] : [],
+    // Same shape as the pair above, and for the same reason: this projection is
+    // what the panel edits, so a field the panel cannot see is a setting an
+    // administrator cannot change. Nothing here is secret — a list of account
+    // ids is what the panel already draws checkboxes from — and the one thing
+    // that IS secret stays a boolean two lines up.
+    threeDAccess: ACCESS_MODES.includes(c.threeDAccess) ? c.threeDAccess : DEFAULT_THREE_D_ACCESS,
+    threeDAllowedUserIds: Array.isArray(c.threeDAllowedUserIds) ? [...c.threeDAllowedUserIds] : [],
     workerUrl: c.workerUrl || null,
   }
 }
@@ -156,6 +209,34 @@ export function videoEnabledFor(cfg, user) {
   const id = typeof user?.id === 'string' ? user.id.trim() : ''
   if (!id) return false
   return Array.isArray(c.allowedUserIds) && c.allowedUserIds.includes(id)
+}
+
+/**
+ * May this account put a 3D block in a film?
+ *
+ * **It asks `videoEnabledFor` first, and that is the load-bearing line.** A 3D
+ * permission granted to an account that cannot export at all is a right to
+ * nothing, and reading the two lists independently is how an instance ends up
+ * with a "yes" nobody can act on and an admin debugging the wrong checkbox. It
+ * also means the two rules the list above earned are inherited rather than
+ * re-argued: the master switch closes this too, and an administrator is still
+ * not allowed on their role alone.
+ *
+ * That inheritance is why the default here is 'all' — see
+ * DEFAULT_THREE_D_ACCESS. The narrowing exists for the instance whose worker is
+ * short of CPU, not for the one that has not decided yet.
+ *
+ * The check is on the DOCUMENT everywhere it is used, never on the interface: a
+ * 3D block reaches the worker through `POST /render`, which a client can call
+ * without ever opening the panel that would have hidden the button.
+ */
+export function videoThreeDEnabledFor(cfg, user) {
+  if (!videoEnabledFor(cfg, user)) return false
+  const c = { ...defaultVideoConfig(), ...(cfg || {}) }
+  if (c.threeDAccess === 'all') return true
+  const id = typeof user?.id === 'string' ? user.id.trim() : ''
+  if (!id) return false
+  return Array.isArray(c.threeDAllowedUserIds) && c.threeDAllowedUserIds.includes(id)
 }
 
 export class VideoConfigStore {
@@ -206,5 +287,9 @@ export class VideoConfigStore {
 
   enabledFor(user) {
     return videoEnabledFor(this.config, user)
+  }
+
+  threeDEnabledFor(user) {
+    return videoThreeDEnabledFor(this.config, user)
   }
 }

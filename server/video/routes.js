@@ -16,6 +16,7 @@ import {
   MAX_TOTAL_DURATION_MS,
 } from './timeline.js'
 import { proposeTimeline } from './compose.js'
+import { threeDBlocksIn, threeDRefusal } from './three-d.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
 import { MAX_WORKER_PAYLOAD_BYTES, payloadBytesFor } from './worker.js'
@@ -143,6 +144,19 @@ export function createVideoRouter({
   const router = express.Router()
 
   /**
+   * May this account put a 3D block in a film?
+   *
+   * One reading of the config, used by the three places that need it, so a door
+   * cannot be opened by being written differently from its neighbour.
+   *
+   * `?.` and `Boolean()` together are the closed direction, deliberately: a
+   * config object without the method — an older store, a partial fake — answers
+   * `undefined`, which is a no. Degrading a permission has to fail shut, and the
+   * one place a missing method must NOT read as "allowed" is a gate.
+   */
+  const mayThreeD = (user) => Boolean(config.threeDEnabledFor?.(user))
+
+  /**
    * Can this account export, and is there anything to export with?
    *
    * The worker is only probed for someone who could actually use it. This route
@@ -161,6 +175,20 @@ export function createVideoRouter({
     res.json({
       enabled,
       worker: workerState,
+      /*
+       * May this account spend a 3D render?
+       *
+       * A BOOLEAN about the account, exactly like `enabled` above it, and never
+       * the list or the mode: which other accounts an administrator ticked is
+       * not this route's business, and `publicView()` — the admin projection —
+       * is where that lives, behind requireAdmin.
+       *
+       * It is here so the panel can leave the 3D button out rather than offer a
+       * control whose only outcome is a 403. That is presentation and nothing
+       * else: the enforcement is on /compose and /render, because a document can
+       * reach /render without this route ever having been called.
+       */
+      threeD: enabled && mayThreeD(req.user),
       /*
        * Will a variant really be derived from the user's picture?
        *
@@ -216,6 +244,28 @@ export function createVideoRouter({
     const brief = typeof req.body?.brief === 'string' ? req.body.brief.trim() : ''
     if (!brief) {
       return res.status(400).json({ error: 'Describe the film you want: a "brief" is required.' })
+    }
+
+    /*
+     * The 3D button, checked against the permission before anything is spent.
+     *
+     * Two different things, and conflating them is the bug this shape avoids:
+     * `threeDAllowed` is what this ACCOUNT may do and decides what the catalogue
+     * OFFERS; `forceThreeD` is what this REQUEST asked for and decides what the
+     * prompt INSISTS on. An account without the permission that sends the flag
+     * is refused here — 403 and not a silent downgrade, because a button that
+     * quietly does nothing is the failure people file as "3D is broken".
+     *
+     * `=== true` rather than a truthy read: `"false"` and `1` both arrive from
+     * hand-made bodies, and a permission is not the place to guess.
+     *
+     * Named, never bare: `threeDRefusal` says who to ask and what the film can
+     * still be made of, which is the module's rule for every refusal.
+     */
+    const forceThreeD = req.body?.forceThreeD === true
+    const threeDAllowed = mayThreeD(req.user)
+    if (forceThreeD && !threeDAllowed) {
+      return res.status(403).json({ error: threeDRefusal([], 'Nothing was proposed.') })
     }
 
     /*
@@ -332,6 +382,12 @@ export function createVideoRouter({
          * copy of it, and the copy that drifts is the one nobody tests.
          */
         template: req.body?.template ?? null,
+        // What the account may spend, and what this request asked for. Read from
+        // the config on every call rather than cached: an administrator who takes
+        // 3D away should have taken it away by the next compose, not by the next
+        // restart.
+        threeD: threeDAllowed,
+        forceThreeD,
         signal: abort.signal,
       })
       // Nobody is on the other end any more. Writing to a socket the client
@@ -382,6 +438,37 @@ export function createVideoRouter({
      * feature's load-bearing guarantee, not a formality.
      */
     const timeline = parsed.data
+
+    /*
+     * A 3D block, from an account that may not spend one.
+     *
+     * **This is the gate, and /compose is not.** A document can reach this route
+     * without ever having passed through the composer: a draft saved last week
+     * from an account that has since been taken off the list, a tab left open
+     * while an administrator narrowed the setting, a client with a hash and
+     * curl, or simply the hand-written editor the panel has always had. Hiding a
+     * button is presentation; refusing the document is the control. It is the
+     * same argument `refusedForPending` makes about images the user discarded.
+     *
+     * Right after the schema and before the pictures, in the order this route
+     * has always used: a check on a document that is not a timeline is
+     * meaningless, and everything below this line touches the disk.
+     *
+     * 403 rather than 400: the document is well formed and nothing about it is
+     * wrong. What is wrong is who is asking, and that is a state an
+     * administrator can change — the message says so, and names the film that
+     * could be rendered instead.
+     */
+    const in3d = threeDBlocksIn(timeline)
+    if (in3d.length && !mayThreeD(req.user)) {
+      return res.status(403).json({
+        error: threeDRefusal(in3d, 'Nothing was queued.'),
+        // Which blocks, as a list, for the same reason `missingImageIds` travels
+        // beside its sentence: a panel that wants to point at the scenes can,
+        // and one that only prints the message loses nothing.
+        threeDBlocks: in3d,
+      })
+    }
 
     /*
      * Every image has to be on disk, checked here and not only at render time.

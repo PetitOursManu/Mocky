@@ -16,8 +16,8 @@ import {
 } from './composition.js'
 import { ThreeCanvas } from '@remotion/three'
 import { blockComponent } from './blocks/index.js'
-import { SOLID_CAMERA } from './blocks/solidScene.jsx'
-import { solidCanvas } from './blocks/setPiece.js'
+import { blockCanvas, sceneCanvasImages } from './blocks/canvases.js'
+import { useStageTextures } from './textures.js'
 
 /**
  * `composed` — a ground, and a stack of typed blocks on it.
@@ -222,6 +222,21 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
   // Where every block goes, worked out where a test can reach it. This file
   // paints the boxes it is handed and decides none of them.
   const layout = composedLayout(scene, width, height)
+  /*
+   * The pictures a GL block stands on, decoded before this scene draws a frame.
+   *
+   * A `<img>` in the DOM is loaded by the browser and composited whenever it is
+   * ready; a texture is an OBJECT a mesh has to be handed, and the panel it goes
+   * on takes the picture's own shape — so a component that rendered before the
+   * decode finished would draw a slab of the wrong dimensions. `useStageTextures`
+   * holds the frame with `delayRender` until they are in AND a render has seen
+   * them; the argument is in that file, and it is the one thing about this family
+   * that a screenshot of one frame would never show.
+   *
+   * Empty for every scene with no such block, which is almost all of them, and
+   * the hook costs one `continueRender` there.
+   */
+  const textures = useStageTextures(sceneCanvasImages(scene), imageSrc)
 
   // A fraction of the short edge on the way out of `composition.js`, pixels here:
   // the movement is arithmetic and the size of the frame is layout.
@@ -254,19 +269,22 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
         // than arriving once: an equalizer, a carousel, the hand of a clock.
         life={progressOf(frame, entry.durationInFrames)}
         images={imageSrc}
+        // The same pictures as GL textures. Only the blocks of the picture-stage
+        // family read it, exactly as only the three media blocks read `images`.
+        textures={textures}
       />
     )
 
     /*
-     * The one block that needs a renderer opened around it.
+     * The blocks that need a renderer opened around them.
      *
-     * `solidScene` returns react-three-fiber intrinsics — `<mesh>`,
-     * `<meshLambertMaterial>` — which are meaningless outside a canvas, and it
-     * imports neither `three` nor `@remotion/three`. That is deliberate and it is
-     * what keeps `blocks/index.js` loadable inside Mocky's own vitest suite,
-     * where those packages are no more installed than Remotion is: a single
-     * import there would take the registry out of the test that proves it
-     * matches the schema in both directions.
+     * A 3D block returns react-three-fiber intrinsics — `<mesh>`,
+     * `<planeGeometry>`, `<meshLambertMaterial>` — which are meaningless outside
+     * a canvas, and it imports neither `three` nor `@remotion/three`. That is
+     * deliberate and it is what keeps `blocks/index.js` loadable inside Mocky's
+     * own vitest suite, where those packages are no more installed than Remotion
+     * is: a single import there would take the registry out of the test that
+     * proves it matches the schema in both directions.
      *
      * So the canvas is opened HERE, next to the frame, the layout and the
      * palette — the three other things a block is handed rather than allowed to
@@ -274,22 +292,54 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
      * GL draw has finished, which a bare react-three-fiber `<Canvas>` does not,
      * and a frame captured before its draw lands is a black square in an mp4.
      *
-     * Sized to the smaller side of the zone it was given and never to the frame:
-     * this is the block whose wasted pixels are measured in render seconds — 0.9
-     * of them per second of film at full frame, against the 1.7 the deadline
+     * WHICH blocks, how large the canvas is and what camera looks into it are
+     * `blocks/canvases.js`'s answer rather than a branch here. This used to read
+     * `if (layer.kind !== 'solidScene')` with a size and a camera imported beside
+     * it, which is one branch per 3D block in a file every block author would
+     * then have to edit.
+     *
+     * Sized to the block's own box and never to the frame: this is the family
+     * whose wasted pixels are measured in render seconds — about 0.9 of them per
+     * second of film for a full-frame lit solid, against the 1.7 the deadline
      * leaves spare.
      */
-    if (layer.kind !== 'solidScene') return drawn
-    const side = solidCanvas(box, layer.size, base)
+    const canvas = blockCanvas(layer, box, base, unit)
+    if (!canvas) return drawn
+    /*
+     * The FLAT half, for the one block that has one.
+     *
+     * `solidChart` sets its captions in DOM over the canvas rather than inside
+     * it, because type in GL is either a font file this container does not carry
+     * or a texture painting glyphs at a size nobody chose — and a caption is a
+     * RUN, sized on the one type scale and measured against the surface it lands
+     * on. So the wrapper is the block's FRAME, the GL surface sits at the top of
+     * it, and the overlay is painted over the whole thing. For every other 3D
+     * block the frame IS the canvas and this changes nothing.
+     */
+    const Overlay = canvas.overlay
+    const surface = (
+      <ThreeCanvas
+        width={canvas.width}
+        height={canvas.height}
+        camera={canvas.camera}
+        // Parallel rather than perspective, when the block says so. It is one
+        // block so far and it is not a taste: a bar chart under a vanishing
+        // point draws two equal values as two different columns.
+        orthographic={canvas.orthographic}
+      >
+        {drawn}
+      </ThreeCanvas>
+    )
     return (
       <div
         key={index}
         style={{
-          width: side,
-          height: side,
+          position: 'relative',
+          width: canvas.frame.width,
+          height: canvas.frame.height,
           flex: '0 0 auto',
-          // The one child with an intrinsic width, and therefore the one that
-          // `stretch` cannot place. A `full` zone has no horizontal edge the
+          // The only children with an intrinsic width, and therefore the ones
+          // that `stretch` cannot place. A `full` zone has no horizontal edge the
           // document chose — `align` is `stretch` there, which stretches a block
           // that has no width of its own and leaves this canvas at the start.
           // A real export showed it: a torus asked for the whole frame drew a
@@ -298,9 +348,50 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
           ...(align === 'stretch' ? { alignSelf: 'center' } : null),
         }}
       >
-        <ThreeCanvas width={side} height={side} camera={SOLID_CAMERA}>
-          {drawn}
-        </ThreeCanvas>
+        {/*
+          The GL surface, painted over its frame when the block says so.
+
+          Only the three FIELDS say so, and the reason is a stopwatch rather than
+          a shape: a field covers its whole box, which at full frame is 2.4 times
+          the pixels the largest solid covers, and a lit sheet at that size spent
+          nearly the whole margin the render deadline leaves. Drawn inside
+          `FIELD_PIXEL_BUDGET` and scaled back up it costs what a solid costs, on
+          three blocks that have nothing on them finer than the gradient across
+          them. Two scales and not one: the backing store is an integer number of
+          pixels and the box is another, so a single rounded factor lands a
+          fraction of a pixel short of the right edge and paints a hairline of
+          the ground down it.
+        */}
+        {canvas.stretch ? (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: canvas.width,
+              height: canvas.height,
+              transformOrigin: 'top left',
+              transform: `scale(${canvas.frame.width / canvas.width}, ${canvas.frame.height / canvas.height})`,
+            }}
+          >
+            {surface}
+          </div>
+        ) : (
+          surface
+        )}
+        {Overlay ? (
+          <Overlay
+            block={layer}
+            palette={palette}
+            theme={theme}
+            box={box}
+            unit={unit}
+            base={base}
+            progress={motion.layers[index] ?? 1}
+            life={progressOf(frame, entry.durationInFrames)}
+            images={imageSrc}
+          />
+        ) : null}
       </div>
     )
   }

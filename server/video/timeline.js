@@ -99,6 +99,13 @@ export const BLOCK_LIMITS = {
   galleryImages: 6,
   carouselImagesMin: 2,
   carouselImages: 8,
+  // A stage holds one picture or two — the face and what is on the back; a ring
+  // holds three to six. Three and not two: two panels on a ring are a card
+  // turning over, which is `photoStage`'s own move. See timeline.ts.
+  stageImagesMin: 1,
+  stageImages: 2,
+  ringImagesMin: 3,
+  ringImages: 6,
   clockLabel: 24,
   dateStamp: 30,
   progressLabel: 24,
@@ -111,6 +118,14 @@ export const BLOCK_LIMITS = {
   codeLines: 10,
   codeLine: 64,
   codeCaption: 30,
+  extrudedType: 24,
+
+  // The two fields in volume that count something. Both ceilings are measured
+  // and the numbers are in `docs/video-export.md`. See timeline.ts.
+  particlesMin: 60,
+  particles: 600,
+  gridLinesMin: 5,
+  gridLines: 16,
 }
 
 /** Where a block sits: a zone of the frame, never a coordinate. See timeline.ts. */
@@ -132,11 +147,15 @@ export const BLOCK_FAMILIES = {
   text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
   animatedText: ['typewriter', 'animatedList', 'counter', 'logoType'],
   interface: ['button', 'form', 'notification', 'lowerThird'],
-  data: ['barChart', 'lineChart', 'equalizer', 'soundWave', 'map'],
-  media: ['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp'],
+  // `globe` and `solidChart` are DATA rather than set pieces, and it is about
+  // where a model looks rather than what they cost. See timeline.ts.
+  data: ['barChart', 'lineChart', 'equalizer', 'soundWave', 'map', 'globe', 'solidChart'],
+  media: ['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp', 'photoStage', 'photoRing'],
   misc: ['separator', 'progressBar'],
-  /** The two blocks that cost a scene rather than a corner of one. See timeline.ts. */
-  setPiece: ['codeBlock', 'solidScene'],
+  /** The three blocks that cost a scene rather than a corner of one. See timeline.ts. */
+  setPiece: ['codeBlock', 'solidScene', 'extrudedType'],
+  /** The three that are a SPACE rather than a thing standing in one. See timeline.ts. */
+  field: ['particleField', 'waveMesh', 'depthGrid'],
 }
 
 /** Every block kind, flattened. The discriminator of the layer union. */
@@ -148,6 +167,7 @@ export const BLOCK_KINDS = [
   ...BLOCK_FAMILIES.media,
   ...BLOCK_FAMILIES.misc,
   ...BLOCK_FAMILIES.setPiece,
+  ...BLOCK_FAMILIES.field,
 ]
 
 /** How a `funTitle` treats its line. Five looks; Skia was measured and refused. See timeline.ts. */
@@ -158,6 +178,18 @@ export const SOLIDS = ['cube', 'prism', 'sphere', 'torus']
 
 /** How a `solidScene` turns. A named move, never an axis and never an angle. */
 export const SPINS = ['tumble', 'turn', 'rock']
+
+/** What a picture stands in on a `photoStage` or a `photoRing`. A shape, never a size. See timeline.ts. */
+export const STAGE_FRAMES = ['plain', 'card', 'device']
+
+/** How a `photoStage` moves. No `static`: this family exists to move. See timeline.ts. */
+export const STAGE_MOVES = ['orbit', 'turn', 'sway']
+
+/** How thick an `extrudedType` is, as a share of its own type size. See timeline.ts. */
+export const EXTRUDED_DEPTHS = ['shallow', 'medium', 'deep']
+
+/** How an `extrudedType` moves. Small amplitudes: a word seen edge-on is a bar. See timeline.ts. */
+export const EXTRUDED_SPINS = ['sway', 'tilt', 'float']
 
 /** What a `codeBlock` line is for. Three measured runs, so three roles. See timeline.ts. */
 export const CODE_ROLES = ['plain', 'accent', 'muted']
@@ -431,6 +463,20 @@ export const MapBlockSchema = block('map', {
   connections: z.boolean().default(true),
 })
 
+/** The same world on a sphere, and the same three fields as the flat map. See timeline.ts. */
+export const GlobeBlockSchema = block('globe', {
+  region: z.enum(['world', 'europe', 'americas', 'asia', 'africa']).default('world'),
+  markers: bounded(0, BLOCK_LIMITS.mapMarkers).default(3),
+  connections: z.boolean().default(true),
+})
+
+/** A column chart with volume, drawn under a parallel projection. See timeline.ts. */
+export const SolidChartBlockSchema = block('solidChart', {
+  values: z.array(bounded(0, 100)).min(BLOCK_LIMITS.barValuesMin).max(BLOCK_LIMITS.barValues),
+  labels: z.array(line(BLOCK_LIMITS.barLabel)).max(BLOCK_LIMITS.barValues).nullable().default(null),
+  plinth: z.boolean().default(true),
+})
+
 export const ImageFrameBlockSchema = block('imageFrame', {
   imageId,
   move: z.enum(KEN_BURNS).default('zoom-in'),
@@ -445,6 +491,25 @@ export const GalleryBlockSchema = block('gallery', {
 
 export const CarouselBlockSchema = block('carousel', {
   imageIds: z.array(imageId).min(BLOCK_LIMITS.carouselImagesMin).max(BLOCK_LIMITS.carouselImages),
+  direction: z.enum(['left', 'right']).default('left'),
+})
+
+/**
+ * A picture standing in real perspective, and several of them on a carousel.
+ *
+ * `imageIds` and never a second key for the back face: `timelineImageIds` walks
+ * `imageId` and `imageIds` and nothing else, so a third spelling would name a
+ * picture nobody staged and nobody authorised. See timeline.ts.
+ */
+export const PhotoStageBlockSchema = block('photoStage', {
+  imageIds: z.array(imageId).min(BLOCK_LIMITS.stageImagesMin).max(BLOCK_LIMITS.stageImages),
+  frame: z.enum(STAGE_FRAMES).default('card'),
+  move: z.enum(STAGE_MOVES).default('orbit'),
+})
+
+export const PhotoRingBlockSchema = block('photoRing', {
+  imageIds: z.array(imageId).min(BLOCK_LIMITS.ringImagesMin).max(BLOCK_LIMITS.ringImages),
+  frame: z.enum(STAGE_FRAMES).default('plain'),
   direction: z.enum(['left', 'right']).default('left'),
 })
 
@@ -497,6 +562,55 @@ export const SolidSceneBlockSchema = block('solidScene', {
   size: z.enum(['small', 'medium', 'large']).default('medium'),
 })
 
+/**
+ * A line of type with real thickness. The second block drawn by a renderer, and
+ * it costs no new dependency: drei's `<Text3D>` was measured at +118.9 MiB and
+ * refused on a font it cannot share with the direction. See timeline.ts.
+ */
+export const ExtrudedTypeBlockSchema = block('extrudedType', {
+  text: line(BLOCK_LIMITS.extrudedType),
+  level: z.enum(['display', 'title']).default('display'),
+  depth: z.enum(EXTRUDED_DEPTHS).default('medium'),
+  spin: z.enum(EXTRUDED_SPINS).default('sway'),
+})
+
+// ── FIELDS IN VOLUME ─────────────────────────────────────────────────────────
+//
+// Three grounds with a depth to them, drawn by the renderer `solidScene` already
+// brought in. No seed in any of them, deliberately: a seed is the one field
+// through which a document could render differently from itself. See timeline.ts.
+
+/** How a `particleField` moves. A named drift, never a velocity. No `still`. See timeline.ts. */
+export const PARTICLE_DRIFTS = ['rise', 'orbit', 'swarm']
+
+/** How a `waveMesh` swells, and how far it is raked. Named looks, never amplitudes. See timeline.ts. */
+export const WAVE_SWELLS = ['calm', 'swell', 'ripple']
+export const WAVE_TILTS = ['face', 'rake']
+
+/** What a `depthGrid` is, and which way it runs. `tunnel` by default. See timeline.ts. */
+export const GRID_FORMS = ['floor', 'tunnel']
+export const GRID_TRAVELS = ['toward', 'away', 'sway']
+
+export const ParticleFieldBlockSchema = block('particleField', {
+  count: bounded(BLOCK_LIMITS.particlesMin, BLOCK_LIMITS.particles).default(280),
+  drift: z.enum(PARTICLE_DRIFTS).default('rise'),
+})
+
+/**
+ * A lit surface, swelling. The most expensive block in the catalogue, and it is
+ * drawn inside `FIELD_PIXEL_BUDGET` for that reason. See timeline.ts.
+ */
+export const WaveMeshBlockSchema = block('waveMesh', {
+  swell: z.enum(WAVE_SWELLS).default('swell'),
+  tilt: z.enum(WAVE_TILTS).default('rake'),
+})
+
+export const DepthGridBlockSchema = block('depthGrid', {
+  lines: bounded(BLOCK_LIMITS.gridLinesMin, BLOCK_LIMITS.gridLines).default(10),
+  form: z.enum(GRID_FORMS).default('tunnel'),
+  travel: z.enum(GRID_TRAVELS).default('toward'),
+})
+
 export const BlockSchema = z.discriminatedUnion('kind', [
   HeadingBlockSchema,
   KickerBlockSchema,
@@ -516,15 +630,23 @@ export const BlockSchema = z.discriminatedUnion('kind', [
   EqualizerBlockSchema,
   SoundWaveBlockSchema,
   MapBlockSchema,
+  GlobeBlockSchema,
+  SolidChartBlockSchema,
   ImageFrameBlockSchema,
   GalleryBlockSchema,
   CarouselBlockSchema,
   ClockBlockSchema,
   DateStampBlockSchema,
+  PhotoStageBlockSchema,
+  PhotoRingBlockSchema,
   SeparatorBlockSchema,
   ProgressBarBlockSchema,
   CodeBlockSchema,
   SolidSceneBlockSchema,
+  ExtrudedTypeBlockSchema,
+  ParticleFieldBlockSchema,
+  WaveMeshBlockSchema,
+  DepthGridBlockSchema,
 ])
 
 const bg = (kind, shape) => z.object({ kind: z.literal(kind), ...shape }).strict()

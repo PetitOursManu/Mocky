@@ -32,7 +32,14 @@ import { solidCanvas } from './blocks/setPiece.js'
 // these are what decide where it lands — asking `composition.js` for both halves of
 // that would be a test agreeing with itself.
 import { barChartLayout, lineChartLayout } from './blocks/dataFigures.js'
+import { solidChartLayout } from './blocks/dataVolume.js'
 import { imageFrameBox } from './blocks/media.js'
+// The worker's own reader, used on the two block corpora below and on nothing
+// else. It is in this sub-project and it holds no React and no Remotion, so it
+// costs this file none of the portability its header is about — see the
+// `describe` beside the corpora for why a fixture nobody validated is worse than
+// no fixture.
+import { validateRenderRequest } from '../validate.js'
 import {
   ANCHORS,
   ANIMATED_BACKGROUNDS,
@@ -108,8 +115,12 @@ import {
   blockShape,
   composedLayout,
   composedPalette,
+  BLOCK_GROUNDS,
+  composedBleed,
   composedFrame,
   composedSafeArea,
+  groundStack,
+  isGround,
   driftRoom,
   compositionIdFor,
   cueFrames,
@@ -2538,6 +2549,101 @@ describe('composedLayout', () => {
   })
 
   /**
+   * A GROUND bleeds, and everything else still does not.
+   *
+   * The export: a `waveMesh` anchored `full`, alone on a 16:9 scene, came back as
+   * a rectangle with 116 px of bare colour down one edge and 74 across the top —
+   * `full` means the safe area, which is right for a chart and wrong for a block
+   * whose whole job is to BE the background. Four claims, because the fix has four
+   * ways of going wrong and three of them are silent.
+   */
+  describe('a ground anchored full', () => {
+    const groundScene = (...kinds) => ({
+      layers: kinds.map((kind) => (kind === 'heading'
+        ? { kind: 'heading', text: 'Bloc', anchor: 'center' }
+        : { kind, anchor: 'full' })),
+    })
+
+    it('is drawn to the frame, plus the room the stack drifts through', () => {
+      for (const [ratio, size] of FRAMES) {
+        for (const kind of BLOCK_GROUNDS) {
+          const { zones } = composedLayout(groundScene(kind), size.width, size.height)
+          const field = zones.find((zone) => zone.anchor === 'full')
+          expect(field.box, `${ratio} ${kind}`).toEqual(composedBleed(size.width, size.height))
+          // And the block really gets it: `stackIn` solves a stack on the box it
+          // was given, so a unit solved elsewhere leaves the ground centred in a
+          // zone it does not fill — which is the same defect eighty pixels along.
+          const drawn = field.layers[0].box
+          expect(drawn.height, `${ratio} ${kind}`).toBe(field.box.height)
+          expect(drawn.width, `${ratio} ${kind}`).toBe(field.box.width)
+        }
+      }
+    })
+
+    it('covers every pixel of the frame at both ends of the drift', () => {
+      for (const [ratio, size] of FRAMES) {
+        const box = composedBleed(size.width, size.height)
+        const room = driftRoom(frameBase(size.width, size.height))
+        // The zone translates with everything else, so the promise has to hold at
+        // `+room` and at `-room` — `composedFrame`'s lesson, from the other side.
+        for (const drift of [-room, room]) {
+          expect(box.top + drift, ratio).toBeLessThanOrEqual(0)
+          expect(box.top + box.height + drift, ratio).toBeGreaterThanOrEqual(size.height)
+        }
+        expect(box.left, ratio).toBe(0)
+        expect(box.left + box.width, ratio).toBe(size.width)
+      }
+    })
+
+    it('keeps the safe box the moment anything shares its zone', () => {
+      // A `full` zone that holds a ground AND something else is divided by
+      // `stackIn`, and dividing a bled frame would put the something else in the
+      // band a feed draws its own interface over.
+      for (const [ratio, size] of FRAMES) {
+        const mixed = { layers: [{ kind: 'waveMesh', anchor: 'full' }, { kind: 'heading', text: 'Bloc', anchor: 'full' }] }
+        const { frame, zones } = composedLayout(mixed, size.width, size.height)
+        const field = zones.find((zone) => zone.anchor === 'full')
+        expect(field.box, ratio).toEqual({ left: frame.left, top: frame.top, width: frame.width, height: frame.height })
+      }
+    })
+
+    it('moves no cell: a run over a bled ground is over the same surface', () => {
+      // The legibility half. `stackedField` measures a run against the field it
+      // stands on, and that stays true without a line of it moving only because
+      // the nine cells are laid out exactly where they were.
+      // The control is a `full` block that does NOT bleed — an `equalizer` is a
+      // field in every other respect — so the only difference between the two
+      // scenes is the bleed itself.
+      for (const [ratio, size] of FRAMES) {
+        const bled = composedLayout(groundScene('waveMesh', 'heading'), size.width, size.height)
+        const flat = composedLayout(groundScene('equalizer', 'heading'), size.width, size.height)
+        for (const anchor of ['center', 'top-left', 'bottom-right']) {
+          const one = composedLayout(groundScene('waveMesh'), size.width, size.height)
+          expect(one.zones.length, ratio).toBe(1)
+          const a = bled.zones.find((zone) => zone.anchor === anchor)
+          const b = flat.zones.find((zone) => zone.anchor === anchor)
+          expect(Boolean(a), `${ratio} ${anchor}`).toBe(Boolean(b))
+          if (a) expect(a.box, `${ratio} ${anchor}`).toEqual(b.box)
+        }
+      }
+    })
+
+    it('names only the three the schema files as fields', () => {
+      // The list is short on purpose and `BLOCK_GROUNDS` argues each exclusion. A
+      // chart bled to the frame is a chart with its axis labels in the feed's own
+      // interface; a photograph bled to the frame is a treatment a document asks
+      // for and never one it gets by naming an anchor.
+      expect([...BLOCK_GROUNDS].sort()).toEqual(['depthGrid', 'particleField', 'waveMesh'])
+      for (const kind of ['barChart', 'gallery', 'imageFrame', 'map', 'equalizer', 'globe', 'solidScene']) {
+        expect(isGround(kind), kind).toBe(false)
+      }
+      // A name off a document is matched, never looked up.
+      expect(isGround('constructor')).toBe(false)
+      expect(groundStack([])).toBe(false)
+    })
+  })
+
+  /**
    * And no two of the nine overlap. `full` is excluded on purpose: it is the field
    * the other nine are drawn ON, which is why it is first in the list and
    * therefore painted first.
@@ -2870,10 +2976,13 @@ describe('composedLayout', () => {
    * that drifted from the type scale would show up here as a block whose box is
    * not what it draws, which is a block floating in its own allotment.
    *
-   * `solidScene` is out of it and the reason is geometric rather than a licence:
-   * it is a SQUARE with a share the document asked for, so it cannot fill the
-   * height of a landscape box at all — its own claim is on the minor axis, and
-   * `blockExtent` is where that is checked.
+   * The ROUND blocks are out of it and the reason is geometric rather than a
+   * licence: a `solidScene` and a `globe` are drawn to one bounding radius, so
+   * neither can fill the height of a landscape box at all — their claim is on the
+   * minor axis, which `fills: 'minor'` is exactly the declaration of, and
+   * `blockExtent` is where it is checked. Read off the weight table rather than
+   * named, so a third round kind cannot arrive with the claim and without the
+   * exemption.
    */
   it('hands a block a box that is exactly what it draws in it', () => {
     for (const [ratio, size] of FRAMES) {
@@ -2886,7 +2995,7 @@ describe('composedLayout', () => {
           }))
           for (const zone of composedLayout({ layers }, size.width, size.height).zones) {
             for (const layer of zone.layers) {
-              if (layer.block.kind === 'solidScene') continue
+              if (BLOCK_APPETITE[layer.block.kind].fills === 'minor') continue
               const drawn = blockExtent(layer.block, layer.box, base, layer.unit)
               expect(drawn.height, `${ratio} ${layer.block.kind} in a stack of ${count}`).toBeCloseTo(layer.box.height, -0.5)
             }
@@ -3004,15 +3113,26 @@ const POOREST = {
   equalizer: { kind: 'equalizer', bars: 4 },
   soundWave: { kind: 'soundWave', samples: 24 },
   map: { kind: 'map', markers: 0 },
+  globe: { kind: 'globe', region: 'world', markers: 0, connections: false },
+  solidChart: { kind: 'solidChart', values: [1, 2], labels: null, plinth: false },
   imageFrame: { kind: 'imageFrame', imageId: 'a'.repeat(64), caption: null },
   gallery: { kind: 'gallery', imageIds: ['a'.repeat(64), 'b'.repeat(64)] },
   carousel: { kind: 'carousel', imageIds: ['a'.repeat(64), 'b'.repeat(64)] },
+  photoStage: { kind: 'photoStage', imageIds: ['a'.repeat(64)], frame: 'plain', move: 'sway' },
+  photoRing: { kind: 'photoRing', imageIds: Array(3).fill('a'.repeat(64)), frame: 'plain', direction: 'left' },
   clock: { kind: 'clock', label: null },
   dateStamp: { kind: 'dateStamp', text: '2026' },
   separator: { kind: 'separator', extent: 'measure' },
   progressBar: { kind: 'progressBar', to: 0, label: null },
   codeBlock: { kind: 'codeBlock', lines: [{ text: 'a' }, { text: 'b' }], caption: null },
   solidScene: { kind: 'solidScene', size: 'medium' },
+  extrudedType: { kind: 'extrudedType', text: 'Go', level: 'title', depth: 'shallow', spin: 'sway' },
+  // The three fields carry no text at all, so their poorest and their longest
+  // differ only in what they count. That is the point of them: a field is the
+  // surface the type stands on.
+  particleField: { kind: 'particleField', count: 60, drift: 'rise' },
+  waveMesh: { kind: 'waveMesh', swell: 'calm', tilt: 'face' },
+  depthGrid: { kind: 'depthGrid', lines: 5, form: 'floor', travel: 'toward' },
 }
 
 /** Words rather than a repeated letter: the wrap estimate breaks between words. */
@@ -3038,18 +3158,76 @@ const LONGEST = {
   equalizer: { kind: 'equalizer', bars: 24 },
   soundWave: { kind: 'soundWave', samples: 96 },
   map: { kind: 'map', markers: 8 },
+  globe: { kind: 'globe', region: 'europe', markers: 8, connections: true },
+  solidChart: { kind: 'solidChart', values: Array(8).fill(50), labels: Array(8).fill(filler(12)), plinth: true },
   imageFrame: { kind: 'imageFrame', imageId: 'a'.repeat(64), caption: filler(70) },
   gallery: { kind: 'gallery', imageIds: Array(6).fill('a'.repeat(64)) },
   carousel: { kind: 'carousel', imageIds: Array(8).fill('a'.repeat(64)) },
+  photoStage: { kind: 'photoStage', imageIds: Array(2).fill('a'.repeat(64)), frame: 'device', move: 'turn' },
+  photoRing: { kind: 'photoRing', imageIds: Array(6).fill('a'.repeat(64)), frame: 'card', direction: 'right' },
   clock: { kind: 'clock', label: filler(24) },
   dateStamp: { kind: 'dateStamp', text: filler(30) },
   separator: { kind: 'separator', extent: 'short' },
   progressBar: { kind: 'progressBar', to: 100, label: filler(24) },
   codeBlock: { kind: 'codeBlock', lines: Array.from({ length: 10 }, () => ({ text: filler(64) })), caption: filler(30) },
   solidScene: { kind: 'solidScene', size: 'small' },
+  extrudedType: { kind: 'extrudedType', text: filler(24), level: 'display', depth: 'deep', spin: 'float' },
+  particleField: { kind: 'particleField', count: 600, drift: 'swarm' },
+  waveMesh: { kind: 'waveMesh', swell: 'ripple', tilt: 'rake' },
+  depthGrid: { kind: 'depthGrid', lines: 16, form: 'tunnel', travel: 'sway' },
 }
 
 const KINDS = Object.keys(BLOCK_APPETITE)
+
+/**
+ * The two corpora are LEGAL documents, and until this ran one of them was not.
+ *
+ * `LONGEST.extrudedType` asked for `spin: 'roll'`, which is not in the enum. The
+ * reader falls back to the default for a name it does not know — which is right,
+ * and which is exactly why nothing failed: every measurement below went on
+ * passing, against a `sway` the fixture had not asked for. A corpus whose whole
+ * job is to be the heaviest thing the schema accepts is worthless if it is
+ * quietly something else, and the enums it draws on are now four blocks' worth
+ * of names that no test compared with anything.
+ *
+ * `validate.js` and not Mocky's schema, deliberately. It is the third reader of
+ * the same contract and it lives in THIS sub-project, so the file's header —
+ * "imports `composition.js` and its contrast mirror, and nothing else on
+ * purpose" — keeps its meaning: no React, no Remotion, nothing outside
+ * `worker/video/`. That the three readers agree about these fields is
+ * `validate.test.js`'s job and not this one's; what is asked here is only
+ * whether the fixture is a document at all.
+ */
+describe('the corpora above', () => {
+  /** One base64 pixel. The bytes never reach a decoder here, only the length check. */
+  const PIXEL =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+
+  it.each([['poorest', POOREST], ['longest', LONGEST]])('is a legal %s document, kind by kind', (label, corpus) => {
+    for (const [kind, block] of Object.entries(corpus)) {
+      const answer = validateRenderRequest({
+        timeline: { template: 'composed', scenes: [{ durationMs: 4000, layers: [block] }] },
+        // Every id the corpus names, so a picture block is not refused for the
+        // one reason this check is not about.
+        images: [...new Set([block.imageId, ...(block.imageIds ?? [])].filter(Boolean))].map((id) => ({
+          id,
+          mime: 'image/png',
+          base64: PIXEL,
+        })),
+      })
+      expect(answer.ok, `${label} ${kind}: ${answer.message ?? ''}`).toBe(true)
+      // And the reader gave back what the fixture ASKED for, field by field: a
+      // value outside an enum is accepted as the default, so "it validates" is
+      // not the same claim as "it is the block written here".
+      expect(answer.timeline.scenes[0].layers[0], `${label} ${kind}`).toMatchObject(block)
+    }
+  })
+
+  it('covers every kind the appetite table names', () => {
+    expect(Object.keys(POOREST).sort()).toEqual([...KINDS].sort())
+    expect(Object.keys(LONGEST).sort()).toEqual([...KINDS].sort())
+  })
+})
 
 /** Boxes of every shape a zone can turn out to be, in all three ratios. */
 const SHAPES = []
@@ -4050,6 +4228,10 @@ describe('un champ plein cadre déclare où il dessine', () => {
       const drawn = imageFrameBox(block, box, unit, base, theme.radiusPx)
       return drawn.caption.band > 0 ? box.top + drawn.height - drawn.margin - drawn.caption.height : null
     }
+    if (block.kind === 'solidChart') {
+      const drawn = solidChartLayout(block, box, { base, unit })
+      return drawn.label.shown ? box.top + drawn.height - drawn.label.height : null
+    }
     return null
   }
 
@@ -4091,6 +4273,7 @@ describe('un champ plein cadre déclare où il dessine', () => {
       barChart: { kind: 'barChart', values: [40, 70, 55], labels: ['Lun', 'Mar', 'Mer'] },
       lineChart: { kind: 'lineChart', values: [10, 40, 30, 60], label: 'Trafic hebdomadaire' },
       imageFrame: { kind: 'imageFrame', imageId: 'a'.repeat(64), caption: 'Le quai, à six heures' },
+      solidChart: { kind: 'solidChart', values: [40, 70, 55], labels: ['Lun', 'Mar', 'Mer'], plinth: true },
     }
     let drawn = 0
     for (const [ratio, size] of FRAMES) {

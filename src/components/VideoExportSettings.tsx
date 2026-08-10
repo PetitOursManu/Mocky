@@ -89,6 +89,11 @@ export default function VideoExportSettings() {
   const [enabled, setEnabled] = useState(false)
   const [access, setAccess] = useState<VideoAccessMode>('allowlist')
   const [allowed, setAllowed] = useState<string[]>([])
+  // The 3D scope is its own pair, not a derived view of the one above: an
+  // instance whose worker is short of CPU opens Motion to everyone and 3D to
+  // three people, which is the whole configuration this setting exists for.
+  const [threeDAccess, setThreeDAccess] = useState<VideoAccessMode>('all')
+  const [threeDAllowed, setThreeDAllowed] = useState<string[]>([])
   const [workerUrl, setWorkerUrl] = useState('')
   const [licenseKey, setLicenseKey] = useState('')
 
@@ -102,6 +107,8 @@ export default function VideoExportSettings() {
     setEnabled(c.enabled)
     setAccess(c.access)
     setAllowed(c.allowedUserIds)
+    setThreeDAccess(c.threeDAccess)
+    setThreeDAllowed(c.threeDAllowedUserIds)
     setWorkerUrl(c.workerUrl || '')
     setLicenseKey('')
     setSaved(false)
@@ -152,6 +159,8 @@ export default function VideoExportSettings() {
         // exist are pruned here, since the checkboxes only cover accounts that
         // still do.
         allowedUserIds: allowed,
+        threeDAccess,
+        threeDAllowedUserIds: threeDAllowed,
         workerUrl: workerUrl.trim() || null,
         // '' would be read as "keep", which is what we want for an untouched
         // field — the key is set only when something was typed.
@@ -175,10 +184,13 @@ export default function VideoExportSettings() {
     }
   }
 
-  function toggleUser(id: string) {
-    setSaved(false)
-    setAllowed((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
+  /** One toggle for both lists: which one it edits is the setter it is given. */
+  const toggleIn =
+    (setList: (fn: (prev: string[]) => string[]) => void) =>
+    (id: string) => {
+      setSaved(false)
+      setList((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+    }
 
   const header = (
     <header className="rule-thin mb-4 border-accent/40 pb-2">
@@ -197,12 +209,18 @@ export default function VideoExportSettings() {
   }
 
   const exposed = exposedAccountCount(access, allowed, users.length)
+  const sameList = (a: string[], b: string[]) => [...a].sort().join(',') === [...b].sort().join(',')
   const dirty =
     enabled !== cfg.enabled ||
     access !== cfg.access ||
+    threeDAccess !== cfg.threeDAccess ||
     licenseKey.length > 0 ||
     (workerUrl.trim() || '') !== (cfg.workerUrl || '') ||
-    [...allowed].sort().join(',') !== [...cfg.allowedUserIds].sort().join(',')
+    !sameList(allowed, cfg.allowedUserIds) ||
+    // The 3D list is in here for the reason every other field is: everything on
+    // this form saves together, and a half-dirty state is how an administrator
+    // walks away certain a list took when only the switch did.
+    !sameList(threeDAllowed, cfg.threeDAllowedUserIds)
 
   return (
     <section>
@@ -232,65 +250,53 @@ export default function VideoExportSettings() {
         />
       </label>
 
-      {/* Scope */}
-      <div className="mt-4 border border-line-soft bg-ink/5 p-3">
-        <Field label={t('video.accessTitle')} hint={t('video.accessHelp')}>
-          {(p) => (
-            <Select
-              {...p}
-              value={access}
-              onChange={(e) => {
-                setAccess(e.currentTarget.value as VideoAccessMode)
-                setSaved(false)
-              }}
-            >
-              {cfg.accessModes.map((mode) => (
-                <option key={mode} value={mode}>
-                  {ACCESS_LABEL_KEYS[mode] ? t(ACCESS_LABEL_KEYS[mode]) : mode}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
+      {/* Who may export */}
+      <AccountScope
+        modes={cfg.accessModes}
+        access={access}
+        onAccess={(mode) => {
+          setAccess(mode)
+          setSaved(false)
+        }}
+        allowed={allowed}
+        onToggle={toggleIn(setAllowed)}
+        users={users}
+        labels={{
+          title: 'video.accessTitle',
+          help: 'video.accessHelp',
+          listTitle: 'video.allowedTitle',
+          empty: 'video.allowedEmpty',
+          allNote: 'video.allowedAllNote',
+        }}
+      />
 
-        {access === 'allowlist' ? (
-          <div className="mt-4">
-            <div className="section-head">
-              <span className="kicker text-accent-ink">{t('video.allowedTitle')}</span>
-              <span className="ml-auto font-mono text-caption text-accent-ink">
-                {t('video.allowedCount', { n: allowed.length, total: users.length })}
-              </span>
-            </div>
-            <ul className="max-h-64 overflow-y-auto border-t border-line-soft">
-              {users.map((u) => (
-                <li key={u.id} className="border-b border-line-soft">
-                  <label className="flex cursor-pointer items-center gap-3 py-2">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-accent"
-                      checked={allowed.includes(u.id)}
-                      onChange={() => toggleUser(u.id)}
-                    />
-                    <span className="text-body text-ink">{u.username}</span>
-                    {u.role === 'admin' && (
-                      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-caption font-semibold uppercase text-accent-ink">
-                        {t('settings.roleAdminShort')}
-                      </span>
-                    )}
-                  </label>
-                </li>
-              ))}
-            </ul>
-            {allowed.length === 0 && (
-              <p className="mt-2 text-caption text-ink-faint">{t('video.allowedEmpty')}</p>
-            )}
-          </div>
-        ) : (
-          <p className="mt-3 text-caption text-ink-faint">
-            {t('video.allowedAllNote', { total: users.length })}
-          </p>
-        )}
-      </div>
+      {/* Who may render in 3D — the same control, because it is the same kind of
+          decision. A second widget with its own vocabulary would be a second
+          thing to learn about a setting that narrows the one above it. */}
+      <AccountScope
+        modes={cfg.accessModes}
+        access={threeDAccess}
+        onAccess={(mode) => {
+          setThreeDAccess(mode)
+          setSaved(false)
+        }}
+        allowed={threeDAllowed}
+        onToggle={toggleIn(setThreeDAllowed)}
+        users={users}
+        labels={{
+          title: 'video.threeDTitle',
+          help: 'video.threeDHelp',
+          listTitle: 'video.threeDAllowedTitle',
+          empty: 'video.threeDAllowedEmpty',
+          allNote: 'video.threeDAllowedAllNote',
+        }}
+        // Stated where the decision is made rather than in a document: the
+        // checkboxes here can only take 3D away from an account that is ticked
+        // ABOVE, and an admin who does not know that ticks a name and reports
+        // that the setting did nothing.
+        footnote="video.threeDNarrowsNote"
+      />
+
 
       {/* The licence reminder. Non-blocking by construction: it says what the
           rule is, it does not claim the administrator is outside it, and nothing
@@ -405,6 +411,92 @@ export default function VideoExportSettings() {
           problem becomes a support thread. */}
       <WorkerStatus health={health} />
     </section>
+  )
+}
+
+/**
+ * One scope control: a mode, and the accounts it names when the mode is a list.
+ *
+ * Extracted because there are two of them now — who may export, and who may
+ * render in 3D — and they are the same decision about the same accounts. Two
+ * copies of this markup would have drifted on the day one of them gained a
+ * search box, and the drift would read as two different kinds of permission.
+ *
+ * Everything it does not decide stays outside: it saves nothing, it knows
+ * nothing about the licence reminder, and it never reads the config. The parent
+ * owns the form, because the whole form saves under one button.
+ */
+function AccountScope({
+  modes,
+  access,
+  onAccess,
+  allowed,
+  onToggle,
+  users,
+  labels,
+  footnote,
+}: {
+  modes: VideoAccessMode[]
+  access: VideoAccessMode
+  onAccess: (mode: VideoAccessMode) => void
+  allowed: string[]
+  onToggle: (id: string) => void
+  users: AdminUser[]
+  /** Translation KEYS, not strings: `useT` only runs inside a component. */
+  labels: { title: string; help: string; listTitle: string; empty: string; allNote: string }
+  footnote?: string
+}) {
+  const t = useT()
+  return (
+    <div className="mt-4 border border-line-soft bg-ink/5 p-3">
+      <Field label={t(labels.title)} hint={t(labels.help)}>
+        {(p) => (
+          <Select {...p} value={access} onChange={(e) => onAccess(e.currentTarget.value as VideoAccessMode)}>
+            {modes.map((mode) => (
+              <option key={mode} value={mode}>
+                {ACCESS_LABEL_KEYS[mode] ? t(ACCESS_LABEL_KEYS[mode]) : mode}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+
+      {access === 'allowlist' ? (
+        <div className="mt-4">
+          <div className="section-head">
+            <span className="kicker text-accent-ink">{t(labels.listTitle)}</span>
+            <span className="ml-auto font-mono text-caption text-accent-ink">
+              {t('video.allowedCount', { n: allowed.length, total: users.length })}
+            </span>
+          </div>
+          <ul className="max-h-64 overflow-y-auto border-t border-line-soft">
+            {users.map((u) => (
+              <li key={u.id} className="border-b border-line-soft">
+                <label className="flex cursor-pointer items-center gap-3 py-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-accent"
+                    checked={allowed.includes(u.id)}
+                    onChange={() => onToggle(u.id)}
+                  />
+                  <span className="text-body text-ink">{u.username}</span>
+                  {u.role === 'admin' && (
+                    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-caption font-semibold uppercase text-accent-ink">
+                      {t('settings.roleAdminShort')}
+                    </span>
+                  )}
+                </label>
+              </li>
+            ))}
+          </ul>
+          {allowed.length === 0 && <p className="mt-2 text-caption text-ink-faint">{t(labels.empty)}</p>}
+        </div>
+      ) : (
+        <p className="mt-3 text-caption text-ink-faint">{t(labels.allNote, { total: users.length })}</p>
+      )}
+
+      {footnote && <p className="measure mt-3 text-caption text-ink-faint">{t(footnote)}</p>}
+    </div>
   )
 }
 

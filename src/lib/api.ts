@@ -224,6 +224,21 @@ export interface VideoExportConfig {
   hasLicenseKey: boolean
   access: VideoAccessMode
   allowedUserIds: string[]
+  /**
+   * Who, among the accounts above, may put a 3D block in a film.
+   *
+   * The same two modes and the same shape, deliberately — a second permission
+   * with a vocabulary of its own is a second thing to learn. It NARROWS the pair
+   * above and never widens it: `videoThreeDEnabledFor` asks `videoEnabledFor`
+   * first, so an account absent from `allowedUserIds` is refused whatever this
+   * list says. That is also why its default is 'all' where Motion's is
+   * 'allowlist' — the closed door is the one above.
+   *
+   * Admin-only, like everything else in this projection: an ordinary account
+   * reads a single boolean off `GET /api/video/status`.
+   */
+  threeDAccess: VideoAccessMode
+  threeDAllowedUserIds: string[]
   workerUrl: string | null
 }
 
@@ -240,6 +255,9 @@ export interface VideoExportConfigPatch {
   licenseKey?: string | null
   access?: VideoAccessMode
   allowedUserIds?: string[]
+  /** Replaced rather than merged, exactly like `allowedUserIds` above. */
+  threeDAccess?: VideoAccessMode
+  threeDAllowedUserIds?: string[]
   workerUrl?: string | null
 }
 

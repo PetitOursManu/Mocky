@@ -15,6 +15,11 @@ import {
   TEMPLATE_LIMITS,
   EDITABLE_TEMPLATES,
 } from './timeline.js'
+import { THREE_D_BLOCKS, FLAT_BLOCKS } from './three-d.js'
+// The picture-needing blocks, read off the schema rather than counted by hand:
+// the sentence under test names them and states how many are left, and a number
+// typed here would drift the first time the catalogue gains one.
+import { PICTURE_BLOCKS } from './compose.js'
 
 const id = (c) => String(c).repeat(64)
 const ID_A = id('a')
@@ -25,6 +30,21 @@ const IMAGES = [
   { id: ID_A, prompt: 'a matte black kettle on a concrete counter', width: 1024, height: 1024 },
   { id: ID_B, prompt: 'the same kettle pouring, steam catching the light', width: 1024, height: 1024 },
 ]
+
+/**
+ * A selection deep enough that NOTHING in the catalogue is withheld, for the two
+ * cases that assert the whole of it.
+ *
+ * `availableBlocks` narrows by how many pictures a block needs, and the floors are
+ * not all the same: a `gallery` wants two and a `photoRing` wants three, because
+ * three panels are a carousel and two are a card seen from both sides. So "the
+ * whole catalogue" is a claim about a selection rather than about the prompt, and
+ * a fixture of two could only ever have asserted "the whole catalogue minus the
+ * blocks that need a third picture". Separate from `IMAGES` because every other
+ * case here is about what a film DOES with two, and a third would change every
+ * notice they check.
+ */
+const IMAGES_DEEP = [...IMAGES, { id: ID_C, prompt: 'the kettle on a shelf beside two cups', width: 1024, height: 1024 }]
 
 /**
  * What a well-behaved model returns now: a film COMPOSED out of blocks, not a
@@ -191,7 +211,10 @@ describe('proposeTimeline — the happy path is a COMPOSED film', () => {
 describe('proposeTimeline — the catalogue of blocks', () => {
   let system
   beforeEach(async () => {
-    await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    // `threeD: true` because this block asserts the WHOLE catalogue, and the
+    // permission defaults to no — see the 3D describe at the bottom of this
+    // file, which asserts the other half.
+    await proposeTimeline('a film about the kettle', IMAGES_DEEP, { llm, threeD: true })
     system = calls[0].system
   })
 
@@ -408,7 +431,10 @@ describe('proposeTimeline — what the selection makes possible', () => {
     // Said as a fact about the request rather than as a restriction: a model
     // that decides the catalogue is wrong answers with a name that is not in it.
     expect(system).toMatch(/no image: nothing was selected/)
-    expect(system).toMatch(/imageFrame, gallery, carousel and the "image" ground need more pictures than are selected/)
+    // The list is `PICTURE_BLOCKS`'s own, in the catalogue's order: a sentence
+    // typed here drifts the first time a block that needs a picture is added,
+    // and the drift would be a model told about a narrowing that has moved.
+    expect(system).toContain(`${PICTURE_BLOCKS.join(', ')} and the "image" ground need more pictures than are selected`)
     // And the offer that remains is named, so the absence reads as a film that
     // can still be cut rather than as a feature that is off.
     expect(system).toMatch(/a film made of type, numbers and motifs is a film/)
@@ -432,11 +458,13 @@ describe('proposeTimeline — what the selection makes possible', () => {
     expect(hintKinds(schema)).not.toContain('gallery')
     expect(hintKinds(schema)).not.toContain('carousel')
     expect(system).toMatch(/copied EXACTLY/)
-    expect(system).toMatch(/gallery, carousel need more pictures than are selected/)
+    // Everything that needs more than the ONE picture selected, which is every
+    // picture block but `imageFrame` and `photoStage`.
+    expect(system).toContain(`${PICTURE_BLOCKS.filter((k) => k !== 'imageFrame' && k !== 'photoStage').join(', ')} need more pictures than are selected`)
   })
 
   it('offers the whole catalogue once there are pictures for it', async () => {
-    await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    await proposeTimeline('a film about the kettle', IMAGES_DEEP, { llm, threeD: true })
     expect(hintKinds(calls[0].schema)).toEqual([...BLOCK_KINDS])
     expect(hintGrounds(calls[0].schema)).toEqual([...BACKGROUND_KINDS])
     expect(calls[0].system).not.toMatch(/need more pictures than are selected/)
@@ -453,11 +481,15 @@ describe('proposeTimeline — what the selection makes possible', () => {
       template: 'composed',
       scenes: [{ durationMs: 3000, layers: [{ kind: 'gallery', imageIds: [ID_A, ID_B] }] }],
     }
-    const { timeline, notices } = await proposeTimeline('a film about the kettle', [], { llm })
+    const { timeline, notices } = await proposeTimeline('a film about the kettle', [], { llm, threeD: true })
     expect(timeline).toBe(null)
     const said = notices.join(' ')
     expect(said).toContain('imageFrame, gallery, carousel')
-    expect(said).toContain(`the other ${BLOCK_KINDS.length - 3} blocks draw type, numbers and motifs`)
+    // The count is what was OFFERED, so with 3D allowed it is the catalogue less
+    // the three picture blocks. The 3D describe below asserts it drops by one
+    // more when the block is withheld — a constant here would have promised a
+    // block the account cannot have.
+    expect(said).toContain(`the other ${BLOCK_KINDS.length - PICTURE_BLOCKS.length} blocks draw type, numbers and motifs`)
     expect(said).not.toMatch(/not in your selection/)
   })
 
@@ -833,5 +865,158 @@ describe('proposeTimeline — what it refuses before spending a call', () => {
     expect(calls).toHaveLength(0)
     expect(notices.join(' ')).toContain(String(MAX_SCENES + 1))
     expect(notices.join(' ')).toContain(String(MAX_SCENES))
+  })
+})
+
+/**
+ * The 3D permission, at the door that OFFERS.
+ *
+ * `POST /render` is the gate — a document need never have come through here —
+ * and this is what stops an account being handed a proposal it may not render.
+ * The two failures worth separating: a catalogue that still names the block, and
+ * a refusal that says only "no".
+ */
+describe('proposeTimeline — 3D is offered only to an account that has it', () => {
+  const SOLID = {
+    template: 'composed',
+    scenes: [
+      {
+        durationMs: 4000,
+        background: { kind: 'solid' },
+        layers: [{ kind: 'solidScene', solid: 'torus', anchor: 'full' }],
+      },
+    ],
+  }
+
+  it('leaves the 3D blocks out of the catalogue and out of the decoder hint', async () => {
+    await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    const { system, schema } = calls[0]
+    for (const kind of THREE_D_BLOCKS) {
+      expect(hintKinds(schema), kind).not.toContain(kind)
+      expect(catalogue(system), kind).not.toContain(`- ${kind}: `)
+    }
+    // Everything else is still there: the narrowing is one block, not a family.
+    expect(hintKinds(schema)).toEqual(BLOCK_KINDS.filter((kind) => !THREE_D_BLOCKS.includes(kind)))
+  })
+
+  /**
+   * Stated as a FACT about the instance, in the same voice as "no image is
+   * selected", and never as a rule the model could argue with. A model told a
+   * block exists but is forbidden reaches for it; the refusal then arrives after
+   * the tokens are spent.
+   */
+  it('tells the model the block is not in the catalogue, without saying why', async () => {
+    await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    const said = calls[0].system
+    // The sentence names EVERY 3D block, and it is read off the list rather than
+    // typed here: the catalogue has gained 3D blocks twice, and an assertion
+    // spelling one of them out passes while the other five are offered anyway.
+    expect(said).toContain('not part of the catalogue on this instance')
+    for (const kind of THREE_D_BLOCKS) expect(said, kind).toContain(kind)
+    expect(said).not.toMatch(/solidScene[^\n]*(permission|administrator|allowed|3D render)/)
+    // And it is NOT filed under the image note, which is the other reason a
+    // block can be missing and would have been a lie here.
+    expect(said).not.toMatch(/solidScene[^\n]*need more pictures/)
+  })
+
+  it('says nothing at all about 3D when the account has it', async () => {
+    await proposeTimeline('a film about the kettle', IMAGES_DEEP, { llm, threeD: true })
+    expect(calls[0].system).not.toContain('not part of the catalogue on this instance')
+    expect(calls[0].system).not.toContain('THIS FILM IS ASKED TO BE THREE-DIMENSIONAL')
+  })
+
+  /**
+   * The hint is never the gate — the same argument the foreign-image check
+   * makes. A provider that ignores structured output answers with whatever it
+   * likes, and a set piece quietly stripped out is not the montage that was
+   * proposed.
+   */
+  it('refuses an answer that carries a 3D block anyway, and names what is still possible', async () => {
+    answer = SOLID
+    const { timeline, notices } = await proposeTimeline('a film about the kettle', IMAGES, { llm })
+    expect(timeline).toBe(null)
+    const said = notices.join(' ')
+    expect(said).toContain('solidScene')
+    expect(said).toContain(`the other ${FLAT_BLOCKS.length} blocks`)
+    expect(said).toMatch(/administrator/)
+  })
+
+  it('accepts the same answer from an account that has the permission', async () => {
+    answer = SOLID
+    // An empty selection, because this film carries no picture: with images
+    // selected the proposal is still accepted, but it earns the unrelated
+    // "your images do not appear" notice and the assertion stops being about 3D.
+    const { timeline, notices } = await proposeTimeline('a set piece', [], { llm, threeD: true })
+    expect(timeline?.scenes[0].layers[0].kind).toBe('solidScene')
+    expect(notices).toEqual([])
+  })
+
+  /** The count in every refusal is what was OFFERED, so it drops with the block. */
+  it('does not promise a withheld block in the count of what is left', async () => {
+    answer = {
+      template: 'composed',
+      scenes: [{ durationMs: 3000, layers: [{ kind: 'gallery', imageIds: [ID_A, ID_B] }] }],
+    }
+    const { notices } = await proposeTimeline('a film about the kettle', [], { llm })
+    expect(notices.join(' ')).toContain(`the other ${BLOCK_KINDS.length - 3 - THREE_D_BLOCKS.length} blocks`)
+  })
+})
+
+/**
+ * The 3D button. An ambition, not a permission — and the difference is that the
+ * permission decides what is OFFERED while this decides what is INSISTED on.
+ */
+describe('proposeTimeline — forcing 3D', () => {
+  it('puts the instruction in the prompt, with the argument against overusing it', async () => {
+    await proposeTimeline('a film about the kettle', IMAGES, { llm, threeD: true, forceThreeD: true })
+    const said = calls[0].system
+    expect(said).toContain('THIS FILM IS ASKED TO BE THREE-DIMENSIONAL')
+    expect(said).toContain('"solidScene"')
+    expect(said).toMatch(/One in the film, not one per scene/)
+    // Placed outside the worked examples, which are counted by their own test.
+    expect(said.indexOf('THIS FILM IS ASKED')).toBeLessThan(said.indexOf('STACKS THAT WORK'))
+  })
+
+  it('refuses the flag from an account without the permission, without calling the model', async () => {
+    const { timeline, notices } = await proposeTimeline('a film', IMAGES, { llm, forceThreeD: true })
+    expect(timeline).toBe(null)
+    expect(calls).toHaveLength(0)
+    expect(notices.join(' ')).toContain(`the other ${FLAT_BLOCKS.length} blocks`)
+  })
+
+  /**
+   * The five hand-filled compositions are a picture and a caption; blocks belong
+   * to `composed` alone. Two facts on one request that contradict each other, so
+   * the call is not spent finding out — and the sentence names the one selector
+   * that fixes it.
+   */
+  it('refuses a ready-made composition, which carries no blocks at all', async () => {
+    const { timeline, notices } = await proposeTimeline('a calm slideshow', IMAGES, {
+      llm,
+      threeD: true,
+      forceThreeD: true,
+      template: 'slideshow',
+    })
+    expect(timeline).toBe(null)
+    expect(calls).toHaveLength(0)
+    expect(notices.join(' ')).toMatch(/carries no blocks/)
+    expect(notices.join(' ')).toMatch(/automatic/)
+  })
+
+  /**
+   * Asked for, allowed, and the model composed flat anyway. A NOTICE and not a
+   * refusal: the film works, it is simply not the one the button promised, and
+   * handing back nothing over an answer that renders is the wrong trade (Q1).
+   * Silence would be worse — a button that appears to do nothing gets pressed
+   * again, and each press is a model call.
+   */
+  it('says so when the model composed a flat film anyway, and still returns it', async () => {
+    const { timeline, notices } = await proposeTimeline('a film about the kettle', IMAGES, {
+      llm,
+      threeD: true,
+      forceThreeD: true,
+    })
+    expect(timeline?.template).toBe('composed')
+    expect(notices.join(' ')).toMatch(/composed one without any/)
   })
 })

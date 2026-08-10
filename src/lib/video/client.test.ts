@@ -142,6 +142,27 @@ describe('startVideoRender', () => {
     expect(err.message).toBe('server said so')
   })
 
+  /**
+   * The route answers 403 for two unrelated things, and the block list is what
+   * separates them.
+   *
+   * "Motion is not enabled for this account" and "this film is drawn in 3D and
+   * this account may not spend one" point at two different settings and two
+   * different sentences. Discriminating on the English message is how a branch
+   * nobody exercises stops working in silence, so this reads `threeDBlocks` —
+   * which the route sends beside its message for exactly this purpose.
+   */
+  it('tells a 3D refusal apart from a Motion one, on the field and not the sentence', async () => {
+    vi.stubGlobal('fetch', answer(403, { error: 'This film is composed with solidScene…', threeDBlocks: ['solidScene'] }))
+    const err = await startVideoRender(OK_TIMELINE).catch((e) => e)
+    expect(err.code).toBe('three-d')
+    expect(err.threeDBlocks).toEqual(['solidScene'])
+    // And the plain permission refusal is untouched: an empty list is not a 3D
+    // refusal with nothing in it, it is the other 403.
+    vi.stubGlobal('fetch', answer(403, { error: 'Not enabled.', threeDBlocks: [] }))
+    expect((await startVideoRender(OK_TIMELINE).catch((e) => e)).code).toBe('no-access')
+  })
+
   it('carries the missing image ids, so the panel can name them', async () => {
     vi.stubGlobal('fetch', answer(404, { error: 'gone', missingImageIds: [IMG] }))
     const err = await startVideoRender(OK_TIMELINE).catch((e) => e)
@@ -222,6 +243,24 @@ describe('proposeVideoTimeline', () => {
       // reporting "no model configured" on an instance that plainly had one.
       model: 'a-model',
     })
+  })
+
+  /**
+   * The 3D button is an ambition, and it travels only when it was pressed.
+   *
+   * Absent rather than `false` for the reason `template` is: the route reads
+   * `=== true`, and a body that carries only what was asked for is one an older
+   * server ignores rather than misreads. The assertion above — which compares
+   * the whole body — is what would catch a `false` creeping in.
+   */
+  it('sends the 3D flag only when the button was down', async () => {
+    const off = spy(200, { timeline: PROPOSAL, notices: [] })
+    await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS })
+    expect(JSON.parse(String(off.init!.body))).not.toHaveProperty('forceThreeD')
+
+    const on = spy(200, { timeline: PROPOSAL, notices: [] })
+    await proposeVideoTimeline('brief', [IMG], { settings: SETTINGS, forceThreeD: true })
+    expect(JSON.parse(String(on.init!.body)).forceThreeD).toBe(true)
   })
 
   it('carries the browser’s provider settings, so "bring your own key" works here too', async () => {

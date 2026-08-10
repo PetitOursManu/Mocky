@@ -7,6 +7,7 @@ import crypto from 'node:crypto'
 import { createVideoRouter, createVideoAdminRouter } from './routes.js'
 import { VideoExportStore } from './store.js'
 import { MAX_SCENES } from './timeline.js'
+import { THREE_D_BLOCKS } from './three-d.js'
 
 const ID_A = 'a'.repeat(64)
 const ID_B = 'b'.repeat(64)
@@ -23,6 +24,8 @@ const RENDERED_HASH = crypto.createHash('sha256').update(RENDERED).digest('hex')
 let server, base
 /** Rewritten per test — every refusal in this router depends on one of these. */
 let user, enabled, workerState, probed, adminProbed, present, enqueued, jobs, config, full
+/** Whether the account may spend a 3D render. Its own switch, like `enabled`. */
+let threeD
 /** Image ids the multi-step flow produced and nobody has confirmed yet. */
 let unconfirmed
 /** /compose only: the admin-configured provider, and what the fake one answers. */
@@ -78,6 +81,10 @@ function makeApp() {
     createVideoRouter({
       config: {
         enabledFor: () => enabled,
+        // Two switches and not one derived from the other: the router has to be
+        // able to see an account that may export and may NOT render in 3D, which
+        // is the whole configuration this permission exists for.
+        threeDEnabledFor: () => enabled && threeD,
         publicView: () => config,
         update: (patch) => {
           config = { ...config, ...patch }
@@ -171,6 +178,7 @@ afterAll(async () => {
 beforeEach(() => {
   user = { id: 'u1', role: 'user' }
   enabled = true
+  threeD = true
   workerState = { available: true, version: '4.0.0' }
   probed = false
   adminProbed = false
@@ -179,7 +187,7 @@ beforeEach(() => {
   enqueued = null
   jobs = []
   full = false
-  config ={ enabled: true, hasLicenseKey: true, access: 'allowlist', allowedUserIds: ['u1'], workerUrl: 'http://worker.test:3030' }
+  config ={ enabled: true, hasLicenseKey: true, access: 'allowlist', allowedUserIds: ['u1'], threeDAccess: 'all', threeDAllowedUserIds: [], workerUrl: 'http://worker.test:3030' }
   providerTarget = null
   providerRequests = []
   providerHangs = false
@@ -244,12 +252,14 @@ describe('GET /status', () => {
     expect(probed).toBe(false)
   })
 
-  it('answers with four fields and nothing from the stored config', async () => {
+  it('answers with five fields and nothing from the stored config', async () => {
     const body = await (await fetch(`${base}/api/video/status`)).json()
     // Named explicitly rather than checked for the absence of one word: the
     // config holds a licence key and a worker URL, and this route is the one an
-    // ordinary account is allowed to call.
-    expect(Object.keys(body).sort()).toEqual(['enabled', 'limits', 'variantsDerived', 'worker'])
+    // ordinary account is allowed to call. `threeD` is a boolean ABOUT THIS
+    // ACCOUNT for the same reason `enabled` is — the mode and the allowlist stay
+    // behind requireAdmin, in publicView().
+    expect(Object.keys(body).sort()).toEqual(['enabled', 'limits', 'threeD', 'variantsDerived', 'worker'])
   })
 
   /**
@@ -1185,5 +1195,244 @@ describe('the admin config routes', () => {
     // request, and a 5xx here would render as an empty status line.
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ available: false, reason: 'unreachable' })
+  })
+})
+
+/**
+ * The 3D permission, at both doors.
+ *
+ * The panel's 3D button is presentation. What makes the permission true of a
+ * film is that the route which turns a document into minutes of CPU refuses the
+ * documents this account may not spend them on — the same argument
+ * `refusedForPending` makes about pictures the user discarded, and the reason
+ * that guard lives on the server too.
+ */
+describe('the 3D permission', () => {
+  /** A composed film with a set piece on it, exactly as the composer returns one. */
+  const solidFilm = () => ({
+    template: 'composed',
+    scenes: [
+      {
+        durationMs: 4000,
+        background: { kind: 'solid' },
+        layers: [
+          { kind: 'solidScene', solid: 'torus', anchor: 'full' },
+          { kind: 'heading', text: 'The kettle' },
+        ],
+      },
+    ],
+  })
+
+  /**
+   * The poorest legal film carrying ONE named 3D block, for every name on the
+   * list.
+   *
+   * A table rather than a solid and a sentence, because the list is what the
+   * permission is made of and the gate is the only place it is enforced. The
+   * test below walks it: a tenth 3D block added to `THREE_D_BLOCKS` with no
+   * entry here fails on the coverage assertion, and one added with an entry
+   * that is not actually refused fails on the loop — which is the failure that
+   * has no other symptom, because a block the gate misses simply renders.
+   */
+  const THREE_D_FILMS = {
+    solidScene: { kind: 'solidScene', solid: 'torus' },
+    globe: { kind: 'globe' },
+    solidChart: { kind: 'solidChart', values: [40, 70] },
+    photoStage: { kind: 'photoStage', imageIds: [ID_A] },
+    photoRing: { kind: 'photoRing', imageIds: [ID_A, ID_B, ID_A] },
+    extrudedType: { kind: 'extrudedType', text: 'Motion' },
+    particleField: { kind: 'particleField' },
+    waveMesh: { kind: 'waveMesh' },
+    depthGrid: { kind: 'depthGrid' },
+  }
+
+  const filmWith = (layer) => ({
+    template: 'composed',
+    scenes: [
+      {
+        durationMs: 4000,
+        background: { kind: 'solid' },
+        layers: [{ ...layer, anchor: 'full' }, { kind: 'heading', text: 'The kettle' }],
+      },
+    ],
+  })
+
+  describe('POST /render — the gate', () => {
+    /**
+     * Every name on the list, and not the one block the check was written
+     * against.
+     *
+     * `threeDBlocksIn` is a set lookup, so this passes by construction today —
+     * which is exactly why it is worth pinning. The gate is one `if` at the top
+     * of the route, and the ways it stops covering a kind are all invisible: a
+     * block whose layers live somewhere `threeDBlocksIn` does not walk, a name
+     * spelled differently in the schema than in the permission, a kind reachable
+     * through a second route. None of those fail anything else — the film simply
+     * renders, on an account an administrator excluded.
+     */
+    it('refuses every block on the 3D list, one film at a time', async () => {
+      expect(Object.keys(THREE_D_FILMS).sort()).toEqual([...THREE_D_BLOCKS].sort())
+      for (const [kind, layer] of Object.entries(THREE_D_FILMS)) {
+        threeD = false
+        enqueued = null
+        const res = await post('/api/video/render', { timeline: filmWith(layer) })
+        expect(res.status, kind).toBe(403)
+        const body = await res.json()
+        expect(body.threeDBlocks, kind).toEqual([kind])
+        expect(enqueued, kind).toBe(null)
+      }
+    })
+
+    /** And the same films go through once the permission is there. */
+    it('queues every one of them for an account that has it', async () => {
+      for (const [kind, layer] of Object.entries(THREE_D_FILMS)) {
+        threeD = true
+        enqueued = null
+        const res = await post('/api/video/render', { timeline: filmWith(layer) })
+        expect(res.status, kind).toBe(202)
+        expect(enqueued.timeline.scenes[0].layers[0].kind, kind).toBe(kind)
+      }
+    })
+
+    it('refuses a 3D film from an account without the permission, and queues nothing', async () => {
+      threeD = false
+      const res = await post('/api/video/render', { timeline: solidFilm() })
+      expect(res.status).toBe(403)
+      const body = await res.json()
+      expect(body.threeDBlocks).toEqual(['solidScene'])
+      expect(enqueued).toBe(null)
+      // Never a bare no: the sentence says who can change it and what the film
+      // could be made of instead.
+      expect(body.error).toMatch(/administrator/)
+      expect(body.error).toMatch(/blocks and every ground are available/)
+      expect(body.error).toContain('Nothing was queued.')
+    })
+
+    /**
+     * The case the whole check exists for. `/compose` narrows the catalogue, so
+     * an account without the permission is never HANDED a 3D film — and a
+     * document reaches this route from a draft saved last week, a tab left open
+     * while an administrator narrowed the setting, the hand editor, or curl.
+     */
+    it('refuses it even though the document never came through /compose', async () => {
+      threeD = false
+      const res = await post('/api/video/render', { timeline: solidFilm() })
+      expect(res.status).toBe(403)
+      expect(providerRequests).toHaveLength(0)
+    })
+
+    it('queues the same film for an account that has the permission', async () => {
+      threeD = true
+      const res = await post('/api/video/render', { timeline: solidFilm() })
+      expect(res.status).toBe(202)
+      expect(enqueued.timeline.scenes[0].layers[0].kind).toBe('solidScene')
+    })
+
+    it('leaves a flat film alone whatever the permission says', async () => {
+      threeD = false
+      const res = await post('/api/video/render', { timeline: { scenes: [scene()] } })
+      expect(res.status).toBe(202)
+    })
+
+    /**
+     * Order matters: the schema first, because inspecting the layers of a
+     * document that is not a timeline is meaningless — and the 3D check before
+     * the images, because everything below it touches the disk.
+     */
+    it('answers 400 rather than 403 when the document is not a timeline at all', async () => {
+      threeD = false
+      const res = await post('/api/video/render', { timeline: { scenes: [scene()], audio: 'track.mp3' } })
+      expect(res.status).toBe(400)
+    })
+
+    it('checks Motion itself first, so a 3D film with no access reads as no access', async () => {
+      enabled = false
+      const res = await post('/api/video/render', { timeline: solidFilm() })
+      expect(res.status).toBe(403)
+      expect(await res.json()).toMatchObject({ error: expect.stringMatching(/not enabled for this account/) })
+    })
+  })
+
+  describe('POST /compose — what is offered', () => {
+    // The real path: credsFromReq → makeLlm → the fake provider, so the system
+    // turn asserted below is the text that actually left the machine.
+    beforeEach(() => {
+      providerTarget = { baseUrl: `${base}/fake-provider`, model: 'test-model', kind: 'ollama' }
+    })
+
+    it('leaves the 3D blocks out of the catalogue for an account without the permission', async () => {
+      threeD = false
+      await post('/api/video/compose', { brief: 'a film about the kettle', images: [ID_A] })
+      const system = providerRequests[0].messages[0].content
+      // The sentence names EVERY 3D block, and it is read off the list rather than
+      // typed here: the catalogue has gained 3D blocks twice, and an assertion
+      // spelling one of them out passes while the other five are offered anyway.
+      expect(system).toContain('not part of the catalogue on this instance')
+      for (const kind of THREE_D_BLOCKS) expect(system, kind).toContain(kind)
+    })
+
+    it('offers them to an account that has it', async () => {
+      threeD = true
+      await post('/api/video/compose', { brief: 'a film about the kettle', images: [ID_A] })
+      const system = providerRequests[0].messages[0].content
+      expect(system).toContain('- solidScene: ')
+      expect(system).not.toContain('not part of the catalogue on this instance')
+    })
+
+    /**
+     * The button, refused before a token is spent. A silent downgrade would be
+     * worse than the 403: a control that appears to do nothing is the failure
+     * people file as "3D is broken".
+     */
+    it('403s on forceThreeD from an account without the permission, and calls no model', async () => {
+      threeD = false
+      const res = await post('/api/video/compose', {
+        brief: 'a film about the kettle',
+        images: [ID_A],
+        forceThreeD: true,
+      })
+      expect(res.status).toBe(403)
+      expect(providerRequests).toHaveLength(0)
+      expect((await res.json()).error).toMatch(/blocks and every ground are available/)
+    })
+
+    it('turns the flag into an instruction for an account that has the permission', async () => {
+      threeD = true
+      await post('/api/video/compose', {
+        brief: 'a film about the kettle',
+        images: [ID_A],
+        forceThreeD: true,
+      })
+      expect(providerRequests[0].messages[0].content).toContain('THIS FILM IS ASKED TO BE THREE-DIMENSIONAL')
+    })
+
+    it('treats anything but true as no request at all', async () => {
+      // `"true"` and `1` both arrive from hand-made bodies, and a permission is
+      // not the place to guess what somebody meant.
+      threeD = true
+      await post('/api/video/compose', { brief: 'a film', images: [ID_A], forceThreeD: 'true' })
+      expect(providerRequests[0].messages[0].content).not.toContain('THIS FILM IS ASKED TO BE THREE-DIMENSIONAL')
+    })
+  })
+
+  describe('GET /status', () => {
+    it('reports the permission as a boolean about this account, and nothing else', async () => {
+      threeD = false
+      const off = await (await fetch(`${base}/api/video/status`)).json()
+      expect(off.threeD).toBe(false)
+      threeD = true
+      const on = await (await fetch(`${base}/api/video/status`)).json()
+      expect(on.threeD).toBe(true)
+      // Never the mode and never the list: those live behind requireAdmin.
+      expect(JSON.stringify(on)).not.toContain('threeDAccess')
+      expect(JSON.stringify(on)).not.toContain('threeDAllowedUserIds')
+    })
+
+    it('says no whenever Motion itself is off, whatever the 3D setting holds', async () => {
+      enabled = false
+      threeD = true
+      const body = await (await fetch(`${base}/api/video/status`)).json()
+      expect(body.threeD).toBe(false)
+    })
   })
 })

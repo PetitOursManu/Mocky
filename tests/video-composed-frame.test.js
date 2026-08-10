@@ -33,10 +33,22 @@ import {
   planTimeline,
   sceneMotion,
 } from '../worker/video/remotion/composition.js'
-// The one block whose wasted pixels are measured in render seconds. It is here
-// rather than in `setPiece.test.js` because the claim below is not about the
-// block: it is about what the LAYOUT lets a document ask a renderer for.
-import { solidCanvas } from '../worker/video/remotion/blocks/setPiece.js'
+// The blocks whose wasted pixels are measured in render seconds. They are here
+// rather than in their own files because the claim below is not about any of
+// them: it is about what the LAYOUT lets a document ask a renderer for.
+//
+// `blockCanvas` and not `solidCanvas`, and the difference is the whole reason
+// this import moved. The claim used to be checked on the one descriptor a
+// reviewer could name — a solid's square — while the file that decides what a
+// GL canvas is went on growing beside it. A test that measures one of nine
+// descriptors is green for the eight it never looked at.
+import { BLOCK_CANVASES, blockCanvas } from '../worker/video/remotion/blocks/canvases.js'
+// The permission's own list, which is the other end of the same wire: a block is
+// three-dimensional exactly when a renderer draws it, so the names an
+// administrator rations and the names that open a canvas are one list seen from
+// two sides. `tests/video-3d-permission.test.js` holds it against the WORKER's
+// components; this holds it against the descriptors.
+import { THREE_D_BLOCKS } from '../server/video/three-d.js'
 // The anchors come from the SCHEMA and are fed to the worker's layout, which is
 // half the point of this file: a zone Mocky can express and the worker cannot
 // place is a block that vanishes from a film somebody waited two minutes for.
@@ -159,17 +171,54 @@ describe('everything a composed document asks for is on the frame', () => {
   })
 
   /**
+   * The heaviest legal instance of every block that opens a renderer.
+   *
+   * The bound below is about PIXELS, so each of these is written to ask for the
+   * most of them its schema entry allows — the largest share, the most images,
+   * the longest line, the highest count. A fixture at a kind's floor would make
+   * the ceiling below true of a document nobody sends.
+   */
+  const ID_A = 'a'.repeat(64)
+  const ID_B = 'b'.repeat(64)
+  const GL_BLOCKS = {
+    solidScene: { kind: 'solidScene', solid: 'sphere', size: 'large' },
+    globe: { kind: 'globe', region: 'world', markers: 8, connections: true },
+    solidChart: { kind: 'solidChart', values: [10, 40, 70, 100, 55, 30, 80, 20], plinth: true },
+    photoStage: { kind: 'photoStage', imageIds: [ID_A, ID_B], frame: 'device', move: 'orbit' },
+    photoRing: { kind: 'photoRing', imageIds: Array.from({ length: 6 }, () => ID_A), frame: 'card' },
+    extrudedType: { kind: 'extrudedType', text: 'X'.repeat(BLOCK_LIMITS.extrudedType), depth: 'deep', spin: 'float' },
+    particleField: { kind: 'particleField', count: BLOCK_LIMITS.particles, drift: 'swarm' },
+    waveMesh: { kind: 'waveMesh', swell: 'ripple', tilt: 'rake' },
+    depthGrid: { kind: 'depthGrid', lines: BLOCK_LIMITS.gridLines, form: 'tunnel', travel: 'toward' },
+  }
+
+  /**
+   * Nine descriptors, one table, and the coverage check comes first.
+   *
+   * `BLOCK_CANVASES` is the file that decides how large a GL surface is, and it
+   * is the file a tenth 3D block adds a line to. A budget test that walks a
+   * hand-written corpus is green for whatever the corpus forgot, which is the
+   * shape of the miss this whole section is written against — so the corpus is
+   * held against the descriptors AND against the permission's own list, and the
+   * three have to be the same nine names.
+   */
+  it('measures every block that opens a renderer, and misses none', () => {
+    expect(Object.keys(GL_BLOCKS).sort()).toEqual([...THREE_D_BLOCKS].sort())
+    expect(Object.keys(BLOCK_CANVASES).sort()).toEqual([...THREE_D_BLOCKS].sort())
+  })
+
+  /**
    * What a set piece COSTS is bounded by the layout, and not by a sentence in a
    * prompt.
    *
-   * `solidScene` is the only block in the catalogue that opens a renderer, and it
-   * is the only one whose waste is measured in render seconds rather than in
-   * bytes: a full-frame lit solid adds about 0.9 s of render per second of film
-   * on the two-core worker, against the 1.7 s/s the duration-scaled deadline
-   * leaves spare. The compose prompt asks for at most one in the whole film, and
-   * a prompt is a request — the schema accepts eight in one scene, and a provider
-   * that ignores the advice spends somebody's deadline rather than somebody's
-   * taste.
+   * Nine blocks in the catalogue open a renderer now, and they are the ones whose
+   * waste is measured in render seconds rather than in bytes: a full-frame lit
+   * solid adds about 0.9 s of render per second of film on the two-core worker,
+   * against the 1.7 s/s the duration-scaled deadline leaves spare. The compose
+   * prompt asks for at most one set piece in the whole film and never two fields
+   * in one scene, and a prompt is a request — the schema accepts eight in one
+   * scene, and a provider that ignores the advice spends somebody's deadline
+   * rather than somebody's taste.
    *
    * It used to be able to. The canvas was a share of the FRAME, so eight of them
    * were eight full-size canvases: 4712 px of content inside 950 px of safe
@@ -177,8 +226,10 @@ describe('everything a composed document asks for is on the frame', () => {
    * Now the canvas is a share of the block's OWN box, and that changes the
    * question from editorial to arithmetic:
    *
-   *   - a canvas is `min(box.width, box.height) × share` with `share ≤ 1`, so its
-   *     AREA is at most the area of its own box;
+   *   - a canvas is at most its own box, whatever shape the descriptor answers —
+   *     a square on the minor axis for the round ones, the box itself for a
+   *     picture, a share of it for a chart that leaves room for captions, and a
+   *     capped `FIELD_PIXEL_BUDGET` for the three fields;
    *   - the boxes of a zone tile that zone and never overlap (`stackIn`), and the
    *     ten zones are the nine cells — which tile the safe area — plus `full`,
    *     which IS the safe area.
@@ -186,9 +237,16 @@ describe('everything a composed document asks for is on the frame', () => {
    * So whatever a document asks for, one frame of it draws at most twice the safe
    * area of GL. The prompt's sentence is then about attention, which is what a
    * prompt can actually be trusted with.
+   *
+   * The MIXED arrangement is the one no prose bounds at all. "One set piece per
+   * film" and "never two fields in one scene" are two sentences about two
+   * families, and a model shown nine expensive blocks writes a scene holding one
+   * of each — which breaks neither sentence and is precisely the document the
+   * deadline has to survive.
    */
   it('bounds what a stack of set pieces can ask a renderer to draw', () => {
     const cells = ANCHORS.filter((anchor) => anchor !== 'full')
+    const kinds = Object.keys(GL_BLOCKS)
     const arrangements = {
       // The three shapes that matter: everything piled in one cell, everything
       // spread across the grid, and the one that used to be unbounded — a stack
@@ -199,31 +257,48 @@ describe('everything a composed document asks for is on the frame', () => {
       'eight fields': Array.from({ length: BLOCK_LIMITS.layersPerScene }, () => 'full'),
     }
 
-    for (const [label, anchors] of Object.entries(arrangements)) {
-      // `large` throughout: the biggest share a document may ask for, so the
-      // bound is measured at the top of what the schema allows.
-      const build = (durationMs) => ({
-        template: 'composed',
-        scenes: [{ durationMs, layers: anchors.map((anchor) => ({ kind: 'solidScene', size: 'large', anchor })) }],
-      })
-      for (const { aspectRatio, width, height, plan } of films(build, 6000)) {
-        const safe = composedSafeArea(width, height)
-        const base = frameBase(width, height)
-        let drawn = 0
-        for (const zone of composedLayout(plan.scenes[0].scene, width, height).zones) {
-          for (const { block, box } of zone.layers) {
-            const side = solidCanvas(box, block.size, base)
-            // The per-block claim, which is the one with content in it: a set
-            // piece cannot draw outside the box it was given, so N of them cost
-            // no more than the frame does.
-            expect(side * side, `${label} · ${aspectRatio} · one canvas`).toBeLessThanOrEqual(box.width * box.height)
-            drawn += side * side
+    // Each kind on its own, and then all nine at once in the arrangement that
+    // spreads them: a scene of one kind is what a prompt talks about, a scene of
+    // nine is what a model actually writes.
+    const corpora = [
+      ...kinds.map((kind) => [kind, () => GL_BLOCKS[kind]]),
+      ['one of each', (i) => GL_BLOCKS[kinds[i % kinds.length]]],
+    ]
+
+    for (const [corpus, pick] of corpora) {
+      for (const [label, anchors] of Object.entries(arrangements)) {
+        const build = (durationMs) => ({
+          template: 'composed',
+          scenes: [{ durationMs, layers: anchors.map((anchor, i) => ({ ...pick(i), anchor })) }],
+        })
+        for (const { aspectRatio, width, height, plan } of films(build, 6000)) {
+          const safe = composedSafeArea(width, height)
+          const base = frameBase(width, height)
+          let drawn = 0
+          for (const zone of composedLayout(plan.scenes[0].scene, width, height).zones) {
+            for (const { block, box, unit } of zone.layers) {
+              const canvas = blockCanvas(block, box, base, unit)
+              expect(canvas, `${corpus} · ${label} · ${block.kind} has a descriptor`).not.toBe(null)
+              const pixels = canvas.width * canvas.height
+              // The per-block claim, which is the one with content in it: a set
+              // piece cannot draw outside the box it was given, so N of them cost
+              // no more than the frame does. Rounded up to a whole backing store,
+              // so a box under a pixel wide is not a failure — `blockCanvas`
+              // floors at one on purpose, because a GL context of zero pixels
+              // fails to initialise and takes the frame with it (Q1).
+              expect(pixels, `${corpus} · ${label} · ${aspectRatio} · one ${block.kind} canvas`).toBeLessThanOrEqual(
+                Math.max(1, Math.ceil(box.width) * Math.ceil(box.height)),
+              )
+              drawn += pixels
+            }
           }
+          // And the whole scene, which is that claim summed over a layout that
+          // tiles: the nine cells cover the safe area once and `full` covers it
+          // again.
+          expect(drawn, `${corpus} · ${label} · ${aspectRatio} · the whole scene`).toBeLessThanOrEqual(
+            2 * safe.width * safe.height,
+          )
         }
-        // And the whole scene, which is that claim summed over a layout that
-        // tiles: the nine cells cover the safe area once and `full` covers it
-        // again.
-        expect(drawn, `${label} · ${aspectRatio} · the whole scene`).toBeLessThanOrEqual(2 * safe.width * safe.height)
       }
     }
   })

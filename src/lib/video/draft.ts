@@ -74,6 +74,17 @@ export interface Proposal {
   brief: string
   /** The pictures it was offered, in the order they were picked. */
   imageIds: string[]
+  /**
+   * Whether the 3D button was down when this film was asked for.
+   *
+   * Part of the REQUEST and therefore part of what makes a proposal stale, for
+   * the same reason the brief is: pressing 3D after a film has come back leaves
+   * a flat film on the panel answering a question nobody is asking any more, and
+   * nothing else on screen could tell. It is not part of the DOCUMENT — the
+   * schema has no such field, the model was told about it in prose, and what
+   * actually came back is whichever blocks it composed.
+   */
+  forceThreeD: boolean
 }
 
 /**
@@ -97,16 +108,60 @@ export interface VideoDraft {
   imageIds: string[]
   aspectRatio: AspectRatio
   outputFormat: OutputFormat
+  /**
+   * The 3D button: an ambition, never a permission.
+   *
+   * It lives in the draft rather than in the component beside `fill`, because
+   * unlike "where a picture comes from" it is part of the request the composer
+   * answers — `/compose` reads it, it changes what the catalogue insists on, and
+   * `proposalStale` has to be able to see it move.
+   *
+   * What it is NOT is the account's right to spend a 3D render. That is
+   * `VideoAccess.threeD`, which the server computes and re-checks on both doors;
+   * `forcedThreeD` below is the only thing that puts the two together, so a
+   * draft carrying `true` on an account that has since lost the permission never
+   * becomes a request that gets a 403.
+   */
+  forceThreeD: boolean
   /** The last thing the composer answered, or nothing yet. */
   proposal: Proposal | null
 }
 
 export function emptyDraft(): VideoDraft {
-  return { brief: '', imageIds: [], aspectRatio: '16:9', outputFormat: 'mp4', proposal: null }
+  return {
+    brief: '',
+    imageIds: [],
+    aspectRatio: '16:9',
+    outputFormat: 'mp4',
+    forceThreeD: false,
+    proposal: null,
+  }
 }
 
 export function setBrief(draft: VideoDraft, brief: string): VideoDraft {
   return { ...draft, brief }
+}
+
+export function setForceThreeD(draft: VideoDraft, forceThreeD: boolean): VideoDraft {
+  return { ...draft, forceThreeD }
+}
+
+/**
+ * What the compose call may actually ask for.
+ *
+ * The permission wins over the button, and it is written here rather than at the
+ * call site so that a stale draft cannot spend a round trip learning it. The
+ * panel only draws the button when the account has the right, so this normally
+ * changes nothing — the case it covers is an administrator narrowing the setting
+ * while a panel is open, which is precisely when the button is still on screen
+ * and the answer is already 403.
+ *
+ * `=== true` rather than a truthy read, matching the route: /status may answer
+ * nothing at all on an instance that predates the field, and "said nothing" is
+ * not "yes".
+ */
+export function forcedThreeD(draft: VideoDraft, allowed: boolean | undefined | null): boolean {
+  return allowed === true && draft.forceThreeD
 }
 
 /** One picture into the pool. Refused past the cap, and never twice. */
@@ -146,8 +201,22 @@ export function setOutputFormat(draft: VideoDraft, outputFormat: OutputFormat): 
  * what was SENT against what is typed — a trailing space added afterwards is not
  * a changed request, and reporting it as one would make the notice noise.
  */
-export function withProposal(draft: VideoDraft, timeline: RenderTimeline): VideoDraft {
-  return { ...draft, proposal: { timeline, brief: draft.brief.trim(), imageIds: [...draft.imageIds] } }
+export function withProposal(draft: VideoDraft, timeline: RenderTimeline, forceThreeD: boolean): VideoDraft {
+  return {
+    ...draft,
+    proposal: {
+      timeline,
+      brief: draft.brief.trim(),
+      imageIds: [...draft.imageIds],
+      // What was really ASKED FOR — `forcedThreeD(draft, access.threeD)` — and
+      // not the button's position. The two agree in every ordinary case, and the
+      // one where they do not is a permission withdrawn while the panel is open:
+      // recording the button there would leave a film that was composed flat,
+      // by a request that never carried the flag, marked stale for ever against
+      // a control the panel has just taken away.
+      forceThreeD,
+    },
+  }
 }
 
 const sameIds = (a: readonly string[], b: readonly string[]) =>
@@ -164,7 +233,16 @@ const sameIds = (a: readonly string[], b: readonly string[]) =>
 export function proposalStale(draft: VideoDraft): boolean {
   const proposal = draft.proposal
   if (!proposal) return false
-  return draft.brief.trim() !== proposal.brief || !sameIds(draft.imageIds, proposal.imageIds)
+  return (
+    draft.brief.trim() !== proposal.brief ||
+    !sameIds(draft.imageIds, proposal.imageIds) ||
+    // Pressing 3D after a film has come back is a changed request, exactly like
+    // adding a picture: the catalogue the model would be shown is a different
+    // one. It stays a remark rather than a refusal — the flat film on the panel
+    // is still a renderable film, and taking it away for a button press would be
+    // the recourse costing more than the thing it is a recourse for.
+    draft.forceThreeD !== proposal.forceThreeD
+  )
 }
 
 /**

@@ -132,5 +132,5 @@ export const SolidScene = ({ block, palette, progress, life }) => {
   )
 }
 
-/** The camera every solid is seen from. Read by `ComposedSceneVideo`, which opens the canvas. */
+/** The camera every solid is seen from. Read by `blocks/canvases.js`, which opens the canvas. */
 export const SOLID_CAMERA = { position: [0, 0, SOLID_CAMERA_Z], fov: SOLID_CAMERA_FOV }

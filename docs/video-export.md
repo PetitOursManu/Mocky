@@ -168,10 +168,11 @@ than cards — not permission to describe its own rendering.
 | Text | `heading`, `kicker`, `quote`, `textHighlight`, `funTitle` |
 | Animated text | `typewriter`, `animatedList`, `counter`, `logoType` |
 | Interface | `button`, `form`, `notification`, `lowerThird` |
-| Data | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map` |
+| Data | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map`, `globe`, `solidChart` |
 | Media and time | `imageFrame`, `gallery`, `carousel`, `clock`, `dateStamp` |
 | Misc | `separator`, `progressBar` |
-| Set pieces | `codeBlock`, `solidScene` |
+| Set pieces | `codeBlock`, `solidScene`, `extrudedType` |
+| Fields in volume | `particleField`, `waveMesh`, `depthGrid` |
 | Grounds | `solid`, `gradient`, `hairlines`, `gridPulse`, `particles`, `image` |
 
 **The five stay, whole and renderable.** Saved drafts and the queue's journal are
@@ -182,6 +183,220 @@ a person can fill in by hand; the schema, the worker, the palettes and the
 motions are keyed on `VIDEO_TEMPLATES`, which is now six. Two lists rather than
 one with a flag, because "can this be rendered" and "can this be typed in" are
 not the same question and have not had the same answer since the blocks arrived.
+
+#### Two data blocks drawn by a renderer: a globe, and a chart with volume
+
+The catalogue's data family gained two entries that are drawn in GL rather than
+with divs, and both come from the same request: a world map that is not flat, and
+a histogram with weight in it. Neither reopens the founding rule — a document
+names `globe` or `solidChart`, fills in bounded integers and a closed enum, and
+every vertex, every camera and every colour is written by hand — but each had one
+question that had to be answered before it could ship.
+
+**A 3D bar chart is a decoration unless the projection is parallel, and that is
+the whole design of `solidChart`.** Under a perspective camera two equal values at
+two depths draw two different columns: with this catalogue's own lens, a bar one
+and a half units nearer than another projects at 1.73 times its height. That is
+why a 3D bar chart is a data-visualisation anti-pattern everywhere it appears, and
+it is not a tuning problem — the one thing a bar chart is FOR is exactly what the
+vanishing point destroys. Orthographically it is simply not true: a vertical of
+world height `h` maps to `h·cos(elevation)` wherever it stands. `chartProject` is
+that arithmetic, one line long, and `dataVolume.test.js` holds it as an equality
+over a grid of positions and depths rather than at the origin, because the defect
+it refuses is precisely a column that draws differently BECAUSE of where it stands.
+
+Occlusion is the second half and it is bounded rather than avoided. A box of width
+`w` and depth `d` yawed by `a` has a silhouette `w·cos a + d·sin a` wide, and the
+columns' centres are `p·cos a` apart, so the row is free of overlap exactly when
+`w + d·tan a ≤ p`. With the air the flat chart already spends
+(`FIGURE_GAP_SHARE`) and a depth equal to the width, that bounds the yaw at a
+little over 23°; `CHART_AZIMUTH` is 16, and the test holds the inequality rather
+than the angle. The elevation needs no bound at all, because every column stands
+at the same depth. What is left is what makes the block worth a renderer: two lit
+faces per column, on the same Lambert segment `solidShading` already measures, and
+a plinth where the flat chart has a baseline — a plate rather than a rule, since a
+line drawn in space is the one element whose thickness a projection is free to
+change.
+
+**Its labels are flat type over the canvas, and that is written down rather than
+assumed.** Type in GL is either an extruded geometry, which needs a font file this
+container does not carry, or a texture, which is glyphs at a size nobody chose in a
+colour nobody measured. A caption is a RUN: it belongs to the one type scale, it is
+sized by `labelBand` against the lane it sits under, and it disappears rather than
+overflowing. So `blockCanvas` answers a `frame` taller than its canvas and an
+`overlay`, the composition draws the DOM half over the GL one, and the lane a
+caption is centred on is the PROJECTION of its column's centre line — a caption
+under the wrong column is worse than no caption at all.
+
+**The globe is the flat map's own coastline on a sphere, and it is the answer to a
+resolution problem rather than a second map.** `map` gave up its sub-regions once
+already: a plate carrée mask fine enough to draw a border is a mask that draws the
+wrong border, so what it draws is a coastline at the scale of a continent. A sphere
+has no border to miss — what a viewer reads is the SHAPE of the continents and the
+fact that they curve away — and both survive at whatever resolution the box can
+carry. It reads the same `LAND_ROWS`, because a globe whose Africa differed from
+the map's would be two worlds in one film, and it takes the same three fields:
+`region` says which face turns towards the camera when the scene opens, `markers`
+is a count, and the positions are the composition's, since a latitude is a
+coordinate under another name.
+
+Its lattice is a Fibonacci spiral, which is the part worth stating twice. Equal
+area is what it buys — a latitude/longitude grid sampled at a fixed step in both
+puts five times as many dots per unit of surface at 78° north as at the equator, so
+the poles read as bright caps — and DETERMINISM is what it costs nothing: the
+shortest route to a scattered field of points is `Math.random`, and this is the
+family where that temptation is strongest. Every position comes from an index.
+
+**What the measurements changed is most of the block.** Bench: the worker image,
+`--cpus=2.0 --memory=4g`, 1080p/30, six seconds of film, the encoder settings
+`encoding.js` really uses. A plain display title is the control; a full-frame
+`solidScene` sphere is the calibration, since this document already prices that at
++0.9 s of render per second of film.
+
+| Scene | render | Δ s/s (bench) | **Δ s/s (this document's scale)** | Output |
+|---|---|---|---|---|
+| control (a title) | 12.9 s | — | — | 0.73 MB |
+| `solidScene`, sphere, full frame | 20.3 s | +1.23 | **+0.90** (the calibration) | 0.79 MB |
+| `globe`, full frame | 19.4 s | +1.09 | **+0.80** | 3.90 MB |
+| `globe` + a heading | 21.2 s | +1.39 | **+1.01** | 3.53 MB |
+| `solidChart`, full frame | 17.3 s | +0.74 | **+0.54** | 0.64 MB |
+| `solidChart` + a kicker | 20.8 s | +1.32 | **+0.96** | 0.62 MB |
+| eight `globe` blocks in one zone | 21.0 s | +1.37 | **+1.00** | 1.72 MB |
+| ~~`globe` as a full SHELL of dots~~ | 23.8 s | +2.08 | **+1.81** | 7.50 MB — refused |
+| ~~the same, with a translucent sphere~~ | 30.9 s | +3.26 | **+2.84** | 2.50 MB — refused |
+
+The deadline leaves about 1.7 s/s spare at the schema's longest film, so both of
+these fit and the two versions that were refused did not. **The first globe drew a
+whole shell** — land bright over sea quiet, one lattice split in two — and it was
+the wireframe's own failure arriving through a different geometry: thousands of
+tiny high-contrast points moving every frame are the detail h264 cannot predict,
+and it came back at ten times a title's bitrate. Replacing the sea with a
+translucent sphere was worse, because a full disc of alpha blending on every frame
+is what a software rasteriser is slowest at. What ships is `globeGraticule`: a
+dozen meridians and seven parallels of points, which is what says "sphere" and
+costs a twentieth of a shell.
+
+The second measurement changed how the block is written. **A cloud of points costs
+about fifteen milliseconds a frame whatever is in it** — the positions are rebuilt
+on each of a scene's frames, so the geometry behind them is disposed and re-created
+that many times, and the bill is per BUFFER rather than per point. The same globe
+at 7854 dots and at 2827 took 23.8 s and 24.4 s; dropping one cloud of three took
+2.7 s off. So the connections travel in the land's buffer, there are two clouds
+rather than three, and the dot count is nearly free — which is why `GLOBE_PITCH_PX`
+is chosen for the ENCODER rather than for the rasteriser: the same six seconds came
+back at 7.5 MB at a pitch of eighteen and 3.9 at thirty.
+
+The last row of the table is the one that says the box arithmetic still holds.
+Eight globes in one zone cost what one costs, because eight boxes are eight eighths
+of a safe area — `tests/video-composed-frame.test.js` proves it for `solidScene`
+and the measurement confirms it here. A set piece crowded into a stack does not get
+expensive; it gets small.
+
+Two entries in `FIELD_PAINTS` follow from all of it. A `globe` anchored `full`
+paints the accent at two opacities and nothing else, since there is no light in
+that scene at all; a `solidChart` paints a `solid`, the same Lambert segment as
+`solidScene`, because its columns are lit. Its labels are outside the canvas and
+are measured as ordinary running text on the ground.
+
+#### Three fields in volume: a dust, a swelling surface, and a floor
+
+The request that names them is "the background should be in 3D", and the answer
+is a family rather than three more set pieces. A set piece is a whole scene and
+the prompt tells the model to spend at most one per film; a FIELD is what a scene
+is made of — it is painted under the nine cells, a heading is meant to stand on
+it, and a film may want one every other scene. What it must never do is share a
+frame with a second field, and that is the sentence `FAMILY_TITLES.field` carries
+instead.
+
+| Block | What it is | Fields |
+|---|---|---|
+| `particleField` | dust hanging in space, drifting | `count`, `drift` |
+| `waveMesh` | a lit surface, swelling | `swell`, `tilt` |
+| `depthGrid` | rules running away from the eye, as a floor or a tunnel | `lines`, `form`, `travel` |
+
+Nothing in there is a colour, a coordinate, a velocity or a size, and there is no
+SEED — which is the one field through which a document could render differently
+from itself, the same failure a `Math.random` is, arriving through a key instead
+of through a call. Every position comes from an INDEX and a frame number, through
+`noise` in `worker/video/remotion/blocks/field.js`: an integer hash, deliberately
+not the `fract(sin(…))` idiom every shader tutorial reaches for, because
+`Math.sin` is accurate to within an ulp and which ulp is the engine's business.
+`field.test.js` proves two calls return the same bytes; the export store is
+content-addressed, so a film that differs by a pixel between two runs is two
+films on one disk budget.
+
+**The measurements are the whole design of the family.** Same bench as above —
+the worker image, `--cpus=2.0 --memory=4g`, 1080p/30, six seconds, `encoding.js`'s
+own encoder settings — and every figure is a RATIO to a full-frame `solidScene`
+measured in the same run, then put back on this document's scale, because some of
+these benches ran while other work had the machine.
+
+| Scene | Δ s/s (this document's scale) | Output |
+|---|---|---|
+| `solidScene`, sphere, full frame | **+0.90** (the calibration) | 0.86 MB |
+| `particleField`, the count silence gives | **+0.25** | 1.27 MB |
+| `particleField` at the schema's ceiling | **+0.37** | 2.03 MB |
+| `waveMesh`, full frame, inside the pixel budget | **+1.00** | 2.12 MB |
+| ~~`waveMesh` at its box's own pixels~~ | **+1.70** — refused | 2.81 MB |
+| `depthGrid` as a `floor` | **+0.28** | 1.29 MB |
+| `depthGrid` as the densest `tunnel` | **+0.85** | 4.09 MB |
+| ~~the same tunnel with no fog and no fade~~ | **+1.15** — refused | 5.98 MB |
+
+Two of those rows are the two decisions.
+
+**A field fills its box on both axes**, which at full frame is 2.4 times the
+pixels the largest square `solidScene` canvas covers — and a lit surface at that
+size spends the entire 1.7 s/s the duration-scaled deadline leaves spare, for one
+block of one scene. So `FIELD_PIXEL_BUDGET` caps what a field may DRAW and
+`ComposedSceneVideo` paints the result back over the box with two scales, one per
+axis, so the rounding of an integer backing store cannot leave a hairline of the
+ground down the right edge. Cutting the budget a further third bought +0.19 s/s
+for a fifth of the linear resolution, which is where the trade stops being worth
+taking. A field in a CELL pays nothing: a third of a zone is already under the
+budget, so `fieldCanvas` hands back its box unscaled and the drawing is sharp.
+This is the only family drawn smaller than its box, and it is allowed to be
+because none of the three has an edge on it finer than the gradient across it —
+which is also why none of them may ever set type.
+
+**A grid in perspective converges, and where it converges it costs bitrate.** The
+first `depthGrid` came back at 6.0 MB for six seconds — three quarters of the way
+to the 9.8 MB that got the wireframe refused — on a band of alternating pixels
+crawling towards a vanishing point. `GRID_FOG_DENSITY` fixes it for nothing: fog
+blends towards `palette.ground.color`, so every pixel of the block still lies
+between the bare ground and the accent, which is the pair `composedPalette`
+measures for this field. It is also the right picture, since a floor whose far
+end simply stops has a visible edge across the frame. The rules themselves are
+long thin BOXES and not `<lineSegments>`, and that is measured too: a line
+primitive is one pixel wide whatever its depth, so a floor made of them has no
+perspective in its own weight — and it is the geometry that got the wireframe
+refused in the first place.
+
+Three more things a rendered frame decided rather than a reading.
+
+*The wave was a flat orange slab.* A Lambert face is lit by its NORMAL, and the
+first swells had a steepest slope of eighteen degrees, which against an ambient
+share of a half is a variation nobody can see. The product `rise × wave` is near
+one at every swell now — about forty-five degrees at the crest — and the one
+directional light sits to the SIDE rather than over the camera's shoulder, where
+`solidScene` puts its own: a solid turns, so any angle finds its faces, and a
+sheet that undulates in place needs grazing light to be read at all.
+
+*Then it had a notch in it.* The sheet is displaced along its own normal, so a
+trough at the far edge drops it below the top of the picture and opens a strip of
+bare ground across the frame. `WAVE_WIDTH` and `WAVE_DEPTH` are derived from the
+camera and not chosen, and `field.test.js` holds the inequality with twice the
+deepest rise subtracted from it, at both tilts.
+
+*And the dust wraps off-frame.* A particle walking upwards comes back by a
+modulo, and a modulo inside the frustum is a speck teleporting through the middle
+of the picture — once per particle per scene, on the drift a silent document
+gets. `PARTICLE_RISE_SPAN` clears the frustum at the far side of the world, and
+the test is the inequality rather than a paragraph.
+
+The three are named in `server/video/three-d.js` with the blocks that came before
+them, so the administrator's 3D permission covers them; a field added to the
+catalogue and forgotten there is a block offered to every account, which is
+precisely the failure nothing about it would make visible.
 
 #### Three blocks that cost a dependency, and what the measurements said
 
@@ -304,6 +519,246 @@ not capped, and what the prompt is for, is ATTENTION: each of these two is a who
 scene, so "at most one in the whole film" is an editorial rule, and the card says
 that a set piece crowded into a stack does not become expensive — it becomes
 small, which is a whole renderer drawing a thumbnail.
+
+#### The picture in perspective, and the bridge from the library to a renderer
+
+Every 3D block above draws a SHAPE. `photoStage` and `photoRing` draw a PICTURE —
+one the user selected, standing on a panel in real perspective, or several of them
+on a carousel turning past the camera. That is the commercial use of this
+capability and the one that pays for its own cost: a photograph on a turning panel
+is what a product film is made of, and it is the only pair of blocks in the
+catalogue whose subject came out of the image library rather than out of a closed
+enum.
+
+**Nothing in `blocks/` may import `three`, and a texture is an object rather than
+a tag.** Every other 3D block returns bare intrinsics — `<mesh>`, `<boxGeometry>`
+— which the reconciler resolves at render time, so the whole registry still loads
+inside Mocky's own vitest suite where neither `three` nor Remotion is installed. A
+`map` cannot be written that way: it is a `THREE.Texture`, and something has to
+construct it. So the loading happens where the canvas is already opened.
+`worker/video/remotion/textures.js` is the one file in the renderer that imports
+`three`, `ComposedSceneVideo` calls it once per scene, and the pictures reach a
+block as a `textures` prop exactly as the staged paths already reach it as
+`images`.
+
+**`delayRender` alone would not have been enough, and the reason is specific to a
+3D block.** The panel's GEOMETRY is derived from the picture's own shape — the
+slab takes the photograph's aspect, so nothing is cropped and nothing is stretched
+— which means a component that rendered before the image decoded computed its
+dimensions from a fallback. Releasing the frame at that moment captures a frame
+whose material is right and whose slab is the wrong shape, and Remotion renders
+many frames per page under concurrency, so the fallback would land on whichever
+frame a page happened to start at: a film that differs between two runs of one
+document, which the content-addressed store then files as two films. The frame is
+therefore released from an EFFECT that runs after a render in which the images are
+present — load, mark ready, re-render, continue — and a scene with no pictures
+continues immediately rather than waiting for nothing.
+
+**The fit is closed form, because the one thing a 3D block gets wrong that no
+reviewer sees is geometry.** A flat block that overflows shows up in a screenshot;
+a panel that swings its near corner through the edge of the frustum shows up on
+frame two hundred and fourteen of an mp4 nobody watched to the end. The camera
+sits at `(0, 0, d)`, so a point is inside when `|y| ≤ (d − z)·tan θ`, and scaling
+the object by `s` makes that `s·(|y| + z·tan θ) ≤ d·tan θ` — linear in `s`, so the
+largest legal scale is a minimum over the corners with no search in it.
+`frustumScale` is that minimum, solved over the whole move rather than for one
+pose (a panel fitted to the pose it is currently in would grow and shrink across
+its scene), and `stage.test.js` re-derives the projection from its definition and
+checks a hundred and one moments against a fit sampled at forty-one.
+
+The lens follows from the same inequality. The share of the frame a panel may
+occupy is `|y| / (|y| + z·tan θ)`, which RISES as the lens gets longer — `z` is
+how far a turned corner leans towards the camera and `tan θ` is what that lean
+costs. At `solidScene`'s 45° a card turning over composes its picture at 45% of
+its canvas; at 30° the same flip composes at 60%. A wide angle would make this
+family both smaller and uglier, since it turns a rectangle into a trapezoid whose
+two vertical edges are visibly different lengths — which is why every catalogue in
+the world shoots its objects on something near an 85 mm, and why 30° is what a
+`photoStage` is seen through. A ring gets a longer one again, 18°, for a reason of
+its own: the panel at the front stands a whole ring radius nearer the lens than
+the origin the frustum was measured at, and at 30° that alone put a six-picture
+carousel at a third of its canvas.
+
+**Three things about the ring were wrong and a rendered frame is what said so, in
+that order.** Sized on the WIDEST of its pictures, a carousel of five screenshots
+containing one header banner asked for a ring nearly twice as wide as the others
+needed and came back as a row of specks in a black frame — so a ring has ONE slot,
+the median of the pictures' shapes clamped into a band a carousel can hold, and
+one outlier costs a margin instead of the block. Built to that slot, the panels
+were five slabs of saturated accent with a photograph inset in each — so a body
+HUGS its own picture and the rim is the ornament rather than the block. And with
+the panels facing outward, two or three of them show the camera their backs at any
+moment, which is the accent again at the size of a panel — so a ring's picture is
+drawn on the reverse too, turned half a turn about its own axis so it reads the
+right way round rather than mirrored. What the fit is solved on is the box that
+really holds the panels and not the slot they are bounded by: a ring of three
+banners scaled as though each were a full card is three thin bars in the middle of
+an empty frame.
+
+**What they cost, measured over twenty seconds of film on the two-core container
+against a plain title.** Best of the runs rather than the mean, because the host
+was doing other work: `solidScene` is what anchors the column at +0.90, which is
+the figure already in this document, so the rest of it is comparable to
+everything above.
+
+
+| scene | Δ render seconds per second of film | output |
+|---|---|---|
+| control — a plain title | — | 1.75 MB |
+| `photoStage`, full frame, mounted card, orbiting | **+0.18** | 2.09 MB |
+| `photoStage`, full frame, in a case, turning over | **+0.19** | 2.12 MB |
+| flat `gallery` of six, full frame | +0.26 | 4.58 MB |
+| `solidScene`, full-frame lit sphere | +0.90 | 2.10 MB |
+| `photoRing` of six, full frame, unbounded | +2.24 | 6.98 MB |
+| `photoRing` of six, full frame, inside its budget | **+1.35** | 6.19 MB |
+
+A stage is the cheapest 3D block in the catalogue — a fifth of a solid — and a
+full-frame ring of six is the most expensive thing in it. The flat `gallery` is
+the line that decided what to do about that: six screenshots on one frame cost
+four and a half megabytes of h264, and the whole of that encoder bill is 0.26 s/s,
+so a ring's two and a quarter are not the pictures being encoded but the pictures
+being SAMPLED — eighteen textured quads at the grazing angles a software
+rasteriser is slowest at. That cost falls with the resolution it is drawn at, so a
+ring is drawn inside `RING_PIXEL_BUDGET` and painted back over its box exactly as
+a field is; it lands at the same six hundred thousand pixels `field.js` arrived
+at, which is not a shared constant but the same rasteriser in the same container
+reaching the same trade from two different blocks. It does not fall to nothing —
+about 0.9 s/s of geometry and encoding no budget touches — so this is a bound
+rather than a cure, and the card says a ring is the expensive one. A ring in a
+CELL is far under the budget and is drawn at its own size, to the pixel.
+
+**Anisotropy is the one sampler setting that was chosen by measuring.** A panel
+turned away from the camera is exactly the case a mipmapped texture without it
+renders as a blurred smear along one axis — the softness `resolution.ts` is about,
+arriving through a sampler instead of through a source that was too small. It is
+not free and the cost is not where it looks: an orbiting stage is within the noise
+at every setting, while a card turning OVER sweeps through the grazing angles
+where the full tap count fires and measured 20.1 s at sixteen taps, 16.0 at four
+and 13.4 with it off, against a 12.3 s control. Four is where that curve stops
+being worth it.
+
+**Their legibility is half closed and half named.** The body — the rim, the mount,
+the case, the back of a card — is `palette.solid`: the ornament's run resolved on
+the bare ground and shaded along the Lambert segment `solidShading` measures, so
+`FIELD_PAINTS` names both blocks `solid` and a heading standing on one of them is
+measured against the two ends of that segment. The other half is the PHOTOGRAPH,
+and it is the honest gap `gallery`, `carousel` and `imageFrame` already carry:
+nobody in this process has opened the picture. Neither block paints text over one —
+a caption belongs to a `kicker` in a zone of its own, on a surface somebody
+computed — and that is the part this pair can decide rather than name.
+
+#### Type in three dimensions, and the two things that were refused to get it
+
+The third thing asked of 3D was the first thing anybody does with it: an extruded
+title, a wordmark with thickness, letters arriving in space and settling.
+`extrudedType` is that block, and it is in `setPiece` with the other two — one
+line of type, at most twenty-four characters, standing in a real scene and turning
+in it.
+
+**There is no glyph geometry in this container, and the package that would bring
+some brings its own typeface with it.** The obvious way to extrude a letter is
+`ExtrudeGeometry` over its outline, which is what `@react-three/drei`'s `<Text3D>`
+does. It was measured before it was refused, exactly as Skia was: **+118.9 MiB
+installed and +59 packages** on a base of 185.9 MiB, a 64% larger install for one
+block. That is the cheaper half of the objection. `Text3D` does not read a system
+font — it needs a `typeface.json`, a converted outline dump baked into the image —
+and this container installs exactly ONE family. Every flat block in the catalogue
+names the direction's DECLARED typeface first and falls back to Liberation Sans,
+which is how "the project asked for Cormorant Garamond" becomes readable text in a
+container with no egress. A baked outline set cannot do that, so a 3D title would
+be Liberation Sans on every theme in the product while the heading beside it
+honoured the art direction. A film in two typefaces is the guessed token
+`theme.ts` refuses, arriving through a package.
+
+So the type is rasterised by the browser that is already drawing the frame, in the
+project's own font stack, and the third dimension is real geometry carrying it:
+one textured quad per word for the face, one dilated copy behind it for the
+thickness, a real perspective camera, a real turn. `funTitle` is what Skia became
+without a package; this is what `Text3D` became without one.
+
+**The second refusal is the letter, and it is the one the measurements made.** The
+first version stacked ten copies of every LETTER, which is the obvious reading of
+"letters arriving in space". Same bench as everything else here — the worker image,
+`--cpus=2.0 --memory=4g`, 1080p/30, six seconds, `encoding.js`'s own encoder
+settings:
+
+| Scene | render | Δ s/s (bench) | Output |
+|---|---|---|---|
+| control (a flat title) | 13.2 s | — | 0.65 MB |
+| `solidScene`, sphere, full frame | 20.8 s | +1.26 (the calibration) | 0.88 MB |
+| ~~16 letters × 10 copies = 176 objects~~ | 75.1 s | **+10.3** — refused | 0.93 MB |
+| ~~16 letters × 2 copies = 48 objects~~ | 32.1 s | **+3.1** — refused | 0.99 MB |
+
+Two points on a line through the OBJECT count: 0.084 s of render per second of
+film per object, and a fill term that solves negative — in a software rasteriser
+the bill is the per-object state change and not the pixels. The 1.7 s/s the
+duration-scaled deadline leaves spare is about 2.4 s/s on that bench, which is
+twenty-eight objects. A sixteen-letter line at ten copies is 176 of them and a
+twenty-four-letter one at two copies is 72: **per-glyph geometry does not fit, and
+no number of copies makes it fit.** It is refused with its figure, exactly as the
+wireframe was.
+
+The object is a WORD instead — at most three of them, `SPATIAL_GROUPS` — and the
+seam between two copies is closed by DILATION rather than by count: each copy is
+stroked by the step it takes, so one copy behind the face is a solid side. Six
+objects, whatever the line says. What it also buys back is the kerning the face
+was drawn with, which a line placed letter by letter loses on every pair.
+
+| Scene | render | Δ s/s (bench) | **Δ s/s (this document's scale)** | Output |
+|---|---|---|---|---|
+| control (a flat title) | 12.1 s | — | — | 0.65 MB |
+| `solidScene`, sphere, full frame | 19.6 s | +1.25 | **+0.90** (the calibration) | 0.88 MB |
+| `extrudedType`, full frame, `deep` | 18.9 s | +1.13 | **+0.81** | 0.97 MB |
+| four of them, one per corner | 23.5 s | +1.91 | **+1.37** | 1.63 MB |
+| the same block over 30 s of film | 82.5 s | +0.93 | **+0.67** | 4.32 MB |
+
+**About +0.8 s/s**, 0.90 of what a lit solid costs on the same run, additive and
+linear in the film's length — the thirty-second row is the same number measured
+over five times the frames — and half again a title's bitrate where the refused
+wireframe was sixteen times its control. Four of them on one frame still fit,
+which is the property the layout gives this family for nothing: a canvas is the
+block's own BOX, so a crowded scene does not get expensive, it gets small.
+
+**Three bounds are the whole of the block, and each is a defect that a rendered
+frame found.**
+
+A long lens, because a wide one keystones a line of type: at twelve degrees of
+field the near end of a seven-degree sway came back 14% larger than the far end on
+the widest line the schema allows, which is one word set at two sizes and reads as
+a mistake rather than as depth. The field is four degrees now, and past that the
+returns stop — so a long LINE sways less instead, by exactly the amount that holds
+the keystone at five per cent, with a floor under it because a film in which
+nothing moves must not be producible by accident.
+
+The arrival is a DEPTH and never an opacity, and the words come from BEHIND. A
+word arriving from in front of the plane is magnified by the camera on its first
+frames and draws outside the box the layout gave the block — `funTitleHeadroom`'s
+lesson arriving through a camera instead of a padding — and a fade would paint
+every word, for as long as it lasted, in a colour composited from the ink and the
+ground that nobody measured. Same argument `heading` makes for its mask and
+`solidScene` for its scale. The third of the three moves is a depth for the same
+family of reasons and a different one: every ANGLE has to be paid for in the
+stroke that closes the seam, and a per-word rotation of fourteen degrees put a ring
+of nine per cent of the em around every word, which fills the aperture of an `e`.
+So `float` breathes the words in depth, and it costs nothing to draw.
+
+And the block scales UP to what `blockExtent` claims for it. The estimate that
+solved the size rounds every glyph class up and adds six per cent on top, which on
+a run that wraps disappears into the wrap and on this one cannot: a rendered frame
+came back with `MOTION EN RELIEF` filling 74% of the measure its box had been
+divided on, a quarter of the frame empty beside a title. That is the small element
+in a large void arriving through an estimate. The line is scaled until it fills the
+claim and never past it — the claim is what `stackIn` divided the zone on, so this
+recovers slack and never takes a pixel from a neighbour.
+
+Two entries elsewhere follow from all of it. `FIELD_PAINTS` gains a third answer,
+`type`: this block paints the display ink on the face of every word and the accent
+behind it, so a field measured as the accent alone would leave the largest ink on
+the frame unmeasured, and a field measured as nothing at all is the 1:1 meeting the
+whole legibility section exists to have prevented. And `blocks/canvases.js` is a
+new file: which blocks need a GL canvas, how big it is and what camera looks into
+it used to be a branch inside `ComposedSceneVideo`, which is one branch per 3D
+block in a file every block author would then have to edit.
 
 #### A zone, and a rank
 
@@ -2423,6 +2878,101 @@ authorising on it alone would take a user's own export away from them on their
 fifty-first; the store's `owners` set is not trimmed, but is bounded at twenty
 accounts per file. Either is enough to say yes.
 
+### 3D is a second permission, and it narrows the first
+
+An administrator can also decide **who may put a 3D block in a film**. It follows
+the template above rather than inventing one — the same two modes, the same
+"a list is replaced, never merged", the same absence of anything secret — and it
+lives beside it in `server/video/config.js` as `threeDAccess` and
+`threeDAllowedUserIds`, with `videoThreeDEnabledFor()` for the question.
+
+**It asks `videoEnabledFor()` first.** That line is load-bearing: a 3D permission
+granted to an account that cannot export at all is a right to nothing, and two
+lists read independently is how an instance ends up with a "yes" nobody can act
+on and an administrator debugging the wrong checkbox. It also means the two rules
+the export permission earned are inherited rather than re-argued — the master
+switch closes this too, and an administrator is still not allowed on their role
+alone, so 3D renders keep appearing against a name.
+
+**Its default is `all`, and it is the one default in that file that is not the
+closed one.** The reasoning is written out in `DEFAULT_THREE_D_ACCESS`, and it
+comes down to three things. The closed door already exists one level up, so "all"
+here means "everyone an administrator already put on Motion's list", not
+"everyone"; a second closed default would be the same door locked twice, and the
+second lock is the one nobody knows about. The cost is a surcharge rather than a
+new bill — a render already spends about 4.3 s of real time per second of film
+and a lit solid adds about 0.9 s/s, inside the 1.7 s/s the duration-scaled
+deadline leaves spare, and it is bounded by the layout rather than by an honour
+system. And `solidScene` shipped: a closed default would be an upgrade that
+silently deletes a block from every instance already rendering films with it, and
+the first symptom is a compose prompt that has quietly stopped offering it, which
+reads as a regression rather than as a policy.
+
+### The enforcement is on the server, at two doors
+
+Hiding a button is presentation. What makes the permission true of a film is that
+the routes refuse it.
+
+`POST /compose` **does not offer** what the account may not spend: `three-d.js`
+names the 3D blocks, and `availableBlocks()` drops them from the catalogue and
+from the decoder hint by exactly the mechanism an empty image selection uses. The
+prompt then states it as a fact about the instance — "solidScene is not part of
+the catalogue on this instance" — and never as a rule, because a model told a
+block exists but is forbidden reaches for it anyway and the refusal arrives after
+the tokens are spent.
+
+`POST /render` **refuses the document**, and that is the gate. A timeline reaches
+that route from a draft saved last week by an account since taken off the list, a
+tab left open while an administrator narrowed the setting, the hand editor, or
+curl — none of which passed through the composer. `threeDBlocksIn()` walks the
+scenes the way `timelineImageIds()` does, the check sits right after the schema
+and before anything touches the disk, and the answer is `403` rather than `400`
+because the document is well formed and what is wrong is who is asking.
+
+Both refusals **name what is still possible**, which is this module's rule
+everywhere: `threeDRefusal()` says which blocks were involved, that an
+administrator grants the right per account and roughly what it costs, and how
+many blocks the film could be composed from instead — a count read off the
+catalogue, never typed. The person reading it did not choose the block; a model
+did, out of a catalogue narrowed after the fact.
+
+### The 3D button, and what it is not
+
+The panel's 3D button is a **composition option**, not a permission: it travels
+as `forceThreeD: true` on `POST /compose`, the server validates it against the
+same permission, and it becomes an instruction in the prompt — at least one set
+piece, given a scene where it is the subject, one in the film and not one per
+scene. An account without the permission that sends it gets the same named `403`,
+because a button that quietly does nothing is the failure people file as "3D is
+broken". Asked for on one of the five ready-made compositions it is refused
+before the call, since those carry no blocks at all. And a run that was forced,
+allowed and came back flat gets a **notice** rather than a refusal: the film
+renders, it is simply not the one the button promised, and handing back nothing
+over an answer that works is the wrong trade (Q1).
+
+### What keeps the list honest
+
+`server/video/three-d.js` names the 3D blocks by hand, and the list is guarded
+from both ends because the dangerous direction is not the obvious one. A stale
+name guards nothing; the failure that matters is a **new** 3D block written,
+rendered, catalogued — and never added here, so the permission covers one block
+out of two and nothing about that fails.
+
+So `tests/video-3d-permission.test.js` compares the list against the **worker**,
+where three-dimensionality actually lives: a 3D block is one whose component
+returns react-three-fiber intrinsics, which is precisely the property
+`ComposedSceneVideo` uses to decide what to wrap in a `ThreeCanvas` and precisely
+what costs the render time being rationed. The files are read as text, like
+`tests/video-worker-separation.test.js`, so the check runs on a checkout that has
+never entered `worker/video/`.
+
+The list is deliberately **not** in `server/video/timeline.js`. That file is a
+hand-kept mirror of the TypeScript schema, and three-dimensionality is not a fact
+about the schema: every 3D block is validated by the same bounded integers and
+closed enums as a heading, which is the founding rule and the reason a 3D
+capability costs it nothing. What makes a block three-dimensional is its
+renderer.
+
 ---
 
 ## The files
@@ -2435,7 +2985,8 @@ accounts per file. Either is enough to say yes.
 | `src/lib/video/resolution.ts` | How much a still is about to be enlarged, and what to ask a provider for. Mirrors the worker's frame geometry; `tests/video-frame-geometry.test.js` holds the two together |
 | `server/video/compose.js` | The one model call: it composes a scene out of the block catalogue, it never picks the pictures |
 | `server/video/variants.js` | The two variant paths, and the fixed table of axes |
-| `server/video/config.js` | Admin settings. The licence key never leaves the server |
+| `server/video/config.js` | Admin settings, both permissions. The licence key never leaves the server |
+| `server/video/three-d.js` | Which blocks are drawn in 3D, and the refusal that names what is still possible |
 | `server/video/queue.js` | In-memory queue, atomic JSON journal, concurrency of one. No Redis, ever |
 | `server/video/worker.js` | HTTP client for the render worker, and `assertWorkerTarget` |
 | `server/video/store.js` | The finished file, kept whole. **Not** `server/videos/` |
@@ -2448,6 +2999,7 @@ accounts per file. Either is enough to say yes.
 | `worker/video/remotion/blocks/` | One component per block kind, plus the registry. No Remotion import, no colour, no curve — `blocks.test.js` holds all three |
 | `worker/video/remotion/contrast.js` | WCAG luminance and contrast, mirrored by hand from `src/lib/audit/colors.ts`. `contrast.test.js` holds the two together |
 | `tests/video-worker-separation.test.js` | What actually keeps Remotion out of Mocky's manifest |
+| `tests/video-3d-permission.test.js` | What keeps the 3D block list in step with the components that draw in GL |
 | `tests/video-frame-geometry.test.js` | The frame size, the overscales and the picture share, compared between the browser and the worker |
 
 The queue is in memory with a JSON journal on disk, and there is no Redis and no

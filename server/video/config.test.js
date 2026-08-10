@@ -9,8 +9,10 @@ import {
   publicVideoConfig,
   defaultVideoConfig,
   videoEnabledFor,
+  videoThreeDEnabledFor,
   ACCESS_MODES,
   DEFAULT_WORKER_URL,
+  DEFAULT_THREE_D_ACCESS,
 } from './config.js'
 
 let dir
@@ -87,6 +89,19 @@ describe('mergeVideoConfig', () => {
 
   // The panel edits a list: merging would make a removal unexpressible, so an
   // account revoked in the UI would keep its access forever.
+  it('follows the same rules for the 3D scope and its list', () => {
+    // The whole point of following the template instead of inventing one: the
+    // mode is validated against the same enum, the list is REPLACED rather than
+    // merged, and empty ids are dropped by the same helper.
+    const base = mergeVideoConfig(null, { threeDAccess: 'allowlist', threeDAllowedUserIds: ['u1', 'u2'] })
+    expect(base.threeDAccess).toBe('allowlist')
+    expect(mergeVideoConfig(base, { threeDAccess: 'nobody' }).threeDAccess).toBe('allowlist')
+    expect(mergeVideoConfig(base, { threeDAllowedUserIds: ['u2'] }).threeDAllowedUserIds).toEqual(['u2'])
+    expect(mergeVideoConfig(base, { threeDAllowedUserIds: ['', 'u3', 'u3'] }).threeDAllowedUserIds).toEqual(['u3'])
+    // And the two lists do not touch each other.
+    expect(mergeVideoConfig(base, { allowedUserIds: ['u9'] }).threeDAllowedUserIds).toEqual(['u1', 'u2'])
+  })
+
   it('REPLACES the allowlist rather than merging it, and dedupes', () => {
     const c = mergeVideoConfig(null, { allowedUserIds: ['u1', 'u2'] })
     expect(mergeVideoConfig(c, { allowedUserIds: ['u2'] }).allowedUserIds).toEqual(['u2'])
@@ -136,6 +151,32 @@ describe('publicVideoConfig', () => {
   it('reports hasLicenseKey false when there is none', () => {
     expect(publicVideoConfig(defaultVideoConfig()).hasLicenseKey).toBe(false)
   })
+
+  /**
+   * The 3D permission is admin-editable, so it has to be in the projection the
+   * panel edits — and it has to be in it in the same shape as the pair above,
+   * because a setting the panel cannot see is one an administrator cannot
+   * change. Nothing here is a secret; the one thing that is stays a boolean.
+   */
+  it('carries the 3D scope and its list, and still leaks nothing', () => {
+    const cfg = mergeVideoConfig(null, {
+      licenseKey: 'rmt-secret',
+      threeDAccess: 'allowlist',
+      threeDAllowedUserIds: ['u1', 'u2'],
+    })
+    const view = publicVideoConfig(cfg)
+    expect(view.threeDAccess).toBe('allowlist')
+    expect(view.threeDAllowedUserIds).toEqual(['u1', 'u2'])
+    expect(JSON.stringify(view)).not.toContain('rmt-secret')
+    expect(view.licenseKey).toBeUndefined()
+  })
+
+  it('answers a known 3D mode for a config that has none, rather than undefined', () => {
+    // The instance that saved this file before the setting existed. A panel
+    // hydrating `undefined` into a <select> loses the value on the next save.
+    expect(publicVideoConfig({ enabled: true }).threeDAccess).toBe(DEFAULT_THREE_D_ACCESS)
+    expect(publicVideoConfig({ enabled: true }).threeDAllowedUserIds).toEqual([])
+  })
 })
 
 describe('videoEnabledFor', () => {
@@ -177,6 +218,90 @@ describe('videoEnabledFor', () => {
   it('says no on an empty or missing config rather than throwing', () => {
     expect(videoEnabledFor(null, user)).toBe(false)
     expect(videoEnabledFor({}, user)).toBe(false)
+  })
+})
+
+describe('videoThreeDEnabledFor', () => {
+  const admin = { id: 'a1', role: 'admin' }
+  const user = { id: 'u1', role: 'user' }
+  /** An account Motion itself is open to, so only the 3D rule is under test. */
+  const exporting = (over = {}) => ({ enabled: true, access: 'all', ...over })
+
+  /**
+   * The one default in this file that is not the closed one, and the reason is
+   * that the closed default already exists one level up — see
+   * DEFAULT_THREE_D_ACCESS. Pinned rather than left to the reader, because
+   * "tighten this while you are in here" is exactly the change that would
+   * silently delete a shipped block from every existing instance.
+   */
+  it('is open by default, inside a feature that is closed by default', () => {
+    const c = defaultVideoConfig()
+    expect(c.threeDAccess).toBe('all')
+    expect(c.threeDAllowedUserIds).toEqual([])
+    // And it grants nothing on its own: the master switch is still off.
+    expect(videoThreeDEnabledFor(c, user)).toBe(false)
+  })
+
+  it('says no to an account that may not export at all', () => {
+    // The load-bearing line: a 3D permission on an account with no Motion is a
+    // right to nothing, and two lists read independently is how an admin ends up
+    // debugging the wrong checkbox.
+    expect(videoThreeDEnabledFor({ enabled: false, access: 'all', threeDAccess: 'all' }, user)).toBe(false)
+    expect(
+      videoThreeDEnabledFor(
+        { enabled: true, access: 'allowlist', allowedUserIds: ['u2'], threeDAccess: 'all' },
+        user,
+      ),
+    ).toBe(false)
+  })
+
+  it('says yes to everyone Motion is open to when the 3D scope is "all"', () => {
+    expect(videoThreeDEnabledFor(exporting({ threeDAccess: 'all' }), user)).toBe(true)
+    expect(videoThreeDEnabledFor(exporting({ threeDAccess: 'all' }), admin)).toBe(true)
+  })
+
+  it('checks membership when the 3D scope is "allowlist"', () => {
+    const cfg = exporting({ threeDAccess: 'allowlist', threeDAllowedUserIds: ['u1'] })
+    expect(videoThreeDEnabledFor(cfg, user)).toBe(true)
+    expect(videoThreeDEnabledFor(cfg, { id: 'u2' })).toBe(false)
+  })
+
+  it('narrows, never widens: an empty 3D list means nobody', () => {
+    // The configuration the user asked for — Motion for everyone, 3D for nobody
+    // until somebody is named.
+    const cfg = exporting({ threeDAccess: 'allowlist', threeDAllowedUserIds: [] })
+    expect(videoEnabledFor(cfg, user)).toBe(true)
+    expect(videoThreeDEnabledFor(cfg, user)).toBe(false)
+  })
+
+  // Inherited from `videoEnabledFor` rather than re-argued, and asserted because
+  // inheritance is the kind of thing a refactor drops: the list is what the
+  // per-account usage report counts, and a role that granted access implicitly
+  // would make 3D renders appear against nobody's name.
+  it('does NOT let an admin through on their role alone', () => {
+    const cfg = {
+      enabled: true,
+      access: 'allowlist',
+      allowedUserIds: ['a1'],
+      threeDAccess: 'allowlist',
+      threeDAllowedUserIds: ['u1'],
+    }
+    expect(videoThreeDEnabledFor(cfg, admin)).toBe(false)
+    expect(videoThreeDEnabledFor({ ...cfg, threeDAllowedUserIds: ['u1', 'a1'] }, admin)).toBe(true)
+  })
+
+  it('says no with no account, an empty id, or no config at all', () => {
+    const cfg = exporting({ threeDAccess: 'allowlist', threeDAllowedUserIds: ['', 'u1'] })
+    expect(videoThreeDEnabledFor(cfg, null)).toBe(false)
+    expect(videoThreeDEnabledFor(cfg, { id: '' })).toBe(false)
+    expect(videoThreeDEnabledFor(null, user)).toBe(false)
+    expect(videoThreeDEnabledFor({}, user)).toBe(false)
+  })
+
+  it('reads an unknown 3D mode as the closed one', () => {
+    // A hand-edited file never passes through `mergeVideoConfig`, so anything
+    // that is not the word "all" has to fail shut here.
+    expect(videoThreeDEnabledFor(exporting({ threeDAccess: 'everyone' }), user)).toBe(false)
   })
 })
 

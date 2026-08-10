@@ -2495,6 +2495,16 @@ export const BLOCK_APPETITE = {
   equalizer: { fixed: 13, fills: 'both', runs: () => [] },
   soundWave: { fixed: 10, fills: 'both', runs: () => [] },
   map: { fixed: 22, fills: 'both', runs: () => [] },
+  // A ball, so `minor` for the reason `solidScene` is: it fills the smaller side
+  // of its box and floats in the middle of the other, and there is no honest way
+  // to make a sphere fill a landscape measure. Worth the field tier because a
+  // globe IS the scene when it is in one — the same sentence as `map`, one
+  // dimension up.
+  globe: { fixed: 22, fills: 'minor', runs: () => [] },
+  // The flat chart's own appetite and the flat chart's own run: this is
+  // `barChart` with volume, and two charts of the same numbers in one film that
+  // reserved different heights for their labels would be two scales.
+  solidChart: { fixed: 16, fills: 'both', runs: (b) => [{ role: 'caption', text: runs(b?.labels)[0] }] },
 
   // ── MEDIA AND TIME ──
   imageFrame: { fixed: 22, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.caption }] },
@@ -2502,6 +2512,13 @@ export const BLOCK_APPETITE = {
   carousel: { fixed: 15, fills: 'both', runs: () => [] },
   clock: { fixed: 15, fills: 'either', runs: (b) => [{ role: 'caption', text: b?.label }] },
   dateStamp: { fixed: 0.6, fills: 'either', runs: (b) => [{ role: 'body', text: b?.text, nowrap: true }] },
+  // The field tier, for the reason `imageFrame` and `gallery` are on it: a
+  // picture alone in a scene IS the scene. Neither sets a word of type — a
+  // caption on a turning panel would be type nobody measured against a
+  // photograph — so both answer no runs, and the whole of their height is the
+  // canvas the layout hands them.
+  photoStage: { fixed: 22, fills: 'both', runs: () => [] },
+  photoRing: { fixed: 22, fills: 'both', runs: () => [] },
 
   // ── MISC ──
   separator: { fixed: 1, fills: 'width', runs: () => [] },
@@ -2519,6 +2536,45 @@ export const BLOCK_APPETITE = {
     runs: (b) => runs(b?.lines).map((line) => ({ role: 'body', text: line?.text, mono: true, nowrap: true })),
   },
   solidScene: { fixed: 22, fills: 'minor', runs: () => [] },
+  /*
+   * A line of type with thickness — so a line of type's appetite, plus the room
+   * the thickness projects into.
+   *
+   * `either` and `nowrap`, which is `logoType`'s row rather than `funTitle`'s and
+   * is the whole typographic decision of the block: an extruded line that WRAPS
+   * is two lines at two depths with an extrusion between them, and the second
+   * reads as a shadow of the first. An unbreakable run is bounded by
+   * `cappedByWidth` at its whole length across the measure, which is stricter
+   * than `wordCeiling`'s longest word by definition — so "a word is not cut in
+   * half" holds here by construction rather than by a declaration a browser
+   * falls back to.
+   *
+   * 0.5 of furniture and not 0. The thickness lies along the DEPTH axis, so most
+   * of it costs no height at all; what does is the projection — the extrusion at
+   * the tilt, and the near end of a turned line magnified by the camera. Half a
+   * body unit is 0.21 of a display size, and the widest either term reaches is
+   * under a tenth of it. `spatialType.test.js` holds the inequality; the room is
+   * not a taste, it is `funTitleHeadroom`'s argument applied to a lens.
+   */
+  extrudedType: {
+    fixed: 0.5,
+    fills: 'either',
+    runs: (b) => [{ role: b?.level === 'title' ? 'title' : 'display', text: b?.text, nowrap: true }],
+  },
+
+  // ── FIELDS IN VOLUME ──
+  //
+  // The field tier, and these three are the clearest case for it there is:
+  // a dust, a swelling surface and a floor running away from the eye are the
+  // SCENE when they are in it, so one of them beside a heading takes the frame
+  // and leaves the heading a band — which is the arrangement anybody who writes
+  // those two lines meant. `both`, because a field that leaves a quarter of its
+  // box empty has nothing else in that box, and `runs: []` because none of the
+  // three sets a single character: they are the surface type stands on, and a
+  // field with no text declares nothing and forbids nothing (`FIELD_FOOT`).
+  particleField: { fixed: 22, fills: 'both', runs: () => [] },
+  waveMesh: { fixed: 22, fills: 'both', runs: () => [] },
+  depthGrid: { fixed: 22, fills: 'both', runs: () => [] },
 }
 
 /**
@@ -2600,6 +2656,89 @@ export const BLOCK_FURNITURE = [
 /** Whether a kind is furniture. A name off a document, so it is matched and never looked up. */
 export function isFurniture(kind) {
   return typeof kind === 'string' && BLOCK_FURNITURE.includes(kind)
+}
+
+/**
+ * The blocks that are a GROUND, and are therefore drawn to the frame's own edges
+ * rather than to the safe area.
+ *
+ * ── The export that made this necessary ─────────────────────────────────────
+ *
+ * A `waveMesh` anchored `full`, alone on a 16:9 scene, came back as a green
+ * rectangle with 115 px of bare ground down the left edge and 74 px across the
+ * top — a hard-cornered inset on all four sides. The same is true of a
+ * `depthGrid` and of a `particleField`, and it is not a bug in any of the three:
+ * `full` means the safe area, every block in the catalogue is laid out in it, and
+ * for a chart or a picture that is exactly right.
+ *
+ * It is wrong for these three, and the schema says why in their own words: they
+ * are *"three grounds with a depth to them… the answer to 'the background should
+ * be in 3D'"*. The thing they are being asked to replace is
+ * `scene.background`, which `ComposedSceneVideo` paints as an `AbsoluteFill` —
+ * edge to edge, because a ground that stops short of an edge is not a ground. So
+ * a document that asks for a 3D ground and gets a rectangle floating inside a
+ * margin does not read as a composition decision; it reads as a render that
+ * failed to fill, which is the "very very rudimentary" this module keeps being
+ * told about.
+ *
+ * ── What it does NOT change ─────────────────────────────────────────────────
+ *
+ * Only the BOX of the `full` zone, and only when that zone holds nothing but
+ * grounds. Every CELL is laid out exactly where it was, so nothing measured
+ * moves: a run inside the safe area was over the field before this change and is
+ * over the same field after it, which is what keeps `stackedField` and
+ * `FIELD_PAINTS` true without a line of either being touched. What a bled ground
+ * covers that it did not cover before is margin — a band no block has ever been
+ * laid out in.
+ *
+ * ── The three, and why the list is short on purpose ─────────────────────────
+ *
+ * `particleField`, `waveMesh`, `depthGrid`: the three the schema files under
+ * FIELDS IN VOLUME. `gallery`, `imageFrame`, `map`, `barChart` and the rest stay
+ * out of it and the test is the same sentence `BLOCK_FURNITURE` uses — is this
+ * thing the SURFACE, or a thing standing on one? A photograph bled to the frame
+ * is a treatment a document asks for (`imageFrame`'s own `bleed`) and never one
+ * it gets by anchoring; a chart bled to the frame is a chart with its axis
+ * labels in the feed's interface.
+ */
+export const BLOCK_GROUNDS = ['particleField', 'waveMesh', 'depthGrid']
+
+/** Whether a kind is a ground. Matched, never looked up, for `isFurniture`'s reason. */
+export function isGround(kind) {
+  return typeof kind === 'string' && BLOCK_GROUNDS.includes(kind)
+}
+
+/**
+ * Whether a `full` stack is nothing but grounds, and may therefore bleed.
+ *
+ * Shaped like `furnitureStack` and read the same way. A `full` zone holding a
+ * ground AND something else keeps the safe box: the something else is a block
+ * `stackIn` divided the zone for, and dividing a bled frame would put it in the
+ * band a feed draws its own interface over.
+ */
+export function groundStack(blocks) {
+  const list = Array.isArray(blocks) ? blocks : []
+  return list.length > 0 && list.every((block) => isGround(block?.kind))
+}
+
+/**
+ * The whole frame, plus the room the stack drifts through.
+ *
+ * The drift is `composedFrame`'s own lesson one level out, and in the opposite
+ * direction. There, the boxes are pulled INSIDE the safe area by `driftRoom` so
+ * that translating the stack cannot push them past the promise. Here the box has
+ * to be pushed OUTSIDE the frame by the same amount, because the zone drifts with
+ * everything else: a ground laid out flush with the frame uncovers a strip of
+ * bare colour along the top edge on the last frame of every scene — 8.6 px, the
+ * same number and the same defect, arriving from the other side.
+ *
+ * Horizontally there is nothing to add: the drift is a `translateY`.
+ */
+export function composedBleed(width, height) {
+  const w = Math.max(0, Math.round(Number(width) || 0))
+  const h = Math.max(0, Math.round(Number(height) || 0))
+  const room = driftRoom(frameBase(w, h))
+  return { left: 0, top: -room, width: w, height: h + 2 * room }
 }
 
 /**
@@ -2698,8 +2837,17 @@ export function blockExtent(block, box, base, unit) {
     // box and its width is.
     return { width: width * declaredShare('separator', block?.extent, 'measure'), height, thickness: hairline(base, box) }
   }
-  if (kind === 'solidScene') {
-    const side = Math.min(width, height) * declaredShare('solidScene', block?.size, 'medium')
+  if (appetite.fills === 'minor') {
+    // A square block: it draws to one bounding radius, so what it can fill is the
+    // smaller side of its box and the leftover on the other axis is air the zone's
+    // own alignment spends. This was `kind === 'solidScene'` while a solid was the
+    // only round thing in the catalogue; `fills: 'minor'` is the same claim made
+    // in the weight table, where the fill test already reads it, so a second round
+    // kind cannot arrive with the claim and without the branch.
+    //
+    // `declaredShare` answers 1 for a kind with no share table, which is what
+    // makes a `globe` — which has no `size` — the whole of its own box.
+    const side = Math.min(width, height) * declaredShare(kind, block?.size, 'medium')
     return { width: side, height: side }
   }
   if (appetite.fills === 'both') return { width, height: drawn }
@@ -2782,7 +2930,7 @@ export function blockExtent(block, box, base, unit) {
  * all the way through, and a cell stacked on it is an arrangement no reservation
  * can rescue.
  */
-export const FIELD_FOOT = ['barChart', 'lineChart', 'imageFrame']
+export const FIELD_FOOT = ['barChart', 'lineChart', 'imageFrame', 'solidChart']
 
 /**
  * The band at the bottom of its own box in which a block sets type, in pixels.
@@ -3233,6 +3381,12 @@ export function composedLayout(scene, width, height) {
   // out in — see the foot, next.
   const wholeFrame = { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
   const blocksOf = (inZone) => inZone.map(({ block }) => block)
+  // And the box a `full` zone gets when everything in it is a GROUND: the frame's
+  // own edges, plus the drift's room on the two it moves towards. `BLOCK_GROUNDS`
+  // carries the export that made it necessary — a lit sheet asked to be the
+  // background of a scene came back as a rectangle inset by six per cent, which
+  // reads as a render that failed rather than as a margin.
+  const bledFrame = composedBleed(width, height)
   // A stack's own box decides its unit, unless the stack is furniture — whose scale
   // comes from the scene and not from the room it was left in. See
   // `furnitureCeiling`, and `BLOCK_FURNITURE` for what a piece of furniture is.
@@ -3322,8 +3476,13 @@ export function composedLayout(scene, width, height) {
     const cell = ANCHOR_CELLS[anchor]
     const row = rows.get(TRACK_OF[cell.row])
     const column = columns[TRACK_OF[cell.row]]?.get(TRACK_OF[cell.column])
-    const box =
-      !row || !column
+    // A `full` zone holding nothing but grounds is the SURFACE of the scene, and
+    // a surface stops at the frame. Everything else keeps the safe frame, which
+    // is what it has always had. See `BLOCK_GROUNDS`.
+    const bleeds = anchor === 'full' && groundStack(blocksOf(inZone))
+    const box = bleeds
+      ? bledFrame
+      : !row || !column
         ? { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
         : { left: column.start, top: row.start, width: column.size, height: row.size }
     // `stretch` is a legal `align-items` and not a legal `justify-content`, so
@@ -3373,6 +3532,19 @@ export function composedLayout(scene, width, height) {
       furniture: furnitureStack(blocksOf(inZone)),
       // What this stack would read on its own, and what it puts on the frame for
       // the scene to compare it with.
+      //
+      // Against the box it really got, bled or not, because `stackIn`'s whole
+      // guarantee is that a stack solved on a box FILLS that box: solved on the
+      // safe frame and laid out in the bled one, a lone ground drew its 932 px in
+      // a 1098 px zone and came back centred with a strip of bare colour above
+      // and below it — the defect the bleed exists to remove, moved eighty pixels.
+      //
+      // It does raise the ceiling a field puts on the cells through
+      // `harmoniseUnits`, by exactly the margin the ground gained, and that is
+      // bounded rather than free: every cell box is where it was, so a heading
+      // allowed a larger unit still cannot draw past a band that did not move.
+      // What the clause was written against is a `kicker` at three times its
+      // heading, not one at a fifteenth more.
       unit: unitFor(inZone, box),
       runs: drawnRuns(shapes, box.width),
     })
@@ -4318,7 +4490,67 @@ export const FIELD_PAINTS = {
   map: 'accent',
   barChart: 'accent',
   lineChart: 'accent',
+  // A shell of dots painted in the ornament's own run, at two opacities — which
+  // is the accent, sampled along its density exactly as every other tinted field
+  // is. It carries no second ink: there is no light in that scene at all.
+  globe: 'accent',
   solidScene: 'solid',
+  /*
+   * The two picture stages, and the row is only half of what they paint.
+   *
+   * Their BODIES — the rim, the mount, the case, the back of a card — are
+   * `palette.solid`, lit by the same two-light rig as a solid, so every face of
+   * them lies on the segment `solidShading` measured and `fieldColors` samples
+   * its two ends. That half is closed.
+   *
+   * The other half is the PHOTOGRAPH, and it is the honest gap `gallery`,
+   * `carousel` and `imageFrame` already carry: nobody in this process has opened
+   * the picture, so a heading standing on one of these fields is measured against
+   * an ink the frame may not contain. Naming `solid` rather than leaving them to
+   * the default is what makes the measurable half measured — the default would
+   * sample the accent, which a body painted at `ambient × material` is not.
+   */
+  photoStage: 'solid',
+  photoRing: 'solid',
+  // Lit boxes in `palette.solid`, so the same segment a solid is measured on:
+  // every face lies between `material × ambient` and `material`, and two ends
+  // measure everything between them. Its LABELS are flat type on the ground and
+  // are not part of the field at all — they are drawn outside the canvas.
+  solidChart: 'solid',
+  /*
+   * A third answer, and it is the one the two above would each get wrong.
+   *
+   * `extrudedType` paints the FACE of every letter in `palette.display` and the
+   * thickness behind it in `palette.accent`. Measured as `accent` it would be
+   * measured as its ornament and not as its subject — the face is the largest
+   * ink on the frame — and measured as nothing at all it would be a full-frame
+   * surface in the very ink a `heading` stacked on it uses, which is the 1:1
+   * meeting this whole section exists to have already prevented. So it names
+   * both, and `fieldColors` is where the pair becomes two colours.
+   */
+  extrudedType: 'type',
+  /*
+   * The three fields in volume, and two answers between them.
+   *
+   * `particleField` and `depthGrid` are unlit: a speck and a rule are painted in
+   * `palette.accent` and in nothing else, at opacities that run from nothing up
+   * to full — so what lands on a frame is somewhere between the bare ground and
+   * the accent, which is exactly the pair `fieldedGround` already samples along
+   * `FIELD_RAMP`. Naming the default explicitly rather than letting them fall
+   * through it, for `FIELD_PAINTS`'s own reason: a kind whose paint nobody wrote
+   * down is a kind whose paint nobody checked.
+   *
+   * `waveMesh` is lit, so it is `solidScene`'s answer for `solidScene`'s reason:
+   * every point of a Lambert sheet lies on the segment between `material ×
+   * ambient` and `material`, contrast is monotone between them, and two ends
+   * measure the whole surface. It is the case where getting this wrong would
+   * cost the most — a sheet anchored `full` is the largest single ink a frame
+   * can carry — and it is also the one where the temptation is greatest, since a
+   * lit surface looks like it is many colours.
+   */
+  particleField: 'accent',
+  depthGrid: 'accent',
+  waveMesh: 'solid',
 }
 
 /**
@@ -4329,7 +4561,7 @@ export const FIELD_PAINTS = {
  * distinct key, and two scenes that paint the same two surfaces in the other
  * order are one search, not two.
  */
-export const FIELD_PAINT_KINDS = ['accent', 'solid']
+export const FIELD_PAINT_KINDS = ['accent', 'solid', 'type']
 
 /** The one a kind that names none is measured as. See `FIELD_PAINTS`. */
 export const DEFAULT_FIELD_PAINT = 'accent'
@@ -4439,17 +4671,27 @@ function fieldRequest(field) {
  * and `material × ambient`, contrast is monotone between them, so the two ends
  * measure every face. `solidShading` has the proof.
  *
- * Deduped by value, because the solid's material IS the accent run: a scene that
- * stacks a wave and a torus measures three colours, not four, and the ramp
- * `fieldedGround` builds over them is a third shorter for it.
+ * The `type` is two inks and not one shade of one: `extrudedType` sets the face
+ * of its letters in the display ink and the thickness behind them in the accent,
+ * which is the pair `funTitle`'s `stack` already draws flat. Measuring the accent
+ * alone would leave the largest ink on the frame unmeasured — the face — and that
+ * is precisely the omission the whole of `FIELD_PAINTS` exists to have closed,
+ * arriving through the one field that is made of words.
+ *
+ * Deduped by value, because the solid's material IS the accent run and a title's
+ * thickness is too: a scene that stacks a wave, a torus and an extruded line
+ * measures four colours rather than six, and the ramp `fieldedGround` builds over
+ * them is a third shorter for it.
  */
-function fieldColors(paints, { accent, theme, solid }) {
+function fieldColors(paints, { accent, display, theme, solid }) {
   const colors = []
   for (const paint of paints) {
     const painted =
       paint === 'solid'
         ? [solid.color, scaleColor(solid.color, solid.ambient)]
-        : [accent.color, safeColor(theme?.accent, THEME_FALLBACK.accent)]
+        : paint === 'type'
+          ? [display.color, accent.color]
+          : [accent.color, safeColor(theme?.accent, THEME_FALLBACK.accent)]
     for (const color of painted) if (!colors.includes(color)) colors.push(color)
   }
   return colors
@@ -4528,7 +4770,19 @@ export function composedPalette(theme, background, { field = false } = {}) {
    */
   const paints = fieldRequest(field)
   const surface = paints.length
-    ? fieldedGround(ground, text, inkCandidates(theme), fieldColors(paints, { accent, theme, solid }))
+    ? fieldedGround(
+        ground,
+        text,
+        inkCandidates(theme),
+        // `plain.runs[0]` and not the fielded display run, for the reason the
+        // accent and the solid are both taken from the plain resolution: a field
+        // measured with a colour that came out of the pass measuring the field is
+        // a fixpoint rather than an answer. The consequence is honest and it is
+        // the right one — a full-frame line of type in the display ink with a
+        // heading stacked on it walks the whole density ladder, because those two
+        // really cannot both be read.
+        fieldColors(paints, { accent, display: plain.runs[0], theme, solid }),
+      )
     : { surface: plain, alpha: 1, tint: plain.on.tint }
   const measured = surface.surface
   // The card, resolved on its own surface: it is opaque `theme.surface`, so a

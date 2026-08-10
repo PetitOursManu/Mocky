@@ -31,6 +31,9 @@ suite('describe', () => {
     ['pending-images', 'video.errPending'],
     ['no-provider', 'video.errNoProvider'],
     ['no-access', 'video.errNoAccess'],
+    // Not a flavour of `no-access`: the document is valid and every file is on
+    // disk, so this points at a different setting and a different person to ask.
+    ['three-d', 'video.err3D'],
     ['offline', 'video.errOffline'],
     ['invalid', 'video.errInvalid'],
   ])('gives %s its own heading', (code, key) => {
@@ -118,6 +121,11 @@ suite('the keys held in maps', () => {
     // Not two kinds of film. The switch used to choose between two ways of
     // FILLING A TIMELINE, beside a grid of composition cards; what it separates
     // now is a picture that already exists from one being generated.
+    //
+    // Two and not three, deliberately, now that pictures can also be made from
+    // the brief: that one is an opt-in beside the switch, not a position on it.
+    // A radio would have made "make me some" mean giving up the library, and
+    // somebody with two photographs who wants two more is the ordinary case.
     expect(Object.keys(FILL_MODE_KEYS).sort()).toEqual(['generate', 'library'])
   })
 
@@ -126,6 +134,15 @@ suite('the keys held in maps', () => {
       ...Object.values(BLOCKER_KEYS),
       ...Object.values(COMPOSE_BLOCKER_KEYS),
       ...Object.values(FILL_MODE_KEYS),
+      // The panel's own literals, which no `t('…')` scan can see either: they
+      // are only ever named inside a conditional, and a missing one draws as a
+      // blank line or as a key printed under a button.
+      'video.compose',
+      'video.composeAgain',
+      'video.composing',
+      'video.threeDForce',
+      'video.threeDForceLabel',
+      'video.threeDForceOn',
     ]
     // `translate` hands back the key itself when it is missing, which is what
     // makes this checkable at all.

@@ -50,6 +50,21 @@ export interface VideoWorkerState {
 export interface VideoAccess {
   enabled: boolean
   worker: VideoWorkerState
+  /**
+   * May this account spend a 3D render?
+   *
+   * A boolean about the account and never the mode or the list — which other
+   * accounts an administrator ticked belongs to the admin projection, behind
+   * requireAdmin. It exists so the panel can leave the 3D button OUT rather than
+   * offer a control whose only outcome is a 403.
+   *
+   * That is presentation and nothing else: the enforcement is on `/compose` and
+   * `/render`, because a document can reach the second without the first ever
+   * having been called. Optional, and `undefined` is read as NO everywhere —
+   * a server that predates the field is not a server saying yes, and a
+   * permission is the one place a missing value must fail shut.
+   */
+  threeD?: boolean
   limits: { maxScenes: number; maxTotalDurationMs: number; minVariants?: number; maxVariants?: number }
   /**
    * Whether a variant will really be derived from the user's own picture.
@@ -86,6 +101,20 @@ export type VideoErrorCode =
    * confirmation gates, and the ids say which pictures to deal with.
    */
   | 'pending-images'
+  /**
+   * The film carries a 3D block and this account may not render one.
+   *
+   * Its own code because it sends the person somewhere none of the others do:
+   * the document is well formed, every file is on disk, and what is wrong is who
+   * is asking — which an administrator can change. `no-access` would have said
+   * "Motion is no longer enabled", which is false and points at the wrong
+   * setting.
+   *
+   * It is set from `threeDBlocks` in the body and never from the sentence: the
+   * route sends the list beside its message for exactly this, and matching on
+   * English prose is how a branch nobody exercises stops working in silence.
+   */
+  | 'three-d'
   /** No image provider at all on this instance — nothing a different request fixes. */
   | 'no-provider'
   | 'quota'
@@ -107,6 +136,8 @@ export class VideoExportError extends Error {
   readonly missingImageIds: string[]
   /** Set when `code` is 'pending-images'. */
   readonly pendingImageIds: string[]
+  /** Set when `code` is 'three-d'. The block kinds the document really carries. */
+  readonly threeDBlocks: string[]
   /**
    * What the server said went wrong, axis by axis.
    *
@@ -126,6 +157,7 @@ export class VideoExportError extends Error {
       issues?: TimelineIssue[]
       missingImageIds?: string[]
       pendingImageIds?: string[]
+      threeDBlocks?: string[]
       notices?: string[]
     } = {},
   ) {
@@ -136,6 +168,7 @@ export class VideoExportError extends Error {
     this.issues = extra.issues ?? []
     this.missingImageIds = extra.missingImageIds ?? []
     this.pendingImageIds = extra.pendingImageIds ?? []
+    this.threeDBlocks = extra.threeDBlocks ?? []
     this.notices = extra.notices ?? []
   }
 }
@@ -233,7 +266,27 @@ export async function startVideoRender(
   if (res.ok) return body as VideoJob
 
   const status = res.status
-  if (status === 403) throw new VideoExportError('no-access', said(body, 'Not enabled for this account.'), { status })
+  /*
+   * Two different 403s, told apart by a field and never by the sentence.
+   *
+   * The route answers 403 for "Motion is not enabled for this account" and for
+   * "this film is drawn in 3D and this account may not spend one", and the two
+   * send the person to two different settings. What separates them is
+   * `threeDBlocks`, which the route sends beside its message for exactly this
+   * reason — the same courtesy `missingImageIds` pays.
+   *
+   * It is reachable from a panel that never showed a 3D button: a draft composed
+   * before an administrator narrowed the setting still carries its `solidScene`,
+   * and hiding a control is presentation while refusing a document is the
+   * control.
+   */
+  if (status === 403) {
+    const blocks = idsIn(body?.threeDBlocks)
+    if (blocks.length) {
+      throw new VideoExportError('three-d', said(body, 'This film is drawn in 3D.'), { status, threeDBlocks: blocks })
+    }
+    throw new VideoExportError('no-access', said(body, 'Not enabled for this account.'), { status })
+  }
   if (status === 400) {
     throw new VideoExportError('invalid', said(body, 'The timeline was refused.'), {
       status,
@@ -332,6 +385,20 @@ export async function proposeVideoTimeline(
      * else is refused rather than loaded.
      */
     template?: VideoTemplate
+    /**
+     * The panel's 3D button. An ambition, never a permission.
+     *
+     * It changes what the catalogue INSISTS on — the prompt gains a paragraph
+     * requiring at least one set piece drawn in 3D — and it is refused with a
+     * 403 for an account the config does not allow, rather than quietly composed
+     * flat. That refusal is the reason this is not simply hidden: a button that
+     * silently does nothing is what gets filed as "3D is broken".
+     *
+     * Absent when false rather than sent as `false`, like `template` above: the
+     * route reads `=== true`, and a body that carries only what was asked for is
+     * one an older server ignores rather than misreads.
+     */
+    forceThreeD?: boolean
     signal?: AbortSignal
   } = {},
 ): Promise<VideoProposal> {
@@ -358,12 +425,24 @@ export async function proposeVideoTimeline(
       model: s.model,
       theme: opts.theme ?? undefined,
       template: opts.template ?? undefined,
+      forceThreeD: opts.forceThreeD ? true : undefined,
     }),
     signal: opts.signal,
   })
 
   if (!res.ok) {
     const status = res.status
+    /*
+     * A 403 here is a permission that moved under the panel, and — unlike
+     * /render's — the answer does not say WHICH: this door refuses a request for
+     * 3D before any document exists, so it has no block list to send, and the
+     * route uses one status for "Motion is off" and "3D is off".
+     *
+     * It is deliberately not guessed from the fact that `forceThreeD` was sent.
+     * The panel re-reads /status instead — that answer is a fact rather than an
+     * inference, and it also takes the offending button off the screen, which a
+     * better-worded banner would not have done.
+     */
     if (status === 403) throw new VideoExportError('no-access', said(body, 'Not enabled for this account.'), { status })
     if (status === 400) throw new VideoExportError('invalid', said(body, 'The request was refused.'), { status })
     if (status === 404) {

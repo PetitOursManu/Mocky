@@ -10,6 +10,7 @@ import {
   emptyDraft,
   filmDurationMs,
   filmSummary,
+  forcedThreeD,
   formatSeconds,
   pictureScenes,
   proposalStale,
@@ -17,6 +18,7 @@ import {
   renderBlocker,
   setAspectRatio,
   setBrief,
+  setForceThreeD,
   setOutputFormat,
   toRenderInput,
   withProposal,
@@ -24,6 +26,20 @@ import {
   type RenderBlocker,
   type VideoDraft,
 } from '../lib/video/draft'
+import {
+  BRIEF_IMAGE_BLOCKER_KEYS,
+  MIN_BRIEF_IMAGES,
+  briefImagesBlocker,
+  briefImagesCeiling,
+  briefImagesDiscarded,
+  briefImagesStep,
+  clampBriefImageCount,
+  emptyBriefImages,
+  plannedBriefImages,
+  resetBriefImages,
+  toggleBriefChosen,
+  type BriefImagesState,
+} from '../lib/video/briefImages'
 import {
   BRIEF_MAX_LENGTH,
   POLL_INTERVAL_MS,
@@ -102,6 +118,12 @@ import { useLang, useT } from '../i18n'
  * their pictures is a fact about the film they are making now, and a setting
  * that remembered it would open the panel on the paid path for a user who chose
  * that once, months ago, for one project.
+ *
+ * There is a THIRD source and it is deliberately not a third position here —
+ * `GenerateFromBrief` makes pictures out of the film's own context, and it is an
+ * opt-in that applies whichever picker is showing. A radio would have made
+ * asking for pictures mean giving up the library, which is backwards: somebody
+ * who has two photographs and wants two more is the ordinary case.
  */
 export type FillMode = 'library' | 'generate'
 
@@ -254,6 +276,25 @@ interface Failure {
  * another film is the whole of the recourse. It costs one model call and seconds;
  * the render costs minutes of somebody else's CPU, which is precisely why the
  * two are separate buttons and why the second one never fires by itself.
+ *
+ * ── Two modifiers, and neither is a setting ──────────────────────────────────
+ *
+ * Nothing above changed when these arrived: there is still no composition to
+ * choose, no scene list and no scene parameter. What was added is one thing a
+ * person can ask FOR and one thing they can ask to be MADE, and both are opt-in.
+ *
+ * **3D.** A pressed button beside "Generate the film", present only for an
+ * account the administrator allowed. It does not describe a rendering — it makes
+ * the prompt insist on one set piece out of the same closed catalogue — and the
+ * server re-checks the permission at both doors, because hiding a control is
+ * presentation while refusing a document is the control. It is honest about
+ * costing render time, since the person waiting is the one who pressed it.
+ *
+ * **Pictures from the brief.** A tick box in the picture block that turns the
+ * context already typed above into one to four generated stills. It asks for no
+ * second subject — that would be asking the same person the same question twice
+ * — it says how many paid calls it is about to make before it makes them, and
+ * every picture it produces is `pending` until somebody has looked at it here.
  */
 /**
  * One screen this panel may hang the finished film on.
@@ -425,6 +466,24 @@ export default function VideoExportDialog({
     return () => ctrl.abort()
   }, [])
 
+  /**
+   * A 3D button that is no longer allowed must not stay pressed.
+   *
+   * The draft can outlive the permission: /status is read again after a 403, and
+   * an administrator narrowing the setting while this panel is open takes the
+   * button off the screen with `access.threeD`. Left `true` underneath, the
+   * draft would go on differing from every proposal's recorded request, and
+   * `proposalStale` would mark a perfectly good film stale for ever — with no
+   * control anywhere to unmark it, because the control is what just vanished.
+   *
+   * It clears the ambition and never grants one: this cannot set the flag.
+   */
+  useEffect(() => {
+    if (access && access.threeD !== true) {
+      setDraft((d) => (d.forceThreeD ? setForceThreeD(d, false) : d))
+    }
+  }, [access])
+
   // ---- polling ----------------------------------------------------------
 
   /** When this browser first saw the job rendering. See `pollDeadlinePassed`. */
@@ -555,8 +614,21 @@ export default function VideoExportDialog({
     setProposing(true)
     setFailure(null)
     setNotices([])
+    /*
+     * What was really asked for, computed once and used twice — in the request
+     * and in what the proposal records about it.
+     *
+     * `forcedThreeD` and not `draft.forceThreeD`: the permission wins over the
+     * button, so a draft that outlived an administrator's decision never spends
+     * a round trip discovering it. The two agree in every ordinary case.
+     */
+    const threeD = forcedThreeD(draft, access?.threeD)
     try {
-      const proposal = await proposeVideoTimeline(draft.brief, draft.imageIds, { signal: ctrl.signal, theme })
+      const proposal = await proposeVideoTimeline(draft.brief, draft.imageIds, {
+        signal: ctrl.signal,
+        theme,
+        forceThreeD: threeD,
+      })
       // A newer proposal (or the panel closing) owns the panel now. Writing this
       // one in would replace the answer the user is actually waiting for.
       if (proposeCtrl.current !== ctrl) return
@@ -578,12 +650,31 @@ export default function VideoExportDialog({
        */
       if (proposal.timeline) {
         const timeline = proposal.timeline
-        setDraft((d) => withProposal(d, timeline))
+        setDraft((d) => withProposal(d, timeline, threeD))
       }
     } catch (e) {
       // An abort is this panel cancelling, not something that went wrong.
       if ((e as { name?: string })?.name === 'AbortError') return
       setFailure(describe(e))
+      /*
+       * A 403 is a permission that moved under the panel, and this door cannot
+       * say which one: it refuses a REQUEST for 3D before a document exists, so
+       * it has no block list to send and one status covers "Motion is off" and
+       * "3D is off".
+       *
+       * So the panel asks rather than guesses. /status answers with a fact, and
+       * re-reading it also takes the offending control off the screen — which a
+       * better-worded banner would not have done, leaving a button whose only
+       * possible outcome is this same banner again.
+       */
+      if (e instanceof VideoExportError && e.status === 403) {
+        fetchVideoAccess()
+          .then(setAccess)
+          .catch(() => {
+            // The banner above already says the request was refused. Failing to
+            // re-read the permission is not a second thing to report.
+          })
+      }
     } finally {
       if (proposeCtrl.current === ctrl) setProposing(false)
     }
@@ -748,10 +839,38 @@ export default function VideoExportDialog({
               <Icon name="sparkle" size={15} />
               {/* The label changes once a film exists, because the button's
                   meaning does: the second press is the recourse — "not this one,
-                  try again" — and a button still reading "Propose a film" beside
-                  a film that is already proposed reads as having done nothing. */}
+                  try again" — and a button still reading "Generate the film"
+                  beside a film that is already there reads as having done
+                  nothing. The verb is the same in both; the object is not. */}
               {proposing ? t('video.composing') : t(draft.proposal ? 'video.composeAgain' : 'video.compose')}
             </Button>
+            {/*
+              The 3D button, and it is absent rather than disabled for an account
+              that may not spend one.
+
+              Absence is the honest state here: a greyed control invites "why is
+              this off for me", which has no answer this panel is allowed to give
+              — /status answers a BOOLEAN about the account and deliberately not
+              the mode or the list. And absence is only presentation: `/compose`
+              refuses a forced request and `/render` refuses a document carrying
+              a 3D block, both from the config on every call, so a stale tab
+              cannot spend one.
+
+              `active` rather than a checkbox: it is a modifier on the button
+              beside it, pressed or not, and `Button` sets aria-pressed from it.
+              The label is "3D" in both languages, so `title` carries the rest.
+            */}
+            {access.threeD === true && (
+              <Button
+                size="sm"
+                active={draft.forceThreeD}
+                disabled={frozen}
+                title={t('video.threeDForceLabel')}
+                onClick={() => edit((d) => setForceThreeD(d, !d.forceThreeD))}
+              >
+                {t('video.threeDForce')}
+              </Button>
+            )}
             {/* Cancellable, and visibly so: this is a model call on somebody
                 else's hardware, and the only alternative to a stop button is
                 closing the panel to get out of it. */}
@@ -771,6 +890,13 @@ export default function VideoExportDialog({
               not say why is what this whole panel was built to avoid. */}
           {composeBlocked && !proposing && (
             <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(COMPOSE_BLOCKER_KEYS[composeBlocked])}</p>
+          )}
+          {/* Said when the button is DOWN, which is when it applies. A render in
+              3D is longer — the deadline is scaled to the film's duration, so it
+              is not a risk of failure — and somebody watching a spinner for
+              longer than last time deserves the reason rather than a suspicion. */}
+          {access.threeD === true && draft.forceThreeD && (
+            <p className="measure mt-1.5 text-body-sm text-ink-muted">{t('video.threeDForceOn')}</p>
           )}
         </div>
 
@@ -812,6 +938,32 @@ export default function VideoExportDialog({
             </span>
           </div>
           <p className="measure text-body-sm text-ink-muted">{t('video.sourceHint')}</p>
+
+          {/*
+            The third place a picture can come from, and the one that is not on
+            the switch.
+
+            The switch answers "which of these two pickers am I using"; this
+            answers "make some for me, out of what I already wrote". It is an
+            opt-in and not a third segment for that reason — it applies whichever
+            picker is showing, and a radio position would have made choosing it
+            mean giving up the library.
+
+            It is not `StartFromImage` again either, and the difference is the
+            SUBJECT. That path asks for one of its own, makes a model image,
+            gates it and derives siblings from it — a whole decision about one
+            photograph. This one has no subject to ask for: the brief is three
+            centimetres above, and asking for it twice is asking twice.
+          */}
+          <GenerateFromBrief
+            projectId={projectId}
+            brief={draft.brief}
+            aspectRatio={draft.aspectRatio}
+            room={room}
+            disabled={frozen}
+            onAdd={(hashes) => edit((d) => addImages(d, hashes))}
+            onFailure={setFailure}
+          />
 
           <ChosenImages ids={draft.imageIds} disabled={frozen} onRemove={(id) => edit((d) => removeImage(d, id))} />
 
@@ -1043,6 +1195,399 @@ function ChosenImages({
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * A grid of pictures nobody has confirmed yet, each with a tick box.
+ *
+ * Both gates in this panel draw this one component: the variants taken from a
+ * model image, and the pictures made from the film's own brief. They ask the
+ * same question about the same kind of object — "which of these unconfirmed
+ * pictures are worth keeping?" — and written twice, two answers to one question
+ * start differing in their hit area, their keyboard behaviour and, eventually,
+ * in whether anything is ticked to begin with.
+ *
+ * The label wraps the checkbox AND the picture, so the whole cell is the target:
+ * a 96-pixel image beside a 13-pixel box is a control people miss.
+ *
+ * `note` is whatever the server said about that one — the variant's axis, and
+ * nothing at all for a picture made from a brief. Untranslated on purpose where
+ * it exists: it is the server's own identifier, and inventing French labels for
+ * a field that may grow a sixth value is how a listing ends up showing a key.
+ */
+function PendingPicks({
+  items,
+  chosen,
+  disabled,
+  labelOf,
+  onToggle,
+}: {
+  items: readonly { hash: string; note?: string }[]
+  chosen: readonly string[]
+  disabled: boolean
+  labelOf: (index: number) => string
+  onToggle: (hash: string) => void
+}) {
+  return (
+    <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {items.map((item, i) => (
+        <li key={item.hash}>
+          <label
+            className={`flex cursor-pointer flex-col gap-1 border p-1 ${
+              chosen.includes(item.hash) ? 'border-accent bg-accent/10' : 'border-line-soft'
+            }`}
+          >
+            <img src={imageUrl(item.hash)} alt="" className="h-24 w-full object-cover" />
+            <span className="flex items-center gap-1.5 text-body-sm text-ink">
+              <input
+                type="checkbox"
+                className="accent-accent"
+                checked={chosen.includes(item.hash)}
+                disabled={disabled}
+                onChange={() => onToggle(item.hash)}
+              />
+              {labelOf(i)}
+            </span>
+            {item.note && <span className="font-mono text-caption text-ink-faint">{item.note}</span>}
+          </label>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Make pictures for THIS film, out of the sentence that is already on the panel.
+ *
+ * ── Why it is not a third position on the switch ─────────────────────────────
+ *
+ * The switch above answers "which picker am I using", and both of its positions
+ * are ways of CHOOSING an existing picture — one from the library, one derived
+ * from a picture somebody settled on. This is not a picker: it is an opt-in that
+ * applies whichever of the two is showing. A third radio position would have
+ * made asking for pictures mean giving up the library, which is exactly
+ * backwards — somebody who has two photographs and wants two more is the
+ * ordinary case.
+ *
+ * ── Why it is not `StartFromImage` with a different label ────────────────────
+ *
+ * The difference is the SUBJECT, and it is the whole of what this control is
+ * for. That path asks for a subject of its own, buys one model image, gates it,
+ * and derives siblings from it: a long, careful decision about one photograph,
+ * worth its seven provider calls when the picture does not exist yet. This one
+ * has no subject to ask for. The brief is three centimetres up the panel, and
+ * asking somebody what their film is about twice is asking them twice.
+ *
+ * So the prompt IS the brief, verbatim. Not a rewrite of it, and not a second
+ * model call to turn it into an image prompt: that would be another paid call,
+ * another moving part, and a sentence nobody wrote standing between what was
+ * asked for and what came back. When the pictures are wrong the recourse is the
+ * one the film already has — reword the brief and ask again — and the gate below
+ * is what makes that recourse free.
+ *
+ * ── The two things it must not get wrong ─────────────────────────────────────
+ *
+ * **It costs money.** Every one of these is a paid provider call, so the number
+ * is on screen before the press, twice: in the sentence and in the button's own
+ * label. Both read `plannedBriefImages`, so a label promising four over a loop
+ * that runs three is not expressible.
+ *
+ * **Nothing is confirmed by being made.** The pictures arrive `pending: true`
+ * and stay out of every listing and every montage until somebody has looked at
+ * them here. That is courtesy — the guard is `pendingAmong()` and the 409 in
+ * server/video/routes.js — and the courtesy is what stops the server ever having
+ * to refuse anybody.
+ */
+function GenerateFromBrief({
+  projectId,
+  brief,
+  aspectRatio,
+  room,
+  disabled,
+  onAdd,
+  onFailure,
+}: {
+  projectId?: string
+  /** The film's own context, and the subject of these pictures. Sent as typed. */
+  brief: string
+  /**
+   * The film's shape, so a picture is MADE for it.
+   *
+   * `SOURCE_DIMENSIONS` and not the frame's own size — a generator is not a
+   * scaler, and asking for 1920×1080 buys artefacts rather than detail. See the
+   * table for which buckets these are and why.
+   */
+  aspectRatio: VideoDraft['aspectRatio']
+  /** How many more pictures the pool can hold. `addImage` refuses past the cap. */
+  room: number
+  disabled: boolean
+  onAdd: (hashes: string[]) => void
+  /** `null` clears the banner — a fresh attempt should not run under an old refusal. */
+  onFailure: (failure: Failure | null) => void
+}) {
+  const t = useT()
+  const [state, setState] = useState<BriefImagesState>(() => emptyBriefImages())
+  const [busy, setBusy] = useState<'make' | 'add' | null>(null)
+
+  /** The call in flight, so every step is cancellable and none survives the panel. */
+  const ctrl = useRef<AbortController | null>(null)
+  useEffect(
+    () => () => {
+      ctrl.current?.abort()
+      ctrl.current = null
+    },
+    [],
+  )
+  function begin() {
+    ctrl.current?.abort()
+    const mine = new AbortController()
+    ctrl.current = mine
+    return mine
+  }
+  const stale = (mine: AbortController) => ctrl.current !== mine
+  const aborted = (e: unknown) => (e as { name?: string })?.name === 'AbortError'
+
+  const step = briefImagesStep(state)
+  const ceiling = briefImagesCeiling(room)
+  const planned = plannedBriefImages(state, room)
+  const blocker = briefImagesBlocker(state, brief, room)
+  const frozen = disabled || busy !== null
+  const discarded = briefImagesDiscarded(state)
+
+  /**
+   * One call per picture, in series.
+   *
+   * Series and not `Promise.all`: the default provider is rate-limited, the
+   * variants route already spends its six calls one at a time for the same
+   * reason, and four parallel requests is how a batch comes back as four
+   * failures instead of four pictures.
+   *
+   * A batch that comes back short still SUCCEEDS, with the shortfall named
+   * above the grid — one provider hiccup out of four is a degradation, not a
+   * failed request (Q1). Nothing at all is the one case that gets a banner,
+   * because a grid of zero would be indistinguishable from a button that did
+   * not fire.
+   */
+  async function make() {
+    const mine = begin()
+    setBusy('make')
+    onFailure(null)
+    const made: string[] = []
+    let refusal: unknown = null
+    try {
+      for (let i = 0; i < planned; i++) {
+        if (stale(mine)) return
+        try {
+          const out = await generateImage(brief.trim(), {
+            project: projectId,
+            // Unconfirmed by construction: the gate below is the whole point.
+            pending: true,
+            /*
+             * A fresh seed per picture, and it is what makes this a batch.
+             *
+             * The library caches on provider+prompt+seed+size (M8), so four
+             * calls with one sentence and no seed are one image served four
+             * times — instantly, free, and identical. Correct everywhere else,
+             * and the exact opposite of what "generate four" means.
+             */
+            seed: Math.floor(Math.random() * 2_147_483_647),
+            tags: ['video-source'],
+            ...SOURCE_DIMENSIONS[aspectRatio],
+            signal: mine.signal,
+          })
+          // Deduplicated on the way in: the store is content-addressed, so two
+          // seeds that land on identical bytes are ONE entry, and two tick boxes
+          // wired to one picture is a gate that cannot be answered. It counts as
+          // a shortfall below, which is the honest reading either way — the call
+          // was paid for and there is one fewer picture to choose from.
+          if (out && !made.includes(out.hash)) made.push(out.hash)
+        } catch (e) {
+          if (aborted(e)) return
+          // Kept rather than reported here: one failure out of four is a
+          // shortfall, and only a batch that produced nothing is a banner.
+          refusal = e
+        }
+      }
+      if (stale(mine)) return
+      if (made.length === 0) {
+        onFailure(refusal ? describe(refusal) : { titleKey: 'common.error', bodyKey: 'video.briefImagesNothing' })
+        return
+      }
+      setState((s) => ({ ...s, batch: made, chosen: [], missed: Math.max(0, planned - made.length) }))
+    } finally {
+      if (!stale(mine)) setBusy(null)
+    }
+  }
+
+  /**
+   * Confirm what was ticked, then hand it to the pool.
+   *
+   * Confirmed FIRST, and one at a time, exactly as the variant gate does it:
+   * `addImage` on an unconfirmed hash builds a selection that /render refuses
+   * with a 409 — the guard doing its job, to somebody who did tick the box. Only
+   * the ones that really cleared are offered, and a confirmation that failed is
+   * counted out loud (Q1).
+   */
+  async function addChosen() {
+    const mine = begin()
+    setBusy('add')
+    onFailure(null)
+    const confirmed: string[] = []
+    let failed = 0
+    try {
+      for (const hash of state.chosen) {
+        if (stale(mine)) return
+        try {
+          await confirmImage(hash, mine.signal)
+          confirmed.push(hash)
+        } catch (e) {
+          if (aborted(e)) return
+          failed++
+        }
+      }
+      if (stale(mine)) return
+      if (confirmed.length) onAdd(confirmed)
+      if (failed) onFailure({ titleKey: 'common.error', bodyKey: 'video.briefImagesConfirmFailed', vars: { n: failed } })
+      // Ready for another round rather than switched off: somebody who has just
+      // added two and wants two more is in the middle of one decision. What was
+      // not ticked stays in the store, unconfirmed for good — that is what the
+      // note under the grid warned about, and undoing it here would make the
+      // warning false.
+      setState(resetBriefImages)
+    } finally {
+      if (!stale(mine)) setBusy(null)
+    }
+  }
+
+  function cancel() {
+    ctrl.current?.abort()
+    ctrl.current = null
+    setBusy(null)
+  }
+
+  return (
+    <div className="mt-2 border border-line-soft p-2">
+      {/*
+        The opt-in. Unticking HIDES the gate rather than dropping it — a batch
+        already paid for comes back when the box is ticked again. Forgetting it
+        would not delete anything (M8): those pictures would simply stay on the
+        volume, pending for good, with nothing left pointing at them.
+      */}
+      <label className="flex cursor-pointer items-center gap-2 text-body-sm text-ink">
+        <input
+          type="checkbox"
+          className="accent-accent"
+          checked={state.on}
+          disabled={frozen}
+          onChange={() => setState((s) => ({ ...s, on: !s.on }))}
+        />
+        {t('video.briefImagesToggle')}
+      </label>
+
+      {state.on && (
+        <div className="mt-2">
+          <p className="measure text-body-sm text-ink-muted">{t('video.briefImagesHint')}</p>
+
+          {step === 'ask' && (
+            <>
+              {ceiling > 0 && (
+                <Field label={t('video.briefImagesCount')} className="mt-2 w-32">
+                  {(p) => (
+                    <Select
+                      {...p}
+                      value={String(planned)}
+                      disabled={frozen}
+                      // Read outside the updater — a synthetic event's
+                      // currentTarget is null by the time React runs one. See
+                      // the container select at the top of this file.
+                      onChange={(e) => {
+                        const count = clampBriefImageCount(Number(e.currentTarget.value), room)
+                        setState((s) => ({ ...s, count }))
+                      }}
+                    >
+                      {Array.from({ length: ceiling - MIN_BRIEF_IMAGES + 1 }, (_, i) => MIN_BRIEF_IMAGES + i).map(
+                        (n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ),
+                      )}
+                    </Select>
+                  )}
+                </Field>
+              )}
+              {/* The bill, before the click. Same number as the button's own
+                  label, from the same call — a generation is a paid call, and
+                  "how many am I buying" must not be a thing to count afterwards. */}
+              {planned > 0 && (
+                <p className="measure mt-2 text-body-sm text-ink-muted">{t('video.briefImagesCost', { n: planned })}</p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button variant="primary" size="sm" disabled={frozen || blocker !== null} onClick={make}>
+                  <Icon name="image" size={15} />
+                  {busy === 'make' ? t('video.briefImagesMaking') : t('video.briefImagesMake', { n: planned })}
+                </Button>
+                {/* Cancellable, and visibly so: this is a series of paid calls,
+                    and the only alternative to a stop button is closing the
+                    panel to get out of it. */}
+                {busy === 'make' && (
+                  <>
+                    <Spinner />
+                    <Button variant="ghost" size="sm" onClick={cancel}>
+                      {t('common.cancel')}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* THE GATE. Multiple selection, and nothing ticked to begin with. */}
+          {step === 'choose' && state.batch && (
+            <div className="mt-3">
+              <p className="text-body font-medium text-ink">{t('video.briefImagesGateTitle')}</p>
+              <p className="measure mt-1 text-body-sm text-ink-muted">{t('video.briefImagesGateBody')}</p>
+              {/* What was paid for and did not arrive. Left unsaid, it is a grid
+                  shorter than the number on the button with nothing to account
+                  for the difference. */}
+              {state.missed > 0 && (
+                <p className="measure mt-1 text-body-sm text-warn">{t('video.briefImagesMissed', { n: state.missed })}</p>
+              )}
+              <PendingPicks
+                items={state.batch.map((hash) => ({ hash }))}
+                chosen={state.chosen}
+                disabled={frozen}
+                labelOf={(i) => t('video.briefImageNumber', { n: i + 1 })}
+                onToggle={(hash) => setState((s) => toggleBriefChosen(s, hash))}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button variant="primary" size="sm" disabled={frozen || blocker !== null} onClick={addChosen}>
+                  <Icon name="plus" size={15} />
+                  {busy === 'add' ? t('video.adding') : t('video.briefImagesAdd')}
+                </Button>
+                <span className="font-mono text-caption text-ink-faint">
+                  {t('video.variantChosen', { n: state.chosen.length })}
+                </span>
+                {busy === 'add' && <Spinner />}
+              </div>
+              {/* Said before the button, not after: what is left unticked stays
+                  unconfirmed for good, and that is not a thing to discover later. */}
+              {discarded > 0 && (
+                <p className="measure mt-1.5 text-body-sm text-ink-muted">
+                  {t('video.briefImagesDiscardNote', { n: discarded })}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Next to the disabled control, as everywhere else on this panel. */}
+          {blocker && !frozen && (
+            <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(BRIEF_IMAGE_BLOCKER_KEYS[blocker], { room })}</p>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1565,37 +2110,17 @@ function StartFromImage({
               </ul>
             </Banner>
           )}
-          <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {flow.batch.images.map((v, i) => (
-              <li key={v.hash}>
-                {/* A label wrapping the checkbox and the picture, so the whole
-                    cell is the hit area. A 96-pixel-high image with a 13-pixel
-                    box beside it is a target people miss. */}
-                <label
-                  className={`flex cursor-pointer flex-col gap-1 border p-1 ${
-                    flow.chosen.includes(v.hash) ? 'border-accent bg-accent/10' : 'border-line-soft'
-                  }`}
-                >
-                  <img src={imageUrl(v.hash)} alt="" className="h-24 w-full object-cover" />
-                  <span className="flex items-center gap-1.5 text-body-sm text-ink">
-                    <input
-                      type="checkbox"
-                      className="accent-accent"
-                      checked={flow.chosen.includes(v.hash)}
-                      disabled={frozen}
-                      onChange={() => setFlow((f) => toggleChosen(f, v.hash))}
-                    />
-                    {t('video.variantNumber', { n: i + 1 })}
-                  </span>
-                  {/* The axis, as the server named it. Untranslated on purpose:
-                      it is the server's own identifier, and inventing five
-                      French labels for a field that may grow a sixth is how a
-                      dropdown ends up showing a key. */}
-                  <span className="font-mono text-caption text-ink-faint">{v.axis}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          {/* The same grid the brief-images gate draws — one component, because
+              both ask "which of these unconfirmed pictures are worth keeping?"
+              and two hand-written answers to one question drift. The axis rides
+              along as this gate's `note`. */}
+          <PendingPicks
+            items={flow.batch.images.map((v) => ({ hash: v.hash, note: v.axis }))}
+            chosen={flow.chosen}
+            disabled={frozen}
+            labelOf={(i) => t('video.variantNumber', { n: i + 1 })}
+            onToggle={(hash) => setFlow((f) => toggleChosen(f, hash))}
+          />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button variant="primary" size="sm" disabled={frozen || blocker !== null} onClick={addChosen}>
               <Icon name="plus" size={15} />
@@ -1828,6 +2353,20 @@ export function describe(e: unknown): Failure {
       return { titleKey: 'video.errPending', bodyKey: 'video.errPendingHint', pending: e.pendingImageIds }
     case 'no-provider':
       return { titleKey: 'video.errNoProvider', bodyKey: 'video.errNoProviderHint', detail: e.message }
+    /*
+     * Its own heading, and not a flavour of `no-access`.
+     *
+     * The document is well formed and every file is on disk; what is wrong is
+     * who is asking, which points at a different setting and a different person
+     * to ask. "Motion is no longer enabled for this account" would have been
+     * false and would have sent somebody to the wrong switch.
+     *
+     * The server's own sentence rides along because it names the blocks the film
+     * really carries and how many of the catalogue are still available — the
+     * module's rule that a refusal says what is STILL possible.
+     */
+    case 'three-d':
+      return { titleKey: 'video.err3D', bodyKey: 'video.err3DHint', detail: e.message }
     case 'no-access':
       return { titleKey: 'video.errNoAccess' }
     case 'offline':

@@ -9,6 +9,7 @@ import {
   emptyDraft,
   filmDurationMs,
   filmSummary,
+  forcedThreeD,
   formatSeconds,
   pictureScenes,
   proposalStale,
@@ -16,6 +17,7 @@ import {
   renderBlocker,
   setAspectRatio,
   setBrief,
+  setForceThreeD,
   setOutputFormat,
   toRenderInput,
   withProposal,
@@ -43,11 +45,19 @@ const IMG3 = 'c'.repeat(64)
  */
 const proposalOf = (doc: unknown): RenderTimeline => RenderTimelineSchema.parse(doc)
 
-/** A draft with a brief, a selection and a proposal — the state the render fires from. */
+/**
+ * A draft with a brief, a selection and a proposal — the state the render fires
+ * from.
+ *
+ * The third argument of `withProposal` is what the compose call really ASKED
+ * for, not the button's position: `forcedThreeD` lets the permission overrule
+ * the draft, so the two differ exactly when an account lost the right while the
+ * panel was open. These fixtures ask for no 3D and press no button.
+ */
 function withFilm(doc: unknown, over: Partial<VideoDraft> = {}): VideoDraft {
   let draft = setBrief(emptyDraft(), 'un film calme sur nos produits')
   draft = addImage(draft, IMG)
-  draft = withProposal(draft, proposalOf(doc))
+  draft = withProposal(draft, proposalOf(doc), over.forceThreeD === true)
   return { ...draft, ...over }
 }
 
@@ -202,6 +212,41 @@ describe('proposalStale', () => {
     const moved = setBrief(withFilm(SLIDESHOW), 'autre chose')
     expect(proposalStale(moved)).toBe(true)
     expect(renderBlocker(moved)).toBeNull()
+  })
+
+  /**
+   * Pressing 3D after a film has come back is a changed REQUEST, exactly like
+   * adding a picture: the catalogue the model would be shown is a different one,
+   * and the flat film on the panel answers the previous question. Nothing else
+   * on screen could say so — the summary counts shots and seconds, and a
+   * `solidScene` is neither.
+   */
+  it('notices the 3D button moving under a film that was composed without it', () => {
+    const flat = withFilm(SLIDESHOW)
+    expect(proposalStale(flat)).toBe(false)
+    expect(proposalStale(setForceThreeD(flat, true))).toBe(true)
+    // And back again: it compares what was asked for, not how many times the
+    // button was pressed.
+    expect(proposalStale(setForceThreeD(setForceThreeD(flat, true), false))).toBe(false)
+  })
+})
+
+describe('forcedThreeD', () => {
+  /**
+   * The permission wins over the button, and it is decided here rather than at
+   * the call site so that a stale draft cannot spend a round trip learning it.
+   *
+   * `undefined` is a NO. A server predating the field says nothing at all, and
+   * "said nothing" is not "yes" — a permission is the one place a missing value
+   * has to fail shut.
+   */
+  it.each([
+    [true, true, true],
+    [true, false, false],
+    [true, undefined, false],
+    [false, true, false],
+  ])('button %s + permission %s = %s', (button, allowed, expected) => {
+    expect(forcedThreeD(setForceThreeD(emptyDraft(), button), allowed)).toBe(expected)
   })
 })
 

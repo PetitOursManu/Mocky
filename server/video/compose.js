@@ -107,6 +107,7 @@ import {
   MAX_SCENES,
   MAX_TOTAL_DURATION_MS,
 } from './timeline.js'
+import { THREE_D_BLOCKS, isThreeDBlock, threeDBlocksIn, threeDRefusal } from './three-d.js'
 
 /**
  * The user's sentence, bounded. Past this it is a document, not a brief.
@@ -682,15 +683,30 @@ function imageNeed(option) {
   return need
 }
 
-/** Which blocks this selection can even carry, and which grounds. */
-function availableBlocks(imageCount) {
-  return BLOCK_KINDS.filter((kind) => imageNeed(BLOCK_OPTIONS[kind]) <= imageCount)
+/**
+ * Which blocks this selection can even carry, and which grounds.
+ *
+ * Two narrowings, and they are deliberately the same mechanism. The selection
+ * decides what a document could VALIDATE; the 3D permission decides what this
+ * account may SPEND. Both are facts about the request that are known before the
+ * call, so both are answered by not offering the block rather than by a rule in
+ * the prose — a model shown a block and told not to use it uses it, and the
+ * refusal then arrives after the tokens are spent.
+ *
+ * It is not the gate. `POST /render` is, because a document need never have
+ * passed through here; this is what stops an account from being handed a
+ * proposal it is not allowed to render.
+ */
+function availableBlocks(imageCount, threeD = true) {
+  return BLOCK_KINDS.filter(
+    (kind) => imageNeed(BLOCK_OPTIONS[kind]) <= imageCount && (threeD || !isThreeDBlock(kind)),
+  )
 }
 function availableGrounds(imageCount) {
   return BACKGROUND_KINDS.filter((kind) => imageNeed(GROUND_OPTIONS[kind]) <= imageCount)
 }
 /** The blocks a picture makes possible, named in the refusal that says one is missing. */
-const PICTURE_BLOCKS = BLOCK_KINDS.filter((kind) => imageNeed(BLOCK_OPTIONS[kind]) > 0)
+export const PICTURE_BLOCKS = BLOCK_KINDS.filter((kind) => imageNeed(BLOCK_OPTIONS[kind]) > 0)
 
 /**
  * The three bounds the composed prompt states that `TEMPLATE_LIMITS` does not
@@ -814,6 +830,16 @@ const BLOCK_NOTES = {
     right: 'the film says WHERE: a launch in several countries, a network, a delivery.',
     wrong: 'when a particular place matters. The markers are placed by the composition and the region only frames it, so this is geography as a motif.',
   },
+  globe: {
+    what: 'the world as a shell of dots, turning, with places lighting up on it and arcs running between them.',
+    right: 'the film is about REACH — where something is, where it goes, how far it travels — and a flat map would be a diagram of it.',
+    wrong: 'when a particular place matters, for the map\'s reason: the markers are placed by the composition and the region only says which face turns towards the viewer. It is also drawn by a renderer, so one per film, and it wants a line of type over it rather than a stack.',
+  },
+  solidChart: {
+    what: 'the same bars, with volume: lit columns standing on a plate, drawn straight-on so the heights stay comparable.',
+    right: 'a comparison is the whole scene and should look built rather than plotted — an opening figure, a result, a headline number broken into parts.',
+    wrong: 'on numbers nobody gave you, exactly as the flat chart. And it is not the quiet one: it is drawn by a renderer, it fills its scene, and a film that wants a figure beside other blocks wants barChart.',
+  },
   imageFrame: {
     what: 'one selected picture, bled, inset or on a card, with a slow move and an optional caption.',
     right: 'a picture is the subject of the scene.',
@@ -828,6 +854,16 @@ const BLOCK_NOTES = {
     what: 'selected pictures sliding steadily past, left or right.',
     right: 'the pictures are a run with no single hero: a shelf, a feed, a range.',
     wrong: 'when the viewer needs to look at one thing. Nothing in it stays still long enough to be read.',
+  },
+  photoStage: {
+    what: 'one selected picture standing in real perspective, in a bare panel, on a mounted card or in a screen case, turning slowly. Give it a second picture and it can turn over to show that one on the back.',
+    right: 'a picture IS the film for a moment and should read as an object rather than as a rectangle: a product shot, a screen, an opening, a before and an after on the two faces.',
+    wrong: 'when the picture is a background for words. Nothing can be written on it — a caption belongs in a zone of its own — and a picture that turns is a picture nobody reads text over. It is drawn by a renderer, so it costs more than any flat block: one in a film, and never over a ground that is already a photograph.',
+  },
+  photoRing: {
+    what: 'several selected pictures standing on a carousel that turns past the camera, the one at the front square to the eye and the others angled away.',
+    right: 'the pictures are a RANGE with no single hero and the film should say so in one shot: a shelf, a collection, a set of screens.',
+    wrong: 'when one of the pictures matters more than the rest — the ring gives them all the same moment — or when the viewer has to read what is on them, since only the front one is ever square. Like the stage it is drawn by a renderer and costs accordingly.',
   },
   clock: {
     what: 'a clock face, analogue or digital, at the time the document states.',
@@ -858,6 +894,26 @@ const BLOCK_NOTES = {
     what: 'a lit solid, turning in real perspective.',
     right: 'the film needs an object rather than a picture: an opening, an abstract subject, a product that has no photograph.',
     wrong: 'twice in one film, or crowded into a stack. It draws inside the space its anchor gives it, so a busy cell does not make it costly — it makes it small, and a lit solid the size of a caption is a whole renderer drawing a thumbnail. It is at its best alone on the frame with one line of type.',
+  },
+  extrudedType: {
+    what: 'a short line of type with real thickness, standing in the scene and turning in it while its letters arrive out of the depth behind it.',
+    right: 'one line is the whole scene and should feel like an object: an opening title, a name, a word the film is about.',
+    wrong: 'on anything that has to be READ as a sentence, and never twice in a film. It cannot wrap, so a long line is set small and its thickness disappears with it — the shorter the line, the more there is of the effect somebody paid a renderer for.',
+  },
+  particleField: {
+    what: 'a field of dust hanging in real space, drifting, with the near motes drawn larger than the far ones.',
+    right: 'the scene wants depth behind it rather than a picture: an opening, a quiet passage, a title that should not sit on flat paper.',
+    wrong: 'as the subject of a scene. Nothing in it can be read or counted, so a frame that holds only this is a frame with nothing in it — put a line of type on it. Denser is not better either: the count is what a viewer reads as texture, and past a certain point it is a haze.',
+  },
+  waveMesh: {
+    what: 'a lit surface swelling across the frame, seen face on or raked away from the eye.',
+    right: 'the scene wants a ground with weight to it — an opening, a closing, a statement that should feel like it is standing on something.',
+    wrong: 'under a chart, a form or a listing. It is the most expensive block in the catalogue and it is a moving lit surface, so fine lines and small type laid over it are read against something that will not hold still.',
+  },
+  depthGrid: {
+    what: 'rules running away from the eye — a floor under the scene, or the same floor mirrored above it as a tunnel.',
+    right: 'the subject is technical or spatial and the frame should have a direction: a product that is software, a journey, a system.',
+    wrong: 'in a film that already uses the grid ground. Two grids is one grid drawn twice, and the flat one costs nothing while this one costs a renderer.',
   },
 }
 
@@ -912,6 +968,16 @@ const FAMILY_TITLES = {
    * these two is a whole scene, and a scene holding both holds neither.
    */
   setPiece: 'SET PIECES — each of these is a whole scene. At most one in the whole film',
+  /*
+   * A different sentence from the set pieces', and the difference is the point
+   * of the family existing at all. A set piece is a whole scene, so the warning
+   * is "at most one in the film"; a field is what a scene is made OF — it is
+   * painted under the nine cells and a heading is meant to stand on it — so a
+   * film may want one every other scene and a FRAME may never want two. Told the
+   * set pieces' sentence, a model uses these once and puts type on flat paper
+   * for the rest of the film, which is the opposite of what they are for.
+   */
+  field: 'FIELDS — a space rather than a thing in one. Anchor it full, put type on it, and never two in one scene',
 }
 
 /** One card: three sentences of prose, then the shape, with every bound read off the schema. */
@@ -990,10 +1056,24 @@ function composedSchema(kinds, grounds) {
  * selected" — and never as a restriction, because a model that decides the
  * catalogue is wrong answers with a name that is not in it.
  */
-function buildComposedSystem(imageCount, kinds, grounds) {
+function buildComposedSystem(imageCount, kinds, grounds, { threeD = false, forceThreeD = false } = {}) {
   const limits = TEMPLATE_LIMITS[COMPOSED]
   const scene = sceneVocabulary()
-  const missing = BLOCK_KINDS.filter((kind) => !kinds.includes(kind))
+  /*
+   * Why the withheld blocks are counted in two piles rather than one.
+   *
+   * This used to be "everything not on offer", with one sentence explaining it:
+   * "they need more pictures than are selected". That sentence became false the
+   * moment a second reason for withholding existed — a 3D block withheld by the
+   * administrator would have been reported to the model as an image problem,
+   * which is the kind of note that gets a picture-less film proposed for a
+   * selection that had ten. Each pile carries its own reason.
+   */
+  const starved = (kind) => imageNeed(BLOCK_OPTIONS[kind]) > imageCount
+  const missing = BLOCK_KINDS.filter(starved)
+  // Its own reason ONLY: a 3D block that also wants a picture nobody selected is
+  // reported once, above, because that is the one the user can fix themselves.
+  const withheld = threeD ? [] : THREE_D_BLOCKS.filter((kind) => !starved(kind))
   return [
     'You are a film editor, and you COMPOSE. There is no template to pick and no layout to name: you',
     'build each scene out of a ground and a stack of blocks, and the film is what you make of them.',
@@ -1054,6 +1134,40 @@ function buildComposedSystem(imageCount, kinds, grounds) {
       const offered = members.filter((kind) => kinds.includes(kind))
       return offered.length ? ['', FAMILY_TITLES[family] ?? '(no title)', ...offered.map(blockCard)] : []
     }),
+    /*
+     * The two things to say about 3D, and only one of them is ever true.
+     *
+     * Withheld: stated as a FACT about this instance, in the same voice as "no
+     * image is selected" — never as a restriction and never with a reason. A
+     * model told a block exists but is forbidden reaches for it and argues; a
+     * model told the catalogue is what it is composes from the catalogue.
+     *
+     * Forced: the user pressed a button, so the instruction is an ambition
+     * rather than a permission, and it carries the same argument every card
+     * carries — how it goes wrong. "One per film" is the point of the setPiece
+     * family, and a film that answers a 3D button with a solid in every scene is
+     * the render budget spent on the same idea five times.
+     */
+    ...(withheld.length
+      ? [
+          '',
+          `${withheld.join(', ')} ${withheld.length > 1 ? 'are' : 'is'} not part of the catalogue on this instance,`,
+          'so naming one refuses the whole film. Everything above is on offer.',
+        ]
+      : []),
+    ...(forceThreeD
+      ? [
+          '',
+          'THIS FILM IS ASKED TO BE THREE-DIMENSIONAL',
+          `- The film must carry at least one ${THREE_D_BLOCKS.map((kind) => `"${kind}"`).join(' or ')}. That is`,
+          '  what was asked for, and a film composed without one has answered a different question.',
+          '- Give it a scene where it is the SUBJECT — anchored "full" with a word standing on it, or alone in',
+          '  "center" — and not a corner of a scene about something else. It is the most expensive thing in the',
+          '  catalogue to draw, and an ornament nobody looks at costs the same as one they do.',
+          '- One in the film, not one per scene. Every other scene stays flat: a solid in each of them is the',
+          '  same idea five times and the render paid for all five.',
+        ]
+      : []),
     '',
     'STACKS THAT WORK — each of these is ONE scene',
     '- an opening: ground "gradient"; a "kicker" and a "heading" both anchored "center-left", sharing a',
@@ -1193,12 +1307,19 @@ const COMPOSED_OPTIONS = { temperature: 0.4, num_ctx: 16384, num_predict: 4000 }
  *   What the user selected. The model may not reach past this list, and an empty
  *   one is legal: it means the film is composed from the blocks that need no
  *   picture.
- * @param {{llm?: ((req:object)=>Promise<any>)|null, theme?:object|null, template?:string|null, signal?:AbortSignal}} [deps]
+ * @param {{llm?: ((req:object)=>Promise<any>)|null, theme?:object|null, template?:string|null,
+ *   threeD?:boolean, forceThreeD?:boolean, signal?:AbortSignal}} [deps]
  *   `theme` is the project's art direction. It is never shown to the model and
  *   never accepted from it — it is attached to the document the model's answer
  *   became, after that answer has been validated.
  *   `template` is one of the five hand-filled compositions, when the caller has a
  *   form for it. Absent — the ordinary case — the model composes.
+ *   `threeD` is whether this ACCOUNT may spend a 3D render, and it defaults to
+ *   NO. A permission whose default is "yes unless told otherwise" is one a new
+ *   caller grants by forgetting a field, and the whole point of this parameter is
+ *   that somebody decided; the route reads it off `config.threeDEnabledFor`.
+ *   `forceThreeD` is the panel's 3D button — an ambition, not a permission — and
+ *   asking for it without `threeD` is refused rather than quietly composed flat.
  * @returns {Promise<{timeline: object|null, notices: string[]}>}
  */
 export async function proposeTimeline(brief, images, deps = {}) {
@@ -1233,7 +1354,48 @@ export async function proposeTimeline(brief, images, deps = {}) {
     )
   }
 
+  /*
+   * The permission, and the request that depends on it.
+   *
+   * Explicit `=== true` on both, so `undefined` is a no: `deps` comes from a
+   * route that reads a config and from a test that writes an object literal, and
+   * the one shape that must not mean "allowed" is the one where nobody said.
+   */
+  const threeD = deps.threeD === true
+  const forceThreeD = deps.forceThreeD === true
+
   const chosen = requestedTemplate(deps.template)
+
+  /*
+   * Asked for 3D without the right to it.
+   *
+   * `POST /compose` refuses this with a 403 before it ever gets here, and this
+   * is still not redundant: `proposeTimeline` is the function, the route is one
+   * caller, and the failure mode of a permission checked in exactly one place is
+   * that the second caller is written a year later by somebody reading the
+   * signature. Refused rather than quietly composed flat, because a button that
+   * silently does nothing is worse than one that says why.
+   */
+  if (forceThreeD && !threeD) {
+    return refuse(threeDRefusal([], 'Nothing was proposed.'))
+  }
+
+  /*
+   * Asked for 3D on a composition that has no blocks at all.
+   *
+   * The five hand-filled cards are a picture and a caption; blocks belong to
+   * `composed` alone. Refused before the call for the reason the oversized
+   * selection is: both facts are on the request and contradict each other, so
+   * spending a model call to be told so is a wait and a bill for nothing. Named,
+   * not bare — the fix is one selector away and the sentence says which.
+   */
+  if (forceThreeD && chosen) {
+    return refuse(
+      `A "${chosen}" film is a ready-made composition and carries no blocks, so nothing in it can be drawn in 3D. ` +
+        'Set the composition selector to automatic and ask again: a composed film is the one made of blocks.',
+    )
+  }
+
   /*
    * A composition chosen by hand that needs a picture, over an empty selection.
    *
@@ -1250,13 +1412,15 @@ export async function proposeTimeline(brief, images, deps = {}) {
     )
   }
 
-  const kinds = availableBlocks(list.length)
+  const kinds = availableBlocks(list.length, threeD)
   const grounds = availableGrounds(list.length)
 
   let raw
   try {
     raw = await llm({
-      system: chosen ? buildCardSystem(list.length, chosen) : buildComposedSystem(list.length, kinds, grounds),
+      system: chosen
+        ? buildCardSystem(list.length, chosen)
+        : buildComposedSystem(list.length, kinds, grounds, { threeD, forceThreeD }),
       user: buildUser(text, list),
       schema: chosen ? cardSchema(chosen) : composedSchema(kinds, grounds),
       /*
@@ -1345,6 +1509,42 @@ export async function proposeTimeline(brief, images, deps = {}) {
   }
 
   /*
+   * A 3D block in an answer from an account that may not have one.
+   *
+   * The decoder hint offers a union without those branches and the prose says
+   * they are not in the catalogue, and neither is the gate: a provider that
+   * ignores structured output writes whatever it likes, and this is the same
+   * argument the foreign-image check makes one paragraph down. Refused rather
+   * than stripped — a montage with its set piece quietly removed is not the
+   * montage that was proposed, and repairing a document is what this file
+   * refuses everywhere else.
+   *
+   * `POST /render` checks the same thing again on the way out, because a
+   * document need never have come from here.
+   */
+  const composedIn3d = threeDBlocksIn(parsed.data)
+  if (!threeD && composedIn3d.length) {
+    return refuse(threeDRefusal(composedIn3d, 'Nothing was proposed.'))
+  }
+
+  /*
+   * Asked for 3D, allowed it, and the model composed a flat film anyway.
+   *
+   * A NOTICE and not a refusal, and it is the same asymmetry as the ready-made
+   * composition two paragraphs up: the user asked for a film and got one — a
+   * validated, renderable film that is simply not the one the button promised.
+   * Refusing would hand back nothing over an answer that works (Q1). Saying
+   * nothing would be worse: a button that appears to do nothing is a button
+   * people press again, and each press is a model call.
+   */
+  if (forceThreeD && !composedIn3d.length) {
+    notices.push(
+      'You asked for a film in 3D and the model composed one without any, so nothing in this montage is drawn ' +
+        'in 3D. Ask again, or add a set piece by hand.',
+    )
+  }
+
+  /*
    * A film that shows pictures, proposed for a selection with none.
    *
    * Two shapes of the same mistake. A hand-filled composition that needs an
@@ -1370,8 +1570,12 @@ export async function proposeTimeline(brief, images, deps = {}) {
   if (!list.length && (CATALOGUE[template]?.needsImages || used.length)) {
     return refuse(
       template === COMPOSED
-        ? `The proposed film puts pictures on the screen and no image is selected. ${PICTURE_BLOCKS.join(', ')} and ` +
-            `the "image" ground are the only parts of the catalogue that need one — the other ${BLOCK_KINDS.length - PICTURE_BLOCKS.length} ` +
+        ? // `kinds.length` and not `BLOCK_KINDS.length - PICTURE_BLOCKS.length`: with
+          // an empty selection those two were the same number until 3D could be
+          // withheld, and the constant is the one that would have promised a block
+          // this account is not offered. What is still possible is what was OFFERED.
+          `The proposed film puts pictures on the screen and no image is selected. ${PICTURE_BLOCKS.join(', ')} and ` +
+            `the "image" ground are the only parts of the catalogue that need one — the other ${kinds.length} ` +
             'blocks draw type, numbers and motifs. Ask again for a film made of those, or select the images first.'
         : `The proposed film is a "${template}", which puts a picture on the screen, and no image is selected. ` +
             `With no pictures the only composition of the five that can be cut is "${ALWAYS_AVAILABLE}" — ask for ` +

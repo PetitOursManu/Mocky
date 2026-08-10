@@ -244,6 +244,27 @@ export const BLOCK_LIMITS = {
   galleryImages: 6,
   carouselImagesMin: 2,
   carouselImages: 8,
+  /**
+   * A stage holds one picture, or two — the face and what is on the back.
+   *
+   * Two and not more, because a panel has two faces. A third would be a field
+   * nothing draws, which is the unknown key `.strict()` exists to refuse arriving
+   * as a legal one.
+   */
+  stageImagesMin: 1,
+  stageImages: 2,
+  /**
+   * A ring holds three to six.
+   *
+   * THREE at the floor and not two, which is the one bound here that is not a
+   * copy of its neighbour's: two panels on a ring are one panel and its reverse,
+   * so a viewer reads a card turning over — which is `photoStage`'s `turn` drawn
+   * by the wrong block, at half the size and with a gap down the middle. Six at
+   * the ceiling for `gallery`'s reason: past that the panel at the front is a
+   * thumbnail, and a carousel nobody can read is a texture.
+   */
+  ringImagesMin: 3,
+  ringImages: 6,
   clockLabel: 24,
   dateStamp: 30,
   progressLabel: 24,
@@ -256,6 +277,21 @@ export const BLOCK_LIMITS = {
   codeLines: 10,
   codeLine: 64,
   codeCaption: 30,
+  extrudedType: 24,
+
+  // The two fields in volume that count something, and both ceilings are
+  // MEASURED rather than chosen — the numbers are in `docs/video-export.md`.
+  // Six hundred particles is where the ENCODER stops being affordable rather
+  // than the renderer: hundreds of small bright squares in motion are the
+  // high-frequency detail h264 spends its whole allowance on, and nine hundred
+  // of them drawn smaller measured 3.9 MB for six seconds against this
+  // ceiling's 2.0. Sixteen rules is where a floor stops reading as a floor and
+  // starts reading as the wireframe this feature already refused — and where
+  // the densest tunnel it can make costs 4.1 MB against a lit solid's 0.9.
+  particlesMin: 60,
+  particles: 600,
+  gridLinesMin: 5,
+  gridLines: 16,
 } as const
 
 /**
@@ -299,27 +335,62 @@ export const BLOCK_FAMILIES = {
   text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
   animatedText: ['typewriter', 'animatedList', 'counter', 'logoType'],
   interface: ['button', 'form', 'notification', 'lowerThird'],
-  data: ['barChart', 'lineChart', 'equalizer', 'soundWave', 'map'],
-  media: ['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp'],
+  /**
+   * `globe` and `solidChart` are here rather than in `setPiece`, and the choice
+   * is about where a model LOOKS rather than about what they cost.
+   *
+   * Both are drawn by a renderer, so both are rationed by the 3D permission
+   * (`server/video/three-d.js`) and both are a whole scene when they are in one —
+   * which is the sentence `setPiece` exists to say. But a family is how twenty-
+   * odd names stop being a list a model takes the first four of: somebody asking
+   * for a map of the world or for a chart with weight in it reads DATA, and a
+   * block filed under the expensive ones is a block that family never offers. The
+   * cost is stated on the cards instead, where the third sentence of every entry
+   * already says how a block fails.
+   */
+  data: ['barChart', 'lineChart', 'equalizer', 'soundWave', 'map', 'globe', 'solidChart'],
+  media: ['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp', 'photoStage', 'photoRing'],
   misc: ['separator', 'progressBar'],
   /**
-   * The two blocks that cost a scene rather than a corner of one.
+   * The blocks that cost a scene rather than a corner of one.
    *
    * A family of its own because the compose prompt needs somewhere to say "one
-   * per film": `codeBlock` fills a zone with ten lines of monospace and `solidScene`
-   * puts a lit solid in it, and a stack that holds both holds nothing else. The
-   * other six families group blocks by what they ARE; this one groups by what
-   * they cost, which is the only property the model has to be warned about.
+   * per film": `codeBlock` fills a zone with ten lines of monospace, `solidScene`
+   * puts a lit solid in it and `extrudedType` sets a line of type in real space,
+   * and a stack that holds two of them holds nothing else. The other six
+   * families group blocks by what they ARE; this one groups by what they cost,
+   * which is the only property the model has to be warned about.
    *
-   * `solidScene` is also the one entry in the catalogue whose renderer is a
-   * dependency — see `worker/video/package.json`. It is measured rather than
-   * assumed: a full-frame lit solid adds about 0.9 s of render per second of
-   * film on the two-core worker, against the 1.7 s/s the duration-scaled
-   * deadline leaves spare at the schema's longest film. A wireframe was in this
-   * enum until it was measured at 2.7 s/s and 13 Mbit/s of output — see
-   * `SolidSceneBlockSchema`.
+   * Two of the three have a renderer that is a dependency — see
+   * `worker/video/package.json`. Both are measured rather than assumed: a
+   * full-frame lit solid adds about 0.9 s of render per second of film on the
+   * two-core worker and a full-frame extruded title about 0.8, against the
+   * 1.7 s/s the duration-scaled deadline leaves spare at the schema's longest
+   * film. A wireframe was in this enum until it was measured at 2.7 s/s and
+   * 13 Mbit/s of output — see `SolidSceneBlockSchema` — and a per-LETTER
+   * extrusion until it was measured at eight times the budget, which is why
+   * `extrudedType` draws a line as at most three words.
    */
-  setPiece: ['codeBlock', 'solidScene'],
+  setPiece: ['codeBlock', 'solidScene', 'extrudedType'],
+  /**
+   * The three that are a SPACE rather than a thing standing in one.
+   *
+   * A family of its own and not three more set pieces, because the sentence the
+   * set-piece header carries — each of these is a whole scene, at most one in
+   * the film — is false of these three in one direction and truer in the other.
+   * A field is what a scene is made OF: it is painted under the nine cells, a
+   * heading is meant to stand on it, and a film may well want one in every other
+   * scene. What it must not do is share a frame with a second field, and that is
+   * what the family header says instead.
+   *
+   * All three are drawn by the renderer `solidScene` already brought in, so all
+   * three are named in `server/video/three-d.js` and rationed by the same
+   * administrator setting. That list is held against this one from both ends by
+   * `tests/video-3d-permission.test.js`: a field added here and forgotten there
+   * is a block the permission does not cover, offered to every account, and
+   * nothing about that failure is visible — the feature simply works.
+   */
+  field: ['particleField', 'waveMesh', 'depthGrid'],
 } as const
 
 /** Every block kind, flattened. The discriminator of the layer union. */
@@ -331,6 +402,7 @@ export const BLOCK_KINDS = [
   ...BLOCK_FAMILIES.media,
   ...BLOCK_FAMILIES.misc,
   ...BLOCK_FAMILIES.setPiece,
+  ...BLOCK_FAMILIES.field,
 ] as const
 
 /**
@@ -364,6 +436,72 @@ export const SOLIDS = ['cube', 'prism', 'sphere', 'torus'] as const
 
 /** How a `solidScene` turns. A named move, never an axis and never an angle. */
 export const SPINS = ['tumble', 'turn', 'rock'] as const
+
+/**
+ * What a picture stands in, on a `photoStage` or a `photoRing`.
+ *
+ * A shape and never a size: the three differ in how much body shows past the
+ * picture and how thick the slab is, all of it in units of the PICTURE's own
+ * height, so a `card` reads as the same card in a corner cell and across a whole
+ * frame. `STAGE_FRAMES` in `worker/video/remotion/blocks/stage.js` holds the
+ * numbers and the argument for each.
+ *
+ * `device` is three rather than two-with-a-depth-knob because of one asymmetry:
+ * it has a CHIN, a wider band under the picture than over it, which is the whole
+ * difference between a screen in a case and a mounted print.
+ */
+export const STAGE_FRAMES = ['plain', 'card', 'device'] as const
+
+/**
+ * How a `photoStage` moves. A named move, never an axis and never an angle — the
+ * same rule `SPINS` states, and here it also covers the camera.
+ *
+ * `orbit` is the camera walking round the subject, which is what it looks like
+ * rather than what it is: the panel turns and the camera holds still, because a
+ * camera the document moved would be a camera the composition does not own. The
+ * amplitude is bounded in `STAGE_MOVES` by the frustum rather than by taste — a
+ * wider swing buys both a more distorted picture and a smaller one.
+ *
+ * `turn` is the card turning over to show its back, which is what the optional
+ * second `imageId` is for; `sway` is the smallest amount of life that keeps a
+ * held frame from reading as a stalled render, which is `OVERLAY_MOVES`'s
+ * argument in three dimensions. There is no `static`, for that same paragraph's
+ * reason: this family exists to move, and a still panel is a flat `imageFrame`
+ * that cost a renderer.
+ */
+export const STAGE_MOVES = ['orbit', 'turn', 'sway'] as const
+
+/**
+ * How thick an `extrudedType` is, as a share of its own TYPE SIZE.
+ *
+ * A share of the size and never of the frame, which is what makes `deep` mean
+ * the same thing on a corner wordmark and on a full-frame title: the thickness
+ * is a proportion of the letter, which is what a typographer means by a heavy
+ * extrusion. The top of the range is a third of the size rather than anything
+ * larger because past about four tenths the sides close over the counters of
+ * `a`, `e` and `o` at the turn — see `SPATIAL_DEPTHS` in the worker, where the
+ * numbers are.
+ */
+export const EXTRUDED_DEPTHS = ['shallow', 'medium', 'deep'] as const
+
+/**
+ * How an `extrudedType` moves. A named move, never an axis and never an angle —
+ * `SPINS`'s rule, and the amplitudes are the difference between the two blocks.
+ *
+ * A solid may turn through a whole revolution because a cube seen edge-on is
+ * still a cube. A word seen edge-on is a vertical bar, so all three of these are
+ * small: the line sways, or it leans, or its words breathe in DEPTH one after
+ * another inside a line that barely moves. Past about twenty-five degrees the
+ * round letters close and the word stops being a word, which is the one thing
+ * this block may not do.
+ *
+ * The third is a depth rather than a third angle, and that is a cost written
+ * into the look: every angle has to be paid for in the stroke that closes the
+ * seam between two copies of the extrusion, and a per-word rotation of fourteen
+ * degrees put a ring of nine per cent of the em around every word — which fills
+ * the aperture of an `e`. `SPATIAL_FLOAT_DEPTH` in the worker carries it.
+ */
+export const EXTRUDED_SPINS = ['sway', 'tilt', 'float'] as const
 
 /**
  * What a `codeBlock` line is FOR, and the whole reason no highlighter is
@@ -990,6 +1128,63 @@ export const MapBlockSchema = block('map', {
   connections: z.boolean().default(true),
 })
 
+/**
+ * The same world, on a sphere — and the same three fields, deliberately.
+ *
+ * `map` gave up its sub-regions once already, and the reason was resolution: a
+ * flat mask fine enough to draw a border is a mask that draws the wrong border,
+ * so what it draws is a coastline at the scale of a continent. A globe does not
+ * have that problem, because a sphere has no border to miss — what a viewer reads
+ * is the shape of the continents and the fact that they curve away, and both
+ * survive at whatever resolution the box can carry. It draws from the SAME mask
+ * (`LAND_ROWS`), because a globe whose Africa differed from the map's would be two
+ * worlds in one film.
+ *
+ * `region` frames it exactly as it frames the flat map: it says which part of the
+ * world faces the camera when the scene opens, and nothing about where a marker
+ * goes. Marker POSITIONS are the composition's for `map`'s own reason — a document
+ * that placed one would be placing a coordinate, and a latitude is a coordinate
+ * under another name.
+ *
+ * It is drawn by a renderer, so it is one of the blocks
+ * `server/video/three-d.js` rations.
+ */
+export const GlobeBlockSchema = block('globe', {
+  region: z.enum(['world', 'europe', 'americas', 'asia', 'africa']).default('world'),
+  markers: bounded(0, BLOCK_LIMITS.mapMarkers).default(3),
+  connections: z.boolean().default(true),
+})
+
+/**
+ * A column chart with volume — and the one block in the catalogue whose whole
+ * design is an argument about a projection.
+ *
+ * A 3D bar chart is a data-visualisation anti-pattern wherever it appears, and
+ * the reason is the vanishing point: two equal values at two depths draw two
+ * different columns, so the one thing a bar chart is FOR is what the picture
+ * destroys. The brief that asked for this block said so in advance — a histogram
+ * whose values cannot be read is a decoration, and if it cannot be made readable
+ * it should be something else.
+ *
+ * It can. Drawn under a PARALLEL projection a vertical of world height `h` maps to
+ * `h·cos(elevation)` on the screen wherever it stands, so equal values draw equal
+ * columns; and with the row at a single depth and the yaw bounded by the air
+ * between two columns, no bar can hide another. Both are arithmetic rather than
+ * taste — `chartProject` and `chartOcclusion` in
+ * `worker/video/remotion/blocks/dataVolume.js`, held by that file's own corpus.
+ *
+ * The fields are `barChart`'s, because it IS `barChart`: the same percentages on
+ * the same scale, with `plinth` where the flat one has `baseline` — a plate rather
+ * than a rule, since a line drawn in space is the one element whose thickness a
+ * projection is free to change. The labels are flat type over the canvas, for the
+ * reason the block's own header gives at length.
+ */
+export const SolidChartBlockSchema = block('solidChart', {
+  values: z.array(bounded(0, 100)).min(BLOCK_LIMITS.barValuesMin).max(BLOCK_LIMITS.barValues),
+  labels: z.array(line(BLOCK_LIMITS.barLabel)).max(BLOCK_LIMITS.barValues).nullable().default(null),
+  plinth: z.boolean().default(true),
+})
+
 // ── MEDIA AND TIME ───────────────────────────────────────────────────────────
 
 export const ImageFrameBlockSchema = block('imageFrame', {
@@ -1008,6 +1203,56 @@ export const GalleryBlockSchema = block('gallery', {
 
 export const CarouselBlockSchema = block('carousel', {
   imageIds: z.array(imageId).min(BLOCK_LIMITS.carouselImagesMin).max(BLOCK_LIMITS.carouselImages),
+  direction: z.enum(['left', 'right']).default('left'),
+})
+
+/**
+ * A picture standing in real perspective — the bridge between the image library
+ * and a renderer.
+ *
+ * It is the commercial use of 3D and the one that pays for its own cost: a
+ * photograph on a turning panel is what a product film is made of, and the
+ * picture is one the user selected rather than a shape a model described. Like
+ * every other block it stays inside the founding rule — a frame and a move out of
+ * two closed enums, one or two ids out of the user's own selection, and the
+ * geometry, the camera, the light rig, the fit and every colour are written by
+ * hand in `worker/video/remotion/blocks/stage.js` and `composition.js`. There is
+ * no mesh field, no coordinate, no material, no angle and no lens.
+ *
+ * `imageIds` and not `imageId` plus a `backImageId`, which is the one shape
+ * decision here worth arguing. `timelineImageIds` walks `imageId` and `imageIds`
+ * and nothing else, and it is what decides which files the worker stages and what
+ * `/compose` checks against the user's selection — so a third spelling would be a
+ * picture nobody staged and, worse, one nobody authorised. The first is the face
+ * and the second is what is on the back.
+ *
+ * What it costs is on its card in `compose.js`, measured rather than assumed, and
+ * `THREE_D_BLOCKS` is what keeps an administrator's permission covering it.
+ */
+export const PhotoStageBlockSchema = block('photoStage', {
+  imageIds: z.array(imageId).min(BLOCK_LIMITS.stageImagesMin).max(BLOCK_LIMITS.stageImages),
+  frame: z.enum(STAGE_FRAMES).default('card'),
+  // A move and not a `static` by default, for the reason `DEFAULT_KEN_BURNS`
+  // gives at length: the case you get by saying nothing has to be the one that
+  // moves. There is no `static` in the enum at all here — see `STAGE_MOVES`.
+  move: z.enum(STAGE_MOVES).default('orbit'),
+})
+
+/**
+ * Several pictures on a carousel, turning past the camera.
+ *
+ * The flat `carousel` slides pictures across a strip; this one stands them on a
+ * ring, so the ones at the sides are turned away and the one at the front is
+ * square to the eye. That is the difference between a shelf and a display, and it
+ * is the reason both exist rather than one taking a `depth` flag.
+ *
+ * No `frame: 'device'` is refused and none is special-cased: three panels in a
+ * case is a legal document and an odd film, which is what the card's third
+ * sentence is for.
+ */
+export const PhotoRingBlockSchema = block('photoRing', {
+  imageIds: z.array(imageId).min(BLOCK_LIMITS.ringImagesMin).max(BLOCK_LIMITS.ringImages),
+  frame: z.enum(STAGE_FRAMES).default('plain'),
   direction: z.enum(['left', 'right']).default('left'),
 })
 
@@ -1105,6 +1350,155 @@ export const SolidSceneBlockSchema = block('solidScene', {
 })
 
 /**
+ * A line of type with real thickness, standing in the scene and turning in it.
+ *
+ * The second block whose renderer is a dependency, and it costs no NEW one: it
+ * draws with the same `three`, `@react-three/fiber` and `@remotion/three` the
+ * lit solid already brought. What it deliberately does not bring is
+ * `@react-three/drei`, whose `<Text3D>` is the obvious way to extrude a glyph —
+ * measured at +118.9 MiB installed and +59 packages on a base of 185.9 MiB, a
+ * 64% larger install for one block, and refused on a second ground that no
+ * amount of disk would have fixed. `Text3D` needs a `typeface.json`, a converted
+ * outline dump baked into the image, and this container installs exactly one
+ * font family. Every flat block in the catalogue names the direction's DECLARED
+ * typeface first and falls back to that family; a baked outline set cannot, so a
+ * 3D title would be Liberation Sans on every theme in the product while the
+ * heading beside it honoured the art direction. A film in two typefaces is the
+ * guessed token `theme.ts` refuses, arriving through a package.
+ *
+ * So the glyphs are rasterised by the browser that is already drawing the frame,
+ * in the project's own font stack, and the third dimension is real geometry
+ * carrying them. `funTitle` is what Skia became without a package; this is what
+ * `Text3D` became without one.
+ *
+ * Twenty-four characters, which is `logoType`'s bound and not `funTitle`'s
+ * forty. An extruded title is a SHORT one: the line cannot wrap — a second line
+ * at a second depth reads as a shadow of the first — so its size is bounded by
+ * its whole length across the measure, and forty characters across a full frame
+ * is 54 px of type with a two-pixel thickness. That is a whole renderer drawing
+ * a flat line.
+ *
+ * `level` is a ROLE and never a size, exactly as `heading`'s is: `display` is a
+ * title card and `title` is a wordmark. There is no third — at the body step the
+ * whole thickness of a `deep` extrusion is under four pixels, and a block that
+ * costs a renderer has to be visibly worth it.
+ */
+export const ExtrudedTypeBlockSchema = block('extrudedType', {
+  text: line(BLOCK_LIMITS.extrudedType),
+  level: z.enum(['display', 'title']).default('display'),
+  depth: z.enum(EXTRUDED_DEPTHS).default('medium'),
+  spin: z.enum(EXTRUDED_SPINS).default('sway'),
+})
+
+// ── FIELDS IN VOLUME ─────────────────────────────────────────────────────────
+//
+// Three grounds with a depth to them, drawn by the renderer `solidScene` already
+// brought in. They are the answer to "the background should be in 3D" and they
+// are shaped exactly like everything else in this file: a name out of a closed
+// enum and a whole number inside its own window. There is no seed, no position,
+// no colour and no speed in any of them — a seed is the one field through which
+// a document could render differently from itself, which is the same failure a
+// `Math.random` is, arriving through a key instead of through a call.
+
+/**
+ * How a `particleField` moves. A named drift, never a velocity.
+ *
+ * `rise` lifts the dust and wraps it off-frame, `orbit` turns the whole cloud
+ * about the vertical — the one that reads as VOLUME, since the near dust crosses
+ * the frame faster than the far — and `swarm` sends every particle round its own
+ * small loop with the cloud staying put. There is no `still`, for the reason
+ * `OVERLAY_MOVES` has none: dust that holds is a texture, and there are three of
+ * those among the grounds already.
+ */
+export const PARTICLE_DRIFTS = ['rise', 'orbit', 'swarm'] as const
+
+/**
+ * A field of dust, drifting in real space.
+ *
+ * `count` is a number of particles and not a density, because the composition
+ * cannot ask a document how large its box will turn out to be — a density would
+ * be a count multiplied by a frame the model cannot see. Its ceiling is measured
+ * and it is the ENCODER's rather than the renderer's: see `BLOCK_LIMITS`.
+ *
+ * The size of a particle is NOT in here, and that absence is the same one every
+ * amplitude in this file is. It falls out of the count — roughly constant
+ * coverage, so a sparse field is made of larger motes — in `particleSize`, where
+ * it can be measured against the bitrate it costs.
+ */
+export const ParticleFieldBlockSchema = block('particleField', {
+  count: bounded(BLOCK_LIMITS.particlesMin, BLOCK_LIMITS.particles).default(280),
+  drift: z.enum(PARTICLE_DRIFTS).default('rise'),
+})
+
+/**
+ * How a `waveMesh` swells, and how far it is raked away from the eye.
+ *
+ * Both are named looks and neither is a number: an amplitude, a wavelength and a
+ * speed in a schema are the three fields through which a model starts describing
+ * its own rendering, which is `funTitle`'s argument about treatments. These are
+ * three seas and two viewpoints.
+ *
+ * The tilt stops at `rake` because of the CAMERA rather than because of taste:
+ * past about a quarter turn the near edge of a sheet large enough to cover the
+ * frustum comes through the lens. A floor seen at a steeper angle is a different
+ * block, and it is the next one down.
+ */
+export const WAVE_SWELLS = ['calm', 'swell', 'ripple'] as const
+export const WAVE_TILTS = ['face', 'rake'] as const
+
+/**
+ * A lit surface, swelling — the most expensive block in the catalogue.
+ *
+ * It costs no NEW dependency: the same `three`, `@react-three/fiber` and
+ * `@remotion/three` the lit solid already brought. What it costs is fill, and
+ * that was measured before it was taken — a full-frame lit sheet at its box's own
+ * pixels is +1.7 s of render per second of film against the ~1.7 s/s the
+ * duration-scaled deadline leaves spare, which is one block spending a whole
+ * film's margin. Drawn inside `FIELD_PIXEL_BUDGET` and stretched back over its
+ * box it is +1.0 s/s, which is a `solidScene` and change. A lit relief has
+ * nothing on it finer than the gradient across it, so what that trade costs is
+ * nothing anybody can see; the numbers are in `docs/video-export.md`.
+ */
+export const WaveMeshBlockSchema = block('waveMesh', {
+  swell: z.enum(WAVE_SWELLS).default('swell'),
+  tilt: z.enum(WAVE_TILTS).default('rake'),
+})
+
+/**
+ * What a `depthGrid` is, and which way it runs.
+ *
+ * `tunnel` is the default rather than `floor` because a floor alone leaves the
+ * top of the frame on the bare ground — a horizon, which is right for a scene
+ * about distance and wrong for a scene that wanted the whole frame to be this.
+ * The case a silent document gets has to be the good one, which is the lesson
+ * `DEFAULT_KEN_BURNS` is named after.
+ *
+ * There is no `still` travel, and that is `OVERLAY_MOVES`' argument rather than
+ * `kenBurns`': a floor drifting toward the eye crops nothing and hides nothing,
+ * so a document buys nothing by asking it to hold, while what it would cost is
+ * the one guarantee this feature refuses to lose by accident.
+ */
+export const GRID_FORMS = ['floor', 'tunnel'] as const
+export const GRID_TRAVELS = ['toward', 'away', 'sway'] as const
+
+/**
+ * A grid of rules running away from the eye.
+ *
+ * The rules are drawn as long thin BOXES and not as lines, and that is measured
+ * as well as compositional: a line primitive is one pixel wide whatever its
+ * depth, so a floor made of them has no perspective in its own weight — and it
+ * is the geometry that got a wireframe refused at 2.7 s of render per second of
+ * film. Full frame it is +0.28 s/s as a floor and +0.85 s/s as the densest
+ * tunnel the schema allows; what it really spends is bitrate, and the far end is
+ * fogged into the ground for that reason.
+ */
+export const DepthGridBlockSchema = block('depthGrid', {
+  lines: bounded(BLOCK_LIMITS.gridLinesMin, BLOCK_LIMITS.gridLines).default(10),
+  form: z.enum(GRID_FORMS).default('tunnel'),
+  travel: z.enum(GRID_TRAVELS).default('toward'),
+})
+
+/**
  * One layer of a composed scene.
  *
  * Discriminated on `kind`, `.strict()` on every member, and every member is a
@@ -1133,15 +1527,23 @@ export const BlockSchema = z.discriminatedUnion('kind', [
   EqualizerBlockSchema,
   SoundWaveBlockSchema,
   MapBlockSchema,
+  GlobeBlockSchema,
+  SolidChartBlockSchema,
   ImageFrameBlockSchema,
   GalleryBlockSchema,
   CarouselBlockSchema,
   ClockBlockSchema,
   DateStampBlockSchema,
+  PhotoStageBlockSchema,
+  PhotoRingBlockSchema,
   SeparatorBlockSchema,
   ProgressBarBlockSchema,
   CodeBlockSchema,
   SolidSceneBlockSchema,
+  ExtrudedTypeBlockSchema,
+  ParticleFieldBlockSchema,
+  WaveMeshBlockSchema,
+  DepthGridBlockSchema,
 ])
 
 // ── The ground ───────────────────────────────────────────────────────────────

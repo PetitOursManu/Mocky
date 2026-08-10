@@ -52,6 +52,21 @@ export const video = {
     'video.allowedAllNote':
       'Tous les comptes de l’instance ({total}) peuvent exporter, y compris ceux créés plus tard.',
 
+    // La 3D. Le réglage RESTREINT la portée ci-dessus, il ne l'élargit jamais :
+    // c'est pour ça que son défaut est ouvert là où celui de Motion est fermé —
+    // la porte fermée est la précédente. La phrase d'aide dit le coût plutôt que
+    // « c'est lourd », parce qu'un administrateur qui arbitre du CPU a besoin
+    // d'un ordre de grandeur, pas d'un avertissement.
+    'video.threeDTitle': 'Portée de la 3D',
+    'video.threeDHelp':
+      'Un bloc en 3D coûte environ un cinquième de temps de rendu en plus sur un film. Ouvert par défaut à ceux qui exportent déjà ; restreindre ici si le worker manque de CPU.',
+    'video.threeDAllowedTitle': 'Comptes autorisés à la 3D',
+    'video.threeDAllowedEmpty': 'Aucun compte coché : personne ne rend en 3D, et les autres blocs restent disponibles.',
+    'video.threeDAllowedAllNote':
+      'Tous les comptes qui peuvent exporter peuvent aussi rendre en 3D. Cela ne concerne donc que les comptes autorisés ci-dessus.',
+    'video.threeDNarrowsNote':
+      'Ce réglage restreint la portée ci-dessus, il ne l’élargit pas : cocher un compte qui n’a pas Motion ne lui donne rien.',
+
     'video.advanced': 'Réglages avancés',
     'video.workerUrl': 'URL du worker de rendu',
     'video.workerUrlHint':
@@ -137,23 +152,92 @@ export const video = {
     // formulaire inachevé.
     'video.noImages': 'Aucune image pour l’instant. Ce n’est pas un manque : le modèle sait faire un film sans.',
 
+    // ── Fabriquer des images d'après le contexte ─────────────────────────────
+    //
+    // La troisième provenance possible d'une photo, et la seule qui ne demande
+    // rien de neuf : le SUJET est le contexte déjà écrit plus haut. Redemander
+    // « décrivez ce que vous voulez voir » à quelqu'un qui vient de décrire son
+    // film, c'est le lui demander deux fois — d'où l'absence de champ ici, qui
+    // est le point de ce chemin et non un oubli.
+    //
+    // Et ça coûte de l'argent : une génération est un appel payé. Le nombre est
+    // donc écrit AVANT le clic, deux fois — dans la phrase et sur le bouton —
+    // et les deux citent le même calcul.
+    //
+    // Les images arrivent « en attente » comme partout ailleurs : rien n'entre
+    // dans la médiathèque ni dans un montage avant que quelqu'un les ait vues.
+    'video.briefImagesToggle': 'Générer des images d’après ce contexte',
+    'video.briefImagesHint':
+      'Le contexte écrit plus haut sert de sujet : rien de plus à décrire. Les images produites vous seront montrées avant d’entrer où que ce soit.',
+    'video.briefImagesCount': 'Combien d’images',
+    'video.briefImagesCost':
+      '{n} image(s) seront générées à partir du contexte ci-dessus, soit {n} appel(s) au fournisseur d’images.',
+    'video.briefImagesMake': 'Générer {n} image(s)',
+    'video.briefImagesMaking': 'Génération des images…',
+    'video.briefImagesNothing':
+      'Le fournisseur d’images n’a rien produit à partir de ce contexte. Réessayez, ou reformulez-le.',
+    // Réussite partielle : ce qui est là est là, et on dit ce qui manque plutôt
+    // que de laisser compter une grille plus courte que le nombre payé (Q1).
+    'video.briefImagesMissed': '{n} image(s) demandée(s) n’ont pas pu être produites. Les autres sont ci-dessous.',
+    'video.briefImagesGateTitle': 'Cochez les images à garder',
+    'video.briefImagesGateBody':
+      'Sélection multiple. Ce qui n’est pas coché reste en attente, définitivement : ces images ne pourront jamais être montées.',
+    'video.briefImageNumber': 'Image {n}',
+    'video.briefImagesAdd': 'Confirmer et ajouter à la sélection',
+    'video.briefImagesDiscardNote': '{n} image(s) resteront en attente, définitivement.',
+    'video.briefImagesConfirmFailed':
+      '{n} image(s) n’ont pas pu être confirmées : elles ne sont pas entrées dans la sélection.',
+    // Le refus renvoie à la case qui existe déjà, en haut du panneau — pas à un
+    // champ de plus ici.
+    'video.briefImagesNeedBrief': 'Écrivez d’abord le contexte du film : c’est lui qui sert de sujet aux images.',
+    'video.briefImagesNoRoom': 'Plus de place dans la sélection : retirez une image pour en générer d’autres.',
+    'video.briefImagesNeedChoice': 'Cochez au moins une image.',
+
     // ---- décrire, et rien régler -------------------------------------------
-    // Le mot « proposer » est tenu partout : le modèle écrit un film, il ne
-    // valide rien et ne lance aucun rendu. Le second bouton — « proposer autre
-    // chose » — est le seul recours que ce panneau garde, et il doit se lire
-    // comme tel : un appel au modèle, quelques secondes, pas deux minutes de CPU.
+    // Le VERBE du bouton est « générer », le NOM du résultat reste « la
+    // proposition ». Les deux disent chacun leur moitié : le bouton dit ce qu'on
+    // fait — le modèle écrit un film — et le vocabulaire du résultat dit ce que
+    // ça n'est pas, à savoir un rendu. Le risque introduit par « générer » est
+    // qu'on le lise comme « lancer le rendu » ; c'est pour ça que la phrase
+    // d'aide le dit noir sur blanc et que l'autre bouton s'appelle « Lancer le
+    // rendu ».
+    //
+    // Deux libellés et pas un seul mot, et c'est la même leçon qu'ailleurs dans
+    // ce fichier : c'est le MÊME bouton qui demande le premier film et qui en
+    // redemande un autre, et « Générer » posé à côté d'un film déjà là se lit
+    // comme un bouton qui n'a rien fait. Le verbe est donc commun aux deux états
+    // et c'est le complément qui change.
     'video.composeTitle': 'Décrire le film',
     'video.composeBrief': 'Le contexte',
     'video.composeHint':
-      'Dites de quoi il s’agit, pour qui, sur quel ton. Le modèle écrit le film entier : découpage, mise en scène, mouvements, textes et durées. Rien n’est lancé — vous pourrez en redemander un autre. Consomme des jetons.',
+      'Dites de quoi il s’agit, pour qui, sur quel ton. Le modèle écrit le film entier : découpage, mise en scène, mouvements, textes et durées. Générer un film n’en lance pas le rendu — vous pourrez en demander un autre avant de rendre. Consomme des jetons.',
     'video.composePlaceholder':
       'Le lancement de notre bouilloire : trois arguments, un ton calme, une trentaine de secondes, en français.',
     'video.briefCount': '{n} / {max}',
-    'video.compose': 'Proposer un film',
-    'video.composeAgain': 'Proposer autre chose',
-    'video.composing': 'Proposition en cours…',
+    'video.compose': 'Générer le film',
+    'video.composeAgain': 'Générer autre chose',
+    'video.composing': 'Génération du film…',
     'video.composeNeedBrief': 'Écrivez d’abord le contexte, en une phrase suffit.',
-    // Titre de la bannière des remarques. Elles arrivent aussi — et surtout —
+
+    // ── Le bouton 3D ────────────────────────────────────────────────────────
+    //
+    // Il n'apparaît que si le compte a la permission, et le serveur la revérifie
+    // aux deux portes : l'invisible n'est pas un contrôle. Le libellé est « 3D »
+    // dans les deux langues — c'est le même mot, et l'inventer autrement en
+    // français ferait chercher un bouton qui n'existe pas.
+    //
+    // La phrase de coût est HONNÊTE plutôt que rassurante. Un rendu 3D est plus
+    // long : l'échéance suit la durée du film, donc ce n'est pas un risque
+    // d'échec, mais quelqu'un qui attend son film mérite de savoir pourquoi il
+    // met plus de temps. Le chiffre est celui de la mesure, pas une impression.
+    'video.threeDForce': '3D',
+    'video.threeDForceLabel': 'Composer ce film en 3D — le rendu sera plus long',
+    'video.threeDForceOn':
+      'Le film portera au moins une scène en 3D. Comptez environ un cinquième de temps de rendu en plus : c’est plus long, ce n’est pas plus fragile — le délai d’attente suit la durée du film.',
+    // Titre de la bannière des remarques. C'est aussi là qu'atterrit le cas où
+    // le bouton 3D a été pressé et où le modèle a composé un film plat : le
+    // serveur le dit plutôt que de refuser un film qui marche (Q1). Elles
+    // arrivent aussi — et surtout —
     // quand rien n’a été proposé : le film déjà accepté reste alors tel quel, et
     // ces phrases sont la seule explication de ce qui ne s’est pas produit.
     'video.composeNotices': 'À propos de cette proposition',
@@ -255,7 +339,7 @@ export const video = {
     'video.proposalTitle': 'Le film proposé',
     'video.proposalSummary': '{n} plan(s) · {s} s · {ratio}',
     'video.blockedNoProposal':
-      'Rien à rendre pour l’instant : décrivez le film et demandez une proposition. C’est le modèle qui le monte.',
+      'Rien à rendre pour l’instant : décrivez le film, puis générez-en un. C’est le modèle qui le monte.',
     // Le film reste valable, donc c’est une remarque et jamais un refus : ce
     // serait transformer une phrase utile en mur, alors que le recours — en
     // redemander un — est à un clic dans les deux cas.
@@ -323,6 +407,12 @@ export const video = {
     'video.errNoProvider': 'Aucun fournisseur d’image',
     'video.errNoProviderHint':
       'Cette instance n’a aucun modèle d’image configuré. C’est un réglage d’administration, pas un problème de montage.',
+    // Le document est valide, tous les fichiers sont là : ce qui coince, c'est
+    // qui demande. Donc la phrase nomme le réglage ET ce qui reste possible —
+    // un refus sec sur une permission est le plus tentant et le moins utile.
+    'video.err3D': 'La 3D n’est pas autorisée pour ce compte',
+    'video.err3DHint':
+      'Ce film contient une scène dessinée en 3D, et ce compte n’a pas le droit d’en rendre sur cette instance. Demandez-le à un administrateur, ou générez un film sans 3D : tous les autres blocs restent disponibles.',
     'video.errInvalid': 'Le montage a été refusé',
     'video.errNoAccess': 'Motion n’est plus activé pour ce compte.',
     'video.errOffline': 'Serveur injoignable',
@@ -350,6 +440,20 @@ export const video = {
     'video.allowedEmpty': 'No account ticked: nobody can export.',
     'video.allowedAllNote':
       'Every account on the instance ({total}) can export, including those created later.',
+
+    // 3D. The setting NARROWS the scope above and never widens it, which is why
+    // its default is open where Motion's is closed — the shut door is the one
+    // before it. The help line quotes the cost rather than calling it heavy: an
+    // administrator rationing CPU needs an order of magnitude, not a warning.
+    'video.threeDTitle': '3D scope',
+    'video.threeDHelp':
+      'A 3D block costs about a fifth more render time on a film. Open by default to whoever already exports; narrow it here if the worker is short of CPU.',
+    'video.threeDAllowedTitle': 'Accounts allowed 3D',
+    'video.threeDAllowedEmpty': 'No account ticked: nobody renders in 3D, and every other block stays available.',
+    'video.threeDAllowedAllNote':
+      'Every account that can export can also render in 3D. That means the accounts allowed above, and nobody else.',
+    'video.threeDNarrowsNote':
+      'This setting narrows the scope above, it does not widen it: ticking an account that has no Motion grants it nothing.',
 
     'video.advanced': 'Advanced settings',
     'video.workerUrl': 'Render worker URL',
@@ -436,23 +540,90 @@ export const video = {
     // here rather than an unfinished form.
     'video.noImages': 'No pictures yet. That is not a gap: the model can make a film without any.',
 
+    // ── Making pictures out of the context ──────────────────────────────────
+    //
+    // The third place a photograph can come from, and the only one that asks for
+    // nothing new: the SUBJECT is the context already written above. Asking
+    // "describe what you want to see" of somebody who has just described their
+    // film is asking them twice — so there is no field here, and that absence is
+    // the point of this path rather than an omission.
+    //
+    // And it costs money: a generation is a paid call. So the number is written
+    // BEFORE the click, twice — in the sentence and on the button — and both
+    // quote the same computation.
+    //
+    // The pictures arrive pending like everything else here: nothing enters the
+    // media library or a cut before somebody has looked at it.
+    'video.briefImagesToggle': 'Generate pictures from this context',
+    'video.briefImagesHint':
+      'The context written above is the subject: there is nothing more to describe. You will be shown what comes back before it enters anything.',
+    'video.briefImagesCount': 'How many pictures',
+    'video.briefImagesCost':
+      '{n} picture(s) will be generated from the context above — {n} call(s) to the image provider.',
+    'video.briefImagesMake': 'Generate {n} picture(s)',
+    'video.briefImagesMaking': 'Generating the pictures…',
+    'video.briefImagesNothing':
+      'The image provider produced nothing from this context. Try again, or reword it.',
+    // A partial success: what is there is there, and what is missing is said
+    // rather than left to be counted off a grid shorter than the bill (Q1).
+    'video.briefImagesMissed': '{n} of the requested picture(s) could not be produced. The rest are below.',
+    'video.briefImagesGateTitle': 'Tick the pictures worth keeping',
+    'video.briefImagesGateBody':
+      'Several at a time. Anything left unticked stays pending, for good: those pictures can never join a cut.',
+    'video.briefImageNumber': 'Picture {n}',
+    'video.briefImagesAdd': 'Confirm and add to the selection',
+    'video.briefImagesDiscardNote': '{n} picture(s) will stay pending, permanently.',
+    'video.briefImagesConfirmFailed':
+      '{n} picture(s) could not be confirmed, and did not join the selection.',
+    // The refusal points back at the box that already exists, at the top of the
+    // panel — not at one more field down here.
+    'video.briefImagesNeedBrief': 'Write the film’s context first: it is what these pictures take as their subject.',
+    'video.briefImagesNoRoom': 'No room left in the selection: remove a picture to generate more.',
+    'video.briefImagesNeedChoice': 'Tick at least one picture.',
+
     // ---- describing, and dialling nothing -----------------------------------
-    // "Propose" is held to throughout: the model writes a film, it approves
-    // nothing and starts no render. The second button — "propose something else"
-    // — is the one recourse this panel keeps, and it has to read as one: a model
-    // call and a few seconds, not two minutes of CPU.
+    // The button's VERB is "generate"; the result is still "the proposal". Each
+    // says its own half: the button says what happens — the model writes a film
+    // — and the noun says what it is not, namely a render. The risk "generate"
+    // introduces is being read as "start the render", which is why the hint says
+    // so outright and why the other button is called "Start the render".
+    //
+    // Two labels rather than one word, and it is the lesson recorded elsewhere
+    // in this file: the SAME button asks for the first film and asks for another
+    // one, and "Generate" sitting beside a film that is already there reads as a
+    // button that did nothing. So the verb is common to both states and the
+    // object is what changes.
     'video.composeTitle': 'Describe the film',
     'video.composeBrief': 'The context',
     'video.composeHint':
-      'Say what it is about, who it is for, in what tone. The model writes the whole film: how it is cut, how it is staged, how things move, what it says and how long it lasts. Nothing is started — you can ask for another one. Spends tokens.',
+      'Say what it is about, who it is for, in what tone. The model writes the whole film: how it is cut, how it is staged, how things move, what it says and how long it lasts. Generating a film does not start its render — you can ask for another one before rendering. Spends tokens.',
     'video.composePlaceholder':
       'Launching our kettle: three arguments, a calm tone, about thirty seconds, in English.',
     'video.briefCount': '{n} / {max}',
-    'video.compose': 'Propose a film',
-    'video.composeAgain': 'Propose something else',
-    'video.composing': 'Proposing…',
+    'video.compose': 'Generate the film',
+    'video.composeAgain': 'Generate something else',
+    'video.composing': 'Generating the film…',
     'video.composeNeedBrief': 'Write the context first — one sentence is enough.',
-    // The heading of the notices banner. They also arrive — mostly — when
+
+    // ── The 3D button ───────────────────────────────────────────────────────
+    //
+    // It appears only for an account that has the permission, and the server
+    // re-checks it at both doors: invisible is not a control. The label is "3D"
+    // in both languages — it is the same word, and translating it would send a
+    // French reader looking for a button that does not exist.
+    //
+    // The cost sentence is HONEST rather than reassuring. A 3D render takes
+    // longer: the deadline scales with the film's duration, so this is not a
+    // risk of failure — but somebody waiting for their film deserves to know why
+    // it is taking longer. The figure is the measured one, not an impression.
+    'video.threeDForce': '3D',
+    'video.threeDForceLabel': 'Compose this film in 3D — the render will take longer',
+    'video.threeDForceOn':
+      'The film will carry at least one scene drawn in 3D. Expect about a fifth more render time: longer, not more fragile — the wait is scaled to the film’s duration.',
+    // The heading of the notices banner. It is also where the case lands in
+    // which the 3D button was pressed and the model composed a flat film: the
+    // server says so rather than refusing a film that works (Q1). They also
+    // arrive — mostly — when
     // nothing was proposed: the film already accepted is then left exactly as it
     // was, and these sentences are the only account of what did not happen.
     'video.composeNotices': 'About this proposal',
@@ -553,7 +724,7 @@ export const video = {
     'video.proposalTitle': 'The proposed film',
     'video.proposalSummary': '{n} shot(s) · {s} s · {ratio}',
     'video.blockedNoProposal':
-      'Nothing to render yet: describe the film and ask for a proposal. The model is what cuts it.',
+      'Nothing to render yet: describe the film, then generate one. The model is what cuts it.',
     // The film is still valid, so this is a remark and never a refusal: that
     // would turn a useful sentence into a wall, when the recourse — ask for
     // another — is one click away either way.
@@ -620,6 +791,12 @@ export const video = {
     'video.errNoProvider': 'No image provider',
     'video.errNoProviderHint':
       'This instance has no image model configured. That is an administration setting, not a problem with your cut.',
+    // The document is valid and every file is there: what blocks it is who is
+    // asking. So the sentence names the setting AND what is still possible — a
+    // bare no is most tempting and least useful on a permission.
+    'video.err3D': '3D is not enabled for this account',
+    'video.err3DHint':
+      'This film carries a scene drawn in 3D, and this account may not render one on this instance. Ask an administrator for it, or generate a film without 3D: every other block stays available.',
     'video.errInvalid': 'The cut was refused',
     'video.errNoAccess': 'Motion is no longer enabled for this account.',
     'video.errOffline': 'Server unreachable',

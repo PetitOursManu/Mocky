@@ -179,10 +179,11 @@ décrire son propre rendu.
 | Texte | `heading`, `kicker`, `quote`, `textHighlight`, `funTitle` |
 | Texte animé | `typewriter`, `animatedList`, `counter`, `logoType` |
 | Interface | `button`, `form`, `notification`, `lowerThird` |
-| Données | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map` |
+| Données | `barChart`, `lineChart`, `equalizer`, `soundWave`, `map`, `globe`, `solidChart` |
 | Média et temps | `imageFrame`, `gallery`, `carousel`, `clock`, `dateStamp` |
 | Divers | `separator`, `progressBar` |
-| Pièces d’apparat | `codeBlock`, `solidScene` |
+| Pièces d’apparat | `codeBlock`, `solidScene`, `extrudedType` |
+| Champs en volume | `particleField`, `waveMesh`, `depthGrid` |
 | Fonds | `solid`, `gradient`, `hairlines`, `gridPulse`, `particles`, `image` |
 
 **Les cinq restent, entiers et rendables.** Les brouillons enregistrés et le
@@ -195,6 +196,234 @@ main ; le schéma, le worker, les palettes et les mouvements le sont sur
 drapeau, parce que « est-ce que ça se rend » et « est-ce que ça se saisit » ne
 sont pas la même question, et n’ont plus la même réponse depuis que les blocs
 existent.
+
+#### Deux blocs de données dessinés par un moteur : un globe, et un graphique en volume
+
+La famille « données » du catalogue a gagné deux entrées dessinées en GL plutôt
+qu’avec des div, et les deux viennent de la même demande : une carte du monde qui
+ne soit pas plate, et un histogramme qui ait du poids. Ni l’une ni l’autre ne
+rouvre la règle fondatrice — un document nomme `globe` ou `solidChart`, remplit
+des entiers bornés et une énumération fermée, et chaque sommet, chaque caméra et
+chaque couleur sont écrits à la main — mais chacune avait une question à trancher
+avant de pouvoir être livrée.
+
+**Un histogramme 3D est une décoration si la projection n’est pas parallèle, et
+c’est toute la conception de `solidChart`.** Sous une caméra en perspective, deux
+valeurs égales à deux profondeurs dessinent deux colonnes différentes : avec
+l’objectif de ce catalogue, une barre placée une unité et demie plus près qu’une
+autre se projette à 1,73 fois sa hauteur. C’est pourquoi l’histogramme 3D est un
+anti-modèle de visualisation partout où il apparaît, et ce n’est pas un problème
+de réglage — la seule chose à quoi sert un histogramme est exactement ce que le
+point de fuite détruit. En projection orthographique, c’est faux : une verticale
+de hauteur `h` se projette en `h·cos(élévation)` où qu’elle se tienne.
+`chartProject` est cette arithmétique, longue d’une ligne, et `dataVolume.test.js`
+la tient comme une égalité sur une grille de positions et de profondeurs plutôt
+qu’à l’origine, parce que le défaut qu’elle refuse est exactement une colonne qui
+se dessine autrement PARCE QU’elle est ailleurs.
+
+L’occultation est l’autre moitié, et elle est bornée plutôt qu’évitée. Une boîte
+de largeur `w` et de profondeur `d` tournée de `a` a une silhouette large de
+`w·cos a + d·sin a`, et les centres des colonnes sont espacés de `p·cos a` : la
+rangée est libre de recouvrement exactement quand `w + d·tan a ≤ p`. Avec l’air
+que le graphique plat dépense déjà (`FIGURE_GAP_SHARE`) et une profondeur égale à
+la largeur, cela borne le lacet à un peu plus de 23° ; `CHART_AZIMUTH` vaut 16, et
+le test tient l’inégalité plutôt que l’angle. L’élévation n’a besoin d’aucune
+borne, puisque toutes les colonnes sont à la même profondeur. Reste ce qui vaut un
+moteur de rendu : deux faces éclairées par colonne, sur le segment de Lambert que
+`solidShading` mesure déjà, et un socle là où le graphique plat a une ligne de
+base — une plaque plutôt qu’un filet, car un trait dessiné dans l’espace est le
+seul élément dont la projection est libre de changer l’épaisseur.
+
+**Ses étiquettes sont du texte plat par-dessus le canevas, et c’est écrit plutôt
+que supposé.** Du texte en GL, c’est soit une géométrie extrudée — qui demande un
+fichier de police que ce conteneur ne porte pas — soit une texture, c’est-à-dire
+des glyphes à une taille que personne n’a choisie dans une couleur que personne
+n’a mesurée. Une légende est un RUN : elle appartient à l’échelle typographique
+unique, elle est dimensionnée par `labelBand` contre la voie sous laquelle elle se
+place, et elle disparaît plutôt que de déborder. Donc `blockCanvas` répond un
+`frame` plus haut que son canevas et un `overlay`, la composition dessine la
+moitié DOM par-dessus la moitié GL, et la voie sur laquelle une légende est
+centrée est la PROJECTION de l’axe de sa colonne — une légende sous la mauvaise
+colonne est pire que pas de légende du tout.
+
+**Le globe, c’est le trait de côte de la carte plate posé sur une sphère, et c’est
+la réponse à un problème de résolution plutôt qu’une deuxième carte.** `map` a
+déjà renoncé une fois à ses sous-régions : un masque en plate-carrée assez fin
+pour dessiner une frontière est un masque qui dessine la mauvaise frontière, donc
+ce qu’il dessine est un littoral à l’échelle d’un continent. Une sphère n’a pas de
+frontière à rater — ce qu’un œil lit, c’est la FORME des continents et le fait
+qu’ils s’enroulent — et les deux survivent à n’importe quelle résolution que la
+boîte peut porter. Il lit le même `LAND_ROWS`, parce qu’un globe dont l’Afrique
+différerait de celle de la carte serait deux mondes dans un film, et il prend les
+mêmes trois champs : `region` dit quelle face se tourne vers la caméra à
+l’ouverture de la scène, `markers` est un compte, et les positions appartiennent à
+la composition, puisqu’une latitude est une coordonnée sous un autre nom.
+
+Son réseau de points est une spirale de Fibonacci, et c’est la partie qui mérite
+d’être dite deux fois. L’équi-répartition est ce qu’elle achète — une grille
+latitude/longitude échantillonnée à pas fixe met cinq fois plus de points par
+unité de surface à 78° nord qu’à l’équateur, donc les pôles se lisent comme des
+calottes brillantes — et le DÉTERMINISME est ce qu’elle ne coûte pas : le chemin
+le plus court vers un champ de points « dispersé » est `Math.random`, et c’est ici
+que la tentation est la plus forte. Chaque position vient d’un indice.
+
+**Ce que les mesures ont changé, c’est l’essentiel du bloc.** Banc : l’image du
+worker, `--cpus=2.0 --memory=4g`, 1080p/30, six secondes de film, les réglages
+d’encodeur qu’`encoding.js` utilise vraiment. Un titre en display sert de témoin ;
+une sphère `solidScene` plein cadre sert d’étalon, puisque ce document la chiffre
+déjà à +0,9 s de rendu par seconde de film.
+
+| Scène | rendu | Δ s/s (banc) | **Δ s/s (échelle de ce document)** | Sortie |
+|---|---|---|---|---|
+| témoin (un titre) | 12,9 s | — | — | 0,73 Mo |
+| `solidScene`, sphère, plein cadre | 20,3 s | +1,23 | **+0,90** (l’étalon) | 0,79 Mo |
+| `globe`, plein cadre | 19,4 s | +1,09 | **+0,80** | 3,90 Mo |
+| `globe` + un titre | 21,2 s | +1,39 | **+1,01** | 3,53 Mo |
+| `solidChart`, plein cadre | 17,3 s | +0,74 | **+0,54** | 0,64 Mo |
+| `solidChart` + un surtitre | 20,8 s | +1,32 | **+0,96** | 0,62 Mo |
+| huit `globe` dans une même zone | 21,0 s | +1,37 | **+1,00** | 1,72 Mo |
+| ~~`globe` en COQUE complète de points~~ | 23,8 s | +2,08 | **+1,81** | 7,50 Mo — refusé |
+| ~~la même, avec une sphère translucide~~ | 30,9 s | +3,26 | **+2,84** | 2,50 Mo — refusé |
+
+L’échéance laisse environ 1,7 s/s de marge sur le film le plus long que le schéma
+accepte : ces deux-là tiennent, et les deux versions refusées ne tenaient pas.
+**Le premier globe dessinait une coque entière** — la terre en clair sur une mer
+discrète, un seul réseau coupé en deux — et c’était l’échec du fil de fer qui
+revenait par une autre géométrie : des milliers de points minuscules et contrastés
+qui bougent à chaque image sont le détail que h264 ne sait pas prédire, et le
+résultat est revenu à dix fois le débit d’un titre. Remplacer la mer par une
+sphère translucide était pire encore, parce qu’un disque entier de fondu alpha à
+chaque image est ce qu’un rastériseur logiciel fait le plus lentement. Ce qui est
+livré, c’est `globeGraticule` : une douzaine de méridiens et sept parallèles de
+points, ce qui suffit à dire « sphère » pour un vingtième du prix.
+
+La seconde mesure a changé la façon dont le bloc est écrit. **Un nuage de points
+coûte une quinzaine de millisecondes par image quoi qu’il contienne** — les
+positions sont reconstruites à chacune des images d’une scène, donc la géométrie
+derrière elles est détruite et recréée autant de fois, et la facture est par TAMPON
+plutôt que par point. Le même globe à 7854 points et à 2827 a pris 23,8 s et
+24,4 s ; retirer un nuage sur trois en a retiré 2,7. Les liaisons voyagent donc
+dans le tampon de la terre, il y a deux nuages et non trois, et le nombre de points
+est presque gratuit — c’est pourquoi `GLOBE_PITCH_PX` est choisi pour l’ENCODEUR et
+non pour le rastériseur : les mêmes six secondes sont revenues à 7,5 Mo à un pas de
+dix-huit et à 3,9 à trente.
+
+La dernière ligne du tableau est celle qui dit que l’arithmétique des boîtes tient
+toujours. Huit globes dans une zone coûtent ce qu’un seul coûte, parce que huit
+boîtes sont huit huitièmes d’une zone sûre — `tests/video-composed-frame.test.js`
+le prouve pour `solidScene` et la mesure le confirme ici. Une pièce d’apparat
+entassée dans une pile ne devient pas chère ; elle devient petite.
+
+Deux entrées de `FIELD_PAINTS` en découlent. Un `globe` ancré `full` peint
+l’accent à deux opacités et rien d’autre, puisqu’il n’y a aucune lumière dans
+cette scène ; un `solidChart` peint un `solid`, le même segment de Lambert que
+`solidScene`, parce que ses colonnes sont éclairées. Ses étiquettes sont hors du
+canevas et sont mesurées comme du texte courant ordinaire sur le fond.
+
+#### Trois champs en volume : une poussière, une surface qui gonfle, un sol
+
+La demande qui les nomme, c'est « le fond devrait être en 3D », et la réponse est
+une famille plutôt que trois pièces d'apparat de plus. Une pièce d'apparat est une
+scène entière et l'invite dit au modèle d'en dépenser au plus une par film ; un
+CHAMP est ce dont une scène est faite — il est peint sous les neuf cellules, un
+titre est censé s'y tenir debout, et un film peut en vouloir une scène sur deux.
+Ce qu'il ne doit jamais faire, c'est partager une image avec un second champ, et
+c'est la phrase que porte `FAMILY_TITLES.field` à la place.
+
+| Bloc | Ce que c'est | Champs |
+|---|---|---|
+| `particleField` | une poussière suspendue dans l'espace, qui dérive | `count`, `drift` |
+| `waveMesh` | une surface éclairée, qui gonfle | `swell`, `tilt` |
+| `depthGrid` | des règles qui fuient vers l'horizon, en sol ou en tunnel | `lines`, `form`, `travel` |
+
+Rien là-dedans n'est une couleur, une coordonnée, une vitesse ou une taille, et il
+n'y a pas de GRAINE — le seul champ par lequel un document pourrait se rendre
+différemment de lui-même, le même échec qu'un `Math.random`, arrivant par une clef
+plutôt que par un appel. Toute position vient d'un INDICE et d'un numéro d'image,
+par `noise` dans `worker/video/remotion/blocks/field.js` : un hachage entier, et
+délibérément pas l'idiome `fract(sin(…))` que tous les tutoriels de shader
+attrapent, parce que `Math.sin` est juste à un ulp près et que l'ulp en question
+regarde le moteur. `field.test.js` prouve que deux appels rendent les mêmes
+octets ; le magasin d'exports est adressé par contenu, donc un film qui diffère
+d'un pixel entre deux rendus, ce sont deux films sur un seul budget de disque.
+
+**Les mesures sont toute la conception de la famille.** Même banc que plus haut —
+l'image du worker, `--cpus=2.0 --memory=4g`, 1080p/30, six secondes, les réglages
+d'encodeur d'`encoding.js` — et chaque chiffre est un RAPPORT à un `solidScene`
+plein cadre mesuré dans la même passe, puis ramené à l'échelle de ce document,
+parce qu'une partie de ces bancs a tourné pendant qu'un autre travail tenait la
+machine.
+
+| Scène | Δ s/s (échelle de ce document) | Sortie |
+|---|---|---|
+| `solidScene`, sphère, plein cadre | **+0,90** (l'étalon) | 0,86 Mo |
+| `particleField`, le compte que donne le silence | **+0,25** | 1,27 Mo |
+| `particleField` au plafond du schéma | **+0,37** | 2,03 Mo |
+| `waveMesh`, plein cadre, dans le budget de pixels | **+1,00** | 2,12 Mo |
+| ~~`waveMesh` aux pixels propres de sa boîte~~ | **+1,70** — refusé | 2,81 Mo |
+| `depthGrid` en `floor` | **+0,28** | 1,29 Mo |
+| `depthGrid` en `tunnel` le plus dense | **+0,85** | 4,09 Mo |
+| ~~le même tunnel sans brume et sans fondu~~ | **+1,15** — refusé | 5,98 Mo |
+
+Deux de ces lignes sont les deux décisions.
+
+**Un champ remplit sa boîte sur les deux axes**, ce qui plein cadre fait 2,4 fois
+les pixels que couvre le plus grand canevas carré d'un `solidScene` — et une
+surface éclairée à cette taille dépense la totalité des 1,7 s/s que l'échéance
+proportionnée à la durée laisse de marge, pour un bloc d'une scène. Donc
+`FIELD_PIXEL_BUDGET` borne ce qu'un champ a le droit de DESSINER, et
+`ComposedSceneVideo` repeint le résultat par-dessus la boîte avec deux échelles,
+une par axe, pour que l'arrondi d'une mémoire d'image entière ne laisse pas un
+filet de fond le long du bord droit. Rogner encore d'un tiers ce budget achetait
++0,19 s/s pour un cinquième de la résolution linéaire, et c'est là que l'échange
+cesse d'en valoir la peine. Un champ dans une CELLULE ne paie rien : un tiers de
+zone est déjà sous le budget, `fieldCanvas` rend sa boîte telle quelle et le
+dessin est net. C'est la seule famille dessinée plus petite que sa boîte, et elle
+a le droit de l'être parce qu'aucun des trois n'a de détail plus fin que le
+dégradé qui le traverse — ce qui est aussi pourquoi aucun d'eux ne compose jamais
+de texte.
+
+**Une grille en perspective converge, et là où elle converge elle coûte du
+débit.** Le premier `depthGrid` est revenu à 6,0 Mo pour six secondes — les trois
+quarts du chemin vers les 9,8 Mo qui ont fait refuser le fil de fer — sur une
+bande de pixels alternés qui rampe vers le point de fuite. `GRID_FOG_DENSITY` le
+corrige pour rien : la brume fond vers `palette.ground.color`, donc chaque pixel
+du bloc reste entre le fond nu et l'accent, qui est exactement la paire que
+`composedPalette` mesure pour ce champ. C'est aussi la bonne image, puisqu'un sol
+dont le fond s'arrête net a une arête visible en travers du cadre. Les règles
+elles-mêmes sont de longues BOÎTES fines et pas des `<lineSegments>`, et cela
+aussi est mesuré : une primitive de ligne fait un pixel de large quelle que soit
+sa profondeur, donc un sol qui en est fait n'a aucune perspective dans son propre
+poids — et c'est la géométrie qui a fait refuser le fil de fer au départ.
+
+Trois choses de plus qu'une image rendue a tranchées plutôt qu'une lecture.
+
+*La vague était une dalle orange plate.* Une face de Lambert est éclairée par sa
+NORMALE, et les premières houles avaient une pente maximale de dix-huit degrés,
+ce qui contre une part ambiante d'un demi ne se voit pas. Le produit
+`rise × wave` est proche de un à chaque houle désormais — environ quarante-cinq
+degrés à la crête — et l'unique lumière directionnelle est sur le CÔTÉ plutôt que
+par-dessus l'épaule de la caméra, là où `solidScene` met la sienne : un solide
+tourne, donc n'importe quel angle trouve ses faces, tandis qu'une nappe qui ondule
+sur place a besoin d'une lumière rasante pour être lue.
+
+*Ensuite elle avait une encoche.* La nappe est déplacée le long de sa propre
+normale, donc un creux au bord lointain la fait descendre sous le haut de l'image
+et ouvre une bande de fond nu en travers du cadre. `WAVE_WIDTH` et `WAVE_DEPTH`
+sont dérivés de la caméra et non choisis, et `field.test.js` tient l'inégalité en
+lui retranchant deux fois la plus grande amplitude, aux deux inclinaisons.
+
+*Et la poussière boucle hors champ.* Une particule qui monte revient par un
+modulo, et un modulo à l'intérieur du tronc de vision, c'est une poussière qui se
+téléporte au milieu de l'image — une fois par particule et par scène, sur la
+dérive qu'un document silencieux obtient. `PARTICLE_RISE_SPAN` dépasse le tronc
+de vision du côté lointain du monde, et le test est l'inégalité plutôt qu'un
+paragraphe.
+
+Les trois sont nommés dans `server/video/three-d.js` avec les blocs qui les
+précèdent, pour que la permission 3D de l'administrateur les couvre ; un champ
+ajouté au catalogue et oublié là-bas est un bloc offert à tous les comptes, ce qui
+est précisément l'échec que rien n'en rendrait visible.
 
 #### Trois blocs qui coûtent une dépendance, et ce que les mesures ont dit
 
@@ -325,6 +554,261 @@ blocs est une scène entière, « au plus un dans tout le film » est donc une r
 éditoriale, et la fiche dit qu’un set piece entassé dans une pile ne devient pas
 cher — il devient petit, ce qui est un moteur de rendu entier occupé à dessiner
 une vignette.
+
+#### L’image en perspective, et le pont entre la bibliothèque et un moteur de rendu
+
+Tous les blocs 3D ci-dessus dessinent une FORME. `photoStage` et `photoRing`
+dessinent une IMAGE — une image que l’utilisateur a choisie, posée sur un panneau
+en perspective réelle, ou plusieurs sur un carrousel qui tourne devant la caméra.
+C’est l’usage commercial de cette capacité et celui qui rentabilise le mieux son
+coût : une photographie sur un panneau qui tourne, c’est ce dont un film produit
+est fait, et c’est la seule paire de blocs du catalogue dont le sujet vient de la
+bibliothèque d’images plutôt que d’une énumération fermée.
+
+**Rien dans `blocks/` ne peut importer `three`, et une texture est un objet, pas
+une balise.** Tous les autres blocs 3D renvoient des intrinsèques nues — `<mesh>`,
+`<boxGeometry>` — que le réconciliateur résout à l’exécution, ce qui laisse le
+registre entier chargeable dans la suite vitest de Mocky, où ni `three` ni Remotion
+ne sont installés. Un `map` ne s’écrit pas ainsi : c’est une `THREE.Texture`, et il
+faut bien que quelque chose la construise. Le chargement se fait donc là où le
+canevas est déjà ouvert. `worker/video/remotion/textures.js` est le seul fichier du
+moteur qui importe `three`, `ComposedSceneVideo` l’appelle une fois par scène, et
+les images arrivent au bloc dans une prop `textures` exactement comme les chemins
+préparés y arrivent déjà dans `images`.
+
+**`delayRender` seul n’aurait pas suffi, et la raison est propre à un bloc 3D.** La
+GÉOMÉTRIE du panneau est dérivée de la forme de l’image — la plaque prend le
+rapport de la photographie, donc rien n’est recadré et rien n’est étiré — ce qui
+veut dire qu’un composant rendu avant le décodage calcule ses dimensions sur une
+valeur de repli. Libérer l’image à cet instant capture une image dont le matériau
+est juste et dont la plaque a la mauvaise forme ; et Remotion rend beaucoup
+d’images par page en concurrence, donc ce repli tomberait sur l’image par laquelle
+une page a commencé : un film qui diffère entre deux rendus d’un même document, que
+le magasin adressé par contenu range alors comme deux films. L’image est donc
+libérée depuis un EFFET qui s’exécute après un rendu où les images sont présentes —
+charger, marquer, re-rendre, continuer — et une scène sans image continue tout de
+suite plutôt que d’attendre rien.
+
+**L’ajustement est en forme close, parce que la seule chose qu’un bloc 3D rate sans
+qu’aucun relecteur le voie, c’est la géométrie.** Un bloc plat qui déborde se voit
+sur une capture ; un panneau qui fait passer son coin proche au-delà du frustum se
+voit à l’image deux cent quatorze d’un mp4 que personne n’a regardé jusqu’au bout.
+La caméra est en `(0, 0, d)`, donc un point est dedans quand
+`|y| ≤ (d − z)·tan θ`, et mettre l’objet à l’échelle `s` donne
+`s·(|y| + z·tan θ) ≤ d·tan θ` — linéaire en `s`, donc la plus grande échelle légale
+est un minimum sur les coins, sans aucune recherche. `frustumScale` est ce minimum,
+résolu sur TOUT le mouvement et non pour une pose (un panneau ajusté à la pose du
+moment grandirait et rapetisserait au fil de sa scène), et `stage.test.js` redérive
+la projection depuis sa définition et vérifie cent un instants contre un ajustement
+échantillonné sur quarante et un.
+
+L’objectif découle de la même inégalité. La part du cadre qu’un panneau peut
+occuper vaut `|y| / (|y| + z·tan θ)`, qui MONTE quand l’objectif s’allonge — `z`
+est de combien un coin tourné se penche vers la caméra et `tan θ` est ce que ce
+penchement coûte. Au 45° de `solidScene`, une carte qui se retourne compose son
+image à 45 % de son canevas ; à 30°, le même retournement compose à 60 %. Un grand
+angle rendrait cette famille à la fois plus petite et plus laide, puisqu’il
+transforme un rectangle en trapèze dont les deux bords verticaux sont visiblement
+de longueurs différentes — c’est pour cela que tous les catalogues du monde
+photographient leurs objets autour d’un 85 mm, et c’est pour cela qu’un
+`photoStage` se voit à 30°. Un anneau en reçoit un plus long encore, 18°, pour une
+raison qui lui est propre : le panneau de devant se tient un rayon entier plus près
+de l’objectif que l’origine où le frustum a été mesuré, et à 30° cela seul mettait
+un carrousel de six images au tiers de son canevas.
+
+**Trois choses étaient fausses sur l’anneau et c’est une image rendue qui l’a dit,
+dans cet ordre.** Dimensionné sur la PLUS LARGE de ses images, un carrousel de cinq
+captures dont une bannière d’en-tête demandait un anneau presque deux fois plus
+large que ce dont les autres avaient besoin, et revenait comme une rangée de points
+dans un cadre noir — un anneau a donc UNE case, la médiane des formes des images
+bornée dans une bande qu’un carrousel peut tenir, et une valeur aberrante coûte une
+marge au lieu du bloc. Construits à cette case, les panneaux étaient cinq plaques
+d’accent saturé avec une photographie encastrée dans chacune — le corps ÉPOUSE donc
+sa propre image, et le liseré est l’ornement plutôt que le bloc. Et comme les
+panneaux regardent vers l’extérieur, deux ou trois d’entre eux montrent leur dos à
+la caméra à chaque instant, ce qui est encore l’accent à la taille d’un panneau —
+l’image d’un anneau est donc dessinée aussi au revers, tournée d’un demi-tour
+autour de son propre axe pour se lire à l’endroit et non en miroir. Ce sur quoi
+l’ajustement est résolu, c’est la boîte qui contient réellement les panneaux et non
+la case qui les borne : un anneau de trois bannières mis à l’échelle comme si
+chacune était une carte pleine, ce sont trois barres fines au milieu d’un cadre
+vide.
+
+**Ce qu’ils coûtent, mesuré sur vingt secondes de film dans le conteneur à deux
+cœurs, contre un titre simple.** Le meilleur temps de chaque série plutôt que la
+moyenne, parce que la machine faisait autre chose en même temps : `solidScene`
+ancre la colonne à +0,90, qui est le chiffre déjà écrit dans ce document, donc
+tout le reste lui est comparable.
+
+
+| scène | Δ secondes de rendu par seconde de film | sortie |
+|---|---|---|
+| contrôle — un titre simple | — | 1,75 Mo |
+| `photoStage`, plein cadre, carte montée, en orbite | **+0,18** | 2,09 Mo |
+| `photoStage`, plein cadre, dans un boîtier, qui se retourne | **+0,19** | 2,12 Mo |
+| `gallery` plate de six, plein cadre | +0,26 | 4,58 Mo |
+| `solidScene`, sphère éclairée plein cadre | +0,90 | 2,10 Mo |
+| `photoRing` de six, plein cadre, sans borne | +2,24 | 6,98 Mo |
+| `photoRing` de six, plein cadre, dans son budget | **+1,35** | 6,19 Mo |
+
+Une scène produit est le bloc 3D le moins cher du catalogue — un cinquième d’un
+solide — et un anneau de six en plein cadre est la chose la plus chère qui s’y
+trouve. La `gallery` plate est la ligne qui a décidé quoi en faire : six captures
+sur une image coûtent quatre mégaoctets et demi de h264, et toute cette facture
+d’encodeur fait 0,26 s/s — les deux et quart d’un anneau ne sont donc pas les
+images encodées mais les images ÉCHANTILLONNÉES : dix-huit quadrilatères texturés
+aux angles rasants où un rastériseur logiciel est le plus lent. Ce coût baisse avec
+la résolution à laquelle on le dessine : un anneau est donc dessiné dans
+`RING_PIXEL_BUDGET` puis repeint sur sa boîte, exactement comme un champ ; il tombe
+sur les mêmes six cent mille pixels que `field.js`, ce qui n’est pas une constante
+partagée mais le même rastériseur dans le même conteneur atteignant le même
+compromis depuis deux blocs différents. Il ne tombe pas à zéro — environ 0,9 s/s de
+géométrie et d’encodage qu’aucun budget ne touche — c’est donc une borne et non un
+remède, et la fiche dit que l’anneau est le bloc cher. Un anneau dans une CELLULE
+est très en dessous du budget et se dessine à sa taille exacte, au pixel près.
+
+**L’anisotropie est le seul réglage d’échantillonnage choisi en mesurant.** Un
+panneau tourné loin de la caméra est exactement le cas qu’une texture mipmappée
+sans elle rend comme une bavure floue sur un axe — le « mou » dont parle
+`resolution.ts`, arrivant par un échantillonneur au lieu d’une source trop petite.
+Ce n’est pas gratuit et le coût n’est pas là où on le croit : une scène en orbite
+est dans le bruit à tous les réglages, tandis qu’une carte qui se RETOURNE balaie
+les angles rasants où le nombre de prélèvements complet se déclenche, et a mesuré
+20,1 s à seize prélèvements, 16,0 à quatre et 13,4 sans, contre un contrôle à
+12,3 s. Quatre est l’endroit où cette courbe cesse d’en valoir la peine.
+
+**Leur lisibilité est à moitié close et à moitié nommée.** Le corps — le liseré, le
+montage, le boîtier, le dos d’une carte — est `palette.solid` : le run de
+l’ornement résolu sur le fond nu et ombré le long du segment de Lambert que mesure
+`solidShading`, donc `FIELD_PAINTS` nomme les deux blocs `solid` et un titre posé
+sur l’un d’eux est mesuré contre les deux bouts de ce segment. L’autre moitié est
+la PHOTOGRAPHIE, et c’est le manque honnête que `gallery`, `carousel` et
+`imageFrame` portent déjà : personne dans ce processus n’a ouvert l’image. Aucun
+des deux blocs ne pose de texte dessus — une légende appartient à un `kicker` dans
+une zone à lui, sur une surface que quelqu’un a calculée — et c’est la part que
+cette paire peut décider plutôt que nommer.
+
+#### Du type en trois dimensions, et les deux choses refusées pour l’obtenir
+
+La troisième chose demandée à la 3D est la première que tout le monde en fait :
+un titre extrudé, un logotype qui prend de l’épaisseur, des lettres qui arrivent
+dans l’espace et se posent. `extrudedType` est ce bloc, et il est dans `setPiece`
+avec les deux autres — une ligne de texte, vingt-quatre caractères au plus, posée
+dans une vraie scène et qui y tourne.
+
+**Il n’y a aucune géométrie de glyphe dans ce conteneur, et le paquet qui en
+apporterait apporte aussi sa propre police.** La façon évidente d’extruder une
+lettre est `ExtrudeGeometry` sur son contour, ce que fait `<Text3D>` de
+`@react-three/drei`. Il a été mesuré avant d’être refusé, exactement comme Skia :
+**+118,9 Mio installés et +59 paquets** sur une base de 185,9 Mio, soit une
+installation 64 % plus lourde pour un bloc. C’est la moitié la moins chère de
+l’objection. `Text3D` ne lit pas une police système — il lui faut un
+`typeface.json`, un vidage de contours converti et cuit dans l’image — et ce
+conteneur n’installe qu’UNE famille. Chaque bloc plat du catalogue nomme d’abord
+la police DÉCLARÉE par la direction et retombe sur Liberation Sans, ce qui est la
+façon dont « le projet a demandé du Cormorant Garamond » devient du texte lisible
+dans un conteneur sans sortie réseau. Un jeu de contours cuit ne sait pas faire
+cela : un titre 3D serait en Liberation Sans sur tous les thèmes du produit
+pendant que le titre à côté de lui respecterait la direction artistique. Un film
+en deux polices, c’est le jeton deviné que `theme.ts` refuse, arrivé par un
+paquet.
+
+Le texte est donc rastérisé par le navigateur qui dessine déjà l’image, dans la
+pile de polices du projet, et la troisième dimension est de la vraie géométrie qui
+le porte : un quad texturé par MOT pour la face, une copie dilatée derrière pour
+l’épaisseur, une vraie caméra en perspective, une vraie rotation. `funTitle` est ce
+que Skia est devenu sans le paquet ; ceci est ce que `Text3D` est devenu sans le
+sien.
+
+**Le second refus est la lettre, et c’est celui que les mesures ont fait.** La
+première version empilait dix copies de chaque LETTRE, ce qui est la lecture
+évidente de « des lettres qui arrivent dans l’espace ». Même banc que partout
+ailleurs ici — l’image du worker, `--cpus=2.0 --memory=4g`, 1080p/30, six secondes
+de film, les réglages d’encodeur d’`encoding.js` :
+
+| Scène | rendu | Δ s/s (banc) | Sortie |
+|---|---|---|---|
+| contrôle (un titre plat) | 13,2 s | — | 0,65 Mo |
+| `solidScene`, sphère, plein cadre | 20,8 s | +1,26 (l’étalon) | 0,88 Mo |
+| ~~16 lettres × 10 copies = 176 objets~~ | 75,1 s | **+10,3** — refusé | 0,93 Mo |
+| ~~16 lettres × 2 copies = 48 objets~~ | 32,1 s | **+3,1** — refusé | 0,99 Mo |
+
+Deux points sur une droite passant par le nombre d’OBJETS : 0,084 s de rendu par
+seconde de film et par objet, et un terme de remplissage qui se résout NÉGATIF —
+dans un rastériseur logiciel la facture est le changement d’état par objet, pas
+les pixels. Les 1,7 s/s que l’échéance proportionnée à la durée laisse libres font
+environ 2,4 s/s sur ce banc, soit vingt-huit objets. Une ligne de seize lettres à
+dix copies en fait 176, et une de vingt-quatre à deux copies en fait 72 : **la
+géométrie par glyphe n’entre pas, et aucun nombre de copies ne l’y fait entrer.**
+Elle est refusée avec son chiffre, exactement comme le fil de fer.
+
+L’objet est donc un MOT — trois au plus, `SPATIAL_GROUPS` — et la couture entre
+deux copies est fermée par une DILATATION plutôt que par le nombre : chaque copie
+est tracée du pas qu’elle fait, si bien qu’une seule copie derrière la face donne
+un flanc plein. Six objets, quoi que dise la ligne. Ce que cela rachète au passage
+est le crénage dessiné avec la police, qu’une ligne posée lettre par lettre perd à
+chaque paire.
+
+| Scène | rendu | Δ s/s (banc) | **Δ s/s (échelle de ce document)** | Sortie |
+|---|---|---|---|---|
+| contrôle (un titre plat) | 12,1 s | — | — | 0,65 Mo |
+| `solidScene`, sphère, plein cadre | 19,6 s | +1,25 | **+0,90** (l’étalon) | 0,88 Mo |
+| `extrudedType`, plein cadre, `deep` | 18,9 s | +1,13 | **+0,81** | 0,97 Mo |
+| quatre d’entre eux, un par coin | 23,5 s | +1,91 | **+1,37** | 1,63 Mo |
+| le même bloc sur 30 s de film | 82,5 s | +0,93 | **+0,67** | 4,32 Mo |
+
+**Environ +0,8 s/s**, soit 0,90 de ce que coûte un solide éclairé mesuré dans la
+même passe, additif et linéaire en durée — la ligne à trente secondes est le même
+nombre mesuré sur cinq fois plus d’images — et une fois et demie le débit d’un
+titre là où le fil de fer refusé faisait seize fois son contrôle. Quatre d’entre
+eux sur une image tiennent encore, ce que la mise en page donne gratuitement à
+cette famille : un canevas est la BOÎTE du bloc, donc une scène chargée ne devient
+pas chère, elle devient petite.
+
+**Trois bornes font tout le bloc, et chacune est un défaut qu’une image rendue a
+trouvé.**
+
+Un objectif long, parce qu’un grand angle déforme une ligne de texte : à douze
+degrés de champ, le bout proche d’un balancement de sept degrés revenait 14 % plus
+grand que le bout lointain sur la ligne la plus large que le schéma accepte — un
+mot composé à deux tailles, ce qui se lit comme une faute et non comme de la
+profondeur. Le champ est de quatre degrés désormais, et au-delà le rendement
+s’arrête : c’est donc la LIGNE longue qui se balance moins, exactement de ce qu’il
+faut pour tenir la déformation à cinq pour cent, avec un plancher dessous parce
+qu’un film où rien ne bouge ne doit pas être produisible par accident.
+
+L’arrivée est une PROFONDEUR et jamais une opacité, et les mots viennent de
+DERRIÈRE. Un mot qui arrive de devant le plan est grossi par la caméra sur ses
+premières images et dessine hors de la boîte que la mise en page a donnée au bloc
+— la leçon de `funTitleHeadroom` arrivée par une caméra plutôt que par un
+rembourrage — et un fondu peindrait chaque mot, le temps qu’il dure, dans une
+couleur composée de l’encre et du fond que personne n’a mesurée. Même argument que
+`heading` pour son masque et `solidScene` pour son échelle. Le troisième des trois
+mouvements est une profondeur pour la même famille de raisons et pour une autre :
+tout ANGLE se paie dans le trait qui ferme la couture, et une rotation par mot de
+quatorze degrés posait un anneau de neuf pour cent du cadratin autour de chaque
+mot, ce qui bouche l’ouverture d’un `e`. `float` fait donc respirer les mots en
+profondeur, et cela ne coûte rien à dessiner.
+
+Et le bloc s’agrandit jusqu’à ce que `blockExtent` annonce pour lui. L’estimation
+qui a résolu la taille arrondit chaque classe de glyphe vers le haut et ajoute six
+pour cent par-dessus, ce qui sur une ligne qui se replie disparaît dans le repli et
+ici ne le peut pas : une image rendue est revenue avec `MOTION EN RELIEF`
+occupant 74 % de la mesure sur laquelle sa boîte avait été divisée, un quart du
+cadre vide à côté d’un titre. C’est le petit élément dans un grand vide arrivé par
+une estimation. La ligne est agrandie jusqu’à remplir l’annonce et jamais au-delà —
+l’annonce est ce sur quoi `stackIn` a divisé la zone, donc cela récupère du mou et
+ne prend jamais un pixel à un voisin.
+
+Deux entrées ailleurs en découlent. `FIELD_PAINTS` gagne une troisième réponse,
+`type` : ce bloc peint l’encre d’affichage sur la face de chaque mot et l’accent
+derrière, donc un champ mesuré comme l’accent seul laisserait la plus grande encre
+de l’image non mesurée, et un champ mesuré comme rien du tout est la rencontre à
+1:1 que toute la section lisibilité existe pour avoir empêchée. Et
+`blocks/canvases.js` est un fichier nouveau : quels blocs ont besoin d’un canevas
+GL, sa taille et la caméra qui y regarde étaient une branche dans
+`ComposedSceneVideo`, soit une branche par bloc 3D dans un fichier que chaque
+auteur de bloc aurait alors à éditer.
 
 #### Une zone, et un rang
 
@@ -2611,6 +3095,108 @@ propre export au cinquante et unième. L’ensemble `owners` du magasin n’est 
 élagué, mais il est borné à vingt comptes par fichier. L’une ou l’autre suffit à
 dire oui.
 
+### La 3D est une seconde permission, et elle restreint la première
+
+Un administrateur peut aussi décider **qui a le droit de mettre un bloc 3D dans
+un film**. Le réglage suit le gabarit ci-dessus plutôt que d’en inventer un — les
+mêmes deux modes, le même « une liste est remplacée, jamais fusionnée », la même
+absence de tout secret — et il vit à côté de lui dans `server/video/config.js`,
+sous `threeDAccess` et `threeDAllowedUserIds`, avec `videoThreeDEnabledFor()`
+pour poser la question.
+
+**Il interroge `videoEnabledFor()` d’abord.** Cette ligne porte tout le reste :
+une permission 3D accordée à un compte qui ne peut pas exporter du tout est un
+droit sur rien, et deux listes lues indépendamment, c’est ainsi qu’une instance
+se retrouve avec un « oui » dont personne ne peut rien faire et un administrateur
+qui débogue la mauvaise case. Cela veut dire aussi que les deux règles gagnées
+par la permission d’export sont héritées plutôt que rediscutées : l’interrupteur
+maître ferme celle-ci également, et un administrateur n’est toujours pas autorisé
+sur son seul rôle — les rendus 3D continuent donc d’apparaître au nom de
+quelqu’un.
+
+**Son défaut est `all`, et c’est le seul défaut de ce fichier qui ne soit pas le
+plus fermé.** Le raisonnement est écrit dans `DEFAULT_THREE_D_ACCESS` et tient en
+trois points. La porte fermée existe déjà un niveau au-dessus : « tout le monde »
+signifie ici « tous ceux qu’un administrateur a déjà mis sur la liste de Motion »
+et non « tout le monde » ; un second défaut fermé serait la même porte verrouillée
+deux fois, et c’est le second verrou que personne ne connaît. Le coût est un
+supplément, pas une facture nouvelle — un rendu dépense déjà environ 4,3 s de
+temps réel par seconde de film, un solide éclairé y ajoute environ 0,9 s/s, à
+l’intérieur des 1,7 s/s que l’échéance proportionnée à la durée laisse
+disponibles, et la mise en page le borne plutôt qu’une promesse. Enfin
+`solidScene` est livré : un défaut fermé serait une mise à jour qui supprime en
+silence un bloc de toutes les instances qui rendent déjà des films avec, et le
+premier symptôme est un prompt de composition qui a discrètement cessé de le
+proposer — ce qui se lit comme une régression, pas comme une politique.
+
+### L’application est côté serveur, à deux portes
+
+Cacher un bouton, c’est de la présentation. Ce qui rend la permission vraie d’un
+film, c’est que les routes le refusent.
+
+`POST /compose` **n’offre pas** ce que le compte n’a pas le droit de dépenser :
+`three-d.js` nomme les blocs 3D, et `availableBlocks()` les retire du catalogue
+et de l’indice de décodage exactement par le mécanisme qu’utilise une sélection
+d’images vide. Le prompt l’énonce ensuite comme un fait sur l’instance —
+« solidScene is not part of the catalogue on this instance » — et jamais comme
+une règle, parce qu’un modèle à qui l’on dit qu’un bloc existe mais est interdit
+tend la main dessus quand même, et le refus arrive alors une fois les jetons
+dépensés.
+
+`POST /render` **refuse le document**, et c’est là qu’est la porte. Un montage
+arrive sur cette route depuis un brouillon enregistré la semaine dernière par un
+compte retiré de la liste depuis, un onglet resté ouvert pendant qu’un
+administrateur restreignait le réglage, l’éditeur manuel, ou curl — aucun n’est
+passé par le compositeur. `threeDBlocksIn()` parcourt les scènes comme le fait
+`timelineImageIds()`, la vérification se place juste après le schéma et avant que
+quoi que ce soit ne touche au disque, et la réponse est `403` plutôt que `400`
+parce que le document est bien formé : ce qui ne va pas, c’est qui demande.
+
+Les deux refus **nomment ce qui reste possible**, ce qui est la règle de ce module
+partout : `threeDRefusal()` dit quels blocs sont en cause, qu’un administrateur
+accorde le droit par compte et ce que cela coûte à peu près, et à partir de
+combien de blocs le film pourrait être composé à la place — un nombre lu sur le
+catalogue, jamais saisi à la main. La personne qui lit n’a pas choisi le bloc :
+un modèle l’a fait, dans un catalogue restreint après coup.
+
+### Le bouton 3D, et ce qu’il n’est pas
+
+Le bouton 3D du panneau est une **option de composition**, pas une permission :
+il voyage en `forceThreeD: true` sur `POST /compose`, le serveur le valide contre
+cette même permission, et il devient une instruction dans le prompt — au moins un
+morceau de bravoure, placé dans une scène dont il est le sujet, un par film et
+non un par scène. Un compte sans la permission qui l’envoie reçoit le même `403`
+nommé, parce qu’un bouton qui ne fait rien en silence est la panne que les gens
+rapportent comme « la 3D est cassée ». Demandé sur l’une des cinq compositions
+toutes faites, il est refusé avant l’appel, puisqu’elles ne portent aucun bloc. Et
+une demande forcée, autorisée, qui revient plate reçoit un **avis** et non un
+refus : le film se rend, il n’est simplement pas celui que le bouton promettait,
+et rendre le néant contre une réponse qui fonctionne est le mauvais échange (Q1).
+
+### Ce qui garde la liste honnête
+
+`server/video/three-d.js` nomme les blocs 3D à la main, et la liste est gardée
+des deux côtés parce que la direction dangereuse n’est pas celle qu’on croit. Un
+nom périmé ne garde rien ; la panne qui compte, c’est un **nouveau** bloc 3D
+écrit, rendu, mis au catalogue — et jamais ajouté ici, de sorte que la permission
+couvre un bloc sur deux et que rien n’échoue.
+
+`tests/video-3d-permission.test.js` compare donc la liste au **worker**, là où la
+tridimensionnalité habite vraiment : un bloc 3D est celui dont le composant
+renvoie des intrinsèques react-three-fiber, ce qui est exactement la propriété
+que `ComposedSceneVideo` utilise pour décider ce qu’il enveloppe dans un
+`ThreeCanvas`, et exactement ce qui coûte le temps de rendu que l’on rationne. Les
+fichiers sont lus comme du texte, comme dans
+`tests/video-worker-separation.test.js`, pour que la vérification tourne sur une
+copie qui n’est jamais entrée dans `worker/video/`.
+
+La liste n’est délibérément **pas** dans `server/video/timeline.js`. Ce fichier
+est un miroir tenu à la main du schéma TypeScript, et la tridimensionnalité n’est
+pas un fait sur le schéma : chaque bloc 3D est validé par les mêmes entiers
+bornés et les mêmes énumérations fermées qu’un titre, ce qui est la règle
+fondatrice et la raison pour laquelle une capacité 3D ne lui coûte rien. Ce qui
+rend un bloc tridimensionnel, c’est son rendu.
+
 ---
 
 ## Les fichiers
@@ -2623,7 +3209,8 @@ dire oui.
 | `src/lib/video/resolution.ts` | De combien une image va être agrandie, et ce qu’il faut demander à un fournisseur. Recopie la géométrie du cadre du worker ; `tests/video-frame-geometry.test.js` tient les deux ensemble |
 | `server/video/compose.js` | Le seul appel de modèle : il compose une scène à partir du catalogue de blocs, il ne choisit jamais les images |
 | `server/video/variants.js` | Les deux chemins de variantes, et le tableau figé des axes |
-| `server/video/config.js` | Les réglages d’administration. La clé de licence ne quitte jamais le serveur |
+| `server/video/config.js` | Les réglages d’administration, les deux permissions. La clé de licence ne quitte jamais le serveur |
+| `server/video/three-d.js` | Quels blocs sont dessinés en 3D, et le refus qui nomme ce qui reste possible |
 | `server/video/queue.js` | File en mémoire, journal JSON atomique, une seule tâche à la fois. Jamais de Redis |
 | `server/video/worker.js` | Le client HTTP du worker de rendu, et `assertWorkerTarget` |
 | `server/video/store.js` | Le fichier terminé, gardé entier. **Pas** `server/videos/` |
@@ -2636,6 +3223,7 @@ dire oui.
 | `worker/video/remotion/blocks/` | Un composant par sorte de bloc, plus le registre. Aucun import de Remotion, aucune couleur, aucune courbe — `blocks.test.js` tient les trois |
 | `worker/video/remotion/contrast.js` | Luminance et contraste WCAG, recopiés à la main depuis `src/lib/audit/colors.ts`. `contrast.test.js` tient les deux ensemble |
 | `tests/video-worker-separation.test.js` | Ce qui tient réellement Remotion hors du manifeste de Mocky |
+| `tests/video-3d-permission.test.js` | Ce qui tient la liste des blocs 3D en phase avec les composants qui dessinent en GL |
 | `tests/video-frame-geometry.test.js` | La taille du cadre, les surdimensionnements et la part d’image, comparés entre le navigateur et le worker |
 
 La file est en mémoire avec un journal JSON sur disque, et il n’y a ni Redis ni

@@ -97,6 +97,12 @@ export const BLOCK_LIMITS = {
   galleryImages: 6,
   carouselImagesMin: 2,
   carouselImages: 8,
+  // One picture or two on a stage — the face and the back; three to six on a
+  // ring, because two panels on a ring are a card turning over.
+  stageImagesMin: 1,
+  stageImages: 2,
+  ringImagesMin: 3,
+  ringImages: 6,
   clockLabel: 24,
   dateStamp: 30,
   progressLabel: 24,
@@ -109,6 +115,14 @@ export const BLOCK_LIMITS = {
   codeLines: 10,
   codeLine: 64,
   codeCaption: 30,
+  extrudedType: 24,
+
+  // The two fields in volume that count something. Both ceilings are measured
+  // rather than chosen; the numbers are in `docs/video-export.md`.
+  particlesMin: 60,
+  particles: 600,
+  gridLinesMin: 5,
+  gridLines: 16,
 }
 
 export const ANCHORS = [
@@ -173,8 +187,31 @@ export const SOLIDS = ['cube', 'prism', 'sphere', 'torus']
 /** How a `solidScene` turns. A named move, never an axis and never an angle. */
 export const SPINS = ['tumble', 'turn', 'rock']
 
+/** How a `particleField` moves. A named drift, never a velocity, and no `still`. */
+export const PARTICLE_DRIFTS = ['rise', 'orbit', 'swarm']
+
+/** How a `waveMesh` swells, and how far it is raked. Named looks, never amplitudes. */
+export const WAVE_SWELLS = ['calm', 'swell', 'ripple']
+export const WAVE_TILTS = ['face', 'rake']
+
+/** What a `depthGrid` is, and which way it runs. There is no `still`: a drift here hides nothing. */
+export const GRID_FORMS = ['floor', 'tunnel']
+export const GRID_TRAVELS = ['toward', 'away', 'sway']
+
+/** What a picture stands in on a `photoStage` or a `photoRing`. A shape, never a size. */
+export const STAGE_FRAMES = ['plain', 'card', 'device']
+
+/** How a `photoStage` moves. There is no `static`: this family exists to move. */
+export const STAGE_MOVES = ['orbit', 'turn', 'sway']
+
 /** What a `codeBlock` line is for. Three measured runs on a panel, so three roles. */
 export const CODE_ROLES = ['plain', 'accent', 'muted']
+
+/** How thick an `extrudedType` is, as a share of its own type size. */
+export const EXTRUDED_DEPTHS = ['shallow', 'medium', 'deep']
+
+/** How an `extrudedType` moves. All three are small: a word seen edge-on is a bar. */
+export const EXTRUDED_SPINS = ['sway', 'tilt', 'float']
 
 /**
  * The move a scene gets when the document names none.
@@ -682,6 +719,22 @@ const BLOCK_READERS = {
     markers: readInt(v.markers, 0, BLOCK_LIMITS.mapMarkers, 3, `${w}.markers`),
     connections: readBool(v.connections, true, `${w}.connections`),
   })),
+  // The same world on a sphere, and the same three fields the flat map has: a
+  // count of markers and never their positions, because a latitude is a
+  // coordinate under another name.
+  globe: blockReader(['region', 'markers', 'connections'], (v, w) => ({
+    region: enumValue(v.region, ['world', 'europe', 'americas', 'asia', 'africa'], 'world', `${w}.region`),
+    markers: readInt(v.markers, 0, BLOCK_LIMITS.mapMarkers, 3, `${w}.markers`),
+    connections: readBool(v.connections, true, `${w}.connections`),
+  })),
+  // A column chart with volume. `plinth` is where the flat chart has `baseline`:
+  // a plate rather than a rule, since a line drawn in space is the one element
+  // whose thickness a projection is free to change.
+  solidChart: blockReader(['values', 'labels', 'plinth'], (v, w) => ({
+    values: readValues(v.values, BLOCK_LIMITS.barValuesMin, BLOCK_LIMITS.barValues, `${w}.values`),
+    labels: readOptionalTextArray(v.labels, BLOCK_LIMITS.barValues, BLOCK_LIMITS.barLabel, `${w}.labels`),
+    plinth: readBool(v.plinth, true, `${w}.plinth`),
+  })),
   imageFrame: blockReader(['imageId', 'move', 'treatment', 'caption'], (v, w) => ({
     imageId: readImageId(v.imageId, w),
     move: enumValue(v.move, KEN_BURNS, 'zoom-in', `${w}.move`),
@@ -709,6 +762,20 @@ const BLOCK_READERS = {
     text: readText(v.text, BLOCK_LIMITS.dateStamp, `${w}.text`),
     treatment: enumValue(v.treatment, ['plain', 'boxed', 'rule'], 'rule', `${w}.treatment`),
   })),
+  // The two blocks that stand a selected picture in real perspective. Refused by
+  // name like every other kind, and it matters as much here as it does for a
+  // solid: an image built before `three` was added has no canvas at all, so the
+  // failure would be a blank zone reported as a successful export.
+  photoStage: blockReader(['imageIds', 'frame', 'move'], (v, w) => ({
+    imageIds: readImageIdArray(v.imageIds, BLOCK_LIMITS.stageImagesMin, BLOCK_LIMITS.stageImages, `${w}.imageIds`),
+    frame: enumValue(v.frame, STAGE_FRAMES, 'card', `${w}.frame`),
+    move: enumValue(v.move, STAGE_MOVES, 'orbit', `${w}.move`),
+  })),
+  photoRing: blockReader(['imageIds', 'frame', 'direction'], (v, w) => ({
+    imageIds: readImageIdArray(v.imageIds, BLOCK_LIMITS.ringImagesMin, BLOCK_LIMITS.ringImages, `${w}.imageIds`),
+    frame: enumValue(v.frame, STAGE_FRAMES, 'plain', `${w}.frame`),
+    direction: enumValue(v.direction, ['left', 'right'], 'left', `${w}.direction`),
+  })),
   separator: blockReader(['treatment', 'extent'], (v, w) => ({
     treatment: enumValue(v.treatment, ['rule', 'double', 'dots'], 'rule', `${w}.treatment`),
     extent: enumValue(v.extent, ['short', 'measure', 'full'], 'measure', `${w}.extent`),
@@ -735,6 +802,35 @@ const BLOCK_READERS = {
     solid: enumValue(v.solid, SOLIDS, 'cube', `${w}.solid`),
     spin: enumValue(v.spin, SPINS, 'tumble', `${w}.spin`),
     size: enumValue(v.size, ['small', 'medium', 'large'], 'medium', `${w}.size`),
+  })),
+  // The second block whose renderer is a dependency, and the same refusal
+  // applies for the same reason: an image built before `three` was added has no
+  // canvas at all, so the failure would be a blank zone reported as a success.
+  extrudedType: blockReader(['text', 'level', 'depth', 'spin'], (v, w) => ({
+    text: readText(v.text, BLOCK_LIMITS.extrudedType, `${w}.text`),
+    level: enumValue(v.level, ['display', 'title'], 'display', `${w}.level`),
+    depth: enumValue(v.depth, EXTRUDED_DEPTHS, 'medium', `${w}.depth`),
+    spin: enumValue(v.spin, EXTRUDED_SPINS, 'sway', `${w}.spin`),
+  })),
+  // The three fields drawn in volume. Same renderer as the two above and the
+  // same refusal for the same reason: an image built before `three` was added
+  // has no canvas at all, so what a stale worker would produce is a blank half
+  // of a frame reported as a successful export. There is no seed in any of
+  // them, and there is nowhere for one to arrive: two renders of one document
+  // have to produce the same bytes, or the content-addressed store files one
+  // film twice.
+  particleField: blockReader(['count', 'drift'], (v, w) => ({
+    count: readInt(v.count, BLOCK_LIMITS.particlesMin, BLOCK_LIMITS.particles, 280, `${w}.count`),
+    drift: enumValue(v.drift, PARTICLE_DRIFTS, 'rise', `${w}.drift`),
+  })),
+  waveMesh: blockReader(['swell', 'tilt'], (v, w) => ({
+    swell: enumValue(v.swell, WAVE_SWELLS, 'swell', `${w}.swell`),
+    tilt: enumValue(v.tilt, WAVE_TILTS, 'rake', `${w}.tilt`),
+  })),
+  depthGrid: blockReader(['lines', 'form', 'travel'], (v, w) => ({
+    lines: readInt(v.lines, BLOCK_LIMITS.gridLinesMin, BLOCK_LIMITS.gridLines, 10, `${w}.lines`),
+    form: enumValue(v.form, GRID_FORMS, 'tunnel', `${w}.form`),
+    travel: enumValue(v.travel, GRID_TRAVELS, 'toward', `${w}.travel`),
   })),
 }
 
