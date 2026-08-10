@@ -333,6 +333,16 @@ Ten things, and the first one is not negotiable.
       are USED and a band among the rows that are, because `anchor` defaults to
       `center` and a fixed third of a 16:9 frame is five characters of display
       type on a line and 295 px of height for the whole scene.
+
+      **And the margin includes the DRIFT.** The boxes tiled the safe area
+      exactly while the whole stack translates by `±COMPOSED_BLOCK_DRIFT/2 × base`
+      across a scene, so the top band crossed the safe top on the last frame of
+      every one of them — 8.6 px, found by measuring the ink of a rendered corpus
+      rather than by reading. `composedLayout` lays out in `composedFrame`, the
+      safe area less `driftRoom(base)` on each of those two edges;
+      `composedSafeArea` stays the PROMISE, so "the boxes are inside the frame"
+      and "the frame plus the drift is inside the promise" are two sentences a
+      test can say separately. Same trade `overlay` makes with its amplitude.
     - **A block inhabits the box it is given, and that box is its OWN.** The rule
       is at the top of `composition.js`; six real exports are why. A block drew a
       fixed fraction of the FRAME — `base * 0.18` for an `equalizer` whether it
@@ -393,12 +403,71 @@ Ten things, and the first one is not negotiable.
       a full-frame `barChart` declared a body line to be 130 px and set its own axis
       labels at 85.
 
-      **A wrapping run breaks inside a word**, in every block, because `textLines`
-      packs characters and that is the only wrapping it can predict — CSS puts an
-      over-long word on a line of its own first. `blocks.test.js` reads the weight
-      table and requires `wordBreak` of every kind that has a wrapping run; the
-      panel family also bounds its type by the longest word (`wordFit`), since a
-      card's extra line is clipped by `overflow: hidden` rather than spent on slack.
+      **A WORD IS NOT CUT IN HALF, and the size is what says so.** `textLines`
+      packs characters, which is the only wrapping an estimate with no browser can
+      predict, and for two passes `word-break: break-word` was read as the model
+      that made it true. It is not: CSS puts an over-long word on a line of its OWN
+      and breaks inside it only when it still does not fit. A rendered frame is
+      what settled it — `NEUF SEIZIEMES` in display type came back `NEUF S` /
+      `EIZIEME` / `S`, the one defect here a viewer reads as broken software rather
+      than as a small heading. So the type is BOUNDED by its longest word
+      (`wordCeiling`, folded into `shapeCeiling`, one bound for the whole
+      catalogue), and the declaration stays as the last resort it always was —
+      `blocks.test.js` still requires it of every kind with a wrapping run, and the
+      panel family still asks the same bound about the width its padding leaves.
+
+      Three consequences, and none of them is optional. `runAdvanceEm` measures
+      every run on its OWN glyphs: the flat sentence average is 0.52 against the
+      0.73 capitals really set at, so a bound computed on it would have changed
+      nothing — and `meanAdvanceEm`'s floor is what makes that a correction of the
+      runs the average was wrong about rather than a new scale. There is a FLOOR,
+      `WORD_FIT_FLOOR_PX` = `BOLD_LARGE_PX`, because a URL or a German compound is
+      longer than a narrow cell at every legible size and the answer cannot be a
+      unit tending to zero; under it the run is not bounded **at all** and the
+      break is the decided lesser evil, which is `texturedGround`'s rule one level
+      up — the type yields to a word and never yields for nothing. And
+      `BOX_FILL_FLOOR` is restated rather than dropped: a bounded block fills its
+      MEASURE exactly and gives back HEIGHT, so a `fills: 'both'` kind whose text
+      is one long word leaves a box under three quarters full. That is honest, and
+      it is checked on a degenerate corpus of its own rather than left as prose.
+
+      **A SUBJECT takes the scene; a piece of FURNITURE takes its part.** "A lone
+      block is the scene" is right about a picture, a chart and a headline and wrong
+      about seven kinds — a `lowerThird` alone over a photograph came back as a
+      full-frame card hiding three fifths of it. The test is not how much text a
+      kind carries but where its SIZE comes from: a subject is dimensioned by what
+      is around it, a piece of furniture by the FORMAT, and a lower third that fills
+      the frame is not a bigger lower third but a card. `BLOCK_FURNITURE` names the
+      seven and argues each; `furnitureCeiling` is the whole cost — the safe height
+      over `SCENE_UNITS`, which is `BLOCK_APPETITE`'s own field tier and not a
+      second density. Three things keep it small: it bounds the UNIT and never the
+      box (so `stackIn` still hands the block a box it fills), it measures against
+      the SAFE AREA and never the zone, and it applies to a stack that holds nothing
+      else — lowering a unit for a `kicker` over a `heading` would set the headline
+      at a surtitle's scale, and a mixed zone was already right because `stackIn`
+      divides it by appetite. Two clauses, both the same sentence — a block sized by
+      the format sets no scale for anything else: furniture anchored `full` is **not**
+      a field, and a furniture stack is skipped by `harmoniseUnits`'s SCALE bound,
+      or a `barChart` beside a `kicker` composes at 43 px instead of 56 and draws
+      three quarters of a frame it has all of. The ORDER bound still applies to it,
+      because an inversion is what an eye reads whatever made the band small.
+
+      **And a field is not a uniform surface: it says where it sets type.** A
+      `kicker` anchored `bottom-center` over a `barChart` anchored `full` landed
+      exactly on the chart's row of labels — both at the right size, so the conflict
+      was positional and no scale rule could see it. The field DECLARES
+      (`FIELD_FOOT`) and the cell does not move, because moving it would relocate
+      the one composition decision a document makes and because only the block knows
+      where its own caption goes. The bands are then split over the safe area LESS
+      that foot. Three things make it exact: the LAST block of the `full` stack is
+      what is measured, the unit is the field's own from before `harmoniseUnits`
+      (which only lowers), and the field is PINNED to the edge it declared — centred,
+      a shrunken field would draw its caption above the band the cells were kept out
+      of. The entry condition is `fills: 'both'` and `clock` is why it is written
+      down: a dial floats in its box, so its label is not at the foot of it. A field
+      with no text declares nothing and forbids nothing, which is the case the
+      repair must not break, and `composition.test.js` checks the guarantee against
+      `barChartLayout` and its two neighbours rather than against the reservation.
     - **Legibility runs through `composedPalette` and nothing else.** Three
       surfaces — the ground, a panel, the accent fill — and a block reads a run
       rather than choosing a colour. The ground is a RANGE: a gradient is sampled
@@ -463,6 +532,18 @@ Ten things, and the first one is not negotiable.
       `tests/video-composed-frame.test.js` proves it. "At most one in the whole
       film" is therefore about attention, and the card says the true cost — a set
       piece in a crowded stack does not get expensive, it gets small.
+    - **Two ornaments only a rendered frame catches.** A full-measure rule follows
+      the edge the DOCUMENT chose: `heading`, `kicker` and `textHighlight` reveal
+      theirs with a `scaleX` whose origin is `--mocky-rule-origin`, the zone's own
+      `textAlign` inherited (one table, and the three keywords coincide), because
+      hard-coded `left` under a centred stack sat flush against a margin the type
+      does not use — beside a `separator` the flex row had centred. `quote` keeps
+      `left` and says why: its rule grows out of the quotation mark. And a `stack`
+      shadow is drawn only when the accent is a different colour from the ink:
+      a direction stating one green for `text` AND `accent` resolves both runs to
+      white, and `MOTION` came back struck twice. `STACK_SEPARATION` is just past
+      "the same colour" on purpose — the copy carries no glyph, so a 3:1 bar would
+      delete the treatment on the themes that render it correctly.
     - **Nothing in `blocks/` imports `remotion`, writes a colour, or eases.** The
       frame arrives as `progress` and `life`; that is what lets `blocks.test.js`
       load the registry in Mocky's own suite and prove it matches the schema in

@@ -51,6 +51,12 @@
 //      metric**: a quantity that must not change from one scene to the next
 //      because it is the same object in both. There are exactly three, they are
 //      named in `CONSTANT_METRICS`, and each is bounded — see the note there.
+//   4. And the box is not the only bound on the type. A run's longest WORD is
+//      the other one (`wordCeiling`), because a word does not break and a size
+//      that assumes it does is the `NEUF S` / `EIZIEME` / `S` a frame showed.
+//      It has a floor, and under the floor the block goes back to filling its
+//      box — the one place where "inhabit your box" and "keep the word whole"
+//      cannot both hold, decided in favour of the box.
 //
 // `composition.test.js` holds the rule rather than this comment: `blockExtent` is
 // pure, so doubling a box has to double every dimension a block draws (the three
@@ -1647,22 +1653,30 @@ export function meanAdvanceEm(text) {
 /**
  * The advance one run is measured at — the one reading of that question.
  *
- * Three cases and the middle one is the whole point: a monospace face has one
- * advance, an unbreakable run is measured on its own glyphs because it has no
- * line to give back, and everything else keeps the sentence average that
- * `LINE_SAFETY` already insures.
+ * A monospace face has one advance by definition; everything else is measured on
+ * ITS OWN GLYPHS, in the case the composition will actually set it in.
+ *
+ * That last clause used to have an exception in it: a run that WRAPS kept the flat
+ * sentence average, on the argument that a sentence is what the average is of and
+ * that `LINE_SAFETY` insures the rest. Two things killed the exception at once.
+ * `meanAdvanceEm` is floored at `MEAN_GLYPH_EM`, so an ordinary sentence answers
+ * the sentence average anyway — the only runs that move are the ones the average
+ * was wrong about. And those runs are not hypothetical: a rendered frame carried
+ * `NEUF SEIZIEMES` in display capitals, whose real advance is 0.73 em against the
+ * 0.52 it was measured at, so the estimate believed nine characters fitted a line
+ * that held seven. A `wordCeiling` computed on that belief would have been a bound
+ * that changed nothing, and a line count computed on it is a block taller than the
+ * box the layout reserved.
+ *
+ * `caps` is the same rule and not a fourth case: `kicker` sets a `text-transform`,
+ * so the glyphs it measures are the ones it will draw rather than the ones the
+ * document typed. A six-letter surtitle the flat average put on one line came back
+ * on two, the second holding the single letter `C`, below the bottom of its box.
  */
 export function runAdvanceEm(run) {
   if (run?.mono) return MEAN_MONO_EM
-  if (run?.nowrap) return meanAdvanceEm(run?.text)
-  // A run the COMPOSITION sets in capitals is measured in capitals, whatever the
-  // document typed. `kicker` is the only one, and it is the case where the two
-  // ways of being wrong meet: capitals are half an em wider than the sentence
-  // average and the block adds 0.2 em of tracking on top, so a six-letter
-  // surtitle the estimate put on one line came back on two — the second holding
-  // the single letter `C`, below the bottom of a box the layout had already
-  // divided the frame by.
-  return run?.caps ? meanAdvanceEm(String(run?.text ?? '').toUpperCase()) : MEAN_GLYPH_EM
+  const text = String(run?.text ?? '')
+  return meanAdvanceEm(run?.caps ? text.toUpperCase() : text)
 }
 
 /**
@@ -1797,21 +1811,110 @@ function shapeHeight(shape, width, unit) {
 /**
  * The largest size at which an unbreakable run still fits the measure it was given.
  *
- * The other runs are bounded by the measure too, and NOT here: `textLines` packs
- * characters against the measure, which is only what a browser does when the run
- * may break inside a word. That is a rule about the BLOCKS rather than about this
- * arithmetic — every text block sets `word-break: break-word`, and a real export
- * paid for the one that did not: a `lowerThird` wrapping to `Sur une` /
- * `photographie` put 1660 px of type across a 1373 px band, and the word shipped
- * reading `photograph` through the `overflow: hidden` its type rises from.
- * Bounding a wrapping run by its longest WORD here would have been the other
- * repair, and it is the wrong one: it makes a paragraph with one long word small
- * everywhere, including in the six blocks that break it correctly.
+ * By its WHOLE length, which is what makes this the stricter of the two width
+ * bounds and why `wordCeiling` below skips a `nowrap` run: a run that cannot break
+ * is one word as far as a measure is concerned.
  */
 function cappedByWidth(run, width, advance, chars) {
   if (chars === 0) return 0
   const per = (advance + Math.max(0, Number(run?.tracking) || 0)) * LINE_SAFETY * chars
   return per > 0 ? Math.max(0, Number(width) || 0) / per : 0
+}
+
+/**
+ * Below this drawn size the type stops yielding and the WORD is what gives.
+ *
+ * It is `BOLD_LARGE_PX` and deliberately the same number `harmoniseUnits` floors
+ * its lowering at, because it answers the same question — how small is this file
+ * allowed to make a run in order to fix something else. `palette.accent` and
+ * `palette.display` are resolved at the 3:1 floor, which the audit licences for
+ * bold type past this bar; a bound that takes a run under it has bought an
+ * unbroken word by spending the licence the colour was chosen under, which is not
+ * a trade, it is one legibility guarantee paying for another.
+ */
+export const WORD_FIT_FLOOR_PX = BOLD_LARGE_PX
+
+/**
+ * The advance the longest WORD of a run is measured at, which is not the advance
+ * the run is measured at.
+ *
+ * `runAdvanceEm` measures a whole run, spaces included, and a space is 0.29 em
+ * against a capital's 0.73. A word holds none of them, so a run's own average
+ * still under-counts the one string this bound exists to keep whole — and an
+ * under-count here is the defect coming back. `meanAdvanceEm` is floored at
+ * `MEAN_GLYPH_EM`, so this can only ever widen the estimate, which is the
+ * asymmetry the whole family of advances is built on.
+ */
+function wordAdvanceEm(run, word) {
+  if (run?.mono) return MEAN_MONO_EM
+  return meanAdvanceEm(run?.caps ? String(word).toUpperCase() : word)
+}
+
+/**
+ * A WORD IS NOT CUT IN HALF, AND THIS IS THE BOUND THAT SAYS SO.
+ *
+ * `textLines` packs characters against a measure, and a rendered frame is what
+ * said what that costs: `NEUF SEIZIEMES` in display type on a 9:16 frame arrived
+ * as `NEUF S` / `EIZIEME` / `S`. The estimate had found a size at which fourteen
+ * characters fit two lines; `SEIZIEMES` does not fit one of them, and CSS did the
+ * only thing left to it. Every wrapping run in this directory carries
+ * `word-break: break-word`, and that declaration was read for a long time as the
+ * wrapping model the estimate assumes — it is not. It is what a browser falls back
+ * to when a word does not fit its line at all, and the estimate never asked
+ * whether one would.
+ *
+ * The typographic rule is the other way round: a word does not break, so the size
+ * is what must be small enough for the longest one to fit the measure. That is a
+ * BOUND, exactly like the one an unbreakable run already puts on a shape, and it
+ * belongs beside it rather than in six blocks.
+ *
+ * ── Why this is not "a paragraph with one long word is small everywhere" ──────
+ *
+ * It is exactly that, and that is what a typesetter does. The objection that kept
+ * this bound out of `shapeCeiling` for two passes assumed the alternative worked;
+ * the alternative is a word sliced through the middle, which is the one failure in
+ * this feature a viewer reads as broken software rather than as a small heading.
+ * A block that comes back a tenth smaller has lost slack the zone's own alignment
+ * spends anyway. The cost is real and it is paid in the right currency.
+ *
+ * ── The floor, and what happens under it ─────────────────────────────────────
+ *
+ * A word can be longer than its measure at every size worth reading: a URL, a
+ * German compound, an identifier, or seventy characters — the schema's own
+ * ceiling for a heading — inside one cell of a 3×3 grid on a portrait frame. The
+ * answer cannot be a unit tending to zero, so under `WORD_FIT_FLOOR_PX` this run
+ * is not bounded AT ALL and the CSS declaration is what handles it. That is the
+ * named decision the rule needs, and it is the shape `texturedGround` already
+ * uses one section down: the type yields to a word, and it never yields for
+ * nothing. Shrinking a headline to 18 px and breaking the word anyway is paying
+ * for nothing.
+ *
+ * A run that cannot break is skipped: `cappedByWidth` bounds that one by its whole
+ * length, which is a stricter bound than its longest word by definition.
+ */
+export function wordCeiling(runs, width) {
+  let ceiling = Infinity
+  const measure = Math.max(0, Number(width) || 0)
+  for (const run of runs ?? []) {
+    if (run?.nowrap) continue
+    let longest = ''
+    for (const word of words(run?.text)) if (word.length > longest.length) longest = word
+    if (longest.length === 0) continue
+    const advance = (wordAdvanceEm(run, longest) + Math.max(0, Number(run?.tracking) || 0)) * LINE_SAFETY
+    if (!(advance > 0)) continue
+    // No allowance taken for `typeSize`'s rounding, and that is deliberate: half a
+    // pixel is an ABSOLUTE quantity and every other term here is proportional to
+    // the measure, so subtracting it is what stops a doubled box from doubling its
+    // type — a property `text.test.js` checks to a millionth. `LINE_SAFETY` already
+    // holds six per cent, and the rounding is at most half a pixel on a size the
+    // floor below keeps past 18.66, which is under three of them.
+    const size = measure / (longest.length * advance)
+    // The floor: a word this measure cannot hold at a size worth reading is a word
+    // the layout does not get to shrink the film for. See above.
+    if (size < WORD_FIT_FLOOR_PX) continue
+    ceiling = Math.min(ceiling, size / typeRole(run?.role).step)
+  }
+  return ceiling
 }
 
 /**
@@ -1825,13 +1928,14 @@ function cappedByWidth(run, width, advance, chars) {
  * round first, and a `logoType` alone in a zone came back with a 128 px word
  * beside a 760 px mark: the type had stopped growing and its furniture had not.
  *
- * `Infinity` for a shape that can always spend more — anything with a run that
- * wraps. That is the common case, and the one where the box decides. What keeps
- * such a run inside the measure is `word-break` in the block, not a ceiling here:
- * see `cappedByWidth`.
+ * A wrapping run is bounded here too, by its longest WORD — see `wordCeiling`,
+ * which is the whole of that argument. `Infinity` is therefore what is left for a
+ * shape with no text at all, or one whose every word already fits its measure at
+ * any size the box can afford: those are the shapes where the box decides, which
+ * is still most of them.
  */
 export function shapeCeiling(shape, width) {
-  let ceiling = Infinity
+  let ceiling = wordCeiling(shape?.runs, width)
   for (const run of shape?.runs ?? []) {
     if (!run?.nowrap) continue
     if (String(run?.text ?? '').trim().length === 0) continue
@@ -2049,6 +2153,25 @@ export function harmoniseUnits(stacks) {
          * sets the scale, the words on it read at that scale or under it.
          */
         if (stacks[j]?.field) scale = Math.min(scale, units[j])
+        /*
+         * A stack of FURNITURE is not evidence about the scale of a scene.
+         *
+         * The SCALE bound says "no stack reads a larger unit than a stack carrying
+         * a superior role", and it assumes both stacks were sized by their boxes.
+         * `furnitureCeiling` breaks that assumption on purpose: a `kicker` reads the
+         * FORMAT's unit, so a `barChart` anchored `full` beside one was pulled from
+         * 55 px to 43 and drew three quarters of a safe area it had all of — the
+         * small element in a large void, arriving through the one door that was
+         * meant to keep surtitles small.
+         *
+         * The ORDER bound deliberately still applies, and the asymmetry is the
+         * difference between the two questions. "Two stacks of one scene read one
+         * scale" is about a scale furniture does not participate in; "no run is
+         * drawn larger than a superior run" is about what an eye reads on the frame,
+         * and a body line larger than the title of the band beside it is an
+         * inversion whatever made the band small.
+         */
+        const scales = !list[j]?.furniture
         for (const mine of stackRuns[i]) {
           for (const other of stackRuns[j]) {
             // A role at least as high as mine. The ORDER bound below needs a
@@ -2090,7 +2213,7 @@ export function harmoniseUnits(stacks) {
               const order = (Math.min(units[j], ceilingOf(other)) * other.step) / mine.step
               if (ceilingOf(mine) > order) cap = Math.min(cap, order)
             }
-            if (ceilingOf(mine) > units[j]) scale = Math.min(scale, units[j])
+            if (scales && ceilingOf(mine) > units[j]) scale = Math.min(scale, units[j])
           }
         }
       }
@@ -2412,6 +2535,117 @@ export function blockAppetite(kind) {
     : { fixed: 1.4, fills: 'either', runs: () => [] }
 }
 
+/**
+ * A SUBJECT TAKES THE SCENE; A PIECE OF FURNITURE TAKES THE PART THAT COMES TO IT.
+ *
+ * The collapse that hands a lone block the whole safe area was paid for by a whole
+ * pass against the small element in a large void, and it is right about almost
+ * every kind: a picture, a chart, a headline or a quote alone in a scene IS the
+ * scene, and anything less than the frame is that defect coming back. It is wrong
+ * about seven of them, and a rendered frame is what said so — a `lowerThird` alone
+ * over a photograph came back as a full-frame card hiding three fifths of the
+ * picture. A name band is not a scene about a name.
+ *
+ * ── What decides it, and it is not how much text a kind carries ──────────────
+ *
+ * WHERE THE SIZE COMES FROM. A subject is dimensioned by what is around it: give
+ * it more room and it is a larger version of itself, which is the whole of the
+ * rule at the top of this file. A piece of furniture is dimensioned by the FORMAT
+ * — a broadcast lower third is a sixth of the frame because that is what a lower
+ * third IS, and one that fills the frame is not a bigger lower third, it is a
+ * card. The test is a sentence anybody can apply to a twenty-eighth block: does
+ * this thing get larger when the scene does, or does it only get wrong?
+ *
+ * ── The seven, each with the sentence that classifies it ─────────────────────
+ *
+ *   - `lowerThird` — the case that made the rule. Its grammar is that something
+ *     else is behind it; a band with nothing behind it is a title card that has
+ *     lost its title.
+ *   - `kicker` — a surtitle is a surtitle OF something. It was already 200 px of
+ *     capitals over the graph it captioned; the field ceiling closed that when a
+ *     field was on the frame, and this closes it when nothing is.
+ *   - `dateStamp` — a stamp. One line, small, in a corner: the kicker's sentence
+ *     with a different run.
+ *   - `separator` — a rule. Its thickness is a constant metric already, so a whole
+ *     frame of it buys nothing but air, and `BLOCK_APPETITE` says what a rule is
+ *     worth: one unit.
+ *   - `progressBar` — a meter. It reads as a proportion of something, and the
+ *     something is never the frame.
+ *   - `notification` — a toast: an object that arrived over whatever was there. At
+ *     full frame it is a card that has lost the thing it was notifying about.
+ *   - `button` — a control, sized to be pressed. One that fills the frame reads as
+ *     a coloured slab with a word on it.
+ *
+ * ── And the ones deliberately NOT here, because a rule is what it refuses ─────
+ *
+ * `heading`, `funTitle`, `quote`, `textHighlight`, `typewriter`, `animatedList`,
+ * `counter`, `logoType`, `form`, `codeBlock` and every field are subjects: a title
+ * card, a pull quote, a number, a wordmark, a sign-up form and a picture are all
+ * scenes somebody meant to make. `logoType` is the one worth naming twice, since
+ * a wordmark in a corner is furniture in every ordinary sense — but a wordmark
+ * alone on a frame is a title card, and a name band alone on a frame is a mistake.
+ * What keeps a corner wordmark beside its neighbours is `harmoniseUnits`, which is
+ * a different question with a different answer.
+ */
+export const BLOCK_FURNITURE = [
+  'separator',
+  'progressBar',
+  'kicker',
+  'dateStamp',
+  'notification',
+  'button',
+  'lowerThird',
+]
+
+/** Whether a kind is furniture. A name off a document, so it is matched and never looked up. */
+export function isFurniture(kind) {
+  return typeof kind === 'string' && BLOCK_FURNITURE.includes(kind)
+}
+
+/**
+ * What a scene is worth, in units of the body type size — the density behind the
+ * field tier of `BLOCK_APPETITE`, and the same number rather than a second one.
+ *
+ * "A frame that carries twenty lines of running text is a frame, and one that
+ * carries ten is a poster." Twenty-two units across a safe area is a body line at
+ * about 4% of the short edge and a caption at 2.7%. `composition.test.js` pins it
+ * against the table's own field entries, because two densities that drift are a
+ * `map` and a `lowerThird` disagreeing about how big a frame is.
+ */
+export const SCENE_UNITS = 22
+
+/**
+ * The unit a stack of FURNITURE may read: its share of a scene, and never its
+ * share of the box it happened to be given.
+ *
+ * `Infinity` for anything else, which is most stacks — a subject alone on a frame
+ * still takes the frame, and that is the guarantee this must not spend.
+ *
+ * Three things about the shape of it:
+ *
+ *   - It bounds the UNIT and not the box, for `harmoniseUnits`'s reason: `stackIn`
+ *     recomputes the heights at whatever unit arrives, so the block still FILLS
+ *     the box it is given and the leftover is spent by the zone's own alignment.
+ *     Bounding the box instead would leave a block drawing at a unit its box no
+ *     longer holds, which is the overflow the scale exists to make impossible.
+ *   - It is measured against the SAFE AREA and not against the zone, because the
+ *     whole claim is that furniture is sized by the format. A band in a third of a
+ *     frame and a band alone on one are the same band.
+ *   - ALL of the stack, never one block of it. The unit belongs to the stack, so
+ *     lowering it for a `kicker` above a `heading` would shrink the heading too —
+ *     and a stack holding a subject is a stack the subject is entitled to size.
+ *     Mixed stacks are already right: `stackIn` divides a zone by appetite, so the
+ *     kicker takes its 1.6 units against the heading's 4.
+ */
+export function furnitureStack(blocks) {
+  const list = Array.isArray(blocks) ? blocks : []
+  return list.length > 0 && list.every((block) => isFurniture(block?.kind))
+}
+
+export function furnitureCeiling(blocks, safeHeight) {
+  return furnitureStack(blocks) ? Math.max(0, Number(safeHeight) || 0) / SCENE_UNITS : Infinity
+}
+
 /** A block as the solver sees it: its furniture, and its runs of text. */
 export function blockShape(block) {
   const appetite = blockAppetite(block?.kind)
@@ -2488,6 +2722,91 @@ export function blockExtent(block, box, base, unit) {
 }
 
 /**
+ * A FIELD IS NOT A UNIFORM SURFACE: THESE ARE THE KINDS THAT DECLARE WHERE THEY
+ * SET TYPE.
+ *
+ * An export showed the gap in the sentence "a `full` block is what an element sits
+ * on": a `kicker` anchored `bottom-center` over a `barChart` anchored `full` landed
+ * exactly on the chart's row of axis labels. Two runs of type in the same band,
+ * three labels unreadable. Both were at the right SIZE — the field ceiling and the
+ * band split had done their work — so nothing about the scale could have caught it.
+ * The conflict is positional: a field that draws text at the foot of its box and a
+ * cell that draws text at the foot of the frame are drawing in the same place.
+ *
+ * ── Why the field declares, rather than the cell moving ──────────────────────
+ *
+ * The other repair was to push a cell laid on a field towards a band the field
+ * leaves free. It is cheaper and it is wrong twice. It would MOVE a block the
+ * document anchored — `anchor` is the one composition decision a document makes,
+ * and a bottom-centre kicker relocated to the top is a film that did not do what it
+ * was told. And it has to guess: only the block knows where its own caption goes,
+ * so a rule written in the layout would be right about `barChart` by luck and about
+ * the twenty-eighth kind not at all.
+ *
+ * Declaring costs one table and one number per scene, and what it buys is
+ * arithmetic: the cells are laid out in the safe area LESS the band the field
+ * reserved, so no cell box can enter it. The reservation is the layout's own
+ * subtraction, exactly like the gutter between two zones.
+ *
+ * ── All three are a FOOT, and that is not a coincidence ─────────────────────
+ *
+ * A caption goes under the thing it captions. `barChart` and `lineChart` set their
+ * labels under the plot and `imageFrame` its caption under the picture — three
+ * components written by three hands, all three with the run last in a column. So
+ * there is one edge here and not two, and a kind that one day sets type at the TOP
+ * of its box is a new question rather than a new row: it would need the stack
+ * pinned the other way (see `composedLayout`), and pinning both ends at once is not
+ * something one stack can do.
+ *
+ * ── The entry condition is `fills: 'both'`, and `clock` is why ───────────────
+ *
+ * A block can only promise where its foot is if it FILLS its box on that axis. A
+ * dial does not: it is round, so it fills the minor one and floats in the middle of
+ * the other — on a 9:16 frame a full-frame `clock` is 907 px of dial in 1305 px of
+ * safe height, and its label sits 175 px above the bottom of its own box. A band
+ * reserved at the edge would be a band reserved where nothing is drawn, and the
+ * label would still be sitting where a cell is. `clock` therefore declares nothing,
+ * and `composition.test.js` holds the entry condition rather than this paragraph.
+ *
+ * ── What else is deliberately not in it ──────────────────────────────────────
+ *
+ * A field that carries no text declares nothing and forbids nothing: the poorest
+ * document the schema accepts — a gallery, a solid, a wave, a chart with no labels
+ * — lays out exactly as it did, which is the case this must not break.
+ *
+ * Furniture is not in it either, and that is the other half of `BLOCK_FURNITURE`:
+ * a `progressBar` sets its label ABOVE its track, but a piece of furniture anchored
+ * `full` no longer fills the safe area — it is a small block centred in it, and its
+ * label is in the middle of the frame rather than at the top edge. Text blocks are
+ * out for the same reason from the other side: a `heading` anchored `full` is type
+ * all the way through, and a cell stacked on it is an arrangement no reservation
+ * can rescue.
+ */
+export const FIELD_FOOT = ['barChart', 'lineChart', 'imageFrame']
+
+/**
+ * The band at the bottom of its own box in which a block sets type, in pixels.
+ *
+ * The runs are the block's own (`BLOCK_APPETITE`), measured by `shapeHeight` at the
+ * unit its stack solved — the same arithmetic that sized the box in the first
+ * place, which is what makes this an estimate the component agrees with rather than
+ * a second guess about it. `RUN_GAP` is the air above the run and it is the number
+ * `runBand` already spends in `blocks/media.js`.
+ *
+ * It over-reserves in two directions and both are deliberate: `labelBand` shrinks a
+ * chart's labels to fit one column and drops them below `LABEL_FLOOR`, and
+ * `harmoniseUnits` only ever lowers the unit this was computed at. Reserving a band
+ * a little taller than the type that lands in it costs a cell a few pixels of its
+ * own; reserving one too short is the defect back.
+ */
+export function footBand(block, width, unit) {
+  if (!FIELD_FOOT.includes(String(block?.kind ?? ''))) return 0
+  const at = Math.max(0, Number(unit) || 0)
+  const text = shapeHeight({ fixed: 0, runs: blockShape(block).runs }, width, at)
+  return text > 0 ? text + RUN_GAP * at : 0
+}
+
+/**
  * The margin a composed frame keeps from its own edges, per axis, when nothing
  * is drawn over it.
  *
@@ -2502,6 +2821,57 @@ export function blockExtent(block, box, base, unit) {
 export const COMPOSED_SAFE_PERCENT = 6
 
 /**
+ * The room the stack's own DRIFT needs, at the top of the safe area and at the
+ * bottom of it, in pixels.
+ *
+ * A composed scene translates its whole stack by `motion.drift × base`, which runs
+ * from `+COMPOSED_BLOCK_DRIFT/2` on the first frame to `−COMPOSED_BLOCK_DRIFT/2` on
+ * the last — 8.6 px either way on a 1080-line frame. The boxes tile the safe area
+ * exactly, so the top band's first block crossed the safe TOP at the end of every
+ * scene and a bottom-anchored one crossed the safe BOTTOM at the start of it. A
+ * rendered corpus is what showed it: the ink of four solid-ground exports began 5
+ * to 6 px above the margin, which is `(0.5 − 0.75) × 0.016 × 1080` to the pixel.
+ *
+ * Nothing was cropped by it — 6% of a landscape frame is 65 px and the bleed is a
+ * tenth of that. What it cost is the guarantee, and the guarantee is the reason the
+ * boxes are pixels rather than percentages: "a number a test can read is also a
+ * margin a test can prove nothing crosses". On 9:16 it is not academic either, since
+ * the bottom band is the feed's own caption row rather than overscan.
+ *
+ * The layout RESERVES it rather than the motion giving it up, which is the same
+ * trade `FIELD_FOOT` makes one paragraph down and the one `overlay` already argues
+ * for: a move is allowed the amplitude the layout leaves it, and "every pixel
+ * visible at rest is visible on every frame" is a property of the pair. Half the
+ * travel on each edge, rounded up, because the drift is symmetric about the middle
+ * of the scene.
+ */
+export function driftRoom(base) {
+  return Math.ceil((Math.max(0, Number(base) || 0) * COMPOSED_BLOCK_DRIFT) / 2)
+}
+
+/**
+ * The part of the safe area a composed scene actually lays its zones out in: the
+ * safe area, less the drift's room on each of the two edges it moves towards.
+ *
+ * Separate from `composedSafeArea` on purpose. That one is the PROMISE — the band
+ * a feed application draws its own interface over, which is a fact about somebody
+ * else's software — and this is what the composition allows itself inside it. Two
+ * functions, so a test can say "the boxes are inside the frame" and "the frame plus
+ * the drift is inside the promise" as two separate sentences, rather than checking
+ * one number against itself.
+ */
+export function composedFrame(width, height) {
+  const safe = composedSafeArea(width, height)
+  const room = driftRoom(frameBase(width, height))
+  return {
+    left: safe.left,
+    top: safe.top + room,
+    width: safe.width,
+    height: Math.max(0, safe.height - 2 * room),
+  }
+}
+
+/**
  * The gutter between two zones of the 3×3 grid, as a fraction of the SHORT edge.
  *
  * Off the short edge like every other size in this directory (`frameBase` says
@@ -2512,6 +2882,20 @@ export const COMPOSED_CELL_GAP = 0.03
 
 /** The gap between two blocks STACKED in one zone. Tighter than the gutter: they belong together. */
 export const COMPOSED_STACK_GAP = 0.024
+
+/**
+ * How much of the safe area a field's declared foot may take from the cells — a
+ * quarter, the same ceiling `CONSTANT_METRICS` is bounded at and for the same
+ * reason.
+ *
+ * A reservation is the layout giving one block's caption priority over every other
+ * zone, and an exception with no ceiling is the rule going back out of the window:
+ * a caption bounded at `BLOCK_LIMITS.caption` in a legal box never comes near this,
+ * so what it really bounds is the disagreement between a bound and a box. Cells
+ * with no height are stacks solved at a unit of zero, which is a scene with
+ * everything piled at the origin (Q1).
+ */
+export const FIELD_FOOT_CEILING = 0.25
 
 /**
  * Which of the three tracks an alignment names, and how text sits in it.
@@ -2747,6 +3131,25 @@ function stackIn(box, layers, gap, justify, unit) {
  * because a height sets a type SIZE and a width sets a MEASURE, and a line
  * running the full measure of a field is what a line over a field should do.
  *
+ * ── And a field is not a uniform surface: it says where it sets type ─────────
+ *
+ * "A `full` block is what an element sits on" was true about the paint order and
+ * silent about the geometry. A `kicker` anchored `bottom-center` over a `barChart`
+ * anchored `full` landed exactly on the chart's row of labels — two runs of type in
+ * one band, both at the right size, so nothing about the scale could have caught
+ * it. `FIELD_FOOT` is the declaration and the argument for making the field
+ * declare rather than moving the cell; the subtraction is below, and it is one
+ * number: the cells share the safe area LESS the band the field reserved.
+ *
+ * ── A block whose size comes from the FORMAT does not take the scene ─────────
+ *
+ * The collapse that hands a lone block the whole safe area is right about a
+ * picture, a chart and a headline and wrong about a name band: a `lowerThird` alone
+ * over a photograph came back as a full-frame card. `BLOCK_FURNITURE` is that
+ * distinction and `furnitureCeiling` is what it costs — a bound on the unit of a
+ * stack that holds nothing else, which is why a subject alone still takes
+ * everything and a mixed stack is untouched.
+ *
  * Timing is deliberately absent: `layerCues` answers when a block arrives and
  * this answers where it lands, and keeping them apart is what lets the motion be
  * checked on a document with no frame size and the layout on a frame with no
@@ -2754,7 +3157,11 @@ function stackIn(box, layers, gap, justify, unit) {
  */
 export function composedLayout(scene, width, height) {
   const layers = Array.isArray(scene?.layers) ? scene.layers : []
-  const frame = composedSafeArea(width, height)
+  // The safe area LESS the drift's room, and never the safe area itself: the whole
+  // stack is translated by up to `driftRoom(base)` towards either edge on every
+  // scene, so laying out flush with the promise is the promise broken by exactly
+  // that translation. See `composedFrame`.
+  const frame = composedFrame(width, height)
   const base = frameBase(width, height)
   const gutter = Math.round(base * COMPOSED_CELL_GAP)
   const gap = Math.round(base * COMPOSED_STACK_GAP)
@@ -2821,6 +3228,46 @@ export function composedLayout(scene, width, height) {
   // necessary in the first place.
   const field = held.has('full')
   const usedRows = [0, 1, 2].filter((row) => field || used[row].size > 0)
+  // The box a `full` zone gets, needed here rather than in the loop below because
+  // the field's own unit is what decides how much of the frame the CELLS are laid
+  // out in — see the foot, next.
+  const wholeFrame = { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
+  const blocksOf = (inZone) => inZone.map(({ block }) => block)
+  // A stack's own box decides its unit, unless the stack is furniture — whose scale
+  // comes from the scene and not from the room it was left in. See
+  // `furnitureCeiling`, and `BLOCK_FURNITURE` for what a piece of furniture is.
+  const unitFor = (inZone, box) =>
+    Math.min(
+      solveTypeUnit(inZone.map(({ block }) => blockShape(block)), box.width, box.height, gap),
+      furnitureCeiling(blocksOf(inZone), frame.height),
+    )
+
+  /*
+   * The band the field paints text in, which the cells are then laid out ABOVE.
+   *
+   * A `kicker` anchored `bottom-center` over a `barChart` anchored `full` landed on
+   * the chart's own row of labels: two runs of type in one band, both at the right
+   * size, the conflict entirely positional. `FIELD_FOOT` is the declaration and the
+   * argument for it; this is the subtraction.
+   *
+   * Three things make the arithmetic hold rather than nearly hold:
+   *
+   *   - it is the LAST block of the `full` stack, because that is the one whose box
+   *     ends on the safe bottom;
+   *   - the unit is the field's own, solved before `harmoniseUnits`, which only
+   *     ever lowers it — so the band reserved is never shorter than the type that
+   *     lands in it;
+   *   - and one GUTTER of air, the grid's own, because a cell whose box ends
+   *     exactly on a caption is touching it. Two things that are not the same
+   *     object are separated by a gutter everywhere else in this file, and it is
+   *     also what covers a picture block's own margin under its caption
+   *     (`TILE_GUTTER` is four tenths of this one).
+   */
+  const inField = held.get('full')
+  // Nothing declared is nothing reserved — the gutter belongs to the band and not
+  // to the absence of one, or every field on earth would push the cells up by it.
+  const band = inField ? footBand(inField[inField.length - 1]?.block, wholeFrame.width, unitFor(inField, wholeFrame)) : 0
+  const foot = band > 0 ? Math.min(Math.round(band + gutter), Math.floor(frame.height * FIELD_FOOT_CEILING)) : 0
   /*
    * And the bands are divided by APPETITE, not by count.
    *
@@ -2860,7 +3307,9 @@ export function composedLayout(scene, width, height) {
         }
         return most
       })
-  const bands = split(frame.top, frame.height, gutter, usedRows.length, weights)
+  // Less the field's foot: the cells share what is left of the safe area, so the
+  // bottom band ends where the field's caption begins.
+  const bands = split(frame.top, frame.height - foot, gutter, usedRows.length, weights)
   const rows = new Map(usedRows.map((row, i) => [row, bands[i]]))
 
   // Every zone with the box it gets, before a single unit is solved: the scale is
@@ -2892,7 +3341,14 @@ export function composedLayout(scene, width, height) {
     // a square. A band's own edge is the safe edge and that is why the nine cells
     // keep theirs; `full` has no edge to anchor to, so its leftover is spent
     // symmetrically.
-    const justify = cell.row === 'stretch' ? 'center' : cell.row
+    //
+    // Unless it has DECLARED one. A field that reserved a foot has been promised a
+    // band at the bottom of the safe area, and a promise about an edge is only true
+    // if the block really ends on it: centred, a field whose unit `harmoniseUnits`
+    // lowered would draw its caption above the band the cells were kept out of, and
+    // the reservation would have moved the defect rather than removed it. Pinning
+    // is what makes the subtraction exact at every unit.
+    const justify = cell.row === 'stretch' ? (anchor === 'full' && foot > 0 ? 'flex-end' : 'center') : cell.row
     const shapes = inZone.map(({ block }) => blockShape(block))
     placed.push({
       anchor,
@@ -2905,10 +3361,19 @@ export function composedLayout(scene, width, height) {
       // Whether this zone IS the field. `harmoniseUnits` reads it: a block
       // anchored `full` belongs to no band, so it is the one zone whose unit has
       // to bound the cells rather than be bounded by them.
-      field: anchor === 'full',
+      //
+      // Furniture anchored `full` is deliberately not one. The clause says "the
+      // field sets the scale of the scene", and a block that is sized by the format
+      // sets no scale — a `lowerThird` anchored `full` capping every heading in the
+      // frame to a band's own unit is that sentence read backwards.
+      field: anchor === 'full' && !furnitureStack(blocksOf(inZone)),
+      // Whether this stack was sized by the FORMAT rather than by its box, which
+      // makes it worthless as evidence about the scene's scale. `harmoniseUnits`
+      // reads it for the scale bound and deliberately not for the order one.
+      furniture: furnitureStack(blocksOf(inZone)),
       // What this stack would read on its own, and what it puts on the frame for
       // the scene to compare it with.
-      unit: solveTypeUnit(shapes, box.width, box.height, gap),
+      unit: unitFor(inZone, box),
       runs: drawnRuns(shapes, box.width),
     })
   }
@@ -2931,6 +3396,12 @@ export function composedLayout(scene, width, height) {
       // the scene's own order of roles, which is the half that stops a kicker
       // alone in a column from being three times the heading next to it.
       unit: stack.unit,
+      // The band at the BOTTOM of this zone in which it sets type, and which the
+      // nine cells were laid out above — `FIELD_FOOT` is the declaration, and 0 is
+      // every zone that declares nothing, which is all of them but one. Published
+      // rather than kept private because the guarantee it exists for is an absence,
+      // and an absence is only checkable against the thing that was reserved.
+      foot: zone.anchor === 'full' ? foot : 0,
       // Every block with the box it actually gets, never the zone's repeated.
       layers: stack.layers,
     }

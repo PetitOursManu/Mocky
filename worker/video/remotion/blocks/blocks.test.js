@@ -248,22 +248,26 @@ describe('what a block may not contain', () => {
   })
 
   /**
-   * A run that wraps breaks INSIDE a word, because that is the only wrapping the
-   * layout arithmetic knows how to predict.
+   * A run that wraps keeps `word-break`, and it is the LAST resort rather than the
+   * wrapping model.
    *
-   * `textLines` packs characters against the measure — 20 characters across a
-   * measure that holds 9 is three lines — and a browser left to itself breaks
-   * between words instead, so one long word puts more type on a line than the
-   * layout reserved room for. It is not a rounding error: a real export shipped a
-   * `lowerThird` whose title wrapped to `Sur une` / `photographie`, 1660 px of
-   * type across a 1373 px band, and the word reached the frame reading
-   * `photograph` because the mask its type rises from is `overflow: hidden`.
+   * The declaration was put here when it was read as the model: `textLines` packs
+   * characters against the measure — 20 characters across a measure that holds 9
+   * is three lines — and a browser left to itself breaks between words, so one
+   * long word puts more type on a line than the layout reserved room for. Reading
+   * it that way is what shipped `NEUF SEIZIEMES` as `NEUF S` / `EIZIEME` / `S`: a
+   * word cut through the middle is the one failure in this feature a viewer reads
+   * as broken software. The SIZE is bounded now — `wordCeiling` in
+   * `composition.js` — so a word fits its line and this declaration does nothing.
    *
-   * Checked from the WEIGHT TABLE rather than from a list somebody keeps: a kind
-   * whose runs are all `nowrap` is bounded by `shapeCeiling` instead and needs
+   * It stays because of the floor. A word longer than its measure at every legible
+   * size is a URL or a German compound, and there the bound stops and breaking is
+   * the decided lesser evil; without this line that word would run out of the box
+   * instead. Checked from the WEIGHT TABLE rather than from a list somebody keeps:
+   * a kind whose runs are all `nowrap` is bounded by `cappedByWidth` and needs
    * nothing, and a kind that gains a wrapping run gains this obligation with it.
    */
-  it('breaks a wrapping run inside a word, because that is what the layout measured', () => {
+  it('keeps a break of last resort on every wrapping run, for the word no size can hold', () => {
     // Enough of a block to make every `runs()` in the table answer: the arrays are
     // what `animatedList`, `form` and `codeBlock` map over, and an empty one would
     // report a kind as having no wrapping run at all.

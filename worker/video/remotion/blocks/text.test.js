@@ -19,11 +19,13 @@ import {
   CONSTANT_CEILING,
   TYPE_ROLES,
   blockExtent,
+  blockShape,
   composedLayout,
   dimensionsFor,
   frameBase,
   hairline,
   textWidth,
+  wordCeiling,
 } from '../composition.js'
 import { ANCHORS, ASPECT_RATIOS, BLOCK_LIMITS } from '../../../../server/video/timeline.js'
 import {
@@ -182,11 +184,41 @@ describe('a text block inhabits the box it is given', () => {
    * the line count is the same — and every term of the height is linear in the
    * unit. What is left is CSS's own rounding to a whole pixel, which is why this
    * is a per-cent and not an equality.
+   *
+   * `wordCeiling` keeps that property, deliberately: it takes no absolute
+   * allowance for `typeSize`'s rounding, precisely so that doubling a measure
+   * doubles a bound. Its FLOOR is the one thing here that is a number of pixels,
+   * and a threshold in pixels cannot be scale-invariant — a word too long to hold
+   * at a legible size in one box is holdable in a box twice as wide. So the
+   * corpus's single-word entries cross it, and what is checked there is the
+   * crossing rather than the ratio. It is a real discontinuity and naming it is
+   * the whole of the decision: under the floor the block draws what its box
+   * allowed and the word breaks; over it, the word is whole and the block is as
+   * small as the word requires.
    */
   it.each(CORPUS)('doubles what it draws when its box doubles, for %s', (_label, block) => {
     for (const box of BOXES) {
+      const wide = { width: box.width * 2, height: box.height * 2 }
       const once = textLayout(block, box, undefined)
-      const twice = textLayout(block, { width: box.width * 2, height: box.height * 2 }, undefined)
+      const twice = textLayout(block, wide, undefined)
+      const runs = blockShape(block).runs
+      // A run is bound in the wider box and not in the narrower one exactly when
+      // the floor sits between the two, since doubling a measure doubles the size
+      // at which the word would fit.
+      const crosses = runs.some(
+        (run) => Number.isFinite(wordCeiling([run], box.width)) !== Number.isFinite(wordCeiling([run], wide.width)),
+      )
+      if (crosses) {
+        // The doubled box is the one that keeps the word whole, and the type is
+        // what pays: it never reads MORE than twice the unit, and it reads at most
+        // what the word allows. On the corpus's longest single words that is a
+        // twentieth of the ratio; on the ones the narrow box was already too small
+        // for, it is exactly two, which is the crossing costing nothing.
+        expect(twice.unit, `${box.width}x${box.height}`).toBeLessThanOrEqual(once.unit * 2 + 1e-9)
+        expect(wordCeiling(runs, wide.width)).toBeLessThan(Infinity)
+        expect(twice.unit, `${box.width}x${box.height}`).toBeLessThanOrEqual(wordCeiling(runs, wide.width) + 1e-9)
+        continue
+      }
       expect(twice.height / once.height, `${box.width}x${box.height}`).toBeCloseTo(2, 1)
       expect(twice.unit / once.unit).toBeCloseTo(2, 6)
     }

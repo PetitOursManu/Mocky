@@ -196,6 +196,14 @@ export const Notification = ({ block, palette, theme, box, unit, base, progress,
         // than its text is furniture in a corner.
         alignItems: 'center',
         gap: card.markGap,
+        // Its own, and not the zone's. `text-align` is inherited, and this card
+        // FILLS the box the anchor chose — so the alignment has already been spent
+        // on where the card sits. A notice in a `center-right` zone came back with
+        // its mark pinned to the left of the card by the flex row and its title and
+        // body pushed to the right edge, four hundred pixels away: two halves of one
+        // card disagreeing about which side it reads from. A notice reads from its
+        // mark.
+        textAlign: 'left',
         // The box, whole, on both axes — `fills: 'both'` in the weight table. The
         // padding and the edge are drawn INSIDE it, which is what `border-box`
         // is doing here: the allotment was measured against the safe area.
@@ -232,11 +240,13 @@ export const Notification = ({ block, palette, theme, box, unit, base, progress,
           style={{
             fontFamily: theme.headingFont,
             fontSize: card.title,
-            // The house's own break, and the one `textLines` assumes: the estimate
-            // packs characters against the measure, so a run that will only break
-            // between words puts more type on a line than the layout reserved room
-            // for. An export shipped `photographie` reading `photograph`, clipped by
-            // the `overflow: hidden` this block reveals its type from.
+            // The LAST resort, and not the wrapping model this file measures with.
+            // `wordCeiling` bounds the type so the longest word of a run fits the
+            // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+            // legible size can hold, where breaking is the decided lesser evil. Left
+            // out, that word would run out of the box instead. A rendered frame showed
+            // the other half of it, back when nothing bounded the size at all:
+            // `NEUF S` / `EIZIEME` / `S`.
             wordBreak: 'break-word',
             lineHeight: 1.4,
             fontWeight: 700,
@@ -251,11 +261,13 @@ export const Notification = ({ block, palette, theme, box, unit, base, progress,
               marginTop: card.gap,
               fontFamily: theme.bodyFont,
               fontSize: card.body,
-              // The house's own break, and the one `textLines` assumes: the estimate
-              // packs characters against the measure, so a run that will only break
-              // between words puts more type on a line than the layout reserved room
-              // for. An export shipped `photographie` reading `photograph`, clipped by
-              // the `overflow: hidden` this block reveals its type from.
+              // The LAST resort, and not the wrapping model this file measures with.
+              // `wordCeiling` bounds the type so the longest word of a run fits the
+              // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+              // legible size can hold, where breaking is the decided lesser evil. Left
+              // out, that word would run out of the box instead. A rendered frame showed
+              // the other half of it, back when nothing bounded the size at all:
+              // `NEUF S` / `EIZIEME` / `S`.
               wordBreak: 'break-word',
               lineHeight: 1.35,
               color: palette.panelBody.color,

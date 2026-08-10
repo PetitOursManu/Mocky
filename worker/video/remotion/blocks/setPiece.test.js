@@ -25,6 +25,7 @@ import {
   funTitleLetter,
   funTitleShadow,
   funTitleSize,
+  STACK_SEPARATION,
   letterAt,
   panelRadius,
   solidBoundingRadius,
@@ -38,9 +39,12 @@ import {
 import {
   BOX_FILL_FLOOR,
   CONSTANT_CEILING,
+  CONTRAST_MIN_LARGE,
   DECLARED_SHARE,
   blockHeight,
   blockShape,
+  contrastRatio,
+  shapeCeiling,
   solveTypeUnit,
   typeSize,
 } from '../composition.js'
@@ -69,8 +73,18 @@ describe('funTitle — the size comes from the box', () => {
    */
   it('sets its line at the display step of the unit its stack agreed on', () => {
     for (const unit of UNITS) {
-      expect(funTitleSize('Motion', BOXES[0], unit), `unit ${unit}`).toBe(typeSize('display', unit))
+      // Capped by the shape's own measure, which is what `typeScale` spends and
+      // what every other block in the catalogue spends. `Motion` is one word, so
+      // past 472 px the only way its six letters fit a 1690 px box is a break
+      // inside the word — the defect a rendered frame showed as `NEUF S` /
+      // `EIZIEME` / `S`. The claim this test is about is unchanged: ONE step of
+      // ONE scale, never a fraction of its own.
+      const spent = Math.min(unit, shapeCeiling(blockShape({ kind: 'funTitle', text: 'Motion' }), BOXES[0].width))
+      expect(funTitleSize('Motion', BOXES[0], unit), `unit ${unit}`).toBe(typeSize('display', spent))
     }
+    // And under the measure's own ceiling — which is where a stack normally is —
+    // it is the unit it was handed, exactly.
+    expect(funTitleSize('Motion', BOXES[0], 24)).toBe(typeSize('display', 24))
   })
 
   /**
@@ -230,6 +244,28 @@ describe('funTitle — the letters, on one baseline', () => {
     for (const treatment of FUN_TITLE_TREATMENTS.filter((t) => t !== 'stack')) {
       expect(funTitleShadow(treatment, 100, 1), treatment).toBe(0)
     }
+  })
+
+  /**
+   * A shadow needs a second COLOUR, and a render found the direction that has none.
+   *
+   * `HAZARD` in the review corpus states the same dark green for `text` and for
+   * `accent` on a near-black ground, so `legibleOn` resolved both runs to `#ffffff`
+   * and the offset copy came back as a second white `MOTION` seven per cent away
+   * from the first — a word that reads as a printing fault. The floor is just past
+   * "the same ink" and nowhere near a legibility bar, because the copy carries no
+   * glyph anybody reads: gold behind white measures 1.76:1 on the editorial
+   * direction and is obviously a shadow, so a 3:1 test would delete the treatment on
+   * the themes that render it correctly.
+   */
+  it('declines to draw a shadow in the word’s own ink', () => {
+    expect(funTitleShadow('stack', 100, 1, '#ffffff', '#ffffff')).toBe(0)
+    expect(funTitleShadow('stack', 100, 1, '#eef1f5', '#e2b04a')).toBeGreaterThan(0)
+    expect(contrastRatio('#eef1f5', '#e2b04a')).toBeLessThan(CONTRAST_MIN_LARGE)
+    expect(contrastRatio('#eef1f5', '#e2b04a')).toBeGreaterThanOrEqual(STACK_SEPARATION)
+    // A caller that names no inks keeps the answer it always had: the offset is a
+    // fact about the treatment, and the colours are what let it decline (Q1).
+    expect(funTitleShadow('stack', 100, 1)).toBe(funTitleShadow('stack', 100, 1, '#000000', '#ffffff'))
   })
 })
 

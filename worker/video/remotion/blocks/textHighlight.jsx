@@ -233,7 +233,11 @@ export const TextHighlight = ({ block, palette, theme, box, unit, base, progress
             height: rule.hair,
             backgroundColor: palette.accent.color,
             transform: `scaleX(${ruleExtent(progress, life, HIGHLIGHT_RULE_REST)})`,
-            transformOrigin: 'left center',
+            // The zone's own edge, inherited — see `--mocky-rule-origin` in
+            // `ComposedSceneVideo`. This rule spans the whole measure and has no
+            // object to grow out of, so a hard-coded `left` under a centred line was
+            // an ornament pointing at a margin the type does not use.
+            transformOrigin: 'var(--mocky-rule-origin, left) center',
           }}
         />
       )}

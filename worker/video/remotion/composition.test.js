@@ -27,6 +27,12 @@ import { RULE_EXTENTS } from './blocks/misc.js'
 // `SOLID_SHARE` is not exported from its file, so the share is read back through
 // the one function that applies it. Same claim, one step further out.
 import { solidCanvas } from './blocks/setPiece.js'
+// And the three layout functions of the kinds that declare a FOOT. The band a
+// field reserves is only worth anything if the caption really lands inside it, and
+// these are what decide where it lands — asking `composition.js` for both halves of
+// that would be a test agreeing with itself.
+import { barChartLayout, lineChartLayout } from './blocks/dataFigures.js'
+import { imageFrameBox } from './blocks/media.js'
 import {
   ANCHORS,
   ANIMATED_BACKGROUNDS,
@@ -80,10 +86,14 @@ import {
   FIELD_PAINT_KINDS,
   FIELD_RAMP,
   BLOCK_APPETITE,
+  BLOCK_FURNITURE,
   BOLD_LARGE_PX,
   BOX_FILL_FLOOR,
   CONSTANT_CEILING,
   DECLARED_SHARE,
+  FIELD_FOOT,
+  FIELD_FOOT_CEILING,
+  SCENE_UNITS,
   KICKER_TRACKING_EM,
   LINE_SAFETY,
   MEAN_GLYPH_EM,
@@ -98,7 +108,9 @@ import {
   blockShape,
   composedLayout,
   composedPalette,
+  composedFrame,
   composedSafeArea,
+  driftRoom,
   compositionIdFor,
   cueFrames,
   cueProgress,
@@ -107,7 +119,10 @@ import {
   entranceStyle,
   fieldPaints,
   fontStack,
+  footBand,
   frameBase,
+  furnitureCeiling,
+  isFurniture,
   groundDensity,
   groundPainted,
   groundTint,
@@ -144,6 +159,8 @@ import {
   hairline,
   verticalCaptionSize,
   withAlpha,
+  wordCeiling,
+  WORD_FIT_FLOOR_PX,
   words,
   worstRatio,
 } from './composition.js'
@@ -2556,7 +2573,7 @@ describe('composedLayout', () => {
     const alone = composedLayout(stackOf('center'), width, height).zones[0]
     const paired = composedLayout(stackOf('center-left', 'center-right'), width, height).zones
     const thirds = composedLayout(stackOf('center-left', 'center', 'center-right'), width, height).zones
-    const frame = composedSafeArea(width, height)
+    const frame = composedFrame(width, height)
     expect(alone.box.width).toBe(frame.width)
     for (const zone of paired) expect(zone.box.width).toBeLessThan(frame.width / 2 + 1)
     for (const zone of thirds) expect(zone.box.width).toBeLessThan(frame.width / 3 + 1)
@@ -2567,7 +2584,7 @@ describe('composedLayout', () => {
 
   /** The three bands are the same in every scene: a row's anchored edge is the safe edge. */
   it('anchors the top band to the safe top and the bottom band to the safe bottom', () => {
-    const frame = composedSafeArea(width, height)
+    const frame = composedFrame(width, height)
     const { zones } = composedLayout(stackOf('top-center', 'bottom-center'), width, height)
     const top = zones.find((zone) => zone.anchor === 'top-center')
     const bottom = zones.find((zone) => zone.anchor === 'bottom-center')
@@ -2579,13 +2596,65 @@ describe('composedLayout', () => {
   })
 
   /**
+   * And the safe edge is the edge including the DRIFT, which is what it was not.
+   *
+   * `composedMotion` translates the whole stack by `drift × base`, from
+   * `+COMPOSED_BLOCK_DRIFT/2` on the first frame of a scene to the same distance the
+   * other way on its last. The boxes tiled the safe area exactly, so a top-anchored
+   * block crossed the safe top by that distance at the end of every scene and a
+   * bottom-anchored one crossed the safe bottom at the start of it — 8.6 px on a
+   * 1080-line frame, measured on four rendered exports whose ink began 5 to 6 px
+   * above the margin at three quarters of a scene, which is `(0.5 − 0.75) × 0.016 ×
+   * 1080` to the pixel.
+   *
+   * Nothing was cropped by it and that is not the point: the margin is a promise
+   * about somebody else's interface, and on 9:16 the band underneath is the feed's
+   * own caption row rather than overscan. So it is checked at the two frames that
+   * can fail — `life = 0` and `life = 1` — against the promise itself, and the room
+   * is what `composedFrame` gives back.
+   */
+  it('keeps the drift inside the safe area, at both ends of every scene', () => {
+    for (const [ratio, size] of FRAMES) {
+      const safe = composedSafeArea(size.width, size.height)
+      const room = driftRoom(frameBase(size.width, size.height))
+      expect(composedFrame(size.width, size.height), ratio).toEqual({
+        left: safe.left,
+        top: safe.top + room,
+        width: safe.width,
+        height: safe.height - 2 * room,
+      })
+
+      // Every anchor at once, so the top band and the bottom band are both under a
+      // block, and a `full` zone is on the frame as well.
+      const layers = ANCHORS.map((anchor) => ({ ...LONGEST.heading, anchor }))
+      const { zones } = composedLayout({ layers }, size.width, size.height)
+      const entry = { scene: { layers }, durationInFrames: 90, enterFrames: 0 }
+      // The two frames the drift is furthest from zero. `sceneMotion` rather than a
+      // number retyped here: the whole claim is about the value the composition
+      // really translates by.
+      const ends = [0, 89].map((frame) => sceneMotion('composed', entry, frame).drift * frameBase(size.width, size.height))
+      expect(Math.max(...ends.map(Math.abs)), ratio).toBeLessThanOrEqual(room)
+
+      for (const zone of zones) {
+        for (const { block, box } of zone.layers) {
+          for (const shift of ends) {
+            const where = `${ratio} ${block.kind}@${zone.anchor} at ${shift}`
+            expect(box.top + shift, where).toBeGreaterThanOrEqual(safe.top)
+            expect(box.top + box.height + shift, where).toBeLessThanOrEqual(safe.top + safe.height)
+          }
+        }
+      }
+    }
+  })
+
+  /**
    * `full` is the safe area and not the frame. A field that bled to the edge would
    * be a map cropped by overscan and a gallery whose bottom row sits under a
    * phone's caption box — the two failures the safe area exists to prevent,
    * arriving through the one anchor that opts out of it.
    */
   it('gives a field the safe area, and makes two fields share it', () => {
-    const frame = composedSafeArea(width, height)
+    const frame = composedFrame(width, height)
     const one = composedLayout(stackOf('full'), width, height).zones[0]
     expect(one.box).toEqual(frame)
     expect(one.share).toBe(true)
@@ -2613,7 +2682,7 @@ describe('composedLayout', () => {
    * full width of it.
    */
   it('gives a cell beside a field a band of the grid, and a lone field the frame', () => {
-    const frame = composedSafeArea(width, height)
+    const frame = composedFrame(width, height)
     // Without a field: the lone band is the whole height, exactly as before.
     expect(composedLayout(stackOf('center'), width, height).zones[0].box.height).toBe(frame.height)
 
@@ -2648,7 +2717,7 @@ describe('composedLayout', () => {
    * other two thirds empty.
    */
   it('gives a lone band the whole height, and shares it when there is a neighbour', () => {
-    const frame = composedSafeArea(width, height)
+    const frame = composedFrame(width, height)
     expect(composedLayout(stackOf('center'), width, height).zones[0].box.height).toBe(frame.height)
     const pair = composedLayout(stackOf('top-center', 'bottom-center'), width, height).zones
     for (const zone of pair) expect(zone.box.height).toBeLessThan(frame.height / 2 + 1)
@@ -2688,12 +2757,19 @@ describe('composedLayout', () => {
       // carries five tracked capitals, and gets it.
       expect(band('center'), ratio).toBeGreaterThan(band('top-left'))
       expect(band('center'), ratio).toBeGreaterThan(band('bottom-left'))
-      // And every zone ends up reading ONE unit, which is what weighted bands buy:
-      // each of them gets `safeHeight × (its share of what the scene asked for)`,
-      // so they all solve to `safeHeight / (what the scene asked for)`.
-      // `harmoniseUnits` tidies the remainder rather than rescuing the frame.
-      const units = zones.map((zone) => zone.unit)
+      // And every SUBJECT zone ends up reading ONE unit, which is what weighted
+      // bands buy: each of them gets `safeHeight × (its share of what the scene
+      // asked for)`, so they all solve to `safeHeight / (what the scene asked
+      // for)`. `harmoniseUnits` tidies the remainder rather than rescuing the frame.
+      const units = zones.filter((zone) => zone.anchor !== 'top-left').map((zone) => zone.unit)
       expect(Math.max(...units) / Math.min(...units), ratio).toBeLessThan(1.05)
+      // The surtitle is the one zone that reads something else, and that is
+      // `BLOCK_FURNITURE` rather than a band: a kicker is sized by the FORMAT, so
+      // it takes its share of a scene wherever the grid happened to put it. Under
+      // the subjects, never over them.
+      const surtitle = zones.find((zone) => zone.anchor === 'top-left')
+      expect(surtitle.unit, ratio).toBeLessThanOrEqual(Math.min(...units))
+      expect(surtitle.unit, ratio).toBeCloseTo(composedFrame(size.width, size.height).height / SCENE_UNITS, 6)
     }
   })
 
@@ -2722,7 +2798,7 @@ describe('composedLayout', () => {
       // band a cell gets is a third of that area, and it is what the old answer
       // was eight per cent of.
       expect(cell.unit * TYPE_ROLES.caption.step, ratio).toBeLessThan(
-        composedSafeArea(size.width, size.height).height * 0.06,
+        composedFrame(size.width, size.height).height * 0.06,
       )
     }
   })
@@ -2849,7 +2925,17 @@ describe('composedLayout', () => {
             // across 1688 px is 127 px of type with no taller version of it.
             // `shapeCeiling` is where that is worked out; here it shows up as a
             // stack whose height does not answer a larger unit.
-            expect(taller > room || taller === at(zone.unit), `${ratio} ${count} blocks, seed ${seed}`).toBe(true)
+            //
+            // Or it is FURNITURE, for which the claim does not hold and must not: a
+            // lone `kicker` in a whole safe area can spend more and refuses to,
+            // because a surtitle is sized by the format rather than by the room it
+            // was left in. `furnitureCeiling` is that bound, and a stack holding one
+            // subject is not subject to it.
+            const furniture = Number.isFinite(
+              furnitureCeiling(zone.layers.map((layer) => layer.block), composedFrame(size.width, size.height).height),
+            )
+            expect(furniture || taller > room || taller === at(zone.unit), `${ratio} ${count} blocks, seed ${seed}`)
+              .toBe(true)
           }
         }
       }
@@ -3061,14 +3147,33 @@ describe('the type scale', () => {
     expect(meanAdvanceEm('...')).toBeGreaterThanOrEqual(MEAN_GLYPH_EM)
   })
 
-  /** Four runs, four advances — and only the two middle ones are new. */
-  it('reads a monospace run at the mono advance and a breakable one at the average', () => {
+  /**
+   * Every run is measured on its OWN glyphs, and a sentence still answers the
+   * sentence average because the estimate is floored at it.
+   *
+   * A run that WRAPS used to be the exception — a flat `MEAN_GLYPH_EM`, on the
+   * argument that a sentence is what that average is of. The exception cost a
+   * rendered frame: `NEUF SEIZIEMES` in display capitals really sets at 0.73 em a
+   * glyph, so a line the estimate believed held nine characters held seven, and
+   * `wordCeiling` computed on that belief would have been a bound that bound
+   * nothing. Removing it changes ordinary prose by exactly zero, which the last
+   * two assertions are.
+   */
+  it('measures every run on its own glyphs, and never under the sentence average', () => {
     expect(runAdvanceEm({ mono: true, nowrap: true, text: '91%' })).toBe(MEAN_MONO_EM)
-    expect(runAdvanceEm({ text: '91%' })).toBe(MEAN_GLYPH_EM)
     expect(runAdvanceEm({ nowrap: true, text: '91%' })).toBe(meanAdvanceEm('91%'))
+    // A wrapping run of capitals is the case the exception got wrong, and it is
+    // the defect that was photographed.
+    expect(runAdvanceEm({ text: 'NEUF SEIZIEMES' })).toBeGreaterThan(MEAN_GLYPH_EM)
+    expect(runAdvanceEm({ text: '91%' })).toBe(meanAdvanceEm('91%'))
     // The case the composition chose, not the one the document typed.
     expect(runAdvanceEm({ caps: true, text: 'trafic' })).toBe(meanAdvanceEm('TRAFIC'))
     expect(runAdvanceEm({ caps: true, text: 'trafic' })).toBeGreaterThan(runAdvanceEm({ text: 'trafic' }))
+    // And an ordinary line of prose is where it always was: the floor is what
+    // makes this a correction of the runs the average was wrong about rather than
+    // a new scale for the whole catalogue.
+    expect(runAdvanceEm({ text: 'Une ligne qui porte le film' })).toBe(MEAN_GLYPH_EM)
+    expect(runAdvanceEm({ text: '' })).toBe(MEAN_GLYPH_EM)
   })
 
   /**
@@ -3428,10 +3533,16 @@ describe('a role is a notion of the scene, not of the stack it was solved in', (
       // that merely happen to be ordered. The bound is on the unit, so the column
       // that had to give something up reads the other's unit and draws its own
       // step of it.
-      expect(kicker.size / heading.size, `${ratio}: the rank of a surtitle`).toBeCloseTo(
-        TYPE_ROLES.caption.step / TYPE_ROLES.display.step,
-        2,
-      )
+      //
+      // At MOST that ratio, to within the pixel `typeSize` rounds to — and not
+      // exactly it, which is `wordCeiling` arriving rather than a slackened claim:
+      // a run whose own longest word has stopped it draws UNDER its step of the
+      // shared unit. That direction can never invert anything — an inferior role
+      // smaller than its rank is the rank holding — and on a 9:16 cell `DENSE`
+      // lands a fiftieth under it.
+      const rank = TYPE_ROLES.caption.step / TYPE_ROLES.display.step
+      expect(kicker.size, `${ratio}: the rank of a surtitle`).toBeLessThanOrEqual(heading.size * rank + 1)
+      expect(kicker.size / heading.size, `${ratio}: the rank of a surtitle`).toBeCloseTo(rank, 1)
     }
   })
 
@@ -3492,6 +3603,598 @@ describe('a role is a notion of the scene, not of the stack it was solved in', (
     // A stack that already composes under the bar keeps its own answer: its box is
     // a promise about somebody else's interface and the bar is not.
     expect(harmoniseUnits([{ unit: 4, runs: [caption] }, { unit: 20, runs: [body] }])[0]).toBe(4)
+  })
+})
+
+/**
+ * A WORD IS NOT CUT IN HALF.
+ *
+ * The defect, photographed: `NEUF SEIZIEMES` in display type on a 9:16 frame,
+ * rendered `NEUF S` / `EIZIEME` / `S`. `textLines` packs characters, so it found a
+ * size at which fourteen characters fit two lines; `SEIZIEMES` does not fit one of
+ * them, and `word-break: break-word` did the only thing a browser can do with a
+ * word longer than its line. It is the one failure in this feature a viewer reads
+ * as broken software rather than as a small heading, which is why it is worth a
+ * sweep of its own rather than a line in the fill sweep above.
+ *
+ * Every claim below is asked of the DRAWN size — the stack's unit capped by the
+ * shape's own ceiling, which is what `sceneRuns`, `blockExtent` and every block
+ * spend — and of the measure the layout really handed the block.
+ */
+describe('a wrapping run keeps its longest word whole', () => {
+  /** The longest word of a run, in the case the composition will set it in. */
+  const longestWord = (run) => {
+    const text = run?.caps ? String(run?.text ?? '').toUpperCase() : String(run?.text ?? '')
+    return words(text).reduce((most, word) => (word.length > most.length ? word : most), '')
+  }
+
+  /**
+   * How wide that word runs at a size — this file's own estimate, from the
+   * primitives, so a bound that agreed with itself by construction would not pass.
+   */
+  const wordWidth = (run, size) => {
+    const word = longestWord(run)
+    const advance = (run?.mono ? MEAN_MONO_EM : meanAdvanceEm(word)) + Math.max(0, Number(run?.tracking) || 0)
+    return word.length * advance * LINE_SAFETY * size
+  }
+
+  /** The size at which that word would exactly fill the measure. Under the floor, nothing is bound. */
+  const fitSize = (run, width) => {
+    const at = wordWidth(run, 1)
+    return at > 0 ? width / at : Infinity
+  }
+
+  /**
+   * The word is whole, stated as the two inequalities the arithmetic really
+   * guarantees.
+   *
+   * The bound is on the UNIT and `typeSize` rounds, so a drawn size is up to half
+   * a pixel above `unit × step` — which on a `kicker`, whose 39 capitals carry a
+   * fifth of an em of tracking each, is nineteen pixels of line. `wordCeiling`
+   * takes no allowance for that on purpose: half a pixel is absolute and every
+   * other term is proportional to the measure, so subtracting it is what stops a
+   * doubled box from doubling its type. The allowance is `LINE_SAFETY`'s six per
+   * cent instead, and this is where that is checked rather than claimed: the word
+   * overruns the bound by at most the rounding, and it still fits the measure in
+   * the face's own metrics.
+   */
+  const expectWhole = (run, size, width, where) => {
+    expect(wordWidth(run, size), `${where}: past the bound by more than the rounding`).toBeLessThanOrEqual(
+      width + wordWidth(run, 0.5),
+    )
+    expect(wordWidth(run, size) / LINE_SAFETY, `${where}: past the measure itself`).toBeLessThanOrEqual(width)
+  }
+
+  /** Every wrapping run a scene draws, with the measure and the size it draws at. */
+  const drawnRuns = (layers, width, height) => {
+    const out = []
+    for (const zone of composedLayout({ layers }, width, height).zones) {
+      for (const { block, box, unit } of zone.layers) {
+        if (!(box.width > 0 && box.height > 0)) continue
+        const shape = blockShape(block)
+        const at = Math.min(unit, shapeCeiling(shape, box.width))
+        for (const run of shape.runs) {
+          if (run.nowrap || longestWord(run).length === 0) continue
+          out.push({ run, width: box.width, size: typeSize(run.role, at), where: `${zone.anchor}/${block.kind}` })
+        }
+      }
+    }
+    return out
+  }
+
+  /**
+   * The ordinary corpus first: every kind that wraps, at both ends of what the
+   * schema accepts, in all three ratios and everywhere the grid can put it.
+   */
+  it('fits it on one line of the measure, over the whole catalogue in every ratio', () => {
+    let checked = 0
+    for (const [ratio, size] of FRAMES) {
+      for (const table of [POOREST, LONGEST]) {
+        for (let seed = 0; seed < KINDS.length; seed += 1) {
+          // One block per zone and pairs sharing one, because a stack's measure is
+          // its zone's and a zone's depends on how many columns are used.
+          for (const [shape, anchors] of Object.entries(arrangements(4, seed))) {
+            const layers = anchors.map((anchor, i) => ({ ...table[KINDS[(seed + i * 7) % KINDS.length]], anchor }))
+            for (const drawn of drawnRuns(layers, size.width, size.height)) {
+              // Under the floor the bound does not apply — see the degenerate sweep
+              // below, which is the only place this corpus can reach it.
+              if (fitSize(drawn.run, drawn.width) < WORD_FIT_FLOOR_PX) continue
+              expectWhole(drawn.run, drawn.size, drawn.width, `${ratio} ${shape}, seed ${seed}: ${drawn.where}`)
+              checked += 1
+            }
+          }
+        }
+      }
+    }
+    // A corpus that quietly stopped carrying wrapping runs would pass this for
+    // having iterated less.
+    expect(checked).toBeGreaterThan(500)
+  })
+
+  /**
+   * THE CASE THE FLOOR IS FOR: the schema's longest legal string, as ONE word.
+   *
+   * A URL, a German compound, an identifier — or seventy characters of heading
+   * with no space in them, which is what `BLOCK_LIMITS` lets a document write. The
+   * answer cannot be a unit tending to zero, so `wordCeiling` stops at
+   * `WORD_FIT_FLOOR_PX` and the run is then not bounded AT ALL: the block goes on
+   * filling its measure at the size the box allowed and CSS breaks the word, which
+   * is why `blocks.test.js` still requires `word-break` of every wrapping kind.
+   *
+   * The two halves are checked as one decision, and the second one is where the
+   * FILL guarantee had to be reformulated rather than dropped. A block bounded by
+   * its word fills its MEASURE exactly — that is what the bound says — and what it
+   * leaves is height. On the kinds whose row claims both axes that is a box less
+   * full than `BOX_FILL_FLOOR`, and it is an honest consequence rather than a
+   * defect: the alternative on offer is the word cut in half.
+   */
+  it('stops at the floor for a word no legible size can hold, and does not shrink the film for it', () => {
+    // A real compound rather than a repeated letter: the advance of a word is what
+    // decides this, and 24 characters of one glyph is not a word anybody writes.
+    const compound = (n) => 'Rechtsschutzversicherung'.repeat(Math.ceil(n / 24)).slice(0, n)
+    // The longest legal block of a kind with every string rewritten as ONE word of
+    // the same length. Hashes are left alone: an `imageId` is an address.
+    const unbroken = (block) =>
+      Object.fromEntries(
+        Object.entries(block).map(([key, value]) => [
+          key,
+          typeof value === 'string' && key !== 'kind' && !/^[0-9a-f]{64}$/.test(value) ? compound(value.length) : value,
+        ]),
+      )
+    let floored = 0
+    let bounded = 0
+    let measured = 0
+    for (const [name, box] of SHAPES) {
+      for (const kind of KINDS) {
+        const block = unbroken(LONGEST[kind])
+        const shape = blockShape(block)
+        const wrapping = shape.runs.filter((run) => !run.nowrap && longestWord(run).length > 0)
+        if (wrapping.length === 0) continue
+        // Alone in its box, which is what isolates the bound: a scene would mix in
+        // `harmoniseUnits` and the answer would be another zone's.
+        const unit = solveTypeUnit([shape], box.width, box.height)
+        const ceiling = shapeCeiling(shape, box.width)
+        for (const run of wrapping) {
+          const fits = fitSize(run, box.width)
+          const size = typeSize(run.role, Math.min(unit, ceiling))
+          const where = `${name} ${kind} ${run.role}`
+          if (fits < WORD_FIT_FLOOR_PX) {
+            // The decided degradation, stated exactly: this run is not bounded at
+            // all, so the block goes on drawing what its box allowed and CSS is
+            // what breaks the word. Nothing was paid for a word nothing could save.
+            expect(wordCeiling([run], box.width), where).toBe(Infinity)
+            floored += 1
+            continue
+          }
+          expectWhole(run, size, box.width, where)
+          bounded += 1
+          // And when this run's own word is what stopped the block — its ceiling is
+          // the shape's, and the box would have allowed more — the measure is FULL.
+          // That is the reformulated fill guarantee: a bounded run fills its width
+          // by construction, and the height is what the word left over.
+          if (wordCeiling([run], box.width) === ceiling && unit >= ceiling) {
+            expect(wordWidth(run, size), `${where}: a bounded word short of its measure`).toBeGreaterThan(
+              box.width - wordWidth(run, 1),
+            )
+            measured += 1
+          }
+        }
+      }
+    }
+    // All three branches are really reached: a corpus where no word ever crossed
+    // the floor would make the first expectation vacuous, and one where every word
+    // did would make the other two.
+    expect(floored).toBeGreaterThan(0)
+    expect(bounded).toBeGreaterThan(0)
+    expect(measured).toBeGreaterThan(0)
+  })
+
+  /**
+   * And the bound itself, from the outside: what it answers, and what it refuses
+   * to answer.
+   */
+  it('bounds a run by its own longest word, and never by a run that cannot break', () => {
+    const box = 1000
+    const run = { role: 'body', text: 'un mot interminablement long' }
+    const ceiling = wordCeiling([run], box)
+    expect(ceiling).toBeLessThan(Infinity)
+    // Exactly the size at which the longest word fills the measure, over its step.
+    expect(ceiling * TYPE_ROLES.body.step).toBeCloseTo(fitSize(run, box), 6)
+    // Twice the measure, twice the ceiling: every term is proportional to the
+    // width, which is what a half-pixel allowance for `typeSize`'s rounding would
+    // have destroyed.
+    expect(wordCeiling([run], box * 2) / ceiling).toBeCloseTo(2, 6)
+    // A run that cannot break is `cappedByWidth`'s, and by its WHOLE length, which
+    // is stricter than its longest word by definition.
+    expect(wordCeiling([{ ...run, nowrap: true }], box)).toBe(Infinity)
+    // Nothing to bound, and nothing that throws inside a browser.
+    expect(wordCeiling([{ role: 'body', text: '  ' }], box)).toBe(Infinity)
+    expect(wordCeiling(undefined, box)).toBe(Infinity)
+    expect(wordCeiling([run], 0)).toBe(Infinity)
+  })
+})
+
+/**
+ * A SUBJECT TAKES THE SCENE, A PIECE OF FURNITURE TAKES ITS PART.
+ *
+ * The defect, on a rendered frame: a `lowerThird` alone in a scene received the
+ * whole safe area — because a lone block is the scene, which was paid for by an
+ * entire pass against the small element in a large void — and a band with a name in
+ * it became a card hiding three fifths of the photograph behind it.
+ *
+ * What is checked here is that the rule moved for furniture and for nothing else.
+ * A subject alone still reads exactly the unit its box allows; a piece of furniture
+ * alone reads the scene's own; and a stack that holds one subject is not bounded at
+ * all, because the unit belongs to the stack and lowering it for a surtitle would
+ * shrink the headline under it.
+ */
+describe('un sujet prend la scène, le mobilier prend sa part', () => {
+  const FURNITURE_SHARE = (kind, frame) =>
+    blockHeight(LONGEST[kind], frame.width, frame.height / SCENE_UNITS)
+
+  /**
+   * The density is the field tier's own number, not a second one.
+   *
+   * `BLOCK_APPETITE` argues 22 units across a safe area — "a frame that carries
+   * twenty lines of running text is a frame, and one that carries ten is a poster"
+   * — and `furnitureCeiling` divides by it. Two densities that drift are a `map`
+   * and a `lowerThird` disagreeing about how big a frame is, which is a
+   * disagreement no picture would show.
+   */
+  it('measures a scene in the units a field that IS the scene is worth', () => {
+    for (const kind of ['map', 'gallery', 'imageFrame', 'solidScene']) {
+      expect(BLOCK_APPETITE[kind].fixed, kind).toBe(SCENE_UNITS)
+    }
+  })
+
+  /** The table names kinds that exist, once each, and nothing else does. */
+  it('classifies kinds the catalogue actually has', () => {
+    expect(new Set(BLOCK_FURNITURE).size).toBe(BLOCK_FURNITURE.length)
+    for (const kind of BLOCK_FURNITURE) expect(KINDS, kind).toContain(kind)
+    for (const kind of KINDS) expect(isFurniture(kind), kind).toBe(BLOCK_FURNITURE.includes(kind))
+    // A name off a document is matched, never looked up: `isFurniture` answering
+    // for the prototype chain would make `kind: "constructor"` a piece of furniture.
+    for (const name of ['constructor', '__proto__', 'toString', '', undefined, 42]) {
+      expect(isFurniture(name), String(name)).toBe(false)
+    }
+  })
+
+  /**
+   * The guarantee the previous pass bought, unspent: a subject alone in a scene
+   * reads the unit its box allows, and the fields among them fill the frame.
+   */
+  it('gives a subject alone the whole scene, in every ratio', () => {
+    for (const [ratio, size] of FRAMES) {
+      const frame = composedFrame(size.width, size.height)
+      for (const kind of KINDS.filter((name) => !isFurniture(name))) {
+        const [zone] = composedLayout({ layers: [{ ...LONGEST[kind], anchor: 'center' }] }, size.width, size.height).zones
+        const where = `${ratio} ${kind}`
+        expect(zone.box.height, where).toBe(frame.height)
+        expect(zone.box.width, where).toBe(frame.width)
+        // Not bounded by anything but its own box — the same answer `solveTypeUnit`
+        // gives for that box, to the last bit.
+        expect(zone.unit, where).toBeCloseTo(solveTypeUnit([blockShape(LONGEST[kind])], frame.width, frame.height), 9)
+        // And a kind entitled to fill both axes really does: a field alone in a
+        // scene is the picture, not an element in it.
+        if (BLOCK_APPETITE[kind].fills === 'both') {
+          expect(zone.layers[0].box.height / frame.height, where).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+        }
+      }
+    }
+  })
+
+  /**
+   * And the seven that are sized by the format take their share instead — the
+   * share `BLOCK_APPETITE` says they are worth, out of a scene worth
+   * `SCENE_UNITS`.
+   */
+  it('holds a lone piece of furniture to what it is worth', () => {
+    for (const [ratio, size] of FRAMES) {
+      const frame = composedFrame(size.width, size.height)
+      for (const kind of BLOCK_FURNITURE) {
+        for (const fixture of [POOREST, LONGEST]) {
+          const [zone] = composedLayout({ layers: [{ ...fixture[kind], anchor: 'center' }] }, size.width, size.height)
+            .zones
+          const where = `${ratio} ${kind}`
+          expect(zone.unit, where).toBeLessThanOrEqual(frame.height / SCENE_UNITS + 1e-9)
+          // Its box is what it draws at that unit — the bound is on the unit, so
+          // the block still FILLS the box it ends up with.
+          expect(zone.layers[0].box.height, where).toBeCloseTo(blockHeight(fixture[kind], zone.box.width, zone.unit), -0.5)
+          // The claim in the picture: a piece of furniture never becomes the scene.
+          // The worst of the fourteen is the longest legal `notification` on a
+          // portrait frame — a forty-character title over a ninety-character body,
+          // both wrapping on a 907 px column — at a little over a third. That is a
+          // card the document asked for; what it is not is the frame.
+          expect(zone.layers[0].box.height / frame.height, where).toBeLessThan(0.4)
+        }
+      }
+      // The export that made the rule, as the picture: a band with a name in it
+      // leaves the photograph behind it visible. It was 100% of the frame. An
+      // ordinary one — a name over a role — is a sixth of the safe area, which is
+      // the broadcast lower third anybody picturing those words has in mind.
+      const band = composedLayout({ layers: [{ ...LONGEST.lowerThird, anchor: 'center' }] }, size.width, size.height)
+      const ordinary = composedLayout(
+        { layers: [{ kind: 'lowerThird', title: 'Ana Ferreira', subtitle: 'Directrice', anchor: 'center' }] },
+        size.width,
+        size.height,
+      )
+      expect(ordinary.zones[0].layers[0].box.height / frame.height, ratio).toBeLessThan(0.2)
+      expect(band.zones[0].layers[0].box.height, ratio).toBeCloseTo(FURNITURE_SHARE('lowerThird', frame), -0.5)
+    }
+  })
+
+  /**
+   * ALL of the stack, and never one block of it.
+   *
+   * The unit belongs to the stack, so a bound applied to a `kicker` above a
+   * `heading` would set the headline at a surtitle's scale. A stack holding one
+   * subject is a stack that subject is entitled to size, and a mixed zone was
+   * already right for a different reason: `stackIn` divides it by appetite.
+   */
+  it('never lets a piece of furniture bound a stack that holds a subject', () => {
+    for (const [ratio, size] of FRAMES) {
+      const frame = composedFrame(size.width, size.height)
+      const layers = [
+        { ...POOREST.kicker, anchor: 'center' },
+        { ...LONGEST.heading, anchor: 'center' },
+      ]
+      const [zone] = composedLayout({ layers }, size.width, size.height).zones
+      const shapes = layers.map((block) => blockShape(block))
+      const { gap } = composedLayout({ layers }, size.width, size.height)
+      expect(zone.unit, ratio).toBeCloseTo(solveTypeUnit(shapes, frame.width, frame.height, gap), 9)
+      expect(zone.unit, ratio).toBeGreaterThan(frame.height / SCENE_UNITS)
+      // The surtitle is still a surtitle inside it: one unit, two steps.
+      expect(zone.layers[0].box.height, ratio).toBeLessThan(zone.layers[1].box.height)
+    }
+  })
+
+  /**
+   * And a stack of furniture is not evidence about the SCALE of a scene.
+   *
+   * `harmoniseUnits` bounds a stack by any stack carrying a role at least as high,
+   * which assumes both were sized by their boxes — and `furnitureCeiling` breaks
+   * that assumption on purpose. A `barChart` anchored `full` beside a `kicker` was
+   * pulled from 56 px to 43 and drew three quarters of a safe area it had all of:
+   * the small element in a large void, arriving through the one door that exists to
+   * keep surtitles small. The ORDER bound still applies, because an inversion is
+   * what an eye reads whatever made the band small; the SCALE bound skips furniture.
+   */
+  it('never lets a piece of furniture pull the scale of the scene down', () => {
+    const chart = { kind: 'barChart', values: [40, 70, 55], labels: ['Lun', 'Mar', 'Mer'], anchor: 'full' }
+    for (const [ratio, size] of FRAMES) {
+      const frame = composedFrame(size.width, size.height)
+      const alone = composedLayout({ layers: [chart] }, size.width, size.height).zones[0]
+      const { zones } = composedLayout(
+        { layers: [chart, { ...POOREST.kicker, anchor: 'bottom-center' }] },
+        size.width,
+        size.height,
+      )
+      const field = zones.find((zone) => zone.anchor === 'full')
+      const cell = zones.find((zone) => zone.anchor === 'bottom-center')
+      expect(field.unit, ratio).toBeCloseTo(alone.unit, 9)
+      // Which is what it costs: the chart still fills the frame it was given.
+      expect(field.layers[0].box.height, ratio).toBe(frame.height)
+      // And the surtitle is still a surtitle — bounded by the field, then by its
+      // own share of the scene, which is the smaller of the two.
+      expect(cell.unit, ratio).toBeLessThan(field.unit)
+      expect(cell.unit, ratio).toBeLessThanOrEqual(frame.height / SCENE_UNITS + 1e-9)
+    }
+  })
+
+  /**
+   * A piece of furniture anchored `full` is not a field.
+   *
+   * The field clause in `harmoniseUnits` says "the field sets the scale of the
+   * scene", and a block sized by the format sets no scale: a `lowerThird` anchored
+   * `full` capping every heading in the frame to a band's own unit is that sentence
+   * read backwards. It is still held to its share — a button that fills the frame
+   * is not a button — and it still claims the bands, because it is still painted
+   * under the nine cells.
+   */
+  it('does not let furniture anchored `full` set the scale of the scene', () => {
+    const { width, height } = DIMENSIONS['16:9']
+    const frame = composedFrame(width, height)
+    const layers = [
+      { ...LONGEST.lowerThird, anchor: 'full' },
+      { ...LONGEST.heading, anchor: 'center' },
+    ]
+    const { zones, gap } = composedLayout({ layers }, width, height)
+    const band = zones.find((zone) => zone.anchor === 'full')
+    const cell = zones.find((zone) => zone.anchor === 'center')
+    expect(band.unit).toBeLessThanOrEqual(frame.height / SCENE_UNITS + 1e-9)
+    // The heading reads what its own box allows. Were the band a field, the field
+    // clause would have capped it at the band's unit — which is the clause this
+    // scene is here to keep away from furniture.
+    expect(cell.unit).toBeCloseTo(solveTypeUnit([blockShape(LONGEST.heading)], cell.box.width, cell.box.height, gap), 9)
+    // And the bands are still the grid's own three, because the band is painted
+    // across all of them whatever its size.
+    expect(cell.box.height).toBeLessThan(frame.height / 2)
+  })
+})
+
+/**
+ * A FIELD IS NOT A UNIFORM SURFACE, AND THE ARITHMETIC IS WHAT KEEPS A CELL OFF IT.
+ *
+ * The defect, on a rendered frame: a `kicker` anchored `bottom-center` over a
+ * `barChart` anchored `full` sat exactly on the chart's row of labels. Both were at
+ * the right size — the field ceiling and the band split had done their work — so
+ * the conflict was positional and nothing about the scale could have seen it.
+ *
+ * The claim below is the one the repair has to earn, and it is checked against the
+ * BLOCKS' OWN layout functions rather than against the reservation: `barChartLayout`
+ * and the other two are what really decide where a caption lands, so a test that
+ * asked `composition.js` for both halves would agree with itself.
+ */
+describe('un champ plein cadre déclare où il dessine', () => {
+  const { width, height } = DIMENSIONS['16:9']
+
+  /**
+   * Where a block really sets type at the foot of its box, in frame coordinates —
+   * `null` for a block that sets none there.
+   *
+   * Each of the three is read off the same function the component calls, and the
+   * component's own JSX is what says the run is last in a column: a `figcaption`
+   * after the picture, a row of labels at `height - label.height`.
+   */
+  const textTop = (layer, base, theme) => {
+    const { block, box, unit } = layer
+    if (block.kind === 'barChart') {
+      const drawn = barChartLayout(block, box, { base, unit, radiusPx: theme.radiusPx })
+      return drawn.label.shown ? box.top + drawn.height - drawn.label.height : null
+    }
+    if (block.kind === 'lineChart') {
+      const drawn = lineChartLayout(block, box, { base, unit })
+      return drawn.label.shown ? box.top + drawn.height - drawn.label.height : null
+    }
+    if (block.kind === 'imageFrame') {
+      const drawn = imageFrameBox(block, box, unit, base, theme.radiusPx)
+      return drawn.caption.band > 0 ? box.top + drawn.height - drawn.margin - drawn.caption.height : null
+    }
+    return null
+  }
+
+  /**
+   * A block can only promise where its foot is if it FILLS its box on that axis.
+   *
+   * `clock` is why the condition is written down: a dial is round, so it fills the
+   * minor axis and floats in the middle of the other — on a 9:16 frame a full-frame
+   * clock is 907 px of dial in 1305 px of safe height and its label sits 175 px
+   * above the bottom of its own box. A band reserved at the edge would be a band
+   * reserved where nothing is drawn.
+   */
+  it('only lets a block that fills its box declare a foot', () => {
+    for (const kind of FIELD_FOOT) {
+      expect(KINDS, kind).toContain(kind)
+      expect(BLOCK_APPETITE[kind].fills, kind).toBe('both')
+      expect(isFurniture(kind), kind).toBe(false)
+      // And it really does set type: a declaration by a kind with no runs would
+      // reserve a band for nothing.
+      expect(blockShape(LONGEST[kind]).runs.length, kind).toBeGreaterThan(0)
+    }
+    expect(FIELD_FOOT, 'a dial floats in its box').not.toContain('clock')
+  })
+
+  /**
+   * The guarantee, in one sentence: no cell box enters the band the field sets its
+   * caption in. Over the three ratios, with a cell in every band that could reach
+   * it.
+   */
+  it('never lets a cell land on the text a field draws', () => {
+    const theme = resolveTheme(null)
+    // A caption an ordinary document would write, and the longest one the schema
+    // accepts. The second is why the loop tolerates a field with nothing drawn:
+    // eight twelve-character labels across a portrait column are narrower than
+    // `LABEL_FLOOR`, so `labelBand` drops the whole row and the band reserved for it
+    // holds nothing — the over-reservation `footBand` names, harmless and worth
+    // seeing here rather than being asserted away.
+    const ORDINARY = {
+      barChart: { kind: 'barChart', values: [40, 70, 55], labels: ['Lun', 'Mar', 'Mer'] },
+      lineChart: { kind: 'lineChart', values: [10, 40, 30, 60], label: 'Trafic hebdomadaire' },
+      imageFrame: { kind: 'imageFrame', imageId: 'a'.repeat(64), caption: 'Le quai, à six heures' },
+    }
+    let drawn = 0
+    for (const [ratio, size] of FRAMES) {
+      for (const kind of FIELD_FOOT) {
+        for (const [name, fixture] of [['ordinaire', ORDINARY[kind]], ['la plus longue', LONGEST[kind]]]) {
+          const layers = [
+            { ...fixture, anchor: 'full' },
+            { ...POOREST.kicker, anchor: 'bottom-center' },
+            { ...POOREST.heading, anchor: 'bottom-left' },
+            { ...POOREST.dateStamp, anchor: 'center' },
+          ]
+          const { zones } = composedLayout({ layers }, size.width, size.height)
+          const base = frameBase(size.width, size.height)
+          const field = zones.find((zone) => zone.anchor === 'full')
+          const top = textTop(field.layers[0], base, theme)
+          const where = `${ratio} ${kind} ${name}`
+          // The reservation is what does it, and it is published so that an absence
+          // can be checked against the thing that was reserved.
+          expect(field.foot, where).toBeGreaterThan(0)
+          expect(field.foot, where).toBeLessThanOrEqual(
+            Math.floor(composedFrame(size.width, size.height).height * FIELD_FOOT_CEILING),
+          )
+          if (top === null) continue
+          drawn += 1
+          for (const zone of zones.filter((entry) => entry.anchor !== 'full')) {
+            expect(zone.box.top + zone.box.height, `${where} → ${zone.anchor}`).toBeLessThanOrEqual(top)
+            for (const layer of zone.layers) {
+              expect(layer.box.top + layer.box.height, `${where} → ${zone.anchor} block`).toBeLessThanOrEqual(top)
+            }
+          }
+        }
+      }
+    }
+    // Nine of the eighteen would make this vacuous: the ordinary caption is drawn in
+    // all three ratios by all three kinds.
+    expect(drawn).toBeGreaterThanOrEqual(9)
+  })
+
+  /**
+   * A field is pinned to the edge it declared, and that is what makes the
+   * subtraction exact rather than nearly exact.
+   *
+   * Centred, a field whose unit `harmoniseUnits` lowered would draw its caption
+   * ABOVE the band the cells were kept out of — the reservation would have moved
+   * the defect instead of removing it. A field that declares nothing keeps the
+   * symmetric leftover it has always had, which is the counter that shipped in the
+   * upper two thirds of a frame.
+   */
+  it('pins a field that declared a foot to the edge it declared', () => {
+    const declared = composedLayout({ layers: [{ ...LONGEST.barChart, anchor: 'full' }] }, width, height).zones[0]
+    expect(declared.justify).toBe('flex-end')
+    expect(declared.box).toEqual(composedFrame(width, height))
+    const silent = composedLayout({ layers: [{ ...LONGEST.gallery, anchor: 'full' }] }, width, height).zones[0]
+    expect(silent.justify).toBe('center')
+  })
+
+  /**
+   * THE CASE THE REPAIR MUST NOT BREAK: a field with no text forbids nothing.
+   *
+   * A field of particles, a solid, a gallery, a chart whose document named no
+   * labels — the poorest document the schema accepts — lays out exactly as it did
+   * before the declaration existed. Checked as an equality against a field that
+   * cannot carry text at all, so it is the layout that is compared and not a
+   * number this file chose.
+   */
+  it('reserves nothing for a field that carries no text', () => {
+    const cells = [
+      { ...POOREST.kicker, anchor: 'bottom-center' },
+      { ...POOREST.heading, anchor: 'top-center' },
+    ]
+    const bare = composedLayout({ layers: [{ ...POOREST.equalizer, anchor: 'full' }, ...cells] }, width, height)
+    for (const silent of [
+      { ...POOREST.barChart, anchor: 'full' },
+      { ...POOREST.lineChart, anchor: 'full' },
+      { ...POOREST.imageFrame, anchor: 'full' },
+      { ...POOREST.gallery, anchor: 'full' },
+      { ...POOREST.solidScene, anchor: 'full' },
+      { ...LONGEST.map, anchor: 'full' },
+    ]) {
+      const { zones } = composedLayout({ layers: [silent, ...cells] }, width, height)
+      const where = String(silent.kind)
+      const field = zones.find((zone) => zone.anchor === 'full')
+      expect(field.foot, where).toBe(0)
+      for (const anchor of ['bottom-center', 'top-center']) {
+        const mine = zones.find((zone) => zone.anchor === anchor)
+        const theirs = bare.zones.find((zone) => zone.anchor === anchor)
+        expect(mine.box, `${where} → ${anchor}`).toEqual(theirs.box)
+      }
+      // And the bottom band still ends on the safe edge, which is the promise a
+      // reservation is the only thing allowed to take back.
+      const frame = composedFrame(width, height)
+      const bottom = zones.find((zone) => zone.anchor === 'bottom-center')
+      expect(bottom.box.top + bottom.box.height, where).toBe(frame.top + frame.height)
+    }
+  })
+
+  /** `footBand` answers 0 rather than throwing, for everything that is not one. */
+  it('answers for a block that declares nothing', () => {
+    expect(footBand({ kind: 'gallery' }, 900, 40)).toBe(0)
+    expect(footBand({ kind: 'kicker', text: 'A' }, 900, 40)).toBe(0)
+    expect(footBand({ kind: 'constructor' }, 900, 40)).toBe(0)
+    expect(footBand(undefined, 900, 40)).toBe(0)
+    expect(footBand({ kind: 'barChart', values: [1], labels: null }, 900, 40)).toBe(0)
+    expect(footBand({ kind: 'barChart', values: [1], labels: ['Lun'] }, 900, 40)).toBeGreaterThan(0)
   })
 })
 

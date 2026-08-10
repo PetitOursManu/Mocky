@@ -149,6 +149,11 @@ export const Quote = ({ block, palette, theme, box, unit, base, progress, life }
             height: rule.hair,
             backgroundColor: withAlpha(palette.display.color, RULE_QUIET_ALPHA),
             transform: `scaleX(${ruleExtent(progress, life, QUOTE_RULE_REST)})`,
+            // `left`, deliberately, and the one rule in the family that keeps it:
+            // this one grows out of the quotation MARK beside it rather than across
+            // an empty measure, so an origin taken from the zone's alignment would
+            // detach it from the glyph it is attached to and leave a gap. The other
+            // three read `--mocky-rule-origin`; see `ComposedSceneVideo`.
             transformOrigin: 'left center',
           }}
         />

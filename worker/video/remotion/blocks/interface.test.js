@@ -908,12 +908,15 @@ describe('a card never sets a word wider than its own measure', () => {
    * only when it may break inside a word. `word-break: break-word` — which every
    * block in this directory sets — puts an over-long word on a line of its own
    * FIRST and breaks it only if it still does not fit, so a run the estimate put
-   * on two lines arrives on three. A zone can spend that line on its slack; a
-   * card has padding, a fixed height and `overflow: hidden`, so it cannot.
+   * on two lines arrives on three.
    *
-   * The bound is checked at the ROOM the card leaves itself, which is what makes
-   * this a card's rule rather than the layout's: the measure `composedLayout`
-   * divided is the whole box, and the padding is spent after it.
+   * The bound itself is the house's now: `wordCeiling` in `composition.js` gives
+   * it to every wrapping run in the film. What is still a CARD's question is the
+   * width it is asked about — `composedLayout` divides the whole box, a card
+   * spends part of that on its own padding, and a word that fits the box by three
+   * pixels does not fit the card. A zone can spend an extra line on its slack; a
+   * card has a fixed height and `overflow: hidden`, so it cannot. So this is
+   * checked at the ROOM the card leaves itself, which is `fitUnit`'s own argument.
    */
   const longWord = { kind: 'lowerThird', title: 'Sur une photographie', subtitle: 'le texte reste lisible', side: 'left' }
 
@@ -930,9 +933,19 @@ describe('a card never sets a word wider than its own measure', () => {
           [longWord.title, band.title, 'title'],
           [longWord.subtitle, band.subtitle, 'caption'],
         ]) {
-          const longest = words(text).reduce((most, word) => Math.max(most, word.length), 0)
-          const drawn = longest * runAdvanceEm({ role }) * LINE_SAFETY * size
-          expect(drawn, `${ratio} ${box.width}x${box.height} ${role}`).toBeLessThanOrEqual(room)
+          // Measured on the WORD's own glyphs, which is what `wordCeiling` bounds:
+          // `photographie` is lowercase and runs a hundredth of an em wider than
+          // the sentence average, and a check made at the average is a check that
+          // passes on a line the frame cannot hold.
+          const longest = words(text).reduce((most, word) => (word.length > most.length ? word : most), '')
+          const per = longest.length * runAdvanceEm({ role, text: longest }) * LINE_SAFETY
+          // Half a pixel of type, because `typeSize` rounds and `wordCeiling`
+          // deliberately takes no absolute allowance for it — an absolute term is
+          // what would stop a doubled measure from doubling a bound. What pays for
+          // it is `LINE_SAFETY`'s six per cent, and the second assertion is that
+          // bill: the word is inside the room in the face's own metrics.
+          expect(per * size, `${ratio} ${box.width}x${box.height} ${role}`).toBeLessThanOrEqual(room + per * 0.5)
+          expect((per * size) / LINE_SAFETY, `${ratio} ${box.width}x${box.height} ${role}`).toBeLessThanOrEqual(room)
         }
       }
     }

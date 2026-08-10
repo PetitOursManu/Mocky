@@ -111,6 +111,13 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
         width: card.width,
         height: card.height,
         boxSizing: 'border-box',
+        // Its own, and not the zone's. `text-align` is inherited, and this card
+        // FILLS the box the anchor chose — so the alignment has already been spent
+        // on where the card sits, and applying it a second time inside sets a
+        // placeholder flush against the right-hand edge of its own field. A form in
+        // a `center-right` zone came back with every row's text pinned to the wrong
+        // side of its box. A row reads from the edge its caret starts at.
+        textAlign: 'left',
         display: 'flex',
         flexDirection: 'column',
         // The staircase's leftover is air inside the card rather than a card
@@ -140,11 +147,13 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
           style={{
             fontFamily: theme.headingFont,
             fontSize: card.title,
-            // The house's own break, and the one `textLines` assumes: the estimate
-            // packs characters against the measure, so a run that will only break
-            // between words puts more type on a line than the layout reserved room
-            // for. An export shipped `photographie` reading `photograph`, clipped by
-            // the `overflow: hidden` this block reveals its type from.
+            // The LAST resort, and not the wrapping model this file measures with.
+            // `wordCeiling` bounds the type so the longest word of a run fits the
+            // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+            // legible size can hold, where breaking is the decided lesser evil. Left
+            // out, that word would run out of the box instead. A rendered frame showed
+            // the other half of it, back when nothing bounded the size at all:
+            // `NEUF S` / `EIZIEME` / `S`.
             wordBreak: 'break-word',
             lineHeight: 1.14,
             fontWeight: 700,
@@ -178,10 +187,13 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
               border: `${card.border}px solid ${palette.panelAccent.color}`,
               fontFamily: theme.bodyFont,
               fontSize: card.row,
-              // The house's own break, and the one `textLines` assumes: the estimate packs
-              // characters against the measure, so a run that will only break between words
-              // puts more type on a line than the layout reserved room for. An export shipped
-              // `photographie` reading `photograph`, clipped by the mask its type rises from.
+              // The LAST resort, and not the wrapping model this file measures with.
+              // `wordCeiling` bounds the type so the longest word of a run fits the
+              // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+              // legible size can hold, where breaking is the decided lesser evil. Left
+              // out, that word would run out of the box instead. A rendered frame showed
+              // the other half of it, back when nothing bounded the size at all:
+              // `NEUF S` / `EIZIEME` / `S`.
               wordBreak: 'break-word',
               lineHeight: 1.4,
               color: palette.panelBody.color,
@@ -224,10 +236,13 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
               border: `${card.border}px solid ${palette.panelAccent.color}`,
               fontFamily: theme.bodyFont,
               fontSize: card.row,
-              // The house's own break, and the one `textLines` assumes: the estimate packs
-              // characters against the measure, so a run that will only break between words
-              // puts more type on a line than the layout reserved room for. An export shipped
-              // `photographie` reading `photograph`, clipped by the mask its type rises from.
+              // The LAST resort, and not the wrapping model this file measures with.
+              // `wordCeiling` bounds the type so the longest word of a run fits the
+              // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+              // legible size can hold, where breaking is the decided lesser evil. Left
+              // out, that word would run out of the box instead. A rendered frame showed
+              // the other half of it, back when nothing bounded the size at all:
+              // `NEUF S` / `EIZIEME` / `S`.
               wordBreak: 'break-word',
               lineHeight: 1.4,
               fontWeight: 700,
@@ -256,10 +271,13 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
               backgroundColor: palette.fill.color,
               fontFamily: theme.bodyFont,
               fontSize: card.row,
-              // The house's own break, and the one `textLines` assumes: the estimate packs
-              // characters against the measure, so a run that will only break between words
-              // puts more type on a line than the layout reserved room for. An export shipped
-              // `photographie` reading `photograph`, clipped by the mask its type rises from.
+              // The LAST resort, and not the wrapping model this file measures with.
+              // `wordCeiling` bounds the type so the longest word of a run fits the
+              // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+              // legible size can hold, where breaking is the decided lesser evil. Left
+              // out, that word would run out of the box instead. A rendered frame showed
+              // the other half of it, back when nothing bounded the size at all:
+              // `NEUF S` / `EIZIEME` / `S`.
               wordBreak: 'break-word',
               lineHeight: 1.4,
               fontWeight: 700,

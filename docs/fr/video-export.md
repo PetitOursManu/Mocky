@@ -373,6 +373,25 @@ bord, il est derrière un bouton. Le carré ne paie ni l’un ni l’autre : le 
 publie dans une grille, et un cinquième de sa hauteur cédé à une interface que
 personne ne dessine, c’est un cinquième du film.
 
+**Et la marge comprend la dérive, ce qui pendant deux passes n’était pas le cas.**
+Une scène composée translate toute sa pile de `motion.drift × base`, de la moitié
+de `COMPOSED_BLOCK_DRIFT` vers le bas à la première image d’une scène jusqu’à la
+même distance vers le haut à la dernière. Les boîtes pavaient exactement la zone
+sûre : le premier bloc de la bande haute franchissait donc le haut de la zone à la
+fin de chaque scène, et un bloc ancré en bas franchissait le bas au début — 8,6 px
+sur une image de 1080 lignes. C’est un corpus rendu qui l’a trouvé : l’encre de
+quatre exports sur fond uni commençait 5 à 6 px au-dessus de la marge aux trois
+quarts d’une scène, soit `(0,5 − 0,75) × 0,016 × 1080` au pixel près. Rien n’était
+rogné pour autant, et ce n’est pas la question — 6 % d’une image paysage font
+65 px — mais la marge est une promesse sur le logiciel de quelqu’un d’autre, et en
+9:16 la bande du dessous est la rangée de légende du fil, pas de la surbalayage.
+Donc `composedFrame` est la zone sûre moins `driftRoom(base)` sur chacun des deux
+bords vers lesquels la pile bouge, et `composedLayout` compose là-dedans ;
+`composedSafeArea` reste la promesse, pour qu’un test puisse dire « les boîtes sont
+dans le cadre » et « le cadre plus la dérive est dans la promesse » en deux phrases.
+C’est l’échange qu’`overlay` fait déjà avec sa propre amplitude : un mouvement a
+droit à la place que la mise en page lui laisse.
+
 **Une rangée se partage entre les colonnes qui servent, et une bande entre les
 rangées.** Une grille 3×3 de tiers égaux est la lecture évidente de « neuf zones »,
 et elle rend illisible la scène la plus courante qui soit : `anchor` vaut `center`
@@ -519,6 +538,81 @@ longue légende légale tienne rend toutes les courtes à la taille qu’il fall
 une longue, et c’est la boîte qui fait cette arithmétique maintenant, plutôt qu’une
 rampe entre deux nombres de caractères.
 
+#### Un mot ne se coupe pas en deux
+
+Un export a été rendu et photographié : `NEUF SEIZIEMES`, en display sur un cadre
+9:16, qui se lisait `NEUF S` / `EIZIEME` / `S`. C’est la pire chose que cette
+fonctionnalité puisse mettre à l’écran — tous les autres défauts de ce document se
+lisent comme un titre trop petit ou une image timide, celui-là se lit comme un
+logiciel cassé.
+
+**La cause, c’est que `word-break: break-word` a été pris pour le modèle de
+repli.** `textLines` empile des caractères contre une mesure, parce que c’est le
+seul repli qu’une estimation sans navigateur sache prédire, et la déclaration a été
+posée dans chaque bloc pour qu’un navigateur fasse la même chose. Il ne la fait
+pas : CSS met un mot trop long sur une ligne à LUI, et ne le coupe à l’intérieur
+que s’il ne tient toujours pas. L’estimation a donc trouvé une taille où quatorze
+caractères tiennent sur deux lignes, `SEIZIEMES` ne tenait pas sur l’une d’elles,
+et le navigateur a fait la seule chose qui lui restait. La déclaration avait raison
+sur ce que fait un navigateur et tort sur ce que lit un œil.
+
+La règle typographique est l’inverse : **un mot ne se coupe pas, donc la taille
+doit être assez petite pour que le plus long tienne dans la mesure.** C’est une
+borne, exactement comme celle qu’une ligne insécable pose déjà sur une forme, et
+c’est une seule borne dans `composition.js` (`wordCeiling`, repliée dans
+`shapeCeiling`) plutôt qu’une règle dans vingt-sept composants. La famille des
+cartes garde son propre appel, contre la largeur qui reste à une carte une fois sa
+gouttière payée, et c’est la seule chose locale là-dedans.
+
+**Deux choses ont dû bouger avec elle, et les deux étaient des défauts latents
+plutôt que des concessions.** Une ligne était mesurée à la chasse moyenne d’une
+phrase dès qu’elle se repliait, et `NEUF SEIZIEMES` se compose réellement à
+0,73 em par glyphe — une borne calculée sur 0,52 aurait donc été une borne qui ne
+change rien, et le nombre de lignes était faux des mêmes 40 % avant que quiconque
+parle de mots. `runAdvanceEm` mesure désormais chaque ligne sur ses propres
+glyphes ; `meanAdvanceEm` est planchée à `MEAN_GLYPH_EM`, donc une phrase ordinaire
+répond exactement ce qu’elle répondait, et les seules lignes qui bougent sont
+celles sur lesquelles la moyenne avait tort. Et `textLayout` mettait à l’échelle
+son mobilier et son air sur l’unité qu’on lui DONNAIT tout en comptant ses lignes
+sur l’unité que la forme pouvait DÉPENSER — identiques tant que les quatre blocs de
+texte n’avaient pas de plafond, deux blocs différents dès qu’ils en ont eu un.
+
+**Le plancher est là où cela s’arrête, et ce qui se passe en dessous est une
+décision et non un repli.** Un mot peut être plus long que sa mesure à toute taille
+qui vaille la peine d’être lue : une URL, un mot composé allemand, un identifiant,
+ou soixante-dix caractères de titre sans espace, ce que le schéma autorise. La
+réponse ne peut pas être une unité qui tend vers zéro. La borne s’arrête donc à
+`WORD_FIT_FLOOR_PX` — c’est-à-dire `BOLD_LARGE_PX`, les mêmes 18,66 px où
+`harmoniseUnits` plafonne sa propre descente, parce que c’est la même question :
+`palette.accent` et `palette.display` sont résolus au plancher 3:1 que l’audit
+autorise pour du gras au-delà de cette barre, et une borne qui passerait dessous
+aurait acheté un mot entier avec la licence sous laquelle la couleur a été choisie.
+Sous le plancher, la ligne n’est **pas bornée du tout** — le bloc continue de
+remplir la boîte que sa zone lui a donnée et `word-break` coupe le mot, ce qui est
+la raison pour laquelle chaque type qui se replie porte encore la déclaration et
+`blocks.test.js` l’exige toujours. Payer de la typographie pour un mot qui se
+couperait quand même, c’est la règle de `texturedGround` sur une décoration
+appliquée à l’échelle : elle cède devant un mot, et elle ne cède jamais pour rien.
+
+**Et `BOX_FILL_FLOOR` a dû être reformulé plutôt qu’abandonné.** Un bloc borné par
+son propre mot remplit sa MESURE exactement — c’est ce que dit la borne — et ce
+qu’il rend, c’est de la hauteur. Sur les types dont la ligne réclame les deux axes,
+cela fait une boîte remplie à moins des trois quarts, et c’est une conséquence
+honnête plutôt qu’une régression : l’autre terme du choix est le mot coupé en son
+milieu. Le balayage du catalogue est inchangé pour tous les corpus écrits en mots ;
+c’est le balayage dégénéré qui vérifie la reformulation, un bloc seul dans chacune
+des douze boîtes des trois formats, chaque chaîne légale réécrite en un seul mot de
+la même longueur.
+
+`composition.test.js` tient l’ensemble : tout le catalogue aux deux bouts du schéma
+dans les trois formats, où aucun mot dessiné ne dépasse sa mesure ; le corpus
+dégénéré, où les trois branches — bornée, mesure remplie, planchée — sont atteintes
+au moins une fois chacune, de sorte qu’aucune moitié ne puisse devenir vide ; et la
+borne elle-même, où doubler une mesure la double, ce qui est la raison pour
+laquelle elle ne prend aucune marge absolue pour l’arrondi de `typeSize`. Cette
+marge, ce sont les six pour cent de `LINE_SAFETY`, et les tests les dépensent
+explicitement au lieu de les supposer.
+
 **Et un rôle est une notion de SCÈNE, pas de la pile où il a été résolu.** Par
 pile, c’était le bon dénominateur et la mauvaise portée, et l’export suivant l’a
 dit : sur une scène de huit blocs, `DENSE` — un `kicker` seul dans sa colonne,
@@ -611,6 +705,159 @@ lisait comme une décision que quelqu’un avait prise. Elle vit dans
 `composition.js` maintenant et les trois familles la lisent ; une boîte 0×0 est une
 boîte sans place plutôt qu’une permission, et une boîte ABSENTE est l’autre
 question, celle sur laquelle `hairline` tranche pour la même raison.
+
+#### Un sujet prend la scène, un meuble prend la part qui lui revient
+
+« Un bloc seul est la scène » a été payé par toute la passe ci-dessus, et c’est
+vrai d’une image, d’un graphique, d’un titre et d’une citation : moins que le cadre,
+c’est le petit élément dans un grand vide qui revient. Une image rendue a montré les
+sept kinds pour lesquels c’est faux. Un `lowerThird` seul sur une photographie est
+devenu un **carton plein cadre masquant trois cinquièmes de l’image**. Un bandeau de
+nom n’est pas une scène à propos d’un nom.
+
+**La distinction n’est pas la quantité de texte : c’est d’où vient la taille.** Un
+sujet se dimensionne sur ce qui l’entoure — donnez-lui plus de place et c’est une
+version plus grande de lui-même, ce à quoi sert exactement l’arithmétique des
+boîtes. Un meuble se dimensionne sur le FORMAT. Un tiers inférieur de reportage fait
+un sixième du cadre parce que c’est *ce qu’est* un tiers inférieur, et un tiers
+inférieur qui remplit le cadre n’est pas un tiers inférieur plus grand : c’est un
+carton. Le critère est une phrase applicable à un vingt-huitième bloc : est-ce que
+cette chose grandit quand la scène grandit, ou est-ce qu’elle ne fait que devenir
+fausse ?
+
+`BLOCK_FURNITURE` nomme les sept, et chaque classement tient en une phrase.
+`lowerThird` est le cas qui a fait la règle : toute sa grammaire est qu’autre chose
+se trouve derrière lui. `kicker` est un surtitre, donc le surtitre *de* quelque
+chose — il était déjà 200 px de capitales sur un graphique, et le plafond du champ
+ne fermait cela que lorsqu’un champ était sur le cadre. `dateStamp` est un tampon :
+une ligne, petite, dans un coin. `separator` est un filet dont l’épaisseur est déjà
+une métrique constante, si bien qu’un cadre entier de filet n’achète que de l’air.
+`progressBar` est une jauge, et elle se lit comme une proportion de quelque chose
+qui n’est jamais le cadre. `notification` est un bandeau surgi par-dessus ce qui
+était là ; plein cadre, c’est un carton qui a perdu ce qu’il notifiait. `button` est
+une commande dimensionnée pour être pressée ; une commande qui remplit le cadre est
+un aplat coloré avec un mot dessus.
+
+Ceux qu’on laisse dehors comptent autant, parce qu’une règle vaut ce qu’elle refuse
+de couvrir : `heading`, `funTitle`, `quote`, `typewriter`, `counter`, `logoType`,
+`form`, `codeBlock` et tous les champs restent des sujets. Un carton-titre, une
+citation détachée, un nombre, un logotype et un formulaire sont autant de scènes que
+quelqu’un a voulu faire. `logoType` mérite d’être nommé deux fois, puisqu’un
+logotype dans un coin est du mobilier en tout sens ordinaire — mais un logotype seul
+sur un cadre est un carton-titre, tandis qu’un bandeau de nom seul sur un cadre est
+une erreur, et ce qui tient un logotype de coin à la taille de ses voisins est
+`harmoniseUnits` et non cette table.
+
+**Ce que cela coûte est une borne sur l’unité, et seulement là où rien d’autre n’est
+dans la pile.** `furnitureCeiling` divise la hauteur sûre par `SCENE_UNITS` — 22,
+qui n’est pas un nouveau nombre mais le palier « champ » de `BLOCK_APPETITE`, la
+densité derrière « un cadre qui porte vingt lignes de texte courant est un cadre, et
+un qui en porte dix est une affiche ». Un `lowerThird` qui vaut quatre de ces unités
+dessine quatre vingt-deuxièmes du cadre, c’est-à-dire un bandeau. Trois propriétés
+en font un rangement plutôt qu’un second moteur de mise en page :
+
+- elle borne l’UNITÉ et non la boîte, pour la raison de `harmoniseUnits` — `stackIn`
+  recalcule les hauteurs à l’unité qui arrive, donc le bloc *remplit* toujours la
+  boîte qu’il obtient et le reste est dépensé par l’alignement de la zone ;
+- elle se mesure sur la ZONE SÛRE et jamais sur la zone du bloc, parce que toute
+  l’affirmation est qu’un meuble se dimensionne sur le format : un bandeau dans un
+  tiers de cadre et un bandeau seul sur un cadre sont le même bandeau ;
+- et elle s’applique à TOUTE une pile ou à aucune. L’unité appartient à la pile, si
+  bien que l’abaisser pour un `kicker` posé sur un `heading` réglerait le titre à
+  l’échelle d’un surtitre — et une zone mixte était déjà juste pour une autre
+  raison, puisque `stackIn` la divise par appétit.
+
+Deux clauses en découlent, et les deux sont la même phrase : **un bloc dimensionné
+par le format ne donne d’échelle à personne.**
+
+Un meuble ancré `full` **n’est pas un champ**. Le plafond du champ dans
+`harmoniseUnits` dit « le champ donne l’échelle de la scène », et un `lowerThird`
+ancré `full` qui plafonnerait tous les titres du cadre à l’unité d’un bandeau, c’est
+cette phrase lue à l’envers. Il reste tenu à sa part, et il revendique toujours les
+bandes, puisqu’il est toujours peint sous les neuf cases.
+
+Et une pile de mobilier **n’est pas une preuve sur l’échelle**, donc la borne
+d’ÉCHELLE de `harmoniseUnits` la saute. Cette borne — aucune pile ne lit une unité
+plus grande qu’une pile portant un rôle au moins aussi haut — suppose que les deux
+piles ont été dimensionnées par leurs boîtes, ce que `furnitureCeiling` casse
+exprès : un `barChart` ancré `full` à côté d’un `kicker` est passé de 56 px à 43 et
+dessinait trois quarts d’une zone sûre qu’il avait tout entière, c’est-à-dire le
+vide que toute cette passe retire, arrivant par la seule porte qui existe pour tenir
+les surtitres petits. La borne d’ORDRE, elle, s’applique toujours, et l’asymétrie
+est la différence entre les deux questions : « deux piles d’une scène lisent une
+échelle » parle d’une échelle à laquelle le mobilier ne participe pas, tandis que
+« aucun run n’est dessiné plus grand qu’un run supérieur » parle de ce qu’un œil lit
+sur le cadre, et une ligne de texte plus grande que le titre du bandeau d’à côté est
+une inversion quoi qu’il ait rendu le bandeau petit.
+
+#### Un champ n’est pas une surface uniforme : il déclare où il pose du texte
+
+L’export suivant a posé un `kicker` ancré `bottom-center` sur un `barChart` ancré
+`full`, et le surtitre est tombé **exactement sur la rangée d’étiquettes du
+graphique** : deux textes dans la même bande, trois étiquettes illisibles. Les deux
+étaient à la bonne taille — le plafond du champ et les bandes pondérées avaient fait
+leur travail —, donc le conflit était purement positionnel et rien de ce qui touche
+à l’échelle ne pouvait l’attraper. « Un bloc `full` est ce sur quoi un élément se
+pose » était vrai de l’ordre de peinture et muet sur la géométrie.
+
+**Le champ déclare, et la cellule ne bouge pas.** L’autre réparation possible était
+de repousser une cellule posée sur un champ vers une bande que le champ laisse
+libre. Elle est moins chère et elle est fausse deux fois : elle DÉPLACERAIT un bloc
+que le document a ancré — `anchor` est la seule décision de composition qu’un
+document prend, et un kicker en bas au centre relogé en haut est un film qui n’a pas
+fait ce qu’on lui a dit — et elle doit deviner, puisque seul le bloc sait où va sa
+propre légende. Une règle écrite dans la mise en page aurait raison sur `barChart`
+par chance et sur le vingt-huitième kind pas du tout. Déclarer coûte une table et un
+nombre par scène, et ce qu’on achète est de l’arithmétique : les cellules sont
+disposées dans la zone sûre MOINS la bande que le champ a réservée, donc aucune
+boîte de cellule ne peut y entrer.
+
+`FIELD_FOOT` est cette table, et les trois entrées sont un PIED plutôt qu’un mélange
+de bords. Une légende va sous ce qu’elle légende : `barChart` et `lineChart` posent
+leurs étiquettes sous le tracé, `imageFrame` sa légende sous l’image — trois
+composants écrits par trois mains, tous les trois avec le run en dernier dans une
+colonne. Il y a donc un bord et non deux, et un kind qui poserait un jour du texte
+en HAUT de sa boîte est une nouvelle question plutôt qu’une nouvelle ligne,
+puisqu’il faudrait épingler la pile dans l’autre sens et qu’une pile ne s’épingle
+pas par les deux bouts.
+
+**La condition d’entrée est `fills: 'both'`, et `clock` est la raison de l’écrire.**
+Un bloc ne peut promettre où est son pied que s’il remplit sa boîte sur cet axe. Un
+cadran est rond : il remplit l’axe mineur et flotte au milieu de l’autre, si bien
+qu’un `clock` plein cadre sur un export 9:16 fait 907 px de cadran dans 1305 px de
+hauteur sûre, avec son étiquette à 175 px au-dessus du bas de sa propre boîte. Une
+bande réservée au bord serait une bande réservée là où rien n’est dessiné.
+
+Trois choses rendent la soustraction exacte plutôt que presque exacte. C’est le
+**dernier** bloc de la pile `full` qui est mesuré, parce que c’est celui dont la
+boîte se termine sur le bas sûr. L’unité est celle du champ, résolue avant
+`harmoniseUnits`, qui ne fait jamais que l’abaisser — donc la bande réservée n’est
+jamais plus courte que le texte qui s’y pose. Et le champ est **épinglé** au bord
+qu’il a déclaré (`justify: 'flex-end'` au lieu du reste symétrique qu’une zone
+`full` garde autrement), parce que centré, un champ dont l’unité a été abaissée
+dessinerait sa légende au-dessus de la bande dont les cellules ont été tenues à
+l’écart, et la réservation aurait déplacé le défaut au lieu de le retirer. Une
+gouttière d’air s’y ajoute — celle de la grille, le même nombre qui sépare deux
+zones quelconques —, ce qui couvre aussi la marge d’un bloc image sous sa légende,
+`TILE_GUTTER` valant quatre dixièmes de cette gouttière.
+
+**Le cas à ne pas casser est un champ sans texte**, et il est vérifié comme une
+égalité plutôt que comme un nombre : un graphique dont le document n’a nommé aucune
+étiquette, une galerie, un solide, un champ de particules ou une carte ne réservent
+rien et se disposent exactement comme avant l’existence de la déclaration. La
+réservation est bornée à un quart de la zone sûre (`FIELD_FOOT_CEILING`) pour la
+raison qui borne les métriques constantes : une exception sans plafond est la règle
+qui repasse par la fenêtre, et une cellule sans hauteur est une pile résolue à une
+unité nulle (Q1). Elle sur-réserve dans deux directions exprès — `labelBand` rétrécit
+les étiquettes d’un graphique pour tenir dans une colonne et supprime la rangée
+entière sous `LABEL_FLOOR` — parce qu’une bande un peu plus haute que le texte qui
+s’y pose coûte quelques pixels à une cellule, et qu’une bande trop courte est le
+défaut qui revient.
+
+`composition.test.js` le tient contre les fonctions de mise en page DES BLOCS plutôt
+que contre la réservation : `barChartLayout`, `lineChartLayout` et `imageFrameBox`
+sont ce qui décide réellement où atterrit une légende, donc demander les deux
+moitiés à `composition.js` aurait été un test d’accord avec lui-même.
 
 #### Il n’y a toujours aucun son
 
@@ -1157,6 +1404,47 @@ le FILM a plus d’une scène, donc son texte est calculé une seule fois, dans
 `planTimeline`, et voyage sur l’entrée du plan. Calculé deux fois — une par le
 mouvement, une par la composition — les deux divergeaient, et tout film d’une seule
 scène annonçait l’arrivée d’un surtitre qu’aucune image ne contenait.
+
+### Deux ornements qu’un corpus rendu a rattrapés
+
+Ni l’un ni l’autre n’est un défaut de lisibilité, ni une borne que quoi que ce soit
+aurait pu vérifier. Tous deux sont le genre de défaut qui n’existe que sur une
+image, ce pour quoi on rend douze documents et on les regarde plutôt que de
+raisonner dessus.
+
+**Un filet suit le bord que le document a choisi.** Quatre blocs — `heading`,
+`kicker`, `quote`, `textHighlight` — dessinent un filet sur toute leur boîte et le
+révèlent par un `scaleX`, et les quatre avaient `transform-origin: left`. Dans une
+zone `top-left` c’est le geste de la maison et il est juste. Dans une zone centrée
+c’est un filet plaqué contre la marge gauche sous un texte posé au milieu de la
+mesure — et sur la pile de trois (`kicker`, `heading`, `separator`, tous en
+`center`) ce filet se retrouvait juste au-dessus d’un `separator` que la rangée
+flex avait, elle, centré : deux ornements dans une colonne en désaccord sur
+l’emplacement de la marge. La zone publie désormais sa réponse dans
+`--mocky-rule-origin`, héritée, et c’est la valeur de `textAlign` elle-même plutôt
+qu’une seconde table — `left`, `center` et `right` sont les trois valeurs que
+produit `TEXT_OF` et les trois mots-clés qu’accepte `transform-origin`, et ils
+répondent à la même question. Une propriété CSS personnalisée parce qu’un bloc ne
+peut pas lire un `text-align` hérité depuis JavaScript, et l’héritage est ce qui
+tient cela hors du contrat de props sous lequel chaque bloc est écrit. `quote`
+garde `left` exprès et le dit : son filet part du guillemet posé à côté de lui
+plutôt que d’une mesure vide, donc une origine prise sur la zone le détacherait du
+glyphe auquel il est attaché.
+
+**Une ombre a besoin d’une seconde couleur, et une direction n’en a aucune.** Le
+traitement `stack` de `funTitle` dessine le mot deux fois, la copie de dessous en
+`palette.accent`. Sur une direction qui déclare le même vert sombre pour `text` et
+pour `accent` sur un fond presque noir, `legibleOn` résout les *deux* runs en
+`#ffffff` — correctement, de son point de vue — et `MOTION` revenait en deux copies
+blanches décalées de sept pour cent : un mot qui se lit comme une faute
+d’impression et non comme un titre. `funTitleShadow` prend désormais les deux encres
+et rend zéro quand elles n’en font qu’une. Le plancher, `STACK_SEPARATION`, est
+juste au-dessus de « la même couleur » et volontairement loin d’une barre de
+lisibilité : la copie ne porte aucun glyphe qu’on lit, un rapport de luminance ne
+voit pas la différence de teinte qui rend évidente une ombre dorée derrière un mot
+blanc (1,76:1 sur la direction éditoriale, et c’est juste), et un test à 3:1
+supprimerait le traitement sur la plupart des thèmes qui le rendent parfaitement.
+Un appelant qui ne nomme aucune encre garde la réponse qu’il a toujours eue.
 
 ### La police qu’un conteneur possède vraiment
 

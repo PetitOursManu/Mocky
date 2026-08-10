@@ -185,7 +185,11 @@ export const Heading = ({ block, palette, theme, box, unit, base, progress, life
             alignItems: 'flex-end',
             width: '100%',
             transform: `scaleX(${measure})`,
-            transformOrigin: 'left center',
+            // The edge the DOCUMENT chose by naming an anchor, inherited from the
+            // zone — see `--mocky-rule-origin` in `ComposedSceneVideo`. `left` was
+            // hard-coded here, so a centred heading drew its rule flush against the
+            // left margin while its own words sat in the middle of the measure.
+            transformOrigin: 'var(--mocky-rule-origin, left) center',
           }}
         >
           <div style={{ width: `${RULE_ACCENT_SHARE * 100}%`, height: rule.heavy, backgroundColor: palette.accent.color }} />

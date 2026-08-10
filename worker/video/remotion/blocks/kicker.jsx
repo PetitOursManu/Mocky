@@ -89,7 +89,10 @@ export const Kicker = ({ block, palette, theme, box, unit, base, progress, life 
             height: rule.hair,
             backgroundColor: palette.accent.color,
             transform: `scaleX(${ruleExtent(progress, life, KICKER_RULE_REST)})`,
-            transformOrigin: 'left center',
+            // The zone's own edge, inherited — see `--mocky-rule-origin` in
+            // `ComposedSceneVideo`. A surtitle centred over its headline had its rule
+            // growing out of the left margin instead of out from under the word.
+            transformOrigin: 'var(--mocky-rule-origin, left) center',
           }}
         />
       </div>

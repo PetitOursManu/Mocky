@@ -333,6 +333,26 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
               width: zone.box.width,
               height: zone.box.height,
               textAlign: zone.textAlign,
+              /*
+               * The edge a full-measure ORNAMENT is drawn out from, inherited.
+               *
+               * Four blocks — `heading`, `kicker`, `quote`, `textHighlight` — draw a
+               * rule the width of their box and reveal it with a `scaleX`, which
+               * needs an origin. All four had `left`, so a centred stack came back
+               * with its type in the middle of the measure and its rule flush against
+               * the left margin; on `05-pile-de-trois` that rule sat directly above a
+               * `separator` the flex row HAD centred, which is two ornaments in one
+               * stack disagreeing about where the margin is.
+               *
+               * It is `textAlign`'s own answer and not a second table: `left`,
+               * `center` and `right` are the three values `TEXT_OF` produces and the
+               * three keywords `transform-origin` takes, and the question they answer
+               * is the same one — which edge did the document choose by naming an
+               * anchor. A custom property because a block cannot read an inherited
+               * `text-align` from JavaScript, and inheritance is what keeps this out
+               * of the twenty-seven-prop contract every block is written to.
+               */
+              '--mocky-rule-origin': zone.textAlign,
               // The field cedes density to whatever stands on it, at the value
               // `composedPalette` measured — 1 on every scene that stacks
               // nothing over a `full` block, which is most of them. It is on the

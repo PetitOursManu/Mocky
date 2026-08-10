@@ -351,6 +351,23 @@ numbers rather than a second set that would drift from them — because a
 behind a button. A square pays neither: 1:1 is posted into a grid, and a fifth of
 its height given to an interface nobody draws is a fifth of the film.
 
+**And the margin includes the drift, which for two passes it did not.** A composed
+scene translates its whole stack by `motion.drift × base`, from half
+`COMPOSED_BLOCK_DRIFT` down on a scene's first frame to the same distance up on its
+last. The boxes tiled the safe area exactly, so the top band's first block crossed
+the safe top at the end of every scene and a bottom-anchored one crossed the safe
+bottom at the start of it — 8.6 px on a 1080-line frame. A rendered corpus is what
+found it: the ink of four solid-ground exports began 5 to 6 px above the margin at
+three quarters of a scene, which is `(0.5 − 0.75) × 0.016 × 1080` to the pixel.
+Nothing was cropped by it, and that is not the point — 6% of a landscape frame is
+65 px — but the margin is a promise about somebody else's software, and on 9:16 the
+band underneath is the feed's caption row rather than overscan. So `composedFrame`
+is the safe area less `driftRoom(base)` on each of the two edges the stack moves
+towards, and `composedLayout` lays out in that; `composedSafeArea` stays the
+promise, so a test can say "the boxes are inside the frame" and "the frame plus the
+drift is inside the promise" as two sentences. It is the trade `overlay` already
+makes with its own amplitude: a move gets the room the layout leaves it.
+
 **A row is divided among the columns that are used, and a band among the rows.**
 A fixed 3×3 of equal thirds is the obvious reading of "nine zones" and it makes
 the commonest scene there is unreadable: `anchor` defaults to `center`, so a
@@ -486,6 +503,78 @@ legal caption fits renders every short one at the size a long one needed, and th
 box is what does that arithmetic now instead of a ramp between two character
 counts.
 
+#### A word is not cut in half
+
+An export was rendered and photographed: `NEUF SEIZIEMES`, in display type on a
+9:16 frame, reading `NEUF S` / `EIZIEME` / `S`. It is the worst thing this feature
+can put on a screen — every other defect in this document reads as a small
+heading or a timid frame, and this one reads as broken software.
+
+**The cause is that `word-break: break-word` was mistaken for the wrapping
+model.** `textLines` packs characters against a measure, because that is the only
+wrapping an estimate with no browser in it can predict, and the declaration was
+put into every block so that a browser would do the same thing. It does not: CSS
+puts an over-long word on a line of its OWN and breaks INSIDE it only when it
+still does not fit. So the estimate found a size at which fourteen characters fit
+two lines, `SEIZIEMES` did not fit one of them, and the browser did the only
+thing left to it. The declaration was right about what a browser does and wrong
+about what an eye reads.
+
+The typographic rule is the other way round: **a word does not break, so the size
+must be small enough for the longest one to fit the measure.** That is a bound,
+exactly like the one an unbreakable run already puts on a shape, and it is one
+bound in `composition.js` (`wordCeiling`, folded into `shapeCeiling`) rather than
+a rule in twenty-seven components. The panel family keeps its own call to it,
+against the width a card has left after its padding, which is the one thing about
+it that is local.
+
+**Two things had to move with it, and both were latent defects rather than
+concessions.** A run was measured at the flat sentence average whenever it
+wrapped, and `NEUF SEIZIEMES` really sets at 0.73 em a glyph — so a bound
+computed on 0.52 would have been a bound that changed nothing, and the line count
+was wrong by the same 40% before anybody asked about words. `runAdvanceEm` now
+measures every run on its own glyphs; `meanAdvanceEm` is floored at
+`MEAN_GLYPH_EM`, so an ordinary sentence answers exactly what it answered before
+and the only runs that move are the ones the average was wrong about. And
+`textLayout` scaled its furniture and its air by the unit it was HANDED while
+counting its lines at the unit the shape could SPEND — identical while the four
+text kinds had no ceiling, and two different blocks the moment they had one.
+
+**The floor is where this stops, and what happens under it is a decision rather
+than a fallback.** A word can be longer than its measure at every size worth
+reading: a URL, a German compound, an identifier, or seventy characters of
+heading with no space in them, which is what the schema lets a document write.
+The answer cannot be a unit tending to zero. So the bound stops at
+`WORD_FIT_FLOOR_PX` — which is `BOLD_LARGE_PX`, the same 18.66 px
+`harmoniseUnits` floors its own lowering at, because it answers the same question:
+`palette.accent` and `palette.display` are resolved at the 3:1 floor the audit
+licences for bold type past that bar, and a bound that took a run under it would
+have bought an unbroken word with the licence the colour was chosen under. Under
+the floor the run is **not bounded at all** — the block goes on filling the box
+its zone gave it and `word-break` breaks the word, which is why every wrapping
+kind still carries the declaration and `blocks.test.js` still requires it. Paying
+type for a word that would break anyway is `texturedGround`'s rule about a
+decoration applied to the scale: it yields to a word, and it never yields for
+nothing.
+
+**And `BOX_FILL_FLOOR` had to be restated rather than dropped.** A block bounded
+by its own word fills its MEASURE exactly — that is what the bound says — and
+what it gives back is height. On the kinds whose row claims both axes that is a
+box less full than three quarters, and it is an honest consequence rather than a
+regression: the alternative on offer is the word cut through the middle. The
+catalogue sweep is unchanged for every corpus written in words; the degenerate
+sweep is where the reformulation is checked, one block alone in each of twelve
+boxes across the three ratios, with every legal string rewritten as a single word
+of the same length.
+
+`composition.test.js` holds all of it: the whole catalogue at both ends of the
+schema in all three ratios, where no drawn word crosses its measure; the
+degenerate corpus, where the three branches — bounded, measure filled, floored —
+are each reached at least once, so that neither half can go vacuous; and the
+bound itself, where doubling a measure doubles it, which is why it takes no
+absolute allowance for `typeSize`'s rounding. That allowance is `LINE_SAFETY`'s
+six per cent instead, and the tests spend it explicitly rather than assuming it.
+
 **And a role is a notion of the SCENE, not of the stack it was solved in.** Per
 stack was the right denominator and the wrong scope, and the next export said so:
 on a scene of eight blocks, `DENSE` — a `kicker` alone in its column, sized
@@ -570,6 +659,151 @@ pinning the second, so a divergence nobody had decided read as a decision somebo
 made. It lives in `composition.js` now and the three families read it; a 0×0 box is
 a box with no room rather than a licence, and an ABSENT box is the different
 question `hairline` splits on for the same reason.
+
+#### A subject takes the scene, a piece of furniture takes its part
+
+"A lone block is the scene" was paid for by the whole pass above, and it is right
+about a picture, a chart, a headline and a quote: anything less than the frame is
+the small element in a large void coming back. A rendered frame showed the seven
+kinds it is wrong about. A `lowerThird` alone over a photograph became a
+**full-frame card hiding three fifths of the picture**. A name band is not a scene
+about a name.
+
+**The distinction is not how much text a kind carries — it is where its size comes
+from.** A subject is dimensioned by what is around it: give it more room and it is
+a larger version of itself, which is exactly what the box arithmetic is for. A
+piece of furniture is dimensioned by the FORMAT. A broadcast lower third is a sixth
+of the frame because that is what a lower third *is*, and one that fills the frame
+is not a bigger lower third — it is a card. The test is a sentence anybody can
+apply to a twenty-eighth block: does this get larger when the scene does, or does
+it only get wrong?
+
+`BLOCK_FURNITURE` names the seven, and each classification is a sentence.
+`lowerThird` is the case that made the rule: its whole grammar is that something
+else is behind it. `kicker` is a surtitle, which is a surtitle *of* something — it
+was already 200 px of capitals over a graph, and the field ceiling only closed that
+when a field was on the frame. `dateStamp` is a stamp: one line, small, in a
+corner. `separator` is a rule whose thickness is already a constant metric, so a
+whole frame of it buys nothing but air. `progressBar` is a meter, and it reads as a
+proportion of something that is never the frame. `notification` is a toast — an
+object that arrived over whatever was there — and at full frame it is a card that
+has lost the thing it was notifying about. `button` is a control sized to be
+pressed; one that fills the frame is a coloured slab with a word on it.
+
+The ones deliberately left out matter as much, because a rule is what it refuses to
+cover: `heading`, `funTitle`, `quote`, `typewriter`, `counter`, `logoType`, `form`,
+`codeBlock` and every field stay subjects. A title card, a pull quote, a number, a
+wordmark and a sign-up form are all scenes somebody meant to make. `logoType` is
+worth naming twice, since a wordmark in a corner is furniture in every ordinary
+sense — but a wordmark alone on a frame is a title card, while a name band alone on
+a frame is a mistake, and what keeps a corner wordmark beside its neighbours is
+`harmoniseUnits` rather than this table.
+
+**What it costs is a bound on the unit, and only where nothing else is in the
+stack.** `furnitureCeiling` divides the safe height by `SCENE_UNITS` — 22, which is
+not a new number but `BLOCK_APPETITE`'s own field tier, the density behind "a frame
+that carries twenty lines of running text is a frame, and one that carries ten is a
+poster". A `lowerThird` worth four of those units draws four twenty-seconds of the
+frame, which is a band. Three properties make it a tidy-up rather than a second
+layout engine:
+
+- it bounds the UNIT and not the box, for `harmoniseUnits`'s reason — `stackIn`
+  recomputes the heights at whatever unit arrives, so the block still *fills* the
+  box it ends up with and the leftover is spent by the zone's own alignment;
+- it is measured against the SAFE AREA and never against the zone, because the
+  whole claim is that furniture is sized by the format: a band in a third of a
+  frame and a band alone on one are the same band;
+- and it applies to ALL of a stack or to none of it. The unit belongs to the stack,
+  so lowering it for a `kicker` above a `heading` would set the headline at a
+  surtitle's scale — and a mixed zone was already right for another reason, since
+  `stackIn` divides it by appetite.
+
+Two clauses hang off it, and both are the same sentence: **a block sized by the
+format sets no scale for anything else.**
+
+Furniture anchored `full` is **not a field**. `harmoniseUnits`'s field ceiling says
+"the field sets the scale of the scene", and a `lowerThird` anchored `full` capping
+every heading in the frame to a band's own unit is that read backwards. It is still
+held to its share, and it still claims the bands, because it is still painted under
+the nine cells.
+
+And a stack of furniture is **not evidence about the scale**, so `harmoniseUnits`'s
+SCALE bound skips it. That bound — no stack reads a larger unit than a stack
+carrying a role at least as high — assumes both stacks were sized by their boxes,
+which `furnitureCeiling` breaks on purpose: a `barChart` anchored `full` beside a
+`kicker` was pulled from 56 px to 43 and drew three quarters of a safe area it had
+all of, which is the void this whole pass removes arriving through the one door that
+exists to keep surtitles small. The ORDER bound deliberately still applies, and the
+asymmetry is the difference between the two questions: "two stacks of one scene read
+one scale" is about a scale furniture does not participate in, while "no run is
+drawn larger than a superior run" is about what an eye reads on the frame, and a
+body line larger than the title of the band beside it is an inversion whatever made
+the band small.
+
+#### A field is not a uniform surface: it says where it sets type
+
+The next export put a `kicker` anchored `bottom-center` over a `barChart` anchored
+`full`, and the surtitle landed **exactly on the chart's row of axis labels**: two
+runs of type in one band, three labels unreadable. Both were at the right size — the
+field ceiling and the weighted bands had done their work — so the conflict was
+purely positional and nothing about the scale could have caught it. "A `full` block
+is what an element sits on" was true about the paint order and silent about the
+geometry.
+
+**The field declares, and the cell does not move.** The other repair on offer was
+to push a cell laid on a field towards a band the field leaves free. It is cheaper
+and it is wrong twice over: it would MOVE a block the document anchored — `anchor`
+is the one composition decision a document makes, and a bottom-centre kicker
+relocated to the top is a film that did not do what it was told — and it has to
+guess, because only the block knows where its own caption goes. A rule written in
+the layout would be right about `barChart` by luck and about the twenty-eighth kind
+not at all. Declaring costs one table and one number per scene, and what it buys is
+arithmetic: the cells are laid out in the safe area LESS the band the field
+reserved, so no cell box can enter it.
+
+`FIELD_FOOT` is that table, and all three entries are a FOOT rather than a mixture
+of edges. A caption goes under the thing it captions: `barChart` and `lineChart`
+set their labels under the plot, `imageFrame` its caption under the picture — three
+components written by three hands, all three with the run last in a column. So
+there is one edge and not two, and a kind that one day sets type at the top of its
+box is a new question rather than a new row, since it would need the stack pinned
+the other way and one stack cannot be pinned at both ends.
+
+**The entry condition is `fills: 'both'`, and `clock` is why it is written down.** A
+block can only promise where its foot is if it fills its box on that axis. A dial is
+round: it fills the minor axis and floats in the middle of the other, so a
+full-frame `clock` on a 9:16 export is 907 px of dial inside 1305 px of safe height
+with its label 175 px above the bottom of its own box. A band reserved at the edge
+would be a band reserved where nothing is drawn.
+
+Three things make the subtraction exact rather than nearly exact. It is the **last**
+block of the `full` stack that is measured, because that is the one whose box ends
+on the safe bottom. The unit is the field's own, solved before `harmoniseUnits`,
+which only ever lowers it — so the band reserved is never shorter than the type that
+lands in it. And the field is **pinned** to the edge it declared (`justify:
+'flex-end'` instead of the symmetric leftover a `full` zone otherwise keeps),
+because centred, a field whose unit was lowered would draw its caption above the
+band the cells were kept out of, and the reservation would have moved the defect
+instead of removing it. One gutter of air is added — the grid's own, the same
+number that separates any two zones — which is also what covers a picture block's
+margin under its caption, `TILE_GUTTER` being four tenths of it.
+
+**The case this must not break is a field with no text**, and it is checked as an
+equality rather than as a number: a chart whose document named no labels, a gallery,
+a solid, a field of particles or a map reserve nothing and lay out exactly as they
+did before the declaration existed. The reservation is bounded at a quarter of the
+safe area (`FIELD_FOOT_CEILING`) for the reason the constant metrics are bounded at
+one: an exception with no ceiling is the rule going back out of the window, and a
+cell with no height is a stack solved at a unit of zero (Q1). It over-reserves in
+two directions on purpose — `labelBand` shrinks a chart's labels to fit one column
+and drops the row entirely below `LABEL_FLOOR` — because a band a little taller than
+the type that lands in it costs a cell a few pixels, and one too short is the defect
+back.
+
+`composition.test.js` holds it against the BLOCKS' own layout functions rather than
+against the reservation: `barChartLayout`, `lineChartLayout` and `imageFrameBox` are
+what really decide where a caption lands, so asking `composition.js` for both halves
+would have been a test agreeing with itself.
 
 #### There is still no audio
 
@@ -1071,6 +1305,43 @@ carries: the kicker exists when the FILM has more than one scene, so its text is
 computed once in `planTimeline` and travels on the plan entry. Computed twice —
 once by the motion, once by the composition — the two disagreed, and every
 one-scene film reported a kicker arriving that no frame contained.
+
+### Two ornaments a rendered corpus caught
+
+Neither is a legibility failure and neither is a bound anything could have checked.
+Both are the kind of defect that only exists on a frame, which is why twelve
+documents get rendered and looked at rather than reasoned about.
+
+**A rule follows the edge the document chose.** Four blocks — `heading`, `kicker`,
+`quote`, `textHighlight` — draw a rule across their whole box and reveal it with a
+`scaleX`, and all four had `transform-origin: left`. In a `top-left` zone that is
+the house device and it is handsome. In a centred one it is a rule flush against
+the left margin under type sitting in the middle of the measure, and on the stack
+of three (`kicker`, `heading`, `separator`, all `center`) it put that rule directly
+above a `separator` the flex row *had* centred: two ornaments in one column
+disagreeing about where the margin is. The zone now publishes its answer as
+`--mocky-rule-origin`, inherited, and it is `textAlign`'s own value rather than a
+second table — `left`, `center` and `right` are the three things `TEXT_OF` produces
+and the three keywords `transform-origin` takes, and they answer the same question.
+A CSS custom property because a block cannot read an inherited `text-align` from
+JavaScript, and inheritance is what keeps this out of the props contract every
+block is written to. `quote` keeps `left` on purpose and says so: its rule grows out
+of the quotation mark beside it rather than across an empty measure, so an origin
+taken from the zone would detach it from the glyph it is attached to.
+
+**A shadow needs a second colour, and one direction has none.** `funTitle`'s `stack`
+treatment draws the word twice, the copy behind it in `palette.accent`. On a
+direction stating the same dark green for `text` and for `accent` over a near-black
+ground, `legibleOn` resolves *both* runs to `#ffffff` — correctly, on its own terms —
+and `MOTION` came back as two white copies of itself seven per cent apart: a word
+that reads as a printing fault rather than as a title. `funTitleShadow` now takes
+the two inks and returns zero when they are one ink. The floor, `STACK_SEPARATION`,
+is just past "the same colour" and deliberately nowhere near a legibility bar: the
+copy carries no glyph anybody reads, a luminance ratio cannot see the hue
+difference that makes a gold shadow behind a white word obviously a shadow (1.76:1
+on the editorial direction, and correct), and a 3:1 test would delete the treatment
+on most themes that render it perfectly. A caller that names no inks keeps the
+answer it always had.
 
 ### The typeface a container actually has
 

@@ -168,10 +168,13 @@ export const LineChart = ({ block, palette, theme, box, unit, base, progress, li
             width: layout.width,
             fontFamily: theme.bodyFont,
             fontSize: layout.label.size,
-            // The house's own break, and the one `textLines` assumes: the estimate packs
-            // characters against the measure, so a run that will only break between words
-            // puts more type on a line than the layout reserved room for. An export shipped
-            // `photographie` reading `photograph`, clipped by the mask its type rises from.
+            // The LAST resort, and not the wrapping model this file measures with.
+            // `wordCeiling` bounds the type so the longest word of a run fits the
+            // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+            // legible size can hold, where breaking is the decided lesser evil. Left
+            // out, that word would run out of the box instead. A rendered frame showed
+            // the other half of it, back when nothing bounded the size at all:
+            // `NEUF S` / `EIZIEME` / `S`.
             wordBreak: 'break-word',
             lineHeight: layout.label.leading,
             color: palette.body.color,

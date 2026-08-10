@@ -51,18 +51,15 @@ import {
   blockHeight,
   blockShape,
   COMPOSED_BLOCK_DRIFT,
-  LINE_SAFETY,
   CONTRAST_MIN_LARGE,
   hairline,
   RUN_GAP,
   shapeCeiling,
   solveTypeUnit,
-  runAdvanceEm,
   surfaceRange,
   textWidth,
-  typeRole,
   typeSize,
-  words,
+  wordCeiling,
   worstRatio,
 } from '../composition.js'
 
@@ -160,47 +157,13 @@ export function runsHeight(block, width, unit) {
 function fitUnit(block, room, unit) {
   const shape = blockShape(block)
   const solved = solveTypeUnit([{ fixed: 0, runs: shape.runs }], room.width, room.height)
-  return Math.max(0, Math.min(unit, solved, wordFit(shape.runs, room.width)))
-}
-
-/**
- * The size at which the longest WORD of each run still fits on a line of the
- * card's own measure.
- *
- * `textLines` counts characters against a measure, which is what a browser does
- * only when it may break inside a word — and `word-break: break-word`, which
- * every block in this directory sets, does not do that. CSS puts an over-long
- * word on a line of its OWN first and breaks it only if it still does not fit, so
- * a run the estimate packed into two lines arrives as three.
- *
- * A real export: a `lowerThird` reading `Sur une photographie` was solved at
- * 250 px for two lines of ten characters, and the frame shipped `Sur une` /
- * `photograph` / `ie` with the third line and the whole subtitle sliced off by
- * the mask the type rises from.
- *
- * It lives here and not in `shapeCeiling` on purpose. A zone's measure is the
- * whole box and its slack is the zone's alignment, so upstairs the same bound
- * would shrink every long-worded paragraph in the film for a line it very rarely
- * loses; a card has padding, a fixed height and `overflow: hidden`, which is
- * exactly the combination that turns one extra line into a sentence nobody can
- * read. This is `fitUnit`'s existing job — the one place the four of them may
- * fall below the shared scale, and always downwards.
- */
-function wordFit(runs, width) {
-  let ceiling = Infinity
-  for (const run of runs ?? []) {
-    if (run?.nowrap) continue
-    const longest = words(run?.text).reduce((most, word) => Math.max(most, word.length), 0)
-    if (longest === 0) continue
-    const advance = (runAdvanceEm(run) + Math.max(0, Number(run?.tracking) || 0)) * LINE_SAFETY
-    const step = typeRole(run?.role).step
-    // Half a pixel back, because `typeSize` ROUNDS: the size a block draws is up
-    // to half a pixel above `unit × step`, and half a pixel across twelve glyphs
-    // is the three that put the word over the edge again.
-    const size = Math.max(0, Math.max(0, width) / (longest * advance) - 0.5)
-    ceiling = Math.min(ceiling, size / step)
-  }
-  return ceiling
+  // `wordCeiling` against the CARD's measure and not the box's. The bound itself
+  // is the house's one implementation now that every wrapping run in the film
+  // carries it (`shapeCeiling`); what is local here is the WIDTH it is asked
+  // about. `BLOCK_APPETITE` wraps every run against the whole box, a card spends
+  // part of that on its own padding, and a word that fits the box by three pixels
+  // does not fit the card — which is one line more inside an `overflow: hidden`.
+  return Math.max(0, Math.min(unit, solved, wordCeiling(shape.runs, room.width)))
 }
 
 // ── A panel has to be SEEN, and that is arithmetic too ──────────────────────

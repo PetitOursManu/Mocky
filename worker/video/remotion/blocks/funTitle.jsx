@@ -67,7 +67,11 @@ export const FunTitle = ({ block, palette, theme, box, unit, progress, life }) =
   const size = funTitleSize(block.text, box, unit)
   const glyphs = funTitleGlyphs(block.text)
   const accentFrom = block.treatment === 'swap' ? funTitleAccentFrom(block.text) : glyphs.length
-  const shadow = funTitleShadow(block.treatment, size, progress)
+  // The two inks the `stack` treatment needs, so it can decline when they are one
+  // ink: a render on a direction that stated the same colour for `text` and
+  // `accent` had both runs resolved to white, and the offset copy came back as a
+  // torn word rather than as a shadow. See `STACK_SEPARATION`.
+  const shadow = funTitleShadow(block.treatment, size, progress, palette.display.color, palette.accent.color)
 
   const letter = (glyph, index, run) => {
     const at = funTitleLetter(block.treatment, glyphs.length, index, progress, life, size)
@@ -100,11 +104,13 @@ export const FunTitle = ({ block, palette, theme, box, unit, progress, life }) =
         position: 'relative',
         fontFamily: theme.headingFont,
         fontSize: size,
-        // The house's own break, and the one `textLines` assumes: the estimate
-        // packs characters against the measure, so a run that will only break
-        // between words puts more type on a line than the layout reserved room
-        // for. An export shipped `photographie` reading `photograph`, clipped by
-        // the `overflow: hidden` this block reveals its type from.
+        // The LAST resort, and not the wrapping model this file measures with.
+        // `wordCeiling` bounds the type so the longest word of a run fits the
+        // measure, so this only ever fires under `WORD_FIT_FLOOR_PX` — a word no
+        // legible size can hold, where breaking is the decided lesser evil. Left
+        // out, that word would run out of the box instead. A rendered frame showed
+        // the other half of it, back when nothing bounded the size at all:
+        // `NEUF S` / `EIZIEME` / `S`.
         wordBreak: 'break-word',
         fontWeight: 800,
         // The display role's own leading, not a fifth number: the block's height
@@ -112,8 +118,9 @@ export const FunTitle = ({ block, palette, theme, box, unit, progress, life }) =
         lineHeight: FUN_TITLE_LEADING,
         letterSpacing: '-0.015em',
         // The whole measure the layout gave this block, so the line wraps where
-        // `typeScale` said it would rather than where the longest word happened
-        // to end.
+        // `typeScale` said it would. Where the longest word ends is part of that
+        // answer now rather than a disagreement with it: `wordCeiling` is what
+        // stops the size before a word has to break.
         width: '100%',
         // The room the arc and the bounce lift their letters into. It is the
         // block's own appetite read back — see `funTitleHeadroom` — so what the

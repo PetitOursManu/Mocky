@@ -33,6 +33,7 @@ import {
   RUN_GAP,
   DECLARED_SHARE,
   blockAppetite,
+  contrastRatio,
   typeRole,
   typeScale,
   typeSize,
@@ -262,9 +263,42 @@ export function funTitleLetter(treatment, count, index, progress, life, size) {
   }
 }
 
-/** The shadowed copy's offset in pixels, for `stack`. Zero for every other treatment. */
-export function funTitleShadow(treatment, size, progress) {
-  return treatment === 'stack' ? Math.round(size * STACK_OFFSET * (Number(progress) || 0)) : 0
+/**
+ * What a `stack` shadow has to differ from the word by before it is a shadow at all.
+ *
+ * Just past "the same ink", and deliberately nowhere near a legibility floor. The
+ * copy underneath carries no glyph anybody reads — its whole job is to be a second
+ * colour — so `CONTRAST_MIN_LARGE` would be the wrong instrument twice over: a
+ * luminance ratio cannot see the hue difference that makes a gold shadow behind a
+ * white word obviously a shadow (1.76:1 on the editorial direction, and correct),
+ * and applying a 3:1 bar would delete the treatment on most themes that render it
+ * perfectly.
+ *
+ * What it exists for is the case a render found: on a direction stating a dark green
+ * for both `text` and `accent`, `legibleOn` resolved BOTH runs to `#ffffff`, and
+ * `MOTION` came back as two white copies of itself seven per cent apart — a word
+ * that reads as a printing fault rather than as a title. That is not a contrast
+ * failure, it is the palette having no second colour to offer, and this is the
+ * question that asks it.
+ */
+export const STACK_SEPARATION = 1.1
+
+/**
+ * The shadowed copy's offset in pixels, for `stack`. Zero for every other
+ * treatment — and zero when the two inks are the same colour, since an offset copy
+ * of a word in the word's own ink is a double strike (Q1: the title still draws,
+ * it just draws once).
+ *
+ * @param {string} [ink]     what the word is painted with, `palette.display`
+ * @param {string} [shadow]  what the copy behind it would be, `palette.accent`
+ */
+export function funTitleShadow(treatment, size, progress, ink, shadow) {
+  if (treatment !== 'stack') return 0
+  if (ink !== undefined || shadow !== undefined) {
+    const apart = contrastRatio(ink, shadow)
+    if (!Number.isFinite(apart) || apart < STACK_SEPARATION) return 0
+  }
+  return Math.round(size * STACK_OFFSET * (Number(progress) || 0))
 }
 
 /**

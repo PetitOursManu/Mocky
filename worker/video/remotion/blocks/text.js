@@ -140,7 +140,7 @@ export function textLayout(block, box, unit) {
       tracking: run.tracking,
       mono: run.mono,
       nowrap: run.nowrap,
-      unit: solved,
+      unit: spent,
     })
     // `runAdvanceEm` and not the constant, so this file measures a run exactly as
     // `shapeHeight` did when the layout reserved room for it. Two readings of one
@@ -165,8 +165,15 @@ export function textLayout(block, box, unit) {
     drawn.push({ index, role: run.role, size, leading, lines, height: lines * size * leading })
   }
 
-  const gap = RUN_GAP * solved
-  const furniture = Math.max(0, (Number(shape.fixed) || 0) * solved)
+  // `spent` and not `solved`, for the furniture and the air exactly as for the
+  // type. `shapeHeight` — which is what reserved this box — computes every one of
+  // its three terms at the unit the shape can SPEND, so a component that scaled
+  // its rule and its gaps by the unit it was HANDED draws a taller block than the
+  // layout made room for. It cost nothing while the only ceiling was an
+  // unbreakable run, because the four kinds here have none; `wordCeiling` gave
+  // every one of them a ceiling and the two arithmetics came apart at once.
+  const gap = RUN_GAP * spent
+  const furniture = Math.max(0, (Number(shape.fixed) || 0) * spent)
   const stacked = drawn.reduce((sum, run) => sum + run.height, 0)
   return {
     unit: solved,
