@@ -238,6 +238,16 @@ surface. When neither end clears, the solid is painted flat and keeps its
 perspective (Q1). `composition.test.js` sweeps it across six grounds and a dozen
 real directions.
 
+**The run it is pinned to is the ORNAMENT's, and it used to be the ink.** A
+rendered film is what said so: a torus painted in `palette.display.color` under a
+heading painted in `palette.display.color` is an object and the word laid on it
+meeting at 1:1 wherever they overlap, which is the founding mistake of this whole
+section arriving one composition later. A lit solid is a decoration, and a
+decoration carries the project's colour (`accentRun`) — so the material is the
+accent, and on a direction whose accent cannot be read at all it falls through
+`accentFirst` to the ink like every other ornament, because being legible outranks
+being distinct here as everywhere else.
+
 **Skia is refused on a number that is not close.** `@remotion/skia` is 11 KB of
 glue; what it needs is `@shopify/react-native-skia`, which installs 443 MiB on
 its own — `libskia.xcframework`, `libsvg.a` and friends, prebuilt binaries for
@@ -359,12 +369,45 @@ started being solved against its own band — a stack that cannot be taller than
 band does not need two thirds of the frame held empty in case it is. What survives
 of it is the alignment, which now decides which way the leftover is spent.
 
+**And the bands are divided by APPETITE, not among the rows equally.** `stackIn`
+has divided a zone that way since a `separator` above a `heading` took half a
+column for three pixels of ink; the grid went on dividing by count, which is the
+same defect one level up. A surtitle, a headline with its rule and a wordmark are
+three used rows and three equal bands — so three quarters of the top band was
+empty and the film's own headline was solved against a third of a frame that had
+two thirds to spare. Air is the smaller half of what that costs: a stack fills the
+box it is given, so an over-large band is an over-large type unit, and the export
+that showed it had a `logoType` in the bottom band at three times the `heading` in
+the middle one. A row's weight is the HUNGRIEST of its cells rather than their
+sum, because the columns of a row sit side by side.
+
+The consequence is the one that makes the rest of this section simpler: weighted
+bands make every zone read the same unit *by construction*, since each ends up
+with `safeHeight × (its share of what the scene asked for)`. `harmoniseUnits`
+below then tidies a remainder instead of rescuing a frame.
+
 **`full` is the safe area, not the frame**, and two `full` blocks share it. A
 field that bled to the frame's edge would be a map cropped by overscan and a
 gallery whose bottom row sits under a caption box — the two failures the margin
 exists to prevent, arriving through the one anchor that opts out of it. It is
 painted first, under the nine cells, because a map or a wave is what an element
 sits *on*.
+
+**And a field claims every band, because the tracks a collapse drops have to be
+EMPTY.** A lone block takes the whole measure because nothing is beside it and the
+whole height because nothing is above it; a block anchored `full` makes the second
+half of that false, since it is painted over the whole safe area under the nine
+cells. It occupies no cell, so the collapse could not see it: a scene of one
+`equalizer` and one `kicker` handed the kicker the entire safe area and rendered a
+surtitle as 200 px of capitals across the graph it was the surtitle *of* — the
+smallest role in the scene as the largest element in the picture. With a field on
+the frame the bands are the grid's own three. The columns still collapse, and that
+asymmetry is the difference between the two axes rather than a taste: a box's
+height is what sets the type SIZE and its width is what sets the MEASURE, so a
+line that runs the full width of a field is a line doing what a line over a field
+should do, while a block that takes the whole height is claiming to be the scene —
+and the field was the scene. A field that is a scene's ONLY block still gets
+everything, which is the case the fix had to leave alone.
 
 `tests/video-composed-frame.test.js` is where those become claims rather than
 prose: over the poorest document the schema accepts and one that uses all ten
@@ -401,12 +444,25 @@ rule wants almost none: split evenly, a `separator` above a `heading` takes half
 the column for three pixels of ink. `BLOCK_APPETITE` is the one table that says
 what each kind is made of, in units of the body type size — the text runs, which
 are wrapped against the measure the zone turned out to have, and the furniture
-that is not type. The tiers are argued in the table itself and the question behind
-every number is the same one: below what height does this stop being what it is?
-A motif of bars is a row of ticks under about four lines of type; a bar chart is a
-bar code under six; a map, a gallery and a lit solid are the scene when they are
-in it, and they are worth nine — a little over half a 16:9 safe area, so one of
-them beside a heading takes two thirds of the column.
+that is not type. The tiers are argued in the table itself, and the first version
+answered the wrong question with them. "Below what height does this stop being
+what it is" is a FLOOR — four lines for a motif of bars, six for a plot, nine for
+a picture — and a floor is the right number for sharing a column and the wrong one
+for owning a frame. A field's appetite is also the exchange rate between a box and
+a type size: a `barChart` worth 6.4 units filling a 950 px safe area declares one
+body line to be 130 px, so its own axis labels came out at 85 px, a row of
+`L M M J V S D` set as large as a headline, and a `kicker` standing on the chart
+inherited the same scale. Three real exports showed it and the user's word for all
+three was "rudimentary".
+
+So the field tier is what a field is worth when it IS the scene, and the number
+behind it is a density: **a frame that carries twenty lines of running text is a
+frame, and one that carries ten is a poster.** Twenty-two units across a safe area
+is a body line at about 4% of the short edge and a caption at 2.7% — the surtitle
+the house has always drawn. The order is the floors' own, so nothing about how two
+fields share one column changed: 10 to 13 for a wave and an equalizer, 15 for a
+carousel and a dial, 16 for a chart, 22 for a map, a gallery, a picture and a lit
+solid.
 
 **And there is one type scale.** `headingSize`, the counter's figure, the
 typewriter's line and the wordmark used to be four fractions of `base` decided by
@@ -430,6 +486,59 @@ legal caption fits renders every short one at the size a long one needed, and th
 box is what does that arithmetic now instead of a ramp between two character
 counts.
 
+**And a role is a notion of the SCENE, not of the stack it was solved in.** Per
+stack was the right denominator and the wrong scope, and the next export said so:
+on a scene of eight blocks, `DENSE` — a `kicker` alone in its column, sized
+against a column nothing else was in — came out three times the height of the
+`heading` in the column beside it. A surtitle three times its own title is the
+crushing above with the two blocks in two zones instead of one, and it is what an
+eye reads as wrong however defensible each half of the arithmetic was.
+
+The repair is not one unit for the whole scene. Two zones have two measures and
+two heights, and a narrow column MUST be allowed to compose smaller — that is what
+"a block inhabits the box it is given" means, and a scene-wide unit would be the
+smallest zone's answer imposed on the frame, which is the void this pass removed
+coming back through the scale. What is shared is the ORDER: `harmoniseUnits`
+lowers a stack until it is inside it. It only ever shrinks, a lone stack is
+returned exactly as `solveTypeUnit` answered it, and a stack already inside the
+order pays nothing.
+
+Bounding the drawn SIZE was the first version of that and it kept the letter of
+the order while losing its point: a caption was allowed to be exactly as large as
+a title elsewhere, and two runs of the SAME role were never compared at all. Both
+came back in one export — `DENSE` at the identical cap height to the headline
+beside it, and a `logoType` in a corner at 140 px against a 41 px `heading`, two
+`title` runs in one frame at three and a half times each other. `TYPE_ROLES` says
+why the first is wrong in a line: a surtitle that is not smaller than the line
+under it is not a surtitle. So there are two bounds now, and they are different
+questions:
+
+- the ORDER, on the drawn size, for a strictly superior role. It has to stay,
+  because a superior run held back by its own measure still draws what it draws;
+- the SCALE, on the UNIT, for a role at least as high. A caption then lands at
+  0.65/1.55 of that title, where the scale puts it, and two `title` runs in one
+  frame are one size.
+
+Two clauses hang off that. **A field is the scene, so the words laid on it read at
+the field's own scale**: a block anchored `full` belongs to no band, which leaves
+a cell zone solving against a third of the safe area with nothing to be compared
+with — the 122 px `SIGNAL` over an equalizer, again — so the field's unit is the
+ceiling for everything stacked on it. And **the lowering stops where the INK's
+licence does**: `palette.accent` and `palette.display` are resolved at the 3:1
+floor, which the audit licences for bold type past `BOLD_LARGE_PX` (18.66 px), so
+the scale bound has a floor there. The order bound has none — an inversion is not
+a quieter scene, it is a wrong one — and neither may raise a stack above what its
+own box allowed.
+
+Two things it deliberately does not do. It compares a stack with OTHER stacks and
+never with itself, because a stack already agrees with itself and the one way it
+can still invert internally is a per-block measure ceiling — correcting that would
+mean lowering a whole zone below what its box allows, which is the guarantee the
+box arithmetic exists to give. And it cannot leave a block floating in its
+allotment: a block's box is what it DRAWS at the unit its stack ended up with, so
+lowering a unit lowers the box with it and the leftover goes back to the zone,
+where the alignment spends it.
+
 Two things a document may still ask to be smaller, and they are named:
 `solidScene.size` and `separator.extent`, both closed enums of three shares. A
 `small` solid fills 42% of its box because somebody wrote `small`, and refusing
@@ -446,6 +555,21 @@ can do better in general because a line count is an integer. And the box a block
 is given has to be exactly what it draws in it — two computations from opposite
 directions, `stackIn` solving a unit for a stack and `blockExtent` answering for
 one box, which is what would catch a weight table drifting from the type scale.
+The order between roles is held over the same corpus one level up: scenes covering
+the ten zones, one to eight layers, spread across cells, stacked two to a zone and
+laid over a field, in all three ratios — no run larger than a superior one, and
+every box still filled, which is the guarantee a scene-wide cap is exactly the
+sort of thing that would quietly undo.
+
+The one exception to "everything comes off the box" has one implementation, and it
+had three: `constantMetric` was written in `interface.js`, in `media.js` and a
+third time in `dataFigures.js`, from one paragraph by three authors. The three
+agreed on every box anybody had thought about and disagreed on the degenerate
+one — one answered 0 and one answered the requested size unbounded, with a test
+pinning the second, so a divergence nobody had decided read as a decision somebody
+made. It lives in `composition.js` now and the three families read it; a 0×0 box is
+a box with no room rather than a licence, and an ABSENT box is the different
+question `hairline` splits on for the same reason.
 
 #### There is still no audio
 
@@ -535,20 +659,36 @@ composition paints and `palette.ground.tint` is what was measured — they diffe
 exactly the field, and reading the second in `Ground` would paint it twice and take
 a gradient's far end off the accent.
 
-**A second gap has a name, and it is the one the sentence above is written to
-prevent.** A field is measured as the ACCENT, because the five blocks that reach
-for `full` — `equalizer`, `soundWave`, `map`, `lineChart`, `barChart` — paint the
-accent as a run or as a fill. `gallery`, `carousel` and `imageFrame` can be
-anchored `full` too, and what they paint is photographs: a stack over one of them
-is text on pictures nobody in this process has opened, measured against an accent
-that is not on the frame. No veil covers it either, since `COMPOSED_IMAGE_VEIL`
-belongs to the `image` GROUND. It is written down in `gallery.jsx` and in this
-paragraph rather than left to be rediscovered, because the way this feature loses
-a guarantee is a comment that says a block "carries no text, so the only thing it
-can get wrong is spending contrast something else needed" — true of a block in a
-cell, false of a block that is a surface, and it survived six passes over these
-files before an export found it. The fix, when it is made, belongs in
-`composedPalette` beside `FIELD_ALPHAS` and in nothing under `blocks/`.
+**A field is measured as what it PAINTS, and "the accent" was a guess that held
+for five blocks out of six.** `equalizer`, `soundWave`, `map`, `lineChart` and
+`barChart` paint the accent as a run or as a fill, which is what the boolean
+version of this measured on everybody's behalf. `solidScene` paints a lit solid in
+a colour of its own at two brightnesses, and an export showed both halves of the
+omission at once: `field.alpha` walked its whole ladder against an accent nothing
+on the frame carried, so it dimmed the object without ever helping the word, and
+the frame came back a flat grey torus behind a title. So `FIELD_PAINTS` maps a
+`full` block to what it puts on the frame, `fieldPaints` answers with the SET a
+scene paints — deduped and in a fixed order, because that answer is also the
+palette cache's key — and `composedPalette` samples those colours. A solid is two
+of them: every Lambert face lies between `material` and `material × ambient`, so
+its two ends measure every face, which is `solidShading`'s own proof reused one
+layer out. Its material is resolved on the BARE ground for the reason the accent
+run is: the field is what is being measured, and a colour taken from the pass that
+includes it would be a fixpoint rather than an answer.
+
+**The gap that is left is the one that needs a picture, not a row in a table.**
+`gallery`, `carousel` and `imageFrame` can be anchored `full` too, and what they
+paint is photographs: a stack over one of them is text on pictures nobody in this
+process has opened, and they fall to the table's default and are measured as an
+accent that is not on the frame. No veil covers it either, since
+`COMPOSED_IMAGE_VEIL` belongs to the `image` GROUND. It is written down in
+`gallery.jsx` and in this paragraph rather than left to be rediscovered, because
+the way this feature loses a guarantee is a comment that says a block "carries no
+text, so the only thing it can get wrong is spending contrast something else
+needed" — true of a block in a cell, false of a block that is a surface, and it
+survived six passes over these files before an export found it. The fix, when it
+is made, belongs in `composedPalette` beside `FIELD_ALPHAS` and in nothing under
+`blocks/`.
 
 #### And so does the guarantee that nothing holds still
 

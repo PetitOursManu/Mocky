@@ -680,6 +680,20 @@ export const MARK_SLASH_SHARE = 0.28
 export const MARK_GAP_EM = 0.3
 export const MARK_ENTER_SCALE = 0.55
 
+/**
+ * The lean of a `slash`, in degrees — here rather than in the component because
+ * it is a WIDTH before it is a style.
+ *
+ * `logoType.jsx` writes the `skewX`, and the skew is what makes the mark a slash
+ * rather than a narrow bar; but a skew about an element's centre pushes its top
+ * corner out one side and its bottom corner out the other, and neither is in the
+ * element's own width. Counted as advance alone, a real 1920 export put the mark
+ * 12 px past the left safe margin — an ornament outside the frame's promise,
+ * through the one geometry in this family that is not a rectangle. The angle is
+ * therefore a number both halves read, and `markBleed` is what it means.
+ */
+export const MARK_SLASH_SKEW_DEG = 18
+
 /** How far the outermost letter of a wordmark starts from its closed position, in ems. */
 export const LOGO_TRAVEL_EM = 0.22
 
@@ -687,6 +701,24 @@ export const LOGO_TRAVEL_EM = 0.22
 function markShare(mark) {
   if (mark === 'none') return 0
   return mark === 'slash' ? MARK_SHARE * MARK_SLASH_SHARE : MARK_SHARE
+}
+
+/**
+ * What a slash draws OUTSIDE its own width, per side, in ems of the type.
+ *
+ * A `skewX(-θ)` about the centre of a box of height `h` moves the top edge
+ * `h/2·tanθ` one way and the bottom edge the same distance the other, so the
+ * shape a frame contains is `h·tanθ` wider than the width the layout reserved.
+ * The mark's height is `MARK_SHARE` of the type whatever the shape, so this is
+ * that half-travel and nothing about the box it lands in.
+ *
+ * The component spends it as a margin on both sides, which is what turns the
+ * overhang back into advance: the reserved width then bounds the drawing rather
+ * than the element, and a mark against the left margin stays inside it.
+ */
+export function markBleed(mark) {
+  if (mark !== 'slash') return 0
+  return (MARK_SHARE * Math.tan((MARK_SLASH_SKEW_DEG * Math.PI) / 180)) / 2
 }
 
 /**
@@ -716,11 +748,23 @@ export function logoLayout(block, box, unit) {
   // edge of the video. See `meanAdvanceEm`.
   const per = textWidth(block?.text, 1, 0, meanAdvanceEm(block?.text))
   const share = markShare(block?.mark)
+  const bleed = markBleed(block?.mark)
   const gap = share > 0 ? MARK_GAP_EM : 0
-  const room = per + share + gap + 2 * LOGO_TRAVEL_EM
+  // The slash's overhang is part of the measure, on both sides. It was not, and
+  // the difference is the whole defect: the mark was budgeted at its advance
+  // width while it draws `MARK_SHARE·tanθ` more than that, so a wordmark against
+  // the left edge of its box put an eighth of its mark outside the safe margin.
+  const room = per + share + 2 * bleed + gap + 2 * LOGO_TRAVEL_EM
   const size = fittedType(LOGO_ROLE, Math.min(drawnUnit(block, box, unit), room > 0 ? width / room / step : Infinity))
-  const mark = { width: px(share * size), height: share > 0 ? px(MARK_SHARE * size) : 0, gap: px(gap * size) }
-  const drawn = Math.round(per * size) + mark.width + mark.gap
+  const mark = {
+    width: px(share * size),
+    height: share > 0 ? px(MARK_SHARE * size) : 0,
+    gap: px(gap * size),
+    // Spent as a margin by the component, which is what makes the reserved width
+    // bound the DRAWING rather than the element.
+    bleed: px(bleed * size),
+  }
+  const drawn = Math.round(per * size) + mark.width + 2 * mark.bleed + mark.gap
   const content = Math.round(runHeight(LOGO_ROLE, 1, size))
   const { air } = spread(side(box, 'height'), content, 0, 0)
   return {

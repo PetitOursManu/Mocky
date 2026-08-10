@@ -232,6 +232,12 @@ export const Notification = ({ block, palette, theme, box, unit, base, progress,
           style={{
             fontFamily: theme.headingFont,
             fontSize: card.title,
+            // The house's own break, and the one `textLines` assumes: the estimate
+            // packs characters against the measure, so a run that will only break
+            // between words puts more type on a line than the layout reserved room
+            // for. An export shipped `photographie` reading `photograph`, clipped by
+            // the `overflow: hidden` this block reveals its type from.
+            wordBreak: 'break-word',
             lineHeight: 1.4,
             fontWeight: 700,
             color: palette.panelDisplay.color,
@@ -245,6 +251,12 @@ export const Notification = ({ block, palette, theme, box, unit, base, progress,
               marginTop: card.gap,
               fontFamily: theme.bodyFont,
               fontSize: card.body,
+              // The house's own break, and the one `textLines` assumes: the estimate
+              // packs characters against the measure, so a run that will only break
+              // between words puts more type on a line than the layout reserved room
+              // for. An export shipped `photographie` reading `photograph`, clipped by
+              // the `overflow: hidden` this block reveals its type from.
+              wordBreak: 'break-word',
               lineHeight: 1.35,
               color: palette.panelBody.color,
             }}

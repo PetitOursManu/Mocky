@@ -118,6 +118,11 @@ export const ImageFrame = ({ block, palette, theme, box, unit, base, progress, l
             marginTop: geometry.caption.gap,
             fontFamily: theme.bodyFont,
             fontSize: geometry.caption.size,
+            // The house's own break, and the one `textLines` assumes: the estimate packs
+            // characters against the measure, so a run that will only break between words
+            // puts more type on a line than the layout reserved room for. An export shipped
+            // `photographie` reading `photograph`, clipped by the mask its type rises from.
+            wordBreak: 'break-word',
             lineHeight: geometry.caption.lines > 0 ? geometry.caption.height / geometry.caption.lines / geometry.caption.size : 1,
             color: ink,
           }}

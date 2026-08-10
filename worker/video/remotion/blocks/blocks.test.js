@@ -16,6 +16,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BLOCKS, blockComponent } from './index.js'
+import { BLOCK_APPETITE } from '../composition.js'
 import { BLOCK_KINDS } from '../../../../server/video/timeline.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -244,5 +245,33 @@ describe('what a block may not contain', () => {
       expect(source, name).toContain('SURFACE:')
       expect(source, name).toContain('LEGIBILITY:')
     }
+  })
+
+  /**
+   * A run that wraps breaks INSIDE a word, because that is the only wrapping the
+   * layout arithmetic knows how to predict.
+   *
+   * `textLines` packs characters against the measure — 20 characters across a
+   * measure that holds 9 is three lines — and a browser left to itself breaks
+   * between words instead, so one long word puts more type on a line than the
+   * layout reserved room for. It is not a rounding error: a real export shipped a
+   * `lowerThird` whose title wrapped to `Sur une` / `photographie`, 1660 px of
+   * type across a 1373 px band, and the word reached the frame reading
+   * `photograph` because the mask its type rises from is `overflow: hidden`.
+   *
+   * Checked from the WEIGHT TABLE rather than from a list somebody keeps: a kind
+   * whose runs are all `nowrap` is bounded by `shapeCeiling` instead and needs
+   * nothing, and a kind that gains a wrapping run gains this obligation with it.
+   */
+  it('breaks a wrapping run inside a word, because that is what the layout measured', () => {
+    // Enough of a block to make every `runs()` in the table answer: the arrays are
+    // what `animatedList`, `form` and `codeBlock` map over, and an empty one would
+    // report a kind as having no wrapping run at all.
+    const sample = { items: ['x'], fields: ['x'], labels: ['x'], lines: [{ text: 'x' }] }
+    const wrapping = Object.entries(BLOCK_APPETITE)
+      .filter(([, appetite]) => appetite.runs(sample).some((run) => !run?.nowrap))
+      .map(([kind]) => kind)
+    expect(wrapping.length).toBeGreaterThan(10)
+    for (const kind of wrapping) expect(code(`${kind}.jsx`), kind).toContain('wordBreak')
   })
 })

@@ -51,15 +51,18 @@ import {
   blockHeight,
   blockShape,
   COMPOSED_BLOCK_DRIFT,
-  CONSTANT_CEILING,
+  LINE_SAFETY,
   CONTRAST_MIN_LARGE,
   hairline,
   RUN_GAP,
   shapeCeiling,
   solveTypeUnit,
+  runAdvanceEm,
   surfaceRange,
   textWidth,
+  typeRole,
   typeSize,
+  words,
   worstRatio,
 } from '../composition.js'
 
@@ -114,20 +117,16 @@ function stackUnit(unit, block, box) {
 }
 
 /**
- * A quantity read off the frame, bounded inside the box it is drawn in.
+ * A quantity read off the frame, bounded inside the box it is drawn in — the
+ * house's one implementation, re-exported so this family keeps its single door.
  *
- * `CONSTANT_METRICS` names the three — a hairline, a radius, the grid's gutters
- * — and the ceiling is what keeps the exception from becoming the rule again: a
- * 12 px radius on a 20 px row is a lozenge rather than a card, and a rule
- * thicker than a quarter of its box IS the block. Not floored at 1: a direction
- * that states a radius of zero has stated a square corner, and rounding it up to
- * a pixel would be the layout overruling the document.
+ * It used to be written here, and in `media.js`, and a third time in
+ * `dataFigures.js` as `figureRadius`: three authors, one paragraph, three
+ * readings that agreed on every box a card had been written for and disagreed on
+ * the degenerate one. See `constantMetric` in `composition.js` for what that cost
+ * and for which answer survived.
  */
-export function constantMetric(px, box) {
-  const { width, height } = safeBox(box)
-  const room = Math.floor(Math.min(width, height) * CONSTANT_CEILING)
-  return Math.max(0, Math.min(Math.round(Number(px) || 0), Math.max(0, room)))
-}
+export { constantMetric } from '../composition.js'
 
 /**
  * The height a block's runs take at a unit, across a measure — its box minus its
@@ -161,7 +160,47 @@ export function runsHeight(block, width, unit) {
 function fitUnit(block, room, unit) {
   const shape = blockShape(block)
   const solved = solveTypeUnit([{ fixed: 0, runs: shape.runs }], room.width, room.height)
-  return Math.max(0, Math.min(unit, solved))
+  return Math.max(0, Math.min(unit, solved, wordFit(shape.runs, room.width)))
+}
+
+/**
+ * The size at which the longest WORD of each run still fits on a line of the
+ * card's own measure.
+ *
+ * `textLines` counts characters against a measure, which is what a browser does
+ * only when it may break inside a word — and `word-break: break-word`, which
+ * every block in this directory sets, does not do that. CSS puts an over-long
+ * word on a line of its OWN first and breaks it only if it still does not fit, so
+ * a run the estimate packed into two lines arrives as three.
+ *
+ * A real export: a `lowerThird` reading `Sur une photographie` was solved at
+ * 250 px for two lines of ten characters, and the frame shipped `Sur une` /
+ * `photograph` / `ie` with the third line and the whole subtitle sliced off by
+ * the mask the type rises from.
+ *
+ * It lives here and not in `shapeCeiling` on purpose. A zone's measure is the
+ * whole box and its slack is the zone's alignment, so upstairs the same bound
+ * would shrink every long-worded paragraph in the film for a line it very rarely
+ * loses; a card has padding, a fixed height and `overflow: hidden`, which is
+ * exactly the combination that turns one extra line into a sentence nobody can
+ * read. This is `fitUnit`'s existing job — the one place the four of them may
+ * fall below the shared scale, and always downwards.
+ */
+function wordFit(runs, width) {
+  let ceiling = Infinity
+  for (const run of runs ?? []) {
+    if (run?.nowrap) continue
+    const longest = words(run?.text).reduce((most, word) => Math.max(most, word.length), 0)
+    if (longest === 0) continue
+    const advance = (runAdvanceEm(run) + Math.max(0, Number(run?.tracking) || 0)) * LINE_SAFETY
+    const step = typeRole(run?.role).step
+    // Half a pixel back, because `typeSize` ROUNDS: the size a block draws is up
+    // to half a pixel above `unit × step`, and half a pixel across twelve glyphs
+    // is the three that put the word over the edge again.
+    const size = Math.max(0, Math.max(0, width) / (longest * advance) - 0.5)
+    ceiling = Math.min(ceiling, size / step)
+  }
+  return ceiling
 }
 
 // ── A panel has to be SEEN, and that is arithmetic too ──────────────────────

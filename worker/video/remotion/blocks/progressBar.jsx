@@ -88,6 +88,11 @@ export const ProgressBar = ({ block, palette, theme, box, unit, progress, life }
             marginBottom: bar.gap,
             fontFamily: theme.bodyFont,
             fontSize: bar.labelSize,
+            // The house's own break, and the one `textLines` assumes: the estimate packs
+            // characters against the measure, so a run that will only break between words
+            // puts more type on a line than the layout reserved room for. An export shipped
+            // `photographie` reading `photograph`, clipped by the mask its type rises from.
+            wordBreak: 'break-word',
             lineHeight: bar.labelLeading,
             color: palette.body.color,
           }}

@@ -64,7 +64,7 @@
  * that is a change to the composition's props and not to a block.
  */
 
-import { CONSTANT_CEILING, hairline, textLines, textWidth, typeRole, typeSize } from '../composition.js'
+import { constantMetric, hairline, textLines, textWidth, typeRole, typeSize } from '../composition.js'
 
 /**
  * The golden ratio, used everywhere below as a frequency ratio and an index
@@ -177,13 +177,16 @@ export function capped(list, cap) {
  * A corner radius, which is a CONSTANT METRIC: the same object from one scene to
  * the next, so it comes off the theme and not off the box.
  *
- * Bounded at `CONSTANT_CEILING` of whatever it rounds, because an exception with
- * no ceiling is the rule going back out of the window — a 12 px radius on a 14 px
- * bar is a pill, and a row of pills is a row of tags rather than a level meter.
+ * The ceiling is `constantMetric`'s and not a third copy of it: this was the
+ * third of three implementations of one paragraph, and the three disagreed on the
+ * degenerate box. What is left here is what is genuinely this family's — a bar is
+ * rounded against ONE extent rather than against a box, since a lane is a
+ * thickness, and a figure may ask for a fraction of the theme's radius because a
+ * 12 px corner on a 14 px bar is a pill and a row of pills is a row of tags.
  */
 export function figureRadius(radiusPx, extent, share = 1) {
-  const asked = Math.max(0, Math.round(Math.max(0, Number(radiusPx) || 0) * share))
-  return Math.max(0, Math.min(asked, Math.floor(length(extent) * CONSTANT_CEILING)))
+  const side = length(extent)
+  return constantMetric(Math.max(0, Number(radiusPx) || 0) * share, { width: side, height: side })
 }
 
 /**
@@ -278,6 +281,26 @@ export function axisTick(life) {
 /** How far the reading mark hangs below the axis, and how much air sits under the bars. In units. */
 export const BAR_AXIS_GAP = 0.22
 export const MARK_OVERHANG = 0.32
+
+/**
+ * How loud the axis and the reading mark are.
+ *
+ * Both are opacities on runs the palette already resolved — the rule on
+ * `palette.body`, the mark on the accent run with the veil LOCKED — and neither
+ * carries a glyph, so quieting one spends no contrast anybody measured. Neither
+ * may be raised past 1 for the same reason `map`'s two are written down here: an
+ * opacity can only ever make a decoration quieter than what was measured, never
+ * louder than what was allowed.
+ *
+ * They live in the family module rather than in the component because that is
+ * where every other number of this shape already is — `FIELD_QUIET`, `PING_ALPHA`,
+ * `LINE_DOT_SHARE` — and a literal in a `.jsx` is the one a second author retypes
+ * with a different value on the block next door. The rule is louder than the mark
+ * because it is the thing the columns are measured FROM; a guide as loud as the
+ * figure reads as one more bar rather than as an eye crossing it.
+ */
+export const AXIS_ALPHA = 0.45
+export const MARK_ALPHA = 0.34
 
 /**
  * How small a caption may get before it stops being a caption.

@@ -7,7 +7,15 @@
 // the finished mp4 — which is the whole reason this arithmetic lives in a `.js`
 // file rather than inside a component nothing can load.
 import { describe, it, expect } from 'vitest'
-import { CONSTANT_CEILING, RUN_GAP, blockShape, solveTypeUnit, typeRole, typeSize } from '../composition.js'
+import {
+  CONSTANT_CEILING,
+  RUN_GAP,
+  blockShape,
+  constantMetric as sharedConstantMetric,
+  solveTypeUnit,
+  typeRole,
+  typeSize,
+} from '../composition.js'
 import { ENTER_RISE, boxSize, constantMetric, enterRise, runBand, stackUnit, tileGutter, tracks } from './media.js'
 
 const SPANS = [1688, 950, 906, 400, 137, 40]
@@ -73,8 +81,23 @@ describe('constantMetric — the exception, and its ceiling', () => {
     expect(constantMetric(13, { width: 1688, height: 950 })).toBe(13)
     expect(constantMetric(13, { width: 400, height: 300 })).toBe(13)
     expect(constantMetric(13, { width: 400, height: 20 })).toBe(Math.floor(20 * CONSTANT_CEILING))
-    expect(constantMetric(13, { width: 0, height: 0 })).toBe(13)
     expect(constantMetric(-5, { width: 100, height: 100 })).toBe(0)
+  })
+
+  /**
+   * And it is the HOUSE's, not this family's.
+   *
+   * There were three of these — here, in `interface.js` and in `dataFigures.js`
+   * as `figureRadius` — written in parallel from one paragraph, agreeing on every
+   * box anybody had thought about and disagreeing on the degenerate one: this
+   * copy answered the requested size unbounded on a 0×0 box, and this file
+   * asserted it, so a divergence nobody decided read as a decision somebody made.
+   * The identity is the assertion, because two implementations that agree today
+   * are the state the first divergence started from.
+   */
+  it('is the one implementation, and not this family’s copy of it', () => {
+    expect(constantMetric).toBe(sharedConstantMetric)
+    expect(constantMetric(13, { width: 0, height: 0 })).toBe(0)
   })
 
   /** And the tile gutter is one of them: one number for the gallery and the strip. */

@@ -22,6 +22,7 @@ import {
   LIST_SHARE,
   LOGO_ROLE,
   LOGO_SHARE,
+  MARK_SLASH_SKEW_DEG,
   TYPEWRITER_ROLE,
   TYPE_SHARE,
   caretOn,
@@ -685,6 +686,38 @@ describe('the two blocks that measure something the weight table cannot see', ()
         }
       }
     }
+  })
+
+  /**
+   * A slash draws outside its own width, and that overhang is measure.
+   *
+   * `skewX` about an element's centre pushes its top corner out one side and its
+   * bottom corner out the other, and neither is in the width a flex row reserves.
+   * Counted as advance alone, a 1920 export put the mark 12 px past the left safe
+   * margin — an ornament outside the promise the whole safe area is, arriving
+   * through the one shape in this family that is not a rectangle.
+   *
+   * The margin is what turns it back into advance, so the claim is in two halves:
+   * the bleed is real and only on the slash, and `width` already holds it — which
+   * is what makes the test above (`width + 2·travel ≤ box.width`) a claim about
+   * what the frame CONTAINS rather than about what the layout reserved.
+   */
+  it('counts the overhang of a slash as measure, not just its advance width', () => {
+    const box = { left: 116, top: 65, width: 1688, height: 950 }
+    for (const mark of ['none', 'square', 'circle']) {
+      expect(logoLayout({ ...RICHEST.logoType, mark }, box, undefined).mark.bleed, mark).toBe(0)
+    }
+    const slash = logoLayout({ ...RICHEST.logoType, mark: 'slash' }, box, undefined)
+    // Half of `height · tan(θ)` per side, off the mark's own height — within the
+    // pixel the two roundings can be apart. It is 12 px on this box, which is the
+    // 12 px the export was outside its margin by.
+    const overhang = (slash.mark.height * Math.tan((MARK_SLASH_SKEW_DEG * Math.PI) / 180)) / 2
+    expect(Math.abs(slash.mark.bleed - overhang)).toBeLessThanOrEqual(1)
+    expect(slash.mark.bleed).toBeGreaterThan(0)
+    // And it is in the width, which is the number every other claim is made on.
+    expect(slash.width).toBeGreaterThanOrEqual(slash.mark.width + 2 * slash.mark.bleed + slash.mark.gap)
+    // The shape a frame contains, corner to corner, is inside the box.
+    expect(slash.width + 2 * slash.travel).toBeLessThanOrEqual(box.width)
   })
 
   /**

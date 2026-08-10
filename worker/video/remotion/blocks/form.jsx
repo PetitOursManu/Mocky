@@ -140,6 +140,12 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
           style={{
             fontFamily: theme.headingFont,
             fontSize: card.title,
+            // The house's own break, and the one `textLines` assumes: the estimate
+            // packs characters against the measure, so a run that will only break
+            // between words puts more type on a line than the layout reserved room
+            // for. An export shipped `photographie` reading `photograph`, clipped by
+            // the `overflow: hidden` this block reveals its type from.
+            wordBreak: 'break-word',
             lineHeight: 1.14,
             fontWeight: 700,
             color: palette.panelDisplay.color,
@@ -172,6 +178,11 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
               border: `${card.border}px solid ${palette.panelAccent.color}`,
               fontFamily: theme.bodyFont,
               fontSize: card.row,
+              // The house's own break, and the one `textLines` assumes: the estimate packs
+              // characters against the measure, so a run that will only break between words
+              // puts more type on a line than the layout reserved room for. An export shipped
+              // `photographie` reading `photograph`, clipped by the mask its type rises from.
+              wordBreak: 'break-word',
               lineHeight: 1.4,
               color: palette.panelBody.color,
               opacity: typed === 0 && !focused ? ROW_REST : 1,
@@ -213,6 +224,11 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
               border: `${card.border}px solid ${palette.panelAccent.color}`,
               fontFamily: theme.bodyFont,
               fontSize: card.row,
+              // The house's own break, and the one `textLines` assumes: the estimate packs
+              // characters against the measure, so a run that will only break between words
+              // puts more type on a line than the layout reserved room for. An export shipped
+              // `photographie` reading `photograph`, clipped by the mask its type rises from.
+              wordBreak: 'break-word',
               lineHeight: 1.4,
               fontWeight: 700,
               color: palette.panelBody.color,
@@ -240,6 +256,11 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
               backgroundColor: palette.fill.color,
               fontFamily: theme.bodyFont,
               fontSize: card.row,
+              // The house's own break, and the one `textLines` assumes: the estimate packs
+              // characters against the measure, so a run that will only break between words
+              // puts more type on a line than the layout reserved room for. An export shipped
+              // `photographie` reading `photograph`, clipped by the mask its type rises from.
+              wordBreak: 'break-word',
               lineHeight: 1.4,
               fontWeight: 700,
               color: palette.onFill.color,

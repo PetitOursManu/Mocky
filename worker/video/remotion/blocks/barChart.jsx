@@ -61,7 +61,7 @@
  * turned off would otherwise hold perfectly still for the rest of its scene.
  */
 
-import { axisTick, barChartLayout, barGrowths, barHeight } from './dataFigures.js'
+import { AXIS_ALPHA, MARK_ALPHA, axisTick, barChartLayout, barGrowths, barHeight } from './dataFigures.js'
 
 export const BarChart = ({ block, palette, theme, box, unit, base, progress, life }) => {
   // Percentages and not data: a chart in a film has no axis anybody can read at
@@ -111,8 +111,9 @@ export const BarChart = ({ block, palette, theme, box, unit, base, progress, lif
             // A rule under a figure is the house's own device and it is not a
             // run: nothing sits on it, so an opacity here spends no contrast
             // anybody measured. Full strength would make the axis the loudest
-            // thing in the block.
-            opacity: 0.45 * progress,
+            // thing in the block — the argument, and the number, are in
+            // `dataFigures.js` with every other quantity this family shares.
+            opacity: AXIS_ALPHA * progress,
           }}
         />
       ) : null}
@@ -132,7 +133,7 @@ export const BarChart = ({ block, palette, theme, box, unit, base, progress, lif
           transform: 'translateX(-50%)',
           width: layout.mark.thickness,
           backgroundColor: palette.accent.color,
-          opacity: 0.34 * progress,
+          opacity: MARK_ALPHA * progress,
         }}
       />
 
@@ -152,6 +153,11 @@ export const BarChart = ({ block, palette, theme, box, unit, base, progress, lif
                   textAlign: 'center',
                   fontFamily: theme.bodyFont,
                   fontSize: layout.label.size,
+                  // The house's own break, and the one `textLines` assumes: the estimate packs
+                  // characters against the measure, so a run that will only break between words
+                  // puts more type on a line than the layout reserved room for. An export shipped
+                  // `photographie` reading `photograph`, clipped by the mask its type rises from.
+                  wordBreak: 'break-word',
                   lineHeight: `${layout.label.height}px`,
                   color: palette.body.color,
                   // Sized to fit its own column by `labelBand`; this is the belt,

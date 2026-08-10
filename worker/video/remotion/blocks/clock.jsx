@@ -187,6 +187,11 @@ export const Clock = ({ block, palette, theme, box, unit, base, progress, life }
             marginTop: face.label.gap,
             fontFamily: theme.bodyFont,
             fontSize: face.label.size,
+            // The house's own break, and the one `textLines` assumes: the estimate packs
+            // characters against the measure, so a run that will only break between words
+            // puts more type on a line than the layout reserved room for. An export shipped
+            // `photographie` reading `photograph`, clipped by the mask its type rises from.
+            wordBreak: 'break-word',
             // No tracking: `BLOCK_APPETITE` declares a plain caption run here,
             // and a letter-spacing the layout did not measure is a label that
             // wraps onto a line the dial had to pay for. See `runBand`.

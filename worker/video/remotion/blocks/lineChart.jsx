@@ -168,6 +168,11 @@ export const LineChart = ({ block, palette, theme, box, unit, base, progress, li
             width: layout.width,
             fontFamily: theme.bodyFont,
             fontSize: layout.label.size,
+            // The house's own break, and the one `textLines` assumes: the estimate packs
+            // characters against the measure, so a run that will only break between words
+            // puts more type on a line than the layout reserved room for. An export shipped
+            // `photographie` reading `photograph`, clipped by the mask its type rises from.
+            wordBreak: 'break-word',
             lineHeight: layout.label.leading,
             color: palette.body.color,
             opacity: progress,

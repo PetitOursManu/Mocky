@@ -4,6 +4,7 @@ import {
   composedLayout,
   composedPalette,
   entranceStyle,
+  fieldPaints,
   frameBase,
   groundDensity,
   groundPainted,
@@ -11,7 +12,6 @@ import {
   planTimeline,
   resolveTheme,
   sceneMotion,
-  stackedField,
   withAlpha,
 } from './composition.js'
 import { ThreeCanvas } from '@remotion/three'
@@ -397,14 +397,16 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
  * What a palette depends on, and therefore how many of them a film resolves.
  *
  * The ground's KIND, as before — the direction of a gradient and the cell count
- * of a grid change what is painted, never what is measured — and now whether the
- * scene stands anything on a `full` block, because that is a second surface and
- * it is measured. Twelve scenes still resolve at most twelve palettes and
- * usually one, which is what this memo was for: the tree is rebuilt on every one
- * of a film's 3600 frames, and behind a palette is a real search.
+ * of a grid change what is painted, never what is measured — and now what the
+ * scene stands its stack ON, because a `full` block is a second surface and it is
+ * measured. The PAINTS and not a flag: a wave and a lit solid are two different
+ * colours under the same heading, so a key that said "field" for both would hand
+ * one of them the other's search. Twelve scenes still resolve at most twelve
+ * palettes and usually one, which is what this memo was for: the tree is rebuilt
+ * on every one of a film's 3600 frames, and behind a palette is a real search.
  */
 function paletteKey(scene) {
-  return `${backgroundKind(scene?.background)}:${stackedField(scene) ? 'field' : 'plain'}`
+  return `${backgroundKind(scene?.background)}:${fieldPaints(scene).join('+') || 'plain'}`
 }
 
 function progressOf(frame, durationInFrames) {
@@ -439,7 +441,7 @@ export const ComposedSceneVideo = ({ timeline, imageSrc }) => {
   for (const entry of plan.scenes) {
     const key = paletteKey(entry.scene)
     if (!palettes[key]) {
-      palettes[key] = composedPalette(theme, entry.scene.background, { field: stackedField(entry.scene) })
+      palettes[key] = composedPalette(theme, entry.scene.background, { field: fieldPaints(entry.scene) })
     }
   }
 

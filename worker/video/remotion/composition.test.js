@@ -76,8 +76,11 @@ import {
   VERTICAL_SAFE_SIDE_PERCENT,
   VERTICAL_SAFE_TOP_PERCENT,
   FIELD_ALPHAS,
+  FIELD_PAINTS,
+  FIELD_PAINT_KINDS,
   FIELD_RAMP,
   BLOCK_APPETITE,
+  BOLD_LARGE_PX,
   BOX_FILL_FLOOR,
   CONSTANT_CEILING,
   DECLARED_SHARE,
@@ -102,12 +105,14 @@ import {
   dimensionsFor,
   easeOutCubic,
   entranceStyle,
+  fieldPaints,
   fontStack,
   frameBase,
   groundDensity,
   groundPainted,
   groundTint,
   hairlineTexture,
+  harmoniseUnits,
   inkCandidates,
   kenBurnsTransform,
   layerCues,
@@ -133,6 +138,7 @@ import {
   stackedField,
   surfaceRange,
   textLines,
+  typeRole,
   typeScale,
   typeSize,
   hairline,
@@ -1926,14 +1932,84 @@ describe('composedPalette', () => {
    * had measured every run against a ground nothing was standing on.
    */
   describe('a field under a stack', () => {
+    /**
+     * The three shapes a field comes in, and the second one is why this is a
+     * table rather than one fixture.
+     *
+     * A field used to be a boolean and every field was measured as the accent,
+     * which is what five of the six paint. `solidScene` paints a lit solid in a
+     * colour of its own, at two brightnesses, and a real export showed what that
+     * omission looks like: a flat grey torus under a heading in the same ink,
+     * with `field.alpha` walking its whole ladder against a colour nothing on the
+     * frame carried. The third case is the one that says the answer is a SET —
+     * a wave and a torus under one heading are two surfaces, and both are on the
+     * frame.
+     */
+    const FIELD_CASES = {
+      accent: { kinds: ['equalizer'], paints: ['accent'] },
+      solid: { kinds: ['solidScene'], paints: ['solid'] },
+      both: { kinds: ['equalizer', 'solidScene'], paints: ['accent', 'solid'] },
+    }
+
     /** A scene shaped like the export that failed: a field, and a headline on it. */
-    const stacked = (background) => ({
+    const stacked = (background, kinds = ['equalizer']) => ({
       background,
       layers: [
-        { kind: 'equalizer', anchor: 'full' },
+        ...kinds.map((kind) => ({ kind, anchor: 'full' })),
         { kind: 'heading', text: 'On dessine ce qui bouge', anchor: 'center' },
       ],
     })
+
+    /**
+     * The colours a field of each paint really puts on the frame, rebuilt here
+     * rather than read off the palette that is being checked.
+     *
+     * The accent pair is what `equalizer` draws as a run and `barChart` as a
+     * fill. The solid pair is the two ends of the Lambert segment: `material` and
+     * `material × ambient`, rebuilt with this file's own `scale`. The ambient IS
+     * read off the palette, and that is not the palette marking its own homework
+     * — it is the number the block is told to light with, so it is an input to
+     * what gets painted rather than a claim about contrast, and the claim is
+     * re-measured below.
+     */
+    const fieldInks = (paints, theme, plain) => {
+      const colors = []
+      for (const paint of paints) {
+        const pair =
+          paint === 'solid'
+            ? [plain.solid.color, scale(plain.solid.color, plain.solid.ambient)]
+            : [plain.accent.color, theme.accent]
+        for (const color of pair) if (!colors.includes(color)) colors.push(color)
+      }
+      return colors
+    }
+
+    /** The surface a run over that field really lands on, at a given density. */
+    const fieldRange = (palette, colors, alpha) =>
+      surfaceRange(palette.ground.color, palette.ground.alpha, [
+        ...(palette.groundTint ?? []),
+        ...colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: alpha * step }))),
+      ])
+
+    /**
+     * The palettes these sweeps share, resolved once each.
+     *
+     * Not an optimisation for its own sake: a fielded search measures every ink
+     * against a ground plus up to sixteen sampled tints at both ends of a veil,
+     * and the corpus is three paints × six grounds × a dozen directions asked for
+     * by four tests below. Resolved per assertion it is twelve seconds of the
+     * suite and, on a loaded machine, a test that fails on the clock rather than
+     * on a colour. The claims are unchanged: what is cached is the ANSWER, and
+     * every one of them is still re-measured from primitives.
+     */
+    const CACHE = new Map()
+    const paletteOf = (name, ground, paints = []) => {
+      const key = `${name}|${ground}|${paints.join('+')}`
+      if (!CACHE.has(key)) {
+        CACHE.set(key, composedPalette(resolveTheme(THEMES[name]), GROUNDS[ground], { field: paints }))
+      }
+      return CACHE.get(key)
+    }
 
     it('is only a field when something stands on it', () => {
       expect(stackedField(stacked(GROUNDS.solid))).toBe(true)
@@ -1948,89 +2024,237 @@ describe('composedPalette', () => {
     })
 
     /**
-     * The claim, over every ground and every real direction: with a field
-     * painted at the density the palette chose, every run still clears its own
-     * floor — measured from primitives rather than taken from the palette's word.
+     * And the palette is told WHICH surface, not merely that there is one.
+     *
+     * The order is the table's and never the document's, because that answer is
+     * also a cache key: two scenes painting the same two surfaces in the other
+     * order have to be one search.
      */
-    it('keeps every run legible over the field it is painted at', () => {
-      for (const ground of Object.keys(GROUNDS)) {
-        for (const [name, document] of Object.entries(THEMES)) {
-          const theme = resolveTheme(document)
-          const palette = composedPalette(theme, GROUNDS[ground], { field: true })
-          const plain = composedPalette(theme, GROUNDS[ground])
-          const colors = [plain.accent.color, theme.accent]
-          const over = colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: palette.field.alpha * step })))
-          const range = surfaceRange(
-            palette.ground.color,
-            palette.ground.alpha,
-            [...(palette.groundTint ?? []), ...over],
-          )
-          // `display` and `body` only: the accent IS the field, and a run
-          // measured against a surface made of itself resolves to a near-white
-          // that erases the direction. `composedPalette` says so at length.
-          for (const run of [palette.display, palette.body]) {
-            const ratio = worstRatio(run.color, range)
-            // Q1 all the way down: a palette with no answer at any density ships
-            // the faintest field rather than failing the export, and says so by
-            // marking the run. What must never happen is a run reported OK that
-            // a re-measurement contradicts.
-            if (!run.ok) continue
-            expect(ratio, `${name} · ${ground} · ${run.threshold}`).toBeGreaterThanOrEqual(run.threshold)
-          }
-        }
+    it('names the surfaces a scene paints under its stack', () => {
+      for (const [label, { kinds, paints }] of Object.entries(FIELD_CASES)) {
+        expect(fieldPaints(stacked(GROUNDS.solid, kinds)), label).toEqual(paints)
+      }
+      // Reversed in the document, identical out of the walk.
+      expect(fieldPaints(stacked(GROUNDS.solid, ['solidScene', 'equalizer']))).toEqual(['accent', 'solid'])
+      // Eight waves are one accent: the answer is a set.
+      expect(fieldPaints(stacked(GROUNDS.solid, Array.from({ length: 8 }, () => 'soundWave')))).toEqual(['accent'])
+      // No stack, no field — whatever it would have painted.
+      expect(fieldPaints({ layers: [{ kind: 'solidScene', anchor: 'full' }] })).toEqual([])
+      // A kind this build does not know is measured as the accent, which is what
+      // every field meant before the table existed. `constructor` is in here
+      // because `FIELD_PAINTS` is an object and a lookup on it is a lookup.
+      for (const kind of ['carousel', 'constructor', undefined]) {
+        expect(fieldPaints(stacked(GROUNDS.solid, [kind])), String(kind)).toEqual(['accent'])
+      }
+      // And the table names blocks that exist and paints that are measured. A
+      // misspelt key is a row that never fires, which reads as a field measured
+      // correctly and is a field measured as the accent it does not paint.
+      for (const [kind, paint] of Object.entries(FIELD_PAINTS)) {
+        expect(BLOCK_APPETITE, kind).toHaveProperty(kind)
+        expect(FIELD_PAINT_KINDS, kind).toContain(paint)
       }
     })
 
-    /**
-     * A decoration cedes to a word, and never for nothing.
+    /*
+     * One pair of claims per paint, rather than one pair over all three.
      *
-     * The ladder starts at 1 and the first entry that clears wins, so the claim
-     * worth checking is not "it sometimes stays at 1" — that depends on how
-     * saturated a direction's accent happens to be — but that the step it stopped
-     * on is the DENSEST one available: painting the same field one rung denser
-     * has to break something. A ladder that stepped down for company would be an
-     * ornament yielding for nothing, which is the trade `texturedGround` refuses
-     * in the same words.
+     * Same corpus either way; what splits it is the clock. A fielded search is
+     * about a second per ground-and-direction sweep, so a single test covering
+     * three paints twice over runs past vitest's five, and a suite that fails on
+     * the clock fails differently on every machine. Per paint it is also the
+     * report a failure wants: the density a SOLID field settled on is not the
+     * accent's answer, and a run that says which is a run somebody can read.
      */
-    it('takes the densest field every run clears', () => {
+    for (const [label, { paints }] of Object.entries(FIELD_CASES)) {
+      /**
+       * The claim, over every ground and every real direction: with the field
+       * painted at the density the palette chose, every run still clears its own
+       * floor — measured from primitives rather than taken from the palette's
+       * word.
+       */
+      it(`keeps every run legible over a ${label} field`, () => {
+        for (const ground of Object.keys(GROUNDS)) {
+          for (const name of Object.keys(THEMES)) {
+            const theme = resolveTheme(THEMES[name])
+            const palette = paletteOf(name, ground, paints)
+            const range = fieldRange(palette, fieldInks(paints, theme, paletteOf(name, ground)), palette.field.alpha)
+            // `display` and `body` only: the accent IS the field, and a run
+            // measured against a surface made of itself resolves to a near-white
+            // that erases the direction. `composedPalette` says so at length.
+            for (const run of [palette.display, palette.body]) {
+              const ratio = worstRatio(run.color, range)
+              // Q1 all the way down: a palette with no answer at any density ships
+              // the faintest field rather than failing the export, and says so by
+              // marking the run. What must never happen is a run reported OK that
+              // a re-measurement contradicts.
+              if (!run.ok) continue
+              expect(ratio, `${label} · ${name} · ${ground} · ${run.threshold}`).toBeGreaterThanOrEqual(run.threshold)
+            }
+          }
+        }
+      })
+
+      /**
+       * A decoration cedes to a word, and never for nothing.
+       *
+       * The ladder starts at 1 and the first entry that clears wins, so the claim
+       * worth checking is not "it sometimes stays at 1" — that depends on how
+       * saturated a direction's accent happens to be — but that the step it
+       * stopped on is the DENSEST one available: painting the same field one rung
+       * denser has to break something. A ladder that stepped down for company
+       * would be an ornament yielding for nothing, which is the trade
+       * `texturedGround` refuses in the same words.
+       */
+      it(`takes the densest ${label} field every run clears`, () => {
+        for (const ground of Object.keys(GROUNDS)) {
+          for (const name of Object.keys(THEMES)) {
+            const theme = resolveTheme(THEMES[name])
+            const palette = paletteOf(name, ground, paints)
+            expect(FIELD_ALPHAS, `${label} · ${name} · ${ground}`).toContain(palette.field.alpha)
+
+            const rung = FIELD_ALPHAS.indexOf(palette.field.alpha)
+            // A palette that found no answer at any density ships the faintest and
+            // says so by leaving a run not-ok (Q1). There is no denser rung to
+            // argue about there.
+            if (rung <= 0 || ![palette.display, palette.body].every((run) => run.ok)) continue
+
+            const colors = fieldInks(paints, theme, paletteOf(name, ground))
+            const range = fieldRange(palette, colors, FIELD_ALPHAS[rung - 1])
+            const survives = [palette.display, palette.body].every(
+              (run) => worstRatio(run.color, range) >= run.threshold,
+            )
+            expect(survives, `${label} · ${name} · ${ground} gave up a density it did not have to`).toBe(false)
+          }
+        }
+      })
+    }
+
+    /**
+     * A field that paints something else is measured as something else.
+     *
+     * The sweep above proves each palette right about its own field, and it
+     * cannot see the defect this pass was written for: a solid field measured as
+     * the accent also passes a sweep that asks it about the accent. So this one
+     * asks the other question — is a solid field ever a different answer from an
+     * accent field — and it has to be yes SOMEWHERE, or the paint is being
+     * ignored and every claim above is about a table nothing reads.
+     *
+     * Somewhere and not everywhere: on a direction whose accent is faint against
+     * its ground, both fields clear at full density and the two palettes agree,
+     * which is correct rather than a miss.
+     */
+    it('measures a solid field as the segment it paints, and not as the accent', () => {
+      const differs = []
       for (const ground of Object.keys(GROUNDS)) {
-        for (const [name, document] of Object.entries(THEMES)) {
-          const theme = resolveTheme(document)
-          const palette = composedPalette(theme, GROUNDS[ground], { field: true })
-          expect(FIELD_ALPHAS, `${name} · ${ground}`).toContain(palette.field.alpha)
-
-          const rung = FIELD_ALPHAS.indexOf(palette.field.alpha)
-          // A palette that found no answer at any density ships the faintest and
-          // says so by leaving a run not-ok (Q1). There is no denser rung to
-          // argue about there.
-          if (rung <= 0 || ![palette.display, palette.body].every((run) => run.ok)) continue
-
-          const colors = [composedPalette(theme, GROUNDS[ground]).accent.color, theme.accent]
-          const denser = FIELD_ALPHAS[rung - 1]
-          const range = surfaceRange(palette.ground.color, palette.ground.alpha, [
-            ...(palette.groundTint ?? []),
-            ...colors.flatMap((color) => FIELD_RAMP.map((step) => ({ color, alpha: denser * step }))),
-          ])
-          const survives = [palette.display, palette.body].every(
-            (run) => worstRatio(run.color, range) >= run.threshold,
+        for (const name of Object.keys(THEMES)) {
+          const theme = resolveTheme(THEMES[name])
+          const asAccent = paletteOf(name, ground, ['accent'])
+          const asSolid = paletteOf(name, ground, ['solid'])
+          const plain = paletteOf(name, ground)
+          // The dim end of the Lambert segment, over a field measured on the
+          // accent alone: this is the surface the export had and nobody checked.
+          const unmeasured = fieldRange(asAccent, fieldInks(['solid'], theme, plain), asAccent.field.alpha)
+          const blind = [asAccent.display, asAccent.body].some(
+            (run) => run.ok && worstRatio(run.color, unmeasured) < run.threshold,
           )
-          expect(survives, `${name} · ${ground} gave up a density it did not have to`).toBe(false)
+          if (blind) {
+            // Where measuring the accent alone would have shipped an illegible
+            // run, measuring the solid must not.
+            const range = fieldRange(asSolid, fieldInks(['solid'], theme, plain), asSolid.field.alpha)
+            for (const run of [asSolid.display, asSolid.body]) {
+              if (!run.ok) continue
+              expect(worstRatio(run.color, range), `${name} · ${ground}`).toBeGreaterThanOrEqual(run.threshold)
+            }
+          }
+          if (asSolid.field.alpha !== asAccent.field.alpha) differs.push(`${name} · ${ground}`)
+        }
+      }
+      expect(differs.length, 'a solid field never resolved differently from an accent one').toBeGreaterThan(0)
+    })
+
+    /**
+     * An object and the word standing on it cannot be the same colour.
+     *
+     * That is the founding mistake of this whole section, one composition later:
+     * the solid's material was `palette.display.color`, so a torus and the
+     * heading over it met at 1:1 wherever they overlapped. It is the ORNAMENT's
+     * run now — the accent, which is what every other decoration in this file
+     * carries — and that is the structural half of the claim, asserted on every
+     * cell of the sweep.
+     *
+     * The other half is measured, because it cannot be universal: where the
+     * ornament itself falls through to the ink, the solid follows it. Two ways
+     * that happens and both are policy rather than accident — a direction whose
+     * accent nothing can read on its own ground (four of the twelve are written
+     * to be exactly that), and a photographic ground, where an ornament's veil is
+     * LOCKED and an accent rarely clears over both extremes of an unknown
+     * picture. `accentFirst` lands on the ink in both, because being legible
+     * outranks being distinct everywhere else in this file too. So the claim is:
+     * wherever the ornament kept the project's own colour, the solid is not the
+     * heading's ink — and that is a majority of the corpus rather than a corner
+     * of it, which is what stops the test from being green for having skipped.
+     */
+    it('paints a solid in the ornament’s ink and not in the heading’s', () => {
+      let kept = 0
+      for (const ground of Object.keys(GROUNDS)) {
+        for (const name of Object.keys(THEMES)) {
+          const theme = resolveTheme(THEMES[name])
+          const palette = paletteOf(name, ground)
+          const where = `${name} · ${ground}`
+          expect(palette.solid.color, where).toBe(palette.accent.color)
+          // The ornament fell through: nothing here can separate two colours the
+          // search collapsed onto one.
+          if (palette.accent.color !== theme.accent) continue
+          // And a direction that states its accent as the very ink the heading
+          // ended up with has asked for one colour, which is not this bug.
+          if (theme.accent === palette.display.color) continue
+          kept++
+          expect(palette.solid.color, where).not.toBe(palette.display.color)
+        }
+      }
+      expect(kept).toBeGreaterThan((Object.keys(THEMES).length * Object.keys(GROUNDS).length) / 2)
+    })
+
+    /**
+     * The solid is painted on the GROUND, under the nine cells, so that is what
+     * it is measured against — even when it is itself the field.
+     *
+     * Measured against the fielded surface it would be measured against itself,
+     * which is the fixpoint the accent run already refuses two lines above it in
+     * `composedPalette`, arriving through the one block whose colour is also a
+     * surface.
+     */
+    it('measures a solid against the bare ground, fielded or not', () => {
+      for (const ground of Object.keys(GROUNDS)) {
+        for (const name of Object.keys(THEMES)) {
+          for (const paints of [['solid'], ['accent', 'solid']]) {
+            expect(paletteOf(name, ground, paints).solid, `${name} · ${ground}`).toEqual(paletteOf(name, ground).solid)
+          }
         }
       }
     })
 
     it('leaves a scene with no field exactly as it was', () => {
       for (const ground of Object.keys(GROUNDS)) {
-        for (const document of Object.values(THEMES)) {
-          const theme = resolveTheme(document)
-          const palette = composedPalette(theme, GROUNDS[ground])
+        for (const name of Object.keys(THEMES)) {
+          const theme = resolveTheme(THEMES[name])
+          const palette = paletteOf(name, ground)
           expect(palette.field.alpha, ground).toBe(1)
           // The ornament keeps the project's colour on every scene, fielded or
           // not — it is measured on the ground either way.
-          expect(composedPalette(theme, GROUNDS[ground], { field: true }).accent).toEqual(palette.accent)
+          expect(paletteOf(name, ground, ['accent']).accent).toEqual(palette.accent)
           // The whole point of the memo in `ComposedSceneVideo`: nothing about a
-          // film without a stacked field changed, byte for byte.
-          expect(palette.runs).toEqual(composedPalette(theme, GROUNDS[ground], { field: false }).runs)
+          // film without a stacked field changed, byte for byte. An empty list
+          // and the old `false` are the same request.
+          for (const field of [false, []]) {
+            expect(palette.runs).toEqual(composedPalette(theme, GROUNDS[ground], { field }).runs)
+          }
+          // And `true` still means what it meant when this was a boolean, so a
+          // caller written against the old contract measures a surface rather
+          // than none (Q1).
+          expect(composedPalette(theme, GROUNDS[ground], { field: true }).runs).toEqual(
+            paletteOf(name, ground, ['accent']).runs,
+          )
         }
       }
     })
@@ -2045,10 +2269,9 @@ describe('composedPalette', () => {
      * since that branch reads the last entry.
      */
     it('keeps the field out of the texture the ground is painted with', () => {
-      for (const document of Object.values(THEMES)) {
-        const theme = resolveTheme(document)
+      for (const name of Object.keys(THEMES)) {
         for (const ground of ['hairlines', 'gridPulse', 'particles', 'gradient']) {
-          const palette = composedPalette(theme, GROUNDS[ground], { field: true })
+          const palette = paletteOf(name, ground, ['accent'])
           // One layer for a texture, `GRADIENT_RAMP.length` for a ramp, and
           // nothing at all when the texture was the thing in the way — never the
           // eight the field adds to the measurement.
@@ -2376,6 +2599,39 @@ describe('composedLayout', () => {
     expect(composedLayout(stackOf('full', 'full'), width, height).zones[0].layers).toHaveLength(2)
   })
 
+  /**
+   * A field claims every band, so what stands on it gets a band and not the frame.
+   *
+   * `full` occupies no row and no column of the grid — it is painted UNDER the
+   * nine cells — and the collapse that gives a lone block the whole safe area read
+   * that as "the frame is empty". A real export showed what it costs: one
+   * `equalizer` and one `kicker`, and the kicker was handed the entire safe area
+   * and came out as 200 px of capitals over the graph it was the surtitle of.
+   *
+   * The measure is not touched, and the asymmetry is the point: a height sets the
+   * type SIZE and a width sets the measure, so a line over a field still runs the
+   * full width of it.
+   */
+  it('gives a cell beside a field a band of the grid, and a lone field the frame', () => {
+    const frame = composedSafeArea(width, height)
+    // Without a field: the lone band is the whole height, exactly as before.
+    expect(composedLayout(stackOf('center'), width, height).zones[0].box.height).toBe(frame.height)
+
+    const withField = composedLayout(stackOf('full', 'center'), width, height).zones
+    const field = withField.find((zone) => zone.anchor === 'full')
+    const cell = withField.find((zone) => zone.anchor === 'center')
+    expect(field.box).toEqual(frame)
+    expect(cell.box.height).toBeLessThan(frame.height / 2)
+    expect(cell.box.width).toBe(frame.width)
+    // The bands are the grid's own three, so a top-anchored block is still at the
+    // safe top rather than a third of the way down it.
+    const top = composedLayout(stackOf('full', 'top-center'), width, height).zones.find((z) => z.anchor === 'top-center')
+    expect(top.box.top).toBe(frame.top)
+    expect(top.box.height).toBeLessThan(frame.height / 2)
+    // And the case the fix must not break: a field on its own is still the frame.
+    expect(composedLayout(stackOf('full'), width, height).zones[0].box).toEqual(frame)
+  })
+
   /** The gutter and the stack gap are two numbers, and the tighter one is inside a zone. */
   it('separates two zones by more than it separates two blocks of one zone', () => {
     const { gap, gutter } = composedLayout(stackOf('center'), width, height)
@@ -2400,6 +2656,75 @@ describe('composedLayout', () => {
     for (const zone of three) expect(zone.box.height).toBeLessThan(frame.height / 3 + 1)
     // A neighbour in another COLUMN costs a band nothing: the split is per axis.
     expect(composedLayout(stackOf('center-left', 'center-right'), width, height).zones[0].box.height).toBe(frame.height)
+  })
+
+  /**
+   * And the bands are divided by APPETITE, exactly as a zone is.
+   *
+   * The grid went on dividing by count long after `stackIn` stopped, and it is
+   * the same defect one level up: a surtitle and a headline are not equally
+   * hungry, so three equal bands leave three quarters of the top one empty and
+   * solve the film's own headline against a third of a frame that had two thirds
+   * to spare. What that costs is not only air — a stack fills the box it is
+   * given, so an over-large band is an over-large type unit, and the export that
+   * showed it had a `logoType` in the bottom band at three times the `heading` in
+   * the middle one.
+   *
+   * The consequence worth pinning is the one that makes the rest of this file
+   * simpler: weighted bands make the zones read the SAME unit by construction,
+   * because every one of them ends up with `safeHeight / what the scene asked
+   * for`. `harmoniseUnits` then tidies rather than rescues.
+   */
+  it('divides the bands by appetite, so a surtitle and a headline read one scale', () => {
+    const layers = [
+      { kind: 'kicker', text: 'Dense', anchor: 'top-left' },
+      { kind: 'heading', level: 'title', text: 'Huit blocs dans un cadre', anchor: 'center' },
+      { kind: 'logoType', text: 'MOCKY', mark: 'slash', anchor: 'bottom-left' },
+    ]
+    for (const [ratio, size] of FRAMES) {
+      const { zones } = composedLayout({ layers }, size.width, size.height)
+      const band = (anchor) => zones.find((zone) => zone.anchor === anchor).box.height
+      // The row that carries a title and its rule asks for more than the row that
+      // carries five tracked capitals, and gets it.
+      expect(band('center'), ratio).toBeGreaterThan(band('top-left'))
+      expect(band('center'), ratio).toBeGreaterThan(band('bottom-left'))
+      // And every zone ends up reading ONE unit, which is what weighted bands buy:
+      // each of them gets `safeHeight × (its share of what the scene asked for)`,
+      // so they all solve to `safeHeight / (what the scene asked for)`.
+      // `harmoniseUnits` tidies the remainder rather than rescuing the frame.
+      const units = zones.map((zone) => zone.unit)
+      expect(Math.max(...units) / Math.min(...units), ratio).toBeLessThan(1.05)
+    }
+  })
+
+  /**
+   * A field is the scene, so the words laid on it read at the field's own scale.
+   *
+   * A block anchored `full` belongs to no band, which is why the bands stay the
+   * grid's own three when one is on the frame — and that leaves a cell zone
+   * solving its unit against a third of the safe area with nothing in the scene
+   * to be compared with. The export: one `equalizer`, one `kicker`, and a
+   * surtitle at 122 px of capitals standing on the graph it was the surtitle of.
+   * The band alone does not close it; the field's unit does.
+   */
+  it('never lets a cell read a larger unit than the field it stands on', () => {
+    const layers = [
+      { kind: 'equalizer', bars: 24, tempo: 'fast', anchor: 'full' },
+      { kind: 'kicker', text: 'Signal', anchor: 'top-center' },
+    ]
+    for (const [ratio, size] of FRAMES) {
+      const { zones } = composedLayout({ layers }, size.width, size.height)
+      const field = zones.find((zone) => zone.anchor === 'full')
+      const cell = zones.find((zone) => zone.anchor === 'top-center')
+      expect(cell.unit, ratio).toBeLessThanOrEqual(field.unit + 1e-6)
+      // A surtitle that is a twentieth of the height it stands in rather than an
+      // eighth of it. Against the SAFE AREA and not the frame's short edge: the
+      // band a cell gets is a third of that area, and it is what the old answer
+      // was eight per cent of.
+      expect(cell.unit * TYPE_ROLES.caption.step, ratio).toBeLessThan(
+        composedSafeArea(size.width, size.height).height * 0.06,
+      )
+    }
   })
 
   /**
@@ -2922,6 +3247,251 @@ describe('blockExtent — a block inhabits the box it is given', () => {
       // to its file, and a square canvas in a square box is exactly its share.
       expect(solidCanvas({ width: 1000, height: 1000 }, size, 4000) / 1000).toBeCloseTo(share, 2)
     }
+  })
+})
+
+// ── A role is a notion of the SCENE ──────────────────────────────────────────
+//
+// Solving one unit per stack fixed the crushing inside a zone and created an
+// inversion between zones: on a scene of eight blocks, a `kicker` alone in its
+// column — sized against a column nothing else was in — came out three times the
+// height of the `heading` in the column beside it. A surtitle three times its own
+// title is the arrangement the type scale exists to prevent, arriving through the
+// one door the scale did not look through.
+//
+// The rule is an INEQUALITY and not a shared unit, because two zones have two
+// measures and a narrow column must still be allowed to compose smaller: no run
+// is drawn larger than a run of a superior role somewhere else in the same scene.
+// Below that bound every zone keeps its own answer.
+
+/** The runs a scene really puts on the frame, with the size each is drawn at. */
+function sceneRuns(scene, width, height) {
+  const out = []
+  for (const zone of composedLayout(scene, width, height).zones) {
+    for (const { block, box, unit } of zone.layers) {
+      const shape = blockShape(block)
+      // The size a block DRAWS: the stack's unit, capped by its own measure the
+      // way `shapeHeight` and `blockExtent` both cap it. A run that stopped
+      // growing at 24 characters across its column is not drawn at the unit.
+      const at = Math.min(unit, shapeCeiling(shape, box.width))
+      for (const run of shape.runs) {
+        if (String(run.text ?? '').trim().length === 0) continue
+        out.push({
+          where: `${zone.anchor}/${block.kind}`,
+          zone: zone.anchor,
+          step: typeRole(run.role).step,
+          size: typeSize(run.role, at),
+          block,
+          box,
+          unit,
+        })
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Scenes covering the ten zones, one to eight layers, with and without a field —
+ * three arrangements, because the defect only appears when two zones can
+ * disagree and the guarantee it must not cost only appears when they cannot.
+ */
+function arrangements(count, seed) {
+  const cells = ANCHORS.filter((anchor) => anchor !== 'full')
+  const at = (i) => cells[(seed + i) % cells.length]
+  return {
+    // One block per zone, walking the nine cells: where two units can disagree.
+    spread: Array.from({ length: count }, (_, i) => at(i)),
+    // Pairs sharing a zone: where a stack has to keep agreeing with itself.
+    stacked: Array.from({ length: count }, (_, i) => at(Math.floor(i / 2))),
+    // A field under the lot, which is the zone that occupies no cell.
+    field: ['full', ...Array.from({ length: count - 1 }, (_, i) => at(i))],
+  }
+}
+
+describe('a role is a notion of the scene, not of the stack it was solved in', () => {
+  /**
+   * The rule, over the whole corpus: nothing of a role is larger than something
+   * of a superior role in the same frame.
+   *
+   * Pairs inside ONE zone are excluded, and the exclusion is the decision rather
+   * than a convenience. A stack already agrees with itself — one unit, an ordered
+   * scale — and the only way it can still invert is a per-block measure ceiling: a
+   * counter whose face has stopped growing beside a title that has not. Correcting
+   * that means lowering the whole zone below what its box allows, which is the
+   * guarantee the box arithmetic was written to give and which the test below is
+   * the other half of. Two defects, and this one does not get to spend the other's
+   * answer.
+   */
+  it('never draws a run larger than a run of a superior role elsewhere in the scene', () => {
+    let checked = 0
+    for (const [ratio, size] of FRAMES) {
+      for (let count = 1; count <= 8; count += 1) {
+        for (let seed = 0; seed < KINDS.length; seed += 1) {
+          for (const [shape, anchors] of Object.entries(arrangements(count, seed))) {
+            const layers = anchors.map((anchor, i) => ({
+              ...(i % 2 ? LONGEST : POOREST)[KINDS[(seed + i * 7) % KINDS.length]],
+              anchor,
+            }))
+            const runs = sceneRuns({ layers }, size.width, size.height)
+            for (const mine of runs) {
+              for (const other of runs) {
+                if (other.zone === mine.zone || !(other.step > mine.step)) continue
+                expect(
+                  mine.size,
+                  `${ratio} ${shape} ${count}×, seed ${seed}: ${mine.where} over ${other.where}`,
+                ).toBeLessThanOrEqual(other.size)
+                checked += 1
+              }
+            }
+          }
+        }
+      }
+    }
+    // The sweep really did compare things: a corpus that quietly stopped putting
+    // two roles in two zones would pass this for having iterated less.
+    expect(checked).toBeGreaterThan(1000)
+  })
+
+  /**
+   * And the box is still full — the guarantee the previous pass paid for, which
+   * a scene-wide cap is exactly the sort of thing that would quietly undo.
+   *
+   * It cannot here, and the reason is structural rather than lucky: a block's box
+   * is what it DRAWS at the unit its stack ended up with (`stackIn` measures the
+   * heights after the cap, not before), so lowering a unit lowers the box with it
+   * and the leftover goes back to the zone. A version of this fix that had capped
+   * the unit and kept the boxes would show up here as every block in a corrected
+   * zone floating in its own allotment.
+   */
+  it('still fills every box it hands out, over the same corpus', () => {
+    let checked = 0
+    for (const [ratio, size] of FRAMES) {
+      const base = frameBase(size.width, size.height)
+      for (let count = 1; count <= 8; count += 1) {
+        for (let seed = 0; seed < KINDS.length; seed += 1) {
+          for (const [shape, anchors] of Object.entries(arrangements(count, seed))) {
+            const layers = anchors.map((anchor, i) => ({
+              ...(i % 2 ? LONGEST : POOREST)[KINDS[(seed + i * 7) % KINDS.length]],
+              anchor,
+            }))
+            for (const zone of composedLayout({ layers }, size.width, size.height).zones) {
+              for (const { block, box, unit } of zone.layers) {
+                if (!(box.width > 0 && box.height > 0)) continue
+                const drawn = blockExtent(block, box, base, unit)
+                const across = drawn.width / box.width
+                const down = drawn.height / box.height
+                const fills = BLOCK_APPETITE[block.kind].fills
+                const filled =
+                  fills === 'both'
+                    ? Math.min(across, down)
+                    : fills === 'width'
+                      ? across
+                      : fills === 'minor'
+                        ? Math.min(drawn.width, drawn.height) / Math.min(box.width, box.height)
+                        : Math.max(across, down)
+                expect(
+                  filled / asked(block),
+                  `${ratio} ${shape} ${count}×, seed ${seed}: ${block.kind} @ ${zone.anchor}`,
+                ).toBeGreaterThanOrEqual(BOX_FILL_FLOOR)
+                checked += 1
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(1000)
+  })
+
+  /**
+   * The export that made this necessary, as two blocks: `DENSE` alone in a column
+   * beside a heading in the next one. It was three times the heading's height.
+   *
+   * The second export is why the bound moved from the SIZE to the UNIT. Bounded
+   * on the size, the surtitle came back at exactly the headline's cap height —
+   * inside the letter of the rule and outside its point, since a caption that is
+   * not smaller than the line it announces is not a caption. On the unit the pair
+   * lands where `TYPE_ROLES` puts it: 0.65 against 1.55.
+   */
+  it('never draws a kicker alone in a column larger than the heading beside it', () => {
+    const layers = [
+      { ...POOREST.kicker, text: 'Dense', anchor: 'center-left' },
+      { ...LONGEST.heading, anchor: 'center-right' },
+    ]
+    for (const [ratio, size] of FRAMES) {
+      const runs = sceneRuns({ layers }, size.width, size.height)
+      const kicker = runs.find((run) => run.where.endsWith('kicker'))
+      const heading = runs.find((run) => run.where.endsWith('heading'))
+      expect(kicker.size, `${ratio}: the surtitle over its own title`).toBeLessThanOrEqual(heading.size)
+      // And it keeps its RANK: the two are two steps of one scale, not two sizes
+      // that merely happen to be ordered. The bound is on the unit, so the column
+      // that had to give something up reads the other's unit and draws its own
+      // step of it.
+      expect(kicker.size / heading.size, `${ratio}: the rank of a surtitle`).toBeCloseTo(
+        TYPE_ROLES.caption.step / TYPE_ROLES.display.step,
+        2,
+      )
+    }
+  })
+
+  /**
+   * `harmoniseUnits` on its own: it only ever lowers, and it lowers nothing it has
+   * nothing to compare with.
+   *
+   * The second half is what makes the poorest document the schema accepts pay
+   * nothing at all — one block, no anchor, one stack, and the answer is exactly
+   * what `solveTypeUnit` gave.
+   */
+  it('lowers a stack only against another one, and never raises anything', () => {
+    const caption = { step: TYPE_ROLES.caption.step, ceiling: Infinity }
+    const title = { step: TYPE_ROLES.title.step, ceiling: Infinity }
+    // A lone stack, however large: nothing to be measured against.
+    expect(harmoniseUnits([{ unit: 400, runs: [caption] }])).toEqual([400])
+    // A caption twice the size of a title elsewhere comes back at the title's
+    // UNIT — so it draws its own step of it, 0.65 against 1.55, rather than the
+    // same cap height. Bounding the size was the first version and it collapsed
+    // the order it was meant to keep.
+    const [surtitle, headline] = harmoniseUnits([
+      { unit: 400, runs: [caption] },
+      { unit: 40, runs: [title] },
+    ])
+    expect(headline).toBe(40)
+    expect(surtitle).toBeCloseTo(40, 6)
+    // The other way round costs nothing: a title is not bounded by a caption.
+    expect(harmoniseUnits([{ unit: 40, runs: [title] }, { unit: 400, runs: [caption] }])[0]).toBe(40)
+    // A run that stopped growing at its own measure does not drag its zone down.
+    const capped = { step: TYPE_ROLES.title.step, ceiling: 10 }
+    expect(harmoniseUnits([{ unit: 400, runs: [caption] }, { unit: 400, runs: [capped] }])[1]).toBe(400)
+    // And nothing it is handed makes it throw inside a browser.
+    expect(harmoniseUnits(undefined)).toEqual([])
+    expect(harmoniseUnits([{}, { unit: 'x', runs: 'no' }])).toEqual([0, 0])
+  })
+
+  /**
+   * The lowering stops where the INK's licence does.
+   *
+   * `palette.accent` and `palette.display` are resolved at the 3:1 floor, which
+   * the audit licences for bold type past `BOLD_LARGE_PX`. Bounding the scale
+   * rather than the size is stricter — that is the point of it — and on a crowded
+   * frame it would push a surtitle under that bar, which is not a quieter scene
+   * but a run measured at a floor it no longer qualifies for. So the scale bound
+   * has a floor, and the ORDER bound does not: an inversion is wrong at every
+   * size.
+   */
+  it('stops lowering a run at the size its ink was licensed for', () => {
+    const caption = { step: TYPE_ROLES.caption.step, ceiling: Infinity }
+    const body = { step: TYPE_ROLES.body.step, ceiling: Infinity }
+    // The scale alone would put a caption beside a 20 px body run at 13 px. The
+    // floor holds it at the licence instead.
+    const [surtitle] = harmoniseUnits([{ unit: 400, runs: [caption] }, { unit: 20, runs: [body] }])
+    expect(surtitle * TYPE_ROLES.caption.step).toBeCloseTo(BOLD_LARGE_PX, 6)
+    // And the ORDER still wins over the floor: the surtitle is at the licence and
+    // still under the body run it is measured against.
+    expect(surtitle * TYPE_ROLES.caption.step).toBeLessThanOrEqual(20 * TYPE_ROLES.body.step + 1e-9)
+    // A stack that already composes under the bar keeps its own answer: its box is
+    // a promise about somebody else's interface and the bar is not.
+    expect(harmoniseUnits([{ unit: 4, runs: [caption] }, { unit: 20, runs: [body] }])[0]).toBe(4)
   })
 })
 

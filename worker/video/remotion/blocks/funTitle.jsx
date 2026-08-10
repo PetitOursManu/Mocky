@@ -100,6 +100,12 @@ export const FunTitle = ({ block, palette, theme, box, unit, progress, life }) =
         position: 'relative',
         fontFamily: theme.headingFont,
         fontSize: size,
+        // The house's own break, and the one `textLines` assumes: the estimate
+        // packs characters against the measure, so a run that will only break
+        // between words puts more type on a line than the layout reserved room
+        // for. An export shipped `photographie` reading `photograph`, clipped by
+        // the `overflow: hidden` this block reveals its type from.
+        wordBreak: 'break-word',
         fontWeight: 800,
         // The display role's own leading, not a fifth number: the block's height
         // was divided on it.

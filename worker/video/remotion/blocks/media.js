@@ -43,10 +43,10 @@
  */
 import {
   COMPOSED_CELL_GAP,
-  CONSTANT_CEILING,
   RUN_GAP,
   blockAppetite,
   blockShape,
+  constantMetric,
   hairline,
   kenBurnsTransform,
   solveTypeUnit,
@@ -70,21 +70,19 @@ export function boxSize(box) {
 }
 
 /**
- * A constant metric, clamped into the box it is drawn in.
+ * A constant metric, clamped into the box it is drawn in — the house's one
+ * implementation, re-exported so this family keeps its single door.
  *
- * The exception the file header names, applied: a hairline, a corner radius and
- * a gutter are the same OBJECT from one scene to the next, so they are read off
- * the frame rather than off a box — and each is bounded at a quarter of its box,
- * because an exception with no ceiling is the rule going back out of the window.
- * A 12 px radius on a 20 px strip is not a rounded corner, it is a lozenge.
+ * It was written here as well as in `interface.js` and a third time in
+ * `dataFigures.js`, and this copy is the one that answered the requested size
+ * UNBOUNDED on a 0×0 box while the other answered 0 — a divergence three authors
+ * arrived at from one paragraph, and one a test had pinned. `constantMetric` in
+ * `composition.js` carries the argument and the answer.
+ *
+ * Imported and re-exported rather than re-exported alone, because three of this
+ * file's own quantities read it — `export … from` binds nothing locally.
  */
-export function constantMetric(size, box) {
-  const asked = Math.max(0, Math.round(Number(size) || 0))
-  const { width, height } = boxSize(box)
-  const room = Math.min(width, height)
-  if (!(room > 0)) return asked
-  return Math.max(0, Math.min(asked, Math.floor(room * CONSTANT_CEILING)))
-}
+export { constantMetric }
 
 /**
  * The gutter between two tiles of one picture block, in pixels.

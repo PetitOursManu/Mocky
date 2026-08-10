@@ -254,6 +254,16 @@ bout ne passe, le solide est peint à plat et garde sa perspective (Q1).
 `composition.test.js` le balaie sur six fonds et une douzaine de directions
 réelles.
 
+**Le run sur lequel il est épinglé est celui de l’ORNEMENT, et c’était l’encre.**
+C’est un film rendu qui l’a dit : un tore peint en `palette.display.color` sous un
+titre peint en `palette.display.color`, c’est un objet et le mot posé dessus qui se
+rencontrent à 1:1 partout où ils se recouvrent — la faute d’origine de toute cette
+section, arrivée une composition plus loin. Un solide éclairé est une décoration,
+et une décoration porte la couleur du projet (`accentRun`) : le matériau est donc
+l’accent, et sur une direction dont l’accent ne se lit nulle part il retombe par
+`accentFirst` sur l’encre comme tout autre ornement, parce qu’être lisible passe
+avant être distinct ici comme ailleurs.
+
 **Skia est refusé sur un chiffre qui n’est pas serré.** `@remotion/skia`, c’est
 11 ko de colle ; ce dont il a besoin, c’est `@shopify/react-native-skia`, qui
 installe 443 Mio à lui seul — `libskia.xcframework`, `libsvg.a` et le reste, des
@@ -383,12 +393,47 @@ peut pas être plus haute que sa bande n’a pas besoin qu’on garde deux tiers
 l’image vides au cas où. Ce qui en survit, c’est l’alignement, qui décide
 maintenant de quel côté part le reste.
 
+**Et les bandes se partagent selon la FAIM, pas également entre les rangées.**
+`stackIn` partage une zone ainsi depuis qu’un `separator` au-dessus d’un `heading`
+prenait la moitié d’une colonne pour trois pixels d’encre ; la grille, elle,
+continuait de partager selon le nombre, ce qui est le même défaut un cran plus
+haut. Un surtitre, un titre avec son filet et un logotype, c’est trois rangées
+occupées et trois bandes égales — donc trois quarts de la bande du haut vides, et
+le titre du film résolu contre un tiers d’image alors qu’il en restait deux. L’air
+est la moindre moitié de ce que ça coûte : une pile remplit la boîte qu’on lui
+donne, donc une bande trop grande est une unité typographique trop grande, et
+l’export qui l’a montré avait un `logoType` dans la bande du bas à trois fois le
+`heading` de celle du milieu. Le poids d’une rangée est celui de sa cellule la plus
+AFFAMÉE et non leur somme, parce que les colonnes d’une rangée sont côte à côte.
+
+La conséquence est celle qui simplifie tout le reste de cette section : des bandes
+pondérées font que chaque zone lit la même unité *par construction*, puisque
+chacune reçoit `hauteurSûre × (sa part de ce que la scène a demandé)`.
+`harmoniseUnits` ci-dessous range alors un reste au lieu de sauver une image.
+
 **`full`, c’est la zone sûre et non l’image**, et deux blocs `full` la partagent.
 Un fond qui filerait jusqu’au bord de l’image, ce serait une carte rognée par la
 surbalayage et une galerie dont la dernière rangée passe sous une zone de légende
 — les deux échecs que la marge existe pour empêcher, arrivant par la seule ancre
 qui s’en exempte. Il est peint en premier, sous les neuf cases, parce qu’une carte
 ou une onde est ce sur quoi un élément *se pose*.
+
+**Et un champ revendique toutes les bandes, parce que les pistes qu’un partage
+supprime doivent être VIDES.** Un bloc seul prend toute la mesure parce que rien
+n’est à côté de lui, et toute la hauteur parce que rien n’est au-dessus ; un bloc
+ancré `full` rend la seconde moitié fausse, puisqu’il est peint sur toute la zone
+sûre, sous les neuf cases. Il n’occupe aucune case, donc le partage ne le voyait
+pas : une scène d’un `equalizer` et d’un `kicker` donnait au kicker la zone sûre
+entière et rendait un surtitre en 200 px de capitales par-dessus le graphique dont
+il était le surtitre — le plus petit rôle de la scène en plus gros élément de
+l’image. Avec un champ sur l’image, les bandes sont les trois de la grille. Les
+colonnes, elles, continuent de se partager, et cette asymétrie est la différence
+entre les deux axes plutôt qu’un goût : la hauteur d’une boîte fixe la TAILLE du
+texte et sa largeur fixe la MESURE, donc une ligne qui court sur toute la largeur
+d’un champ fait ce qu’une ligne posée sur un champ doit faire, tandis qu’un bloc
+qui prend toute la hauteur prétend être la scène — et la scène, c’était le champ.
+Un champ qui est le SEUL bloc d’une scène prend toujours tout, et c’est le cas que
+le correctif devait laisser intact.
 
 `tests/video-composed-frame.test.js` est l’endroit où tout cela devient une
 affirmation plutôt qu’un texte : sur le document le plus pauvre que le schéma
@@ -428,13 +473,27 @@ veut de la hauteur et qu’un filet n’en veut presque pas : à parts égales, 
 pixels d’encre. `BLOCK_APPETITE` est la table unique qui dit de quoi chaque kind
 est fait, en unités de la taille du texte courant — les passages de texte, qui
 sont repliés contre la mesure que la zone s’est trouvée, et le mobilier qui n’est
-pas du texte. Les paliers sont argumentés dans la table même, et la question
-derrière chaque nombre est la même : en dessous de quelle hauteur est-ce que ça
-cesse d’être ce que c’est ? Un motif de barres est une rangée de tirets sous quatre
-lignes de texte environ ; un diagramme en barres est un code-barres sous six ; une
-carte, une galerie et un solide éclairé sont la scène quand ils y sont, et ils
-valent neuf — un peu plus de la moitié d’une zone sûre en 16:9, donc l’un d’eux à
-côté d’un titre prend les deux tiers de la colonne.
+pas du texte. Les paliers sont argumentés dans la table même, et la première
+version leur a fait répondre à la mauvaise question. « En dessous de quelle hauteur
+est-ce que ça cesse d’être ce que c’est » est un PLANCHER — quatre lignes pour un
+motif de barres, six pour un tracé, neuf pour une image — et un plancher est le bon
+nombre pour partager une colonne, pas pour posséder une image. La faim d’un champ
+est aussi le taux de change entre une boîte et une taille de texte : un `barChart`
+qui vaut 6,4 unités et remplit 950 px de zone sûre déclare qu’une ligne de texte
+courant fait 130 px, donc ses propres étiquettes d’axe sortaient à 85 px — une
+rangée de `L M M J V S D` composée aussi grand qu’un titre — et un `kicker` posé
+dessus héritait de la même échelle. Trois exports réels l’ont montré, et le mot de
+l’utilisateur pour les trois était « rudimentaire ».
+
+Le palier des champs est donc ce qu’un champ vaut quand il EST la scène, et le
+nombre derrière est une densité : **une image qui porte vingt lignes de texte
+courant est une image, celle qui en porte dix est une affiche.** Vingt-deux unités
+en travers d’une zone sûre, c’est une ligne de texte à environ 4 % du petit côté et
+une légende à 2,7 % — le surtitre que la maison a toujours dessiné. L’ORDRE reste
+celui des planchers, donc rien n’a changé dans la façon dont deux champs se
+partagent une colonne : 10 à 13 pour une onde et un equalizer, 15 pour un carrousel
+et un cadran, 16 pour un graphique, 22 pour une carte, une galerie, une image et un
+solide éclairé.
 
 **Et il y a une seule échelle typographique.** `headingSize`, le chiffre du
 compteur, la ligne du typewriter et le logotype étaient quatre fractions de `base`
@@ -460,6 +519,63 @@ longue légende légale tienne rend toutes les courtes à la taille qu’il fall
 une longue, et c’est la boîte qui fait cette arithmétique maintenant, plutôt qu’une
 rampe entre deux nombres de caractères.
 
+**Et un rôle est une notion de SCÈNE, pas de la pile où il a été résolu.** Par
+pile, c’était le bon dénominateur et la mauvaise portée, et l’export suivant l’a
+dit : sur une scène de huit blocs, `DENSE` — un `kicker` seul dans sa colonne,
+dimensionné contre une colonne où il n’y avait rien d’autre — sortait trois fois
+plus haut que le `heading` de la colonne voisine. Un surtitre trois fois plus grand
+que son propre titre, c’est l’écrasement ci-dessus avec les deux blocs dans deux
+zones au lieu d’une, et c’est ce que l’œil lit comme faux quelle que soit la
+défense de chaque moitié de l’arithmétique.
+
+La réparation n’est pas une unité unique pour toute la scène. Deux zones ont deux
+mesures et deux hauteurs, et une colonne étroite DOIT pouvoir composer plus petit —
+c’est ce que « un bloc habite la boîte qu’on lui donne » veut dire, et une unité de
+scène serait la réponse de la plus petite zone imposée à toute l’image, c’est-à-dire
+le vide que cette passe a supprimé revenant par l’échelle. Ce qui est partagé,
+c’est l’ORDRE : `harmoniseUnits` abaisse une pile jusqu’à ce qu’elle y soit. Elle
+ne fait que réduire, une pile seule est rendue exactement telle que
+`solveTypeUnit` l’a répondue, et une pile déjà dans l’ordre ne paie rien.
+
+Borner la TAILLE dessinée était la première version, et elle gardait la lettre de
+l’ordre en en perdant le sens : une légende avait le droit d’être exactement aussi
+grande qu’un titre ailleurs, et deux runs du MÊME rôle n’étaient jamais comparés.
+Les deux sont revenus dans un même export — `DENSE` à la hauteur de capitale exacte
+du titre voisin, et un `logoType` dans un coin à 140 px contre un `heading` à
+41 px, deux runs `title` dans une image à trois fois et demie l’un de l’autre.
+`TYPE_ROLES` dit en une ligne pourquoi le premier est faux : un surtitre qui n’est
+pas plus petit que la ligne qu’il annonce n’est pas un surtitre. Il y a donc deux
+bornes, et ce sont deux questions différentes :
+
+- l’ORDRE, sur la taille dessinée, pour un rôle strictement supérieur. Elle doit
+  rester, parce qu’un run supérieur retenu par sa propre mesure dessine quand même
+  ce qu’il dessine ;
+- l’ÉCHELLE, sur l’UNITÉ, pour un rôle au moins aussi haut. Une légende tombe
+  alors à 0,65/1,55 de ce titre, là où l’échelle la met, et deux runs `title` d’une
+  même image font une seule taille.
+
+Deux clauses en découlent. **Un champ est la scène, donc les mots posés dessus
+lisent à l’échelle du champ** : un bloc ancré `full` n’appartient à aucune bande,
+ce qui laisse une zone de cellule se résoudre contre un tiers de la zone sûre sans
+rien à quoi se comparer — le `SIGNAL` à 122 px sur un equalizer, encore une fois —
+donc l’unité du champ plafonne tout ce qui est empilé dessus. Et **la baisse
+s’arrête là où s’arrête la licence de l’ENCRE** : `palette.accent` et
+`palette.display` sont résolus au plancher 3:1, que l’audit accorde au gras au-delà
+de `BOLD_LARGE_PX` (18,66 px), donc la borne d’échelle a un plancher là. La borne
+d’ordre n’en a pas — une inversion n’est pas une scène plus calme, c’est une scène
+fausse — et aucune des deux ne peut remonter une pile au-dessus de ce que sa propre
+boîte permettait.
+
+Deux choses qu’elle ne fait délibérément pas. Elle compare une pile aux AUTRES
+piles et jamais à elle-même, parce qu’une pile est déjà d’accord avec elle-même et
+que la seule façon dont elle peut encore s’inverser à l’intérieur est un plafond de
+mesure propre à un bloc — corriger cela voudrait dire abaisser une zone entière
+sous ce que sa boîte permet, ce qui est la garantie pour laquelle l’arithmétique
+des boîtes existe. Et elle ne peut pas laisser un bloc flotter dans son lot : la
+boîte d’un bloc est ce qu’il DESSINE à l’unité que sa pile a finalement retenue,
+donc abaisser une unité abaisse la boîte avec elle et le reste retourne à la zone,
+où l’alignement le dépense.
+
 Deux choses qu’un document peut encore demander plus petites, et elles sont
 nommées : `solidScene.size` et `separator.extent`, deux énumérations fermées de
 trois parts. Un solide `small` remplit 42 % de sa boîte parce que quelqu’un a écrit
@@ -477,7 +593,24 @@ général, parce qu’un nombre de lignes est un entier. Enfin, la boîte donné
 bloc doit être exactement ce qu’il y dessine : deux calculs pris par les deux
 bouts, `stackIn` qui résout une unité pour une pile et `blockExtent` qui répond
 pour une boîte, ce qui est ce qui rattraperait une table de poids dérivant de
-l’échelle typographique.
+l’échelle typographique. L’ordre entre les rôles est tenu sur le même corpus un
+cran au-dessus : des scènes couvrant les dix zones, d’une à huit couches, étalées
+sur les cases, empilées à deux par zone et posées sur un champ, dans les trois
+formats — aucun run plus grand qu’un run supérieur, et chaque boîte toujours
+remplie, qui est justement la garantie qu’un plafond de scène est le genre de chose
+à défaire en silence.
+
+La seule exception à « tout se dimensionne sur la boîte » a une seule
+implémentation, et elle en a eu trois : `constantMetric` était écrite dans
+`interface.js`, dans `media.js` et une troisième fois dans `dataFigures.js`, à
+partir d’un même paragraphe par trois auteurs. Les trois étaient d’accord sur
+toutes les boîtes auxquelles quelqu’un avait pensé et en désaccord sur la boîte
+dégénérée — l’une rendait 0, l’autre la valeur demandée sans borne, et un test
+épinglait la seconde, si bien qu’une divergence que personne n’avait décidée se
+lisait comme une décision que quelqu’un avait prise. Elle vit dans
+`composition.js` maintenant et les trois familles la lisent ; une boîte 0×0 est une
+boîte sans place plutôt qu’une permission, et une boîte ABSENTE est l’autre
+question, celle sur laquelle `hairline` tranche pour la même raison.
 
 #### Il n’y a toujours aucun son
 
@@ -574,13 +707,29 @@ composition peint et `palette.ground.tint` ce qui a été mesuré — ils diffè
 exactement du champ, et lire le second dans `Ground` le peindrait deux fois et
 prendrait l’extrémité lointaine d’un dégradé sur l’accent.
 
-**Une deuxième brèche porte un nom, et c’est celle que la phrase ci-dessus existe
-pour empêcher.** Un champ est mesuré comme l’ACCENT, parce que les cinq blocs qui
-vont chercher `full` — `equalizer`, `soundWave`, `map`, `lineChart`, `barChart` —
-peignent l’accent en run ou en aplat. `gallery`, `carousel` et `imageFrame`
-peuvent aussi être ancrés `full`, et ce qu’ils peignent, ce sont des
-photographies : une pile posée sur l’un d’eux, c’est du texte sur des images que
-personne ici n’a ouvertes, mesuré contre un accent qui n’est pas à l’image. Aucun
+**Un champ est mesuré comme ce qu’il PEINT, et « l’accent » était une supposition
+vraie pour cinq blocs sur six.** `equalizer`, `soundWave`, `map`, `lineChart` et
+`barChart` peignent l’accent en run ou en aplat, ce que la version booléenne de
+ceci mesurait au nom de tout le monde. `solidScene` peint un solide éclairé dans
+une couleur à lui, à deux luminosités, et un export a montré les deux moitiés de
+l’oubli d’un coup : `field.alpha` a descendu toute son échelle contre un accent que
+rien à l’image ne portait, éteignant l’objet sans jamais aider le mot, et le cadre
+est revenu en tore gris et plat derrière un titre. Donc `FIELD_PAINTS` associe à un
+bloc `full` ce qu’il met à l’image, `fieldPaints` répond l’ENSEMBLE que peint une
+scène — dédoublonné et dans un ordre fixe, parce que cette réponse est aussi la clé
+du cache de palettes — et `composedPalette` échantillonne ces couleurs-là. Un
+solide en vaut deux : toutes les faces lambertiennes sont entre `matériau` et
+`matériau × ambiante`, donc les deux bouts mesurent toutes les faces, ce qui est la
+preuve de `solidShading` réemployée une couche plus loin. Son matériau est résolu
+sur le fond NU pour la raison qui vaut pour l’entrée d’accent : le champ est ce
+qu’on mesure, et une couleur prise dans la passe qui l’inclut serait un point fixe
+et non une réponse.
+
+**La brèche qui reste demande une image, pas une ligne de table.** `gallery`,
+`carousel` et `imageFrame` peuvent aussi être ancrés `full`, et ce qu’ils peignent,
+ce sont des photographies : une pile posée sur l’un d’eux, c’est du texte sur des
+images que personne ici n’a ouvertes, et ils retombent sur le défaut de la table,
+mesurés contre un accent qui n’est pas à l’image. Aucun
 voile ne le couvre non plus, `COMPOSED_IMAGE_VEIL` appartenant au FOND `image`.
 C’est écrit dans `gallery.jsx` et dans ce paragraphe plutôt que laissé à
 redécouvrir, parce que la façon dont cette fonctionnalité perd une garantie, c’est

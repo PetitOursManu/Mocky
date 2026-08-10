@@ -1268,6 +1268,18 @@ export function frameBase(width, height) {
  * reason: it costs one line and it says "this is a heading" without a size.
  */
 export const KICKER_SIZE = 0.026
+
+/**
+ * The size past which bold type is "large" to the audit, and therefore the size
+ * past which a run measured at `CONTRAST_MIN_LARGE` is measured at the right
+ * floor: 18.66 px at weight 700, WCAG's 14 pt.
+ *
+ * Written down here rather than in the test that used to own it, because
+ * `harmoniseUnits` reads it: a cap that pushes a surtitle under this bar does not
+ * make a scene quieter, it takes away the licence the accent was resolved under.
+ * The two callers now cannot disagree about where the bar is.
+ */
+export const BOLD_LARGE_PX = 18.66
 /**
  * As a number, because the type scale has to MEASURE it: a fifth of an em added
  * to every glyph is a fifth of a line's width, which is the difference between a
@@ -1545,6 +1557,15 @@ export const PICTURE_SHARE = { row: 0.5, column: 0.45 }
 // normalised on the body step), so nothing about the relationship between a
 // heading and its kicker changes. What changes is the denominator: a box instead
 // of a frame.
+//
+// And a role is a notion of the SCENE, not of the stack it was solved in. Per
+// stack was the right denominator and the wrong scope: a kicker alone in a narrow
+// column had the column to itself and came out three times the heading beside it,
+// which is the crushing defect above with the two blocks in different zones. The
+// unit stays per stack — two zones have two measures and a narrow one must be
+// allowed to compose smaller — and what is shared is the ORDER: `harmoniseUnits`
+// lowers a stack until no run in it is drawn larger than a run of a superior role
+// anywhere else in the frame. An inequality, never an equality.
 
 /**
  * The average advance width of a glyph, in ems, in the family this container
@@ -1773,9 +1794,21 @@ function shapeHeight(shape, width, unit) {
   return height + Math.max(0, drawn - 1) * RUN_GAP * at
 }
 
-/** The largest size at which an unbreakable run still fits the measure it was given. */
-function cappedByWidth(run, width, advance) {
-  const chars = String(run?.text ?? '').trim().length
+/**
+ * The largest size at which an unbreakable run still fits the measure it was given.
+ *
+ * The other runs are bounded by the measure too, and NOT here: `textLines` packs
+ * characters against the measure, which is only what a browser does when the run
+ * may break inside a word. That is a rule about the BLOCKS rather than about this
+ * arithmetic — every text block sets `word-break: break-word`, and a real export
+ * paid for the one that did not: a `lowerThird` wrapping to `Sur une` /
+ * `photographie` put 1660 px of type across a 1373 px band, and the word shipped
+ * reading `photograph` through the `overflow: hidden` its type rises from.
+ * Bounding a wrapping run by its longest WORD here would have been the other
+ * repair, and it is the wrong one: it makes a paragraph with one long word small
+ * everywhere, including in the six blocks that break it correctly.
+ */
+function cappedByWidth(run, width, advance, chars) {
   if (chars === 0) return 0
   const per = (advance + Math.max(0, Number(run?.tracking) || 0)) * LINE_SAFETY * chars
   return per > 0 ? Math.max(0, Number(width) || 0) / per : 0
@@ -1793,7 +1826,9 @@ function cappedByWidth(run, width, advance) {
  * beside a 760 px mark: the type had stopped growing and its furniture had not.
  *
  * `Infinity` for a shape that can always spend more — anything with a run that
- * wraps. That is the common case, and the one where the box decides.
+ * wraps. That is the common case, and the one where the box decides. What keeps
+ * such a run inside the measure is `word-break` in the block, not a ceiling here:
+ * see `cappedByWidth`.
  */
 export function shapeCeiling(shape, width) {
   let ceiling = Infinity
@@ -1801,7 +1836,7 @@ export function shapeCeiling(shape, width) {
     if (!run?.nowrap) continue
     if (String(run?.text ?? '').trim().length === 0) continue
     const advance = runAdvanceEm(run)
-    ceiling = Math.min(ceiling, cappedByWidth(run, width, advance) / typeRole(run.role).step)
+    ceiling = Math.min(ceiling, cappedByWidth(run, width, advance, String(run.text).trim().length) / typeRole(run.role).step)
   }
   return ceiling
 }
@@ -1854,6 +1889,222 @@ export function solveTypeUnit(shapes, width, height, gap = 0) {
     else high = mid
   }
   return low
+}
+
+/**
+ * The role steps a stack actually DRAWS, one entry per run, each carrying the
+ * ceiling of the block it belongs to.
+ *
+ * A run with no text draws nothing, so it is not in the scene: an absent
+ * `attribution` on a quote must not bound a caption three zones away with a size
+ * no frame contains. The ceiling is per BLOCK and not per zone, because that is
+ * the granularity at which a run stops growing — `shapeHeight` and `blockExtent`
+ * both spend `min(unit, shapeCeiling(shape))`, so the size a viewer sees is that
+ * product and the comparison below has to be made on it.
+ */
+function drawnRuns(shapes, width) {
+  const drawn = []
+  for (const shape of shapes ?? []) {
+    const ceiling = shapeCeiling(shape, width)
+    for (const run of shape?.runs ?? []) {
+      if (String(run?.text ?? '').trim().length === 0) continue
+      drawn.push({ step: typeRole(run?.role).step, ceiling })
+    }
+  }
+  return drawn
+}
+
+/**
+ * A ROLE IS A NOTION OF THE SCENE, AND THIS IS THE INEQUALITY THAT SAYS SO.
+ *
+ * `solveTypeUnit` solves one unit per STACK, and that was the right answer to the
+ * defect it was written for: a `counter` and a `heading` in one zone used to be
+ * two fractions of a frame neither could see, and the figure came out three times
+ * the title beside it. Solving per stack closed that — inside a zone. It opened
+ * the same defect one level up, and an export showed it: on a scene of eight
+ * blocks, `DENSE` — a kicker ALONE in its column, sized against the whole column
+ * because nothing else was in it — was three times the height of the `heading` in
+ * the column next to it. A surtitle three times its own title is exactly the
+ * arrangement the type scale exists to make impossible, arriving through the one
+ * door the scale does not look through.
+ *
+ * The two are the same fault seen from two sides: a `caption` is a caption of the
+ * FILM, not of the column it happens to be alone in. Being alone in a narrow
+ * column is a fact about the layout; being a surtitle is a fact about the scene.
+ *
+ * ── Why an inequality and not one unit per scene ─────────────────────────────
+ *
+ * One unit for the whole scene is the obvious repair and it is wrong, because it
+ * throws away the thing the box arithmetic bought. Two zones have two measures
+ * and two heights: a narrow column MUST be allowed to compose smaller than the
+ * band beside it — that is what "a block inhabits the box it is given" means, and
+ * a scene-wide unit would be the smallest zone's unit imposed on the frame, which
+ * is a return to the small element in the large void this whole pass removed.
+ *
+ * So what is constrained is not the unit but the ORDER the roles are for: **no
+ * run is drawn larger than a run of a superior role elsewhere in the same scene.**
+ * A caption may be as large as the smallest title in the film's frame; it may
+ * never be larger. Below that bound every zone keeps its own answer, and two
+ * zones with nothing to compare — a field of bars beside a column of pictures —
+ * are not brought into agreement about anything.
+ *
+ * ── What it does not do ─────────────────────────────────────────────────────
+ *
+ * It only ever SHRINKS. A zone that is already inside the order is untouched,
+ * which is most of them, and a lone stack has nothing to be compared with and is
+ * returned exactly as `solveTypeUnit` answered — so the poorest document the
+ * schema accepts pays nothing at all.
+ *
+ * It also compares stacks to OTHER stacks and never to themselves, which is not
+ * a shortcut: a stack already agrees with itself, and the one way it can still
+ * invert internally is a per-block measure ceiling — a counter whose face stopped
+ * growing beside a title that did not. Correcting that would mean lowering the
+ * whole zone below what its box allows, and "a stack is as large as its zone
+ * allows" is the guarantee the box arithmetic was written to give. The two
+ * defects are not the same defect and this one does not get to spend the other's
+ * answer.
+ *
+ * And it cannot make a block overflow its
+ * box: less unit is less height at every point, so a stack solved against its
+ * zone and then lowered still fits the zone it was solved for. The leftover is
+ * spent by the zone's own alignment, exactly like the leftover of the staircase
+ * `stackIn` already had.
+ *
+ * ── Why it iterates ─────────────────────────────────────────────────────────
+ *
+ * A zone holds several roles, so lowering it to keep its caption under a title
+ * elsewhere also lowers its own display — which is a superior run somebody else
+ * was measured against. Caps therefore propagate, always downwards and always
+ * from a superior role to an inferior one. Every step of that chain multiplies by
+ * a ratio of steps greater than one, so a cycle cannot pull anything to zero and
+ * the walk settles; it is bounded at one pass per stack, and a run that has not
+ * settled leaves a scene a little quieter rather than failing an export (Q1).
+ */
+export function harmoniseUnits(stacks) {
+  const list = Array.isArray(stacks) ? stacks : []
+  const units = list.map((stack) => Math.max(0, Number(stack?.unit) || 0))
+  // `stackRuns` rather than `runs`: the name is taken further down by the helper
+  // the weight table reads, and one of the two shadowing the other is a bug that
+  // compiles.
+  const stackRuns = list.map((stack) => (Array.isArray(stack?.runs) ? stack.runs : []))
+  // A missing ceiling is "this run can grow", which is what `shapeCeiling` answers
+  // for anything that wraps — and reading it as 0 would make one malformed entry
+  // collapse every inferior role in the film (Q1).
+  const ceilingOf = (run) => (Number.isFinite(run?.ceiling) ? Math.max(0, run.ceiling) : Infinity)
+
+  /*
+   * How far down a stack may be pushed before the INK stops being licensed.
+   *
+   * The one thing in this file that is a size in pixels rather than a ratio, and
+   * it is here for the reason the house always gives: the type yields, the ink
+   * never does. `palette.accent` and `palette.display` are resolved at the 3:1
+   * floor, which the audit licences for bold type past `BOLD_LARGE_PX` — so a cap
+   * that takes a surtitle under that bar has not made a scene quieter, it has
+   * taken away the licence the colour was chosen under.
+   *
+   * It is a FLOOR on the lowering and never a raise: a stack already composing
+   * under the bar keeps its own answer, because its box is a promise about
+   * somebody else's interface and the bar is not. And the ORDER bound still wins
+   * over it, so nothing here can put an inferior role above a superior one.
+   */
+  const floorFor = (runs) => {
+    let smallest = Infinity
+    for (const run of runs) smallest = Math.min(smallest, Math.max(0, Number(run?.step) || 0))
+    return Number.isFinite(smallest) && smallest > 0 ? BOLD_LARGE_PX / smallest : 0
+  }
+
+  for (let pass = 0; pass < list.length; pass += 1) {
+    let moved = false
+    for (let i = 0; i < list.length; i += 1) {
+      // The order bound, which always holds, and the scale bound, which holds
+      // down to the licence floor. See the two comments inside the loop.
+      let cap = Infinity
+      let scale = Infinity
+      for (let j = 0; j < list.length; j += 1) {
+        // Another stack, always. A stack is already the thing that agrees with
+        // itself — one unit and an ordered scale — and the one way it can still
+        // invert inside a zone is a per-block measure ceiling: a counter whose
+        // face has stopped growing beside a title that has not. That case is
+        // deliberately left alone rather than folded in here, because the fix for
+        // it is to lower the WHOLE zone below what its box allows, and "a stack is
+        // as large as its zone allows" is the guarantee the previous pass paid
+        // for. This function is about the inversion that guarantee creates BETWEEN
+        // zones, and about nothing else.
+        if (j === i) continue
+        /*
+         * A FIELD is the scene, and what stands on it is a caption of it.
+         *
+         * A block anchored `full` is painted across the whole safe area under the
+         * nine cells, so it belongs to no band and no band's appetite belongs to
+         * it. That leaves a cell zone on a field solving its unit against a third
+         * of the frame with nothing to be compared with — and an export showed
+         * exactly that: one `equalizer`, one `kicker`, and a surtitle at 122 px of
+         * capitals standing on the graph it was the surtitle OF. The largest
+         * element in the frame was the smallest role in the scene, for the second
+         * time, and the band alone does not close it.
+         *
+         * So the field's own unit is the ceiling for everything laid over it. It
+         * is a cap like every other one here — a zone already composing smaller
+         * keeps its answer — and it says the thing the picture says: the field
+         * sets the scale, the words on it read at that scale or under it.
+         */
+        if (stacks[j]?.field) scale = Math.min(scale, units[j])
+        for (const mine of stackRuns[i]) {
+          for (const other of stackRuns[j]) {
+            // A role at least as high as mine. The ORDER bound below needs a
+            // strictly superior one — two runs of one role cannot be out of order
+            // with each other — but the SCALE bound needs the equal case too: two
+            // `title` runs in one frame at 196 px and 128 px are not an inversion
+            // and they are still two scales, which is the "six agents" the whole
+            // pass is about. A `logoType` alone in the bottom band is where it
+            // showed up.
+            if (!(other.step >= mine.step)) continue
+            /*
+             * TWO bounds, and the second one is what this pass added.
+             *
+             * The first is the drawn size: no run is larger than a superior run
+             * elsewhere. It has to stay, because a superior run held back by its
+             * own measure — a wordmark that stopped growing at five characters
+             * across its column — still draws what it draws, and an inferior role
+             * above it is the inversion however the unit got there.
+             *
+             * The second is the SCALE: no stack reads a larger unit than a stack
+             * carrying a superior role. Size alone let a caption be drawn exactly
+             * as large as a title, which is not the order — it is the collapse of
+             * it, and an export showed the collapse: `DENSE` came back at the same
+             * cap height as the headline beside it. `TYPE_ROLES` says why in one
+             * line: a surtitle that is not smaller than the line under it is not a
+             * surtitle. On the unit, the same pair lands at 0.65/1.55 of that
+             * title, which is where the scale puts it.
+             *
+             * `units[j]` and not `sizeOf` for that second bound, so a run stopped
+             * by its own measure does not drag a whole zone down to it. Every
+             * constraint here is `unit ≤ something already solved`, so the walk is
+             * a minimum propagating; it settles, and it cannot pull anything to
+             * zero.
+             */
+            // A run whose own measure already keeps it under the bound needs no
+            // help from the unit: a wordmark that stopped growing at 24 characters
+            // across its column is not what makes a heading elsewhere too small.
+            if (other.step > mine.step) {
+              const order = (Math.min(units[j], ceilingOf(other)) * other.step) / mine.step
+              if (ceilingOf(mine) > order) cap = Math.min(cap, order)
+            }
+            if (ceilingOf(mine) > units[j]) scale = Math.min(scale, units[j])
+          }
+        }
+      }
+      // The scale, but never under the licence floor; then the order, which has no
+      // floor because an inversion is not a quieter scene, it is a wrong one.
+      const bound = Math.min(cap, Math.max(scale, floorFor(stackRuns[i])))
+      if (bound < units[i]) {
+        units[i] = bound
+        moved = true
+      }
+    }
+    if (!moved) break
+  }
+  return units
 }
 
 /**
@@ -1963,6 +2214,37 @@ export function hairline(base, box) {
   return Number.isFinite(room) ? Math.max(1, Math.min(thickness, Math.floor(room * CONSTANT_CEILING))) : thickness
 }
 
+/**
+ * The other two constant metrics — a radius and a gutter — bounded inside the box
+ * they are drawn in. ONE implementation, and the reason it is here is that it was
+ * three.
+ *
+ * `interface.js`, `media.js` and `dataFigures.js` each grew their own from the
+ * same paragraph, written in parallel by three authors, and three readings of one
+ * ceiling agree everywhere except where nobody wrote a card: on a DEGENERATE box,
+ * one answered 0 and one answered the full radius unbounded — and the second was
+ * pinned by a test, so a divergence nobody decided read as a decision somebody
+ * made. A 0×0 box is not a licence to draw anything; it is a box with no room,
+ * and a corner it rounds is a corner no frame contains.
+ *
+ * An ABSENT box is a different question and that is why the two are not folded
+ * together: a caller with no box has nothing to be bounded against, and clamping
+ * to nothing there would erase the radius of every caller that has not been given
+ * one. `hairline` above splits on the same line for the same reason.
+ *
+ * Not floored at 1, unlike a hairline: a direction that states a radius of zero
+ * has stated a square corner, and rounding it up to a pixel would be the layout
+ * overruling the document. A rule of zero pixels is not a thinner rule, which is
+ * why the one above is floored and this one is not.
+ */
+export function constantMetric(px, box) {
+  const asked = Math.max(0, Math.round(Number(px) || 0))
+  const width = Number(box?.width)
+  const height = Number(box?.height)
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return asked
+  return Math.min(asked, Math.floor(Math.max(0, Math.min(width, height)) * CONSTANT_CEILING))
+}
+
 /** A line of text, as the runs of a block see it: absent, or a string. */
 const runs = (list) => (Array.isArray(list) ? list : [])
 
@@ -2007,21 +2289,31 @@ function counterFace(block) {
  * blocks already draw, so a stack of text keeps the proportions it had.
  *
  * The FIELDS are the tier that had to be decided rather than measured, and the
- * question behind every number is "below what height does this stop being what
- * it is":
+ * first version answered the wrong question with it. "Below what height does this
+ * stop being what it is" is a FLOOR — four lines for a motif of bars, six for a
+ * plot, nine for a picture — and a floor is the right number for sharing a column
+ * and the wrong one for owning a frame. A field's appetite is also the exchange
+ * rate between a box and a type size: a `barChart` worth 6.4 units filling a
+ * 950 px safe area declares one body line to be 130 px, so its own axis labels
+ * came out at 85 px — a row of `L M M J V S D` set as large as a headline — and a
+ * `kicker` standing on it inherited the same scale. Three real exports showed it
+ * and the user's word for all three was "rudimentary".
  *
- *   - 4 to 5 for `equalizer` and `soundWave` — a motif of bars reads as a motif
- *     from about four lines of type up, and below that it is a row of ticks;
- *   - 6.4 for a chart — a plot needs enough height for its tallest column to be
- *     three or four times its shortest, and under about six lines a bar chart is
- *     a bar code;
- *   - 9 for a `map`, a `gallery`, an `imageFrame`, a `solidScene` — these are the
- *     scene when they are in it. Nine body-sizes is a little over half a 16:9
- *     safe area, so one of them beside a heading takes two thirds of the column
- *     and the heading takes a third, which is the arrangement anybody who writes
- *     those two blocks meant;
- *   - 6 for a `carousel` and a `clock` — a strip and a dial are elements, not
- *     fields: they hold their own shape and the rest of the stack still reads.
+ * So the tier is what a field is worth when it IS the scene, and the number
+ * behind it is a density: **a frame that carries twenty lines of running text is
+ * a frame, and one that carries ten is a poster.** Twenty-two units across a safe
+ * area is a body line at about 4% of the short edge and a caption at 2.7%, which
+ * is the surtitle the house has always drawn. The ORDER is the floors' own, so
+ * nothing about how two fields share one column has changed:
+ *
+ *   - 10 to 13 for `soundWave` and `equalizer` — a motif, the least of them;
+ *   - 15 for a `carousel` and a `clock` — a strip and a dial are elements, not
+ *     fields: they hold their own shape and the rest of the stack still reads;
+ *   - 16 for a chart — a plot and the row of labels under it;
+ *   - 22 for a `map`, a `gallery`, an `imageFrame`, a `solidScene` — these are the
+ *     scene when they are in it, so one of them beside a heading takes the frame
+ *     and leaves the heading a band, which is the arrangement anybody who writes
+ *     those two blocks meant.
  *
  * `fills` says which axis a kind is entitled to fill, and it is the claim
  * `composition.test.js` checks. `both` for a field, because a field that leaves a
@@ -2075,17 +2367,17 @@ export const BLOCK_APPETITE = {
   lowerThird: { fixed: 1.1, fills: 'either', runs: (b) => [{ role: 'title', text: b?.title }, { role: 'caption', text: b?.subtitle }] },
 
   // ── DATA ──
-  barChart: { fixed: 6.4, fills: 'both', runs: (b) => [{ role: 'caption', text: runs(b?.labels)[0] }] },
-  lineChart: { fixed: 6.4, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.label }] },
-  equalizer: { fixed: 5, fills: 'both', runs: () => [] },
-  soundWave: { fixed: 4, fills: 'both', runs: () => [] },
-  map: { fixed: 9, fills: 'both', runs: () => [] },
+  barChart: { fixed: 16, fills: 'both', runs: (b) => [{ role: 'caption', text: runs(b?.labels)[0] }] },
+  lineChart: { fixed: 16, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.label }] },
+  equalizer: { fixed: 13, fills: 'both', runs: () => [] },
+  soundWave: { fixed: 10, fills: 'both', runs: () => [] },
+  map: { fixed: 22, fills: 'both', runs: () => [] },
 
   // ── MEDIA AND TIME ──
-  imageFrame: { fixed: 9, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.caption }] },
-  gallery: { fixed: 9, fills: 'both', runs: () => [] },
-  carousel: { fixed: 6, fills: 'both', runs: () => [] },
-  clock: { fixed: 6, fills: 'either', runs: (b) => [{ role: 'caption', text: b?.label }] },
+  imageFrame: { fixed: 22, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.caption }] },
+  gallery: { fixed: 22, fills: 'both', runs: () => [] },
+  carousel: { fixed: 15, fills: 'both', runs: () => [] },
+  clock: { fixed: 15, fills: 'either', runs: (b) => [{ role: 'caption', text: b?.label }] },
   dateStamp: { fixed: 0.6, fills: 'either', runs: (b) => [{ role: 'body', text: b?.text, nowrap: true }] },
 
   // ── MISC ──
@@ -2103,7 +2395,7 @@ export const BLOCK_APPETITE = {
     fills: 'either',
     runs: (b) => runs(b?.lines).map((line) => ({ role: 'body', text: line?.text, mono: true, nowrap: true })),
   },
-  solidScene: { fixed: 9, fills: 'minor', runs: () => [] },
+  solidScene: { fixed: 22, fills: 'minor', runs: () => [] },
 }
 
 /**
@@ -2282,22 +2574,59 @@ export function composedSafeArea(width, height) {
 }
 
 /**
- * `count` tracks and their gutters across a span, as start/size pairs.
+ * `count` tracks and their gutters across a span, as start/size pairs — divided
+ * in the proportions `weights` asks for, or equally when it asks for nothing.
  *
  * Each edge is rounded rather than each size, so the tracks tile the span
  * exactly: the last one ends on `round(start + span)` whatever the arithmetic did
  * in between. Rounding sizes instead spends a pixel per track, and three of them
  * put the right-hand column past the margin it was measured from — a failure that
  * shows up on one ratio out of three and reads as noise.
+ *
+ * The weights are what makes a band a band rather than a third. `stackIn` has
+ * divided a zone by APPETITE since the day a `separator` above a `heading` took
+ * half the column for three pixels of ink, and the grid itself went on dividing
+ * by COUNT: a scene of a surtitle, a title and a logotype gave the surtitle the
+ * same 295 px as the title, so three quarters of the top band was empty and the
+ * film's own headline was set at a third of the height it could carry. It is the
+ * same defect one level up, and the fix is the same table.
+ *
+ * A zero weight is floored rather than honoured: a track nothing wants is a track
+ * of no height, and a box of no height is a stack solved at a unit of zero (Q1).
  */
-function split(start, span, gap, count) {
+function split(start, span, gap, count, weights = null) {
   const total = Math.max(1, count)
-  const track = (span - (total - 1) * gap) / total
-  return Array.from({ length: total }, (_, i) => {
-    const from = start + i * (track + gap)
-    const at = Math.round(from)
-    return { start: at, size: Math.max(0, Math.round(from + track) - at) }
+  const asked = Array.isArray(weights) && weights.length === total ? weights : null
+  const shares = Array.from({ length: total }, (_, i) => Math.max(WEIGHT_FLOOR, Number(asked?.[i]) || (asked ? 0 : 1)))
+  const sum = shares.reduce((a, b) => a + b, 0)
+  const room = span - (total - 1) * gap
+  let cursor = start
+  return shares.map((share) => {
+    const track = (room * share) / sum
+    const at = Math.round(cursor)
+    const end = Math.round(cursor + track)
+    cursor += track + gap
+    return { start: at, size: Math.max(0, end - at) }
   })
+}
+
+/** The share a track nothing asked for still gets. See `split`. */
+const WEIGHT_FLOOR = 0.001
+
+/**
+ * What a stack of blocks ASKS of the axis it stacks on, in units of the body
+ * type size — the same currency `BLOCK_APPETITE` is written in.
+ *
+ * `shapeHeight` at a unit of one, which is the appetite with every run on a
+ * single line: at that size the type is a pixel tall and nothing wraps, so what
+ * comes back is furniture plus one line box per run that has text. Wrapping is
+ * deliberately not in it — the band is decided before any unit is solved, and a
+ * weight that depended on the unit would be a fixpoint rather than an answer.
+ * A long heading in a narrow column therefore asks for a little less than it will
+ * take, and gets it back through the alignment that spends a zone's leftover.
+ */
+function stackAppetite(blocks, width) {
+  return blocks.reduce((sum, { block }) => sum + Math.max(0, shapeHeight(blockShape(block), width, 1)), 0)
 }
 
 /**
@@ -2328,10 +2657,16 @@ function split(start, span, gap, count) {
  * Edges are rounded rather than heights, for `split`'s own reason: rounding each
  * height spends a pixel per block, and eight of them put the last box past the
  * margin it was measured from.
+ *
+ * The unit is PASSED rather than solved here, because the zone is no longer the
+ * last word on it: `harmoniseUnits` may lower it so that a caption alone in a
+ * column is not drawn larger than a title in the column beside it. Lowering only
+ * ever leaves room over — the heights below are recomputed at whatever unit
+ * arrived, so the boxes still tile the zone and the leftover is spent by the same
+ * alignment as the staircase's.
  */
-function stackIn(box, layers, gap, justify) {
+function stackIn(box, layers, gap, justify, unit) {
   const shapes = layers.map(({ block }) => blockShape(block))
-  const unit = solveTypeUnit(shapes, box.width, box.height, gap)
   const heights = shapes.map((shape) => Math.max(0, shapeHeight(shape, box.width, unit)))
   const drawn = heights.reduce((sum, at) => sum + at, 0) + Math.max(0, layers.length - 1) * gap
   const slack = Math.max(0, box.height - drawn)
@@ -2397,12 +2732,20 @@ function stackIn(box, layers, gap, justify) {
  * a third. Nothing overlaps at any of the three, because the split is the same
  * arithmetic the grid was.
  *
- * The ROWS are not treated the same way, and that asymmetry is deliberate: a
- * band's anchored edge is already the safe edge (the top band starts at the safe
- * top, the middle is centred in the frame, the bottom ends at the safe bottom),
- * so a column that overflows its band grows into empty space in the right
- * direction. A column's anchored edge is only the frame's when nothing else is in
- * its row, which is exactly the case this split computes.
+ * The bands are divided the same way, among the rows that hold something — it was
+ * the same defect one axis over, and 295 px of a 16:9 safe area is a stack sized
+ * for a third of a picture with the other two thirds empty.
+ *
+ * ── Unless a FIELD is on the frame, in which case the bands are the grid's ────
+ *
+ * Dropping an unused track is only right because the track is EMPTY. A block
+ * anchored `full` is painted under the nine cells over the whole safe area, so
+ * the rows a scene did not name are not empty at all — and a scene of an
+ * `equalizer` and a `kicker` handed the kicker the entire safe area, which came
+ * out as 200 px of capitals across the graph it was the surtitle of. With a field
+ * on the frame the bands are the grid's own three; the columns still collapse,
+ * because a height sets a type SIZE and a width sets a MEASURE, and a line
+ * running the full measure of a field is what a line over a field should do.
  *
  * Timing is deliberately absent: `layerCues` answers when a block arrives and
  * this answers where it lands, and keeping them apart is what lets the motion be
@@ -2450,11 +2793,80 @@ export function composedLayout(scene, width, height) {
   // longer applies: a stack whose unit was solved against its band cannot be
   // taller than the band. What survives of it is the alignment, which still
   // decides which way the leftover is spent.
-  const usedRows = [0, 1, 2].filter((row) => used[row].size > 0)
-  const bands = split(frame.top, frame.height, gutter, usedRows.length)
+  //
+  // ── Except that a FIELD claims every band, and no column ────────────────────
+  //
+  // Collapsing a track is only right because the track that was dropped is
+  // EMPTY: a lone block takes the whole measure because there is nothing beside
+  // it and the whole height because there is nothing above it. A block anchored
+  // `full` makes the second half of that sentence false — it is painted under the
+  // nine cells, over the whole safe area — and an export showed what that costs:
+  // a scene of one `equalizer` and one `kicker` gave the kicker the entire safe
+  // area, because `full` occupies no row of the grid, and a surtitle came out as
+  // 200 px of capitals across a graph it was the surtitle OF. The biggest element
+  // in the frame was the smallest role in the scene.
+  //
+  // So a field claims every band: with one on the scene the rows are the grid's
+  // own three, a cell block gets a band rather than the frame, and a scene whose
+  // only block IS the field still gives it everything (it reads no row — see
+  // below — and there is no cell to divide the bands among).
+  //
+  // Columns are deliberately NOT treated the same way, and the asymmetry is the
+  // difference between the two axes rather than a taste: a box's height is what
+  // sets the type size, and its width is what sets the MEASURE. A block that
+  // takes the whole width is a line that runs the full measure, which is what a
+  // line over a field should do; a block that takes the whole height is the
+  // scene, and the field was the scene. Collapsing the columns is also what keeps
+  // a heading over a photograph off the 563 px third that made this rule
+  // necessary in the first place.
+  const field = held.has('full')
+  const usedRows = [0, 1, 2].filter((row) => field || used[row].size > 0)
+  /*
+   * And the bands are divided by APPETITE, not by count.
+   *
+   * `stackIn` has divided a zone that way since a `separator` above a `heading`
+   * took half a column for three pixels of ink; the grid went on dividing by
+   * count, which is the same defect one level up. A real export showed it: a
+   * surtitle, a title with its rule and its list, and a logotype — three used
+   * rows, three equal bands, so the surtitle sat alone in 295 px of which it drew
+   * 65, and the film's own headline was solved against a third of a frame that
+   * had two thirds to spare. What that costs is not only air: a stack fills the
+   * box it is given, so an over-large band is an over-large type unit, and the
+   * logotype in the bottom band came back three times the heading in the middle
+   * one. Weighted bands make the units agree by construction — every zone reads
+   * roughly `safeHeight / (what the whole scene asked for)` — which is what
+   * `harmoniseUnits` then only has to tidy rather than to rescue.
+   *
+   * A row's weight is the HUNGRIEST of its cells and not their sum: the columns
+   * of one row sit side by side, so the band has to hold the tallest of them and
+   * the others keep the leftover their own alignment spends.
+   *
+   * With a field on the frame the bands stay the grid's own three. A `full` block
+   * is painted across all of them, so there is no row it is the appetite OF, and
+   * a weight it cannot appear in would divide the frame among the cells as if the
+   * field were not there.
+   */
+  const weights = field
+    ? null
+    : usedRows.map((row) => {
+        let most = 0
+        for (const column of used[row]) {
+          const box = columns[row].get(column)
+          for (const [anchor, inZone] of held) {
+            const cell = ANCHOR_CELLS[anchor]
+            if (TRACK_OF[cell.row] !== row || TRACK_OF[cell.column] !== column) continue
+            most = Math.max(most, stackAppetite(inZone, box?.size ?? frame.width))
+          }
+        }
+        return most
+      })
+  const bands = split(frame.top, frame.height, gutter, usedRows.length, weights)
   const rows = new Map(usedRows.map((row, i) => [row, bands[i]]))
 
-  const zones = []
+  // Every zone with the box it gets, before a single unit is solved: the scale is
+  // a scene-wide question now (`harmoniseUnits`), so no stack can be laid out
+  // until all of them have been measured.
+  const placed = []
   for (const anchor of ZONE_ORDER) {
     const inZone = held.get(anchor)
     if (!inZone) continue
@@ -2481,22 +2893,48 @@ export function composedLayout(scene, width, height) {
     // keep theirs; `full` has no edge to anchor to, so its leftover is spent
     // symmetrically.
     const justify = cell.row === 'stretch' ? 'center' : cell.row
-    const stack = stackIn(box, inZone, gap, justify)
-    zones.push({
+    const shapes = inZone.map(({ block }) => blockShape(block))
+    placed.push({
       anchor,
       box,
       share: cell.row === 'stretch',
       justify,
       align: cell.column,
       textAlign: TEXT_OF[cell.column] ?? 'left',
+      inZone,
+      // Whether this zone IS the field. `harmoniseUnits` reads it: a block
+      // anchored `full` belongs to no band, so it is the one zone whose unit has
+      // to bound the cells rather than be bounded by them.
+      field: anchor === 'full',
+      // What this stack would read on its own, and what it puts on the frame for
+      // the scene to compare it with.
+      unit: solveTypeUnit(shapes, box.width, box.height, gap),
+      runs: drawnRuns(shapes, box.width),
+    })
+  }
+
+  // One unit per zone still, and never one for the scene — but no zone may draw a
+  // role larger than a superior role somewhere else in the same frame. See
+  // `harmoniseUnits` for why that is an inequality rather than a shared unit.
+  const units = harmoniseUnits(placed)
+  const zones = placed.map((zone, i) => {
+    const stack = stackIn(zone.box, zone.inZone, gap, zone.justify, units[i])
+    return {
+      anchor: zone.anchor,
+      box: zone.box,
+      share: zone.share,
+      justify: zone.justify,
+      align: zone.align,
+      textAlign: zone.textAlign,
       // The type unit this zone's stack reads — ONE per stack, which is the half
-      // of the fix that stops a figure from crushing a title beside it. See
-      // `solveTypeUnit`.
+      // of the fix that stops a figure from crushing a title beside it, bounded by
+      // the scene's own order of roles, which is the half that stops a kicker
+      // alone in a column from being three times the heading next to it.
       unit: stack.unit,
       // Every block with the box it actually gets, never the zone's repeated.
       layers: stack.layers,
-    })
-  }
+    }
+  })
   return { frame, gutter, gap, zones }
 }
 
@@ -3338,7 +3776,20 @@ function scaleColor(color, factor) {
  * two ENDS measures every face between them. That is the whole proof, and it is
  * why this returns two numbers rather than a light rig.
  *
- * The material is the run the palette already resolved, so the LIT end is
+ * The material is the ORNAMENT's run — the accent, resolved on the ground with
+ * the veil locked — and not the display ink it used to be. A real export said
+ * why: a torus anchored `full` under a heading was painted in
+ * `palette.solid.color`, which WAS `palette.display.color`, so the object and the
+ * word standing on it were the same colour and met at 1:1 wherever they
+ * overlapped. An object and the text laid over it cannot share an ink; that is
+ * the founding mistake of this whole section, one composition further on. The
+ * accent is also the right colour on its own terms — a lit solid is a decoration,
+ * and a decoration carries the project's colour (`accentRun`). It can still
+ * coincide with the ink on a direction whose accent cannot be read at all, since
+ * `accentFirst` then falls through to the ordinary list: being legible outranks
+ * being distinct, as it does everywhere else in this file.
+ *
+ * The material is a run the palette already resolved, so the LIT end is
  * measured by construction and only the dim end is measured here. Lambert can
  * only ever darken, and that direction was written the other way round first: an
  * ink brightened so that the DIM face landed exactly on the measured colour. It
@@ -3364,7 +3815,56 @@ export function solidShading(surface, ink) {
 }
 
 /**
- * Whether this scene paints a field and then stands something on it.
+ * What a block anchored `full` PAINTS, when a stack is standing on it.
+ *
+ * `FIELD_ALPHAS` made a field enter the measurement; this table is what makes
+ * that true of every field rather than of five of them. Measuring a surface means
+ * knowing which colour it puts on the frame — `fieldedGround` samples the colours
+ * named here — and a field painted in a colour nobody named escapes the
+ * measurement exactly as the whole field did before it.
+ *
+ * Two answers, and the second is the one that was missing. `equalizer`,
+ * `soundWave`, `map`, `barChart` and `lineChart` paint the ACCENT, as a run or as
+ * a fill, which is what the boolean version of this measured on everybody's
+ * behalf. `solidScene` paints a lit SOLID: the one thing in this directory drawn
+ * at more than one brightness, whose faces lie on the segment between `material`
+ * and `material × ambient`, and a segment with two ends is exactly what
+ * `surfaceRange` knows how to measure. The export that found the gap rendered a
+ * flat grey torus under a heading in the same ink — `field.alpha` walked its
+ * whole ladder against a colour nothing on the frame was painted with, and dimmed
+ * the object without ever helping the word.
+ *
+ * A kind that names nothing takes the accent: that is what a field meant until
+ * this pass, and it is the loudest thing a decoration reaches for. The three
+ * MEDIA blocks are the honest gap and it stays named — `gallery`, `carousel` and
+ * `imageFrame` anchored `full` paint photographs nobody in this process has
+ * opened, so what gets measured for them is an accent that is not on the frame.
+ * Closing that one needs a picture, not a row in a table.
+ */
+export const FIELD_PAINTS = {
+  equalizer: 'accent',
+  soundWave: 'accent',
+  map: 'accent',
+  barChart: 'accent',
+  lineChart: 'accent',
+  solidScene: 'solid',
+}
+
+/**
+ * The paints, in one fixed order.
+ *
+ * `fieldPaints` answers in this order and never in the document's, because that
+ * answer is also a cache key: `ComposedSceneVideo` resolves one palette per
+ * distinct key, and two scenes that paint the same two surfaces in the other
+ * order are one search, not two.
+ */
+export const FIELD_PAINT_KINDS = ['accent', 'solid']
+
+/** The one a kind that names none is measured as. See `FIELD_PAINTS`. */
+export const DEFAULT_FIELD_PAINT = 'accent'
+
+/**
+ * Which surfaces this scene paints UNDER its stack — empty when it paints none.
  *
  * Both halves are needed and neither is enough. A `full` block alone on a frame
  * is the whole picture and owes nobody contrast; a stack with no `full` block
@@ -3373,18 +3873,33 @@ export function solidShading(surface, ink) {
  * produce without asking for anything unusual — `anchor` defaults to `center`,
  * so "an equalizer and a headline" is two lines of a document.
  *
+ * A list rather than a flag, because "there is a field" was never the question a
+ * palette needed answered: it has to know WHICH ink to sample, and a scene may
+ * stack a wave and a solid under one heading. Deduped, so a document naming eight
+ * equalizers is one accent.
+ *
  * Read off `anchorName` rather than the raw field, so a value this build does not
- * know is counted where it will actually be drawn.
+ * know is counted where it will actually be drawn — and off `Object.hasOwn`, so a
+ * `kind` of `constructor` is a field painted in the accent rather than a function.
  */
-export function stackedField(scene) {
+export function fieldPaints(scene) {
   const layers = Array.isArray(scene?.layers) ? scene.layers : []
-  let field = false
+  const paints = new Set()
   let over = false
   for (const layer of layers) {
-    if (anchorName(layer?.anchor) === 'full') field = true
-    else over = true
+    if (anchorName(layer?.anchor) !== 'full') {
+      over = true
+      continue
+    }
+    const kind = String(layer?.kind ?? '')
+    paints.add(Object.hasOwn(FIELD_PAINTS, kind) ? FIELD_PAINTS[kind] : DEFAULT_FIELD_PAINT)
   }
-  return field && over
+  return over ? FIELD_PAINT_KINDS.filter((paint) => paints.has(paint)) : []
+}
+
+/** The predicate the same walk answers: is this scene the pair at all. */
+export function stackedField(scene) {
+  return fieldPaints(scene).length > 0
 }
 
 /**
@@ -3401,6 +3916,11 @@ export function stackedField(scene) {
  * bare ground is returned and the export ships (Q1). That is a frame with a
  * contrast this file could not fix, not a render that failed after the user
  * waited in a queue.
+ *
+ * `colors` is `fieldColors`'s answer — what the blocks anchored `full` actually
+ * paint, which is the accent for five of them and a lit solid's two ends for the
+ * sixth. This function measures whatever it is handed; deciding what a field is
+ * made of belongs to `FIELD_PAINTS`, one screen up.
  */
 function fieldedGround(ground, requests, inks, colors) {
   const own = Array.isArray(ground.tint) ? ground.tint : ground.tint ? [ground.tint] : []
@@ -3419,10 +3939,57 @@ function fieldedGround(ground, requests, inks, colors) {
 }
 
 /**
+ * The option as a list of paints.
+ *
+ * `true` reads as the accent, which is what a field meant when this was a
+ * boolean: a caller written against the old contract keeps measuring the surface
+ * it used to measure rather than silently measuring none (Q1). Filtered through
+ * `FIELD_PAINT_KINDS` so an unknown name is ignored instead of becoming an
+ * undefined colour inside `surfaceRange`.
+ */
+function fieldRequest(field) {
+  if (field === true) return [DEFAULT_FIELD_PAINT]
+  if (!Array.isArray(field)) return []
+  return FIELD_PAINT_KINDS.filter((paint) => field.includes(paint))
+}
+
+/**
+ * The colours a field is measured as, one entry per paint.
+ *
+ * The accent is TWO colours because the five blocks that reach for it reach
+ * differently: `equalizer`, `soundWave`, `map` and `lineChart` paint the accent
+ * RUN — the ornament the palette resolved on this ground — and `barChart` fills
+ * its columns with the theme's accent as a FILL. Measuring the run alone would
+ * leave the columns of a chart unmeasured, which is the same defect one block
+ * over.
+ *
+ * The solid is two ends of a segment rather than a colour, and that is the whole
+ * reason this function exists: every face of a lit solid lies between `material`
+ * and `material × ambient`, contrast is monotone between them, so the two ends
+ * measure every face. `solidShading` has the proof.
+ *
+ * Deduped by value, because the solid's material IS the accent run: a scene that
+ * stacks a wave and a torus measures three colours, not four, and the ramp
+ * `fieldedGround` builds over them is a third shorter for it.
+ */
+function fieldColors(paints, { accent, theme, solid }) {
+  const colors = []
+  for (const paint of paints) {
+    const painted =
+      paint === 'solid'
+        ? [solid.color, scaleColor(solid.color, solid.ambient)]
+        : [accent.color, safeColor(theme?.accent, THEME_FALLBACK.accent)]
+    for (const color of painted) if (!colors.includes(color)) colors.push(color)
+  }
+  return colors
+}
+
+/**
  * @param {object} theme
  * @param {object} [background]
- * @param {{field?: boolean}} [scene]  `field` when a block anchored `full` has
- *   something stacked on it — see `stackedField`.
+ * @param {{field?: string[]|boolean}} [scene]  `field` is what the blocks
+ *   anchored `full` PAINT under this scene's stack — see `fieldPaints`. Empty
+ *   when nothing stands on a field, which is most scenes.
  */
 export function composedPalette(theme, background, { field = false } = {}) {
   const ground = groundSurface(theme, backgroundKind(background))
@@ -3465,30 +4032,34 @@ export function composedPalette(theme, background, { field = false } = {}) {
   const panelRequests = () => [...requests(), { threshold: CONTRAST_MIN }]
 
   const plain = texturedGround(ground.color, requests(), inkCandidates(theme), ground.tint, ground.alpha)
-  /*
-   * The two colours a field can be painted with, measured as one surface.
-   *
-   * Both, because the five blocks that can be anchored `full` reach for one or
-   * the other: `equalizer`, `soundWave`, `map` and `lineChart` paint the accent
-   * RUN, `barChart` fills its columns with the accent as a FILL. Measuring the
-   * run alone would leave the columns of a chart unmeasured, which is the same
-   * defect one block over.
-   *
-   * The run comes from the plain resolution rather than from this one, and it has
-   * to: the field is what is being measured, so a colour taken from the pass that
-   * includes it would be a fixpoint rather than an answer. It is also the right
-   * colour on its own terms — the field's job as a decoration was settled against
-   * the ground it is painted on.
-   */
-  const surface = field
-    ? fieldedGround(ground, text, inkCandidates(theme), [
-        plain.runs[2].color,
-        safeColor(theme.accent, THEME_FALLBACK.accent),
-      ])
-    : { surface: plain, alpha: 1, tint: plain.on.tint }
-  const measured = surface.surface
   // The ornament's run is the plain one on every scene — see `text` above.
   const accent = plain.runs[2]
+  /*
+   * The lit solid, resolved on the PLAIN ground and before the field, for two
+   * reasons that turn out to be the same one.
+   *
+   * It is painted under the nine cells, on the ground and never on the fielded
+   * surface, so the ground is what it has to be told apart from. And when the
+   * solid IS the field, a colour taken from the pass that measures the field
+   * would be a fixpoint rather than an answer — the argument the accent run
+   * already makes two lines up, arriving through the one block whose colour is
+   * also a surface.
+   */
+  const solid = solidShading(plain.on, accent.color)
+  /*
+   * The field, measured as the colours it actually paints.
+   *
+   * Which colours those are is `FIELD_PAINTS`, and the table exists because this
+   * used to be a boolean: every field was measured as the accent, so a
+   * `solidScene` anchored `full` — painted in a colour of its own, at more than
+   * one brightness — was a second ground that never entered the measurement. The
+   * runs come from the plain resolution for the same reason the accent's does.
+   */
+  const paints = fieldRequest(field)
+  const surface = paints.length
+    ? fieldedGround(ground, text, inkCandidates(theme), fieldColors(paints, { accent, theme, solid }))
+    : { surface: plain, alpha: 1, tint: plain.on.tint }
+  const measured = surface.surface
   // The card, resolved on its own surface: it is opaque `theme.surface`, so a
   // photograph or a ramp behind it changes nothing about what a glyph on it
   // lands on. Folding it into the ground would darken a whole frame to give a
@@ -3528,11 +4099,11 @@ export function composedPalette(theme, background, { field = false } = {}) {
      * nobody can read. The zone is where `full` means anything at all.
      */
     field: { alpha: surface.alpha },
-    // The lit solid's two numbers, resolved from the display run because that is
-    // the surface it turns against and the floor it has to clear. A block reads
-    // this rather than shading a colour itself, for the reason every other block
-    // reads a run: twenty-seven components cannot each be trusted to measure.
-    solid: solidShading(measured.on, measured.runs[0].color),
+    // The lit solid's two numbers, resolved above from the ORNAMENT's run and on
+    // the ground it is painted on. A block reads this rather than shading a
+    // colour itself, for the reason every other block reads a run: twenty-seven
+    // components cannot each be trusted to measure.
+    solid,
     panel: panel.on,
     panelDisplay: panel.runs[0],
     panelBody: panel.runs[1],

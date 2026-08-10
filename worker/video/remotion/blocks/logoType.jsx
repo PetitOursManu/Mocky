@@ -73,6 +73,7 @@ import {
   LETTER_SPAN,
   LOGO_SHARE,
   MARK_ENTER_SCALE,
+  MARK_SLASH_SKEW_DEG,
   letters,
   letterShift,
   logoLayout,
@@ -108,13 +109,20 @@ export const LogoType = ({ block, palette, theme, box, unit, progress, life }) =
             flex: '0 0 auto',
             width: layout.mark.width,
             height: layout.mark.height,
+            // What the skew draws outside the width, given back as advance on
+            // both sides. Zero for the two marks that are rectangles. Without it
+            // the mark is budgeted at its width and drawn wider, which put a
+            // slash 12 px past the left safe margin of a real 1920 export — see
+            // `markBleed`, which is where the angle below becomes a number.
+            marginLeft: layout.mark.bleed,
+            marginRight: layout.mark.bleed,
             backgroundColor: palette.accent.color,
             borderRadius: block.mark === 'circle' ? '50%' : 0,
             opacity: first,
             // The skew is the mark's shape and the scale is its arrival; both in
             // one transform, because the second `transform` on an element wins
             // and the mark would come back upright.
-            transform: `${block.mark === 'slash' ? 'skewX(-18deg) ' : ''}scale(${MARK_ENTER_SCALE + (1 - MARK_ENTER_SCALE) * first})`,
+            transform: `${block.mark === 'slash' ? `skewX(-${MARK_SLASH_SKEW_DEG}deg) ` : ''}scale(${MARK_ENTER_SCALE + (1 - MARK_ENTER_SCALE) * first})`,
           }}
         />
       ) : null}

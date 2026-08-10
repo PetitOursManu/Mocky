@@ -61,13 +61,17 @@ import {
   blockExtent,
   composedLayout,
   composedPalette,
+  constantMetric as sharedConstantMetric,
   contrastRatio,
   cueProgress,
   frameBase,
+  LINE_SAFETY,
   layerCues,
   resolveTheme,
+  runAdvanceEm,
   surfaceRange,
   typeSize,
+  words,
   worstRatio,
 } from '../composition.js'
 // The four components, and the schema that decides what they are handed. Both
@@ -771,8 +775,19 @@ describe('the box a block of this family is given, and what it draws in it', () 
     }
   })
 
-  /** The exception, bounded: a radius wider than a quarter of its row is a lozenge, not a card. */
+  /**
+   * The exception, bounded: a radius wider than a quarter of its row is a
+   * lozenge, not a card — and it is the HOUSE's exception rather than this
+   * family's.
+   *
+   * It was written here, in `media.js` and a third time in `dataFigures.js`, from
+   * one paragraph by three authors, and the three agreed on every box somebody
+   * had thought about. `composition.js` owns the one implementation now and this
+   * file reads it through its family's door; the identity is asserted because two
+   * copies that agree today are exactly the state the divergence started from.
+   */
   it('bounds a constant metric inside the box it is drawn in', () => {
+    expect(constantMetric).toBe(sharedConstantMetric)
     expect(constantMetric(12, { width: 900, height: 400 })).toBe(12)
     expect(constantMetric(12, { width: 900, height: 20 })).toBe(Math.floor(20 * CONSTANT_CEILING))
     // A direction that states a square corner has stated one: rounding it up to
@@ -879,5 +894,47 @@ describe('a panel is distinguished from the ground, and it is measured', () => {
     expect(edge).not.toBeNull()
     expect(edge.color).toBe('#000000')
     expect(panelEdge({ color: '#808080' }, { color: '#7d7d7d' }, [])).toBeNull()
+  })
+})
+
+describe('a card never sets a word wider than its own measure', () => {
+  /**
+   * The export that made this necessary: a `lowerThird` reading
+   * `Sur une photographie`, solved at 250 px for two lines of ten characters,
+   * shipped as `Sur une` / `photograph` / `ie` with the third line and the whole
+   * subtitle sliced off by the mask its type rises from.
+   *
+   * `textLines` packs CHARACTERS against a measure, which is what a browser does
+   * only when it may break inside a word. `word-break: break-word` — which every
+   * block in this directory sets — puts an over-long word on a line of its own
+   * FIRST and breaks it only if it still does not fit, so a run the estimate put
+   * on two lines arrives on three. A zone can spend that line on its slack; a
+   * card has padding, a fixed height and `overflow: hidden`, so it cannot.
+   *
+   * The bound is checked at the ROOM the card leaves itself, which is what makes
+   * this a card's rule rather than the layout's: the measure `composedLayout`
+   * divided is the whole box, and the padding is spent after it.
+   */
+  const longWord = { kind: 'lowerThird', title: 'Sur une photographie', subtitle: 'le texte reste lisible', side: 'left' }
+
+  it('fits the longest word of a lower third on one line of its band', () => {
+    for (const [ratio, { width, height }] of Object.entries(DIMENSIONS)) {
+      const base = frameBase(width, height)
+      for (const box of [
+        { width: width - 232, height: height - 130 },
+        { width: Math.round(width / 2), height: Math.round(height / 3) },
+      ]) {
+        const band = bandGeometry(longWord, box, base, undefined)
+        const room = band.measure
+        for (const [text, size, role] of [
+          [longWord.title, band.title, 'title'],
+          [longWord.subtitle, band.subtitle, 'caption'],
+        ]) {
+          const longest = words(text).reduce((most, word) => Math.max(most, word.length), 0)
+          const drawn = longest * runAdvanceEm({ role }) * LINE_SAFETY * size
+          expect(drawn, `${ratio} ${box.width}x${box.height} ${role}`).toBeLessThanOrEqual(room)
+        }
+      }
+    }
   })
 })

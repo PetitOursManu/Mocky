@@ -349,8 +349,56 @@ Ten things, and the first one is not negotiable.
       doubles the drawing and that the content fills `BOX_FILL_FLOOR` of it.
       The only reads of the frame left are the three `CONSTANT_METRICS` — a
       hairline, a radius, the grid's gutters — each bounded at a quarter of its
-      box. `MEAN_GLYPH_EM` is not a new number: it is the constant
-      `verticalCaptionSize` was calibrated on, now written down once and tested.
+      box, by ONE `constantMetric` in `composition.js`: it was three, written in
+      parallel from one paragraph, and the three disagreed on the degenerate box
+      with a test pinning one of the answers. `MEAN_GLYPH_EM` is not a new number:
+      it is the constant `verticalCaptionSize` was calibrated on, now written down
+      once and tested.
+
+      **A role is a notion of the SCENE, and a field is part of the scene.** Per
+      stack was the right denominator and the wrong scope: a `kicker` alone in its
+      column was sized against a column nothing else was in and came out three
+      times the `heading` beside it. `harmoniseUnits` bounds a stack by the scene's
+      own order of roles — an INEQUALITY, never a shared unit, because a narrow
+      column must still be allowed to compose smaller, and a scene-wide unit is the
+      smallest zone's answer imposed on the frame. It compares a stack with other
+      stacks only: inside one, "as large as its zone allows" is the guarantee the
+      boxes were written to give. And the collapse that hands a lone block the
+      whole safe area may only drop a track that is EMPTY, which a block anchored
+      `full` is exactly what stops being true — so a field claims every band (and
+      no column: a height sets a type size, a width sets a measure). A field alone
+      on a scene still takes the frame.
+
+      **Bounding the drawn SIZE was half of it**, and the next ten exports showed
+      the other half. Two runs of one role were never compared, so a `logoType` in
+      a corner came back at 140 px beside a 41 px `heading`; and an inferior role
+      was allowed to be exactly as large as a superior one, so a surtitle matched
+      its headline's cap height — `TYPE_ROLES`'s own sentence says why that is not
+      the order but the collapse of it. There are two bounds now: the ORDER, on the
+      drawn size, for a strictly superior role (a superior run held back by its own
+      measure still draws what it draws), and the SCALE, on the UNIT, for a role at
+      least as high. Two clauses hang off it — a **field's unit is the ceiling for
+      everything laid on it**, because a `full` block belongs to no band and leaves
+      a cell zone with nothing to be compared with; and the lowering stops at
+      `BOLD_LARGE_PX`, because past that bar `palette.accent`'s 3:1 floor is not
+      licensed and a cap that crosses it has taken away the ink's licence rather
+      than made a scene quieter.
+
+      **The bands are divided by appetite too**, which is `stackIn`'s rule one
+      level up and what makes the above a tidy-up rather than a rescue: every zone
+      then reads the same unit by construction. And the field tier of
+      `BLOCK_APPETITE` is what a field is worth when it IS the scene — twenty-two
+      units, not nine. The floors ("below what height does a chart stop being a
+      chart") were being read as an exchange rate between a box and a type size, so
+      a full-frame `barChart` declared a body line to be 130 px and set its own axis
+      labels at 85.
+
+      **A wrapping run breaks inside a word**, in every block, because `textLines`
+      packs characters and that is the only wrapping it can predict — CSS puts an
+      over-long word on a line of its own first. `blocks.test.js` reads the weight
+      table and requires `wordBreak` of every kind that has a wrapping run; the
+      panel family also bounds its type by the longest word (`wordFit`), since a
+      card's extra line is clipped by `overflow: hidden` rather than spent on slack.
     - **Legibility runs through `composedPalette` and nothing else.** Three
       surfaces — the ground, a panel, the accent fill — and a block reads a run
       rather than choosing a colour. The ground is a RANGE: a gradient is sampled
@@ -363,7 +411,17 @@ Ten things, and the first one is not negotiable.
       missing until an export showed eighteen accent bars meeting an accent word
       at 1:1 in the middle of a frame. A scene that stacks anything on a `full`
       block (`stackedField`) resolves its own palette: the field enters the
-      measurement as a tint sampled along its own density, and it cedes DENSITY
+      measurement as the colour it PAINTS — `FIELD_PAINTS` is that table, and it
+      exists because "the accent" was true of five blocks out of six. The sixth
+      is `solidScene`, painted at two brightnesses in an ink of its own, and a
+      second export showed both halves of the omission: the solid was
+      `palette.display.color`, the same ink as the heading standing on it, and the
+      field it made never entered the measurement at all. So a solid is measured as
+      the two ends of its Lambert segment (`solidShading`'s own proof, one layer
+      out), its material is the ORNAMENT's run resolved on the BARE ground — the
+      fixpoint argument the accent run already makes — and `fieldPaints` answers a
+      SET, which is also the palette cache's key. Whatever the paint, the field is
+      a tint sampled along its own density, and it cedes DENSITY
       down `FIELD_ALPHAS` — which starts at 1, so the common case pays nothing —
       before the texture is given up. Two consequences: the accent run stays
       measured on the BARE ground, because measured against a field made of
