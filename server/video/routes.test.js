@@ -1090,29 +1090,73 @@ describe('GET /:hash', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-disposition')).toBe(null)
     expect(res.headers.get('content-type')).toContain('video/mp4')
-    // Still private: inline is about the disposition, never about the cache.
-    expect(res.headers.get('cache-control')).toContain('private')
+    // Cacheable: the bytes are content-addressed and immutable, and the route
+    // no longer proves ownership — see the block below.
+    expect(res.headers.get('cache-control')).toContain('public')
     expect(Buffer.from(await res.arrayBuffer())).toEqual(RENDERED)
   })
 
   /**
-   * Never `public`, and never the `Access-Control-Allow-Origin: *` the image and
-   * frame routes carry: those are unauthenticated on purpose so a null-origin
-   * preview can fetch them, and this one sits behind a session. A shared cache
-   * holding it would hand one account's export to the next request that asked.
+   * THE TRADE, written as a test so that reversing it fails here first.
+   *
+   * The bytes are public by hash and the URL is the capability: a 64-hex
+   * SHA-256 cannot be guessed, and it is only ever handed out by a listing that
+   * DOES require a session. It exists because a film has to be watchable inside
+   * a generated screen, and that screen renders in an iframe with an opaque
+   * origin (I2, I3) which cannot authenticate anything it fetches.
+   *
+   * Still same-origin: no `Access-Control-Allow-Origin`. A null-origin preview
+   * fetching a subresource needs no CORS header, and adding one would open the
+   * film to every site on the internet rather than to this one's own iframe.
    */
-  it('marks the response private and same-origin', async () => {
+  it('serves the bytes to a caller with no session, and adds no CORS header', async () => {
     owningJob()
+    user = null
     const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
-    expect(res.headers.get('cache-control')).toContain('private')
+    expect(res.status).toBe(200)
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(RENDERED)
+    expect(res.headers.get('cache-control')).toContain('public')
     expect(res.headers.get('access-control-allow-origin')).toBe(null)
   })
 
-  it('403s for an account that did not render it, and sends no bytes', async () => {
+  /**
+   * Reading is open; DESTROYING is not. The two live one line apart in the same
+   * router and it would be easy to assume the trade covered both.
+   */
+  it('still proves ownership before deleting', async () => {
     owningJob()
     user = { id: 'u2', role: 'admin' }
-    const res = await fetch(`${base}/api/video/${RENDERED_HASH}`)
-    expect(res.status).toBe(403)
+    expect((await fetch(`${base}/api/video/${RENDERED_HASH}`, { method: 'DELETE' })).status).toBe(403)
+  })
+
+  /**
+   * THE SHAPE OF THE HOLE, asserted against the source of `server/index.js`.
+   *
+   * This harness mounts the router with a fake `req.user` and no `requireUser`,
+   * so the thing that decides what is public — the mount — is not exercised by
+   * any request made here. Reading the source is the only way this file can
+   * pin it, and it is worth pinning: the bypass is two lines, and widening it
+   * from "GET of a bare hash" to "GET of anything" would open `/exports` to the
+   * internet without failing a single test.
+   */
+  it('bypasses the session for GET of a bare hash, and for nothing else', () => {
+    const source = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8')
+    const mount = source.slice(source.indexOf("'/api/video',"))
+    const guard = mount.slice(0, mount.indexOf('createVideoRouter'))
+    // The same predicate the image mount uses, and the same verb.
+    expect(guard).toContain("req.method === 'GET' && PUBLIC_IMAGE_PATH.test(req.path)")
+    expect(guard).toContain('return requireUser(req, res, next)')
+    // A path shape of exactly one 64-hex segment — nothing else can slip past.
+    expect(source).toContain('const PUBLIC_IMAGE_PATH = /^\\/[a-f0-9]{64}$/')
+  })
+
+  it('says nothing about a film this instance never stored', async () => {
+    owningJob()
+    user = { id: 'u2', role: 'admin' }
+    // 404 and not 403: with no ownership check there is no such thing as
+    // somebody else's hash, only a hash that is here or is not.
+    const res = await fetch(`${base}/api/video/${'9'.repeat(64)}`)
+    expect(res.status).toBe(404)
     expect(await res.text()).not.toContain('rendered-film-bytes')
   })
 
@@ -1129,13 +1173,16 @@ describe('GET /:hash', () => {
   })
 
   /**
-   * Ownership before existence, which is the reverse of the usual shape: 404 for
-   * an unknown hash and 403 for a stranger's would make this route an oracle for
-   * what other people have exported.
+   * 404 now, where it used to be 403.
+   *
+   * The old shape checked ownership BEFORE existence so the route could not
+   * become an oracle for what other people had exported. With no ownership
+   * check there is nothing left to hide: a hash is stored here or it is not,
+   * and saying so tells a caller only about a string they already had.
    */
-  it('403s on a hash nobody here ever rendered', async () => {
+  it('404s on a hash nobody here ever rendered', async () => {
     const res = await fetch(`${base}/api/video/${'9'.repeat(64)}`)
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(404)
   })
 
   it('404s when the job is the caller’s but the bytes are gone', async () => {
@@ -1153,7 +1200,10 @@ describe('GET /:hash', () => {
    */
   it('leaves the literal routes alone', async () => {
     expect((await fetch(`${base}/api/video/status`)).status).toBe(200)
-    expect((await fetch(`${base}/api/video/not-a-hash`)).status).toBe(403)
+    // Not a hash, so `filePath` is never asked and the answer is the same one a
+    // real hash with no bytes gets. It is also the shape the public mount
+    // refuses outright, one layer up.
+    expect((await fetch(`${base}/api/video/not-a-hash`)).status).toBe(404)
   })
 })
 

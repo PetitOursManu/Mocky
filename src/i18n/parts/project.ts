@@ -131,6 +131,7 @@ export const project = {
     // « en cours » sans savoir laquelle il regarde.
     'project.motionStageCompose': 'Composition du film Motion…',
     'project.motionStageRender': 'Rendu du film Motion (1 à 3 min)…',
+    'project.motionStagePlace': 'Insertion du film dans l’écran…',
     'project.motionFailed':
       'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
@@ -353,6 +354,7 @@ export const project = {
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
     'project.motionStageCompose': 'Composing the Motion film…',
     'project.motionStageRender': 'Rendering the Motion film (1 to 3 min)…',
+    'project.motionStagePlace': 'Placing the film in the screen…',
     'project.motionFailed':
       'The Motion film could not be produced: {detail}. The screen is produced without a film.',
     'project.museNoImage': 'the dossier proposed no image',

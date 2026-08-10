@@ -873,40 +873,45 @@ export function createVideoRouter({
    * away from serving `/status` as a hash. The regexp is the part that does not
    * move.
    *
-   * Ownership is checked BEFORE existence, which is the reverse of the usual
-   * shape and deliberate: answering 404 for an unknown hash and 403 for a
-   * stranger's would turn this route into an oracle for what other people have
-   * exported. Checked in this order it says the same thing either way, and it
-   * says something true — a hash you did not render is not yours.
+   * NO OWNERSHIP CHECK, and that is a change from how this route started.
    *
-   * Two sources agree on that, for the reason each one is incomplete alone: the
-   * job carries the account id (`hasVideo`), and the journal is trimmed to the
-   * newest fifty finished jobs; the store's `owners` set is not trimmed but is
-   * bounded at twenty accounts per file. Either is enough to say yes.
+   * The mount in `server/index.js` lets an unauthenticated GET reach exactly
+   * this path shape, for the reason written there: a film has to be watchable
+   * inside a generated screen, and that screen renders in an iframe with an
+   * opaque origin (I2, I3) which cannot authenticate anything. So the URL is the
+   * capability — the same trade `/api/images/:hash` and the clip library already
+   * make, with the same argument: a 64-hex SHA-256 of the content cannot be
+   * guessed, and it is only ever handed out by a listing that DOES require a
+   * session.
+   *
+   * What was given up, stated rather than glossed: someone who obtains a hash —
+   * from a shared screen's source, a screenshot of a URL, a leaked link — can
+   * fetch the film without an account. What was kept: `GET /exports` still lists
+   * only your own films, `DELETE /:hash` still proves ownership before removing
+   * anything, and a hash this instance never stored still answers 404, so this
+   * is a lookup for a string you were already given and not a probe for what
+   * other people have rendered.
+   *
+   * `hasVideo` and `ownedBy` are still what `DELETE` reads. They are no longer
+   * read here.
    */
   router.get('/:hash', (req, res) => {
     const hash = String(req.params.hash)
-    const userId = req.user?.id
-    const mine = HASH_RE.test(hash) && (queue.hasVideo?.(userId, hash) || store?.ownedBy?.(hash, userId))
-    if (!mine) {
-      return res.status(403).json({ error: 'This render belongs to another account.' })
-    }
-
-    const file = store?.filePath?.(hash)
+    const file = HASH_RE.test(hash) ? store?.filePath?.(hash) : null
     if (!file) {
-      // Owned, but the bytes are gone: a deletion, a restored volume, a wiped
-      // data directory. Saying "no longer" rather than "not found" is the whole
-      // difference between a user checking their own history and one filing a
-      // bug about a download button that lies.
+      // The bytes are gone, or were never here: a deletion, a restored volume, a
+      // wiped data directory, a hash from another instance. Saying "no longer"
+      // rather than "not found" is the whole difference between a user checking
+      // their own history and one filing a bug about a download button that lies.
       return res.status(404).json({ error: 'This render is no longer stored on this instance.' })
     }
 
-    // `private`, never the `Access-Control-Allow-Origin: *` the image and frame
-    // routes carry: those paths are deliberately unauthenticated so a
-    // null-origin preview can fetch them, and this one is the opposite — it sits
-    // behind a session, and a shared cache holding it would hand one account's
-    // export to the next request that asked.
-    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
+    // `public` now, and it follows the route rather than leading it: the bytes
+    // are content-addressed and immutable, so a shared cache holding them hands
+    // the next request the same film it asked for by hash. This line said
+    // `private` while the route proved ownership; changing one without the other
+    // is how a cache starts answering a question the route stopped asking.
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
     if (req.query.download === '1') {
       res.setHeader('Content-Disposition', `attachment; filename="${store.downloadName(hash)}"`)
     }

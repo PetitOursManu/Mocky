@@ -55,6 +55,14 @@ export interface SweptElement {
  * vector, but it is also how a mockup shows a photo, and models legitimately
  * emit picture URLs; blocking it would break real screens to close a small hole.
  *
+ * `media-src` does NOT follow it, and names this origin instead. It exists so a
+ * rendered Motion film can play inside a mockup — without it a `<video>` falls
+ * back to `default-src 'none'` and is blocked outright, which is why a hero
+ * composed around a film came back empty. Narrow rather than permissive because
+ * the argument that saves `img-src` does not transfer: a remote video is a
+ * megabyte of somebody else's bandwidth autoplaying inside the tool a design is
+ * being judged in, and no model needs to emit one.
+ *
  * 'unsafe-inline' and 'unsafe-eval' are unavoidable here: the whole point of the
  * document is to run code Babel compiles at runtime, and Tailwind's Play build
  * evaluates the class scanner in-browser. `blob:` covers the compiled module,
@@ -90,6 +98,13 @@ function cspMeta(): string {
     // from the network at all and works offline.
     `style-src ${origin} 'unsafe-inline'`,
     'img-src * data: blob:',
+    // Motion films, and NOTHING else. Named origin rather than the `*` img-src
+    // carries, and the asymmetry is deliberate: a remote image is how a mockup
+    // shows a photo, while a remote video is a megabyte of somebody else's
+    // bandwidth playing inside a tool the user is trying to judge a design in.
+    // Mocky's own films are served from this origin by hash — see the mount in
+    // server/index.js — so naming the origin is the whole permission.
+    `media-src ${origin}`,
     'font-src * data:',
     "connect-src 'none'",
     "form-action 'none'",

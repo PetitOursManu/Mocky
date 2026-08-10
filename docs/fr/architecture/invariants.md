@@ -380,6 +380,32 @@ L'interdiction générale des `<img>` externes dans le prompt de génération es
 emplacements du plan d'imagerie de Muse, qui sont sur l'origine de Mocky, sont
 autorisées.
 
+**Les films Motion suivent la même règle, et il a fallu deux changements pour
+cela.** Un film dans une maquette est un `<video src="/api/video/<hash>">`, et
+l'iframe d'aperçu a une origine opaque (I2, I3), donc :
+
+1. `GET /api/video/:hash` est **public par empreinte** — le troisième chemin de
+   cette instance à faire ce marché, après `/api/images/:hash` et la
+   bibliothèque de clips, avec le même argument écrit à chaque fois : *l'URL est
+   la capacité*. Un SHA-256 de 64 caractères ne se devine pas, et il n'est
+   distribué que par une liste qui, elle, exige une session. Ce qui ne s'est PAS
+   ouvert : `GET /exports` ne liste toujours que vos propres films, `DELETE
+   /:hash` prouve toujours la propriété, et le montage ne contourne la session
+   que pour un **GET d'une empreinte nue, et rien d'autre**.
+2. La CSP de l'aperçu gagne `media-src ${origin}`. Sans elle, un `<video>`
+   retombe sur `default-src 'none'` et est bloqué net — c'est pourquoi un héros
+   composé autour d'un film revenait vide.
+
+`media-src` nomme l'origine au lieu de suivre `img-src *`, et l'asymétrie est le
+sujet : une image distante est la façon dont une maquette montre une photo,
+alors qu'une vidéo distante est un mégaoctet de la bande passante de quelqu'un
+d'autre qui se lit automatiquement dans l'outil où l'on juge un design. Aucun
+modèle n'a besoin d'en émettre une.
+
+La forme du contournement est vérifiée contre la source de `server/index.js`
+dans `server/video/routes.test.js`, parce que le harnais de test du routeur le
+monte sans `requireUser` et ne peut donc pas exercer le montage.
+
 ### M7. Politesse envers les sites sources
 
 | Règle | Valeur |

@@ -1453,7 +1453,35 @@ app.use(
 // anyway, so a burst only costs memory, never CPU.
 app.use(
   '/api/video',
-  requireUser,
+  /*
+   * The BYTES of a finished film are public; everything else needs a session.
+   *
+   * Third time this instance makes that trade, and the argument is the one
+   * written above `PUBLIC_IMAGE_PATH` and repeated for the clip library: the URL
+   * IS the capability. A 64-hex SHA-256 of the content cannot be guessed, and it
+   * is only ever handed out by a listing that does require a session — the
+   * export list, the job, the panel.
+   *
+   * It exists because a film has to be watchable inside a generated screen, and
+   * that screen renders in an iframe with `sandbox="allow-scripts"` and no
+   * `allow-same-origin` (I2, I3). Its document has an opaque origin, so nothing
+   * it fetches can be authenticated by anything the page knows. Either the bytes
+   * are reachable without a session or a film cannot appear in a mockup at all —
+   * which is the state this route was in, and the reason a hero came back empty.
+   *
+   * What does NOT open, and the narrowness is the point:
+   *  - the path shape is exactly one hash, so `/exports`, `/jobs/:id`, `/status`
+   *    and every POST stay behind `requireUser`;
+   *  - GET only, so `DELETE /api/video/:hash` still proves ownership before it
+   *    removes anything;
+   *  - the route below still answers 404 for a hash this instance never stored,
+   *    so this is not a probe for what other people have rendered — it is a
+   *    lookup for a string you were already given.
+   */
+  (req, res, next) => {
+    if (req.method === 'GET' && PUBLIC_IMAGE_PATH.test(req.path)) return next()
+    return requireUser(req, res, next)
+  },
   (req, res, next) => {
     if (req.method === 'POST' && req.path.startsWith('/render')) {
       return authRateLimit(6, 60_000, 'video-render')(req, res, next)

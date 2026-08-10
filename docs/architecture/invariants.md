@@ -358,6 +358,30 @@ The generation prompt's blanket ban on external `<img>` tags is **narrowed**, no
 lifted: no arbitrary external images, but the Muse imagery-plan slot URLs, which
 are on Mocky's origin, are allowed.
 
+**Motion films follow the same rule, and needed two changes to do so.** A film in
+a mockup is `<video src="/api/video/<hash>">`, and the preview iframe has an
+opaque origin (I2, I3), so:
+
+1. `GET /api/video/:hash` is **public by hash** — the third path on this instance
+   to make that trade, after `/api/images/:hash` and the clip library, with the
+   same argument written at each: *the URL is the capability*. A 64-hex SHA-256
+   of the content cannot be guessed and is only ever handed out by a listing that
+   does require a session. What did NOT open: `GET /exports` still lists only
+   your own films, `DELETE /:hash` still proves ownership, and the mount bypasses
+   the session for **GET of a bare hash and nothing else**.
+2. The preview's CSP gains `media-src ${origin}`. Without it a `<video>` falls
+   back to `default-src 'none'` and is blocked outright — which is why a hero
+   composed around a film came back empty.
+
+`media-src` names the origin rather than following `img-src *`, and the asymmetry
+is the point: a remote image is how a mockup shows a photo, while a remote video
+is a megabyte of somebody else's bandwidth autoplaying inside the tool a design
+is being judged in. No model needs to emit one.
+
+The shape of the bypass is asserted against the source of `server/index.js` in
+`server/video/routes.test.js`, because the router's own test harness mounts it
+without `requireUser` and therefore cannot exercise the mount.
+
 ### M7. Politeness towards source sites
 
 | Rule | Value |

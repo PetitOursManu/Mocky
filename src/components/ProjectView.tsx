@@ -72,6 +72,7 @@ import {
   fetchVideoJob,
   proposeVideoTimeline,
   startVideoRender,
+  videoStreamUrl,
   POLL_INTERVAL_MS,
   type MotionKindOffer,
 } from '../lib/video/client'
@@ -1464,7 +1465,11 @@ export default function ProjectView({
                 finished = await fetchVideoJob(job.id, ac.signal)
               }
               if (finished.status === 'done' && finished.videoHash) {
+                // Attached to the SCREEN first, and unconditionally: this is
+                // what makes the film findable on the canvas and in Media, and
+                // it is the part that cannot fail. The edit pass below can.
                 onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
+                await placeFilmInScreen(screenId, finished.videoHash, museConfig.motionKind, ac.signal)
               } else {
                 setMuseImageError(t('project.motionFailed', { detail: finished.error || '' }))
               }
@@ -1819,6 +1824,85 @@ export default function ProjectView({
       setBusy(false)
       setRegeneratingIds(new Set())
     }
+  }
+
+  /**
+   * Put a rendered film INTO the screen, once it exists.
+   *
+   * ── Why an edit pass and not the generation itself ────────────────────────
+   *
+   * Because the film is not ready when the screen is generated, and making the
+   * screen wait for it was the trade this flow already refused: a film is a
+   * model call plus minutes of render, and holding the thing the person asked
+   * for behind the thing they ticked as an extra is the wrong order. So the
+   * screen lands fast, and the film slots into it when it arrives — the same
+   * shape `addMotion` uses to add an animation pack to a screen already drawn.
+   *
+   * ── Why it is not merely attached ─────────────────────────────────────────
+   *
+   * It IS also attached, on the line above, and that used to be all. It put the
+   * film in a card beside the frame on the canvas, which is a perfectly good
+   * place to find one and not a place anybody asked for: a hero was requested
+   * and the mockup came back without one. Two things had to change before this
+   * could exist at all — `GET /api/video/:hash` is now public by hash, and the
+   * preview's CSP names `media-src`, without which a `<video>` falls back to
+   * `default-src 'none'` and is blocked outright.
+   *
+   * ── And it degrades (Q1) ──────────────────────────────────────────────────
+   *
+   * A failure here leaves the screen exactly as generated, with the film still
+   * attached beside it. `previousCode` is set, so the edit is revertible like
+   * every other screen mutation. It is reported rather than swallowed: it cost
+   * a model call.
+   */
+  async function placeFilmInScreen(
+    screenId: string,
+    hash: string,
+    kind: string | undefined,
+    signal: AbortSignal,
+  ) {
+    const settings = loadSettings()
+    if (!settings.model.trim()) return
+    const screen = screens.find((s) => s.id === screenId)
+    const codeAtStart = screen?.code ?? ''
+    if (!codeAtStart.trim()) return
+
+    const src = videoStreamUrl(hash)
+    const where =
+      kind === 'background'
+        ? 'Use it as a section BACKGROUND: absolutely positioned inside a relative parent, with the existing copy on top of it. It is never the subject.'
+        : kind === 'hero'
+          ? 'Use it as the HERO: the first thing the visitor sees, with the existing headline and CTA passed as its children so they sit over the film.'
+          : 'Give it the size its role deserves — a banner strip, a product card, a feature tile. It is NOT the hero unless the page has no other subject.'
+
+    setMuseStage(t('project.motionStagePlace'))
+    const capIds = Array.from(new Set([...(screen?.caps ?? []), 'motionfilm']))
+    const res = await editComponent(
+      settings,
+      [
+        `A film has been rendered for this screen. Place it in the page using the <MotionFilm> component.`,
+        `Use src="${src}" exactly — it is a content hash, and changing one character gives a screen whose film silently never loads.`,
+        where,
+        'Change nothing else: keep every existing section, its copy and its classes. Do not add a <video> tag of your own.',
+      ].join('\n'),
+      codeAtStart,
+      undefined,
+      undefined,
+      signal,
+      undefined,
+      resolveCapabilities(capIds),
+    )
+    // The same guard every screen mutation in this file uses: the code may have
+    // moved under us while the model was working, and writing back over a newer
+    // edit would silently discard whatever the user did in the meantime.
+    const now = screens.find((s) => s.id === screenId)
+    if (now && now.code !== codeAtStart) return
+    onUpdateScreen(screenId, {
+      code: res.code,
+      componentName: res.componentName,
+      previousCode: codeAtStart,
+      caps: capabilitiesFor(capIds, res.code),
+    })
   }
 
   /**

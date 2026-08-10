@@ -189,6 +189,22 @@ export interface GeneratedVideo {
 }
 
 /**
+ * A rendered Motion film, as the generation prompt needs to know it.
+ *
+ * Deliberately not `GeneratedVideo`: the two have nothing in common but the
+ * word video. A scroll sequence is a directory of JPEGs the browser draws onto
+ * a canvas; a film is one .mp4 played by a `<video>`, and it carries a KIND —
+ * hero, background, banner — which is the whole reason the user chose it and
+ * the only thing that decides where it belongs on the page.
+ */
+export interface MotionFilmRef {
+  /** The film's own URL, `/api/video/<hash>`. Public by hash; see its mount. */
+  src: string
+  /** What the user asked this film to BE. Empty means the model may decide. */
+  kind?: string
+}
+
+/**
  * Generate (or reuse) the hero's scroll sequence.
  *
  * Deliberately NOT best-effort like the images are. An image that fails leaves
@@ -562,6 +578,7 @@ export function buildMusePreamble(
   mode: MuseImageMode = 'content',
   dossier?: MuseDossier,
   video?: GeneratedVideo | null,
+  film?: MotionFilmRef | null,
 ): string {
   const lines = [
     'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly.',
@@ -649,6 +666,44 @@ export function buildMusePreamble(
       'Rules: do NOT wrap it in a container with a fixed height, do NOT put it inside a section that already scrolls, and do NOT add an <img> or a <video> for the hero — the component draws the frames itself. `base` and `frames` are exactly the values above; changing either breaks it.',
       'The overlaid children are centred and do not receive pointer events, so put the CTA button after the component if it must be clickable.',
       'Everything else on the page follows the sequence, as normal sections.',
+    )
+  }
+
+  /*
+   * The Motion film.
+   *
+   * Stated as strongly as the scroll sequence and for the same reason — a model
+   * told about a rendered asset in passing does not use it — but with the
+   * opposite emphasis on PLACE. A sequence can only work as the hero; a film
+   * can be a hero, a banner strip, a product card or a section background, and
+   * the user asked for exactly that spread. So the kind decides, and the
+   * instruction says what the kind means rather than dictating one shape.
+   *
+   * The URL is quoted verbatim and marked as such: it is a content hash the
+   * model has no way to derive, and a model that "tidies" it produces a screen
+   * whose hero is a broken video with no error anywhere.
+   */
+  if (film && film.src) {
+    lines.push(
+      '',
+      `MOTION FILM — a film has been rendered for this screen (kind: ${film.kind || 'auto'}). It MUST appear in the page, using the predefined <MotionFilm> component.`,
+      `The src is exactly "${film.src}" — copy it character for character; it is a content hash and cannot be guessed or shortened.`,
+      '',
+      ...(film.kind === 'background'
+        ? [
+            'This film is a BACKGROUND. Put it behind a section — absolutely positioned inside a `relative` parent, or as the section itself with the copy passed as children. It must never be the subject: the text on top is.',
+          ]
+        : film.kind === 'hero'
+          ? [
+              '<MotionFilm src="…" fit="cover">',
+              '  {/* headline + subheadline + CTA go here, over the film */}',
+              '</MotionFilm>',
+              'Give its parent a height (a hero is usually 70–90vh). Pass the copy as children rather than positioning your own overlay.',
+            ]
+          : [
+              'It is NOT the hero. Give it the size its role deserves — a banner strip, a product card, a feature tile — and build the rest of the page around it as normal sections.',
+            ]),
+      'Do not add <video> or <img> for it, do not wrap it in a fixed-height box it cannot fill, and do not repeat it: one film, one place.',
     )
   }
 
