@@ -16,7 +16,13 @@ import {
   MAX_TOTAL_DURATION_MS,
 } from './timeline.js'
 import { proposeTimeline } from './compose.js'
-import { threeDBlocksIn, threeDRefusal } from './three-d.js'
+import {
+  MAX_THREE_D_LAYERS,
+  threeDBlocksIn,
+  threeDLoadOf,
+  threeDLoadRefusal,
+  threeDRefusal,
+} from './three-d.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
 import { MAX_WORKER_PAYLOAD_BYTES, payloadBytesFor } from './worker.js'
@@ -468,6 +474,26 @@ export function createVideoRouter({
         // and one that only prints the message loses nothing.
         threeDBlocks: in3d,
       })
+    }
+
+    /*
+     * And how MUCH 3D, which is a different question from whether any is
+     * allowed and was missing until a film was measured end to end.
+     *
+     * 400 rather than 403: nothing here is about who is asking. The document
+     * itself cannot finish inside the deadline, and no administrator setting
+     * changes that — so the refusal names the arithmetic and the fix.
+     *
+     * Refused HERE and not in the schema, for the reason `three-d.js` gives at
+     * the top of the file: three-dimensionality is a fact about a block's
+     * RENDERER, not about what validates it, and the schema is a hand-kept
+     * mirror in three places. Putting the list there to express this bound
+     * would buy a fourth copy of it in exchange for a check the one door that
+     * every document passes through can already make.
+     */
+    const load = threeDLoadOf(timeline)
+    if (load > MAX_THREE_D_LAYERS) {
+      return res.status(400).json({ error: threeDLoadRefusal(load, 'Nothing was queued.'), threeDLoad: load })
     }
 
     /*

@@ -3246,13 +3246,56 @@ signifie ici « tous ceux qu’un administrateur a déjà mis sur la liste de Mo
 et non « tout le monde » ; un second défaut fermé serait la même porte verrouillée
 deux fois, et c’est le second verrou que personne ne connaît. Le coût est un
 supplément, pas une facture nouvelle — un rendu dépense déjà environ 4,3 s de
-temps réel par seconde de film, un solide éclairé y ajoute environ 0,9 s/s, à
-l’intérieur des 1,7 s/s que l’échéance proportionnée à la durée laisse
-disponibles, et la mise en page le borne plutôt qu’une promesse. Enfin
+temps réel par seconde de film, un solide éclairé y ajoute environ 0,9 s/s sur la
+machine où ces tableaux ont été pris. Voir **Une scène porte au plus deux blocs
+3D** ci-dessous : ce supplément est quatre fois plus grand sur une machine sans
+accélération matérielle, et il est désormais borné par un contrôle et non par une
+promesse. Enfin
 `solidScene` est livré : un défaut fermé serait une mise à jour qui supprime en
 silence un bloc de toutes les instances qui rendent déjà des films avec, et le
 premier symptôme est un prompt de composition qui a discrètement cessé de le
 proposer — ce qui se lit comme une régression, pas comme une politique.
+
+### Une scène porte au plus deux blocs 3D
+
+`MAX_THREE_D_LAYERS = 2`, vérifié à `POST /render`, à côté de la permission.
+
+Le chiffre que donnent les tableaux ci-dessus — un solide éclairé ajoute environ
+0,9 s de rendu par seconde de film — a été mesuré sur une machine au rastériseur
+GL logiciel rapide, et c’est la phrase qui a laissé passer ce défaut. Mesuré à
+nouveau dans le conteneur du worker, sur deux cœurs, sans accélération
+matérielle :
+
+| film | s de temps réel par seconde de film |
+|---|---|
+| plat | 1,78 |
+| un bloc 3D à l’écran | ~3,4 |
+| trois blocs 3D à l’écran | **6,68** |
+
+`jobBudgetMs` en accorde 6. Un film dont les scènes empilent trois blocs 3D est
+donc accepté par le schéma, mis en file, regardé, puis tué aux neuf dixièmes du
+chemin — douze minutes passées devant un indicateur pour rien. Deux tiennent, et
+l’ajustement est linéaire en nombre de blocs à l’écran : 1,78 + 2 × 1,63 = 5,04.
+
+Trois choses sur la forme de la borne :
+
+- **Par SCÈNE et non par film**, parce que le coût est par IMAGE. Huit scènes
+  portant chacune un solide coûtent ce que coûte une scène portant un solide ;
+  une scène qui en porte huit coûte huit fois plus. Une borne par film refuserait
+  le film bon marché et laisserait passer le cher — c’est pourquoi le refus dit
+  que les étaler ne coûte rien.
+- **Pas dans le schéma.** La tridimensionnalité est un fait sur le RENDU d’un
+  bloc, pas sur ce qui le valide — `three-d.js` l’argumente en tête de fichier,
+  et le schéma est un miroir tenu à la main en trois exemplaires. L’exprimer là
+  achèterait une quatrième copie de la liste 3D contre un contrôle que la seule
+  porte par laquelle tout document passe peut déjà faire.
+- **400, pas 403.** La permission répond *qui* ; ceci répond *combien*, et aucun
+  réglage d’administrateur ne fait aboutir ce film. Les deux sont vérifiés dans
+  cet ordre, pour qu’un compte sans permission n’apprenne rien de la borne.
+
+La marge est mince, et mince du bon côté : elle est calculée sur la plus lente
+des deux machines. Un exploitant avec accélération matérielle en a bien
+davantage ; un plus lent encore reçoit le 504 du worker, qui nomme la machine.
 
 ### L’application est côté serveur, à deux portes
 

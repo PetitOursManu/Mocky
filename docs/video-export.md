@@ -3050,12 +3050,53 @@ here means "everyone an administrator already put on Motion's list", not
 "everyone"; a second closed default would be the same door locked twice, and the
 second lock is the one nobody knows about. The cost is a surcharge rather than a
 new bill — a render already spends about 4.3 s of real time per second of film
-and a lit solid adds about 0.9 s/s, inside the 1.7 s/s the duration-scaled
-deadline leaves spare, and it is bounded by the layout rather than by an honour
-system. And `solidScene` shipped: a closed default would be an upgrade that
+and a lit solid adds about 0.9 s/s on the host those tables were taken on —
+see **A scene carries at most two 3D blocks** below, because that surcharge is
+four times larger on a host with no hardware acceleration, and it is now bounded
+by a check rather than by an honour system. And `solidScene` shipped: a closed default would be an upgrade that
 silently deletes a block from every instance already rendering films with it, and
 the first symptom is a compose prompt that has quietly stopped offering it, which
 reads as a regression rather than as a policy.
+
+### A scene carries at most two 3D blocks
+
+`MAX_THREE_D_LAYERS = 2`, checked at `POST /render` beside the permission.
+
+The number the tables above give — a lit solid adds about 0.9 s of render per
+second of film — was measured on a host with a fast software GL rasteriser, and
+it is the sentence that let this defect ship. Measured again in the worker
+container on two cores, with no hardware acceleration:
+
+| film | s of wall clock per second of film |
+|---|---|
+| flat | 1.78 |
+| one 3D block on screen | ~3.4 |
+| three 3D blocks on screen | **6.68** |
+
+`jobBudgetMs` grants 6. So a film whose scenes stack three 3D blocks is accepted
+by the schema, queued, watched, and killed at about nine tenths of the way
+through — twelve minutes of somebody looking at a spinner for nothing. Two fit,
+with the fit linear in the number of blocks on screen: 1.78 + 2 × 1.63 = 5.04.
+
+Three things about the shape of the bound:
+
+- **Per SCENE, not per film**, because the cost is per FRAME. Eight scenes each
+  carrying one solid cost what one scene carrying one solid costs; one scene
+  carrying eight costs eight times as much. A per-film cap would refuse the
+  cheap film and wave the expensive one through, which is why the refusal says
+  spreading them is free.
+- **Not in the schema.** Three-dimensionality is a fact about a block's
+  *renderer*, not about what validates it — `three-d.js` argues this at the top
+  of the file, and the schema is a hand-kept mirror in three places. Expressing
+  the bound there would buy a fourth copy of the 3D list in exchange for a check
+  the one door every document passes through can already make.
+- **400, not 403.** The permission answers *who*; this answers *how much*, and
+  no administrator setting makes the film finish. The two are checked in that
+  order so an account without the permission learns nothing about the bound.
+
+The margin is thin, and thin in the safe direction: it was computed on the
+slower of the two hosts. An operator with hardware acceleration has far more
+room; one slower still gets the worker's own 504, which names the machine.
 
 ### The enforcement is on the server, at two doors
 

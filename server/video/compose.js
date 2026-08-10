@@ -107,7 +107,13 @@ import {
   MAX_SCENES,
   MAX_TOTAL_DURATION_MS,
 } from './timeline.js'
-import { THREE_D_BLOCKS, isThreeDBlock, threeDBlocksIn, threeDRefusal } from './three-d.js'
+import {
+  MAX_THREE_D_LAYERS,
+  THREE_D_BLOCKS,
+  isThreeDBlock,
+  threeDBlocksIn,
+  threeDRefusal,
+} from './three-d.js'
 
 /**
  * The user's sentence, bounded. Past this it is a document, not a brief.
@@ -1168,6 +1174,16 @@ function buildComposedSystem(imageCount, kinds, grounds, { threeD = false, force
           '  same idea five times and the render paid for all five.',
         ]
       : []),
+    // Stated whatever was asked for, because a document reaching the load cap
+    // is REFUSED by `POST /render` — and a refusal the prompt could have
+    // prevented is a model call already paid for. The number is read from the
+    // bound rather than retyped, the rule this file follows for every other
+    // limit it prints.
+    '',
+    `A scene may stack at most ${MAX_THREE_D_LAYERS} blocks drawn in 3D (${THREE_D_BLOCKS.join(', ')}).`,
+    'Past that the film cannot finish inside its render deadline and is refused whole. The cost is per FRAME,',
+    'so spreading them over separate scenes costs nothing: two scenes with one each are half the price of one',
+    'scene with two, and read better.',
     '',
     'STACKS THAT WORK — each of these is ONE scene',
     '- an opening: ground "gradient"; a "kicker" and a "heading" both anchored "center-left", sharing a',

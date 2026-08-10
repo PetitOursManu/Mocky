@@ -83,6 +83,69 @@ export function threeDBlocksIn(timeline) {
 }
 
 /**
+ * How many 3D blocks one SCENE may stack.
+ *
+ * This is the bound that keeps a 3D film renderable at all, and it exists
+ * because the number written everywhere else was wrong by a factor of four.
+ *
+ * Measured in the worker container (two cores, RENDER_CONCURRENCY=2, 1080p30):
+ * a flat film renders at 1.78 s of wall clock per second of film; a film whose
+ * scenes carry THREE 3D blocks renders at 6.68. The deadline grants 6 (see
+ * `jobBudgetMs`), so that film is killed at about 90% of the way through —
+ * after twelve minutes of somebody watching a spinner. Two blocks fit: the fit
+ * is linear in the number of blocks on screen, 1.78 + 2 × 1.63 = 5.04 against 6.
+ *
+ * Per SCENE and not per film, because the cost is per FRAME: eight scenes each
+ * carrying one solid cost what one scene carrying one solid costs, while one
+ * scene carrying eight costs eight times as much. A per-film cap would refuse
+ * the cheap film and accept the expensive one.
+ *
+ * The margin is thin on purpose and it is thin in the SAFE direction: the
+ * measurement above comes from a host whose software GL rasteriser is about
+ * 2.3× slower than the one the original +0.9 s/s figure was taken on. An
+ * operator with hardware acceleration has far more room; one with less than
+ * this host has a worker that gives up with a message naming the machine, which
+ * is the failure this bound is trying to spare a user, not the one it can
+ * eliminate.
+ */
+export const MAX_THREE_D_LAYERS = 2
+
+/**
+ * The most 3D blocks any single scene stacks — what the render actually costs.
+ *
+ * Zero for a film that carries none, including a document with no `layers` at
+ * all, which is every one of the five original templates.
+ */
+export function threeDLoadOf(timeline) {
+  let worst = 0
+  for (const scene of timeline?.scenes || []) {
+    let here = 0
+    for (const layer of scene?.layers || []) {
+      if (typeof layer?.kind === 'string' && THREE_D.has(layer.kind)) here += 1
+    }
+    if (here > worst) worst = here
+  }
+  return worst
+}
+
+/**
+ * The refusal for a film that stacks more 3D than one can render.
+ *
+ * It names the arithmetic rather than the rule, because "at most two" read on
+ * its own sounds arbitrary and invites somebody to raise it. And it says what
+ * to do — spreading the same blocks across scenes costs nothing, which is the
+ * part a person cannot guess from a bare limit.
+ */
+export function threeDLoadRefusal(load, consequence) {
+  return (
+    `One scene of this film stacks ${load} blocks drawn in 3D, and ${MAX_THREE_D_LAYERS} is the most a scene ` +
+    `can carry. Rendering 1080p in a headless browser costs about 1.6 seconds per second of film for each 3D ` +
+    `block on screen, and past ${MAX_THREE_D_LAYERS} the film cannot finish inside its own deadline. Spreading ` +
+    `them over separate scenes costs nothing — the price is per frame, not per film. ${consequence}`
+  )
+}
+
+/**
  * The refusal, for both doors.
  *
  * One sentence in one place because the module's rule is that a refusal NAMES
@@ -103,8 +166,12 @@ export function threeDRefusal(used, consequence) {
     ? `This film is composed with ${used.join(', ')}, which ${used.length > 1 ? 'are' : 'is'} drawn in 3D.`
     : 'A 3D film was asked for.'
   return (
-    `${subject} 3D rendering is not enabled for this account on this instance — it costs about a fifth more ` +
-    `render time per film, so an administrator grants it per account. Ask for it, or compose the same film ` +
-    `without it: the other ${FLAT_BLOCKS.length} blocks and every ground are available. ${consequence}`
+    // "about a fifth more" was here until the cost was measured rather than
+    // assumed: one 3D block on screen roughly DOUBLES the render, and the doc
+    // that said +0.9 s/s was out by a factor of four. A refusal that
+    // understates why it exists is one an administrator waves through.
+    `${subject} 3D rendering is not enabled for this account on this instance — one 3D block roughly doubles ` +
+    `the render time of a film, so an administrator grants it per account. Ask for it, or compose the same ` +
+    `film without it: the other ${FLAT_BLOCKS.length} blocks and every ground are available. ${consequence}`
   )
 }

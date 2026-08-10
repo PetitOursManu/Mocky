@@ -1294,6 +1294,76 @@ describe('the 3D permission', () => {
       }
     })
 
+    /**
+     * The SECOND gate, and it is a different question from the first.
+     *
+     * The permission asks who; this asks how much. It was missing until a film
+     * was measured end to end: three 3D blocks in one scene render at 6.68 s
+     * per second of film against the 6 the deadline grants, so the film was
+     * accepted, queued, watched for twelve minutes and then killed. An account
+     * WITH the permission was the case nothing checked.
+     */
+    it('refuses a scene that stacks more 3D than one deadline can render', async () => {
+      threeD = true
+      enqueued = null
+      const stacked = {
+        template: 'composed',
+        scenes: [
+          {
+            durationMs: 4000,
+            layers: [
+              { kind: 'solidScene', anchor: 'full' },
+              { kind: 'globe' },
+              { kind: 'waveMesh' },
+              { kind: 'heading', text: 'Trop' },
+            ],
+          },
+        ],
+      }
+      const res = await post('/api/video/render', { timeline: stacked })
+      // 400 and not 403: nothing here is about who is asking, and no
+      // administrator setting makes this film finish.
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.threeDLoad).toBe(3)
+      expect(enqueued).toBe(null)
+      // Names the arithmetic and the fix, like every other refusal here.
+      expect(body.error).toMatch(/separate scenes/i)
+      expect(body.error).toContain('Nothing was queued.')
+    })
+
+    it('queues the same blocks spread over scenes, because the price is per frame', async () => {
+      threeD = true
+      enqueued = null
+      const spread = {
+        template: 'composed',
+        scenes: [
+          { durationMs: 4000, layers: [{ kind: 'solidScene', anchor: 'full' }] },
+          { durationMs: 4000, layers: [{ kind: 'globe', anchor: 'full' }] },
+          { durationMs: 4000, layers: [{ kind: 'waveMesh', anchor: 'full' }] },
+        ],
+      }
+      expect((await post('/api/video/render', { timeline: spread })).status).toBe(202)
+      expect(enqueued.timeline.scenes).toHaveLength(3)
+    })
+
+    it('checks the permission before the load, so a stranger learns nothing about the bound', async () => {
+      threeD = false
+      enqueued = null
+      const stacked = {
+        template: 'composed',
+        scenes: [
+          {
+            durationMs: 4000,
+            layers: [{ kind: 'solidScene' }, { kind: 'globe' }, { kind: 'waveMesh' }],
+          },
+        ],
+      }
+      const res = await post('/api/video/render', { timeline: stacked })
+      expect(res.status).toBe(403)
+      expect(enqueued).toBe(null)
+    })
+
     it('refuses a 3D film from an account without the permission, and queues nothing', async () => {
       threeD = false
       const res = await post('/api/video/render', { timeline: solidFilm() })
