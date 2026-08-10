@@ -557,14 +557,58 @@ export const RING_GAP = 0.12
 export const RING_TURNS = 0.57
 
 /**
- * How far the ring is tilted towards the camera. A CONSTANT, not a move.
+ * How far the ring is tilted towards the camera. A CONSTANT PER SHAPE, never a
+ * move.
  *
  * Seven degrees of looking down on the ring, which is what separates a carousel
  * from a row of panels sliding sideways. It does not animate: a ring that turns
  * AND tilts is two rotations an eye has to separate, and the one it stops reading
  * is the one that carries the pictures.
+ *
+ * ── And why there are two of them, which a rendered 9:16 is what settled ─────
+ *
+ * A ring is a HORIZONTAL circle. Seen from seven degrees above it projects to a
+ * flat ellipse, so what it spends is measure and what it leaves is height — which
+ * is exactly right in a 16:9 frame and is the "small element in a large void" this
+ * feature spent a pass removing in a 9:16 one. Measured on a rendered corpus: a
+ * carousel of three alone on a portrait frame drew 78% of the width and **21% of
+ * the height**, a strip of postage stamps in the middle of a column of ground.
+ *
+ * The repair is the one a photographer would make, and it is not a new degree of
+ * freedom: you look further DOWN on the ring, so its circle opens into a taller
+ * ellipse and the far panels stand above the near ones instead of behind them.
+ * Nothing about the block's vocabulary changes — `direction` is still the only
+ * thing a document says about the ring's geometry — because the lean is read off
+ * the CANVAS's own shape, which is a fact about the frame rather than about the
+ * film.
+ *
+ * The ceiling is where a panel stops being a picture and becomes a lid: past about
+ * thirty degrees the front panel is foreshortened by more than a seventh and the
+ * carousel reads as a table seen from a chair. `RING_TILT_TALL` is under that, and
+ * the interpolation is linear in the canvas's aspect so that the one shape a film
+ * is normally cut for — a landscape frame — keeps the exact lean it had.
  */
 export const RING_TILT = 0.12
+export const RING_TILT_TALL = 0.45
+
+/**
+ * The aspect at which the lean is fully open: the portrait frame the schema
+ * offers, and the one this defect was measured on.
+ */
+export const RING_TALL_ASPECT = 9 / 16
+
+/**
+ * How far a ring leans, for a canvas of this shape.
+ *
+ * A pure function of one number, so two runs of the same document lean the same
+ * way — the whole family's rule, and the reason this is not a `size` a model gets
+ * to name.
+ */
+export function ringTilt(aspect) {
+  const wide = Math.max(px(aspect), 1e-6)
+  const at = Math.min(1, Math.max(0, (1 - wide) / (1 - RING_TALL_ASPECT)))
+  return RING_TILT + (RING_TILT_TALL - RING_TILT) * at
+}
 
 /** Half a turn, for the face on the back of a card. A number the `.jsx` does not get to write. */
 export const BACK_TURN = Math.PI
@@ -696,7 +740,13 @@ export function photoRingLayout(block, aspects, canvas) {
   // fewer, so this is reachable only from a hand-built call — and an empty ring
   // that answers a finite scale is a scene with a gap in it rather than a render
   // that dies on a `NaN` mesh (Q1).
-  if (count === 0) return { slot, panels, bound: slot.body, radius: 0, scale: 1 }
+  // How far this ring leans, from the shape of the canvas it is drawn on. It is
+  // answered HERE and carried on the layout rather than read again in the `.jsx`,
+  // for `ringPlacement`'s reason one line down: the fit samples the poses at this
+  // lean, so a component that leant by a different number would be a carousel
+  // fitted to a frame it is not in.
+  const tilt = ringTilt(canvas)
+  if (count === 0) return { slot, panels, bound: slot.body, radius: 0, scale: 1, tilt }
   // The box that holds EVERY panel, component by component — never the slot's.
   //
   // The slot is the bound a panel may not exceed; what the panels actually came
@@ -731,13 +781,13 @@ export function photoRingLayout(block, aspects, canvas) {
       const angle = ringAngle(count, i, life, direction)
       const at = [Math.sin(angle) * radius, 0, Math.cos(angle) * radius]
       const front = Math.cos(angle) >= frontArc
-      for (const corner of poseCorners(half, { yaw: angle, at, tilt: RING_TILT })) {
+      for (const corner of poseCorners(half, { yaw: angle, at, tilt })) {
         points.push([corner[0], corner[1], corner[2], front])
       }
     }
   }
 
-  return { slot, panels, bound, radius, scale: frustumScale(points, canvas, RING_CAMERA) }
+  return { slot, panels, bound, radius, tilt, scale: frustumScale(points, canvas, RING_CAMERA) }
 }
 
 /**

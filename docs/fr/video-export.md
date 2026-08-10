@@ -634,6 +634,23 @@ la case qui les borne : un anneau de trois bannières mis à l’échelle comme 
 chacune était une carte pleine, ce sont trois barres fines au milieu d’un cadre
 vide.
 
+**Et une quatrième, que seul un cadre VERTICAL montre.** Un anneau est un cercle
+horizontal : vu des sept degrés au-dessus qui séparent un carrousel d’une rangée de
+panneaux qui glissent, il se projette en une ellipse plate — il dépense de la
+mesure et laisse de la hauteur. C’est exactement juste dans un 16:9 et c’est le
+petit élément dans un grand vide dans un 9:16 : un carrousel de trois, seul sur un
+cadre vertical, dessinait 78 % de la largeur et **21 % de la hauteur**, une bande de
+timbres au milieu d’une colonne de fond. La réparation est celle qu’un photographe
+ferait et ce n’est pas un degré de liberté de plus : `ringTilt` lit la forme du
+CANEVAS — un fait sur le cadre, jamais sur le film — et ouvre l’inclinaison à 26°
+sur le rapport vertical, si bien que le cercle devient une ellipse plus haute et
+que les panneaux du fond se tiennent au-dessus de ceux de devant au lieu de
+derrière. Un canevas horizontal garde exactement l’inclinaison qu’il avait,
+l’ajustement se résout à l’inclinaison qu’on lui donne, et la hauteur mesurée est
+passée de 21 % à 30 % du cadre. C’est une amélioration et non une guérison : un
+carrousel horizontal seul sur un cadre vertical reste un objet large dans une boîte
+haute, et le conseil honnête y est un `photoStage`.
+
 **Ce qu’ils coûtent, mesuré sur vingt secondes de film dans le conteneur à deux
 cœurs, contre un titre simple.** Le meilleur temps de chaque série plutôt que la
 moyenne, parce que la machine faisait autre chose en même temps : `solidScene`

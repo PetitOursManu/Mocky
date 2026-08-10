@@ -26,6 +26,7 @@ import {
   RING_CAMERA,
   RING_GAP,
   RING_TILT,
+  RING_TILT_TALL,
   RING_TURNS,
   STAGE_CAMERA,
   STAGE_ENTER_SCALE,
@@ -49,6 +50,7 @@ import {
   ringPlacement,
   ringRadius,
   ringSlotAspect,
+  ringTilt,
   fitInside,
   RING_PIXEL_BUDGET,
   RING_SLOT_MAX,
@@ -116,7 +118,9 @@ function ringCornersAt(layout, block, count, index, life, enter = 1) {
   const at = ringPlacement(count, index, life, block.direction, layout.radius)
   const s = layout.scale * enter
   const half = layout.bound
-  return poseCorners(half, { yaw: at.yaw, at: at.position, tilt: RING_TILT }).map(([x, y, z]) => [x * s, y * s, z * s])
+  // The layout's own lean and not the constant: it opens on a portrait canvas, and
+  // a claim checked at another one is a claim about a different carousel.
+  return poseCorners(half, { yaw: at.yaw, at: at.position, tilt: layout.tilt }).map(([x, y, z]) => [x * s, y * s, z * s])
 }
 
 /** Forty-one poses is what the fit samples; a hundred and one is what the claim is checked on. */
@@ -731,5 +735,64 @@ describe('the two things this family shares with its neighbours', () => {
   it('tilts a ring by a constant', () => {
     expect(RING_TILT).toBeGreaterThan(0)
     expect(RING_TILT).toBeLessThan(Math.PI / 8)
+  })
+
+  /**
+   * And the constant is one PER SHAPE, which is what a rendered 9:16 asked for: a
+   * carousel of three alone on a portrait frame drew 21% of its height, because a
+   * horizontal circle seen from seven degrees above is a flat ellipse. The lean is
+   * read off the canvas, so a landscape frame keeps exactly the lean it had.
+   */
+  it('opens the lean on a tall canvas and leaves a wide one alone', () => {
+    expect(ringTilt(16 / 9)).toBe(RING_TILT)
+    expect(ringTilt(1)).toBe(RING_TILT)
+    expect(ringTilt(9 / 16)).toBeCloseTo(RING_TILT_TALL, 6)
+    // Monotone in the shape, and never past the lean at which a panel stops being
+    // a picture and becomes a lid.
+    let previous = RING_TILT
+    for (const aspect of [1.2, 1, 0.9, 0.8, 0.7, 0.6, 9 / 16, 0.4]) {
+      const at = ringTilt(aspect)
+      expect(at).toBeGreaterThanOrEqual(previous)
+      expect(at).toBeLessThanOrEqual(RING_TILT_TALL)
+      previous = at
+    }
+    // A canvas nobody can read still answers a lean rather than a NaN (Q1).
+    expect(Number.isFinite(ringTilt(undefined))).toBe(true)
+  })
+
+  /**
+   * What the lean BUYS, in the only unit that matters: the share of its own canvas
+   * the ring actually draws on. Measured through the same projection the fit
+   * solves, over the whole turn, so this is the number the rendered corpus reads.
+   */
+  it('makes a carousel use a portrait frame', () => {
+    const block = { kind: 'photoRing', imageIds: ['a', 'b', 'c'], frame: 'card', direction: 'right' }
+    const shapes = [1.5, 1.5, 1.5]
+    const spread = (aspect) => {
+      const layout = photoRingLayout(block, shapes, aspect)
+      const tv = Math.tan((RING_CAMERA.fov / 2) * (Math.PI / 180))
+      const th = tv * aspect
+      let top = -Infinity
+      let bottom = Infinity
+      for (let s = 0; s <= 40; s += 1) {
+        for (let i = 0; i < shapes.length; i += 1) {
+          for (const [x, y, z] of ringCornersAt(layout, block, shapes.length, i, s / 40)) {
+            void x
+            const depth = RING_CAMERA.position[2] - z
+            const at = y / (depth * tv)
+            if (at > top) top = at
+            if (at < bottom) bottom = at
+          }
+        }
+      }
+      void th
+      return (top - bottom) / 2
+    }
+    // A landscape carousel already filled its frame and does not move.
+    expect(spread(16 / 9)).toBeGreaterThan(0.75)
+    // A portrait one drew a fifth of its height before this; it now draws a third
+    // of it at the very least, which is the difference between a strip of stamps
+    // and a carousel.
+    expect(spread(9 / 16)).toBeGreaterThan(0.33)
   })
 })

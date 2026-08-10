@@ -595,6 +595,21 @@ really holds the panels and not the slot they are bounded by: a ring of three
 banners scaled as though each were a full card is three thin bars in the middle of
 an empty frame.
 
+**And a fourth, which only a PORTRAIT frame shows.** A ring is a horizontal
+circle, so seen from the seven degrees above it that separate a carousel from a row
+of sliding panels it projects to a flat ellipse: it spends measure and leaves
+height. That is exactly right in a 16:9 frame and it is the small element in a
+large void in a 9:16 one — a carousel of three alone on a portrait frame drew 78%
+of the width and **21% of the height**, a strip of postage stamps in a column of
+ground. The repair is the one a photographer makes and it is not a new degree of
+freedom: `ringTilt` reads the CANVAS's shape — a fact about the frame, never about
+the film — and opens the lean to 26° on the portrait ratio, so the circle becomes a
+taller ellipse and the far panels stand above the near ones instead of behind them.
+A landscape canvas keeps the exact lean it had, the fit re-solves at whatever lean
+it is given, and the measured height went from 21% to 30% of the frame. It is an
+improvement rather than a cure: a horizontal carousel alone on a vertical frame is
+still a wide object in a tall box, and the honest advice is a `photoStage` there.
+
 **What they cost, measured over twenty seconds of film on the two-core container
 against a plain title.** Best of the runs rather than the mean, because the host
 was doing other work: `solidScene` is what anchors the column at +0.90, which is

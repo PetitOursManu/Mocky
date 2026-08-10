@@ -62,7 +62,6 @@
 import {
   BACK_TURN,
   LIGHT_UNIT,
-  RING_TILT,
   STAGE_LIGHT,
   photoRingLayout,
   pictureAspect,
@@ -91,7 +90,12 @@ export const PhotoRing = ({ block, palette, box, base, progress, life, textures 
       */}
       <ambientLight intensity={palette.solid.ambient * LIGHT_UNIT} />
       <directionalLight position={STAGE_LIGHT} intensity={(1 - palette.solid.ambient) * LIGHT_UNIT} />
-      <group scale={scale} rotation={[RING_TILT, 0, 0]}>
+      {/* The lean is the LAYOUT's, never a constant read a second time here: the
+          fit sampled the panels at it, and a ring drawn at another one is a
+          carousel fitted to a frame it is not in. It opens on a portrait canvas
+          for the reason `ringTilt` gives — a flat ellipse spends measure and
+          leaves height, which is a strip of stamps in a 9:16 column. */}
+      <group scale={scale} rotation={[layout.tilt, 0, 0]}>
         {layout.panels.map((panel, index) => {
           const at = ringPlacement(ids.length, index, life, block.direction, layout.radius)
           const texture = textures?.[ids[index]]
