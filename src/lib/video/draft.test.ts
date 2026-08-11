@@ -459,3 +459,53 @@ describe('formatSeconds', () => {
     expect(formatSeconds(4000, 'en')).toBe('4.0')
   })
 })
+
+/**
+ * The defect this pins, because nothing else could have caught it.
+ *
+ * `POST /api/video/compose` answers with the RENDER document — the timeline the
+ * server has already attached a theme to. `startVideoRender` re-validates its
+ * input against `VideoTimelineSchema`, which is `.strict()` and has no `theme`
+ * key, precisely so that a model which writes one is refused.
+ *
+ * So a caller that hands a proposal straight back gets "refused before it was
+ * sent", thrown client-side with no request ever made. In the composer that
+ * exception was caught and shown as a Motion failure notice, so the symptom was
+ * a film composed, paid for, and silently never rendered — with a 200 in the
+ * network log and nothing in the job journal to explain it.
+ *
+ * Both paths now go through `toRenderInputFrom`. This asserts the property that
+ * makes that necessary, rather than the fact that they happen to call it.
+ */
+describe('a proposal is not a render request', () => {
+  const proposed = {
+    template: 'composed' as const,
+    scenes: [{ durationMs: 5000, layers: [{ kind: 'heading' as const, text: 'Ligne Brune' }] }],
+    outputFormat: 'mp4' as const,
+    aspectRatio: '16:9' as const,
+    // What `attachTheme` puts on the document, server-side, after validation.
+    theme: { colors: { background: '#F6F0E8', text: '#171513' }, fonts: {}, radiusPx: 2 },
+  }
+
+  it('is refused by the schema while it still carries its theme', () => {
+    // The guarantee, stated from the other side: if this ever starts passing,
+    // the schema has stopped refusing a theme and rule 9 has quietly gone.
+    expect(VideoTimelineSchema.safeParse(proposed).success).toBe(false)
+  })
+
+  it('passes once toRenderInputFrom has stripped it', () => {
+    const renderable = toRenderInputFrom(proposed as never, 'mp4', '16:9')
+    expect('theme' in (renderable as Record<string, unknown>)).toBe(false)
+    expect(VideoTimelineSchema.safeParse(renderable).success).toBe(true)
+  })
+
+  it('keeps the container and the ratio the proposal chose', () => {
+    // The composer has no draft to read them from — it passes the proposal's
+    // own values back in, and a helper that ignored them would silently render
+    // a vertical film as landscape.
+    const vertical = { ...proposed, aspectRatio: '9:16' as const, outputFormat: 'webm' as const }
+    const renderable = toRenderInputFrom(vertical as never, 'webm', '9:16') as Record<string, unknown>
+    expect(renderable.aspectRatio).toBe('9:16')
+    expect(renderable.outputFormat).toBe('webm')
+  })
+})

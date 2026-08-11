@@ -76,6 +76,7 @@ import {
   POLL_INTERVAL_MS,
   type MotionKindOffer,
 } from '../lib/video/client'
+import { toRenderInputFrom } from '../lib/video/draft'
 import { themeFromDesign } from '../lib/video/theme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { matchImagesToScreens } from '../lib/imageBackfill'
@@ -1445,10 +1446,33 @@ export default function ProjectView({
               // A proposal that could not be made is not a request that failed —
               // the server says why in its own sentence, and it is the only
               // thing here worth repeating verbatim.
-              setMuseImageError(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
+              reportMotionFailure(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
             } else {
               setMuseStage(t('project.motionStageRender'))
-              const job = await startVideoRender(proposal.timeline, { project: project.id, theme, signal: ac.signal })
+              /*
+               * The theme is STRIPPED before this goes back out, and forgetting
+               * that is what made this whole path silently produce nothing.
+               *
+               * `/compose` answers with the render document — the timeline the
+               * server already attached a theme to. `startVideoRender` validates
+               * its input against `VideoTimelineSchema`, which is `.strict()`
+               * and has no `theme` key, precisely so a model that writes one is
+               * refused. So handing the proposal straight back threw
+               * "refused before it was sent", the catch below turned it into a
+               * Motion failure notice, and no render was ever requested: a film
+               * composed, paid for, and dropped one line later.
+               *
+               * `toRenderInputFrom` is the panel's own helper, which has always
+               * done this. Using it rather than a local `delete` is the point —
+               * two paths that build the same request must build it the same
+               * way, or only one of them keeps working.
+               */
+              const renderable = toRenderInputFrom(
+                proposal.timeline,
+                proposal.timeline.outputFormat,
+                proposal.timeline.aspectRatio,
+              )
+              const job = await startVideoRender(renderable, { project: project.id, theme, signal: ac.signal })
               /*
                * Polled until it lands, and bounded by the queue's own deadline
                * rather than by a number invented here.
@@ -1471,12 +1495,12 @@ export default function ProjectView({
                 onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
                 await placeFilmInScreen(screenId, finished.videoHash, museConfig.motionKind, ac.signal)
               } else {
-                setMuseImageError(t('project.motionFailed', { detail: finished.error || '' }))
+                reportMotionFailure(t('project.motionFailed', { detail: finished.error || '' }))
               }
             }
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
-            setMuseImageError(
+            reportMotionFailure(
               t('project.motionFailed', { detail: err instanceof Error ? err.message : String(err) }),
             )
           } finally {
@@ -1824,6 +1848,27 @@ export default function ProjectView({
       setBusy(false)
       setRegeneratingIds(new Set())
     }
+  }
+
+  /**
+   * A Motion failure, said where it can actually be read.
+   *
+   * All three of them used to go to `setMuseImageError` alone, which draws
+   * inside the Muse panel of the composer — and by the time Motion runs, the
+   * screen exists and that panel is behind a collapsed control the user has
+   * every reason to have closed. So a film that cost a model call could fail
+   * with a full explanation nobody ever saw: the reported symptom was "j'ai
+   * demandé un héro et il n'y est pas", twice, with the reason on screen the
+   * whole time, one click away.
+   *
+   * Both, not one. The panel copy is where somebody looking at Muse expects it,
+   * and the banner is the one that cannot be missed — which is the standard this
+   * module already set for itself: an image failure degrades in silence, a
+   * Motion failure is REPORTED, because it spent a call and minutes of a render.
+   */
+  function reportMotionFailure(message: string) {
+    setMuseImageError(message)
+    setError(message)
   }
 
   /**
