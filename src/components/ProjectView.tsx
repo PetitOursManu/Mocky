@@ -1908,7 +1908,20 @@ export default function ProjectView({
   ) {
     const settings = loadSettings()
     if (!settings.model.trim()) return
-    const screen = screens.find((s) => s.id === screenId)
+    /*
+     * Through the REF, and that is the whole reason this function did nothing.
+     *
+     * `screens` is captured when the generate callback is built — before the
+     * screen this film belongs to has been created. Reading it here found
+     * nothing, `codeAtStart` was empty, and the early return below fired: the
+     * film was composed, rendered, attached to the screen, and then never put
+     * INTO it, silently, because the guard that exists to skip an empty screen
+     * cannot tell one apart from a screen it simply could not see.
+     *
+     * `screensRef` is kept current on every render for exactly this, and the
+     * other three long-running mutations in this file already read it.
+     */
+    const screen = screensRef.current.find((s) => s.id === screenId)
     const codeAtStart = screen?.code ?? ''
     if (!codeAtStart.trim()) return
 
@@ -1940,7 +1953,11 @@ export default function ProjectView({
     // The same guard every screen mutation in this file uses: the code may have
     // moved under us while the model was working, and writing back over a newer
     // edit would silently discard whatever the user did in the meantime.
-    const now = screens.find((s) => s.id === screenId)
+    // The ref again, and here the stale read was worse than useless: `screens`
+    // never contains this screen, so `now` was always undefined and the guard
+    // silently passed — it would have overwritten whatever the user had edited
+    // during the minutes this took, which is the one thing it exists to stop.
+    const now = screensRef.current.find((s) => s.id === screenId)
     if (now && now.code !== codeAtStart) return
     onUpdateScreen(screenId, {
       code: res.code,
