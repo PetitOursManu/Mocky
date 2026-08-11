@@ -444,3 +444,68 @@ export function pictureScenes(
 export function formatSeconds(ms: number, lang = 'fr'): string {
   return (ms / 1000).toLocaleString(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
+
+/**
+ * Every word a film BURNS INTO ITS OWN FRAMES, with the zone it burns it in.
+ *
+ * ── Why this exists ───────────────────────────────────────────────────────
+ *
+ * A film placed behind a generated page produced two headlines on top of each
+ * other: the page wrote "Le goût du local, brassé avec caractère" and the film
+ * had already burnt "Des bières de quartier, brassées avec précision" into the
+ * video. Both were right on their own, and nothing had told either about the
+ * other.
+ *
+ * The fix is not to show the model a rendered frame and ask it to look. It is
+ * that a Motion film is a DOCUMENT, so what it says and where it says it are
+ * exact, already in hand, and free — no vision model, no extra call, no
+ * guessing from pixels. This turns them into a sentence the edit pass can act
+ * on.
+ *
+ * ── Every text-bearing field, not just `text` ─────────────────────────────
+ *
+ * The obvious ones are `text` (heading, kicker, quote…), but eight kinds carry
+ * their words under another name — `label` on a button, `title`/`subtitle` on a
+ * lower third and a notification, `items` on a list, `caption` on a framed
+ * picture. Missing one is how the overlap comes back for exactly one kind of
+ * film, which is the hardest version of this bug to ever notice again.
+ *
+ * The five original templates carry text too (a band title, a title card) and
+ * are handled, because a saved draft can still be any of them.
+ */
+export interface FilmTextRun {
+  /** The block kind, or the template's own name for a non-composed film. */
+  kind: string
+  /** Where it sits, when the document says. Empty for the older templates. */
+  anchor: string
+  text: string
+}
+
+/** Fields that hold a run of words, whatever the block calls them. */
+const TEXT_FIELDS = ['text', 'title', 'subtitle', 'label', 'caption', 'headline'] as const
+
+export function filmTextRuns(timeline: VideoTimeline | RenderTimeline | null | undefined): FilmTextRun[] {
+  const runs: FilmTextRun[] = []
+  const push = (kind: string, anchor: string, value: unknown) => {
+    if (typeof value === 'string' && value.trim()) runs.push({ kind, anchor, text: value.trim() })
+  }
+
+  for (const scene of timeline?.scenes ?? []) {
+    const s = scene as Record<string, unknown>
+    // Composed: one entry per layer, each with the zone it was anchored in.
+    for (const layer of (s.layers as Record<string, unknown>[] | undefined) ?? []) {
+      const kind = typeof layer.kind === 'string' ? layer.kind : 'block'
+      const anchor = typeof layer.anchor === 'string' ? layer.anchor : 'center'
+      for (const field of TEXT_FIELDS) push(kind, anchor, layer[field])
+      // A list is the one field holding several runs at once.
+      for (const item of (layer.items as unknown[] | undefined) ?? []) push(kind, anchor, item)
+    }
+    // The five original templates: a band, a title card, an overlay caption.
+    const band = s.band as Record<string, unknown> | undefined
+    if (band) for (const field of TEXT_FIELDS) push('band', String(band.position ?? ''), band[field])
+    for (const field of TEXT_FIELDS) push('scene', '', s[field])
+    const overlay = s.textOverlay as Record<string, unknown> | undefined
+    if (overlay) push('textOverlay', String(overlay.position ?? ''), overlay.text)
+  }
+  return runs
+}

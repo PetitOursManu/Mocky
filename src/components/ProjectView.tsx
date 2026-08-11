@@ -76,7 +76,8 @@ import {
   POLL_INTERVAL_MS,
   type MotionKindOffer,
 } from '../lib/video/client'
-import { toRenderInputFrom } from '../lib/video/draft'
+import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
+import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { matchImagesToScreens } from '../lib/imageBackfill'
@@ -1493,7 +1494,15 @@ export default function ProjectView({
                 // what makes the film findable on the canvas and in Media, and
                 // it is the part that cannot fail. The edit pass below can.
                 onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
-                await placeFilmInScreen(screenId, finished.videoHash, museConfig.motionKind, ac.signal)
+                await placeFilmInScreen(
+                  screenId,
+                  finished.videoHash,
+                  museConfig.motionKind,
+                  ac.signal,
+                  // The proposal, not the job: it is the document that carries
+                  // the words, and it is right here.
+                  proposal.timeline,
+                )
               } else {
                 reportMotionFailure(t('project.motionFailed', { detail: finished.error || '' }))
               }
@@ -1905,6 +1914,17 @@ export default function ProjectView({
     hash: string,
     kind: string | undefined,
     signal: AbortSignal,
+    /*
+     * What the film already SAYS, read off its own document.
+     *
+     * The first version of this omitted it and produced two headlines stacked
+     * on one another: the page had written its hero copy and the film had burnt
+     * its own into the frames, each correct, neither told about the other. The
+     * answer is not to render a still and ask a vision model to look — a film
+     * is structured data, so its words and their zones are exact, already in
+     * hand, and cost nothing.
+     */
+    film: VideoTimeline | RenderTimeline | null,
   ) {
     const settings = loadSettings()
     if (!settings.model.trim()) return
@@ -1933,6 +1953,37 @@ export default function ProjectView({
           ? 'Use it as the HERO: the first thing the visitor sees, with the existing headline and CTA passed as its children so they sit over the film.'
           : 'Give it the size its role deserves — a banner strip, a product card, a feature tile. It is NOT the hero unless the page has no other subject.'
 
+    /*
+     * The film's own words, quoted, with the instruction to DELETE the page's
+     * duplicate rather than lay one over the other.
+     *
+     * Deleting is the right verb and it was the user's call: the film already
+     * says it, and two headlines stacked is the one outcome nobody wants. The
+     * page keeps everything the film does NOT say — the navigation, the body
+     * copy, the cards — so what is thrown away is exactly what became a repeat.
+     *
+     * Quoted verbatim so the model can match on the words rather than guess
+     * from a role name: Muse writes the page's copy and the composer writes the
+     * film's, and the two say the same thing in different words about half the
+     * time. Naming the ZONE as well, because a film that burns its title
+     * bottom-left and a page that puts its own top-right do not collide, and
+     * telling the model to delete then would cost real copy for nothing.
+     */
+    const burnt = filmTextRuns(film)
+    const carries = burnt.length
+      ? [
+          '',
+          'THE FILM ALREADY BURNS THIS TEXT INTO ITS OWN FRAMES:',
+          ...burnt.map((r) => `  · "${r.text}"${r.anchor ? ` (${r.anchor})` : ''}`),
+          'Do NOT let the page repeat any of it. Where the page says the same thing — the same words, or the',
+          'same message in other words — DELETE the page copy rather than stacking it over the film. Keep',
+          'everything the film does not say: navigation, body copy, cards, the call to action.',
+        ]
+      : [
+          '',
+          'The film carries no text of its own, so the page keeps all of its copy — lay it over the film.',
+        ]
+
     setMuseStage(t('project.motionStagePlace'))
     const capIds = Array.from(new Set([...(screen?.caps ?? []), 'motionfilm']))
     const res = await editComponent(
@@ -1941,7 +1992,10 @@ export default function ProjectView({
         `A film has been rendered for this screen. Place it in the page using the <MotionFilm> component.`,
         `Use src="${src}" exactly — it is a content hash, and changing one character gives a screen whose film silently never loads.`,
         where,
-        'Change nothing else: keep every existing section, its copy and its classes. Do not add a <video> tag of your own.',
+        ...carries,
+        '',
+        'Change nothing else: every other section, its copy and its classes stay exactly as they are. Do not add',
+        'a <video> tag of your own.',
       ].join('\n'),
       codeAtStart,
       undefined,

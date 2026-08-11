@@ -8,6 +8,7 @@ import {
   effectiveAspectRatio,
   emptyDraft,
   filmDurationMs,
+  filmTextRuns,
   filmSummary,
   forcedThreeD,
   formatSeconds,
@@ -507,5 +508,95 @@ describe('a proposal is not a render request', () => {
     const renderable = toRenderInputFrom(vertical as never, 'webm', '9:16') as Record<string, unknown>
     expect(renderable.aspectRatio).toBe('9:16')
     expect(renderable.outputFormat).toBe('webm')
+  })
+})
+
+/**
+ * The defect: a page headline and a film headline stacked on one another,
+ * because nothing told either about the other. The film is a DOCUMENT, so what
+ * it says is exact — this is what turns it into a sentence the edit pass acts
+ * on, and the reason no vision model is needed to look at a rendered frame.
+ */
+describe('filmTextRuns — what a film burns into its own frames', () => {
+  it('finds a run under every name a block gives it, not just `text`', () => {
+    // The hard half. Eight kinds carry their words under another key, and
+    // missing one brings the overlap back for exactly one kind of film — the
+    // hardest version of this bug to notice a second time.
+    const film = {
+      template: 'composed' as const,
+      scenes: [
+        {
+          durationMs: 5000,
+          layers: [
+            { kind: 'heading', anchor: 'center-left', text: 'Des bières de quartier' },
+            { kind: 'button', anchor: 'bottom-left', label: 'Commander' },
+            { kind: 'lowerThird', anchor: 'bottom-left', title: 'Camille', subtitle: 'Brasseuse' },
+            { kind: 'animatedList', anchor: 'center', items: ['Malt', 'Houblon', 'Eau'] },
+            { kind: 'imageFrame', anchor: 'center-right', caption: 'Atelier' },
+          ],
+        },
+      ],
+    }
+    const said = filmTextRuns(film as never).map((r) => r.text)
+    expect(said).toEqual([
+      'Des bières de quartier',
+      'Commander',
+      'Camille',
+      'Brasseuse',
+      'Malt',
+      'Houblon',
+      'Eau',
+      'Atelier',
+    ])
+  })
+
+  it('keeps the zone, because two texts in different corners do not collide', () => {
+    // Without it the instruction would tell the model to delete real copy that
+    // was never in the film's way.
+    const film = {
+      template: 'composed' as const,
+      scenes: [{ durationMs: 4000, layers: [{ kind: 'kicker', anchor: 'top-right', text: 'NOUVEAU' }] }],
+    }
+    expect(filmTextRuns(film as never)).toEqual([{ kind: 'kicker', anchor: 'top-right', text: 'NOUVEAU' }])
+  })
+
+  it('reads the five original templates too, because a saved film can be one', () => {
+    const band = {
+      template: 'overlay' as const,
+      scenes: [{ imageId: IMG, durationMs: 4000, band: { title: 'Le goût du local', position: 'bottom' } }],
+    }
+    expect(filmTextRuns(band as never)).toEqual([
+      { kind: 'band', anchor: 'bottom', text: 'Le goût du local' },
+    ])
+  })
+
+  it('answers empty for a film that carries no words at all', () => {
+    // The case the instruction branches on: a wordless film means the page
+    // keeps ALL its copy, and telling it to delete anything would be wrong.
+    const silent = {
+      template: 'composed' as const,
+      scenes: [{ durationMs: 4000, layers: [{ kind: 'particleField', anchor: 'full' }] }],
+    }
+    expect(filmTextRuns(silent as never)).toEqual([])
+    expect(filmTextRuns(null)).toEqual([])
+    expect(filmTextRuns(undefined)).toEqual([])
+  })
+
+  it('drops blank and non-string values rather than quoting them', () => {
+    const messy = {
+      template: 'composed' as const,
+      scenes: [
+        {
+          durationMs: 4000,
+          layers: [
+            { kind: 'heading', anchor: 'center', text: '   ' },
+            { kind: 'counter', anchor: 'center', label: null, to: 120 },
+            { kind: 'kicker', anchor: 'center', text: '  Espacé  ' },
+          ],
+        },
+      ],
+    }
+    // A quoted empty string in the prompt would ask the model to delete "".
+    expect(filmTextRuns(messy as never)).toEqual([{ kind: 'kicker', anchor: 'center', text: 'Espacé' }])
   })
 })
