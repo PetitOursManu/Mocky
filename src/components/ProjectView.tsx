@@ -1969,15 +1969,35 @@ export default function ProjectView({
      * bottom-left and a page that puts its own top-right do not collide, and
      * telling the model to delete then would cost real copy for nothing.
      */
+    /*
+     * The rule is about the ZONE, not about repetition — and getting that
+     * backwards is what left two headlines on screen after the first fix.
+     *
+     * The instruction used to say "delete the page copy where it says the same
+     * thing". A film burning "Des objets qui gardent la trace du geste" and a
+     * page writing "La terre, façonnée à la main" say DIFFERENT things, so the
+     * model correctly judged them not duplicates and kept both — stacked, in the
+     * same place, unreadable. Two headlines collide because they are in the same
+     * zone, whatever they happen to say.
+     *
+     * So: the film has taken that ground. The page's own display type there
+     * goes. Deleting is the user's explicit call ("pas grave si elle jette du
+     * code"), and it is the right one — the film already carries the words a
+     * hero needs, and nothing below the hero is touched.
+     */
     const burnt = filmTextRuns(film)
     const carries = burnt.length
       ? [
           '',
-          'THE FILM ALREADY BURNS THIS TEXT INTO ITS OWN FRAMES:',
+          'THE FILM ALREADY BURNS ITS OWN TEXT INTO THE FRAMES:',
           ...burnt.map((r) => `  · "${r.text}"${r.anchor ? ` (${r.anchor})` : ''}`),
-          'Do NOT let the page repeat any of it. Where the page says the same thing — the same words, or the',
-          'same message in other words — DELETE the page copy rather than stacking it over the film. Keep',
-          'everything the film does not say: navigation, body copy, cards, the call to action.',
+          '',
+          'That ground is TAKEN. The page must not put its own headline or subheadline over the film — not a',
+          'shorter one, not a different one, not one that says something else. Two runs of display type in the',
+          'same place collide whatever they say, and the film is the one that moves with the picture.',
+          'DELETE the page copy that would land there: its <h1>, its subheadline, its eyebrow. Keep the logo,',
+          'the navigation, the buttons, and every section below the film exactly as they are.',
+          'If deleting leaves the film with nothing but buttons over it, that is correct — the film is speaking.',
         ]
       : [
           '',
