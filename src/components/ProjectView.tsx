@@ -557,6 +557,34 @@ export default function ProjectView({
   /** Phone: a coarse pointer AND a narrow viewport. See lib/usePhone.ts. */
   const phone = usePhone()
   const [regenLabel, setRegenLabel] = useState(() => t('canvas.regenerating'))
+
+  /**
+   * Is a Motion film mid-flight, and would leaving lose it?
+   *
+   * A ref rather than state: the only reader is a `beforeunload` handler, and
+   * re-registering that listener on every render to close over fresh state is
+   * how the listener ends up registered twice.
+   *
+   * The warning is honest about WHICH half is lost, and they are not the same.
+   * The render itself is a server-side job on the worker and survives anything
+   * the browser does — the film lands in the export store either way. What does
+   * NOT survive is the browser's part: attaching it to the screen and running
+   * the edit pass that writes `<MotionFilm>` into the page. Leave now and the
+   * film exists in Media, and the screen that was supposed to carry it does not
+   * know about it.
+   */
+  const motionRunning = useRef(false)
+  useEffect(() => {
+    const onLeave = (e: BeforeUnloadEvent) => {
+      if (!motionRunning.current) return
+      // The only portable way to ask: no custom text is shown by any current
+      // browser, so the sentence lives in the on-canvas badge instead.
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onLeave)
+    return () => window.removeEventListener('beforeunload', onLeave)
+  }, [])
   /** Neutral one-liner in the composer — the quality pass reporting back. */
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -1422,7 +1450,7 @@ export default function ProjectView({
          */
         if (museConfig.motion && motionAvail?.available && motionAvail.kinds.length > 0) {
           try {
-            setMuseStage(t('project.motionStageCompose'))
+            motionStage(screenId, t('project.motionStageCompose'))
             const theme = themeFromDesign(dir.markdown)
             const proposal = await proposeVideoTimeline(
               text,
@@ -1449,7 +1477,7 @@ export default function ProjectView({
               // thing here worth repeating verbatim.
               reportMotionFailure(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
             } else {
-              setMuseStage(t('project.motionStageRender'))
+              motionStage(screenId, t('project.motionStageRender'))
               /*
                * The theme is STRIPPED before this goes back out, and forgetting
                * that is what made this whole path silently produce nothing.
@@ -1513,7 +1541,9 @@ export default function ProjectView({
               t('project.motionFailed', { detail: err instanceof Error ? err.message : String(err) }),
             )
           } finally {
-            setMuseStage(null)
+            // Both, always: a badge left on a frame for a job that ended is a
+            // screen that looks stuck for as long as the tab stays open.
+            motionStageDone()
           }
         }
 
@@ -1576,7 +1606,7 @@ export default function ProjectView({
       abortRef.current = null
       setBusy(false)
       setPhase(null)
-      setMuseStage(null)
+      motionStageDone()
       setGeneratingIds(new Set())
       // The toggle is for ONE generation — the user's own words. It clears here
       // rather than on success so that a failed or cancelled run does not leave
@@ -1881,6 +1911,39 @@ export default function ProjectView({
   }
 
   /**
+   * Where Motion says what it is doing — on the SCREEN, not only in the panel.
+   *
+   * The three stages went to `setMuseStage` alone, which draws a spinner inside
+   * the composer's Muse panel. By the time Motion runs the screen exists, the
+   * composer has collapsed, and that panel is behind a control the user has
+   * every reason to have closed. So the honest report of the situation — a film
+   * being composed, rendered, then written into the page, two to three minutes
+   * after the screen looked finished — was invisible: "je ne l'aurais jamais
+   * deviné si tu ne me l'avais pas précisé".
+   *
+   * `regeneratingIds` + `regenLabel` are the mechanism the canvas already has
+   * for exactly this, and `addMotion` already uses them: the frame is badged
+   * with what is happening to it, where the user is looking. Both, because
+   * somebody watching the Muse panel should still see its own progress.
+   *
+   * Cleared by `motionStageDone`, which must run on every exit — success,
+   * failure and abort — or a screen keeps a badge for a job that ended.
+   */
+  function motionStage(screenId: string, label: string) {
+    setMuseStage(label)
+    setRegenLabel(label)
+    setRegeneratingIds(new Set([screenId]))
+    motionRunning.current = true
+  }
+
+  function motionStageDone() {
+    setMuseStage(null)
+    setRegeneratingIds(new Set())
+    setRegenLabel(t('canvas.regenerating'))
+    motionRunning.current = false
+  }
+
+  /**
    * Put a rendered film INTO the screen, once it exists.
    *
    * ── Why an edit pass and not the generation itself ────────────────────────
@@ -2004,7 +2067,7 @@ export default function ProjectView({
           'The film carries no text of its own, so the page keeps all of its copy — lay it over the film.',
         ]
 
-    setMuseStage(t('project.motionStagePlace'))
+    motionStage(screenId, t('project.motionStagePlace'))
     const capIds = Array.from(new Set([...(screen?.caps ?? []), 'motionfilm']))
     const res = await editComponent(
       settings,
