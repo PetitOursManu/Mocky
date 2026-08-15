@@ -68,6 +68,8 @@ import {
   INK_FLOOR,
   INK_LIGHT,
   INSTALLED_FONT_STACK,
+  INSTALLED_SERIF_STACK,
+  INSTALLED_MONO_STACK,
   KICKER_SIZE,
   MAX_TRANSITION_SHARE,
   MAX_VEIL_ALPHA,
@@ -997,8 +999,38 @@ describe('the theme', () => {
    * Sans instead.
    */
   it('names a declared family in front of the one the container has', () => {
-    expect(fontStack('Cormorant Garamond')).toBe(`"Cormorant Garamond", ${INSTALLED_FONT_STACK}`)
+    // Sans in front of the sans, as before.
+    expect(fontStack('Inter')).toBe(`"Inter", ${INSTALLED_FONT_STACK}`)
     expect(fontStack(undefined)).toBe(INSTALLED_FONT_STACK)
+  })
+
+  /**
+   * The fallback follows the declared family's CLASS, and this is the defect it
+   * fixes: a project whose direction names Cormorant used to get a film set in
+   * Arial's metrics while the page beside it was set in a serif — "les polices
+   * d'écriture ne sont absolument pas respectées", with the face to respect
+   * them with already installed in the image and never reached for.
+   *
+   * The exact face is still impossible: no egress, no webfont. The class is not
+   * — and a class is most of what a typographic choice says at a glance.
+   */
+  it('falls back to the class of the family, not always to the sans', () => {
+    expect(fontStack('Cormorant Garamond')).toBe(`"Cormorant Garamond", ${INSTALLED_SERIF_STACK}`)
+    expect(fontStack('Playfair Display')).toBe(`"Playfair Display", ${INSTALLED_SERIF_STACK}`)
+    expect(fontStack('JetBrains Mono')).toBe(`"JetBrains Mono", ${INSTALLED_MONO_STACK}`)
+    // An unrecognised name is a sans, which is what the whole file did before
+    // this existed — a miss costs nothing that was not already being paid.
+    expect(fontStack('Whatever Grotesk')).toBe(`"Whatever Grotesk", ${INSTALLED_FONT_STACK}`)
+  })
+
+  it('names only faces this container actually installs', () => {
+    // The three stacks may only reach for what `fonts-liberation` puts in the
+    // image. A stack naming a face that is not there renders rectangles, burnt
+    // into an mp4 nobody previewed — which is the failure this whole area of
+    // the file exists to avoid.
+    for (const stack of [INSTALLED_FONT_STACK, INSTALLED_SERIF_STACK, INSTALLED_MONO_STACK]) {
+      expect(stack).toMatch(/^"Liberation (Sans|Serif|Mono)"/)
+    }
   })
 
   /**

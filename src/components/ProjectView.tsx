@@ -2073,7 +2073,38 @@ export default function ProjectView({
      * code"), and it is the right one — the film already carries the words a
      * hero needs, and nothing below the hero is touched.
      */
+    /*
+     * THE FILM'S OWN SHAPE, and why it has to travel.
+     *
+     * A film is composed at the ratio its KIND declares — `showcase` is 1:1,
+     * `banner` is wide, `story` is 9:16 — and the page then puts it in a box of
+     * whatever shape the layout wanted. `<MotionFilm>` defaulted to
+     * `fit: cover`, which fills that box by CROPPING, so a 1:1 film in a wide
+     * hero lost its left and right edges: "DIGITAL WELLNESS" and "Softly" came
+     * back sliced down both sides, and "for your digital life." lost its full
+     * stop. Two screenshots of the same defect.
+     *
+     * Two halves, and neither is enough alone. The page is told the shape so it
+     * can reserve a box of that proportion — which is what "il faut que Remotion
+     * sache quel est le format qui va être nécessaire" is really asking, from
+     * the other end. And a film that BURNS TEXT is never cropped: `contain`
+     * letterboxes it instead, so a box that ends up slightly wrong costs a band
+     * of ground rather than a word. A wordless film keeps `cover`, because
+     * cropping a texture is free and a letterboxed background is a bug.
+     */
+    const ratio = (film as { aspectRatio?: string } | null)?.aspectRatio ?? '16:9'
     const burnt = filmTextRuns(film)
+    const fit = burnt.length ? 'contain' : 'cover'
+    const shape = [
+      '',
+      `The film is ${ratio}. Give its box that proportion — an aspect-ratio class, or a height that matches the`,
+      'width you are giving it. A box of the wrong shape is the whole reason this instruction exists.',
+      burnt.length
+        ? `Use fit="${fit}": this film has words burnt into it, and cropping a film crops its type. If the box is`
+        : `Use fit="${fit}": this film carries no text, so filling the box is free.`,
+      ...(burnt.length ? ['slightly off, a band of background is the right price to pay; a sliced headline is not.'] : []),
+    ]
+
     const carries = burnt.length
       ? [
           '',
@@ -2100,6 +2131,7 @@ export default function ProjectView({
         `A film has been rendered for this screen. Place it in the page using the <MotionFilm> component.`,
         `Use src="${src}" exactly — it is a content hash, and changing one character gives a screen whose film silently never loads.`,
         where,
+        ...shape,
         ...carries,
         '',
         'Change nothing else: every other section, its copy and its classes stay exactly as they are. Do not add',

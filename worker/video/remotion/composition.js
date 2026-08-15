@@ -815,10 +815,70 @@ function safeColor(value, fallback) {
  * `ThemeFontSchema` is written the way it is. Re-checked here for the same
  * reason `safeColor` is.
  */
+/**
+ * The serif this container has and never used.
+ *
+ * `fonts-liberation` installs Sans, Serif AND Mono, and `fontStack` fell back to
+ * the Sans for everything — so a project whose direction names Cormorant, Playfair
+ * or any other serif got a film set in Arial's metrics while the page beside it
+ * was set in a serif. "Les polices d'écriture ne sont absolument pas respectées"
+ * was exact, and the face to respect them with was already in the image.
+ *
+ * The exact face is still impossible: this container has no egress and cannot
+ * fetch a webfont. What IS possible is the CLASS — serif, sans or mono — and a
+ * class is most of what a typographic choice communicates at a glance. A film
+ * set in Liberation Serif beside a page set in Cormorant reads as the same
+ * decision; the same film in Arial reads as a different project.
+ */
+export const INSTALLED_SERIF_STACK = '"Liberation Serif", "Times New Roman", Georgia, serif'
+
+/**
+ * Which of the three installed classes a declared family belongs to.
+ *
+ * By NAME, because that is all we have: the face is not here to be measured.
+ * The list is the vocabulary a direction document actually uses — the families
+ * Muse and DESIGN.md name, plus the generic keywords CSS itself defines — and it
+ * is deliberately not exhaustive. An unrecognised name falls to sans, which is
+ * what the whole file did before this existed, so a miss costs nothing that was
+ * not already being paid.
+ */
+const SERIF_NAMES =
+  /\b(serif|garamond|georgia|times|playfair|cormorant|lora|merriweather|baskerville|didot|bodoni|caslon|spectral|source serif|pt serif|noto serif|crimson|libre baskerville|eb garamond|freight|tiempos|canela|recoleta)\b/i
+const MONO_NAMES = /\b(mono|monospace|courier|consolas|menlo|inconsolata|jetbrains|fira code|ibm plex mono|space mono)\b/i
+
+/**
+ * Tested BEFORE the serif list, and that order is the whole of it.
+ *
+ * A hyphen is a word boundary, so `\bserif\b` matches inside "sans-serif" — the
+ * one string in CSS that means the opposite. Without this, the generic keyword
+ * every fallback stack ends with would have been read as a request for a serif.
+ */
+const SANS_NAMES = /\bsans[-\s]?serif\b|\bsans\b|\bgrotesk\b|\bgrotesque\b/i
+
+/** Sans is the default, and it is not a guess — see `SERIF_NAMES`. */
+export function installedClassFor(family) {
+  const name = typeof family === 'string' ? family : ''
+  if (MONO_NAMES.test(name)) return INSTALLED_MONO_STACK
+  if (SANS_NAMES.test(name)) return INSTALLED_FONT_STACK
+  if (SERIF_NAMES.test(name)) return INSTALLED_SERIF_STACK
+  return INSTALLED_FONT_STACK
+}
+
+/**
+ * One declared family in front of the stack that exists.
+ *
+ * The quotes around the name are safe only because the charset has no quote, no
+ * comma, no semicolon and no brace in it — which is the entire reason
+ * `ThemeFontSchema` is written the way it is. Re-checked here for the same
+ * reason `safeColor` is.
+ *
+ * The fallback is now the declared family's own CLASS rather than the sans: an
+ * instance that really carries Cormorant still gets Cormorant, and every other
+ * one gets a serif instead of Arial. CSS's per-glyph fallback does the rest.
+ */
 export function fontStack(family) {
-  return typeof family === 'string' && FONT_FAMILY.test(family)
-    ? `"${family}", ${INSTALLED_FONT_STACK}`
-    : INSTALLED_FONT_STACK
+  const installed = installedClassFor(family)
+  return typeof family === 'string' && FONT_FAMILY.test(family) ? `"${family}", ${installed}` : installed
 }
 
 /**
@@ -1581,6 +1641,16 @@ export const PICTURE_SHARE = { row: 0.5, column: 0.45 }
  * face a film is set in is Liberation Sans (metric-compatible with Arial) unless
  * the direction named one the image happens to carry. That makes the average
  * advance a KNOWN number rather than a guess, and a known average is what lets
+ *
+ * `installedClassFor` can now answer Liberation Serif instead, and this number is
+ * NOT re-measured for it — deliberately. Serif is metric-compatible with Times,
+ * which is NARROWER than Arial, so an estimate made on the sans over-predicts a
+ * serif line: the type is bounded slightly smaller than it needed to be, and
+ * nothing overflows. That is the safe direction of the error, and the only one
+ * this file is allowed to be wrong in — a second calibrated constant per face
+ * would be a fifth mirror to keep, for a correction of a few percent that makes
+ * frames tighter rather than safer.
+ *
  * this file estimate where a line will break without measuring a glyph — which a
  * Remotion bundle cannot do before it has laid out, and a test cannot do at all.
  *
