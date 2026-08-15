@@ -77,6 +77,7 @@ import {
   type MotionKindOffer,
 } from '../lib/video/client'
 import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
+import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
 import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
@@ -89,7 +90,7 @@ import {
   type AnimationMode,
 } from '../lib/animations'
 import { lintSlop } from '../lib/lint'
-import { getLang, useT } from '../i18n'
+import { getLang, useT, type TranslationKey } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
 /** Translation keys per animation state — resolved at render, like every label. */
@@ -573,17 +574,19 @@ export default function ProjectView({
    * film exists in Media, and the screen that was supposed to carry it does not
    * know about it.
    */
-  const motionRunning = useRef(false)
   useEffect(() => {
     const onLeave = (e: BeforeUnloadEvent) => {
-      if (!motionRunning.current) return
+      if (!navigationHold()) return
       // The only portable way to ask: no current browser shows custom text, so
       // the sentence lives in the on-canvas badge and in `leaveProject` below.
       e.preventDefault()
       e.returnValue = ''
     }
     window.addEventListener('beforeunload', onLeave)
-    return () => window.removeEventListener('beforeunload', onLeave)
+    return () => {
+      window.removeEventListener('beforeunload', onLeave)
+      releaseNavigation()
+    }
   }, [])
 
   /**
@@ -603,7 +606,8 @@ export default function ProjectView({
    * <MotionFilm> into the page.
    */
   const leaveProject = useCallback(() => {
-    if (motionRunning.current && !window.confirm(t('project.motionLeaveConfirm'))) return
+    const held = navigationHold()
+    if (held && !window.confirm(t(held as TranslationKey))) return
     onBack()
   }, [onBack, t])
   /** Neutral one-liner in the composer — the quality pass reporting back. */
@@ -1954,14 +1958,14 @@ export default function ProjectView({
     setMuseStage(label)
     setRegenLabel(label)
     setRegeneratingIds(new Set([screenId]))
-    motionRunning.current = true
+    holdNavigation('project.motionLeaveConfirm')
   }
 
   function motionStageDone() {
     setMuseStage(null)
     setRegeneratingIds(new Set())
     setRegenLabel(t('canvas.regenerating'))
-    motionRunning.current = false
+    releaseNavigation()
   }
 
   /**
