@@ -132,6 +132,8 @@ export const project = {
     'project.motionStageCompose': 'Film Motion — composition… ne quittez pas la page',
     'project.motionStageRender': 'Film Motion — rendu, 1 à 3 min… ne quittez pas la page',
     'project.motionStagePlace': 'Film Motion — insertion dans l’écran… presque fini',
+    'project.motionLeaveConfirm':
+      'Un film Motion est en cours. Le rendu se termine côté serveur et le film sera dans Média, mais il ne sera PAS inséré dans l’écran si vous partez maintenant. Quitter quand même ?',
     'project.motionFailed':
       'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
@@ -355,6 +357,8 @@ export const project = {
     'project.motionStageCompose': 'Motion film — composing… do not leave the page',
     'project.motionStageRender': 'Motion film — rendering, 1 to 3 min… do not leave the page',
     'project.motionStagePlace': 'Motion film — placing it in the screen… nearly done',
+    'project.motionLeaveConfirm':
+      'A Motion film is in progress. The render finishes on the server and the film will be in Media, but it will NOT be placed in the screen if you leave now. Leave anyway?',
     'project.motionFailed':
       'The Motion film could not be produced: {detail}. The screen is produced without a film.',
     'project.museNoImage': 'the dossier proposed no image',

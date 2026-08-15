@@ -577,14 +577,35 @@ export default function ProjectView({
   useEffect(() => {
     const onLeave = (e: BeforeUnloadEvent) => {
       if (!motionRunning.current) return
-      // The only portable way to ask: no custom text is shown by any current
-      // browser, so the sentence lives in the on-canvas badge instead.
+      // The only portable way to ask: no current browser shows custom text, so
+      // the sentence lives in the on-canvas badge and in `leaveProject` below.
       e.preventDefault()
       e.returnValue = ''
     }
     window.addEventListener('beforeunload', onLeave)
     return () => window.removeEventListener('beforeunload', onLeave)
   }, [])
+
+  /**
+   * Going back to the project list, asked about while a film is mid-flight.
+   *
+   * `beforeunload` covers closing the tab and reloading, and it covered NOTHING
+   * the user actually did: clicking "Accueil" is an in-app callback, the page
+   * never unloads, so the browser is never consulted. ProjectView simply
+   * unmounts, its AbortController fires, and the composition or the placement
+   * dies with no dialog and no trace — which is precisely the report, "je ne
+   * vois pas de popup".
+   *
+   * `window.confirm` rather than the browser's own: this one gets to say what is
+   * actually at stake, and the two halves are not the same. The RENDER is a
+   * server-side job and survives — the film lands in Media either way. What
+   * dies is the browser's half: attaching it to the screen and writing
+   * <MotionFilm> into the page.
+   */
+  const leaveProject = useCallback(() => {
+    if (motionRunning.current && !window.confirm(t('project.motionLeaveConfirm'))) return
+    onBack()
+  }, [onBack, t])
   /** Neutral one-liner in the composer — the quality pass reporting back. */
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -2909,7 +2930,7 @@ export default function ProjectView({
       */}
       <div className="absolute left-4 top-3 max-w-[calc(100vw-2rem)]">
         <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 shadow-lg">
-          <Button variant="toolbar" size="sm" onClick={onBack} title={t('error.backToProjects')}>
+          <Button variant="toolbar" size="sm" onClick={leaveProject} title={t('error.backToProjects')}>
             <Icon name="chevronLeft" size={16} />
             {/* Every label on the bar is wrapped, including the ones inside the
                 folded group where the group already hides them. Uniform, so

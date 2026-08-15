@@ -94,6 +94,17 @@ export const library = {
     // « Monter », « Proposer un montage », « Nouveau montage » — parce qu'un
     // troisième mot pour la même chose est ce qu'on vient de retirer.
     'library.tabFilms': 'Motion',
+    // Le temps sous chaque vignette. Aujourd'hui en relatif — c'est la question
+    // qu'on pose vraiment devant une bibliotheque (« mon rendu est-il arrive ? ») —
+    // et une date sinon, parce que « il y a 4 jours » oblige a compter a l'envers.
+    'library.madeSeconds_one': 'il y a {n} seconde',
+    'library.madeSeconds_other': 'il y a {n} secondes',
+    'library.madeMinutes_one': 'il y a {n} minute',
+    'library.madeMinutes_other': 'il y a {n} minutes',
+    'library.madeHours_one': 'il y a {n} heure',
+    'library.madeHours_other': 'il y a {n} heures',
+    'library.refresh': 'Rafraîchir',
+    'library.refreshTitle': 'Recharger les médias sans quitter cette page',
     'library.filmWord_one': 'montage',
     'library.filmWord_other': 'montages',
     'library.noFilms': 'Aucun montage exporté pour l’instant.',
@@ -307,6 +318,14 @@ export const library = {
     // word the panel already uses for it — “Cut one”, “Propose a cut”, “New cut”
     // — because a third word for the same thing is what was just removed.
     'library.tabFilms': 'Motion',
+    'library.madeSeconds_one': '{n} second ago',
+    'library.madeSeconds_other': '{n} seconds ago',
+    'library.madeMinutes_one': '{n} minute ago',
+    'library.madeMinutes_other': '{n} minutes ago',
+    'library.madeHours_one': '{n} hour ago',
+    'library.madeHours_other': '{n} hours ago',
+    'library.refresh': 'Refresh',
+    'library.refreshTitle': 'Reload the media without leaving this page',
     'library.filmWord_one': 'cut',
     'library.filmWord_other': 'cuts',
     'library.noFilms': 'No cuts exported yet.',

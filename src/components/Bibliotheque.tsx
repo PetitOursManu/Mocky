@@ -31,10 +31,11 @@ import {
   type VideoExport,
 } from '../lib/video/client'
 import { runningTime } from '../lib/screenMedia'
+import { mediaTimeLabel } from '../lib/mediaTime'
 import VideoPlayer from './VideoPlayer'
 import FilmLightbox from './FilmLightbox'
 import { Banner, Button, Icon, IconButton, Spinner } from '../ui'
-import { useT } from '../i18n'
+import { useLang, useT, type TranslationKey } from '../i18n'
 
 /**
  * Three kinds of media, and `films` is its own tab rather than a row in
@@ -64,6 +65,36 @@ export type MediaTab = 'images' | 'videos' | 'films'
 function formatBytes(bytes: number): string {
   const mb = (Number(bytes) || 0) / (1024 * 1024)
   return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`
+}
+
+/**
+ * When a piece of media was made, under its title.
+ *
+ * One component for the three tabs, because the three grids each draw their own
+ * footer and a line copied three times is two of them drifting. `mediaTimeLabel`
+ * decides the SHAPE (relative today, a date otherwise) and this resolves it into
+ * the reader's language — the split exists so the arithmetic can be tested
+ * without a translator, and it is where the plural lives.
+ *
+ * `title` carries the exact instant, so hovering answers "which 18:05?" without
+ * the grid having to show a year under every thumbnail.
+ */
+function MadeAt({ at, lang, t }: { at: number; lang: string; t: ReturnType<typeof useT> }) {
+  const label = mediaTimeLabel(at, Date.now(), lang)
+  if (!label) return null
+  // The key is built rather than switched on, and `TranslationKey` is what makes
+  // that safe: a unit added to `MediaTimeLabel` without its six strings fails to
+  // compile here instead of rendering the key itself under a thumbnail.
+  const unit = label.kind === 'seconds' ? 'Seconds' : label.kind === 'minutes' ? 'Minutes' : 'Hours'
+  const text =
+    label.kind === 'absolute'
+      ? label.text
+      : t(`library.made${unit}${label.n === 1 ? '_one' : '_other'}` as TranslationKey, { n: label.n })
+  return (
+    <div className="mt-0.5 truncate text-caption text-ink-faint" title={new Date(at).toLocaleString(lang)}>
+      {text}
+    </div>
+  )
 }
 
 /**
@@ -114,6 +145,7 @@ export default function Bibliotheque({
   onOpenImage?: (hash: string) => void
 }) {
   const t = useT()
+  const [lang] = useLang()
   const [images, setImages] = useState<LibraryImage[]>([])
   const [loading, setLoading] = useState(true)
   /** Holds a translation KEY, so the banner follows a language switch. */
@@ -488,6 +520,40 @@ export default function Bibliotheque({
   )
 
   /**
+   * Reload what is on screen, without leaving the page.
+   *
+   * The three listings are fetched when their effect first runs and never
+   * again, which is invisible until something is produced ELSEWHERE while the
+   * library is open — and that is now the ordinary case: a Motion film is
+   * rendered by a worker minutes after the panel was opened, so it simply never
+   * appeared. The only cure was reloading the browser, which on this app also
+   * throws the reader back to the home page.
+   *
+   * The VISIBLE tab only. Refreshing all three would spend two requests nobody
+   * asked for, and the button sits next to the tab strip precisely so that what
+   * it acts on is the thing being looked at.
+   */
+  const refreshCurrent = useCallback(() => {
+    if (tab === 'images') void refresh()
+    else if (tab === 'videos') void refreshVideos()
+    else void refreshFilms()
+  }, [tab, refresh, refreshVideos, refreshFilms])
+
+  const refreshing = tab === 'images' ? loading : tab === 'films' ? filmsLoading : false
+
+  const refreshButton = (
+    <IconButton
+      label={t('library.refresh')}
+      title={t('library.refreshTitle')}
+      variant="quiet"
+      onClick={refreshCurrent}
+      disabled={refreshing}
+    >
+      <Icon name="refresh" size={16} />
+    </IconButton>
+  )
+
+  /**
    * What is currently selected, in words.
    *
    * Pinning an image or choosing a sequence changed a border colour and a small
@@ -648,6 +714,7 @@ export default function Bibliotheque({
                 {t('library.usedBy', { names: usedBy(img) })}
               </div>
             )}
+            <MadeAt at={img.createdAt} lang={lang} t={t} />
           </div>
 
           {/* Actions — one plate over the image, so the rules read as a strip.
@@ -759,6 +826,7 @@ export default function Bibliotheque({
                   {v.width}px · {v.fps} fps
                 </span>
               </div>
+              <MadeAt at={v.createdAt} lang={lang} t={t} />
             </div>
             {/* Damped rather than hidden, like the image plate above: hover is
                 not a thing a phone has. */}
@@ -858,6 +926,7 @@ export default function Bibliotheque({
                 {t('library.usedBy', { names: filmUsedBy(film) })}
               </div>
             )}
+            <MadeAt at={film.createdAt} lang={lang} t={t} />
           </div>
           {/* Damped rather than hidden, like the two plates above: a phone has
               no hover, and "download" was simply unreachable on one. */}
@@ -928,6 +997,7 @@ export default function Bibliotheque({
         <p className="measure mb-4 text-body text-ink-muted">{t('library.pageBlurb')}</p>
         <div className="mb-4 flex max-w-3xl flex-wrap items-center gap-3">
           {tabs}
+          {refreshButton}
           {toolbar}
         </div>
         {uploadError && (
@@ -970,6 +1040,7 @@ export default function Bibliotheque({
             <span className="truncate">{t('library.title')}</span>
           </span>
           {tabs}
+          {refreshButton}
           {toolbar}
           {/* Last in the DOM so the desktop row still ends with it, but ordered
               first once things wrap: the way out of a dialog must be on the line
