@@ -44,7 +44,7 @@
  * characters is a dozen lines: enough for a concept, a rhythm and a warning,
  * and short enough that it cannot push the catalogue out of the window.
  */
-export const DIRECTION_BRIEF_MAX = 900
+export const DIRECTION_BRIEF_MAX = 2400
 
 /** A hex colour, in the three spellings a direction document uses. */
 const HEX = /#[0-9a-fA-F]{3,8}\b/
@@ -120,7 +120,14 @@ export function directionBriefFrom(markdown: string | null | undefined): string 
     // Whole lines only. A direction cut mid-sentence is a direction that says
     // something else, and the last one it says is the one nearest the model's
     // answer.
-    if (length + line.length + 1 > DIRECTION_BRIEF_MAX) break
+    // SKIP the line that does not fit, rather than stopping.
+    //
+    // Stopping kept the HEAD of a dossier and threw away its tail — and a Muse
+    // dossier puts its concept first and its VOICE, its real copy and its
+    // Forbidden list last. So the half that decides what a film SAYS was the
+    // half being cut, silently, on every dossier longer than the budget. One
+    // long paragraph in the middle used to cost everything after it.
+    if (length + line.length + 1 > DIRECTION_BRIEF_MAX) continue
     kept.push(line)
     length += line.length + 1
   }

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { BLOCK_KINDS } from './timeline.js'
 import {
   MOTION_KINDS,
   MOTION_KIND_SPECS,
@@ -237,6 +238,68 @@ describe('what /status publishes', () => {
       // The three sentences are a prompt in English addressed to a model. A
       // panel that printed one would show a French user a machine instruction.
       expect(JSON.stringify(entry)).not.toContain(MOTION_KIND_SPECS[entry.id].what)
+    }
+  })
+})
+
+/**
+ * A type is a DOOR into the catalogue, so the doors together must open onto all
+ * of it — and each one must not open onto something absurd.
+ *
+ * Both directions matter and they fail differently. A block no door reaches is
+ * paid for and unreachable: `solidScene` cost a real dependency (three,
+ * @react-three/fiber, +32 MB of image) and was offered by no type at all, so
+ * nothing composed through a kind could ever name it. A block behind the WRONG
+ * door is worse than absent — it is offered, chosen, rendered, and then read as
+ * a mistake by whoever watches the film.
+ */
+describe('the doors open onto the whole catalogue, and onto nothing absurd', () => {
+  const offered = new Set(Object.values(MOTION_KIND_SPECS).flatMap((k) => k.blocks))
+
+  it('leaves no block unreachable through every type', () => {
+    expect(BLOCK_KINDS.filter((b) => !offered.has(b))).toEqual([])
+  })
+
+  it('offers only blocks that exist', () => {
+    // The other direction: a name misspelled in a type list is a block silently
+    // withheld, and the catalogue it builds is one entry short with no error.
+    for (const [id, spec] of Object.entries(MOTION_KIND_SPECS)) {
+      for (const block of spec.blocks) {
+        expect(BLOCK_KINDS, `${id} → ${block}`).toContain(block)
+      }
+    }
+  })
+
+  it('keeps a control out of a film that is only a picture of one', () => {
+    // The user's own rule, and their own example: "on ne met pas de bouton si
+    // le style Héro est demandé — de toute façon on ne peut pas cliquer dessus,
+    // et pour un héro on cherche un autre type de contenu."
+    //
+    // Not banned everywhere, deliberately: `showcase` is a film that SHOWS an
+    // interface, so a button, a form and a notification are objects being
+    // filmed rather than controls being offered. The line is drawn per type.
+    expect(MOTION_KIND_SPECS.hero.blocks).not.toContain('button')
+    expect(MOTION_KIND_SPECS.mark.blocks).not.toContain('button')
+    expect(MOTION_KIND_SPECS.globe.blocks).not.toContain('button')
+    expect(MOTION_KIND_SPECS.showcase.blocks).toContain('button')
+  })
+
+  it('keeps a background wordless, which is what makes it a background', () => {
+    // Mechanical rather than instructed: a type that offers no block setting
+    // type cannot come back as a hero, whatever the model intended.
+    const SETS_TYPE = ['heading', 'kicker', 'quote', 'typewriter', 'funTitle', 'logoType', 'lowerThird']
+    for (const block of SETS_TYPE) {
+      expect(MOTION_KIND_SPECS.background.blocks, block).not.toContain(block)
+    }
+  })
+
+  it('gives every type a signature its own block list can satisfy', () => {
+    // A signature naming a block the type does not offer is a promise it cannot
+    // keep: the composer would insist on something absent from the catalogue.
+    for (const [id, spec] of Object.entries(MOTION_KIND_SPECS)) {
+      for (const block of spec.signature) {
+        expect(spec.blocks, `${id} → signature ${block}`).toContain(block)
+      }
     }
   })
 })
