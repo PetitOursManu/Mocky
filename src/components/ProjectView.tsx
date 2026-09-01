@@ -77,6 +77,7 @@ import {
   type MotionKindOffer,
 } from '../lib/video/client'
 import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
+import { findScreenSections } from '../lib/screenSections'
 import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
 import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
@@ -2034,6 +2035,48 @@ export default function ProjectView({
     if (!codeAtStart.trim()) return
 
     const src = videoStreamUrl(hash)
+
+    /*
+     * WHICH SECTION, by name, read off the screen itself.
+     *
+     * A `showcase` film — a product tile — was placed over the hero, and the
+     * instruction had already said "it is NOT the hero". The instruction was
+     * not the problem: the model still had to FIND the product section by
+     * reading anonymous elements, and it took the first one. An instruction
+     * cannot name a place the document does not name either.
+     *
+     * Generation now puts a stable id on every top-level section, and this
+     * quotes the ones this screen REALLY has — parsed, never matched with a
+     * regex (I1). A preference is offered per kind, and it is a preference: the
+     * ids are the model's own from a moment ago, and a screen about something
+     * else may legitimately have none of the names below.
+     *
+     * Degrades to the old wording when a screen has no ids at all — an older
+     * screen, or one Babel could not parse.
+     */
+    const sections = await findScreenSections(codeAtStart)
+    const PREFERRED: Record<string, string[]> = {
+      hero: ['hero'],
+      background: ['hero', 'features', 'cta'],
+      banner: ['cta', 'banner', 'nav', 'footer'],
+      showcase: ['product', 'products', 'showcase', 'features', 'gallery'],
+      figure: ['stats', 'numbers', 'results', 'features'],
+      globe: ['coverage', 'map', 'about', 'features'],
+      mark: ['footer', 'cta', 'hero'],
+      story: ['hero', 'features'],
+    }
+    const wanted = (PREFERRED[kind || ''] || []).filter((id) => sections.some((sec) => sec.id === id))
+    const placement = sections.length
+      ? [
+          '',
+          `The screen's sections, by id: ${sections.map((sec) => `#${sec.id}`).join(', ')}.`,
+          wanted.length
+            ? `Put the film in #${wanted[0]} — that is where a "${kind}" film belongs.`
+            : 'None of them is an obvious home for this film, so choose the one whose SUBJECT it shares — not the first one on the page.',
+          'Say which id you used by leaving the film inside that element. Do not rename or remove any id: they are handles the rest of the app places things by.',
+        ]
+      : []
+
     const where =
       kind === 'background'
         ? 'Use it as a section BACKGROUND: absolutely positioned inside a relative parent, with the existing copy on top of it. It is never the subject.'
@@ -2131,6 +2174,7 @@ export default function ProjectView({
         `A film has been rendered for this screen. Place it in the page using the <MotionFilm> component.`,
         `Use src="${src}" exactly — it is a content hash, and changing one character gives a screen whose film silently never loads.`,
         where,
+        ...placement,
         ...shape,
         ...carries,
         '',
