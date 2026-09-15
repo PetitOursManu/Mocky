@@ -124,6 +124,26 @@ describe('running a job', () => {
     expect(q.hasVideo(undefined, undefined)).toBe(false)
   })
 
+  /**
+   * What `/compose` counts so the next film is not the last one again. Every
+   * status, because what is counted is what the composer WROTE; one account's,
+   * because another person's films are not this person's habit.
+   */
+  it('lists one account’s recent documents, newest first, bounded', async () => {
+    let t = 0
+    const q = new VideoQueue({ dataDir: dir, render: async () => ({ videoHash: null }), now: () => ++t })
+    const doc = (n) => ({ ...TIMELINE, marker: n })
+    q.enqueue({ userId: 'u1', timeline: doc(1) })
+    q.enqueue({ userId: 'u2', timeline: doc(2) })
+    q.enqueue({ userId: 'u1', timeline: doc(3) })
+    q.enqueue({ userId: 'u1', timeline: doc(4) })
+    await q.whenIdle()
+    expect(q.recentTimelines('u1', 2).map((d) => d.marker)).toEqual([4, 3])
+    expect(q.recentTimelines('u2', 6).map((d) => d.marker)).toEqual([2])
+    expect(q.recentTimelines(undefined, 6)).toEqual([])
+    expect(q.recentTimelines('u1', 0)).toEqual([])
+  })
+
   it('records the message when a render throws', async () => {
     const q = new VideoQueue({ dataDir: dir, render: async () => { throw new Error('worker said no') } })
     const job = q.enqueue({ userId: 'u1', timeline: TIMELINE })

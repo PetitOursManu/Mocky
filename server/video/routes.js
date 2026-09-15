@@ -24,6 +24,7 @@ import {
   threeDRefusal,
 } from './three-d.js'
 import { publicMotionKinds } from './kinds.js'
+import { HISTORY_FILMS } from './variety.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
 import { MAX_WORKER_PAYLOAD_BYTES, payloadBytesFor } from './worker.js'
@@ -432,6 +433,26 @@ export function createVideoRouter({
          * different ceiling from the one the prompt was written against.
          */
         direction: req.body?.direction ?? null,
+        /*
+         * What the account's last films already did, so this one can be asked
+         * not to (`variety.js`). From the journal and never from the body: a
+         * history the browser supplied would be a list of block names somebody
+         * could fill with anything, and the journal already has the real one.
+         */
+        history: queue.recentTimelines?.(req.user.id, HISTORY_FILMS) ?? [],
+        /*
+         * The film on the panel, and whether the person changed the brief.
+         * Only the shape is checked here; `compose.js` re-reads the timeline
+         * through the schema before it shows a model any of it.
+         */
+        previous:
+          req.body?.previous && typeof req.body.previous === 'object' && req.body.previous.timeline
+            ? {
+                brief: typeof req.body.previous.brief === 'string' ? req.body.previous.brief : '',
+                timeline: req.body.previous.timeline,
+              }
+            : null,
+        revise: req.body?.revise === true,
         // What the account may spend, and what this request asked for. Read from
         // the config on every call rather than cached: an administrator who takes
         // 3D away should have taken it away by the next compose, not by the next

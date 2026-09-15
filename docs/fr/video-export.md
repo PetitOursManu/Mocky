@@ -1778,8 +1778,28 @@ variété appartient au film, pas au cadre. **STACKS THAT WORK** énonce
 l’ambition, parce qu’un modèle à qui l’on dit seulement ce qu’il faut éviter
 écrit un titre par scène et s’arrête : un dégradé sous un kicker et un titre qui
 partagent un rang, une grille qui pulse derrière un compteur, un lower third et
-une barre de progression sur une photographie. Cinq exemples, chacun d’une scène,
-chacun de deux ou trois blocs.
+une barre de progression sur une photographie.
+
+**Ces exemples sont tirés au sort, pas fixes** (server/video/variety.js). Cinq
+exemples imprimés dans le même ordre dans chaque prompt étaient cinq scènes que
+le modèle réécrivait ensuite : sur une instance réelle, neuf films sur dix
+s’ouvraient sur le premier — dégradé, kicker, titre, séparateur, colonne gauche —
+et onze blocs sur trente-six avaient jamais servi. Une requête en voit donc trois,
+tirés d’un ensemble d’une trentaine et admissibles seulement si chacun de leurs
+blocs et leur fond sont proposés. Un nouveau film reçoit aussi un **point de
+départ** tiré de listes fermées — comment il s’ouvre, où pèse le cadre, deux blocs
+peu utilisés qui méritent une scène — et les six derniers films du compte sont
+**comptés** dans le journal des rendus et imprimés comme ce qu’il ne faut pas
+refaire. Le brief l’emporte sur tout cela.
+
+**Et le seul cas où la variété est le défaut.** Un film déjà sur le panneau avec
+un brief qui a CHANGÉ est une révision : pas de tirage, pas d’historique, le film
+actuel dans le tour utilisateur comme donnée, température 0,2, et « ne changez que
+ce que le nouveau brief demande — une couleur ou une police ne change rien à ce
+document ». Le même brief pressé à nouveau demande un autre film, et compte d’abord
+celui qui est à l’écran. Le panneau porte cette décision (evisesProposal) parce
+qu’il étiquette aussi le bouton — « Modifier le film » contre « Générer autre
+chose » — et « Nouveau montage » oublie le film.
 
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre

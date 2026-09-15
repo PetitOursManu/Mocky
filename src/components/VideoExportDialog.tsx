@@ -14,6 +14,7 @@ import {
   formatSeconds,
   pictureScenes,
   proposalStale,
+  revisesProposal,
   removeImage,
   renderBlocker,
   setAspectRatio,
@@ -697,6 +698,13 @@ export default function VideoExportDialog({
     proposeCtrl.current?.abort()
     const ctrl = new AbortController()
     proposeCtrl.current = ctrl
+    /*
+     * Read BEFORE the panel is cleared below: the film on screen is what a
+     * revision revises and what "another one" must not repeat, and one line
+     * further down it is gone from the state this closure will see next.
+     */
+    const previous = draft.proposal ? { brief: draft.proposal.brief, timeline: draft.proposal.timeline } : undefined
+    const revise = revisesProposal(draft)
     setProposing(true)
     setFailure(null)
     setNotices([])
@@ -722,6 +730,8 @@ export default function VideoExportDialog({
         // The dossier's own words. See `directionWords`: not the theme, and it
         // stops at this door.
         direction: directionWords,
+        previous,
+        revise,
       })
       // A newer proposal (or the panel closing) owns the panel now. Writing this
       // one in would replace the answer the user is actually waiting for.
@@ -856,6 +866,9 @@ export default function VideoExportDialog({
     setFailure(null)
     setPollStumbled(false)
     onJobId(null)
+    // Starting over forgets the film too. Kept, it would make the next press a
+    // REVISION of a film the person just said they were done with.
+    setDraft((d) => (d.proposal ? { ...d, proposal: null } : d))
   }
 
   // ---- render -----------------------------------------------------------
@@ -977,7 +990,9 @@ export default function VideoExportDialog({
                   try again" — and a button still reading "Generate the film"
                   beside a film that is already there reads as having done
                   nothing. The verb is the same in both; the object is not. */}
-              {proposing ? t('video.composing') : t(draft.proposal ? 'video.composeAgain' : 'video.compose')}
+              {proposing
+                ? t('video.composing')
+                : t(revisesProposal(draft) ? 'video.composeRevise' : draft.proposal ? 'video.composeAgain' : 'video.compose')}
             </Button>
             {/*
               The 3D button, and it is absent rather than disabled for an account
@@ -1025,6 +1040,14 @@ export default function VideoExportDialog({
               not say why is what this whole panel was built to avoid. */}
           {composeBlocked && !proposing && (
             <p className="measure mt-1.5 text-body-sm text-ink-muted">{t(COMPOSE_BLOCKER_KEYS[composeBlocked])}</p>
+          )}
+          {/* The two things the second press can mean, said before it is
+              pressed: a changed brief keeps the film and edits it, the same
+              brief asks for another. Nobody should learn that from the result. */}
+          {draft.proposal && !proposing && !composeBlocked && (
+            <p className="measure mt-1.5 text-body-sm text-ink-muted">
+              {t(revisesProposal(draft) ? 'video.composeReviseHint' : 'video.composeAgainHint')}
+            </p>
           )}
           {/* Said when the button is DOWN, which is when it applies. A render in
               3D is longer — the deadline is scaled to the film's duration, so it

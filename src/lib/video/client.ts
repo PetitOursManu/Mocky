@@ -456,6 +456,16 @@ export async function proposeVideoTimeline(
      * that tells them apart.
      */
     direction?: string
+    /**
+     * The film already on the panel, and what it was asked for with.
+     *
+     * With `revise` true the server REVISES it — the person changed their brief,
+     * and asking for the same film in blue must not return another film. With
+     * `revise` false it composes another one and counts this one as the thing
+     * not to repeat. Absent after "Nouveau montage": a fresh film.
+     */
+    previous?: { brief: string; timeline: RenderTimeline }
+    revise?: boolean
     signal?: AbortSignal
   } = {},
 ): Promise<VideoProposal> {
@@ -485,6 +495,12 @@ export async function proposeVideoTimeline(
       forceThreeD: opts.forceThreeD ? true : undefined,
       motionKind: opts.motionKind || undefined,
       direction: opts.direction || undefined,
+      // Without its theme: the server attaches that from `theme` above, and a
+      // film carrying one travels the colours twice for nothing.
+      previous: opts.previous
+        ? { brief: opts.previous.brief, timeline: { ...opts.previous.timeline, theme: undefined } }
+        : undefined,
+      revise: opts.previous && opts.revise ? true : undefined,
     }),
     signal: opts.signal,
   })

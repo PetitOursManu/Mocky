@@ -1696,8 +1696,25 @@ a scene of one is often the best one in the film, and variety belongs to the fil
 rather than to the frame. **STACKS THAT WORK** states the ambition, because a
 model told only what to avoid writes one heading per scene and stops: a gradient
 under a kicker and a heading that share a rank, a grid pulsing behind a counter,
-a lower third and a progress bar over a photograph. Five of them, each one scene,
-each two or three blocks.
+a lower third and a progress bar over a photograph.
+
+**Those examples are drawn, not fixed** (server/video/variety.js). Five printed
+in the same order into every prompt were five scenes the model then wrote: on a
+real instance, nine films in ten opened on the first of them — gradient, kicker,
+heading, separator, left column — and eleven blocks of thirty-six were ever used.
+So a request is now shown three, drawn from a pool of about thirty and eligible
+only when every block and ground is on offer. A fresh film also gets a **starting
+point** drawn from closed lists — how it opens, where its weight sits, two rarely
+used blocks worth a scene — and the account's last six films are **counted** off
+the job journal and printed as what not to repeat. The brief outranks all of it.
+
+**And the one case where variety is the bug.** A film already on the panel with a
+brief that CHANGED is a revision: no draw, no history, the current film in the
+user turn as data, temperature 0.2, and "change only what the new brief asks —
+a colour or a typeface changes nothing in this document". The same brief pressed
+again asks for another film, and counts the one on screen first. The panel owns
+that decision (evisesProposal) because it also labels the button — "Modifier
+le film" against "Générer autre chose" — and "Nouveau montage" forgets the film.
 
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be

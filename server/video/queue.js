@@ -231,6 +231,25 @@ export class VideoQueue {
   }
 
   /**
+   * The documents this account most recently sent to render, newest first.
+   *
+   * Read by `/compose` to count what the last films already did, so the next one
+   * can be asked to do something else (`variety.js`). Every status counts, a
+   * failed render included: what is being counted is what the COMPOSER wrote,
+   * and a film that did not finish was still that composition. The account's
+   * own and nobody else's — another person's habits are not this person's
+   * repetition, and their films' words are not this prompt's business.
+   */
+  recentTimelines(userId, limit) {
+    if (!userId || !(limit > 0)) return []
+    return this.jobs
+      .filter((j) => j.userId === userId && j.timeline && typeof j.timeline === 'object')
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit)
+      .map((j) => j.timeline)
+  }
+
+  /**
    * Resolves when nothing is queued or rendering.
    *
    * Exists for the tests, and stated as such rather than dressed up: a queue

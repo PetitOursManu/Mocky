@@ -246,6 +246,27 @@ export function proposalStale(draft: VideoDraft): boolean {
 }
 
 /**
+ * Would pressing the button REVISE the film on the panel rather than replace it?
+ *
+ * Yes when a film exists and the brief has changed since it was composed. The
+ * person asked for something about THAT film — "même chose mais en bleu" — and
+ * a fresh composition would change every scene to honour one word. The same
+ * brief pressed again is the opposite request: another film.
+ *
+ * The brief alone, not `proposalStale`'s pictures and 3D. Adding a picture or
+ * pressing 3D says nothing about which parts of the film to keep, so it is read
+ * as asking for another one; a person who wants the same film WITH the new
+ * picture says so in the brief, and then this is true.
+ *
+ * One reading, here, used twice: for the button's label and for the `revise`
+ * flag the server prints its prompt from. See `revisionMode` in
+ * server/video/variety.js for why the panel owns it.
+ */
+export function revisesProposal(draft: VideoDraft): boolean {
+  return Boolean(draft.proposal) && draft.brief.trim() !== draft.proposal!.brief
+}
+
+/**
  * Why "Propose a film" will not fire. One reason, and it is not the pictures.
  *
  * The picture gate is gone on purpose. It existed when the form was a slideshow

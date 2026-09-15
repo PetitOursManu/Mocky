@@ -232,6 +232,11 @@ export const video = {
     'video.briefCount': '{n} / {max}',
     'video.compose': 'Générer le film',
     'video.composeAgain': 'Générer autre chose',
+    'video.composeRevise': 'Modifier le film',
+    'video.composeAgainHint':
+      'Même contexte : un tout autre film sera proposé. Pour retoucher celui-ci, écrivez ce qui doit changer dans le contexte.',
+    'video.composeReviseHint':
+      'Le contexte a changé : le film actuel sera modifié sur ce point et le reste gardé. « Nouveau montage » pour repartir de zéro.',
     'video.composing': 'Génération du film…',
     'video.composeNeedBrief': 'Écrivez d’abord le contexte, en une phrase suffit.',
 
@@ -639,6 +644,11 @@ export const video = {
     'video.briefCount': '{n} / {max}',
     'video.compose': 'Generate the film',
     'video.composeAgain': 'Generate something else',
+    'video.composeRevise': 'Revise the film',
+    'video.composeAgainHint':
+      'Same context: a different film altogether will be proposed. To adjust this one, write what should change in the context.',
+    'video.composeReviseHint':
+      'The context changed: the current film will be changed on that point and the rest kept. “New cut” to start from scratch.',
     'video.composing': 'Generating the film…',
     'video.composeNeedBrief': 'Write the context first — one sentence is enough.',
 

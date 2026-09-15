@@ -16,6 +16,7 @@ import {
   proposalStale,
   removeImage,
   renderBlocker,
+  revisesProposal,
   setAspectRatio,
   setBrief,
   setForceThreeD,
@@ -178,6 +179,33 @@ describe('renderBlocker', () => {
 
   it('clears as soon as a proposal lands', () => {
     expect(renderBlocker(withFilm(SLIDESHOW))).toBeNull()
+  })
+})
+
+/**
+ * The second press means two opposite things, and this is the one reading of
+ * which. "Même chose mais en bleu" must revise the film on screen; the same
+ * brief pressed again asks for another one. The label and the server's prompt
+ * both follow it.
+ */
+describe('revisesProposal', () => {
+  it('is false with no film on the panel', () => {
+    expect(revisesProposal(setBrief(emptyDraft(), 'un film'))).toBe(false)
+  })
+
+  it('is false when the same brief is pressed again, trailing space included', () => {
+    const draft = withFilm(SLIDESHOW)
+    expect(revisesProposal(draft)).toBe(false)
+    expect(revisesProposal(setBrief(draft, draft.brief + '  '))).toBe(false)
+  })
+
+  it('is true once the brief says something new about the film', () => {
+    const draft = withFilm(SLIDESHOW)
+    expect(revisesProposal(setBrief(draft, draft.brief + ', mais en bleu'))).toBe(true)
+  })
+
+  it('reads a new picture alone as asking for another film, not a revision', () => {
+    expect(revisesProposal(addImage(withFilm(SLIDESHOW), IMG3))).toBe(false)
   })
 })
 
