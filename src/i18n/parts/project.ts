@@ -132,6 +132,14 @@ export const project = {
     'project.motionStageCompose': 'Film Motion — composition… ne quittez pas la page',
     'project.motionStageRender': 'Film Motion — rendu, 1 à 3 min… ne quittez pas la page',
     'project.motionStagePlace': 'Film Motion — insertion dans l’écran… presque fini',
+    'project.motionStageRevise': 'Film Motion — modification… ne quittez pas la page',
+    'project.motionRevise': 'Modifier le film Motion…',
+    'project.motionReviseAsk':
+      'Que faut-il changer dans ce film ? Le reste sera gardé.\n\nExemples : « fond bleu nuit », « titre plus court », « plus lent », « accent orange ».\nPour une couleur, dites à quoi elle sert : fond, texte ou accent.',
+    'project.motionReviseUnchanged':
+      'Le film est revenu identique, donc rien n’a été refait. Pour une couleur, précisez à quoi elle sert : « fond bleu », « texte blanc », « accent orange ».',
+    'project.motionReviseDetached':
+      'Le nouveau film est prêt et rattaché à l’écran, mais la page ne contient plus l’ancien film à remplacer : ajoutez-le depuis Médias.',
     'project.motionLeaveConfirm':
       'Un film Motion est en cours. Le rendu se termine côté serveur et le film sera dans Média, mais il ne sera PAS inséré dans l’écran si vous partez maintenant. Quitter quand même ?',
     'project.motionFailed':
@@ -357,6 +365,14 @@ export const project = {
     'project.motionStageCompose': 'Motion film — composing… do not leave the page',
     'project.motionStageRender': 'Motion film — rendering, 1 to 3 min… do not leave the page',
     'project.motionStagePlace': 'Motion film — placing it in the screen… nearly done',
+    'project.motionStageRevise': 'Motion film — revising… do not leave the page',
+    'project.motionRevise': 'Revise the Motion film…',
+    'project.motionReviseAsk':
+      'What should change in this film? Everything else is kept.\n\nExamples: “dark blue background”, “shorter title”, “slower”, “orange accent”.\nFor a colour, say what it is for: background, text or accent.',
+    'project.motionReviseUnchanged':
+      'The film came back identical, so nothing was rendered again. For a colour, say what it is for: “blue background”, “white text”, “orange accent”.',
+    'project.motionReviseDetached':
+      'The new film is ready and attached to the screen, but the page no longer contains the old film to replace: add it from Media.',
     'project.motionLeaveConfirm':
       'A Motion film is in progress. The render finishes on the server and the film will be in Media, but it will NOT be placed in the screen if you leave now. Leave anyway?',
     'project.motionFailed':

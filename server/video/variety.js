@@ -416,7 +416,9 @@ export function revisionMode(previous, revise) {
 export function revisionLines() {
   return [
     'YOU ARE REVISING A FILM, NOT COMPOSING A NEW ONE',
-    '- The next message holds the CURRENT film, the brief it was made from, and the NEW brief.',
+    '- The next message holds the CURRENT film, the brief it was made from, and the NEW brief. The new brief',
+    '  is either a whole brief rewritten, or only the change wanted ("a shorter title", "slower"): read it',
+    '  as a change to the current film either way.',
     '- Change only what the new brief asks for that the old one did not. Every scene, block, anchor, rank,',
     '  ground, duration, transition and line of text the new brief does not mention stays EXACTLY as it is,',
     '  in the same order.',

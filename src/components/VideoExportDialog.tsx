@@ -827,7 +827,9 @@ export default function VideoExportDialog({
       // The project travels with the render, and it is what makes the finished
       // film findable afterwards: the store is content-addressed, so once the
       // bytes exist nothing else knows where they were cut from.
-      const queued = await startVideoRender(input, { project: projectId, theme })
+      // The brief travels too, so the film can be revised later from the screen
+      // it is placed in, where this panel and its text box no longer exist.
+      const queued = await startVideoRender(input, { project: projectId, theme, brief: draft.brief.trim() })
       setJob(queued)
       onJobId(queued.id)
     } catch (e) {

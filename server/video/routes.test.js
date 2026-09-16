@@ -106,6 +106,10 @@ function makeApp() {
             .sort((a, b) => b.createdAt - a.createdAt)
             .slice(0, limit)
             .map((j) => j.timeline),
+        filmFor: (userId, hash) => {
+          const job = jobs.find((j) => j.userId === userId && j.videoHash === hash && j.timeline)
+          return job ? { timeline: job.timeline, brief: job.brief || '' } : null
+        },
       },
       store,
       budget: {
@@ -657,6 +661,65 @@ describe('POST /compose', () => {
     expect(system).toContain('gradient: typewriter@center-left')
     expect(system).not.toContain('codeBlock@')
     expect(system).not.toContain('funTitle@')
+  })
+
+  describe('revising a film named by its hash — the film placed in a screen', () => {
+    const HASH = 'f'.repeat(64)
+    const placed = {
+      template: 'composed',
+      scenes: [
+        {
+          durationMs: 3000,
+          background: { kind: 'image', imageId: ID_A },
+          layers: [{ kind: 'heading', text: 'Tea at four' }],
+        },
+      ],
+      theme: { colors: { accent: '#c0392b' } },
+    }
+
+    it('refuses a film its history no longer remembers, before any model is called', async () => {
+      withModel()
+      const res = await compose({ brief: 'fond bleu', previousHash: HASH })
+      const body = await res.json()
+      expect(body.timeline).toBeNull()
+      expect(body.notices.join(' ')).toMatch(/can no longer be revised/)
+      expect(providerRequests).toHaveLength(0)
+    })
+
+    it('never revises somebody else’s film', async () => {
+      withModel()
+      jobs.push({ id: 'theirs', userId: 'u2', videoHash: HASH, timeline: placed, brief: 'their tea', createdAt: 1 })
+      const body = await (await compose({ brief: 'fond bleu', previousHash: HASH })).json()
+      expect(body.timeline).toBeNull()
+      expect(providerRequests).toHaveLength(0)
+    })
+
+    it('revises it with its own brief and pictures, and keeps its look under the new one', async () => {
+      withModel()
+      jobs.push({ id: 'mine', userId: 'u1', videoHash: HASH, timeline: placed, brief: 'a film about tea', createdAt: 1 })
+      providerAnswer = { ...placed, theme: undefined, scenes: [{ ...placed.scenes[0], layers: [{ kind: 'heading', text: 'Tea' }] }] }
+      const body = await (
+        await compose({ brief: 'a shorter title', previousHash: HASH, theme: { colors: { background: '#0a1a3a' } } })
+      ).json()
+      const messages = providerRequests[0].messages
+      expect(messages.find((m) => m.role === 'system').content).toContain('YOU ARE REVISING A FILM')
+      const userTurn = messages.find((m) => m.role === 'user').content
+      expect(userTurn).toContain('a film about tea')
+      expect(userTurn).toContain('Tea at four')
+      // The picture came from the film, not from a selection nobody made.
+      expect(body.timeline.scenes[0].background.imageId).toBe(ID_A)
+      expect(body.timeline.theme.colors).toEqual({ accent: '#c0392b', background: '#0a1a3a' })
+      expect(body.previousBrief).toBe('a film about tea')
+    })
+
+    it('says so when the film came back identical, instead of rendering it again', async () => {
+      withModel()
+      jobs.push({ id: 'mine', userId: 'u1', videoHash: HASH, timeline: placed, brief: 'a film about tea', createdAt: 1 })
+      providerAnswer = { ...placed, theme: undefined }
+      const body = await (await compose({ brief: 'en bleu', previousHash: HASH })).json()
+      expect(body.unchanged).toBe(true)
+      expect(body.timeline).toBeNull()
+    })
   })
 
   /**

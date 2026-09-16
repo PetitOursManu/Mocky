@@ -1716,6 +1716,17 @@ again asks for another film, and counts the one on screen first. The panel owns
 that decision (evisesProposal) because it also labels the button — "Modifier
 le film" against "Générer autre chose" — and "Nouveau montage" forgets the film.
 
+A film placed in a screen at the first prompt has no panel left to type into, so
+the screen's menu carries **"Modifier le film Motion…"**. The screen holds only
+the hash; `POST /compose` with `previousHash` reads the document and its brief
+back from THIS account's job journal (`queue.filmFor` — a render now records its
+brief), keeps the film's own pictures and look, and lays the request's declared
+colours over it token by token. A hash the journal no longer remembers is refused
+before any model call, and a revision that comes back identical answers
+`unchanged` instead of rendering the same bytes — usually a colour asked for
+without saying what it is for. The page then swaps the old hash for the new one;
+Revert restores it.
+
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be
 validated against: `signature()` walks the schema and prints `≤70`,

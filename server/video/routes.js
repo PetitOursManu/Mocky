@@ -32,6 +32,58 @@ import { quotaError } from '../storage-quota.js'
 
 const HASH_RE = /^[a-f0-9]{64}$/
 
+/** A brief kept on a job. The compose route slices at the same length (compose.js). */
+const MAX_JOB_BRIEF_CHARS = 600
+
+/**
+ * One theme laid over another, token by token — what `mergeFilmTheme` does in
+ * the browser, for the one caller that holds both halves on the server: a film
+ * revised by hash. Only the three known groups are read, and `attachTheme`
+ * validates the result exactly as it validates a body.
+ */
+function overlayTheme(base, over) {
+  const b = base && typeof base === 'object' ? base : {}
+  const o = over && typeof over === 'object' ? over : {}
+  const merged = {
+    colors: { ...(b.colors || {}), ...(o.colors || {}) },
+    fonts: { ...(b.fonts || {}), ...(o.fonts || {}) },
+    ...(o.radiusPx !== undefined ? { radiusPx: o.radiusPx } : b.radiusPx !== undefined ? { radiusPx: b.radiusPx } : {}),
+  }
+  if (!Object.keys(merged.colors).length) delete merged.colors
+  if (!Object.keys(merged.fonts).length) delete merged.fonts
+  return Object.keys(merged).length ? merged : null
+}
+
+/** A value with its object keys sorted, so two equal documents serialise equally. */
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .filter((k) => value[k] !== undefined)
+        .sort()
+        .map((k) => [k, canonical(value[k])]),
+    )
+  }
+  return value
+}
+
+/**
+ * Would these two render the same film? Both documents are read through the
+ * schema first, so a default one side wrote and the other left out is not a
+ * difference — then compared whole, theme included.
+ */
+function sameFilm(a, b) {
+  const read = (doc) => {
+    const { theme, ...bare } = doc || {}
+    const parsed = VideoTimelineSchema.safeParse(bare)
+    return parsed.success ? { ...parsed.data, theme: theme ?? null } : null
+  }
+  const left = read(a)
+  const right = read(b)
+  return Boolean(left && right) && JSON.stringify(canonical(left)) === JSON.stringify(canonical(right))
+}
+
 /**
  * What a job looks like to the account that owns it.
  *
@@ -295,17 +347,43 @@ export function createVideoRouter({
     }
 
     /*
+     * A film revised from the SCREEN it was placed in, named by its hash.
+     *
+     * The screen holds nothing but the hash, so the document and its brief come
+     * from this account's own journal — never from the body, and never from
+     * somebody else's job. A film the journal no longer remembers is REFUSED here,
+     * by name, before any model is called: carrying on would compose a brand-new
+     * film and hand it back as "the same film, changed", which is the one outcome
+     * a revision exists to rule out.
+     */
+    const previousHash = typeof req.body?.previousHash === 'string' ? req.body.previousHash : ''
+    const stored = HASH_RE.test(previousHash) ? (queue.filmFor?.(req.user.id, previousHash) ?? null) : null
+    if (previousHash && !stored) {
+      return res.json({
+        timeline: null,
+        notices: [
+          'This film can no longer be revised: what it was composed from is not in this account’s render history any more. Generate a new one instead.',
+        ],
+      })
+    }
+
+    /*
      * Ids only, from either spelling — a bare hash or the `{ id }` objects the
      * picker already holds. Deduplicated, because the same image chosen twice is
      * one lookup and one line in the prompt; the model is free to use it in two
      * scenes, and that is a decision about the film, not about the selection.
+     *
+     * A revised film brings its own pictures: they were selected when it was
+     * composed, and a revision that could not name them again would be refused
+     * for using an image "nobody selected".
      */
     const ids = [
-      ...new Set(
-        (Array.isArray(req.body?.images) ? req.body.images : [])
+      ...new Set([
+        ...(Array.isArray(req.body?.images) ? req.body.images : [])
           .map((img) => (typeof img === 'string' ? img : img && typeof img.id === 'string' ? img.id : null))
           .filter(Boolean),
-      ),
+        ...(stored ? timelineImageIds(stored.timeline) : []),
+      ]),
     ].slice(0, MAX_COMPOSE_IMAGES)
 
     /*
@@ -396,9 +474,18 @@ export function createVideoRouter({
        * after the schema has accepted it. A model that wrote its own was already
        * refused by then, for the reason `VideoTimelineSchema` has no `theme` key.
        */
+      /*
+       * A revision by hash keeps the film's own look and lays the request's on
+       * top, token by token. The film already carries the project's theme as it
+       * was when it was cut, plus any colour its first brief declared; the body
+       * carries only what THIS request declared ("fond bleu"). Starting again
+       * from the project would silently undo the first brief's colours — a
+       * change nobody asked for, in a mode whose whole promise is the opposite.
+       */
+      const theme = stored ? overlayTheme(stored.timeline.theme, req.body?.theme) : (req.body?.theme ?? null)
       const { timeline, notices } = await proposeTimeline(brief, images, {
         llm,
-        theme: req.body?.theme ?? null,
+        theme,
         /*
          * The composition the panel's selector is on, or nothing for `auto`.
          *
@@ -445,14 +532,17 @@ export function createVideoRouter({
          * Only the shape is checked here; `compose.js` re-reads the timeline
          * through the schema before it shows a model any of it.
          */
-        previous:
-          req.body?.previous && typeof req.body.previous === 'object' && req.body.previous.timeline
+        previous: stored
+          ? stored
+          : req.body?.previous && typeof req.body.previous === 'object' && req.body.previous.timeline
             ? {
                 brief: typeof req.body.previous.brief === 'string' ? req.body.previous.brief : '',
                 timeline: req.body.previous.timeline,
               }
             : null,
-        revise: req.body?.revise === true,
+        // A film named by its hash is always revised: nobody picks a film on a
+        // screen and asks to change it in order to receive a different one.
+        revise: Boolean(stored) || req.body?.revise === true,
         // What the account may spend, and what this request asked for. Read from
         // the config on every call rather than cached: an administrator who takes
         // 3D away should have taken it away by the next compose, not by the next
@@ -464,7 +554,19 @@ export function createVideoRouter({
       // Nobody is on the other end any more. Writing to a socket the client
       // closed buys nothing and risks a write-after-end on the way out.
       if (abort.signal.aborted) return
-      res.json({ timeline, notices })
+      /*
+       * A revision that changed nothing, said as a FACT the panel can word.
+       *
+       * The common case is a colour asked for without a role — "en bleu" — which
+       * `briefTheme` rightly refuses to guess (which of the two is the ground is
+       * exactly the unseeable guess), while the model rightly returns the film
+       * untouched. Rendering that would spend minutes to produce the same bytes
+       * and a screen that visibly did not change, with no sentence saying why.
+       */
+      if (stored && timeline && sameFilm(timeline, stored.timeline)) {
+        return res.json({ timeline: null, notices, unchanged: true })
+      }
+      res.json({ timeline, notices, ...(stored ? { previousBrief: stored.brief } : {}) })
     } catch (err) {
       if (abort.signal.aborted) return
       // proposeTimeline is written not to throw. If it ever does, the modal is
@@ -670,7 +772,12 @@ export function createVideoRouter({
      */
     const themed = attachTheme(timeline, req.body?.theme ?? null)
 
-    const job = queue.enqueue({ userId: req.user.id, timeline: themed.timeline, projectId })
+    // The sentence the film was asked for with, kept beside it so a revision
+    // made later from the SCREEN — where no panel holds it any more — can show
+    // the model what it is changing. Bounded like the brief it came from.
+    const brief = typeof req.body?.brief === 'string' ? req.body.brief.trim().slice(0, MAX_JOB_BRIEF_CHARS) || null : null
+
+    const job = queue.enqueue({ userId: req.user.id, timeline: themed.timeline, projectId, brief })
     // 202: accepted, not done. The body carries the id to poll.
     // `notices` rather than a silent drop: Q2's rule that nothing is discarded
     // without saying so applies to a direction as much as to a lint rule.

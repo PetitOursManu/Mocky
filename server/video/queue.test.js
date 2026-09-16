@@ -144,6 +144,21 @@ describe('running a job', () => {
     expect(q.recentTimelines('u1', 0)).toEqual([])
   })
 
+  /**
+   * A film placed in a screen is revised by its hash, and the journal is the one
+   * place that remembers what the hash was cut from — and what it was asked for.
+   */
+  it('finds the document and brief behind a film, for its own account only', async () => {
+    const q = new VideoQueue({ dataDir: dir, render: async () => ({ videoHash: 'f'.repeat(64) }) })
+    q.enqueue({ userId: 'u1', timeline: TIMELINE, brief: 'a film about tea' })
+    await q.whenIdle()
+    expect(q.filmFor('u1', 'f'.repeat(64))).toEqual({ timeline: TIMELINE, brief: 'a film about tea' })
+    expect(q.filmFor('u2', 'f'.repeat(64))).toBeNull()
+    expect(q.filmFor('u1', 'e'.repeat(64))).toBeNull()
+    expect(q.filmFor('u1', null)).toBeNull()
+    expect(journal().jobs[0].brief).toBe('a film about tea')
+  })
+
   it('records the message when a render throws', async () => {
     const q = new VideoQueue({ dataDir: dir, render: async () => { throw new Error('worker said no') } })
     const job = q.enqueue({ userId: 'u1', timeline: TIMELINE })

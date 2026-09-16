@@ -74,6 +74,7 @@ import {
   startVideoRender,
   videoStreamUrl,
   POLL_INTERVAL_MS,
+  BRIEF_MAX_LENGTH,
   type MotionKindOffer,
 } from '../lib/video/client'
 import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
@@ -81,6 +82,7 @@ import { findScreenSections } from '../lib/screenSections'
 import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
 import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
+import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { matchImagesToScreens } from '../lib/imageBackfill'
 import {
@@ -1527,7 +1529,7 @@ export default function ProjectView({
                 proposal.timeline.outputFormat,
                 proposal.timeline.aspectRatio,
               )
-              const job = await startVideoRender(renderable, { project: project.id, theme, signal: ac.signal })
+              const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: ac.signal })
               /*
                * Polled until it lands, and bounded by the queue's own deadline
                * rather than by a number invented here.
@@ -1537,12 +1539,7 @@ export default function ProjectView({
                * queue kills a render that overruns and reports it as failed, and
                * this loop simply stops when the job stops being queued.
                */
-              let finished = await fetchVideoJob(job.id, ac.signal)
-              while (finished.status === 'queued' || finished.status === 'rendering') {
-                await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
-                if (ac.signal.aborted) throw new DOMException('aborted', 'AbortError')
-                finished = await fetchVideoJob(job.id, ac.signal)
-              }
+              const finished = await awaitVideoJob(job.id, ac.signal)
               if (finished.status === 'done' && finished.videoHash) {
                 // Attached to the SCREEN first, and unconditionally: this is
                 // what makes the film findable on the canvas and in Media, and
@@ -1967,6 +1964,127 @@ export default function ProjectView({
     setRegeneratingIds(new Set())
     setRegenLabel(t('canvas.regenerating'))
     releaseNavigation()
+  }
+
+  /**
+   * A render, followed until it stops being queued or rendering.
+   *
+   * Bounded by the job itself rather than by a number invented here: the queue
+   * kills a render that overruns its deadline and reports it as failed, so this
+   * loop simply ends when the job does. One copy, for the two flows that wait.
+   */
+  async function awaitVideoJob(jobId: string, signal: AbortSignal) {
+    let job = await fetchVideoJob(jobId, signal)
+    while (job.status === 'queued' || job.status === 'rendering') {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
+      if (signal.aborted) throw new DOMException('aborted', 'AbortError')
+      job = await fetchVideoJob(jobId, signal)
+    }
+    return job
+  }
+
+  /**
+   * Change the film that is already IN a screen, from that screen.
+   *
+   * ── Why this exists ─────────────────────────────────────────────────────────
+   *
+   * A film made at the first prompt lands in the page with no panel left open
+   * and no text box to edit, so "la même chose mais avec un fond bleu" had
+   * nowhere to be said — and asking again from scratch now deliberately
+   * composes something DIFFERENT (server/video/variety.js). The screen holds
+   * the film's hash and nothing else; the server reads the document and its
+   * brief back from this account's render history and revises that film.
+   *
+   * ── What changes in the page, and what does not ──────────────────────────
+   *
+   * The film's address, and nothing else. The page already has the film where
+   * it belongs — sized, placed, with its words kept out of the way — so the
+   * new hash replaces the old one wherever the source names it. Replacing a
+   * 64-character content hash is not parsing the source (I1): no structure is
+   * read, and the string cannot occur by accident. A page that no longer names
+   * the old film — rewritten by hand since — keeps its code, and the new film is
+   * attached to the screen and SAID to be, rather than inserted somewhere new.
+   *
+   * `previousCode` is set, so Revert brings the old film back.
+   */
+  async function reviseScreenFilm(screenId: string) {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    const oldHash = screen?.attachedMedia?.kind === 'film' ? screen.attachedMedia.hash : null
+    if (!screen || !oldHash) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const request = window.prompt(t('project.motionReviseAsk'), '')?.trim()
+    if (!request) return
+
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      motionStage(screenId, t('project.motionStageRevise'))
+      const proposal = await proposeVideoTimeline(request, [], {
+        settings,
+        // Only what THIS sentence declares ("fond bleu"). The film keeps its own
+        // look underneath — the server lays this over it, token by token.
+        theme: themeFromBrief(request),
+        direction: directionBriefFrom(activeDirection()),
+        previousHash: oldHash,
+        signal: ac.signal,
+      })
+      if (proposal.unchanged) {
+        setNotice(t('project.motionReviseUnchanged'))
+        return
+      }
+      if (!proposal.timeline) {
+        reportMotionFailure(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
+        return
+      }
+
+      motionStage(screenId, t('project.motionStageRender'))
+      const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
+      // The next revision reads this, so it is the whole story so far rather
+      // than the last sentence alone — and the newest words win the bound.
+      const brief = (proposal.previousBrief ? `${proposal.previousBrief}\n${request}` : request).slice(-BRIEF_MAX_LENGTH)
+      const queued = await startVideoRender(renderable, {
+        project: project.id,
+        theme: proposal.timeline.theme ?? null,
+        brief,
+        signal: ac.signal,
+      })
+      const finished = await awaitVideoJob(queued.id, ac.signal)
+      if (finished.status !== 'done' || !finished.videoHash) {
+        reportMotionFailure(t('project.motionFailed', { detail: finished.error || '' }))
+        return
+      }
+
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now) return
+      const oldSrc = videoStreamUrl(oldHash)
+      const newSrc = videoStreamUrl(finished.videoHash)
+      if (now.code.includes(oldSrc)) {
+        onUpdateScreen(screenId, {
+          code: now.code.split(oldSrc).join(newSrc),
+          previousCode: now.code,
+          attachedMedia: filmMedia(finished.videoHash),
+        })
+      } else {
+        onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
+        setNotice(t('project.motionReviseDetached'))
+      }
+    } catch (err) {
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        reportMotionFailure(t('project.motionFailed', { detail: err instanceof Error ? err.message : String(err) }))
+      }
+    } finally {
+      motionStageDone()
+      setBusy(false)
+      if (abortRef.current === ac) abortRef.current = null
+    }
   }
 
   /**
@@ -3701,6 +3819,11 @@ export default function ProjectView({
               <ContextMenuShell x={menu.x} y={menu.y}>
                 <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                 <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
+                {/* Only on a screen that carries a film: the one place a film made
+                    at the first prompt can still be changed rather than replaced. */}
+                {s.attachedMedia?.kind === 'film' && (
+                  <MenuItem icon="pencil" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); reviseScreenFilm(s.id) }} />
+                )}
                 <MenuItem
                   icon="pencil"
                   label={t('canvas.rename')}

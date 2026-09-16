@@ -1801,6 +1801,17 @@ celui qui est à l’écran. Le panneau porte cette décision (evisesProposal) 
 qu’il étiquette aussi le bouton — « Modifier le film » contre « Générer autre
 chose » — et « Nouveau montage » oublie le film.
 
+Un film posé dans un écran au premier prompt n’a plus de panneau où écrire : le
+menu de l’écran porte donc **« Modifier le film Motion… »**. L’écran ne garde que
+l’empreinte ; `POST /compose` avec `previousHash` relit le document et son brief
+dans le journal des rendus de CE compte (`queue.filmFor` — un rendu enregistre
+désormais son brief), garde les images et l’apparence du film, et pose par-dessus,
+jeton par jeton, les couleurs déclarées par la demande. Une empreinte que le
+journal a oubliée est refusée avant tout appel au modèle, et une révision revenue
+identique répond `unchanged` au lieu de rendre les mêmes octets — le plus souvent
+une couleur demandée sans dire à quoi elle sert. La page remplace ensuite
+l’ancienne empreinte par la nouvelle ; Revenir la restaure.
+
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre
 lequel la réponse sera validée : `signature()` parcourt le schéma et écrit `≤70`,

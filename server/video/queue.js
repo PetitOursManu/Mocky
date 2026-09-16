@@ -189,11 +189,14 @@ export class VideoQueue {
    * where the film was cut is whatever the job wrote down. It is a plain string
    * here — the route bounds it before it arrives.
    */
-  enqueue({ userId, timeline, projectId = null }) {
+  enqueue({ userId, timeline, projectId = null, brief = null }) {
     const job = {
       id: this.newId(),
       userId,
       projectId,
+      // What the film was asked for with. Read back when the film is REVISED
+      // from the screen it sits in, where no panel still holds the sentence.
+      brief,
       status: 'queued',
       timeline,
       createdAt: this.now(),
@@ -247,6 +250,24 @@ export class VideoQueue {
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, limit)
       .map((j) => j.timeline)
+  }
+
+  /**
+   * The document and the brief behind a film this account rendered, newest job
+   * first — or null.
+   *
+   * What /compose revises when a film is changed from the screen it was placed
+   * in: the screen holds only the hash, and the journal is the one place that
+   * remembers what that hash was cut from. Bounded by _trim like everything
+   * else here, so an old film can stop being revisable, and the route says so
+   * rather than composing a new one in its place.
+   */
+  filmFor(userId, hash) {
+    if (!userId || !hash) return null
+    const job = this.jobs
+      .filter((j) => j.userId === userId && j.videoHash === hash && j.timeline)
+      .sort((a, b) => b.createdAt - a.createdAt)[0]
+    return job ? { timeline: job.timeline, brief: typeof job.brief === 'string' ? job.brief : '' } : null
   }
 
   /**

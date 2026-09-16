@@ -261,7 +261,13 @@ export async function fetchVideoAccess(signal?: AbortSignal): Promise<VideoAcces
  */
 export async function startVideoRender(
   input: VideoTimelineInput,
-  opts: { project?: string; theme?: VideoTheme | null; signal?: AbortSignal } = {},
+  opts: {
+    project?: string
+    theme?: VideoTheme | null
+    /** What the film was asked for with — kept on the job so a later revision can show it. */
+    brief?: string
+    signal?: AbortSignal
+  } = {},
 ): Promise<VideoJob> {
   const parsed = VideoTimelineSchema.safeParse(input)
   if (!parsed.success) {
@@ -290,7 +296,12 @@ export async function startVideoRender(
      * after this timeline has been accepted, and the server is free to drop it
      * (a 202 with a notice) without costing the export.
      */
-    body: JSON.stringify({ timeline: parsed.data, projectId: opts.project, theme: opts.theme ?? undefined }),
+    body: JSON.stringify({
+      timeline: parsed.data,
+      projectId: opts.project,
+      theme: opts.theme ?? undefined,
+      brief: opts.brief || undefined,
+    }),
     signal: opts.signal,
   })
   if (res.ok) return body as VideoJob
@@ -380,6 +391,14 @@ export interface VideoProposal {
   timeline: RenderTimeline | null
   /** The server's own sentences. English, and shown verbatim. */
   notices: string[]
+  /**
+   * A revision by hash came back identical — same document, same look — so
+   * nothing was worth rendering. A fact rather than a sentence, so the caller
+   * can say in the user's language what usually causes it.
+   */
+  unchanged?: boolean
+  /** The brief the revised film was first made from, when the server remembers it. */
+  previousBrief?: string
 }
 
 /**
@@ -466,6 +485,13 @@ export async function proposeVideoTimeline(
      */
     previous?: { brief: string; timeline: RenderTimeline }
     revise?: boolean
+    /**
+     * A film to revise named by its HASH — the film placed in a screen, where
+     * nothing but the hash is kept. The server reads the document and its brief
+     * from this account's render history, keeps the film's own look, and lays
+     * `theme` (only what this request declared) over it. Always a revision.
+     */
+    previousHash?: string
     signal?: AbortSignal
   } = {},
 ): Promise<VideoProposal> {
@@ -501,6 +527,7 @@ export async function proposeVideoTimeline(
         ? { brief: opts.previous.brief, timeline: { ...opts.previous.timeline, theme: undefined } }
         : undefined,
       revise: opts.previous && opts.revise ? true : undefined,
+      previousHash: opts.previousHash || undefined,
     }),
     signal: opts.signal,
   })
@@ -536,6 +563,7 @@ export async function proposeVideoTimeline(
   }
 
   const notices: string[] = Array.isArray(body?.notices) ? body.notices.filter((n: unknown) => typeof n === 'string') : []
+  if (body?.unchanged === true) return { timeline: null, notices, unchanged: true }
   if (body?.timeline == null) {
     /*
      * A 200 with no timeline and not a word about why is the one answer this
@@ -576,7 +604,13 @@ export async function proposeVideoTimeline(
    * attachment; re-applying it here would refuse the server's own contribution.
    */
   const parsed = RenderTimelineSchema.safeParse(body.timeline)
-  if (parsed.success) return { timeline: parsed.data, notices }
+  if (parsed.success) {
+    return {
+      timeline: parsed.data,
+      notices,
+      ...(typeof body?.previousBrief === 'string' ? { previousBrief: body.previousBrief } : {}),
+    }
+  }
   const issues = readableIssues(parsed.error)
   const shown = issues.slice(0, DRIFT_ISSUES_SHOWN)
   return {
