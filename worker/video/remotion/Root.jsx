@@ -6,6 +6,19 @@ import { OverlayBandVideo } from './OverlayBandVideo.jsx'
 import { ProductSpotlightVideo } from './ProductSpotlightVideo.jsx'
 import { VerticalStoryVideo } from './VerticalStoryVideo.jsx'
 import { COMPOSITIONS, FPS, dimensionsFor, planTimeline } from './composition.js'
+import { withInstalledFonts } from './fonts/load.jsx'
+
+/*
+ * Every composition wrapped ONCE, at module scope: the wrapper holds the first
+ * frame until the direction's typefaces are in, and a wrapper built inside the
+ * tree would be a new component on every render — a remount per frame.
+ */
+const Slideshow = withInstalledFonts(ImageSequenceVideo)
+const Overlay = withInstalledFonts(OverlayBandVideo)
+const Vertical = withInstalledFonts(VerticalStoryVideo)
+const Titles = withInstalledFonts(AnimatedTitlesVideo)
+const Product = withInstalledFonts(ProductSpotlightVideo)
+const Composed = withInstalledFonts(ComposedSceneVideo)
 
 /**
  * A one-pixel grey PNG, so that opening this bundle in Remotion Studio shows
@@ -56,7 +69,7 @@ export const RemotionRoot = () => (
   <>
     <Composition
       id={COMPOSITIONS.slideshow}
-      component={ImageSequenceVideo}
+      component={Slideshow}
       fps={FPS}
       width={dimensionsFor('16:9').width}
       height={dimensionsFor('16:9').height}
@@ -77,7 +90,7 @@ export const RemotionRoot = () => (
 
     <Composition
       id={COMPOSITIONS.overlay}
-      component={OverlayBandVideo}
+      component={Overlay}
       fps={FPS}
       width={dimensionsFor('16:9').width}
       height={dimensionsFor('16:9').height}
@@ -103,7 +116,7 @@ export const RemotionRoot = () => (
 
     <Composition
       id={COMPOSITIONS.vertical}
-      component={VerticalStoryVideo}
+      component={Vertical}
       fps={FPS}
       // The only composition whose fallback geometry is portrait, because the
       // schema types its ratio as the literal `9:16` and a landscape preview
@@ -133,7 +146,7 @@ export const RemotionRoot = () => (
 
     <Composition
       id={COMPOSITIONS.titles}
-      component={AnimatedTitlesVideo}
+      component={Titles}
       fps={FPS}
       width={dimensionsFor('16:9').width}
       height={dimensionsFor('16:9').height}
@@ -161,7 +174,7 @@ export const RemotionRoot = () => (
 
     <Composition
       id={COMPOSITIONS.product}
-      component={ProductSpotlightVideo}
+      component={Product}
       fps={FPS}
       width={dimensionsFor('16:9').width}
       height={dimensionsFor('16:9').height}
@@ -189,7 +202,7 @@ export const RemotionRoot = () => (
 
     <Composition
       id={COMPOSITIONS.composed}
-      component={ComposedSceneVideo}
+      component={Composed}
       fps={FPS}
       width={dimensionsFor('16:9').width}
       height={dimensionsFor('16:9').height}

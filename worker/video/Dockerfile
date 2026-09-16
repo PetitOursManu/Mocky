@@ -26,10 +26,12 @@ FROM node:22-bookworm-slim
 # family on the machine. Drop it and every film renders as rows of rectangles,
 # burnt into an mp4 nobody previewed.
 #
-# It is also the only family here, which is why a theme that names a typeface
-# gets it FIRST and this stack second: nothing in Mocky loads a webfont and this
-# container has no egress to fetch one, so CSS's own fallback is what turns "the
-# project asked for Cormorant Garamond" into readable text instead of a failure.
+# It is no longer the only family, and it is still the floor. The typefaces art
+# directions name — sixty-odd OFL families — come from the @fontsource packages
+# in package.json and are BUNDLED as files by the renderer, so nothing is fetched
+# while a film renders. A direction naming a face the catalogue does not carry
+# still gets Liberation in the right class (sans, serif or mono), through CSS's own
+# fallback, rather than a failure. See remotion/fonts/index.js.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         fonts-liberation \

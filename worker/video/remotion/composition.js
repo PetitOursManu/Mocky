@@ -79,6 +79,10 @@ import {
 
 export { CONTRAST_MIN, CONTRAST_MIN_LARGE, blend, contrastRatio, relativeLuminance }
 
+// Which installed face a declared family is. Data and a lookup, no font file: the
+// files are imported by `fonts/load.jsx`, which only the compositions reach.
+import { catalogueFamily } from './fonts/index.js'
+
 /**
  * 30 fps, everywhere, deliberately not configurable.
  *
@@ -877,8 +881,31 @@ export function installedClassFor(family) {
  * one gets a serif instead of Arial. CSS's per-glyph fallback does the rest.
  */
 export function fontStack(family) {
+  /*
+   * The installed face first, by its CATALOGUE name — never the declared string,
+   * which may say "Space Grotesk ExtraBold" or "SF Pro Display ou Inter Display"
+   * and match no registered face at all. Its fallback is the class the catalogue
+   * records, which is a fact about the face rather than a guess from its name.
+   * `fonts/load.jsx` registers exactly the faces `facesForTheme` names, so the
+   * name written here and the face loaded there come from one lookup.
+   */
+  //
+  // The DECLARED string is checked against the charset before it is looked up,
+  // not only the catalogue name after: `Inter"; color: red` contains "Inter", and a
+  // lookup that found it would turn a value the schema refuses into a font the
+  // film uses. A hostile family is dropped whole, as it always was.
+  const valid = typeof family === 'string' && FONT_FAMILY.test(family)
+  const entry = valid ? catalogueFamily(family) : null
+  if (entry && FONT_FAMILY.test(entry.family)) return `"${entry.family}", ${classStackFor(entry.category)}`
   const installed = installedClassFor(family)
   return typeof family === 'string' && FONT_FAMILY.test(family) ? `"${family}", ${installed}` : installed
+}
+
+/** The Liberation stack of a catalogue category: serif, monospace, or sans for the rest. */
+function classStackFor(category) {
+  if (category === 'serif') return INSTALLED_SERIF_STACK
+  if (category === 'monospace') return INSTALLED_MONO_STACK
+  return INSTALLED_FONT_STACK
 }
 
 /**

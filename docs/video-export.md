@@ -1749,6 +1749,21 @@ The starting point `variety.js` draws now names two arrivals for the film and,
 sometimes, a tone for one scene — never for a `background`, which sits under
 type the page set for the project's ground.
 
+**The typefaces a direction names are in the image.** The worker used to carry
+Liberation alone, so a dossier naming Fraunces got a serif at best. It now
+installs 63 OFL-1.1 families from `@fontsource` (+0.1 GB on the image, no change
+to render time measured on a two-second film) and the renderer BUNDLES them as
+files: nothing is fetched while a film renders. `remotion/fonts/index.js`
+resolves a declared family — exact name, name without its weight words ("Space
+Grotesk ExtraBold"), an open cousin of a commercial face ("SF Pro" → Inter), or
+an installed name contained in the declaration — and `fonts/load.jsx` registers
+the faces with `delayRender` before the first frame. The layout still estimates
+widths on Liberation Sans, so each family was MEASURED against it
+(`scripts/fonts.mjs`) and a wider face is registered with a `size-adjust` that
+scales it back onto the estimate — Syne ExtraBold sets 1.63× wider and is drawn
+at 61% — while a narrower one is left alone, since enlarging it would push its
+glyphs out of the line box a heading masks.
+
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be
 validated against: `signature()` walks the schema and prints `≤70`,

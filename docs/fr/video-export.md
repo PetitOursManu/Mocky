@@ -1836,6 +1836,22 @@ Le point de départ que tire `variety.js` nomme désormais deux arrivées pour l
 film et, parfois, un ton pour une scène — jamais pour un `background`, posé sous
 un texte que la page a réglé pour le fond du projet.
 
+**Les polices qu’une direction nomme sont dans l’image.** Le worker n’embarquait
+que Liberation : un dossier qui nommait Fraunces obtenait au mieux un serif. Il
+installe désormais 63 familles OFL-1.1 venues de `@fontsource` (+0,1 Go sur
+l’image, aucun écart de temps de rendu mesuré sur un film de deux secondes) et le
+moteur les EMBARQUE comme fichiers : rien n’est téléchargé pendant un rendu.
+`remotion/fonts/index.js` résout une famille déclarée — nom exact, nom sans ses
+mots de graisse (« Space Grotesk ExtraBold »), cousine libre d’une police
+commerciale (« SF Pro » → Inter), ou nom installé contenu dans la déclaration — et
+`fonts/load.jsx` enregistre les fichiers avec `delayRender` avant la première
+image. La mise en page estime toujours les largeurs sur Liberation Sans : chaque
+famille a donc été MESURÉE contre elle (`scripts/fonts.mjs`), et une police plus
+large est enregistrée avec un `size-adjust` qui la ramène à l’estimation — Syne
+ExtraBold compose 1,63 fois plus large et est dessinée à 61 % — tandis qu’une
+police plus étroite est laissée telle quelle, puisque l’agrandir ferait sortir ses
+lettres de la ligne qu’un titre masque.
+
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre
 lequel la réponse sera validée : `signature()` parcourt le schéma et écrit `≤70`,

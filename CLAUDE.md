@@ -218,8 +218,13 @@ Ten things, and the first one is not negotiable.
    in `worker/video/remotion/`. Their shared arithmetic lives in
    `composition.js` with no React and no Remotion import, because that is the
    only part of a video a test can check; `cueFrames` and `frameBase` are there
-   for the same reason as `planTimeline`. The container installs **one** font
-   family, so a declared typeface is named first and Liberation Sans follows it.
+   for the same reason as `planTimeline`. The worker bundles sixty-odd OFL
+   families from `@fontsource` (`remotion/fonts/`): a declared typeface resolves
+   to one of them by name, is registered with a `size-adjust` that shrinks a face
+   wider than Liberation Sans back onto the width the layout estimated with, and
+   falls back to Liberation of its own class when the catalogue lacks it. The
+   declared string is checked against the charset BEFORE the lookup — a hostile
+   value containing "Inter" is dropped, not matched.
 
    The same rule governs how things MOVE. One easing (`easeOutCubic` — linear was
    what made the first version read as generated), one cue rhythm, one kicker,
