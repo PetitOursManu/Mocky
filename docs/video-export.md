@@ -1727,6 +1727,28 @@ before any model call, and a revision that comes back identical answers
 without saying what it is for. The page then swaps the old hash for the new one;
 Revert restores it.
 
+**How a block arrives, and how a scene is coloured.** Every block used to arrive
+the one way it was written — a small rise from below — and every film wore the
+project's colours the one way the palette dealt them. Two closed vocabularies,
+both optional and both ABSENT when unstated, so a saved film hashes as it did:
+
+- `arrival` on a block — `rise | slide | fade | zoom | focus | wipe | pop`, named
+  by what the viewer sees. Anything but `rise` is drawn by the block's WRAPPER
+  (`arrivalStyle` in `composition.js`), with the block's own rise taken out
+  (`riseShare`), over the longer entrance span. It is `null` once the block has
+  landed, so the resting frame is the frame every legibility measurement was made
+  on. A `slide` travels in from the middle of the frame, never across a margin.
+- `tone` on a scene — `direction | inverse | accent`. `sceneTheme` re-deals the
+  project's own colours BEFORE the palette runs, so every run is still searched
+  and measured on the ground it really lands on; `composition.test.js` sweeps
+  every tone on every ground over the whole theme corpus. `accent` over a
+  photograph is read as `direction` (`sceneToneOf`): a mid-tone veil is the one
+  surface neither black nor white clears body text on.
+
+The starting point `variety.js` draws now names two arrivals for the film and,
+sometimes, a tone for one scene — never for a `background`, which sits under
+type the page set for the project's ground.
+
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be
 validated against: `signature()` walks the schema and prints `≤70`,

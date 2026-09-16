@@ -58,6 +58,7 @@
  * amplitude here is the one way this block could lose that guarantee, which is
  * why the move is a delegation and not a transform.
  */
+import { riseShare } from '../composition.js'
 import { clamp01, enterRise, framedMove, imageFrameBox } from './media.js'
 
 export const ImageFrame = ({ block, palette, theme, box, unit, base, progress, life, images }) => {
@@ -78,7 +79,7 @@ export const ImageFrame = ({ block, palette, theme, box, unit, base, progress, l
         boxSizing: 'border-box',
         padding: geometry.margin,
         opacity: clamp01(progress),
-        transform: `translateY(${enterRise(geometry.rise, progress)}px)`,
+        transform: `translateY(${enterRise(geometry.rise, progress, riseShare(block))}px)`,
         borderRadius: geometry.radius,
         backgroundColor: geometry.panel ? palette.panel.color : 'transparent',
       }}

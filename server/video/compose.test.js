@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { proposeTimeline } from './compose.js'
 import {
   ANCHORS,
+  ARRIVALS,
+  SCENE_TONES,
   BLOCK_FAMILIES,
   BLOCK_KINDS,
   BLOCK_LIMITS,
@@ -319,6 +321,28 @@ describe('proposeTimeline — the catalogue of blocks', () => {
     // repetitions of the same two lines is the prompt nobody reads to the end.
     expect(catalogue(system)).not.toContain('"anchor"')
     expect(catalogue(system)).not.toContain('"enter"')
+  })
+
+  /**
+   * "Tout glisse du bas vers le haut": every block arrived one way. A name the
+   * model can choose from is only as coherent as the name, so each is printed
+   * with what the viewer sees — once, above the catalogue, read off the schema.
+   */
+  it('names every arrival by what it looks like, once, and every tone', async () => {
+    for (const arrival of ARRIVALS) expect(system, arrival).toMatch(new RegExp(`\\n    ${arrival} +\\S`))
+    expect(system).toContain(`"arrival": ${ARRIVALS.join('|')} = rise`)
+    expect(system).toMatch(/Two arrivals across a whole film read as a manner/)
+    expect(catalogue(system)).not.toContain('"arrival"')
+    expect(system).toContain(`"tone": ${SCENE_TONES.join('|')}`)
+    expect(system).toMatch(/every word is\n  kept readable whatever you choose/)
+    // Offered to the decoder, and never required: silence is the good answer for
+    // most blocks and most scenes.
+    const hint = calls[0].schema.properties.scenes.items
+    expect(hint.properties.tone.enum).toEqual([...SCENE_TONES])
+    expect(hint.required).not.toContain('tone')
+    const heading = hint.properties.layers.items.anyOf.find((b) => b.properties.kind.enum[0] === 'heading')
+    expect(heading.properties.arrival.enum).toEqual([...ARRIVALS])
+    expect(heading.required).not.toContain('arrival')
   })
 
   /**

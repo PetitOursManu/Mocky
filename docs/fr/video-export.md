@@ -1812,6 +1812,30 @@ identique répond `unchanged` au lieu de rendre les mêmes octets — le plus so
 une couleur demandée sans dire à quoi elle sert. La page remplace ensuite
 l’ancienne empreinte par la nouvelle ; Revenir la restaure.
 
+**Comment un bloc arrive, et comment une scène est colorée.** Chaque bloc arrivait
+de l’unique façon dont il avait été écrit — une petite montée par le bas — et
+chaque film portait les couleurs du projet de l’unique façon dont la palette les
+distribuait. Deux vocabulaires fermés, facultatifs, et ABSENTS quand rien n’est
+dit, pour qu’un film enregistré garde son empreinte :
+
+- `arrival` sur un bloc — `rise | slide | fade | zoom | focus | wipe | pop`, nommés
+  d’après ce que voit le spectateur. Tout sauf `rise` est dessiné par l’ENVELOPPE
+  du bloc (`arrivalStyle` dans `composition.js`), la montée propre du bloc étant
+  retirée (`riseShare`), sur la durée d’entrée la plus longue. Le style vaut `null`
+  une fois le bloc posé : l’image au repos est celle sur laquelle toutes les
+  mesures de lisibilité ont été faites. Un `slide` arrive du milieu du cadre, jamais
+  par-dessus une marge.
+- `tone` sur une scène — `direction | inverse | accent`. `sceneTheme` redistribue
+  les couleurs du projet AVANT la palette, si bien que chaque texte est encore
+  cherché et mesuré sur le fond où il tombe vraiment ; `composition.test.js`
+  balaie chaque ton sur chaque fond et tout le corpus de thèmes. `accent` sur une
+  photographie est lu comme `direction` (`sceneToneOf`) : un voile de ton moyen est
+  la seule surface où ni le noir ni le blanc ne passent le seuil du texte courant.
+
+Le point de départ que tire `variety.js` nomme désormais deux arrivées pour le
+film et, parfois, un ton pour une scène — jamais pour un `background`, posé sous
+un texte que la page a réglé pour le fond du projet.
+
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre
 lequel la réponse sera validée : `signature()` parcourt le schéma et écrit `≤70`,

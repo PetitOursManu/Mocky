@@ -70,6 +70,7 @@
  * of them drifting.
  */
 
+import { riseShare } from '../composition.js'
 import { COUNT_SHARE, counterLayout, counterText, counterValue, revealRamp } from './animatedText.js'
 
 export const Counter = ({ block, palette, theme, box, unit, progress, life }) => {
@@ -83,7 +84,7 @@ export const Counter = ({ block, palette, theme, box, unit, progress, life }) =>
         paddingTop: layout.air,
         paddingBottom: layout.air,
         opacity: progress,
-        transform: `translateY(${(1 - progress) * layout.rise}px)`,
+        transform: `translateY(${(1 - progress) * layout.rise * riseShare(block)}px)`,
       }}
     >
       <div

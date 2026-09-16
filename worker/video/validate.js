@@ -138,6 +138,12 @@ export const ANCHORS = [
   'full',
 ]
 
+/** How a block arrives, by what the viewer sees. Absent means `rise`. Mirrors timeline.ts. */
+export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop']
+
+/** A scene's colouring, out of the project's own colours. Absent means `direction`. Mirrors timeline.ts. */
+export const SCENE_TONES = ['direction', 'inverse', 'accent']
+
 export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image']
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
 
@@ -624,12 +630,17 @@ function readPlacement(value, where) {
   if (value.enter !== undefined && value.enter !== null) {
     out.enter = readInt(value.enter, 0, BLOCK_LIMITS.layersPerScene - 1, undefined, `${where}.enter`)
   }
+  // Absent when unstated, for `enter`'s reason: the composition is the one place
+  // that reads silence as `rise`.
+  if (value.arrival !== undefined && value.arrival !== null) {
+    out.arrival = enumValue(value.arrival, ARRIVALS, undefined, `${where}.arrival`)
+  }
   return out
 }
 
-/** One block reader: its own keys plus the two everything carries. */
+/** One block reader: its own keys plus the three everything carries. */
 const blockReader = (own, read) => ({
-  keys: ['kind', 'anchor', 'enter', ...own],
+  keys: ['kind', 'anchor', 'enter', 'arrival', ...own],
   read,
 })
 
@@ -900,7 +911,7 @@ function readBackground(value, where) {
 }
 
 function readComposedScene(value, where) {
-  onlyKeys(value, ['durationMs', 'background', 'layers', 'transitionOut'], where)
+  onlyKeys(value, ['durationMs', 'background', 'layers', 'transitionOut', 'tone'], where)
   if (!Array.isArray(value.layers) || value.layers.length === 0) {
     refuse(`${where}.layers must be an array of 1 to ${BLOCK_LIMITS.layersPerScene} blocks.`)
   }
@@ -917,6 +928,9 @@ function readComposedScene(value, where) {
     // Its own vocabulary, one value wider than the shared one: see the note on
     // `COMPOSED_TRANSITIONS`. `entranceStyle` draws all five.
     transitionOut: enumValue(value.transitionOut, COMPOSED_TRANSITIONS, 'crossfade', `${where}.transitionOut`),
+    ...(value.tone !== undefined && value.tone !== null
+      ? { tone: enumValue(value.tone, SCENE_TONES, undefined, `${where}.tone`) }
+      : {}),
   }
 }
 

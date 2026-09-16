@@ -142,6 +142,12 @@ export const ANCHORS = [
   'full',
 ]
 
+/** How a block arrives, by what the viewer sees. Absent means `rise`. See timeline.ts. */
+export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop']
+
+/** A scene's colouring, out of the project's own colours. Absent means `direction`. See timeline.ts. */
+export const SCENE_TONES = ['direction', 'inverse', 'accent']
+
 /** The block catalogue, by family. The compose prompt reads this map. */
 export const BLOCK_FAMILIES = {
   text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
@@ -359,6 +365,7 @@ const bounded = (min, max) => z.number().int().min(min).max(max)
 const placement = {
   anchor: z.enum(ANCHORS).default('center'),
   enter: bounded(0, BLOCK_LIMITS.layersPerScene - 1).optional(),
+  arrival: z.enum(ARRIVALS).optional(),
 }
 
 const block = (kind, shape) => z.object({ kind: z.literal(kind), ...placement, ...shape }).strict()
@@ -682,6 +689,7 @@ export const ComposedSceneSchema = z
     background: BackgroundSchema.default({ kind: 'hairlines' }),
     layers: z.array(BlockSchema).min(1).max(BLOCK_LIMITS.layersPerScene),
     transitionOut: z.enum(COMPOSED_TRANSITIONS).default('crossfade'),
+    tone: z.enum(SCENE_TONES).optional(),
   })
   .strict()
 

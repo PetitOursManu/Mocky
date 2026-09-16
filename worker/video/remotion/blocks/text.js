@@ -274,8 +274,8 @@ export function wordReveal(progress, index, count) {
  */
 export const RUN_RISE_EM = 0.2
 
-export function runRise(size, progress) {
-  return (1 - clamp01(progress)) * Math.max(0, Number(size) || 0) * RUN_RISE_EM
+export function runRise(size, progress, share = 1) {
+  return (1 - clamp01(progress)) * Math.max(0, Number(size) || 0) * RUN_RISE_EM * clamp01(share)
 }
 
 // ── Slices of one arrival ────────────────────────────────────────────────────

@@ -4230,11 +4230,16 @@ function composedMotion(entry, frame, { ground: paints = true } = {}) {
     // Halfway through the scene the stack is where it would have been all along;
     // it arrives a little low and leaves a little high.
     drift: (0.5 - life) * COMPOSED_BLOCK_DRIFT,
-    layers: layers.map((_, i) =>
+    layers: layers.map((layer, i) =>
       cueProgress(
         frame,
         cues[i],
-        alone && layers.length > 1 && cues[i] === latest ? EMPHASIS_ENTER_FRAMES : CUE_ENTER_FRAMES,
+        // The longer span for an arrival the WRAPPER draws, too: a fade or a blur
+        // over nine frames is a blink, and fifteen is still inside the tail every
+        // cue is guaranteed (`MIN_CUE_TAIL_FRAMES`), so it always lands in its scene.
+        (alone && layers.length > 1 && cues[i] === latest) || !ownsRise(layer)
+          ? EMPHASIS_ENTER_FRAMES
+          : CUE_ENTER_FRAMES,
       ),
     ),
     ...(kind === 'image' ? { picture: kenBurnsTransform(scene?.background?.move, frame, durationInFrames) } : {}),
@@ -5409,4 +5414,183 @@ export const PALETTES = {
   // a palette that is only ever measured on its default is a palette measured on
   // one sixth of what it can be handed.
   composed: (theme) => composedPalette(theme),
+}
+
+// ── How a block arrives, and how a scene is coloured ────────────────────────
+//
+// Two closed vocabularies a document may now name, and both are answered HERE
+// rather than in a `.jsx` file, for the reason everything else in this file is:
+// a movement or a colouring nobody can compute without Remotion is one nobody
+// can test.
+
+/** How a block arrives. Mirrors `ARRIVALS` in the three schema readers. */
+export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop']
+
+/** A scene's colouring. Mirrors `SCENE_TONES` in the three schema readers. */
+export const SCENE_TONES = ['direction', 'inverse', 'accent']
+
+/**
+ * Whether a block plays its OWN entrance — the small rise every block was
+ * written with — or leaves the arrival to its wrapper.
+ *
+ * `rise` and silence keep the block's own: that is every film rendered before
+ * the vocabulary existed, frame for frame. Anything else hands the arrival to
+ * `arrivalStyle`, and the block's rise is taken OUT rather than left under it:
+ * a fade over a rise still reads as "everything slides up", which is the
+ * sentence that made the vocabulary necessary.
+ */
+export function ownsRise(block) {
+  const arrival = block?.arrival
+  return arrival === undefined || arrival === null || arrival === 'rise' || !ARRIVALS.includes(arrival)
+}
+
+/** The share of a block's own rise it still travels: 1, or 0 when its wrapper arrives for it. */
+export function riseShare(block) {
+  return ownsRise(block) ? 1 : 0
+}
+
+/** How far a `slide` travels, off the short edge — about half a body line at 1080p. */
+export const ARRIVAL_SLIDE_SHARE = 0.05
+/** The size a `zoom` starts from. Small enough to read as growth, never as a jump. */
+export const ARRIVAL_ZOOM_FROM = 0.9
+/** How blurred a `focus` starts, off the short edge. */
+export const ARRIVAL_BLUR_SHARE = 0.012
+/** A `pop` starts here, passes `ARRIVAL_POP_PEAK` at `ARRIVAL_POP_TURN` of its span, and settles at 1. */
+export const ARRIVAL_POP_FROM = 0.84
+export const ARRIVAL_POP_PEAK = 1.035
+export const ARRIVAL_POP_TURN = 0.72
+
+/**
+ * The wrapper style that makes a block arrive, at an eased progress in [0, 1].
+ *
+ * `null` at rest and for `rise`, always — so the frame a block LANDS on is
+ * byte-for-byte the frame it had before this existed, which is what keeps every
+ * legibility measurement in this file true: opacity, blur and clipping only ever
+ * happen while something is still arriving.
+ *
+ * A `slide` comes FROM THE MIDDLE of the frame towards its own zone: a block in
+ * the left column starts to its right, one in the right column to its left. The
+ * other way would carry it across the safe margin it was laid out inside, which
+ * is the defect `enterRoom` exists to pay for when a block rises; travelling
+ * inwards crosses nothing. `wipe` uncovers in reading order, whatever the column.
+ *
+ * @param {string|undefined} arrival
+ * @param {number} progress  eased, 0 before the cue and 1 once landed
+ * @param {string|undefined} anchor  the block's zone
+ * @param {number} base  `frameBase` of the frame, in pixels
+ * @returns {null | {opacity?: number, transform?: string, filter?: string, clipPath?: string}}
+ */
+export function arrivalStyle(arrival, progress, anchor, base) {
+  if (ownsRise({ arrival })) return null
+  const p = Math.min(1, Math.max(0, Number(progress) || 0))
+  if (p >= 1) return null
+  const scale = Math.max(0, Number(base) || 0)
+  switch (arrival) {
+    case 'slide': {
+      const column = anchorColumnOf(anchor)
+      const from = column === 'left' ? 1 : -1
+      return { opacity: p, transform: `translateX(${from * (1 - p) * ARRIVAL_SLIDE_SHARE * scale}px)` }
+    }
+    case 'fade':
+      return { opacity: p }
+    case 'zoom':
+      return { opacity: p, transform: `scale(${ARRIVAL_ZOOM_FROM + (1 - ARRIVAL_ZOOM_FROM) * p})` }
+    case 'focus':
+      return { opacity: Math.min(1, p * 1.6), filter: `blur(${(1 - p) * ARRIVAL_BLUR_SHARE * scale}px)` }
+    case 'wipe':
+      return { clipPath: `inset(0 ${(1 - p) * 100}% 0 0)` }
+    case 'pop': {
+      const s =
+        p < ARRIVAL_POP_TURN
+          ? ARRIVAL_POP_FROM + (ARRIVAL_POP_PEAK - ARRIVAL_POP_FROM) * (p / ARRIVAL_POP_TURN)
+          : ARRIVAL_POP_PEAK + (1 - ARRIVAL_POP_PEAK) * ((p - ARRIVAL_POP_TURN) / (1 - ARRIVAL_POP_TURN))
+      return { opacity: Math.min(1, p * 2), transform: `scale(${s})` }
+    }
+    default:
+      return null
+  }
+}
+
+/** Left, centre, right or full — the column a zone sits in. */
+function anchorColumnOf(anchor) {
+  const a = typeof anchor === 'string' ? anchor : 'center'
+  if (a === 'full') return 'full'
+  if (a.endsWith('-left')) return 'left'
+  if (a.endsWith('-right')) return 'right'
+  return 'center'
+}
+
+/**
+ * The project's theme as ONE SCENE wears it.
+ *
+ * Every film used to be the same film in colour: the declared ground, the
+ * declared ink, a touch of accent — "fond crème, texte noir, un peu de rouge" on
+ * thirty-one exports. A tone re-deals the project's own colours; it invents none,
+ * and it runs BEFORE the palette, so every run of text is still searched and
+ * measured against the ground this scene really has. An inversion cannot ship an
+ * illegible line any more than a direction can.
+ *
+ * - `inverse` swaps ground and ink. The panel becomes the new ground lifted a
+ *   step towards the old one, so a card on a dark scene is still a card.
+ * - `accent` lays the ground in the accent. The ink is whichever of the
+ *   project's ground and ink reads better on it; the ornament becomes the other
+ *   one when that one still clears the display floor there, and the ink again
+ *   when it does not — an accent kicker on an accent ground is the one colour
+ *   guaranteed to vanish.
+ *
+ * Anything else, silence included, is the theme unchanged.
+ *
+ * @param {ReturnType<typeof resolveTheme>} theme  a RESOLVED theme: every token filled
+ * @param {string|undefined} tone
+ */
+export function sceneTheme(theme, tone) {
+  if (!theme || typeof theme !== 'object') return theme
+  if (tone === 'inverse') {
+    return {
+      ...theme,
+      background: theme.text,
+      text: theme.background,
+      // `blend` answers null for a colour it cannot read; the panel then keeps the
+      // project's own, which the palette measures like any other surface.
+      surface: blend(theme.background, theme.text, INVERSE_SURFACE_LIFT) ?? theme.surface,
+    }
+  }
+  if (tone === 'accent') {
+    const onAccent = [theme.text, theme.background].sort(
+      (a, b) => contrastRatio(b, theme.accent) - contrastRatio(a, theme.accent),
+    )
+    const ink = onAccent[0]
+    const other = onAccent[1]
+    return {
+      ...theme,
+      background: theme.accent,
+      text: ink,
+      accent: contrastRatio(other, theme.accent) >= CONTRAST_MIN_LARGE ? other : ink,
+    }
+  }
+  return theme
+}
+
+/** How far an inverted scene's panel is lifted from its new ground towards the old one. */
+export const INVERSE_SURFACE_LIFT = 0.14
+
+/**
+ * The tone a scene is really drawn in — its own, except `accent` over a photograph.
+ *
+ * A picture ground is a VEIL in the ground colour over an image nobody opened,
+ * measured at both ends of what the image can be. An accent is usually a
+ * mid-tone, and a mid-tone veil is the one colour neither black nor white clears
+ * body text on at the densest veil `MAX_VEIL_ALPHA` allows — the sweep found five
+ * themes at 4.2:1 against a floor of 4.5. So that pairing is read as the
+ * direction: the scene keeps its photograph and its words, and loses a colouring
+ * that could not have been read. `inverse` has no such case and is kept.
+ *
+ * One function for the palette key, the palette and the theme the blocks get,
+ * or two of them would disagree about which ground a heading stands on.
+ */
+export function sceneToneOf(scene) {
+  const tone = scene?.tone
+  if (!SCENE_TONES.includes(tone)) return 'direction'
+  if (tone === 'accent' && backgroundKind(scene?.background) === 'image') return 'direction'
+  return tone
 }

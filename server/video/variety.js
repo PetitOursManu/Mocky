@@ -38,6 +38,8 @@
  * user turn for that reason (`compose.js`).
  */
 
+import { ARRIVALS } from './timeline.js'
+
 /** How many of the account's recent films are counted. Past a handful the counts stop saying "recently". */
 export const HISTORY_FILMS = 6
 
@@ -315,13 +317,31 @@ export function drawStartingPoint({ kinds, usage = filmUsage([]), random = Math.
         (a) => (a.column ? Math.max(0.15, 1 - (usage.columns[a.column] || 0) / layers) : 0.8),
         random,
       )
+  /*
+   * How blocks ARRIVE. Two, never one and never five: one is the old film again
+   * with another verb, five is a demonstration reel. `rise` is drawn least — it
+   * is what silence already gives — and `pop` rarely, because it is the one that
+   * only belongs to a playful brief and the brief is what says so.
+   */
+  const arrivals = typeless
+    ? []
+    : pickMany(ARRIVALS, 2, (a) => (a === 'rise' ? 0.35 : a === 'pop' ? 0.5 : 1), random)
+  /*
+   * A tone for a scene, sometimes. Never for a `background`: it sits under the
+   * page's own type, which was set for the project's ground, and inverting it is
+   * the one colouring change this film cannot measure the consequence of. More
+   * often when there are several scenes, where one inverted scene is punctuation
+   * rather than the whole film changing colour.
+   */
+  const toneChance = typeless ? 0 : maxScenes >= 2 ? 0.5 : 0.25
+  const tone = random() < toneChance ? (random() < 0.6 ? 'inverse' : 'accent') : null
   const featured = pickMany(
     kinds.filter((k) => !STAPLES.has(k)),
     2,
     (k) => 1 / (1 + (usage.blocks[k] || 0) * (6 / films)),
     random,
   )
-  return { opening, axis, featured }
+  return { opening, axis, featured, arrivals, tone, several: maxScenes >= 2 }
 }
 
 /** The starting point as prompt lines. The brief outranks it, and it says so. */
@@ -334,6 +354,19 @@ export function startingPointLines(point, usage = filmUsage([])) {
     lines.push(
       `- Worth building a scene around, if the brief allows: ${point.featured.map((k) => `"${k}"`).join(' and ')}.` +
         (usage.films && unused.length === point.featured.length ? ' None of the recent films used them.' : ''),
+    )
+  }
+  if (point.arrivals?.length === 2) {
+    lines.push(
+      `- Let most blocks arrive with "${point.arrivals[0]}", and give the one that matters most "${point.arrivals[1]}". ` +
+        'No other arrival, so the film has a manner.',
+    )
+  }
+  if (point.tone) {
+    lines.push(
+      point.several
+        ? `- Give one scene "tone": "${point.tone}", as punctuation.`
+        : `- This film may take "tone": "${point.tone}" if the brief leaves room for it.`,
     )
   }
   lines.push('The BRIEF outranks every line above: when it asks for something else, do what it asks.')

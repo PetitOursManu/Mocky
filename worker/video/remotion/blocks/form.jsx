@@ -83,6 +83,7 @@
  * blend is the one thing `legibleOn` cannot be asked about.
  */
 
+import { riseShare } from '../composition.js'
 import { constantMetric, controlClock, formCadence, formGeometry, panelEdge, panelInks, restOffset } from './interface.js'
 
 /**
@@ -130,7 +131,7 @@ export const Form = ({ block, palette, theme, box, unit, base, progress, life })
         // whole scene and lands on its mark at the cut. It is the family's answer
         // to a control that reaches its position and freezes, and it only ever
         // approaches: see `restOffset`.
-        transform: `translateY(${(1 - progress) * card.travel}px) scale(${1 - restOffset(clock)})`,
+        transform: `translateY(${(1 - progress) * card.travel * riseShare(block)}px) scale(${1 - restOffset(clock)})`,
         padding: card.pad,
         borderRadius: radius,
         backgroundColor: palette.panel.color,

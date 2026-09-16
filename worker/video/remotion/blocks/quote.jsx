@@ -1,4 +1,4 @@
-import { withAlpha } from '../composition.js'
+import { riseShare, withAlpha } from '../composition.js'
 import {
   QUOTE_RULE_REST,
   RULE_QUIET_ALPHA,
@@ -166,7 +166,7 @@ export const Quote = ({ block, palette, theme, box, unit, base, progress, life }
             opacity: said,
             // An em of its own size rather than a fraction of the frame: the same
             // gesture whatever box the block landed in. See `RUN_RISE_EM`.
-            transform: `translateY(${runRise(sentence.size, said)}px)`,
+            transform: `translateY(${runRise(sentence.size, said, riseShare(block))}px)`,
             fontFamily: theme.headingFont,
             fontSize: sentence.size,
             lineHeight: sentence.leading,
@@ -190,7 +190,7 @@ export const Quote = ({ block, palette, theme, box, unit, base, progress, life }
             // upstream knew about.
             marginTop: layout.gap,
             opacity: attributed,
-            transform: `translateY(${runRise(credit.size, attributed)}px)`,
+            transform: `translateY(${runRise(credit.size, attributed, riseShare(block))}px)`,
             fontFamily: theme.bodyFont,
             fontSize: credit.size,
             lineHeight: credit.leading,

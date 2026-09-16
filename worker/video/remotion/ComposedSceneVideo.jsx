@@ -7,11 +7,14 @@ import {
   fieldPaints,
   frameBase,
   groundDensity,
+  arrivalStyle,
   groundPainted,
   hairlineTexture,
   planTimeline,
   resolveTheme,
   sceneMotion,
+  sceneTheme,
+  sceneToneOf,
   withAlpha,
 } from './composition.js'
 import { ThreeCanvas } from '@remotion/three'
@@ -488,6 +491,15 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
                   justifyContent: 'center',
                   alignItems: zone.align,
                   minWidth: 0,
+                  /*
+                   * How the block ARRIVES, when the document named a way other than
+                   * its own rise. On the block's box and not inside it, so one rule
+                   * covers thirty-six components, GL canvases included — and null
+                   * once landed, so the resting frame is the one every legibility
+                   * measurement was made on. The block's own rise is taken out for
+                   * these (`riseShare`), or a fade would still read as a climb.
+                   */
+                  ...arrivalStyle(block.arrival, motion.layers[index] ?? 1, zone.anchor, base),
                 }}
               >
                 {draw(block, index, box, unit, zone.align)}
@@ -522,7 +534,8 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
  * on every one of a film's 3600 frames, and behind a palette is a real search.
  */
 function paletteKey(scene) {
-  return `${backgroundKind(scene?.background)}:${fieldPaints(scene).join('+') || 'plain'}`
+  // The tone too: an inverted scene is measured on another ground entirely.
+  return `${sceneToneOf(scene)}:${backgroundKind(scene?.background)}:${fieldPaints(scene).join('+') || 'plain'}`
 }
 
 function progressOf(frame, durationInFrames) {
@@ -557,7 +570,9 @@ export const ComposedSceneVideo = ({ timeline, imageSrc }) => {
   for (const entry of plan.scenes) {
     const key = paletteKey(entry.scene)
     if (!palettes[key]) {
-      palettes[key] = composedPalette(theme, entry.scene.background, { field: fieldPaints(entry.scene) })
+      palettes[key] = composedPalette(sceneTheme(theme, sceneToneOf(entry.scene)), entry.scene.background, {
+        field: fieldPaints(entry.scene),
+      })
     }
   }
 
@@ -567,7 +582,9 @@ export const ComposedSceneVideo = ({ timeline, imageSrc }) => {
         <Sequence key={index} from={entry.from} durationInFrames={entry.durationInFrames}>
           <ComposedScene
             entry={entry}
-            theme={theme}
+            // The scene's own colouring. Blocks read fonts and the radius off it as
+            // before; the colours they read are this scene's.
+            theme={sceneTheme(theme, sceneToneOf(entry.scene))}
             palette={palettes[paletteKey(entry.scene)]}
             imageSrc={imageSrc}
           />

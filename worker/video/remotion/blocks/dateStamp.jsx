@@ -78,6 +78,7 @@
  * are monotonic in `life`, which is what makes "somewhere else on every frame" a
  * claim a test can check.
  */
+import { riseShare } from '../composition.js'
 import { DATE_TRACK_ALPHA, clamp01, dateStampBox, dateStampHead, enterRise } from './media.js'
 
 export const DateStamp = ({ block, palette, theme, box, unit, base, progress, life }) => {
@@ -88,7 +89,7 @@ export const DateStamp = ({ block, palette, theme, box, unit, base, progress, li
     <div
       style={{
         opacity: arrival,
-        transform: `translateY(${enterRise(stamp.rise, progress)}px)`,
+        transform: `translateY(${enterRise(stamp.rise, progress, riseShare(block))}px)`,
         maxWidth: '100%',
       }}
     >

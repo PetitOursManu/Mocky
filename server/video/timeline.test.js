@@ -204,6 +204,14 @@ const CORPUS = [
   ['a block anchored to a zone that is not one', { template: 'composed', scenes: [composed({ layers: [block({ anchor: 'middle' })] })] }],
   ['a block with an arrival rank past the stack', { template: 'composed', scenes: [composed({ layers: [block({ enter: 8 })] })] }],
   ['a block with a fractional arrival rank', { template: 'composed', scenes: [composed({ layers: [block({ enter: 1.5 })] })] }],
+  // How a block arrives, and a scene's colouring: two closed vocabularies, both
+  // left ABSENT when unstated so a film saved before them hashes as it did.
+  ['a block that says how it arrives', { template: 'composed', scenes: [composed({ layers: [block({ arrival: 'wipe' })] })] }],
+  ['a block arriving in a way nobody drew', { template: 'composed', scenes: [composed({ layers: [block({ arrival: 'spin' })] })] }],
+  ['a scene coloured inverse', { template: 'composed', scenes: [composed({ tone: 'inverse' })] }],
+  ['a scene coloured in the accent', { template: 'composed', scenes: [composed({ tone: 'accent' })] }],
+  ['a scene coloured by a name that is not a tone', { template: 'composed', scenes: [composed({ tone: 'dark' })] }],
+  ['a scene that names a hex instead of a tone', { template: 'composed', scenes: [composed({ tone: '#000000' })] }],
   ['a heading of whitespace', { template: 'composed', scenes: [composed({ layers: [block({ text: '  ' })] })] }],
   ['a heading past its cap', { template: 'composed', scenes: [composed({ layers: [block({ text: 'x'.repeat(71) })] })] }],
   [
@@ -257,6 +265,8 @@ describe('the server copy matches src/lib/video/timeline.ts', () => {
     expect(node.TRANSITIONS).toEqual([...web.TRANSITIONS])
     expect(node.OVERLAY_POSITIONS).toEqual([...web.OVERLAY_POSITIONS])
     expect(node.OUTPUT_FORMATS).toEqual([...web.OUTPUT_FORMATS])
+    expect(node.ARRIVALS).toEqual([...web.ARRIVALS])
+    expect(node.SCENE_TONES).toEqual([...web.SCENE_TONES])
     expect(node.ASPECT_RATIOS).toEqual([...web.ASPECT_RATIOS])
     // The catalogue, its per-template bounds and its text limits. A template
     // added on one side alone is a document the API accepts and the browser

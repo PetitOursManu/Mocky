@@ -1,3 +1,4 @@
+import { riseShare } from '../composition.js'
 import {
   HIGHLIGHT_RULE_REST,
   boxPadEm,
@@ -123,7 +124,7 @@ export const TextHighlight = ({ block, palette, theme, box, unit, base, progress
         opacity: progress,
         // An em of its own size rather than a fraction of the frame, so the
         // gesture is the same in a corner cell and in a full frame.
-        transform: `translateY(${runRise(line?.size ?? 0, progress)}px)`,
+        transform: `translateY(${runRise(line?.size ?? 0, progress, riseShare(block))}px)`,
         fontFamily: theme.bodyFont,
         fontSize: line?.size,
         lineHeight: line?.leading,

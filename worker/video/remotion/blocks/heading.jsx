@@ -1,4 +1,4 @@
-import { withAlpha, words } from '../composition.js'
+import { riseShare, withAlpha, words } from '../composition.js'
 import {
   HEADING_RULE_REST,
   MASK_TRAVEL_PERCENT,
@@ -160,7 +160,7 @@ export const Heading = ({ block, palette, theme, box, unit, base, progress, life
                     color: emphasis ? palette.accent.color : undefined,
                   }}
                 >
-                  <span style={{ display: 'inline-block', transform: `translateY(${(1 - arrived) * MASK_TRAVEL_PERCENT}%)` }}>
+                  <span style={{ display: 'inline-block', transform: `translateY(${(1 - arrived) * MASK_TRAVEL_PERCENT * riseShare(block)}%)` }}>
                     {/* Model-written text as a React child: escaped here and nowhere else. */}
                     {word}
                   </span>

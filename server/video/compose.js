@@ -91,6 +91,8 @@ import {
   BACKGROUND_KINDS,
   COMPOSED_TRANSITIONS,
   ANCHORS,
+  ARRIVALS,
+  SCENE_TONES,
   EDITABLE_TEMPLATES,
   TEMPLATE_LIMITS,
   TEXT_LIMITS,
@@ -677,8 +679,8 @@ function describeField(name, schema) {
   }
 }
 
-/** The two fields every block carries. Printed once, above the catalogue, never on a card. */
-const SHARED_FIELDS = ['kind', 'anchor', 'enter']
+/** The fields every block carries. Printed once, above the catalogue, never on a card. */
+const SHARED_FIELDS = ['kind', 'anchor', 'enter', 'arrival']
 
 /**
  * One block or ground, as the model reads it — and as the decoder is asked for it.
@@ -1067,6 +1069,10 @@ function composedSchema(kinds, grounds, motionKind = null) {
         items: { anyOf: kinds.map((kind) => signature(BLOCK_OPTIONS[kind], kind).hint) },
       },
       transitionOut: { type: 'string', enum: [...COMPOSED_TRANSITIONS] },
+      // Not required: silence is the project's own colouring, which is the right
+      // answer for most scenes — a grammar demanding a tone on every scene would
+      // hand back a film inverted at random.
+      tone: { type: 'string', enum: [...SCENE_TONES] },
     },
     required: ['durationMs', 'background', 'layers', 'transitionOut'],
   }
@@ -1184,7 +1190,7 @@ function buildComposedSystem(
     '  = x          what the film gets if you leave the key out; leave it out when x is what you want',
     '  ?            leave the key out when there is none',
     '',
-    'EVERY BLOCK ALSO TAKES THESE TWO. They are not repeated on the cards.',
+    'EVERY BLOCK ALSO TAKES THESE THREE. They are not repeated on the cards.',
     `- "anchor": ${ANCHORS.join('|')} = ${scene.anchorDefault}.`,
     '  A ZONE, never a coordinate. Two blocks anchored to the same zone STACK there, in the order you',
     '  wrote them — that is how a kicker sits over a heading, and it costs one repeated word.',
@@ -1203,6 +1209,30 @@ function buildComposedSystem(
     '  thing at the bottom of the frame should land first.',
     '  You schedule nothing else. Every block arrives on its own beat and the stack drifts across the',
     '  scene: the timing of that is the composition\'s, and there is no field for it.',
+    /*
+     * The names are what the viewer SEES, one clause each, because the choice a
+     * model makes from a list of words is only as coherent as the words: "ease"
+     * or "variant-2" would be picked at random. The list is read from the schema,
+     * the prose is not a bound, and the last two lines say how the choice FAILS,
+     * which is every card's third sentence.
+     */
+    `- "arrival": ${ARRIVALS.join('|')} = rise. HOW the block appears, named by what the viewer sees:`,
+    '    rise   slides up into place from just below — calm; what a block does when this is left out',
+    '    slide  glides in sideways, from the middle of the frame towards its own zone',
+    '    fade   appears where it stands, with no movement at all — the quietest',
+    '    zoom   grows from slightly smaller into its size — for a subject, a picture, a figure',
+    '    focus  sharpens out of a blur — soft, cinematic',
+    '    wipe   is uncovered by an edge sweeping across it in reading order — for a line of type, a band',
+    '    pop    springs in with a small overshoot — lively, and only for a playful brief',
+    '  Two arrivals across a whole film read as a manner; a different one on every block reads as a',
+    '  demonstration. Give the block that matters most its own, and let the others share one.',
+    '',
+    `EVERY SCENE MAY ALSO TAKE "tone": ${SCENE_TONES.join('|')} — leave it out for direction.`,
+    '  The scene\'s colouring, dealt from the project\'s OWN colours: direction is the project as declared;',
+    '  inverse swaps its ground and its ink — a dark scene in a light film, or the reverse; accent lays',
+    '  the whole ground in the accent colour. You never see the colours and do not need to: every word is',
+    '  kept readable whatever you choose. One or two scenes in another tone punctuate a film; every scene',
+    '  inverted is simply the other film. Over an "image" ground, accent does nothing.',
     '',
     'THE STACK — the part that decides whether this is a film or a poster',
     '- A scene carries ONE idea. A heading and the thing it points at is a scene; a heading, a chart, a',

@@ -323,6 +323,34 @@ export const ANCHORS = [
 ] as const
 
 /**
+ * HOW a block arrives — a name for what the viewer sees, never a curve.
+ *
+ * Every block used to arrive the same way, from just below, and a person
+ * watching three films in a row named it before anybody measured it: "tout
+ * glisse du bas vers le haut". The movement belongs to the composition, exactly
+ * like the beat (`enter`) and the zone (`anchor`); what a document may choose is
+ * which of a few hand-written gestures, by a name that says what it looks like
+ * so a model can pick coherently rather than at random.
+ *
+ * Optional, and absent means `rise` — the arrival every film already rendered
+ * had, so a saved draft and the queue's journal render byte-for-byte as before.
+ * The draw in `server/video/variety.js` is what stops silence from meaning
+ * `rise` on every block of every new film.
+ */
+export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop'] as const
+
+/**
+ * A scene's colouring, out of the project's OWN colours.
+ *
+ * `direction` is the project as declared; `inverse` swaps its ground and its
+ * ink; `accent` lays the ground in the accent. None of them is a colour — the
+ * document still carries no hex and no theme (rule 9) — and every run of text
+ * is still measured against the ground it really lands on, so an inversion
+ * cannot produce an illegible line. Optional, and absent means `direction`.
+ */
+export const SCENE_TONES = ['direction', 'inverse', 'accent'] as const
+
+/**
  * The block catalogue, by family.
  *
  * The families are not decoration: the compose prompt reads this map so a model
@@ -933,6 +961,10 @@ const bounded = (min: number, max: number) => z.number().int().min(min).max(max)
 const placement = {
   anchor: z.enum(ANCHORS).default('center'),
   enter: bounded(0, BLOCK_LIMITS.layersPerScene - 1).optional(),
+  // Absent, not defaulted, for the reason `enter` is: a default would write
+  // `arrival: "rise"` into every document parsed from now on, and a film saved
+  // yesterday would hash differently from the same film saved today.
+  arrival: z.enum(ARRIVALS).optional(),
 }
 
 /** A block, as `z.object` shorthand: its own fields, plus the two everything has. */
@@ -1604,6 +1636,7 @@ export const ComposedSceneSchema = z
     background: BackgroundSchema.default({ kind: 'hairlines' }),
     layers: z.array(BlockSchema).min(1).max(BLOCK_LIMITS.layersPerScene),
     transitionOut: z.enum(COMPOSED_TRANSITIONS).default('crossfade'),
+    tone: z.enum(SCENE_TONES).optional(),
   })
   .strict()
 

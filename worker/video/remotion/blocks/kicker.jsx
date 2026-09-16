@@ -1,4 +1,4 @@
-import { KICKER_TRACKING } from '../composition.js'
+import { KICKER_TRACKING, riseShare } from '../composition.js'
 import { KICKER_RULE_REST, MASK_TRAVEL_PERCENT, runAt, ruleExtent, ruleWeights, textLayout } from './text.js'
 
 /**
@@ -123,7 +123,7 @@ export const Kicker = ({ block, palette, theme, box, unit, base, progress, life 
               // Down from behind the rule. A percentage of the line's own height,
               // past 100 for the reason `MASK_TRAVEL_PERCENT` gives, so there is
               // nothing of it anywhere before it arrives.
-              transform: `translateY(${(progress - 1) * MASK_TRAVEL_PERCENT}%)`,
+              transform: `translateY(${(progress - 1) * MASK_TRAVEL_PERCENT * riseShare(block)}%)`,
             }}
           >
             {/* Model-written text as a React child: escaped here and nowhere else. */}

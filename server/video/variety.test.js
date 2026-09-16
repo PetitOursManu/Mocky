@@ -11,8 +11,9 @@ import {
   historyLines,
   revisionMode,
   stackLines,
+  startingPointLines,
 } from './variety.js'
-import { ANCHORS, BACKGROUND_KINDS, BLOCK_KINDS } from './timeline.js'
+import { ANCHORS, ARRIVALS, BACKGROUND_KINDS, BLOCK_KINDS } from './timeline.js'
 import { MOTION_KIND_SPECS } from './kinds.js'
 
 /** A seeded generator, so a statistical claim is the same claim on every run. */
@@ -172,5 +173,62 @@ describe('fresh, again, or a revision', () => {
     // is the reading that costs nothing if it is wrong.
     expect(revisionMode({ brief: 'x', timeline: {} }, 'true')).toBe('again')
     expect(revisionMode({ brief: 'x', timeline: {} }, false)).toBe('again')
+  })
+})
+
+describe('how the film moves, and how a scene is coloured', () => {
+  /**
+   * Two arrivals, distinct, out of the schema's own list: one is the old film
+   * with another verb, and more than two is a demonstration reel.
+   */
+  it('draws two different arrivals for a film that sets type', () => {
+    for (let seed = 1; seed < 40; seed++) {
+      const { arrivals } = drawStartingPoint({ kinds: BLOCK_KINDS, random: lcg(seed) })
+      expect(arrivals).toHaveLength(2)
+      expect(new Set(arrivals).size).toBe(2)
+      for (const a of arrivals) expect(ARRIVALS).toContain(a)
+    }
+  })
+
+  it('draws rise, which silence already gives, less often than the others', () => {
+    const random = lcg(11)
+    let rise = 0
+    let fade = 0
+    for (let i = 0; i < 3000; i++) {
+      const { arrivals } = drawStartingPoint({ kinds: BLOCK_KINDS, random })
+      if (arrivals.includes('rise')) rise += 1
+      if (arrivals.includes('fade')) fade += 1
+    }
+    expect(rise).toBeLessThan(fade)
+  })
+
+  /**
+   * A background sits under the page's own type, set for the project's ground;
+   * an inverted one is the one colouring whose consequence this film cannot see.
+   */
+  it('gives a background neither an arrival nor a tone', () => {
+    const spec = MOTION_KIND_SPECS.background
+    for (let seed = 1; seed < 40; seed++) {
+      const point = drawStartingPoint({ kinds: spec.blocks, random: lcg(seed), maxScenes: 1, motionKind: 'background' })
+      expect(point.arrivals).toEqual([])
+      expect(point.tone).toBeNull()
+    }
+  })
+
+  it('sometimes, and only sometimes, suggests a tone', () => {
+    const random = lcg(5)
+    const tones = { inverse: 0, accent: 0, none: 0 }
+    for (let i = 0; i < 1000; i++) tones[drawStartingPoint({ kinds: BLOCK_KINDS, random, maxScenes: 6 }).tone ?? 'none'] += 1
+    expect(tones.none).toBeGreaterThan(200)
+    expect(tones.inverse).toBeGreaterThan(100)
+    expect(tones.accent).toBeGreaterThan(100)
+  })
+
+  it('prints the arrivals and the tone as lines the brief still outranks', () => {
+    const lines = startingPointLines({ opening: null, axis: null, featured: [], arrivals: ['fade', 'wipe'], tone: 'inverse', several: true })
+    const text = lines.join('\n')
+    expect(text).toContain('arrive with "fade", and give the one that matters most "wipe"')
+    expect(text).toContain('Give one scene "tone": "inverse"')
+    expect(lines[lines.length - 1]).toMatch(/The BRIEF outranks/)
   })
 })

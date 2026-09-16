@@ -68,6 +68,7 @@
  * rather than a bound written for the widest frame. A gap arriving at the edge
  * of a frame is a film showing its own machinery.
  */
+import { riseShare } from '../composition.js'
 import {
   carouselCopies,
   carouselOffset,
@@ -97,7 +98,7 @@ export const Carousel = ({ block, palette, theme, box, unit, base, progress, lif
         height: '100%',
         overflow: 'hidden',
         opacity: clamp01(progress),
-        transform: `translateY(${enterRise(rise, progress)}px)`,
+        transform: `translateY(${enterRise(rise, progress, riseShare(block))}px)`,
       }}
     >
       <div

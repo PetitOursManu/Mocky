@@ -109,8 +109,8 @@ export function tileGutter(base, box) {
  */
 export const ENTER_RISE = 0.5
 
-export function enterRise(unit, progress) {
-  return (1 - clamp01(progress)) * ENTER_RISE * Math.max(0, Number(unit) || 0)
+export function enterRise(unit, progress, share = 1) {
+  return (1 - clamp01(progress)) * ENTER_RISE * Math.max(0, Number(unit) || 0) * clamp01(share)
 }
 
 /**

@@ -78,6 +78,7 @@
  * is invented; the last tile still lands exactly when the block has finished
  * arriving, so a scene too short for the cascade compresses it, as everywhere.
  */
+import { riseShare } from '../composition.js'
 import {
   GALLERY_TILE_ENTER,
   GALLERY_TILE_SCALE,
@@ -105,7 +106,7 @@ export const Gallery = ({ block, palette, theme, box, unit, base, progress, life
         position: 'relative',
         width: '100%',
         height: '100%',
-        transform: `translateY(${enterRise(rise, progress)}px)`,
+        transform: `translateY(${enterRise(rise, progress, riseShare(block))}px)`,
       }}
     >
       {ids.map((id, index) => {

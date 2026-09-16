@@ -185,6 +185,14 @@ import {
   WORD_FIT_FLOOR_PX,
   words,
   worstRatio,
+  ARRIVALS,
+  ARRIVAL_SLIDE_SHARE,
+  SCENE_TONES,
+  arrivalStyle,
+  ownsRise,
+  riseShare,
+  sceneTheme,
+  sceneToneOf,
 } from './composition.js'
 
 const scene = (durationMs, extra = {}) => ({
@@ -4793,4 +4801,110 @@ describe('the mosaic dissolve', () => {
     // so the rule is the same one the four older transitions follow.
     expect(entranceStyle('pixel', 0, 0)).toBe(null)
   })
+})
+
+describe('how a block arrives', () => {
+  /**
+   * The resting frame is the measured frame. Every legibility guarantee above is
+   * a claim about a block that has LANDED, so an arrival that left an opacity, a
+   * blur or a clip on the landed frame would undo all of them in one line.
+   */
+  it('leaves nothing on the frame once a block has landed, whatever the arrival', () => {
+    for (const arrival of ARRIVALS) {
+      for (const anchor of ['top-left', 'center', 'bottom-right', 'full']) {
+        expect(arrivalStyle(arrival, 1, anchor, 1080), `${arrival} @ ${anchor}`).toBeNull()
+      }
+    }
+  })
+
+  it('draws nothing for a rise, or for silence — those are the block’s own', () => {
+    for (const p of [0, 0.3, 0.9]) {
+      expect(arrivalStyle('rise', p, 'center', 1080)).toBeNull()
+      expect(arrivalStyle(undefined, p, 'center', 1080)).toBeNull()
+      expect(arrivalStyle('spin', p, 'center', 1080)).toBeNull()
+    }
+    expect(ownsRise({})).toBe(true)
+    expect(ownsRise({ arrival: 'rise' })).toBe(true)
+    expect(riseShare({ arrival: 'fade' })).toBe(0)
+    expect(riseShare({ kind: 'heading' })).toBe(1)
+  })
+
+  it('actually moves every other arrival while it is arriving', () => {
+    for (const arrival of ARRIVALS.filter((a) => a !== 'rise')) {
+      const start = JSON.stringify(arrivalStyle(arrival, 0, 'center', 1080))
+      const mid = JSON.stringify(arrivalStyle(arrival, 0.5, 'center', 1080))
+      expect(start, arrival).not.toBe('null')
+      expect(start, arrival).not.toBe(mid)
+    }
+  })
+
+  /**
+   * A slide travels INWARDS: a block laid out against a safe margin that arrived
+   * from beyond it would cross the margin on the frames it was arriving on, which
+   * is the defect `enterRoom` pays for when a block rises.
+   */
+  it('slides a block in from the middle of the frame, never from past its margin', () => {
+    const shift = (anchor) => Number(/translateX\((-?[\d.]+)px\)/.exec(arrivalStyle('slide', 0, anchor, 1000).transform)[1])
+    expect(shift('top-left')).toBeCloseTo(ARRIVAL_SLIDE_SHARE * 1000, 6)
+    expect(shift('bottom-left')).toBeGreaterThan(0)
+    expect(shift('center-right')).toBeLessThan(0)
+  })
+})
+
+describe('how a scene is coloured', () => {
+  const resolved = resolveTheme({ colors: { background: '#f6f4ee', text: '#1a1a18', accent: '#c2410c', surface: '#ffffff' } })
+
+  it('is the theme itself when the scene says nothing, or says direction', () => {
+    expect(sceneTheme(resolved, undefined)).toBe(resolved)
+    expect(sceneTheme(resolved, 'direction')).toBe(resolved)
+  })
+
+  it('swaps ground and ink for inverse, and invents no colour', () => {
+    const inverse = sceneTheme(resolved, 'inverse')
+    expect(inverse.background).toBe(resolved.text)
+    expect(inverse.text).toBe(resolved.background)
+    expect(inverse.accent).toBe(resolved.accent)
+    expect(inverse.headingFont).toBe(resolved.headingFont)
+  })
+
+  it('does not lay the accent over a photograph, where no ink could be read on it', () => {
+    expect(sceneToneOf({ tone: 'accent', background: { kind: 'image' } })).toBe('direction')
+    expect(sceneToneOf({ tone: 'inverse', background: { kind: 'image' } })).toBe('inverse')
+    expect(sceneToneOf({ tone: 'accent', background: { kind: 'solid' } })).toBe('accent')
+    expect(sceneToneOf({ tone: 'loud' })).toBe('direction')
+  })
+
+  it('lays the ground in the accent, and never paints the accent on it', () => {
+    const accent = sceneTheme(resolved, 'accent')
+    expect(accent.background).toBe(resolved.accent)
+    expect(accent.accent).not.toBe(resolved.accent)
+    expect([resolved.text, resolved.background]).toContain(accent.text)
+  })
+
+  /**
+   * The guarantee, swept again one level up: every tone, on every ground, on
+   * every theme of the corpus. A tone re-deals colours BEFORE the palette runs,
+   * so the palette's own search is what keeps every run legible — this is the
+   * test that says so rather than assuming it.
+   */
+  for (const tone of SCENE_TONES) {
+    describe(tone, () => {
+      for (const [ground, background] of Object.entries(GROUNDS)) {
+        it(`clears every floor on every theme, on ${ground}`, () => {
+          const failures = []
+          for (const [label, document] of Object.entries(THEMES)) {
+            const drawn = sceneToneOf({ tone, background })
+            const palette = composedPalette(sceneTheme(resolveTheme(document), drawn), background)
+            for (const run of palette.runs) {
+              const ratio = measure(run)
+              if (ratio < run.threshold) {
+                failures.push(`${label}: ${run.color} on ${run.on.color} = ${ratio.toFixed(2)}:1, needs ${run.threshold}:1`)
+              }
+            }
+          }
+          expect(failures.join('\n')).toBe('')
+        })
+      }
+    })
+  }
 })

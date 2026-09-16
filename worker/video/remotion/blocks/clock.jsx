@@ -71,6 +71,7 @@
  * `clockHands` is exported so the test can assert that no two consecutive frames
  * of the longest legal scene put it in the same place.
  */
+import { riseShare } from '../composition.js'
 import { CLOCK_BLANK, CLOCK_TICK_ALPHA, clamp01, clockFace, clockHands, enterRise } from './media.js'
 
 /** One hand, pinned at the dial's centre and rotated about it. */
@@ -98,7 +99,7 @@ export const Clock = ({ block, palette, theme, box, unit, base, progress, life }
     <div
       style={{
         opacity: arrival,
-        transform: `translateY(${enterRise(face.rise, progress)}px)`,
+        transform: `translateY(${enterRise(face.rise, progress, riseShare(block))}px)`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
