@@ -134,8 +134,14 @@ export const project = {
     'project.motionStagePlace': 'Film Motion — insertion dans l’écran… presque fini',
     'project.motionStageRevise': 'Film Motion — modification… ne quittez pas la page',
     'project.motionRevise': 'Modifier le film Motion…',
-    'project.motionReviseAsk':
-      'Que faut-il changer dans ce film ? Le reste sera gardé.\n\nExemples : « fond bleu nuit », « titre plus court », « plus lent », « accent orange ».\nPour une couleur, dites à quoi elle sert : fond, texte ou accent.',
+    'project.motionReviseTitle': 'Modifier le film Motion',
+    'project.motionReviseBlurb':
+      'Dites ce qui doit changer : le reste du film est gardé tel quel. Le nouveau rendu prend 1 à 3 minutes, puis remplace l’ancien film au même endroit — « Revenir à la version précédente » le remet.',
+    'project.motionReviseLabel': 'Ce qui doit changer',
+    'project.motionReviseHint':
+      'Pour une couleur, dites à quoi elle sert : fond, texte ou accent. Ctrl + Entrée pour envoyer.',
+    'project.motionRevisePlaceholder': 'Un fond bleu nuit, un titre plus court, un rythme plus lent…',
+    'project.motionReviseSubmit': 'Modifier le film',
     'project.motionReviseUnchanged':
       'Le film est revenu identique, donc rien n’a été refait. Pour une couleur, précisez à quoi elle sert : « fond bleu », « texte blanc », « accent orange ».',
     'project.motionReviseDetached':
@@ -367,8 +373,13 @@ export const project = {
     'project.motionStagePlace': 'Motion film — placing it in the screen… nearly done',
     'project.motionStageRevise': 'Motion film — revising… do not leave the page',
     'project.motionRevise': 'Revise the Motion film…',
-    'project.motionReviseAsk':
-      'What should change in this film? Everything else is kept.\n\nExamples: “dark blue background”, “shorter title”, “slower”, “orange accent”.\nFor a colour, say what it is for: background, text or accent.',
+    'project.motionReviseTitle': 'Revise the Motion film',
+    'project.motionReviseBlurb':
+      'Say what should change: the rest of the film is kept as it is. The new render takes 1 to 3 minutes, then replaces the old film in the same place — “Revert to previous version” brings it back.',
+    'project.motionReviseLabel': 'What should change',
+    'project.motionReviseHint': 'For a colour, say what it is for: background, text or accent. Ctrl + Enter to send.',
+    'project.motionRevisePlaceholder': 'A dark blue background, a shorter title, a slower pace…',
+    'project.motionReviseSubmit': 'Revise the film',
     'project.motionReviseUnchanged':
       'The film came back identical, so nothing was rendered again. For a colour, say what it is for: “blue background”, “white text”, “orange accent”.',
     'project.motionReviseDetached':

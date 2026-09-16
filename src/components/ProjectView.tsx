@@ -38,6 +38,7 @@ import ImageLightbox from './ImageLightbox'
 import FilmLightbox from './FilmLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
 import VideoExportDialog from './VideoExportDialog'
+import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
 import {
   loadMuseConfig,
@@ -332,6 +333,8 @@ export default function ProjectView({
     )
   }, [])
   const abortRef = useRef<AbortController | null>(null)
+  /** The screen whose Motion film the revise dialog is asking about, or null when it is closed. */
+  const [reviseFilmScreenId, setReviseFilmScreenId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
   /**
@@ -2007,7 +2010,7 @@ export default function ProjectView({
    *
    * `previousCode` is set, so Revert brings the old film back.
    */
-  async function reviseScreenFilm(screenId: string) {
+  async function reviseScreenFilm(screenId: string, request: string) {
     if (busy) return
     const screen = screensRef.current.find((s) => s.id === screenId)
     const oldHash = screen?.attachedMedia?.kind === 'film' ? screen.attachedMedia.hash : null
@@ -2017,8 +2020,6 @@ export default function ProjectView({
       setError(t('project.noModel'))
       return
     }
-    const request = window.prompt(t('project.motionReviseAsk'), '')?.trim()
-    if (!request) return
 
     const ac = new AbortController()
     abortRef.current = ac
@@ -2659,6 +2660,16 @@ export default function ProjectView({
           onReplace={(code, sequence) => swapScreenImages(imageSwapScreen.id, code, sequence)}
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
+        />
+      )}
+      {reviseFilmScreenId && (
+        <MotionReviseDialog
+          onClose={() => setReviseFilmScreenId(null)}
+          onSubmit={(request) => {
+            const id = reviseFilmScreenId
+            setReviseFilmScreenId(null)
+            void reviseScreenFilm(id, request)
+          }}
         />
       )}
       {showVideoExport && (
@@ -3822,7 +3833,7 @@ export default function ProjectView({
                 {/* Only on a screen that carries a film: the one place a film made
                     at the first prompt can still be changed rather than replaced. */}
                 {s.attachedMedia?.kind === 'film' && (
-                  <MenuItem icon="pencil" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); reviseScreenFilm(s.id) }} />
+                  <MenuItem icon="pencil" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); setReviseFilmScreenId(s.id) }} />
                 )}
                 <MenuItem
                   icon="pencil"
