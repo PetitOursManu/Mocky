@@ -483,6 +483,7 @@ export function createVideoRouter({
        * change nobody asked for, in a mode whose whole promise is the opposite.
        */
       const theme = stored ? overlayTheme(stored.timeline.theme, req.body?.theme) : (req.body?.theme ?? null)
+      const composeStartedAt = Date.now()
       const { timeline, notices } = await proposeTimeline(brief, images, {
         llm,
         theme,
@@ -565,6 +566,20 @@ export function createVideoRouter({
        */
       if (stored && timeline && sameFilm(timeline, stored.timeline)) {
         return res.json({ timeline: null, notices, unchanged: true })
+      }
+      /*
+       * A proposal that did not happen is said to the panel AND to the log.
+       *
+       * The render queue journals every job, so a failed render could always be
+       * read back; a failed COMPOSE left nothing anywhere but a banner in one
+       * browser. "Parfois ça marche, parfois non" was unanswerable from the
+       * server for exactly that reason. The notices are the schema's sentences
+       * and the provider's error, never the brief.
+       */
+      if (!timeline) {
+        console.warn(
+          `mocky: Motion compose proposed no film after ${Math.round((Date.now() - composeStartedAt) / 100) / 10}s — ${notices.join(' | ').slice(0, 800)}`,
+        )
       }
       res.json({ timeline, notices, ...(stored ? { previousBrief: stored.brief } : {}) })
     } catch (err) {
