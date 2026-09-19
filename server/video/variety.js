@@ -163,7 +163,9 @@ export const OPENINGS = [
     id: 'subject',
     needs: ['imageFrame', 'gallery', 'carousel', 'photoStage', 'photoRing', 'particleField', 'waveMesh', 'depthGrid', 'solidScene', 'globe', 'map'],
     needsScenes: 2,
-    text: 'Open on the SUBJECT with no words at all: the first scene is a picture, a field or a set piece alone, and the first line of text arrives in the second scene.',
+    // "Alone" was read as "nothing": a film came back with a first scene holding
+    // no block at all, refused whole. The block is named as the ONLY one.
+    text: "Open on the SUBJECT with no words: the first scene's ONLY block is a picture, a field or a set piece — never an empty scene — and the first line of text arrives in the second scene.",
   },
   {
     id: 'word',

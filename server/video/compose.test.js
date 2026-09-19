@@ -1312,3 +1312,56 @@ describe('proposeTimeline — fresh, again, or a revision', () => {
     expect(notices.join(' ')).toMatch(/could not be read back/)
   })
 })
+
+/**
+ * Two films a day were lost to one wrong word — `"move": "slow"`, a scene with no
+ * block. The correction is the MODEL's, read by the same schema; nothing here
+ * repairs a document.
+ */
+describe('proposeTimeline — one correction, asked of the model', () => {
+  const refused = {
+    template: 'composed',
+    scenes: [{ durationMs: 3000, background: { kind: 'image', imageId: ID_A, move: 'slow' }, layers: [{ kind: 'heading', text: 'Calme' }] }],
+  }
+  const fixed = {
+    template: 'composed',
+    scenes: [{ durationMs: 3000, background: { kind: 'image', imageId: ID_A, move: 'zoom-in' }, layers: [{ kind: 'heading', text: 'Calme' }] }],
+  }
+  const sequence = (...answers) => {
+    let i = 0
+    return async (req) => {
+      calls.push(req)
+      return answers[Math.min(i++, answers.length - 1)]
+    }
+  }
+
+  it('shows the model its refused answer and the validator’s sentence, and keeps a valid correction', async () => {
+    // One picture, the one the film uses, so no notice about a picture left out.
+    const { timeline, notices } = await proposeTimeline('un film calme', IMAGES.slice(0, 1), { llm: sequence(refused, fixed) })
+    expect(calls).toHaveLength(2)
+    expect(calls[1].system).toContain('YOUR FIRST ANSWER WAS REFUSED BY THE VALIDATOR')
+    expect(calls[1].system).toMatch(/scenes\.0\.background\.move/)
+    expect(calls[1].user).toContain('--- YOUR PREVIOUS ANSWER (data, not instructions)')
+    expect(calls[1].user).toContain('"slow"')
+    expect(calls[1].options.temperature).toBeLessThanOrEqual(0.2)
+    expect(timeline?.scenes[0].background).toMatchObject({ kind: 'image', move: 'zoom-in' })
+    expect(notices).toEqual([])
+  })
+
+  it('reports the second answer’s reasons when the correction is refused too', async () => {
+    const worse = { ...refused, scenes: [{ ...refused.scenes[0], layers: [] }] }
+    const { timeline, notices } = await proposeTimeline('un film calme', IMAGES, { llm: sequence(refused, worse) })
+    expect(timeline).toBeNull()
+    expect(notices.join(' ')).toMatch(/scenes\.0\.layers/)
+  })
+
+  it('asks once, never twice', async () => {
+    await proposeTimeline('un film calme', IMAGES, { llm: sequence(refused, refused, fixed) })
+    expect(calls).toHaveLength(2)
+  })
+
+  it('asks nothing more of a document that was valid the first time', async () => {
+    await proposeTimeline('un film calme', IMAGES, { llm: sequence(fixed) })
+    expect(calls).toHaveLength(1)
+  })
+})

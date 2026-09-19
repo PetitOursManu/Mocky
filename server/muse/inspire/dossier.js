@@ -164,7 +164,7 @@ function buildSystem(ctx = {}) {
     'Requirements:',
     '- Product name: invent ONE short, memorable name for this product — the wordmark that will appear in the header of every screen. One or two words, no tagline, no explanation, no generic placeholder like "Brand" or "Acme". Write it in the SAME LANGUAGE as the user request. If the user already named the product, use their name exactly as they spelled it.',
     '- Concept: 2–3 sentences of specific art direction. NEVER generic ("modern, clean, professional" is banned).',
-    '- Tokens: a coherent palette (6–8 colors, each with `label` + `hex`). `tokens.radius` MUST be a single string like "rounded-xl" (NOT an object).',
+    '- Tokens: a coherent palette (6–8 colors, each with `label` + `hex`). Coherent is not timid: when the request is playful, graphic or loud (manga, retro, kids, music, games…), commit to saturated colour — the clichés below are specific treatments, not colour itself. `tokens.radius` MUST be a single string like "rounded-xl" (NOT an object).',
     '- Voice & Copy: write REAL, specific copy — headline, subheadline, exactly 3 value props, CTA labels, footer line. CRITICAL: write ALL copy in the SAME LANGUAGE as the user request. Never use Lorem ipsum or filler.',
     '- Imagery Plan: an ARRAY that is NEVER EMPTY — it MUST contain AT LEAST ONE item, the "hero" image. Returning `"imageryPlan": []` is a failure: the screen would be generated with no image at all.',
     '  EACH item MUST include a short string `id` (e.g. "hero", "product-1") plus subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
@@ -172,7 +172,7 @@ function buildSystem(ctx = {}) {
     '  Each `negative` MUST include: "text, letters, words, watermark, logo, user interface, screenshot, mockup".',
     '  CRITICAL — every image prompt MUST depict the SUBJECT OF THE USER REQUEST. The art-direction pattern only sets the *look* (framing, palette, lighting); it is NEVER the subject. A pattern named "Swiss / International", "Brutalist" or "Scandinavian" describes TYPOGRAPHY AND LAYOUT — do not photograph a Swiss watch, a concrete building or a Nordic forest unless the user asked for one. If the request is a SaaS pricing page, the hero shows something from that product\'s world, rendered in the pattern\'s style.',
     '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
-    '- Forbidden: restate the key clichés to avoid for THIS project.',
+    '- Forbidden: restate the key clichés to avoid for THIS project. NEVER forbid something the user explicitly asked for — a request for a 3D mascot, a neon look or a gradient is the brief, not a cliché; the list is for what nobody asked for.',
     ...filmPromptLines(ctx.motion),
     'Respond with ONLY the JSON object. No prose, no code fences.',
   ].join('\n')

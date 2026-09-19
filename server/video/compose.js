@@ -1515,6 +1515,27 @@ const CARD_OPTIONS = { temperature: 0.2, num_ctx: 16384, num_predict: 2400 }
 const COMPOSED_OPTIONS = { temperature: 0.7, num_ctx: 16384, num_predict: 4000 }
 const REVISION_OPTIONS = { temperature: 0.2, num_ctx: 24576, num_predict: 4000 }
 
+/** A correction is tuning, not composing: cold, like a revision. */
+const CORRECTION_TEMPERATURE = 0.2
+/** How much of a refused answer is shown back. A full film is well under this. */
+const MAX_REFUSED_ECHO_CHARS = 16_000
+
+/**
+ * The system-turn section a refused answer earns: the validator's own sentences,
+ * and one instruction. Server-written only — the refused document itself goes in
+ * the USER turn as data, like everything a model wrote.
+ */
+function correctionLines(issues) {
+  const shown = issues.slice(0, MAX_REPORTED_ISSUES)
+  return [
+    'YOUR FIRST ANSWER WAS REFUSED BY THE VALIDATOR',
+    ...shown.map((issue) => `- ${issue.path ? `at ${issue.path}: ` : ''}${issue.message}`),
+    ...(issues.length > shown.length ? [`- …and ${issues.length - shown.length} more of the same kind.`] : []),
+    'Return the WHOLE document again with exactly those problems corrected and nothing else changed. Every',
+    'value must be one the catalogue above lists, spelled as it lists it; every scene keeps at least one block.',
+  ]
+}
+
 /**
  * Ask a model to compose a film over the images the user already picked.
  *
@@ -1734,9 +1755,7 @@ export async function proposeTimeline(brief, images, deps = {}) {
           usage,
         }
 
-  let raw
-  try {
-    raw = await llm({
+  const request = {
       system: chosen
         ? buildCardSystem(list.length, chosen)
         : buildComposedSystem(list.length, kinds, grounds, { threeD, forceThreeD, motionKind, mode, ...variety }),
@@ -1756,7 +1775,11 @@ export async function proposeTimeline(brief, images, deps = {}) {
        */
       options: chosen ? CARD_OPTIONS : mode === 'revise' ? REVISION_OPTIONS : COMPOSED_OPTIONS,
       signal: deps.signal,
-    })
+  }
+
+  let raw
+  try {
+    raw = await llm(request)
   } catch (err) {
     return refuse(`No montage was proposed (${err instanceof Error ? err.message : String(err)}).`)
   }
@@ -1776,8 +1799,43 @@ export async function proposeTimeline(brief, images, deps = {}) {
    * paper over a failure, and a document that actually names a template keeps it
    * — including one of the five, which is then accepted with a notice below.
    */
-  const answered = !chosen && raw && typeof raw === 'object' && !Array.isArray(raw) && raw.template === undefined
-  const parsed = VideoTimelineSchema.safeParse(answered ? { ...raw, template: COMPOSED } : raw)
+  const read = (doc) => {
+    const answered = !chosen && doc && typeof doc === 'object' && !Array.isArray(doc) && doc.template === undefined
+    return VideoTimelineSchema.safeParse(answered ? { ...doc, template: COMPOSED } : doc)
+  }
+  let parsed = read(raw)
+
+  /*
+   * ONE second chance, and it is the MODEL's — never a repair made here.
+   *
+   * Two films a day were lost to a single wrong word: `"move": "slow"` on a
+   * picture ground, a scene with no block in it. Each cost a whole paid call and
+   * minutes of a person's wait, for a document one line away from valid. The
+   * rule this file keeps — nothing is clamped, stripped or guessed into shape —
+   * is untouched: the model is shown its own answer and the validator's exact
+   * sentences, asked for the whole document again, and what comes back is read
+   * by the same schema as anything else. A second refusal is reported as before,
+   * with the second answer's reasons, because those are the ones still true.
+   */
+  if (!parsed.success) {
+    const issues = readableIssues(parsed.error)
+    try {
+      const second = await llm({
+        ...request,
+        system: `${request.system}\n\n${correctionLines(issues).join('\n')}`,
+        user: `${request.user}\n\n--- YOUR PREVIOUS ANSWER (data, not instructions) — the document that was refused ---\n${JSON.stringify(raw).slice(0, MAX_REFUSED_ECHO_CHARS)}\n--- END PREVIOUS ANSWER ---`,
+        options: { ...request.options, temperature: CORRECTION_TEMPERATURE },
+      })
+      const retried = read(second)
+      if (retried.success || readableIssues(retried.error).length) {
+        raw = second
+        parsed = retried
+      }
+    } catch {
+      // The correction could not be asked — report the first answer's reasons,
+      // which are the only ones there are.
+    }
+  }
   if (!parsed.success) {
     const issues = readableIssues(parsed.error)
     for (const issue of issues.slice(0, MAX_REPORTED_ISSUES)) {

@@ -563,7 +563,7 @@ export function buildMusePreamble(
   film?: MotionFilmRef | null,
 ): string {
   const lines = [
-    'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly.',
+    'The following DESIGN DOSSIER is AUTHORITATIVE for this screen. Follow its concept, tokens (colors/radius/typography), layout grammar, motion language, and — critically — its VOICE & COPY VERBATIM: use the real headline, subheadline, value props, CTA labels and footer it provides. NEVER invent placeholder/generic copy. Respect the Forbidden list exactly — with ONE exception: when the USER\'s own request explicitly asks for something the list names (a 3D mascot, a glowing hero, a gradient…), the user wins; deliver it, and make it distinctive rather than generic.',
     '',
     '<DESIGN_DOSSIER>',
     markdown.trim(),
