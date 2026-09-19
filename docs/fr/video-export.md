@@ -3843,6 +3843,79 @@ langue, et aucune orpheline dans l’autre sens.
 à côté : c’est un fait sur la CONSTRUCTION et non sur le compte, et cela ne nomme
 rien qu’un compte ne pourrait lire dans les sources.
 
+### Un film dans une page ne dit presque rien, et les mots sont comptés
+
+Deux films réels ont montré ce que fait un film de page quand rien ne l’arrête.
+Le brief dont il est composé EST la demande de la page — produits, offres, prix,
+fonctionnalités — alors un modèle à qui l’on demande un film « à propos » de cela
+le raconte : une belle ouverture en 3D, puis deux scènes qui présentent l’offre.
+Ce film dépense l’attention du spectateur en mots que la page écrit déjà à côté,
+et grave dans un mp4 des faits que personne ne re-rendra quand ils changeront.
+
+Trois choses y répondent, et seule la première est de la prose.
+
+- **Le film sait qu’il est DANS une page.** `decideFilm` transmet la `section` et
+  le `why` du dossier jusqu’à `/compose` sous le nom `placement` ; le brief est
+  alors titré « THE PAGE THIS FILM IS PART OF », l’emplacement voyage à côté dans
+  le tour utilisateur comme donnée (Q5), et le tour système gagne « A FILM IN A
+  PAGE » : la page écrit ses produits et ses prix dans un texte qu’elle peut
+  modifier, donc le film n’en dit rien ; il porte le mouvement, la profondeur et
+  une ligne au plus ; et il ne s’allonge jamais pour expliquer — une belle scène
+  DURE au lieu de couper vers une diapositive de texte.
+- **Le type porte un budget de mots** (`MOTION_KIND_SPECS[kind].words`, imprimé
+  sur sa fiche) : aucun pour un `background`, cinq pour un `mark`, huit pour un
+  `banner`, dix pour un `hero`, douze pour un `showcase`, dix-huit pour un
+  `figure`, vingt-quatre pour une `story`. `server/video/text-budget.js` compte
+  chaque ligne de chaque bloc, et un prix où qu’il soit est un problème à part.
+- **Au-dessus du budget, on redemande au MODÈLE** — la même correction unique
+  qu’un refus du validateur, avec le compte et la pire scène nommés. Rien n’est
+  tronqué ici : quelle ligne est la plus forte, c’est au modèle de le dire. Une
+  seconde réponse encore au-dessus est GARDÉE, avec un avis (Q1) : un film trop
+  bavard reste un film, et la personne qui lit l’avis peut le réviser d’une
+  phrase.
+
+Le comptage lit le SCHÉMA plutôt que le document : une valeur d’énumération
+(`display`, `center`) n’est jamais un mot, un identifiant d’image n’est jamais du
+texte, et un bloc ajouté au catalogue est compté le jour où il arrive. Un film
+composé librement depuis le panneau n’a ni type ni budget : ce brief-là a été
+écrit pour le film.
+
+Deux types ont changé de forme avec ça. Un `hero` fait désormais au plus deux
+scènes de huit secondes au lieu de trois de six — la troisième scène était là où
+allaient les produits — et un `banner` a perdu son mobilier de panneau
+d’affichage et gagné les surfaces qui bougent et l’icône animée, parce qu’un
+bandeau à côté du titre de la page, c’est du mouvement avec un titre court, pas
+un paragraphe.
+
+### Icônes animées : un pictogramme qui bouge, dans une couleur mesurée
+
+`animatedIcon` dessine l’une des trente-quatre animations Lottie de
+`react-useanimations` (MIT), livrées avec le worker en JSON et jamais
+téléchargées — la règle des polices, pour la raison des polices. Le modèle écrit
+un NOM tiré d’`ICON_NAMES` — `heart`, `bell`, `loading`, `scroll` — choisi pour
+le sens plutôt que pour l’orthographe de la bibliothèque, et aucune marque n’est
+dans la liste : `tests/video-icons.test.js` tient l’énumération, ses trois copies
+et la table du worker en une seule liste, et échoue sur une marque.
+
+Trois choses le font entrer dans le reste du catalogue :
+
+- **La couleur.** Chaque trait et chaque remplissage de la bibliothèque est noir
+  ou blanc ; les sombres deviennent `palette.accent` — le run d’ornement, au
+  plancher de 3:1 que le WCAG donne à un objet graphique — et les clairs prennent
+  la couleur du fond, parce que ce sont des réserves. `recolourLottie` copie
+  l’animation avant de la repeindre, donc l’objet partagé de la bibliothèque
+  n’est jamais modifié.
+- **Le mouvement.** `iconFrame` est pur : une icône `loop` tourne, une icône
+  `toggle` va, tient, revient et tient, sur `ICON_CYCLE_SECONDS`. Jouée une fois,
+  une icône est une image fixe pour le reste de sa scène ; bouclée depuis le
+  début, elle revient d’un coup à son premier état à chaque tour.
+- **Les imports.** `blocks/animatedIcon.jsx` n’importe aucun paquet Lottie : le
+  lecteur lui est REMIS par `IconPlayer` (un contexte React), que
+  `ComposedSceneVideo` fournit depuis `LottieIcon.jsx`. C’est l’arrangement de
+  `canvases.js` pour les blocs 3D, dans la forme qu’il faut à un composant — et
+  c’est ce qui garde `blocks/index.js` chargeable dans la suite de Mocky, où
+  aucun paquet Lottie n’est installé.
+
 ### La direction atteint le modèle, et le thème toujours pas
 
 Un thème fait porter à un film les couleurs du projet. Il ne peut pas faire

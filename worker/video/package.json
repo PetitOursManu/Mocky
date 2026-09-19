@@ -2,7 +2,7 @@
   "name": "mocky-video-worker",
   "private": true,
   "version": "0.1.0",
-  "description": "Remotion render worker for Mocky video export. A separate sub-project on purpose: these dependencies must never reach Mocky's own package.json, which is what keeps the default image free of Remotion and its licence question moot for anyone who does not turn the feature on. three, @react-three/fiber and @remotion/three are here for the one solidScene block and are all MIT with no native binary: measured at 32 MB on a 1.57 GB image and 4 s on an 83 s build. @remotion/skia was measured too and refused, at 461 MB and a React Native peer stack. See README.md before building. The @fontsource packages are the typefaces art directions name, all OFL-1.1 and bundled as files so nothing is fetched while a film renders; worker/video/scripts/fonts.mjs lists them and measured how wide each one sets.",
+  "description": "Remotion render worker for Mocky video export. A separate sub-project on purpose: these dependencies must never reach Mocky's own package.json, which is what keeps the default image free of Remotion and its licence question moot for anyone who does not turn the feature on. three, @react-three/fiber and @remotion/three are here for the one solidScene block and are all MIT with no native binary: measured at 32 MB on a 1.57 GB image and 4 s on an 83 s build. @remotion/skia was measured too and refused, at 461 MB and a React Native peer stack. See README.md before building. The @fontsource packages are the typefaces art directions name, all OFL-1.1 and bundled as files so nothing is fetched while a film renders; worker/video/scripts/fonts.mjs lists them and measured how wide each one sets. lottie-web and react-useanimations, both MIT, draw the animatedIcon block: the animations are JSON bundled with the worker, never fetched, and repainted in measured colours.",
   "type": "module",
   "engines": {
     "node": ">=22.12"
@@ -80,8 +80,10 @@
     "@remotion/renderer": "4.0.507",
     "@remotion/three": "4.0.507",
     "express": "^4.22.2",
+    "lottie-web": "5.13.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-useanimations": "2.10.0",
     "remotion": "4.0.507",
     "three": "0.185.1"
   }

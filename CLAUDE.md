@@ -154,8 +154,14 @@ server/video/config.js      admin settings; the licence key never leaves the ser
 server/video/queue.js       in-memory queue + atomic JSON journal. No Redis, ever
 server/video/worker.js      HTTP client for the render worker
 server/video/store.js       the finished file, kept whole. NOT server/videos/
+server/video/text-budget.js how much a page film may SAY, counted off the schema
 worker/video/               the Remotion worker: separate sub-project, separate image
 worker/video/remotion/blocks/   one component per block kind, plus the registry
+worker/video/remotion/world.js  the continuous 3D world as arithmetic; the GL
+                            scene that reads it is WorldGround.jsx beside it
+worker/video/remotion/lottieIcons.js  the animated icons, by the name a film
+                            writes; LottieIcon.jsx is the player they reach
+                            through React context, never an import in blocks/
 ```
 
 Ten things, and the first one is not negotiable.
@@ -681,6 +687,28 @@ Ten things, and the first one is not negotiable.
     the export path. So the film is attached to the SCREEN (`AttachedMedia`) and
     drawn on the canvas, and `muse.motionCost` says so before the box is ticked.
     Do not "fix" this by adding `media-src` or by opening the route.
+12. **The heavy set is the `full` tier's, and it is gated in two places.** The
+    continuous 3D world (`background: {kind: "world"}`), the swarm that draws a
+    title (`letters: "particles"`) and the two transitions that move both scenes
+    (`cube`, `dive`) need the account's 3D permission AND a server an
+    administrator set to `full`. `FULL_TIER_*` and `fullTierFeaturesIn` in
+    `server/video/three-d.js` are the one list; `/compose` leaves them out of the
+    prompt and the decoder hint elsewhere, `/render` refuses them by name.
+    `iris` and `liquid` are masks like `pixel` and are offered everywhere.
+    The world is ONE place per film — the camera is a function of the FILM's
+    frame, not the scene's — and it is legible by construction: every surface is
+    the ground mixed with the accent at a share of one reach, measured like a
+    mesh, with fog carrying it back to the ground.
+13. **A film in a page says almost nothing, and the words are COUNTED.** The
+    brief such a film is composed from is the page's own request, so a model
+    asked for a film "about" it retells the products and the plans — into an mp4
+    nobody re-renders when they change. `placement` (the dossier's section and
+    why) turns the brief into "the page this film is part of", the system turn
+    gains "A FILM IN A PAGE", and each kind carries a word budget
+    (`MOTION_KIND_SPECS[kind].words`) that `text-budget.js` counts against by
+    walking the SCHEMA — an enum value is not a word. Over budget, the MODEL is
+    asked again, once; a second answer still over is kept with a notice (Q1).
+    Nothing here truncates a document.
 
 ## Conventions
 

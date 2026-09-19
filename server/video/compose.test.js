@@ -1091,6 +1091,8 @@ describe('the kind of Motion', () => {
    * two flat surfaces instead (Q1).
    */
   it('still composes a background with no 3D at all', async () => {
+    // A background sets no text, so an answer that did would be sent back once.
+    answer = { template: 'composed', scenes: [{ durationMs: 8000, layers: [{ kind: 'soundWave', anchor: 'full' }] }] }
     await proposeTimeline('a moving surface', IMAGES, { llm, motionKind: 'background', threeD: false })
     expect(calls).toHaveLength(1)
     expect(layerKinds()).toEqual(expect.arrayContaining(['soundWave', 'equalizer']))

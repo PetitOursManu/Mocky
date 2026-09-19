@@ -2750,6 +2750,9 @@ export const BLOCK_APPETITE = {
   // ── MISC ──
   separator: { fixed: 1, fills: 'width', runs: () => [] },
   progressBar: { fixed: 1.2, fills: 'both', runs: (b) => [{ role: 'caption', text: b?.label }] },
+  // A pictogram is a figure like a dial: it fills the minor side of its box and
+  // wants less of a band than a clock, because it is read at a glance.
+  animatedIcon: { fixed: 8, fills: 'either', runs: (b) => [{ role: 'caption', text: b?.label }] },
 
   // ── SET PIECES ──
   codeBlock: {
@@ -3329,6 +3332,7 @@ export const BLOCK_ENTER_TRAVEL = {
   gallery: { unit: 0.5 },
   carousel: { unit: 0.5 },
   clock: { unit: 0.5 },
+  animatedIcon: { unit: 0.5 },
   dateStamp: { unit: 0.5 },
   // `RUN_RISE_EM`, `blocks/text.js` — a fifth of the run's own size, which is the
   // unit times the role's step. Two rows and not one, because a pull quote and a

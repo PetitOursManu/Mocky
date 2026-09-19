@@ -55,6 +55,8 @@ import {
   typeScale,
   typeSize,
 } from '../composition.js'
+// Read, never written: a palette colour parsed into channels to repaint an icon.
+import { channels } from '../contrast.js'
 
 // ── What all five share ──────────────────────────────────────────────────────
 
@@ -754,4 +756,105 @@ export function dateStampBox(block, box, unit, base, radiusPx) {
     height,
     rise: at,
   }
+}
+
+// ── animatedIcon ─────────────────────────────────────────────────────────────
+
+/**
+ * An icon's square and its label: `clockFace`'s arithmetic for a pictogram.
+ *
+ * The square is the largest that fits what the box has left once the label has
+ * been measured — a pictogram is a figure like a dial, so it fills the minor side
+ * and leaves the zone's own alignment to place it.
+ */
+export function iconFace(block, box, unit) {
+  const { width, height } = boxSize(box)
+  const at = stackUnit(block, box, unit)
+  const label = runBand(block?.label, 'caption', at, Math.max(1, width))
+  const room = Math.max(0, height - label.band)
+  return { label, room, size: Math.max(0, Math.min(width, room)), rise: at }
+}
+
+/**
+ * How long one gesture of a two-state icon takes, there and back, at least.
+ *
+ * The animations in the library are gestures between two states — a heart that
+ * fills, a checkbox that ticks — lasting a third of a second. Played once, the
+ * icon is a still picture for the rest of the scene; looped from the start, it
+ * snaps back to its first state every time. So a two-state icon rests on one
+ * state and visits the other, on this period.
+ */
+export const ICON_CYCLE_SECONDS = 2.4
+
+/**
+ * The frame of the icon's own animation to show, on a frame of the scene.
+ *
+ * `loop` icons — a spinner, a pulse, an arrow bobbing — simply run.
+ *
+ * A `toggle` icon RESTS, and which state it rests in is the thing a rendered
+ * frame had to settle. The first version held at the animation's END, which is
+ * right for the half of the library that DRAWS something — a tick, a filled
+ * heart — and wrong for the other half, where the end state is a negation: a
+ * probe sheet came back with a crossed-out bell, a crossed-out eye, a muted
+ * microphone and a magnifier turned into an X, each of them sitting in that
+ * state for most of its scene. An icon that spends its scene saying "off" is an
+ * icon that says the opposite of the word under it.
+ *
+ * So `rest` says which end is the icon's identity: `end` draws the gesture and
+ * holds it, `start` visits the other state and comes back. And `to` bounds how
+ * far a visit goes, for the ones whose second half is the negation itself — a
+ * bell that shakes without ever crossing out.
+ *
+ * Pure and deterministic: the same scene frame is the same icon frame in every
+ * render tab.
+ */
+export function iconFrame(frame, fps, { fr = 30, frames = 1, mode = 'toggle', rest = 'end', to = 1 } = {}) {
+  const span = Math.max(1, Number(frames) || 1)
+  const rate = Math.max(1, Number(fr) || 30)
+  const t = Math.max(0, Number(frame) || 0) / Math.max(1, Number(fps) || 30)
+  if (mode === 'loop') return (t * rate) % span
+  const reach = clamp01(to) * (span - 1)
+  const gesture = Math.max(0.1, reach / rate)
+  const period = Math.max(ICON_CYCLE_SECONDS, (rest === 'start' ? 2 : 1) * gesture + 1)
+  const at = t % period
+  if (rest === 'end') return (at < gesture ? at / gesture : 1) * reach
+  const done = at < gesture ? at / gesture : at < 2 * gesture ? 1 - (at - gesture) / gesture : 0
+  return done * reach
+}
+
+/**
+ * The animation, repainted in two measured colours.
+ *
+ * Every stroke and fill the library draws is black or white: the black is the
+ * pictogram, the white is a knockout — a gap drawn over a line so that two
+ * strokes read as crossing. So the dark ones become `ink` and the light ones
+ * `knockout`, the colour of the surface under the icon, and nothing the
+ * animation carried reaches the frame. A new object: the library's own is shared
+ * by every icon of every film this tab renders.
+ */
+export function recolourLottie(data, ink, knockout) {
+  const unit = (hex) => {
+    const rgb = channels(hex)
+    return rgb ? [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1] : [0, 0, 0, 1]
+  }
+  const dark = unit(ink)
+  const light = unit(knockout)
+  const pick = (value) => {
+    if (!Array.isArray(value) || value.length < 3 || typeof value[0] !== 'number') return value
+    const lum = 0.2126 * value[0] + 0.7152 * value[1] + 0.0722 * value[2]
+    return (lum < 0.5 ? dark : light).slice(0, Math.max(3, value.length))
+  }
+  const walk = (node) => {
+    if (Array.isArray(node)) return node.map(walk)
+    if (!node || typeof node !== 'object') return node
+    const out = {}
+    for (const [key, value] of Object.entries(node)) out[key] = walk(value)
+    if ((node.ty === 'st' || node.ty === 'fl') && node.c && typeof node.c === 'object') {
+      out.c = node.c.a
+        ? { ...out.c, k: (out.c.k || []).map((key) => ({ ...key, ...(key.s ? { s: pick(key.s) } : {}), ...(key.e ? { e: pick(key.e) } : {}) })) }
+        : { ...out.c, k: pick(out.c.k) }
+    }
+    return out
+  }
+  return walk(data)
 }

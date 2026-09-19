@@ -104,6 +104,7 @@ export const BLOCK_LIMITS = {
   ringImagesMin: 3,
   ringImages: 6,
   clockLabel: 24,
+  iconLabel: 24,
   dateStamp: 30,
   progressLabel: 24,
   gridCellsMin: 4,
@@ -146,6 +147,52 @@ export const SCENE_TONES = ['direction', 'inverse', 'accent']
 
 /** How the letters of a heading come alive. Absent means the word mask. Mirrors timeline.ts. */
 export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave', 'particles']
+
+/**
+ * The animated icons a film may name — a closed list, named by what they SHOW.
+ *
+ * Drawn by `animatedIcon` from a library of Lottie animations bundled in the
+ * worker (`react-useanimations`, MIT): the names here are plain words chosen
+ * for the model, and the worker maps each to its animation. No brand mark is in
+ * the list — a logo is somebody's property, and a film that drew one would be
+ * speaking for them.
+ */
+export const ICON_NAMES = [
+  'pulse',
+  'alert',
+  'arrowDown',
+  'arrowUp',
+  'next',
+  'bookmark',
+  'calendar',
+  'check',
+  'checkbox',
+  'edit',
+  'compass',
+  'folder',
+  'heart',
+  'home',
+  'infinity',
+  'loading',
+  'lock',
+  'mail',
+  'menu',
+  'microphone',
+  'bell',
+  'play',
+  'scroll',
+  'search',
+  'settings',
+  'share',
+  'star',
+  'like',
+  'userPlus',
+  'video',
+  'eye',
+  'volume',
+  'zoom',
+  'download',
+]
 
 export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image']
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
@@ -797,6 +844,10 @@ const BLOCK_READERS = {
   separator: blockReader(['treatment', 'extent'], (v, w) => ({
     treatment: enumValue(v.treatment, ['rule', 'double', 'dots'], 'rule', `${w}.treatment`),
     extent: enumValue(v.extent, ['short', 'measure', 'full'], 'measure', `${w}.extent`),
+  })),
+  animatedIcon: blockReader(['icon', 'label'], (v, w) => ({
+    icon: enumValue(v.icon, ICON_NAMES, undefined, `${w}.icon`),
+    label: readOptionalText(v.label, BLOCK_LIMITS.iconLabel, `${w}.label`),
   })),
   progressBar: blockReader(['to', 'label', 'showValue'], (v, w) => ({
     to: readInt(v.to, 0, 100, undefined, `${w}.to`),

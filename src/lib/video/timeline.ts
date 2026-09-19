@@ -266,6 +266,7 @@ export const BLOCK_LIMITS = {
   ringImagesMin: 3,
   ringImages: 6,
   clockLabel: 24,
+  iconLabel: 24,
   dateStamp: 30,
   progressLabel: 24,
   gridCellsMin: 4,
@@ -363,6 +364,52 @@ export const SCENE_TONES = ['direction', 'inverse', 'accent'] as const
 export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave', 'particles'] as const
 
 /**
+ * The animated icons a film may name — a closed list, named by what they SHOW.
+ *
+ * Drawn by `animatedIcon` from a library of Lottie animations bundled in the
+ * worker (`react-useanimations`, MIT): the names here are plain words chosen
+ * for the model, and the worker maps each to its animation. No brand mark is in
+ * the list — a logo is somebody's property, and a film that drew one would be
+ * speaking for them.
+ */
+export const ICON_NAMES = [
+  'pulse',
+  'alert',
+  'arrowDown',
+  'arrowUp',
+  'next',
+  'bookmark',
+  'calendar',
+  'check',
+  'checkbox',
+  'edit',
+  'compass',
+  'folder',
+  'heart',
+  'home',
+  'infinity',
+  'loading',
+  'lock',
+  'mail',
+  'menu',
+  'microphone',
+  'bell',
+  'play',
+  'scroll',
+  'search',
+  'settings',
+  'share',
+  'star',
+  'like',
+  'userPlus',
+  'video',
+  'eye',
+  'volume',
+  'zoom',
+  'download',
+] as const
+
+/**
  * The block catalogue, by family.
  *
  * The families are not decoration: the compose prompt reads this map so a model
@@ -390,7 +437,7 @@ export const BLOCK_FAMILIES = {
    */
   data: ['barChart', 'lineChart', 'equalizer', 'soundWave', 'map', 'globe', 'solidChart'],
   media: ['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp', 'photoStage', 'photoRing'],
-  misc: ['separator', 'progressBar'],
+  misc: ['separator', 'progressBar', 'animatedIcon'],
   /**
    * The blocks that cost a scene rather than a corner of one.
    *
@@ -1323,6 +1370,15 @@ export const ClockBlockSchema = block('clock', {
   label: line(BLOCK_LIMITS.clockLabel).nullable().default(null),
 })
 
+/**
+ * An icon that moves: a pictogram out of `ICON_NAMES`, and a short label under it.
+ * The colour is the palette's ornament, never the animation's own.
+ */
+export const AnimatedIconBlockSchema = block('animatedIcon', {
+  icon: z.enum(ICON_NAMES),
+  label: line(BLOCK_LIMITS.iconLabel).nullable().default(null),
+})
+
 /** A date, as the document writes it. Same rule as the clock: never the host's own. */
 export const DateStampBlockSchema = block('dateStamp', {
   text: line(BLOCK_LIMITS.dateStamp),
@@ -1584,6 +1640,7 @@ export const BlockSchema = z.discriminatedUnion('kind', [
   PhotoRingBlockSchema,
   SeparatorBlockSchema,
   ProgressBarBlockSchema,
+  AnimatedIconBlockSchema,
   CodeBlockSchema,
   SolidSceneBlockSchema,
   ExtrudedTypeBlockSchema,

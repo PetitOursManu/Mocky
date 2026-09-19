@@ -492,6 +492,12 @@ export async function proposeVideoTimeline(
      * `theme` (only what this request declared) over it. Always a revision.
      */
     previousHash?: string
+    /**
+     * Where a PAGE film goes: the section Muse placed it in and its one sentence
+     * about why. With it, the brief is read as the page's request rather than the
+     * film's, and the kind's word budget is what the film may say.
+     */
+    placement?: { section?: string; why?: string }
     signal?: AbortSignal
   } = {},
 ): Promise<VideoProposal> {
@@ -528,6 +534,7 @@ export async function proposeVideoTimeline(
         : undefined,
       revise: opts.previous && opts.revise ? true : undefined,
       previousHash: opts.previousHash || undefined,
+      placement: opts.placement ?? undefined,
     }),
     signal: opts.signal,
   })

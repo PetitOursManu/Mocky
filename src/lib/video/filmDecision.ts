@@ -32,14 +32,22 @@ export function decideFilm(opts: {
   kinds: readonly string[]
   /** The dossier's answer when Muse ran and was asked; undefined otherwise. */
   dossier?: DossierFilm
-}): { kind: string; section?: string } | null {
+}): { kind: string; section?: string; why?: string } | null {
   if (opts.mode === 'off' || opts.kinds.length === 0) return null
   const offered = (kind?: string) => (kind && opts.kinds.includes(kind) ? kind : undefined)
   if (opts.dossier) {
     const kind = offered(opts.dossier.kind)
     // The server already forced `wanted` under "on"; this only refuses a kind
     // the account cannot render, which a stale panel could still send back.
-    if (opts.dossier.wanted && kind) return { kind, ...(opts.dossier.section ? { section: opts.dossier.section } : {}) }
+    if (opts.dossier.wanted && kind) {
+      return {
+        kind,
+        ...(opts.dossier.section ? { section: opts.dossier.section } : {}),
+        // The dossier's one sentence about why a film belongs here: the composer
+        // reads it as WHERE the film goes, which is what bounds what it says.
+        ...(opts.dossier.why ? { why: opts.dossier.why } : {}),
+      }
+    }
     if (opts.mode !== 'on') return null
   }
   if (opts.mode !== 'on') return null

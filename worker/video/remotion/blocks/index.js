@@ -27,6 +27,7 @@
 // A block that reached for a frame hook would take the whole registry out of the
 // test that proves the registry is complete, which is a much larger loss than
 // whatever the hook was for.
+import { AnimatedIcon } from './animatedIcon.jsx'
 import { AnimatedList } from './animatedList.jsx'
 import { BarChart } from './barChart.jsx'
 import { Button } from './button.jsx'
@@ -111,6 +112,7 @@ export const BLOCKS = {
   photoRing: PhotoRing,
   separator: Separator,
   progressBar: ProgressBar,
+  animatedIcon: AnimatedIcon,
   codeBlock: CodeBlock,
   solidScene: SolidScene,
   extrudedType: ExtrudedType,

@@ -107,6 +107,7 @@ export const BLOCK_LIMITS = {
   ringImagesMin: 3,
   ringImages: 6,
   clockLabel: 24,
+  iconLabel: 24,
   dateStamp: 30,
   progressLabel: 24,
   gridCellsMin: 4,
@@ -151,6 +152,52 @@ export const SCENE_TONES = ['direction', 'inverse', 'accent']
 /** How the letters of a heading come alive. Absent means the word mask. See timeline.ts. */
 export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave', 'particles']
 
+/**
+ * The animated icons a film may name — a closed list, named by what they SHOW.
+ *
+ * Drawn by `animatedIcon` from a library of Lottie animations bundled in the
+ * worker (`react-useanimations`, MIT): the names here are plain words chosen
+ * for the model, and the worker maps each to its animation. No brand mark is in
+ * the list — a logo is somebody's property, and a film that drew one would be
+ * speaking for them.
+ */
+export const ICON_NAMES = [
+  'pulse',
+  'alert',
+  'arrowDown',
+  'arrowUp',
+  'next',
+  'bookmark',
+  'calendar',
+  'check',
+  'checkbox',
+  'edit',
+  'compass',
+  'folder',
+  'heart',
+  'home',
+  'infinity',
+  'loading',
+  'lock',
+  'mail',
+  'menu',
+  'microphone',
+  'bell',
+  'play',
+  'scroll',
+  'search',
+  'settings',
+  'share',
+  'star',
+  'like',
+  'userPlus',
+  'video',
+  'eye',
+  'volume',
+  'zoom',
+  'download',
+]
+
 /** The block catalogue, by family. The compose prompt reads this map. */
 export const BLOCK_FAMILIES = {
   text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
@@ -160,7 +207,7 @@ export const BLOCK_FAMILIES = {
   // where a model looks rather than what they cost. See timeline.ts.
   data: ['barChart', 'lineChart', 'equalizer', 'soundWave', 'map', 'globe', 'solidChart'],
   media: ['imageFrame', 'gallery', 'carousel', 'clock', 'dateStamp', 'photoStage', 'photoRing'],
-  misc: ['separator', 'progressBar'],
+  misc: ['separator', 'progressBar', 'animatedIcon'],
   /** The three blocks that cost a scene rather than a corner of one. See timeline.ts. */
   setPiece: ['codeBlock', 'solidScene', 'extrudedType'],
   /** The three that are a SPACE rather than a thing standing in one. See timeline.ts. */
@@ -535,6 +582,15 @@ export const ClockBlockSchema = block('clock', {
   label: line(BLOCK_LIMITS.clockLabel).nullable().default(null),
 })
 
+/**
+ * An icon that moves: a pictogram out of `ICON_NAMES`, and a short label under it.
+ * The colour is the palette's ornament, never the animation's own.
+ */
+export const AnimatedIconBlockSchema = block('animatedIcon', {
+  icon: z.enum(ICON_NAMES),
+  label: line(BLOCK_LIMITS.iconLabel).nullable().default(null),
+})
+
 export const DateStampBlockSchema = block('dateStamp', {
   text: line(BLOCK_LIMITS.dateStamp),
   treatment: z.enum(['plain', 'boxed', 'rule']).default('rule'),
@@ -652,6 +708,7 @@ export const BlockSchema = z.discriminatedUnion('kind', [
   PhotoRingBlockSchema,
   SeparatorBlockSchema,
   ProgressBarBlockSchema,
+  AnimatedIconBlockSchema,
   CodeBlockSchema,
   SolidSceneBlockSchema,
   ExtrudedTypeBlockSchema,

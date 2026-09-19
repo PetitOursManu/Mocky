@@ -63,7 +63,7 @@ export const MOTION_KIND_SPECS = {
   hero: {
     what: 'the opening statement of a page, at the top, behind or above the first words a visitor reads.',
     right: 'the screen needs one idea delivered before anything is scrolled.',
-    wrong: 'when it carries a second and a third idea. A hero that says three things says none of them, and the page below it is where the rest goes.',
+    wrong: 'when it carries a second and a third idea, or presents what the page sells. A hero that says three things says none of them; the products, plans and offers are the page below it, in text it can change.',
     blocks: [
       'heading',
       'kicker',
@@ -73,6 +73,7 @@ export const MOTION_KIND_SPECS = {
       'quote',
       'textHighlight',
       'separator',
+      'animatedIcon',
       'imageFrame',
       'extrudedType',
       'solidScene',
@@ -83,8 +84,13 @@ export const MOTION_KIND_SPECS = {
     grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image'],
     signature: ['heading', 'funTitle', 'typewriter', 'extrudedType'],
     aspectRatio: '16:9',
-    scenes: { min: 1, max: 3 },
-    sceneMs: { min: 2500, max: 6000 },
+    // Two scenes, and a scene may hold eight seconds. A third scene was where the
+    // products and the plans went: a strong opening followed by a slide of text
+    // the page already sets beside the film. Holding the opening is the answer.
+    scenes: { min: 1, max: 2 },
+    sceneMs: { min: 2500, max: 8000 },
+    // The page's own headline is right beside a hero: the film says one line.
+    words: 10,
   },
 
   background: {
@@ -113,18 +119,41 @@ export const MOTION_KIND_SPECS = {
     // reading happening on top of it, and the film loops in the page.
     scenes: { min: 1, max: 1 },
     sceneMs: { min: 6000, max: 12000 },
+    words: 0,
   },
 
   banner: {
-    what: 'a wide strip that announces one thing — a launch, a date, a name.',
-    right: 'the page has a rail or a header band and the announcement has to fit in it.',
-    wrong: 'as a small film. There is no room for a scene that develops: whatever is not readable in the first beat is not read.',
-    blocks: ['kicker', 'heading', 'logoType', 'dateStamp', 'button', 'separator', 'progressBar', 'counter', 'clock', 'textHighlight'],
-    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'mesh'],
-    signature: ['kicker', 'heading', 'logoType', 'dateStamp'],
+    what: 'a wide strip of the page, beside or behind its own words: a short title at most, and movement doing the rest.',
+    right: 'the page has a rail or a header band that should feel alive — a launch, a name, a mood.',
+    wrong: 'as a small film or a notice board. Whatever is not readable in the first beat is not read, and a sentence in a band competes with the heading the page sets next to it.',
+    /*
+     * Motion first. The band used to be made of type and furniture only — a
+     * kicker, a heading, a date, a button — so a model could only fill it with
+     * words. The fields and the moving surfaces are what a band is FOR: the 3D
+     * ones are withheld by the permission like everywhere else, and the flat two
+     * keep the kind alive without it.
+     */
+    blocks: [
+      'heading',
+      'kicker',
+      'logoType',
+      'funTitle',
+      'separator',
+      'soundWave',
+      'equalizer',
+      'particleField',
+      'waveMesh',
+      'depthGrid',
+      'dateStamp',
+      'textHighlight',
+      'animatedIcon',
+    ],
+    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world'],
+    signature: ['kicker', 'heading', 'logoType', 'funTitle'],
     aspectRatio: '16:9',
     scenes: { min: 1, max: 2 },
-    sceneMs: { min: 2000, max: 4500 },
+    sceneMs: { min: 2000, max: 6000 },
+    words: 8,
   },
 
   showcase: {
@@ -146,6 +175,7 @@ export const MOTION_KIND_SPECS = {
       'form',
       'notification',
       'codeBlock',
+      'animatedIcon',
     ],
     grounds: ['solid', 'gradient', 'hairlines', 'image'],
     // Every one needs a picture, which is the point: a showcase with nothing to
@@ -154,6 +184,8 @@ export const MOTION_KIND_SPECS = {
     aspectRatio: '1:1',
     scenes: { min: 1, max: 4 },
     sceneMs: { min: 2500, max: 6000 },
+    // The noun and the one reason: never the list of features.
+    words: 12,
   },
 
   figure: {
@@ -178,6 +210,8 @@ export const MOTION_KIND_SPECS = {
     aspectRatio: '16:9',
     scenes: { min: 1, max: 4 },
     sceneMs: { min: 2500, max: 6000 },
+    // More than a hero: a chart's labels are words, and they are the data.
+    words: 18,
   },
 
   globe: {
@@ -190,6 +224,7 @@ export const MOTION_KIND_SPECS = {
     aspectRatio: '16:9',
     scenes: { min: 1, max: 3 },
     sceneMs: { min: 3000, max: 7000 },
+    words: 10,
   },
 
   mark: {
@@ -202,6 +237,8 @@ export const MOTION_KIND_SPECS = {
     aspectRatio: '1:1',
     scenes: { min: 1, max: 2 },
     sceneMs: { min: 2000, max: 5000 },
+    // The name, and perhaps the line under it.
+    words: 5,
   },
 
   story: {
@@ -226,12 +263,15 @@ export const MOTION_KIND_SPECS = {
       'lowerThird',
       'notification',
       'textHighlight',
+      'animatedIcon',
     ],
     grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image'],
     signature: ['heading', 'kicker', 'quote', 'typewriter'],
     aspectRatio: '9:16',
     scenes: { min: 2, max: 6 },
     sceneMs: { min: 1500, max: 4000 },
+    // A story leaves the page, so it may say more — a few words per beat.
+    words: 24,
   },
 }
 
@@ -344,6 +384,9 @@ export function motionKindCard(kind) {
     `- it goes wrong ${spec.wrong}`,
     `- scenes: ${spec.scenes.min} to ${spec.scenes.max}, each ${spec.sceneMs.min} to ${spec.sceneMs.max} ms.`,
     `  Those are this kind's own numbers and they are narrower than the catalogue's.`,
+    spec.words === 0
+      ? '- words: none. Not one block that sets text; the page sets its own words over this film.'
+      : `- words: at most ${spec.words} in the WHOLE film, every line of every block counted. A film over that is sent back.`,
     `- aspectRatio: ${spec.aspectRatio}. It is the shape of the place this film is going, so it is the one to use.`,
     '- The catalogue below is already the part of it this kind is made of. Nothing was left out by mistake:',
     '  a block that is not there is one that would make this film something else.',

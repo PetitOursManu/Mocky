@@ -1504,6 +1504,10 @@ export default function ProjectView({
                 settings,
                 theme,
                 motionKind: museFilm.kind,
+                // The film is ONE element of this page: where it goes, and why. With
+                // it the page's prompt is read as the page's, not as a script for the
+                // film, and the kind's word budget bounds what the film says.
+                placement: { section: museFilm.section || museFilm.kind, why: museFilm.why },
                 // The dossier in its own words. Not the theme, which travels
                 // separately and never reaches the model: this is what makes a
                 // film RESEMBLE the direction rather than merely carry its

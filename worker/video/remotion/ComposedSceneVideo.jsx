@@ -27,6 +27,8 @@ import { blockCanvas, sceneCanvasImages } from './blocks/canvases.js'
 import { useStageTextures } from './textures.js'
 import { useMemo } from 'react'
 import { WorldGround } from './WorldGround.jsx'
+import { IconPlayer } from './blocks/iconPlayer.js'
+import { LottieIcon } from './LottieIcon.jsx'
 import { worldFlights, worldRules, worldShapes, worldStones, worldTravel } from './world.js'
 
 /**
@@ -628,6 +630,9 @@ export const ComposedSceneVideo = ({ timeline, imageSrc }) => {
   }
 
   return (
+    // The Lottie player, handed to `animatedIcon` rather than imported by it —
+    // see `blocks/iconPlayer.js`.
+    <IconPlayer.Provider value={LottieIcon}>
     <AbsoluteFill style={{ backgroundColor: theme.background }}>
       {plan.scenes.map((entry, index) => (
         <Sequence key={index} from={entry.from} durationInFrames={entry.durationInFrames}>
@@ -643,5 +648,6 @@ export const ComposedSceneVideo = ({ timeline, imageSrc }) => {
         </Sequence>
       ))}
     </AbsoluteFill>
+    </IconPlayer.Provider>
   )
 }

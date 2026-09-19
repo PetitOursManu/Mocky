@@ -127,6 +127,8 @@ export const WORKED_SCENES = [
   { ground: 'gradient', layers: [['notification', 'top-right'], ['heading', 'bottom-left']], why: 'the product speaking first, the sentence answering it from the opposite corner' },
   { ground: 'hairlines', layers: [['map', 'full'], ['dateStamp', 'bottom-right']], why: 'where and when, and nothing else' },
   { ground: 'solid', layers: [['textHighlight', 'center']], why: 'the sentence with its one important word marked' },
+  { ground: 'gradient', layers: [['animatedIcon', 'center'], ['heading', 'bottom-center']], why: 'one gesture, and the line it belongs to' },
+  { ground: 'hairlines', layers: [['animatedIcon', 'center-right'], ['kicker', 'center-left']], why: 'a pictogram doing the moving, a surtitle doing the saying' },
   { ground: 'gridPulse', layers: [['lineChart', 'center-right'], ['heading', 'center-left']], why: 'a trend and the claim it supports, side by side' },
   { ground: 'solid', layers: [['gallery', 'full']], why: 'the pictures themselves, as the whole scene' },
   { ground: 'gradient', layers: [['clock', 'center-left'], ['heading', 'center-right']], why: 'a moment in time and what happens at it' },

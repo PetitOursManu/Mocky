@@ -16,7 +16,20 @@ import {
   typeRole,
   typeSize,
 } from '../composition.js'
-import { ENTER_RISE, boxSize, constantMetric, enterRise, runBand, stackUnit, tileGutter, tracks } from './media.js'
+import {
+  ENTER_RISE,
+  ICON_CYCLE_SECONDS,
+  boxSize,
+  constantMetric,
+  enterRise,
+  iconFace,
+  iconFrame,
+  recolourLottie,
+  runBand,
+  stackUnit,
+  tileGutter,
+  tracks,
+} from './media.js'
 
 const SPANS = [1688, 950, 906, 400, 137, 40]
 const COUNTS = [1, 2, 3, 4, 5, 6, 8]
@@ -214,5 +227,82 @@ describe('boxSize — a box, whatever arrived', () => {
       expect(width).toBeGreaterThanOrEqual(0)
       expect(height).toBeGreaterThanOrEqual(0)
     }
+  })
+})
+
+describe('animatedIcon — a pictogram that moves', () => {
+  /** A square in the box, and the label measured out of it first, exactly as a dial is. */
+  it('gives the icon the largest square the box has left under its label', () => {
+    const box = { width: 400, height: 300 }
+    const bare = iconFace({ kind: 'animatedIcon' }, box, 30)
+    expect(bare.size).toBe(300)
+    const labelled = iconFace({ kind: 'animatedIcon', label: 'Ajouter' }, box, 30)
+    expect(labelled.size).toBeLessThan(bare.size)
+    expect(labelled.size).toBe(Math.min(400, 300 - labelled.label.band))
+    // A box narrower than it is tall: the square is the minor side.
+    expect(iconFace({ kind: 'animatedIcon' }, { width: 120, height: 300 }, 30).size).toBe(120)
+  })
+
+  /**
+   * A gesture goes there and back on a period a viewer can read; a motion runs.
+   * Deterministic in both cases: the same scene frame is the same icon frame.
+   */
+  it('draws a gesture and holds it, when the end state is the icon', () => {
+    const at = (frame) => iconFrame(frame, 30, { fr: 30, frames: 10, mode: 'toggle' })
+    expect(at(0)).toBe(0)
+    // Halfway through the gesture, halfway to the state it will hold.
+    expect(at(5)).toBeCloseTo(5, 6)
+    expect(at(9)).toBeCloseTo(9, 6)
+    // And it stays there for the rest of the period, then draws again.
+    expect(at(20)).toBeCloseTo(9, 6)
+    expect(at(ICON_CYCLE_SECONDS * 30)).toBe(0)
+    // Nothing here reads a clock or a die.
+    expect(at(7)).toBe(at(7))
+  })
+
+  /**
+   * The half of the library whose second state is a negation. A rendered probe
+   * sheet had a crossed-out bell sitting there for most of its scene; these
+   * visit and come back, and never reach the crossing at all.
+   */
+  it('visits and returns, when the icon is the state it starts in', () => {
+    const at = (frame) => iconFrame(frame, 30, { fr: 30, frames: 21, mode: 'toggle', rest: 'start', to: 0.5 })
+    expect(at(0)).toBe(0)
+    // Never past the share it was given: half of twenty frames is ten.
+    const reach = 0.5 * 20
+    for (let f = 0; f < 200; f++) expect(at(f)).toBeLessThanOrEqual(reach + 1e-9)
+    expect(at(10)).toBeCloseTo(reach, 6)
+    expect(at(15)).toBeLessThan(at(10))
+    // And it rests where it started, which is what the word under it names.
+    expect(at(25)).toBe(0)
+  })
+
+  it('runs a loop, and wraps', () => {
+    const at = (frame) => iconFrame(frame, 30, { fr: 30, frames: 10, mode: 'loop' })
+    expect(at(0)).toBe(0)
+    expect(at(5)).toBe(5)
+    expect(at(12)).toBe(2)
+  })
+
+  /**
+   * Every colour of the library is replaced before it is drawn, which is what
+   * makes a bundled animation as measured as anything else on the frame.
+   */
+  it('repaints an animation in two measured colours and copies it', () => {
+    const data = {
+      layers: [
+        { shapes: [{ ty: 'st', c: { a: 0, k: [0, 0, 0, 1] } }, { ty: 'fl', c: { a: 0, k: [1, 1, 1, 1] } }] },
+        { shapes: [{ ty: 'fl', c: { a: 1, k: [{ s: [0, 0, 0, 1], e: [1, 1, 1, 1] }] } }] },
+      ],
+    }
+    const painted = recolourLottie(data, '#ff0000', '#0000ff')
+    const [stroke, fill] = painted.layers[0].shapes
+    expect(stroke.c.k).toEqual([1, 0, 0, 1])
+    expect(fill.c.k).toEqual([0, 0, 1, 1])
+    const keyed = painted.layers[1].shapes[0].c.k[0]
+    expect(keyed.s).toEqual([1, 0, 0, 1])
+    expect(keyed.e).toEqual([0, 0, 1, 1])
+    // The library's own object is shared by every film this tab renders.
+    expect(data.layers[0].shapes[0].c.k).toEqual([0, 0, 0, 1])
   })
 })

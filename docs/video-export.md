@@ -3606,6 +3606,73 @@ each language, and no orphan in either direction.
 is a fact about the BUILD rather than about the account, and it names nothing an
 account could not read in the source.
 
+### A film in a page says almost nothing, and the words are counted
+
+Two real films showed what a page film does wrong when nothing stops it. The
+brief a page film is composed from IS the page's own request — products, plans,
+prices, features — so a model asked for a film "about" it retells it: a strong
+three-dimensional opening, then two scenes presenting the offer. That film spends
+the viewer on words the page already sets beside it, and burns into an mp4 facts
+nobody re-renders it for when they change.
+
+Three things answer it, and only the first is prose.
+
+- **The film knows it is IN a page.** `decideFilm` carries the dossier's
+  `section` and `why` through to `/compose` as `placement`; the brief is then
+  headed "THE PAGE THIS FILM IS PART OF", the placement travels beside it in the
+  user turn as data (Q5), and the system turn gains "A FILM IN A PAGE": the page
+  states its own products and prices in text it can edit, so the film states none
+  of them; it carries movement, depth and at most one line; and it never gets
+  longer to explain — a strong scene HOLDS instead of cutting to a slide of text.
+- **The kind carries a word budget** (`MOTION_KIND_SPECS[kind].words`, printed on
+  the kind's card): none for a `background`, five for a `mark`, eight for a
+  `banner`, ten for a `hero`, twelve for a `showcase`, eighteen for a `figure`,
+  twenty-four for a `story`. `server/video/text-budget.js` counts every line of
+  every block against it, and a price anywhere is an issue of its own.
+- **Over budget, the MODEL is asked again** — the same one correction a schema
+  refusal gets, with the count and the worst scene named. Nothing is truncated
+  here: which line is the strongest is the model's call. A second answer still
+  over budget is KEPT, with a notice (Q1): a film with too many words is still a
+  film, and the person reading the notice can revise it with a sentence.
+
+The counting reads the SCHEMA rather than the document, so an enum value
+(`display`, `center`) is never a word, a picture id is never text, and a block
+added to the catalogue is counted the day it arrives. A film composed freely from
+the export panel has no kind and no budget: that brief was written for the film.
+
+Two kinds changed shape with it. A `hero` is now at most two scenes of up to
+eight seconds rather than three of six — the third scene was where the products
+went — and a `banner` lost its notice-board furniture and gained the moving
+surfaces and the animated icon, because a band beside the page's own heading is
+motion with a short title, not a paragraph.
+
+### Animated icons: a pictogram that moves, in measured colour
+
+`animatedIcon` draws one of thirty-four Lottie animations from
+`react-useanimations` (MIT), bundled with the worker as JSON and never fetched —
+the fonts' rule for the fonts' reason. The model writes a NAME out of
+`ICON_NAMES` — `heart`, `bell`, `loading`, `scroll` — chosen for meaning rather
+than for the library's own spelling, and no brand mark is on the list:
+`tests/video-icons.test.js` holds the enum, its three mirrors and the worker's
+table to one list, and fails on a brand.
+
+Three things make it fit the rest of the catalogue:
+
+- **Colour.** Every stroke and fill the library ships is black or white; the dark
+  ones become `palette.accent` — the ornament run, at the 3:1 floor WCAG sets for
+  a graphic — and the light ones the ground's own colour, because they are
+  knockouts. `recolourLottie` copies the animation before repainting it, so the
+  library's shared object is never written to.
+- **Movement.** `iconFrame` is pure: a `loop` icon runs, a `toggle` icon goes
+  there, holds, comes back and holds on `ICON_CYCLE_SECONDS`. Played once, an
+  icon is a still picture for the rest of its scene; looped from the start, it
+  snaps back to its first state every time.
+- **Imports.** `blocks/animatedIcon.jsx` imports no Lottie package: the player is
+  handed to it through `IconPlayer` (React context), which `ComposedSceneVideo`
+  provides from `LottieIcon.jsx`. That is `canvases.js`'s arrangement for the 3D
+  blocks, in the shape a component needs — and it is what keeps `blocks/index.js`
+  loadable in Mocky's own suite, where no Lottie package is installed.
+
 ### The direction reaches the model, and the theme still does not
 
 A theme makes a film carry the project's colours. It cannot make a film RESEMBLE

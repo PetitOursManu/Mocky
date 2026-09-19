@@ -518,6 +518,9 @@ export function createVideoRouter({
          * proposal that could not be made is not a request that failed.
          */
         motionKind: req.body?.motionKind ?? null,
+        // Where a PAGE film goes — the section and the dossier's reason. Bounded and
+        // shaped by `proposeTimeline`; absent for a film composed from the panel.
+        placement: req.body?.placement ?? null,
         /*
          * The project's art direction, in its own words.
          *
