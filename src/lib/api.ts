@@ -240,6 +240,31 @@ export interface VideoExportConfig {
   threeDAccess: VideoAccessMode
   threeDAllowedUserIds: string[]
   workerUrl: string | null
+  /** How much rendering this SERVER carries — see RENDER_TIERS in server/video/config.js. */
+  renderTiers: VideoRenderTier[]
+  renderTier: VideoRenderTier
+  /** The last "Tester ce serveur" result, or null before the first. */
+  benchmark: VideoBenchmark | null
+}
+
+export type VideoRenderTier = 'flat' | 'limited' | 'full'
+
+/** One tier's line of a server test, as `benchmarkEstimates` computes it. */
+export interface VideoBenchmarkTier {
+  renderMs: number
+  perSecond: number
+  typicalMs: number
+  filmsPerHour: number
+  simultaneousUsers: number
+}
+
+/** What "Tester ce serveur" answers (server/video/benchmark.js). */
+export interface VideoBenchmark {
+  at: number
+  filmMs: number
+  typicalFilmMs: number
+  tiers: Record<VideoRenderTier, VideoBenchmarkTier>
+  recommended: VideoRenderTier
 }
 
 /**
@@ -259,6 +284,7 @@ export interface VideoExportConfigPatch {
   threeDAccess?: VideoAccessMode
   threeDAllowedUserIds?: string[]
   workerUrl?: string | null
+  renderTier?: VideoRenderTier
 }
 
 /** What the worker probe answers. Never an error: "I could not tell" is a state. */
@@ -394,5 +420,7 @@ export const api = {
      * down — while looking at the very panel where its URL is typed.
      */
     videoWorkerHealth: () => req('/api/admin/video/health') as Promise<VideoWorkerHealth>,
+    /** Render the three reference films and measure them. About a minute; 409 while a render runs. */
+    runVideoBenchmark: () => req('/api/admin/video/benchmark', { method: 'POST' }) as Promise<VideoBenchmark>,
   },
 }

@@ -1521,7 +1521,7 @@ app.use(
 // The worker is handed to the admin router too, so the panel that owns the URL
 // field can probe it: an admin is not implicitly on the allowlist, so the
 // per-account /api/video/status would answer them "no-access" instead.
-app.use('/api/admin/video', requireAdmin, createVideoAdminRouter({ config: videoConfig, worker: videoWorker }))
+app.use('/api/admin/video', requireAdmin, createVideoAdminRouter({ config: videoConfig, worker: videoWorker, queue: videoQueue }))
 
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {

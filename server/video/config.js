@@ -74,6 +74,23 @@ export const DEFAULT_THREE_D_ACCESS = 'all'
  */
 export const DEFAULT_WORKER_URL = 'http://video-worker:3030'
 
+/**
+ * How much rendering this SERVER can carry, set by the administrator — ideally
+ * after "Tester ce serveur" (`benchmark.js`) has measured it.
+ *
+ * - `flat`: no 3D for anyone. The per-account 3D list below is not consulted:
+ *   a machine that cannot draw WebGL in time cannot do it for a favourite either.
+ * - `limited`: the 3D blocks that exist today, at most two per scene. What every
+ *   instance did before this setting existed, so it is the default and an upgrade
+ *   changes nothing.
+ * - `full`: reserved for the heavy engines — a continuous 3D world, particles
+ *   that draw type, 3D transitions. They check this tier as they arrive.
+ *
+ * A tier is about the MACHINE; the lists are about PEOPLE. Both must say yes.
+ */
+export const RENDER_TIERS = ['flat', 'limited', 'full']
+export const DEFAULT_RENDER_TIER = 'limited'
+
 export function defaultVideoConfig() {
   return {
     enabled: false,
@@ -87,6 +104,11 @@ export function defaultVideoConfig() {
     threeDAccess: DEFAULT_THREE_D_ACCESS,
     threeDAllowedUserIds: [],
     workerUrl: DEFAULT_WORKER_URL,
+    renderTier: DEFAULT_RENDER_TIER,
+    // The last "Tester ce serveur" result, kept so the panel can show it after a
+    // reload. Written by `recordBenchmark` only — never by a PUT from the panel,
+    // because a measurement an administrator could type in is not a measurement.
+    benchmark: null,
   }
 }
 
@@ -169,6 +191,8 @@ export function mergeVideoConfig(current, patch) {
     threeDAccess: ACCESS_MODES.includes(p.threeDAccess) ? p.threeDAccess : base.threeDAccess,
     threeDAllowedUserIds: mergeAllowedUserIds(p.threeDAllowedUserIds, base.threeDAllowedUserIds),
     workerUrl: mergeWorkerUrl(p.workerUrl, base.workerUrl),
+    renderTier: RENDER_TIERS.includes(p.renderTier) ? p.renderTier : RENDER_TIERS.includes(base.renderTier) ? base.renderTier : DEFAULT_RENDER_TIER,
+    benchmark: base.benchmark && typeof base.benchmark === 'object' ? base.benchmark : null,
   }
 }
 
@@ -189,6 +213,9 @@ export function publicVideoConfig(cfg) {
     threeDAccess: ACCESS_MODES.includes(c.threeDAccess) ? c.threeDAccess : DEFAULT_THREE_D_ACCESS,
     threeDAllowedUserIds: Array.isArray(c.threeDAllowedUserIds) ? [...c.threeDAllowedUserIds] : [],
     workerUrl: c.workerUrl || null,
+    renderTiers: RENDER_TIERS,
+    renderTier: RENDER_TIERS.includes(c.renderTier) ? c.renderTier : DEFAULT_RENDER_TIER,
+    benchmark: c.benchmark && typeof c.benchmark === 'object' ? c.benchmark : null,
   }
 }
 
@@ -233,6 +260,8 @@ export function videoEnabledFor(cfg, user) {
 export function videoThreeDEnabledFor(cfg, user) {
   if (!videoEnabledFor(cfg, user)) return false
   const c = { ...defaultVideoConfig(), ...(cfg || {}) }
+  // The machine first: a server set to render flat renders flat for everyone.
+  if (c.renderTier === 'flat') return false
   if (c.threeDAccess === 'all') return true
   const id = typeof user?.id === 'string' ? user.id.trim() : ''
   if (!id) return false
@@ -247,7 +276,11 @@ export class VideoConfigStore {
 
   _load() {
     try {
-      return mergeVideoConfig(defaultVideoConfig(), JSON.parse(fs.readFileSync(this.file, 'utf8')))
+      const stored = JSON.parse(fs.readFileSync(this.file, 'utf8'))
+      // The merge treats its patch as a panel's PUT and so drops `benchmark` on
+      // purpose; the file on disk is not a PUT, and its last test is kept.
+      const merged = mergeVideoConfig(defaultVideoConfig(), stored)
+      return { ...merged, benchmark: stored?.benchmark && typeof stored.benchmark === 'object' ? stored.benchmark : null }
     } catch {
       return defaultVideoConfig()
     }
@@ -291,5 +324,17 @@ export class VideoConfigStore {
 
   threeDEnabledFor(user) {
     return videoThreeDEnabledFor(this.config, user)
+  }
+
+  /** The server's tier, for the engines that exist only at `full`. */
+  renderTier() {
+    return RENDER_TIERS.includes(this.config.renderTier) ? this.config.renderTier : DEFAULT_RENDER_TIER
+  }
+
+  /** Keep the last server test. The only way `benchmark` is ever written. */
+  recordBenchmark(result) {
+    this.config = { ...this.config, benchmark: result && typeof result === 'object' ? result : null }
+    this._write()
+    return this.config
   }
 }

@@ -66,6 +66,34 @@ export const video = {
       'Tous les comptes qui peuvent exporter peuvent aussi rendre en 3D. Cela ne concerne donc que les comptes autorisés ci-dessus.',
     'video.threeDNarrowsNote':
       'Ce réglage restreint la portée ci-dessus, il ne l’élargit pas : cocher un compte qui n’a pas Motion ne lui donne rien.',
+    // La puissance du SERVEUR, mesurée plutôt que devinée. Voir
+    // server/video/benchmark.js : les rendus passent un par un, donc « en même
+    // temps » veut dire « combien de personnes servies en moins de 3 min ».
+    'video.tierTitle': 'Puissance de rendu du serveur',
+    'video.tierHelp':
+      'Sans carte graphique, la 3D est dessinée par le processeur et coûte cher. Choisissez ce que cette machine peut porter — le bouton de test ci-dessous le mesure pour vous.',
+    'video.tierFlat': 'Sans 3D',
+    'video.tierFlatHelp': 'Films plats uniquement, pour tout le monde, quelles que soient les listes ci-dessus. Pour une petite machine.',
+    'video.tierLimited': '3D limitée',
+    'video.tierLimitedHelp': 'Les blocs 3D actuels (globe, objets, reliefs), deux au plus par scène. Le réglage par défaut.',
+    'video.tierFull': '3D complète',
+    'video.tierFullHelp':
+      'Réservé aux effets lourds qui arrivent : monde 3D continu, particules qui dessinent, transitions 3D. Pour une machine puissante.',
+    'video.tierRecommended': 'recommandé',
+    'video.benchmarkRun': 'Tester ce serveur',
+    'video.benchmarkRunning': 'Test en cours…',
+    'video.benchmarkRunningHint':
+      'Environ une minute : trois films de référence sont rendus. Les rendus des utilisateurs attendent la fin du test.',
+    'video.benchmarkNeedsWorker': 'Le worker de rendu doit répondre pour lancer le test.',
+    'video.benchmarkWhen': 'Dernier test : {when}',
+    'video.benchmarkTier': 'Niveau',
+    'video.benchmarkTypical': 'Film de {s} s',
+    'video.benchmarkPerHour': 'Films par heure',
+    'video.benchmarkTogether': 'Personnes servies en moins de 3 min',
+    'video.benchmarkRecommends': 'Pour cette machine : {tier}.',
+    'video.benchmarkApply': 'Choisir ce niveau',
+    'video.benchmarkNote':
+      'Estimations. Les rendus passent un par un : « personnes servies » compte combien de gens peuvent lancer un film au même moment et tous l’avoir en moins de trois minutes. N’oubliez pas d’enregistrer après avoir changé de niveau.',
 
     'video.advanced': 'Réglages avancés',
     'video.workerUrl': 'URL du worker de rendu',
@@ -480,6 +508,34 @@ export const video = {
       'Every account that can export can also render in 3D. That means the accounts allowed above, and nobody else.',
     'video.threeDNarrowsNote':
       'This setting narrows the scope above, it does not widen it: ticking an account that has no Motion grants it nothing.',
+    // The SERVER's power, measured rather than guessed. See
+    // server/video/benchmark.js: renders run one at a time, so "at once" means
+    // "how many people get their film within 3 min".
+    'video.tierTitle': 'Server render power',
+    'video.tierHelp':
+      'Without a graphics card, 3D is drawn by the CPU and is expensive. Choose what this machine can carry — the test button below measures it for you.',
+    'video.tierFlat': 'No 3D',
+    'video.tierFlatHelp': 'Flat films only, for everyone, whatever the lists above say. For a small machine.',
+    'video.tierLimited': 'Limited 3D',
+    'video.tierLimitedHelp': 'Today’s 3D blocks (globe, objects, reliefs), at most two per scene. The default.',
+    'video.tierFull': 'Full 3D',
+    'video.tierFullHelp':
+      'Reserved for the heavy effects on their way: a continuous 3D world, particles that draw, 3D transitions. For a powerful machine.',
+    'video.tierRecommended': 'recommended',
+    'video.benchmarkRun': 'Test this server',
+    'video.benchmarkRunning': 'Testing…',
+    'video.benchmarkRunningHint':
+      'About a minute: three reference films are rendered. Users’ renders wait until the test ends.',
+    'video.benchmarkNeedsWorker': 'The render worker must answer before the test can run.',
+    'video.benchmarkWhen': 'Last test: {when}',
+    'video.benchmarkTier': 'Tier',
+    'video.benchmarkTypical': '{s}-second film',
+    'video.benchmarkPerHour': 'Films per hour',
+    'video.benchmarkTogether': 'People served within 3 min',
+    'video.benchmarkRecommends': 'For this machine: {tier}.',
+    'video.benchmarkApply': 'Choose this tier',
+    'video.benchmarkNote':
+      'Estimates. Renders run one at a time: “people served” counts how many can launch a film at the same moment and all have it within three minutes. Remember to save after changing the tier.',
 
     'video.advanced': 'Advanced settings',
     'video.workerUrl': 'Render worker URL',

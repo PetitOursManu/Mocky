@@ -1779,6 +1779,22 @@ names one, is tried first when the film is placed in the page. The decision is n
 written into DESIGN.md: a film is about one screen, the direction about the
 project. And nothing is asked at all when Motion cannot run for the account.
 
+**How much the SERVER can carry is measured, then set.** With no graphics card,
+headless Chrome draws every WebGL frame on the CPU: on a twelve-core desktop a
+five-second film took 16 s flat, 28 s with one 3D block and 31 s with a 3D field
+under a 3D block. The admin panel's render tier (`renderTier`: `flat`, `limited` —
+the default and what every instance did before — or `full`, reserved for the
+heavy engines to come) bounds the per-account 3D lists: at `flat` nobody renders
+3D. "Tester ce serveur" (`POST /api/admin/video/benchmark`, `benchmark.js`)
+renders three hand-written reference films through the worker inside the queue's
+exclusive slot (`queue.runExclusive` — a user's render waits rather than getting a
+429, and the test is refused with a 409 while a render runs), and reports per
+tier the time of a twelve-second film, films per hour, and how many people can
+launch one at the same moment and all have it within three minutes — renders run
+one at a time, so that is the honest meaning of "simultaneous". It RECOMMENDS a
+tier; the administrator applies it and saves. The last result is kept in the
+config, written only by the test, never by a PUT.
+
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be
 validated against: `signature()` walks the schema and prints `≤70`,

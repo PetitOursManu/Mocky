@@ -25,6 +25,7 @@ import {
 } from './three-d.js'
 import { publicMotionKinds } from './kinds.js'
 import { HISTORY_FILMS } from './variety.js'
+import { runBenchmark } from './benchmark.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
 import { makeLlm, credsFromReq } from '../muse/llm.js'
 import { MAX_WORKER_PAYLOAD_BYTES, payloadBytesFor } from './worker.js'
@@ -1075,8 +1076,33 @@ export function createVideoRouter({
  * config is ever allowed to leave the server in — the licence key included, as a
  * boolean.
  */
-export function createVideoAdminRouter({ config, worker }) {
+export function createVideoAdminRouter({ config, worker, queue = null }) {
   const router = express.Router()
+
+  /**
+   * "Tester ce serveur": render three reference films and report what this
+   * machine can carry at each tier (`benchmark.js`).
+   *
+   * Under the queue's exclusive slot, so a user's render is never refused a 429
+   * because the test was holding the worker — and refused with a 409 when a
+   * render is already running, because a measurement taken behind somebody's
+   * film measures the wait. The result is kept so the panel still shows it after
+   * a reload; the TIER is not changed — recommending is the test's job, deciding
+   * is the administrator's.
+   */
+  router.post('/benchmark', async (req, res) => {
+    if (!worker?.render || !queue?.runExclusive) {
+      return res.status(503).json({ error: 'No render worker is wired up on this server.' })
+    }
+    try {
+      const result = await runBenchmark({ worker, queue })
+      config.recordBenchmark?.(result)
+      res.json(result)
+    } catch (err) {
+      if (err?.code === 'busy') return res.status(409).json({ error: err.message })
+      res.status(502).json({ error: `The server test could not finish: ${err instanceof Error ? err.message : String(err)}` })
+    }
+  })
 
   router.get('/config', (req, res) => {
     res.json(config.publicView())

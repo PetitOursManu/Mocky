@@ -282,6 +282,32 @@ export class VideoQueue {
     return new Promise((resolve) => this._idleWaiters.push(resolve))
   }
 
+  /**
+   * Hold the render slot for something that is not a job — the admin's server
+   * test — and refuse while anything else holds it.
+   *
+   * The worker renders one film at a time and answers 429 to a second, so a
+   * benchmark fired past the queue would make a user's render fail with "busy"
+   * for a reason nobody could see. Taking `running` here makes the queue wait
+   * instead: jobs enqueued meanwhile stay `queued` and start the moment this
+   * finishes. Refused rather than queued itself when the slot is taken, because a
+   * measurement taken behind someone's three-minute film measures the wait.
+   */
+  async runExclusive(label, fn) {
+    if (this.running || this.jobs.some((j) => j.status === 'queued')) {
+      const err = new Error('A render is in progress or waiting. Try again when the queue is empty.')
+      err.code = 'busy'
+      throw err
+    }
+    this.running = `exclusive:${label}`
+    try {
+      return await fn()
+    } finally {
+      this.running = null
+      this._pump()
+    }
+  }
+
   // ---- the loop ----------------------------------------------------------
 
   /**

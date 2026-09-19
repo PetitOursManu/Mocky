@@ -3,12 +3,14 @@ import {
   api,
   type AdminUser,
   type VideoAccessMode,
+  type VideoBenchmark,
   type VideoExportConfig,
+  type VideoRenderTier,
   type VideoExportConfigPatch,
   type VideoWorkerHealth,
 } from '../lib/api'
 import { Banner, Button, ButtonLink, Field, Icon, Input, Select } from '../ui'
-import { useT } from '../i18n'
+import { useLang, useT, type TranslationKey } from '../i18n'
 
 /** Translation keys, resolved at render — `useT` only runs inside a component. */
 const ACCESS_LABEL_KEYS: Record<string, string> = {
@@ -95,6 +97,9 @@ export default function VideoExportSettings() {
   const [threeDAccess, setThreeDAccess] = useState<VideoAccessMode>('all')
   const [threeDAllowed, setThreeDAllowed] = useState<string[]>([])
   const [workerUrl, setWorkerUrl] = useState('')
+  const [renderTier, setRenderTier] = useState<VideoRenderTier>('limited')
+  const [benchmarking, setBenchmarking] = useState(false)
+  const [benchmarkError, setBenchmarkError] = useState<string | null>(null)
   const [licenseKey, setLicenseKey] = useState('')
 
   const [saving, setSaving] = useState(false)
@@ -110,6 +115,7 @@ export default function VideoExportSettings() {
     setThreeDAccess(c.threeDAccess)
     setThreeDAllowed(c.threeDAllowedUserIds)
     setWorkerUrl(c.workerUrl || '')
+    setRenderTier(c.renderTier)
     setLicenseKey('')
     setSaved(false)
   }
@@ -161,6 +167,7 @@ export default function VideoExportSettings() {
         allowedUserIds: allowed,
         threeDAccess,
         threeDAllowedUserIds: threeDAllowed,
+        renderTier,
         workerUrl: workerUrl.trim() || null,
         // '' would be read as "keep", which is what we want for an untouched
         // field — the key is set only when something was typed.
@@ -171,6 +178,25 @@ export default function VideoExportSettings() {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  /**
+   * "Tester ce serveur". Immediate, not part of the form: it measures, it does
+   * not decide — the tier it recommends is applied only when the administrator
+   * says so and saves. The stored result comes back with the config, so the
+   * fresh one is simply merged into it.
+   */
+  async function runBenchmark() {
+    setBenchmarking(true)
+    setBenchmarkError(null)
+    try {
+      const result = await api.admin.runVideoBenchmark()
+      setCfg((c) => (c ? { ...c, benchmark: result } : c))
+    } catch (e) {
+      setBenchmarkError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBenchmarking(false)
     }
   }
 
@@ -216,6 +242,7 @@ export default function VideoExportSettings() {
     threeDAccess !== cfg.threeDAccess ||
     licenseKey.length > 0 ||
     (workerUrl.trim() || '') !== (cfg.workerUrl || '') ||
+    renderTier !== cfg.renderTier ||
     !sameList(allowed, cfg.allowedUserIds) ||
     // The 3D list is in here for the reason every other field is: everything on
     // this form saves together, and a half-dirty state is how an administrator
@@ -295,6 +322,23 @@ export default function VideoExportSettings() {
         // ABOVE, and an admin who does not know that ticks a name and reports
         // that the setting did nothing.
         footnote="video.threeDNarrowsNote"
+      />
+
+      {/* How much this MACHINE can carry: a tier the admin sets, and a test that
+          measures instead of letting them guess. After the 3D scope because it
+          bounds it — at "flat" nobody renders 3D, whatever the lists say. */}
+      <RenderPower
+        tiers={cfg.renderTiers}
+        tier={renderTier}
+        onTier={(next) => {
+          setRenderTier(next)
+          setSaved(false)
+        }}
+        benchmark={cfg.benchmark}
+        running={benchmarking}
+        error={benchmarkError}
+        onRun={runBenchmark}
+        workerAvailable={health?.available === true}
       />
 
 
@@ -411,6 +455,146 @@ export default function VideoExportSettings() {
           problem becomes a support thread. */}
       <WorkerStatus health={health} />
     </section>
+  )
+}
+
+/** Translation keys for each tier, resolved at render. */
+const TIER_KEYS: Record<VideoRenderTier, { label: TranslationKey; help: TranslationKey }> = {
+  flat: { label: 'video.tierFlat', help: 'video.tierFlatHelp' },
+  limited: { label: 'video.tierLimited', help: 'video.tierLimitedHelp' },
+  full: { label: 'video.tierFull', help: 'video.tierFullHelp' },
+}
+
+/** Seconds, rounded, as a person reads a wait: "48 s", "1 min 52 s". */
+function formatWait(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000))
+  if (s < 60) return `${s} s`
+  const m = Math.floor(s / 60)
+  const rest = s % 60
+  return rest ? `${m} min ${rest} s` : `${m} min`
+}
+
+/**
+ * The server's render tier, and the test that tells an administrator which one
+ * this machine can carry.
+ *
+ * The numbers are the ones a person can act on — how long a typical film takes,
+ * how many an hour, how many people can launch one together and all have it
+ * within three minutes — and they are labelled estimates, because renders run
+ * one at a time and a real afternoon is not three reference films. The test
+ * RECOMMENDS; the tier changes only when the administrator applies it and saves.
+ */
+function RenderPower({
+  tiers,
+  tier,
+  onTier,
+  benchmark,
+  running,
+  error,
+  onRun,
+  workerAvailable,
+}: {
+  tiers: VideoRenderTier[]
+  tier: VideoRenderTier
+  onTier: (tier: VideoRenderTier) => void
+  benchmark: VideoBenchmark | null
+  running: boolean
+  error: string | null
+  onRun: () => void
+  workerAvailable: boolean
+}) {
+  const t = useT()
+  const [lang] = useLang()
+  return (
+    <div className="mt-4 border border-line-soft bg-ink/5 p-3">
+      <span className="block text-body font-medium text-ink">{t('video.tierTitle')}</span>
+      <span className="measure block text-body-sm text-ink-muted">{t('video.tierHelp')}</span>
+      <div className="mt-3 space-y-2" role="radiogroup" aria-label={t('video.tierTitle')}>
+        {tiers.map((id) => (
+          <label key={id} className="flex cursor-pointer items-start gap-2">
+            <input
+              type="radio"
+              name="render-tier"
+              className="mt-1 accent-accent"
+              checked={tier === id}
+              onChange={() => onTier(id)}
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-2 text-body-sm font-medium text-ink">
+                {t(TIER_KEYS[id].label)}
+                {benchmark?.recommended === id && (
+                  <span className="kicker text-ok">{t('video.tierRecommended')}</span>
+                )}
+              </span>
+              <span className="measure block text-caption text-ink-muted">{t(TIER_KEYS[id].help)}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={onRun} disabled={running || !workerAvailable}>
+          <Icon name={running ? 'refresh' : 'play'} size={15} />
+          {running ? t('video.benchmarkRunning') : t('video.benchmarkRun')}
+        </Button>
+        {!workerAvailable && <span className="text-caption text-ink-faint">{t('video.benchmarkNeedsWorker')}</span>}
+        {running && <span className="text-caption text-ink-muted">{t('video.benchmarkRunningHint')}</span>}
+      </div>
+      {error && (
+        <Banner tone="danger" className="mt-3">
+          {error}
+        </Banner>
+      )}
+
+      {benchmark && (
+        <div className="mt-3">
+          <p className="text-caption text-ink-faint">
+            {t('video.benchmarkWhen', {
+              when: new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(benchmark.at)),
+            })}
+          </p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[28rem] text-left text-body-sm">
+              <thead className="text-caption text-ink-faint">
+                <tr>
+                  <th className="py-1 pr-3 font-normal">{t('video.benchmarkTier')}</th>
+                  <th className="py-1 pr-3 font-normal">
+                    {t('video.benchmarkTypical', { s: Math.round(benchmark.typicalFilmMs / 1000) })}
+                  </th>
+                  <th className="py-1 pr-3 font-normal">{t('video.benchmarkPerHour')}</th>
+                  <th className="py-1 font-normal">{t('video.benchmarkTogether')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tiers.map((id) => {
+                  const row = benchmark.tiers[id]
+                  if (!row) return null
+                  return (
+                    <tr key={id} className={`border-t border-line-soft ${benchmark.recommended === id ? 'text-ink' : 'text-ink-muted'}`}>
+                      <td className="py-1 pr-3">{t(TIER_KEYS[id].label)}</td>
+                      <td className="py-1 pr-3 font-mono">{formatWait(row.typicalMs)}</td>
+                      <td className="py-1 pr-3 font-mono">{row.filmsPerHour}</td>
+                      <td className="py-1 font-mono">{row.simultaneousUsers}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className="text-body-sm text-ink">
+              {t('video.benchmarkRecommends', { tier: t(TIER_KEYS[benchmark.recommended].label) })}
+            </span>
+            {tier !== benchmark.recommended && (
+              <Button variant="ghost" size="sm" onClick={() => onTier(benchmark.recommended)}>
+                {t('video.benchmarkApply')}
+              </Button>
+            )}
+          </div>
+          <p className="measure mt-2 text-caption text-ink-faint">{t('video.benchmarkNote')}</p>
+        </div>
+      )}
+    </div>
   )
 }
 

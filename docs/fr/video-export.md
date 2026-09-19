@@ -1869,6 +1869,24 @@ de le poser dans la page. La décision n’est pas écrite dans DESIGN.md : un f
 concerne un écran, la direction concerne le projet. Et rien n’est demandé quand
 Motion ne peut pas tourner pour ce compte.
 
+**Ce que le SERVEUR peut porter est mesuré, puis réglé.** Sans carte graphique,
+Chrome sans écran dessine chaque image WebGL sur le processeur : sur un poste de
+douze cœurs, un film de cinq secondes a pris 16 s sans 3D, 28 s avec un bloc 3D et
+31 s avec un champ 3D sous un bloc 3D. Le niveau de rendu du panneau admin
+(`renderTier` : `flat`, `limited` — le défaut, ce que faisait chaque instance
+avant — ou `full`, réservé aux moteurs lourds à venir) borne les listes 3D par
+compte : en `flat`, personne ne rend de 3D. « Tester ce serveur »
+(`POST /api/admin/video/benchmark`, `benchmark.js`) rend trois films de référence
+écrits à la main via le worker, dans le créneau exclusif de la file
+(`queue.runExclusive` — le rendu d’un utilisateur attend au lieu de recevoir un
+429, et le test est refusé par un 409 pendant un rendu), et donne pour chaque
+niveau la durée d’un film de douze secondes, le nombre de films par heure, et
+combien de personnes peuvent en lancer un au même moment et tous l’avoir en moins
+de trois minutes — les rendus passent un par un, c’est le sens honnête de
+« simultané ». Il RECOMMANDE un niveau ; l’administrateur l’applique et
+enregistre. Le dernier résultat est gardé dans la configuration, écrit par le
+test seul, jamais par un PUT.
+
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre
 lequel la réponse sera validée : `signature()` parcourt le schéma et écrit `≤70`,
