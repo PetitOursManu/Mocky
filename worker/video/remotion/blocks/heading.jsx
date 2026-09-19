@@ -4,6 +4,9 @@ import {
   MASK_TRAVEL_PERCENT,
   RULE_ACCENT_SHARE,
   RULE_QUIET_ALPHA,
+  decodeGlyph,
+  letterReveal,
+  letterStyle,
   runAt,
   ruleExtent,
   ruleWeights,
@@ -116,7 +119,51 @@ export const Heading = ({ block, palette, theme, box, unit, base, progress, life
             wordBreak: 'break-word',
           }}
         >
-          {parts.map((word, i) => {
+          {block.letters
+            ? /*
+               * Letters that come alive (\`letters\`), instead of the word mask.
+               *
+               * Each word stays one unbreakable inline-block, so the wrap is the
+               * one the layout estimated; inside it every letter is its own box,
+               * moved by \`letterStyle\` out of text.js. On a letter's last frame of
+               * arrival its style is empty and its glyph is the real one, so the
+               * resting frame is the frame every size and every contrast here was
+               * measured on — \`wave\` excepted, which sways inside the leading.
+               */
+              (() => {
+                const count = parts.reduce((n, w) => n + [...w].length, 0)
+                let seen = 0
+                return parts.map((word, i) => {
+                  const emphasis = parts.length > 1 && i === parts.length - 1
+                  return (
+                    <span key={i}>
+                      {i > 0 ? ' ' : null}
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          whiteSpace: 'nowrap',
+                          perspective: block.letters === 'flip' ? '8em' : undefined,
+                          color: emphasis ? palette.accent.color : undefined,
+                        }}
+                      >
+                        {[...word].map((char, j) => {
+                          const index = seen++
+                          const reveal = letterReveal(progress, index, count)
+                          return (
+                            <span
+                              key={j}
+                              style={{ display: 'inline-block', ...letterStyle(block.letters, reveal, life, index, 800) }}
+                            >
+                              {block.letters === 'decode' ? decodeGlyph(char, index, reveal) : char}
+                            </span>
+                          )
+                        })}
+                      </span>
+                    </span>
+                  )
+                })
+              })()
+            : parts.map((word, i) => {
             const emphasis = parts.length > 1 && i === parts.length - 1
             const arrived = wordReveal(progress, i, parts.length)
             return (

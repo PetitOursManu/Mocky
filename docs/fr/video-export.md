@@ -1887,6 +1887,23 @@ de trois minutes — les rendus passent un par un, c’est le sens honnête de
 enregistre. Le dernier résultat est gardé dans la configuration, écrit par le
 test seul, jamais par un PUT.
 
+**Typographie cinétique et fonds qui bougent en couleur.** Un `heading` peut
+nommer `letters` — `cascade`, `decode`, `flip`, `weight`, `wave` — dessiné lettre
+par lettre par le titre lui-même à partir de l’arithmétique de `blocks/text.js`
+(`letterReveal`, `letterStyle`, `decodeGlyph`, déterministe pour que chaque onglet
+de rendu soit d’accord). Chaque mot reste une boîte insécable, donc le retour à la
+ligne est celui que la mise en page a estimé, et sur la dernière image de son
+arrivée une lettre n’a plus de style et affiche le vrai caractère : l’image au
+repos est l’image mesurée, sauf `wave`, qui ondule dans l’interligne. Deux fonds,
+`mesh` (des nuages doux de l’accent) et `aurora` (des bandes lentes), sont mesurés
+exactement comme un dégradé : chaque pixel est le fond et l’accent mélangés à au
+plus `MESH_REACH` — trois formes à `MESH_BLOB_ALPHA` qui se composent — et la
+palette échantillonne ce segment. La densité a été choisie en mesurant : à 0,3 par
+forme, le sur-titre perdait sa couleur d’accent sur six thèmes sur huit et le fond
+disparaissait sur deux ; à 0,12 il la perd sur trois (un dégradé sur deux) et ne
+disparaît jamais. Le tirage propose désormais un effet de lettres pour le titre
+principal environ trois films sur cinq.
+
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre
 lequel la réponse sera validée : `signature()` parcourt le schéma et écrit `≤70`,

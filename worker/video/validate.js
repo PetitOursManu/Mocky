@@ -144,7 +144,10 @@ export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop'
 /** A scene's colouring, out of the project's own colours. Absent means `direction`. Mirrors timeline.ts. */
 export const SCENE_TONES = ['direction', 'inverse', 'accent']
 
-export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image']
+/** How the letters of a heading come alive. Absent means the word mask. Mirrors timeline.ts. */
+export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave']
+
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image']
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
 
 export const TEXT_LIMITS = {
@@ -645,9 +648,13 @@ const blockReader = (own, read) => ({
 })
 
 const BLOCK_READERS = {
-  heading: blockReader(['text', 'level'], (v, w) => ({
+  heading: blockReader(['text', 'level', 'letters'], (v, w) => ({
     text: readText(v.text, BLOCK_LIMITS.heading, `${w}.text`),
     level: enumValue(v.level, ['display', 'title', 'subtitle'], 'title', `${w}.level`),
+    // Absent when unstated, like `arrival`: the heading reads silence as its mask.
+    ...(v.letters !== undefined && v.letters !== null
+      ? { letters: enumValue(v.letters, LETTER_EFFECTS, undefined, `${w}.letters`) }
+      : {}),
   })),
   kicker: blockReader(['text'], (v, w) => ({
     text: readText(v.text, BLOCK_LIMITS.kicker, `${w}.text`),
@@ -885,6 +892,8 @@ const BACKGROUND_READERS = {
     keys: ['density'],
     read: (v, w) => ({ density: readInt(v.density, 1, BLOCK_LIMITS.particleDensity, 2, `${w}.density`) }),
   },
+  mesh: { keys: [], read: () => ({}) },
+  aurora: { keys: [], read: () => ({}) },
   image: {
     keys: ['imageId', 'move'],
     read: (v, w) => ({ imageId: readImageId(v.imageId, w), move: enumValue(v.move, KEN_BURNS, 'zoom-in', `${w}.move`) }),

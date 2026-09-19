@@ -1365,3 +1365,14 @@ describe('proposeTimeline — one correction, asked of the model', () => {
     expect(calls).toHaveLength(1)
   })
 })
+
+describe('proposeTimeline — letters and moving colour, named for the model', () => {
+  it('describes every letter effect by what it looks like, and both moving grounds', async () => {
+    await proposeTimeline('a film', IMAGES_DEEP, { llm, threeD: true })
+    const { system } = calls[0]
+    for (const effect of ['cascade', 'decode', 'flip', 'weight', 'wave']) expect(system).toMatch(new RegExp(`${effect} \\(`))
+    expect(system).toContain('"letters": cascade|decode|flip|weight|wave ?')
+    expect(system).toMatch(/- mesh: soft clouds of the accent colour/)
+    expect(system).toMatch(/- aurora: slow wide bands of the accent colour/)
+  })
+})

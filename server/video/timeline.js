@@ -148,6 +148,9 @@ export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop'
 /** A scene's colouring, out of the project's own colours. Absent means `direction`. See timeline.ts. */
 export const SCENE_TONES = ['direction', 'inverse', 'accent']
 
+/** How the letters of a heading come alive. Absent means the word mask. See timeline.ts. */
+export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave']
+
 /** The block catalogue, by family. The compose prompt reads this map. */
 export const BLOCK_FAMILIES = {
   text: ['heading', 'kicker', 'quote', 'textHighlight', 'funTitle'],
@@ -200,7 +203,7 @@ export const EXTRUDED_SPINS = ['sway', 'tilt', 'float']
 /** What a `codeBlock` line is for. Three measured runs, so three roles. See timeline.ts. */
 export const CODE_ROLES = ['plain', 'accent', 'muted']
 
-export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image']
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image']
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
 
 export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static']
@@ -373,6 +376,7 @@ const block = (kind, shape) => z.object({ kind: z.literal(kind), ...placement, .
 export const HeadingBlockSchema = block('heading', {
   text: line(BLOCK_LIMITS.heading),
   level: z.enum(['display', 'title', 'subtitle']).default('title'),
+  letters: z.enum(LETTER_EFFECTS).optional(),
 })
 
 export const KickerBlockSchema = block('kicker', {
@@ -669,6 +673,9 @@ export const GridPulseBackgroundSchema = bg('gridPulse', {
 export const ParticlesBackgroundSchema = bg('particles', {
   density: bounded(1, BLOCK_LIMITS.particleDensity).default(2),
 })
+/** Two grounds that move in the accent, measured like a gradient. See timeline.ts. */
+export const MeshBackgroundSchema = bg('mesh', {})
+export const AuroraBackgroundSchema = bg('aurora', {})
 export const ImageBackgroundSchema = bg('image', {
   imageId,
   move: z.enum(KEN_BURNS).default('zoom-in'),
@@ -680,6 +687,8 @@ export const BackgroundSchema = z.discriminatedUnion('kind', [
   HairlinesBackgroundSchema,
   GridPulseBackgroundSchema,
   ParticlesBackgroundSchema,
+  MeshBackgroundSchema,
+  AuroraBackgroundSchema,
   ImageBackgroundSchema,
 ])
 

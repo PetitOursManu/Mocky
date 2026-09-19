@@ -59,6 +59,12 @@ import {
   textLayout,
   underlineDropEm,
   wordReveal,
+  DECODE_GLYPHS,
+  WAVE_SWAY_EM,
+  WEIGHT_FROM,
+  decodeGlyph,
+  letterReveal,
+  letterStyle,
 } from './text.js'
 
 /** The short edge of all three ratios. */
@@ -690,5 +696,39 @@ describe('the marker’s corner, which is a constant metric with a ceiling', () 
     expect(markerRadius(undefined, run(64), 'marqué')).toBe(0)
     expect(markerRadius(12, null, 'marqué')).toBe(0)
     expect(markerRadius(12, run(64), '')).toBe(0)
+  })
+})
+
+describe('letters that come alive', () => {
+  it('lands the last letter on the block’s last frame, and starts the first at once', () => {
+    expect(letterReveal(1, 11, 12)).toBe(1)
+    expect(letterReveal(0.999, 11, 12)).toBeLessThan(1)
+    expect(letterReveal(0.01, 0, 12)).toBeGreaterThan(0)
+    expect(letterReveal(0.01, 11, 12)).toBe(0)
+  })
+
+  /** The resting frame is the measured frame: the real glyph, at full ink, where the layout put it. */
+  it('leaves nothing on a letter once it has arrived, except the wave’s bounded sway', () => {
+    for (const effect of ['cascade', 'flip', 'decode']) expect(letterStyle(effect, 1, 0.4, 3, 800)).toEqual({})
+    expect(letterStyle('weight', 1, 0.4, 3, 800)).toEqual({ opacity: 1, fontWeight: 800 })
+    const wave = letterStyle('wave', 1, 0.4, 3, 800)
+    expect(wave.opacity).toBe(1)
+    const sway = Number(/translateY\((-?[\d.e-]+)em\)/.exec(wave.transform)[1])
+    expect(Math.abs(sway)).toBeLessThanOrEqual(WAVE_SWAY_EM)
+  })
+
+  it('moves while arriving', () => {
+    expect(letterStyle('cascade', 0.5, 0, 0, 800).transform).toMatch(/translateY/)
+    expect(letterStyle('flip', 0.5, 0, 0, 800).transform).toMatch(/rotateX/)
+    expect(letterStyle('weight', 0, 0, 0, 800).fontWeight).toBe(WEIGHT_FROM)
+  })
+
+  it('decodes deterministically, never touches a space, and settles on the real letter', () => {
+    expect(decodeGlyph('é', 4, 0.3)).toBe(decodeGlyph('é', 4, 0.3))
+    expect(DECODE_GLYPHS).toContain(decodeGlyph('é', 4, 0.3))
+    expect(decodeGlyph(' ', 4, 0.3)).toBe(' ')
+    expect(decodeGlyph('é', 4, 1)).toBe('é')
+    const beats = new Set(Array.from({ length: 16 }, (_, b) => decodeGlyph('a', 2, b / 16)))
+    expect(beats.size).toBeGreaterThan(4)
   })
 })

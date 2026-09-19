@@ -193,6 +193,11 @@ import {
   riseShare,
   sceneTheme,
   sceneToneOf,
+  MESH_BLOB_ALPHA,
+  MESH_REACH,
+  MESH_SHAPES,
+  auroraBands,
+  meshBlobs,
 } from './composition.js'
 
 const scene = (durationMs, extra = {}) => ({
@@ -1777,6 +1782,10 @@ const GROUNDS = {
   hairlines: { kind: 'hairlines' },
   gridPulse: { kind: 'gridPulse', cells: 8 },
   particles: { kind: 'particles', density: 2 },
+  // The two grounds that move in colour: swept like the others, so the claim that
+  // they are measured like a gradient is a test rather than a comment.
+  mesh: { kind: 'mesh' },
+  aurora: { kind: 'aurora' },
   image: { kind: 'image', imageId: 'a'.repeat(64), move: 'zoom-in' },
 }
 
@@ -2426,7 +2435,14 @@ describe('composedPalette', () => {
           expect(palette.solid.color, where).not.toBe(palette.display.color)
         }
       }
-      expect(kept).toBeGreaterThan((Object.keys(THEMES).length * Object.keys(GROUNDS).length) / 2)
+      // The floor that stops this test being vacuous is counted on the grounds
+      // NOT painted in the accent. `mesh` and `aurora` tint the ground with the
+      // accent itself, so an accent ornament standing on them falls through to an
+      // ink far more often — the fixpoint `composedPalette` refuses for a field
+      // that reads the accent — and counting them would move the floor without
+      // saying anything about solids.
+      const plainGrounds = Object.keys(GROUNDS).filter((g) => g !== 'mesh' && g !== 'aurora')
+      expect(kept).toBeGreaterThan((Object.keys(THEMES).length * plainGrounds.length) / 2)
     })
 
     /**
@@ -4907,4 +4923,36 @@ describe('how a scene is coloured', () => {
       }
     })
   }
+})
+
+describe('the grounds that move in colour', () => {
+  /**
+   * The densest spot a mesh or an aurora can paint is where all its shapes
+   * overlap, and that must be the far end of what the palette measured —
+   * otherwise a heading could meet a colour nobody checked it against.
+   */
+  it('never paints denser than the far end of the ramp it was measured on', () => {
+    expect(MESH_REACH).toBeCloseTo(1 - (1 - MESH_BLOB_ALPHA) ** MESH_SHAPES, 10)
+    for (const kind of ['mesh', 'aurora']) {
+      const palette = composedPalette(resolveTheme({ colors: { background: '#f6f4ee', text: '#1a1a18', accent: '#c2410c' } }), { kind })
+      const far = palette.ground.tint[palette.ground.tint.length - 1]
+      expect(far.alpha).toBeCloseTo(MESH_REACH, 10)
+    }
+  })
+
+  it('moves across a scene, and stays where the frame is', () => {
+    for (const shapes of [meshBlobs, auroraBands]) {
+      const first = JSON.stringify(shapes(0))
+      expect(first).not.toBe(JSON.stringify(shapes(1)))
+      for (const life of [0, 0.3, 0.7, 1]) {
+        for (const s of shapes(life)) {
+          expect(s.x).toBeGreaterThanOrEqual(0)
+          expect(s.x).toBeLessThanOrEqual(100)
+          expect(s.y).toBeGreaterThanOrEqual(0)
+          expect(s.y).toBeLessThanOrEqual(100)
+        }
+      }
+      expect(shapes(0)).toHaveLength(MESH_SHAPES)
+    }
+  })
 })

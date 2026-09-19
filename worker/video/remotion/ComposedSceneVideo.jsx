@@ -8,7 +8,10 @@ import {
   frameBase,
   groundDensity,
   arrivalStyle,
+  auroraBands,
   groundPainted,
+  MESH_BLOB_ALPHA,
+  meshBlobs,
   hairlineTexture,
   planTimeline,
   resolveTheme,
@@ -173,6 +176,25 @@ const Ground = ({ kind, background, palette, motion, imageSrc }) => {
         }}
       />
     )
+  }
+
+  /*
+   * The two grounds that move in colour. The paint is the measured tint's own
+   * colour, each shape at `MESH_BLOB_ALPHA` and never more, so where all three
+   * overlap the frame reaches `MESH_REACH` — the far end of the ramp the palette
+   * sampled. Positions come from `meshBlobs`/`auroraBands`; this only writes CSS.
+   */
+  if (kind === 'mesh' || kind === 'aurora') {
+    const ink = withAlpha(tint[tint.length - 1].color, MESH_BLOB_ALPHA)
+    const clear = withAlpha(tint[tint.length - 1].color, 0)
+    const life = motion.ground ?? 0
+    const layers =
+      kind === 'mesh'
+        ? meshBlobs(life).map((b) => `radial-gradient(circle at ${b.x}% ${b.y}%, ${ink} 0%, ${clear} ${b.r}%)`)
+        : auroraBands(life).map(
+            (b) => `radial-gradient(ellipse ${b.w}% ${b.h}% at ${b.x}% ${b.y}%, ${ink} 0%, ${clear} 70%)`,
+          )
+    return <AbsoluteFill style={{ backgroundImage: layers.join(', ') }} />
   }
 
   const layer = tint[0]

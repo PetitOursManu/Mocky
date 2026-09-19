@@ -13,7 +13,7 @@ import {
   stackLines,
   startingPointLines,
 } from './variety.js'
-import { ANCHORS, ARRIVALS, BACKGROUND_KINDS, BLOCK_KINDS } from './timeline.js'
+import { ANCHORS, ARRIVALS, BACKGROUND_KINDS, BLOCK_KINDS, LETTER_EFFECTS } from './timeline.js'
 import { MOTION_KIND_SPECS } from './kinds.js'
 
 /** A seeded generator, so a statistical claim is the same claim on every run. */
@@ -230,5 +230,33 @@ describe('how the film moves, and how a scene is coloured', () => {
     expect(text).toContain('arrive with "fade", and give the one that matters most "wipe"')
     expect(text).toContain('Give one scene "tone": "inverse"')
     expect(lines[lines.length - 1]).toMatch(/The BRIEF outranks/)
+  })
+})
+describe('kinetic type and moving colour in the draw', () => {
+  it('suggests a letter effect for the heading often, never always, and only when a heading is on offer', () => {
+    const random = lcg(21)
+    let drawn = 0
+    for (let i = 0; i < 500; i++) {
+      const { letters } = drawStartingPoint({ kinds: BLOCK_KINDS, random })
+      if (letters) {
+        drawn += 1
+        expect(LETTER_EFFECTS).toContain(letters)
+      }
+    }
+    expect(drawn).toBeGreaterThan(200)
+    expect(drawn).toBeLessThan(450)
+    for (let seed = 1; seed < 30; seed++) {
+      expect(drawStartingPoint({ kinds: ['kicker', 'counter'], random: lcg(seed) }).letters).toBeNull()
+    }
+  })
+
+  it('prints it as a line the brief still outranks', () => {
+    const text = startingPointLines({ opening: null, axis: null, featured: [], arrivals: [], tone: null, letters: 'decode' }).join('\n')
+    expect(text).toContain('"letters": "decode"')
+  })
+
+  it('shows the two moving grounds among the worked examples', () => {
+    expect(WORKED_SCENES.some((s) => s.ground === 'mesh')).toBe(true)
+    expect(WORKED_SCENES.some((s) => s.ground === 'aurora')).toBe(true)
   })
 })

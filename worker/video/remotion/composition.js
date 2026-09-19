@@ -4197,7 +4197,7 @@ export const COMPOSED_BLOCK_DRIFT = TITLE_BLOCK_DRIFT
  * would be a number that changes while the frame does not — the exact thing
  * `tests/video-motion.test.js` exists to catch.
  */
-export const ANIMATED_BACKGROUNDS = ['gradient', 'gridPulse', 'particles']
+export const ANIMATED_BACKGROUNDS = ['gradient', 'gridPulse', 'particles', 'mesh', 'aurora']
 
 /**
  * Whether the composition will actually paint the ground's second layer.
@@ -4731,7 +4731,7 @@ export const FIELD_ALPHAS = [1, 0.62, 0.4, 0.24]
 export const FIELD_RAMP = [0.25, 0.5, 0.75, 1]
 
 /** The six grounds, in the schema's own order. Anything else reads as `hairlines`. */
-const BACKGROUND_SURFACES = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image']
+const BACKGROUND_SURFACES = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image']
 
 /**
  * One ground as the three things `surfaceRange` understands.
@@ -4752,6 +4752,18 @@ function groundSurface(theme, kind) {
         color: theme.background,
         alpha: 1,
         tint: GRADIENT_RAMP.map((alpha) => ({ color: safeColor(theme.surface, THEME_FALLBACK.surface), alpha })),
+      }
+    case 'mesh':
+    case 'aurora':
+      // The accent over the ground, sampled along the ramp up to the most any
+      // pixel can reach where every soft shape overlaps — see `MESH_REACH`. So a
+      // line of type is measured against every colour these grounds can paint,
+      // exactly as it is against a gradient, and the tint yields whole if it is
+      // what made a line illegible.
+      return {
+        color: theme.background,
+        alpha: 1,
+        tint: GRADIENT_RAMP.map((alpha) => ({ color: safeColor(theme.accent, THEME_FALLBACK.accent), alpha: alpha * MESH_REACH })),
       }
     case 'image':
       return { color: theme.background, alpha: COMPOSED_IMAGE_VEIL, tint: undefined }
@@ -5620,4 +5632,54 @@ export function sceneToneOf(scene) {
   if (!SCENE_TONES.includes(tone)) return 'direction'
   if (tone === 'accent' && backgroundKind(scene?.background) === 'image') return 'direction'
   return tone
+}
+
+
+// ── The two grounds that move in colour ─────────────────────────────────────
+//
+// `mesh`: soft blobs of the accent drifting over the ground. `aurora`: slow wide
+// bands of it. Both are painted as a few translucent radial gradients, and the
+// arithmetic of where they are on a frame is HERE, where a test can reach it —
+// the composition only turns it into CSS.
+
+/** The most one soft shape is ever painted at. */
+export const MESH_BLOB_ALPHA = 0.12
+/** How many soft shapes a mesh or an aurora paints. */
+export const MESH_SHAPES = 3
+/**
+ * The most any pixel can reach where every shape overlaps: alpha composites as
+ * 1 − Π(1 − a). This is the far end of the ramp the palette measures, so the
+ * densest spot on the frame is a spot that was measured.
+ */
+export const MESH_REACH = 1 - (1 - MESH_BLOB_ALPHA) ** MESH_SHAPES
+
+/**
+ * Where the mesh's blobs are at a point of the scene, in percent of the frame,
+ * with each one's radius. Slow — a quarter of a turn or so across a scene — so
+ * the ground breathes under the type rather than swimming.
+ */
+export function meshBlobs(life) {
+  const t = Math.min(1, Math.max(0, Number(life) || 0))
+  return Array.from({ length: MESH_SHAPES }, (_, k) => {
+    const phase = (2 * Math.PI * k) / MESH_SHAPES
+    return {
+      x: 50 + 32 * Math.sin(phase + t * Math.PI * 0.9),
+      y: 50 + 26 * Math.cos(phase * 1.3 + t * Math.PI * 0.7),
+      r: 58 - 6 * k,
+    }
+  })
+}
+
+/**
+ * Where the aurora's bands are: wide flat ellipses stacked down the frame, each
+ * swaying sideways and a little in height on its own period.
+ */
+export function auroraBands(life) {
+  const t = Math.min(1, Math.max(0, Number(life) || 0))
+  return Array.from({ length: MESH_SHAPES }, (_, k) => ({
+    x: 50 + 22 * Math.sin(t * Math.PI * (0.8 + 0.3 * k) + k),
+    y: 22 + 28 * k + 5 * Math.sin(t * Math.PI * 1.1 + k * 2),
+    w: 130 - 12 * k,
+    h: 26 + 4 * k,
+  }))
 }

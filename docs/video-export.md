@@ -1795,6 +1795,22 @@ one at a time, so that is the honest meaning of "simultaneous". It RECOMMENDS a
 tier; the administrator applies it and saves. The last result is kept in the
 config, written only by the test, never by a PUT.
 
+**Kinetic type and grounds that move in colour.** A `heading` may name `letters`
+— `cascade`, `decode`, `flip`, `weight`, `wave` — drawn letter by letter by the
+heading itself from the arithmetic in `blocks/text.js` (`letterReveal`,
+`letterStyle`, `decodeGlyph`, deterministic so every render tab agrees). Each word
+stays one unbreakable box so the wrap is the one the layout estimated, and on a
+letter's last frame of arrival its style is empty and its glyph the real one:
+the resting frame is the measured frame, `wave` excepted, which sways inside the
+leading. Two grounds, `mesh` (soft clouds of the accent) and `aurora` (slow bands
+of it), are measured exactly like a gradient: every pixel is the ground and the
+accent mixed at no more than `MESH_REACH` — three shapes at `MESH_BLOB_ALPHA`
+compositing — and the palette samples that segment. The density was chosen by
+measurement: at 0.3 per shape the accent kicker lost its colour on six themes out
+of eight and the ground went flat on two; at 0.12 it loses it on three (a
+gradient loses it on two) and never goes flat. The draw now suggests a letter
+effect for the main heading about three films in five.
+
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be
 validated against: `signature()` walks the schema and prints `≤70`,

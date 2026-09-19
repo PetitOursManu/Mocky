@@ -555,3 +555,78 @@ export function splitMark(text, mark) {
   if (at < 0) return [line, '', '']
   return [line.slice(0, at), String(mark), line.slice(at + String(mark).length)]
 }
+
+
+// ── Letters that come alive ─────────────────────────────────────────────────
+//
+// A heading's `letters` effect, as arithmetic: which share of its arrival each
+// letter has made, what it shows while it decodes, and the style that turns
+// that into movement. Pure, like the rest of this file, so a test can hold every
+// effect to the one promise that matters: on its last frame of arrival a letter
+// is exactly the glyph the layout measured, at the ink the palette resolved.
+
+/** How much a letter overlaps the one before it. Higher than a word's: letters are a gesture, not a queue. */
+export const LETTER_OVERLAP = 6
+
+/** How many times a decoding letter changes glyph before it settles. */
+export const DECODE_STEPS = 16
+
+/** What a decoding letter cycles through. Capitals and digits: they read as "code", not as a typo. */
+export const DECODE_GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+/** How far a `cascade` letter falls from, and how far a `wave` letter sways, in em. */
+export const CASCADE_DROP_EM = 0.55
+export const WAVE_SWAY_EM = 0.045
+
+/** The lightest weight a `weight` letter starts at. It ends on the heading's own. */
+export const WEIGHT_FROM = 200
+
+/** Share of the block's arrival this letter has made, 0 to 1. The last letter lands on the block's last frame. */
+export function letterReveal(progress, index, count) {
+  const total = Math.max(1, Math.floor(Number(count) || 0))
+  const at = clamp01(progress)
+  if (total === 1) return at
+  const i = Math.min(total - 1, Math.max(0, Math.floor(Number(index) || 0)))
+  const step = 1 / (total - 1 + LETTER_OVERLAP)
+  return clamp01((at - i * step) / (step * LETTER_OVERLAP))
+}
+
+/**
+ * The glyph a `decode` letter shows: a different capital or digit on each of
+ * `DECODE_STEPS` beats, then the real one. Deterministic — the same letter on
+ * the same beat is the same glyph in every render tab — and spaces never decode.
+ */
+export function decodeGlyph(char, index, reveal) {
+  const c = String(char ?? '')
+  if (clamp01(reveal) >= 1 || /\s/.test(c) || c === '') return c
+  const beat = Math.floor(clamp01(reveal) * DECODE_STEPS)
+  let h = (Math.imul(index + 1, 2654435761) ^ Math.imul(beat + 7, 40503) ^ c.charCodeAt(0)) >>> 0
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0
+  return DECODE_GLYPHS[h % DECODE_GLYPHS.length]
+}
+
+/**
+ * The style of one letter, for an effect, at the letter's own reveal and the
+ * scene's life. Nothing here writes a colour; opacity is only ever below 1 while
+ * a letter is still arriving. `wave` is the one effect that keeps moving once
+ * landed, by `WAVE_SWAY_EM` — inside the line box the leading already reserved.
+ */
+export function letterStyle(effect, reveal, life, index, weight) {
+  const r = clamp01(reveal)
+  switch (effect) {
+    case 'cascade':
+      return r >= 1 ? {} : { opacity: r, transform: `translateY(${-(1 - r) * CASCADE_DROP_EM}em)` }
+    case 'flip':
+      return r >= 1 ? {} : { opacity: r > 0 ? 1 : 0, transform: `rotateX(${(1 - r) * 90}deg)`, transformOrigin: '50% 100%' }
+    case 'weight':
+      return { opacity: r > 0 ? 1 : 0, fontWeight: Math.round(WEIGHT_FROM + (weight - WEIGHT_FROM) * r) }
+    case 'decode':
+      return r >= 1 ? {} : { opacity: r > 0 ? 1 : 0 }
+    case 'wave': {
+      const sway = Math.sin(2 * Math.PI * (clamp01(life) * 1.5 - index * 0.11)) * WAVE_SWAY_EM
+      return { opacity: r, transform: `translateY(${sway}em)` }
+    }
+    default:
+      return {}
+  }
+}

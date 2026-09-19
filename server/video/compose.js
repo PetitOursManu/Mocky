@@ -780,7 +780,10 @@ function sceneVocabulary() {
  */
 const BLOCK_NOTES = {
   heading: {
-    what: 'a line of display type — what the scene is about.',
+    // The letter effects are named by what the viewer sees, one clause each, in
+    // the block's own sentence: a word a model cannot picture is a word it picks
+    // at random. The enum itself is printed on the card, read off the schema.
+    what: 'a line of display type — what the scene is about. Its letters can come alive: cascade (they fall into place one after another), decode (they flicker through random characters, then settle — for tech), flip (each turns into place), weight (the type swells from thin to bold), wave (they keep swaying gently — for a playful film). Leave letters out for the plain word-by-word reveal.',
     right: 'the scene has one statement to make and the eye should land on it first.',
     wrong: 'as a paragraph of explanation, or twice in one scene: a second statement is a second scene.',
   },
@@ -982,6 +985,16 @@ const GROUND_NOTES = {
     what: 'slow points drifting across the frame.',
     right: 'a title or a wordmark wants some atmosphere behind it.',
     wrong: 'behind a chart, where drifting dots read as data.',
+  },
+  mesh: {
+    what: 'soft clouds of the accent colour drifting slowly over the project\'s ground.',
+    right: 'the film should feel alive and colourful without a picture: an opening, a mood, a calm brand moment.',
+    wrong: 'under a chart or fine lines, where moving colour reads as data; and on every scene, where it stops being a mood.',
+  },
+  aurora: {
+    what: 'slow wide bands of the accent colour swaying across the frame, like northern lights.',
+    right: 'a calm, dreamy or night-time film — relaxation, music, a premium launch — wants depth behind its words.',
+    wrong: 'behind a busy stack: the bands already carry the scene, and five blocks on them is noise.',
   },
   image: {
     what: 'one selected picture, filling the frame under everything else.',

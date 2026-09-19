@@ -38,7 +38,7 @@
  * user turn for that reason (`compose.js`).
  */
 
-import { ARRIVALS } from './timeline.js'
+import { ARRIVALS, LETTER_EFFECTS } from './timeline.js'
 
 /** How many of the account's recent films are counted. Past a handful the counts stop saying "recently". */
 export const HISTORY_FILMS = 6
@@ -150,6 +150,11 @@ export const WORKED_SCENES = [
   { ground: 'gridPulse', layers: [['dateStamp', 'center-left'], ['heading', 'center-right']], why: 'the date, and what happens on it' },
   { ground: 'solid', layers: [['logoType', 'top-left'], ['button', 'bottom-right']], why: 'who is speaking, and the one thing to do, in opposite corners' },
   { ground: 'gradient', layers: [['counter', 'center-left'], ['globe', 'center-right']], why: 'how many places, beside the world they are in' },
+  // The two grounds that move in colour, so a model sees them used.
+  { ground: 'mesh', layers: [['heading', 'center']], why: 'one statement floating on drifting colour' },
+  { ground: 'aurora', layers: [['kicker', 'top-center'], ['logoType', 'center']], why: 'a name under slow bands of light' },
+  { ground: 'aurora', layers: [['quote', 'center-left']], why: 'a quiet voice at night' },
+  { ground: 'mesh', layers: [['textHighlight', 'center-right']], why: 'the sentence that matters, on a living ground' },
 ]
 
 /**
@@ -335,6 +340,12 @@ export function drawStartingPoint({ kinds, usage = filmUsage([]), random = Math.
    * often when there are several scenes, where one inverted scene is punctuation
    * rather than the whole film changing colour.
    */
+  /*
+   * A letter effect for the heading, often but not always — the plain word
+   * reveal is a good gesture too, and a film where every heading performs is a
+   * reel. Only when a heading is on offer at all.
+   */
+  const letters = !typeless && have.has('heading') && random() < 0.6 ? pickWeighted([...LETTER_EFFECTS], () => 1, random) : null
   const toneChance = typeless ? 0 : maxScenes >= 2 ? 0.5 : 0.25
   const tone = random() < toneChance ? (random() < 0.6 ? 'inverse' : 'accent') : null
   const featured = pickMany(
@@ -343,7 +354,7 @@ export function drawStartingPoint({ kinds, usage = filmUsage([]), random = Math.
     (k) => 1 / (1 + (usage.blocks[k] || 0) * (6 / films)),
     random,
   )
-  return { opening, axis, featured, arrivals, tone, several: maxScenes >= 2 }
+  return { opening, axis, featured, arrivals, tone, letters, several: maxScenes >= 2 }
 }
 
 /** The starting point as prompt lines. The brief outranks it, and it says so. */
@@ -363,6 +374,9 @@ export function startingPointLines(point, usage = filmUsage([])) {
       `- Let most blocks arrive with "${point.arrivals[0]}", and give the one that matters most "${point.arrivals[1]}". ` +
         'No other arrival, so the film has a manner.',
     )
+  }
+  if (point.letters) {
+    lines.push(`- Give the heading that matters most "letters": "${point.letters}".`)
   }
   if (point.tone) {
     lines.push(

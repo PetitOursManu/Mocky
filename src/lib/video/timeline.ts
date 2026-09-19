@@ -351,6 +351,18 @@ export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop'
 export const SCENE_TONES = ['direction', 'inverse', 'accent'] as const
 
 /**
+ * How the letters of a heading come alive, named by what the viewer sees.
+ *
+ * Kinetic type was the second thing a film needed to stop reading as slides:
+ * a heading arrived word by word from behind a mask and then held still. These
+ * are letter-level gestures drawn by the heading itself — never a curve, never a
+ * duration — and every one of them ends on the letters exactly as the layout
+ * measured them, at the ink the palette resolved. Absent means the word mask it
+ * always had.
+ */
+export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave'] as const
+
+/**
  * The block catalogue, by family.
  *
  * The families are not decoration: the compose prompt reads this map so a model
@@ -563,7 +575,7 @@ export const CODE_ROLES = ['plain', 'accent', 'muted'] as const
  * them as one — see `composedPalette` in the worker — but the schema is where
  * the model gets to say which.
  */
-export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'image'] as const
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image'] as const
 
 /** Which way a `gradient` ground runs. A direction, never an angle: an angle is a CSS unit. */
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial'] as const
@@ -977,6 +989,8 @@ const block = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
 export const HeadingBlockSchema = block('heading', {
   text: line(BLOCK_LIMITS.heading),
   level: z.enum(['display', 'title', 'subtitle']).default('title'),
+  // Absent, not defaulted, so a heading saved before it hashes as it did.
+  letters: z.enum(LETTER_EFFECTS).optional(),
 })
 
 /** A surtitle. The house's most-used device, and here it is one the document asks for. */
@@ -1598,6 +1612,16 @@ export const ParticlesBackgroundSchema = bg('particles', {
   density: bounded(1, BLOCK_LIMITS.particleDensity).default(2),
 })
 
+/**
+ * Two grounds that MOVE in colour: soft blobs of the accent drifting over the
+ * ground, and slow bands of it. No parameter — their motion is the composition's
+ * — and they are measured exactly like a gradient: every pixel is the ground and
+ * the accent mixed at no more than `MESH_REACH` in the worker, sampled along
+ * that segment, so a line of type on them is as legible as on any other ground.
+ */
+export const MeshBackgroundSchema = bg('mesh', {})
+export const AuroraBackgroundSchema = bg('aurora', {})
+
 export const ImageBackgroundSchema = bg('image', {
   imageId,
   move: z.enum(KEN_BURNS).default('zoom-in'),
@@ -1609,6 +1633,8 @@ export const BackgroundSchema = z.discriminatedUnion('kind', [
   HairlinesBackgroundSchema,
   GridPulseBackgroundSchema,
   ParticlesBackgroundSchema,
+  MeshBackgroundSchema,
+  AuroraBackgroundSchema,
   ImageBackgroundSchema,
 ])
 
