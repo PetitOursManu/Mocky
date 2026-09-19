@@ -11,6 +11,7 @@
 // Degrades (M3): with no LLM (offline / no key) or on any LLM failure it falls
 // back to a deterministic pattern-based dossier — a Muse run never blocks.
 import { z } from 'zod'
+import { filmJsonSchema, filmPromptLines, settleFilm } from './film.js'
 
 const ColorSchema = z.object({
   label: z.string(),
@@ -69,6 +70,15 @@ export const DossierSchema = z.object({
     )
     .default([]),
   forbidden: z.array(z.string()).default([]),
+  /**
+   * Whether THIS screen gets a Motion film — see `./film.js`. Present only when
+   * the composer asked, and settled by the server's rules after the model answers.
+   * Not part of the direction: `dossierToMarkdown` never prints it, because a
+   * film is a decision about one screen and DESIGN.md is the whole project's.
+   */
+  film: z
+    .object({ wanted: z.boolean(), kind: z.string().optional(), section: z.string().optional(), why: z.string().optional() })
+    .optional(),
 })
 
 /**
@@ -131,7 +141,22 @@ const DOSSIER_JSON_SCHEMA = {
   required: ['productName', 'concept', 'tokens', 'layoutGrammar', 'voice', 'imageryPlan', 'forbidden'],
 }
 
-function buildSystem() {
+/**
+ * The schema for one request: the dossier's own, plus `film` — REQUIRED — when the
+ * composer asked for a decision. Required for the reason `productName` is: a
+ * model satisfies a schema and does not volunteer beyond it.
+ */
+export function dossierJsonSchema(motion) {
+  const film = filmJsonSchema(motion)
+  if (!film) return DOSSIER_JSON_SCHEMA
+  return {
+    ...DOSSIER_JSON_SCHEMA,
+    properties: { ...DOSSIER_JSON_SCHEMA.properties, film },
+    required: [...DOSSIER_JSON_SCHEMA.required, 'film'],
+  }
+}
+
+function buildSystem(ctx = {}) {
   return [
     'You are a world-class ART DIRECTOR. Design a DISTINCTIVE visual direction for ONE product, then return it as JSON matching the schema.',
     'You are given: the user request, distilled inspiration cards (vocabulary + grammar, NOT designs to copy), matched art-direction patterns, and a list of clichés to AVOID.',
@@ -148,6 +173,7 @@ function buildSystem() {
     '  CRITICAL — every image prompt MUST depict the SUBJECT OF THE USER REQUEST. The art-direction pattern only sets the *look* (framing, palette, lighting); it is NEVER the subject. A pattern named "Swiss / International", "Brutalist" or "Scandinavian" describes TYPOGRAPHY AND LAYOUT — do not photograph a Swiss watch, a concrete building or a Nordic forest unless the user asked for one. If the request is a SaaS pricing page, the hero shows something from that product\'s world, rendered in the pattern\'s style.',
     '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
     '- Forbidden: restate the key clichés to avoid for THIS project.',
+    ...filmPromptLines(ctx.motion),
     'Respond with ONLY the JSON object. No prose, no code fences.',
   ].join('\n')
 }
@@ -431,9 +457,9 @@ export async function buildDossier(llm, ctx, opts = {}) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const raw = await llm({
-          system: buildSystem(),
+          system: buildSystem(ctx),
           user: buildUser(ctx),
-          schema: DOSSIER_JSON_SCHEMA,
+          schema: dossierJsonSchema(ctx.motion),
           // The picture itself, when the model can see. The measured palette in
           // the prompt covers colour either way; this adds what a histogram
           // cannot report — composition, subject, density, light.
@@ -441,6 +467,7 @@ export async function buildDossier(llm, ctx, opts = {}) {
           options: { num_predict: 4096, num_ctx: 16384, temperature: attempt === 0 ? 0.7 : 0.4 },
         })
         const dossier = DossierSchema.parse(normalizeDossierRaw(raw))
+        dossier.film = settleFilm(raw?.film, ctx.motion)
         dossier.forbidden = mergedForbidden(ctx, dossier.forbidden)
         ensureHeroImagery(dossier, ctx)
         dossier.__source = 'llm'
@@ -489,6 +516,9 @@ export function buildFallbackDossier(ctx) {
     forbidden: [],
   })
   dossier.forbidden = mergedForbidden(ctx, [])
+  // No model, so nothing was judged: a forced film is still a yes, an automatic
+  // one a no — the prudent reading of a question nobody could ask.
+  dossier.film = settleFilm(null, ctx.motion)
   dossier.__source = 'fallback'
   return dossier
 }

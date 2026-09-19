@@ -49,16 +49,9 @@ export const muse = {
     'muse.videoChosenDrop': 'Retirer',
     'muse.videoChosenDropHint': 'Ne plus utiliser cette séquence',
 
-    // Motion — un film, pas une séquence au défilement. Les deux coûtent du
-    // temps et de l'argent et n'arrivent pas au même endroit : la séquence
-    // défile DANS la maquette, le film est attaché à l'écran et se regarde sur
-    // le canevas. Le libellé le dit, parce que la maquette ne peut pas le jouer.
-    'muse.motion': 'Film Motion',
-    'muse.motionCost':
-      'Un appel modèle et un rendu : compter 1 à 3 min de plus. Le film est attaché à l’écran et se regarde sur le canevas — il ne se joue pas dans la maquette.',
-    'muse.motionUnavailable':
-      'Motion n’est pas activé pour ce compte, ou le worker de rendu est injoignable.',
-    'muse.motionKindLabel': 'Type de film',
+    // Motion — un film rendu, décidé par le dossier Muse lui-même (voir
+    // server/muse/inspire/film.js). La case ne fait qu'IMPOSER ce que le mode
+    // automatique ne propose qu'avec prudence.
     'muse.motionKind.hero': 'Héro',
     'muse.motionKindHelp.hero': 'L’ouverture de la page : une seule idée, avant tout défilement.',
     'muse.motionKind.background': 'Fond de section',
@@ -140,15 +133,9 @@ export const muse = {
     'muse.videoChosenDrop': 'Remove',
     'muse.videoChosenDropHint': 'Stop using this sequence',
 
-    // Motion — a film, not a scroll sequence. Both cost time and money and they
-    // do not end up in the same place: a sequence scrolls INSIDE the mockup, a
-    // film is attached to the screen and watched on the canvas. The label says
-    // so, because the mockup cannot play it.
-    'muse.motion': 'Motion film',
-    'muse.motionCost':
-      'One model call and one render: expect 1 to 3 min more. The film is attached to the screen and watched on the canvas — it does not play inside the mockup.',
-    'muse.motionUnavailable': 'Motion is not enabled for this account, or the render worker is unreachable.',
-    'muse.motionKindLabel': 'Kind of film',
+    // Motion — a rendered film, decided by the Muse dossier itself (see
+    // server/muse/inspire/film.js). The box only IMPOSES what the automatic
+    // mode proposes prudently.
     'muse.motionKind.hero': 'Hero',
     'muse.motionKindHelp.hero': 'The opening of the page: one idea, before anything is scrolled.',
     'muse.motionKind.background': 'Section background',

@@ -110,10 +110,11 @@ export const project = {
     'project.animOn': '✦ Animations forcées',
     'project.animOff': '✦ Sans animation',
     'project.animHintAuto':
-      'Mocky décide selon l’écran demandé — une landing page respire, un tableau d’administration reste immobile. Cliquez pour forcer.',
-    'project.animHintOn': 'Chaque écran généré aura des animations. Cliquez pour les couper.',
+      'Mocky décide selon l’écran demandé — une landing page respire, un tableau d’administration reste immobile — et ajoute un film animé quand la demande s’y prête (Muse activé). Cliquez pour forcer.',
+    'project.animHintOn':
+      'Chaque écran généré aura des animations et un film animé (1 à 3 min de rendu en plus), si Motion est activé pour votre compte. Cliquez pour les couper.',
     'project.animHintOff':
-      'Aucune animation, même si l’écran s’y prêterait — utile pour une démo ou une capture. Cliquez pour revenir à l’automatique.',
+      'Aucune animation ni film animé, même si l’écran s’y prêterait — utile pour une démo ou une capture. Cliquez pour revenir à l’automatique.',
 
     // ---- lire ou non les animations d'UN écran (menu contextuel) ----
     'project.playAnimations': 'Lire les animations',
@@ -130,6 +131,10 @@ export const project = {
     // attente. Une seule ligne pour les deux laisserait l’utilisateur devant
     // « en cours » sans savoir laquelle il regarde.
     'project.motionStageCompose': 'Film Motion — composition… ne quittez pas la page',
+    // Le type que le dossier a choisi, dit sur le badge : c'est la seule trace
+    // visible d'une décision que personne n'a prise à la main.
+    'project.motionStageComposeKind': 'Film Motion · {kind} — composition… ne quittez pas la page',
+    'project.motionStageRenderKind': 'Film Motion · {kind} — rendu, 1 à 3 min… ne quittez pas la page',
     'project.motionStageRender': 'Film Motion — rendu, 1 à 3 min… ne quittez pas la page',
     'project.motionStagePlace': 'Film Motion — insertion dans l’écran… presque fini',
     'project.motionStageRevise': 'Film Motion — modification… ne quittez pas la page',
@@ -353,10 +358,11 @@ export const project = {
     'project.animOn': '✦ Animations forced',
     'project.animOff': '✦ No animation',
     'project.animHintAuto':
-      'Mocky decides from the screen you asked for — a landing page breathes, an admin table holds still. Click to force.',
-    'project.animHintOn': 'Every generated screen will be animated. Click to switch them off.',
+      'Mocky decides from the screen you asked for — a landing page breathes, an admin table holds still — and adds an animated film when the request calls for one (with Muse on). Click to force.',
+    'project.animHintOn':
+      'Every generated screen will be animated and get an animated film (1 to 3 min more of rendering), if Motion is enabled for your account. Click to switch them off.',
     'project.animHintOff':
-      'No animation, even where the screen would suit it — useful for a demo or a recording. Click to go back to automatic.',
+      'No animation and no animated film, even where the screen would suit it — useful for a demo or a recording. Click to go back to automatic.',
 
     // ---- play ONE screen's animations, or not (context menu) ----
     'project.playAnimations': 'Play animations',
@@ -369,6 +375,10 @@ export const project = {
     'project.museStageVideo': 'Generating the video (30 s to 3 min)…',
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
     'project.motionStageCompose': 'Motion film — composing… do not leave the page',
+    // The kind the dossier chose, said on the badge: the only visible trace of a
+    // decision nobody made by hand.
+    'project.motionStageComposeKind': 'Motion film · {kind} — composing… do not leave the page',
+    'project.motionStageRenderKind': 'Motion film · {kind} — rendering, 1 to 3 min… do not leave the page',
     'project.motionStageRender': 'Motion film — rendering, 1 to 3 min… do not leave the page',
     'project.motionStagePlace': 'Motion film — placing it in the screen… nearly done',
     'project.motionStageRevise': 'Motion film — revising… do not leave the page',

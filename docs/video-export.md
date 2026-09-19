@@ -1764,6 +1764,21 @@ scales it back onto the estimate — Syne ExtraBold sets 1.63× wider and is dra
 at 61% — while a narrower one is left alone, since enlarging it would push its
 glyphs out of the line box a heading masks.
 
+**Nobody ticks "Motion" any more.** The composer's Muse panel used to carry a
+Motion checkbox and a kind selector — a question about Remotion put to people who
+do not know what Remotion is. Whether a screen gets a film is now decided by the
+composer's existing ANIMATION switch and by the request (`decideFilm` in
+`src/lib/video/filmDecision.ts`): "sans animation" makes none; "auto" follows the
+Muse dossier, which decides `film: { wanted, kind, section, why }` in the SAME
+call that writes the direction (`server/muse/inspire/film.js`) and is told to be
+conservative; "forcées" always makes one — the dossier's kind when Muse ran, the
+first kind the account can render otherwise. The server settles the dossier's
+answer (`settleFilm`): a model cannot overrule "forcées", and in "auto" a kind the
+account cannot render is a no, never a guess. The film's section, when the dossier
+names one, is tried first when the film is placed in the page. The decision is not
+written into DESIGN.md: a film is about one screen, the direction about the
+project. And nothing is asked at all when Motion cannot run for the account.
+
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be
 validated against: `signature()` walks the schema and prints `≤70`,

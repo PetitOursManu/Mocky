@@ -7,6 +7,7 @@ import express from 'express'
 // pattern-based dossier, no LLM.
 import { makeLlm, credsFromReq } from './llm.js'
 import { runInspiration } from './inspire/engine.js'
+import { readMotionRequest } from './inspire/film.js'
 import { runQuality } from './quality/index.js'
 import { judgeAudit } from './quality/audit-judge.js'
 
@@ -100,6 +101,8 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
           language: body.language,
           projectName: body.projectName,
           userMedia: sanitizeUserMedia(body.userMedia),
+          // Read strictly: two modes and the server's own kinds, or nothing.
+          motion: readMotionRequest(body.motion),
         },
         { fetcher, llm, patterns, blacklist },
       )

@@ -41,6 +41,13 @@ export interface MuseDossier {
   }
   imageryPlan?: MuseImagerySlot[]
   forbidden?: string[]
+  /**
+   * Whether THIS screen gets a Motion film, decided by the dossier call itself
+   * (server/muse/inspire/film.js) and settled by the server's rules: the
+   * "Animé" button makes it a yes, the automatic mode a prudent maybe. Absent
+   * when the composer did not ask — Motion off for the account, worker down.
+   */
+  film?: { wanted: boolean; kind?: string; section?: string; why?: string }
 }
 export interface MuseResult {
   dossier: MuseDossier
@@ -95,34 +102,6 @@ export interface MuseConfig {
    * the checkbox it would otherwise contradict.
    */
   videoPin: MuseVideoPin | null
-  /**
-   * Also cut a Motion film for this screen, from the dossier that was just
-   * written.
-   *
-   * Off by default and asked for explicitly, for the reason `video` above it is:
-   * it spends a model call and a render, and it adds a wait a person who ticked
-   * a box at project creation has no reason to expect. Nobody should discover it
-   * by leaving a box ticked.
-   *
-   * What it is NOT is a way of putting a film inside the mockup. The preview
-   * iframe is sandboxed to an opaque origin and its CSP has no `media-src`, so
-   * an `.mp4` cannot be played in it and the authenticated route that serves one
-   * would answer 403 to it anyway. The film is attached to the SCREEN
-   * (`AttachedMedia`) and drawn on the canvas beside the frame, which is what
-   * `docs/video-export.md` says and what the interface already does.
-   */
-  motion: boolean
-  /**
-   * What the film is FOR — a hero, a background, a globe.
-   *
-   * A plain string and not a union, deliberately: the enum lives in
-   * `server/video/kinds.js` and travels on `GET /api/video/status`, so a copy
-   * here would be the sixth hand-kept mirror in a feature that has been bitten
-   * by five. An id this build no longer offers is read as "no kind" by the
-   * panel — the selector falls back to its first entry rather than showing a
-   * blank — and `/compose` refuses it by name if it ever reaches the server.
-   */
-  motionKind: string
 }
 
 /**
@@ -142,11 +121,6 @@ export function defaultMuseConfig(): MuseConfig {
     imageMode: 'content',
     video: false,
     videoPin: null,
-    motion: false,
-    // 'hero' rather than '' so a saved config from before this field parses to a
-    // usable selector instead of an empty one. `loadMuseConfig` spreads the
-    // defaults under the stored object, which is what makes that true.
-    motionKind: 'hero',
   }
 }
 
@@ -412,6 +386,13 @@ export async function runMuseDossier(
     projectName?: string
     /** The user's own picture or clip, so the dossier is written around it. */
     userMedia?: MuseUserMedia | null
+    /**
+     * Ask the dossier to decide whether this screen gets a Motion film. `kinds`
+     * are the ids this account can render, read off `/api/video/status`; the
+     * server intersects them with its own enum. Omitted when Motion cannot run —
+     * the dossier is then written exactly as before.
+     */
+    motion?: { mode: 'auto' | 'force'; kinds: string[] } | null
     signal?: AbortSignal
   } = {},
 ): Promise<MuseResult> {
@@ -429,6 +410,7 @@ export async function runMuseDossier(
       model: s.model,
       projectName: opts.projectName,
       userMedia: opts.userMedia,
+      motion: opts.motion ?? undefined,
     }),
     signal: opts.signal,
   })

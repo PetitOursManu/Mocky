@@ -1852,6 +1852,23 @@ ExtraBold compose 1,63 fois plus large et est dessinée à 61 % — tandis qu’
 police plus étroite est laissée telle quelle, puisque l’agrandir ferait sortir ses
 lettres de la ligne qu’un titre masque.
 
+**Plus personne ne coche « Motion ».** Le panneau Muse du composer portait une
+case Motion et un sélecteur de type — une question sur Remotion posée à des gens
+qui ne savent pas ce qu’est Remotion. Qu’un écran reçoive un film est désormais
+décidé par l’interrupteur d’ANIMATION qui existait déjà dans le composer et par la
+demande (`decideFilm` dans `src/lib/video/filmDecision.ts`) : « sans animation »
+n’en fait aucun ; « auto » suit le dossier Muse, qui décide
+`film: { wanted, kind, section, why }` dans le MÊME appel que celui qui écrit la
+direction (`server/muse/inspire/film.js`) avec la consigne d’être prudent ;
+« forcées » en fait toujours un — le type du dossier quand Muse a tourné, sinon le
+premier type que le compte peut rendre. Le serveur tranche la réponse du dossier
+(`settleFilm`) : un modèle ne peut pas contredire « forcées », et en « auto » un
+type que le compte ne peut pas rendre est un non, jamais une supposition. La
+section du film, quand le dossier en nomme une, est essayée en premier au moment
+de le poser dans la page. La décision n’est pas écrite dans DESIGN.md : un film
+concerne un écran, la direction concerne le projet. Et rien n’est demandé quand
+Motion ne peut pas tourner pour ce compte.
+
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre
 lequel la réponse sera validée : `signature()` parcourt le schéma et écrit `≤70`,

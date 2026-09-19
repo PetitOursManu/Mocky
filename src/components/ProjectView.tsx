@@ -85,6 +85,7 @@ import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
 import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
+import { decideFilm, dossierMotionRequest } from '../lib/video/filmDecision'
 import { matchImagesToScreens } from '../lib/imageBackfill'
 import {
   applyAnimationMode,
@@ -452,7 +453,10 @@ export default function ProjectView({
    */
   const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
   useEffect(() => {
-    if (!museConfig.enabled || motionAvail !== null) return
+    // Asked once whatever Muse's state: the composer's animation switch can
+    // impose a film without Muse, so whether one can be made is a question the
+    // generation always needs answered.
+    if (motionAvail !== null) return
     let alive = true
     fetchVideoAccess()
       .then((access) => {
@@ -466,7 +470,7 @@ export default function ProjectView({
     return () => {
       alive = false
     }
-  }, [museConfig.enabled, motionAvail])
+  }, [motionAvail])
 
   // Screens generated before the canvas image card existed have no imageHash,
   // even though the library still records which project each image belongs to
@@ -1120,6 +1124,8 @@ export default function ProjectView({
         // CANDIDATE direction, not the authority it once was — see the
         // resolveDirection call below. Muse must never block generation (M3),
         // and when OFF the path below is byte-identical to pre-Muse Mocky (M1).
+        /** The Motion kinds this account can render right now — empty when it cannot. */
+        const motionKindIds = motionAvail?.available ? motionAvail.kinds.map((k) => k.id) : []
         let musePreamble: string | undefined
         let museMarkdown: string | undefined
         /** Whether Muse got far enough to have something to say. */
@@ -1177,6 +1183,15 @@ export default function ProjectView({
               useFetch: museConfig.useFetch,
               projectName: project.name,
               userMedia,
+              /*
+               * Whether this screen gets a Motion film is decided in the same
+               * call — prudently in "auto", unconditionally when the composer's
+               * animation switch is on "forcées", not at all when it is off. Asked
+               * only when a film could actually be made: an account without
+               * Motion, or a worker that does not answer, gets the dossier it
+               * always got and no question about films at all.
+               */
+              motion: dossierMotionRequest(animationMode, motionKindIds),
               signal: ac.signal,
             })
             setMuseResult(res)
@@ -1449,39 +1464,34 @@ export default function ProjectView({
         setGeneratingIds(new Set())
 
         /*
-         * The Motion film, cut from the dossier that was just written.
+         * The Motion film, when the animation switch and the request call for one.
          *
          * ── Why it runs HERE, after the screen exists ───────────────────────
          *
          * A film is a model call and a render, and the render is minutes. Run
          * before generation it would hold the screen — the thing the person
-         * actually asked for — behind a wait for something they ticked as an
-         * extra. Run here, the screen is already on the canvas and finished, and
-         * the film arrives on it when it arrives. `muse.motionCost` says the
-         * number before the box is ticked; this is what makes the wait bearable
-         * rather than merely announced.
-         *
-         * ── What it does NOT do, and cannot ─────────────────────────────────
-         *
-         * It does not put the film inside the mockup. The preview iframe is
-         * sandboxed without `allow-same-origin`, so its origin is opaque: its
-         * CSP resolves `media-src` to `default-src 'none'` and blocks a
-         * `<video>` outright, and `GET /api/video/:hash` sits behind a session
-         * cookie that an opaque origin does not send — it would answer 403 even
-         * if the element were allowed. Both are load-bearing security controls
-         * (I2, and the route's own ownership check), so the film is attached to
-         * the SCREEN and drawn on the canvas beside the frame, which is the path
-         * `AttachedMedia` already exists for.
+         * actually asked for — behind a wait for something they may not even
+         * have asked for by name. Run here, the screen is already on the canvas
+         * and finished, and the film arrives in it when it arrives; the badge on
+         * the screen says which kind is coming and that the page must stay open.
          *
          * ── And it degrades, always (Q1) ────────────────────────────────────
          *
          * Every failure here leaves exactly the screen the user would have had
-         * with the box unticked. It is REPORTED, unlike an image failure,
-         * because this one cost a model call and minutes of a render.
+         * with no film. It is REPORTED, unlike an image failure, because this
+         * one cost a model call and minutes of a render.
          */
-        if (museConfig.motion && motionAvail?.available && motionAvail.kinds.length > 0) {
+        // Decided by the composer's ANIMATION switch and the request — never by a
+        // Motion checkbox. The rules, and why, are in `decideFilm`.
+        const museFilm = decideFilm({
+          mode: animationMode,
+          kinds: motionKindIds,
+          dossier: museRan ? museDossier?.film : undefined,
+        })
+        if (museFilm) {
+          const kindName = t(`muse.motionKind.${museFilm.kind}` as TranslationKey)
           try {
-            motionStage(screenId, t('project.motionStageCompose'))
+            motionStage(screenId, t('project.motionStageComposeKind', { kind: kindName }))
             const theme = themeFromDesign(dir.markdown)
             const proposal = await proposeVideoTimeline(
               text,
@@ -1493,7 +1503,7 @@ export default function ProjectView({
               {
                 settings,
                 theme,
-                motionKind: museConfig.motionKind,
+                motionKind: museFilm.kind,
                 // The dossier in its own words. Not the theme, which travels
                 // separately and never reaches the model: this is what makes a
                 // film RESEMBLE the direction rather than merely carry its
@@ -1508,7 +1518,7 @@ export default function ProjectView({
               // thing here worth repeating verbatim.
               reportMotionFailure(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
             } else {
-              motionStage(screenId, t('project.motionStageRender'))
+              motionStage(screenId, t('project.motionStageRenderKind', { kind: kindName }))
               /*
                * The theme is STRIPPED before this goes back out, and forgetting
                * that is what made this whole path silently produce nothing.
@@ -1551,11 +1561,13 @@ export default function ProjectView({
                 await placeFilmInScreen(
                   screenId,
                   finished.videoHash,
-                  museConfig.motionKind,
+                  museFilm.kind,
                   ac.signal,
                   // The proposal, not the job: it is the document that carries
                   // the words, and it is right here.
                   proposal.timeline,
+                  // Where the dossier said it belongs, when it said so.
+                  museFilm.section,
                 )
               } else {
                 reportMotionFailure(t('project.motionFailed', { detail: finished.error || '' }))
@@ -2133,6 +2145,12 @@ export default function ProjectView({
      * hand, and cost nothing.
      */
     film: VideoTimeline | RenderTimeline | null,
+    /**
+     * The section the Muse dossier named for this film, when it decided one. It
+     * comes first among the preferences below, and like them it counts only if
+     * the screen really has a section by that id.
+     */
+    section?: string,
   ) {
     const settings = loadSettings()
     if (!settings.model.trim()) return
@@ -2184,7 +2202,9 @@ export default function ProjectView({
       mark: ['footer', 'cta', 'hero'],
       story: ['hero', 'features'],
     }
-    const wanted = (PREFERRED[kind || ''] || []).filter((id) => sections.some((sec) => sec.id === id))
+    const wanted = [...(section ? [section] : []), ...(PREFERRED[kind || ''] || [])].filter((id) =>
+      sections.some((sec) => sec.id === id),
+    )
     const placement = sections.length
       ? [
           '',
@@ -2743,7 +2763,6 @@ export default function ProjectView({
         museImageError={museImageError}
         museVision={museVision}
         museVideo={videoAvail}
-        museMotion={motionAvail}
         animationMode={animationMode}
         onCycleAnimations={cycleAnimations}
       />
@@ -3435,7 +3454,6 @@ export default function ProjectView({
                     imageError={museImageError}
                     vision={museVision}
                     video={videoAvail}
-                    motion={motionAvail}
                   />
                 </div>
               )}

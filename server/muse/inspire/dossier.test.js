@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { buildDossier, buildFallbackDossier, dossierToMarkdown, normalizeDossierRaw, DossierSchema, DOSSIER_JSON_SCHEMA } from './dossier.js'
+import { buildDossier, buildFallbackDossier, dossierToMarkdown, normalizeDossierRaw, DossierSchema, DOSSIER_JSON_SCHEMA, dossierJsonSchema } from './dossier.js'
 // The DESIGN.md bridge: the SAME parser the app + Vite export use. If the
 // dossier's Tokens section ever drifts from DESIGN.md format, this breaks.
 import { parseDesignSystem } from '../../../src/lib/designTokens'
@@ -221,9 +221,15 @@ describe('the two schemas must agree', () => {
     // emits DURING it. Adding a field to only one of them changes nothing
     // observable — the prompt asks, zod accepts, and the model never hears
     // about the field, so it comes back missing on every single run.
+    //
+    // `film` is the one field that is offered only when the composer asked for a
+    // decision, so the comparison is made on the schema of a request that did.
     const zodKeys = Object.keys(DossierSchema.shape)
-    const jsonKeys = Object.keys(DOSSIER_JSON_SCHEMA.properties)
+    const jsonKeys = Object.keys(dossierJsonSchema({ mode: 'auto', kinds: ['hero'] }).properties)
     expect(jsonKeys.sort()).toEqual(zodKeys.sort())
+    // …and a request that did not ask is offered exactly the dossier it always was.
+    expect(Object.keys(dossierJsonSchema(null).properties).sort()).toEqual(zodKeys.filter((k) => k !== 'film').sort())
+    expect(dossierJsonSchema({ mode: 'force', kinds: ['hero'] }).required).toContain('film')
   })
 
   it('asks for the fields a screen cannot be built without', () => {
