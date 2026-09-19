@@ -1516,7 +1516,7 @@ export default function ProjectView({
               // A proposal that could not be made is not a request that failed —
               // the server says why in its own sentence, and it is the only
               // thing here worth repeating verbatim.
-              reportMotionFailure(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
+              reportMotionFailure(t('project.motionFailed', { detail: motionNotices(proposal.notices) }))
             } else {
               motionStage(screenId, t('project.motionStageRenderKind', { kind: kindName }))
               /*
@@ -1938,14 +1938,24 @@ export default function ProjectView({
    * demandé un héro et il n'y est pas", twice, with the reason on screen the
    * whole time, one click away.
    *
-   * Both, not one. The panel copy is where somebody looking at Muse expects it,
-   * and the banner is the one that cannot be missed — which is the standard this
-   * module already set for itself: an image failure degrades in silence, a
-   * Motion failure is REPORTED, because it spent a call and minutes of a render.
+   * The composer's banner only, now. The panel copy it also went to is drawn
+   * under "Image non générée — …", so a film that failed read as an IMAGE that
+   * failed; and the banner is the one that cannot be missed — which is the
+   * standard this module already set for itself: an image failure degrades in
+   * silence, a Motion failure is REPORTED, because it spent a call and minutes
+   * of a render. The banner shows the whole message and can be dismissed.
    */
   function reportMotionFailure(message: string) {
-    setMuseImageError(message)
     setError(message)
+  }
+
+  /**
+   * Every reason the composer gave, not the first. A refused document can carry
+   * several issues and the first is not always the one that explains the rest;
+   * the server bounds the list, so nothing here needs to.
+   */
+  function motionNotices(notices: readonly string[]): string {
+    return notices.filter(Boolean).join('\n') || '—'
   }
 
   /**
@@ -2054,7 +2064,7 @@ export default function ProjectView({
         return
       }
       if (!proposal.timeline) {
-        reportMotionFailure(t('project.motionFailed', { detail: proposal.notices[0] || '' }))
+        reportMotionFailure(t('project.motionFailed', { detail: motionNotices(proposal.notices) }))
         return
       }
 
@@ -3298,15 +3308,33 @@ export default function ProjectView({
       {/* Floating composer */}
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
         <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-line bg-surface p-2 shadow-2xl">
+          {/*
+            The whole message, wrapped — never `truncate`. A one-line ellipsis cut
+            "…refused at scenes.0.layers" off exactly before the part that said
+            WHY ("Array must contain at least 1 element"), which is the only part
+            anybody can act on. Long messages scroll inside the banner rather than
+            pushing the composer off the screen, and the banner can be dismissed.
+          */}
           {error && (
-            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-body-sm text-danger">
-              <span className="flex min-w-0 items-center gap-2">
-                <Icon name="warning" size={16} />
-                <span className="truncate">{error}</span>
+            <div className="mb-2 flex items-start justify-between gap-3 rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-body-sm text-danger">
+              <span className="flex min-w-0 items-start gap-2">
+                <Icon name="warning" size={16} className="mt-0.5 shrink-0" />
+                <span className="max-h-40 overflow-y-auto whitespace-pre-line break-words">{error}</span>
               </span>
-              <button type="button" className="btn-ghost shrink-0 px-2 py-1 text-body-sm" onClick={onOpenSettings}>
-                {t('nav.settings')}
-              </button>
+              <span className="flex shrink-0 items-center gap-1">
+                <button type="button" className="btn-ghost px-2 py-1 text-body-sm" onClick={onOpenSettings}>
+                  {t('nav.settings')}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost px-1.5 py-1"
+                  aria-label={t('common.close')}
+                  title={t('common.close')}
+                  onClick={() => setError(null)}
+                >
+                  <Icon name="close" size={14} />
+                </button>
+              </span>
             </div>
           )}
 
