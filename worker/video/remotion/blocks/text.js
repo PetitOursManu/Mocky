@@ -56,6 +56,7 @@ import {
   EMPHASIS_ENTER_FRAMES,
   RUN_GAP,
   blockShape,
+  easeOutCubic,
   hairline,
   runAdvanceEm,
   shapeCeiling,
@@ -628,5 +629,95 @@ export function letterStyle(effect, reveal, life, index, weight) {
     }
     default:
       return {}
+  }
+}
+
+// ── `particles`: a title drawn by a swarm, then left standing ────────────────
+//
+// The one letter effect that is not a transform of the letters: the glyphs are
+// sampled into dots, the dots fly in from a cloud around the run, and once they
+// have landed the REAL text takes their place. So the resting frame is the same
+// frame every other effect ends on — the letters as the layout measured them, at
+// the ink the palette resolved — and the dots only ever exist while nothing is
+// being read. At the end of the scene the swarm takes the title back and leaves.
+//
+// Everything here is arithmetic: which dot, from where, when. The drawing is
+// `heading.jsx`'s, on a canvas it sizes from the letters the browser laid out.
+
+/** The sampling step, in em of the run: a dot every seventh of an em or so. */
+export const PARTICLE_STEP_EM = 0.07
+/** The finest step allowed, in pixels, so a small heading is not ten thousand dots. */
+export const PARTICLE_STEP_MIN_PX = 3
+/** A dot's radius, as a share of the step: a little under half, so dots read as dots. */
+export const PARTICLE_DOT_SHARE = 0.42
+/** How far the cloud reaches around the run, in em. The canvas is padded by as much. */
+export const PARTICLE_SCATTER_EM = 1.6
+/** How much of the arrival is spent staggering the dots, left to right with some chance. */
+export const PARTICLE_STAGGER = 0.45
+/** Where in the arrival the text starts to replace the dots. */
+export const PARTICLE_SETTLE_FROM = 0.88
+/** Where in the scene the swarm takes the title back. */
+export const PARTICLE_EXIT_FROM = 0.9
+
+/** A deterministic hash to [0, 1): the same dot on the same frame in every render tab. */
+export function particleHash(n) {
+  let h = Math.imul((n | 0) ^ 0x2545f491, 0x9e3779b1)
+  h ^= h >>> 15
+  h = Math.imul(h, 0x85ebca77)
+  h ^= h >>> 13
+  return (h >>> 0) / 4294967296
+}
+
+/** The step between two dots, in pixels, for a run of this size. */
+export function particleStep(size) {
+  return Math.max(PARTICLE_STEP_MIN_PX, Math.round(Number(size) * PARTICLE_STEP_EM))
+}
+
+/**
+ * The swarm's state on a frame: how far each dot has come in, how far it has
+ * left, and how much of the real text is showing.
+ *
+ * The exit only ever begins once the arrival is COMPLETE. A heading cued late in
+ * a short scene may still be landing when the scene's last tenth begins, and a
+ * swarm that left before the title had formed would be a film in which the title
+ * was never on screen — so it simply stays, and the scene cuts on it.
+ */
+export function particlePhase(progress, life) {
+  const arrival = clamp01(progress)
+  const leaving = arrival >= 1 ? clamp01((clamp01(life) - PARTICLE_EXIT_FROM) / (1 - PARTICLE_EXIT_FROM)) : 0
+  const settled = clamp01((arrival - PARTICLE_SETTLE_FROM) / (1 - PARTICLE_SETTLE_FROM))
+  // The text fades out over the first fifth of the exit, while the dots it hands
+  // back to are still sitting exactly on its glyphs.
+  const text = leaving > 0 ? 1 - clamp01(leaving * 5) : settled
+  return { arrival, leaving, text, dots: 1 - text }
+}
+
+/**
+ * Where one dot is, relative to its place in the glyph, in pixels.
+ *
+ * It comes in along a curve from a point of the cloud and leaves along a straight
+ * line, further than it came: arriving is gathering, leaving is scattering.
+ *
+ * @param {number} index      the dot's number, for its hash
+ * @param {number} across     0 at the run's left edge, 1 at its right
+ * @param {number} scatter    the cloud's reach in pixels
+ */
+export function particleOffset(index, across, scatter, phase) {
+  const angle = particleHash(index * 3) * Math.PI * 2
+  const reach = scatter * (0.45 + 0.55 * particleHash(index * 3 + 1))
+  if (phase.leaving > 0) {
+    const out = easeOutCubic(phase.leaving) * reach * 1.4
+    return { x: Math.cos(angle) * out, y: Math.sin(angle) * out, alpha: 1 - phase.leaving }
+  }
+  const delay = (0.6 * clamp01(across) + 0.4 * particleHash(index * 3 + 2)) * PARTICLE_STAGGER
+  const local = clamp01((phase.arrival - delay) / (1 - PARTICLE_STAGGER))
+  const away = 1 - easeOutCubic(local)
+  // The curve: a sideways term that is gone before the dot lands.
+  const swirl = away * away * reach * 0.35
+  return {
+    x: Math.cos(angle) * away * reach - Math.sin(angle) * swirl,
+    y: Math.sin(angle) * away * reach + Math.cos(angle) * swirl,
+    // Faded in over its first steps, so the cloud condenses rather than blinks on.
+    alpha: clamp01(local * 4),
   }
 }

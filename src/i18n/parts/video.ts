@@ -78,7 +78,7 @@ export const video = {
     'video.tierLimitedHelp': 'Les blocs 3D actuels (globe, objets, reliefs), deux au plus par scène. Le réglage par défaut.',
     'video.tierFull': '3D complète',
     'video.tierFullHelp':
-      'Réservé aux effets lourds qui arrivent : monde 3D continu, particules qui dessinent, transitions 3D. Pour une machine puissante.',
+      'Tout ce que permet la 3D limitée, plus le monde 3D continu que la caméra traverse de scène en scène, les titres dessinés par un essaim de particules et les transitions en cube ou en plongée. Pour une machine puissante.',
     'video.tierRecommended': 'recommandé',
     'video.benchmarkRun': 'Tester ce serveur',
     'video.benchmarkRunning': 'Test en cours…',
@@ -520,7 +520,7 @@ export const video = {
     'video.tierLimitedHelp': 'Today’s 3D blocks (globe, objects, reliefs), at most two per scene. The default.',
     'video.tierFull': 'Full 3D',
     'video.tierFullHelp':
-      'Reserved for the heavy effects on their way: a continuous 3D world, particles that draw, 3D transitions. For a powerful machine.',
+      'Everything limited 3D allows, plus the continuous 3D world the camera travels through from scene to scene, titles drawn by a swarm of particles, and cube and dive transitions. For a powerful machine.',
     'video.tierRecommended': 'recommended',
     'video.benchmarkRun': 'Test this server',
     'video.benchmarkRunning': 'Testing…',

@@ -18,6 +18,8 @@ import {
 import { proposeTimeline } from './compose.js'
 import {
   MAX_THREE_D_LAYERS,
+  fullTierFeaturesIn,
+  fullTierRefusal,
   threeDBlocksIn,
   threeDLoadOf,
   threeDLoadRefusal,
@@ -216,6 +218,12 @@ export function createVideoRouter({
    * one place a missing method must NOT read as "allowed" is a gate.
    */
   const mayThreeD = (user) => Boolean(config.threeDEnabledFor?.(user))
+  /*
+   * And the heavy set — the 3D world, the swarm, the cube and the dive — which
+   * needs the account's 3D AND a machine its administrator set to `full`.
+   * Closed in the same direction: a store without `renderTier` is not a full one.
+   */
+  const mayFull = (user) => mayThreeD(user) && config.renderTier?.() === 'full'
 
   /**
    * Can this account export, and is there anything to export with?
@@ -250,6 +258,8 @@ export function createVideoRouter({
        * reach /render without this route ever having been called.
        */
       threeD: enabled && mayThreeD(req.user),
+      // Presentation only, like `threeD`: /compose and /render are the gates.
+      fullThreeD: enabled && mayFull(req.user),
       /*
        * Will a variant really be derived from the user's picture?
        *
@@ -550,6 +560,7 @@ export function createVideoRouter({
         // 3D away should have taken it away by the next compose, not by the next
         // restart.
         threeD: threeDAllowed,
+        full: mayFull(req.user),
         forceThreeD,
         signal: abort.signal,
       })
@@ -674,6 +685,13 @@ export function createVideoRouter({
      * would buy a fourth copy of it in exchange for a check the one door that
      * every document passes through can already make.
      */
+    // The heavy set, on the same door and for the same reason: a document need
+    // never have come from /compose, which is the only place that narrowed it.
+    const inFull = fullTierFeaturesIn(timeline)
+    if (inFull.length && !mayFull(req.user)) {
+      return res.status(403).json({ error: fullTierRefusal(inFull, 'Nothing was queued.'), fullTierFeatures: inFull })
+    }
+
     const load = threeDLoadOf(timeline)
     if (load > MAX_THREE_D_LAYERS) {
       return res.status(400).json({ error: threeDLoadRefusal(load, 'Nothing was queued.'), threeDLoad: load })

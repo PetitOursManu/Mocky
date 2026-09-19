@@ -13,7 +13,7 @@ import {
   runBenchmark,
 } from './benchmark.js'
 import { RenderTimelineSchema, totalDurationMs } from './timeline.js'
-import { threeDBlocksIn } from './three-d.js'
+import { fullTierFeaturesIn, threeDBlocksIn } from './three-d.js'
 import { VideoQueue } from './queue.js'
 import {
   DEFAULT_RENDER_TIER,
@@ -38,7 +38,10 @@ describe('the reference films', () => {
   it('climb in cost: nothing in 3D, one 3D block, a 3D field under a 3D block', () => {
     expect(threeDBlocksIn(BENCHMARK_FILMS.flat)).toEqual([])
     expect(threeDBlocksIn(BENCHMARK_FILMS.limited)).toHaveLength(1)
-    expect(threeDBlocksIn(BENCHMARK_FILMS.full).length).toBeGreaterThanOrEqual(2)
+    // The full film measures what full ADDS: every feature of the heavy set, and a solid.
+    expect(fullTierFeaturesIn(BENCHMARK_FILMS.full)).toEqual(['world', 'cube', 'particles'])
+    expect(threeDBlocksIn(BENCHMARK_FILMS.full)).toHaveLength(1)
+    expect(fullTierFeaturesIn(BENCHMARK_FILMS.limited)).toEqual([])
   })
 })
 

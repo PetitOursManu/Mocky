@@ -1874,8 +1874,8 @@ Chrome sans écran dessine chaque image WebGL sur le processeur : sur un poste d
 douze cœurs, un film de cinq secondes a pris 16 s sans 3D, 28 s avec un bloc 3D et
 31 s avec un champ 3D sous un bloc 3D. Le niveau de rendu du panneau admin
 (`renderTier` : `flat`, `limited` — le défaut, ce que faisait chaque instance
-avant — ou `full`, réservé aux moteurs lourds à venir) borne les listes 3D par
-compte : en `flat`, personne ne rend de 3D. « Tester ce serveur »
+avant — ou `full`, qui ajoute l’ensemble lourd décrit plus bas) borne les listes
+3D par compte : en `flat`, personne ne rend de 3D. « Tester ce serveur »
 (`POST /api/admin/video/benchmark`, `benchmark.js`) rend trois films de référence
 écrits à la main via le worker, dans le créneau exclusif de la file
 (`queue.runExclusive` — le rendu d’un utilisateur attend au lieu de recevoir un
@@ -1903,6 +1903,64 @@ forme, le sur-titre perdait sa couleur d’accent sur six thèmes sur huit et le
 disparaissait sur deux ; à 0,12 il la perd sur trois (un dégradé sur deux) et ne
 disparaît jamais. Le tirage propose désormais un effet de lettres pour le titre
 principal environ trois films sur cinq.
+
+**L’ensemble lourd, en `full` seulement : un monde 3D continu, un essaim qui
+dessine un titre, et des transitions qui passent par l’espace.** Trois ajouts au
+catalogue, aucun n’est un bloc, et tous restent des noms tirés d’énumérations
+fermées — le modèle écrit `background: {kind: "world"}`, `letters: "particles"`,
+`transitionOut: "cube"` et rien qui décrive la façon de les dessiner.
+
+- **`world`** est un fond (`world.js` pour l’arithmétique, `WorldGround.jsx` pour
+  la scène GL) : des pierres dressées de part et d’autre d’un couloir, un sol
+  quadrillé, des formes qui tournent en l’air, du brouillard. C’est UN lieu par
+  film — construit une fois d’après le point le plus lointain où va la caméra — et
+  la position de la caméra dépend de l’image du FILM, pas de celle de la scène :
+  chaque scène « world » est un plan du même lieu, et chaque coupe est la caméra
+  qui vole jusqu’à la station suivante (`worldFlights` : un smoothstep centré sur
+  le milieu du chevauchement, sur 42 images au plus, plus une lente croisière qui
+  ne s’arrête jamais). Les scènes sur un autre fond le recouvrent simplement
+  pendant que la caméra continue d’avancer. Il est lisible par construction :
+  chaque surface est le fond mélangé à l’accent à une part d’une seule portée — les
+  faces des pierres en sont trois parts, cuites dans la géométrie au lieu d’être
+  éclairées, parce qu’une lumière multiplie une couleur mesurée par un cosinus que
+  personne n’a mesuré — et le brouillard ramène chacune vers le fond. C’est la
+  mesure d’un mesh, et la palette l’essaie d’abord plus dense (`WORLD_REACHES` :
+  0,6, 0,45, puis `MESH_REACH`), en ne prenant un palier que si chaque texte passe
+  ET que l’accent garde la couleur qu’il a à la portée d’un mesh : sur les treize
+  thèmes du corpus de test, le monde ne perd jamais l’accent là où un mesh le
+  garde. Le brouillard mélange en lumière linéaire et la palette mesure un mélange
+  gamma, ce qui est sans effet : le contraste ne dépend que de la luminance, et
+  les deux mélanges parcourent les mêmes luminances.
+- **`particles`** est un effet de lettres de `heading`. Le navigateur place les
+  lettres comme pour tous les autres effets ; le titre échantillonne leurs glyphes
+  en points (`offsetLeft`/`offsetTop`, qui ignorent les transformations de la
+  scène, et l’ascendante et la descendante de la police pour la ligne de base),
+  fait venir les points depuis un nuage, puis les remplace par le vrai texte — et
+  à la fin de la scène l’essaim le reprend. Le canevas n’est même pas dans l’arbre
+  sur une image au repos : l’image qu’on lit est le texte mesuré. L’arrivée est la
+  seule autorisée au-delà d’`EMPHASIS_ENTER_FRAMES` (`particleSpan` : jusqu’à
+  36 images, raccourcie pour atterrir encore `MIN_CUE_TAIL_FRAMES` avant la fin),
+  et la sortie ne commence qu’une fois le titre formé.
+- **`cube` et `dive`** font bouger les DEUX scènes, ce qu’aucune transition ne
+  faisait : `planTimeline` donne désormais à chaque entrée le chevauchement vu du
+  côté de la scène qui part (`exitTransition`, `exitFrames`) et `exitStyle` le
+  dessine. Le cube pivote sur une arête que les deux faces partagent à chaque
+  image, donc le pli ne s’ouvre jamais sur le vide. **`iris` et `liquid`** sont
+  des masques, comme `pixel`, et sont proposés à tous les niveaux. Les quatre ont
+  800 ms au lieu de 500, toujours plafonnées au tiers de la scène la plus courte.
+
+Le verrou (`FULL_TIER_*` et `fullTierFeaturesIn` dans `three-d.js`) : l’ensemble
+demande la permission 3D du compte ET un serveur en `full`. Ailleurs, `/compose`
+retire le fond, l’effet de lettres et les deux transitions du prompt et de
+l’indication au décodeur, et refuse une proposition qui les utilise ; `/render`
+les refuse par un 403 qui dit ce que le film peut encore être. La transition de la
+dernière scène n’est jamais dessinée, donc jamais refusée. Le film `full` du test
+du serveur est désormais cet ensemble — deux scènes « world », un titre en
+essaim, un cube, un solide — pour que ce que lit l’administrateur soit le coût de
+ce que `full` ajoute. Mesuré sur le poste de douze cœurs, films de 5,5 s face à un
+fond `mesh` : `world` 22,2 s contre 24,8 (les dégradés radiaux d’un mesh coûtent
+plus qu’un canevas GL de 640 000 pixels), `cube` 23,2 s, `particles` 29,9 s et
+moitié plus de débit — les points sont le détail fin que paie un encodeur.
 
 **Aucun nombre et aucun vocabulaire n’est tapé dans cette prose.** Chaque borne,
 chaque énumération et chaque défaut d’une fiche est dérivé de l’objet zod contre

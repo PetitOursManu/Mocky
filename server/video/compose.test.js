@@ -214,10 +214,10 @@ describe('proposeTimeline — the happy path is a COMPOSED film', () => {
 describe('proposeTimeline — the catalogue of blocks', () => {
   let system
   beforeEach(async () => {
-    // `threeD: true` because this block asserts the WHOLE catalogue, and the
-    // permission defaults to no — see the 3D describe at the bottom of this
+    // `threeD` and `full` because this block asserts the WHOLE catalogue, and
+    // both permissions default to no — see the 3D describe at the bottom of this
     // file, which asserts the other half.
-    await proposeTimeline('a film about the kettle', IMAGES_DEEP, { llm, threeD: true })
+    await proposeTimeline('a film about the kettle', IMAGES_DEEP, { llm, threeD: true, full: true })
     system = calls[0].system
   })
 
@@ -487,7 +487,7 @@ describe('proposeTimeline — what the selection makes possible', () => {
   })
 
   it('offers the whole catalogue once there are pictures for it', async () => {
-    await proposeTimeline('a film about the kettle', IMAGES_DEEP, { llm, threeD: true })
+    await proposeTimeline('a film about the kettle', IMAGES_DEEP, { llm, threeD: true, full: true })
     expect(hintKinds(calls[0].schema)).toEqual([...BLOCK_KINDS])
     expect(hintGrounds(calls[0].schema)).toEqual([...BACKGROUND_KINDS])
     expect(calls[0].system).not.toMatch(/need more pictures than are selected/)

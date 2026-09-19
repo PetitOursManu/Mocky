@@ -1,7 +1,13 @@
+import { useLayoutEffect, useRef } from 'react'
 import { riseShare, withAlpha, words } from '../composition.js'
 import {
   HEADING_RULE_REST,
   MASK_TRAVEL_PERCENT,
+  PARTICLE_DOT_SHARE,
+  PARTICLE_SCATTER_EM,
+  particleOffset,
+  particlePhase,
+  particleStep,
   RULE_ACCENT_SHARE,
   RULE_QUIET_ALPHA,
   decodeGlyph,
@@ -85,6 +91,138 @@ import {
  * about.
  */
 
+/**
+ * The glyphs of a laid-out run, as dots: sampled once per run and per render tab.
+ *
+ * Measured off the letters the BROWSER set — `offsetLeft` and `offsetTop`,
+ * which ignore every transform an arrival or a transition puts on the scene —
+ * and drawn in the face the browser resolved for them, so a dot lands on a pixel
+ * the real glyph covers rather than on an estimate of it. The baseline inside a
+ * letter's box is the half-leading model CSS itself uses: the box is the line's
+ * height, the font's ascent and descent are centred in it.
+ */
+const SAMPLED = new Map()
+
+function sampleRun(host, size, ink) {
+  if (typeof document === 'undefined' || !host) return null
+  const spans = [...host.querySelectorAll('[data-particle]')]
+  if (!spans.length) return null
+  const width = Math.max(1, Math.round(host.offsetWidth))
+  const height = Math.max(1, Math.round(host.offsetHeight))
+  const style = getComputedStyle(spans[0])
+  const font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  const letters = spans.map((span) => ({
+    char: span.textContent ?? '',
+    x: span.offsetLeft,
+    y: span.offsetTop,
+    w: span.offsetWidth,
+    h: span.offsetHeight,
+    accent: span.dataset.particle === 'accent',
+  }))
+  const key = `${font}|${width}x${height}|${letters.map((l) => `${l.char}@${l.x},${l.y}`).join(';')}`
+  const cached = SAMPLED.get(key)
+  if (cached) return cached
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.font = font
+  ctx.textBaseline = 'alphabetic'
+  // Any opaque ink: only the coverage is read back, never the colour.
+  ctx.fillStyle = ink
+  for (const l of letters) {
+    const m = ctx.measureText(l.char)
+    const ascent = m.fontBoundingBoxAscent || size * 0.8
+    const descent = m.fontBoundingBoxDescent || size * 0.2
+    ctx.fillText(l.char, l.x, l.y + (l.h - (ascent + descent)) / 2 + ascent)
+  }
+  const data = ctx.getImageData(0, 0, width, height).data
+  const step = particleStep(size)
+  const dots = []
+  for (let y = Math.floor(step / 2); y < height; y += step) {
+    for (let x = Math.floor(step / 2); x < width; x += step) {
+      if (data[(y * width + x) * 4 + 3] < 128) continue
+      const owner = letters.find((l) => x >= l.x && x < l.x + l.w && y >= l.y && y < l.y + l.h)
+      dots.push({ x, y, accent: Boolean(owner?.accent) })
+    }
+  }
+  const sampled = { width, height, step, dots }
+  SAMPLED.set(key, sampled)
+  return sampled
+}
+
+/**
+ * `letters: 'particles'` — the run drawn by a swarm, then the run itself.
+ *
+ * The letters are laid out exactly as every other letter effect lays them out —
+ * one unbreakable box per word, so the wrap is the one the layout estimated — and
+ * they are what the dots are sampled from. They are HIDDEN while the dots fly and
+ * shown once the dots have landed on them, so the frame a viewer reads is the
+ * real text at the measured ink; the canvas is not even in the tree then.
+ *
+ * Every colour is a palette run: a dot takes the ink of the letter it belongs to.
+ */
+const ParticleRun = ({ parts, size, palette, progress, life }) => {
+  const host = useRef(null)
+  const surface = useRef(null)
+  const phase = particlePhase(progress, life)
+  const scatter = PARTICLE_SCATTER_EM * size
+  const pad = Math.ceil(scatter * 1.4 + size)
+
+  useLayoutEffect(() => {
+    const canvas = surface.current
+    if (!canvas || phase.dots <= 0) return
+    const run = sampleRun(host.current, size, palette.display.color)
+    if (!run) return
+    canvas.width = run.width + 2 * pad
+    canvas.height = run.height + 2 * pad
+    canvas.style.width = `${canvas.width}px`
+    canvas.style.height = `${canvas.height}px`
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const radius = run.step * PARTICLE_DOT_SHARE
+    run.dots.forEach((dot, i) => {
+      const off = particleOffset(i, dot.x / run.width, scatter, phase)
+      const alpha = off.alpha * phase.dots
+      if (alpha <= 0) return
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = dot.accent ? palette.accent.color : palette.display.color
+      ctx.beginPath()
+      ctx.arc(pad + dot.x + off.x, pad + dot.y + off.y, radius, 0, Math.PI * 2)
+      ctx.fill()
+    })
+    ctx.globalAlpha = 1
+  })
+
+  return (
+    <span ref={host} style={{ position: 'relative', display: 'block' }}>
+      <span style={{ opacity: phase.text }}>
+        {parts.map((word, i) => {
+          const emphasis = parts.length > 1 && i === parts.length - 1
+          return (
+            <span key={i}>
+              {i > 0 ? ' ' : null}
+              <span style={{ display: 'inline-block', whiteSpace: 'nowrap', color: emphasis ? palette.accent.color : undefined }}>
+                {[...word].map((char, j) => (
+                  <span key={j} data-particle={emphasis ? 'accent' : 'display'} style={{ display: 'inline-block' }}>
+                    {char}
+                  </span>
+                ))}
+              </span>
+            </span>
+          )
+        })}
+      </span>
+      {phase.dots > 0 ? (
+        <canvas ref={surface} style={{ position: 'absolute', left: -pad, top: -pad, pointerEvents: 'none' }} />
+      ) : null}
+    </span>
+  )
+}
+
 export const Heading = ({ block, palette, theme, box, unit, base, progress, life }) => {
   const layout = textLayout(block, box, unit)
   const line = runAt(layout, 0)
@@ -119,7 +257,9 @@ export const Heading = ({ block, palette, theme, box, unit, base, progress, life
             wordBreak: 'break-word',
           }}
         >
-          {block.letters
+          {block.letters === 'particles' ? (
+            <ParticleRun parts={parts} size={line.size} palette={palette} progress={progress} life={life} />
+          ) : block.letters
             ? /*
                * Letters that come alive (\`letters\`), instead of the word mask.
                *

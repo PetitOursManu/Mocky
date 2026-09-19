@@ -152,6 +152,9 @@ export const WORKED_SCENES = [
   { ground: 'gradient', layers: [['counter', 'center-left'], ['globe', 'center-right']], why: 'how many places, beside the world they are in' },
   // The two grounds that move in colour, so a model sees them used.
   { ground: 'mesh', layers: [['heading', 'center']], why: 'one statement floating on drifting colour' },
+  // Offered only where the world is: `drawStacks` keeps a scene whose ground is on offer.
+  { ground: 'world', layers: [['heading', 'bottom-left'], ['kicker', 'top-left']], why: 'a stop on the journey, said low in the frame so the landscape shows above it' },
+  { ground: 'world', layers: [['logoType', 'center']], why: 'the name standing in the landscape, just before the camera flies on' },
   { ground: 'aurora', layers: [['kicker', 'top-center'], ['logoType', 'center']], why: 'a name under slow bands of light' },
   { ground: 'aurora', layers: [['quote', 'center-left']], why: 'a quiet voice at night' },
   { ground: 'mesh', layers: [['textHighlight', 'center-right']], why: 'the sentence that matters, on a living ground' },
@@ -303,7 +306,14 @@ export function stackLines(stacks) {
  * opening and an axis — both about where WORDS go — are meaningless for it, and
  * only the featured surface is drawn.
  */
-export function drawStartingPoint({ kinds, usage = filmUsage([]), random = Math.random, maxScenes = 12, motionKind = null }) {
+export function drawStartingPoint({
+  kinds,
+  usage = filmUsage([]),
+  random = Math.random,
+  maxScenes = 12,
+  motionKind = null,
+  letterEffects = LETTER_EFFECTS,
+}) {
   const have = new Set(kinds)
   const offers = (needs) => !needs || needs.some((k) => have.has(k))
   const films = Math.max(1, usage.films)
@@ -345,7 +355,13 @@ export function drawStartingPoint({ kinds, usage = filmUsage([]), random = Math.
    * reveal is a good gesture too, and a film where every heading performs is a
    * reel. Only when a heading is on offer at all.
    */
-  const letters = !typeless && have.has('heading') && random() < 0.6 ? pickWeighted([...LETTER_EFFECTS], () => 1, random) : null
+  // Out of the effects THIS server draws — the swarm only exists at full 3D, and
+  // a starting point naming it elsewhere is a refusal the prompt itself asked for.
+  // Drawn less often than the others: it is an opening or a finale, once a film.
+  const letters =
+    !typeless && have.has('heading') && random() < 0.6
+      ? pickWeighted([...letterEffects], (effect) => (effect === 'particles' ? 0.6 : 1), random)
+      : null
   const toneChance = typeless ? 0 : maxScenes >= 2 ? 0.5 : 0.25
   const tone = random() < toneChance ? (random() < 0.6 ? 'inverse' : 'accent') : null
   const featured = pickMany(

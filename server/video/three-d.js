@@ -175,3 +175,52 @@ export function threeDRefusal(used, consequence) {
     `film without it: the other ${FLAT_BLOCKS.length} blocks and every ground are available. ${consequence}`
   )
 }
+
+// ── What only a server set to FULL 3D draws ──────────────────────────────────
+//
+// The heavy half of step four: the continuous 3D world, the swarm that draws a
+// title, and the two transitions that turn or fly the frame through space. Not
+// blocks — a ground, a letter effect and a transition — which is why they have a
+// list of their own rather than a place in `THREE_D_BLOCKS`: the per-block
+// permission and the per-scene load cap mean nothing to a transition.
+//
+// Two conditions, both of which must hold: the ACCOUNT may spend a 3D render
+// (the per-account permission above, which a `flat` server already denies to
+// everyone), and the MACHINE was set to `full` by its administrator — usually on
+// the benchmark's word. `iris` and `liquid` are not here: they are masks, drawn
+// by the compositor exactly like `pixel`, and they cost what a crossfade costs.
+export const FULL_TIER_GROUNDS = ['world']
+export const FULL_TIER_TRANSITIONS = ['cube', 'dive']
+export const FULL_TIER_LETTERS = ['particles']
+
+const FULL_TIER = [...FULL_TIER_GROUNDS, ...FULL_TIER_TRANSITIONS, ...FULL_TIER_LETTERS]
+
+/**
+ * The full-tier features a document actually uses, in the order listed above.
+ *
+ * The LAST scene's transition is not counted: nothing follows it, so it is never
+ * drawn (`planTimeline`), and refusing a film for a field no frame shows would be
+ * a refusal nobody could act on.
+ */
+export function fullTierFeaturesIn(timeline) {
+  const found = new Set()
+  const scenes = Array.isArray(timeline?.scenes) ? timeline.scenes : []
+  scenes.forEach((scene, i) => {
+    if (FULL_TIER_GROUNDS.includes(scene?.background?.kind)) found.add(scene.background.kind)
+    if (i < scenes.length - 1 && FULL_TIER_TRANSITIONS.includes(scene?.transitionOut)) found.add(scene.transitionOut)
+    for (const layer of scene?.layers || []) {
+      if (FULL_TIER_LETTERS.includes(layer?.letters)) found.add(layer.letters)
+    }
+  })
+  return FULL_TIER.filter((name) => found.has(name))
+}
+
+/** The refusal, naming what the film can still be — the rule every refusal here follows. */
+export function fullTierRefusal(used, consequence) {
+  return (
+    `This film uses ${used.join(', ')}, which only a server set to full 3D draws. That setting belongs to the ` +
+    `administrator, who can measure what this machine carries with the server test in Motion's settings. ` +
+    `The same film composes without ${used.length > 1 ? 'them' : 'it'}: every block, every other ground and ` +
+    `transition, and the other letter effects are available. ${consequence}`
+  )
+}

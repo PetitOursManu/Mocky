@@ -1783,8 +1783,8 @@ project. And nothing is asked at all when Motion cannot run for the account.
 headless Chrome draws every WebGL frame on the CPU: on a twelve-core desktop a
 five-second film took 16 s flat, 28 s with one 3D block and 31 s with a 3D field
 under a 3D block. The admin panel's render tier (`renderTier`: `flat`, `limited` —
-the default and what every instance did before — or `full`, reserved for the
-heavy engines to come) bounds the per-account 3D lists: at `flat` nobody renders
+the default and what every instance did before — or `full`, which adds the heavy
+set described below) bounds the per-account 3D lists: at `flat` nobody renders
 3D. "Tester ce serveur" (`POST /api/admin/video/benchmark`, `benchmark.js`)
 renders three hand-written reference films through the worker inside the queue's
 exclusive slot (`queue.runExclusive` — a user's render waits rather than getting a
@@ -1810,6 +1810,60 @@ measurement: at 0.3 per shape the accent kicker lost its colour on six themes ou
 of eight and the ground went flat on two; at 0.12 it loses it on three (a
 gradient loses it on two) and never goes flat. The draw now suggests a letter
 effect for the main heading about three films in five.
+
+**The heavy set, at `full` only: a continuous 3D world, a swarm that draws a
+title, and transitions that move through space.** Three additions to the
+catalogue, none of them a block, and all three still names out of closed enums —
+the model writes `background: {kind: "world"}`, `letters: "particles"`,
+`transitionOut: "cube"` and nothing that describes how they are drawn.
+
+- **`world`** is a ground (`world.js` for the arithmetic, `WorldGround.jsx` for
+  the GL scene): standing stones either side of a corridor, a ruled floor, shapes
+  turning in the air, fog. It is ONE place per film — laid out once from the
+  furthest the camera travels — and the camera's position is a function of the
+  FILM's frame, not the scene's, so every world scene is a shot of the same place
+  and each cut is the camera flying one station on (`worldFlights`: a smoothstep
+  centred on the middle of the overlap, over up to 42 frames, plus a slow cruise
+  that never stops). Scenes on another ground simply cover it while the camera
+  keeps travelling. It is legible by construction: every surface is the ground
+  mixed with the accent at a share of one reach — the stones' faces are three
+  shares of it, baked into the geometry instead of lit, because a light multiplies
+  a measured colour by a cosine nobody measured — and fog blends each back to the
+  ground. That is a mesh's measurement, and the palette tries it denser first
+  (`WORLD_REACHES`: 0.6, 0.45, then `MESH_REACH`), taking a rung only if every
+  run clears AND the accent keeps the colour it has at a mesh's reach: over the
+  thirteen themes of the test corpus the world never loses the accent where a mesh
+  keeps it. Fog mixes in linear light and the palette measures a gamma mix, which
+  is harmless because contrast depends on luminance alone and both mixes sweep the
+  same luminances.
+- **`particles`** is a letter effect on `heading`. The browser lays the letters out
+  as for every other effect; the heading samples their glyphs into dots
+  (`offsetLeft`/`offsetTop`, which ignore the scene's transforms, and the font's
+  own ascent and descent for the baseline), flies the dots in from a cloud, then
+  replaces them with the real text — and at the end of the scene the swarm takes
+  it back. The canvas is not even in the tree on a resting frame, so the frame a
+  viewer reads is the measured text. The arrival is the one allowed past
+  `EMPHASIS_ENTER_FRAMES` (`particleSpan`: up to 36 frames, cut down so it still
+  lands `MIN_CUE_TAIL_FRAMES` before the end), and the exit only starts once the
+  title has formed.
+- **`cube` and `dive`** move BOTH scenes, which no transition did before:
+  `planTimeline` now gives each entry the overlap seen from the leaving side
+  (`exitTransition`, `exitFrames`) and `exitStyle` draws it. The cube is hinged on
+  one edge shared by the two faces on every frame, so the fold never opens a gap.
+  **`iris` and `liquid`** are masks, like `pixel`, and are offered on every tier.
+  The four get 800 ms instead of 500, still capped at a third of the shorter scene.
+
+Gating (`FULL_TIER_*` and `fullTierFeaturesIn` in `three-d.js`): the set needs the
+account's 3D permission AND a server at `full`. `/compose` leaves the ground, the
+letter effect and the two transitions out of the prompt and the decoder hint
+elsewhere, and refuses a proposal that uses them; `/render` refuses them with a
+403 that names what the film can still be. The last scene's transition is never
+drawn, so it is never refused. The benchmark's `full` film is now this set — two
+world scenes, a swarm title, a cube, a solid — so what an administrator reads is
+the cost of what `full` adds. Measured on the twelve-core desktop, 5.5 s films
+against a `mesh` ground: `world` 22.2 s against 24.8 (the radial gradients of a
+mesh cost more than a 640 k-pixel GL canvas), `cube` 23.2 s, `particles` 29.9 s
+and half again the bitrate — dots are the fine detail an encoder pays for.
 
 **No number and no vocabulary is typed into that prose.** Every bound, every enum
 and every default on a card is derived from the zod object the answer will be

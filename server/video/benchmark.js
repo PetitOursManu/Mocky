@@ -52,9 +52,12 @@ const scene = (layers, background) => ({ durationMs: BENCHMARK_FILM_MS, backgrou
 /**
  * One film per tier, each the heaviest thing that tier allows in ordinary use.
  *
- * `full` is measured on a full-frame 3D field under a lit solid — the closest the
- * current catalogue comes to the continuous 3D world that tier is for. When that
- * engine lands, this is the film to replace with it.
+ * `full` is the set that tier exists for, all in one film: two scenes in the
+ * continuous 3D world with the camera flying between them, a title drawn by the
+ * swarm, a cube turning from one to the other, and a lit solid on the second —
+ * so the number an administrator reads is the cost of what they are enabling,
+ * not of the 3D a lower tier already had. Two scenes of half the reference length
+ * each, so the film is exactly as long as the other two.
  */
 export const BENCHMARK_FILMS = {
   flat: {
@@ -94,14 +97,21 @@ export const BENCHMARK_FILMS = {
     outputFormat: 'mp4',
     theme: THEME,
     scenes: [
-      scene(
-        [
-          { kind: 'waveMesh', anchor: 'full' },
+      {
+        durationMs: BENCHMARK_FILM_MS / 2,
+        background: { kind: 'world' },
+        transitionOut: 'cube',
+        layers: [{ kind: 'heading', text: 'Un monde en 3D', anchor: 'center', letters: 'particles' }],
+      },
+      {
+        durationMs: BENCHMARK_FILM_MS / 2,
+        background: { kind: 'world' },
+        transitionOut: 'none',
+        layers: [
           { kind: 'solidScene', solid: 'torus', anchor: 'center-right' },
-          { kind: 'heading', text: 'Un monde en 3D', anchor: 'center-left' },
+          { kind: 'heading', text: 'Qui continue', anchor: 'center-left' },
         ],
-        { kind: 'gradient' },
-      ),
+      },
     ],
   },
 }

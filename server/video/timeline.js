@@ -149,7 +149,7 @@ export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop'
 export const SCENE_TONES = ['direction', 'inverse', 'accent']
 
 /** How the letters of a heading come alive. Absent means the word mask. See timeline.ts. */
-export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave']
+export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave', 'particles']
 
 /** The block catalogue, by family. The compose prompt reads this map. */
 export const BLOCK_FAMILIES = {
@@ -203,7 +203,7 @@ export const EXTRUDED_SPINS = ['sway', 'tilt', 'float']
 /** What a `codeBlock` line is for. Three measured runs, so three roles. See timeline.ts. */
 export const CODE_ROLES = ['plain', 'accent', 'muted']
 
-export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image']
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image']
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
 
 export const KEN_BURNS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static']
@@ -226,7 +226,7 @@ export const DEFAULT_OVERLAY_MOVE = 'drift-up'
 export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none']
 
 /** The four above plus a mosaic dissolve, for `composed` alone. See timeline.ts. */
-export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel']
+export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel', 'cube', 'dive', 'iris', 'liquid']
 
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom']
 export const BAND_POSITIONS = ['top', 'bottom']
@@ -676,6 +676,15 @@ export const ParticlesBackgroundSchema = bg('particles', {
 /** Two grounds that move in the accent, measured like a gradient. See timeline.ts. */
 export const MeshBackgroundSchema = bg('mesh', {})
 export const AuroraBackgroundSchema = bg('aurora', {})
+
+/**
+ * The continuous 3D world: one procedural landscape shared by every scene that
+ * names it, and a camera that travels through it from one scene to the next.
+ * No parameter, like `mesh`: where the camera goes is the composition's, and
+ * what it paints is the accent over the ground at no more than `MESH_REACH` —
+ * measured exactly like a mesh. Offered only on a server set to full 3D.
+ */
+export const WorldBackgroundSchema = bg('world', {})
 export const ImageBackgroundSchema = bg('image', {
   imageId,
   move: z.enum(KEN_BURNS).default('zoom-in'),
@@ -689,6 +698,7 @@ export const BackgroundSchema = z.discriminatedUnion('kind', [
   ParticlesBackgroundSchema,
   MeshBackgroundSchema,
   AuroraBackgroundSchema,
+  WorldBackgroundSchema,
   ImageBackgroundSchema,
 ])
 

@@ -1786,6 +1786,9 @@ const GROUNDS = {
   // they are measured like a gradient is a test rather than a comment.
   mesh: { kind: 'mesh' },
   aurora: { kind: 'aurora' },
+  // The 3D world is painted in the same family — the accent over the ground, up to
+  // a reach the palette chose — so it is swept here with the rest.
+  world: { kind: 'world' },
   image: { kind: 'image', imageId: 'a'.repeat(64), move: 'zoom-in' },
 }
 
@@ -2441,7 +2444,7 @@ describe('composedPalette', () => {
       // ink far more often — the fixpoint `composedPalette` refuses for a field
       // that reads the accent — and counting them would move the floor without
       // saying anything about solids.
-      const plainGrounds = Object.keys(GROUNDS).filter((g) => g !== 'mesh' && g !== 'aurora')
+      const plainGrounds = Object.keys(GROUNDS).filter((g) => g !== 'mesh' && g !== 'aurora' && g !== 'world')
       expect(kept).toBeGreaterThan((Object.keys(THEMES).length * plainGrounds.length) / 2)
     })
 

@@ -27,6 +27,8 @@ let server, base
 let user, enabled, workerState, probed, adminProbed, present, enqueued, jobs, config, full
 /** Whether the account may spend a 3D render. Its own switch, like `enabled`. */
 let threeD
+/** The machine's render tier, which the heavy set (world, swarm, cube, dive) also needs. */
+let tier
 /** Image ids the multi-step flow produced and nobody has confirmed yet. */
 let unconfirmed
 /** /compose only: the admin-configured provider, and what the fake one answers. */
@@ -86,6 +88,7 @@ function makeApp() {
         // able to see an account that may export and may NOT render in 3D, which
         // is the whole configuration this permission exists for.
         threeDEnabledFor: () => enabled && threeD,
+        renderTier: () => tier,
         publicView: () => config,
         update: (patch) => {
           config = { ...config, ...patch }
@@ -190,6 +193,7 @@ beforeEach(() => {
   user = { id: 'u1', role: 'user' }
   enabled = true
   threeD = true
+  tier = 'limited'
   workerState = { available: true, version: '4.0.0' }
   probed = false
   adminProbed = false
@@ -263,7 +267,7 @@ describe('GET /status', () => {
     expect(probed).toBe(false)
   })
 
-  it('answers with six fields and nothing from the stored config', async () => {
+  it('answers with seven fields and nothing from the stored config', async () => {
     const body = await (await fetch(`${base}/api/video/status`)).json()
     // Named explicitly rather than checked for the absence of one word: the
     // config holds a licence key and a worker URL, and this route is the one an
@@ -272,6 +276,7 @@ describe('GET /status', () => {
     // behind requireAdmin, in publicView().
     expect(Object.keys(body).sort()).toEqual([
       'enabled',
+      'fullThreeD',
       'limits',
       'motionKinds',
       'threeD',
@@ -1705,6 +1710,109 @@ describe('the 3D permission', () => {
       threeD = true
       const body = await (await fetch(`${base}/api/video/status`)).json()
       expect(body.threeD).toBe(false)
+    })
+  })
+})
+
+describe('the full-3D set — world, swarm, cube, dive', () => {
+  /** The poorest legal film using each feature of the set, one at a time. */
+  const FULL_FILMS = {
+    world: {
+      template: 'composed',
+      scenes: [{ durationMs: 4000, background: { kind: 'world' }, layers: [{ kind: 'heading', text: 'Onward' }] }],
+    },
+    particles: {
+      template: 'composed',
+      scenes: [{ durationMs: 4000, layers: [{ kind: 'heading', text: 'Onward', letters: 'particles' }] }],
+    },
+    cube: {
+      template: 'composed',
+      scenes: [
+        { durationMs: 4000, transitionOut: 'cube', layers: [{ kind: 'heading', text: 'One' }] },
+        { durationMs: 4000, layers: [{ kind: 'heading', text: 'Two' }] },
+      ],
+    },
+    dive: {
+      template: 'composed',
+      scenes: [
+        { durationMs: 4000, transitionOut: 'dive', layers: [{ kind: 'heading', text: 'One' }] },
+        { durationMs: 4000, layers: [{ kind: 'heading', text: 'Two' }] },
+      ],
+    },
+  }
+
+  it('refuses each of them on a server that is not set to full, naming it', async () => {
+    for (const [feature, timeline] of Object.entries(FULL_FILMS)) {
+      tier = 'limited'
+      enqueued = null
+      const res = await post('/api/video/render', { timeline })
+      expect(res.status, feature).toBe(403)
+      const body = await res.json()
+      expect(body.fullTierFeatures, feature).toEqual([feature])
+      expect(body.error, feature).toMatch(/full 3D/)
+      expect(enqueued, feature).toBe(null)
+    }
+  })
+
+  it('refuses them to an account without 3D even on a full server', async () => {
+    tier = 'full'
+    threeD = false
+    const res = await post('/api/video/render', { timeline: FULL_FILMS.world })
+    expect(res.status).toBe(403)
+  })
+
+  it('queues them on a full server for an account with 3D', async () => {
+    for (const [feature, timeline] of Object.entries(FULL_FILMS)) {
+      tier = 'full'
+      threeD = true
+      enqueued = null
+      const res = await post('/api/video/render', { timeline })
+      expect(res.status, feature).toBe(202)
+      expect(enqueued, feature).not.toBe(null)
+    }
+  })
+
+  /** Nothing follows the last scene, so its transition is never drawn — and never refused. */
+  it('ignores the transition of the last scene', async () => {
+    tier = 'limited'
+    const timeline = {
+      template: 'composed',
+      scenes: [{ durationMs: 4000, transitionOut: 'cube', layers: [{ kind: 'heading', text: 'Only' }] }],
+    }
+    const res = await post('/api/video/render', { timeline })
+    expect(res.status).toBe(202)
+  })
+
+  it('publishes whether this account gets the set, as a boolean', async () => {
+    tier = 'limited'
+    expect((await (await fetch(`${base}/api/video/status`)).json()).fullThreeD).toBe(false)
+    tier = 'full'
+    expect((await (await fetch(`${base}/api/video/status`)).json()).fullThreeD).toBe(true)
+    threeD = false
+    expect((await (await fetch(`${base}/api/video/status`)).json()).fullThreeD).toBe(false)
+  })
+
+  describe('POST /compose — what is offered', () => {
+    beforeEach(() => {
+      providerTarget = { baseUrl: `${base}/fake-provider`, model: 'test-model', kind: 'ollama' }
+    })
+
+    it('leaves the set out of the catalogue on a server that is not full', async () => {
+      tier = 'limited'
+      await post('/api/video/compose', { brief: 'a film about the kettle', images: [ID_A] })
+      const system = providerRequests[0].messages[0].content
+      expect(system).not.toContain('- world: ')
+      expect(system).not.toMatch(/transitionOut: [^\n]*cube/)
+      expect(system).not.toMatch(/\|particles/)
+    })
+
+    it('offers it on a full server', async () => {
+      tier = 'full'
+      await post('/api/video/compose', { brief: 'a film about the kettle', images: [ID_A] })
+      const system = providerRequests[0].messages[0].content
+      expect(system).toContain('- world: ')
+      expect(system).toMatch(/transitionOut: [^\n]*cube\|dive/)
+      expect(system).toMatch(/\|particles/)
     })
   })
 })

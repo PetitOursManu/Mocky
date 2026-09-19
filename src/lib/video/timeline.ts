@@ -360,7 +360,7 @@ export const SCENE_TONES = ['direction', 'inverse', 'accent'] as const
  * measured them, at the ink the palette resolved. Absent means the word mask it
  * always had.
  */
-export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave'] as const
+export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave', 'particles'] as const
 
 /**
  * The block catalogue, by family.
@@ -575,7 +575,7 @@ export const CODE_ROLES = ['plain', 'accent', 'muted'] as const
  * them as one — see `composedPalette` in the worker — but the schema is where
  * the model gets to say which.
  */
-export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image'] as const
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image'] as const
 
 /** Which way a `gradient` ground runs. A direction, never an angle: an angle is a CSS unit. */
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial'] as const
@@ -666,7 +666,7 @@ export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none'] as c
  * though the vocabulary is not: a second notion of "a scene arrives" is the
  * drift `composition.js` exists to prevent.
  */
-export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel'] as const
+export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel', 'cube', 'dive', 'iris', 'liquid'] as const
 
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom'] as const
 /**
@@ -1622,6 +1622,15 @@ export const ParticlesBackgroundSchema = bg('particles', {
 export const MeshBackgroundSchema = bg('mesh', {})
 export const AuroraBackgroundSchema = bg('aurora', {})
 
+/**
+ * The continuous 3D world: one procedural landscape shared by every scene that
+ * names it, and a camera that travels through it from one scene to the next.
+ * No parameter, like `mesh`: where the camera goes is the composition's, and
+ * what it paints is the accent over the ground at no more than `MESH_REACH` —
+ * measured exactly like a mesh. Offered only on a server set to full 3D.
+ */
+export const WorldBackgroundSchema = bg('world', {})
+
 export const ImageBackgroundSchema = bg('image', {
   imageId,
   move: z.enum(KEN_BURNS).default('zoom-in'),
@@ -1635,6 +1644,7 @@ export const BackgroundSchema = z.discriminatedUnion('kind', [
   ParticlesBackgroundSchema,
   MeshBackgroundSchema,
   AuroraBackgroundSchema,
+  WorldBackgroundSchema,
   ImageBackgroundSchema,
 ])
 

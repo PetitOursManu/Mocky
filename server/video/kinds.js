@@ -80,7 +80,7 @@ export const MOTION_KIND_SPECS = {
       'waveMesh',
       'depthGrid',
     ],
-    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image'],
+    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image'],
     signature: ['heading', 'funTitle', 'typewriter', 'extrudedType'],
     aspectRatio: '16:9',
     scenes: { min: 1, max: 3 },
@@ -106,7 +106,7 @@ export const MOTION_KIND_SPECS = {
      * degrades instead of disappearing (Q1).
      */
     blocks: ['particleField', 'waveMesh', 'depthGrid', 'soundWave', 'equalizer'],
-    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora'],
+    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world'],
     signature: ['particleField', 'waveMesh', 'depthGrid', 'soundWave', 'equalizer'],
     aspectRatio: '16:9',
     // One scene. A background that cuts is a background that interrupts the
@@ -227,7 +227,7 @@ export const MOTION_KIND_SPECS = {
       'notification',
       'textHighlight',
     ],
-    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image'],
+    grounds: ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image'],
     signature: ['heading', 'kicker', 'quote', 'typewriter'],
     aspectRatio: '9:16',
     scenes: { min: 2, max: 6 },

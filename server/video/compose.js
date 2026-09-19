@@ -78,6 +78,7 @@
  * model — the same reason M4 imposes it on fetched pages.
  */
 
+import { z } from 'zod'
 import {
   VideoTimelineSchema,
   attachTheme,
@@ -90,6 +91,7 @@ import {
   BLOCK_KINDS,
   BACKGROUND_KINDS,
   COMPOSED_TRANSITIONS,
+  LETTER_EFFECTS,
   ANCHORS,
   ARRIVALS,
   SCENE_TONES,
@@ -110,8 +112,13 @@ import {
   MAX_TOTAL_DURATION_MS,
 } from './timeline.js'
 import {
+  FULL_TIER_GROUNDS,
+  FULL_TIER_LETTERS,
+  FULL_TIER_TRANSITIONS,
   MAX_THREE_D_LAYERS,
   THREE_D_BLOCKS,
+  fullTierFeaturesIn,
+  fullTierRefusal,
   isThreeDBlock,
   threeDBlocksIn,
   threeDRefusal,
@@ -741,8 +748,30 @@ function availableBlocks(imageCount, threeD = true) {
     (kind) => imageNeed(BLOCK_OPTIONS[kind]) <= imageCount && (threeD || !isThreeDBlock(kind)),
   )
 }
-function availableGrounds(imageCount) {
-  return BACKGROUND_KINDS.filter((kind) => imageNeed(GROUND_OPTIONS[kind]) <= imageCount)
+function availableGrounds(imageCount, full = true) {
+  return BACKGROUND_KINDS.filter(
+    (kind) => imageNeed(GROUND_OPTIONS[kind]) <= imageCount && (full || !FULL_TIER_GROUNDS.includes(kind)),
+  )
+}
+
+/**
+ * What the film may do between two scenes, and what a heading's letters may do,
+ * on this server.
+ *
+ * The same mechanism as the two narrowings above, one level down: a transition
+ * and a letter effect are values inside a field rather than blocks, so what is
+ * narrowed is the ENUM the card prints and the decoder hint carries. A model
+ * shown `cube` on a server that cannot draw it writes `cube`, and the refusal
+ * arrives after the call is paid for.
+ */
+function availableTransitions(full) {
+  return COMPOSED_TRANSITIONS.filter((kind) => full || !FULL_TIER_TRANSITIONS.includes(kind))
+}
+const FLAT_LETTERS = LETTER_EFFECTS.filter((effect) => !FULL_TIER_LETTERS.includes(effect))
+function optionOf(kind, full) {
+  const option = BLOCK_OPTIONS[kind]
+  if (full || !option?.shape?.letters) return option
+  return { ...option, shape: { ...option.shape, letters: z.enum(FLAT_LETTERS).optional() } }
 }
 /** The blocks a picture makes possible, named in the refusal that says one is missing. */
 export const PICTURE_BLOCKS = BLOCK_KINDS.filter((kind) => imageNeed(BLOCK_OPTIONS[kind]) > 0)
@@ -784,6 +813,8 @@ const BLOCK_NOTES = {
     // the block's own sentence: a word a model cannot picture is a word it picks
     // at random. The enum itself is printed on the card, read off the schema.
     what: 'a line of display type — what the scene is about. Its letters can come alive: cascade (they fall into place one after another), decode (they flicker through random characters, then settle — for tech), flip (each turns into place), weight (the type swells from thin to bold), wave (they keep swaying gently — for a playful film). Leave letters out for the plain word-by-word reveal.',
+    // Printed only where the server draws it: see `optionOf`.
+    full: 'And particles: a swarm of dots gathers into the words, which then stand as plain type, and scatters again as the scene ends — for an opening title or a finale, once in a film.',
     right: 'the scene has one statement to make and the eye should land on it first.',
     wrong: 'as a paragraph of explanation, or twice in one scene: a second statement is a second scene.',
   },
@@ -996,11 +1027,38 @@ const GROUND_NOTES = {
     right: 'a calm, dreamy or night-time film — relaxation, music, a premium launch — wants depth behind its words.',
     wrong: 'behind a busy stack: the bands already carry the scene, and five blocks on them is noise.',
   },
+  world: {
+    what: 'a three-dimensional landscape in the project\'s own colours — standing stones either side of a ruled floor, shapes turning in the air, all fading into the distance — that the camera travels through. Every scene on this ground is the SAME place: at each cut the camera flies on to the next spot.',
+    right: 'the film is a journey — an opening, a launch, a story in several stops. Two or more world scenes in a row are what make it read as one continuous trip.',
+    wrong: 'on one scene between flat ones, where it is a backdrop that cost a whole three-dimensional render; and under a chart, a form or a paragraph, where a landscape moving behind fine print is noise.',
+  },
   image: {
     what: 'one selected picture, filling the frame under everything else.',
     right: 'the picture IS the scene and the words sit on it.',
     wrong: 'under a crowded stack. Text on a photograph is legible because the composition veils it, and a veil dense enough for five blocks hides the picture you chose.',
   },
+}
+
+/**
+ * What the transitions past a plain fade look like, named by what the viewer sees.
+ *
+ * The four that are gestures rather than cuts, and the sentence that says how
+ * they fail — every card's third sentence, for a field that has no card. The two
+ * that turn the frame through space are printed only where the server draws them.
+ */
+function transitionLines(full) {
+  return [
+    '  pixel dissolves the next scene in as a mosaic; iris opens it from a circle in the middle of the frame;',
+    '  liquid raises it from the bottom like a rising level with a wave on its surface.',
+    ...(full
+      ? [
+          '  cube turns the film a quarter of a revolution, the two scenes being two faces of one cube; dive flies',
+          '  the camera through the old scene, which rushes past, into the new one coming up out of the depth.',
+          '  Between two "world" scenes, crossfade: the camera already flies from one to the next.',
+        ]
+      : []),
+    '  One or two gestures in a film are a signature; a different one on every cut is a demo reel.',
+  ]
 }
 
 /** Family headers, in the schema's own order. A family with no title prints `(no title)`. */
@@ -1033,13 +1091,14 @@ const FAMILY_TITLES = {
 }
 
 /** One card: three sentences of prose, then the shape, with every bound read off the schema. */
-function blockCard(kind) {
+function blockCard(kind, full = false) {
   const note = BLOCK_NOTES[kind] ?? {}
+  const what = full && note.full ? `${note.what} ${note.full}` : note.what
   return [
-    `- ${kind}: ${note.what ?? '(no note)'}`,
+    `- ${kind}: ${what ?? '(no note)'}`,
     `    take it when ${note.right ?? '(no note)'}`,
     `    it goes wrong ${note.wrong ?? '(no note)'}`,
-    `    ${signature(BLOCK_OPTIONS[kind], kind).line}`,
+    `    ${signature(optionOf(kind, full), kind).line}`,
   ].join('\n')
 }
 
@@ -1070,7 +1129,7 @@ function groundCard(kind) {
  * every film is one ground and one transition for the whole catalogue, which is
  * the variety this variant exists to produce, thrown away by a grammar.
  */
-function composedSchema(kinds, grounds, motionKind = null) {
+function composedSchema(kinds, grounds, motionKind = null, full = false) {
   const spec = motionKind ? MOTION_KIND_SPECS[motionKind] : null
   const scene = {
     type: 'object',
@@ -1079,9 +1138,9 @@ function composedSchema(kinds, grounds, motionKind = null) {
       background: { anyOf: grounds.map((kind) => signature(GROUND_OPTIONS[kind], kind, { shared: ['kind'] }).hint) },
       layers: {
         type: 'array',
-        items: { anyOf: kinds.map((kind) => signature(BLOCK_OPTIONS[kind], kind).hint) },
+        items: { anyOf: kinds.map((kind) => signature(optionOf(kind, full), kind).hint) },
       },
-      transitionOut: { type: 'string', enum: [...COMPOSED_TRANSITIONS] },
+      transitionOut: { type: 'string', enum: availableTransitions(full) },
       // Not required: silence is the project's own colouring, which is the right
       // answer for most scenes — a grammar demanding a tone on every scene would
       // hand back a film inverted at random.
@@ -1129,7 +1188,16 @@ function buildComposedSystem(
   imageCount,
   kinds,
   grounds,
-  { threeD = false, forceThreeD = false, motionKind = null, mode = 'fresh', stacks = [], startingPoint = null, usage = null } = {},
+  {
+    threeD = false,
+    forceThreeD = false,
+    full = false,
+    motionKind = null,
+    mode = 'fresh',
+    stacks = [],
+    startingPoint = null,
+    usage = null,
+  } = {},
 ) {
   const spec = motionKind ? MOTION_KIND_SPECS[motionKind] : null
   /*
@@ -1193,7 +1261,8 @@ function buildComposedSystem(
     'A SCENE is {"durationMs", "background":{…}, "layers":[…], "transitionOut"}.',
     `- scenes: ${limits.minScenes} to ${limits.maxScenes}, each ${limits.minSceneMs} to ${limits.maxSceneMs} ms.`,
     `- layers: ${scene.layersMin} to ${scene.layersMax} blocks. That ceiling is not a target — read THE STACK below.`,
-    `- transitionOut: ${COMPOSED_TRANSITIONS.join('|')}. The last scene is read too: "none" ends on a cut.`,
+    `- transitionOut: ${availableTransitions(full).join('|')}. The last scene is read too: "none" ends on a cut.`,
+    ...transitionLines(full),
     '',
     'HOW TO READ THE CATALOGUE',
     '  ≤70          a line of at most that many characters, and never empty',
@@ -1264,7 +1333,7 @@ function buildComposedSystem(
     `THE BLOCKS — ${kinds.length} of them, in six families. Take what the scene needs and leave the rest.`,
     ...Object.entries(BLOCK_FAMILIES).flatMap(([family, members]) => {
       const offered = members.filter((kind) => kinds.includes(kind))
-      return offered.length ? ['', FAMILY_TITLES[family] ?? '(no title)', ...offered.map(blockCard)] : []
+      return offered.length ? ['', FAMILY_TITLES[family] ?? '(no title)', ...offered.map((kind) => blockCard(kind, full))] : []
     }),
     /*
      * The two things to say about 3D, and only one of them is ever true.
@@ -1636,6 +1705,8 @@ export async function proposeTimeline(brief, images, deps = {}) {
    */
   const threeD = deps.threeD === true
   const forceThreeD = deps.forceThreeD === true
+  // The heavy set: a server at `full` AND an account that may spend 3D at all.
+  const full = deps.full === true && threeD
 
   const chosen = requestedTemplate(deps.template)
 
@@ -1711,7 +1782,7 @@ export async function proposeTimeline(brief, images, deps = {}) {
   }
 
   const kinds = narrowBlocks(availableBlocks(list.length, threeD), motionKind)
-  const grounds = narrowGrounds(availableGrounds(list.length), motionKind)
+  const grounds = narrowGrounds(availableGrounds(list.length, full), motionKind)
 
   /*
    * The narrowing left the kind unable to be itself.
@@ -1764,6 +1835,7 @@ export async function proposeTimeline(brief, images, deps = {}) {
             random,
             maxScenes: motionKind ? MOTION_KIND_SPECS[motionKind].scenes.max : TEMPLATE_LIMITS[COMPOSED].maxScenes,
             motionKind,
+            letterEffects: full ? LETTER_EFFECTS : FLAT_LETTERS,
           }),
           usage,
         }
@@ -1771,14 +1843,14 @@ export async function proposeTimeline(brief, images, deps = {}) {
   const request = {
       system: chosen
         ? buildCardSystem(list.length, chosen)
-        : buildComposedSystem(list.length, kinds, grounds, { threeD, forceThreeD, motionKind, mode, ...variety }),
+        : buildComposedSystem(list.length, kinds, grounds, { threeD, forceThreeD, full, motionKind, mode, ...variety }),
       user: buildUser(
         text,
         list,
         direction,
         mode === 'revise' ? { brief: String(deps.previous.brief || '').slice(0, MAX_BRIEF_CHARS), timeline: current } : null,
       ),
-      schema: chosen ? cardSchema(chosen) : composedSchema(kinds, grounds, motionKind),
+      schema: chosen ? cardSchema(chosen) : composedSchema(kinds, grounds, motionKind, full),
       /*
        * Cold for a card, because filling one in is tuning: the same brief and
        * the same images should give the same film twice. Warm when the model is
@@ -1921,6 +1993,12 @@ export async function proposeTimeline(brief, images, deps = {}) {
   const composedIn3d = threeDBlocksIn(parsed.data)
   if (!threeD && composedIn3d.length) {
     return refuse(threeDRefusal(composedIn3d, 'Nothing was proposed.'))
+  }
+  // The same argument for the heavy set, which the hint and the catalogue both
+  // left out on a server that cannot draw it.
+  const inFull = fullTierFeaturesIn(parsed.data)
+  if (!full && inFull.length) {
+    return refuse(fullTierRefusal(inFull, 'Nothing was proposed.'))
   }
 
   /*

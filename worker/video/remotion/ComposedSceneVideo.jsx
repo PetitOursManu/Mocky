@@ -4,6 +4,7 @@ import {
   composedLayout,
   composedPalette,
   entranceStyle,
+  exitStyle,
   fieldPaints,
   frameBase,
   groundDensity,
@@ -24,6 +25,9 @@ import { ThreeCanvas } from '@remotion/three'
 import { blockComponent } from './blocks/index.js'
 import { blockCanvas, sceneCanvasImages } from './blocks/canvases.js'
 import { useStageTextures } from './textures.js'
+import { useMemo } from 'react'
+import { WorldGround } from './WorldGround.jsx'
+import { worldFlights, worldRules, worldShapes, worldStones, worldTravel } from './world.js'
 
 /**
  * `composed` — a ground, and a stack of typed blocks on it.
@@ -237,7 +241,7 @@ const Ground = ({ kind, background, palette, motion, imageSrc }) => {
   return <AbsoluteFill style={{ backgroundImage: hairlineTexture(layer.color, layer.alpha) }} />
 }
 
-const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
+const ComposedScene = ({ entry, theme, palette, imageSrc, world }) => {
   const frame = useCurrentFrame()
   const { width, height } = useVideoConfig()
   const { scene } = entry
@@ -430,10 +434,19 @@ const ComposedScene = ({ entry, theme, palette, imageSrc }) => {
     <AbsoluteFill
       style={{
         backgroundColor: palette.ground.color,
-        ...entranceStyle(entry.enterTransition, frame, entry.enterFrames),
+        ...entranceStyle(entry.enterTransition, frame, entry.enterFrames, { width }),
+        // Never both at once: an overlap is at most a third of the shorter scene,
+        // so a scene's entrance is over long before its exit begins.
+        ...exitStyle(entry.exitTransition, frame, entry.durationInFrames, entry.exitFrames, { width }),
       }}
     >
-      <Ground kind={kind} background={scene.background} palette={palette} motion={motion} imageSrc={imageSrc} />
+      {kind === 'world' && world ? (
+        // The FILM's frame, not the scene's: that sum is the whole of what makes
+        // two world scenes one place seen twice rather than two backdrops.
+        <WorldGround world={world} frame={entry.from + frame} palette={palette} width={width} height={height} />
+      ) : (
+        <Ground kind={kind} background={scene.background} palette={palette} motion={motion} imageSrc={imageSrc} />
+      )}
 
       {/* The stack drifts, the ground does not. That is the legibility half of
           the choice as much as the compositional one: the ground is the surface
@@ -570,6 +583,22 @@ function progressOf(frame, durationInFrames) {
  */
 export const ComposedSceneVideo = ({ timeline, imageSrc }) => {
   const plan = planTimeline(timeline)
+
+  /*
+   * The world's layout, once per FILM and only for a film that has a world.
+   *
+   * Laid out from the furthest the camera ever travels, so every scene — and
+   * every render tab, each of which draws a different slice of the frames —
+   * builds the same place. Keyed on the document because the plan is rebuilt on
+   * every frame and is equal every time.
+   */
+  const world = useMemo(() => {
+    if (!plan.scenes.some((entry) => backgroundKind(entry.scene?.background) === 'world')) return null
+    const flights = worldFlights(plan)
+    const travel = worldTravel(flights, plan.totalFrames)
+    return { flights, stones: worldStones(travel), shapes: worldShapes(travel), rules: worldRules(travel) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeline])
   const theme = resolveTheme(timeline?.theme)
 
   /*
@@ -609,6 +638,7 @@ export const ComposedSceneVideo = ({ timeline, imageSrc }) => {
             theme={sceneTheme(theme, sceneToneOf(entry.scene))}
             palette={palettes[paletteKey(entry.scene)]}
             imageSrc={imageSrc}
+            world={world}
           />
         </Sequence>
       ))}

@@ -177,6 +177,20 @@ export const TRANSITION_MS = 500
 export const MAX_TRANSITION_SHARE = 3
 
 /**
+ * The four transitions that move BOTH scenes, or move one through space, and
+ * the longer budget they get: 800 ms instead of 500.
+ *
+ * A crossfade reads at half a second because nothing travels; a cube that turns
+ * a quarter of a revolution in fifteen frames is a flicker with a hinge in it.
+ * The overlap is still capped by `MAX_TRANSITION_SHARE`, so a short scene still
+ * keeps two thirds of itself — the budget is a ceiling, never a promise — and
+ * still never adds to the running time, which is the rule `planTimeline` opens
+ * with.
+ */
+export const SPATIAL_TRANSITIONS = ['cube', 'dive', 'iris', 'liquid']
+export const SPATIAL_TRANSITION_MS = 800
+
+/**
  * Ken Burns amplitudes, kept small on purpose.
  *
  * 1.0 → 1.12 over a whole scene is a drift the eye reads as life rather than as
@@ -265,7 +279,8 @@ export function planTimeline(timeline) {
     throw new Error('A timeline needs at least one scene; this one has none.')
   }
   const { width, height } = dimensionsFor(timeline?.aspectRatio ?? '16:9')
-  const budget = Math.max(1, Math.floor((TRANSITION_MS * FPS) / 1000))
+  const budgetOf = (kind) =>
+    Math.max(1, Math.floor(((SPATIAL_TRANSITIONS.includes(kind) ? SPATIAL_TRANSITION_MS : TRANSITION_MS) * FPS) / 1000))
 
   const durations = scenes.map((scene) => msToFrames(scene.durationMs))
   const overlaps = scenes.map((scene, i) => {
@@ -276,7 +291,7 @@ export function planTimeline(timeline) {
     if (i === scenes.length - 1) return 0
     if ((scene.transitionOut ?? 'crossfade') === 'none') return 0
     const shorter = Math.min(durations[i], durations[i + 1])
-    return Math.max(0, Math.min(budget, Math.floor(shorter / MAX_TRANSITION_SHARE)))
+    return Math.max(0, Math.min(budgetOf(scene.transitionOut), Math.floor(shorter / MAX_TRANSITION_SHARE)))
   })
 
   let cursor = 0
@@ -299,6 +314,11 @@ export function planTimeline(timeline) {
       label: sceneLabel(i, scenes.length),
       enterTransition: i === 0 ? 'none' : (scenes[i - 1].transitionOut ?? 'crossfade'),
       enterFrames: i === 0 ? 0 : overlaps[i - 1],
+      // The same overlap seen from the scene that LEAVES. Only the transitions
+      // that move both sides read it (`exitStyle`); for every other one the
+      // outgoing scene stays still under the newcomer, as it always has.
+      exitTransition: overlaps[i] > 0 ? (scene.transitionOut ?? 'crossfade') : 'none',
+      exitFrames: overlaps[i],
     }
     cursor += durations[i] - overlaps[i]
     return entry
@@ -411,7 +431,7 @@ export function kenBurnsTransform(kind, frame, durationInFrames) {
  * The scene order in the DOM is the paint order, so "on top" needs nothing but
  * rendering the scenes in the order the timeline lists them.
  */
-export function entranceStyle(kind, frame, enterFrames) {
+export function entranceStyle(kind, frame, enterFrames, { width = 1920 } = {}) {
   if (!enterFrames || kind === 'none') return null
   const progress = progressAt(frame, enterFrames)
   const hidden = (1 - progress) * 100
@@ -427,9 +447,102 @@ export function entranceStyle(kind, frame, enterFrames) {
       return { clipPath: `inset(0 ${hidden}% 0 0)` }
     case 'pixel':
       return pixelMask(progress)
+    case 'cube':
+    case 'dive':
+      return spatialStyle(kind, 'in', easeOutCubic(progress), width)
+    case 'iris':
+      // `circle()`'s percentage is of √(w²+h²)/√2, so a corner is at 70.7% of it.
+      return progress >= 1 ? null : { clipPath: `circle(${easeOutCubic(progress) * IRIS_REACH_PERCENT}% at 50% 50%)` }
+    case 'liquid':
+      return progress >= 1 ? null : liquidMask(easeOutCubic(progress))
     default:
       return null
   }
+}
+
+/**
+ * How the OUTGOING scene leaves, for the transitions that move both sides.
+ *
+ * `entranceStyle` keeps the old scene still and opaque under the new one, and
+ * for a fade, a wipe, a mask or a dissolve that is right — see its comment on
+ * the blink. A cube and a dive are the two exceptions: a cube is two faces of ONE
+ * object turning, and a dive is the camera going THROUGH the old picture, so a
+ * predecessor that did not move would be a second, unrelated picture sitting
+ * behind the first. Null outside the last `exitFrames` of the scene, so every
+ * other frame is exactly the frame it was.
+ */
+export function exitStyle(kind, frame, durationInFrames, exitFrames, { width = 1920 } = {}) {
+  if (!exitFrames || !SPATIAL_TRANSITIONS.includes(kind)) return null
+  const start = Number(durationInFrames) - Number(exitFrames)
+  if (Number(frame) < start) return null
+  const progress = easeOutCubic(progressAt(Number(frame) - start, exitFrames))
+  return kind === 'cube' || kind === 'dive' ? spatialStyle(kind, 'out', progress, width) : null
+}
+
+/** Where an iris has opened to at its last frame: past the corner, which is at 70.7%. */
+export const IRIS_REACH_PERCENT = 72
+
+/** How far a dive's old picture grows as the camera passes it, and how far back the new one starts. */
+export const DIVE_PASS_SCALE = 0.6
+export const DIVE_DEPTH_SCALE = 0.3
+
+/**
+ * The perspective a cube is seen through, as a multiple of the frame's width.
+ *
+ * In PIXELS because a CSS perspective takes nothing else, which is why this is
+ * the one transition handed the frame's width: two widths is close enough to read
+ * as an object turning and far enough that the near edge of a face never grows
+ * past the frame by more than a sliver.
+ */
+export const CUBE_PERSPECTIVE_WIDTHS = 2
+
+/**
+ * One side of a cube or a dive, at an already-eased progress.
+ *
+ * The cube is built on its shared EDGE rather than its centre: the leaving face
+ * turns about its right edge while sliding left, the arriving one about its left
+ * edge while sliding in, and the edge is where the two meet on every frame — so
+ * the fold never opens a gap, whatever the ratio. Null at rest on either side, so
+ * no scene carries a 3D layer for the frames it is simply being watched.
+ */
+function spatialStyle(kind, side, progress, width) {
+  const p = Math.min(1, Math.max(0, Number(progress) || 0))
+  if ((side === 'in' && p >= 1) || (side === 'out' && p <= 0)) return null
+  if (kind === 'dive') {
+    return side === 'in'
+      ? { opacity: p, transform: `scale(${1 - DIVE_DEPTH_SCALE * (1 - p)})` }
+      : { opacity: 1 - p, transform: `scale(${1 + DIVE_PASS_SCALE * p})` }
+  }
+  const perspective = `perspective(${Math.round(CUBE_PERSPECTIVE_WIDTHS * (Number(width) || 1920))}px)`
+  return side === 'in'
+    ? { transformOrigin: '0% 50%', transform: `${perspective} translateX(${(1 - p) * 100}%) rotateY(${(1 - p) * 90}deg)` }
+    : { transformOrigin: '100% 50%', transform: `${perspective} translateX(${-p * 100}%) rotateY(${-p * 90}deg)` }
+}
+
+/** How tall the waves on a `liquid` surface are, and how many cross the frame. */
+export const LIQUID_WAVE_PERCENT = 5
+export const LIQUID_WAVES = 2.5
+const LIQUID_POINTS = 32
+
+/**
+ * A level rising from the bottom of the frame with a wave running along it.
+ *
+ * The surface starts a full wave BELOW the frame and ends a full wave above it,
+ * so the first frame shows none of the new scene and the last shows all of it —
+ * the guarantee `pixelMask` makes, for the same reason: a transition that could
+ * leave a scene partly masked is a hole in the middle of a film.
+ */
+function liquidMask(progress) {
+  const p = Math.min(1, Math.max(0, Number(progress) || 0))
+  const a = LIQUID_WAVE_PERCENT
+  const level = 100 + a - p * (100 + 2 * a)
+  const points = ['0% 100%', '100% 100%']
+  for (let k = LIQUID_POINTS; k >= 0; k--) {
+    const x = (100 * k) / LIQUID_POINTS
+    const y = level + a * Math.sin(2 * Math.PI * ((x / 100) * LIQUID_WAVES + p * 1.5))
+    points.push(`${x.toFixed(2)}% ${y.toFixed(2)}%`)
+  }
+  return { clipPath: `polygon(${points.join(', ')})` }
 }
 
 /**
@@ -669,6 +782,23 @@ export function words(text) {
  * finishes arriving after the cut.
  */
 export const EMPHASIS_ENTER_FRAMES = 15
+
+/**
+ * How long a swarm takes to draw a heading (`letters: 'particles'`) — 1.2 s when
+ * the scene has room for it.
+ *
+ * The one arrival allowed past `EMPHASIS_ENTER_FRAMES`, because dots that cross
+ * a fifth of the frame in half a second are a flash rather than a gathering. It
+ * keeps the guarantee that bound was written for by other means: the span is cut
+ * down so the landing leaves `MIN_CUE_TAIL_FRAMES` of scene after it, and never
+ * below the emphasis span — which the cue placement already guarantees lands.
+ */
+export const PARTICLE_ENTER_FRAMES = 36
+
+export function particleSpan(durationInFrames, cue) {
+  const room = Math.floor(Number(durationInFrames) || 0) - Math.floor(Number(cue) || 0) - MIN_CUE_TAIL_FRAMES
+  return Math.max(EMPHASIS_ENTER_FRAMES, Math.min(PARTICLE_ENTER_FRAMES, room))
+}
 
 /**
  * The film's own structure, as a line of type: `03 / 08`.
@@ -4197,7 +4327,7 @@ export const COMPOSED_BLOCK_DRIFT = TITLE_BLOCK_DRIFT
  * would be a number that changes while the frame does not — the exact thing
  * `tests/video-motion.test.js` exists to catch.
  */
-export const ANIMATED_BACKGROUNDS = ['gradient', 'gridPulse', 'particles', 'mesh', 'aurora']
+export const ANIMATED_BACKGROUNDS = ['gradient', 'gridPulse', 'particles', 'mesh', 'aurora', 'world']
 
 /**
  * Whether the composition will actually paint the ground's second layer.
@@ -4264,9 +4394,11 @@ function composedMotion(entry, frame, { ground: paints = true } = {}) {
         // The longer span for an arrival the WRAPPER draws, too: a fade or a blur
         // over nine frames is a blink, and fifteen is still inside the tail every
         // cue is guaranteed (`MIN_CUE_TAIL_FRAMES`), so it always lands in its scene.
-        (alone && layers.length > 1 && cues[i] === latest) || !ownsRise(layer)
-          ? EMPHASIS_ENTER_FRAMES
-          : CUE_ENTER_FRAMES,
+        layer?.kind === 'heading' && layer?.letters === 'particles'
+          ? particleSpan(durationInFrames, cues[i])
+          : (alone && layers.length > 1 && cues[i] === latest) || !ownsRise(layer)
+            ? EMPHASIS_ENTER_FRAMES
+            : CUE_ENTER_FRAMES,
       ),
     ),
     ...(kind === 'image' ? { picture: kenBurnsTransform(scene?.background?.move, frame, durationInFrames) } : {}),
@@ -4731,7 +4863,7 @@ export const FIELD_ALPHAS = [1, 0.62, 0.4, 0.24]
 export const FIELD_RAMP = [0.25, 0.5, 0.75, 1]
 
 /** The six grounds, in the schema's own order. Anything else reads as `hairlines`. */
-const BACKGROUND_SURFACES = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image']
+const BACKGROUND_SURFACES = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image']
 
 /**
  * One ground as the three things `surfaceRange` understands.
@@ -4755,6 +4887,8 @@ function groundSurface(theme, kind) {
       }
     case 'mesh':
     case 'aurora':
+    // The world starts where a mesh is: `composedPalette` may raise it, never lower it.
+    case 'world':
       // The accent over the ground, sampled along the ramp up to the most any
       // pixel can reach where every soft shape overlaps — see `MESH_REACH`. So a
       // line of type is measured against every colour these grounds can paint,
@@ -5228,7 +5362,7 @@ function fieldColors(paints, { accent, display, theme, solid }) {
  *   when nothing stands on a field, which is most scenes.
  */
 export function composedPalette(theme, background, { field = false } = {}) {
-  const ground = groundSurface(theme, backgroundKind(background))
+  const kind = backgroundKind(background)
   /**
    * The two runs of TEXT, which are the ones a field can make illegible.
    *
@@ -5273,6 +5407,8 @@ export function composedPalette(theme, background, { field = false } = {}) {
    * the full-strength ink's contrast is never the lower of the two.
    */
   const panelRequests = () => [...requests(), { threshold: CONTRAST_MIN }]
+
+  const ground = kind === 'world' ? worldSurface(theme, requests(), inkCandidates(theme)) : groundSurface(theme, kind)
 
   const plain = texturedGround(ground.color, requests(), inkCandidates(theme), ground.tint, ground.alpha)
   // The ornament's run is the plain one on every scene — see `text` above.
@@ -5652,6 +5788,43 @@ export const MESH_SHAPES = 3
  * densest spot on the frame is a spot that was measured.
  */
 export const MESH_REACH = 1 - (1 - MESH_BLOB_ALPHA) ** MESH_SHAPES
+
+/**
+ * How much of the accent the 3D world may mix into the ground, densest first.
+ *
+ * The world is painted in ONE family of colours — the ground mixed with the
+ * accent, at a share between nothing and the reach, with fog carrying every
+ * pixel back to the bare ground at a distance — so it is measured exactly like a
+ * mesh: a ramp along that segment. What differs is that a world is the whole
+ * picture rather than a wash behind it, and a reach tuned for three soft blobs
+ * reads as a world seen through smoke. So it tries denser first and steps down.
+ *
+ * A rung is taken only if every run clears AND the ornament keeps the colour it
+ * would have had at the mesh's own reach. The second half is the one that
+ * matters: an accent run that falls through to a white still "clears", and a
+ * denser world bought by repainting every kicker white is the project's colour
+ * traded for a backdrop. The last rung is `MESH_REACH` itself, so the worst a
+ * world can be is exactly as measured as a mesh — and the tint still yields
+ * whole if even that makes a line illegible (`texturedGround`).
+ */
+export const WORLD_REACHES = [0.6, 0.45, MESH_REACH]
+
+function worldTint(theme, reach) {
+  const accent = safeColor(theme.accent, THEME_FALLBACK.accent)
+  return GRADIENT_RAMP.map((alpha) => ({ color: accent, alpha: alpha * reach }))
+}
+
+function worldSurface(theme, requests, inks) {
+  const color = theme.background
+  const floor = WORLD_REACHES[WORLD_REACHES.length - 1]
+  const kept = sharedSurface(color, 1, requests, inks, worldTint(theme, floor)).runs[2]?.color
+  for (const reach of WORLD_REACHES) {
+    const tint = worldTint(theme, reach)
+    const measured = sharedSurface(color, 1, requests, inks, tint)
+    if (measured.runs.every((run) => run.ok) && measured.runs[2]?.color === kept) return { color, alpha: 1, tint }
+  }
+  return { color, alpha: 1, tint: worldTint(theme, floor) }
+}
 
 /**
  * Where the mesh's blobs are at a point of the scene, in percent of the frame,

@@ -145,9 +145,9 @@ export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop'
 export const SCENE_TONES = ['direction', 'inverse', 'accent']
 
 /** How the letters of a heading come alive. Absent means the word mask. Mirrors timeline.ts. */
-export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave']
+export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave', 'particles']
 
-export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'image']
+export const BACKGROUND_KINDS = ['solid', 'gradient', 'hairlines', 'gridPulse', 'particles', 'mesh', 'aurora', 'world', 'image']
 export const GRADIENT_DIRECTIONS = ['to-bottom', 'to-right', 'diagonal', 'radial']
 
 export const TEXT_LIMITS = {
@@ -240,7 +240,7 @@ export const DEFAULT_OVERLAY_MOVE = 'drift-up'
 export const TRANSITIONS = ['crossfade', 'wipe-left', 'wipe-right', 'none']
 
 /** The four above plus a mosaic dissolve, for `composed` alone. See timeline.ts. */
-export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel']
+export const COMPOSED_TRANSITIONS = [...TRANSITIONS, 'pixel', 'cube', 'dive', 'iris', 'liquid']
 
 export const OVERLAY_POSITIONS = ['top', 'center', 'bottom']
 export const BAND_POSITIONS = ['top', 'bottom']
@@ -894,6 +894,7 @@ const BACKGROUND_READERS = {
   },
   mesh: { keys: [], read: () => ({}) },
   aurora: { keys: [], read: () => ({}) },
+  world: { keys: [], read: () => ({}) },
   image: {
     keys: ['imageId', 'move'],
     read: (v, w) => ({ imageId: readImageId(v.imageId, w), move: enumValue(v.move, KEN_BURNS, 'zoom-in', `${w}.move`) }),
