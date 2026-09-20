@@ -165,6 +165,9 @@ export const CAPABILITIES: Capability[] = [
     kind: 'cdn-script',
     cdn: { url: '/vendor/three.js', global: 'THREE' },
     globals: ['THREE'],
+    /* The scene IS the picture — see the field. Without this, a screen with a
+       <Scene3D> was thumbnailed as an empty gradient. */
+    drawsContent: true,
     triggers: { keywords: [], intents: [] },
   },
   {
@@ -189,7 +192,7 @@ export const CAPABILITIES: Capability[] = [
         name: 'Scene3D',
         signature: '<Scene3D preset="orb" color="#6366f1" speed="slow" className="h-72 w-full rounded-2xl" />',
         description:
-          `A real 3D object, drawn with WebGL, as a decoration inside a section. \`preset\` is REQUIRED and must be EXACTLY one of these six: ${SCENE3D_PRESETS.map((p) => `"${p}"`).join(', ')} — "orb" is a lit sphere, "solid" a turning knot, "crystal" a faceted rock, "ring" a torus, "particles" a slow field of points, "wave" a rippling surface. \`color\` is a hex from your own palette; anything else falls back to the house ink. \`speed\` is "slow" (the default and almost always right), "medium" or "fast". Give it a SIZE with Tailwind — it fills the box you put it in — and put your text BESIDE it or over a panel of your own, never directly on it: the object moves and nothing measures the contrast of a moving pixel. At most ONE per screen: each scene costs a WebGL context, and the browser only grants about sixteen for the whole canvas. It is decorative, so it carries no text and no meaning a reader needs.`,
+          `A real 3D object, drawn with WebGL, as a decoration inside a section. \`preset\` is REQUIRED and must be EXACTLY one of these six: ${SCENE3D_PRESETS.map((p) => `"${p}"`).join(', ')} — "orb" is a lit sphere, "solid" a turning knot, "crystal" a faceted rock, "ring" a torus, "particles" a slow field of points, "wave" a rippling surface. \`color\` is a hex from your own palette; anything else falls back to the house ink. \`speed\` is "slow" (the default and almost always right), "medium" or "fast". Give it a SIZE with Tailwind — it fills the box you put it in. Two shapes work: a sized box beside your text (\`h-72 w-full\`), or a full-bleed backdrop — \`className="absolute inset-0"\` as the FIRST child of a \`relative\` section, with the text after it in a \`relative\` wrapper of its own so it sits above. Over a backdrop, lay a veil (\`bg-slate-950/60\`) between the scene and the words or pick a dark \`color\`: the object moves and nothing measures the contrast of a moving pixel. At most ONE per screen: each scene costs a WebGL context, and the browser only grants about sixteen for the whole canvas. It is decorative, so it carries no text and no meaning a reader needs.`,
         tags: ['3d', 'webgl', 'three', 'volume', 'sphere', 'particles', 'hero', 'immersive'],
       },
     ],

@@ -44,15 +44,41 @@
  * plainer; it never looks broken.
  */
 export const Scene3DSource = `var MOCKY_SCENES = {
-  orb: { body: 'sphere', lit: true, spin: 0.35, bob: 0.4 },
-  solid: { body: 'knot', lit: true, spin: 0.55, bob: 0.2 },
-  crystal: { body: 'crystal', lit: true, spin: 0.4, bob: 0.3 },
-  ring: { body: 'torus', lit: true, spin: 0.6, bob: 0.15 },
-  particles: { body: 'points', lit: false, spin: 0.12, bob: 0 },
-  wave: { body: 'wave', lit: true, spin: 0.08, bob: 0 }
+  orb: { body: 'sphere', lit: true, spin: 0.35, bob: 0.4, fits: true },
+  solid: { body: 'knot', lit: true, spin: 0.55, bob: 0.2, fits: true },
+  crystal: { body: 'crystal', lit: true, spin: 0.4, bob: 0.3, fits: true },
+  ring: { body: 'torus', lit: true, spin: 0.6, bob: 0.15, fits: true },
+  particles: { body: 'points', lit: false, spin: 0.12, bob: 0, fits: false },
+  wave: { body: 'wave', lit: true, spin: 0.08, bob: 0, fits: false }
 };
 
 var MOCKY_SCENE_SPEED = { slow: 0.55, medium: 1, fast: 1.7 };
+
+/* Breathing room around a body that has to fit: the bound below is tangency,
+   and an object touching all four edges reads as an object that did not fit. */
+var MOCKY_SCENE_MARGIN = 1.08;
+
+/**
+ * How far the camera must sit for a body of radius R to be INSIDE the box.
+ *
+ * An object clipped by a straight vertical line is the one defect a viewer
+ * reads as broken software rather than as a plain scene, and the catalogue
+ * shipped with it: the camera sat at a fixed distance framed for a wide box, so
+ * a sphere in a tall one was cut on both sides and a knot in a square one on all
+ * four. Measured on a rendered probe sheet of the six presets at three aspect
+ * ratios — four of the six were cut.
+ *
+ * The closed form is the bounding sphere's tangency in the narrower of the two
+ * half-angles: horizontally, tan(h) = tan(v) * aspect, so a tall box has the
+ * smaller one and decides. Rotation is free — a bounding SPHERE is what the spin
+ * cannot change, which is why the bound is taken on the geometry rather than on
+ * the object's own idea of its size.
+ */
+function mockySceneReach(radius, fovDeg, aspect) {
+  var halfV = (fovDeg * Math.PI) / 360;
+  var halfH = Math.atan(Math.tan(halfV) * Math.max(0.0001, aspect));
+  return (radius / Math.sin(Math.min(halfV, halfH))) * MOCKY_SCENE_MARGIN;
+}
 
 /** A hex the palette can be measured through, or the house ink. Never a string from a model, unchecked. */
 function mockySceneColor(value) {
@@ -90,7 +116,27 @@ function Scene3D(props) {
     var reduced = false;
     try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
-    var renderer = null, raf = 0, disposed = false, visible = true, granted = window.__mockyGL !== false;
+    var renderer = null, raf = 0, disposed = false, visible = true, drew = false, granted = window.__mockyGL !== false;
+    /* A capture frame asks for ONE frame and then the context back — see
+       lib/capture.ts. html2canvas cannot read a live WebGL canvas (the drawing
+       buffer is gone by the time it clones the document), so a screen with a
+       scene used to be thumbnailed as an empty gradient. A still is an <img>,
+       which it copies perfectly. Two other cases take the same path for their
+       own reason, and both are the same sentence: a scene that must not move
+       has no use for a context. prefers-reduced-motion is one. The Sans
+       animation switch is the other — it said no animation while the object
+       kept turning, which is how that switch already looked broken once (see
+       the note on buildSrcDoc's animations argument), one library over. */
+    var stillOnly = window.__mockyStill === true || window.__mockyAnimations === false;
+    var settled = false, ladderTimer = 0, owed = false;
+    /* What the capture shell waits on: the number of scenes on this page that
+       still owe their one frame. A count and not a flag, because a screen may
+       hold more than one element even though the card asks for one. */
+    function owe(on) {
+      if (on === owed) return;
+      owed = on;
+      try { window.__mockyStillPending = Math.max(0, (window.__mockyStillPending || 0) + (on ? 1 : -1)); } catch (e) {}
+    }
     var clock = new THREE.Clock();
     var scene3 = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
@@ -136,6 +182,18 @@ function Scene3D(props) {
     }
     group.add(object);
 
+    /* What must FIT, and what may bleed.
+       A body is an object: a cut edge reads as a broken render, so the camera is
+       dollied until its bounding sphere is inside the box. A field is a texture
+       — the point cloud and the rippling surface are meant to run past the edges
+       exactly as a background does, and framing one whole would shrink it to a
+       small motif floating in the middle of its box. */
+    var fitRadius = 0;
+    if (scene.fits && geometry) {
+      try { geometry.computeBoundingSphere(); } catch (e) {}
+      fitRadius = geometry.boundingSphere ? geometry.boundingSphere.radius : 0;
+    }
+
     if (scene.lit) {
       scene3.add(new THREE.AmbientLight(0xffffff, 1.1));
       var key = new THREE.DirectionalLight(0xffffff, 2.2);
@@ -148,6 +206,10 @@ function Scene3D(props) {
       var w = Math.max(1, node.clientWidth), h = Math.max(1, node.clientHeight);
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
+      /* The box decides the distance, not the other way round: a scene put in a
+         tall column is the same object seen from further away, never the same
+         object with its sides cut off. */
+      if (fitRadius) camera.position.z = mockySceneReach(fitRadius, camera.fov, camera.aspect);
       camera.updateProjectionMatrix();
     }
 
@@ -164,17 +226,37 @@ function Scene3D(props) {
         geometry.computeVertexNormals();
       }
       renderer.render(scene3, camera);
+      drew = true;
     }
 
     /* The last frame, kept as an image before the context goes away. Captured in
        the same turn as a render, which is what lets it work without
        preserveDrawingBuffer — a buffer kept alive for every scene on the canvas
-       is memory nobody asked for. */
+       is memory nobody asked for.
+
+       Two things learned by measuring it. A still is only kept when a frame was
+       really DRAWN at a real size: a scene revoked before its first paint
+       produced a transparent 282-byte PNG, and since a poster replaces the
+       gradient, the calm fallback became an empty hole. And the encode is
+       BOUNDED — toDataURL on a hero-sized buffer (2880x1440) costs 35 ms of the
+       main thread, which is a dropped frame per scene every time a pan changes
+       who holds the budget. A capture frame is the one place that pays full
+       price: it happens once, offscreen, and the picture IS the product. */
     function keepStill() {
-      if (!renderer) return;
+      if (!renderer || !drew) return;
+      var src = renderer.domElement;
+      if (src.width < 2 || src.height < 2) return;
       try {
         draw(clock.getElapsedTime());
-        setPoster(renderer.domElement.toDataURL('image/png'));
+        var out = src;
+        var k = stillOnly ? 1 : Math.min(1, 640 / Math.max(src.width, src.height));
+        if (k < 1) {
+          out = document.createElement('canvas');
+          out.width = Math.max(1, Math.round(src.width * k));
+          out.height = Math.max(1, Math.round(src.height * k));
+          out.getContext('2d').drawImage(src, 0, 0, out.width, out.height);
+        }
+        setPoster(out.toDataURL('image/png'));
       } catch (e) {}
     }
 
@@ -195,7 +277,10 @@ function Scene3D(props) {
     }
 
     function start() {
-      if (disposed || renderer || !granted || !visible) return;
+      /* settled is how the one-frame path stays one frame: without it every
+         grant, resize or visibility event would build a renderer again to draw
+         the same image. */
+      if (disposed || renderer || settled || !granted || !visible) return;
       try {
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
       } catch (e) { renderer = null; return; }
@@ -211,8 +296,50 @@ function Scene3D(props) {
       });
       size();
       setPoster(null);
-      if (reduced) { draw(0); return; }
+      /* One frame, then the context back. The scene is still THERE — it is the
+         image of itself — and the slot returns to the budget for a screen that
+         is going to move. */
+      if (reduced || stillOnly) { owe(true); settle(); if (!settled) ladder(); return; }
       loop();
+    }
+
+    /**
+     * Trying again, a few times, for the frame that has to be right.
+     *
+     * Two things can put a real size after the first effect: Tailwind's runtime
+     * applies a class once it has parsed the document, and a ResizeObserver is
+     * delivered with a rendering frame — which an offscreen capture iframe may
+     * be slow to get. Either way the still would have been taken of a 1x1
+     * canvas and refused. A short ladder is what makes the one frame arrive
+     * anyway; it stops at the first success, and at six tries regardless.
+     */
+    function ladder() {
+      var tries = 0;
+      ladderTimer = window.setInterval(function () {
+        settle();
+        if (settled || ++tries > 5) { window.clearInterval(ladderTimer); ladderTimer = 0; owe(false); }
+      }, 60);
+    }
+
+    /**
+     * The one frame, taken once the element has a SIZE.
+     *
+     * Tailwind's JIT runtime applies a class after the first paint, so an
+     * effect that fires on mount measures a box of 0x0: the still came back a
+     * 1x1 canvas, keepStill refused it, and a captured screen kept showing the
+     * fallback gradient. The live path never noticed — its ResizeObserver
+     * resizes the canvas and the loop redraws — so the wait belongs here, where
+     * there is only ever one frame to get right.
+     */
+    function settle() {
+      if (settled || !renderer || !node) return;
+      if (node.clientWidth < 2 || node.clientHeight < 2) return;
+      settled = true;
+      size();
+      draw(0);
+      keepStill();
+      stop(false);
+      owe(false);
     }
 
     function grantChanged() {
@@ -232,7 +359,10 @@ function Scene3D(props) {
     }
 
     var ro = null;
-    if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(size); ro.observe(node); }
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(function () { size(); if (reduced || stillOnly) settle(); });
+      ro.observe(node);
+    }
     function onHidden() { if (document.hidden) stop(true); else start(); }
     document.addEventListener('visibilitychange', onHidden);
     window.addEventListener('mocky:gl', grantChanged);
@@ -240,6 +370,8 @@ function Scene3D(props) {
 
     return function () {
       disposed = true;
+      owe(false);
+      if (ladderTimer) window.clearInterval(ladderTimer);
       window.removeEventListener('mocky:gl', grantChanged);
       document.removeEventListener('visibilitychange', onHidden);
       if (io) io.disconnect();
@@ -250,15 +382,40 @@ function Scene3D(props) {
     };
   }, [preset, color, speed]);
 
+  /**
+   * Who positions this element.
+   *
+   * position: relative was written inline, and an inline rule beats a class:
+   * a model that wrote the most natural thing in the world for a hero —
+   * <Scene3D className="absolute inset-0" /> behind its words — got an element
+   * forced back into the flow, where inset-0 means nothing and the height is
+   * the height of its absolutely-positioned contents, i.e. ZERO. The scene was
+   * invisible and still held a WebGL context. So the inline rule is a DEFAULT
+   * now: it applies only when nothing else positions the element, because the
+   * canvas inside needs a containing block and a bare div has none.
+   */
+  var positioned = /(^|\\s)(absolute|fixed|sticky|relative)(\\s|$)/.test(props.className || '') ||
+    !!(props.style && props.style.position);
+
+
   return React.createElement(
     'div',
     {
       className: props.className,
       /* The still lives UNDER the canvas rather than instead of it: when a
          context is taken back mid-scene the canvas simply stops painting, and
-         what shows through is the frame it stopped on. */
+         what shows through is the frame it stopped on. The gradient stays under
+         both, so a still with transparency in it is still a calm surface. */
       style: Object.assign(
-        { position: 'relative', overflow: 'hidden', background: posterUrl ? undefined : mockySceneStill(color) },
+        {
+          position: positioned ? undefined : 'relative',
+          overflow: 'hidden',
+          /* An IMAGE, not the background shorthand: the shorthand resets
+             background-color, so a scene the page gave a bg-slate-950 came out
+             transparent and the gradient was read over the page's white. The
+             fallback belongs OVER whatever colour the page chose. */
+          backgroundImage: mockySceneStill(color),
+        },
         props.style || {},
       ),
       'aria-hidden': 'true',
