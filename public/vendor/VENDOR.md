@@ -30,6 +30,7 @@ script tag reappears in the preview pipeline.
 | `tailwind.min.js` | Tailwind Play CDN | 3.4.17 | `64b8656ae0edd79ff136198680367d51ac356621026cbd88bd6a9030e17b36dc` | yes |
 | `daisyui.min.css` | daisyui | 4.12.10 | `36e28efcf6c4993c482e465b2cae3d63b2066f90ff91455d78bf3e9388af2925` | yes |
 | `motion.js` | motion | 12.43.0 | `be2986aae4824690b4b1b451725e811a08ac44d1100ea269a4692f49f1a0f4ad` | built |
+| `three.js` | three | 0.185.1 | `a6079c4451e9b0bcdbbe8989e4c4d63d2b8275e49129bd35048dbc213607f165` | built |
 
 ### The two patches
 
@@ -56,6 +57,30 @@ a screen using the daisyUI capability.
 
 Re-apply all three after any update, then refresh the hashes above.
 
+### `three.js` is built too, and deliberately partial
+
+three publishes ESM only, so the same argument as `motion.js` applies — and one
+more. The full library is about a megabyte of loaders, controls, curves, audio
+and post-processing, and the preview can reach none of it: the model never
+writes three code, it names a scene out of the closed catalogue in
+`src/lib/capabilities/snippets/Scene3D.ts`. So the bundle is built from a
+hand-written entry point that re-exports exactly the classes those scenes draw
+with, and esbuild drops everything else:
+
+```bash
+node scripts/build-vendor-three.mjs   # or: npm run vendor:three
+```
+
+522 KB raw, 133 KB gzipped, of which most is `WebGLRenderer` and the shaders it
+compiles. It is loaded only by a screen whose capabilities include `three-lib`,
+never by the shell. A scene that needs a class the entry point does not list
+cannot be written without adding it there, rebuilding and re-pinning — which is
+the point: every byte the sandbox executes is a byte somebody chose.
+
+**A loader would be useless here even if it were bundled.** The preview CSP sets
+`connect-src 'none'`, so a glTF or an HDRI could not be fetched at all. Every
+scene in the catalogue is procedural for that reason, and that is a constraint
+the catalogue was designed around rather than one it works against.
 ### `motion.js` is built, not copied
 
 Every other file here is copied out of `node_modules` because it already ships a

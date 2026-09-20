@@ -61,3 +61,30 @@ describe('stripForbiddenMotion', () => {
     expect(out.removed).toEqual([])
   })
 })
+
+/**
+ * The 3D library, held out for a reason that is not the animation one.
+ *
+ * A hand-written scene takes a WebGL context and never gives it back, and the
+ * canvas only has about sixteen to share — so a screen somewhere else goes
+ * blank. `<Scene3D>` exists so the context is granted and returned by something
+ * that knows about the budget.
+ */
+describe('the 3D import', () => {
+  it('removes an import of three, or of its React bindings', async () => {
+    for (const mod of ['three', 'three/addons/controls/OrbitControls.js', '@react-three/fiber']) {
+      const out = await stripForbiddenMotion(`import * as THREE from "${mod}"\nconst App = () => <div/>`)
+      expect(out.removed.join(' '), mod).toContain(mod)
+      expect(out.code, mod).not.toContain(`from "${mod}"`)
+    }
+  })
+
+  it('leaves <Scene3D> and a stray THREE reference alone', async () => {
+    // The component is the sanctioned door, and an undefined identifier is the
+    // repair loop's business rather than this pass's.
+    const src = 'const App = () => <Scene3D preset="orb" />\nexport default App'
+    expect((await stripForbiddenMotion(src)).code).toBe(src)
+    const stray = 'const App = () => { const g = new THREE.Scene(); return <div/> }'
+    expect((await stripForbiddenMotion(stray)).code).toBe(stray)
+  })
+})

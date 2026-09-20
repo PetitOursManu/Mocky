@@ -37,6 +37,17 @@ const CARD_MIN_SCALE = 0.15
 const DOUBLE_PRESS_MS = 350
 
 /** Duration and easing of the frame resize animation (format changes only). */
+/**
+ * How many screens may hold a live WebGL context at once — see `glGranted`.
+ *
+ * Measured rather than chosen: a browser keeps about sixteen per renderer
+ * process and silently kills the oldest past that (twenty-four probe frames
+ * produced eight losses). Four leaves the rest of the tab — a Motion film, a
+ * capture frame, the export preview — able to open one without blanking a
+ * screen somebody is looking at.
+ */
+const GL_BUDGET = 4
+
 const RESIZE_MS = 260
 const RESIZE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const easeProps = (...props: string[]) => props.map((p) => `${p} ${RESIZE_MS}ms ${RESIZE_EASE}`).join(', ')
@@ -497,6 +508,7 @@ export default function Canvas({
   const [resizePreview, setResizePreview] = useState<(Box & { id: string }) | null>(null)
   const [marquee, setMarquee] = useState<Box | null>(null)
   const [annotateRect, setAnnotateRect] = useState<Box | null>(null)
+
   const gesture = useRef<Gesture | null>(null)
   /** Last frame pressed, for detecting a double-press (see onFrameDown). */
   const lastPress = useRef<{ id: string; at: number }>({ id: '', at: 0 })
@@ -910,6 +922,47 @@ export default function Canvas({
     return { x: s.x, y: s.y, w: s.w, h: s.h }
   }
 
+  /**
+   * Which screens may hold a live WebGL context.
+   *
+   * A browser keeps about sixteen per renderer process and silently kills the
+   * OLDEST when a seventeenth is asked for — measured here: twenty-four frames
+   * asking for one produced eight losses. Every screen on this canvas is its own
+   * iframe, so left to themselves they take the budget from each other, and the
+   * scene somebody is looking at goes blank because something three screens away
+   * woke up.
+   *
+   * A frame cannot arbitrate it: an iframe's own IntersectionObserver sees the
+   * iframe's viewport, not the canvas, so a screen parked far off to the side
+   * believes it is perfectly visible. The canvas is the only party that knows
+   * where the screens ARE, so it decides: those whose box meets the viewport,
+   * nearest the middle first, up to `GL_BUDGET`. The rest are told to give their
+   * context up, and `<Scene3D>` holds the last frame it drew as a still.
+   *
+   * Four and not sixteen, deliberately: the limit is shared with everything else
+   * the tab does — a Motion film playing, a capture frame, the export preview —
+   * and a canvas that spent the whole budget would be a canvas where opening
+   * anything else went black.
+   */
+  const glGranted = (() => {
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1440
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 900
+    const scored: { id: string; d: number }[] = []
+    for (const s of screens) {
+      const b = effBox(s)
+      const x = b.x * view.scale + view.x
+      const y = b.y * view.scale + view.y
+      const w = b.w * view.scale
+      const h = b.h * view.scale
+      if (x > vw || y > vh || x + w < 0 || y + h < 0) continue
+      const dx = x + w / 2 - vw / 2
+      const dy = y + h / 2 - vh / 2
+      scored.push({ id: s.id, d: dx * dx + dy * dy })
+    }
+    scored.sort((a, b) => a.d - b.d)
+    return new Set(scored.slice(0, GL_BUDGET).map((e) => e.id))
+  })()
+
   const gap = 26 * view.scale
   const bgStyle: React.CSSProperties = {
     backgroundImage: `radial-gradient(circle, var(--dot) 1.2px, transparent 1.2px)`,
@@ -1292,6 +1345,7 @@ export default function Canvas({
                       retrying={fixingIds?.has(s.id)}
                       caps={s.caps}
                       animations={s.animations ?? animations}
+                      gl={glGranted.has(s.id)}
                       onContentHeight={(h) => onContentHeight?.(s.id, h)}
                     />
                   </DeviceChrome>
@@ -1313,6 +1367,7 @@ export default function Canvas({
                     retrying={fixingIds?.has(s.id)}
                     caps={s.caps}
                     animations={s.animations ?? animations}
+                    gl={glGranted.has(s.id)}
                   />
                 )}
               </div>

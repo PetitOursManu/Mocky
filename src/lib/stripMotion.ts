@@ -33,6 +33,24 @@
 /** Module names that mean "the animation library", in any of its published forms. */
 const MOTION_MODULE = /^(motion|framer-motion)(\/.*)?$/
 
+/**
+ * And the 3D one, for the same reason one library over.
+ *
+ * `<Scene3D preset="…">` is the whole 3D surface the model is shown, and behind
+ * it sits a budget the page cannot see: a browser grants about sixteen live
+ * WebGL contexts per renderer process, so every scene on the canvas is granted
+ * one by the parent and gives it back when it is not being looked at. A scene
+ * the model wrote by hand belongs to nobody — it takes a context, never returns
+ * it, and blanks a screen somewhere else on the canvas.
+ *
+ * Only the IMPORT is removed, and deliberately only that: an import is a hard
+ * render failure in a sandbox with no module system, while a stray `THREE`
+ * reference is an ordinary undefined identifier the repair loop can see and
+ * fix. Cutting expressions out of somebody's component would be the silent
+ * rewrite this file's header refuses.
+ */
+const THREE_MODULE = /^(three|@react-three\/.*)(\/.*)?$/
+
 export interface StripResult {
   code: string
   /** Human-readable list of what was removed, for a soft warning. Empty is the normal case. */
@@ -47,7 +65,7 @@ export interface StripResult {
  * and swallowing the code here would turn a fixable error into an empty screen.
  */
 export async function stripForbiddenMotion(source: string): Promise<StripResult> {
-  if (!source || !/motion/i.test(source)) return { code: source, removed: [] }
+  if (!source || !/motion|three|@react-three/i.test(source)) return { code: source, removed: [] }
 
   const removed: string[] = []
   try {
@@ -59,7 +77,7 @@ export async function stripForbiddenMotion(source: string): Promise<StripResult>
       visitor: {
         ImportDeclaration(path: any) {
           const name = String(path.node?.source?.value || '')
-          if (!MOTION_MODULE.test(name)) return
+          if (!MOTION_MODULE.test(name) && !THREE_MODULE.test(name)) return
           removed.push(`import from "${name}"`)
           path.remove()
         },

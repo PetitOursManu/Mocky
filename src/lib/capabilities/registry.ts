@@ -5,6 +5,7 @@ import { MotionSource, MOTION_EXPORTS } from './snippets/Motion'
 import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from './snippets/ScrollVideo'
 import { MotionFilmSource, MOTIONFILM_EXPORTS } from './snippets/MotionFilm'
 import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
+import { Scene3DSource, SCENE3D_EXPORTS, SCENE3D_PRESETS } from './snippets/Scene3D'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
 function validatePack(id: string, components: { name: string }[], snippets: { exports: string[] }[]) {
@@ -128,7 +129,7 @@ export const CAPABILITIES: Capability[] = [
         name: 'Animated',
         signature: '<Animated preset="fade-up" delay={0.1} as="section" className="…">{children}</Animated>',
         description:
-          'Wraps any block to animate it. `preset` is REQUIRED and must be EXACTLY one of these eleven: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "slide-left" (enters from the left), "slide-right" (enters from the right), "blur-in" (blur lifts as it appears), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "hover-glow" (brightens and grows slightly under the cursor, no entrance), "parallax" (drifts slower than the page as it scrolls — for a hero or a background block, never for body text), "exit-slide" (slides in, and out when removed). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
+          'Wraps any block to animate it. `preset` is REQUIRED and must be EXACTLY one of these twelve: "fade-in" (opacity), "fade-up" (opacity + rise), "scale-in" (spring pop), "slide-left" (enters from the left), "slide-right" (enters from the right), "blur-in" (blur lifts as it appears), "stagger-list" (children appear one after another — put it on the LIST, not on each item), "hover-lift" (lifts under the cursor, no entrance), "hover-glow" (brightens and grows slightly under the cursor, no entrance), "parallax" (drifts slower than the page as it scrolls — for a hero or a background block, never for body text), "tilt-3d" (turns towards the cursor inside its own perspective, for a card or a picture — depth with no 3D renderer, so it costs nothing and may be used on many elements), "exit-slide" (slides in, and out when removed). `delay` is in seconds, 0–2. `as` picks the tag, default "div". Any other preset name renders a plain, unanimated element — never invent one.',
         tags: ['animation', 'motion', 'entrance', 'hover', 'stagger', 'reveal', 'parallax', 'blur'],
       },
       {
@@ -144,6 +145,52 @@ export const CAPABILITIES: Capability[] = [
         description:
           'A number that counts up when it scrolls into view — for statistics and KPIs. `to` is the final value and is REQUIRED. Renders as an inline <span>, so wrap it in your own heading or paragraph for styling. Thousands are spaced automatically.',
         tags: ['counter', 'number', 'stat', 'kpi', 'metric'],
+      },
+    ],
+  },
+  {
+    /**
+     * three.js, as a browser global, from Mocky's own origin.
+     *
+     * Same argument as `motion-lib` one entry up, and invariant I3: a preview
+     * never depends on a third-party fetch. The file is built by
+     * `scripts/build-vendor-three.mjs` from a hand-written entry point that
+     * re-exports only what the scene catalogue draws with — 522 KB raw, 133 KB
+     * gzipped — and hash-pinned in `public/vendor/VENDOR.md`.
+     *
+     * It is loaded by a screen that asked for a scene and by no other, which is
+     * the whole reason a capability is a capability.
+     */
+    id: 'three-lib',
+    kind: 'cdn-script',
+    cdn: { url: '/vendor/three.js', global: 'THREE' },
+    globals: ['THREE'],
+    triggers: { keywords: [], intents: [] },
+  },
+  {
+    /**
+     * The closed 3D vocabulary. Six scenes, one component, and no way for the
+     * model to reach three's own API — see snippets/Scene3D.ts, which also
+     * carries the context-budget argument.
+     */
+    id: 'scene3d',
+    kind: 'snippet-pack',
+    requires: ['three-lib'],
+    triggers: {
+      keywords: [
+        '3d', 'three', 'threejs', 'webgl', 'volume', 'relief', 'sphère', 'sphere', 'orbe', 'orb',
+        'objet 3d', 'rendu 3d', 'particules', 'particles', 'immersif', 'immersive', 'depth', 'profondeur',
+      ],
+      intents: ['3d', 'immersive', 'playful', 'futuristic'],
+    },
+    snippets: [{ source: Scene3DSource, exports: [...SCENE3D_EXPORTS] }],
+    components: [
+      {
+        name: 'Scene3D',
+        signature: '<Scene3D preset="orb" color="#6366f1" speed="slow" className="h-72 w-full rounded-2xl" />',
+        description:
+          `A real 3D object, drawn with WebGL, as a decoration inside a section. \`preset\` is REQUIRED and must be EXACTLY one of these six: ${SCENE3D_PRESETS.map((p) => `"${p}"`).join(', ')} — "orb" is a lit sphere, "solid" a turning knot, "crystal" a faceted rock, "ring" a torus, "particles" a slow field of points, "wave" a rippling surface. \`color\` is a hex from your own palette; anything else falls back to the house ink. \`speed\` is "slow" (the default and almost always right), "medium" or "fast". Give it a SIZE with Tailwind — it fills the box you put it in — and put your text BESIDE it or over a panel of your own, never directly on it: the object moves and nothing measures the contrast of a moving pixel. At most ONE per screen: each scene costs a WebGL context, and the browser only grants about sixteen for the whole canvas. It is decorative, so it carries no text and no meaning a reader needs.`,
+        tags: ['3d', 'webgl', 'three', 'volume', 'sphere', 'particles', 'hero', 'immersive'],
       },
     ],
   },

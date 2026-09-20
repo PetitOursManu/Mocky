@@ -82,6 +82,11 @@ export const AnimateSource = `var MOCKY_PRESETS = {
   /* Scroll-linked, so it is driven by the same DOM path in both engines —
      see the note where it is rendered. */
   'parallax': { parallax: 0.25 },
+  /* Depth without WebGL: the element turns towards the pointer inside its own
+     perspective. It costs no rendering context — which is the whole reason it
+     sits here beside the flat presets rather than in the 3D capability, where
+     every scene is rationed. */
+  'tilt-3d': { tilt: 9 },
   'exit-slide': {
     variants: {
       hidden: { opacity: 0, x: -24 },
@@ -180,9 +185,42 @@ var Animated = function (props) {
     };
   }, [parallaxOn]);
 
+  /* Pointer-driven depth, and the same DOM path with or without Motion for
+     parallax's reason: there is no variant to describe, only a transform that
+     follows a cursor. The element returns to flat when the pointer leaves, so
+     nothing is left rotated in a screenshot. */
+  var tiltOn = animating && !!config && !!config.tilt;
+  var tilt = React.useState(null);
+  var tiltAt = tilt[0], setTilt = tilt[1];
+  var onTiltMove = React.useCallback(function (e) {
+    var node = ref.current;
+    if (!node) return;
+    var r = node.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var px = (e.clientX - r.left) / r.width - 0.5;
+    var py = (e.clientY - r.top) / r.height - 0.5;
+    setTilt({ x: px, y: py });
+  }, []);
+  var onTiltLeave = React.useCallback(function () { setTilt(null); }, []);
+
   /* An unknown preset is not an error: it is a plain element. */
   if (!animating) {
     return React.createElement(Tag, { ref: ref, className: className, style: props && props.style }, children);
+  }
+
+  if (config.tilt) {
+    var deg = config.tilt;
+    var tStyle = Object.assign({}, props && props.style);
+    tStyle.transform = tiltAt
+      ? 'perspective(900px) rotateX(' + (-tiltAt.y * deg).toFixed(2) + 'deg) rotateY(' + (tiltAt.x * deg).toFixed(2) + 'deg)'
+      : 'perspective(900px)';
+    tStyle.transition = tiltAt ? 'transform 60ms linear' : 'transform 260ms cubic-bezier(0.22,1,0.36,1)';
+    tStyle.willChange = 'transform';
+    return React.createElement(
+      Tag,
+      { ref: ref, className: className, style: tStyle, onPointerMove: onTiltMove, onPointerLeave: onTiltLeave },
+      children,
+    );
   }
 
   if (config.parallax) {
@@ -372,6 +410,7 @@ export const ANIMATE_PRESETS = [
   'hover-lift',
   'hover-glow',
   'parallax',
+  'tilt-3d',
   'exit-slide',
 ] as const
 

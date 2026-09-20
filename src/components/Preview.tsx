@@ -476,6 +476,16 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
       var d = e.data || {};
       if (d.__mockyCmd === 'pick') { if (d.on) { mode = 'pick'; pickFill = d.fill !== false; pickPrecise = !!d.precise; } else if (mode === 'pick') { mode = null; hideHl(); } }
       if (d.__mockyCmd === 'demo') { mode = 'demo'; links = d.links || []; markLinks(); }
+      // The WebGL budget, granted by the canvas. A browser keeps about sixteen
+      // live contexts per renderer process and silently kills the OLDEST when a
+      // seventeenth is asked for, so a screen far off the canvas would blank the
+      // scene somebody is looking at. A frame cannot arbitrate that — it sees
+      // only itself — so the parent decides and this line is the whole of what
+      // the frame does about it. <Scene3D> listens for the event.
+      if (d.__mockyCmd === 'gl') {
+        window.__mockyGL = d.on !== false;
+        try { window.dispatchEvent(new Event('mocky:gl')); } catch (_) {}
+      }
       // Read-only, and it changes no mode: a sweep must not disturb whatever the
       // user is doing in the screen at the time.
       if (d.__mockyCmd === 'sweep') { post('swept', { id: d.id, elements: sweepLinkables() }); }
@@ -496,6 +506,7 @@ export default function Preview({
   pickMode,
   pickOutlineOnly,
   pickPrecise,
+  gl,
   retrying,
   onPick,
   demoLinks,
@@ -518,6 +529,17 @@ export default function Preview({
   pickOutlineOnly?: boolean
   /** In pick mode, pick the exact element under the cursor (no walk-up) — used by Modify mode. */
   pickPrecise?: boolean
+  /**
+   * May this screen hold a live WebGL context?
+   *
+   * The canvas grants it to the screens nearest the viewport and withholds it
+   * from the rest — a browser keeps about sixteen contexts per renderer process
+   * and silently kills the oldest when a seventeenth is asked for, so without an
+   * arbiter a screen scrolled far away would blank the scene somebody is looking
+   * at. Absent means granted: a preview outside the canvas — the capture frame,
+   * a test — is on its own and should simply work.
+   */
+  gl?: boolean
   /** Auto-fix is repairing a render error on this screen — show a calm "Repairing…" state instead of the red error banner. */
   retrying?: boolean
   onPick?: (info: PickInfo) => void
@@ -790,7 +812,10 @@ export default function Preview({
     if (!win || !ready) return
     win.postMessage({ __mockyCmd: 'pick', on: !!pickMode, fill: !pickOutlineOnly, precise: !!pickPrecise }, '*')
     if (demoLinks && demoLinks.length) win.postMessage({ __mockyCmd: 'demo', links: demoLinks }, '*')
-  }, [ready, pickMode, pickOutlineOnly, pickPrecise, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Undefined means granted — see the prop. The frame keeps the answer on
+    // `window.__mockyGL` and `<Scene3D>` starts or stops on the event.
+    win.postMessage({ __mockyCmd: 'gl', on: gl !== false }, '*')
+  }, [ready, pickMode, pickOutlineOnly, pickPrecise, gl, demoKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative h-full w-full bg-white" style={{ borderRadius: radius }}>

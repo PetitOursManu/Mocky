@@ -720,6 +720,33 @@ Ten things, and the first one is not negotiable.
     `totalDurationMs` on all three sides, or a mirrored film dies on its own
     deadline halfway through.
 
+## 3D in a generated page
+
+`<Scene3D preset="…">` is the only 3D a model may write, the same way
+`<Animated preset>` is the only animation: six procedural scenes out of a closed
+list, drawn by a hand-written component. `stripForbiddenMotion` now removes an
+`import … from 'three'` too. Three things are easy to break here:
+
+1. **The context budget is the feature.** A browser keeps ~16 live WebGL
+   contexts per renderer process and silently kills the OLDEST past that
+   (measured: 24 probe iframes → 8 losses). An iframe cannot arbitrate it — its
+   IntersectionObserver sees its own viewport, so a screen parked off-canvas
+   believes it is visible — so `Canvas.tsx` does: `glGranted` ranks the screens
+   meeting the viewport, grants `GL_BUDGET` (4), and `Preview` posts
+   `{__mockyCmd:'gl', on}`. `<Scene3D>` captures its last frame with `toDataURL`
+   BEFORE releasing, so a revoked scene is that scene held still rather than a
+   hole, and it also listens for `webglcontextlost`.
+2. **Everything is procedural, and that is the CSP's doing.** `connect-src
+   'none'` means no glTF, no HDRI and no texture file — ever. `/vendor/three.js`
+   is built by `npm run vendor:three` from a hand-written entry point that
+   re-exports only the classes the scenes use (522 KB raw, 133 KB gzipped), and
+   hash-pinned in `public/vendor/VENDOR.md` like every other bundle the sandbox
+   runs.
+3. **Depth that costs no context lives with the flat presets.** `tilt-3d` in the
+   `animate` pack is a CSS perspective following the cursor: no renderer, no
+   rationing, correct in a screenshot. A grid may use it everywhere; a screen
+   should hold at most one `Scene3D`.
+
 ## Conventions
 
 - **Comments explain why, not what.** The house style is unusually discursive:

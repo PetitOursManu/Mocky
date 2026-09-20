@@ -77,7 +77,51 @@ about the shape of the tag.
 | `motion` | snippet-pack | none — `retired: true` | `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`, `BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`, `AnimatedBeam` |
 | `motion-lib` | cdn-script | none — pulled in by `requires` | `window.Motion`, from `/vendor/motion.js` |
 | `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Declares `requires: ['motion-lib']` |
+| `three-lib` | cdn-script | none — pulled in by `requires` | `window.THREE`, from `/vendor/three.js` |
+| `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — six procedural scenes. Declares `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | none — added explicitly | `ScrollSequence` |
+
+
+### 3D in a page, and the budget that governs it
+
+`<Scene3D preset="orb" color="#6366f1" />` is the whole 3D surface the model
+sees: six procedural scenes — a lit sphere, a turning knot, a faceted crystal, a
+torus, a field of points, a rippling surface — named out of a closed list, like
+`<Animated preset>` beside it and like Motion's blocks one feature over. It
+never writes three.js, and `stripForbiddenMotion` removes an `import … from
+'three'` the way it already removes one from `motion`.
+
+**Everything is procedural because the preview's CSP says so.** `connect-src
+'none'` means a glTF, an HDRI or a texture file could not be fetched at all; the
+library is vendored (`/vendor/three.js`, 522 KB raw, 133 KB gzipped, built from
+a hand-written entry point that re-exports only what these scenes draw with) and
+loaded solely by a screen whose capabilities asked for it.
+
+**The hard part is the context budget.** A browser keeps about sixteen live
+WebGL contexts per renderer process and silently kills the OLDEST when a
+seventeenth is asked for — measured in this repository: twenty-four probe
+iframes produced eight losses. Every screen on the canvas is its own iframe, so
+left alone they take the budget from each other and a scene somebody is looking
+at goes blank because something off-view woke up. A frame cannot arbitrate that,
+since its own IntersectionObserver sees its own viewport and believes a screen
+parked far off-canvas is perfectly visible.
+
+So the CANVAS decides. `glGranted` in `Canvas.tsx` ranks the screens whose box
+meets the viewport by distance from its middle, grants `GL_BUDGET` of them (four
+— the rest of the tab needs contexts too), and `Preview` posts
+`{__mockyCmd:'gl', on}` to each frame. `<Scene3D>` does three things with the
+answer: it renders only while granted and visible, it captures the last frame as
+an image BEFORE giving the context up — so what replaces a live scene is that
+scene, held still — and it listens for `webglcontextlost`, because the browser
+can take the context anyway. With no grant, no WebGL or `prefers-reduced-motion`,
+the element is a quiet gradient of its own colour: a page that loses its 3D looks
+plainer, never broken.
+
+**Depth that costs nothing sits elsewhere on purpose.** The `tilt-3d` preset in
+the `animate` pack turns an element towards the cursor inside its own
+perspective — no renderer, no context, no rationing, and it captures correctly in
+a screenshot. A grid of cards may all use it; a screen should hold at most one
+`Scene3D`.
 
 ### Selection
 

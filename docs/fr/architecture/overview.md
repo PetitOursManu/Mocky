@@ -78,8 +78,54 @@ C'est [l'invariant I3](fr/architecture/invariants.md), et il porte sur la
 | `motion` | snippet-pack | aucun — `retired: true` | `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`, `ShimmerButton`, `BentoGrid`, `BentoCard`, `BorderBeam`, `TextReveal`, `Meteors`, `AnimatedBeam` |
 | `motion-lib` | cdn-script | aucun — tirée par `requires` | `window.Motion`, depuis `/vendor/motion.js` |
 | `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Déclare `requires: ['motion-lib']` |
+| `three-lib` | cdn-script | aucun — tirée par `requires` | `window.THREE`, depuis `/vendor/three.js` |
+| `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — six scènes procédurales. Déclare `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence` |
 
+
+### La 3D dans une page, et le budget qui la gouverne
+
+`<Scene3D preset="orb" color="#6366f1" />` est toute la surface 3D que voit le
+modèle : six scènes procédurales — une sphère éclairée, un nœud qui tourne, un
+cristal facetté, un tore, un champ de points, une surface qui ondule — nommées
+dans une liste fermée, comme `<Animated preset>` à côté et comme les blocs de
+Motion une fonctionnalité plus loin. Il n'écrit jamais de three.js, et
+`stripForbiddenMotion` retire un `import … from 'three'` comme il retire déjà
+celui de `motion`.
+
+**Tout est procédural parce que la CSP de l'aperçu le dit.** `connect-src
+'none'` signifie qu'un glTF, une HDRI ou un fichier de texture ne pourraient
+même pas être téléchargés ; la bibliothèque est livrée avec Mocky
+(`/vendor/three.js`, 522 Ko bruts, 133 Ko compressés, construite depuis un point
+d'entrée écrit à la main qui ne réexporte que ce que ces scènes dessinent) et
+chargée par le seul écran dont les capacités l'ont demandée.
+
+**Le morceau difficile est le budget de contextes.** Un navigateur garde environ
+seize contextes WebGL vivants par processus de rendu et tue silencieusement le
+PLUS ANCIEN quand un dix-septième est demandé — mesuré dans ce dépôt :
+vingt-quatre iframes de test ont produit huit pertes. Chaque écran du canevas
+est sa propre iframe : livrés à eux-mêmes, ils se prennent le budget l'un à
+l'autre, et la scène que quelqu'un regarde devient blanche parce qu'un écran
+hors champ s'est réveillé. Une iframe ne peut pas arbitrer cela : son propre
+IntersectionObserver voit sa propre fenêtre et croit qu'un écran garé loin sur
+le canevas est parfaitement visible.
+
+C'est donc le CANEVAS qui décide. `glGranted`, dans `Canvas.tsx`, classe les
+écrans dont la boîte touche la fenêtre par distance au centre, en accorde
+`GL_BUDGET` (quatre — le reste de l’onglet a besoin de contextes aussi), et
+`Preview` envoie `{__mockyCmd:'gl', on}` à chaque iframe. `<Scene3D>` en fait
+trois choses : il ne rend que tant qu'il est autorisé et visible, il capture sa
+dernière image AVANT de rendre le contexte — ce qui remplace une scène vivante
+est donc cette scène, figée — et il écoute `webglcontextlost`, parce que le
+navigateur peut le reprendre malgré tout. Sans autorisation, sans WebGL ou sous
+`prefers-reduced-motion`, l'élément est un dégradé calme de sa propre couleur :
+une page qui perd sa 3D paraît plus simple, jamais cassée.
+
+**La profondeur qui ne coûte rien est ailleurs, exprès.** Le préréglage
+`tilt-3d` du pack `animate` incline un élément vers le curseur dans sa propre
+perspective — pas de moteur de rendu, pas de contexte, pas de rationnement, et
+la capture d'écran est correcte. Toute une grille de cartes peut l'utiliser ;
+un écran ne devrait porter au plus qu’un seul `Scene3D`.
 ### La sélection
 
 `selectCapabilities()` est déterministe et n'appelle aucun modèle.
