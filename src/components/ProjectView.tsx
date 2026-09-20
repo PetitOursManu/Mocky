@@ -79,11 +79,11 @@ import {
   type MotionKindOffer,
 } from '../lib/video/client'
 import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
-import { findScreenSections } from '../lib/screenSections'
+import { filmSectionIn, findScreenSections } from '../lib/screenSections'
 import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
 import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
-import { pageScenesIn } from '../lib/video/pageScenes'
+import { pageScenesIn, readPage3D } from '../lib/video/pageScenes'
 import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { decideFilm, dossierMotionRequest } from '../lib/video/filmDecision'
@@ -1484,10 +1484,22 @@ export default function ProjectView({
          */
         // Decided by the composer's ANIMATION switch and the request — never by a
         // Motion checkbox. The rules, and why, are in `decideFilm`.
+        /*
+         * What the page just drew, read once: the scenes the composer is told
+         * about, and whether the page already animates its own background.
+         *
+         * The second one changes the DECISION and not just the composition. A
+         * brief asking for "un fond animé en 3D" is answered by the page
+         * itself, and a film composed as a background for it is the second one
+         * on that screen — so the film becomes another kind in another place,
+         * or there is no film.
+         */
+        const page3d = await readPage3D(result.code)
         const museFilm = decideFilm({
           mode: animationMode,
           kinds: motionKindIds,
           dossier: museRan ? museDossier?.film : undefined,
+          pageAnimatesBackground: page3d.animatedBackdrop,
         })
         if (museFilm) {
           const kindName = t(`muse.motionKind.${museFilm.kind}` as TranslationKey)
@@ -1516,7 +1528,7 @@ export default function ProjectView({
                  * two three-dimensional things on one screen, neither aware of
                  * the other. Names only — the colours are already in `theme`.
                  */
-                scenery: await pageScenesIn(result.code),
+                scenery: page3d.scenes,
                 // The dossier in its own words. Not the theme, which travels
                 // separately and never reaches the model: this is what makes a
                 // film RESEMBLE the direction rather than merely carry its
@@ -2263,6 +2275,9 @@ export default function ProjectView({
             ? `Put the film in #${wanted[0]} — that is where a "${kind}" film belongs.`
             : 'None of them is an obvious home for this film, so choose the one whose SUBJECT it shares — not the first one on the page.',
           'Say which id you used by leaving the film inside that element. Do not rename or remove any id: they are handles the rest of the app places things by.',
+          'Put the <MotionFilm> INSIDE that section, as a layer of it. Never create a section for the film, never',
+          'wrap it in one, and never give it a band of its own above the page: a first screen that is only a film',
+          'makes the site start below the fold, and a visitor sees a video where a home page should be.',
         ]
       : []
 
@@ -2346,9 +2361,12 @@ export default function ProjectView({
           'That ground is TAKEN. The page must not put its own headline or subheadline over the film — not a',
           'shorter one, not a different one, not one that says something else. Two runs of display type in the',
           'same place collide whatever they say, and the film is the one that moves with the picture.',
-          'DELETE the page copy that would land there: its <h1>, its subheadline, its eyebrow. Keep the logo,',
-          'the navigation, the buttons, and every section below the film exactly as they are.',
-          'If deleting leaves the film with nothing but buttons over it, that is correct — the film is speaking.',
+          'DELETE the page copy that would land there: its <h1> and its subheadline. Keep the logo, the',
+          'navigation, the eyebrow, the buttons, the figures beside them, and every section below the film',
+          'exactly as they are.',
+          'The section must still hold something a reader can act on. If removing the headline would leave the',
+          'film alone in it, keep the subheadline and remove only the <h1>: a screen that is nothing but a film',
+          'is a page that has not started yet.',
         ]
       : [
           '',
@@ -2387,6 +2405,29 @@ export default function ProjectView({
     // during the minutes this took, which is the one thing it exists to stop.
     const now = screensRef.current.find((s) => s.id === screenId)
     if (now && now.code !== codeAtStart) return
+    /*
+     * Did it land in the page, or beside it?
+     *
+     * One placement came back with the film in a band of its own at the top:
+     * the site began below the fold and the first screen was a video with
+     * nothing on it. The instruction above says not to, and an instruction is
+     * not a guarantee — so the result is read (`filmSectionIn`) and a film that
+     * ended up outside every section this screen already had is not written
+     * back. The screen stays as it was and the film stays ATTACHED to it, which
+     * is exactly the state a screen with no placement is in: visible on the
+     * canvas, one click from the lightbox, nothing lost but the inlining.
+     *
+     * Only when the screen had sections to land in: a page with no ids at all
+     * gives this nothing to compare against, and refusing every placement on
+     * such a page would be worse than the defect.
+     */
+    if (sections.length) {
+      const home = await filmSectionIn(res.code)
+      if (!home || !sections.some((sec) => sec.id === home)) {
+        setNotice(t('project.motionPlacedBeside'))
+        return
+      }
+    }
     onUpdateScreen(screenId, {
       code: res.code,
       componentName: res.componentName,

@@ -155,6 +155,8 @@ export const project = {
       'Un film Motion est en cours. Le rendu se termine côté serveur et le film sera dans Média, mais il ne sera PAS inséré dans l’écran si vous partez maintenant. Quitter quand même ?',
     'project.motionFailed':
       'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
+    'project.motionPlacedBeside':
+      'Le film est prêt et rattaché à l’écran, mais la mise en page proposée le sortait des sections existantes — elle a été écartée pour ne pas ouvrir la page sur une vidéo seule.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
     'project.briefImageFailed': 'Image non générée — {reason}',
     'project.briefBackend': 'Backend Mocky requis',
@@ -398,6 +400,8 @@ export const project = {
       'A Motion film is in progress. The render finishes on the server and the film will be in Media, but it will NOT be placed in the screen if you leave now. Leave anyway?',
     'project.motionFailed':
       'The Motion film could not be produced: {detail}. The screen is produced without a film.',
+    'project.motionPlacedBeside':
+      'The film is ready and attached to the screen, but the proposed layout put it outside the page’s own sections — it was set aside rather than open the page on a bare video.',
     'project.museNoImage': 'the dossier proposed no image',
     'project.briefImageFailed': 'No image generated — {reason}',
     'project.briefBackend': 'Mocky backend required',
