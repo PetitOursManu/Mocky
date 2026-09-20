@@ -61,6 +61,14 @@ supplémentaire par seconde de film pour un solide plein cadre, contre les
 vivent ici, ils tombent exactement sous les garanties du tableau ci-dessus : une
 instance qui ne construit jamais cette image ne les installe jamais.
 
+**Deux autres paquets sont arrivés de la même façon, et ont été mesurés de la
+même façon.** `lottie-web` et `react-useanimations` (tous deux MIT, sans binaire
+natif) dessinent le bloc `animatedIcon` : les animations sont du JSON livré avec
+cette image et jamais téléchargé, et chaque couleur qu'elles portent est
+remplacée par une couleur que la palette a mesurée avant que quoi que ce soit ne
+soit dessiné. Comme pour `three`, une instance qui ne construit jamais cette
+image ne les installe jamais.
+
 Deux paquets ont été mesurés puis refusés, et `docs/fr/video-export.md` porte le
 raisonnement : `@shopify/react-native-skia`, dont `@remotion/skia` a besoin,
 installe 443 Mio de binaires `.a` et `.so` précompilés pour quatre plateformes
@@ -382,7 +390,8 @@ exécute ceci sur un hôte public peut y remettre `assertSafeTargetResolved`.
 worker/video/
   README.md            la version anglaise — l'avertissement de licence en premier, exprès
   README.fr.md         ce fichier
-  package.json         les paquets Remotion et ceux de three, épinglés exactement. Jamais fusionnés dans ceux de Mocky
+  package.json         les paquets Remotion, ceux de three, ceux de lottie et soixante
+                       typographies, épinglés exactement. Jamais fusionnés dans ceux de Mocky
   Dockerfile           node:22-bookworm-slim + les bibliothèques de Chromium + ffmpeg
   .dockerignore        ce répertoire est son propre contexte de build
   server.js            Express : GET /health, POST /render. N'importe aucun paquet Remotion

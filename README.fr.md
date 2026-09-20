@@ -41,7 +41,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - ▶️ **Mode Interagir** — cliquez sur les boutons ; les états de survol et les animations s'exécutent en direct, à même la grille.
 - ✦ **De vraies animations, sans danger** — onze préréglages d'animation et trois composants derrière un unique emballage `<Animated preset="…">`, propulsés par [Motion](https://motion.dev). Le modèle qui génère n'écrit jamais de code d'animation : il choisit un nom dans une liste fermée (voir [Animations](#animations) plus bas). Un seul interrupteur, par projet ou par écran, fige l'ensemble.
 - 🎞️ **Vidéo au défilement** — Muse peut générer un clip (ou vous pouvez en importer un) et laisser le visiteur le parcourir à la molette, épinglé en pleine hauteur.
-- 🎬 **Export vidéo** — montez un `.mp4` à partir de votre médiathèque : une image par scène, avec un mouvement de caméra, une transition et un texte facultatif, jusqu'à deux minutes. Un modèle peut proposer l'ordre de passage, mais il n'écrit jamais une ligne de code de rendu (voir [Export vidéo](#export-vidéo) plus bas). Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
+- 🎬 **Motion** — un `.mp4` composé pour un écran : un modèle bâtit chaque scène à partir d'un catalogue fermé de blocs typés — typographie, graphiques, images, icônes animées, objets 3D — sur un fond qui peut bouger, et un moteur écrit à la main les dessine. Il n'écrit jamais une ligne de code de rendu (voir [Motion](#motion) plus bas). Le film peut être décidé par votre seule demande, et un film destiné à vivre sous une page peut boucler sans couture visible. Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
 - 🖼️ **Bibliothèque de médias** — toutes les images et séquences générées au même endroit, plus **vos propres** images et clips. Muse construit sa direction artistique *à partir de* ce que vous sélectionnez.
 - 🔗 **Liens d'interaction + mode Démo** — reliez un véritable élément d'un écran à un autre écran, puis jouez le prototype cliquable.
 - 📱 **Préréglages de format et cadre d'appareil** — Mobile (iPhone) / Bureau / Tablette ; les écrans mobiles s'affichent dans un cadre d'iPhone en CSS (barre d'état, encoche, barre d'accueil).
@@ -528,21 +528,55 @@ Muse est conçu pour respecter les sites dont il s'inspire :
 > d'avis de sécurité (`hono`, `body-parser`, `shell-quote`, `esbuild`) — tous dans le transport
 > serveur HTTP du SDK, que Mocky n'utilise **pas** (nous sommes un client stdio).
 
-## Export vidéo
+## Motion
 
 > **Pourquoi c'est ainsi —** Le moteur de rendu dont cette fonctionnalité a besoin est gratuit pour les particuliers et les petites sociétés, payant au-delà, et ses conditions ne disent rien du fait d'être transmis à l'intérieur de quelque chose que l'on héberge soi-même — l'arrangement honnête est donc qu'il n'arrive jamais tant qu'on ne va pas le chercher, ce qui fait appartenir la question à qui y répond plutôt qu'à chaque exploitant qui n'utilisera jamais la fonctionnalité. La seconde décision découle de la première, puisqu'il s'agit d'un programme qui ouvre un navigateur et touche à un disque : un modèle a le droit de décrire le film dans un vocabulaire fermé, vérifié avant que quoi que ce soit ne tourne, et le code qui transforme cette description en images est écrit à la main et couvert par des tests.
 
-Montez une vidéo à partir de votre médiathèque. `Plus → Vidéo`, dans un projet,
-ouvre le panneau : on choisit les images, on donne à chaque scène sa durée, son
-mouvement de caméra et sa transition, on ajoute un texte si l'on veut, et on
-lance le rendu. Vingt scènes au plus, deux minutes au plus, en `16:9`, `9:16` ou
-`1:1`. Il n'y a pas de son.
+Montez un film pour un écran. `Plus → Motion`, dans un projet, ouvre le
+panneau : on choisit les images, on décrit le film en une phrase, et on lance le
+rendu. Douze scènes au plus, deux minutes au plus, en `16:9`, `9:16` ou `1:1`.
+Il n'y a pas de son.
 
-On peut aussi décrire le film en une phrase, et un modèle **ordonnera et réglera**
-les images déjà choisies. Il ne choisit jamais une image, et il n'écrit jamais de
-code de rendu : il renvoie un unique objet JSON validé par un schéma, que des
-compositions écrites à la main consomment. C'est la règle fondatrice de la
-fonctionnalité.
+**Le modèle COMPOSE.** Il renvoie un unique objet JSON validé par un schéma —
+jamais une ligne de code de rendu, c'est la règle fondatrice de la
+fonctionnalité — et cet objet ne nomme que des choses tirées de listes fermées :
+un fond (uni, un dégradé, de la couleur qui dérive, une photographie, un monde 3D
+continu), un à huit **blocs** typés par scène pris dans un catalogue de
+vingt-huit (titres, citations, compteurs, graphiques, galeries, formulaires, un
+globe, des solides éclairés, des icônes animées), où chacun se place, dans quel
+ordre ils arrivent et comment une scène cède la place à la suivante. Un composant
+écrit à la main dessine chacun d'eux. Il ne choisit jamais une image : il ne peut
+utiliser que celles que vous avez sélectionnées.
+
+**Il peut aussi décider tout seul.** Avec l'interrupteur d'animation du composer
+sur automatique, le même appel Muse qui écrit la direction artistique dit si
+l'écran veut un film, de quel TYPE il s'agit (un hero, un bandeau, un fond, une
+vitrine, un chiffre, un globe, une signature, une story pour un fil) et dans
+quelle section de la page il va. Le film est alors composé pour cet endroit — et
+on lui dit, en toutes lettres, que la page écrit elle-même ses produits, ses
+offres et ses prix, et que le film n'en dit rien : chaque type porte un budget de
+mots, compté, et un film au-dessus repart une fois chez le modèle.
+
+**Un film destiné à vivre sous une page peut boucler.** `mirror` le joue en avant
+puis en arrière jusqu'à son point de départ — une boucle exacte, pour un film
+sans mots — et `blend` fond sa fin dans son propre début, ce qui marche avec du
+texte. La couture est mesurablement invisible : sur un film rendu, le pas de la
+dernière image vers la première vaut le pas entre deux images quelconques du
+film.
+
+**Chaque couleur est mesurée plutôt que choisie.** Le film porte la palette et
+les typographies de votre projet, et chaque ligne de texte est vérifiée contre la
+surface sur laquelle elle est réellement peinte — un fond, un voile, une
+photographie, un champ de couleur en mouvement — puis corrigée jusqu'à passer les
+mêmes planchers de contraste que le panneau d'accessibilité. Rien dans un film
+n'est illisible, icônes et 3D comprises.
+
+**Combien de 3D une instance autorise est une décision d'administrateur**, parce
+que sans carte graphique un navigateur sans écran dessine chaque image WebGL sur
+le processeur. Administration → Motion propose trois niveaux de rendu et un
+**test du serveur** qui rend trois films de référence et donne, par niveau, la
+durée d'un film typique, le nombre de films par heure et combien de personnes
+peuvent en lancer un au même moment et tous l'avoir en moins de trois minutes.
 
 **Le moteur de rendu est [Remotion](https://www.remotion.dev/), et il n'est pas
 dans les dépendances de ce dépôt.** Sa licence est gratuite pour les
@@ -561,7 +595,7 @@ moment où la question de licence devient la vôtre — le seuil compte **les
 salariés de votre organisation, pas les comptes de cette instance**, et Mocky ne
 prétend délibérément pas savoir dans quel cas vous êtes.
 
-Il reste à l'activer dans **Administration → Export vidéo** : un interrupteur
+Il reste à l'activer dans **Administration → Motion** : un interrupteur
 maître, une liste d'accès (un administrateur n'est *pas* autorisé d'office),
 l'URL du worker (`http://video-worker:3030` est la valeur livrée et la réponse
 normale), et une clé de licence facultative — stockée côté serveur, jamais

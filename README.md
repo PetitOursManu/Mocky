@@ -41,7 +41,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - ▶️ **Interact mode** — click buttons, hover states and animations run live, right in the grid.
 - ✦ **Real motion, safely** — eleven animation presets and three components behind a single `<Animated preset="…">` wrapper, powered by [Motion](https://motion.dev). The generating model never writes animation code: it picks a name from a closed list (see [Animations](#animations) below). One switch, per project or per screen, holds everything still.
 - 🎞️ **Scroll-driven video** — Muse can generate (or you can import) a clip and let the visitor scrub through it with the scroll wheel, pinned full-height.
-- 🎬 **Video export** — cut an `.mp4` from your media library: one image per scene, with a Ken Burns move, a transition and an optional caption, up to two minutes. A model can propose the running order, but it never writes a frame of rendering code (see [Video export](#video-export) below). Off by default, and its renderer is a separate opt-in container.
+- 🎬 **Motion** — an `.mp4` composed for a screen: a model builds each scene out of a closed catalogue of typed blocks — type, charts, pictures, animated icons, 3D set pieces — over a ground that can move, and a hand-written renderer draws it. It never writes a frame of rendering code (see [Motion](#motion) below). It can be decided by your prompt alone, and a film meant to sit under a page can loop with an invisible seam. Off by default, and its renderer is a separate opt-in container.
 - 🖼️ **Media library** — every generated image and sequence in one place, plus **your own** images and clips. Muse builds its art direction *from* what you select.
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
@@ -546,19 +546,51 @@ Muse is built to respect the sites it learns from:
 > advisories (`hono`, `body-parser`, `shell-quote`, `esbuild`) — all in the SDK's
 > HTTP-server transport, which Mocky does **not** use (we're a stdio client).
 
-## Video export
+## Motion
 
 > **Why it works this way —** The renderer this feature needs is free for individuals and small companies and paid past that, and its terms say nothing about being handed on inside something you host yourself — so the honest arrangement is that it never arrives unless you fetch it, which makes the question belong to whoever answers it rather than to every operator who will never use the feature. The second decision follows from the first being a program that opens a browser and touches a disk: a model is allowed to describe the film in a fixed vocabulary that is checked before anything runs, and the code that turns that description into pictures is written by hand and covered by tests.
 
-Cut a video from your media library. `More → Video` on a project opens the panel:
-pick images, give each scene a duration, a camera move and a transition, add a
-caption if you want one, and start the render. Twenty scenes at most, two minutes
-at most, in `16:9`, `9:16` or `1:1`. There is no audio.
+Cut a film for a screen. `More → Motion` on a project opens the panel: pick
+images, describe the film in a sentence, and start the render. Twelve scenes at
+most, two minutes at most, in `16:9`, `9:16` or `1:1`. There is no audio.
 
-You can describe the film in a sentence instead, and a model will **order and
-tune** the pictures you already chose. It never picks an image, and it never
-writes rendering code: it returns one JSON object validated against a schema, and
-hand-written compositions consume it. That is the founding rule of the feature.
+**The model COMPOSES.** It returns one JSON object validated against a schema —
+never a line of rendering code, which is the founding rule of the feature — and
+that object names things out of closed lists: a ground (flat, a gradient, drifting
+colour, a photograph, a continuous 3D world), one to eight typed **blocks** per
+scene out of a catalogue of twenty-eight (headings, quotes, counters, charts,
+galleries, forms, a globe, lit solids, animated icons), where each sits, in what
+order they arrive and how a scene gives way to the next. A hand-written component
+draws every one of them. It never picks a picture: it may only use the ones you
+selected.
+
+**It can also decide for itself.** With the composer's animation switch on
+automatic, the same Muse call that writes the art direction says whether the
+screen wants a film, which KIND it is (a hero, a band, a background, a showcase,
+a figure, a globe, a mark, a story for a feed) and which section of the page it
+belongs in. The film is then composed for that place — and told, in so many
+words, that the page states its own products, plans and prices and that the film
+states none of them: each kind carries a word budget, counted, and a film over it
+is sent back to the model once.
+
+**A film meant to sit under a page can loop.** `mirror` plays it forward and then
+backward to exactly where it started — an exact loop, for a film with no words —
+and `blend` dissolves its end into its own beginning, which works with words. The
+seam is measurably invisible: on a rendered film, the step from the last frame to
+the first is the same size as the step between any two frames of the film.
+
+**Every colour is measured rather than chosen.** The film carries your project's
+own palette and typefaces, and every run of text is checked against the surface it
+is really painted on — a ground, a veil, a photograph, a field of moving colour —
+and corrected until it clears the same contrast floors the accessibility panel
+uses. Nothing in a film is unreadable, including the icons and the 3D.
+
+**How much 3D an instance allows is an administrator's decision**, because
+without a graphics card a headless browser draws every WebGL frame on the CPU.
+Admin → Motion has three render levels and a **server test** that renders three
+reference films and reports, per level, how long a typical film takes, how many
+an hour the queue gets through, and how many people can launch one at the same
+moment and all have it within three minutes.
 
 **The renderer is [Remotion](https://www.remotion.dev/), and it is not in this
 repository's dependencies.** Its licence is free for individuals, non-profits and
@@ -589,7 +621,10 @@ filed with the scroll sequences in `video-library/`: those are clips cut into
 stills, and everything that reads them expects frames a film does not have.
 
 Full reasoning: [`docs/video-export.md`](docs/video-export.md), and
-[`worker/video/README.md`](worker/video/README.md) for the worker itself.
+[`worker/video/README.md`](worker/video/README.md) for the worker itself. The
+feature is called **Motion** everywhere a user reads, and `video` everywhere a
+developer greps — a rename of the keys, the routes and the directories would
+change nothing anybody sees.
 
 ## SSO — "Sign in with Dashy"
 

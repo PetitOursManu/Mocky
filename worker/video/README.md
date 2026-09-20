@@ -56,6 +56,13 @@ for a full-frame solid, against the 1.7 s/s the duration-scaled deadline leaves
 spare. Because they live here they are subject to exactly the guarantees the
 table above lists: an instance that never builds this image never installs them.
 
+**Two more packages arrived the same way, and were measured the same way.**
+`lottie-web` and `react-useanimations` (both MIT, no native binary) draw the
+`animatedIcon` block: the animations are JSON bundled with this image and never
+fetched, and every colour in them is replaced by one the palette measured before
+anything is drawn. As with `three`, an instance that never builds this image
+never installs them.
+
 Two packages were measured and refused, and `docs/video-export.md` carries the
 reasoning: `@shopify/react-native-skia`, which `@remotion/skia` needs, installs
 443 MiB of prebuilt `.a` and `.so` binaries for four platforms that cannot
@@ -360,7 +367,8 @@ running this on a public host can hand `assertSafeTargetResolved` back in.
 ```
 worker/video/
   README.md            this file — the licence warning is the first section on purpose
-  package.json         Remotion's packages and three's, pinned exactly. Never merged into Mocky's
+  package.json         Remotion's packages, three's, lottie's and sixty typefaces, pinned exactly.
+                       Never merged into Mocky's
   Dockerfile           node:22-bookworm-slim + Chromium's libraries + ffmpeg
   .dockerignore        this directory is its own build context
   server.js            Express: GET /health, POST /render. Imports no Remotion package

@@ -421,12 +421,18 @@ in its product name, not in any screen's markup.
 
 ## The Motion panel
 
-Open with `Motion`. A film cut from the media library, in one of **five
-compositions**: a slideshow, a banded screenshot, a phone-shaped cut, animated
-titling, a product spotlight. **The render runs on the Remotion worker, not in
-this browser** — and that worker is a separate, opt-in Docker service, so the
-first thing the panel does is say whether it is there. Why it is built that way
-is in [Motion](video-export.md).
+Open with `Motion`. A film for a screen. The ordinary answer is **composed**: a
+model builds each scene out of a catalogue of typed blocks over a ground that can
+move, and five ready-made compositions stay reachable by name — a slideshow, a
+banded screenshot, a phone-shaped cut, animated titling, a product spotlight.
+**The render runs on the Remotion worker, not in this browser** — and that worker
+is a separate, opt-in Docker service, so the first thing the panel does is say
+whether it is there. Why it is built that way is in [Motion](video-export.md).
+
+Most films are never cut from this panel at all: with the composer's animation
+switch on automatic, Muse decides whether a screen wants one, which kind it is
+and which section of the page it belongs in, and the film arrives attached to the
+screen. The panel is where you revise one, cut one by hand, or ask for another.
 
 The feature was called "Video export" and the file names still are. That is
 deliberate and explained on the page above: what a user reads says Motion, what a

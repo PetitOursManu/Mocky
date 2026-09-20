@@ -437,12 +437,20 @@ projet ou dans son nom de produit, pas dans le balisage d’un écran.
 
 ## Le panneau Motion
 
-S’ouvre avec `Motion`. Un film monté à partir de la médiathèque, dans l’une de
-**cinq compositions** : diaporama, bandeau sur capture, format téléphone,
+S’ouvre avec `Motion`. Un film pour un écran. La réponse ordinaire est
+**composée** : un modèle bâtit chaque scène à partir d’un catalogue de blocs
+typés sur un fond qui peut bouger, et cinq compositions toutes faites restent
+accessibles par leur nom — diaporama, bandeau sur capture, format téléphone,
 titrage animé, mise en avant produit. **Le rendu tourne sur le worker Remotion,
 pas dans ce navigateur** — et ce worker est un service Docker séparé et
 facultatif, donc la première chose que fait le panneau est de dire s’il est là.
 Pourquoi c’est bâti ainsi est dans [Motion](fr/video-export.md).
+
+L’essentiel des films n’est jamais monté depuis ce panneau : avec
+l’interrupteur d’animation du composer sur automatique, Muse décide si un
+écran veut un film, de quel type il s’agit et dans quelle section il va, et le
+film arrive attaché à l’écran. Le panneau sert à en réviser un, à en monter un
+à la main, ou à en redemander un autre.
 
 La fonctionnalité s’appelait « Export vidéo » et les fichiers s’appellent encore
 ainsi. C’est délibéré, et expliqué sur la page ci-dessus : ce que lit un
