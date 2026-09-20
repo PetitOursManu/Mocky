@@ -727,7 +727,7 @@ Ten things, and the first one is not negotiable.
 list, drawn by a hand-written component, painted in `color` and an optional
 `accent` that falls back to it. `stripForbiddenMotion` now removes an `import …
 from 'three'` too. `globe` is named after Motion's own block on purpose — a film
-and the page it came from say the same word. Five things are easy to break
+and the page it came from say the same word. Seven things are easy to break
 here:
 
 1. **The context budget is the feature.** A browser keeps ~16 live WebGL
@@ -764,7 +764,21 @@ here:
    past the edges — which is also why `grid` has a ceiling as well as a floor: a
    plane seen edge-on cannot fill a tall box, and a field that leaves most of
    its box empty is the same failure the other way up.
-5. **A scene stops being a scene in three places, by one path.** A capture
+5. **A scene ANSWERS, and it answers in three ways because one of them is
+   invisible.** The cursor (read from `window`, since a hero scene has the
+   headline over it) and the page's scroll move the body, slide the camera and
+   travel the key light — a sphere rotated ten degrees is the same sphere, so a
+   turn alone would do nothing on the preset a page reaches for first. The slide
+   is spent out of the framing margin (0.046 of the half-angle against 0.074 of
+   slack), so an object that fits still fits while it answers. Nothing is
+   attached in the still paths, and the box is measured on scroll and resize so
+   no frame reads layout.
+6. **A backdrop stays behind.** `absolute`/`fixed` means the scene is a surface
+   with words ON it, and nothing in a page measures the contrast of a moving
+   pixel — so that shape is drawn at 0.62 and takes no pointer events, while
+   `relative`/`sticky` (a subject with a size) keeps full strength. An opacity
+   class overrules it, for the reason the position does.
+7. **A scene stops being a scene in three places, by one path.** A capture
    frame, a screen with "Sans animation" on, and `prefers-reduced-motion` all
    get one frame, kept as an image, and the context back. html2canvas copies a
    live WebGL canvas BLANK — it clones the document, and the drawing buffer is

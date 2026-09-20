@@ -62,6 +62,32 @@ var MOCKY_SCENE_SPEED = { slow: 0.55, medium: 1, fast: 1.7 };
    and an object touching all four edges reads as an object that did not fit. */
 var MOCKY_SCENE_MARGIN = 1.08;
 
+/* How far a scene turns towards the cursor and with the scroll, in radians, and
+   how fast it gets there.
+
+   Small on purpose. A decoration that swings to face the pointer stops being a
+   decoration and becomes the thing the page is about — and every one of these
+   numbers is paid twice, because a hero scene is also the still that replaces
+   it. Ten degrees of yaw is enough for an eye to read the object as present in
+   the room rather than printed on the page. The damping is what stops the
+   object snapping: a pointer event is a jump, and an object that jumps reads as
+   a bug however small the jump is. */
+var MOCKY_LOOK_YAW = 0.18;
+var MOCKY_LOOK_PITCH = 0.12;
+var MOCKY_SCROLL_TILT = 0.1;
+var MOCKY_LOOK_EASE = 0.08;
+/* How far the camera slides, as a share of the body's own reach — see the note
+   where it is spent. */
+var MOCKY_LOOK_SLIDE = 0.05;
+
+/** Where the element sits in the viewport, as -1 (entering) to 1 (leaving). */
+function mockySceneScroll(box, viewport) {
+  var mid = box.top + box.height / 2;
+  var span = viewport / 2 + box.height / 2;
+  if (span <= 0) return 0;
+  return Math.max(-1, Math.min(1, (viewport / 2 - mid) / span));
+}
+
 /**
  * How far the camera must sit for a body of radius R to be INSIDE the box.
  *
@@ -325,11 +351,12 @@ function Scene3D(props) {
       }
     }
 
+    var keyLight = null;
     if (scene.lit) {
       scene3.add(new THREE.AmbientLight(0xffffff, 1.1));
-      var key = new THREE.DirectionalLight(0xffffff, 2.2);
-      key.position.set(2.5, 3, 2.5);
-      scene3.add(key);
+      keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+      keyLight.position.set(2.5, 3, 2.5);
+      scene3.add(keyLight);
     }
 
     function size() {
@@ -353,6 +380,25 @@ function Scene3D(props) {
       group.position.y = scene.bob ? Math.sin(t * 0.9 * speed) * 0.06 * scene.bob : 0;
       /* The floor travels and wraps on one row, so there is no seam to see. */
       if (drift) drift.position.z = (t * 0.5 * speed) % driftSpan;
+      /* Towards the cursor, and with the page — added to the base movement, not
+         instead of it, and eased so that a pointer jump is not an object jump. */
+      lookX += (aimX - lookX) * MOCKY_LOOK_EASE;
+      lookY += (aimY - lookY) * MOCKY_LOOK_EASE;
+      lookScroll += (scrollAim - lookScroll) * MOCKY_LOOK_EASE;
+      group.rotation.y += lookX * MOCKY_LOOK_YAW;
+      group.rotation.x = lookY * MOCKY_LOOK_PITCH + lookScroll * MOCKY_SCROLL_TILT;
+      /* A turn is invisible on a SPHERE, which is the preset a page reaches for
+         first: a ball rotated ten degrees is the same ball. So the answer is
+         three things at once — the body turns, the camera slides (a real
+         parallax, which every body shows, fields included), and the key light
+         travels so the highlight sweeps across a surface that has no features
+         to turn. The slide is kept inside the framing margin: at tangency the
+         slack is about 0.074 of the half-angle and this spends 0.046 of it, so
+         an object that fits still fits while it answers. */
+      var slide = (fitRadius || 1.6) * MOCKY_LOOK_SLIDE;
+      camera.position.x = lookX * slide;
+      camera.position.y = -lookY * slide;
+      if (keyLight) keyLight.position.set(2.5 + lookX * 1.8, 3 - lookY * 1.8, 2.5);
       if (wavePos) {
         for (var i = 0; i < wavePos.count; i++) {
           var x = waveBase[i * 3], y = waveBase[i * 3 + 1];
@@ -397,6 +443,9 @@ function Scene3D(props) {
     }
 
     function stop(keep) {
+      /* A scene with no context has nothing to answer with, and a listener left
+         on window would be one per screen on the canvas, forever. */
+      deafen();
       if (raf) { window.cancelAnimationFrame(raf); raf = 0; }
       if (!renderer) return;
       if (keep) keepStill();
@@ -436,6 +485,7 @@ function Scene3D(props) {
          image of itself — and the slot returns to the budget for a screen that
          is going to move. */
       if (reduced || stillOnly) { owe(true); settle(); if (!settled) ladder(); return; }
+      listen();
       loop();
     }
 
@@ -483,6 +533,54 @@ function Scene3D(props) {
       if (granted) start(); else stop(true);
     }
 
+    /**
+     * The cursor and the scroll, damped.
+     *
+     * The first ten scenes turned at a constant rate and nothing else, which is
+     * what a screensaver does: the page moved and the object did not notice.
+     * These two inputs are what make it read as an object in the room rather
+     * than a loop playing in a box — and both are tiny (see the constants),
+     * because a decoration that answers too eagerly has stopped being one.
+     *
+     * The pointer is read from WINDOW and not from the element: the usual shape
+     * is a scene behind a headline, so the cursor is over the text nine times
+     * out of ten and an element listener would never fire. The element's box is
+     * cached and re-measured on scroll and on resize, so no frame reads layout.
+     *
+     * A scene that must hold still — a capture, prefers-reduced-motion, the
+     * Sans animation switch — attaches none of this.
+     */
+    var aimX = 0, aimY = 0, lookX = 0, lookY = 0, scrollAim = 0, lookScroll = 0;
+    var box = null;
+
+    function measure() {
+      try { box = node.getBoundingClientRect(); } catch (e) { box = null; }
+      if (box && box.height) scrollAim = mockySceneScroll(box, window.innerHeight || 1);
+    }
+
+    function onPointer(e) {
+      if (!box || !box.width || !box.height) return;
+      aimX = Math.max(-1, Math.min(1, ((e.clientX - box.left) / box.width - 0.5) * 2));
+      aimY = Math.max(-1, Math.min(1, ((e.clientY - box.top) / box.height - 0.5) * 2));
+    }
+
+    var listening = false;
+    function listen() {
+      if (listening || reduced || stillOnly) return;
+      listening = true;
+      measure();
+      window.addEventListener('pointermove', onPointer, { passive: true });
+      window.addEventListener('scroll', measure, { passive: true });
+      window.addEventListener('resize', measure, { passive: true });
+    }
+    function deafen() {
+      if (!listening) return;
+      listening = false;
+      window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    }
+
     var io = null;
     if (typeof IntersectionObserver !== 'undefined') {
       io = new IntersectionObserver(function (entries) {
@@ -496,7 +594,7 @@ function Scene3D(props) {
 
     var ro = null;
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(function () { size(); if (reduced || stillOnly) settle(); });
+      ro = new ResizeObserver(function () { size(); measure(); if (reduced || stillOnly) settle(); });
       ro.observe(node);
     }
     function onHidden() { if (document.hidden) stop(true); else start(); }
@@ -506,6 +604,7 @@ function Scene3D(props) {
 
     return function () {
       disposed = true;
+      deafen();
       owe(false);
       if (ladderTimer) window.clearInterval(ladderTimer);
       window.removeEventListener('mocky:gl', grantChanged);
@@ -534,6 +633,26 @@ function Scene3D(props) {
   var positioned = /(^|\\s)(absolute|fixed|sticky|relative)(\\s|$)/.test(props.className || '') ||
     !!(props.style && props.style.position);
 
+  /**
+   * A scene taken OUT of the flow is a backdrop, and a backdrop stays behind.
+   *
+   * The card teaches two shapes and they are not equally safe: a sized box
+   * beside the text has nothing over it, while a scene at absolute inset-0 has
+   * the headline standing ON it — and nothing in a page measures the contrast
+   * of a moving pixel, which is exactly the work Motion does with its palettes
+   * and a page cannot. So the backdrop shape is drawn quieter: the object is
+   * still there, the words on it stay readable, and a model that forgot the
+   * veil the card asks for does not ship white on bright indigo.
+   *
+   * Only absolute and fixed. relative and sticky are still in the flow — a
+   * subject with a size, not a surface under something else — and dimming those
+   * would punish the ordinary case. An opacity class wins, for the reason the
+   * position above does: a model that said what it wanted said it.
+   */
+  var backdrop = /(^|\\s)(absolute|fixed)(\\s|$)/.test(props.className || '');
+  var dimmed = /(^|\\s)-?opacity-/.test(props.className || '') ||
+    !!(props.style && props.style.opacity !== undefined);
+
 
   return React.createElement(
     'div',
@@ -546,6 +665,11 @@ function Scene3D(props) {
       style: Object.assign(
         {
           position: positioned ? undefined : 'relative',
+          opacity: backdrop && !dimmed ? 0.62 : undefined,
+          /* Decorative and aria-hidden both: it must never take a click meant
+             for the section it sits under. The pointer is read from window, so
+             nothing here needs the events. */
+          pointerEvents: 'none',
           overflow: 'hidden',
           /* An IMAGE, not the background shorthand: the shorthand resets
              background-color, so a scene the page gave a bg-slate-950 came out

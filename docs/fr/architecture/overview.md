@@ -132,6 +132,33 @@ navigateur peut le reprendre malgré tout. Sans autorisation, sans WebGL ou sous
 `prefers-reduced-motion`, l'élément est un dégradé calme de sa propre couleur :
 une page qui perd sa 3D paraît plus simple, jamais cassée.
 
+**Une scène répond au curseur et au défilement, de trois façons à la fois.** Les
+dix premières tournaient à vitesse constante et ne remarquaient rien d'autre,
+c'est-à-dire ce que fait un économiseur d'écran. Le pointeur est lu sur `window`
+et non sur l'élément — la forme habituelle est une scène derrière un titre, donc
+le curseur est sur le texte neuf fois sur dix — et la boîte de l'élément est mise
+en cache, remesurée au défilement et au redimensionnement, pour qu'aucune image
+ne lise la mise en page. Pourquoi trois réponses et non une : une SPHÈRE tournée
+de dix degrés est la même sphère, et `orb` est le préréglage vers lequel une page
+va d'abord. Le corps tourne donc, la caméra glisse (une vraie parallaxe, que tous
+les corps montrent, champs compris) et la lumière principale se déplace, ce qui
+promène le reflet sur une surface qui n'a rien à faire tourner. Le glissement est
+pris sur la marge de cadrage — 0,046 du demi-angle contre environ 0,074 de jeu —
+donc un objet qui tient tient encore pendant qu'il répond, et une scène qui doit
+rester immobile n'attache rien de tout cela.
+
+**Et un fond reste derrière.** La carte enseigne deux formes, et elles ne sont
+pas aussi sûres l'une que l'autre : une boîte dimensionnée à côté du texte n'a
+rien au-dessus d'elle, alors qu'une scène en `absolute inset-0` porte le titre
+SUR elle. Rien dans une page ne mesure le contraste d'un pixel en mouvement —
+c'est le travail que fait Motion avec `composedPalette` et qu'une page ne peut
+pas faire — donc la forme « fond » est dessinée à 0,62 et ne prend aucun
+événement de pointeur, étant décorative et `aria-hidden` à la fois. Uniquement
+`absolute` et `fixed` : `relative` et `sticky` restent dans le flux, un sujet
+avec une taille plutôt qu'une surface sous autre chose, et les assombrir
+punirait le cas ordinaire. Une classe d'opacité l'emporte, pour la raison qui
+vaut déjà pour la position.
+
 **Le budget ne change de mains qu'une fois la vue STABILISÉE.** Le classement
 est recalculé à chaque image d'un déplacement : une traversée de projet le
 changeait une demi-douzaine de fois, et chaque changement est un contexte
