@@ -10,6 +10,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `motion` | le film sait ce que la page dessine deja en 3D | `f4f7c24` |
 | `3d` | la scene repond au curseur, et un fond reste derriere | `fffea74` |
 | `3d` | quatre scenes de plus, et une deuxieme couleur | `0c39797` |
 | `3d` | une scene WebGL dans une page, et le budget qui la gouverne | `535dd46` |
