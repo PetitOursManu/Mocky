@@ -121,6 +121,40 @@ navigateur peut le reprendre malgré tout. Sans autorisation, sans WebGL ou sous
 `prefers-reduced-motion`, l'élément est un dégradé calme de sa propre couleur :
 une page qui perd sa 3D paraît plus simple, jamais cassée.
 
+**Le budget ne change de mains qu'une fois la vue STABILISÉE.** Le classement
+est recalculé à chaque image d'un déplacement : une traversée de projet le
+changeait une demi-douzaine de fois, et chaque changement est un contexte
+détruit et un autre construit — avec une image figée capturée entre les deux,
+c'est-à-dire un encodage PNG sur le fil principal : 35 ms à la taille d'un héros,
+mesuré. Une autorisation ne sert à rien à un écran qui passe, donc rien ne bouge
+tant que la vue n'a pas tenu en place pendant `GL_SETTLE_MS`, et une image figée
+est encodée à 640 px sur son grand côté plutôt qu'à la taille du tampon.
+
+**Un objet TIENT dans sa boîte ; un champ déborde.** Le catalogue est parti avec
+la caméra à une distance fixe, cadrée pour une boîte large : sur une planche
+d'essai des six préréglages à trois rapports d'aspect, quatre revenaient coupés
+— la sphère dans une colonne étroite tranchée par deux lignes verticales bien
+droites, le seul défaut qu'un lecteur lit comme un logiciel cassé plutôt que
+comme une scène sobre. `mockySceneReach` recule la caméra jusqu'à la tangence de
+la sphère englobante dans le PLUS ÉTROIT des deux demi-angles (horizontalement,
+tan h = tan v × aspect), et le rayon est pris sur la géométrie, donc la rotation
+ne peut pas le changer. `particles` et `wave` sont des textures et non des
+objets : ils sont FAITS pour déborder, exactement comme un fond, et les cadrer
+entiers les réduirait à un motif flottant au milieu de leur boîte.
+
+**Et une scène cesse d'être une scène en trois endroits, par un seul chemin.**
+Une frame de capture, un écran en « Sans animation » et `prefers-reduced-motion`
+reçoivent chacun une image, gardée comme telle, puis rendent le contexte. La
+capture est le cas intéressant : html2canvas clone le document et recopie chaque
+canvas, et un canvas WebGL vivant se recopie VIDE — son tampon de dessin a
+disparu d'ici là, et en garder un en vie est de la mémoire que paierait chaque
+scène du canevas. Donc `capture.ts` pose `__mockyStill`, charge les bibliothèques
+qui DESSINENT plutôt que celles qui se contentent d'animer (`drawsContent` :
+three.js est l'image, Motion anime un balisage déjà là), et attend
+`__mockyStillPending` — une scène n'a pas de vraie boîte tant que le runtime de
+Tailwind n'a pas appliqué ses classes, et une image prise avant cela est un
+canvas de 1×1. Les vignettes et les découpes d'annotation d'un écran en 3D
+montraient le dégradé de repli ; elles montrent l'objet.
 **La profondeur qui ne coûte rien est ailleurs, exprès.** Le préréglage
 `tilt-3d` du pack `animate` incline un élément vers le curseur dans sa propre
 perspective — pas de moteur de rendu, pas de contexte, pas de rationnement, et

@@ -31,6 +31,20 @@ export interface Capability {
   /** If true, always selected (baseline) regardless of keywords. */
   baseline?: boolean
   /**
+   * Does this bundle DRAW the screen, or only move it?
+   *
+   * The capture shell (`lib/capture.ts`) loads no CDN script at all, and for one
+   * library that is right and for the other it is not. Motion only animates
+   * elements the markup already contains, so a still is the same picture without
+   * it. three.js IS the picture: a screen with a `<Scene3D>` captured as an empty
+   * gradient, in the thumbnail on the home page and in an annotation snip alike.
+   *
+   * So a capability says which kind it is, and only the drawing ones are paid
+   * for in a frame whose whole output is one image. Nothing else reads this
+   * flag — a preview loads every selected bundle, as it always did.
+   */
+  drawsContent?: boolean
+  /**
    * Superseded, but still injected for screens that were generated with it.
    *
    * A retired capability has no triggers and is absent from the documentation

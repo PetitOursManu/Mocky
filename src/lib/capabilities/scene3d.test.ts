@@ -73,3 +73,109 @@ describe('the 3D scene catalogue', () => {
     expect(Scene3DSource).not.toContain('tilt-3d')
   })
 })
+
+/**
+ * The framing, proved by arithmetic rather than by reading.
+ *
+ * The catalogue shipped with a camera at a fixed distance, framed for a wide
+ * box: on a rendered probe sheet of the six presets at three aspect ratios,
+ * four were cut — the sphere in a tall box sliced by two straight vertical
+ * lines, the knot in a square one cropped on all four sides. That is the defect
+ * a viewer reads as broken software, and it is the same one Motion's globe had.
+ *
+ * `mockySceneReach` is lifted out of the shipped source and run here, because a
+ * bound checked as a string is a bound nobody checked.
+ */
+describe('a body fits the box it is given', () => {
+  /** The margin and the bound, lifted verbatim out of the shipped source. */
+  const lift = (re: RegExp) => Scene3DSource.match(re)?.[0] ?? ''
+  const reach = new Function(
+    `${lift(/var MOCKY_SCENE_MARGIN = [\d.]+;/)}
+     ${lift(/function mockySceneReach[\s\S]*?\n\}/)}
+     return mockySceneReach`,
+  )() as (r: number, fov: number, aspect: number) => number
+
+  const FOV = 42
+  const half = (aspect: number) => {
+    const halfV = (FOV * Math.PI) / 360
+    return Math.min(halfV, Math.atan(Math.tan(halfV) * aspect))
+  }
+
+  it('keeps the whole bounding sphere inside the frustum, at every shape of box', () => {
+    // 140x360 (a column), 240x240, 320x140 (a band), and two extremes either way.
+    for (const aspect of [0.2, 0.39, 1, 2.29, 5]) {
+      for (const radius of [0.6, 1.35, 1.6, 2.4]) {
+        const d = reach(radius, FOV, aspect)
+        // Tangency: a sphere of radius R at distance d is inside a cone of
+        // half-angle h exactly when d·sin(h) ≥ R. The margin is what keeps an
+        // object from touching all four edges, which reads as not having fitted.
+        expect(d * Math.sin(half(aspect)), `${radius} at ${aspect}`).toBeGreaterThan(radius * 1.05)
+      }
+    }
+  })
+
+  it('pushes the camera back as the box narrows, and never divides by zero', () => {
+    const column = reach(1.35, FOV, 0.3)
+    const square = reach(1.35, FOV, 1)
+    const band = reach(1.35, FOV, 3)
+    expect(column).toBeGreaterThan(square)
+    // Past square the vertical angle is the smaller one, so a wider box changes
+    // nothing: the height is what the object has to fit into.
+    expect(band).toBeCloseTo(square, 6)
+    expect(Number.isFinite(reach(1, FOV, 0))).toBe(true)
+  })
+
+  it('takes the radius from the geometry, and leaves the fields alone', () => {
+    expect(Scene3DSource).toContain('computeBoundingSphere')
+    // A body is an object and must fit; a field is a texture and is MEANT to run
+    // past the edges, exactly as a background does.
+    expect(Scene3DSource).toMatch(/orb: \{[^}]*fits: true/)
+    expect(Scene3DSource).toMatch(/particles: \{[^}]*fits: false/)
+    expect(Scene3DSource).toMatch(/wave: \{[^}]*fits: false/)
+  })
+})
+
+/**
+ * What the element does to the page around it.
+ *
+ * `position: relative` was written INLINE, and an inline rule beats a class: the
+ * most natural hero a model can write — a scene `absolute inset-0` behind its
+ * words — came back in the flow, where `inset-0` means nothing and the height of
+ * an element whose only child is absolute is zero. Measured in a browser: the
+ * host box was 151×0 with a live WebGL context inside it.
+ */
+describe('a scene inhabits the box the page gave it', () => {
+  it('positions itself only when nothing else does', () => {
+    expect(Scene3DSource).toContain("position: positioned ? undefined : 'relative'")
+    expect(Scene3DSource).toMatch(/absolute\|fixed\|sticky\|relative/)
+    // A style prop is a positioning statement too.
+    expect(Scene3DSource).toContain('props.style.position')
+  })
+
+  it('never drops the calm gradient for an empty still', () => {
+    // A scene revoked before its first paint produced a transparent 282-byte
+    // PNG, and a poster used to replace the gradient — so the fallback became a
+    // hole. Now a still is kept only when a frame was really drawn, and the
+    // gradient stays underneath whatever happens.
+    expect(Scene3DSource).toContain('if (!renderer || !drew) return;')
+    expect(Scene3DSource).toContain('backgroundImage: mockySceneStill(color)')
+    // A shorthand would reset the background-colour the page set with a class.
+    expect(Scene3DSource).not.toContain('background: mockySceneStill')
+  })
+
+  it('holds still when the screen was asked to hold still', () => {
+    // "Sans animation" is a promise about the SCREEN, not about one library:
+    // the switch said no animation while the object kept turning. Same flag
+    // <Animated> reads, same path as prefers-reduced-motion and a capture —
+    // one frame, then the context back.
+    expect(Scene3DSource).toContain('window.__mockyAnimations === false')
+  })
+
+  it('bounds what a still costs, because the canvas pays for it mid-pan', () => {
+    // toDataURL on a hero-sized buffer (2880×1440) costs 35 ms of the main
+    // thread, measured — a dropped frame per scene every time a pan changes who
+    // holds the budget. A capture frame is the one place that pays full price.
+    expect(Scene3DSource).toContain('640 / Math.max(src.width, src.height)')
+    expect(Scene3DSource).toContain('stillOnly ? 1 :')
+  })
+})

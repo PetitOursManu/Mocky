@@ -735,7 +735,12 @@ list, drawn by a hand-written component. `stripForbiddenMotion` now removes an
    meeting the viewport, grants `GL_BUDGET` (4), and `Preview` posts
    `{__mockyCmd:'gl', on}`. `<Scene3D>` captures its last frame with `toDataURL`
    BEFORE releasing, so a revoked scene is that scene held still rather than a
-   hole, and it also listens for `webglcontextlost`.
+   hole, and it also listens for `webglcontextlost`. Two numbers make that
+   affordable: the grant only changes once the view has held still for
+   `GL_SETTLE_MS` (a pan re-ranks on every frame, and each change costs a
+   context), and a still is encoded at 640 px — `toDataURL` on a hero-sized
+   buffer is 35 ms of the main thread, measured. A capture frame is the one
+   place that pays full price.
 2. **Everything is procedural, and that is the CSP's doing.** `connect-src
    'none'` means no glTF, no HDRI and no texture file — ever. `/vendor/three.js`
    is built by `npm run vendor:three` from a hand-written entry point that
@@ -746,6 +751,21 @@ list, drawn by a hand-written component. `stripForbiddenMotion` now removes an
    `animate` pack is a CSS perspective following the cursor: no renderer, no
    rationing, correct in a screenshot. A grid may use it everywhere; a screen
    should hold at most one `Scene3D`.
+4. **An object FITS its box; a field bleeds.** `mockySceneReach` dollies the
+   camera to the bounding sphere's tangency in the NARROWER of the two
+   half-angles, so `orb`, `solid`, `crystal` and `ring` are whole whatever the
+   shape of the box. Before it, a probe sheet of the six presets at three aspect
+   ratios had four of them cut — a sphere in a column sliced by two straight
+   vertical lines, which is the defect a viewer reads as broken software.
+   `particles` and `wave` are textures and are MEANT to run past the edges.
+5. **A scene stops being a scene in three places, by one path.** A capture
+   frame, a screen with "Sans animation" on, and `prefers-reduced-motion` all
+   get one frame, kept as an image, and the context back. html2canvas copies a
+   live WebGL canvas BLANK — it clones the document, and the drawing buffer is
+   gone by then — so `capture.ts` sets `__mockyStill`, loads the bundles that
+   DRAW (`drawsContent` on the capability; Motion only moves things, three.js IS
+   the picture) and waits on `__mockyStillPending`, because a scene has no real
+   box until Tailwind's runtime has applied its classes.
 
 ## Conventions
 

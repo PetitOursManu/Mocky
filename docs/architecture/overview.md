@@ -117,6 +117,38 @@ can take the context anyway. With no grant, no WebGL or `prefers-reduced-motion`
 the element is a quiet gradient of its own colour: a page that loses its 3D looks
 plainer, never broken.
 
+**A grant is handed over only once the view has SETTLED.** The ranking is
+recomputed on every frame of a pan, so a trip across a project changed hands
+half a dozen times, and every change is a context torn down and another built —
+with a still captured in between, which is a PNG encode on the main thread: 35
+ms at hero size, measured. A grant is worth nothing to a screen going past, so
+nothing moves until the view has held still for `GL_SETTLE_MS`, and a still is
+encoded at 640 px on its long side rather than at the buffer's own size.
+
+**An object fits its box; a field bleeds.** The catalogue shipped with the
+camera at a fixed distance, framed for a wide box: on a probe sheet of the six
+presets at three aspect ratios, four came back cut — the sphere in a narrow
+column sliced by two straight vertical lines, which is the one defect a viewer
+reads as broken software rather than as a plain scene. `mockySceneReach` dollies
+the camera to the bounding sphere's tangency in the NARROWER of the two
+half-angles (horizontally, tan h = tan v × aspect), and the radius is taken from
+the geometry, so a spin cannot change it. `particles` and `wave` are textures
+rather than objects: they are meant to run past the edges, exactly as a
+background does, and framing one whole would shrink it to a motif floating in
+the middle of its box.
+
+**And a scene stops being a scene in three places, by one path.** A capture
+frame, a screen with "Sans animation" on, and `prefers-reduced-motion` each get
+one frame, kept as an image, and the context back. The capture frame is the
+interesting one: html2canvas clones the document and copies each canvas, and a
+live WebGL canvas copies BLANK — its drawing buffer is gone by then, and keeping
+one alive is memory every scene on the canvas would pay. So `capture.ts` sets
+`__mockyStill`, loads the bundles that DRAW rather than the ones that only move
+(`drawsContent`: three.js is the picture, Motion animates markup that is already
+there), and waits on `__mockyStillPending` — a scene has no real box until
+Tailwind's runtime has applied its classes, and a still taken before that is a
+1×1 canvas. Thumbnails and annotation snips of a 3D screen used to be the
+fallback gradient; they are the object now.
 **Depth that costs nothing sits elsewhere on purpose.** The `tilt-3d` preset in
 the `animate` pack turns an element towards the cursor inside its own
 perspective — no renderer, no context, no rationing, and it captures correctly in

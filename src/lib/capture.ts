@@ -219,6 +219,27 @@ function buildCaptureShell(
    */
   const capLinks = ''
 
+  /*
+   * Script capabilities, and why only some of them.
+   *
+   * This shell loaded none, which was right while the only one was Motion: a
+   * still of an animated element is the element, and a bundle that only moves
+   * things costs 130 KB for nothing. three.js is the other case — the screen's
+   * picture is what it draws — so a `<Scene3D>` captured as an empty gradient,
+   * on the home page and in an annotation snip alike. `drawsContent` is that
+   * distinction, declared by the capability rather than guessed here.
+   *
+   * `__mockyStill` is the other half. html2canvas clones the document and copies
+   * each canvas, and a live WebGL canvas copies BLANK — its drawing buffer is
+   * gone by then, and keeping one alive for every scene is memory the canvas
+   * refused to spend. So the flag asks a scene for one frame, a still, and its
+   * context back; html2canvas then copies an <img>, which it does perfectly.
+   */
+  const capScripts = caps
+    .filter((c) => c.kind === 'cdn-script' && c.drawsContent && c.cdn)
+    .map((c) => `<script src="${c.cdn!.url}"></script>`)
+    .join('\n')
+
   // This frame is same-origin (see the note at the top of the file), so denying
   // it a network channel is what keeps a component from posting anything it
   // manages to read. img-src is limited to this origin because the capture only
@@ -265,6 +286,7 @@ function buildCaptureShell(
   try { tailwind.config = { darkMode: 'class' } } catch (e) {}
 </script>
 ${capLinks}
+${capScripts}
 ${babelScript}
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
@@ -272,6 +294,10 @@ ${babelScript}
 <script type="text/plain" id="mocky-b64">${b64}</script>
 ${preludeTag}
 <script>(function(){
+  /* One frame and the context back, for every <Scene3D> on this screen — see
+     the note by capScripts. Set before the prelude runs, because the component
+     reads it when its effect first fires. */
+  window.__mockyStill = true;
   function post(m){ var o={__mockyCap:true,id:${JSON.stringify(id)}}; for(var k in m) o[k]=m[k]; parent.postMessage(o,'*'); }
   // createRoot().render() commits asynchronously, so a render error is thrown
   // AFTER the synchronous try/catch below has already returned. Without this the
@@ -286,13 +312,26 @@ ${preludeTag}
   try {
     ${runner}
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
-  setTimeout(function(){
+  function shoot(){
     var vw = window.innerWidth||1, vh = window.innerHeight||1, r = ${JSON.stringify(rect)};
     try {
       html2canvas(document.body, { x: r.x*vw, y: r.y*vh, width: Math.max(1,Math.round(r.w*vw)), height: Math.max(1,Math.round(r.h*vh)), scale: ${scale}, backgroundColor:'#ffffff', logging:false })
         .then(function(canvas){ post({ dataUrl: canvas.toDataURL('image/png') }); })
         .catch(function(e){ post({ error: String((e&&e.message)||e) }); });
     } catch(e){ post({ error: String((e&&e.message)||e) }); }
+  }
+  /* The 400 ms is what the styling needs. A scene needs one thing more: a real
+     BOX, which it only has once Tailwind's runtime has applied its classes —
+     measured without it, the still came back a 1x1 canvas and was refused, and
+     the screen was captured with its fallback gradient. So a scene that still
+     owes its frame is waited for, briefly, and then the picture is taken
+     anyway: a capture that degrades is this file's contract, a capture that
+     never arrives is not. window.__mockyStillPending is that count. */
+  var owed = 0;
+  setTimeout(function wait(){
+    if (!window.__mockyStillPending || owed >= 600) return shoot();
+    owed += 60;
+    setTimeout(wait, 60);
   }, 400);
 })();
 </script></body></html>`

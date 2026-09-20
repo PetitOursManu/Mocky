@@ -48,6 +48,14 @@ const DOUBLE_PRESS_MS = 350
  */
 const GL_BUDGET = 4
 
+/**
+ * How long the view must hold still before the budget is handed over.
+ *
+ * Long enough that a pan across a project changes nothing, short enough that
+ * arriving somewhere feels immediate — see the effect that uses it.
+ */
+const GL_SETTLE_MS = 300
+
 const RESIZE_MS = 260
 const RESIZE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const easeProps = (...props: string[]) => props.map((p) => `${p} ${RESIZE_MS}ms ${RESIZE_EASE}`).join(', ')
@@ -944,7 +952,7 @@ export default function Canvas({
    * and a canvas that spent the whole budget would be a canvas where opening
    * anything else went black.
    */
-  const glGranted = (() => {
+  const glRanking = () => {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1440
     const vh = typeof window !== 'undefined' ? window.innerHeight : 900
     const scored: { id: string; d: number }[] = []
@@ -961,7 +969,35 @@ export default function Canvas({
     }
     scored.sort((a, b) => a.d - b.d)
     return new Set(scored.slice(0, GL_BUDGET).map((e) => e.id))
-  })()
+  }
+
+  /**
+   * And it SETTLES before the budget changes hands.
+   *
+   * Recomputed on every frame of a pan, the ranking changes half a dozen times
+   * on the way across a project, and each change is a context torn down and
+   * another built — with a still captured in between, which is a PNG encode of
+   * the drawing buffer on the main thread: 35 ms at hero size, measured. Four
+   * of those in one pan is the canvas stuttering precisely while somebody is
+   * moving it, which is the one moment the eye is on the movement.
+   *
+   * A grant is worth nothing to a screen going past, so nothing is handed over
+   * until the view has held still for a moment. The initial set is computed
+   * without the wait, because a canvas that opens flat and lights up a third of
+   * a second later is the same flicker at the other end.
+   */
+  const [glGranted, setGlGranted] = useState<Set<string>>(glRanking)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setGlGranted((prev) => {
+        const next = glRanking()
+        if (prev.size === next.size && [...next].every((id) => prev.has(id))) return prev
+        return next
+      })
+    }, GL_SETTLE_MS)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.x, view.y, view.scale, screens])
 
   const gap = 26 * view.scale
   const bgStyle: React.CSSProperties = {
