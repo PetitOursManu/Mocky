@@ -10,6 +10,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `3d` | la scene repond au curseur, et un fond reste derriere | `fffea74` |
 | `3d` | quatre scenes de plus, et une deuxieme couleur | `0c39797` |
 | `3d` | une scene WebGL dans une page, et le budget qui la gouverne | `535dd46` |
 | `motion` | un fichier compose pour les deploiements qui choisissent un fichier | `d921659` |
