@@ -49,8 +49,10 @@ const out = path.join(root, 'public', 'vendor', 'three.js')
  * cannot name, it cannot draw.
  */
 const ENTRY = `export {
-  // The stage: a renderer, a scene, a camera, a clock.
-  WebGLRenderer, Scene, PerspectiveCamera, Clock, Group, Color, MathUtils,
+  // The stage: a renderer, a scene, a camera. No Clock: it is deprecated in
+  // 0.185 and warned in the console of every preview; the component keeps its
+  // own start stamp instead.
+  WebGLRenderer, Scene, PerspectiveCamera, Group, Color, MathUtils,
   // Light, for the presets that have matter rather than only silhouette.
   AmbientLight, DirectionalLight,
   // The bodies. Procedural only: nothing here can load a model, and the
