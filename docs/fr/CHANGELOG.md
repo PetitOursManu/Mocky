@@ -29,6 +29,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `3d` | une scene tient dans sa boite, et se laisse photographier | `21c3466` |
 | `canevas` | l'outil Modifier reagit enfin au clic | `e4e5a79` |
 | `motion` | le fichier compose pour Coolify est entier, et genere | `dafe036` |
 | `generation,motion` | une icone inconnue ne fait plus planter l'ecran, un film refuse a une seconde chance | `1075322` |
