@@ -11,6 +11,7 @@
   - [Animations](fr/muse/animations.md)
 - [Passe de qualité](fr/quality.md)
 - [SEO et accessibilité](fr/seo-accessibility.md)
+- [Motion](fr/video-export.md)
 - [Déploiement](fr/deployment.md)
 - [Journal des modifications](fr/CHANGELOG.md)
 - Références

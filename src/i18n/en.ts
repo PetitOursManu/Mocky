@@ -294,6 +294,16 @@ export const en: Record<keyof typeof fr, string> = {
   'common.save': 'Save',
   'common.cancel': 'Cancel',
   'common.close': 'Close',
+  // Three of the five accessible names the src/ui primitives used to hard-code
+  // in French — the other two, "Fermer" and "Chargement…", already had a key
+  // above. Panel and Modal had no prop to override theirs at all, so in an
+  // English interface "Fermer le panneau" was the only thing a screen reader
+  // announced on that button and no caller could correct it. They live here
+  // because a primitive has no domain of its own — a panel closes the same way
+  // everywhere.
+  'common.closePanel': 'Close panel',
+  'common.remove': 'Remove',
+  'common.generating': 'Generating…',
   'common.delete': 'Delete',
   'common.retry': 'Retry',
   'common.loading': 'Loading…',

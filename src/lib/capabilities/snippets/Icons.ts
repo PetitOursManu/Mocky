@@ -344,4 +344,69 @@ Icon.MapPin = function(props) {
 // Casing aliases so common spellings never resolve to undefined (React #130).
 Icon.GitHub = Icon.Github;
 Icon.LinkedIn = Icon.Linkedin;
-Icon.YouTube = Icon.Youtube;`
+Icon.YouTube = Icon.Youtube;
+
+// --- Media, mood and everyday icons, the ones generated pages reach for most ---
+// (Feather's geometry, MIT.) Built from a shape list rather than written out:
+// the forty above were copied by hand, and these are the same svg with less
+// room for a typo in the attributes.
+var __iconOf = function(shapes) {
+  return function(props) {
+    var p = props || {};
+    return React.createElement('svg', Object.assign({ xmlns: 'http://www.w3.org/2000/svg', width: p.size || 24, height: p.size || 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: p.strokeWidth || 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, p),
+      shapes.map(function(s, i) { return React.createElement(s[0], Object.assign({ key: i }, s[1])); })
+    );
+  };
+};
+Icon.Play = __iconOf([['polygon', { points: '5 3 19 12 5 21 5 3' }]]);
+Icon.Pause = __iconOf([['rect', { x: 6, y: 4, width: 4, height: 16 }], ['rect', { x: 14, y: 4, width: 4, height: 16 }]]);
+Icon.Volume2 = __iconOf([['polygon', { points: '11 5 6 9 2 9 2 15 6 15 11 19 11 5' }], ['path', { d: 'M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07' }]]);
+Icon.Music = __iconOf([['path', { d: 'M9 18V5l12-2v13' }], ['circle', { cx: 6, cy: 18, r: 3 }], ['circle', { cx: 18, cy: 16, r: 3 }]]);
+Icon.Headphones = __iconOf([['path', { d: 'M3 18v-6a9 9 0 0 1 18 0v6' }], ['path', { d: 'M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z' }]]);
+Icon.Moon = __iconOf([['path', { d: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z' }]]);
+Icon.Sun = __iconOf([['circle', { cx: 12, cy: 12, r: 5 }], ['path', { d: 'M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42' }]]);
+Icon.Coffee = __iconOf([['path', { d: 'M18 8h1a4 4 0 0 1 0 8h-1' }], ['path', { d: 'M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z' }], ['path', { d: 'M6 1v3M10 1v3M14 1v3' }]]);
+Icon.Book = __iconOf([['path', { d: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20' }], ['path', { d: 'M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' }]]);
+Icon.BookOpen = __iconOf([['path', { d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' }], ['path', { d: 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' }]]);
+Icon.Video = __iconOf([['polygon', { points: '23 7 16 12 23 17 23 7' }], ['rect', { x: 1, y: 5, width: 15, height: 14, rx: 2, ry: 2 }]]);
+Icon.Camera = __iconOf([['path', { d: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z' }], ['circle', { cx: 12, cy: 13, r: 4 }]]);
+Icon.Image = __iconOf([['rect', { x: 3, y: 3, width: 18, height: 18, rx: 2, ry: 2 }], ['circle', { cx: 8.5, cy: 8.5, r: 1.5 }], ['polyline', { points: '21 15 16 10 5 21' }]]);
+Icon.Cloud = __iconOf([['path', { d: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z' }]]);
+Icon.Zap = __iconOf([['polygon', { points: '13 2 3 14 12 14 11 22 21 10 12 10 13 2' }]]);
+Icon.Info = __iconOf([['circle', { cx: 12, cy: 12, r: 10 }], ['path', { d: 'M12 16v-4M12 8h.01' }]]);
+Icon.Send = __iconOf([['path', { d: 'M22 2L11 13' }], ['polygon', { points: '22 2 15 22 11 13 2 9 22 2' }]]);
+Icon.Share = __iconOf([['circle', { cx: 18, cy: 5, r: 3 }], ['circle', { cx: 6, cy: 12, r: 3 }], ['circle', { cx: 18, cy: 19, r: 3 }], ['path', { d: 'M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98' }]]);
+Icon.Bookmark = __iconOf([['path', { d: 'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z' }]]);
+Icon.Gift = __iconOf([['polyline', { points: '20 12 20 22 4 22 4 12' }], ['rect', { x: 2, y: 7, width: 20, height: 5 }], ['path', { d: 'M12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z' }]]);
+Icon.Shield = __iconOf([['path', { d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' }]]);
+Icon.Users = __iconOf([['path', { d: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' }], ['circle', { cx: 9, cy: 7, r: 4 }], ['path', { d: 'M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' }]]);
+Icon.Smile = __iconOf([['circle', { cx: 12, cy: 12, r: 10 }], ['path', { d: 'M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01' }]]);
+Icon.MessageCircle = __iconOf([['path', { d: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' }]]);
+Icon.ShoppingCart = __iconOf([['circle', { cx: 9, cy: 21, r: 1 }], ['circle', { cx: 20, cy: 21, r: 1 }], ['path', { d: 'M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6' }]]);
+Icon.Award = __iconOf([['circle', { cx: 12, cy: 8, r: 7 }], ['polyline', { points: '8.21 13.89 7 23 12 20 17 23 15.79 13.88' }]]);
+Icon.Feather = __iconOf([['path', { d: 'M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5zM16 8L2 22M17.5 15H9' }]]);
+// Names a model reaches for that mean one of the above.
+Icon.Volume = Icon.Volume2;
+Icon.Sparkles = Icon.Star;
+Icon.Leaf = Icon.Feather;
+Icon.Chat = Icon.MessageCircle;
+Icon.Cart = Icon.ShoppingCart;
+
+/*
+ * An icon nobody drew renders as a small neutral dot instead of crashing.
+ *
+ * Every name above is listed to the model, and it still writes <Icon.Play /> or
+ * <Icon.Leaf /> the list did not have: that is undefined, React throws #130, and
+ * the WHOLE screen is lost — twice in a row on one prompt, with the repair loop
+ * unable to see which of twelve icons it was. A missing pictogram is a detail; a
+ * blank page is not. So a Capitalised name that does not exist answers a
+ * fallback. Everything else (symbols, "then", lower-case keys) is read as-is, so
+ * the namespace still behaves like the plain object it was.
+ */
+var __IconFallback = __iconOf([['circle', { cx: 12, cy: 12, r: 3 }]]);
+Icon = new Proxy(Icon, {
+  get: function(target, key) {
+    if (typeof key !== 'string' || key in target) return target[key];
+    return /^[A-Z]/.test(key) ? __IconFallback : undefined;
+  },
+});`

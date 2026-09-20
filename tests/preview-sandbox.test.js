@@ -142,6 +142,38 @@ describe('preview Content-Security-Policy', () => {
     // would block the vendored scripts outright.
     expect(preview).not.toMatch(/script-src[^"]*'self'/)
   })
+
+  /**
+   * BOTH documents, because there are two policies and only one got the fix.
+   *
+   * `media-src` was added to the preview when a Motion film first had to play
+   * inside a mockup. `buildCaptureShell` writes its own policy and was not
+   * touched, so every thumbnail of a screen carrying a film logged
+   *
+   *   Loading media from … violates … "default-src 'none'". Note that
+   *   'media-src' was not explicitly set, so 'default-src' is used as a fallback.
+   *
+   * and captured the hero as a hole. The two policies genuinely differ — the
+   * capture's `img-src` is same-origin where the preview's is `*`, and that is
+   * argued in both files — so this does not demand they be equal. It demands
+   * that the directive a film needs is in each of them, which is the thing that
+   * drifted.
+   */
+  it('lets a Motion film play in the preview AND in the capture', () => {
+    for (const [name, source] of [['preview', preview], ['capture', capture]]) {
+      expect(source, name).toMatch(/media-src \$\{(location\.)?origin\}/)
+    }
+  })
+
+  it('never lets a film be loaded from another host', () => {
+    // `img-src *` is defended in the preview: a remote image is how a mockup
+    // shows a photo. That argument does not transfer to video — a remote one is
+    // a megabyte of someone else's bandwidth autoplaying inside the tool a
+    // design is being judged in, and no model needs to emit one.
+    for (const [name, source] of [['preview', preview], ['capture', capture]]) {
+      expect(source, name).not.toMatch(/media-src[^`'"]*\*/)
+    }
+  })
 })
 
 describe('the mockup never navigates itself away', () => {

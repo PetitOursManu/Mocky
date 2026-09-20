@@ -50,6 +50,22 @@ export const canvas = {
     'canvas.imageRole.unknownTitle':
       'Image Muse — son rôle n’a pas été enregistré (écran généré avant cette distinction).',
 
+    // ---- média attaché à un écran ----
+    // « attaché » plutôt que « utilisé » : rien de tout cela n'est dans le code
+    // de l'écran, et c'est exactement la distinction que la modale « Changer les
+    // médias » tient en deux sections.
+    'canvas.mediaFilm': 'Montage attaché',
+    'canvas.mediaSequence': 'Séquence attachée',
+    'canvas.mediaOpenFilm': 'Montage attaché à cet écran — cliquer pour le lire.',
+    'canvas.mediaOpenSequence':
+      'Séquence de défilement attachée à cet écran — cliquer pour l’ouvrir dans Média.',
+    // Le hash survit au fichier (M8), donc la carte se dessine quand même — et
+    // elle le disait avec un rectangle noir sous la légende habituelle, ce qui
+    // est exactement ce que dessine aussi un montage qui commence sur du noir.
+    'canvas.mediaGone': 'Média introuvable',
+    'canvas.mediaGoneTitle':
+      'Ce média ne se lit plus : il a été supprimé, ou il appartient à un autre compte. Il reste attaché à cet écran tant que vous ne le détachez pas, depuis « Changer les médias… ».',
+
     // ---- links ----
     'canvas.removeLink': 'Supprimer le lien',
     'canvas.missingScreen': '(écran manquant)',
@@ -112,6 +128,22 @@ export const canvas = {
     'canvas.imageRole.unknownLabel': 'Muse image',
     'canvas.imageRole.unknownTitle':
       'Muse image — its role was not recorded (screen generated before that distinction existed).',
+
+    // ---- media attached to a screen ----
+    // "attached", never "used": none of this is in the screen's code, and that
+    // is exactly the distinction the "Change the media" dialog keeps in two
+    // separate sections.
+    'canvas.mediaFilm': 'Attached cut',
+    'canvas.mediaSequence': 'Attached sequence',
+    'canvas.mediaOpenFilm': 'A cut attached to this screen — click to play it.',
+    'canvas.mediaOpenSequence':
+      'A scroll sequence attached to this screen — click to open it in Media.',
+    // The hash outlives the file (M8), so the card is drawn anyway — and it used
+    // to say so with a black rectangle under the usual caption, which is also
+    // exactly what a cut opening on black draws.
+    'canvas.mediaGone': 'Media not found',
+    'canvas.mediaGoneTitle':
+      'This media no longer plays: it was deleted, or it belongs to another account. It stays attached to this screen until you detach it, from “Change the media…”.',
 
     // ---- links ----
     'canvas.removeLink': 'Remove the link',

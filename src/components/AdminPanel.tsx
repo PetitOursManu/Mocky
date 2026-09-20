@@ -3,6 +3,7 @@ import { api, type AdminUser } from '../lib/api'
 import ImageProviderSettings from './ImageProviderSettings'
 import TextProviderSettings from './TextProviderSettings'
 import UsageReport from './UsageReport'
+import VideoExportSettings from './VideoExportSettings'
 import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../ui'
 import { useT } from '../i18n'
 
@@ -285,6 +286,16 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
       <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 xl:grid-cols-2">
         <TextProviderSettings />
         <ImageProviderSettings />
+      </div>
+
+      {/* Full width, below the providers rather than beside them.
+          It reads as a third provider block, and it was one — the third child of
+          a two-column grid, which put it in row two column one and left half the
+          screen empty next to it. It is also the only one of the three that
+          decides WHO may use the capability, so it carries an account list that
+          needs the room a column does not have. */}
+      <div className="mt-8 border-t border-line pt-8">
+        <VideoExportSettings />
       </div>
     </div>
   )

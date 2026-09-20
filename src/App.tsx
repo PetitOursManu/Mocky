@@ -18,7 +18,8 @@ import SharedScreen from './components/SharedScreen'
 import { shareTokenFromLocation } from './lib/share'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Button, ButtonLink, Icon, IconButton, Modal } from './ui'
-import { useT } from './i18n'
+import { useT, type TranslationKey } from './i18n'
+import { navigationHold } from './lib/navigationHold'
 
 type Route = 'home' | 'project' | 'design' | 'settings' | 'admin' | 'media'
 
@@ -219,8 +220,34 @@ function MockyApp() {
     openProject(id)
   }
 
+  /**
+   * The one door every navigation goes through.
+   *
+   * There are nine `setRoute` calls in this file — the logo, five header tabs,
+   * the folded mobile menu, the project's own Back button, and two that ENTER a
+   * project. Guarding one of them (Back) left the other eight silently
+   * discarding work in flight, which is exactly what happened: a Motion film
+   * was composing, the user clicked the Mocky logo, and everything died with no
+   * dialog.
+   *
+   * The hold lives in a module rather than here or in ProjectView, because the
+   * work is started in one component and abandoned from another. See
+   * `lib/navigationHold`.
+   *
+   * Only LEAVING asks. Entering a project, or clicking the tab you are already
+   * on, cannot lose anything — and a dialog that fires when nothing is at stake
+   * is how people learn to click through dialogs.
+   */
+  function navigate(next: Route) {
+    if (next !== route) {
+      const held = navigationHold()
+      if (held && !window.confirm(t(held as TranslationKey))) return
+    }
+    setRoute(next)
+  }
+
   function goHome() {
-    setRoute('home')
+    navigate('home')
   }
 
   /**
@@ -232,8 +259,12 @@ function MockyApp() {
    * page they could neither scroll nor tab into.
    */
   function goRoute(next: Route) {
-    setRoute(next)
-    setMenuOpen(false)
+    // The sheet closes only if the navigation actually happened — leaving it
+    // open over a page the user chose to stay on would be the same trap this
+    // function's own comment describes, one refusal later.
+    const was = route
+    navigate(next)
+    if (was !== next) setMenuOpen(false)
   }
 
   return (
@@ -353,17 +384,17 @@ function MockyApp() {
             <HeaderTab active={route === 'home'} onClick={goHome}>
               {t('nav.home')}
             </HeaderTab>
-            <HeaderTab active={route === 'design'} onClick={() => setRoute('design')}>
+            <HeaderTab active={route === 'design'} onClick={() => navigate('design')}>
               {t('nav.design')}
             </HeaderTab>
-            <HeaderTab active={route === 'media'} onClick={() => setRoute('media')}>
+            <HeaderTab active={route === 'media'} onClick={() => navigate('media')}>
               {t('nav.media')}
             </HeaderTab>
-            <HeaderTab active={route === 'settings'} onClick={() => setRoute('settings')}>
+            <HeaderTab active={route === 'settings'} onClick={() => navigate('settings')}>
               {t('nav.settings')}
             </HeaderTab>
             {account?.role === 'admin' && (
-              <HeaderTab active={route === 'admin'} onClick={() => setRoute('admin')}>
+              <HeaderTab active={route === 'admin'} onClick={() => navigate('admin')}>
                 {t('nav.admin')}
               </HeaderTab>
             )}
@@ -483,7 +514,7 @@ function MockyApp() {
             onAddScreen={(screen) => addScreen(activeProject.id, screen)}
             onUpdateScreen={(sid, patch) => updateScreen(activeProject.id, sid, patch)}
             onRemoveScreen={(sid) => removeScreen(activeProject.id, sid)}
-            onOpenSettings={() => setRoute('settings')}
+            onOpenSettings={() => navigate('settings')}
             onOpenDesign={() => setDesignOverlay(true)}
             designNonce={designNonce}
             onBack={goHome}

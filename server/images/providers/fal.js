@@ -18,7 +18,45 @@
 // the bytes locally, so the sandbox still only ever sees Mocky's own origin
 // (M2/M6 — no third-party image is hotlinked or proxied at render time).
 
+import { readInit, toDataUri } from './init.js'
+
 export const DEFAULT_FAL_MODEL = 'fal-ai/flux/schnell'
+/**
+ * Image-to-image default. A separate endpoint of a separate model, not an option
+ * on the one above: `fal-ai/flux/schnell` has no `image_url` field at all, and
+ * fal answers an unknown key with a 422 rather than a warning.
+ */
+export const DEFAULT_FAL_EDIT_MODEL = 'fal-ai/flux/dev/image-to-image'
+
+/**
+ * Models that take a LIST of input images, under `image_urls`.
+ *
+ * fal has two families of editing model and they disagree on the field name.
+ * The `image-to-image` endpoints take a single `image_url`; the instruction-led
+ * editors — Seedream, nano-banana, Qwen and the flux Kontext family — take
+ * `image_urls`, an array, because they are built to reference several pictures
+ * at once.
+ *
+ * This matters more than a naming detail because fal validates strictly: an
+ * unknown key is a 422, not a warning. So sending both fields to be safe breaks
+ * whichever model does not know the other one — which is how a correctly
+ * configured `bytedance/seedream/v5/pro/edit` returned six failed calls and the
+ * panel reported only "no variant could be produced".
+ *
+ * Matched on the model id rather than declared per provider, because the id is
+ * the only thing Mocky knows: the admin types it, fal publishes hundreds, and
+ * new ones appear between releases. A model this list does not recognise gets
+ * the singular form, and if that is wrong fal says so — which is why the
+ * provider's error text now reaches the panel instead of being swallowed.
+ */
+const MULTI_IMAGE_EDIT = /(seedream|nano-banana|qwen-image-edit|kontext)/i
+
+/** The input-image field this model expects, already filled in. */
+function initField(model, dataUri) {
+  return MULTI_IMAGE_EDIT.test(String(model || ''))
+    ? { image_urls: [dataUri] }
+    : { image_url: dataUri }
+}
 /**
  * Text-to-video default. A different job and a different price bracket from the
  * image models above: seconds of inference become minutes, and one clip costs
@@ -130,6 +168,7 @@ export function createFal(opts = {}) {
   return {
     id: 'fal',
     requiresKey: true,
+    supportsInit: true,
 
     async healthy() {
       return Boolean(apiKey)
@@ -179,11 +218,24 @@ export function createFal(opts = {}) {
       // Flux/Seedream have no negative_prompt field (and fal validates
       // strictly), so fold it into the prompt instead of sending an unknown key.
       const prompt = req.negative ? `${req.prompt}. Avoid: ${req.negative}` : req.prompt
-      const body = {
-        prompt,
-        image_size: { width: Number(req.width) || 1024, height: Number(req.height) || 1024 },
-        num_images: 1,
-      }
+      const init = readInit(req, 'fal')
+      const body = init
+        ? {
+            prompt,
+            // A data URI, officially supported. fal recommends its own CDN for
+            // large payloads, which Mocky's few-hundred-kilobyte JPEGs are not,
+            // and uploading there would put a user's image on a third party for
+            // no gain. NO `image_size`: the field does not exist on
+            // flux/dev/image-to-image — the output follows the input — and fal
+            // answers an unknown key with a 422.
+            ...initField(model, toDataUri(init)),
+            num_images: 1,
+          }
+        : {
+            prompt,
+            image_size: { width: Number(req.width) || 1024, height: Number(req.height) || 1024 },
+            num_images: 1,
+          }
       if (req.seed != null) body.seed = Number(req.seed)
 
       const deadline = now() + timeoutMs
@@ -206,6 +258,17 @@ export function createFal(opts = {}) {
           (img.headers?.get && img.headers.get('content-type')) ||
           'image/jpeg',
         provider: 'fal',
+        // `strength` is deliberately NOT sent, and this is the only place where
+        // fal knowingly ignores a request field. Its own documentation says
+        // "determines how much the generated image resembles the initial image"
+        // with a default of 0.95 — read literally, higher means CLOSER to the
+        // source, the exact opposite of the contract's direction and of every
+        // other implementation here — while another fal page states the reverse.
+        // The Kontext models have no such field at all. A guessed mapping fails
+        // silently: the API accepts it, returns a fine image, and the slider
+        // works backwards with nothing anywhere to explain it. So the model's
+        // own default applies and the caller is told the knob did not turn.
+        ...(init ? { edited: true, strengthApplied: false } : {}),
       }
     },
   }

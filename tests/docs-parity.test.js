@@ -23,6 +23,12 @@ import { fileURLToPath } from 'node:url'
  * instead of an em dash, an English block pasted into the French file. Each of
  * those is a test failure here.
  *
+ * There is a SECOND mirror family, and it is checked at the bottom of this file:
+ * `docs/` is English, `docs/fr/` is its French twin path for path. It does not
+ * carry the "why" blocks or the language switch — those belong to the four
+ * side-by-side documents above — but it obeys the same shape rule, and until now
+ * nothing enforced it at all.
+ *
  * The files are read as text, like the two tests above, so this needs no
  * Markdown parser and no DOM.
  */
@@ -279,6 +285,81 @@ describe.each(DOCS)('$en ↔ $fr', (doc) => {
       }
     }
     expect(drift.join('\n')).toBe('')
+  })
+})
+
+/**
+ * The other mirror family: `docs/` and `docs/fr/`, path for path.
+ *
+ * Nothing checked it. The four documents above are twins sitting side by side
+ * with a language suffix, and the tests they get do not reach a tree mirrored by
+ * directory — so the convention that actually carries most of the documentation
+ * was held by hand alone, and it is the easiest rule in this repository to
+ * break. Adding `docs/video-export.md` and stopping there costs nothing, fails
+ * no build, and leaves the French sidebar linking to a page that does not exist.
+ * That has happened; it was found by reading, which is not a mechanism.
+ *
+ * Two checks, and the cheap one is the one that matters. Existence, in **both**
+ * directions, catches the omission that really occurs. The shape comparison —
+ * count and levels only, because the wording is translated — catches the slower
+ * version: a section added to one side months after the other was written.
+ *
+ * What it deliberately does NOT check: prose. Two documents saying the same
+ * thing in two languages cannot be compared by a regular expression, and a test
+ * that pretended otherwise would be turned off the first time it was wrong.
+ */
+/** The twin-suffixed documents live under `docs/` too, and are not mirrored there. */
+const TWINS = new Set(DOCS.flatMap((doc) => [doc.en, doc.fr]))
+
+/** Every `.md` under a directory, relative to it, skipping the mirror and the screenshots. */
+function markdownUnder(dir, base = dir) {
+  return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((entry) => {
+    const rel = `${dir}/${entry.name}`
+    if (entry.isDirectory()) {
+      // `fr/` is the mirror itself, and `assets/` holds the screenshots.
+      return entry.name === 'fr' || entry.name === 'assets' ? [] : markdownUnder(rel, base)
+    }
+    return entry.name.endsWith('.md') && !TWINS.has(rel) ? [rel.slice(base.length + 1)] : []
+  })
+}
+
+const MIRRORED = markdownUnder('docs')
+
+describe('docs/ ↔ docs/fr/', () => {
+  it('found the pages', () => {
+    // A glob that silently matched nothing would make every case below vacuous.
+    expect(MIRRORED.length).toBeGreaterThan(8)
+  })
+
+  it.each(MIRRORED)('docs/%s is mirrored in French, with the same shape', (rel) => {
+    const en = `docs/${rel}`
+    const fr = `docs/fr/${rel}`
+    expect(exists(fr), `${en} has no French mirror at ${fr}`).toBe(true)
+
+    const a = headings(read(en))
+    const b = headings(read(fr))
+    expect({ [en]: a.length, [fr]: b.length }).toEqual({ [en]: a.length, [fr]: a.length })
+
+    const drift = []
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      const x = a[i]
+      const y = b[i]
+      if (!x || !y || x.level !== y.level) {
+        drift.push(
+          `#${i}: ${x ? `${en}:${x.line} h${x.level} ${x.text}` : '—'}` +
+            `  ||  ${y ? `${fr}:${y.line} h${y.level} ${y.text}` : '—'}`,
+        )
+      }
+    }
+    expect(drift.join('\n')).toBe('')
+  })
+
+  it('has no French page without an English original', () => {
+    // The direction nobody thinks about: a page written in French first and
+    // never mirrored back is just as much a hole, and the English sidebar is
+    // the one that would point at nothing.
+    const orphans = markdownUnder('docs/fr').filter((rel) => !exists(`docs/${rel}`))
+    expect(orphans).toEqual([])
   })
 })
 

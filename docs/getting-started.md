@@ -298,9 +298,9 @@ background, 1024×1024 — and does not store it in the library.
 | `sd-webui` | No | Your own Automatic1111, Forge or SD.Next instance started with `--api`. Nothing leaves your machine |
 | `none` | — | Muse still runs. Image slots get palette-derived placeholders |
 
-### Two image profiles
+### Three image profiles
 
-The two jobs are genuinely different, so they have separate settings.
+The three jobs are genuinely different, so they have separate settings.
 
 **`content`** produces the pictures placed in the screen: hero images, products,
 backgrounds. There can be several per screen, so it should be fast and cheap.
@@ -309,6 +309,24 @@ This is the original zero-configuration path, and Pollinations is its default.
 **`inspiration`** produces the single art-direction reference shown to the model.
 It has to be convincing, so it is worth a slower and more expensive model.
 Leaving its provider empty makes it fall back to `content`.
+
+**`edit`** does image-to-image: an existing picture goes in, a derivative comes
+out. It is the profile behind Motion's variants. Optional like
+`inspiration`, but optional **the other way round**: leaving it empty falls back
+to nothing at all, and means image-to-image is off on this instance. A
+text-to-image model handed a source image would return a picture drawn from the
+prompt alone, presented as a derivative of the user's own — and nothing
+downstream could tell the two apart. Borrowing the `content` profile's key would
+therefore be exactly the lie this profile exists to prevent.
+
+Its provider list is shorter than the others, and the panel says why: only `fal`,
+`openai-image`, `cloudflare-workers-ai` and `sd-webui` accept an input image.
+Pollinations cannot — its API takes a URL that **its** servers fetch, and Mocky's
+images are served only by your own instance. The default models differ from the
+text-to-image ones too (`fal-ai/flux/dev/image-to-image`,
+`@cf/runwayml/stable-diffusion-v1-5-img2img`): inheriting the others would ship a
+profile configured to fail. The "Test" button sends a real source image, because
+a text-to-image test passes against a model that cannot edit at all.
 
 > `sd-webui` is called by Mocky's own server and points at a local address by
 > definition, so it **deliberately bypasses** the SSRF guard applied to untrusted
@@ -333,6 +351,57 @@ first.
 **Importing your own clip needs only `ffmpeg`** — no provider, no key, no cost.
 An instance that has never configured fal can therefore use the whole feature
 with its own footage.
+
+---
+
+## Motion
+
+A different feature from the one above, and the singular is how you tell them
+apart in the code: `server/videos/` cuts scroll sequences, `server/video/` builds
+films. This one turns images from the media library into an `.mp4`.
+
+It is **off by default and its renderer is not installed by default**, which is a
+licensing decision rather than a technical one. Remotion is free for individuals,
+non-profits and companies with up to three employees, and its licence does not
+address redistribution inside a self-hosted product — so it lives in a separate
+image nobody builds by accident. Why the whole feature is shaped around that is
+in [Motion](video-export.md).
+
+Three steps, in this order.
+
+**1. Build and start the worker.** From the repository root:
+
+```bash
+docker compose --profile video-export up -d --build
+```
+
+Without `--profile video-export` nothing here is built, created or started, and
+`docker compose up -d` behaves exactly as it did before. Building this image is
+the moment the licence question becomes yours: read
+<https://www.remotion.dev/> first, and note that the threshold counts **your
+organisation's employees, not this instance's accounts**.
+
+**2. Turn it on in Admin → Motion.**
+
+| Setting | Detail |
+|---|---|
+| Enable Motion | The master switch. Off, nobody exports, whatever the scope says |
+| Scope | `Everyone`, or an allowlist. An administrator is **not** allowed implicitly — a render costs CPU and is counted per account, so access is granted explicitly, to yourself included |
+| Render worker URL | `http://video-worker:3030` by default, which is the compose service name on an internal bridge. It looks like it should not work — it is the third administrator-only bypass of the SSRF guard, and the reasoning is in [the invariants](architecture/invariants.md) |
+| Remotion licence key | Optional. Stored server-side, never returned to the browser. Entering one turns on the outbound telemetry a licensed render requires from Remotion 5.0 onwards; with no key the worker container has no network egress at all |
+
+The panel probes the worker and reports `Available` with its version,
+`Unreachable`, `Not configured`, or an address it refused before making any call.
+That last one is worth reading carefully: nothing was contacted, so restarting
+the worker changes nothing — only `http://` and `https://` are accepted.
+
+**3. Use it.** `More → Motion` inside a project. Twenty scenes at most, two
+minutes at most, and no audio.
+
+Variants — "Start from an image" in that panel — are the one part that leans on
+another setting. With an `edit` image profile configured they are real
+derivations of your picture; without one they are siblings born of the same text,
+and the panel says which before you spend the provider calls.
 
 ---
 

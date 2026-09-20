@@ -41,9 +41,34 @@ describe('core dictionary', () => {
   })
 })
 
-const AREAS = ['app', 'auth', 'canvas', 'project', 'muse', 'library', 'design', 'settings', 'preview', 'audit']
+// Every file in src/i18n/parts/ except index.ts. Forgetting a line here is
+// silent — the area simply never gets checked — so the list is derived from the
+// directory rather than kept by hand.
+const AREAS = fs
+  .readdirSync(path.join(root, 'src/i18n/parts'))
+  .filter((f) => f.endsWith('.ts') && f !== 'index.ts')
+  .map((f) => f.replace(/\.ts$/, ''))
 
 describe('area dictionaries', () => {
+  // A glob that matches nothing turns every check below into a loop over zero
+  // areas — a green suite that verifies nothing at all, which is worse than the
+  // hand-written list it replaced.
+  it('found the area files', () => {
+    expect(AREAS.length).toBeGreaterThan(5)
+  })
+
+  /**
+   * The other half of the same silent failure: a dictionary can be perfectly
+   * bilingual and still never reach the app, because only `parts/index.ts`
+   * merges it. A file nobody imports ships no strings, and every `t()` call
+   * against it renders the key.
+   */
+  it('merges every area file into the dictionary', () => {
+    const index = read('src/i18n/parts/index.ts')
+    const orphans = AREAS.filter((a) => !new RegExp(`\\bimport \\{ ${a} \\} from './${a}'`).test(index))
+    expect(orphans).toEqual([])
+  })
+
   for (const area of AREAS) {
     const src = read(`src/i18n/parts/${area}.ts`)
     const frAt = src.indexOf('fr: {')
@@ -79,5 +104,110 @@ describe('area dictionaries', () => {
       }
     }
     expect(clashes).toEqual([])
+  })
+})
+
+/**
+ * The primitives, where a hard-coded label is invisible and reaches everything.
+ *
+ * `Panel` shipped `label="Fermer le panneau"`, `Modal` `label="Fermer"`,
+ * `Spinner` `label = 'Chargement…'`, `Chip` `removeLabel = 'Retirer'` and
+ * `MockyLoader` `label = 'Génération en cours…'`. Five names, and `Panel` and
+ * `Modal` had no prop at all to override theirs. These are icon-only or
+ * text-free controls, so that string is not a fallback: it is the ENTIRE
+ * accessible name. An English interface announced five French sentences and
+ * nothing else, on every panel, every dialog and every spinner in the app.
+ *
+ * The parity checks above could not see it. A sentence that never reaches a
+ * dictionary is perfectly consistent between two dictionaries.
+ *
+ * Deliberately narrow: only the props that BECOME an accessible name, and only
+ * under src/ui. Prose elsewhere is `t()`'s business, and a broad "no quoted
+ * string" rule would fire on class names, ids and units.
+ */
+describe('the UI primitives', () => {
+  const files = fs
+    .readdirSync(path.join(root, 'src/ui'))
+    .filter((f) => f.endsWith('.tsx'))
+    .map((f) => `src/ui/${f}`)
+
+  it('found the primitives', () => {
+    expect(files.length).toBeGreaterThan(5)
+  })
+
+  it('hard-codes no accessible name', () => {
+    // Matches both spellings the defect had: the JSX attribute
+    // (`label="Fermer"`) and the default parameter (`label = 'Chargement…'`).
+    const naming = /\b[\w-]*(?:label|title|placeholder)\s*=\s*['"]/gi
+    const offenders = []
+    for (const f of files) {
+      read(f)
+        .split(/\r?\n/)
+        .forEach((line, i) => {
+          if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
+          for (const m of line.matchAll(naming)) offenders.push(`${f}:${i + 1}: ${m[0].trim()}`)
+        })
+    }
+    expect(offenders).toEqual([])
+  })
+})
+
+/**
+ * The other direction, which nothing was checking: a key a component ASKS for
+ * and no dictionary answers.
+ *
+ * `translate()` returns the key itself when it misses, so the failure ships as a
+ * button labelled `video.startRender`. That is a deliberately legible bug — an
+ * empty button would be a mystery — but legible only to whoever opens that panel
+ * in that state, which for an error banner may be nobody until it matters. The
+ * parity checks above keep FR and EN honest with each other and say nothing
+ * about whether either is honest with the code.
+ *
+ * `t('literal')` only. `t(SOME_MAP[value])` is invisible here by construction,
+ * and the maps that do that are checked where they are declared — see
+ * `src/components/VideoExportDialog.test.ts`.
+ */
+describe('the keys components ask for', () => {
+  const declared = new Set(keysOf(read('src/i18n/fr.ts')))
+  for (const area of AREAS) {
+    const src = read(`src/i18n/parts/${area}.ts`)
+    for (const k of keysOf(src, src.indexOf('fr: {'), src.indexOf('en: {'))) declared.add(k)
+  }
+
+  /** Every .ts/.tsx under src, minus the dictionaries themselves and the tests. */
+  function sources(dir, out = []) {
+    for (const entry of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`
+      if (entry.isDirectory()) sources(rel, out)
+      else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) && !rel.startsWith('src/i18n')) {
+        out.push(rel)
+      }
+    }
+    return out
+  }
+
+  const files = sources('src')
+
+  it('found the source tree', () => {
+    // A glob that matches nothing turns the check below into a loop over zero
+    // files — green, and verifying nothing at all.
+    expect(files.length).toBeGreaterThan(50)
+  })
+
+  it('names no key that no dictionary declares', () => {
+    const unknown = []
+    for (const f of files) {
+      for (const line of read(f).split(/\r?\n/)) {
+        // Comment lines are dropped whole. The house style quotes code in
+        // prose — `aria-label={t('close')}` appears in a note in
+        // src/lib/audit/rules.ts — and an example of what good markup looks
+        // like is not a call anybody makes.
+        if (/^\s*(\/\/|\*|\/\*)/.test(line)) continue
+        for (const m of line.matchAll(/\bt\(\s*'([\w.-]+)'/g)) {
+          if (!declared.has(m[1])) unknown.push(`${f}: ${m[1]}`)
+        }
+      }
+    }
+    expect(unknown).toEqual([])
   })
 })

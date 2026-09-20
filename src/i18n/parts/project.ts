@@ -110,10 +110,11 @@ export const project = {
     'project.animOn': '✦ Animations forcées',
     'project.animOff': '✦ Sans animation',
     'project.animHintAuto':
-      'Mocky décide selon l’écran demandé — une landing page respire, un tableau d’administration reste immobile. Cliquez pour forcer.',
-    'project.animHintOn': 'Chaque écran généré aura des animations. Cliquez pour les couper.',
+      'Mocky décide selon l’écran demandé — une landing page respire, un tableau d’administration reste immobile — et ajoute un film animé quand la demande s’y prête (Muse activé). Cliquez pour forcer.',
+    'project.animHintOn':
+      'Chaque écran généré aura des animations et un film animé (1 à 3 min de rendu en plus), si Motion est activé pour votre compte. Cliquez pour les couper.',
     'project.animHintOff':
-      'Aucune animation, même si l’écran s’y prêterait — utile pour une démo ou une capture. Cliquez pour revenir à l’automatique.',
+      'Aucune animation ni film animé, même si l’écran s’y prêterait — utile pour une démo ou une capture. Cliquez pour revenir à l’automatique.',
 
     // ---- lire ou non les animations d'UN écran (menu contextuel) ----
     'project.playAnimations': 'Lire les animations',
@@ -125,6 +126,35 @@ export const project = {
     'project.playOffTitle': 'Cet écran ne bouge pas, même si le composer autorise les animations.',
     'project.museStageVideo': 'Génération de la vidéo (30 s à 3 min)…',
     'project.museVideoFailed': 'La vidéo n’a pas pu être générée : {detail}. L’écran est produit sans séquence.',
+    // Motion : deux étapes parce qu’elles ratent différemment. La composition
+    // est un appel modèle qui peut refuser en une phrase ; le rendu est une
+    // attente. Une seule ligne pour les deux laisserait l’utilisateur devant
+    // « en cours » sans savoir laquelle il regarde.
+    'project.motionStageCompose': 'Film Motion — composition… ne quittez pas la page',
+    // Le type que le dossier a choisi, dit sur le badge : c'est la seule trace
+    // visible d'une décision que personne n'a prise à la main.
+    'project.motionStageComposeKind': 'Film Motion · {kind} — composition… ne quittez pas la page',
+    'project.motionStageRenderKind': 'Film Motion · {kind} — rendu, 1 à 3 min… ne quittez pas la page',
+    'project.motionStageRender': 'Film Motion — rendu, 1 à 3 min… ne quittez pas la page',
+    'project.motionStagePlace': 'Film Motion — insertion dans l’écran… presque fini',
+    'project.motionStageRevise': 'Film Motion — modification… ne quittez pas la page',
+    'project.motionRevise': 'Modifier le film Motion…',
+    'project.motionReviseTitle': 'Modifier le film Motion',
+    'project.motionReviseBlurb':
+      'Dites ce qui doit changer : le reste du film est gardé tel quel. Le nouveau rendu prend 1 à 3 minutes, puis remplace l’ancien film au même endroit — « Revenir à la version précédente » le remet.',
+    'project.motionReviseLabel': 'Ce qui doit changer',
+    'project.motionReviseHint':
+      'Pour une couleur, dites à quoi elle sert : fond, texte ou accent. Ctrl + Entrée pour envoyer.',
+    'project.motionRevisePlaceholder': 'Un fond bleu nuit, un titre plus court, un rythme plus lent…',
+    'project.motionReviseSubmit': 'Modifier le film',
+    'project.motionReviseUnchanged':
+      'Le film est revenu identique, donc rien n’a été refait. Pour une couleur, précisez à quoi elle sert : « fond bleu », « texte blanc », « accent orange ».',
+    'project.motionReviseDetached':
+      'Le nouveau film est prêt et rattaché à l’écran, mais la page ne contient plus l’ancien film à remplacer : ajoutez-le depuis Médias.',
+    'project.motionLeaveConfirm':
+      'Un film Motion est en cours. Le rendu se termine côté serveur et le film sera dans Média, mais il ne sera PAS inséré dans l’écran si vous partez maintenant. Quitter quand même ?',
+    'project.motionFailed':
+      'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
     'project.briefImageFailed': 'Image non générée — {reason}',
     'project.briefBackend': 'Backend Mocky requis',
@@ -171,7 +201,11 @@ export const project = {
     'project.pinReference': 'Épingler comme référence de mise en page',
     'project.unpinReference': 'Ne plus utiliser comme référence',
     'project.editDesign': 'Modifier DESIGN.md',
-    'project.changeImages': 'Changer les images…',
+    // « Médias » et pas « images » : l'entrée de menu et le titre de la modale
+    // doivent porter le même nom, et le mot d'ensemble de la médiathèque est
+    // « média ». La clé reste `changeImages`, comme `video.*` reste `video` —
+    // renommer une clé ne change rien à ce qui se lit.
+    'project.changeImages': 'Changer les médias…',
     'project.deriveDesign': 'Faire de cet écran mon DESIGN.md',
     'project.applyDesignConfirm':
       'Faire du DESIGN.md enregistré avec « {name} » la direction de ce projet ? Les écrans suivants la suivront ; la direction actuelle reste accessible depuis les écrans qui l’ont utilisée.',
@@ -324,10 +358,11 @@ export const project = {
     'project.animOn': '✦ Animations forced',
     'project.animOff': '✦ No animation',
     'project.animHintAuto':
-      'Mocky decides from the screen you asked for — a landing page breathes, an admin table holds still. Click to force.',
-    'project.animHintOn': 'Every generated screen will be animated. Click to switch them off.',
+      'Mocky decides from the screen you asked for — a landing page breathes, an admin table holds still — and adds an animated film when the request calls for one (with Muse on). Click to force.',
+    'project.animHintOn':
+      'Every generated screen will be animated and get an animated film (1 to 3 min more of rendering), if Motion is enabled for your account. Click to switch them off.',
     'project.animHintOff':
-      'No animation, even where the screen would suit it — useful for a demo or a recording. Click to go back to automatic.',
+      'No animation and no animated film, even where the screen would suit it — useful for a demo or a recording. Click to go back to automatic.',
 
     // ---- play ONE screen's animations, or not (context menu) ----
     'project.playAnimations': 'Play animations',
@@ -339,6 +374,30 @@ export const project = {
     'project.playOffTitle': 'This screen holds still, even when the composer allows animations.',
     'project.museStageVideo': 'Generating the video (30 s to 3 min)…',
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
+    'project.motionStageCompose': 'Motion film — composing… do not leave the page',
+    // The kind the dossier chose, said on the badge: the only visible trace of a
+    // decision nobody made by hand.
+    'project.motionStageComposeKind': 'Motion film · {kind} — composing… do not leave the page',
+    'project.motionStageRenderKind': 'Motion film · {kind} — rendering, 1 to 3 min… do not leave the page',
+    'project.motionStageRender': 'Motion film — rendering, 1 to 3 min… do not leave the page',
+    'project.motionStagePlace': 'Motion film — placing it in the screen… nearly done',
+    'project.motionStageRevise': 'Motion film — revising… do not leave the page',
+    'project.motionRevise': 'Revise the Motion film…',
+    'project.motionReviseTitle': 'Revise the Motion film',
+    'project.motionReviseBlurb':
+      'Say what should change: the rest of the film is kept as it is. The new render takes 1 to 3 minutes, then replaces the old film in the same place — “Revert to previous version” brings it back.',
+    'project.motionReviseLabel': 'What should change',
+    'project.motionReviseHint': 'For a colour, say what it is for: background, text or accent. Ctrl + Enter to send.',
+    'project.motionRevisePlaceholder': 'A dark blue background, a shorter title, a slower pace…',
+    'project.motionReviseSubmit': 'Revise the film',
+    'project.motionReviseUnchanged':
+      'The film came back identical, so nothing was rendered again. For a colour, say what it is for: “blue background”, “white text”, “orange accent”.',
+    'project.motionReviseDetached':
+      'The new film is ready and attached to the screen, but the page no longer contains the old film to replace: add it from Media.',
+    'project.motionLeaveConfirm':
+      'A Motion film is in progress. The render finishes on the server and the film will be in Media, but it will NOT be placed in the screen if you leave now. Leave anyway?',
+    'project.motionFailed':
+      'The Motion film could not be produced: {detail}. The screen is produced without a film.',
     'project.museNoImage': 'the dossier proposed no image',
     'project.briefImageFailed': 'No image generated — {reason}',
     'project.briefBackend': 'Mocky backend required',
@@ -384,7 +443,11 @@ export const project = {
     'project.pinReference': 'Pin as layout reference',
     'project.unpinReference': 'Unpin as reference',
     'project.editDesign': 'Edit DESIGN.md',
-    'project.changeImages': 'Change the images…',
+    // “Media”, not “images”: the menu entry and the dialog's own title have to
+    // read the same, and the library's collective word is media. The key stays
+    // `changeImages`, the way `video.*` stays `video` — renaming a key changes
+    // nothing anybody reads.
+    'project.changeImages': 'Change the media…',
     'project.deriveDesign': 'Make this screen my DESIGN.md',
     'project.applyDesignConfirm':
       'Make the DESIGN.md recorded with “{name}” this project’s direction? Later screens will follow it; the current direction stays reachable from the screens that used it.',

@@ -358,6 +358,30 @@ The generation prompt's blanket ban on external `<img>` tags is **narrowed**, no
 lifted: no arbitrary external images, but the Muse imagery-plan slot URLs, which
 are on Mocky's origin, are allowed.
 
+**Motion films follow the same rule, and needed two changes to do so.** A film in
+a mockup is `<video src="/api/video/<hash>">`, and the preview iframe has an
+opaque origin (I2, I3), so:
+
+1. `GET /api/video/:hash` is **public by hash** — the third path on this instance
+   to make that trade, after `/api/images/:hash` and the clip library, with the
+   same argument written at each: *the URL is the capability*. A 64-hex SHA-256
+   of the content cannot be guessed and is only ever handed out by a listing that
+   does require a session. What did NOT open: `GET /exports` still lists only
+   your own films, `DELETE /:hash` still proves ownership, and the mount bypasses
+   the session for **GET of a bare hash and nothing else**.
+2. The preview's CSP gains `media-src ${origin}`. Without it a `<video>` falls
+   back to `default-src 'none'` and is blocked outright — which is why a hero
+   composed around a film came back empty.
+
+`media-src` names the origin rather than following `img-src *`, and the asymmetry
+is the point: a remote image is how a mockup shows a photo, while a remote video
+is a megabyte of somebody else's bandwidth autoplaying inside the tool a design
+is being judged in. No model needs to emit one.
+
+The shape of the bypass is asserted against the source of `server/index.js` in
+`server/video/routes.test.js`, because the router's own test harness mounts it
+without `requireUser` and therefore cannot exercise the mount.
+
 ### M7. Politeness towards source sites
 
 | Rule | Value |
@@ -405,6 +429,14 @@ correlating timestamps and project ids would be a guess printed as a fact. They
 get their own line, "No owner", and they stay there. An owner whose account has
 since been deleted falls back into it, because `splitOwnedBytes` filters against
 the set of ids that still exist.
+
+**And so is project usage, for the same reason.** `projects` is a list on an
+image and now on an exported film too: content addressing means two projects can
+arrive at identical bytes, so the second attachment adds rather than replaces.
+This is what makes a stored blob findable at all — the hash says what a file
+contains and nothing about who wanted it — and the Motion export store went out
+without it, which produced files on the volume that no interface could reach.
+A blob with no project is filed under none, never under a guessed one.
 
 ---
 
@@ -622,11 +654,35 @@ Redirects are not followed (`redirect: 'manual'`). `undici` follows them by
 default, which walked around the guard in one step: the target passed the check,
 then answered `302` towards the cloud metadata endpoint.
 
-**Two deliberate bypasses**, both administrator-only:
+**Three deliberate bypasses**, all administrator-only:
 
 - an administrator-configured text target, because pointing at a local model is a
   supported setup;
-- the `sd-webui` base URL, which is local by definition.
+- the `sd-webui` base URL, which is local by definition;
+- the Motion render **worker URL**, `assertWorkerTarget()` in
+  `server/video/worker.js`.
+
+The third one was added, not inherited, and the reason is worth the paragraph.
+Guarded, it had **no working configuration at all**: the Remotion worker ships as
+a compose service on an `internal: true` bridge with no published port, so its
+only address is a service name resolving into `172.16/12`. Every render died
+before leaving Mocky, and the admin panel's fallback advice — "expose the worker
+on a publicly resolvable address" — asked an operator to publish an
+unauthenticated endpoint that accepts 80 MB bodies. That is a worse trade than
+the one the guard was making.
+
+It fits the same shape as the other two: it is local by definition, and it
+reaches the server only through `PUT /api/admin/video/config` behind
+`requireAdmin` — never from a browser, which is what the guard is for. What it
+does **not** relax: the scheme must be `http` or `https`, and neither the health
+probe nor the render call follows a redirect, so a worker answering `302` towards
+the metadata endpoint cannot widen the bypass past what was granted.
+`createVideoWorker({ guard })` keeps the check injectable, so an operator running
+the worker on a public host can pass `assertSafeTargetResolved` back in.
+
+The rest of the feature this belongs to — why the worker is a separate image at
+all, and why the model that describes a film never writes the code that renders
+it — is in [Motion](video-export.md).
 
 Any URL that came from a browser stays fully guarded — including on
 `POST /api/text/vision`. That was the one route taking a base URL from a header,
@@ -642,6 +698,15 @@ dependency is pure JavaScript.
 This invariant is de facto rather than declared, but it really did decide things.
 It is why SQLite was rejected for Muse's persistence, and why the repository's
 dependency-free ZIP writer was reused instead of adding `archiver`.
+
+The Motion render queue is the newest thing it decided, and the most tempting one
+to get wrong: a job runner is exactly the feature somebody reaches for Redis to
+build. `server/video/queue.js` is an in-memory queue with an atomic JSON journal
+and a concurrency of one. A self-hosted Mocky is one process, and a queue needing
+a second daemon to survive a restart would cost more to operate than the feature
+is worth. `tests/video-worker-separation.test.js` refuses a queue server or a
+database driver in the manifest alongside its Remotion check, so this half of the
+posture fails a build too.
 
 **The runtime image is `node:22-slim`.** `.nvmrc` reads `22.12` and
 `package.json` declares `"node": ">=22.12"`. Two reasons, and either would have

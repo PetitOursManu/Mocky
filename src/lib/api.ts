@@ -83,13 +83,19 @@ export interface ServerData {
 }
 
 /**
- * Two image profiles, because the jobs differ: 'content' makes the pictures
+ * Three image profiles, because the jobs differ: 'content' makes the pictures
  * embedded in the screen (hero, produits — fast and cheap, several per screen),
  * 'inspiration' makes the single art-direction reference the model looks at
- * (must render a convincing layout — worth a stronger, slower model).
- * An empty 'inspiration' provider reuses 'content'.
+ * (must render a convincing layout — worth a stronger, slower model), and 'edit'
+ * derives a new picture from an existing one.
+ *
+ * An empty 'inspiration' provider reuses 'content'. An empty 'edit' provider
+ * does NOT: it means image-to-image is off on this instance. A text-to-image
+ * model handed a source image cannot derive anything from it, so borrowing one
+ * would produce a picture made from the prompt alone while claiming to be a
+ * derivative of the user's own image.
  */
-export type ImageProfile = 'content' | 'inspiration'
+export type ImageProfile = 'content' | 'inspiration' | 'edit'
 
 /** Admin view of one profile. Secrets are never sent back — only `has…`
  *  booleans, so the UI can show "key set" without exposing it. */
@@ -117,6 +123,9 @@ export interface ImagesConfig {
   profiles: ImageProfile[]
   content: ImagesProfileConfig
   inspiration: ImagesProfileConfig
+  /** Shorter than `providers`: only those that can take an input image. */
+  editProviders: string[]
+  edit: ImagesProfileConfig
   videoProviders: string[]
   video: ImagesVideoConfig
 }
@@ -138,6 +147,7 @@ export interface ImagesVideoPatch {
 export interface ImagesConfigPatch {
   content?: ImagesProfilePatch
   inspiration?: ImagesProfilePatch
+  edit?: ImagesProfilePatch
   video?: ImagesVideoPatch
 }
 
@@ -196,6 +206,94 @@ export interface ImagesTestResult {
   bytes?: number
   skipped?: boolean
   error?: string
+}
+
+/** Who the video export is open to. Mirrors ACCESS_MODES in server/video/config.js. */
+export type VideoAccessMode = 'all' | 'allowlist'
+
+/**
+ * Admin view of the video-export settings.
+ *
+ * `hasLicenseKey` rather than the key: `publicVideoConfig()` is the only shape
+ * the config is allowed to leave the server in, and it turns the Remotion
+ * licence key into a boolean exactly like every provider secret above.
+ */
+export interface VideoExportConfig {
+  accessModes: VideoAccessMode[]
+  enabled: boolean
+  hasLicenseKey: boolean
+  access: VideoAccessMode
+  allowedUserIds: string[]
+  /**
+   * Who, among the accounts above, may put a 3D block in a film.
+   *
+   * The same two modes and the same shape, deliberately — a second permission
+   * with a vocabulary of its own is a second thing to learn. It NARROWS the pair
+   * above and never widens it: `videoThreeDEnabledFor` asks `videoEnabledFor`
+   * first, so an account absent from `allowedUserIds` is refused whatever this
+   * list says. That is also why its default is 'all' where Motion's is
+   * 'allowlist' — the closed door is the one above.
+   *
+   * Admin-only, like everything else in this projection: an ordinary account
+   * reads a single boolean off `GET /api/video/status`.
+   */
+  threeDAccess: VideoAccessMode
+  threeDAllowedUserIds: string[]
+  workerUrl: string | null
+  /** How much rendering this SERVER carries — see RENDER_TIERS in server/video/config.js. */
+  renderTiers: VideoRenderTier[]
+  renderTier: VideoRenderTier
+  /** The last "Tester ce serveur" result, or null before the first. */
+  benchmark: VideoBenchmark | null
+}
+
+export type VideoRenderTier = 'flat' | 'limited' | 'full'
+
+/** One tier's line of a server test, as `benchmarkEstimates` computes it. */
+export interface VideoBenchmarkTier {
+  renderMs: number
+  perSecond: number
+  typicalMs: number
+  filmsPerHour: number
+  simultaneousUsers: number
+}
+
+/** What "Tester ce serveur" answers (server/video/benchmark.js). */
+export interface VideoBenchmark {
+  at: number
+  filmMs: number
+  typicalFilmMs: number
+  tiers: Record<VideoRenderTier, VideoBenchmarkTier>
+  recommended: VideoRenderTier
+}
+
+/**
+ * Partial update. Same secret rule as the image keys — omit (or send '') the
+ * licence key to keep the stored one, send null to clear it.
+ *
+ * `allowedUserIds` is the exception to "partial": the server REPLACES the list
+ * rather than merging it, because sending the list without an account is the
+ * only way to express a removal.
+ */
+export interface VideoExportConfigPatch {
+  enabled?: boolean
+  licenseKey?: string | null
+  access?: VideoAccessMode
+  allowedUserIds?: string[]
+  /** Replaced rather than merged, exactly like `allowedUserIds` above. */
+  threeDAccess?: VideoAccessMode
+  threeDAllowedUserIds?: string[]
+  workerUrl?: string | null
+  renderTier?: VideoRenderTier
+}
+
+/** What the worker probe answers. Never an error: "I could not tell" is a state. */
+export interface VideoWorkerHealth {
+  available: boolean
+  /** 'not-configured' | 'blocked-target' | 'unreachable' | 'http-error' */
+  reason?: string
+  detail?: string
+  version?: string
 }
 
 export const api = {
@@ -307,5 +405,22 @@ export const api = {
       req('/api/admin/text/test', { method: 'POST', body: JSON.stringify({ profile }) }) as Promise<TextTestResult>,
     listTextModels: (profile: TextProfile = 'generation') =>
       req('/api/admin/text/models', { method: 'POST', body: JSON.stringify({ profile }) }) as Promise<TextModelsResult>,
+
+    /** Video export (the Remotion worker). Off by default on every instance. */
+    getVideoConfig: () => req('/api/admin/video/config') as Promise<VideoExportConfig>,
+    setVideoConfig: (patch: VideoExportConfigPatch) =>
+      req('/api/admin/video/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<VideoExportConfig>,
+    /**
+     * Probe the worker as an administrator.
+     *
+     * Not `GET /api/video/status`: that route reports the worker only to an
+     * account the feature is enabled FOR, and `videoEnabledFor()` deliberately
+     * grants an admin no implicit access. An admin who has not put themselves on
+     * the allowlist would have read "no-access" and concluded the worker was
+     * down — while looking at the very panel where its URL is typed.
+     */
+    videoWorkerHealth: () => req('/api/admin/video/health') as Promise<VideoWorkerHealth>,
+    /** Render the three reference films and measure them. About a minute; 409 while a render runs. */
+    runVideoBenchmark: () => req('/api/admin/video/benchmark', { method: 'POST' }) as Promise<VideoBenchmark>,
   },
 }

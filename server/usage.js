@@ -112,10 +112,31 @@ export function splitOwnedBytes(items, known = null) {
   return { byUser, unattributed }
 }
 
-/** The media libraries, reduced to the two things attribution needs. */
-function imageItems(images) {
-  if (!images?.list) return []
-  return images.list().map((m) => ({ owners: m.owners, bytes: images.fileSize?.(m.hash) ?? 0 }))
+/**
+ * A store of one file per hash, reduced to the two things attribution needs.
+ *
+ * Shared by the image library and the video-export store because they have the
+ * same shape at this distance — `list()` of metadata, `fileSize(hash)` of bytes.
+ * The scroll-sequence library does not, which is why it has its own reader below.
+ */
+function fileItems(lib) {
+  if (!lib?.list) return []
+  /*
+   * `includePending: true`, and it is the whole point of this line.
+   *
+   * The image library's default listing now HIDES images awaiting a human — the
+   * variant flow's own gate, and correct there. It is wrong here: those files
+   * are on the volume like every other, `diskBudget.seed()` walks them, and a
+   * batch of six variants nobody ever confirmed is a few megabytes this report
+   * would simply not mention. That breaks the one promise M8's honesty
+   * corollary makes of this table, which is that it adds up to what the disk
+   * holds — the fastest way to make a dashboard untrusted is to have it
+   * disagree with `du`.
+   *
+   * The video-export store has no such filter and ignores the option, so the
+   * two callers can keep sharing this reader.
+   */
+  return lib.list({ includePending: true }).map((m) => ({ owners: m.owners, bytes: lib.fileSize?.(m.hash) ?? 0 }))
 }
 
 function videoItems(videos) {
@@ -138,11 +159,15 @@ function videoItems(videos) {
  * @param {{id:string, username:string, role?:string, createdAt?:number}[]} deps.users
  * @param {object} [deps.images] ImageLibrary
  * @param {object} [deps.videos] VideoLibrary
+ * @param {object} [deps.videoExports] VideoExportStore
  * @param {{bytes:number, maxBytes:number, ratio:number|null}} [deps.instance] disk budget usage()
  */
-export function collectUsage({ dataDir, users, images = null, videos = null, instance = null }) {
+export function collectUsage({ dataDir, users, images = null, videos = null, videoExports = null, instance = null }) {
   const known = new Set(users.map((u) => u.id))
-  const media = splitOwnedBytes([...imageItems(images), ...videoItems(videos)], known)
+  // Exported films are counted with the rest of the media, not apart: they are
+  // owned bytes on the same volume, and a column that omitted them would say a
+  // user holds less disk than the ceiling is charging them for.
+  const media = splitOwnedBytes([...fileItems(images), ...videoItems(videos), ...fileItems(videoExports)], known)
 
   const rows = users.map((u) => {
     const dataFile = path.join(dataDir, `data-${u.id}.json`)

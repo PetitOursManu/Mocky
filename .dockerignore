@@ -10,6 +10,12 @@ server/data
 # of the final image, but not out of the build context or the builder layer —
 # and a build cache can be exported or pushed.
 backups
+# The Remotion render worker is a separate sub-project with its own Dockerfile
+# and its own build context (worker/video/). Mocky's image copies the tree with
+# `COPY . .`, so without this line the default image would carry Remotion source
+# — the one thing that is supposed to stay out of it, since keeping Remotion
+# away from anyone who has not opted in is the whole point of the separation.
+worker
 docker-compose.override.yml
 .claude
 *.md

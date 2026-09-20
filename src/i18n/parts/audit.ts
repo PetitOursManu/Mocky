@@ -42,6 +42,8 @@ export const audit = {
     'audit.fixedNone': 'La correction n’a rien changé. Réessayez, ou corrigez à la main.',
     'audit.fixFailed': 'La correction a échoué.',
     'audit.fixNothing': 'Rien de corrigeable automatiquement ici.',
+    'audit.fixBusy':
+      'Une autre génération est en cours sur ce projet. Attendez qu’elle finisse : les deux passes se partagent le même bouton Stop.',
 
     // ---- what the score does NOT cover (invariant Q4) ----
     'audit.confidence': 'Analyse du code seul',
@@ -237,6 +239,8 @@ export const audit = {
     'audit.fixedNone': 'The correction changed nothing. Try again, or fix it by hand.',
     'audit.fixFailed': 'The correction failed.',
     'audit.fixNothing': 'Nothing here can be corrected automatically.',
+    'audit.fixBusy':
+      'Another generation is running on this project. Wait for it to finish — both passes share the same Stop button.',
 
     // ---- what the score does NOT cover (invariant Q4) ----
     'audit.confidence': 'Source-only analysis',

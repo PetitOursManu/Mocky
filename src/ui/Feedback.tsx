@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useT } from '../i18n'
 
 /** Inline message. `tone` maps to the status tokens — never to a raw colour. */
 export function Banner({
@@ -36,11 +37,18 @@ export function Banner({
   )
 }
 
-export function Spinner({ label = 'Chargement…', className = '' }: { label?: string; className?: string }) {
+/**
+ * `role="status"` with no visible text, so `aria-label` is the entire message.
+ * It defaulted to the literal `"Chargement…"`: every spinner in the app spoke
+ * French whatever the interface was set to, and no caller could fix it without
+ * writing the word itself.
+ */
+export function Spinner({ label, className = '' }: { label?: string; className?: string }) {
+  const t = useT()
   return (
     <span
       role="status"
-      aria-label={label}
+      aria-label={label ?? t('common.loading')}
       className={`inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border border-current border-t-transparent ${className}`}
     />
   )

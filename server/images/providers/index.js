@@ -29,9 +29,15 @@ export function createProviderRegistry(initialProviders, opts = {}) {
   }
 
   return {
-    /** Public list (id + whether it needs a key). */
+    /**
+     * Public list (id, whether it needs a key, whether it can derive from an
+     * input image). `supportsInit` is readable with no network call on purpose:
+     * it is what lets the Admin panel refuse a doomed edit configuration at the
+     * moment it is chosen, instead of leaving the discovery to the first user
+     * who tries to edit an image.
+     */
     list() {
-      return providers.map((p) => ({ id: p.id, requiresKey: !!p.requiresKey }))
+      return providers.map((p) => ({ id: p.id, requiresKey: !!p.requiresKey, supportsInit: !!p.supportsInit }))
     },
 
     get(id) {

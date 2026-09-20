@@ -2,7 +2,8 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
@@ -14,6 +15,7 @@ import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from 
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
+import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
 import { replaceTokenHex, type DesignToken } from '../lib/designTokens'
@@ -31,9 +33,12 @@ import { SaveDesignDialog } from './DesignLibrary'
 import DesignSpecSheet from './DesignSpecSheet'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
-import Bibliotheque from './Bibliotheque'
+import Bibliotheque, { type MediaTab } from './Bibliotheque'
 import ImageLightbox from './ImageLightbox'
+import FilmLightbox from './FilmLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
+import VideoExportDialog from './VideoExportDialog'
+import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
 import {
   loadMuseConfig,
@@ -63,6 +68,24 @@ import {
 } from '../lib/muse'
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
 import { videoBase, videoPosterUrl, type PinnedVideo } from '../lib/videoLibrary'
+import {
+  fetchVideoAccess,
+  fetchVideoJob,
+  proposeVideoTimeline,
+  startVideoRender,
+  videoStreamUrl,
+  POLL_INTERVAL_MS,
+  BRIEF_MAX_LENGTH,
+  type MotionKindOffer,
+} from '../lib/video/client'
+import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
+import { findScreenSections } from '../lib/screenSections'
+import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
+import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
+import { themeFromDesign } from '../lib/video/theme'
+import { themeFromBrief } from '../lib/video/briefTheme'
+import { directionBriefFrom } from '../lib/video/directionBrief'
+import { decideFilm, dossierMotionRequest } from '../lib/video/filmDecision'
 import { matchImagesToScreens } from '../lib/imageBackfill'
 import {
   applyAnimationMode,
@@ -72,7 +95,7 @@ import {
   type AnimationMode,
 } from '../lib/animations'
 import { lintSlop } from '../lib/lint'
-import { getLang, useT } from '../i18n'
+import { getLang, useT, type TranslationKey } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
 /** Translation keys per animation state — resolved at render, like every label. */
@@ -139,9 +162,11 @@ const EXPORT_TARGETS: [StackTarget, string, string][] = [
 /**
  * A toolbar action that folds into the "Plus" menu below md.
  *
- * Data rather than JSX because the bar and the menu offer the same six actions,
- * and the alternative was copying six blocks of `onClick` — which is how a mode
- * ends up toggling on the bar and doing nothing in the menu.
+ * Data rather than JSX because the bar and the menu offer the same eight
+ * actions, and the alternative was copying eight blocks of `onClick` — which is
+ * how a mode ends up toggling on the bar and doing nothing in the menu. (Count
+ * them in `foldedTools` before trusting that number; it said six for two tools
+ * longer than it was true.)
  */
 type FoldedTool = {
   id: string
@@ -233,12 +258,41 @@ export default function ProjectView({
     })
   }, [])
   const [showLibrary, setShowLibrary] = useState(false)
+  /**
+   * Which media tab the library opens on next time.
+   *
+   * Held here rather than inside `Bibliotheque` because the caller is what knows
+   * WHY it is being opened: "Media" in the toolbar means images, "see it in
+   * Media" after a render means the cut that was just made. Once the library is
+   * open, which tab is showing is the user's business again — this only decides
+   * the first one.
+   */
+  const [libraryTab, setLibraryTab] = useState<MediaTab>('images')
   /** Image opened full size (from the canvas card or the library grid). */
   const [lightboxHash, setLightboxHash] = useState<string | null>(null)
+  /**
+   * A film opened for playback from the attached-media card on the canvas.
+   *
+   * The counterpart of `lightboxHash` for the other kind of attachment. A
+   * sequence has no state here on purpose: it is played by scrubbing numbered
+   * stills, which `VideoPlayer` already does properly inside Média — a second
+   * scrubber written for one card is two players that would drift.
+   */
+  const [playingFilm, setPlayingFilm] = useState<string | null>(null)
   /** The screen whose images are being swapped, if any. Id, not the screen: the
    *  dialog must follow the record as it is rewritten, not a stale copy. */
   const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
-  const [showAudit, setShowAudit] = useState(false)
+  const [showVideoExport, setShowVideoExport] = useState(false)
+  /**
+   * The render this session last started, kept here rather than in the dialog.
+   *
+   * A render takes minutes and the panel is a modal over the canvas, so closing
+   * it while the queue works is the normal thing to do. Held inside the dialog,
+   * the job id would die with it and the finished file would have no route back
+   * to the person who asked for it — the download link is reachable only through
+   * the id, and nothing else in the interface lists past exports.
+   */
+  const [videoJobId, setVideoJobId] = useState<string | null>(null)
   const [pinnedImages, setPinnedImages] = useState<PinnedImage[]>([])
   /** The brief above the composer. Folded by default: open, it eats the canvas. */
   const [briefOpen, setBriefOpen] = useState(() => localStorage.getItem(BRIEF_PREF_KEY) === '1')
@@ -280,11 +334,23 @@ export default function ProjectView({
     )
   }, [])
   const abortRef = useRef<AbortController | null>(null)
+  /** The screen whose Motion film the revise dialog is asking about, or null when it is closed. */
+  const [reviseFilmScreenId, setReviseFilmScreenId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
-  const [linkMode, setLinkMode] = useState(false)
+  /**
+   * The one panel over the canvas' top-right corner — see lib/rightSlot.ts.
+   *
+   * One value and not three booleans: the Design System inspector, the audit
+   * panel and the Links list all live at `absolute right-4 top-11`, and as
+   * separate flags two of them could be — and were — open at once, painting over
+   * each other with no z-index to settle it.
+   */
+  const [rightSlot, setRightSlot] = useState<RightSlot>(null)
+  const linkMode = rightSlot === 'links'
+  const showSystem = rightSlot === 'system'
+  const showAudit = rightSlot === 'audit'
   const [modifyMode, setModifyMode] = useState(false)
-  const [showSystem, setShowSystem] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
   const [modifyLabelDraft, setModifyLabelDraft] = useState('')
@@ -370,6 +436,41 @@ export default function ProjectView({
       alive = false
     }
   }, [museConfig.enabled, videoAvail])
+
+  /*
+   * And can it cut a Motion FILM? A different question with a different answer.
+   *
+   * `checkVideoAvailability` above is about the clip library: a video provider
+   * in Admin and ffmpeg in the container. Motion needs neither — it needs the
+   * export feature enabled for this ACCOUNT and a render worker that answers. So
+   * it is `GET /api/video/status`, the route the export panel already polls, and
+   * the two probes are kept apart for the reason the two features are: one letter
+   * of directory name apart, and nothing else in common.
+   *
+   * Degrades to "not available" on any failure (Q1): a probe that throws must
+   * not take the composer down, and a control that is not drawn is the honest
+   * outcome of not knowing.
+   */
+  const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
+  useEffect(() => {
+    // Asked once whatever Muse's state: the composer's animation switch can
+    // impose a film without Muse, so whether one can be made is a question the
+    // generation always needs answered.
+    if (motionAvail !== null) return
+    let alive = true
+    fetchVideoAccess()
+      .then((access) => {
+        if (!alive) return
+        setMotionAvail({
+          available: Boolean(access.enabled && access.worker?.available),
+          kinds: Array.isArray(access.motionKinds) ? access.motionKinds : [],
+        })
+      })
+      .catch(() => alive && setMotionAvail({ available: false, kinds: [] }))
+    return () => {
+      alive = false
+    }
+  }, [motionAvail])
 
   // Screens generated before the canvas image card existed have no imageHash,
   // even though the library still records which project each image belongs to
@@ -467,6 +568,58 @@ export default function ProjectView({
   /** Phone: a coarse pointer AND a narrow viewport. See lib/usePhone.ts. */
   const phone = usePhone()
   const [regenLabel, setRegenLabel] = useState(() => t('canvas.regenerating'))
+
+  /**
+   * Is a Motion film mid-flight, and would leaving lose it?
+   *
+   * A ref rather than state: the only reader is a `beforeunload` handler, and
+   * re-registering that listener on every render to close over fresh state is
+   * how the listener ends up registered twice.
+   *
+   * The warning is honest about WHICH half is lost, and they are not the same.
+   * The render itself is a server-side job on the worker and survives anything
+   * the browser does — the film lands in the export store either way. What does
+   * NOT survive is the browser's part: attaching it to the screen and running
+   * the edit pass that writes `<MotionFilm>` into the page. Leave now and the
+   * film exists in Media, and the screen that was supposed to carry it does not
+   * know about it.
+   */
+  useEffect(() => {
+    const onLeave = (e: BeforeUnloadEvent) => {
+      if (!navigationHold()) return
+      // The only portable way to ask: no current browser shows custom text, so
+      // the sentence lives in the on-canvas badge and in `leaveProject` below.
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onLeave)
+    return () => {
+      window.removeEventListener('beforeunload', onLeave)
+      releaseNavigation()
+    }
+  }, [])
+
+  /**
+   * Going back to the project list, asked about while a film is mid-flight.
+   *
+   * `beforeunload` covers closing the tab and reloading, and it covered NOTHING
+   * the user actually did: clicking "Accueil" is an in-app callback, the page
+   * never unloads, so the browser is never consulted. ProjectView simply
+   * unmounts, its AbortController fires, and the composition or the placement
+   * dies with no dialog and no trace — which is precisely the report, "je ne
+   * vois pas de popup".
+   *
+   * `window.confirm` rather than the browser's own: this one gets to say what is
+   * actually at stake, and the two halves are not the same. The RENDER is a
+   * server-side job and survives — the film lands in Media either way. What
+   * dies is the browser's half: attaching it to the screen and writing
+   * <MotionFilm> into the page.
+   */
+  const leaveProject = useCallback(() => {
+    const held = navigationHold()
+    if (held && !window.confirm(t(held as TranslationKey))) return
+    onBack()
+  }, [onBack, t])
   /** Neutral one-liner in the composer — the quality pass reporting back. */
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -726,11 +879,36 @@ export default function ProjectView({
   function onRevertScreen(screenId: string) {
     const screen = screens.find((s) => s.id === screenId)
     if (!screen || !screen.previousCode) return
+    const back = screen.previousCode
     // Swap: current code becomes the new previousCode, old code becomes current
     onUpdateScreen(screenId, {
-      code: screen.previousCode,
+      code: back,
       previousCode: undefined,
-      componentName: detectComponentName(screen.previousCode),
+      componentName: detectComponentName(back),
+      /*
+       * The sequence record follows the code back, or it stops claiming anything.
+       *
+       * `swapScreenImages` moves `videoHash`/`videoFrames` when a hero swap
+       * re-points the very clip they name — the pair moves as one. Revert put the
+       * source back and left them where they were, which splits the pair the
+       * other way round: the screen draws clip A while the record says B. That is
+       * the same defect this whole path exists to prevent, arrived at through the
+       * button sitting next to it.
+       *
+       * The restored source is the arbiter, and it only has to answer one
+       * question: does it still contain that content address? A 64-hex hash is
+       * looked for literally, with no pattern and no name discovery — this is not
+       * reading structure out of generated source (I1), it is asking whether a
+       * string Mocky itself wrote is still in the file, and the answer is only
+       * ever used to DROP a claim.
+       *
+       * Dropped rather than re-derived: what the old source pointed at cannot be
+       * known without a parse, and absent means "not recorded", which is what
+       * almost every screen says. A guess would mean something else.
+       */
+      ...(screen.videoHash && !back.includes(screen.videoHash)
+        ? { videoHash: undefined, videoFrames: undefined }
+        : {}),
     })
   }
 
@@ -946,6 +1124,8 @@ export default function ProjectView({
         // CANDIDATE direction, not the authority it once was — see the
         // resolveDirection call below. Muse must never block generation (M3),
         // and when OFF the path below is byte-identical to pre-Muse Mocky (M1).
+        /** The Motion kinds this account can render right now — empty when it cannot. */
+        const motionKindIds = motionAvail?.available ? motionAvail.kinds.map((k) => k.id) : []
         let musePreamble: string | undefined
         let museMarkdown: string | undefined
         /** Whether Muse got far enough to have something to say. */
@@ -1003,6 +1183,15 @@ export default function ProjectView({
               useFetch: museConfig.useFetch,
               projectName: project.name,
               userMedia,
+              /*
+               * Whether this screen gets a Motion film is decided in the same
+               * call — prudently in "auto", unconditionally when the composer's
+               * animation switch is on "forcées", not at all when it is off. Asked
+               * only when a film could actually be made: an account without
+               * Motion, or a worker that does not answer, gets the dossier it
+               * always got and no question about films at all.
+               */
+              motion: dossierMotionRequest(animationMode, motionKindIds),
               signal: ac.signal,
             })
             setMuseResult(res)
@@ -1275,6 +1464,132 @@ export default function ProjectView({
         setGeneratingIds(new Set())
 
         /*
+         * The Motion film, when the animation switch and the request call for one.
+         *
+         * ── Why it runs HERE, after the screen exists ───────────────────────
+         *
+         * A film is a model call and a render, and the render is minutes. Run
+         * before generation it would hold the screen — the thing the person
+         * actually asked for — behind a wait for something they may not even
+         * have asked for by name. Run here, the screen is already on the canvas
+         * and finished, and the film arrives in it when it arrives; the badge on
+         * the screen says which kind is coming and that the page must stay open.
+         *
+         * ── And it degrades, always (Q1) ────────────────────────────────────
+         *
+         * Every failure here leaves exactly the screen the user would have had
+         * with no film. It is REPORTED, unlike an image failure, because this
+         * one cost a model call and minutes of a render.
+         */
+        // Decided by the composer's ANIMATION switch and the request — never by a
+        // Motion checkbox. The rules, and why, are in `decideFilm`.
+        const museFilm = decideFilm({
+          mode: animationMode,
+          kinds: motionKindIds,
+          dossier: museRan ? museDossier?.film : undefined,
+        })
+        if (museFilm) {
+          const kindName = t(`muse.motionKind.${museFilm.kind}` as TranslationKey)
+          try {
+            motionStage(screenId, t('project.motionStageComposeKind', { kind: kindName }))
+            const theme = themeFromDesign(dir.markdown)
+            const proposal = await proposeVideoTimeline(
+              text,
+              // The pictures Muse just made, and nothing else. The composer
+              // never picks a picture (the founding rule), so this list is the
+              // whole world it is shown — and a kind that needs none composes
+              // from the twenty-one blocks that need none.
+              museImgs.map((im) => im.url.split('/').pop() || '').filter((h) => /^[a-f0-9]{64}$/.test(h)),
+              {
+                settings,
+                theme,
+                motionKind: museFilm.kind,
+                // The film is ONE element of this page: where it goes, and why. With
+                // it the page's prompt is read as the page's, not as a script for the
+                // film, and the kind's word budget bounds what the film says.
+                placement: { section: museFilm.section || museFilm.kind, why: museFilm.why },
+                // The dossier in its own words. Not the theme, which travels
+                // separately and never reaches the model: this is what makes a
+                // film RESEMBLE the direction rather than merely carry its
+                // colours. See lib/video/directionBrief.ts.
+                direction: directionBriefFrom(dir.markdown),
+                signal: ac.signal,
+              },
+            )
+            if (!proposal.timeline) {
+              // A proposal that could not be made is not a request that failed —
+              // the server says why in its own sentence, and it is the only
+              // thing here worth repeating verbatim.
+              reportMotionFailure(t('project.motionFailed', { detail: motionNotices(proposal.notices) }))
+            } else {
+              motionStage(screenId, t('project.motionStageRenderKind', { kind: kindName }))
+              /*
+               * The theme is STRIPPED before this goes back out, and forgetting
+               * that is what made this whole path silently produce nothing.
+               *
+               * `/compose` answers with the render document — the timeline the
+               * server already attached a theme to. `startVideoRender` validates
+               * its input against `VideoTimelineSchema`, which is `.strict()`
+               * and has no `theme` key, precisely so a model that writes one is
+               * refused. So handing the proposal straight back threw
+               * "refused before it was sent", the catch below turned it into a
+               * Motion failure notice, and no render was ever requested: a film
+               * composed, paid for, and dropped one line later.
+               *
+               * `toRenderInputFrom` is the panel's own helper, which has always
+               * done this. Using it rather than a local `delete` is the point —
+               * two paths that build the same request must build it the same
+               * way, or only one of them keeps working.
+               */
+              const renderable = toRenderInputFrom(
+                proposal.timeline,
+                proposal.timeline.outputFormat,
+                proposal.timeline.aspectRatio,
+              )
+              const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: ac.signal })
+              /*
+               * Polled until it lands, and bounded by the queue's own deadline
+               * rather than by a number invented here.
+               *
+               * `pollDeadlinePassed` is the panel's rule and it needs a budget
+               * this call does not have, so the bound is the job itself: the
+               * queue kills a render that overruns and reports it as failed, and
+               * this loop simply stops when the job stops being queued.
+               */
+              const finished = await awaitVideoJob(job.id, ac.signal)
+              if (finished.status === 'done' && finished.videoHash) {
+                // Attached to the SCREEN first, and unconditionally: this is
+                // what makes the film findable on the canvas and in Media, and
+                // it is the part that cannot fail. The edit pass below can.
+                onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
+                await placeFilmInScreen(
+                  screenId,
+                  finished.videoHash,
+                  museFilm.kind,
+                  ac.signal,
+                  // The proposal, not the job: it is the document that carries
+                  // the words, and it is right here.
+                  proposal.timeline,
+                  // Where the dossier said it belongs, when it said so.
+                  museFilm.section,
+                )
+              } else {
+                reportMotionFailure(t('project.motionFailed', { detail: finished.error || '' }))
+              }
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            reportMotionFailure(
+              t('project.motionFailed', { detail: err instanceof Error ? err.message : String(err) }),
+            )
+          } finally {
+            // Both, always: a badge left on a frame for a job that ended is a
+            // screen that looks stuck for as long as the tab stays open.
+            motionStageDone()
+          }
+        }
+
+        /*
          * The direction is kept only once the screen exists.
          *
          * Doing it at onAddScreen time would have changed what the whole project
@@ -1333,7 +1648,7 @@ export default function ProjectView({
       abortRef.current = null
       setBusy(false)
       setPhase(null)
-      setMuseStage(null)
+      motionStageDone()
       setGeneratingIds(new Set())
       // The toggle is for ONE generation — the user's own words. It clears here
       // rather than on success so that a failed or cancelled run does not leave
@@ -1345,7 +1660,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, redesign])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, motionAvail, redesign])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -1617,6 +1932,433 @@ export default function ProjectView({
   }
 
   /**
+   * A Motion failure, said where it can actually be read.
+   *
+   * All three of them used to go to `setMuseImageError` alone, which draws
+   * inside the Muse panel of the composer — and by the time Motion runs, the
+   * screen exists and that panel is behind a collapsed control the user has
+   * every reason to have closed. So a film that cost a model call could fail
+   * with a full explanation nobody ever saw: the reported symptom was "j'ai
+   * demandé un héro et il n'y est pas", twice, with the reason on screen the
+   * whole time, one click away.
+   *
+   * The composer's banner only, now. The panel copy it also went to is drawn
+   * under "Image non générée — …", so a film that failed read as an IMAGE that
+   * failed; and the banner is the one that cannot be missed — which is the
+   * standard this module already set for itself: an image failure degrades in
+   * silence, a Motion failure is REPORTED, because it spent a call and minutes
+   * of a render. The banner shows the whole message and can be dismissed.
+   */
+  function reportMotionFailure(message: string) {
+    setError(message)
+  }
+
+  /**
+   * Every reason the composer gave, not the first. A refused document can carry
+   * several issues and the first is not always the one that explains the rest;
+   * the server bounds the list, so nothing here needs to.
+   */
+  function motionNotices(notices: readonly string[]): string {
+    return notices.filter(Boolean).join('\n') || '—'
+  }
+
+  /**
+   * Where Motion says what it is doing — on the SCREEN, not only in the panel.
+   *
+   * The three stages went to `setMuseStage` alone, which draws a spinner inside
+   * the composer's Muse panel. By the time Motion runs the screen exists, the
+   * composer has collapsed, and that panel is behind a control the user has
+   * every reason to have closed. So the honest report of the situation — a film
+   * being composed, rendered, then written into the page, two to three minutes
+   * after the screen looked finished — was invisible: "je ne l'aurais jamais
+   * deviné si tu ne me l'avais pas précisé".
+   *
+   * `regeneratingIds` + `regenLabel` are the mechanism the canvas already has
+   * for exactly this, and `addMotion` already uses them: the frame is badged
+   * with what is happening to it, where the user is looking. Both, because
+   * somebody watching the Muse panel should still see its own progress.
+   *
+   * Cleared by `motionStageDone`, which must run on every exit — success,
+   * failure and abort — or a screen keeps a badge for a job that ended.
+   */
+  function motionStage(screenId: string, label: string) {
+    setMuseStage(label)
+    setRegenLabel(label)
+    setRegeneratingIds(new Set([screenId]))
+    holdNavigation('project.motionLeaveConfirm')
+  }
+
+  function motionStageDone() {
+    setMuseStage(null)
+    setRegeneratingIds(new Set())
+    setRegenLabel(t('canvas.regenerating'))
+    releaseNavigation()
+  }
+
+  /**
+   * A render, followed until it stops being queued or rendering.
+   *
+   * Bounded by the job itself rather than by a number invented here: the queue
+   * kills a render that overruns its deadline and reports it as failed, so this
+   * loop simply ends when the job does. One copy, for the two flows that wait.
+   */
+  async function awaitVideoJob(jobId: string, signal: AbortSignal) {
+    let job = await fetchVideoJob(jobId, signal)
+    while (job.status === 'queued' || job.status === 'rendering') {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
+      if (signal.aborted) throw new DOMException('aborted', 'AbortError')
+      job = await fetchVideoJob(jobId, signal)
+    }
+    return job
+  }
+
+  /**
+   * Change the film that is already IN a screen, from that screen.
+   *
+   * ── Why this exists ─────────────────────────────────────────────────────────
+   *
+   * A film made at the first prompt lands in the page with no panel left open
+   * and no text box to edit, so "la même chose mais avec un fond bleu" had
+   * nowhere to be said — and asking again from scratch now deliberately
+   * composes something DIFFERENT (server/video/variety.js). The screen holds
+   * the film's hash and nothing else; the server reads the document and its
+   * brief back from this account's render history and revises that film.
+   *
+   * ── What changes in the page, and what does not ──────────────────────────
+   *
+   * The film's address, and nothing else. The page already has the film where
+   * it belongs — sized, placed, with its words kept out of the way — so the
+   * new hash replaces the old one wherever the source names it. Replacing a
+   * 64-character content hash is not parsing the source (I1): no structure is
+   * read, and the string cannot occur by accident. A page that no longer names
+   * the old film — rewritten by hand since — keeps its code, and the new film is
+   * attached to the screen and SAID to be, rather than inserted somewhere new.
+   *
+   * `previousCode` is set, so Revert brings the old film back.
+   */
+  async function reviseScreenFilm(screenId: string, request: string) {
+    if (busy) return
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    const oldHash = screen?.attachedMedia?.kind === 'film' ? screen.attachedMedia.hash : null
+    if (!screen || !oldHash) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      motionStage(screenId, t('project.motionStageRevise'))
+      const proposal = await proposeVideoTimeline(request, [], {
+        settings,
+        // Only what THIS sentence declares ("fond bleu"). The film keeps its own
+        // look underneath — the server lays this over it, token by token.
+        theme: themeFromBrief(request),
+        direction: directionBriefFrom(activeDirection()),
+        previousHash: oldHash,
+        signal: ac.signal,
+      })
+      if (proposal.unchanged) {
+        setNotice(t('project.motionReviseUnchanged'))
+        return
+      }
+      if (!proposal.timeline) {
+        reportMotionFailure(t('project.motionFailed', { detail: motionNotices(proposal.notices) }))
+        return
+      }
+
+      motionStage(screenId, t('project.motionStageRender'))
+      const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
+      // The next revision reads this, so it is the whole story so far rather
+      // than the last sentence alone — and the newest words win the bound.
+      const brief = (proposal.previousBrief ? `${proposal.previousBrief}\n${request}` : request).slice(-BRIEF_MAX_LENGTH)
+      const queued = await startVideoRender(renderable, {
+        project: project.id,
+        theme: proposal.timeline.theme ?? null,
+        brief,
+        signal: ac.signal,
+      })
+      const finished = await awaitVideoJob(queued.id, ac.signal)
+      if (finished.status !== 'done' || !finished.videoHash) {
+        reportMotionFailure(t('project.motionFailed', { detail: finished.error || '' }))
+        return
+      }
+
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now) return
+      const oldSrc = videoStreamUrl(oldHash)
+      const newSrc = videoStreamUrl(finished.videoHash)
+      if (now.code.includes(oldSrc)) {
+        onUpdateScreen(screenId, {
+          code: now.code.split(oldSrc).join(newSrc),
+          previousCode: now.code,
+          attachedMedia: filmMedia(finished.videoHash),
+        })
+      } else {
+        onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
+        setNotice(t('project.motionReviseDetached'))
+      }
+    } catch (err) {
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        reportMotionFailure(t('project.motionFailed', { detail: err instanceof Error ? err.message : String(err) }))
+      }
+    } finally {
+      motionStageDone()
+      setBusy(false)
+      if (abortRef.current === ac) abortRef.current = null
+    }
+  }
+
+  /**
+   * Put a rendered film INTO the screen, once it exists.
+   *
+   * ── Why an edit pass and not the generation itself ────────────────────────
+   *
+   * Because the film is not ready when the screen is generated, and making the
+   * screen wait for it was the trade this flow already refused: a film is a
+   * model call plus minutes of render, and holding the thing the person asked
+   * for behind the thing they ticked as an extra is the wrong order. So the
+   * screen lands fast, and the film slots into it when it arrives — the same
+   * shape `addMotion` uses to add an animation pack to a screen already drawn.
+   *
+   * ── Why it is not merely attached ─────────────────────────────────────────
+   *
+   * It IS also attached, on the line above, and that used to be all. It put the
+   * film in a card beside the frame on the canvas, which is a perfectly good
+   * place to find one and not a place anybody asked for: a hero was requested
+   * and the mockup came back without one. Two things had to change before this
+   * could exist at all — `GET /api/video/:hash` is now public by hash, and the
+   * preview's CSP names `media-src`, without which a `<video>` falls back to
+   * `default-src 'none'` and is blocked outright.
+   *
+   * ── And it degrades (Q1) ──────────────────────────────────────────────────
+   *
+   * A failure here leaves the screen exactly as generated, with the film still
+   * attached beside it. `previousCode` is set, so the edit is revertible like
+   * every other screen mutation. It is reported rather than swallowed: it cost
+   * a model call.
+   */
+  async function placeFilmInScreen(
+    screenId: string,
+    hash: string,
+    kind: string | undefined,
+    signal: AbortSignal,
+    /*
+     * What the film already SAYS, read off its own document.
+     *
+     * The first version of this omitted it and produced two headlines stacked
+     * on one another: the page had written its hero copy and the film had burnt
+     * its own into the frames, each correct, neither told about the other. The
+     * answer is not to render a still and ask a vision model to look — a film
+     * is structured data, so its words and their zones are exact, already in
+     * hand, and cost nothing.
+     */
+    film: VideoTimeline | RenderTimeline | null,
+    /**
+     * The section the Muse dossier named for this film, when it decided one. It
+     * comes first among the preferences below, and like them it counts only if
+     * the screen really has a section by that id.
+     */
+    section?: string,
+  ) {
+    const settings = loadSettings()
+    if (!settings.model.trim()) return
+    /*
+     * Through the REF, and that is the whole reason this function did nothing.
+     *
+     * `screens` is captured when the generate callback is built — before the
+     * screen this film belongs to has been created. Reading it here found
+     * nothing, `codeAtStart` was empty, and the early return below fired: the
+     * film was composed, rendered, attached to the screen, and then never put
+     * INTO it, silently, because the guard that exists to skip an empty screen
+     * cannot tell one apart from a screen it simply could not see.
+     *
+     * `screensRef` is kept current on every render for exactly this, and the
+     * other three long-running mutations in this file already read it.
+     */
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    const codeAtStart = screen?.code ?? ''
+    if (!codeAtStart.trim()) return
+
+    const src = videoStreamUrl(hash)
+
+    /*
+     * WHICH SECTION, by name, read off the screen itself.
+     *
+     * A `showcase` film — a product tile — was placed over the hero, and the
+     * instruction had already said "it is NOT the hero". The instruction was
+     * not the problem: the model still had to FIND the product section by
+     * reading anonymous elements, and it took the first one. An instruction
+     * cannot name a place the document does not name either.
+     *
+     * Generation now puts a stable id on every top-level section, and this
+     * quotes the ones this screen REALLY has — parsed, never matched with a
+     * regex (I1). A preference is offered per kind, and it is a preference: the
+     * ids are the model's own from a moment ago, and a screen about something
+     * else may legitimately have none of the names below.
+     *
+     * Degrades to the old wording when a screen has no ids at all — an older
+     * screen, or one Babel could not parse.
+     */
+    const sections = await findScreenSections(codeAtStart)
+    const PREFERRED: Record<string, string[]> = {
+      hero: ['hero'],
+      background: ['hero', 'features', 'cta'],
+      banner: ['cta', 'banner', 'nav', 'footer'],
+      showcase: ['product', 'products', 'showcase', 'features', 'gallery'],
+      figure: ['stats', 'numbers', 'results', 'features'],
+      globe: ['coverage', 'map', 'about', 'features'],
+      mark: ['footer', 'cta', 'hero'],
+      story: ['hero', 'features'],
+    }
+    const wanted = [...(section ? [section] : []), ...(PREFERRED[kind || ''] || [])].filter((id) =>
+      sections.some((sec) => sec.id === id),
+    )
+    const placement = sections.length
+      ? [
+          '',
+          `The screen's sections, by id: ${sections.map((sec) => `#${sec.id}`).join(', ')}.`,
+          wanted.length
+            ? `Put the film in #${wanted[0]} — that is where a "${kind}" film belongs.`
+            : 'None of them is an obvious home for this film, so choose the one whose SUBJECT it shares — not the first one on the page.',
+          'Say which id you used by leaving the film inside that element. Do not rename or remove any id: they are handles the rest of the app places things by.',
+        ]
+      : []
+
+    const where =
+      kind === 'background'
+        ? 'Use it as a section BACKGROUND: absolutely positioned inside a relative parent, with the existing copy on top of it. It is never the subject.'
+        : kind === 'hero'
+          ? 'Use it as the HERO: the first thing the visitor sees, with the existing headline and CTA passed as its children so they sit over the film.'
+          : 'Give it the size its role deserves — a banner strip, a product card, a feature tile. It is NOT the hero unless the page has no other subject.'
+
+    /*
+     * The film's own words, quoted, with the instruction to DELETE the page's
+     * duplicate rather than lay one over the other.
+     *
+     * Deleting is the right verb and it was the user's call: the film already
+     * says it, and two headlines stacked is the one outcome nobody wants. The
+     * page keeps everything the film does NOT say — the navigation, the body
+     * copy, the cards — so what is thrown away is exactly what became a repeat.
+     *
+     * Quoted verbatim so the model can match on the words rather than guess
+     * from a role name: Muse writes the page's copy and the composer writes the
+     * film's, and the two say the same thing in different words about half the
+     * time. Naming the ZONE as well, because a film that burns its title
+     * bottom-left and a page that puts its own top-right do not collide, and
+     * telling the model to delete then would cost real copy for nothing.
+     */
+    /*
+     * The rule is about the ZONE, not about repetition — and getting that
+     * backwards is what left two headlines on screen after the first fix.
+     *
+     * The instruction used to say "delete the page copy where it says the same
+     * thing". A film burning "Des objets qui gardent la trace du geste" and a
+     * page writing "La terre, façonnée à la main" say DIFFERENT things, so the
+     * model correctly judged them not duplicates and kept both — stacked, in the
+     * same place, unreadable. Two headlines collide because they are in the same
+     * zone, whatever they happen to say.
+     *
+     * So: the film has taken that ground. The page's own display type there
+     * goes. Deleting is the user's explicit call ("pas grave si elle jette du
+     * code"), and it is the right one — the film already carries the words a
+     * hero needs, and nothing below the hero is touched.
+     */
+    /*
+     * THE FILM'S OWN SHAPE, and why it has to travel.
+     *
+     * A film is composed at the ratio its KIND declares — `showcase` is 1:1,
+     * `banner` is wide, `story` is 9:16 — and the page then puts it in a box of
+     * whatever shape the layout wanted. `<MotionFilm>` defaulted to
+     * `fit: cover`, which fills that box by CROPPING, so a 1:1 film in a wide
+     * hero lost its left and right edges: "DIGITAL WELLNESS" and "Softly" came
+     * back sliced down both sides, and "for your digital life." lost its full
+     * stop. Two screenshots of the same defect.
+     *
+     * Two halves, and neither is enough alone. The page is told the shape so it
+     * can reserve a box of that proportion — which is what "il faut que Remotion
+     * sache quel est le format qui va être nécessaire" is really asking, from
+     * the other end. And a film that BURNS TEXT is never cropped: `contain`
+     * letterboxes it instead, so a box that ends up slightly wrong costs a band
+     * of ground rather than a word. A wordless film keeps `cover`, because
+     * cropping a texture is free and a letterboxed background is a bug.
+     */
+    const ratio = (film as { aspectRatio?: string } | null)?.aspectRatio ?? '16:9'
+    const burnt = filmTextRuns(film)
+    const fit = burnt.length ? 'contain' : 'cover'
+    const shape = [
+      '',
+      `The film is ${ratio}. Give its box that proportion — an aspect-ratio class, or a height that matches the`,
+      'width you are giving it. A box of the wrong shape is the whole reason this instruction exists.',
+      burnt.length
+        ? `Use fit="${fit}": this film has words burnt into it, and cropping a film crops its type. If the box is`
+        : `Use fit="${fit}": this film carries no text, so filling the box is free.`,
+      ...(burnt.length ? ['slightly off, a band of background is the right price to pay; a sliced headline is not.'] : []),
+    ]
+
+    const carries = burnt.length
+      ? [
+          '',
+          'THE FILM ALREADY BURNS ITS OWN TEXT INTO THE FRAMES:',
+          ...burnt.map((r) => `  · "${r.text}"${r.anchor ? ` (${r.anchor})` : ''}`),
+          '',
+          'That ground is TAKEN. The page must not put its own headline or subheadline over the film — not a',
+          'shorter one, not a different one, not one that says something else. Two runs of display type in the',
+          'same place collide whatever they say, and the film is the one that moves with the picture.',
+          'DELETE the page copy that would land there: its <h1>, its subheadline, its eyebrow. Keep the logo,',
+          'the navigation, the buttons, and every section below the film exactly as they are.',
+          'If deleting leaves the film with nothing but buttons over it, that is correct — the film is speaking.',
+        ]
+      : [
+          '',
+          'The film carries no text of its own, so the page keeps all of its copy — lay it over the film.',
+        ]
+
+    motionStage(screenId, t('project.motionStagePlace'))
+    const capIds = Array.from(new Set([...(screen?.caps ?? []), 'motionfilm']))
+    const res = await editComponent(
+      settings,
+      [
+        `A film has been rendered for this screen. Place it in the page using the <MotionFilm> component.`,
+        `Use src="${src}" exactly — it is a content hash, and changing one character gives a screen whose film silently never loads.`,
+        where,
+        ...placement,
+        ...shape,
+        ...carries,
+        '',
+        'Change nothing else: every other section, its copy and its classes stay exactly as they are. Do not add',
+        'a <video> tag of your own.',
+      ].join('\n'),
+      codeAtStart,
+      undefined,
+      undefined,
+      signal,
+      undefined,
+      resolveCapabilities(capIds),
+    )
+    // The same guard every screen mutation in this file uses: the code may have
+    // moved under us while the model was working, and writing back over a newer
+    // edit would silently discard whatever the user did in the meantime.
+    // The ref again, and here the stale read was worse than useless: `screens`
+    // never contains this screen, so `now` was always undefined and the guard
+    // silently passed — it would have overwritten whatever the user had edited
+    // during the minutes this took, which is the one thing it exists to stop.
+    const now = screensRef.current.find((s) => s.id === screenId)
+    if (now && now.code !== codeAtStart) return
+    onUpdateScreen(screenId, {
+      code: res.code,
+      componentName: res.componentName,
+      previousCode: codeAtStart,
+      caps: capabilitiesFor(capIds, res.code),
+    })
+  }
+
+  /**
    * Apply a no-code, targeted change to a single clicked element (Lot C).
    * Runs an edit pass anchored on the picked element's text/selector, keeping
    * everything else intact, streaming live, and saving previousCode for revert.
@@ -1669,11 +2411,6 @@ export default function ProjectView({
   }
 
   /**
-   * Change only the visible text of the picked element (Lot C.2). Tries a
-   * deterministic in-place swap first (instant, free, no model) and falls back
-   * to a targeted LLM edit when the text isn't a unique verbatim match.
-   */
-  /**
    * Correct named SEO / accessibility findings on one screen.
    *
    * Reuses `runPolishLoop` — its four stop conditions are the hard part and are
@@ -1690,6 +2427,24 @@ export default function ProjectView({
    * @returns how many findings were resolved, or null when nothing could run.
    */
   async function fixAuditFindings(screenId: string, findings: QualityFinding[]): Promise<number | null> {
+    /*
+     * The same guard as regenerate, polishScreen, addAnimations and applyModify,
+     * and the only one of the five that was missing it.
+     *
+     * `busy`, `abortRef.current`, `regenLabel` and `regeneratingIds` are one set
+     * of state shared by every model-backed mutation, so a second one starting
+     * mid-flight does not run beside the first — it overwrites it. Started
+     * during a regeneration, this took over `abortRef`, so Stop cancelled the
+     * audit fix and left the regeneration running with nothing pointing at it;
+     * moved the progress overlay onto its own screen; and then cleared all four
+     * in its `finally` while the regeneration was still going, which is how a
+     * screen finishes generating with no sign it ever started.
+     *
+     * Returning null rather than throwing: AuditPanel already treats null as
+     * "the pass could not run", and the panel's buttons are disabled on `busy`
+     * anyway, so this is the backstop for a click that slipped through.
+     */
+    if (busy) return null
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen) return null
     // Read at call time, like every other model-backed path here, so an admin
@@ -1704,6 +2459,13 @@ export default function ProjectView({
     setBusy(true)
     setRegenLabel(t('audit.fixing'))
     setRegeneratingIds(new Set([screenId]))
+    // Every path that hands a screen wholesale to the model resets this first,
+    // and this one did not. `retryRefs` is the auto-repair budget — two attempts
+    // per screen, spent on render errors — and it is keyed by screen id, not by
+    // version of the code. A screen that had already burned MAX_FIX_ATTEMPTS on
+    // its previous source would get no repair at all if the markup correction
+    // came back broken, which is the moment it is most likely to.
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
       const designMd = activeDirection()
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
@@ -1762,7 +2524,7 @@ export default function ProjectView({
   }
 
   /**
-   * Write back a screen whose image URLs were swapped.
+   * Write back a screen whose media URLs were swapped in the source.
    *
    * No AbortController and no `codeAtStart` re-check, unlike every model-backed
    * mutation here: the substitution is synchronous and was computed from the
@@ -1771,20 +2533,59 @@ export default function ProjectView({
    * `previousCode`, which is what makes "Revert" undo a swap the same way it
    * undoes an edit.
    *
-   * `componentName` is re-detected out of habit rather than need — an image URL
+   * `componentName` is re-detected out of habit rather than need — a media URL
    * cannot rename a component — but every other write-back here does it, and a
    * path that skips it is a path someone has to reason about later.
+   *
+   * `sequence` arrives only when the swap re-pointed the very clip
+   * `videoHash`/`videoFrames` records. Those two are written at generation time
+   * to say which sequence Muse paid for; left behind after a hero swap they
+   * describe a clip the screen no longer shows. They move as a pair or not at
+   * all, here as everywhere — half a sequence draws its last frame for the rest
+   * of the scroll.
    */
-  function swapScreenImages(screenId: string, nextCode: string) {
+  function swapScreenImages(
+    screenId: string,
+    nextCode: string,
+    sequence?: { hash: string; frames: number },
+  ) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
     onUpdateScreen(screenId, {
       code: nextCode,
       componentName: detectComponentName(nextCode),
       previousCode: screen.code,
+      ...(sequence ? { videoHash: sequence.hash, videoFrames: sequence.frames } : {}),
     })
   }
 
+  /**
+   * Attach a film or a sequence to a screen, or detach it with null.
+   *
+   * The other relation between a screen and a media, and it is deliberately not
+   * `swapScreenImages` with a flag: nothing here reads or writes `code`, so
+   * there is no `previousCode` to keep and no component name to re-detect. Those
+   * belong to a source rewrite, and carrying them on a metadata write would
+   * make "Revert" offer to undo an attachment by restoring an old source.
+   *
+   * Every caller goes through here — the export panel's picker and the media
+   * dialog's second section — so a field that has to survive `normalizeScreen`
+   * has one writer to check.
+   */
+  function attachScreenMedia(screenId: string, media: AttachedMedia | null) {
+    onUpdateScreen(screenId, { attachedMedia: media ?? undefined })
+  }
+
+  /**
+   * Change only the visible text of the picked element (Lot C.2). Tries a
+   * deterministic in-place swap first (instant, free, no model) and falls back
+   * to a targeted LLM edit when the text isn't a unique verbatim match.
+   *
+   * No `busy` guard of its own: the direct swap is synchronous and costs
+   * nothing, and the fallback is `applyModify`, which already refuses while
+   * another mutation is running. Adding a second check here would be a second
+   * place to keep in step with a rule that has one owner.
+   */
   async function applyTextChange(screenId: string, info: PickInfo, newText: string) {
     const screen = screens.find((s) => s.id === screenId)
     if (!screen) return
@@ -1866,6 +2667,7 @@ export default function ProjectView({
       {showLibrary && (
         <Bibliotheque
           projectId={project.id}
+          initialTab={libraryTab}
           pinned={pinnedImages}
           onTogglePin={togglePin}
           pinnedVideo={pinnedVideo}
@@ -1881,13 +2683,61 @@ export default function ProjectView({
         />
       )}
       {lightboxHash && <ImageLightbox hash={lightboxHash} onClose={() => setLightboxHash(null)} />}
+      {playingFilm && <FilmLightbox hash={playingFilm} onClose={() => setPlayingFilm(null)} />}
       {imageSwapScreen && (
         <ScreenImagesDialog
           screenName={imageSwapScreen.name}
           code={imageSwapScreen.code}
           projectId={project.id}
-          onReplace={(code) => swapScreenImages(imageSwapScreen.id, code)}
+          attached={imageSwapScreen.attachedMedia}
+          videoHash={imageSwapScreen.videoHash}
+          onReplace={(code, sequence) => swapScreenImages(imageSwapScreen.id, code, sequence)}
+          onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
+        />
+      )}
+      {reviseFilmScreenId && (
+        <MotionReviseDialog
+          onClose={() => setReviseFilmScreenId(null)}
+          onSubmit={(request) => {
+            const id = reviseFilmScreenId
+            setReviseFilmScreenId(null)
+            void reviseScreenFilm(id, request)
+          }}
+        />
+      )}
+      {showVideoExport && (
+        <VideoExportDialog
+          projectId={project.id}
+          /* The same direction the next generation will read, not the global
+             file: a film cut in a project with its own DESIGN.md must come out
+             in that project's colours, and `directionMd` is the one resolution
+             of that question the rest of this view already draws from. */
+          direction={directionMd}
+          /* Read-only, and only what the picker draws — see AttachTarget. The
+             thumbnail cache is keyed on the code, so it travels with the name. */
+          screens={screens.map((s) => ({
+            id: s.id,
+            name: s.name,
+            code: s.code,
+            attachedHash: s.attachedMedia?.kind === 'film' ? s.attachedMedia.hash : undefined,
+          }))}
+          onAttachFilm={(screenId, hash) => attachScreenMedia(screenId, filmMedia(hash))}
+          jobId={videoJobId}
+          onJobId={setVideoJobId}
+          /*
+           * Closes this panel and opens the library on the cut. Both, in that
+           * order: leaving the export panel underneath would stack two modals
+           * over each other, and the render it was watching is finished — the
+           * job id survives in `videoJobId`, so reopening the panel still finds
+           * it.
+           */
+          onOpenMedia={() => {
+            setShowVideoExport(false)
+            setLibraryTab('films')
+            setShowLibrary(true)
+          }}
+          onClose={() => setShowVideoExport(false)}
         />
       )}
     </>
@@ -1915,7 +2765,13 @@ export default function ProjectView({
         museResult={museResult}
         museImages={museImages}
         museStage={museStage}
-        onOpenLibrary={() => setShowLibrary(true)}
+        onOpenLibrary={() => {
+                      // Back to images. `libraryTab` is sticky so that "see it
+                      // in Media" can land on the cut; leaving it there would
+                      // make the ordinary Media button open on Motion ever after.
+                      setLibraryTab('images')
+                      setShowLibrary(true)
+                    }}
         pinned={pinnedImages}
         onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
         museImageError={museImageError}
@@ -1951,7 +2807,10 @@ export default function ProjectView({
       active: annotateMode,
       onClick: () => {
         setAnnotateMode((v) => !v)
-        setLinkMode(false)
+        // Only Link mode: annotating has no panel in the right-hand slot, so
+        // closing the Design System inspector or the audit report here would be
+        // taking away a reference the user opened on purpose.
+        setRightSlot((s) => closeSlot(s, 'links'))
         setModifyMode(false)
         setPendingModify(null)
       },
@@ -1980,10 +2839,7 @@ export default function ProjectView({
       label: t('mode.system'),
       title: t('project.systemTitle'),
       active: showSystem,
-      onClick: () => {
-        setShowSystem((v) => !v)
-        setShowAudit(false)
-      },
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'system')),
     },
     {
       id: 'audit',
@@ -1991,13 +2847,34 @@ export default function ProjectView({
       label: t('mode.audit'),
       title: t('audit.open'),
       active: showAudit,
-      onClick: () => {
-        // Mutually exclusive with the design system panel: both want the same
-        // slot at `right-4 top-11`, and Panel's own note records what happened
-        // the last time two of them shared it without a z-index.
-        setShowAudit((v) => !v)
-        setShowSystem(false)
-      },
+      // Exclusive with the design system panel AND with the Links list, which
+      // this used to forget: all three want `right-4 top-11`, and it only ever
+      // cleared the one whose name was in the same paragraph. See lib/rightSlot.
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'audit')),
+    },
+    /*
+     * Last of the first group — the panels and modes — and not with Démo and
+     * Export past the rule.
+     *
+     * That second group is what LEAVES the project: a demo of screens that
+     * exist, an archive of code that exists. Motion makes something that did not
+     * exist a minute ago, out of the media library, and it opens a panel exactly
+     * as Design System and Audit do. Sitting beside Export it read as a fourth
+     * output format, which is the one thing it is not.
+     *
+     * Still deliberately NOT in a screen's context menu: a cut is made from the
+     * media library, it does not read a screen and cannot be derived from one.
+     * Hanging it off a screen would promise a relationship the pipeline does not
+     * have, and the first thing the panel does — ask which pictures to use —
+     * would contradict it.
+     */
+    {
+      id: 'video',
+      icon: 'film',
+      label: t('video.toolbarLabel'),
+      title: t('video.toolbarTitle'),
+      active: showVideoExport,
+      onClick: () => setShowVideoExport((v) => !v),
     },
     {
       id: 'demo',
@@ -2051,6 +2928,20 @@ export default function ProjectView({
         onResizeScreen={(id, box) => onUpdateScreen(id, box)}
         onRenameScreen={(id, name) => onUpdateScreen(id, { name })}
         onOpenImage={setLightboxHash}
+        /*
+         * A film plays here; a sequence goes to Média.
+         *
+         * Not an omission. A scroll sequence is played by scrubbing
+         * `/f/1.jpg … /f/N.jpg`, which `VideoPlayer` already does properly in
+         * the Vidéos tab — writing a second scrubber for one card is two
+         * players that drift, and the first thing to drift would be the
+         * cache-busting `?v=` a re-cut depends on.
+         */
+        onOpenScreenMedia={(media) => {
+          if (media.kind === 'film') return setPlayingFilm(media.hash)
+          setLibraryTab('videos')
+          setShowLibrary(true)
+        }}
         onDeleteScreen={(id) => {
           if (confirm(t('project.deleteScreenConfirm'))) {
             onRemoveScreen(id)
@@ -2110,7 +3001,7 @@ export default function ProjectView({
         <DesignSystemPanel
           markdown={directionMd || ''}
           onRecolor={recolorToken}
-          onClose={() => setShowSystem(false)}
+          onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
           onEdit={onOpenDesign}
         />
       )}
@@ -2130,7 +3021,12 @@ export default function ProjectView({
             setFocus({ screenId: id, nonce: Date.now() })
           }}
           onFix={fixAuditFindings}
-          onClose={() => setShowAudit(false)}
+          // Gated on the project being idle, not just on the panel's own state:
+          // `fixAuditFindings` refuses while another screen mutation runs, and a
+          // button whose only feedback would be "the correction failed" is worse
+          // than one that says it is unavailable.
+          busy={busy}
+          onClose={() => setRightSlot((s) => closeSlot(s, 'audit'))}
         />
       )}
 
@@ -2145,7 +3041,7 @@ export default function ProjectView({
             <button
               type="button"
               className="text-body-sm text-ink-muted hover:text-ink"
-              onClick={() => setLinkMode(false)}
+              onClick={() => setRightSlot((s) => closeSlot(s, 'links'))}
               title={t('project.closeLinkMode')}
             >
               {t('project.done')}
@@ -2276,7 +3172,7 @@ export default function ProjectView({
       */}
       <div className="absolute left-4 top-3 max-w-[calc(100vw-2rem)]">
         <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 shadow-lg">
-          <Button variant="toolbar" size="sm" onClick={onBack} title={t('error.backToProjects')}>
+          <Button variant="toolbar" size="sm" onClick={leaveProject} title={t('error.backToProjects')}>
             <Icon name="chevronLeft" size={16} />
             {/* Every label on the bar is wrapped, including the ones inside the
                 folded group where the group already hides them. Uniform, so
@@ -2291,7 +3187,7 @@ export default function ProjectView({
             size="sm"
             active={linkMode}
             onClick={() => {
-              setLinkMode((v) => !v)
+              setRightSlot((s) => toggleSlot(s, 'links'))
               setModifyMode(false)
               setAnnotateMode(false)
             }}
@@ -2306,7 +3202,9 @@ export default function ProjectView({
             active={modifyMode}
             onClick={() => {
               setModifyMode((v) => !v)
-              setLinkMode(false)
+              // See the Annotate button: Link mode only, because Modify has no
+              // panel of its own in that slot to make room for.
+              setRightSlot((s) => closeSlot(s, 'links'))
               setAnnotateMode(false)
               setPendingModify(null)
             }}
@@ -2317,8 +3215,8 @@ export default function ProjectView({
           </Button>
 
           {/* `contents` and not `flex`: at md and above this wrapper must add no
-              box of its own, or the six buttons would space as one item against
-              the three before them. */}
+              box of its own, or the folded buttons would space as one item
+              against the three before them. */}
           <div className="hidden md:contents">
             {foldedTools.map((tool) => (
               <Fragment key={tool.id}>
@@ -2414,15 +3312,33 @@ export default function ProjectView({
       {/* Floating composer */}
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
         <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-line bg-surface p-2 shadow-2xl">
+          {/*
+            The whole message, wrapped — never `truncate`. A one-line ellipsis cut
+            "…refused at scenes.0.layers" off exactly before the part that said
+            WHY ("Array must contain at least 1 element"), which is the only part
+            anybody can act on. Long messages scroll inside the banner rather than
+            pushing the composer off the screen, and the banner can be dismissed.
+          */}
           {error && (
-            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-body-sm text-danger">
-              <span className="flex min-w-0 items-center gap-2">
-                <Icon name="warning" size={16} />
-                <span className="truncate">{error}</span>
+            <div className="mb-2 flex items-start justify-between gap-3 rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-body-sm text-danger">
+              <span className="flex min-w-0 items-start gap-2">
+                <Icon name="warning" size={16} className="mt-0.5 shrink-0" />
+                <span className="max-h-40 overflow-y-auto whitespace-pre-line break-words">{error}</span>
               </span>
-              <button type="button" className="btn-ghost shrink-0 px-2 py-1 text-body-sm" onClick={onOpenSettings}>
-                {t('nav.settings')}
-              </button>
+              <span className="flex shrink-0 items-center gap-1">
+                <button type="button" className="btn-ghost px-2 py-1 text-body-sm" onClick={onOpenSettings}>
+                  {t('nav.settings')}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost px-1.5 py-1"
+                  aria-label={t('common.close')}
+                  title={t('common.close')}
+                  onClick={() => setError(null)}
+                >
+                  <Icon name="close" size={14} />
+                </button>
+              </span>
             </div>
           )}
 
@@ -2558,7 +3474,13 @@ export default function ProjectView({
                     images={museImages}
                     stage={museStage}
                     busy={busy}
-                    onOpenLibrary={() => setShowLibrary(true)}
+                    onOpenLibrary={() => {
+                      // Back to images. `libraryTab` is sticky so that "see it
+                      // in Media" can land on the cut; leaving it there would
+                      // make the ordinary Media button open on Motion ever after.
+                      setLibraryTab('images')
+                      setShowLibrary(true)
+                    }}
                     pinned={pinnedImages}
                     onUnpin={(hash) => setPinnedImages((arr) => arr.filter((p) => p.hash !== hash))}
                     imageError={museImageError}
@@ -2958,6 +3880,11 @@ export default function ProjectView({
               <ContextMenuShell x={menu.x} y={menu.y}>
                 <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                 <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
+                {/* Only on a screen that carries a film: the one place a film made
+                    at the first prompt can still be changed rather than replaced. */}
+                {s.attachedMedia?.kind === 'film' && (
+                  <MenuItem icon="pencil" label={t('project.motionRevise')} disabled={busy} onClick={() => { close(); setReviseFilmScreenId(s.id) }} />
+                )}
                 <MenuItem
                   icon="pencil"
                   label={t('canvas.rename')}

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { IconButton } from './Button'
 import { Icon } from './Icon'
+import { useT } from '../i18n'
 
 /**
  * A floating surface over the canvas — the Links list, the Design System
@@ -8,8 +9,9 @@ import { Icon } from './Icon'
  *
  * Two of these used to be positioned identically (`absolute right-4 top-11`)
  * with no z-index, so opening one did not close the other and they overlapped
- * exactly. Placement is now the caller's job and stacking comes from the single
- * z scale in tailwind.config.js.
+ * exactly. Placement is now the caller's job, stacking comes from the single z
+ * scale in tailwind.config.js, and which one may be open at all is decided by
+ * `src/lib/rightSlot.ts` — a single value cannot hold two panels.
  */
 export function Panel({
   title,
@@ -17,13 +19,24 @@ export function Panel({
   children,
   footer,
   className = '',
+  /**
+   * The close button's accessible name. Defaults to the current language rather
+   * than to a French sentence: this label was `"Fermer le panneau"`, hard-coded,
+   * and an icon-only button has no other name — so in an English interface the
+   * only word a screen reader could announce here was French. A prop as well as
+   * a default, because a panel that closes something more specific than "the
+   * panel" should be able to say so.
+   */
+  closeLabel,
 }: {
   title: string
   onClose?: () => void
   children: ReactNode
   footer?: ReactNode
   className?: string
+  closeLabel?: string
 }) {
+  const t = useT()
   return (
     <aside
       aria-label={title}
@@ -36,7 +49,7 @@ export function Panel({
           {title}
         </h3>
         {onClose && (
-          <IconButton label="Fermer le panneau" variant="quiet" onClick={onClose}>
+          <IconButton label={closeLabel ?? t('common.closePanel')} variant="quiet" onClick={onClose}>
             <Icon name="close" size={16} />
           </IconButton>
         )}

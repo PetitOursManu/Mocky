@@ -13,6 +13,12 @@ import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
 import { createVideos } from './videos/index.js'
 import { PUBLIC_VIDEO_PATH } from './videos/routes.js'
+import { VideoConfigStore } from './video/config.js'
+import { VideoQueue } from './video/queue.js'
+import { createVideoWorker, collectImages } from './video/worker.js'
+import { VideoExportStore } from './video/store.js'
+import { totalDurationMs } from './video/timeline.js'
+import { createVideoRouter, createVideoAdminRouter } from './video/routes.js'
 import { TextConfigStore, looksLikeImageModel } from './text/config.js'
 import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
@@ -70,11 +76,18 @@ const muse = createMuse({ rootDir: ROOT_DIR, dataDir: DATA_DIR })
 muse.host.startAutoStart().catch(() => {}) // best-effort; never blocks boot
 
 // ---- disk budget ----
-// Shared by the image and video libraries: they are the only two things here
-// that grow without an upper bound, and they grow from user input. Seeded once
-// at boot rather than measured per request — see server/storage-quota.js.
+// Shared by everything here that grows without an upper bound from user input:
+// the image library, the scroll-sequence library, and the exported films. A
+// directory left out of this list is not exempt from filling the volume, only
+// from being counted — which makes the ceiling wrong by however much it holds.
+// Seeded once at boot rather than measured per request — see
+// server/storage-quota.js.
 const diskBudget = createDiskBudget({
-  dirs: [path.join(DATA_DIR, 'image-library'), path.join(DATA_DIR, 'video-library')],
+  dirs: [
+    path.join(DATA_DIR, 'image-library'),
+    path.join(DATA_DIR, 'video-library'),
+    path.join(DATA_DIR, 'video-exports'),
+  ],
 })
 
 // ---- Muse image service + global Image Library ----
@@ -87,6 +100,57 @@ const images = createImages({ dataDir: DATA_DIR, budget: diskBudget })
 // dependency on ffmpeg that the image path does not have. Lazy in the same way
 // — nothing is probed until a request arrives.
 const videos = createVideos({ dataDir: DATA_DIR, configStore: images.configStore, budget: diskBudget })
+
+// ---- Video export (Remotion worker) ----
+//
+// Note the singular: `server/video/` is the export pipeline, `server/videos/`
+// above is the clip library that feeds scroll sequences into a mockup. Two
+// features, one letter apart.
+//
+// Its own config store rather than the images one: the Remotion licence key and
+// the export allowlist have nothing to do with an image provider, and the worker
+// is an opt-in Docker service the rest of the app knows nothing about. Nothing
+// here probes or spawns at boot — an instance that never turns the feature on
+// pays for a file read that fails and a queue holding zero jobs.
+const videoConfig = new VideoConfigStore(DATA_DIR)
+const videoWorker = createVideoWorker({ config: videoConfig, fetchImpl: fetch })
+/*
+ * Where a finished render lands — its own store, NOT `videos.library`.
+ *
+ * The clip library exists to cut scroll sequences: `ingest` runs ffmpeg over
+ * whatever it is given to produce up to 150 stills, and everything downstream of
+ * its `list()` expects them. An exported film has no frames anybody will ever
+ * display, so filing it there would pay for the cutting and then lie to every
+ * consumer of that list. See the header of server/video/store.js.
+ */
+const videoExports = new VideoExportStore(DATA_DIR, { budget: diskBudget })
+const videoQueue = new VideoQueue({
+  dataDir: DATA_DIR,
+  render: async (job, { signal }) => {
+    const payload = collectImages(images.library, job.timeline)
+    const out = await videoWorker.render(job.timeline, payload, { signal })
+    /*
+     * Stored here rather than by the queue, because the queue deliberately does
+     * not judge a result: it turns a rejection into a job marked `error`, and
+     * `put` throwing on a full volume is exactly that — a render that produced
+     * bytes with nowhere to go has not succeeded, and a job saying `done` with
+     * no `videoHash` would be a download button pointing at nothing.
+     */
+    const stored = videoExports.put(out.buffer, {
+      owner: job.userId,
+      // Carried by the job because nothing downstream could reconstruct it: the
+      // store is content-addressed, so the bytes say what the film contains and
+      // nothing about where it was cut. Without this the Media tab has no
+      // question to ask, and a finished export is a file nobody can find.
+      project: job.projectId || undefined,
+      format: job.timeline.outputFormat,
+      aspectRatio: job.timeline.aspectRatio,
+      scenes: job.timeline.scenes.length,
+      durationMs: totalDurationMs(job.timeline),
+    })
+    return { videoHash: stored.hash }
+  },
+})
 
 // ---- Admin-configured text (LLM) provider ----
 // When unset, the proxy keeps using the credentials the browser sends.
@@ -943,6 +1007,7 @@ app.get('/api/admin/usage', requireAdmin, (req, res) => {
         users: loadUsers(),
         images: images.library,
         videos: videos.library,
+        videoExports,
         instance: diskBudget.usage(),
       }),
     )
@@ -1047,7 +1112,7 @@ app.put('/api/admin/images/config', requireAdmin, (req, res) => {
 // works end-to-end. Can test a provider before selecting it via ?provider=.
 app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
   const id = typeof req.body?.provider === 'string' ? req.body.provider : undefined
-  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'content'
+  const profile = req.body?.profile === 'inspiration' || req.body?.profile === 'edit' ? req.body.profile : 'content'
   res.json(await images.testProvider(id, profile))
 })
 
@@ -1373,6 +1438,90 @@ app.use(
   },
   videos.router,
 )
+
+// ---- Video export (/api/video, singular) ----
+//
+// No public path at all, unlike its two neighbours: this router serves status,
+// a queue and job documents, and a job carries the timeline somebody composed.
+// There is nothing here a null-origin preview needs, so the exception those two
+// make does not apply.
+//
+// The rate limit is the only bound on how deep the queue can go — VideoQueue
+// never evicts a job that has not finished, on purpose, so nothing else stops a
+// loop from filling it. Six a minute is far above composing a timeline by hand
+// and far below what a stuck retry produces; the queue runs one at a time
+// anyway, so a burst only costs memory, never CPU.
+app.use(
+  '/api/video',
+  /*
+   * The BYTES of a finished film are public; everything else needs a session.
+   *
+   * Third time this instance makes that trade, and the argument is the one
+   * written above `PUBLIC_IMAGE_PATH` and repeated for the clip library: the URL
+   * IS the capability. A 64-hex SHA-256 of the content cannot be guessed, and it
+   * is only ever handed out by a listing that does require a session — the
+   * export list, the job, the panel.
+   *
+   * It exists because a film has to be watchable inside a generated screen, and
+   * that screen renders in an iframe with `sandbox="allow-scripts"` and no
+   * `allow-same-origin` (I2, I3). Its document has an opaque origin, so nothing
+   * it fetches can be authenticated by anything the page knows. Either the bytes
+   * are reachable without a session or a film cannot appear in a mockup at all —
+   * which is the state this route was in, and the reason a hero came back empty.
+   *
+   * What does NOT open, and the narrowness is the point:
+   *  - the path shape is exactly one hash, so `/exports`, `/jobs/:id`, `/status`
+   *    and every POST stay behind `requireUser`;
+   *  - GET only, so `DELETE /api/video/:hash` still proves ownership before it
+   *    removes anything;
+   *  - the route below still answers 404 for a hash this instance never stored,
+   *    so this is not a probe for what other people have rendered — it is a
+   *    lookup for a string you were already given.
+   */
+  (req, res, next) => {
+    if (req.method === 'GET' && PUBLIC_IMAGE_PATH.test(req.path)) return next()
+    return requireUser(req, res, next)
+  },
+  (req, res, next) => {
+    if (req.method === 'POST' && req.path.startsWith('/render')) {
+      return authRateLimit(6, 60_000, 'video-render')(req, res, next)
+    }
+    // Composing costs a model call rather than minutes of CPU, so the ceiling is
+    // its own: high enough to iterate on a brief — "shorter", "calmer", "start
+    // with the packshot" — and low enough that a retry loop cannot bill an
+    // account's provider key in a tight circle.
+    if (req.method === 'POST' && req.path.startsWith('/compose')) {
+      return authRateLimit(12, 60_000, 'video-compose')(req, res, next)
+    }
+    // One request here is up to six provider calls and six files on the volume,
+    // so it is metered like /api/videos/generate rather than like /compose:
+    // the per-image limiter on /api/images is no help, because these calls never
+    // pass through that router.
+    if (req.method === 'POST' && req.path.startsWith('/variants')) {
+      return authRateLimit(6, 60_000, 'video-variants')(req, res, next)
+    }
+    next()
+  },
+  createVideoRouter({
+    config: videoConfig,
+    queue: videoQueue,
+    worker: videoWorker,
+    imageLibrary: images.library,
+    store: videoExports,
+    budget: diskBudget,
+    resolveTarget: (profile) => textConfig.target(profile),
+    // `registryFor` is a live closure over the registries, so an admin switching
+    // the edit provider takes effect on the next request; capturing
+    // `registries.edit` here instead would pin whatever was configured at boot,
+    // and reload() would appear to do nothing.
+    imageRegistryFor: images.registryFor,
+  }),
+)
+
+// The worker is handed to the admin router too, so the panel that owns the URL
+// field can probe it: an admin is not implicitly on the allowlist, so the
+// per-account /api/video/status would answer them "no-access" instead.
+app.use('/api/admin/video', requireAdmin, createVideoAdminRouter({ config: videoConfig, worker: videoWorker, queue: videoQueue }))
 
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {

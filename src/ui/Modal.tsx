@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { IconButton } from './Button'
 import { Icon } from './Icon'
+import { useT } from '../i18n'
 
 /**
  * A dialog that behaves like one.
@@ -22,6 +23,12 @@ export function Modal({
   size = 'md',
   /** False while the app genuinely requires an answer (e.g. sign-in). */
   dismissible = true,
+  /**
+   * The close button's accessible name, defaulting to the current language.
+   * It was the literal string `"Fermer"`, so the only name this icon-only
+   * button had in an English interface was a French word. See Panel.
+   */
+  closeLabel,
 }: {
   title: string
   onClose: () => void
@@ -29,7 +36,9 @@ export function Modal({
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'full'
   dismissible?: boolean
+  closeLabel?: string
 }) {
+  const t = useT()
   const panelRef = useRef<HTMLDivElement>(null)
   const restoreTo = useRef<HTMLElement | null>(null)
 
@@ -105,7 +114,7 @@ export function Modal({
         <header className="flex shrink-0 items-center gap-3 border-b border-line px-5 py-3">
           <h2 className="min-w-0 flex-1 truncate text-h3 text-ink">{title}</h2>
           {dismissible && (
-            <IconButton label="Fermer" variant="quiet" onClick={onClose}>
+            <IconButton label={closeLabel ?? t('common.close')} variant="quiet" onClick={onClose}>
               <Icon name="close" size={18} />
             </IconButton>
           )}

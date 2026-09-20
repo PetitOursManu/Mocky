@@ -23,8 +23,11 @@ The single most structural fact about the project:
 | Per-account usage: projects, screens, disk | Server | `server/usage.js` |
 | Framing the infinite canvas (fit, focus, latest) | Browser | `src/lib/framing.ts` |
 | Finding and swapping the images inside a screen (AST, no model) | Browser | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
+| Finding and swapping the scroll sequences inside a screen (AST, no model) | Browser | `src/lib/screenSequences.ts` — a pair, `base` **and** `frames`, rewritten together |
 | Muse: MCP, fetching, distillation, dossier | Server | `server/muse/` |
 | Images, videos, libraries | Server | `server/images/`, `server/videos/` |
+| Video export: schema, the one model call, queue, store | Server | `server/video/` — note the **singular**; `server/videos/` is the clip library |
+| Video export: the actual render | A separate, opt-in Docker service | `worker/video/` — Remotion, plus `three` for the 3D blocks and the continuous world, `lottie-web` for the animated icons and sixty bundled typefaces. Absent unless `--profile video-export` was built |
 
 The back end is deliberately small: JSON files under `server/data/`, no database,
 no native dependencies. The runtime dependencies are `express`, `cookie-parser`,
@@ -412,14 +415,20 @@ latest screen`. Their labels, their icons and what they cost are in
 
 ![The mode toolbar of a project](../assets/08-toolbar.png)
 
-*The nine verbs of a project, in bar order: Link, Modify, Interact, Annotate, Frame, System, Audit, Demo, Export. The first four act through the sandboxed preview; the last five act on the canvas around it. The screenshot predates Audit, which sits between System and Demo — eight verbs are visible here, not nine.*
+*The ten verbs of a project, in bar order: Link, Modify, Interact, Annotate, Frame, System, Audit, Demo, Export, Video. The first four act through the sandboxed preview; the last six act around it. The screenshot predates two of them — Audit, which sits between System and Demo, and Video, which closes the row — so eight verbs are visible here, not ten.*
 
-`Audit` and `System` are **mutually exclusive**, and that is enforced in the
-click handlers rather than left to CSS: both panels want the slot at
-`right-4 top-11`, so opening either closes the other. It is the kind of detail a
-legend should carry, because nothing on screen explains why turning one on turns
-the other off. Every control in that toolbar is documented, with its exact label
-and what it costs, in [The interface](interface.md#the-project-toolbar).
+`Link`, `System` and `Audit` are **mutually exclusive**, because all three open a
+panel into the one slot at `right-4 top-11`. It used to be enforced in the click
+handlers, and that is exactly how it broke: each button turned off the ones its
+author had in mind, `Audit` cleared `System` and neither cleared `Link` mode, so
+the audit report and the Links list were painted on top of each other with no
+z-index to settle which won and the controls underneath stopped being clickable.
+`src/lib/rightSlot.ts` now holds a **single value** naming the occupant — two
+open panels is a state the type cannot express — and a fourth panel arriving
+cannot forget a clear nobody wrote. It is the kind of detail a legend should
+carry, because nothing on screen explains why turning one on turns another off.
+Every control in that toolbar is documented, with its exact label and what it
+costs, in [The interface](interface.md#the-project-toolbar).
 
 `src/components/Preview.tsx` builds a self-contained HTML document and injects it
 as `srcDoc`.
@@ -697,11 +706,15 @@ another.
 | `data-<uuid>.json` | One user's projects and design |
 | `avatars/<userId>` | One file per account that uploaded a picture. Counted as `bytes.avatar` in the usage report |
 | `text-config.json` | Administrator-configured text providers, including secrets |
-| `images-config.json` | Image providers and video settings, including secrets |
+| `images-config.json` | Image providers and scroll-sequence video settings, including secrets |
+| `video-config.json` | Video **export** settings: the master switch, the access mode and its allowlist, the worker URL, and the Remotion licence key in clear — hence mode `0600`, and hence `publicView()` turning it into a `hasLicenseKey` boolean before anything leaves the server |
 | `muse-cache.json` | Distillations, 7-day TTL, text only |
 | `image-library.json` | Image library metadata — including `owners`, the account ids that put each file there, **capped at 20** |
 | `image-library/<hash>` | The image bytes |
 | `video-library/` | Scroll sequences: clip, frames and poster. Its metadata carries `owners` under the same cap |
+| `video-exports.json` | Exported films: bytes, container, scene count, duration — and `owners` under the same cap. Never the timeline, which carries somebody's overlay text |
+| `video-exports/<hash>.mp4\|.webm` | The finished film, whole. A different directory from `video-library/` on purpose: that one holds *scroll sequences*, cut into stills by ffmpeg, and every consumer of its `list()` expects frames a film does not have |
+| `video-jobs.json` | The render queue's journal: the newest 50 finished jobs, plus whatever is live. A job found mid-flight at boot is marked failed, never resumed |
 
 Files holding secrets are written with mode `0600`. The default `0644` left them
 readable by every other account on the machine.
@@ -734,10 +747,19 @@ nothing inside them may grow without a ceiling.
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` in, one report out. `400` only when `code` is missing; **`200` even with no model configured** — see below |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Generation is the expensive verb |
 | `GET /api/images/library`, `/library.zip`, `POST /:hash/favorite`, `DELETE /:hash` | session | Library management |
+| `POST /api/images/:hash/confirm` | session, owner | Clears the `pending` mark on an image the multi-step variant flow produced. One-way and idempotent: there is no un-confirm, because "nobody has looked at this yet" is a fact about the past |
 | `GET /api/images/:hash` | **public** | See below |
 | `POST /api/videos/generate` (6/min), `/upload` (20/min) | session | Different ceilings: generating costs money, uploading costs disk |
 | `GET /api/videos/library`, `/:hash/meta`, `DELETE /:hash` | session | Sequence management |
 | `GET /api/videos/:hash/poster.jpg`, `/:hash/f/:n.jpg` | **public** | See below |
+| `GET /api/video/status` | session | Video **export** — note the singular. Access, worker health, and the schema bounds the panel quotes |
+| `POST /api/video/compose` (12/min) | session | The one model call in the feature. It COMPOSES a film — a ground and one to eight typed blocks per scene, out of closed enums — or fills in one of the five ready-made compositions when a caller names one, over images **the user has already selected**: it chooses the film, it never chooses the pictures. An `imageId` from outside the selection is refused, never substituted; a document the schema rejects is refused whole rather than repaired; a composition that needs a picture, asked for with nothing selected, is refused with a notice naming `titles`. An empty selection is therefore a request rather than a mistake. The `theme` travels in the body and is attached **after** the model's document has been validated — a model that wrote its own is refused. Answers **`200` with `timeline: null` and notices** when nothing usable came back — a proposal that did not happen is not a request that failed (Q1). `409` when the selection still holds an image nobody confirmed: the same guard as `/render`, checked here too so a discard cannot become scene four |
+| `POST /api/video/variants` (6/min) | session | Two to six takes on one library image. Metered like `/api/videos/generate` rather than like `/compose`, because each variant is a provider call. Answers `derived`: with an `edit` image profile the pictures come out of the user's own, without one they are siblings born of the same text — and an interface that showed the two identically would be lying |
+| `POST /api/video/render` (6/min) | session | Validates the timeline, then queues. `400` with the issue list, `404` naming absent images, `409` when the selection still holds an image nobody confirmed, `507` when the volume is already full |
+| `GET /api/video/jobs/:id` | session | `403`, not `404`, on someone else's job: a job carries the timeline, and a timeline carries their overlay text |
+| `GET /api/video/:hash` | session | The finished film. **Never public** — ownership is checked before existence, so an unknown hash and a stranger's answer alike |
+| `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | The licence key leaves as `hasLicenseKey`, a boolean |
+| `POST /api/admin/video/benchmark` | admin | Renders three reference films through the worker, inside the queue's exclusive slot, and reports what each render level costs on this machine. `409` while a user's render holds the slot |
 | `ALL /__provider/api/chat`, `/api/tags` | session **if** an instance model is configured | Proxy and dialect translation |
 
 ### Why image and frame bytes are public
@@ -819,11 +841,15 @@ The ZIP is written by `src/lib/zip.ts`, with no dependency: store method plus
 CRC32. The same writer serves the image library's "Download all" and
 `npm run backup`.
 
+**This is not Motion**, which shares only the word. That one turns
+images from the media library into an `.mp4` on a separate, opt-in Docker service
+and never touches a screen — see [Motion](video-export.md).
+
 ---
 
 ## 11. Tests
 
-`npm test` runs Vitest across the repository. Four suites are worth knowing
+`npm test` runs Vitest across the repository. Five suites are worth knowing
 about, because they read **what actually ships** rather than an abstraction of
 it.
 
@@ -857,6 +883,31 @@ the template has an em dash, an English block pasted into the French file. The
 documents were going exactly where the interface had already been — a French
 design system, an English ADR, a French audit, an English README, and no way to
 tell which reader each was written for.
+
+The same suite also holds the **other** mirror family, the one that carries most
+of this documentation: `docs/` in English, `docs/fr/` in French, path for path.
+Nothing checked it until it was needed — the four twins above sit side by side
+with a language suffix, and the tests written for them never reached a tree
+mirrored by directory. So every page here has to exist on both sides, with the
+same headings at the same levels, in both directions. Existence is the cheap half
+and the half that catches the real mistake: adding a page under `docs/` and
+stopping there fails no build and leaves the French sidebar pointing at nothing.
+
+**`tests/video-worker-separation.test.js`** keeps Remotion out of Mocky. It reads
+`package.json` for a Remotion package in **any** dependency field — including
+`peerDependencies`, the one that looks harmless because it installs nothing and
+still puts Remotion in the tree of whoever resolves it — plus the source tree for
+an import, `.dockerignore` for the `worker/` exclusion, and `docker-compose.yml`
+for the `video-export` profile and the internal network.
+
+It exists because the separation was argued for in four documents and guarded by
+none of them, and prose does not fail a build. One `npm install remotion` at the
+repository root to "just try the composition locally" and the default image ships
+Remotion to every operator who never asked for it — which is a licensing
+regression, not a size one, and no later test can un-ship it. The same suite
+refuses a queue server or a database driver, because a job runner is exactly the
+feature somebody reaches for Redis to build. See
+[Motion](video-export.md).
 
 Alongside those: `registry.test.ts` for registry invariants at load time,
 `ssrf-guard.test.js`, `routes-auth.test.js`,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Screen } from '../lib/project'
 import { loadSettings } from '../lib/settings'
 import type { QualityFinding } from '../lib/quality'
@@ -40,6 +40,7 @@ export default function AuditPanel({
   selectedId,
   onSelect,
   onFix,
+  busy = false,
   onClose,
   className = '',
 }: {
@@ -55,6 +56,14 @@ export default function AuditPanel({
    * AbortController and `previousCode`.
    */
   onFix: (screenId: string, findings: QualityFinding[]) => Promise<number | null>
+  /**
+   * True while the project is running some other model-backed mutation. The
+   * correction shares one AbortController and one progress overlay with
+   * regeneration, polish and edits, so `onFix` refuses outright while one of
+   * those is in flight — and a button that answers "the correction failed"
+   * because something unrelated is running is a button that lies about why.
+   */
+  busy?: boolean
   onClose: () => void
   className?: string
 }) {
@@ -69,7 +78,10 @@ export default function AuditPanel({
    * exists. Comparing the code is exact and needs no effect to maintain.
    */
   const [reports, setReports] = useState<Record<string, { code: string; report: AuditReport }>>({})
-  const [busy, setBusy] = useState<string | null>(null)
+  /** Which screen is being evaluated, or null. Named apart from the project's
+   *  own `busy` prop because they gate different things: an evaluation reads a
+   *  screen, a project mutation rewrites one. */
+  const [checking, setChecking] = useState<string | null>(null)
   const [fixing, setFixing] = useState(false)
   const [deep, setDeep] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -119,23 +131,61 @@ export default function AuditPanel({
     })
   }, [screens])
 
+  /**
+   * The evaluation in flight, so it can be abandoned.
+   *
+   * There was none, and `AuditOptions.signal` had existed the whole time —
+   * `fixAuditFindings` passes one. A deep pass is a model call taking seconds,
+   * and without a way to abort it three things followed: closing the panel kept
+   * paying for an answer nobody would read; `checking` never cleared when the
+   * user moved to another screen, so the panel drew a spinner over the report of
+   * the screen they had actually selected; and the answer, when it came, was for
+   * a screen that was no longer on show.
+   */
+  const runAbort = useRef<AbortController | null>(null)
+
+  // Unmounting the panel, or changing which screen it is about, abandons the
+  // check. Cleanup rather than an explicit call at each call site, because the
+  // selection also moves from the canvas, which this component never hears about.
+  useEffect(
+    () => () => {
+      runAbort.current?.abort()
+    },
+    [active?.id],
+  )
+
   async function run(screen: Screen) {
-    setBusy(screen.id)
+    runAbort.current?.abort()
+    const ac = new AbortController()
+    runAbort.current = ac
+    setChecking(screen.id)
     setError(null)
     setNotice(null)
     try {
       // Read at call time, like every other model-backed path, so an admin
       // changing the instance provider applies without a reload.
-      const next = await auditScreen(screen.code, { deep, settings: loadSettings() })
+      const next = await auditScreen(screen.code, { deep, settings: loadSettings(), signal: ac.signal })
+      // An abandoned pass still RESOLVES: auditScreen never throws (Q1), so a
+      // cancelled deep half comes back as a deterministic-only report carrying
+      // the abort as a notice. Storing that would answer a question the user
+      // withdrew, with half the analysis they asked for and a stray warning.
+      if (ac.signal.aborted) return
       // The code as it was WHEN CHECKED, not as it is now: a screen rewritten
       // while the deep pass was in flight must not adopt this report.
       setReports((prev) => ({ ...prev, [screen.id]: { code: screen.code, report: next } }))
     } catch (e) {
+      if (ac.signal.aborted) return
       // auditScreen is written not to throw (Q1). If it ever does, an
       // evaluation failing must not look like the screen failing.
       setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setBusy(null)
+      // Only the run that is still the current one may lower the flag. An
+      // abandoned pass settling after its replacement started would otherwise
+      // hide the spinner of the check actually running.
+      if (runAbort.current === ac) {
+        runAbort.current = null
+        setChecking(null)
+      }
     }
   }
 
@@ -165,6 +215,9 @@ export default function AuditPanel({
 
   /** Only enforceable findings may be spent a correction pass on (Q2). */
   const correctable = (report?.findings ?? []).filter((f) => f.disposition !== 'advise')
+  /** Correcting is one model call per pass, and it shares the project's single
+   *  mutation slot — so a generation running anywhere blocks it. */
+  const cannotFix = fixing || busy
 
   return (
     <Panel title={t('audit.title')} onClose={onClose} className={className}>
@@ -208,10 +261,10 @@ export default function AuditPanel({
               <Button
                 variant="primary"
                 size="sm"
-                disabled={!active || busy !== null || fixing}
+                disabled={!active || checking !== null || fixing}
                 onClick={() => active && run(active)}
               >
-                {busy ? t('audit.running') : report ? t('audit.rerun') : t('audit.run')}
+                {checking ? t('audit.running') : report ? t('audit.rerun') : t('audit.run')}
               </Button>
               <label className="flex cursor-pointer items-center gap-1.5 text-body-sm text-ink-muted" title={t('audit.deepHelp')}>
                 <input
@@ -237,7 +290,7 @@ export default function AuditPanel({
             </Banner>
           )}
 
-          {busy ? (
+          {checking ? (
             <div className="flex justify-center p-6">
               <Spinner />
             </div>
@@ -282,7 +335,8 @@ export default function AuditPanel({
                       <Button
                         size="sm"
                         className="ml-auto"
-                        disabled={fixing}
+                        disabled={cannotFix}
+                        title={busy && !fixing ? t('audit.fixBusy') : undefined}
                         onClick={() => fix(active, correctable)}
                       >
                         {fixing ? t('audit.fixing') : t('audit.fixAll')}
@@ -294,7 +348,8 @@ export default function AuditPanel({
                       <Finding
                         key={f.rule}
                         finding={f}
-                        busy={fixing}
+                        busy={cannotFix}
+                        busyTitle={busy && !fixing ? t('audit.fixBusy') : undefined}
                         onFix={active ? () => fix(active, [f]) : undefined}
                       />
                     ))}
@@ -481,10 +536,13 @@ function Confidence({
 function Finding({
   finding,
   busy,
+  busyTitle,
   onFix,
 }: {
   finding: QualityFinding
   busy: boolean
+  /** Why the button is disabled, when the reason is not "this one is running". */
+  busyTitle?: string
   onFix?: () => void
 }) {
   const t = useT()
@@ -508,7 +566,7 @@ function Finding({
           </p>
         </div>
         {onFix && !advisory && (
-          <Button size="sm" disabled={busy} onClick={onFix}>
+          <Button size="sm" disabled={busy} title={busyTitle} onClick={onFix}>
             {t('audit.fixOne')}
           </Button>
         )}

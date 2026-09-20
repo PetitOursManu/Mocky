@@ -43,19 +43,30 @@ function ProfileForm({
   title,
   blurb,
   emptyLabel,
+  emptyHint,
+  providerIds,
+  restriction,
   cfg,
   onConfig,
 }: {
   profile: ImageProfile
   title: string
   blurb: React.ReactNode
-  /** Non-empty only for the optional profile, which may inherit the other. */
+  /** Non-empty only for an optional profile. What "" means differs per profile:
+   *  inspiration inherits content, edit turns the feature off. */
   emptyLabel?: string
+  /** What "" means, when it is not "inherit the content model". */
+  emptyHint?: string
+  /** Narrower than cfg.providers for the edit profile — see `restriction`. */
+  providerIds?: string[]
+  /** One sentence saying why some providers are absent from the list. */
+  restriction?: string
   cfg: ImagesConfig
   onConfig: (c: ImagesConfig) => void
 }) {
   const t = useT()
   const section: ImagesProfileConfig = cfg[profile]
+  const options = providerIds ?? cfg.providers
 
   const [provider, setProvider] = useState(section.provider)
   const [error, setError] = useState<string | null>(null)
@@ -192,7 +203,7 @@ function ProfileForm({
         <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.provider')}</span>
         <select className="input w-full" value={provider} onChange={(e) => setProvider(e.target.value)}>
           {emptyLabel && <option value="">{emptyLabel}</option>}
-          {cfg.providers.map((id) => (
+          {options.map((id) => (
             <option key={id} value={id}>
               {LABEL_KEYS[id] ? t(LABEL_KEYS[id]) : id}
             </option>
@@ -200,8 +211,12 @@ function ProfileForm({
         </select>
       </label>
       <p className="mt-1.5 text-caption text-ink-faint">
-        {HINT_KEYS[provider] ? t(HINT_KEYS[provider]) : ''}
+        {provider === '' && emptyHint ? emptyHint : HINT_KEYS[provider] ? t(HINT_KEYS[provider]) : ''}
       </p>
+      {/* Absence needs a reason. A shorter list with no explanation reads as a
+          bug in the panel, and the missing entries are the ones an admin is most
+          likely to already be paying for. */}
+      {restriction && <p className="measure mt-1.5 text-caption text-ink-faint">{restriction}</p>}
 
       {/* Per-provider fields */}
       <div className="mt-4 space-y-3">
@@ -601,10 +616,12 @@ function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
 }
 
 /**
- * Admin settings for Muse's image generation. Two profiles, because the two jobs
- * need different models: the art-direction reference must render a convincing
- * site/app layout (slower, stronger model), while hero/product pictures want to
- * be fast and cheap. Secrets are stored server-side and never returned.
+ * Admin settings for Muse's image generation. Three profiles, because the three
+ * jobs need different models: the art-direction reference must render a
+ * convincing site/app layout (slower, stronger model), hero/product pictures
+ * want to be fast and cheap, and image-to-image is a different endpoint that
+ * most text-to-image ids do not have at all. Secrets are stored server-side and
+ * never returned.
  */
 export default function ImageProviderSettings() {
   const t = useT()
@@ -666,6 +683,23 @@ export default function ImageProviderSettings() {
               {t('settings.imgContent2')} <strong>{t('settings.imgContentFastCheap')}</strong>.
             </>
           }
+          cfg={cfg}
+          onConfig={setCfg}
+        />
+        <ProfileForm
+          profile="edit"
+          title={t('settings.imgProfileEdit')}
+          blurb={
+            <>
+              {t('settings.imgEdit1')} <strong>{t('settings.imgEditFromImage')}</strong>
+              {t('settings.imgEdit2')}{' '}
+              <span className="text-ink-faint">{t('settings.imgEditFaint')}</span>
+            </>
+          }
+          emptyLabel={t('settings.imgEmptyEdit')}
+          emptyHint={t('settings.imgHintEditOff')}
+          providerIds={cfg.editProviders}
+          restriction={t('settings.imgEditRestriction')}
           cfg={cfg}
           onConfig={setCfg}
         />

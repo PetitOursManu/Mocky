@@ -19,6 +19,15 @@ cliquez sur **Évaluer**.
 Rien ne se déclenche automatiquement. Rien ne tourne à la génération. Ouvrir le
 panneau coûte une lecture de localStorage.
 
+**Partir abandonne l'analyse.** Fermer le panneau, ou sélectionner un autre écran
+— depuis les vignettes ou depuis le canevas — annule une évaluation en cours. Une
+analyse approfondie est un appel modèle de plusieurs secondes, et elle n'avait
+aucun `AbortController` : elle continuait d'être payée après la fermeture du
+panneau, et le spinner qu'elle laissait derrière elle se dessinait par-dessus le
+rapport de l'écran que l'utilisateur venait justement de demander. Le panneau
+montre le rapport d'un seul écran : une analyse qui tourne pour un autre ne peut
+que cacher celui qu'on voulait voir.
+
 ---
 
 ## Les deux moitiés
@@ -187,6 +196,16 @@ les autres :
 | Réparation | corrige seulement l'erreur, ne restyle pas | un plantage n'est pas un problème de design |
 | Peaufinage | corrige ces points, un changement visuel est attendu | un point de « slop » **est** un problème de style |
 | Correction d'audit | corrige le balisage, l'écran doit rester identique | une passe de sémantique qui redessine a échoué même si tous les points ont disparu |
+
+**« Corriger » est indisponible pendant une génération.** Une correction est une
+mutation d'écran, et toutes les mutations d'écran de Mocky partagent un seul
+`AbortController`, un seul indicateur d'occupation et une seule surcouche de
+progression — une deuxième ne tourne donc pas à côté de la première, elle
+l'écrase. C'était la seule des cinq à ne pas le vérifier, et lancée pendant une
+régénération elle prenait le bouton « Stop » en otage : « Stop » annulait la
+correction, la régénération devenait inarrêtable, et la surcouche de progression
+passait sur l'écran visé par le panneau d'audit. Les boutons sont maintenant
+désactivés tant qu'autre chose tourne, et ils disent pourquoi.
 
 Les points indicatifs ne sont jamais corrigés automatiquement. Certaines règles
 contredisent légitimement un parti pris : une page d'accueil peut vraiment être

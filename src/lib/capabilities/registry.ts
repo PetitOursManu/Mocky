@@ -3,6 +3,7 @@ import { ChartsSource, CHARTS_EXPORTS } from './snippets/Charts'
 import { IconsSource, ICONS_EXPORTS } from './snippets/Icons'
 import { MotionSource, MOTION_EXPORTS } from './snippets/Motion'
 import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from './snippets/ScrollVideo'
+import { MotionFilmSource, MOTIONFILM_EXPORTS } from './snippets/MotionFilm'
 import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
@@ -28,7 +29,7 @@ export const CAPABILITIES: Capability[] = [
     triggers: { keywords: [], intents: [] },
     snippets: [{ source: IconsSource, exports: [...ICONS_EXPORTS] }],
     components: [
-      { name: 'Icon', signature: '<Icon.Home className="w-5 h-5" strokeWidth={1.5} />', description: 'Icon is a PRE-DEFINED global namespace. Interface icons: Home, Search, Bell, User, Settings, ChevronLeft, ChevronRight, ChevronDown, Plus, X, Check, Trash, Edit, Download, Upload, Calendar, Clock, Mail, Filter, Menu, MoreHorizontal, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, TrendingUp, TrendingDown, DollarSign, Eye, EyeOff, Lock, Heart, Star. Social/brand + contact (for footers & landing pages): Twitter, Github, Linkedin, Facebook, Instagram, Youtube, Globe, Phone, MapPin. Usage: <Icon.Search />, <Icon.Twitter />, etc. Accepts className, size, strokeWidth props. ONLY these names exist — any other name (e.g. Icon.Dribbble, Icon.Slack) is undefined and crashes with React #130, so use the closest listed icon or Icon.Globe instead. NEVER declare your own `const Icon`/`var Icon` — it already exists and redeclaring it is a fatal error. For a DYNAMIC icon (e.g. from a list item), assign it to a Capitalized variable first — const Ico = Icon[item.icon] || Icon.MoreHorizontal; <Ico className="w-6 h-6" /> — never <Icon[item.icon] /> (that is invalid JSX).', tags: ['icon', 'svg'] },
+      { name: 'Icon', signature: '<Icon.Home className="w-5 h-5" strokeWidth={1.5} />', description: 'Icon is a PRE-DEFINED global namespace. Interface icons: Home, Search, Bell, User, Settings, ChevronLeft, ChevronRight, ChevronDown, Plus, X, Check, Trash, Edit, Download, Upload, Calendar, Clock, Mail, Filter, Menu, MoreHorizontal, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, TrendingUp, TrendingDown, DollarSign, Eye, EyeOff, Lock, Heart, Star. Social/brand + contact (for footers & landing pages): Twitter, Github, Linkedin, Facebook, Instagram, Youtube, Globe, Phone, MapPin. Media, mood and everyday: Play, Pause, Volume2, Music, Headphones, Moon, Sun, Coffee, Book, BookOpen, Video, Camera, Image, Cloud, Zap, Info, Send, Share, Bookmark, Gift, Shield, Users, Smile, MessageCircle, ShoppingCart, Award, Feather. Usage: <Icon.Search />, <Icon.Twitter />, etc. Accepts className, size, strokeWidth props. ONLY these names are drawn — any other name (e.g. Icon.Dribbble, Icon.Slack) renders as a plain dot, so use the closest listed icon instead. NEVER declare your own `const Icon`/`var Icon` — it already exists and redeclaring it is a fatal error. For a DYNAMIC icon (e.g. from a list item), assign it to a Capitalized variable first — const Ico = Icon[item.icon] || Icon.MoreHorizontal; <Ico className="w-6 h-6" /> — never <Icon[item.icon] /> (that is invalid JSX).', tags: ['icon', 'svg'] },
     ],
   },
   {
@@ -164,6 +165,27 @@ export const CAPABILITIES: Capability[] = [
         description:
           'A generated clip that advances frame by frame as the visitor scrolls, pinned full-height while it plays out. `base` and `frames` are provided by Muse; `height` is the scroll travel in viewport-heights. Children are overlaid on top, centred.',
         tags: ['video', 'scroll', 'scrub', 'hero', 'pinned', 'cinematic'],
+      },
+    ],
+  },
+  {
+    // Force-added, never keyword-triggered, for exactly the reason scrollvideo
+    // is: the component needs a `src` that only exists once Motion has actually
+    // composed and RENDERED a film, which costs a model call and minutes of a
+    // worker. Offered on a guess it would render an empty rectangle where a hero
+    // was promised — which is the defect this capability was written to fix, so
+    // reintroducing it through the trigger list would be a poor joke.
+    id: 'motionfilm',
+    kind: 'snippet-pack',
+    triggers: { keywords: [], intents: [] },
+    snippets: [{ source: MotionFilmSource, exports: [...MOTIONFILM_EXPORTS] }],
+    components: [
+      {
+        name: 'MotionFilm',
+        signature: '<MotionFilm src="/api/video/<hash>" fit="cover" radius={0} loop>{overlay}</MotionFilm>',
+        description:
+          'A rendered Motion film, playing muted and looping. `src` is provided — never invent one. It fills whatever box you put it in, so it is a hero background at full width AND a product card, a banner strip or a section background at any smaller size; give the parent a height. `fit` is "cover" (default, fills and crops) or "contain" (whole frame, letterboxed). Pass children to lay content OVER the film — use that for a hero rather than positioning your own overlay. There is no sound and no controls.',
+        tags: ['video', 'film', 'motion', 'hero', 'background', 'banner', 'loop', 'showreel'],
       },
     ],
   },

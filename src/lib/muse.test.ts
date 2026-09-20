@@ -92,6 +92,7 @@ describe('config', () => {
     expect(loadMuseConfig()).toEqual(cfg)
   })
 
+
   it('defaults the image mode to "content" (works without vision)', () => {
     expect(defaultMuseConfig().imageMode).toBe('content')
   })

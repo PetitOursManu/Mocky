@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useT } from '../i18n'
 
 /**
  * The generation loader: the word "Mocky", written out, over and over.
@@ -25,7 +26,12 @@ import { useId } from 'react'
  */
 export function MockyLoader({
   size = 132,
-  label = 'Génération en cours…',
+  /**
+   * The whole accessible name — the SVG is `aria-hidden`, so nothing else here
+   * speaks. It defaulted to the literal `"Génération en cours…"`, French in an
+   * English interface, which is the same defect Spinner and Panel carried.
+   */
+  label,
   className = '',
 }: {
   /** Width in px. The height follows the 200×62 viewBox. */
@@ -33,13 +39,14 @@ export function MockyLoader({
   label?: string
   className?: string
 }) {
+  const t = useT()
   // Two instances on one page would otherwise share a clip path id.
   const clipId = `mocky-write-${useId().replace(/:/g, '')}`
 
   return (
     <span
       role="status"
-      aria-label={label}
+      aria-label={label ?? t('common.generating')}
       className={`mocky-loader inline-block ${className}`}
       style={{ width: size }}
     >

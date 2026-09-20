@@ -49,6 +49,27 @@ export const muse = {
     'muse.videoChosenDrop': 'Retirer',
     'muse.videoChosenDropHint': 'Ne plus utiliser cette séquence',
 
+    // Motion — un film rendu, décidé par le dossier Muse lui-même (voir
+    // server/muse/inspire/film.js). La case ne fait qu'IMPOSER ce que le mode
+    // automatique ne propose qu'avec prudence.
+    'muse.motionKind.hero': 'Héro',
+    'muse.motionKindHelp.hero': 'L’ouverture de la page : une seule idée, avant tout défilement.',
+    'muse.motionKind.background': 'Fond de section',
+    'muse.motionKindHelp.background':
+      'Une surface en mouvement, sous du texte que la page compose elle-même. Aucun mot dans le film.',
+    'muse.motionKind.banner': 'Bandeau',
+    'muse.motionKindHelp.banner': 'Une bande large qui annonce une chose : un lancement, une date, un nom.',
+    'muse.motionKind.showcase': 'Produit',
+    'muse.motionKindHelp.showcase': 'Un objet, son nom, la raison de le vouloir. Il faut au moins une image.',
+    'muse.motionKind.figure': 'Chiffre',
+    'muse.motionKindHelp.figure': 'Le chiffre qui porte l’argument, qui arrive plutôt que d’être posé.',
+    'muse.motionKind.globe': 'Globe',
+    'muse.motionKindHelp.globe': 'Le monde en volume, qui tourne. Demande la 3D, accordée par un administrateur.',
+    'muse.motionKind.mark': 'Logotype',
+    'muse.motionKindHelp.mark': 'Un nom ou une marque qui se compose. Rien d’autre dans le cadre.',
+    'muse.motionKind.story': 'Vertical',
+    'muse.motionKindHelp.story': 'Un montage 9:16 pour un fil : plein cadre, temps courts.',
+
     // vision
     'muse.vision': 'vision',
     'muse.modeNeedsVision': 'Indisponible : ce modèle n’accepte pas les images',
@@ -111,6 +132,27 @@ export const muse = {
     'muse.videoChosenDetail': '{count} frames — it will drive the scroll, nothing is generated.',
     'muse.videoChosenDrop': 'Remove',
     'muse.videoChosenDropHint': 'Stop using this sequence',
+
+    // Motion — a rendered film, decided by the Muse dossier itself (see
+    // server/muse/inspire/film.js). The box only IMPOSES what the automatic
+    // mode proposes prudently.
+    'muse.motionKind.hero': 'Hero',
+    'muse.motionKindHelp.hero': 'The opening of the page: one idea, before anything is scrolled.',
+    'muse.motionKind.background': 'Section background',
+    'muse.motionKindHelp.background':
+      'A moving surface, under type the page sets itself. No words inside the film.',
+    'muse.motionKind.banner': 'Banner',
+    'muse.motionKindHelp.banner': 'A wide strip announcing one thing: a launch, a date, a name.',
+    'muse.motionKind.showcase': 'Product',
+    'muse.motionKindHelp.showcase': 'One object, its name, the reason to want it. Needs at least one image.',
+    'muse.motionKind.figure': 'Figure',
+    'muse.motionKindHelp.figure': 'The number the page is about, arriving rather than sitting there.',
+    'muse.motionKind.globe': 'Globe',
+    'muse.motionKindHelp.globe': 'The world in volume, turning. Needs 3D, which an administrator grants.',
+    'muse.motionKind.mark': 'Logotype',
+    'muse.motionKindHelp.mark': 'A name or a mark assembling itself. Nothing else in the frame.',
+    'muse.motionKind.story': 'Vertical',
+    'muse.motionKindHelp.story': 'A 9:16 cut for a feed: full bleed, short beats.',
 
     // vision
     'muse.vision': 'vision',

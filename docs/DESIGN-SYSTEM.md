@@ -165,6 +165,20 @@ import { Button, IconButton, Field, Input, Modal, Banner, Chip, Segmented, Panel
 | `Banner` | messages en ligne. `role="alert"` quand `tone="danger"`. |
 | `Spinner` / `Skeleton` / `ScreenSkeleton` / `EmptyState` | états d'attente et de vide. |
 
+**Aucune primitive ne code un libellé en dur.** `Panel`, `Modal`, `Chip`,
+`Spinner` et `MockyLoader` portent tous un nom accessible qui est le nom *entier*
+d'un contrôle sans texte — une croix de fermeture, un anneau qui tourne — et
+toutes les cinq le livraient en français, deux d'entre elles (`Panel` et `Modal`)
+sans aucune prop pour le surcharger. Une
+interface en anglais annonçait « Fermer le panneau », « Retirer » et
+« Chargement… », sur chaque panneau et chaque spinner de l'application. Chacune
+passe désormais par `t('common.*')` par défaut, et accepte une prop optionnelle
+pour les appelants qui ont mieux à dire. Un bloc de `tests/i18n-parity.test.js`
+échoue sur toute prop en forme de libellé affectée à une chaîne littérale sous
+`src/ui` : les contrôles de parité FR/EN ne pouvaient pas attraper ça, car une
+phrase qui n'atteint aucun dictionnaire est parfaitement cohérente entre deux
+dictionnaires.
+
 ## Les garde-fous
 
 > **Pourquoi c'est ainsi —** Le contraste est l'une des rares qualités d'une interface qu'une machine peut trancher seule : c'est un nombre, calculé à partir de deux couleurs, comparé à un seuil publié. Il est branché sur le fichier livré, et non sur une copie de ses valeurs : une teinte retouchée à la main fait donc échouer la suite tout de suite, au lieu d'attendre qu'un utilisateur ne voie plus un libellé.

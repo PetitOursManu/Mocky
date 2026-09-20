@@ -310,9 +310,9 @@ fond blanc, en 1024×1024 — et ne la range pas dans la bibliothèque.
 | `sd-webui` | Non | Votre propre instance Automatic1111, Forge ou SD.Next lancée avec `--api`. Rien ne sort de votre machine |
 | `none` | — | Muse tourne quand même. Les emplacements d'image reçoivent des aplats issus de la palette |
 
-### Deux profils d'images
+### Trois profils d'images
 
-Les deux métiers sont réellement différents, donc ils ont des réglages séparés.
+Les trois métiers sont réellement différents, donc ils ont des réglages séparés.
 
 **`content`** produit les images posées dans l'écran : visuel principal, produits,
 fonds. Il peut y en avoir plusieurs par écran, donc ce profil doit être rapide et
@@ -322,6 +322,25 @@ le défaut.
 **`inspiration`** produit l'unique planche de direction artistique montrée au
 modèle. Elle doit convaincre, donc elle mérite un modèle plus lent et plus cher.
 Laisser son fournisseur vide le fait retomber sur `content`.
+
+**`edit`** fait de l'image-vers-image : une image existante entre, une dérivée
+sort. C’est le profil des variantes de Motion. Facultatif comme
+`inspiration`, mais facultatif **dans l'autre sens** : le laisser vide ne retombe
+sur rien du tout, cela veut dire que l'image-vers-image est désactivée sur cette
+instance. Un modèle texte-vers-image à qui l'on donne une image source rendrait
+une image issue du seul texte, présentée comme une dérivée de la vôtre — et rien
+en aval ne saurait faire la différence. Emprunter la clé du profil `content`
+serait donc exactement le mensonge que ce profil existe pour empêcher.
+
+Sa liste de fournisseurs est plus courte que les autres, et le panneau dit
+pourquoi : seuls `fal`, `openai-image`, `cloudflare-workers-ai` et `sd-webui`
+acceptent une image d'entrée. Pollinations ne le peut pas — son API prend une URL
+que **ses** serveurs vont chercher, or les images de Mocky ne sont servies que par
+votre instance. Les modèles par défaut diffèrent aussi de ceux du texte-vers-image
+(`fal-ai/flux/dev/image-to-image`, `@cf/runwayml/stable-diffusion-v1-5-img2img`) :
+hériter des autres livrerait un profil configuré pour échouer. Le bouton
+« Tester » envoie une vraie image source, parce qu'un test texte-vers-image
+réussit contre un modèle incapable d'éditer.
 
 > `sd-webui` est appelé par le serveur de Mocky et pointe par définition vers une
 > adresse locale. Il **contourne donc volontairement** la protection SSRF
@@ -346,6 +365,61 @@ corriger en premier.
 **Importer votre propre clip ne demande que `ffmpeg`** : pas de fournisseur, pas
 de clé, aucun coût. Une instance qui n'a jamais configuré fal peut donc utiliser
 toute la fonctionnalité avec ses propres images.
+
+---
+
+## Motion
+
+Une autre fonctionnalité que la précédente, et le singulier est ce qui permet de
+les distinguer dans le code : `server/videos/` découpe des séquences au
+défilement, `server/video/` fabrique des films. Celle-ci transforme des images de
+la médiathèque en `.mp4`.
+
+Elle est **désactivée par défaut, et son moteur de rendu n'est pas installé par
+défaut**, ce qui relève de la licence plutôt que de la technique. Remotion est
+gratuit pour les particuliers, les organisations à but non lucratif et les
+sociétés jusqu'à trois salariés, et sa licence ne traite pas de la
+redistribution au sein d'un produit auto-hébergé — il vit donc dans une image
+séparée que personne ne construit par accident. Pourquoi toute la fonctionnalité
+est bâtie autour de cela est dans [Motion](fr/video-export.md).
+
+Trois étapes, dans cet ordre.
+
+**1. Construire et lancer le worker.** Depuis la racine du dépôt :
+
+```bash
+docker compose --profile video-export up -d --build
+```
+
+Sans `--profile video-export`, rien ici n'est construit, créé ni démarré, et
+`docker compose up -d` se comporte exactement comme avant. Construire cette image
+est le moment où la question de licence devient la vôtre : lisez d'abord
+<https://www.remotion.dev/>, et notez que le seuil compte **les salariés de votre
+organisation, pas les comptes de cette instance**.
+
+**2. L’activer dans Administration → Motion.**
+
+| Réglage | Détail |
+|---|---|
+| Activer Motion | L’interrupteur maître. Fermé, personne n'exporte, quelle que soit la portée |
+| Portée | `Tout le monde`, ou une liste de comptes. Un administrateur n'est **pas** autorisé d'office — un rendu coûte du processeur et se compte par compte, donc l'accès s'accorde explicitement, y compris à soi-même |
+| URL du worker de rendu | `http://video-worker:3030` par défaut, c'est-à-dire le nom du service Compose sur un pont interne. Cela a l'air de ne pas pouvoir marcher : c'est la troisième dérogation réservée à l'administrateur au garde SSRF, et le raisonnement est dans [les invariants](fr/architecture/invariants.md) |
+| Clé de licence Remotion | Facultative. Stockée côté serveur, jamais renvoyée au navigateur. En renseigner une active la télémétrie sortante qu'un rendu sous licence exige à partir de Remotion 5.0 ; sans clé, le conteneur du worker n'a aucune sortie réseau |
+
+Le panneau sonde le worker et rapporte `Disponible` avec sa version,
+`Injoignable`, `Non configuré`, ou une adresse qu'il a refusée avant tout appel.
+Ce dernier cas mérite d'être lu attentivement : rien n'a été contacté, donc
+redémarrer le worker n'y changera rien — seuls `http://` et `https://` sont
+acceptés.
+
+**3. S'en servir.** `Plus → Motion` dans un projet. Vingt scènes au plus, deux
+minutes au plus, et pas de son.
+
+Les variantes — « Partir d'une image », dans ce panneau — sont la seule partie
+qui s'appuie sur un autre réglage. Avec un profil d'image « edit » configuré, ce
+sont de vraies dérivations de votre image ; sans lui, ce sont des sœurs nées du
+même texte, et le panneau le dit avant que les appels au fournisseur soient
+dépensés.
 
 ---
 

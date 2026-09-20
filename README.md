@@ -41,6 +41,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - ▶️ **Interact mode** — click buttons, hover states and animations run live, right in the grid.
 - ✦ **Real motion, safely** — eleven animation presets and three components behind a single `<Animated preset="…">` wrapper, powered by [Motion](https://motion.dev). The generating model never writes animation code: it picks a name from a closed list (see [Animations](#animations) below). One switch, per project or per screen, holds everything still.
 - 🎞️ **Scroll-driven video** — Muse can generate (or you can import) a clip and let the visitor scrub through it with the scroll wheel, pinned full-height.
+- 🎬 **Motion** — an `.mp4` composed for a screen: a model builds each scene out of a closed catalogue of typed blocks — type, charts, pictures, animated icons, 3D set pieces — over a ground that can move, and a hand-written renderer draws it. It never writes a frame of rendering code (see [Motion](#motion) below). It can be decided by your prompt alone, and a film meant to sit under a page can loop with an invisible seam. Off by default, and its renderer is a separate opt-in container.
 - 🖼️ **Media library** — every generated image and sequence in one place, plus **your own** images and clips. Muse builds its art direction *from* what you select.
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
@@ -166,7 +167,7 @@ All environment variables are **optional**. Mocky runs out of the box: accounts 
 | `MOCKY_BIND` | `127.0.0.1` | **Docker only** — the host interface the container publishes on. `0.0.0.0` exposes Mocky to your network; do that only on a network you trust, or behind a reverse proxy |
 | `MOCKY_DATA_DIR` | `server/data` | Where the JSON store lives. Point it at a mounted volume to keep state outside the app directory. **Do not set it under Docker** — the volume is already mounted at `/app/server/data`, and changing the path moves your state back out of it |
 | `TRUST_PROXY` | _(unset)_ | Set to `1` (or a hop count, or an Express `trust proxy` value) **when Mocky sits behind a reverse proxy**. Without it every request looks like it comes from `127.0.0.1`, so the login rate limit becomes a single instance-wide bucket — nine failed attempts a minute and nobody can sign in. Also required for the fail2ban jail in `deploy/fail2ban/` to ban real clients rather than your proxy |
-| `MOCKY_MAX_STORAGE_MB` | `10240` | Ceiling on the media libraries (images + scroll sequences). Past it, uploads and generations answer `507` with a clear message. Without a ceiling one account can write ~4 GB/min through video uploads, and a full volume also stops accounts, sessions and projects from being saved — silently, because the stores swallow their write errors. `0` disables the limit |
+| `MOCKY_MAX_STORAGE_MB` | `10240` | Ceiling on the media libraries (images, scroll sequences, and exported films). Past it, uploads and generations answer `507` with a clear message. Without a ceiling one account can write ~4 GB/min through video uploads, and a full volume also stops accounts, sessions and projects from being saved — silently, because the stores swallow their write errors. `0` disables the limit |
 | `NODE_ENV` | `production` | Enables optimised serving. Cookie security is derived from the actual connection, not from this |
 | `SSO_SHARED_SECRET` | _(unset)_ | HS256 secret shared with Dashy for SSO. Must match Dashy's `SSO_SHARED_SECRET`. Together with `SSO_DASHY_URL`, enables "Sign in with Dashy" |
 | `SSO_DASHY_URL` | _(unset)_ | Public origin of your Dashy instance (e.g. `https://dashy.example.com`) |
@@ -195,7 +196,7 @@ You can equally hard-code values under `environment:` in `docker-compose.yml`.
 
 | Volume | Mount point | Description |
 |---|---|---|
-| `mocky-data` | `/app/server/data` | JSON file store: accounts, sessions, per-user projects, the image library, and the scroll sequences (`video-library/`, which is by far the heaviest — a clip plus up to 150 frames each). Named volume in docker-compose — persists across container rebuilds |
+| `mocky-data` | `/app/server/data` | JSON file store: accounts, sessions, per-user projects, the image library, the scroll sequences (`video-library/`, which is by far the heaviest — a clip plus up to 150 frames each) and the exported films (`video-exports/`, whole `.mp4`/`.webm` files, nothing prunes them). Named volume in docker-compose — persists across container rebuilds |
 
 **Backing up data.** Copy the volume out, then use the bundled script — it is plain Node, so it behaves the same on Windows, macOS and Linux:
 
@@ -544,6 +545,86 @@ Muse is built to respect the sites it learns from:
 > Note on dependencies: the MCP SDK pulls a few transitive packages with audit
 > advisories (`hono`, `body-parser`, `shell-quote`, `esbuild`) — all in the SDK's
 > HTTP-server transport, which Mocky does **not** use (we're a stdio client).
+
+## Motion
+
+> **Why it works this way —** The renderer this feature needs is free for individuals and small companies and paid past that, and its terms say nothing about being handed on inside something you host yourself — so the honest arrangement is that it never arrives unless you fetch it, which makes the question belong to whoever answers it rather than to every operator who will never use the feature. The second decision follows from the first being a program that opens a browser and touches a disk: a model is allowed to describe the film in a fixed vocabulary that is checked before anything runs, and the code that turns that description into pictures is written by hand and covered by tests.
+
+Cut a film for a screen. `More → Motion` on a project opens the panel: pick
+images, describe the film in a sentence, and start the render. Twelve scenes at
+most, two minutes at most, in `16:9`, `9:16` or `1:1`. There is no audio.
+
+**The model COMPOSES.** It returns one JSON object validated against a schema —
+never a line of rendering code, which is the founding rule of the feature — and
+that object names things out of closed lists: a ground (flat, a gradient, drifting
+colour, a photograph, a continuous 3D world), one to eight typed **blocks** per
+scene out of a catalogue of twenty-eight (headings, quotes, counters, charts,
+galleries, forms, a globe, lit solids, animated icons), where each sits, in what
+order they arrive and how a scene gives way to the next. A hand-written component
+draws every one of them. It never picks a picture: it may only use the ones you
+selected.
+
+**It can also decide for itself.** With the composer's animation switch on
+automatic, the same Muse call that writes the art direction says whether the
+screen wants a film, which KIND it is (a hero, a band, a background, a showcase,
+a figure, a globe, a mark, a story for a feed) and which section of the page it
+belongs in. The film is then composed for that place — and told, in so many
+words, that the page states its own products, plans and prices and that the film
+states none of them: each kind carries a word budget, counted, and a film over it
+is sent back to the model once.
+
+**A film meant to sit under a page can loop.** `mirror` plays it forward and then
+backward to exactly where it started — an exact loop, for a film with no words —
+and `blend` dissolves its end into its own beginning, which works with words. The
+seam is measurably invisible: on a rendered film, the step from the last frame to
+the first is the same size as the step between any two frames of the film.
+
+**Every colour is measured rather than chosen.** The film carries your project's
+own palette and typefaces, and every run of text is checked against the surface it
+is really painted on — a ground, a veil, a photograph, a field of moving colour —
+and corrected until it clears the same contrast floors the accessibility panel
+uses. Nothing in a film is unreadable, including the icons and the 3D.
+
+**How much 3D an instance allows is an administrator's decision**, because
+without a graphics card a headless browser draws every WebGL frame on the CPU.
+Admin → Motion has three render levels and a **server test** that renders three
+reference films and reports, per level, how long a typical film takes, how many
+an hour the queue gets through, and how many people can launch one at the same
+moment and all have it within three minutes.
+
+**The renderer is [Remotion](https://www.remotion.dev/), and it is not in this
+repository's dependencies.** Its licence is free for individuals, non-profits and
+companies with up to three employees, and it does not address redistribution
+inside a self-hosted product. So it lives in `worker/video/` as a separate image,
+behind an opt-in compose profile:
+
+```bash
+docker compose --profile video-export up -d --build
+```
+
+Without that flag the service is not built, not created and not started, and
+`docker compose up -d` behaves exactly as before. Building it is the moment the
+licence question becomes yours — the threshold counts **your organisation's
+employees, not this instance's accounts**, and Mocky deliberately does not
+pretend to know which case you are in.
+
+Then turn it on in **Admin → Video export**: a master switch, an access list
+(an administrator is *not* allowed implicitly), the worker URL
+(`http://video-worker:3030` is the shipped default and the normal answer), and an
+optional licence key — which is stored server-side, never returned to the
+browser, and whose one visible consequence is that a licensed render requires
+outbound telemetry the worker container does not otherwise have.
+
+Finished films land in `data/video-exports/`, addressed by the SHA-256 of their
+bytes, sharing the same disk ceiling as the media libraries. They are **not**
+filed with the scroll sequences in `video-library/`: those are clips cut into
+stills, and everything that reads them expects frames a film does not have.
+
+Full reasoning: [`docs/video-export.md`](docs/video-export.md), and
+[`worker/video/README.md`](worker/video/README.md) for the worker itself. The
+feature is called **Motion** everywhere a user reads, and `video` everywhere a
+developer greps — a rename of the keys, the routes and the directories would
+change nothing anybody sees.
 
 ## SSO — "Sign in with Dashy"
 

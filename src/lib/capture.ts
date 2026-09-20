@@ -228,6 +228,22 @@ function buildCaptureShell(
     `script-src ${location.origin} 'unsafe-inline' 'unsafe-eval' blob:`,
     `style-src ${location.origin} 'unsafe-inline'`,
     `img-src ${location.origin} data: blob:`,
+    /*
+     * Motion films, same origin only — and this line is why it was missing.
+     *
+     * The preview grew `media-src` when a film first had to play inside a
+     * mockup; this document builds its OWN policy and was not touched, so the
+     * capture kept falling back to `default-src 'none'` and refused the video
+     * outright. The console said so on every thumbnail:
+     *   "Loading media from … violates … default-src 'none'. Note that
+     *    'media-src' was not explicitly set, so 'default-src' is used."
+     * The visible cost was a screen whose hero is a film capturing as a hole.
+     *
+     * Two CSPs for two documents is not the accident here — they genuinely
+     * differ, `img-src` above being the clearest case — but a directive added
+     * to one and not the other is, and this is the second time that has bitten.
+     */
+    `media-src ${location.origin}`,
     'font-src * data:',
     "connect-src 'none'",
     "form-action 'none'",

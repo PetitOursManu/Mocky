@@ -380,6 +380,32 @@ L'interdiction générale des `<img>` externes dans le prompt de génération es
 emplacements du plan d'imagerie de Muse, qui sont sur l'origine de Mocky, sont
 autorisées.
 
+**Les films Motion suivent la même règle, et il a fallu deux changements pour
+cela.** Un film dans une maquette est un `<video src="/api/video/<hash>">`, et
+l'iframe d'aperçu a une origine opaque (I2, I3), donc :
+
+1. `GET /api/video/:hash` est **public par empreinte** — le troisième chemin de
+   cette instance à faire ce marché, après `/api/images/:hash` et la
+   bibliothèque de clips, avec le même argument écrit à chaque fois : *l'URL est
+   la capacité*. Un SHA-256 de 64 caractères ne se devine pas, et il n'est
+   distribué que par une liste qui, elle, exige une session. Ce qui ne s'est PAS
+   ouvert : `GET /exports` ne liste toujours que vos propres films, `DELETE
+   /:hash` prouve toujours la propriété, et le montage ne contourne la session
+   que pour un **GET d'une empreinte nue, et rien d'autre**.
+2. La CSP de l'aperçu gagne `media-src ${origin}`. Sans elle, un `<video>`
+   retombe sur `default-src 'none'` et est bloqué net — c'est pourquoi un héros
+   composé autour d'un film revenait vide.
+
+`media-src` nomme l'origine au lieu de suivre `img-src *`, et l'asymétrie est le
+sujet : une image distante est la façon dont une maquette montre une photo,
+alors qu'une vidéo distante est un mégaoctet de la bande passante de quelqu'un
+d'autre qui se lit automatiquement dans l'outil où l'on juge un design. Aucun
+modèle n'a besoin d'en émettre une.
+
+La forme du contournement est vérifiée contre la source de `server/index.js`
+dans `server/video/routes.test.js`, parce que le harnais de test du routeur le
+monte sans `requireUser` et ne peut donc pas exercer le montage.
+
 ### M7. Politesse envers les sites sources
 
 | Règle | Valeur |
@@ -432,6 +458,15 @@ supposition imprimée comme un fait. Elles ont leur propre ligne, « Sans
 propriétaire », et elles y restent. Un propriétaire dont le compte a été supprimé
 y retombe, parce que `splitOwnedBytes` filtre sur l'ensemble des identifiants qui
 existent encore.
+
+**L'usage par projet l'est tout autant, et pour la même raison.** `projects` est
+une liste sur une image, et désormais sur un film exporté : l'adressage par
+contenu fait que deux projets peuvent aboutir aux mêmes octets, donc le second
+rattachement s'ajoute au lieu de remplacer. C'est ce qui rend un fichier stocké
+retrouvable — l'empreinte dit ce qu'il contient et rien sur qui l'a voulu — et le
+magasin d'exports Motion est parti sans, ce qui produisait des fichiers sur le
+volume qu'aucune interface ne pouvait atteindre. Un fichier sans projet est
+classé sous aucun, jamais sous un projet supposé.
 
 ---
 
@@ -661,11 +696,36 @@ Les redirections ne sont pas suivies (`redirect: 'manual'`). `undici` les suit
 par défaut, ce qui contournait la protection d'un seul pas : la cible passait le
 contrôle, puis répondait `302` vers l'adresse de métadonnées cloud.
 
-**Deux contournements volontaires**, tous deux réservés à un administrateur :
+**Trois contournements volontaires**, tous réservés à un administrateur :
 
 - une cible de texte configurée par un administrateur, parce que pointer vers un
   modèle local est un montage prévu ;
-- l'URL de base `sd-webui`, qui est locale par définition.
+- l'URL de base `sd-webui`, qui est locale par définition ;
+- l'**URL du worker** de rendu Motion, `assertWorkerTarget()` dans
+  `server/video/worker.js`.
+
+Le troisième a été ajouté, pas hérité, et la raison vaut le paragraphe. Protégé,
+il n'existait **aucune configuration fonctionnelle** : le worker Remotion est un
+service Compose sur un pont `internal: true` sans port publié, donc sa seule
+adresse est un nom de service qui se résout en `172.16/12`. Tout rendu mourait
+avant de quitter Mocky, et le conseil de repli du panneau d'administration —
+« exposez le worker sur une adresse publiquement résolvable » — demandait à un
+exploitant de publier un point d'entrée non authentifié acceptant des corps de
+80 Mo. C'est un moins bon compromis que celui que faisait le garde.
+
+Il a la même forme que les deux autres : il est local par définition, et il
+n'atteint le serveur que par `PUT /api/admin/video/config`, derrière
+`requireAdmin` — jamais depuis un navigateur, ce contre quoi le garde existe. Ce
+qu'il ne relâche **pas** : le schéma doit être `http` ou `https`, et ni la sonde
+de santé ni l'appel de rendu ne suivent de redirection — un worker répondant
+`302` vers le point de métadonnées ne peut donc pas élargir la dérogation au-delà
+de ce qui a été accordé. `createVideoWorker({ guard })` garde le contrôle
+injectable : qui exécute le worker sur un hôte public peut y remettre
+`assertSafeTargetResolved`.
+
+Le reste de la fonctionnalité à laquelle il appartient — pourquoi le worker est
+une image séparée, et pourquoi le modèle qui décrit un film n'écrit jamais le
+code qui le rend — est dans [Motion](fr/video-export.md).
 
 Toute URL venue d'un navigateur reste entièrement protégée — y compris sur
 `POST /api/text/vision`. C'était la seule route qui prenait une URL de base dans
@@ -682,6 +742,17 @@ Cet invariant est de fait plutôt que déclaré, mais il a réellement décidé 
 choses. C'est lui qui a fait rejeter SQLite pour la persistance de Muse, et qui a
 fait réutiliser l'écrivain ZIP sans dépendance du dépôt au lieu d'ajouter
 `archiver`.
+
+La file d'attente de rendu de Motion est la plus récente chose que cet invariant a
+tranchée, et la plus tentante à rater : un exécuteur de tâches est exactement la
+fonctionnalité pour laquelle on tend la main vers Redis. `server/video/queue.js`
+est une file en mémoire, avec un journal JSON atomique et une seule tâche à la
+fois. Un Mocky auto-hébergé est un seul processus, et une file réclamant un second
+démon pour survivre à un redémarrage coûterait plus cher à exploiter que la
+fonctionnalité ne vaut. `tests/video-worker-separation.test.js` refuse un serveur
+de file d'attente ou un pilote de base de données dans le manifeste, à côté de sa
+vérification de Remotion : cette moitié de la posture fait donc échouer une
+compilation elle aussi.
 
 **L'image d'exécution est `node:22-slim`.** `.nvmrc` contient `22.12` et
 `package.json` déclare `"node": ">=22.12"`. Deux raisons, dont chacune aurait

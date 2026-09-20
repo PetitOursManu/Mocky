@@ -257,6 +257,7 @@ export default function MusePanel({
         )
       )}
 
+
       {/* The saved choice is never rewritten — say plainly that THIS run will
           fall back, so the setting isn't silently undone behind the user. */}
       {vision === false && (

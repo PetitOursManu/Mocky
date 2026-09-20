@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MIN_H, MIN_W, packScreens, type Box, type Screen } from '../lib/project'
+import { MIN_H, MIN_W, packScreens, type AttachedMedia, type Box, type Screen } from '../lib/project'
+import { mediaPoster } from '../lib/screenMedia'
 import {
   CARD_GUTTER,
   CARD_W,
@@ -257,6 +258,87 @@ function ScreenDesignCard({
   )
 }
 
+/**
+ * The film (or scroll sequence) attached to a screen, shown beside it.
+ *
+ * In the SAME column as the Muse image and the DESIGN.md card, and that is the
+ * statement: these three are what is attached to a screen, as opposed to what is
+ * inside its code. Nothing here is in the generated source — the component has
+ * no `<video>` tag, and putting one there would be a generation rather than the
+ * substitution `screenImages.ts` performs.
+ *
+ * NO POSTER IS CUT. Producing a still from an mp4 means ffmpeg, which is the one
+ * dependency this path deliberately does not have. `preload="metadata"` gets the
+ * browser to draw the first frame on its own, out of bytes it would have fetched
+ * for a play anyway — so the card shows the film rather than a grey rectangle,
+ * and the server does no extra work. A sequence has a real poster (ffmpeg cut it
+ * at ingest) so that one is an `<img>`.
+ *
+ * A hash the library no longer holds draws the card anyway, and SAYS SO. The
+ * card drawing was never the hard part — a `<video>` whose source 404s or 403s
+ * draws a black rectangle, which is also what a film opening on a black frame
+ * draws, so "the file is gone" and "the film starts on black" were the same
+ * picture under the same caption. The failure is only observable through the
+ * element's own `error` event, so that is what switches the caption. Nothing is
+ * detached and nothing is retried: the store is separate and can lose a file at
+ * any time, and only an explicit detach clears the field (M8, Q1).
+ *
+ * World units and no counter-scaling, like its neighbours — see the note on
+ * ScreenDesignCard. Below CARD_MIN_SCALE the caller does not draw the column.
+ */
+function ScreenMediaCard({ media, onOpen }: { media: AttachedMedia; onOpen: () => void }) {
+  const t = useT()
+  // Remounted by the caller when the attachment changes, so this needs no reset
+  // of its own — see the `key` on the call site.
+  const [gone, setGone] = useState(false)
+  const poster = mediaPoster(media)
+  const isFilm = media.kind === 'film'
+  return (
+    <button
+      type="button"
+      className={`block w-full overflow-hidden border transition ${
+        gone ? 'border-line-soft bg-raised' : 'border-accent/50 bg-raised hover:border-accent'
+      }`}
+      style={{ marginTop: 10, cursor: 'pointer' }}
+      title={t(gone ? 'canvas.mediaGoneTitle' : isFilm ? 'canvas.mediaOpenFilm' : 'canvas.mediaOpenSequence')}
+      onClick={(e) => {
+        e.stopPropagation()
+        onOpen()
+      }}
+    >
+      {poster.video ? (
+        /* Muted and inert: this is a still, not a player. The click opens the
+           real one. `playsInline` keeps iOS from taking the tag full screen the
+           moment it decides to render a frame. */
+        <video
+          src={poster.video}
+          preload="metadata"
+          muted
+          playsInline
+          onError={() => setGone(true)}
+          className="block w-full bg-ink object-cover"
+          style={{ aspectRatio: '16 / 9' }}
+        />
+      ) : (
+        <img
+          src={poster.img}
+          alt=""
+          onError={() => setGone(true)}
+          className="block w-full bg-ink object-cover"
+          style={{ aspectRatio: '16 / 9' }}
+        />
+      )}
+      <span
+        className={`flex items-center ${gone ? 'bg-ink/5 text-ink-muted' : 'bg-accent/10 text-accent-ink'}`}
+        style={{ padding: '7px 10px', fontSize: 17, gap: 6 }}
+      >
+        <Icon name={gone ? 'warning' : isFilm ? 'film' : 'play'} size={17} />
+        {gone ? t('canvas.mediaGone') : t(isFilm ? 'canvas.mediaFilm' : 'canvas.mediaSequence')}
+      </span>
+    </button>
+  )
+}
+
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
@@ -307,6 +389,7 @@ export default function Canvas({
   onRenameScreen,
   onDeleteScreen,
   onOpenImage,
+  onOpenScreenMedia,
   linkMode,
   modifyMode,
   interactAll,
@@ -346,6 +429,8 @@ export default function Canvas({
   onDeleteScreen: (id: string) => void
   /** Open the Muse image of a screen full size. */
   onOpenImage?: (hash: string) => void
+  /** Play the media attached to a screen — the card beside the frame. */
+  onOpenScreenMedia?: (media: AttachedMedia) => void
   linkMode: boolean
   /** No-code "Modify" mode (Lot C): clicking an element in a screen picks it for a targeted edit. */
   modifyMode: boolean
@@ -1100,10 +1185,17 @@ export default function Canvas({
                 </div>
               )}
 
-              {/* Muse image that backs this screen — sits in the grid beside the
-                  frame (outside its bounds) so you can see it without opening
-                  the library. Click to view it full size. */}
-              {s.imageHash && view.scale >= CARD_MIN_SCALE && (
+              {/* Everything ATTACHED to this screen, as opposed to everything
+                  inside its code: the Muse image, the design it was built from,
+                  and the film or sequence somebody attached to it. One column,
+                  beside the frame and outside its bounds, so you can see them
+                  without opening a library. Each opens full size on a click.
+
+                  Drawn when there is at least one of them. `imageHash` alone
+                  used to be the gate, which was correct while the image was the
+                  only thing in it — a screen with a film and no Muse image would
+                  have had nowhere to put the card. */}
+              {(s.imageHash || s.attachedMedia) && view.scale >= CARD_MIN_SCALE && (
                 // A column, not a single button: the image opens full size and
                 // the action beneath it does something else, so one cannot be
                 // nested inside the other.
@@ -1124,25 +1216,43 @@ export default function Canvas({
                   style={{ left: `calc(100% + ${CARD_GUTTER}px)`, top: 0, width: CARD_W }}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  <button
-                    type="button"
-                    className="block w-full overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
-                    title={t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onOpenImage?.(s.imageHash as string)
-                    }}
-                  >
-                    <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
-                    <span
-                      className="flex items-center bg-muse/15 text-muse-ink"
-                      style={{ padding: '7px 10px', fontSize: 17, gap: 6 }}
+                  {s.imageHash && (
+                    <button
+                      type="button"
+                      className="block w-full overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
+                      title={t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOpenImage?.(s.imageHash as string)
+                      }}
                     >
-                      <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={17} />
-                      {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
-                    </span>
-                  </button>
+                      <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
+                      <span
+                        className="flex items-center bg-muse/15 text-muse-ink"
+                        style={{ padding: '7px 10px', fontSize: 17, gap: 6 }}
+                      >
+                        <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={17} />
+                        {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Under the image rather than over it: the picture is what the
+                      screen was BUILT from, and the film is what somebody made
+                      afterwards out of the project. Reading order follows that. */}
+                  {s.attachedMedia && (
+                    <ScreenMediaCard
+                      /* Keyed on the attachment, so swapping one media for
+                         another remounts the card. Without it the "this file is
+                         gone" state — which only an `error` event can set and
+                         nothing can unset — would survive being pointed at a
+                         media that loads perfectly well. */
+                      key={`${s.attachedMedia.kind}:${s.attachedMedia.hash}`}
+                      media={s.attachedMedia}
+                      onOpen={() => onOpenScreenMedia?.(s.attachedMedia as AttachedMedia)}
+                    />
+                  )}
 
                   {/* The design system this screen was actually built from.
                       It sits here because this is where the art direction is

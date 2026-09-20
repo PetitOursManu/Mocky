@@ -8,12 +8,25 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { DEFAULT_CF_MODEL } from './providers/cloudflare.js'
-import { DEFAULT_FAL_MODEL, DEFAULT_FAL_VIDEO_MODEL } from './providers/fal.js'
+import { DEFAULT_CF_MODEL, DEFAULT_CF_EDIT_MODEL } from './providers/cloudflare.js'
+import { DEFAULT_FAL_MODEL, DEFAULT_FAL_EDIT_MODEL, DEFAULT_FAL_VIDEO_MODEL } from './providers/fal.js'
+import { createProvider } from './providers/index.js'
 import { DEFAULT_FPS, DEFAULT_FRAME_WIDTH, MAX_FRAMES } from '../videos/frames.js'
 
 /** Selectable providers, in the order shown in the Admin UI. */
 export const PROVIDER_IDS = ['pollinations', 'fal', 'openai-image', 'cloudflare-workers-ai', 'sd-webui', 'none']
+
+/**
+ * Who can be chosen for the 'edit' profile: the providers that answer yes to
+ * `supportsInit`.
+ *
+ * Derived by ASKING each provider rather than kept as a second hand-written
+ * list, because the two would drift and the drift is invisible — a provider
+ * added to the list without the capability is offered in the panel, accepted on
+ * save, and only fails when a user finally edits an image. Instantiating is free
+ * here: the factories close over their options and touch nothing.
+ */
+export const EDIT_PROVIDER_IDS = PROVIDER_IDS.filter((id) => createProvider(id, {}).supportsInit)
 
 /**
  * Who can make a video. Only fal, for now, and that is not an oversight: none of
@@ -24,7 +37,8 @@ export const PROVIDER_IDS = ['pollinations', 'fal', 'openai-image', 'cloudflare-
 export const VIDEO_PROVIDER_IDS = ['fal', 'none']
 
 /**
- * Two independent image profiles, because the two jobs are genuinely different:
+ * Three independent image profiles, because the three jobs are genuinely
+ * different:
  *
  *  - 'content'     — the pictures embedded in the generated screen (hero,
  *    produits, backgrounds). Wanted fast and cheap; there can be several per
@@ -32,20 +46,35 @@ export const VIDEO_PROVIDER_IDS = ['fal', 'none']
  *  - 'inspiration' — the single art-direction reference Muse shows to the model.
  *    A different skill entirely: it must render a convincing web/app layout, so
  *    it is worth a slower, stronger (pricier) model.
+ *  - 'edit'        — image-to-image: an existing picture goes in, a derivative
+ *    comes out. Not a stronger model of the same kind but a different endpoint
+ *    of a different model, which most text-to-image ids do not have at all.
  *
- * 'inspiration' is OPTIONAL: an empty provider makes it reuse 'content', which
- * is exactly the pre-split behaviour.
+ * 'inspiration' and 'edit' are both OPTIONAL, and they are optional in opposite
+ * ways. An empty 'inspiration' reuses 'content' — exactly the pre-split
+ * behaviour. An empty 'edit' means image-to-image is OFF on this instance, and
+ * nothing is substituted: see `resolveImageProfile`.
  */
-export const IMAGE_PROFILES = ['content', 'inspiration']
+export const IMAGE_PROFILES = ['content', 'inspiration', 'edit']
 
-/** One profile's settings. `provider: ''` means "not configured". */
-export function defaultImageProfile(provider = '') {
+/**
+ * One profile's settings. `provider: ''` means "not configured".
+ *
+ * `kind: 'edit'` swaps in the image-to-image model defaults, which are not the
+ * same ids: Cloudflare's flux default cannot take an input image at all, and
+ * fal's schnell endpoint has no `image_url` field. Inheriting them would ship an
+ * edit profile pre-configured to fail.
+ */
+export function defaultImageProfile(provider = '', kind = 'generate') {
+  const edit = kind === 'edit'
   return {
     provider,
     pollinations: { token: '' },
-    fal: { apiKey: '', model: DEFAULT_FAL_MODEL, timeoutSec: 300 },
+    fal: { apiKey: '', model: edit ? DEFAULT_FAL_EDIT_MODEL : DEFAULT_FAL_MODEL, timeoutSec: 300 },
+    // gpt-image-1 serves both /v1/images/generations and /v1/images/edits, so
+    // this one default is right for either kind.
     openai: { baseUrl: 'https://api.openai.com', apiKey: '', model: 'gpt-image-1' },
-    cloudflare: { accountId: '', apiToken: '', model: DEFAULT_CF_MODEL },
+    cloudflare: { accountId: '', apiToken: '', model: edit ? DEFAULT_CF_EDIT_MODEL : DEFAULT_CF_MODEL },
     sdWebui: { baseUrl: 'http://127.0.0.1:7860', steps: 20 },
   }
 }
@@ -70,6 +99,7 @@ export function defaultImagesConfig() {
   return {
     content: defaultImageProfile('pollinations'),
     inspiration: defaultImageProfile(''),
+    edit: defaultImageProfile('', 'edit'),
     video: defaultVideoProfile(),
   }
 }
@@ -119,8 +149,10 @@ function dropLegacyFrames(raw) {
  */
 function liftLegacy(raw) {
   if (!raw || typeof raw !== 'object') return null
-  if (raw.content || raw.inspiration) return raw // already the new shape
+  if (raw.content || raw.inspiration || raw.edit) return raw // already the new shape
   if (typeof raw.provider !== 'string') return null
+  // No 'edit' here on purpose: a config written before image-to-image existed
+  // says nothing about it, and the honest reading of silence is "off".
   return { content: raw, inspiration: defaultImageProfile('') }
 }
 
@@ -135,21 +167,30 @@ const secret = (next, prev) => {
 }
 
 /**
- * Merge one profile. `allowEmpty` lets the inspiration profile be cleared back
- * to "reuse content"; the content profile must always name a real provider.
+ * Merge one profile.
+ *
+ * `allowEmpty` lets an optional profile be cleared back to nothing; the content
+ * profile must always name a real provider. `ids` narrows what may be selected:
+ * the 'edit' profile only accepts providers that can actually take an input
+ * image, so a doomed configuration is refused at the moment it is saved rather
+ * than at the moment someone edits an image — the panel greys them out, and this
+ * is the same rule on the side an HTTP client cannot bypass.
  */
-function mergeProfile(current, patch, allowEmpty) {
-  const base = { ...defaultImageProfile(allowEmpty ? '' : 'pollinations'), ...(current || {}) }
+function mergeProfile(current, patch, { allowEmpty = false, ids = PROVIDER_IDS, kind = 'generate' } = {}) {
+  const fallback = defaultImageProfile(allowEmpty ? '' : 'pollinations', kind)
+  const base = { ...fallback, ...(current || {}) }
   const p = patch && typeof patch === 'object' ? patch : {}
 
   const out = {
-    provider:
-      PROVIDER_IDS.includes(p.provider) || (allowEmpty && p.provider === '') ? p.provider : base.provider,
+    provider: ids.includes(p.provider) || (allowEmpty && p.provider === '') ? p.provider : base.provider,
     pollinations: {
       token: secret(p.pollinations?.token, base.pollinations?.token || ''),
     },
     fal: {
-      model: str(p.fal?.model, base.fal?.model) || DEFAULT_FAL_MODEL,
+      // `fallback`, not the module constant: an admin who clears the model field
+      // on the edit profile must land back on the image-to-image default, not on
+      // a text-to-image id that will refuse the input image.
+      model: str(p.fal?.model, base.fal?.model) || fallback.fal.model,
       apiKey: secret(p.fal?.apiKey, base.fal?.apiKey || ''),
       // Some models (Seedream Pro…) take ~2 min; allow up to 15.
       timeoutSec:
@@ -164,7 +205,7 @@ function mergeProfile(current, patch, allowEmpty) {
     },
     cloudflare: {
       accountId: str(p.cloudflare?.accountId, base.cloudflare?.accountId),
-      model: str(p.cloudflare?.model, base.cloudflare?.model) || DEFAULT_CF_MODEL,
+      model: str(p.cloudflare?.model, base.cloudflare?.model) || fallback.cloudflare.model,
       apiToken: secret(p.cloudflare?.apiToken, base.cloudflare?.apiToken || ''),
     },
     sdWebui: {
@@ -214,14 +255,15 @@ export function mergeImagesConfig(current, patch) {
   const base = liftLegacy(current) || { ...defaultImagesConfig(), ...(current || {}) }
   const p = liftLegacy(patch) || (patch && typeof patch === 'object' ? patch : {})
   return {
-    content: mergeProfile(base.content, p.content, false),
-    inspiration: mergeProfile(base.inspiration, p.inspiration, true),
+    content: mergeProfile(base.content, p.content),
+    inspiration: mergeProfile(base.inspiration, p.inspiration, { allowEmpty: true }),
+    edit: mergeProfile(base.edit, p.edit, { allowEmpty: true, ids: EDIT_PROVIDER_IDS, kind: 'edit' }),
     video: mergeVideo(base.video, p.video),
   }
 }
 
-function publicProfile(prof, fallbackProvider) {
-  const c = { ...defaultImageProfile(fallbackProvider), ...(prof || {}) }
+function publicProfile(prof, fallbackProvider, kind = 'generate') {
+  const c = { ...defaultImageProfile(fallbackProvider, kind), ...(prof || {}) }
   return {
     provider: c.provider || '',
     pollinations: { hasToken: Boolean(c.pollinations?.token) },
@@ -245,6 +287,11 @@ export function publicImagesConfig(cfg) {
     profiles: IMAGE_PROFILES,
     content: publicProfile(c.content, 'pollinations'),
     inspiration: publicProfile(c.inspiration, ''),
+    // Its own provider list, shorter than `providers`: the panel must not offer
+    // a choice the server will reject, and "why is it missing" deserves an
+    // answer in the interface rather than an error after the fact.
+    editProviders: EDIT_PROVIDER_IDS,
+    edit: publicProfile(c.edit, '', 'edit'),
     videoProviders: VIDEO_PROVIDER_IDS,
     video: {
       provider: v.provider || '',
@@ -255,11 +302,25 @@ export function publicImagesConfig(cfg) {
 }
 
 /**
- * The profile whose settings actually apply. 'inspiration' with no provider of
- * its own falls back to 'content' — the pre-split behaviour.
+ * The profile whose settings actually apply, or `null` for an 'edit' profile
+ * nobody configured.
+ *
+ * 'inspiration' with no provider of its own falls back to 'content' — the
+ * pre-split behaviour, and a harmless one: both make a picture out of a prompt,
+ * so the worst case is a less impressive reference image.
+ *
+ * 'edit' NEVER falls back, and the asymmetry is the whole point. A
+ * text-to-image provider handed a source image either refuses — which is what
+ * this feature makes them do — or, on a provider that quietly drops unknown
+ * fields, renders the prompt alone and hands back a picture the user is told is
+ * a derivative of their own. There is no way for anything downstream to tell
+ * that apart from a real edit. So an unconfigured 'edit' answers "there is no
+ * image-to-image on this instance", which callers must handle, instead of
+ * answering with a provider that cannot do the job.
  */
 export function resolveImageProfile(cfg, profile = 'content') {
   const c = liftLegacy(cfg) || cfg || defaultImagesConfig()
+  if (profile === 'edit') return c.edit?.provider ? c.edit : null
   if (profile === 'inspiration' && c.inspiration?.provider) return c.inspiration
   return c.content || defaultImageProfile('pollinations')
 }
@@ -314,7 +375,10 @@ export class ImagesConfigStore {
     return publicImagesConfig(this.config)
   }
 
-  /** Settings that apply for a profile ('inspiration' falls back to 'content'). */
+  /**
+   * Settings that apply for a profile. 'inspiration' falls back to 'content';
+   * 'edit' returns null when unconfigured and never borrows another profile.
+   */
   profile(name = 'content') {
     return resolveImageProfile(this.config, name)
   }
