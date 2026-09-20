@@ -162,9 +162,19 @@ cette section, rien de ce que contient `.env` n'atteindrait le conteneur.
 `docker-compose.yml` garde le worker derrière `profiles: ["video-export"]`, qui
 est un drapeau de ligne de commande — et une plateforme qui déploie un fichier
 compose depuis un dépôt n'a souvent aucune ligne de commande où le mettre. Il y
-a donc un second fichier, `docker-compose.motion.yml`, qui inclut le premier et
-annule ce profil. Le choisir est le même acte délibéré que taper le drapeau, et
-la question de licence à laquelle il répond est la même.
+a donc un second fichier, `docker-compose.motion.yml` : le fichier livré avec
+cette seule ligne de profil retirée, généré par `npm run compose:motion` et tenu
+à sa source par un test. Le choisir est le même acte délibéré que taper le
+drapeau, et la question de licence à laquelle il répond est la même.
+
+Il est entier plutôt qu'un `include:` de son voisin, et c'est une cicatrice et
+non un goût : Coolify — comme Dokploy et Portainer — ne donne pas le fichier à
+Compose, il le lit, le réécrit avec ses propres étiquettes et réseaux, puis
+déploie le résultat. Une clé `include:` ne veut rien dire pour cet analyseur :
+la première version de ce fichier est arrivée sur le serveur comme un service
+sans image ni build, et le déploiement a échoué sur `no service selected`. Ce
+qui modifie `docker-compose.yml` doit être suivi de `npm run compose:motion` ;
+`npm test` échoue tant que les deux ne concordent pas.
 
 | Déploiement | Ce qu’il faut faire |
 |---|---|

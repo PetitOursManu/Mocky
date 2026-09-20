@@ -227,39 +227,53 @@ describe('the worker sub-project', () => {
  * flag — Coolify, Dokploy, Portainer, a CI job.
  *
  * It is the same deliberate act as typing `--profile video-export`, so the
- * licence argument is untouched; what it must never become is a COPY of the
- * worker's service block. Everything that keeps a render from taking a host
- * down — the memory limit, the swap limit, the pids cap, `/dev/shm`, the
- * internal network — lives in `docker-compose.yml`, and a second copy of it is a
- * copy that drifts. So this file may say exactly one thing: that the profile
- * does not apply.
+ * licence argument is untouched. What it must never become is a copy that has
+ * fallen BEHIND: everything that keeps a render from taking a host down — the
+ * memory limit, the swap limit, the pids cap, `/dev/shm`, the internal network
+ * with no route out — is written once, in `docker-compose.yml`, and this file is
+ * generated from it.
+ *
+ * The first version was an `include:` of three lines, which is what a person
+ * would write and what real Compose reads correctly. It is also what broke on
+ * the one deployment it was written for: Coolify parses and rewrites a compose
+ * file rather than handing it to Compose, `include:` meant nothing to that
+ * parser, and the deploy failed with `no service selected`. So the file is whole
+ * — and this test is what makes whole safe.
  */
 describe('docker-compose.motion.yml', () => {
-  const motion = read('docker-compose.motion.yml')
+  const committed = read('docker-compose.motion.yml')
 
-  it('reads the shipped file rather than repeating it', () => {
-    expect(motion).toMatch(/^include:\s*$/m)
-    expect(motion).toMatch(/^\s*- docker-compose\.yml\s*$/m)
-    // Not one of the worker's real settings is restated here.
-    for (const copied of ['build:', 'image:', 'mem_limit', 'shm_size', 'healthcheck', 'networks:', 'RENDER_CONCURRENCY']) {
-      expect(motion, `${copied} is repeated instead of included`).not.toContain(copied)
-    }
+  it('is exactly what the generator produces from the shipped file', async () => {
+    const { motionCompose } = await import('../scripts/build-motion-compose.mjs')
+    expect(
+      committed,
+      'docker-compose.motion.yml is stale — run `npm run compose:motion` after editing docker-compose.yml',
+    ).toBe(motionCompose(read('docker-compose.yml')))
   })
 
-  it('clears the profile instead of adding one', () => {
-    expect(motion).toMatch(/^\s{2}video-worker:\s*$/m)
-    expect(motion).toMatch(/^\s*profiles:\s*!reset\s*\[\s*\]\s*$/m)
-    // And says nothing about the app: Mocky has no profile to clear, and a
-    // second declaration of it here would be a second place to edit.
-    expect(motion).not.toMatch(/^\s{2}mocky:\s*$/m)
+  it('carries both services, and no profile to hide either of them', () => {
+    expect(committed).toMatch(/^\s{2}mocky:\s*$/m)
+    expect(committed).toMatch(/^\s{2}video-worker:\s*$/m)
+    // Only in the prose at the top, where it is explained — never as a key.
+    expect(committed).not.toMatch(/^\s*profiles:/m)
   })
 
   /**
-   * The one thing a reader of this file has to be told, because a compose file
-   * is where an operator looks and a README is not.
+   * The two things a copy is for: the limits that bound a render, and the bridge
+   * that gives the worker no way out. Named here rather than trusted to the
+   * equality above, so that deleting them from BOTH files fails a test.
    */
-  it('names the licence and the worker README', () => {
-    expect(motion).toMatch(/Remotion is free for individuals/)
-    expect(motion).toMatch(/worker\/video\/README\.md/)
+  it('keeps the limits and the internal bridge the shipped file sets', () => {
+    for (const guard of ['mem_limit: 4g', 'memswap_limit: 4g', 'shm_size: 1gb', 'pids_limit: 512']) {
+      expect(committed, guard).toContain(guard)
+    }
+    expect(committed.slice(committed.lastIndexOf('\nnetworks:'))).toMatch(/video-worker:\s*\n\s*internal:\s*true/)
+  })
+
+  it('says it is generated, and names the licence and the worker README', () => {
+    expect(committed).toMatch(/GENERATED — do not edit/)
+    expect(committed).toMatch(/npm run compose:motion/)
+    expect(committed).toMatch(/Remotion is free for individuals/)
+    expect(committed).toMatch(/worker\/video\/README\.md/)
   })
 })
