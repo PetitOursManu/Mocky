@@ -35,6 +35,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `deployment` | le niveau de rendu et le test du serveur, cote exploitant | `ed5d0b9` |
 | `motion` | la doc officielle decrit Motion tel qu'il est | `ae357f4` |
 
 **Maintenance**
