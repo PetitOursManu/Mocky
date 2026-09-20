@@ -10,6 +10,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `motion` | un fichier compose pour les deploiements qui choisissent un fichier | `d921659` |
 | `motion` | un film peut boucler proprement, en miroir ou en fondu | `dca0127` |
 | `motion` | un film de page dit presque rien, et des icones animees | `4bc3a0c` |
 | `motion` | monde 3D continu, titres dessines par un essaim, transitions cube/plongee/iris/liquide | `1a8692b` |
