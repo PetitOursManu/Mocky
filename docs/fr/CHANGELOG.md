@@ -32,6 +32,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `motion` | pas de second fond anime, et jamais une bande a soi | `3a75f3f` |
 | `3d` | une scene tient dans sa boite, et se laisse photographier | `21c3466` |
 | `canevas` | l'outil Modifier reagit enfin au clic | `e4e5a79` |
 | `motion` | le fichier compose pour Coolify est entier, et genere | `dafe036` |
