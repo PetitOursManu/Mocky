@@ -83,6 +83,7 @@ import { findScreenSections } from '../lib/screenSections'
 import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
 import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
+import { pageScenesIn } from '../lib/video/pageScenes'
 import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { decideFilm, dossierMotionRequest } from '../lib/video/filmDecision'
@@ -1508,6 +1509,14 @@ export default function ProjectView({
                 // it the page's prompt is read as the page's, not as a script for the
                 // film, and the kind's word budget bounds what the film says.
                 placement: { section: museFilm.section || museFilm.kind, why: museFilm.why },
+                /*
+                 * What the page just drew in 3D, so the film does not draw a
+                 * second one. A screen with a tunnel of points behind its
+                 * content got a film whose ground was the continuous 3D world:
+                 * two three-dimensional things on one screen, neither aware of
+                 * the other. Names only — the colours are already in `theme`.
+                 */
+                scenery: await pageScenesIn(result.code),
                 // The dossier in its own words. Not the theme, which travels
                 // separately and never reaches the model: this is what makes a
                 // film RESEMBLE the direction rather than merely carry its
@@ -2061,6 +2070,9 @@ export default function ProjectView({
         theme: themeFromBrief(request),
         direction: directionBriefFrom(activeDirection()),
         previousHash: oldHash,
+        // The same screen still has its own 3D: a revision must not answer it
+        // with a second world either.
+        scenery: await pageScenesIn(screen.code),
         signal: ac.signal,
       })
       if (proposal.unchanged) {
@@ -2206,6 +2218,30 @@ export default function ProjectView({
      * screen, or one Babel could not parse.
      */
     const sections = await findScreenSections(codeAtStart)
+    /*
+     * The page may already own the ground the film is about to take.
+     *
+     * A screen came back with a full-bleed <Scene3D> behind its content AND a
+     * film laid over the same section: two backdrops in one place, each paid
+     * for, each fighting the other. The composer now knows about the scene (it
+     * is told, and the 3D world is withheld from it), but knowing is not
+     * enough here — the page is where the two actually meet, and this edit is
+     * the only moment anything can move one of them.
+     *
+     * Removing the scene rather than the film: the film cost a model call and a
+     * render, the scene is one line the model can write again, and a <Scene3D>
+     * left under a video is a WebGL context spent on something nobody can see.
+     */
+    const pageScenes = await pageScenesIn(codeAtStart)
+    const sceneUnder = pageScenes.some((sc) => sc.backdrop)
+      ? [
+          '',
+          'This screen already draws its own 3D scene as a SURFACE — <Scene3D> with an absolute or fixed class.',
+          'In the section where you put the film, DELETE it: whether it sits behind the whole section or fills one',
+          'column of it, the film has taken that ground and two moving pictures in one section play against each',
+          'other. A <Scene3D> in ANOTHER section, or one sized as a box beside the text, stays exactly as it is.',
+        ]
+      : []
     const PREFERRED: Record<string, string[]> = {
       hero: ['hero'],
       background: ['hero', 'features', 'cta'],
@@ -2328,6 +2364,7 @@ export default function ProjectView({
         `Use src="${src}" exactly — it is a content hash, and changing one character gives a screen whose film silently never loads.`,
         where,
         ...placement,
+        ...sceneUnder,
         ...shape,
         ...carries,
         '',

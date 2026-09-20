@@ -3524,6 +3524,42 @@ spent on every boot.
 
 ---
 
+## A film in a page that already has 3D
+
+A page can draw its own WebGL scene (`<Scene3D preset>`, ten of them), and the
+film composed for that page used to know nothing about it: one real screen had a
+tunnel of points behind its content and a film whose ground was the continuous
+3D `world` with a `particleField` over it — two three-dimensional things on one
+screen, each paid for, neither aware of the other.
+
+The composer cannot see the page; it reads the page's own prompt. So the page's
+scenes are read off the generated source with Babel (`src/lib/video/pageScenes.ts`,
+invariant I1) and travel to `/compose` as data: for each one, the preset name and
+whether it is a SURFACE (`absolute`/`fixed`) or an object in a box. No colours —
+the film already carries the project's theme, attached after validation, and the
+direction extract drops every hex for the same reason.
+
+`compose.js` turns that into three things:
+
+- **A sentence the model can compose against.** `PAGE_SCENES` says what each
+  preset IS in plain words ("a tunnel of points travelling towards the viewer")
+  and which blocks or grounds here draw the same thing. The echo is filtered by
+  what this request actually offers, because a name the selection or the 3D
+  permission withheld is a name the schema would refuse.
+- **A rule.** Either echo the page's scene or stay flat and let it carry the
+  volume; two different three-dimensional worlds on one screen read as two films
+  playing at once.
+- **A narrowing.** When the page's own scene is a surface, `world` is not
+  offered at all — it is the one ground that is literally a second world — and
+  the line of advice about moving between two `world` scenes goes with it. Every
+  other ground stays: the animated ones are how a film echoes a page.
+
+And one more, outside the composer: the edit that places the finished film in
+the page is told to DELETE the `<Scene3D>` in the section the film lands in. The
+film cost a model call and a render, the scene is one line the model can write
+again, and a scene left under a video is a WebGL context spent on something
+nobody can see.
+
 ## Motion at the start of a project: the kinds
 
 Motion began as a panel you open on a project that already exists, over pictures

@@ -3755,6 +3755,44 @@ redémarre en boucle il est dépensé à chaque démarrage.
 
 ---
 
+## Un film dans une page qui a déjà de la 3D
+
+Une page peut dessiner sa propre scène WebGL (`<Scene3D preset>`, dix d'entre
+elles), et le film composé pour cette page n'en savait rien : un écran réel avait
+un tunnel de points derrière son contenu et un film dont le fond était le monde
+3D continu (`world`) avec un `particleField` par-dessus — deux choses en trois
+dimensions sur un même écran, chacune payée, aucune au courant de l'autre.
+
+Le compositeur ne voit pas la page ; il lit la demande de la page. Les scènes
+sont donc relues sur la source générée avec Babel
+(`src/lib/video/pageScenes.ts`, invariant I1) et voyagent vers `/compose` comme
+des données : pour chacune, le nom du préréglage et le fait qu'elle soit une
+SURFACE (`absolute`/`fixed`) ou un objet dans une boîte. Aucune couleur — le film
+porte déjà le thème du projet, attaché après validation, et l'extrait de la
+direction laisse tomber chaque hexadécimal pour la même raison.
+
+`compose.js` en fait trois choses :
+
+- **Une phrase contre laquelle le modèle peut composer.** `PAGE_SCENES` dit ce
+  qu'est chaque préréglage en clair (« un tunnel de points qui vient vers le
+  lecteur ») et quels blocs ou fonds d'ici dessinent la même chose. L'écho est
+  filtré par ce que la requête offre réellement : un nom que la sélection ou la
+  permission 3D a retiré est un nom que le schéma refuserait.
+- **Une règle.** Soit faire écho à la scène de la page, soit rester plat et la
+  laisser porter le volume ; deux mondes en trois dimensions différents sur un
+  écran se lisent comme deux films qui jouent en même temps.
+- **Un rétrécissement.** Quand la scène de la page est une surface, `world` n'est
+  pas proposé du tout — c'est le seul fond qui soit littéralement un second monde
+  — et le conseil sur le passage entre deux scènes `world` s'en va avec lui. Tous
+  les autres fonds restent : les fonds animés sont justement la façon dont un
+  film fait écho à une page.
+
+Et une dernière, hors du compositeur : l'édition qui place le film fini dans la
+page reçoit l'ordre de SUPPRIMER le `<Scene3D>` de la section où le film atterrit.
+Le film a coûté un appel de modèle et un rendu, la scène est une ligne que le
+modèle peut réécrire, et une scène laissée sous une vidéo est un contexte WebGL
+dépensé pour quelque chose que personne ne voit.
+
 ## Motion au début d’un projet : les types
 
 Motion a commencé comme un panneau qu’on ouvre sur un projet qui existe déjà, au-

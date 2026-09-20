@@ -498,6 +498,17 @@ export async function proposeVideoTimeline(
      * film's, and the kind's word budget is what the film may say.
      */
     placement?: { section?: string; why?: string }
+    /**
+     * What the page ALREADY draws in 3D — `<Scene3D>` presets and whether each
+     * one is a full-bleed backdrop. Names only: the colours travel in `theme`,
+     * which the model never sees.
+     *
+     * Without it the film composed for a page with a tunnel of points behind
+     * its content came back with a continuous 3D world of its own over the top:
+     * two unrelated three-dimensional things on one screen, neither aware of
+     * the other. Only read alongside `placement`.
+     */
+    scenery?: { preset: string; backdrop: boolean }[]
     signal?: AbortSignal
   } = {},
 ): Promise<VideoProposal> {
@@ -535,6 +546,7 @@ export async function proposeVideoTimeline(
       revise: opts.previous && opts.revise ? true : undefined,
       previousHash: opts.previousHash || undefined,
       placement: opts.placement ?? undefined,
+      scenery: opts.scenery?.length ? opts.scenery : undefined,
     }),
     signal: opts.signal,
   })
