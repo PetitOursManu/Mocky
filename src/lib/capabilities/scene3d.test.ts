@@ -338,3 +338,32 @@ describe('a backdrop stays behind', () => {
     expect(Scene3DSource).toContain('props.style.opacity !== undefined')
   })
 })
+
+/**
+ * The console a preview leaves behind.
+ *
+ * A generated screen's console is where a USER looks for their own error, so a
+ * line Mocky puts there three times per screen costs more than it looks:
+ * `THREE.Clock` is deprecated in 0.185 and says so on construction. Nothing
+ * here needed the class — a start stamp and a subtraction are what it did — so
+ * it is gone from the component AND from the vendored entry point, which is the
+ * half that makes it impossible to come back quietly.
+ */
+describe('a scene keeps its own time', () => {
+  it('constructs nothing three.js has deprecated', () => {
+    // The class, not the word: the comment beside the replacement names it.
+    expect(Scene3DSource).not.toContain('new THREE.Clock')
+    expect(Scene3DSource).toContain('performance.now')
+  })
+
+  it('measures seconds, which is all the clock was for', () => {
+    const elapsed = new Function(
+      `var window = { performance: { now: function () { return 1500; } } };
+       var performance = window.performance;
+       var startedAt = 500;
+       ${Scene3DSource.match(/function elapsed\(\)[\s\S]*?\n    \}/)?.[0]}
+       return elapsed`,
+    )() as () => number
+    expect(elapsed()).toBeCloseTo(1, 6)
+  })
+})

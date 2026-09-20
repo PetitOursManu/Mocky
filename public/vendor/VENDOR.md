@@ -30,7 +30,7 @@ script tag reappears in the preview pipeline.
 | `tailwind.min.js` | Tailwind Play CDN | 3.4.17 | `64b8656ae0edd79ff136198680367d51ac356621026cbd88bd6a9030e17b36dc` | yes |
 | `daisyui.min.css` | daisyui | 4.12.10 | `36e28efcf6c4993c482e465b2cae3d63b2066f90ff91455d78bf3e9388af2925` | yes |
 | `motion.js` | motion | 12.43.0 | `be2986aae4824690b4b1b451725e811a08ac44d1100ea269a4692f49f1a0f4ad` | built |
-| `three.js` | three | 0.185.1 | `a6079c4451e9b0bcdbbe8989e4c4d63d2b8275e49129bd35048dbc213607f165` | built |
+| `three.js` | three | 0.185.1 | `01940a583232ff8f1681548adbdeff74bb0e0ce83293cd9b5d1803cf8bace8bf` | built |
 
 ### The two patches
 

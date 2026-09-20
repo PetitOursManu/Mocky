@@ -173,7 +173,17 @@ function Scene3D(props) {
       owed = on;
       try { window.__mockyStillPending = Math.max(0, (window.__mockyStillPending || 0) + (on ? 1 : -1)); } catch (e) {}
     }
-    var clock = new THREE.Clock();
+    /* The elapsed seconds, from the page's own clock.
+       THREE.Clock is deprecated in 0.185 and says so in the console of every
+       screen that draws a scene — three lines per preview, in a console a user
+       reads to find their OWN error. Nothing here needed it: a start stamp and
+       a subtraction are what it was doing, and dropping the class takes it out
+       of the vendored bundle as well. */
+    var startedAt = (window.performance && performance.now) ? performance.now() : Date.now();
+    function elapsed() {
+      var at = (window.performance && performance.now) ? performance.now() : Date.now();
+      return (at - startedAt) / 1000;
+    }
     var scene3 = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
     camera.position.set(0, 0, 4.2);
@@ -429,7 +439,7 @@ function Scene3D(props) {
       var src = renderer.domElement;
       if (src.width < 2 || src.height < 2) return;
       try {
-        draw(clock.getElapsedTime());
+        draw(elapsed());
         var out = src;
         var k = stillOnly ? 1 : Math.min(1, 640 / Math.max(src.width, src.height));
         if (k < 1) {
@@ -457,7 +467,7 @@ function Scene3D(props) {
 
     function loop() {
       if (disposed || !renderer) return;
-      draw(clock.getElapsedTime());
+      draw(elapsed());
       raf = window.requestAnimationFrame(loop);
     }
 
