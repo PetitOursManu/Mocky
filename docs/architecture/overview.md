@@ -78,18 +78,29 @@ about the shape of the tag.
 | `motion-lib` | cdn-script | none — pulled in by `requires` | `window.Motion`, from `/vendor/motion.js` |
 | `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Declares `requires: ['motion-lib']` |
 | `three-lib` | cdn-script | none — pulled in by `requires` | `window.THREE`, from `/vendor/three.js` |
-| `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — six procedural scenes. Declares `requires: ['three-lib']` |
+| `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — ten procedural scenes. Declares `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | none — added explicitly | `ScrollSequence` |
 
 
 ### 3D in a page, and the budget that governs it
 
 `<Scene3D preset="orb" color="#6366f1" />` is the whole 3D surface the model
-sees: six procedural scenes — a lit sphere, a turning knot, a faceted crystal, a
-torus, a field of points, a rippling surface — named out of a closed list, like
-`<Animated preset>` beside it and like Motion's blocks one feature over. It
-never writes three.js, and `stripForbiddenMotion` removes an `import … from
-'three'` the way it already removes one from `motion`.
+sees: ten procedural scenes — a lit sphere, a turning knot, a faceted crystal,
+a torus, a globe of dots with an orbit ring, three cards floating in depth, a
+cluster of bubbles, a field of points, a tunnel travelling towards the viewer, a
+rippling surface — named out of a closed list, like `<Animated preset>` beside it
+and like Motion's blocks one feature over. It never writes three.js, and
+`stripForbiddenMotion` removes an `import … from 'three'` the way it already
+removes one from `motion`.
+
+The first six were six variations on one idea: a single body, centred, in a
+single ink. The four that followed are the shapes a page actually asks for, and
+they arrived with a second hue — `accent`, optional, used by the scenes made of
+several parts (the globe's ring, one card in two, half the bubbles, the tunnel's
+ceiling), falling back to `color` rather than to the house ink so that a model
+which only knew one hex still gets a coherent object. `globe` carries the name
+Motion's own block carries, deliberately: a film and the page it came from
+should say the same word for the same object.
 
 **Everything is procedural because the preview's CSP says so.** `connect-src
 'none'` means a glTF, an HDRI or a texture file could not be fetched at all; the
