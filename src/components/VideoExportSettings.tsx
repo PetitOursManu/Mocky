@@ -734,6 +734,14 @@ function WorkerStatus({ health }: { health: VideoWorkerHealth | null }) {
           <code className="mt-1 block bg-ink/5 px-2 py-1 font-mono text-caption text-ink">
             COMPOSE_PROFILES=video-export
           </code>
+          {/* And the case neither of those two covers: a platform that deploys
+              a FILE and has no command line to put a flag on. That is where an
+              operator is most stuck, because both lines above look like they
+              should have worked. */}
+          <p className="measure mt-2 text-caption text-ink-muted">{t('video.workerComposeFileHint')}</p>
+          <code className="mt-1 block bg-ink/5 px-2 py-1 font-mono text-caption text-ink">
+            docker-compose.motion.yml
+          </code>
         </>
       )}
       {health.detail && !health.available && (

@@ -156,6 +156,39 @@ cette section, rien de ce que contient `.env` n'atteindrait le conteneur.
 > `MOCKY_ORIGIN` à `http://localhost:8787`, ce qui est juste sur un portable et
 > faux partout ailleurs.
 
+
+### Le worker de rendu de Motion, sur un serveur
+
+`docker-compose.yml` garde le worker derrière `profiles: ["video-export"]`, qui
+est un drapeau de ligne de commande — et une plateforme qui déploie un fichier
+compose depuis un dépôt n'a souvent aucune ligne de commande où le mettre. Il y
+a donc un second fichier, `docker-compose.motion.yml`, qui inclut le premier et
+annule ce profil. Le choisir est le même acte délibéré que taper le drapeau, et
+la question de licence à laquelle il répond est la même.
+
+| Déploiement | Ce qu’il faut faire |
+|---|---|
+| `docker compose` sur la machine | `docker compose --profile video-export up -d --build` une fois, ou `COMPOSE_PROFILES=video-export` dans le `.env` à côté du fichier compose, puis `docker compose up -d --build` comme d’habitude |
+| Une plateforme qui déploie un FICHIER compose (Coolify, Dokploy, Portainer) | Pointez la ressource sur `docker-compose.motion.yml` au lieu de `docker-compose.yml`, et redéployez. Certaines lisent aussi `COMPOSE_PROFILES` dans les variables d’environnement de la ressource, ce qui marche également — le fichier, lui, marche partout |
+| Une plateforme qui construit un **Dockerfile** | Aucun fichier compose n’entre en jeu : le worker est alors une seconde ressource, construite depuis `worker/video/` |
+
+Trois choses à vérifier après le premier déploiement, dans cet ordre :
+
+1. **Le conteneur est là.** `docker ps` montre `mocky-video-worker`, et sa sonde
+   de santé passe au vert en une minute et demie environ — il compile le bundle
+   de rendu après s’être mis à écouter, ce à quoi sert `start_period`.
+2. **Mocky le joint.** Administration → Motion l’affiche comme disponible.
+   L’adresse est `http://video-worker:3030` — le nom du service sur le pont
+   interne, pas une URL publique, et il n’en a jamais besoin.
+3. **La machine le porte.** Le worker demande 4 Go de mémoire et 2 cœurs pendant
+   un rendu, en plus de Mocky. Lancez le test du serveur dans Administration →
+   Motion : il rend trois films de référence et dit ce que coûte réellement
+   chaque niveau de rendu sur cette machine, puis en recommande un.
+
+Le worker ne publie aucun port et son pont n’a aucune route vers l’extérieur :
+rien là-dedans n’expose quoi que ce soit de nouveau. Une clé de licence Remotion
+est la seule exception, et le fichier compose dit où la décommenter.
+
 ---
 
 ## Les variables d'environnement

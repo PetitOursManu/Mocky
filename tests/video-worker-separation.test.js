@@ -221,3 +221,45 @@ describe('the worker sub-project', () => {
     expect(missing, 'add these to the COPY line in worker/video/Dockerfile').toEqual([])
   })
 })
+
+/**
+ * The second compose file, for a deployment that chooses a FILE rather than a
+ * flag — Coolify, Dokploy, Portainer, a CI job.
+ *
+ * It is the same deliberate act as typing `--profile video-export`, so the
+ * licence argument is untouched; what it must never become is a COPY of the
+ * worker's service block. Everything that keeps a render from taking a host
+ * down — the memory limit, the swap limit, the pids cap, `/dev/shm`, the
+ * internal network — lives in `docker-compose.yml`, and a second copy of it is a
+ * copy that drifts. So this file may say exactly one thing: that the profile
+ * does not apply.
+ */
+describe('docker-compose.motion.yml', () => {
+  const motion = read('docker-compose.motion.yml')
+
+  it('reads the shipped file rather than repeating it', () => {
+    expect(motion).toMatch(/^include:\s*$/m)
+    expect(motion).toMatch(/^\s*- docker-compose\.yml\s*$/m)
+    // Not one of the worker's real settings is restated here.
+    for (const copied of ['build:', 'image:', 'mem_limit', 'shm_size', 'healthcheck', 'networks:', 'RENDER_CONCURRENCY']) {
+      expect(motion, `${copied} is repeated instead of included`).not.toContain(copied)
+    }
+  })
+
+  it('clears the profile instead of adding one', () => {
+    expect(motion).toMatch(/^\s{2}video-worker:\s*$/m)
+    expect(motion).toMatch(/^\s*profiles:\s*!reset\s*\[\s*\]\s*$/m)
+    // And says nothing about the app: Mocky has no profile to clear, and a
+    // second declaration of it here would be a second place to edit.
+    expect(motion).not.toMatch(/^\s{2}mocky:\s*$/m)
+  })
+
+  /**
+   * The one thing a reader of this file has to be told, because a compose file
+   * is where an operator looks and a README is not.
+   */
+  it('names the licence and the worker README', () => {
+    expect(motion).toMatch(/Remotion is free for individuals/)
+    expect(motion).toMatch(/worker\/video\/README\.md/)
+  })
+})

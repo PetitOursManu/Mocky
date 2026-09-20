@@ -151,6 +151,39 @@ section, nothing in `.env` would ever reach the container.
 > onto a real deployment. The local one pins `MOCKY_ORIGIN` to
 > `http://localhost:8787`, which is right on a laptop and wrong everywhere else.
 
+
+### Motion's render worker, on a server
+
+`docker-compose.yml` keeps the worker behind `profiles: ["video-export"]`, which
+is a flag on a command line — and a platform that deploys a compose file from a
+repository often has no command line to put it on. So there is a second file,
+`docker-compose.motion.yml`, which includes the first and clears that profile.
+Choosing it is the same deliberate act as typing the flag, and the licence
+question it answers is the same one.
+
+| Deployment | What to do |
+|---|---|
+| `docker compose` on the machine | `docker compose --profile video-export up -d --build` once, or `COMPOSE_PROFILES=video-export` in the `.env` beside the compose file, and then `docker compose up -d --build` as usual |
+| A platform that deploys a compose FILE (Coolify, Dokploy, Portainer) | Point the resource at `docker-compose.motion.yml` instead of `docker-compose.yml`, and redeploy. Some of them also read `COMPOSE_PROFILES` from the resource's environment variables, which works too — the file is what works everywhere |
+| A platform that builds a **Dockerfile** | There is no compose file in play at all, so the worker is a second resource of its own, built from `worker/video/` |
+
+Three things to check after the first deploy, in this order:
+
+1. **The container is there.** `docker ps` shows `mocky-video-worker`, and its
+   health check turns healthy within about a minute and a half — it compiles the
+   render bundle after it starts listening, which is what `start_period` is for.
+2. **Mocky can reach it.** Admin → Motion shows the worker as available. The
+   address is `http://video-worker:3030` — the service's name on the internal
+   bridge, not a public URL, and it never needs one.
+3. **The machine can carry it.** The worker asks for 4 GB of memory and 2 cores
+   while it renders, on top of Mocky. Run the server test in Admin → Motion: it
+   renders three reference films and says what each render level really costs on
+   this host, then recommends one.
+
+The worker publishes no port and its bridge has no route out, so nothing about
+this exposes anything new. A Remotion licence key is the one exception, and the
+compose file says where to uncomment it.
+
 ---
 
 ## Environment variables

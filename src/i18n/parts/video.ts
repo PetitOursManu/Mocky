@@ -121,6 +121,8 @@ export const video = {
       'Le worker Remotion est un service facultatif, absent du démarrage habituel : rien ne répond tant qu’il n’a pas été construit et lancé à part. Depuis le dossier du dépôt :',
     'video.workerProfileHint':
       'Pour qu’il démarre avec les autres services à chaque fois, sans retaper le drapeau : mettez cette ligne dans le fichier .env à côté du docker-compose.yml. Le fichier livré garde son profil — c’est ce qui fait que la question de licence Remotion n’existe pas pour qui n’utilise jamais la fonctionnalité.',
+    'video.workerComposeFileHint':
+      'Sur une plateforme qui déploie un fichier compose depuis le dépôt (Coolify, Dokploy, Portainer), il n’y a pas de ligne de commande où mettre le drapeau : pointez la ressource sur ce fichier-là, qui inclut le fichier livré et active le worker.',
     'video.workerRecheck': 'Revérifier',
     'video.workerChecking': 'Vérification…',
 
@@ -565,6 +567,8 @@ export const video = {
       'The Remotion worker is an optional service, left out of the usual start-up: nothing answers until it has been built and started separately. From the repository folder:',
     'video.workerProfileHint':
       'To have it start with the other services every time, without retyping the flag: put this line in the .env file beside docker-compose.yml. The shipped file keeps its profile — that is what makes the Remotion licence question not exist for anyone who never turns the feature on.',
+    'video.workerComposeFileHint':
+      'On a platform that deploys a compose file from the repository (Coolify, Dokploy, Portainer) there is no command line to put the flag on: point the resource at this file instead, which includes the shipped one and turns the worker on.',
     'video.workerRecheck': 'Re-check',
     'video.workerChecking': 'Checking…',
 
