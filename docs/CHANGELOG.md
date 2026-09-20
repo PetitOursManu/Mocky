@@ -35,6 +35,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `motion` | comment faire demarrer le worker avec les autres services | `f227871` |
 | `deployment` | le niveau de rendu et le test du serveur, cote exploitant | `ed5d0b9` |
 | `motion` | la doc officielle decrit Motion tel qu'il est | `ae357f4` |
 
