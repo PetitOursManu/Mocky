@@ -726,6 +726,14 @@ function WorkerStatus({ health }: { health: VideoWorkerHealth | null }) {
           <code className="mt-1 block bg-ink/5 px-2 py-1 font-mono text-caption text-ink">
             docker compose --profile video-export up -d --build
           </code>
+          {/* The flag once, then never again — for an operator who has decided
+              the licence question and is tired of retyping it. The shipped
+              compose file keeps its profile, which is what makes that question
+              not exist for everyone who never turns the feature on. */}
+          <p className="measure mt-2 text-caption text-ink-muted">{t('video.workerProfileHint')}</p>
+          <code className="mt-1 block bg-ink/5 px-2 py-1 font-mono text-caption text-ink">
+            COMPOSE_PROFILES=video-export
+          </code>
         </>
       )}
       {health.detail && !health.available && (

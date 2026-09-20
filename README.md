@@ -603,7 +603,11 @@ docker compose --profile video-export up -d --build
 ```
 
 Without that flag the service is not built, not created and not started, and
-`docker compose up -d` behaves exactly as before. Building it is the moment the
+`docker compose up -d` behaves exactly as before. Once you have answered the
+licence question for yourself, `COMPOSE_PROFILES=video-export` in the `.env`
+beside `docker-compose.yml` starts it with everything else, every time — the
+shipped compose file keeps its profile, which is what makes that question not
+exist for whoever never turns the feature on. Building it is the moment the
 licence question becomes yours — the threshold counts **your organisation's
 employees, not this instance's accounts**, and Mocky deliberately does not
 pretend to know which case you are in.

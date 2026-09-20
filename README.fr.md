@@ -590,7 +590,11 @@ docker compose --profile video-export up -d --build
 ```
 
 Sans ce drapeau, le service n'est ni construit, ni créé, ni démarré, et
-`docker compose up -d` se comporte exactement comme avant. Le construire est le
+`docker compose up -d` se comporte exactement comme avant. Une fois la question
+de licence tranchée pour vous-même, `COMPOSE_PROFILES=video-export` dans le
+`.env` à côté du `docker-compose.yml` le démarre avec tout le reste, à chaque
+fois — le fichier compose livré, lui, garde son profil, et c'est ce qui fait que
+la question n'existe pas pour qui n'active jamais la fonctionnalité. Le construire est le
 moment où la question de licence devient la vôtre — le seuil compte **les
 salariés de votre organisation, pas les comptes de cette instance**, et Mocky ne
 prétend délibérément pas savoir dans quel cas vous êtes.
