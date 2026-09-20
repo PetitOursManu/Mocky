@@ -10,6 +10,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `3d` | une scene WebGL dans une page, et le budget qui la gouverne | `535dd46` |
 | `motion` | un fichier compose pour les deploiements qui choisissent un fichier | `d921659` |
 | `motion` | un film peut boucler proprement, en miroir ou en fondu | `dca0127` |
 | `motion` | un film de page dit presque rien, et des icones animees | `4bc3a0c` |
