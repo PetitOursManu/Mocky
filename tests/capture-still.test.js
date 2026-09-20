@@ -54,7 +54,7 @@ describe('a 3D scene in a capture frame', () => {
     // shooting on a fixed delay and hoping.
     expect(capture).toContain('window.__mockyStillPending')
     expect(scene).toContain('window.__mockyStillPending = Math.max(0,')
-    expect(scene).toMatch(/new ResizeObserver\(function \(\) \{ size\(\); if \(reduced \|\| stillOnly\) settle\(\); \}\)/)
+    expect(scene).toMatch(/new ResizeObserver\(function \(\) \{ size\(\); measure\(\); if \(reduced \|\| stillOnly\) settle\(\); \}\)/)
   })
 
   it('loads the bundles that DRAW, and not the ones that only move', () => {

@@ -230,3 +230,111 @@ describe('the scenes that are made of several parts', () => {
     expect(Scene3DSource).toMatch(/globe: \{ body: 'globe'/)
   })
 })
+
+/**
+ * What a scene does when the page moves.
+ *
+ * The first ten turned at a constant rate and noticed nothing else, which is
+ * what a screensaver does. Three answers were added at once, and the reason
+ * there are three is the `orb`: a SPHERE rotated ten degrees is the same
+ * sphere, so a turn alone would have been invisible on the preset a page
+ * reaches for first. The body turns, the camera slides (a real parallax, which
+ * every body shows, the fields included), and the key light travels so the
+ * highlight sweeps a surface with no features to turn.
+ *
+ * None of it can be seen without frames, so it is checked the way the framing
+ * is: the arithmetic is lifted out of the shipped source and run.
+ */
+describe('a scene answers the cursor and the scroll', () => {
+  const lift = (re: RegExp) => Scene3DSource.match(re)?.[0] ?? ''
+  const run = (body: string, name: string) =>
+    new Function(`${body}\nreturn ${name}`)()
+
+  const scroll = run(lift(/function mockySceneScroll[\s\S]*?\n\}/), 'mockySceneScroll') as (
+    box: { top: number; height: number },
+    viewport: number,
+  ) => number
+
+  it('reads the scroll as -1 entering, 0 centred, +1 leaving', () => {
+    const vh = 900
+    const h = 300
+    // Centre of the element on the centre of the viewport.
+    expect(scroll({ top: vh / 2 - h / 2, height: h }, vh)).toBeCloseTo(0, 6)
+    // Just below the fold, and just above the top.
+    expect(scroll({ top: vh, height: h }, vh)).toBeLessThan(-0.5)
+    expect(scroll({ top: -h, height: h }, vh)).toBeGreaterThan(0.5)
+    // Clamped, monotone, and never NaN on a degenerate box.
+    expect(scroll({ top: 10 * vh, height: h }, vh)).toBe(-1)
+    expect(scroll({ top: -10 * vh, height: h }, vh)).toBe(1)
+    expect(scroll({ top: 0, height: 0 }, 0)).toBe(0)
+  })
+
+  it('slides the camera without letting a body leave the box', () => {
+    // The slide is spent out of the framing margin: at tangency the slack is
+    // about 0.074 of the half-angle, and this spends 0.046 of it. Checked as
+    // the real condition — the centre's angular offset plus the body's own
+    // angular radius stays inside the half-angle.
+    const reachSrc = `${lift(/var MOCKY_SCENE_MARGIN = [\d.]+;/)}\n${lift(/function mockySceneReach[\s\S]*?\n\}/)}`
+    const reach = run(reachSrc, 'mockySceneReach') as (r: number, fov: number, a: number) => number
+    const slideShare = Number(lift(/var MOCKY_LOOK_SLIDE = ([\d.]+);/).match(/[\d.]+/)?.[0])
+    expect(slideShare).toBeGreaterThan(0)
+
+    const FOV = 42
+    for (const aspect of [0.2, 0.39, 1, 2.29, 5]) {
+      for (const radius of [0.6, 1.35, 2.4]) {
+        const d = reach(radius, FOV, aspect)
+        const slide = radius * slideShare
+        const halfV = (FOV * Math.PI) / 360
+        const half = Math.min(halfV, Math.atan(Math.tan(halfV) * aspect))
+        const offset = Math.atan(slide / d)
+        const own = Math.asin(radius / Math.hypot(d, slide))
+        expect(offset + own, `${radius} at ${aspect}`).toBeLessThan(half)
+      }
+    }
+  })
+
+  it('listens on the window, and stops listening when it stops drawing', () => {
+    // The usual shape is a scene behind a headline, so the cursor is over the
+    // text nine times out of ten and an element listener would never fire.
+    expect(Scene3DSource).toContain("window.addEventListener('pointermove', onPointer, { passive: true })")
+    // A listener per screen on the canvas, left behind, is the leak this avoids.
+    expect(Scene3DSource).toContain("window.removeEventListener('pointermove', onPointer)")
+    expect(Scene3DSource).toMatch(/function stop\(keep\) \{\s*\n(\s*\/\*[\s\S]*?\*\/\s*\n)?\s*deafen\(\);/)
+    // A scene that must hold still attaches none of it.
+    expect(Scene3DSource).toContain('if (listening || reduced || stillOnly) return;')
+    // And no frame reads layout: the box is measured on scroll and on resize.
+    expect(Scene3DSource).toContain("window.addEventListener('scroll', measure, { passive: true })")
+  })
+
+  it('answers in three ways, because one of them is invisible on a sphere', () => {
+    expect(Scene3DSource).toContain('camera.position.x = lookX * slide')
+    expect(Scene3DSource).toContain('keyLight.position.set(2.5 + lookX * 1.8')
+    expect(Scene3DSource).toContain('group.rotation.y += lookX * MOCKY_LOOK_YAW')
+  })
+})
+
+/**
+ * The two shapes the card teaches are not equally safe, and the backdrop one is
+ * where a page loses its text: a headline stands ON the scene, and nothing here
+ * measures the contrast of a moving pixel.
+ */
+describe('a backdrop stays behind', () => {
+  it('dims a scene taken out of the flow, and only that one', () => {
+    expect(Scene3DSource).toContain('var backdrop = ')
+    expect(Scene3DSource).toMatch(/var backdrop = \/\(\^\|\\s\)\(absolute\|fixed\)/)
+    expect(Scene3DSource).toContain('opacity: backdrop && !dimmed ? 0.62 : undefined')
+    // relative and sticky are still in the flow — a subject with a size, not a
+    // surface under something else — so they keep their full strength.
+    expect(Scene3DSource).not.toContain('absolute|fixed|sticky)(')
+  })
+
+  it('never takes a click, being decorative and aria-hidden both', () => {
+    expect(Scene3DSource).toContain("pointerEvents: 'none'")
+    expect(Scene3DSource).toContain("'aria-hidden': 'true'")
+  })
+
+  it('lets the page overrule it, as it does for the position', () => {
+    expect(Scene3DSource).toMatch(/var dimmed = \/\(\^\|\\s\)-\?opacity-\//)
+    expect(Scene3DSource).toContain('props.style.opacity !== undefined')
+  })
+})

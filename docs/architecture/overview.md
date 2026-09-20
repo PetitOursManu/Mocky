@@ -128,6 +128,31 @@ can take the context anyway. With no grant, no WebGL or `prefers-reduced-motion`
 the element is a quiet gradient of its own colour: a page that loses its 3D looks
 plainer, never broken.
 
+**A scene answers the cursor and the scroll, in three ways at once.** The
+first ten turned at a constant rate and noticed nothing else, which is what a
+screensaver does. The pointer is read from `window` rather than from the element
+— the usual shape is a scene behind a headline, so the cursor is over the text
+nine times out of ten — and the element's box is cached, re-measured on scroll
+and on resize, so no frame reads layout. Why three answers and not one: a SPHERE
+rotated ten degrees is the same sphere, and `orb` is the preset a page reaches
+for first. So the body turns, the camera slides (a real parallax, which every
+body shows, the fields included) and the key light travels, sweeping the
+highlight across a surface that has no features to turn. The slide is spent out
+of the framing margin — 0.046 of the half-angle against about 0.074 of slack —
+so an object that fits still fits while it answers, and a scene that must hold
+still attaches none of it.
+
+**And a backdrop stays behind.** The card teaches two shapes and they are not
+equally safe: a sized box beside the text has nothing over it, while a scene at
+`absolute inset-0` has the headline standing ON it. Nothing in a page measures
+the contrast of a moving pixel — that is the work Motion does with
+`composedPalette` and a page cannot — so the backdrop shape is drawn at 0.62 and
+takes no pointer events, being decorative and `aria-hidden` both. Only
+`absolute` and `fixed`: `relative` and `sticky` are still in the flow, a subject
+with a size rather than a surface under something else, and dimming those would
+punish the ordinary case. An opacity class in the className wins, for the reason
+the position does.
+
 **A grant is handed over only once the view has SETTLED.** The ranking is
 recomputed on every frame of a pan, so a trip across a project changed hands
 half a dozen times, and every change is a context torn down and another built —
