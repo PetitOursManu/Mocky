@@ -28,6 +28,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `canevas` | l'outil Modifier reagit enfin au clic | `e4e5a79` |
 | `motion` | le fichier compose pour Coolify est entier, et genere | `dafe036` |
 | `generation,motion` | une icone inconnue ne fait plus planter l'ecran, un film refuse a une seconde chance | `1075322` |
 | `ui` | les erreurs du composer s'affichent en entier, sur plusieurs lignes, et se ferment | `50cdbc2` |
