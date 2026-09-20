@@ -79,19 +79,30 @@ C'est [l'invariant I3](fr/architecture/invariants.md), et il porte sur la
 | `motion-lib` | cdn-script | aucun — tirée par `requires` | `window.Motion`, depuis `/vendor/motion.js` |
 | `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Déclare `requires: ['motion-lib']` |
 | `three-lib` | cdn-script | aucun — tirée par `requires` | `window.THREE`, depuis `/vendor/three.js` |
-| `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — six scènes procédurales. Déclare `requires: ['three-lib']` |
+| `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — dix scènes procédurales. Déclare `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence` |
 
 
 ### La 3D dans une page, et le budget qui la gouverne
 
 `<Scene3D preset="orb" color="#6366f1" />` est toute la surface 3D que voit le
-modèle : six scènes procédurales — une sphère éclairée, un nœud qui tourne, un
-cristal facetté, un tore, un champ de points, une surface qui ondule — nommées
-dans une liste fermée, comme `<Animated preset>` à côté et comme les blocs de
-Motion une fonctionnalité plus loin. Il n'écrit jamais de three.js, et
-`stripForbiddenMotion` retire un `import … from 'three'` comme il retire déjà
-celui de `motion`.
+modèle : dix scènes procédurales — une sphère éclairée, un nœud qui tourne, un
+cristal facetté, un tore, un globe de points avec son anneau, trois cartes qui
+flottent en profondeur, une grappe de bulles, un champ de points, un tunnel qui
+vient vers le lecteur, une surface qui ondule — nommées dans une liste fermée,
+comme `<Animated preset>` à côté et comme les blocs de Motion une fonctionnalité
+plus loin. Il n'écrit jamais de three.js, et `stripForbiddenMotion` retire un
+`import … from 'three'` comme il retire déjà celui de `motion`.
+
+Les six premières étaient six variations d'une même idée : un corps unique,
+centré, dans une seule encre. Les quatre suivantes sont les formes qu'une page
+demande vraiment, et elles sont arrivées avec une deuxième teinte — `accent`,
+facultative, utilisée par les scènes faites de plusieurs morceaux (l'anneau du
+globe, une carte sur deux, la moitié des bulles, le plafond du tunnel), qui
+retombe sur `color` et non sur l'encre de la maison, pour qu'un modèle ne
+connaissant qu'un seul hexadécimal obtienne tout de même un objet cohérent.
+`globe` porte le nom que porte le bloc de Motion, exprès : un film et la page
+d'où il vient doivent dire le même mot pour le même objet.
 
 **Tout est procédural parce que la CSP de l'aperçu le dit.** `connect-src
 'none'` signifie qu'un glTF, une HDRI ou un fichier de texture ne pourraient

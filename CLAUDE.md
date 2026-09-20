@@ -723,9 +723,12 @@ Ten things, and the first one is not negotiable.
 ## 3D in a generated page
 
 `<Scene3D preset="…">` is the only 3D a model may write, the same way
-`<Animated preset>` is the only animation: six procedural scenes out of a closed
-list, drawn by a hand-written component. `stripForbiddenMotion` now removes an
-`import … from 'three'` too. Three things are easy to break here:
+`<Animated preset>` is the only animation: ten procedural scenes out of a closed
+list, drawn by a hand-written component, painted in `color` and an optional
+`accent` that falls back to it. `stripForbiddenMotion` now removes an `import …
+from 'three'` too. `globe` is named after Motion's own block on purpose — a film
+and the page it came from say the same word. Five things are easy to break
+here:
 
 1. **The context budget is the feature.** A browser keeps ~16 live WebGL
    contexts per renderer process and silently kills the OLDEST past that
@@ -753,11 +756,14 @@ list, drawn by a hand-written component. `stripForbiddenMotion` now removes an
    should hold at most one `Scene3D`.
 4. **An object FITS its box; a field bleeds.** `mockySceneReach` dollies the
    camera to the bounding sphere's tangency in the NARROWER of the two
-   half-angles, so `orb`, `solid`, `crystal` and `ring` are whole whatever the
-   shape of the box. Before it, a probe sheet of the six presets at three aspect
-   ratios had four of them cut — a sphere in a column sliced by two straight
-   vertical lines, which is the defect a viewer reads as broken software.
-   `particles` and `wave` are textures and are MEANT to run past the edges.
+   half-angles, and the reach is taken from the whole GROUP — a globe's ring is
+   wider than its dots. Before it, a probe sheet of the six presets at three
+   aspect ratios had four of them cut: a sphere in a column sliced by two
+   straight vertical lines, which is the defect a viewer reads as broken
+   software. `particles`, `grid` and `wave` are textures and are MEANT to run
+   past the edges — which is also why `grid` has a ceiling as well as a floor: a
+   plane seen edge-on cannot fill a tall box, and a field that leaves most of
+   its box empty is the same failure the other way up.
 5. **A scene stops being a scene in three places, by one path.** A capture
    frame, a screen with "Sans animation" on, and `prefers-reduced-motion` all
    get one frame, kept as an image, and the context back. html2canvas copies a

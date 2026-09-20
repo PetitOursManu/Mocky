@@ -179,3 +179,54 @@ describe('a scene inhabits the box the page gave it', () => {
     expect(Scene3DSource).toContain('stillOnly ? 1 :')
   })
 })
+
+/**
+ * The catalogue after it grew, and the two things growing it could break.
+ *
+ * Six scenes were six variations on one idea: a single body, centred, in one
+ * ink. The four added are the shapes a page actually asks for — a globe (the
+ * name Motion's own block carries, so a film and the page it came from say the
+ * same word), cards floating in depth, a cluster, and a tunnel. A second hue
+ * came with them, because a scene painted in one ink beside a two-colour
+ * palette is what made the first six read as the same object in different
+ * shapes.
+ */
+describe('the scenes that are made of several parts', () => {
+  it('takes its reach from the GROUP, not from one geometry', () => {
+    // A globe's ring is wider than its dots: a bound read off the dots would
+    // have cut the ring — the defect the framing rule exists to stop, one
+    // object further out.
+    expect(Scene3DSource).toContain('for (var ki = 0; ki < group.children.length; ki++)')
+    expect(Scene3DSource).toContain('child.position.length() + (bs.center.length() + bs.radius) * sc')
+  })
+
+  it('disposes everything it allocated, not the last thing it made', () => {
+    // Half the catalogue is composite now, and a geometry or material left out
+    // of the cleanup is GPU memory that outlives the screen that asked for it.
+    expect(Scene3DSource).toContain('var owned = [];')
+    expect(Scene3DSource).toContain('for (var oi = 0; oi < owned.length; oi++)')
+  })
+
+  it('accepts a second hex, and falls back to the first rather than to the house ink', () => {
+    expect(Scene3DSource).toContain("mockySceneColor(props.accent, color)")
+    expect(Scene3DSource).toContain("mockySceneColor(props.color, '#6366f1')")
+    const card = cap('scene3d')?.components?.[0]?.description ?? ''
+    expect(card).toContain('accent')
+    expect(card).toContain('OPTIONAL')
+  })
+
+  it('sways what cannot spin, and travels what has nowhere to turn', () => {
+    // A panel turned edge-on is a hairline, so a stack of cards sways instead
+    // of spinning; a tunnel has no orientation to change, so it MOVES.
+    expect(Scene3DSource).toMatch(/stack: \{[^}]*sway: [\d.]+/)
+    expect(Scene3DSource).toContain('scene.sway')
+    expect(Scene3DSource).toContain('drift.position.z = (t * 0.5 * speed) % driftSpan')
+  })
+
+  it('names a globe the way Motion names one', () => {
+    // Not a coincidence to be tidied away later: the block a film draws and the
+    // scene a page draws are the same object, so they carry the same word.
+    expect(SCENE3D_PRESETS).toContain('globe')
+    expect(Scene3DSource).toMatch(/globe: \{ body: 'globe'/)
+  })
+})

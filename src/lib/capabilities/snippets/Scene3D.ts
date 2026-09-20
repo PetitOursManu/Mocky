@@ -48,7 +48,11 @@ export const Scene3DSource = `var MOCKY_SCENES = {
   solid: { body: 'knot', lit: true, spin: 0.55, bob: 0.2, fits: true },
   crystal: { body: 'crystal', lit: true, spin: 0.4, bob: 0.3, fits: true },
   ring: { body: 'torus', lit: true, spin: 0.6, bob: 0.15, fits: true },
+  globe: { body: 'globe', lit: false, spin: 0.22, bob: 0, fits: true },
+  stack: { body: 'stack', lit: true, spin: 0, sway: 0.34, bob: 0.5, fits: true },
+  bubbles: { body: 'bubbles', lit: true, spin: 0.16, bob: 0.6, fits: true },
   particles: { body: 'points', lit: false, spin: 0.12, bob: 0, fits: false },
+  grid: { body: 'grid', lit: false, spin: 0, bob: 0, fits: false },
   wave: { body: 'wave', lit: true, spin: 0.08, bob: 0, fits: false }
 };
 
@@ -80,11 +84,11 @@ function mockySceneReach(radius, fovDeg, aspect) {
   return (radius / Math.sin(Math.min(halfV, halfH))) * MOCKY_SCENE_MARGIN;
 }
 
-/** A hex the palette can be measured through, or the house ink. Never a string from a model, unchecked. */
-function mockySceneColor(value) {
+/** A hex the palette can be measured through, or the fallback. Never a string from a model, unchecked. */
+function mockySceneColor(value, fallback) {
   return typeof value === 'string' && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3}([0-9a-fA-F]{2})?)?$/.test(value.trim())
     ? value.trim()
-    : '#6366f1';
+    : fallback;
 }
 
 /**
@@ -101,7 +105,13 @@ function mockySceneStill(color) {
 function Scene3D(props) {
   var preset = MOCKY_SCENES[props.preset] ? props.preset : 'orb';
   var scene = MOCKY_SCENES[preset];
-  var color = mockySceneColor(props.color);
+  var color = mockySceneColor(props.color, '#6366f1');
+  /* The second hue, and why it is optional: a page has two colours far more
+     often than one, and a scene painted in a single ink beside a two-colour
+     palette is the thing that made the first six read as the same object in
+     different shapes. Absent, it IS the first colour — nothing composite turns
+     into a stripe because a model only knew one hex. */
+  var accent = mockySceneColor(props.accent, color);
   var speed = MOCKY_SCENE_SPEED[props.speed] || MOCKY_SCENE_SPEED.medium;
   var host = React.useRef(null);
   var stillRef = React.useRef(null);
@@ -145,10 +155,31 @@ function Scene3D(props) {
     scene3.add(group);
 
     var col = new THREE.Color(color);
-    var material = scene.lit
-      ? new THREE.MeshStandardMaterial({ color: col, roughness: 0.32, metalness: 0.15 })
-      : new THREE.MeshBasicMaterial({ color: col });
-    var geometry = null, object = null, wavePos = null, waveBase = null;
+    var acc = new THREE.Color(accent);
+
+    /* Everything this scene allocated, disposed together.
+       Half the catalogue is composite now — a globe is dots plus a ring, a
+       stack is three panels — and a geometry or a material left out of the
+       cleanup is GPU memory that outlives the screen that asked for it. One
+       list, one loop, no bookkeeping per preset. */
+    var owned = [];
+    function keep(thing) { owned.push(thing); return thing; }
+
+    /** The surface a body is made of, in one ink: lit if the preset has matter. */
+    function skin(ink) {
+      return keep(scene.lit
+        ? new THREE.MeshStandardMaterial({ color: ink, roughness: 0.32, metalness: 0.15 })
+        : new THREE.MeshBasicMaterial({ color: ink }));
+    }
+
+    /** A cloud of points from a flat array of positions. */
+    function cloud(positions, size, ink, opacity) {
+      var g = keep(new THREE.BufferGeometry());
+      g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      return new THREE.Points(g, keep(new THREE.PointsMaterial({ color: ink, size: size, transparent: true, opacity: opacity })));
+    }
+
+    var waveGeom = null, wavePos = null, waveBase = null, drift = null, driftSpan = 0;
 
     if (scene.body === 'points') {
       var COUNT = 900;
@@ -162,36 +193,136 @@ function Scene3D(props) {
         pos[i * 3 + 1] = (((i * 37) % 100) / 100 - 0.5) * 2.4;
         pos[i * 3 + 2] = Math.sin(a) * r;
       }
-      geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      object = new THREE.Points(geometry, new THREE.PointsMaterial({ color: col, size: 0.035, transparent: true, opacity: 0.85 }));
+      group.add(cloud(pos, 0.035, col, 0.85));
+    } else if (scene.body === 'globe') {
+      /* A sphere of dots rather than a lit ball, and one ring around it in the
+         second hue — the same object Motion draws as its globe block, under the
+         same name, so a film and the page it came from say the same word. The
+         spiral is Fibonacci, which is what makes the dots evenly spaced instead
+         of bunched at the poles. */
+      var GN = 760, gp = new Float32Array(GN * 3), GR = 1.22;
+      for (var gi = 0; gi < GN; gi++) {
+        var gy = 1 - (gi / (GN - 1)) * 2;
+        var gr = Math.sqrt(Math.max(0, 1 - gy * gy));
+        var ga = gi * 2.399963;
+        gp[gi * 3] = Math.cos(ga) * gr * GR;
+        gp[gi * 3 + 1] = gy * GR;
+        gp[gi * 3 + 2] = Math.sin(ga) * gr * GR;
+      }
+      group.add(cloud(gp, 0.03, col, 0.9));
+      var orbit = new THREE.Mesh(keep(new THREE.TorusGeometry(1.5, 0.012, 8, 120)), keep(new THREE.MeshBasicMaterial({ color: acc })));
+      orbit.rotation.x = 1.12;
+      orbit.rotation.z = 0.32;
+      group.add(orbit);
+    } else if (scene.body === 'stack') {
+      /* Three cards floating in depth — the shape a product page reaches for,
+         and the one a sphere cannot stand in for. It SWAYS rather than spins:
+         a panel turned edge-on is a hairline, so a full rotation would spend
+         half of every turn showing nothing. */
+      var panel = keep(new THREE.BoxGeometry(1.75, 1.0, 0.07));
+      var PANELS = [
+        { y: 0.66, z: -0.55, tilt: -0.16, ink: acc },
+        { y: 0, z: 0, tilt: 0.05, ink: col },
+        { y: -0.66, z: 0.55, tilt: 0.17, ink: acc }
+      ];
+      for (var pi = 0; pi < PANELS.length; pi++) {
+        var card = new THREE.Mesh(panel, skin(PANELS[pi].ink));
+        card.position.set(0, PANELS[pi].y, PANELS[pi].z);
+        card.rotation.z = PANELS[pi].tilt;
+        card.rotation.x = -0.1;
+        group.add(card);
+      }
+    } else if (scene.body === 'bubbles') {
+      /* A cluster rather than one ball: same material, seven sizes, two inks.
+         The positions are written down instead of scattered at random for the
+         reason the point field is — a still has to match the frame it replaced. */
+      var ball = keep(new THREE.SphereGeometry(1, 28, 20));
+      var BUBBLES = [
+        { x: 0, y: 0.1, z: 0, r: 0.72, ink: col },
+        { x: -1.02, y: 0.62, z: -0.3, r: 0.36, ink: acc },
+        { x: 0.94, y: -0.5, z: 0.2, r: 0.46, ink: acc },
+        { x: 0.78, y: 0.82, z: -0.5, r: 0.28, ink: col },
+        { x: -0.72, y: -0.74, z: 0.35, r: 0.3, ink: col },
+        { x: 1.24, y: 0.24, z: -0.9, r: 0.2, ink: acc },
+        { x: -1.3, y: -0.14, z: 0.6, r: 0.22, ink: col }
+      ];
+      for (var bi = 0; bi < BUBBLES.length; bi++) {
+        var b = BUBBLES[bi];
+        var bubble = new THREE.Mesh(ball, skin(b.ink));
+        bubble.position.set(b.x, b.y, b.z);
+        bubble.scale.setScalar(b.r);
+        group.add(bubble);
+      }
+    } else if (scene.body === 'grid') {
+      /* A floor of dots running away under the camera, and the only preset that
+         MOVES rather than turns: the rows travel towards the viewer and wrap, so
+         the illusion is of going somewhere. A field, so it bleeds past the box —
+         framing a horizon whole would put it in the middle of the frame, which
+         is the one place a horizon never is. */
+      var COLS = 34, ROWS = 26, STEP = 0.32;
+      var gpos = new Float32Array(COLS * ROWS * 3), gk = 0;
+      for (var rz = 0; rz < ROWS; rz++) {
+        for (var cx = 0; cx < COLS; cx++) {
+          gpos[gk++] = (cx - (COLS - 1) / 2) * STEP;
+          gpos[gk++] = 0;
+          gpos[gk++] = -rz * STEP;
+        }
+      }
+      /* A floor AND a ceiling, which is what makes it a tunnel rather than a
+         plain. A horizontal plane seen nearly edge-on can never cover the top
+         of its box — in a tall one the floor sat in the bottom fifth and the
+         rest was empty sky, and a field that leaves most of its box empty is
+         the motif-floating-in-the-middle failure with extra steps. */
+      drift = new THREE.Group();
+      var floorDots = cloud(gpos, 0.028, col, 0.9);
+      floorDots.position.y = -0.95;
+      drift.add(floorDots);
+      var roofDots = cloud(gpos, 0.028, acc, 0.55);
+      roofDots.position.y = 0.95;
+      drift.add(roofDots);
+      driftSpan = STEP;
+      group.add(drift);
     } else if (scene.body === 'wave') {
-      geometry = new THREE.PlaneGeometry(6, 4, 48, 32);
-      object = new THREE.Mesh(geometry, material);
-      object.rotation.x = -1.05;
-      object.position.y = -0.4;
-      wavePos = geometry.getAttribute('position');
+      waveGeom = keep(new THREE.PlaneGeometry(6, 4, 48, 32));
+      var sheet = new THREE.Mesh(waveGeom, skin(col));
+      sheet.rotation.x = -1.05;
+      sheet.position.y = -0.4;
+      wavePos = waveGeom.getAttribute('position');
       waveBase = Float32Array.from(wavePos.array);
+      group.add(sheet);
     } else {
-      geometry =
+      var solid = keep(
         scene.body === 'knot' ? new THREE.TorusKnotGeometry(1, 0.34, 120, 20)
         : scene.body === 'torus' ? new THREE.TorusGeometry(1.15, 0.32, 24, 96)
         : scene.body === 'crystal' ? new THREE.IcosahedronGeometry(1.35, 0)
-        : new THREE.SphereGeometry(1.35, 48, 32);
-      object = new THREE.Mesh(geometry, material);
+        : new THREE.SphereGeometry(1.35, 48, 32)
+      );
+      group.add(new THREE.Mesh(solid, skin(col)));
     }
-    group.add(object);
 
     /* What must FIT, and what may bleed.
        A body is an object: a cut edge reads as a broken render, so the camera is
-       dollied until its bounding sphere is inside the box. A field is a texture
-       — the point cloud and the rippling surface are meant to run past the edges
-       exactly as a background does, and framing one whole would shrink it to a
-       small motif floating in the middle of its box. */
+       dollied until everything the group holds is inside the box. A field is a
+       texture — the point cloud, the horizon grid and the rippling surface are
+       meant to run past the edges exactly as a background does, and framing one
+       whole would shrink it to a small motif in the middle of its box.
+
+       The reach is taken from the GROUP and not from one geometry, because half
+       the catalogue is composite: a globe's ring is wider than its dots, and a
+       bound read off the dots would have cut the ring — the defect this whole
+       block exists to stop, one object further out. */
     var fitRadius = 0;
-    if (scene.fits && geometry) {
-      try { geometry.computeBoundingSphere(); } catch (e) {}
-      fitRadius = geometry.boundingSphere ? geometry.boundingSphere.radius : 0;
+    if (scene.fits) {
+      for (var ki = 0; ki < group.children.length; ki++) {
+        var child = group.children[ki];
+        if (!child.geometry) continue;
+        try { child.geometry.computeBoundingSphere(); } catch (e) {}
+        var bs = child.geometry.boundingSphere;
+        if (!bs) continue;
+        var sc = Math.max(child.scale.x, child.scale.y, child.scale.z);
+        var far = child.position.length() + (bs.center.length() + bs.radius) * sc;
+        if (far > fitRadius) fitRadius = far;
+      }
     }
 
     if (scene.lit) {
@@ -215,15 +346,20 @@ function Scene3D(props) {
 
     function draw(t) {
       if (!renderer) return;
-      group.rotation.y = t * scene.spin * speed;
+      /* A sway and not a spin, for a body made of flat faces: see the stack. */
+      group.rotation.y = scene.sway
+        ? Math.sin(t * 0.45 * speed) * scene.sway
+        : t * scene.spin * speed;
       group.position.y = scene.bob ? Math.sin(t * 0.9 * speed) * 0.06 * scene.bob : 0;
+      /* The floor travels and wraps on one row, so there is no seam to see. */
+      if (drift) drift.position.z = (t * 0.5 * speed) % driftSpan;
       if (wavePos) {
         for (var i = 0; i < wavePos.count; i++) {
           var x = waveBase[i * 3], y = waveBase[i * 3 + 1];
           wavePos.setZ(i, Math.sin(x * 1.1 + t * speed) * 0.18 + Math.cos(y * 1.3 - t * 0.7 * speed) * 0.12);
         }
         wavePos.needsUpdate = true;
-        geometry.computeVertexNormals();
+        waveGeom.computeVertexNormals();
       }
       renderer.render(scene3, camera);
       drew = true;
@@ -377,10 +513,11 @@ function Scene3D(props) {
       if (io) io.disconnect();
       if (ro) ro.disconnect();
       stop(false);
-      if (geometry) geometry.dispose();
-      if (material) material.dispose();
+      for (var oi = 0; oi < owned.length; oi++) {
+        try { owned[oi].dispose(); } catch (e) {}
+      }
     };
-  }, [preset, color, speed]);
+  }, [preset, color, accent, speed]);
 
   /**
    * Who positions this element.
@@ -442,5 +579,16 @@ export const SCENE3D_EXPORTS = ['Scene3D'] as const
  * hold the two lists to one, and a preset added to the source without a word
  * here would be a scene nobody can ask for.
  */
-export const SCENE3D_PRESETS = ['orb', 'solid', 'crystal', 'ring', 'particles', 'wave'] as const
+export const SCENE3D_PRESETS = [
+  'orb',
+  'solid',
+  'crystal',
+  'ring',
+  'globe',
+  'stack',
+  'bubbles',
+  'particles',
+  'grid',
+  'wave',
+] as const
 export const SCENE3D_SPEEDS = ['slow', 'medium', 'fast'] as const
