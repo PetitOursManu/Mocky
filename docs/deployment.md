@@ -348,8 +348,18 @@ What lives in the `mocky-data` volume:
 | `muse-cache.json` | Distillations, 7-day TTL, text | Small |
 | `image-library.json` and `image-library/` | The image library | Medium |
 | `video-library/` | Sequences: one clip plus up to 150 frames each | **By far the largest** |
-| `video-config.json` | Motion settings — **includes the Remotion licence key** | Tiny |
+| `video-config.json` | Motion settings — the master switch, the 3D access list, the render level and the last server test, and **the Remotion licence key** | Tiny |
 | `video-exports.json` and `video-exports/` | Exported films, whole. Nothing prunes them: a job's hash is a link somebody may follow days later, so the disk budget bounds the directory instead | Medium to large |
+
+**How much 3D the render worker may spend is a setting, and the panel measures
+it for you.** Without a graphics card, headless Chromium draws every WebGL frame
+on the CPU, so the cost of a film is a property of the host rather than of Mocky:
+Admin → Motion has three render levels — no 3D, limited 3D (the default), full 3D
+— and a server test that renders three reference films and reports, per level,
+how long a typical film takes, how many an hour the queue gets through, and how
+many people can launch one at the same moment and all have it within three
+minutes. It recommends a level; you apply it. The test holds the queue's render
+slot while it runs, so a user's render waits rather than being refused.
 
 ---
 

@@ -363,8 +363,19 @@ Ce qui vit dans le volume `mocky-data` :
 | `muse-cache.json` | Les distillations, 7 jours, du texte | Petite |
 | `image-library.json` et `image-library/` | La bibliothèque d'images | Moyenne |
 | `video-library/` | Les séquences : un clip plus jusqu'à 150 images chacune | **De loin la plus grosse** |
-| `video-config.json` | Les réglages de Motion — **contient la clé de licence Remotion** | Minuscule |
+| `video-config.json` | Les réglages de Motion — l'interrupteur maître, la liste d'accès à la 3D, le niveau de rendu et le dernier test du serveur, et **la clé de licence Remotion** | Minuscule |
 | `video-exports.json` et `video-exports/` | Les films exportés, entiers. Rien ne les élague : le hash d'un job est un lien que quelqu'un peut suivre des jours plus tard, c'est donc le budget disque qui borne le répertoire | Moyenne à grosse |
+
+**Combien de 3D le worker de rendu peut dépenser est un réglage, et le panneau
+le mesure pour vous.** Sans carte graphique, Chromium sans écran dessine chaque
+image WebGL sur le processeur : le coût d'un film est donc une propriété de la
+machine et non de Mocky. Administration → Motion propose trois niveaux de rendu
+— sans 3D, 3D limitée (le défaut), 3D complète — et un test du serveur qui rend
+trois films de référence et donne, par niveau, la durée d'un film typique, le
+nombre de films par heure et combien de personnes peuvent en lancer un au même
+moment et tous l'avoir en moins de trois minutes. Il recommande un niveau ; vous
+l'appliquez. Le test tient le créneau de rendu de la file pendant qu'il tourne,
+donc le rendu d'un utilisateur attend au lieu d'être refusé.
 
 ---
 
