@@ -342,6 +342,7 @@ describe('POST /render', () => {
       scenes: [{ imageId: ID_A, durationMs: 3000, kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null }],
       outputFormat: 'mp4',
       aspectRatio: '16:9',
+      loop: 'none',
     })
   })
 
@@ -1711,6 +1712,39 @@ describe('the 3D permission', () => {
       const body = await (await fetch(`${base}/api/video/status`)).json()
       expect(body.threeD).toBe(false)
     })
+  })
+})
+
+describe('the loop', () => {
+  const spoken = (loop) => ({
+    template: 'composed',
+    loop,
+    scenes: [{ durationMs: 4000, layers: [{ kind: 'heading', text: 'Respirer, enfin' }] }],
+  })
+
+  it('refuses a mirrored film that carries words, and queues the same film blended', async () => {
+    enqueued = null
+    const refused = await post('/api/video/render', { timeline: spoken('mirror') })
+    expect(refused.status).toBe(400)
+    expect((await refused.json()).error).toMatch(/cannot loop the way it asks to/)
+    expect(enqueued).toBe(null)
+
+    const ok = await post('/api/video/render', { timeline: spoken('blend') })
+    expect(ok.status).toBe(202)
+    expect(enqueued.timeline.loop).toBe('blend')
+  })
+
+  it('queues a mirrored film with no words at all', async () => {
+    enqueued = null
+    const res = await post('/api/video/render', {
+      timeline: {
+        template: 'composed',
+        loop: 'mirror',
+        scenes: [{ durationMs: 8000, layers: [{ kind: 'soundWave', anchor: 'full' }] }],
+      },
+    })
+    expect(res.status).toBe(202)
+    expect(enqueued.timeline.loop).toBe('mirror')
   })
 })
 

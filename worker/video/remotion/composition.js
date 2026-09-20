@@ -5860,3 +5860,83 @@ export function auroraBands(life) {
     h: 26 + 4 * k,
   }))
 }
+
+// ── The loop: a film that plays on a page, forever, beside somebody reading ──
+
+/**
+ * How a film ends, mirrored from the schema (`LOOP_MODES` in `timeline.ts`).
+ *
+ * The arithmetic is here for the reason every other quantity is: a loop whose
+ * seam nothing can be asked about is a seam nobody sees until the mp4 is on a
+ * real page, where it plays a hundred times an hour.
+ */
+export const LOOP_MODES = ['none', 'mirror', 'blend']
+
+/** What a `blend` spends to hide its seam — the schema's own number. */
+export const LOOP_BLEND_MS = 600
+
+/** The loop a document asked for, or none. Unknown values are none: this runs per frame. */
+export function loopModeOf(timeline) {
+  const mode = timeline?.loop
+  return typeof mode === 'string' && LOOP_MODES.includes(mode) ? mode : 'none'
+}
+
+/**
+ * How long the dissolve is, in frames, bounded by a third of the film.
+ *
+ * The bound is the same shape as `MAX_TRANSITION_SHARE`'s and for the same
+ * reason: a two-second film spending six tenths of a second dissolving into
+ * itself is a film that is never simply playing.
+ */
+export function loopBlendFrames(totalFrames) {
+  const film = Math.max(1, Math.floor(Number(totalFrames) || 0))
+  return Math.max(1, Math.min(Math.floor((LOOP_BLEND_MS * FPS) / 1000), Math.floor(film / 3)))
+}
+
+/** How many frames the FILE holds, once the loop has been applied. */
+export function loopedFrames(totalFrames, mode) {
+  const film = Math.max(1, Math.floor(Number(totalFrames) || 0))
+  // 2n − 2, not 2n: the turning frame and the frame it wraps onto are each
+  // played once, so no frame of the file is a repeat of its neighbour.
+  if (mode === 'mirror') return Math.max(1, 2 * film - 2)
+  if (mode === 'blend') return Math.max(1, film - loopBlendFrames(film))
+  return film
+}
+
+/**
+ * The frame of the FILM a frame of a mirrored file shows.
+ *
+ * Forward to the end, then back to the start — so the file's last frame is the
+ * film's second, and the wrap onto frame zero is a step like any other. That is
+ * the whole of why `mirror` needs nothing else: no dissolve, no rule about what
+ * the first scene must look like, and an exact loop.
+ */
+export function mirrorFrame(frame, totalFrames) {
+  const film = Math.max(1, Math.floor(Number(totalFrames) || 0))
+  const period = Math.max(1, 2 * film - 2)
+  const at = ((Math.floor(Number(frame) || 0) % period) + period) % period
+  return at < film ? at : period - at
+}
+
+/**
+ * What a `blend` draws on a frame of the file, or null outside its window.
+ *
+ * Inside the window the file shows TWO frames of the film at once: the tail,
+ * continuing where the previous playthrough left off, and the head, coming up
+ * under it at a rising opacity. Which makes both joins continuous — the last
+ * frame of the file is followed by the tail's next frame, and the window's last
+ * frame is the head's, which the film then simply continues from.
+ */
+export function loopBlend(frame, totalFrames, blendFrames) {
+  const film = Math.max(1, Math.floor(Number(totalFrames) || 0))
+  const span = Math.max(1, Math.floor(Number(blendFrames) || 0))
+  const at = Math.floor(Number(frame) || 0)
+  if (at < 0 || at >= span) return null
+  return {
+    tail: film - span + at,
+    head: at,
+    // Exactly 1 on the window's last frame, so nothing of the tail is left on
+    // the frame the film carries on from.
+    opacity: span > 1 ? at / (span - 1) : 1,
+  }
+}

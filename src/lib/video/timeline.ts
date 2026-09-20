@@ -1735,9 +1735,33 @@ export const ComposedSceneSchema = z
 
 // ── The five documents ───────────────────────────────────────────────────────
 
+/**
+ * How a film ENDS, for the page it is played on — a band behind a heading, a
+ * hero's backdrop — where it will run forever beside somebody reading.
+ *
+ * `none` plays once and stops: the right answer for anything watched
+ * deliberately, and the default, because a film that was not composed to loop
+ * should not pretend to.
+ *
+ * `mirror` plays forward and then backward to where it started. The loop is
+ * EXACT — the last frame is the second one, so the wrap is a frame like any
+ * other — and it costs nothing but length: the film is twice as long, and the
+ * render with it. It is only for a film with NO WORDS, because a word that
+ * un-types reads as broken software rather than as a loop.
+ *
+ * `blend` dissolves the film's own end into its own beginning. It works with
+ * words and costs the last `LOOP_BLEND_MS` of the film, which is why it is not
+ * simply the default: a cross-dissolve is visible, and `mirror` is not.
+ */
+export const LOOP_MODES = ['none', 'mirror', 'blend'] as const
+
+/** What a `blend` spends to hide its own seam: the last six tenths of a second. */
+export const LOOP_BLEND_MS = 600
+
 const OUTPUT_SHAPE = {
   outputFormat: z.enum(OUTPUT_FORMATS).default('mp4'),
   aspectRatio: z.enum(ASPECT_RATIOS).default('16:9'),
+  loop: z.enum(LOOP_MODES).default('none'),
 }
 
 export const SlideshowTimelineSchema = z
@@ -1767,6 +1791,7 @@ export const VerticalTimelineSchema = z
     template: z.literal('vertical'),
     scenes: z.array(VerticalSceneSchema).min(1).max(TEMPLATE_LIMITS.vertical.maxScenes),
     outputFormat: OUTPUT_SHAPE.outputFormat,
+    loop: OUTPUT_SHAPE.loop,
     /*
      * Not an enum with a default: the ratio is the template.
      *
@@ -1969,9 +1994,30 @@ export type TitleAnimation = (typeof TITLE_ANIMATIONS)[number]
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number]
 export type AspectRatio = (typeof ASPECT_RATIOS)[number]
 
-/** Sum of the scene durations, in ms. The render budget, and what the UI shows. */
-export function totalDurationMs(timeline: { scenes: ReadonlyArray<{ durationMs: number }> }): number {
-  return timeline.scenes.reduce((sum, scene) => sum + scene.durationMs, 0)
+/**
+ * How long the FILM is, in ms: the sum of its scenes, through its loop.
+ *
+ * The loop is in here rather than beside it because this number is the render
+ * budget, the schema's ceiling and what the panel shows, and a `mirror` really
+ * is twice as many frames to draw. Three readings of "how long is it" where one
+ * counted the loop and two did not is a film killed by its own deadline at 95%.
+ */
+export function loopedDurationMs(scenesMs: number, loop?: string): number {
+  const ms = Math.max(0, Number(scenesMs) || 0)
+  if (loop === 'mirror') return ms * 2
+  if (loop === 'blend') return Math.max(1, ms - LOOP_BLEND_MS)
+  return ms
+}
+
+/** Sum of the scene durations through the loop, in ms. The render budget, and what the UI shows. */
+export function totalDurationMs(timeline: {
+  scenes: ReadonlyArray<{ durationMs: number }>
+  loop?: string
+}): number {
+  return loopedDurationMs(
+    timeline.scenes.reduce((sum, scene) => sum + scene.durationMs, 0),
+    timeline.loop,
+  )
 }
 
 /**

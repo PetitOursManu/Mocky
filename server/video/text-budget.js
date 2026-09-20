@@ -129,3 +129,33 @@ export function textBudgetIssues(timeline, kind) {
   }
   return issues
 }
+
+/**
+ * What is wrong with a film's LOOP.
+ *
+ * One rule, and it is the whole cost of `mirror`: a film that plays backwards
+ * has no words. A headline that types itself and then un-types reads as broken
+ * software, not as a loop — and unlike the word budget this is not a matter of
+ * degree, so it is checked on every film rather than only on a film with a kind.
+ *
+ * Asked at the same two doors as everything else here: `/compose`, where the
+ * model gets one correction, and `/render`, because a document need never have
+ * passed through `/compose`.
+ *
+ * @returns {Array<{path: string, message: string}>}
+ */
+export function loopIssues(timeline) {
+  if (timeline?.loop !== 'mirror') return []
+  const { total } = filmWords(timeline)
+  if (total === 0) return []
+  return [
+    {
+      path: 'loop',
+      message:
+        `this film loops by playing backwards, and it carries ${total} words. Text that un-types reads as a ` +
+        'broken player rather than as a loop. Either keep the loop and drop the words — a band or a backdrop ' +
+        'is usually better without them — or set the loop to "blend", which dissolves the end into the ' +
+        'beginning and works with words.',
+    },
+  ]
+}

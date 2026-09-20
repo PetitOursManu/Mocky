@@ -12,6 +12,11 @@ import {
   MIN_CUE_TAIL_FRAMES,
   PARTICLE_ENTER_FRAMES,
   SPATIAL_TRANSITIONS,
+  loopBlend,
+  loopBlendFrames,
+  loopModeOf,
+  loopedFrames,
+  mirrorFrame,
   SPATIAL_TRANSITION_MS,
   TRANSITION_MS,
   WORLD_REACHES,
@@ -257,5 +262,67 @@ describe('the swarm that draws a title', () => {
     expect(particleOffset(11, 0.5, 200, { arrival: 0.4, leaving: 0 })).toEqual(
       particleOffset(11, 0.5, 200, { arrival: 0.4, leaving: 0 }),
     )
+  })
+})
+
+describe('the loop — a film that plays on a page, forever', () => {
+  const FILM = 90
+
+  it('mirrors into an exact loop, with no frame played twice in a row', () => {
+    const total = loopedFrames(FILM, 'mirror')
+    expect(total).toBe(2 * FILM - 2)
+    const shown = []
+    for (let f = 0; f < total; f++) shown.push(mirrorFrame(f, FILM))
+    expect(shown[0]).toBe(0)
+    expect(shown[FILM - 1]).toBe(FILM - 1)
+    // The file's last frame is the film's SECOND, so the wrap onto frame zero is
+    // a step of one, exactly like every other step in the file.
+    expect(shown[total - 1]).toBe(1)
+    for (let f = 1; f < total; f++) expect(Math.abs(shown[f] - shown[f - 1]), `step at ${f}`).toBe(1)
+    expect(Math.abs(shown[0] - shown[total - 1])).toBe(1)
+  })
+
+  it('leaves a film that asks for nothing exactly as long as it was', () => {
+    expect(loopedFrames(FILM, 'none')).toBe(FILM)
+    expect(loopedFrames(FILM, 'wat')).toBe(FILM)
+    expect(loopModeOf({ loop: 'blend' })).toBe('blend')
+    expect(loopModeOf({ loop: 'sideways' })).toBe('none')
+    expect(loopModeOf(undefined)).toBe('none')
+  })
+
+  /**
+   * A blend draws two frames of the film at once, and both joins have to be
+   * continuous: the file's end into its own start, and the window's end into the
+   * film carrying on.
+   */
+  it('dissolves its end into its beginning, and lands exactly on the head', () => {
+    const span = loopBlendFrames(FILM)
+    const total = loopedFrames(FILM, 'blend')
+    expect(total).toBe(FILM - span)
+    expect(span).toBeLessThanOrEqual(Math.floor(FILM / 3))
+
+    const first = loopBlend(0, FILM, span)
+    // At the file's first frame the tail is all there is — it continues the
+    // frame the previous playthrough ended on, which is `FILM - span - 1`.
+    expect(first.opacity).toBe(0)
+    expect(first.tail).toBe(FILM - span)
+    const last = loopBlend(span - 1, FILM, span)
+    expect(last.opacity).toBe(1)
+    expect(last.head).toBe(span - 1)
+    // Outside the window nothing is drawn twice.
+    expect(loopBlend(span, FILM, span)).toBe(null)
+    expect(loopBlend(-1, FILM, span)).toBe(null)
+    // And the tail advances one frame per frame, like the head.
+    for (let f = 1; f < span; f++) {
+      expect(loopBlend(f, FILM, span).tail - loopBlend(f - 1, FILM, span).tail).toBe(1)
+      expect(loopBlend(f, FILM, span).head - loopBlend(f - 1, FILM, span).head).toBe(1)
+    }
+  })
+
+  it('never spends more than a third of a short film on its own seam', () => {
+    for (const film of [3, 10, 30, 90, 600]) {
+      expect(loopBlendFrames(film), `film of ${film}`).toBeLessThanOrEqual(Math.max(1, Math.floor(film / 3)))
+      expect(loopedFrames(film, 'blend')).toBeGreaterThan(0)
+    }
   })
 })

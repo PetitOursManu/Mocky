@@ -146,6 +146,8 @@ export const ARRIVALS = ['rise', 'slide', 'fade', 'zoom', 'focus', 'wipe', 'pop'
 export const SCENE_TONES = ['direction', 'inverse', 'accent']
 
 /** How the letters of a heading come alive. Absent means the word mask. Mirrors timeline.ts. */
+export const LOOP_MODES = ['none', 'mirror', 'blend']
+
 export const LETTER_EFFECTS = ['cascade', 'decode', 'flip', 'weight', 'wave', 'particles']
 
 /**
@@ -1130,7 +1132,7 @@ function readTheme(value) {
 
 function readTimeline(value) {
   object(value, 'timeline')
-  onlyKeys(value, ['template', 'scenes', 'outputFormat', 'aspectRatio', 'theme'], 'timeline')
+  onlyKeys(value, ['template', 'scenes', 'outputFormat', 'aspectRatio', 'loop', 'theme'], 'timeline')
   const template = readTemplate(value.template)
   const limits = TEMPLATE_LIMITS[template]
 
@@ -1163,6 +1165,8 @@ function readTimeline(value) {
     scenes,
     outputFormat: enumValue(value.outputFormat, OUTPUT_FORMATS, 'mp4', 'timeline.outputFormat'),
     aspectRatio: enumValue(value.aspectRatio, ratios, ratios[0], 'timeline.aspectRatio'),
+    // How the film ENDS on the page it loops on. See LOOP_MODES in the schema.
+    loop: enumValue(value.loop, LOOP_MODES, 'none', 'timeline.loop'),
   }
 
   // Added only when it was sent, never as `theme: undefined`. The composition

@@ -3887,6 +3887,59 @@ d’affichage et gagné les surfaces qui bougent et l’icône animée, parce qu
 bandeau à côté du titre de la page, c’est du mouvement avec un titre court, pas
 un paragraphe.
 
+### Un film qui boucle : `mirror` et `blend`
+
+Un film placé dans une page tourne sans fin à côté de quelqu’un qui lit : sa
+COUTURE — le pas de sa dernière image vers sa première — est l’image que le
+spectateur voit le plus souvent. Rien ne rendait ce pas discret : la pile dérive
+au fil d’une scène, un mouvement de caméra va dans un sens, un bloc apparaît en
+fondu à l’image zéro et est entièrement là à la fin. Chacun de ces termes est un
+saut au raccord.
+
+`loop` est un champ racine du document (`LOOP_MODES`, dans les trois lecteurs),
+choisi par le MODÈLE parce que les deux façons de cacher une couture coûtent des
+choses différentes :
+
+- **`mirror`** joue le film en avant puis en arrière jusqu’à son point de
+  départ. La boucle est exacte — la dernière image du fichier est la DEUXIÈME du
+  film, donc le raccord est un pas de un comme les autres — et elle ne demande
+  ni fondu, ni règle sur la première scène, ni images cachées. Elle coûte de la
+  LONGUEUR : le fichier fait `2n − 2` images et le rendu est deux fois plus
+  long. Sa seule condition : le film ne porte AUCUN mot, car un titre qui se
+  dé-tape se lit comme un lecteur cassé — ce que `loopIssues` refuse à
+  `/compose` (après une correction) et à `/render`.
+- **`blend`** fond la fin du film dans son propre début. Le fichier fait
+  `n − blend` images ; dans la fenêtre il dessine le film DEUX fois — la queue,
+  qui continue la lecture qui s’achève, et la tête, qui monte dessous à une
+  opacité croissante qui atteint exactement 1 sur la dernière image de la
+  fenêtre. Les deux raccords sont alors continus, et cela marche avec du texte.
+
+Le mécanisme est le `<Freeze frame={…}>` de Remotion, dont la prop `frame` peut
+changer à chaque image : il fixe le contexte de temps que lisent ses enfants,
+donc chaque Sequence, chaque repère et chaque canevas GL à l’intérieur voit
+l’image du film que `Looped.jsx` nomme. Aucune des six compositions ne sait
+qu’une boucle existe — l’arithmétique (`mirrorFrame`, `loopBlend`,
+`loopedFrames`) est dans `composition.js`, où un test l’atteint, et l’enveloppe
+fait vingt lignes autour des six.
+
+Mesuré sur deux films rendus, au PSNR entre images décodées — la couture face à
+un pas ordinaire du même film :
+
+| | raccord | un pas ordinaire |
+|---|---|---|
+| `mirror`, un bandeau sans mots | 44,2 dB (et 49,8 dB face à l’image 1 du film) | 44,7 dB |
+| `blend`, un hero avec un titre | 51,4 dB | 48,3 dB |
+
+Le raccord est un pas comme un autre dans le film en miroir, et un pas PLUS
+PETIT qu’un pas ordinaire dans le film fondu. Trois conséquences sont écrites
+parce que chacune est une décision : la boucle est comptée dans
+`totalDurationMs` des trois côtés (un film en miroir est deux fois plus d’images
+à dessiner, et un délai calculé sur les seules scènes le tue au moment où il
+commence à revenir en arrière) ; un `background` et un `banner` portent
+`loops: true`, donc leur fiche dit que le film est joué en boucle et ne peut pas
+rester en `none` ; et la visionneuse lit le film avec `loop`, parce qu’un film
+composé pour boucler ne se juge qu’en boucle.
+
 ### Icônes animées : un pictogramme qui bouge, dans une couleur mesurée
 
 `animatedIcon` dessine l’une des trente-quatre animations Lottie de

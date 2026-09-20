@@ -3646,6 +3646,54 @@ went — and a `banner` lost its notice-board furniture and gained the moving
 surfaces and the animated icon, because a band beside the page's own heading is
 motion with a short title, not a paragraph.
 
+### A film that loops: `mirror` and `blend`
+
+A film placed in a page runs forever beside somebody reading, so its SEAM — the
+step from its last frame back to its first — is the frame a viewer sees most
+often. Nothing made that step smooth: the stack drifts across a scene, a Ken
+Burns move travels one way, a block fades in at frame zero and is fully there at
+the end. Every one of those is a jump at the wrap.
+
+`loop` is a root field of the timeline (`LOOP_MODES`, in the three readers),
+chosen by the MODEL because the two ways of hiding a seam cost different things:
+
+- **`mirror`** plays the film forward and then backward to where it started.
+  The loop is exact — the file's last frame is the film's SECOND, so the wrap is
+  a step of one like every other — and it needs no dissolve, no rule about the
+  first scene and no hidden frames. It costs LENGTH: the file is `2n − 2` frames
+  and the render is twice as long. Its one condition is that the film carries NO
+  WORDS: a headline that un-types reads as a broken player, which `loopIssues`
+  refuses at `/compose` (after one correction) and at `/render`.
+- **`blend`** dissolves the film's own end into its own beginning. The file is
+  `n − blend` frames; inside the window it draws the film TWICE — the tail
+  continuing the playthrough that is ending, the head coming up under it at a
+  rising opacity that reaches exactly 1 on the window's last frame. Both joins
+  are then continuous, and it works with words.
+
+The mechanism is Remotion's `<Freeze frame={…}>`, whose `frame` prop may differ
+on every frame: it sets the timeline context its children read, so every
+Sequence, cue and GL canvas inside sees the film frame `Looped.jsx` names.
+Nothing in the six compositions knows a loop exists — the arithmetic
+(`mirrorFrame`, `loopBlend`, `loopedFrames`) is in `composition.js` where a test
+reaches it, and the wrapper is twenty lines around all six.
+
+Measured on two rendered films, by PSNR between decoded frames — the seam
+against an ordinary step of the same film:
+
+| | wrap | an ordinary step |
+|---|---|---|
+| `mirror`, a band with no words | 44.2 dB (and 49.8 dB against the film's own frame 1) | 44.7 dB |
+| `blend`, a hero with a headline | 51.4 dB | 48.3 dB |
+
+The wrap is a step like any other in the mirrored film, and a SMALLER one than
+an ordinary step in the blended one. Three consequences are written down because
+each was a decision: the loop is counted in `totalDurationMs` on all three sides
+(a mirrored film is twice as many frames to draw, and a deadline computed from
+the scenes alone kills it at the moment it starts playing backwards); a
+`background` and a `banner` carry `loops: true` so their card says the film is
+played on a loop and must not be `none`; and the film lightbox plays with
+`loop`, because a film composed to loop can only be judged looping.
+
 ### Animated icons: a pictogram that moves, in measured colour
 
 `animatedIcon` draws one of thirty-four Lottie animations from

@@ -26,6 +26,7 @@ import {
   threeDRefusal,
 } from './three-d.js'
 import { publicMotionKinds } from './kinds.js'
+import { loopIssues } from './text-budget.js'
 import { HISTORY_FILMS } from './variety.js'
 import { runBenchmark } from './benchmark.js'
 import { makeVariants, clampVariantCount, MIN_VARIANTS, MAX_VARIANTS } from './variants.js'
@@ -693,6 +694,13 @@ export function createVideoRouter({
     const inFull = fullTierFeaturesIn(timeline)
     if (inFull.length && !mayFull(req.user)) {
       return res.status(403).json({ error: fullTierRefusal(inFull, 'Nothing was queued.'), fullTierFeatures: inFull })
+    }
+
+    // A film that loops by playing backwards has no words — see `loopIssues`.
+    // 400 and not 403: nothing here is about who is asking.
+    const looping = loopIssues(timeline)
+    if (looping.length) {
+      return res.status(400).json({ error: `This film cannot loop the way it asks to: ${looping[0].message}` })
     }
 
     const load = threeDLoadOf(timeline)

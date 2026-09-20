@@ -248,6 +248,14 @@ const CORPUS = [
   // shipped first keep theirs.
   ['a slideshow asking for the mosaic dissolve', { scenes: [scene({ transitionOut: 'pixel' })] }],
 
+  // ---- the loop -----------------------------------------------------------
+  // Both copies read it, both default it, and both count it in the duration —
+  // a mirrored film is twice as many frames to draw.
+  ['a film that plays backwards to loop', { scenes: [scene()], loop: 'mirror' }],
+  ['a film that dissolves into its own beginning', { template: 'composed', scenes: [composed()], loop: 'blend' }],
+  ['a film that loops sideways', { scenes: [scene()], loop: 'sideways' }],
+  ['a mirrored film of a minute, which renders as two', { scenes: [scene({ durationMs: 15000 }), scene({ durationMs: 15000 }), scene({ durationMs: 15000 }), scene({ durationMs: 15000 })], loop: 'mirror' }],
+
   // ---- the theme ----------------------------------------------------------
   // Refused on BOTH copies, and that is the enforcement: the model writes a
   // document through this schema, so a theme it invented is an unknown key.

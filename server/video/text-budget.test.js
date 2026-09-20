@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filmWords, layerText, textBudgetIssues, wordCount } from './text-budget.js'
+import { filmWords, layerText, loopIssues, textBudgetIssues, wordCount } from './text-budget.js'
 import { MOTION_KIND_SPECS, MOTION_KINDS } from './kinds.js'
 import { proposeTimeline } from './compose.js'
 
@@ -131,5 +131,79 @@ describe('a page film, composed', () => {
       placement: PLACEMENT,
     })
     expect(timeline?.scenes).toHaveLength(2)
+  })
+})
+
+describe('the loop', () => {
+  const WORDLESS = {
+    template: 'composed',
+    loop: 'mirror',
+    scenes: [{ durationMs: 8000, background: { kind: 'mesh' }, layers: [{ kind: 'waveMesh', anchor: 'full' }] }],
+  }
+
+  it('lets a film with no words play backwards', () => {
+    expect(loopIssues(WORDLESS)).toEqual([])
+    expect(loopIssues({ ...WORDLESS, loop: 'blend' })).toEqual([])
+    expect(loopIssues({ ...WORDLESS, loop: 'none' })).toEqual([])
+  })
+
+  it('refuses a mirrored film that carries words, and says what to do instead', () => {
+    const spoken = {
+      ...WORDLESS,
+      scenes: [{ ...WORDLESS.scenes[0], layers: [{ kind: 'heading', text: 'Respirer, enfin' }] }],
+    }
+    const issues = loopIssues(spoken)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].path).toBe('loop')
+    expect(issues[0].message).toMatch(/blend/)
+    // A blend is what it is told to use, and a blend with words is fine.
+    expect(loopIssues({ ...spoken, loop: 'blend' })).toEqual([])
+  })
+
+  it('is asked of a film composed freely too, unlike the word budget', async () => {
+    const calls = []
+    const spoken = {
+      template: 'composed',
+      loop: 'mirror',
+      scenes: [{ durationMs: 4000, layers: [{ kind: 'heading', text: 'Respirer' }] }],
+    }
+    const { timeline, notices } = await proposeTimeline('un film calme', [], {
+      llm: async (req) => {
+        calls.push(req)
+        return spoken
+      },
+    })
+    // One correction asked, then refused: a film whose words play backwards is
+    // worse than a film that does not loop.
+    expect(calls).toHaveLength(2)
+    expect(timeline).toBeNull()
+    expect(notices.join(' ')).toMatch(/loops in a way it cannot/)
+  })
+
+  it('tells the model how a film ends, and offers the modes in the hint', async () => {
+    const calls = []
+    await proposeTimeline('un film calme', [], {
+      llm: async (req) => {
+        calls.push(req)
+        return { template: 'composed', scenes: [{ durationMs: 4000, layers: [{ kind: 'heading', text: 'Calme' }] }] }
+      },
+    })
+    expect(calls[0].system).toContain('THE END, AND WHETHER IT MEETS THE BEGINNING')
+    expect(calls[0].system).toMatch(/mirror {2}plays forward/)
+    expect(calls[0].schema.properties.loop.enum).toEqual(['none', 'mirror', 'blend'])
+    expect(calls[0].schema.required).not.toContain('loop')
+  })
+
+  it('says a background is played on a loop, on its card', async () => {
+    const calls = []
+    await proposeTimeline('une surface qui bouge', [], {
+      llm: async (req) => {
+        calls.push(req)
+        return { template: 'composed', loop: 'mirror', scenes: [{ durationMs: 8000, layers: [{ kind: 'soundWave', anchor: 'full' }] }] }
+      },
+      motionKind: 'background',
+    })
+    expect(calls[0].system).toContain('This film is PLAYED ON A LOOP')
+    expect(calls).toHaveLength(1)
   })
 })

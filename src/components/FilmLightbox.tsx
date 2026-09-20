@@ -69,6 +69,12 @@ export default function FilmLightbox({ hash, onClose }: { hash: string; onClose:
             key={hash}
             src={videoStreamUrl(hash)}
             controls
+            /* Looped, because a film composed to loop can only be judged
+               looping: `mirror` and `blend` exist to make the wrap invisible,
+               and a player that stopped at the end would show the one frame
+               they were written to hide. A film that loops badly is worth
+               seeing loop badly here rather than on somebody's page. */
+            loop
             onError={() => setGone(true)}
             className="max-h-[80vh] w-full bg-ink"
           />

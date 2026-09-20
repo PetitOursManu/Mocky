@@ -120,6 +120,9 @@ export const MOTION_KIND_SPECS = {
     scenes: { min: 1, max: 1 },
     sceneMs: { min: 6000, max: 12000 },
     words: 0,
+    // Played under a section for as long as somebody reads it: it has to loop,
+    // and with no text at all `mirror` is always available to it.
+    loops: true,
   },
 
   banner: {
@@ -154,6 +157,7 @@ export const MOTION_KIND_SPECS = {
     scenes: { min: 1, max: 2 },
     sceneMs: { min: 2000, max: 6000 },
     words: 8,
+    loops: true,
   },
 
   showcase: {
@@ -387,6 +391,12 @@ export function motionKindCard(kind) {
     spec.words === 0
       ? '- words: none. Not one block that sets text; the page sets its own words over this film.'
       : `- words: at most ${spec.words} in the WHOLE film, every line of every block counted. A film over that is sent back.`,
+    ...(spec.loops
+      ? [
+          '- This film is PLAYED ON A LOOP, under a page somebody is reading, so it must end where it began:',
+          '  give it a loop below, and never "none".',
+        ]
+      : []),
     `- aspectRatio: ${spec.aspectRatio}. It is the shape of the place this film is going, so it is the one to use.`,
     '- The catalogue below is already the part of it this kind is made of. Nothing was left out by mistake:',
     '  a block that is not there is one that would make this film something else.',

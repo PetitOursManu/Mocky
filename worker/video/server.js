@@ -20,7 +20,7 @@ import express from 'express'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { validateRenderRequest } from './validate.js'
-import { COMPOSITIONS, compositionIdFor } from './remotion/composition.js'
+import { COMPOSITIONS, LOOP_BLEND_MS, compositionIdFor } from './remotion/composition.js'
 
 const pkg = createRequire(import.meta.url)('./package.json')
 
@@ -80,7 +80,13 @@ export function renderBudgetMs(totalDurationMs) {
  * every bound in `validate.js` has already been applied to.
  */
 function filmDurationMs(timeline) {
-  return (timeline?.scenes || []).reduce((sum, scene) => sum + (Number(scene?.durationMs) || 0), 0)
+  const scenes = (timeline?.scenes || []).reduce((sum, scene) => sum + (Number(scene?.durationMs) || 0), 0)
+  // Through the LOOP, like the two copies on the Mocky side: a mirrored film is
+  // twice as many frames to draw, and a deadline computed from the scenes alone
+  // would kill it at about the moment it started playing backwards.
+  if (timeline?.loop === 'mirror') return scenes * 2
+  if (timeline?.loop === 'blend') return Math.max(1, scenes - LOOP_BLEND_MS)
+  return scenes
 }
 
 /** Plain text, one line, no stack. See the note about the 300-character splice above. */

@@ -710,6 +710,16 @@ Ten things, and the first one is not negotiable.
     asked again, once; a second answer still over is kept with a notice (Q1).
     Nothing here truncates a document.
 
+14. **A film that LOOPS hides its seam in one of two ways, and the model picks.**
+    `loop` is a root field: `mirror` plays forward then backward — an exact loop,
+    twice the frames, and only for a film with NO WORDS (`loopIssues` refuses the
+    rest at both doors) — and `blend` dissolves the end into the beginning, which
+    works with words and costs `LOOP_BLEND_MS`. The arithmetic is in
+    `composition.js`; `Looped.jsx` applies it around all six compositions with
+    Remotion's `<Freeze>`, so no composition knows a loop exists. It is counted in
+    `totalDurationMs` on all three sides, or a mirrored film dies on its own
+    deadline halfway through.
+
 ## Conventions
 
 - **Comments explain why, not what.** The house style is unusually discursive:

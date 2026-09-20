@@ -176,6 +176,7 @@ describe('proposeTimeline — the happy path is a COMPOSED film', () => {
       ],
       outputFormat: 'mp4',
       aspectRatio: '16:9',
+      loop: 'none',
     })
     expect(notices).toEqual([])
   })

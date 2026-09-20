@@ -5,20 +5,21 @@ import { ImageSequenceVideo } from './ImageSequenceVideo.jsx'
 import { OverlayBandVideo } from './OverlayBandVideo.jsx'
 import { ProductSpotlightVideo } from './ProductSpotlightVideo.jsx'
 import { VerticalStoryVideo } from './VerticalStoryVideo.jsx'
-import { COMPOSITIONS, FPS, dimensionsFor, planTimeline } from './composition.js'
+import { COMPOSITIONS, FPS, dimensionsFor, loopModeOf, loopedFrames, planTimeline } from './composition.js'
 import { withInstalledFonts } from './fonts/load.jsx'
+import { withLoop } from './Looped.jsx'
 
 /*
  * Every composition wrapped ONCE, at module scope: the wrapper holds the first
  * frame until the direction's typefaces are in, and a wrapper built inside the
  * tree would be a new component on every render — a remount per frame.
  */
-const Slideshow = withInstalledFonts(ImageSequenceVideo)
-const Overlay = withInstalledFonts(OverlayBandVideo)
-const Vertical = withInstalledFonts(VerticalStoryVideo)
-const Titles = withInstalledFonts(AnimatedTitlesVideo)
-const Product = withInstalledFonts(ProductSpotlightVideo)
-const Composed = withInstalledFonts(ComposedSceneVideo)
+const Slideshow = withLoop(withInstalledFonts(ImageSequenceVideo))
+const Overlay = withLoop(withInstalledFonts(OverlayBandVideo))
+const Vertical = withLoop(withInstalledFonts(VerticalStoryVideo))
+const Titles = withLoop(withInstalledFonts(AnimatedTitlesVideo))
+const Product = withLoop(withInstalledFonts(ProductSpotlightVideo))
+const Composed = withLoop(withInstalledFonts(ComposedSceneVideo))
 
 /**
  * A one-pixel grey PNG, so that opening this bundle in Remotion Studio shows
@@ -48,7 +49,14 @@ const PLACEHOLDER_SRC = { [PLACEHOLDER_ID]: PLACEHOLDER }
  */
 const metadata = ({ props }) => {
   const plan = planTimeline(props.timeline)
-  return { durationInFrames: plan.totalFrames, width: plan.width, height: plan.height, fps: plan.fps }
+  return {
+    // Through the loop: a mirrored film is twice as many frames to draw, and a
+    // blended one is shorter by its own dissolve. See `loopedFrames`.
+    durationInFrames: loopedFrames(plan.totalFrames, loopModeOf(props.timeline)),
+    width: plan.width,
+    height: plan.height,
+    fps: plan.fps,
+  }
 }
 
 /**

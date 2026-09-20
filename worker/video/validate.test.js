@@ -96,6 +96,7 @@ describe('a request the worker accepts', () => {
       scenes: [{ imageId: ID_A, durationMs: 3000, kenBurns: 'zoom-in', transitionOut: 'crossfade', textOverlay: null }],
       outputFormat: 'mp4',
       aspectRatio: '16:9',
+      loop: 'none',
     })
   })
 

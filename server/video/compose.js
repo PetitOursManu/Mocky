@@ -92,6 +92,7 @@ import {
   BACKGROUND_KINDS,
   COMPOSED_TRANSITIONS,
   LETTER_EFFECTS,
+  LOOP_MODES,
   ANCHORS,
   ARRIVALS,
   SCENE_TONES,
@@ -123,7 +124,7 @@ import {
   threeDBlocksIn,
   threeDRefusal,
 } from './three-d.js'
-import { textBudgetIssues } from './text-budget.js'
+import { loopIssues, textBudgetIssues } from './text-budget.js'
 import {
   motionKindOf,
   motionKindCard,
@@ -1090,6 +1091,30 @@ const GROUND_NOTES = {
 }
 
 /**
+ * How a film ENDS, when it is going to be played over and over.
+ *
+ * A film in a page runs forever beside somebody reading, so its seam is the
+ * frame a viewer sees most often — and the two ways of hiding it cost different
+ * things, which is why the model chooses rather than the composition. No digit
+ * in the prose: the lengths are the schema's.
+ */
+function loopLines() {
+  return [
+    '',
+    `THE END, AND WHETHER IT MEETS THE BEGINNING — "loop": ${LOOP_MODES.join('|')} = none`,
+    '  none    plays once and stops. Right for anything watched deliberately: a story, a mark, a film somebody',
+    '          opened on purpose.',
+    '  mirror  plays forward, then backward to exactly where it started. The loop is perfect and invisible —',
+    '          and the film is twice as long to render. ONLY for a film with NO WORDS: a headline that',
+    '          un-types reads as a broken player. A backdrop, a band of motion, a world going past: this one.',
+    '  blend   dissolves its own end into its own beginning. Works with words, and spends the end of the film',
+    '          doing it, so give it a film whose last scene can be given up to a dissolve.',
+    '  A film that will sit under a page and play again and again needs one of the last two. A film nobody',
+    '  loops is better as "none": a dissolve nobody sees is half a second of the film spent on nothing.',
+  ]
+}
+
+/**
  * What the transitions past a plain fade look like, named by what the viewer sees.
  *
  * The four that are gestures rather than cuts, and the sentence that says how
@@ -1217,6 +1242,7 @@ function composedSchema(kinds, grounds, motionKind = null, full = false) {
        * shape rather than a refusal — which is the right side of Q1 to fail on.
        */
       aspectRatio: { type: 'string', enum: spec ? [spec.aspectRatio] : [...ASPECT_RATIOS] },
+      loop: { type: 'string', enum: [...LOOP_MODES] },
     },
     required: ['template', 'scenes'],
   }
@@ -1315,6 +1341,7 @@ function buildComposedSystem(
     `- layers: ${scene.layersMin} to ${scene.layersMax} blocks. That ceiling is not a target — read THE STACK below.`,
     `- transitionOut: ${availableTransitions(full).join('|')}. The last scene is read too: "none" ends on a cut.`,
     ...transitionLines(full),
+    ...loopLines(),
     '',
     'HOW TO READ THE CATALOGUE',
     '  ≤70          a line of at most that many characters, and never empty',
@@ -1967,7 +1994,8 @@ export async function proposeTimeline(brief, images, deps = {}) {
    * carries, or a price. Only for a film with a kind — see `textBudgetIssues` —
    * and asked through the same one correction a schema refusal gets.
    */
-  const textIssues = (result) => (result.success && !chosen ? textBudgetIssues(result.data, motionKind) : [])
+  const textIssues = (result) =>
+    result.success && !chosen ? [...textBudgetIssues(result.data, motionKind), ...loopIssues(result.data)] : []
   let overText = textIssues(parsed)
 
   /*
@@ -2023,6 +2051,11 @@ export async function proposeTimeline(brief, images, deps = {}) {
    * the one who can revise it with a sentence.
    */
   if (overText.length) {
+    // The loop is the one that cannot be kept: a mirrored film with words is a
+    // film whose words play backwards, which is worse than a film that does not
+    // loop. So it is REFUSED here, where the word budget is only reported.
+    const broken = overText.find((issue) => issue.path === 'loop')
+    if (broken) return refuse(`The proposed montage loops in a way it cannot: ${broken.message}`)
     notices.push(`The film still says more than a "${motionKind}" film should: ${overText[overText.length - 1].message}`)
   }
 

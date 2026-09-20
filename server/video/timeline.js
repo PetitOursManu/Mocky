@@ -769,9 +769,33 @@ export const ComposedSceneSchema = z
   })
   .strict()
 
+/**
+ * How a film ENDS, for the page it is played on — a band behind a heading, a
+ * hero's backdrop — where it will run forever beside somebody reading.
+ *
+ * `none` plays once and stops: the right answer for anything watched
+ * deliberately, and the default, because a film that was not composed to loop
+ * should not pretend to.
+ *
+ * `mirror` plays forward and then backward to where it started. The loop is
+ * EXACT — the last frame is the second one, so the wrap is a frame like any
+ * other — and it costs nothing but length: the film is twice as long, and the
+ * render with it. It is only for a film with NO WORDS, because a word that
+ * un-types reads as broken software rather than as a loop.
+ *
+ * `blend` dissolves the film's own end into its own beginning. It works with
+ * words and costs the last `LOOP_BLEND_MS` of the film, which is why it is not
+ * simply the default: a cross-dissolve is visible, and `mirror` is not.
+ */
+export const LOOP_MODES = ['none', 'mirror', 'blend']
+
+/** What a `blend` spends to hide its own seam: the last six tenths of a second. */
+export const LOOP_BLEND_MS = 600
+
 const OUTPUT_SHAPE = {
   outputFormat: z.enum(OUTPUT_FORMATS).default('mp4'),
   aspectRatio: z.enum(ASPECT_RATIOS).default('16:9'),
+  loop: z.enum(LOOP_MODES).default('none'),
 }
 
 export const SlideshowTimelineSchema = z
@@ -795,6 +819,7 @@ export const VerticalTimelineSchema = z
     template: z.literal('vertical'),
     scenes: z.array(VerticalSceneSchema).min(1).max(TEMPLATE_LIMITS.vertical.maxScenes),
     outputFormat: OUTPUT_SHAPE.outputFormat,
+    loop: OUTPUT_SHAPE.loop,
     aspectRatio: z.literal('9:16').default('9:16'),
   })
   .strict()
@@ -873,8 +898,18 @@ export const RenderTimelineSchema = z
   .superRefine(refuseOverBudget)
 
 /** Sum of the scene durations, in ms. The render budget. */
+export function loopedDurationMs(scenesMs, loop) {
+  const ms = Math.max(0, Number(scenesMs) || 0)
+  if (loop === 'mirror') return ms * 2
+  if (loop === 'blend') return Math.max(1, ms - LOOP_BLEND_MS)
+  return ms
+}
+
 export function totalDurationMs(timeline) {
-  return (timeline?.scenes || []).reduce((sum, scene) => sum + scene.durationMs, 0)
+  return loopedDurationMs(
+    (timeline?.scenes || []).reduce((sum, scene) => sum + scene.durationMs, 0),
+    timeline?.loop,
+  )
 }
 
 /**
