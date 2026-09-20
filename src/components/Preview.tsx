@@ -561,6 +561,26 @@ export default function Preview({
   // to KNOW whether generation is running, but must not re-subscribe when that
   // changes — re-subscribing resets `ready` and re-arms the render timeout.
   const generatingRef = useRef(generating)
+  /*
+   * And the two GUARDS the listener applies, for the same reason and after the
+   * same bug twice over.
+   *
+   * The listener drops a `picked` message unless pick mode is on, and a
+   * `navigate` unless the frame was given links — both right, and both read out
+   * of a closure that is only rebuilt when the srcDoc changes. A tool is turned
+   * on AFTER a screen has rendered, always: so the frame received `pick on`
+   * (that command has its own effect, with its own dependencies), drew the
+   * hover outline, posted the click — and the parent threw it away against a
+   * `pickMode` that was still false from render time. Which is exactly what it
+   * looked like from the outside: the element lights up, the click does
+   * nothing.
+   *
+   * Refs rather than dependencies, because re-subscribing resets `ready` and
+   * re-arms the twenty-second render timeout: a preview would flicker back to
+   * "loading" every time somebody picked up a tool.
+   */
+  const pickModeRef = useRef(pickMode)
+  const demoLinksRef = useRef(demoLinks)
   onPickRef.current = onPick
   onNavRef.current = onNavigate
   onCaptureRectRef.current = onCaptureRect
@@ -568,6 +588,8 @@ export default function Preview({
   onContentHeightRef.current = onContentHeight
   onSweptRef.current = onSwept
   generatingRef.current = generating
+  pickModeRef.current = pickMode
+  demoLinksRef.current = demoLinks
 
   // Build the iframe srcDoc from the generated code. We debounce 500ms so
   // rapid streaming chunks don't cause an iframe rebuild on every token. The
@@ -693,9 +715,9 @@ export default function Preview({
       // A frame may only report a pick while pick mode is actually on, and may
       // only ask to navigate while it has demo links. Without these, a rendered
       // component could drive the parent's UI at will.
-      if (d.type === 'picked' && pickMode)
+      if (d.type === 'picked' && pickModeRef.current)
         onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
-      if (d.type === 'navigate' && demoLinks && demoLinks.length > 0) onNavRef.current?.(d.target)
+      if (d.type === 'navigate' && demoLinksRef.current && demoLinksRef.current.length > 0) onNavRef.current?.(d.target)
       if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
       // A fragment pointing at nothing. Reported rather than swallowed: these
       // come from the model's own markup — a nav item written before the
