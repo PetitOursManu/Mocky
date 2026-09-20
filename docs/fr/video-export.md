@@ -3793,6 +3793,48 @@ Le film a coûté un appel de modèle et un rendu, la scène est une ligne que l
 modèle peut réécrire, et une scène laissée sous une vidéo est un contexte WebGL
 dépensé pour quelque chose que personne ne voit.
 
+### Un film n'est jamais le second fond animé
+
+Savoir ce que la page dessine ne suffit pas quand le film n'aurait pas dû être
+un fond du tout. Une demande qui dit « un fond animé en 3D » est satisfaite par
+la page elle-même, et Muse réclamant ensuite un film de type `background` pose
+deux fonds animés sur un même écran — un visiteur ne peut pas savoir lequel des
+deux est le site.
+
+La DÉCISION passe donc avant la composition. `decideFilm` reçoit
+`pageAnimatesBackground`, relu sur la source générée en même temps que les
+scènes : un `<Scene3D>` disposé en surface, ou n'importe quelle couche pleine
+page portant une classe `animate-` (une page anime un fond en CSS aussi
+volontiers qu'en WebGL). Quand c'est vrai et que le dossier demandait un
+`background`, le film devient le premier type de `INSTEAD_OF_BACKGROUND` que le
+compte sait rendre — d'abord quelque chose qui MONTRE, puis quelque chose qui
+SIGNE, avec `hero` en dernier parce qu'un film de héros atterrit sur le premier
+écran, là où le fond animé de la page se trouve déjà. La section et la raison
+partent avec le type : elles avaient été choisies pour un fond, et tout autre
+chose posé là est un film par-dessus un fond qui bouge. Rien d'autre au
+catalogue signifie pas de film, ce qui vaut mieux qu'un second fond.
+
+### Un film atterrit dans une section que la page avait déjà
+
+Une mise en page est revenue avec le film dans une bande à lui en haut de la
+page : le site commençait sous la ligne de flottaison, et le premier écran était
+une vidéo avec rien dessus. Trois choses y répondent, et seule la dernière est
+une garantie :
+
+- l'instruction dit de mettre le `<MotionFilm>` DANS l'un des identifiants qu'on
+  lui donne, de ne jamais créer de section pour lui et de ne jamais lui donner
+  une bande à lui ;
+- la passe qui supprime la copie de la page là où un film porte son propre titre
+  supprime désormais le `<h1>` et garde le surtitre, le sous-titre et les
+  boutons — un écran qui n'est qu'un film est une page qui n'a pas commencé ;
+- et le résultat est RELU. `filmSectionIn` remonte du `<MotionFilm>` jusqu'au
+  premier élément porteur d'un identifiant ; un film qui s'est retrouvé hors de
+  toutes les sections que l'écran avait déjà n'est pas réécrit. L'écran garde son
+  code et le film reste rattaché, c'est-à-dire exactement là où vit un film sans
+  mise en page : visible sur le canevas, à un clic de la visionneuse, rien de
+  perdu sauf l'insertion. Uniquement quand l'écran avait des identifiants où
+  atterrir — une page qui n'en a aucun ne donne rien à comparer.
+
 ## Motion au début d’un projet : les types
 
 Motion a commencé comme un panneau qu’on ouvre sur un projet qui existe déjà, au-

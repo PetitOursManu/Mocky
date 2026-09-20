@@ -3560,6 +3560,44 @@ film cost a model call and a render, the scene is one line the model can write
 again, and a scene left under a video is a WebGL context spent on something
 nobody can see.
 
+### The film is never the second animated background
+
+Knowing about the page's scene is not enough when the film should not have been
+a background at all. A brief that says "un fond animé en 3D" is answered by the
+page itself, and Muse then asking for a `background` film puts two moving
+backgrounds on one screen — a visitor cannot tell which of the two is the site.
+
+So the DECISION comes before the composition. `decideFilm` takes
+`pageAnimatesBackground`, read off the generated source with the scenes: a
+`<Scene3D>` laid out as a surface, or any full-bleed layer carrying an
+`animate-` class (a page animates a background in CSS as readily as in WebGL).
+When it is true and the dossier asked for a `background`, the film becomes the
+first kind of `INSTEAD_OF_BACKGROUND` the account can render — something that
+SHOWS a thing, then something that MARKS, with `hero` last because a hero film
+lands on the first screen, which is where the page's own moving background
+already is. The section and the reason are dropped with the kind: they were
+chosen for a background, and anything else put there is a film over a moving
+backdrop. Nothing else on offer means no film, which beats a second background.
+
+### A film lands inside a section the page already had
+
+One placement came back with the film in a band of its own at the top of the
+page: the site began below the fold, and the first screen was a video with
+nothing on it. Three things answer it, and the last one is the only guarantee:
+
+- the instruction says to put the `<MotionFilm>` INSIDE one of the ids listed to
+  it, never to create a section for it and never to give it a band of its own;
+- the pass that deletes the page's copy where a film burns its own title now
+  deletes the `<h1>` and keeps the eyebrow, the subheadline and the buttons —
+  a screen that is nothing but a film is a page that has not started yet;
+- and the result is READ. `filmSectionIn` walks up from the `<MotionFilm>` to
+  the nearest element with an id; a film that ended up outside every section the
+  screen already had is not written back. The screen keeps its code and the film
+  stays attached to it, which is exactly where a film with no placement lives:
+  visible on the canvas, one click from the lightbox, nothing lost but the
+  inlining. Only when the screen had ids to land in — a page with none gives
+  this nothing to compare against.
+
 ## Motion at the start of a project: the kinds
 
 Motion began as a panel you open on a project that already exists, over pictures

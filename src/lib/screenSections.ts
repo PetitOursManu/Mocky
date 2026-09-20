@@ -101,3 +101,71 @@ export async function findScreenSections(source: string): Promise<ScreenSection[
 
   return found
 }
+
+/**
+ * Which section a rendered film ended up inside.
+ *
+ * The placement pass is an EDIT: the model is given the page, the film's src
+ * and the id it should land in, and it rewrites the page. One came back with
+ * the film in a band of its own at the top — so the site began below the fold,
+ * and the first screen was a video with nothing on it. The instruction says not
+ * to; this is what can tell whether it did.
+ *
+ * Returns the id of the nearest enclosing element that HAS one, or null when
+ * the film sits outside every section — which is the answer that matters, and
+ * is why this walks up rather than counting ids: a film wrapped in a brand new
+ * `<section id="film">` would pass a count and fail a reader.
+ */
+export async function filmSectionIn(source: string): Promise<string | null> {
+  const code = typeof source === 'string' ? source : ''
+  if (!code.includes('MotionFilm')) return null
+
+  let home: string | null = null
+  try {
+    const Babel = await import('@babel/standalone')
+    const transform = (Babel as any).transform ?? (Babel as any).default?.transform
+    if (typeof transform !== 'function') return null
+
+    const idOf = (node: any): string | null => {
+      for (const a of node?.attributes || []) {
+        if (a?.type !== 'JSXAttribute' || a.name?.name !== 'id') continue
+        if (a.value?.type !== 'StringLiteral') continue
+        const id = String(a.value.value).trim()
+        if (id) return id
+      }
+      return null
+    }
+
+    const plugin = () => ({
+      visitor: {
+        JSXOpeningElement(path: any) {
+          if (home) return
+          const name = path.node?.name
+          if (name?.type !== 'JSXIdentifier' || name.name !== 'MotionFilm') return
+          let parent = path.parentPath?.parentPath
+          while (parent) {
+            if (parent.node?.type === 'JSXElement') {
+              const id = idOf(parent.node.openingElement)
+              if (id) {
+                home = id
+                return
+              }
+            }
+            parent = parent.parentPath
+          }
+        },
+      },
+    })
+
+    transform(code, {
+      plugins: [plugin],
+      parserOpts: { plugins: ['jsx'] },
+      code: false,
+      filename: 'mocky-component.jsx',
+    })
+  } catch {
+    return null
+  }
+
+  return home
+}

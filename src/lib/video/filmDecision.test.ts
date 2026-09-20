@@ -45,3 +45,63 @@ describe('what the dossier is asked', () => {
     expect(dossierMotionRequest('on', KINDS)).toEqual({ mode: 'force', kinds: KINDS })
   })
 })
+
+/**
+ * A page that already animates its own background.
+ *
+ * The user's brief said "un fond animé en 3D", the model answered it with a
+ * `<Scene3D>` laid full-bleed behind the content, and Muse then asked for a
+ * `background` film — a second animated background on the same screen, with no
+ * way for a visitor to tell which of the two is the site.
+ */
+describe('a film is never the second animated background', () => {
+  const ALL = ['hero', 'background', 'banner', 'showcase', 'figure', 'globe', 'mark', 'story']
+
+  it('moves the film to another kind, and drops the section chosen for a background', () => {
+    const decided = decideFilm({
+      mode: 'auto',
+      kinds: ALL,
+      dossier: { wanted: true, kind: 'background', section: 'hero', why: 'depth behind the words' },
+      pageAnimatesBackground: true,
+    })
+    // The section and the reason went with the kind: "#hero, behind the words"
+    // was chosen FOR a background, and anything else put there is a film over a
+    // moving backdrop — the same collision one level down.
+    expect(decided).toEqual({ kind: 'showcase' })
+  })
+
+  it('leaves every other kind exactly where the dossier put it', () => {
+    const dossier = { wanted: true, kind: 'hero', section: 'hero', why: 'it should breathe' }
+    expect(decideFilm({ mode: 'auto', kinds: ALL, dossier, pageAnimatesBackground: true })).toEqual({
+      kind: 'hero',
+      section: 'hero',
+      why: 'it should breathe',
+    })
+  })
+
+  it('changes nothing at all on a page that animates nothing', () => {
+    const dossier = { wanted: true, kind: 'background', section: 'hero', why: 'depth' }
+    expect(decideFilm({ mode: 'auto', kinds: ALL, dossier })).toEqual({
+      kind: 'background',
+      section: 'hero',
+      why: 'depth',
+    })
+  })
+
+  it('takes the substitute the account can actually render', () => {
+    const dossier = { wanted: true, kind: 'background' }
+    expect(
+      decideFilm({ mode: 'auto', kinds: ['background', 'mark'], dossier, pageAnimatesBackground: true }),
+    ).toEqual({ kind: 'mark' })
+    // Nothing else on offer: no film beats a second background.
+    expect(
+      decideFilm({ mode: 'auto', kinds: ['background'], dossier, pageAnimatesBackground: true }),
+    ).toBeNull()
+  })
+
+  it('applies under "forcées" too, where the kind is chosen without a dossier', () => {
+    expect(
+      decideFilm({ mode: 'on', kinds: ['background', 'figure'], pageAnimatesBackground: true }),
+    ).toEqual({ kind: 'figure' })
+  })
+})

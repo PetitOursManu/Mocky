@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findScreenSections } from './screenSections'
+import { filmSectionIn, findScreenSections } from './screenSections'
 
 describe('findScreenSections', () => {
   it('lists the ids a screen really carries, in source order', async () => {
@@ -51,5 +51,46 @@ describe('findScreenSections', () => {
     expect(await findScreenSections('<div className=')).toEqual([])
     expect(await findScreenSections('')).toEqual([])
     expect(await findScreenSections(undefined as unknown as string)).toEqual([])
+  })
+})
+
+/**
+ * Where a placed film ended up.
+ *
+ * The placement pass rewrites the page around the film, and one came back with
+ * the film in a band of its own at the top: the site began below the fold and
+ * the first screen was a video with nothing on it. The instruction says not to;
+ * this is what lets the caller tell whether it did.
+ */
+describe('the section a film landed in', () => {
+  const page = (body: string) => `export default function Screen() { return (\n${body}\n) }`
+
+  it('names the nearest enclosing element that has an id', async () => {
+    const code = page(`  <main>
+    <section id="hero" className="relative">
+      <div className="absolute inset-0">
+        <MotionFilm src="/api/video/abc" fit="cover" className="h-full w-full" />
+      </div>
+      <h1>Serveurs</h1>
+    </section>
+  </main>`)
+    expect(await filmSectionIn(code)).toBe('hero')
+  })
+
+  it('answers null when the film is in a band of its own', async () => {
+    // A brand new <section> with no id — the defect this exists to catch.
+    const code = page(`  <main>
+    <section className="w-full">
+      <MotionFilm src="/api/video/abc" fit="cover" className="w-full" />
+    </section>
+    <section id="hero"><h1>Serveurs</h1></section>
+  </main>`)
+    expect(await filmSectionIn(code)).toBeNull()
+  })
+
+  it('answers null when there is no film, and never throws', async () => {
+    expect(await filmSectionIn(page(`  <section id="hero"><h1>Rien</h1></section>`))).toBeNull()
+    expect(await filmSectionIn('function ( { <<< not javascript')).toBeNull()
+    expect(await filmSectionIn('')).toBeNull()
   })
 })

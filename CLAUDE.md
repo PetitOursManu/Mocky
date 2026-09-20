@@ -727,6 +727,25 @@ Ten things, and the first one is not negotiable.
     the edit that PLACES the film deletes the scene in the section it lands in —
     the film cost a render, the scene is one line, and a `<Scene3D>` under a
     video is a WebGL context nobody can see.
+
+    **And the film is never the SECOND animated background.** A brief asking for
+    "un fond animé en 3D" is answered by the page itself, so `decideFilm` takes
+    `pageAnimatesBackground` — a `<Scene3D>` laid out as a surface, or a
+    full-bleed layer with an `animate-` class — and turns a `background` film
+    into another kind, dropping the section and the reason with it (they were
+    chosen FOR a background, and anything else put there is a film over a moving
+    backdrop). `INSTEAD_OF_BACKGROUND` is that order; nothing on offer means no
+    film, which beats a second background.
+
+    **And it lands INSIDE a section the page already had.** One placement came
+    back with the film in a band of its own at the top — the site began below the
+    fold and the first screen was a video with nothing on it. The instruction
+    says not to, and an instruction is not a guarantee: `filmSectionIn` reads the
+    result, and a film outside every id the screen already had is not written
+    back. The screen keeps its code and the film stays ATTACHED, which is where a
+    film with no placement lives anyway. The same pass no longer empties the
+    section it lands in: it deletes the `<h1>` the film's own title would collide
+    with and keeps the eyebrow, the subheadline and the buttons.
 15. **A film that LOOPS hides its seam in one of two ways, and the model picks.**
     `loop` is a root field: `mirror` plays forward then backward — an exact loop,
     twice the frames, and only for a film with NO WORDS (`loopIssues` refuses the
