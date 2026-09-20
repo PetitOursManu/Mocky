@@ -523,6 +523,15 @@ export function createVideoRouter({
         // shaped by `proposeTimeline`; absent for a film composed from the panel.
         placement: req.body?.placement ?? null,
         /*
+         * What the page already draws in 3D, as names.
+         *
+         * Passed straight through like the two above it: `compose.js` owns both
+         * the preset vocabulary and the bound on it, and a route that also knew
+         * them would be the copy that drifts. Read only when `placement` says
+         * this film is part of a page, which is the only place a page exists.
+         */
+        scenery: req.body?.scenery ?? null,
+        /*
          * The project's art direction, in its own words.
          *
          * From the BODY, and it has to be: the direction lives inside a project

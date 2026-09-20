@@ -710,7 +710,24 @@ Ten things, and the first one is not negotiable.
     asked again, once; a second answer still over is kept with a notice (Q1).
     Nothing here truncates a document.
 
-14. **A film that LOOPS hides its seam in one of two ways, and the model picks.**
+14. **A film composed for a page is TOLD what that page already draws in 3D.**
+    A screen came back with `<Scene3D preset="grid">` full-bleed behind its
+    content and a film whose ground was `world` with a `particleField` over it:
+    two unrelated three-dimensional things on one screen, neither aware of the
+    other. The composer cannot see the page — it reads the page's own prompt —
+    so `pageScenesIn` (Babel, I1) reads the presets off the generated source and
+    they travel as DATA in the user turn: the object in plain words, whether it
+    is a surface or a box, and the names in this catalogue that draw the same
+    thing (`PAGE_SCENES`, held to `SCENE3D_PRESETS` by
+    `tests/video-page-scenery.test.js`). Names only — no hex, for rule 11's
+    reason. Three things hang off it: the echo is filtered by what the request
+    actually OFFERS (a name the selection withheld is a name the schema would
+    refuse), `world` is narrowed away when the page's own scene is a surface
+    (that ground is a second world, and the advice about it goes with it), and
+    the edit that PLACES the film deletes the scene in the section it lands in —
+    the film cost a render, the scene is one line, and a `<Scene3D>` under a
+    video is a WebGL context nobody can see.
+15. **A film that LOOPS hides its seam in one of two ways, and the model picks.**
     `loop` is a root field: `mirror` plays forward then backward — an exact loop,
     twice the frames, and only for a film with NO WORDS (`loopIssues` refuses the
     rest at both doors) — and `blend` dissolves the end into the beginning, which
