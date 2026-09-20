@@ -4,12 +4,64 @@
 
 > **Pourquoi c’est ainsi —** Cette page est produite à partir de l’historique Git par `npm run changelog`. Les messages de commit de ce dépôt sont écrits en français : ils sont reproduits **tels quels**, sans traduction, parce qu’un intitulé traduit posé à côté d’une empreinte renvoie vers un commit dont le texte dit autre chose — et le lecteur ne peut alors chercher ni l’un ni l’autre.
 
+## septembre 2026
+
+**Fonctionnalités**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `motion` | un film peut boucler proprement, en miroir ou en fondu | `dca0127` |
+| `motion` | un film de page dit presque rien, et des icones animees | `4bc3a0c` |
+| `motion` | monde 3D continu, titres dessines par un essaim, transitions cube/plongee/iris/liquide | `1a8692b` |
+| `motion` | typographie cinetique et fonds qui bougent en couleur | `132e70e` |
+| `motion` | niveau de puissance du serveur et bouton "Tester ce serveur" dans l'admin | `6c8bd41` |
+| `motion` | plus de case Motion, le film est decide par l'interrupteur d'animation et la demande | `78e7fe9` |
+| `motion` | les polices du dossier sont installees dans le moteur de rendu | `0a4433b` |
+| `motion` | sept facons d'arriver et trois ambiances de couleur, choisies par le LLM | `c1b378a` |
+| `motion` | la modification d'un film passe par une fenetre Mocky, plus par la popup du navigateur | `1a794d0` |
+| `motion` | modifier un film deja pose dans un ecran, depuis le menu de l'ecran | `5f2d752` |
+| `motion` | varier les films, et modifier au lieu de refaire quand le brief change | `6aa306d` |
+| `motion` | nommer les sections, pour que le film sache ou se poser | `d331fae` |
+
+**Correctifs**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `generation,motion` | une icone inconnue ne fait plus planter l'ecran, un film refuse a une seconde chance | `1075322` |
+| `ui` | les erreurs du composer s'affichent en entier, sur plusieurs lignes, et se ferment | `50cdbc2` |
+| `test` | la couture prompt/lecteur lit un fichier, donc elle vit dans tests/ | `223eff7` |
+
+**Documentation**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `motion` | la doc officielle decrit Motion tel qu'il est | `ae357f4` |
+
+**Maintenance**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `motion` | journaliser une composition qui n'aboutit pas, avec sa duree et sa raison | `396ca74` |
+
 ## août 2026
 
 **Fonctionnalités**
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `motion` | chaque type ouvre sur ce qui lui convient, et le dossier arrive entier | `488adae` |
+| `media` | rafraichir sans quitter la page, et dire quand chaque media a ete fait | `1481afb` |
+| `motion` | un film entre enfin dans l'ecran qu'il decore | `1e78ab9` |
+| `motion` | un geste, les couleurs demandees, un globe entier, et Motion dans le composer | `d286c17` |
+| `motion` | la 3D devient un vocabulaire, et l'admin dit qui y a droit | `7c8339b` |
+| `motion` | un bloc habite la boite qu'on lui donne | `1025b07` |
+| `motion` | le modele compose des blocs, il ne choisit plus une mise en page | `baee1e0` |
+| `motion` | rien ne reste immobile, et un long film a le temps de finir | `ae18e88` |
+| `motion` | retrouver le montage, l'attacher à un écran, et fusionner les deux chemins | `036cb95` |
+| `images` | un profil image-to-image, et des variantes vraiment dérivées | `e9c1962` |
+| `video` | phase 4 — le modèle propose le montage, le schéma en décide | `76fadad` |
+| `video` | phase 2 — composition réelle, stockage du mp4, suivi de job | `6eb9f25` |
+| `video` | phase 1 — worker Remotion isolé, file, garde-fous admin | `ef5dcb1` |
 | `seo` | un panneau SEO et accessibilité, noté par famille | `b82c673` |
 | `images` | changer les images d'un écran, emplacement par emplacement | `cc9ca69` |
 | `admin` | les projets et le stockage, compte par compte | `78cc8b0` |
@@ -47,6 +99,25 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `motion` | ne plus rogner un film qui porte des mots, et respecter la CLASSE de la police | `532b722` |
+| `motion` | garder toutes les sorties, pas seulement celle que j'avais regardee | `da90d0a` |
+| `motion` | la seconde CSP, et une attente que personne ne pouvait deviner | `6502fb9` |
+| `motion` | la regle porte sur la ZONE, pas sur la repetition | `49571c6` |
+| `motion` | le film dit ce qu'il grave, la page cesse de le redire | `f79d8b2` |
+| `motion` | lire l'ecran par la ref, sinon on ne le voit jamais | `3203c4e` |
+| `motion` | un film compose puis jete une ligne plus loin | `5a8c631` |
+| `motion` | un film 3D doit pouvoir finir, et le chiffre ecrit etait faux | `b83781b` |
+| `motion` | une photographie se borne, et un ornement se mesure sur ce qu'il traverse | `16d6670` |
+| `motion` | un anneau vu de sept degres est une ellipse plate | `5e0361b` |
+| `motion` | un mot ne se coupe pas, et un meuble n'est pas la scene | `2757a1f` |
+| `motion` | un role est une notion de scene, et un champ se mesure comme il peint | `c9578f8` |
+| `motion` | mesurer le texte plutot que le supposer, et six fautes vues a l'image | `4105c6c` |
+| `video` | un film net, et une image faite pour le cadre où elle finit | `3a68e3b` |
+| `video` | le texte se mesure, il ne se suppose pas | `a3c761d` |
+| `design` | la maquette Muse peignait en bleu nuit, et deux causes le voulaient | `3adde33` |
+| `projet` | cinq dettes de la revue adverse, et la doc du module vidéo | `b780716` |
+| `images` | fal a deux familles de modèles d'édition, et deux noms de champ | `8943136` |
+| `video` | quatre défauts trouvés au premier essai réel | `9f23452` |
 | `docs` | la version mobile, d'après un audit multi-agents | `efe4daf` |
 | `docs` | le sélecteur de thème retrouve le bas du menu | `b690b88` |
 | `mobile` | la liste des projets cesse d'élargir la page | `dc7d301` |
