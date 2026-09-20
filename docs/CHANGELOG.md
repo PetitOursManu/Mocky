@@ -28,6 +28,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `motion` | le fichier compose pour Coolify est entier, et genere | `dafe036` |
 | `generation,motion` | une icone inconnue ne fait plus planter l'ecran, un film refuse a une seconde chance | `1075322` |
 | `ui` | les erreurs du composer s'affichent en entier, sur plusieurs lignes, et se ferment | `50cdbc2` |
 | `test` | la couture prompt/lecteur lit un fichier, donc elle vit dans tests/ | `223eff7` |
