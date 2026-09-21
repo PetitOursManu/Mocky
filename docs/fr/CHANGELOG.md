@@ -32,6 +32,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `motion` | le film n'est pas un conteneur | `a2a302f` |
 | `motion` | le sujet plein cadre s'ecarte des mots | `1328f9b` |
 | `provider` | la reflexion recoit un budget la ou on peut en demander un | `c4fce19` |
 | `provider` | une generation qui ne rend rien dit enfin pourquoi | `67523a4` |
