@@ -10,6 +10,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `3d` | une scene sans place montre une image d'elle-meme | `f62e8a9` |
 | `motion` | le film sait ce que la page dessine deja en 3D | `f4f7c24` |
 | `3d` | la scene repond au curseur, et un fond reste derriere | `fffea74` |
 | `3d` | quatre scenes de plus, et une deuxieme couleur | `0c39797` |
