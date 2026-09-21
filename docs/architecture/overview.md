@@ -153,6 +153,16 @@ with a size rather than a surface under something else, and dimming those would
 punish the ordinary case. An opacity class in the className wins, for the reason
 the position does.
 
+**And a frame rations ITSELF, because the grant is per screen.** `Canvas` posts
+to an iframe and cannot see inside it, so a page drawing three scenes spends
+three of the browser's sixteen contexts while the arbiter counts one — four such
+screens are twelve, and the seventeenth kills the oldest. The capability card
+asked for one per screen; `mockySceneClaim` is what makes it true. First to
+mount holds the slot, the rest draw their own gradient, and the still paths (a
+capture, `prefers-reduced-motion`) ration nothing because a scene there holds
+its context for one frame inside one task. Verified with three scenes on one
+page: three elements, one canvas.
+
 **A grant is handed over only once the view has SETTLED.** The ranking is
 recomputed on every frame of a pan, so a trip across a project changed hands
 half a dozen times, and every change is a context torn down and another built —

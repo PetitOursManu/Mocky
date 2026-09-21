@@ -159,6 +159,17 @@ avec une taille plutôt qu'une surface sous autre chose, et les assombrir
 punirait le cas ordinaire. Une classe d'opacité l'emporte, pour la raison qui
 vaut déjà pour la position.
 
+**Et une frame se rationne ELLE-MÊME, parce que l'autorisation est par écran.**
+`Canvas` écrit à une iframe et ne voit pas dedans : une page qui dessine trois
+scènes dépense trois des seize contextes du navigateur pendant que l'arbitre en
+compte un — quatre écrans comme celui-là font douze, et le dix-septième tue le
+plus ancien. La carte de la capacité demandait une scène par écran ;
+`mockySceneClaim` est ce qui rend la phrase vraie. La première montée garde la
+place, les autres dessinent leur propre dégradé, et les chemins figés (une
+capture, `prefers-reduced-motion`) ne rationnent rien puisqu'une scène y tient
+son contexte le temps d'une image dans une seule tâche. Vérifié avec trois
+scènes sur une page : trois éléments, un seul canvas.
+
 **Le budget ne change de mains qu'une fois la vue STABILISÉE.** Le classement
 est recalculé à chaque image d'un déplacement : une traversée de projet le
 changeait une demi-douzaine de fois, et chaque changement est un contexte
