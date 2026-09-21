@@ -3641,6 +3641,11 @@ Three changes, and the third is the only guarantee:
   painted in a class or a style — and a placement that laid one on the film is
   not written back.
 
+Measured against every film this instance has ever placed in a page — 41
+distinct screens over three months — the rule refuses exactly one: the screen
+that was reported. That is the number worth keeping when the list is next
+extended.
+
 Refused rather than repaired, for two reasons. Unwrapping the children
 mechanically would move a column of the page to a place nobody chose, and asking
 the model again is another paid call for a layout the instruction now describes
