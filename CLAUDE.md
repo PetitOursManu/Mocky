@@ -752,6 +752,25 @@ Ten things, and the first one is not negotiable.
     film with no placement lives anyway. The same pass no longer empties the
     section it lands in: it deletes the `<h1>` the film's own title would collide
     with and keeps the eyebrow, the subheadline and the buttons.
+
+    **And the film is not a CONTAINER.** The next placement landed in the right
+    section and was wrong anyway: the hero's whole grid came back INSIDE the
+    `<MotionFilm>` — an interactive map, its photograph, its pins — in an
+    `aspect-video` box over a film that had already burnt its own title. Nothing
+    there was invented. The component lays its children ON the video, the
+    catalogue recommends exactly that for a hero, and the instruction for a
+    `hero` film was still offering the page's headline two paragraphs above
+    telling the model to DELETE that headline; a model handed a contradiction
+    resolves it by inventing. So the hero sentence is now read off the film (one
+    that carries its own title asks for nothing over it), a paragraph names what
+    may STAND on a film — type, buttons, a badge, never a picture of the page's
+    own and never a section, a column or a grid — and `filmCovers` reads the
+    result: a placement with an `<img>`, another moving surface or a painted
+    background among the film's OWN children is not written back, the same
+    degradation as a film outside every section. Refused rather than repaired,
+    because unwrapping would move a column of the page to a place nobody chose
+    and asking again is another paid call for a layout the instruction now
+    describes twice.
 15. **A film that LOOPS hides its seam in one of two ways, and the model picks.**
     `loop` is a root field: `mirror` plays forward then backward — an exact loop,
     twice the frames, and only for a film with NO WORDS (`loopIssues` refuses the

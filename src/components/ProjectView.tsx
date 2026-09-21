@@ -79,7 +79,7 @@ import {
   type MotionKindOffer,
 } from '../lib/video/client'
 import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
-import { filmSectionIn, findScreenSections } from '../lib/screenSections'
+import { filmCovers, filmSectionIn, findScreenSections } from '../lib/screenSections'
 import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
 import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
@@ -2281,12 +2281,52 @@ export default function ProjectView({
         ]
       : []
 
+    /*
+     * Read here rather than beside `shape`, because the sentence below depends
+     * on it. A film that burns its own title was being told to put the page's
+     * headline over it two paragraphs before being told to delete that same
+     * headline, and a model handed a contradiction resolves it by inventing:
+     * what came back over one film was the whole hero, map and photograph
+     * included.
+     */
+    const burnt = filmTextRuns(film)
+
     const where =
       kind === 'background'
         ? 'Use it as a section BACKGROUND: absolutely positioned inside a relative parent, with the existing copy on top of it. It is never the subject.'
         : kind === 'hero'
-          ? 'Use it as the HERO: the first thing the visitor sees, with the existing headline and CTA passed as its children so they sit over the film.'
+          ? burnt.length
+            ? 'Use it as the HERO: the first thing the visitor sees. It already carries the page title itself, so it needs nothing laid over it — give it the width and let it play. At most the eyebrow and the buttons go on top.'
+            : 'Use it as the HERO: the first thing the visitor sees, with the existing headline and CTA passed as its children so they sit over the film.'
           : 'Give it the size its role deserves — a banner strip, a product card, a feature tile. It is NOT the hero unless the page has no other subject.'
+
+    /*
+     * THE FILM IS NOT A CONTAINER, and this is the half of it the prompt owns.
+     *
+     * `<MotionFilm>` takes children and lays them over the video — written for
+     * a hero, where a headline and a button stand on a moving ground, and
+     * described in the catalogue as "use that for a hero rather than
+     * positioning your own overlay". One placement read that as "a container"
+     * and wrapped the hero's whole grid in it: an interactive map of Nimes, its
+     * photograph, its pins and its controls, squeezed into an `aspect-video`
+     * box with `overflow: hidden`, over a film that had already burnt its own
+     * title into the frames. Two pictures in one box, the one that cost a
+     * render underneath.
+     *
+     * Naming what may stand on it rather than forbidding children: the overlay
+     * is the component's whole reason for taking them, and "do not pass
+     * children" would send every hero back to positioning its own layer, which
+     * is the stacking this component exists to get right.
+     */
+    const overlay = [
+      '',
+      'WHAT MAY STAND ON THE FILM: type, buttons, a small badge — a thin layer, and nothing else.',
+      'Children of <MotionFilm> are drawn ON the video, so everything you pass it is laid over the picture.',
+      'Never pass a picture of your own: no <img>, no photograph, no map, no card that carries one, no <Scene3D>,',
+      'no <ScrollSequence>, no background-image class. And never wrap a section, a column or a grid of the page',
+      'in it — the film is not a container. Everything the page already draws stays OUTSIDE the film: beside it,',
+      'above it or below it, in the same section, keeping the size and the shape it has now.',
+    ]
 
     /*
      * The film's own words, quoted, with the instruction to DELETE the page's
@@ -2340,7 +2380,6 @@ export default function ProjectView({
      * cropping a texture is free and a letterboxed background is a bug.
      */
     const ratio = (film as { aspectRatio?: string } | null)?.aspectRatio ?? '16:9'
-    const burnt = filmTextRuns(film)
     const fit = burnt.length ? 'contain' : 'cover'
     const shape = [
       '',
@@ -2383,6 +2422,7 @@ export default function ProjectView({
         where,
         ...placement,
         ...sceneUnder,
+        ...overlay,
         ...shape,
         ...carries,
         '',
@@ -2427,6 +2467,28 @@ export default function ProjectView({
         setNotice(t('project.motionPlacedBeside'))
         return
       }
+    }
+    /*
+     * And did it lay the page's own picture on top of it?
+     *
+     * The other half of "the film is not a container", and the same argument
+     * `filmSectionIn` makes one paragraph up: the instruction says the overlay
+     * is type and buttons, and an instruction is not a guarantee. `filmCovers`
+     * reads the result and names the first picture among the film's OWN
+     * children — an <img>, another moving surface, a painted background.
+     *
+     * Refused rather than repaired, for `filmSectionIn`'s reason and one of its
+     * own. Unwrapping the children mechanically would move a column of the
+     * page to a place no one chose, and asking the model again is another paid
+     * call for a layout the instruction now describes twice. What refusing
+     * keeps is the better page: the screen as it was generated, its hero and
+     * its picture intact, with the film ATTACHED — on the canvas, one click
+     * from the lightbox, nothing lost but the inlining.
+     */
+    const covered = await filmCovers(res.code)
+    if (covered) {
+      setNotice(t('project.motionPlacedOver'))
+      return
     }
     onUpdateScreen(screenId, {
       code: res.code,

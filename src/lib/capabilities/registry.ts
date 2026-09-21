@@ -234,7 +234,7 @@ export const CAPABILITIES: Capability[] = [
         name: 'MotionFilm',
         signature: '<MotionFilm src="/api/video/<hash>" fit="cover" radius={0} loop>{overlay}</MotionFilm>',
         description:
-          'A rendered Motion film, playing muted and looping. `src` is provided — never invent one. It fills whatever box you put it in, so it is a hero background at full width AND a product card, a banner strip or a section background at any smaller size; give the parent a height. `fit` is "cover" (default, fills and crops) or "contain" (whole frame, letterboxed). Pass children to lay content OVER the film — use that for a hero rather than positioning your own overlay. There is no sound and no controls.',
+          'A rendered Motion film, playing muted and looping. `src` is provided — never invent one. It fills whatever box you put it in, so it is a hero background at full width AND a product card, a banner strip or a section background at any smaller size; give the parent a height. `fit` is "cover" (default, fills and crops) or "contain" (whole frame, letterboxed). Pass children to lay content OVER the film — use that for a hero rather than positioning your own overlay. They are a THIN layer: type, buttons, a badge. Never pass a picture of your own — no `<img>`, no `<Scene3D>`, no `bg-[url(…)]` — and never wrap a section, a column or a grid of the page in it: it is not a container, and two pictures in one box hide one another. There is no sound and no controls.',
         tags: ['video', 'film', 'motion', 'hero', 'background', 'banner', 'loop', 'showreel'],
       },
     ],

@@ -169,3 +169,161 @@ export async function filmSectionIn(source: string): Promise<string | null> {
 
   return home
 }
+
+/**
+ * What may not be laid ON a film, because each one is a PICTURE of its own.
+ *
+ * `<MotionFilm>` takes children and puts them in a layer above the video —
+ * written for a hero, where a headline and a button stand on a moving ground.
+ * A placement read that as "a container", and wrapped the whole hero in it: an
+ * interactive map of Nîmes, its photograph, its pins and its controls, all
+ * inside an `aspect-video` box with `overflow: hidden`, over a film that had
+ * already burnt its own title into the frames. Two pictures in one box, the one
+ * that cost a render underneath.
+ *
+ * The list is what a picture IS, not what a page contains: type, buttons,
+ * figures and cards are exactly what the overlay exists for and none of them
+ * hides the film. `svg` is deliberately absent — an icon inside a button on the
+ * overlay is the common case, and an inline illustration is rare enough that
+ * refusing every icon to catch it is the worse trade.
+ *
+ * Capitalised names are components in `CAPABILITIES`, and the test holds them
+ * to it: a renamed component must not silently leave this list matching
+ * nothing.
+ */
+export const FILM_COVERS = [
+  'img',
+  'picture',
+  'video',
+  'canvas',
+  'iframe',
+  // A second film, a scroll sequence (which is a film cut into stills) and a 3D
+  // scene are all moving pictures. One of them over another is the defect this
+  // repair was written for, one capability further along.
+  'MotionFilm',
+  'ScrollSequence',
+  'Scene3D',
+] as const
+
+/** Keys a deep walk never has to follow — position, not content. */
+const AST_NOISE = new Set([
+  'loc',
+  'start',
+  'end',
+  'range',
+  'extra',
+  'comments',
+  'leadingComments',
+  'trailingComments',
+  'innerComments',
+])
+
+const jsxNameOf = (name: any): string =>
+  name?.type === 'JSXIdentifier'
+    ? String(name.name)
+    : name?.type === 'JSXMemberExpression'
+      ? `${jsxNameOf(name.object)}.${jsxNameOf(name.property)}`
+      : ''
+
+/**
+ * A picture this element IS — by its tag, or by a background it paints.
+ *
+ * The painted case is the same defect with the photograph in a class instead of
+ * a tag: `bg-[url(…)]` and `style={{ backgroundImage: … }}` put an image on the
+ * film exactly as an `<img>` does, and a check that reads only tags would send
+ * the placement through.
+ */
+function pictureOf(opening: any): string | null {
+  const tag = jsxNameOf(opening?.name)
+  if (tag && (FILM_COVERS as readonly string[]).includes(tag)) return tag
+
+  for (const a of opening?.attributes || []) {
+    if (a?.type !== 'JSXAttribute') continue
+    const name = String(a.name?.name || '')
+    if (name === 'className' && a.value?.type === 'StringLiteral' && a.value.value.includes('bg-[url(')) {
+      return 'background-image'
+    }
+    if (name === 'style' && a.value?.type === 'JSXExpressionContainer') {
+      const props = a.value.expression?.type === 'ObjectExpression' ? a.value.expression.properties : []
+      for (const p of props) {
+        const key = p?.key?.name ?? p?.key?.value
+        if (String(key || '') === 'backgroundImage') return 'background-image'
+      }
+    }
+  }
+  return null
+}
+
+/** The first picture anywhere below this node, whatever wraps it. */
+function pictureIn(node: any, depth = 0): string | null {
+  if (!node || typeof node !== 'object' || depth > 400) return null
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = pictureIn(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  if (node.type === 'JSXElement') {
+    const found = pictureOf(node.openingElement)
+    if (found) return found
+  }
+  // Every key rather than a chosen few: the offending `<img>` in the reported
+  // screen sat beside a `places.map(…)` callback, and a walk that followed only
+  // `children` would have found the map's pins and missed the photograph.
+  for (const key of Object.keys(node)) {
+    if (AST_NOISE.has(key)) continue
+    const found = pictureIn(node[key], depth + 1)
+    if (found) return found
+  }
+  return null
+}
+
+/**
+ * What the placement laid ON the film, when it laid a picture on it.
+ *
+ * The companion of `filmSectionIn`, and the same argument: the instruction says
+ * the overlay is a thin layer of type and buttons, and an instruction is not a
+ * guarantee. Returns the name of the first picture among the film's OWN
+ * children — `img`, another moving surface, or a painted background — or null
+ * when the overlay is what it was asked to be.
+ *
+ * Never throws, and answers null on a source Babel cannot parse: a placement
+ * refused because the result would not parse is a placement refused for the
+ * wrong reason, and the render already happened.
+ */
+export async function filmCovers(source: string): Promise<string | null> {
+  const code = typeof source === 'string' ? source : ''
+  if (!code.includes('MotionFilm')) return null
+
+  let covered: string | null = null
+  try {
+    const Babel = await import('@babel/standalone')
+    const transform = (Babel as any).transform ?? (Babel as any).default?.transform
+    if (typeof transform !== 'function') return null
+
+    const plugin = () => ({
+      visitor: {
+        JSXElement(path: any) {
+          if (covered) return
+          const name = path.node?.openingElement?.name
+          if (name?.type !== 'JSXIdentifier' || name.name !== 'MotionFilm') return
+          // The children only: the film itself is a MotionFilm and a walk that
+          // started at the element would report the film as its own intruder.
+          covered = pictureIn(path.node.children || [])
+        },
+      },
+    })
+
+    transform(code, {
+      plugins: [plugin],
+      parserOpts: { plugins: ['jsx'] },
+      code: false,
+      filename: 'mocky-component.jsx',
+    })
+  } catch {
+    return null
+  }
+
+  return covered
+}
