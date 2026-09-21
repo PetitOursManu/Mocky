@@ -1498,10 +1498,21 @@ exclu — `anchor` est la seule décision de composition qu’un document prend.
 Rétrécir le sujet n’achète rien, puisqu’il reste centré et qu’un globe plus petit
 est un globe plus petit avec la même ligne en travers. Reste à déplacer le SUJET,
 la seule qui n’enlève rien au document, parce que `full` est le seul ancrage qui ne
-nomme aucune position ; elle reste ouverte, et sa condition est que les rangées de
-la grille qu’aucune cellule n’occupe soient CONTIGUËS — ce qu’une cellule `center`
-est précisément ce qui les empêche d’être. D’ici là, l’arrangement est celui pour
-lequel `globe.jsx` dit avoir été écrit — « les mots qui appartiennent à un globe
+nomme aucune position — et c’est ce que fait `clearOf`, à cette condition exacte :
+les rangées de la grille qu’aucune cellule n’occupe, quand elles sont CONTIGUËS, ce
+qu’une cellule `center` est précisément ce qui les empêche d’être. Un globe avec un
+titre dans la bande du haut prend les deux rangées du dessous ; avec un titre au
+milieu il garde toute l’image et les mots restent sur la sphère, parce que haut et
+bas libres font deux tronçons et qu’un cercle ne peut pas être dans les deux. Deux
+clauses viennent avec. Une scène sans aucune cellule garde l’image entière — il n’y
+a rien à éviter, et un sujet poussé dans un tiers d’une image qu’il a en entier est
+le vide que la règle de mise en page existe pour supprimer. Et un sujet qui s’est
+déplacé cesse d’être l’ÉCHELLE de la scène : `harmoniseUnits` plafonne chaque
+cellule à l’unité du champ parce que ce qui se tient SUR un champ en est une
+légende, et rien ne se tient sur un sujet qui s’est écarté — garder le drapeau
+tiendrait chaque titre à l’unité d’un bloc résolu contre un tiers d’image. Là où le
+déplacement ne s’applique pas, l’arrangement est celui pour lequel `globe.jsx` dit
+avoir été écrit — « les mots qui appartiennent à un globe
 sont un `kicker` ou un `heading` ancré par-dessus, mesuré contre une surface que
 `composedPalette` a résolue avec le champ dedans » — et ce qui faisait lire l’image
 rapportée comme cassée n’était pas le mot sur la sphère mais le faisceau d’arcs
