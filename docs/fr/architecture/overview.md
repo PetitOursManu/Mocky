@@ -786,6 +786,34 @@ Deux conséquences à connaître :
 Mocky parle toujours le dialecte Ollama en interne : `POST /api/chat`, avec
 `options`, `num_ctx`, `num_predict`, `format`, et une diffusion en NDJSON.
 
+### Un modèle qui réfléchit au lieu de répondre
+
+Changer pour un modèle de raisonnement donnait génération après génération sans
+rien dedans, et une seule phrase : « le modèle a renvoyé une réponse vide ».
+Trois choses différentes se cachent derrière, et le traducteur jetait la preuve
+des trois — il lisait `content` et rien d'autre.
+
+Un modèle de raisonnement répond sur deux canaux, `reasoning` (ou
+`reasoning_content`, ou un `reasoning_details` structuré selon le fournisseur) et
+`content`. Mocky veut le second et ne doit jamais prendre le premier pour lui :
+un composant extrait d'une chaîne de pensée n'est pas un composant. La réflexion
+est donc COMPTÉE et jamais transmise, un refus que le fournisseur a mis dans le
+corps d'un 200 (pas de crédit pour ce modèle, une limite de débit, un amont qui
+décline) est cité plutôt qu'avalé, et le navigateur transforme le fait en une
+phrase actionnable — `emptyAnswer` dans `generate.ts`.
+
+Puis la cause elle-même. Une exécution réelle a dépensé **110 220 caractères en
+réflexion** sans écrire une ligne de code, alors que `max_tokens: 16384` ne
+bornait rien : ce fournisseur ne compte pas le raisonnement dedans. `reasoning`
+est le paramètre d'OpenRouter prévu pour ça — il normalise un budget de réflexion
+entre les fournisseurs qu'il place derrière lui et l'ignore pour les modèles qui
+ne raisonnent pas — donc `buildUpstream` ajoute `reasoning: { effort: 'low' }`
+**quand l'hôte visé est OpenRouter, et nulle part ailleurs** : `api.openai.com`
+répond 400 à une clé de corps qu'il ne connaît pas, et un paramètre envoyé à
+l'aveugle casserait tous les utilisateurs d'OpenAI, Groq et Together pour en
+réparer un d'OpenRouter. « low » plutôt que « rien », parce que les modèles qui
+valent la peine réfléchissent — ce qui est refusé, c'est la réflexion sans fin.
+
 `server/text/dialect.js` traduit vers et depuis les API compatibles OpenAI :
 forme de la requête, `response_format`, pièces jointes de vision en `image_url`,
 et conversion SSE vers NDJSON. La génération, le planificateur et Muse sont donc

@@ -30,6 +30,38 @@ function toOpenAiMessage(m) {
   }
 }
 
+/**
+ * A BUDGET FOR THINKING, and why it is asked of one vendor only.
+ *
+ * A reasoning model answered a generation with 110 220 characters of thinking
+ * and no code — measured, from a real run — while `max_tokens: 16384` bounded
+ * nothing, because the vendor does not count reasoning against it. A model that
+ * thinks until it is stopped and never writes is a model that produced nothing,
+ * and no amount of prompting fixes a budget.
+ *
+ * `reasoning` is OpenRouter's own parameter: it normalises the thinking budget
+ * across the vendors behind it (an effort level here becomes a token budget
+ * there) and IGNORES it for a model that cannot reason. That is why it is keyed
+ * on the host rather than sent to every OpenAI-compatible endpoint — api.openai
+ * .com answers 400 to a body key it does not know, so a blind `reasoning` would
+ * break every OpenAI, Groq and Together user to fix one OpenRouter one.
+ *
+ * "low" and not "none": the models worth using here do think, and a screen
+ * composed after a short plan is better than one composed after none. What is
+ * refused is thinking without end.
+ */
+const THINKING_EFFORT = 'low'
+
+/** The one vendor whose API defines `reasoning` — see THINKING_EFFORT. */
+export function boundsThinking(baseUrl) {
+  try {
+    const host = new URL(String(baseUrl)).hostname.toLowerCase()
+    return host === 'openrouter.ai' || host.endsWith('.openrouter.ai')
+  } catch {
+    return false
+  }
+}
+
 /** Ollama chat body → OpenAI chat.completions body. */
 export function toOpenAiRequest(body) {
   const out = {
@@ -228,10 +260,13 @@ export function buildUpstream(target, subpath, rawBody) {
   } catch {
     parsed = {}
   }
+  const out = toOpenAiRequest(parsed)
+  // Only where the parameter exists — see `boundsThinking`.
+  if (boundsThinking(base)) out.reasoning = { effort: THINKING_EFFORT }
   return {
     url: `${base}/v1/chat/completions`,
     headers: { accept: 'application/json', 'content-type': 'application/json', ...auth },
-    body: JSON.stringify(toOpenAiRequest(parsed)),
+    body: JSON.stringify(out),
     translate: true,
     kind: KIND_OPENAI,
     isModels: false,
