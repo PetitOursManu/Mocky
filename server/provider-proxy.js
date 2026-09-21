@@ -394,7 +394,20 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
         reader.releaseLock?.()
       }
       if (res.destroyed) return
-      res.write(JSON.stringify({ done: true }) + '\n')
+      /*
+       * The last line says what the stream was made of.
+       *
+       * A model that spends its whole output budget reasoning sends no content
+       * at all, and so does a provider that refused inside a 200. Both used to
+       * end here with a bare `{done:true}`, and the browser could only say "the
+       * model returned an empty response" — the one sentence that is true of
+       * every cause and useful for none.
+       */
+      const seen = translate.state
+      const tail = { done: true }
+      if (!seen.content && seen.reasoned) tail.reasoned = seen.reasoned
+      if (!seen.content && seen.error) tail.error = seen.error
+      res.write(JSON.stringify(tail) + '\n')
       res.end()
       return
     }

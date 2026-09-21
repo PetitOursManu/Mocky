@@ -87,8 +87,44 @@ interface OllamaChatResponse {
   message?: { role?: string; content?: string }
   /** "length" when the model was cut off by the token cap. */
   done_reason?: string
+  /**
+   * What a silent run was made of — added by the proxy's translator.
+   *
+   * `reasoned` counts the THINKING characters a reasoning model sent instead of
+   * an answer; `error` is a refusal the provider put in the body of a 200 (no
+   * credit for that model, a rate limit, an upstream that declined). Neither is
+   * ever used as content: a component extracted from a chain of thought is not
+   * a component, and a refusal is not a screen.
+   */
+  reasoned?: number
+  error?: string
   // OpenAI-compatible shape, in case a future provider uses /v1/chat/completions
   choices?: Array<{ message?: { content?: string }; finish_reason?: string }>
+}
+
+/**
+ * Why nothing came back.
+ *
+ * "The model returned an empty response" is true of every cause and useful for
+ * none, and it is what a model switch used to produce: a reasoning model that
+ * spent its whole output budget thinking, a provider that refused inside a 200,
+ * and a model that genuinely said nothing all read the same. Each of those is a
+ * different thing for the user to do, so each gets its own sentence.
+ */
+function emptyAnswer(info: { reasoned?: number; error?: string; truncated?: boolean }): Error {
+  if (info.error) return new Error(`The provider refused: ${truncate(info.error, 300)}`)
+  if (info.reasoned) {
+    return new Error(
+      // Plain digits: `toLocaleString` puts a separator that depends on where
+      // the browser is, and this string is quoted back in bug reports.
+      `The model spent its whole answer on reasoning (${info.reasoned} characters of thinking) ` +
+        'and wrote nothing. Raise the output cap, or use the non-thinking variant of this model.',
+    )
+  }
+  if (info.truncated) {
+    return new Error('The model hit its output cap before writing anything. Try a model with a larger output budget.')
+  }
+  return new Error('The model returned an empty response.')
 }
 
 interface ChatMessage {
@@ -151,7 +187,9 @@ async function chat(
   if (!useStream) {
     const data = (await res.json()) as OllamaChatResponse
     const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''
-    if (!content.trim()) throw new Error('The model returned an empty response.')
+    if (!content.trim()) {
+      throw emptyAnswer({ reasoned: data.reasoned, error: data.error, truncated: isLengthStop(data) })
+    }
     if (meta && isLengthStop(data)) meta.truncated = true
     return content
   }
@@ -162,13 +200,17 @@ async function chat(
     // Streaming not supported by the transport — fall back to full JSON.
     const data = (await res.json()) as OllamaChatResponse
     const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''
-    if (!content.trim()) throw new Error('The model returned an empty response.')
+    if (!content.trim()) {
+      throw emptyAnswer({ reasoned: data.reasoned, error: data.error, truncated: isLengthStop(data) })
+    }
     onChunk(extractCode(content))
     return content
   }
   const decoder = new TextDecoder()
   let full = ''
   let buffer = ''
+  /* What the stream carried besides an answer — see `emptyAnswer`. */
+  const silence: { reasoned?: number; error?: string; truncated?: boolean } = {}
 
   for (;;) {
     const { done, value } = await reader.read()
@@ -186,6 +228,9 @@ async function chat(
           full += piece
           onChunk?.(full)
         }
+        if (typeof obj.reasoned === 'number') silence.reasoned = obj.reasoned
+        if (typeof obj.error === 'string' && obj.error) silence.error = obj.error
+        if (isLengthStop(obj)) silence.truncated = true
         if (meta && isLengthStop(obj)) meta.truncated = true
       } catch {
         // partial JSON — ignore, will be completed on next chunk
@@ -205,7 +250,7 @@ async function chat(
       // ignore
     }
   }
-  if (!full.trim()) throw new Error('The model returned an empty response.')
+  if (!full.trim()) throw emptyAnswer(silence)
   return full
 }
 

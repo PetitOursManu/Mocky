@@ -4,6 +4,7 @@ import {
   fromOpenAiResponse,
   fromOpenAiModels,
   createSseTranslator,
+  fromOpenAiResponse,
   buildUpstream,
   KIND_OLLAMA,
   KIND_OPENAI,
@@ -131,5 +132,74 @@ describe('buildUpstream', () => {
 
     const other = buildUpstream({ kind: KIND_OPENAI, baseUrl: 'https://api.openai.com', apiKey: 'sk' }, '/api/chat', Buffer.from('{}'))
     expect(other.headers.authorization).toBe('Bearer sk')
+  })
+})
+
+/**
+ * Why a run produced nothing.
+ *
+ * A model switch (Luna → a "Flash" reasoning model on OpenRouter) produced
+ * generation after generation with no output and one message: "the model
+ * returned an empty response". It is true of every cause and useful for none —
+ * the thinking that replaced the answer and the refusal the provider put in the
+ * body of a 200 were both dropped by this translator, which read `content` and
+ * nothing else.
+ */
+describe('what a silent stream was made of', () => {
+  it('counts thinking without ever forwarding it as content', () => {
+    const t = createSseTranslator()
+    const out = t(
+      'data: {"choices":[{"delta":{"reasoning":"Let me think about the layout…"}}]}\n\n' +
+        'data: {"choices":[{"delta":{"reasoning_content":"still thinking"}}]}\n\n',
+    )
+    // Nothing is emitted: a component extracted from a chain of thought is not
+    // a component.
+    expect(out).toBe('')
+    expect(t.state.reasoned).toBe('Let me think about the layout…'.length + 'still thinking'.length)
+    expect(t.state.content).toBe(0)
+  })
+
+  it('reads a structured reasoning trace too', () => {
+    const t = createSseTranslator()
+    t('data: {"choices":[{"delta":{"reasoning_details":[{"text":"abcd"},{"text":"ef"}]}}]}\n\n')
+    expect(t.state.reasoned).toBe(6)
+  })
+
+  it('states a refusal the provider put inside a 200', () => {
+    const t = createSseTranslator()
+    const out = t('data: {"error":{"message":"Insufficient credits","code":402}}\n\n')
+    const line = JSON.parse(out.trim())
+    expect(line.error).toBe('Insufficient credits (402)')
+    expect(line.done).toBe(true)
+    expect(t.state.error).toBe('Insufficient credits (402)')
+  })
+
+  it('still counts the content when the model does answer', () => {
+    const t = createSseTranslator()
+    t('data: {"choices":[{"delta":{"reasoning":"hmm"}}]}\n\ndata: {"choices":[{"delta":{"content":"export"}}]}\n\n')
+    expect(t.state.content).toBe('export'.length)
+    expect(t.state.reasoned).toBe(3)
+  })
+})
+
+describe('fromOpenAiResponse, when there is nothing to show', () => {
+  it('carries the thinking that replaced the answer', () => {
+    const out = fromOpenAiResponse({
+      choices: [{ message: { content: '', reasoning: '12345' }, finish_reason: 'length' }],
+    })
+    expect(out.message.content).toBe('')
+    expect(out.reasoned).toBe(5)
+    expect(out.done_reason).toBe('length')
+  })
+
+  it('carries a refusal that arrived with a 200', () => {
+    expect(fromOpenAiResponse({ error: { message: 'Rate limited', code: 429 } }).error).toBe('Rate limited (429)')
+    expect(fromOpenAiResponse({ error: 'plain string' }).error).toBe('plain string')
+  })
+
+  it('adds neither when the model simply answered', () => {
+    const out = fromOpenAiResponse({ choices: [{ message: { content: 'hello' } }] })
+    expect(out.reasoned).toBeUndefined()
+    expect(out.error).toBeUndefined()
   })
 })

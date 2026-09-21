@@ -51,6 +51,48 @@ export function toOpenAiRequest(body) {
   return out
 }
 
+/**
+ * How much THINKING a message carries, in characters.
+ *
+ * A reasoning model answers in two channels: `reasoning` (or
+ * `reasoning_content`, the name varies by provider) and `content`. Mocky wants
+ * the second one and must never mistake the first for it — a component
+ * extracted from a chain of thought is not a component. But when `content` is
+ * empty, the size of the thinking is the whole diagnosis: a model that spent
+ * its entire output budget reasoning is a model that answered nothing, and the
+ * user should be told THAT rather than "empty response".
+ */
+export function reasoningLength(node) {
+  const parts = [node?.reasoning, node?.reasoning_content]
+  let n = 0
+  for (const part of parts) if (typeof part === 'string') n += part.length
+  // Some providers send structured traces instead of a string.
+  const details = node?.reasoning_details
+  if (Array.isArray(details)) {
+    for (const d of details) if (typeof d?.text === 'string') n += d.text.length
+  }
+  return n
+}
+
+/**
+ * The error a 200 can carry.
+ *
+ * OpenRouter answers 200 and then puts the refusal in the BODY — no credit for
+ * this model, rate limited, the upstream provider declined — both in a plain
+ * response and as a frame in the middle of a stream. Read as a chat answer it
+ * has no `content`, so it used to arrive at the browser as "the model returned
+ * an empty response": the one message that is true of every possible cause and
+ * useful for none.
+ */
+export function errorText(json) {
+  const err = json?.error
+  if (!err) return ''
+  if (typeof err === 'string') return err
+  const message = typeof err.message === 'string' ? err.message : ''
+  const code = err.code ?? err.type
+  return message ? (code ? `${message} (${code})` : message) : JSON.stringify(err).slice(0, 300)
+}
+
 /** OpenAI non-streamed response → the Ollama shape Mocky expects.
  *  `finish_reason` is carried over as Ollama's `done_reason` so the caller can
  *  tell a truncated answer (hit the token cap) from a complete one. */
@@ -59,6 +101,12 @@ export function fromOpenAiResponse(json) {
   const content = choice?.message?.content ?? ''
   const out = { model: json?.model, message: { role: 'assistant', content }, done: true }
   if (choice?.finish_reason) out.done_reason = choice.finish_reason
+  // Both only matter when there is nothing to show; carried always because the
+  // caller decides, and a field it ignores costs nothing.
+  const error = errorText(json)
+  if (error) out.error = error
+  const reasoned = reasoningLength(choice?.message)
+  if (reasoned) out.reasoned = reasoned
   return out
 }
 
@@ -75,7 +123,17 @@ export function fromOpenAiModels(json) {
  */
 export function createSseTranslator() {
   let buffer = ''
-  return function translate(chunkText) {
+  /**
+   * What the stream contained besides the answer.
+   *
+   * Read by the proxy when the stream ends, so a run that produced no content
+   * can say what it DID produce. A generation that fails must name its cause:
+   * "the model thought for 4 000 characters and wrote nothing" and "OpenRouter
+   * refused: insufficient credits" are two different problems, and both used to
+   * arrive as "the model returned an empty response".
+   */
+  const state = { reasoned: 0, content: 0, error: '' }
+  function translate(chunkText) {
     buffer += chunkText
     const frames = buffer.split('\n')
     buffer = frames.pop() || '' // keep the trailing partial line
@@ -87,9 +145,23 @@ export function createSseTranslator() {
       if (!payload || payload === '[DONE]') continue
       try {
         const obj = JSON.parse(payload)
+        // A refusal inside a 200: stated, not swallowed. The stream stops being
+        // interesting after it, but the caller is the one that decides.
+        const failure = errorText(obj)
+        if (failure) {
+          state.error = failure
+          out += JSON.stringify({ error: failure, done: true }) + '\n'
+          continue
+        }
         const choice = obj?.choices?.[0]
         const delta = choice?.delta?.content
-        if (delta) out += JSON.stringify({ message: { content: delta }, done: false }) + '\n'
+        // Thinking is counted and never forwarded: a component extracted from a
+        // chain of thought is not a component.
+        state.reasoned += reasoningLength(choice?.delta)
+        if (delta) {
+          state.content += delta.length
+          out += JSON.stringify({ message: { content: delta }, done: false }) + '\n'
+        }
         // Surface WHY the stream ended: "length" means the model was cut off by
         // the token cap, which the caller reports instead of a cryptic syntax error.
         if (choice?.finish_reason) {
@@ -101,6 +173,8 @@ export function createSseTranslator() {
     }
     return out
   }
+  translate.state = state
+  return translate
 }
 
 /**
