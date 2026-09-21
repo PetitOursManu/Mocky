@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference, buildIdentityReference, tryDirectTextReplace } from './generate'
+import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference, buildIdentityReference, tryDirectTextReplace, generateComponent } from './generate'
 
 describe('buildLayoutReference', () => {
   it('includes the reference code and a reproduce-the-nav instruction', () => {
@@ -327,5 +327,55 @@ describe('sanitizeSource', () => {
     // U+2028 inside a string literal is replaced with \n — Babel tolerates it
     // but the browser's script parser treats it as a line terminator.
     expect(sanitizeSource(input)).toBe('const s = "hello\nworld";')
+  })
+})
+/**
+ * What the user is told when a generation produces nothing.
+ *
+ * Switching to a reasoning model on OpenRouter gave failure after failure with
+ * one message — "the model returned an empty response" — which named none of
+ * the three things that actually happen: the model thought until its budget was
+ * gone, the provider refused inside a 200, or the answer really was empty. The
+ * proxy now carries the fact; this is what turns it into a sentence someone can
+ * act on. Exercised through `chat()` by way of `generateComponent`, since the
+ * transport is private on purpose.
+ */
+describe('a run that came back with nothing', () => {
+  const settings = { baseUrl: 'http://x', apiKey: 'k', model: 'm', provider: 'openrouter' } as never
+
+  /** One NDJSON stream, as the proxy would write it. */
+  const streamOf = (...lines: object[]) =>
+    new Response(lines.map((l) => JSON.stringify(l)).join('\n') + '\n', { status: 200 })
+
+  const withFetch = async (response: Response) => {
+    const original = globalThis.fetch
+    globalThis.fetch = (async () => response) as typeof fetch
+    try {
+      return await generateComponent(settings, 'a screen', undefined, undefined, undefined, () => {}).then(
+        () => null,
+        (err: Error) => err,
+      )
+    } finally {
+      globalThis.fetch = original
+    }
+  }
+
+  it('names the thinking that replaced the answer', async () => {
+    const err = await withFetch(streamOf({ done: true, reasoned: 4200 }))
+    expect(err?.message).toContain('reasoning')
+    expect(err?.message).toContain('4200')
+    // And it says what to do about it, since neither cause is the user's fault.
+    expect(err?.message).toMatch(/output cap|non-thinking/)
+  })
+
+  it('quotes the provider when the refusal arrived inside a 200', async () => {
+    const err = await withFetch(streamOf({ error: 'Insufficient credits (402)', done: true }))
+    expect(err?.message).toContain('Insufficient credits (402)')
+    expect(err?.message).not.toContain('empty response')
+  })
+
+  it('keeps the plain sentence when the answer really was empty', async () => {
+    const err = await withFetch(streamOf({ done: true }))
+    expect(err?.message).toContain('empty response')
   })
 })
