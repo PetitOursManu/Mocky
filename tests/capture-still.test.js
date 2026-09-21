@@ -57,6 +57,24 @@ describe('a 3D scene in a capture frame', () => {
     expect(scene).toMatch(/new ResizeObserver\(function \(\) \{ size\(\); measure\(\); if \(reduced \|\| stillOnly\) settle\(\); \}\)/)
   })
 
+  it('gives EVERY scene on the page its one frame, not only the first', () => {
+    // The rationing that keeps a screen to one LIVE context must not fire here,
+    // and for one release it did. A still is one frame and the context back
+    // inside the same task, so two of them never overlap — but `stillOnly` was
+    // declared fifteen lines below the only line that reads it, `var` hoisting
+    // made it `undefined` there, and every path was rationed: on a page with
+    // two scenes the second was refused a slot and the thumbnail came back with
+    // a gradient where the object was. The line said otherwise the whole time,
+    // which is why this reads the ORDER of the two.
+    const declared = scene.indexOf('var stillOnly = window.__mockyStill === true')
+    const read = scene.indexOf('var rationed = !(stillOnly || reduced);')
+    expect(declared).toBeGreaterThan(-1)
+    expect(read).toBeGreaterThan(declared)
+    // And the shell counts the scenes rather than waiting on a flag, which is
+    // the same sentence from the other end: a screen may hold more than one.
+    expect(scene).toContain('(window.__mockyStillPending || 0) + (on ? 1 : -1)')
+  })
+
   it('loads the bundles that DRAW, and not the ones that only move', () => {
     expect(capture).toContain("c.kind === 'cdn-script' && c.drawsContent")
     expect(capture).toContain('${capScripts}')

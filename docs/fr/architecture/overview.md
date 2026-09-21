@@ -170,6 +170,14 @@ capture, `prefers-reduced-motion`) ne rationnent rien puisqu'une scène y tient
 son contexte le temps d'une image dans une seule tâche. Vérifié avec trois
 scènes sur une page : trois éléments, un seul canvas.
 
+Cette dernière clause n'a été qu'une phrase pendant une version. `stillOnly`
+était déclaré quinze lignes SOUS la seule ligne qui le lit, la remontée des `var`
+le rendait `undefined` à cet endroit, et tous les chemins étaient rationnés — si
+bien que la vignette d'une page à deux scènes revenait avec l'objet dans la
+première et un dégradé dans la seconde, exactement ce que la phrase promet
+d'empêcher. La ligne, elle, était juste depuis le début : c'est pourquoi le test
+lit désormais l'ORDRE des deux déclarations plutôt que le texte de l'une.
+
 **Le budget ne change de mains qu'une fois la vue STABILISÉE.** Le classement
 est recalculé à chaque image d'un déplacement : une traversée de projet le
 changeait une demi-douzaine de fois, et chaque changement est un contexte

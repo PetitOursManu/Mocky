@@ -163,6 +163,14 @@ capture, `prefers-reduced-motion`) ration nothing because a scene there holds
 its context for one frame inside one task. Verified with three scenes on one
 page: three elements, one canvas.
 
+That last clause was prose for one release. `stillOnly` was declared fifteen
+lines BELOW the only line that reads it, `var` hoisting made it `undefined`
+there, and every path was rationed after all — so a thumbnail of a page with two
+scenes came back with the object in the first and a gradient in the second,
+which is precisely what the sentence promises cannot happen. The line was right
+the whole time, which is why the test now reads the ORDER of the two
+declarations rather than the text of one.
+
 **A grant is handed over only once the view has SETTLED.** The ranking is
 recomputed on every frame of a pan, so a trip across a project changed hands
 half a dozen times, and every change is a context torn down and another built —

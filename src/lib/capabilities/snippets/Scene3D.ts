@@ -184,20 +184,6 @@ function Scene3D(props) {
     var reduced = false;
     try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
-    /*
-     * The slot, and the two paths that do not need one.
-     *
-     * A still is one frame and the context back inside the same task, so a
-     * capture frame or a reduced-motion page never holds two at once — and
-     * refusing the second scene there would put a gradient in a thumbnail that
-     * could have had the object. Everywhere else, the second scene on a screen
-     * is the one the canvas never counted.
-     */
-    var rationed = !(stillOnly || reduced);
-    var slot = rationed ? mockySceneClaim() : true;
-    if (!slot) return function () {};
-
-    var renderer = null, raf = 0, disposed = false, visible = true, drew = false, granted = window.__mockyGL !== false;
     /* A capture frame asks for ONE frame and then the context back — see
        lib/capture.ts. html2canvas cannot read a live WebGL canvas (the drawing
        buffer is gone by the time it clones the document), so a screen with a
@@ -209,6 +195,30 @@ function Scene3D(props) {
        kept turning, which is how that switch already looked broken once (see
        the note on buildSrcDoc's animations argument), one library over. */
     var stillOnly = window.__mockyStill === true || window.__mockyAnimations === false;
+
+    /*
+     * The slot, and the two paths that do not need one.
+     *
+     * A still is one frame and the context back inside the same task, so a
+     * capture frame or a reduced-motion page never holds two at once — and
+     * refusing the second scene there would put a gradient in a thumbnail that
+     * could have had the object. Everywhere else, the second scene on a screen
+     * is the one the canvas never counted.
+     *
+     * And that sentence was a comment rather than a behaviour for one release:
+     * stillOnly was declared fifteen lines BELOW this, so var hoisting made it
+     * undefined here and every path was rationed after all. A capture frame of a
+     * page with two scenes therefore did exactly what the paragraph above says
+     * must not happen — the first drew, the second was refused a slot it would
+     * have given back inside the same task, and the thumbnail shipped a
+     * gradient. It is declared above for that reason, and the test reads the
+     * ORDER rather than the line.
+     */
+    var rationed = !(stillOnly || reduced);
+    var slot = rationed ? mockySceneClaim() : true;
+    if (!slot) return function () {};
+
+    var renderer = null, raf = 0, disposed = false, visible = true, drew = false, granted = window.__mockyGL !== false;
     var settled = false, ladderTimer = 0, owed = false;
     /* What the capture shell waits on: the number of scenes on this page that
        still owe their one frame. A count and not a flag, because a screen may

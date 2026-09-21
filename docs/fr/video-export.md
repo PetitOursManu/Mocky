@@ -3882,6 +3882,10 @@ Trois changements, et seul le troisième est une garantie :
   fond peint dans une classe ou un style — et une mise en page qui a posé une
   image sur le film n'est pas réécrite.
 
+Mesurée sur tous les films que cette instance a posés dans une page — 41 écrans
+distincts sur trois mois — la règle en refuse exactement un : l'écran qui a été
+signalé. C'est le nombre à garder en tête quand la liste sera étendue.
+
 Refusée plutôt que réparée, pour deux raisons. Désemballer les enfants
 mécaniquement déplacerait une colonne de la page à un endroit que personne n'a
 choisi, et redemander au modèle est un appel payant de plus pour une mise en page

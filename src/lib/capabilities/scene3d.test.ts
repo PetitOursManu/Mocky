@@ -402,6 +402,16 @@ describe('a screen spends one context, whatever the model wrote', () => {
     // refusing the second there would put a gradient in a thumbnail that could
     // have had the object.
     expect(Scene3DSource).toContain('var rationed = !(stillOnly || reduced);')
+    // And the ORDER, which is the half this test was missing while the line
+    // above passed: `stillOnly` was declared fifteen lines further down, so
+    // `var` hoisting made it `undefined` at the only place that reads it and
+    // every path was rationed after all. A capture of a page with two scenes
+    // did exactly what the sentence above says must not happen. Reading the
+    // text of a line proves the line exists, not that it runs with a value.
+    const declared = Scene3DSource.indexOf('var stillOnly = window.__mockyStill === true')
+    const read = Scene3DSource.indexOf('var rationed = !(stillOnly || reduced);')
+    expect(declared).toBeGreaterThan(-1)
+    expect(declared).toBeLessThan(read)
   })
 
   it('says so on the card, because a model should know what it gets', () => {
