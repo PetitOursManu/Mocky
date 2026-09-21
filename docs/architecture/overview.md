@@ -757,6 +757,33 @@ shape, `response_format`, vision attachments as `image_url`, and SSE to NDJSON.
 Generation, the planner and Muse are therefore vendor-agnostic, with no second
 code path.
 
+### A model that thinks instead of answering
+
+Switching to a reasoning model produced generation after generation with
+nothing in them, and one message: "the model returned an empty response". Three
+different things hide behind that sentence, and the translator used to drop the
+evidence for all three — it read `content` and nothing else.
+
+A reasoning model answers on two channels, `reasoning` (or `reasoning_content`,
+or a structured `reasoning_details`, depending on the vendor) and `content`.
+Mocky wants the second and must never mistake the first for it: a component
+extracted from a chain of thought is not a component. So the thinking is
+COUNTED and never forwarded, a refusal the provider put in the body of a 200
+(no credit for that model, a rate limit, an upstream that declined) is quoted
+rather than swallowed, and the browser turns the fact into a sentence someone
+can act on — `emptyAnswer` in `generate.ts`.
+
+Then the cause itself. One real run spent **110 220 characters on thinking** and
+wrote no code, while `max_tokens: 16384` bounded nothing: that vendor does not
+count reasoning against it. `reasoning` is OpenRouter's own parameter for
+exactly this — it normalises a thinking budget across the vendors behind it and
+ignores it for models that cannot reason — so `buildUpstream` adds
+`reasoning: { effort: 'low' }` **when the target host is OpenRouter, and
+nowhere else**: `api.openai.com` answers 400 to a body key it does not know, and
+a blind parameter would break every OpenAI, Groq and Together user to fix one
+OpenRouter user. "low" rather than "none", because the models worth using do
+think — what is refused is thinking without end.
+
 The proxy lives in two places that share the same module: a Vite middleware in
 development, and `app.use('/__provider', …)` in Express for production.
 

@@ -5,6 +5,7 @@ import {
   fromOpenAiModels,
   createSseTranslator,
   fromOpenAiResponse,
+  boundsThinking,
   buildUpstream,
   KIND_OLLAMA,
   KIND_OPENAI,
@@ -201,5 +202,51 @@ describe('fromOpenAiResponse, when there is nothing to show', () => {
     const out = fromOpenAiResponse({ choices: [{ message: { content: 'hello' } }] })
     expect(out.reasoned).toBeUndefined()
     expect(out.error).toBeUndefined()
+  })
+})
+
+/**
+ * The thinking budget, asked of one vendor only.
+ *
+ * A reasoning model answered a real generation with 110 220 characters of
+ * thinking and no code, while `max_tokens` bounded nothing — the vendor does
+ * not count reasoning against it. `reasoning` is OpenRouter's parameter for
+ * exactly that, and sending it anywhere else is how you 400 every OpenAI user
+ * to fix one OpenRouter user.
+ */
+describe('a budget for thinking', () => {
+  const bodyOf = (baseUrl) =>
+    JSON.parse(
+      buildUpstream(
+        { kind: KIND_OPENAI, baseUrl, apiKey: 'k' },
+        '/api/chat',
+        Buffer.from(JSON.stringify({ model: 'm', messages: [], options: { num_predict: 16384 } })),
+      ).body,
+    )
+
+  it('bounds it at OpenRouter, where the parameter is defined', () => {
+    expect(bodyOf('https://openrouter.ai/api').reasoning).toEqual({ effort: 'low' })
+    expect(bodyOf('https://OpenRouter.ai/api/').reasoning).toEqual({ effort: 'low' })
+  })
+
+  it('sends nothing of the kind anywhere else', () => {
+    // api.openai.com answers 400 to a body key it does not know.
+    expect(bodyOf('https://api.openai.com').reasoning).toBeUndefined()
+    expect(bodyOf('https://api.groq.com/openai').reasoning).toBeUndefined()
+    expect(bodyOf('http://localhost:1234/v1').reasoning).toBeUndefined()
+    expect(bodyOf('not a url').reasoning).toBeUndefined()
+  })
+
+  it('leaves the rest of the request exactly as it was', () => {
+    const body = bodyOf('https://openrouter.ai/api')
+    expect(body).toMatchObject({ model: 'm', max_tokens: 16384 })
+  })
+
+  it('recognises the host and not a lookalike', () => {
+    expect(boundsThinking('https://openrouter.ai')).toBe(true)
+    expect(boundsThinking('https://gateway.openrouter.ai')).toBe(true)
+    // The check is on the HOST: a path or a query saying "openrouter" is not it.
+    expect(boundsThinking('https://example.com/openrouter.ai')).toBe(false)
+    expect(boundsThinking('https://openrouter.ai.evil.example')).toBe(false)
   })
 })
