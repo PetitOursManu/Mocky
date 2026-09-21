@@ -32,6 +32,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `3d` | une capture donne son image a CHAQUE scene de la page | `1df6187` |
 | `motion` | le film n'est pas un conteneur | `a2a302f` |
 | `motion` | le sujet plein cadre s'ecarte des mots | `1328f9b` |
 | `provider` | la reflexion recoit un budget la ou on peut en demander un | `c4fce19` |
