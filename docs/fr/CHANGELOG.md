@@ -32,6 +32,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `provider` | une generation qui ne rend rien dit enfin pourquoi | `67523a4` |
 | `3d` | un ecran depense un contexte, quoi que le modele ait ecrit | `b108ceb` |
 | `export` | un projet exporte porte tous ses composants, et se construit | `beac878` |
 | `3d` | la scene garde son propre temps, et la console se tait | `4927324` |
