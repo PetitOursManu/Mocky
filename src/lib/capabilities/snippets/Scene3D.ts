@@ -80,6 +80,38 @@ var MOCKY_LOOK_EASE = 0.08;
    where it is spent. */
 var MOCKY_LOOK_SLIDE = 0.05;
 
+/**
+ * ONE LIVE SCENE PER SCREEN, enforced here rather than asked for in the card.
+ *
+ * The canvas grants a context PER SCREEN — it hands {__mockyCmd:'gl', on} to
+ * an iframe and cannot see inside it — so a screen that draws three scenes
+ * spends three of the browser's sixteen while the arbiter believes it spent
+ * one. Four such screens are twelve, the seventeenth context kills the oldest,
+ * and a scene somebody is LOOKING at goes blank because of a page nobody is.
+ * The whole budget rests on one scene per frame being true, and until this it
+ * was only requested: the capability card says "at most ONE per screen", which
+ * is a sentence a model can miss and a person editing code can undo.
+ *
+ * First to mount holds the slot — source order, which is the order a reader
+ * meets them in. The others draw the gradient they draw in a browser with no
+ * WebGL: plainer, never broken, and the one they would have been given anyway
+ * once the seventeenth context arrived.
+ */
+function mockySceneClaim() {
+  try {
+    if (window.__mockyScene) return false;
+    window.__mockyScene = true;
+    return true;
+  } catch (e) {
+    /* No window to count in is no canvas to starve: draw. */
+    return true;
+  }
+}
+
+function mockySceneRelease() {
+  try { window.__mockyScene = false; } catch (e) {}
+}
+
 /** Where the element sits in the viewport, as -1 (entering) to 1 (leaving). */
 function mockySceneScroll(box, viewport) {
   var mid = box.top + box.height / 2;
@@ -151,6 +183,19 @@ function Scene3D(props) {
 
     var reduced = false;
     try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+    /*
+     * The slot, and the two paths that do not need one.
+     *
+     * A still is one frame and the context back inside the same task, so a
+     * capture frame or a reduced-motion page never holds two at once — and
+     * refusing the second scene there would put a gradient in a thumbnail that
+     * could have had the object. Everywhere else, the second scene on a screen
+     * is the one the canvas never counted.
+     */
+    var rationed = !(stillOnly || reduced);
+    var slot = rationed ? mockySceneClaim() : true;
+    if (!slot) return function () {};
 
     var renderer = null, raf = 0, disposed = false, visible = true, drew = false, granted = window.__mockyGL !== false;
     /* A capture frame asks for ONE frame and then the context back — see
@@ -614,6 +659,7 @@ function Scene3D(props) {
 
     return function () {
       disposed = true;
+      if (rationed) mockySceneRelease();
       deafen();
       owe(false);
       if (ladderTimer) window.clearInterval(ladderTimer);

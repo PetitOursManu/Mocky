@@ -779,7 +779,11 @@ here:
    `GL_SETTLE_MS` (a pan re-ranks on every frame, and each change costs a
    context), and a still is encoded at 640 px — `toDataURL` on a hero-sized
    buffer is 35 ms of the main thread, measured. A capture frame is the one
-   place that pays full price.
+   place that pays full price. And the frame RATIONS ITSELF: the grant is per
+   SCREEN, so a page drawing three scenes spends three contexts while the
+   arbiter counts one — `mockySceneClaim` gives the slot to the first to mount
+   and the rest draw the gradient. Not on the still paths, where a scene holds
+   its context for one frame inside one task.
 2. **Everything is procedural, and that is the CSP's doing.** `connect-src
    'none'` means no glTF, no HDRI and no texture file — ever. `/vendor/three.js`
    is built by `npm run vendor:three` from a hand-written entry point that

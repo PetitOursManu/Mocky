@@ -367,3 +367,46 @@ describe('a scene keeps its own time', () => {
     expect(elapsed()).toBeCloseTo(1, 6)
   })
 })
+
+/**
+ * One live scene per screen, and why the component is what enforces it.
+ *
+ * The canvas grants a context PER SCREEN — it posts to an iframe and cannot see
+ * inside it — so a screen drawing three scenes spends three of the browser's
+ * sixteen while the arbiter believes it spent one. Four such screens are
+ * twelve, and the seventeenth context kills the OLDEST: a scene somebody is
+ * looking at goes blank because of a page nobody is. Verified in a browser
+ * with three `<Scene3D>` on one page: three elements, ONE canvas, two calm
+ * gradients.
+ */
+describe('a screen spends one context, whatever the model wrote', () => {
+  it('claims a slot before it builds anything', () => {
+    expect(Scene3DSource).toContain('function mockySceneClaim()')
+    expect(Scene3DSource).toContain('if (window.__mockyScene) return false;')
+    expect(Scene3DSource).toContain('var slot = rationed ? mockySceneClaim() : true;')
+    // Refused: no renderer, no listeners, no cleanup to undo — the gradient
+    // the element already draws stands, which is the no-WebGL fallback.
+    expect(Scene3DSource).toContain('if (!slot) return function () {};')
+  })
+
+  it('gives the slot back when the scene goes away', () => {
+    // A screen is re-rendered on every edit; a slot never released would make
+    // the second render of the same page draw nothing at all.
+    expect(Scene3DSource).toContain('if (rationed) mockySceneRelease();')
+    expect(Scene3DSource).toContain('function mockySceneRelease()')
+  })
+
+  it('rations nothing on the paths that hold no context', () => {
+    // A capture frame and a reduced-motion page take one frame and give the
+    // context back inside the same task, so two of them never overlap — and
+    // refusing the second there would put a gradient in a thumbnail that could
+    // have had the object.
+    expect(Scene3DSource).toContain('var rationed = !(stillOnly || reduced);')
+  })
+
+  it('says so on the card, because a model should know what it gets', () => {
+    const card = cap('scene3d')?.components?.[0]?.description ?? ''
+    expect(card).toContain('ENFORCED')
+    expect(card).toContain('tilt-3d')
+  })
+})
