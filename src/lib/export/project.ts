@@ -14,6 +14,7 @@ import type { ZipEntry } from '../zip'
 import { pascalCase } from '../export'
 import { rewriteScreenToEsm } from './rewrite'
 import { uiFiles } from './snippets'
+import { capabilitiesUsedBy } from '../capabilities/select'
 import { globalsCssFromDesign } from './theme'
 
 export type StackTarget = 'plain' | 'shadcn' | 'daisyui'
@@ -49,11 +50,27 @@ function nameScreens(screens: Screen[]): NamedScreen[] {
 
 // ---- static templates -------------------------------------------------------
 
-function packageJson(name: string, stack: StackTarget): string {
+/**
+ * The one runtime dependency a generated screen can ADD, and it is added only
+ * when a screen asked for it.
+ *
+ * `<Scene3D>` reads `window.THREE`; the exported `scene3d.tsx` is what puts it
+ * there (see `snippets.ts`). Shipping 600 KB of three.js into every export —
+ * most of which have no scene at all — would be paying for the catalogue rather
+ * than for the screens, and the component's own fallback is a calm gradient, so
+ * the project without it still builds and still renders.
+ *
+ * The version is pinned to the one Mocky vendors, so a scene drawn in the
+ * preview is the same scene drawn in the exported project.
+ */
+const THREE_VERSION = '^0.185.1'
+
+function packageJson(name: string, stack: StackTarget, three = false): string {
   const deps: Record<string, string> = {
     react: '^18.3.1',
     'react-dom': '^18.3.1',
   }
+  if (three) deps['three'] = THREE_VERSION
   const devDeps: Record<string, string> = {
     '@types/react': '^18.3.12',
     '@types/react-dom': '^18.3.1',
@@ -379,8 +396,26 @@ function readme(name: string, stack: StackTarget, screenCount: number): string {
     '## Structure',
     '',
     '- `src/screens/*` — one component per screen.',
-    '- `src/components/ui/*` — inline icon / chart / motion components (no external UI library).',
-    '- `src/lib/utils.ts` — the `cn()` class-name helper.',
+    '- `src/components/ui/*` — the components the screens use: icons, charts, animation (`<Animated>`),',
+    '  a 3D scene (`<Scene3D>`), a scroll sequence and a film player. Plain JavaScript with a `.d.ts`',
+    '  beside each one, so your own TypeScript is checked and the vendored code is not.',
+    stack === 'shadcn'
+      ? '- `src/lib/utils.ts` — the `cn()` class-name helper.'
+      : '- `src/lib/utils.js` — the `cn()` class-name helper.',
+    '',
+  )
+  /*
+   * Two things a reader will otherwise discover by being surprised: what a
+   * scene needs, and what a film and an image point at.
+   */
+  lines.push(
+    '## Media and 3D',
+    '',
+    '- `<Scene3D>` draws with three.js when the project depends on it (it is in `package.json` only if a',
+    '  screen uses one) and draws a calm gradient otherwise. The component reads `window.THREE`;',
+    '  `src/components/ui/scene3d.jsx` is what puts it there.',
+    '- Images and films are still served by Mocky: a `src="/api/images/…"` or `"/api/video/…"` resolves',
+    '  only where that server is. Copy the files and rewrite those paths before deploying elsewhere.',
     '',
   )
   return lines.join('\n')
@@ -398,10 +433,19 @@ export async function buildProjectFiles(
 ): Promise<ZipEntry[]> {
   const name = (opts.projectName || 'mocky-app').replace(/[^a-zA-Z0-9-_]+/g, '-').toLowerCase() || 'mocky-app'
   const named = nameScreens(screens)
+  /*
+   * Does anything here draw a 3D scene?
+   *
+   * Asked of the CODE rather than of `screen.caps`: a capability is what the
+   * prompt selected, and this needs to know what the screens actually reach
+   * for — which is exactly what `capabilitiesUsedBy` answers, by the globals
+   * each pack declares. A project with no scene gets no three.js.
+   */
+  const usesThree = screens.some((screen) => capabilitiesUsedBy(screen.code || '').includes('scene3d'))
   const files: ZipEntry[] = []
 
   // Root config
-  files.push({ name: 'package.json', content: packageJson(name, opts.stack) })
+  files.push({ name: 'package.json', content: packageJson(name, opts.stack, usesThree) })
   files.push({ name: 'vite.config.ts', content: viteConfig() })
   files.push({ name: 'tsconfig.json', content: tsconfig() })
   // The project's real name, not `name` — that one is slugified for package.json
@@ -418,14 +462,18 @@ export async function buildProjectFiles(
   files.push({ name: 'src/App.tsx', content: appTsx(named) })
   files.push({ name: 'src/globals.css', content: globalsCssFromDesign(opts.designMarkdown) })
 
-  // Vendored UI packs (+ cn). For shadcn, override utils with the standard cn.
-  for (const f of uiFiles()) {
-    if (opts.stack === 'shadcn' && f.path === 'src/lib/utils.ts') {
-      files.push({ name: f.path, content: shadcnUtilsTs() })
-    } else {
-      files.push({ name: f.path, content: f.content })
-    }
+  /*
+   * Vendored UI packs (+ cn).
+   *
+   * For shadcn the standard `cn` replaces ours — it is real TypeScript (clsx +
+   * tailwind-merge), so it ships as `utils.ts` and the JS pair goes: two
+   * modules answering to `@/lib/utils` is one of them being resolved at random.
+   */
+  for (const f of uiFiles({ three: usesThree })) {
+    if (opts.stack === 'shadcn' && (f.path === 'src/lib/utils.js' || f.path === 'src/lib/utils.d.ts')) continue
+    files.push({ name: f.path, content: f.content })
   }
+  if (opts.stack === 'shadcn') files.push({ name: 'src/lib/utils.ts', content: shadcnUtilsTs() })
 
   // Screens (rewritten to explicit ESM)
   for (const n of named) {

@@ -997,6 +997,41 @@ Le ZIP est écrit par `src/lib/zip.ts`, sans aucune dépendance : méthode « st
 plus CRC32. Le même écrivain sert au « Tout télécharger » de la bibliothèque
 d'images et à `npm run backup`.
 
+### Chaque pack qu'un écran peut importer, et aucun qu'il ne peut utiliser
+
+`rewrite.ts` construit sa table d'imports depuis le REGISTRE — chaque export de
+pack devient `@/components/ui/<id de la capacité>` — alors que `uiFiles()` était
+une liste écrite à la main de trois entrées. Quatre packs étaient donc importés
+et jamais livrés : `animate`, `scene3d`, `scrollvideo`, `motionfilm`. `<Animated>`
+est sur presque tous les écrans générés, donc presque tous les exports échouaient
+sur un module absent. La liste est maintenant DÉRIVÉE de `CAPABILITIES` dans
+`project.test.ts`, ce qui empêche le prochain pack de répéter la chose — y
+compris un pack retiré, puisqu'un écran généré avant son retrait l'importe
+encore.
+
+**Les packs sont livrés comme le JavaScript qu'ils sont.** Ils ont été écrits
+pour un navigateur sans compilateur : `var Icon = {}` puis `Icon.Home = …`, un
+`cn` variadique qui lit `arguments`, `window.THREE`. Livrés en `.tsx` ils étaient
+typés, et le `npm run build` du projet exporté — c'est-à-dire `tsc && vite build`
+— échouait sur cinquante erreurs dans des fichiers que personne n'avait demandé à
+TypeScript de lire. Chaque pack est donc un `.jsx` avec un `.d.ts` écrit à la
+main à côté : chaque export est un `React.FC<any>`, `Icon` un dictionnaire de
+ceux-là, `cn` une fonction variadique. TypeScript résout le module par la
+déclaration, vérifie les ÉCRANS — les fichiers qui méritent de l'être — et laisse
+le JavaScript vendorisé tranquille. Il a fallu installer et construire un export
+réel pour le découvrir, ce qui est la seule façon de le découvrir.
+
+**three.js suit les écrans.** `<Scene3D>` lit `window.THREE`, donc le
+`scene3d.jsx` exporté importe la bibliothèque et l'y pose — mais seulement quand
+un écran nomme une scène (`capabilitiesUsedBy`, sur le code et non sur
+`screen.caps`). 600 Ko dans chaque export reviendrait à payer pour le catalogue
+et non pour les écrans, et sans elle le composant dessine le dégradé calme qu'il
+dessine dans un navigateur sans WebGL.
+
+**Les images et les films restent ceux de Mocky.** Un `src="/api/images/…"` ou
+`"/api/video/…"` généré ne résout que là où ce serveur est ; le README de
+l'export le dit plutôt que de faire semblant.
+
 **Ce n'est pas Motion**, avec lequel il ne partage que le mot. Celui-là
 transforme des images de la médiathèque en `.mp4` sur un service Docker séparé et
 facultatif, et ne touche jamais à un écran — voir
