@@ -32,6 +32,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `export` | un projet exporte porte tous ses composants, et se construit | `beac878` |
 | `3d` | la scene garde son propre temps, et la console se tait | `4927324` |
 | `motion` | pas de second fond anime, et jamais une bande a soi | `3a75f3f` |
 | `3d` | une scene tient dans sa boite, et se laisse photographier | `21c3466` |
