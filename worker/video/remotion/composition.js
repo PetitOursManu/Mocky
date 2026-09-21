@@ -3011,6 +3011,23 @@ export function furnitureStack(blocks) {
   return list.length > 0 && list.every((block) => isFurniture(block?.kind))
 }
 
+/**
+ * A stack that draws to ONE radius in the middle of its box.
+ *
+ * `fills: 'minor'` in the weight table, which `blockExtent` already reads: a
+ * globe and a solid scene draw a circle on the smaller side of the box and leave
+ * the rest as air. Every other kind either fills both axes or stops at its own
+ * measure with its box's edges still meaning something.
+ *
+ * It is the whole stack and not one block of it, for `furnitureStack`'s reason:
+ * the box belongs to the stack, and a subject sharing its zone with a line of
+ * type is a zone whose leftover the type has a use for.
+ */
+export function minorStack(blocks) {
+  const list = Array.isArray(blocks) ? blocks : []
+  return list.length > 0 && list.every((block) => blockAppetite(String(block?.kind ?? '')).fills === 'minor')
+}
+
 export function furnitureCeiling(blocks, safeHeight) {
   return furnitureStack(blocks) ? Math.max(0, Number(safeHeight) || 0) / SCENE_UNITS : Infinity
 }
@@ -3182,17 +3199,17 @@ export function blockExtent(block, box, base, unit) {
  * subject buys nothing, because it stays centred and a smaller globe is a smaller
  * globe with the same line across it. What is left is moving the SUBJECT, and it
  * is the only one that takes nothing from the document: `full` is the one anchor
- * that names no position. It is still open, and its exact condition is written
- * here so the next person does not rediscover it — the free grid rows are the ones
- * no cell holds, and the move is available exactly when they are CONTIGUOUS, which
- * a `center` cell is precisely what they stop being.
+ * that names no position. It is DONE — `clearOf` in `composedLayout` — on exactly
+ * the condition written here: the free grid rows are the ones no cell holds, and
+ * the move is available when they are CONTIGUOUS, which a `center` cell is
+ * precisely what they stop being.
  *
- * Until then the arrangement is the one `globe.jsx` says it was written for: "the
- * words that belong to a globe are a `kicker` or a `heading` anchored over it,
- * measured against a surface `composedPalette` resolved with the field in it".
- * What made the reported frame read as broken was not the word on the sphere; it
- * was the bundle of connection arcs sliced off by the canvas edge behind it, which
- * is `globeShell`'s defect and is fixed there.
+ * Where it does not apply, the arrangement is the one `globe.jsx` says it was
+ * written for: "the words that belong to a globe are a `kicker` or a `heading`
+ * anchored over it, measured against a surface `composedPalette` resolved with the
+ * field in it". What made the reported frame read as broken was not the word on
+ * the sphere; it was the bundle of connection arcs sliced off by the canvas edge
+ * behind it, which is `globeShell`'s defect and is fixed there.
  */
 export const FIELD_FOOT = ['barChart', 'lineChart', 'imageFrame', 'solidChart']
 
@@ -3965,6 +3982,51 @@ export function composedLayout(scene, width, height) {
   const bands = split(frame.top, frame.height - foot - arrival, gutter, usedRows.length, weights, caps)
   const rows = new Map(usedRows.map((row, i) => [row, bands[i]]))
 
+  /*
+   * A SUBJECT IN THE MIDDLE MOVES OUT OF THE WAY OF THE WORDS.
+   *
+   * A rendered frame put a heading straight across the equator of a `full`
+   * globe. `FIELD_FOOT` is the repair for a field whose CAPTION is in the way
+   * and it deliberately does not extend to this one: a foot is at an edge and
+   * leaves the cells one contiguous run, while a `fills: 'minor'` block occupies
+   * the middle of its box on both axes and reserving it would leave two disjoint
+   * remainders — a stack cannot be laid out in a hole.
+   *
+   * Of the three repairs the paragraph beside `FIELD_FOOT` rules on, this is the
+   * one it leaves open, and the only one that takes nothing from the document:
+   * moving the CELL is out because `anchor` is the one composition decision a
+   * document makes, shrinking the subject buys nothing (a smaller globe is a
+   * smaller globe with the same line across it), and `full` is the one anchor
+   * that names no position — so the subject is what may move.
+   *
+   * The condition was written there too, and this is it: the free rows are the
+   * ones no cell holds, and the move is available exactly when they are
+   * CONTIGUOUS. A `center` cell is precisely what they stop being — top and
+   * bottom free is two runs, and a circle cannot be in both. Then the scene is
+   * the arrangement `globe.jsx` was written for and nothing moves (Q1).
+   *
+   * A scene with no cell at all keeps the whole frame: there is nothing to be out
+   * of the way of, and a subject pushed into a third of a frame it has all of is
+   * the void the rule at the top of this file exists to remove.
+   */
+  const freeRows = usedRows.filter((row) => used[row].size === 0)
+  const contiguousFree =
+    freeRows.length > 0 &&
+    freeRows.length < usedRows.length &&
+    freeRows[freeRows.length - 1] - freeRows[0] === freeRows.length - 1
+  const clearOf = (inZone) => {
+    if (!contiguousFree || !minorStack(blocksOf(inZone))) return null
+    const first = rows.get(freeRows[0])
+    const last = rows.get(freeRows[freeRows.length - 1])
+    if (!first || !last) return null
+    return {
+      left: frame.left,
+      top: first.start,
+      width: frame.width,
+      height: Math.max(0, last.start + last.size - first.start),
+    }
+  }
+
   // Every zone with the box it gets, before a single unit is solved: the scale is
   // a scene-wide question now (`harmoniseUnits`), so no stack can be laid out
   // until all of them have been measured.
@@ -3979,11 +4041,17 @@ export function composedLayout(scene, width, height) {
     // a surface stops at the frame. Everything else keeps the safe frame, which
     // is what it has always had. See `BLOCK_GROUNDS`.
     const bleeds = anchor === 'full' && groundStack(blocksOf(inZone))
+    // The rows no cell holds, when this zone is a centred subject and they are
+    // contiguous — see `clearOf`. Null everywhere else, including for a bled
+    // ground, which is a surface rather than a subject and stops at the frame.
+    const clear = anchor === 'full' && !bleeds ? clearOf(inZone) : null
     const track = bleeds
       ? bledFrame
-      : !row || !column
-        ? { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
-        : { left: column.start, top: row.start, width: column.size, height: row.size }
+      : clear
+        ? clear
+        : !row || !column
+          ? { left: frame.left, top: frame.top, width: frame.width, height: frame.height }
+          : { left: column.start, top: row.start, width: column.size, height: row.size }
     /*
      * A `full` zone pays for its own arrival, because it is in no band.
      *
@@ -4041,7 +4109,14 @@ export function composedLayout(scene, width, height) {
       // field sets the scale of the scene", and a block that is sized by the format
       // sets no scale — a `lowerThird` anchored `full` capping every heading in the
       // frame to a band's own unit is that sentence read backwards.
-      field: anchor === 'full' && !furnitureStack(blocksOf(inZone)),
+      // A subject that MOVED is not one either, and it is the same sentence: the
+      // clause says "the field sets the scale of the scene, and what stands on it
+      // reads at that scale or under it". Nothing stands on a subject that got out
+      // of the way — the words are beside it now — and keeping the flag would cap
+      // every cell at the unit of a block solved against a third of the frame,
+      // which is the crushing this whole pass exists to prevent, arriving through
+      // the door that was meant to stop it.
+      field: anchor === 'full' && !furnitureStack(blocksOf(inZone)) && !clear,
       // Whether this stack was sized by the FORMAT rather than by its box, which
       // makes it worthless as evidence about the scene's scale. `harmoniseUnits`
       // reads it for the scale bound and deliberately not for the order one.
@@ -4090,6 +4165,12 @@ export function composedLayout(scene, width, height) {
       // rather than kept private because the guarantee it exists for is an absence,
       // and an absence is only checkable against the thing that was reserved.
       foot: zone.anchor === 'full' ? foot : 0,
+      // Whether this zone is the SCALE of the scene — `harmoniseUnits` caps every
+      // other stack at its unit. Published for `foot`'s reason: a subject that
+      // moved out of the cells' way stops being one, and "the words beside it
+      // were not capped by it" is a guarantee about something that did NOT
+      // happen, which is only checkable against the flag that decides it.
+      field: zone.field === true,
       // Every block with the box it actually gets, never the zone's repeated.
       layers: stack.layers,
     }

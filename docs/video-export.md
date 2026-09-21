@@ -1434,8 +1434,18 @@ Three repairs exist and two are already ruled out. Moving the CELL is out —
 buys nothing, since it stays centred and a smaller globe is a smaller globe with
 the same line across it. What is left is moving the SUBJECT, the only one that
 takes nothing from the document, because `full` is the one anchor that names no
-position; it is open, and its condition is that the grid rows no cell holds are
-CONTIGUOUS, which a `center` cell is precisely what they stop being. Until then the
+position — and that is what `clearOf` does, on exactly that condition: the grid
+rows no cell holds, when they are CONTIGUOUS, which a `center` cell is precisely
+what they stop being. A globe with a heading in the top band takes the two rows
+below it; with a heading in the middle it keeps the whole frame and the words stay
+over the sphere, because top and bottom free is two runs and a circle cannot be in
+both. Two clauses come with it. A scene with no cell keeps the frame — there is
+nothing to be out of the way of, and a subject pushed into a third of a frame it
+has all of is the void the layout rule exists to remove. And a subject that moved
+stops being the scene's SCALE: `harmoniseUnits` caps every cell at the field's unit
+because what stands ON a field is a caption of it, and nothing stands on a subject
+that got out of the way — keeping the flag would hold every heading to the unit of a
+block solved against a third of the frame. Where the move does not apply, the
 arrangement is the one `globe.jsx` says it was written for — "the words that belong
 to a globe are a `kicker` or a `heading` anchored over it, measured against a
 surface `composedPalette` resolved with the field in it" — and what made the

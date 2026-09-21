@@ -2927,6 +2927,131 @@ describe('composedLayout', () => {
    * whose whole job is to BE the background. Four claims, because the fix has four
    * ways of going wrong and three of them are silent.
    */
+  /**
+   * A SUBJECT anchored full, and the words beside it.
+   *
+   * A rendered frame put a heading straight across the equator of a globe.
+   * `FIELD_FOOT` repairs the case where a field's CAPTION is in the way and says
+   * why it cannot repair this one: a foot is at an edge and leaves one
+   * contiguous run, a `fills: 'minor'` block sits in the middle of its box and
+   * leaves two disjoint remainders. The repair it left open is moving the
+   * SUBJECT — `full` is the one anchor that names no position — and the
+   * condition it wrote down is that the free rows must be CONTIGUOUS.
+   */
+  describe('a subject anchored full', () => {
+    const subjectScene = (...anchors) => ({
+      layers: [
+        { kind: 'globe', anchor: 'full' },
+        ...anchors.map((anchor) => ({ kind: 'heading', text: 'Notre couverture', anchor })),
+      ],
+    })
+    const boxesOf = (scene, size) => {
+      const { zones } = composedLayout(scene, size.width, size.height)
+      return {
+        subject: zones.find((zone) => zone.anchor === 'full'),
+        cells: zones.filter((zone) => zone.anchor !== 'full'),
+      }
+    }
+    const overlap = (a, b) =>
+      Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top)
+
+    it('moves out of the rows the cells hold, and touches none of them', () => {
+      for (const [ratio, size] of FRAMES) {
+        for (const at of ['top-center', 'bottom-center', 'top-left', 'bottom-right']) {
+          const { subject, cells } = boxesOf(subjectScene(at), size)
+          expect(cells.length, `${ratio} ${at}`).toBe(1)
+          // The guarantee, and the whole point: the boxes no longer share a row.
+          // A minor fill draws a circle centred in its box, so a box that does
+          // not overlap is ink that does not overlap.
+          expect(overlap(subject.box, cells[0].box), `${ratio} ${at}`).toBeLessThanOrEqual(0)
+          // And it really moved rather than shrank in place.
+          expect(subject.box.height, `${ratio} ${at}`).toBeLessThan(composedSafeArea(size.width, size.height).height)
+        }
+      }
+    })
+
+    it('takes both free rows when the cell holds one end', () => {
+      for (const [ratio, size] of FRAMES) {
+        const { frame } = composedLayout(subjectScene('top-center'), size.width, size.height)
+        const { subject, cells } = boxesOf(subjectScene('top-center'), size)
+        // Two thirds of the frame rather than one: the free rows are a run, and
+        // the run is what the subject gets.
+        expect(subject.box.height, ratio).toBeGreaterThan(frame.height / 2)
+        expect(subject.box.top, ratio).toBeGreaterThan(cells[0].box.top)
+      }
+    })
+
+    it('does not move when the free rows are two runs — a center cell', () => {
+      // The condition, from the side that refuses. Top and bottom free is not a
+      // place a circle can be, so the scene stays the one `globe.jsx` was written
+      // for: a word over the sphere, measured against the field it stands on.
+      for (const [ratio, size] of FRAMES) {
+        const { frame } = composedLayout(subjectScene('center'), size.width, size.height)
+        const { subject } = boxesOf(subjectScene('center'), size)
+        expect(subject.box, ratio).toEqual({ left: frame.left, top: frame.top, width: frame.width, height: frame.height })
+      }
+    })
+
+    it('does not move when there is nothing to be out of the way of', () => {
+      for (const [ratio, size] of FRAMES) {
+        const alone = { layers: [{ kind: 'globe', anchor: 'full' }] }
+        const { frame, zones } = composedLayout(alone, size.width, size.height)
+        const subject = zones.find((zone) => zone.anchor === 'full')
+        expect(subject.box, ratio).toEqual({ left: frame.left, top: frame.top, width: frame.width, height: frame.height })
+      }
+    })
+
+    it('stops being the scale of the scene once it has moved', () => {
+      // `harmoniseUnits` caps every cell at the field's unit because "what stands
+      // ON a field is a caption of it". Nothing stands on a subject that got out
+      // of the way, and keeping the flag would cap a heading at the unit of a
+      // block solved against a third of a frame — the crushing this pass exists
+      // to prevent, arriving through the door meant to stop it.
+      for (const [ratio, size] of FRAMES) {
+        const { subject, cells } = boxesOf(subjectScene('top-center'), size)
+        expect(subject.field, ratio).toBe(false)
+        // The control is the SAME arrangement with a field that does not move —
+        // an `equalizer` fills both axes, so it keeps the whole frame and keeps
+        // the flag. Same bands, same heading, one difference: whether the block
+        // under it is the scale of the scene.
+        const capped = composedLayout(
+          {
+            layers: [
+              { kind: 'equalizer', anchor: 'full' },
+              { kind: 'heading', text: 'Notre couverture', anchor: 'top-center' },
+            ],
+          },
+          size.width,
+          size.height,
+        )
+        const cappedField = capped.zones.find((zone) => zone.anchor === 'full')
+        const cappedHeading = capped.zones.find((zone) => zone.anchor === 'top-center')
+        expect(cappedField.field, ratio).toBe(true)
+        expect(cappedHeading.unit, ratio).toBeLessThanOrEqual(cappedField.unit + 0.0001)
+        // And the heading beside the subject is not held to that ceiling.
+        expect(cells[0].unit, ratio).toBeGreaterThan(subject.unit)
+      }
+    })
+
+    it('leaves a field that fills both axes exactly where it was', () => {
+      // The foot path is the other repair and it must not have moved: a chart is
+      // `fills: 'both'`, so its box is the whole safe area and its caption band
+      // is what keeps the cells off its labels.
+      for (const [ratio, size] of FRAMES) {
+        const chart = {
+          layers: [
+            { kind: 'barChart', anchor: 'full', bars: [{ label: 'A', value: 4 }, { label: 'B', value: 7 }] },
+            { kind: 'kicker', text: 'Ventes', anchor: 'bottom-center' },
+          ],
+        }
+        const { frame, zones } = composedLayout(chart, size.width, size.height)
+        const field = zones.find((zone) => zone.anchor === 'full')
+        expect(field.box, ratio).toEqual({ left: frame.left, top: frame.top, width: frame.width, height: frame.height })
+        expect(field.field, ratio).toBe(true)
+      }
+    })
+  })
+
   describe('a ground anchored full', () => {
     const groundScene = (...kinds) => ({
       layers: kinds.map((kind) => (kind === 'heading'

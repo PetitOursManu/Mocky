@@ -641,9 +641,15 @@ Ten things, and the first one is not negotiable.
       The COLLISION is a different question and `FIELD_FOOT` does not extend to it:
       a foot is at an edge and leaves one contiguous run, a `fills: 'minor'` subject
       is in the middle and leaves two disjoint ones — a stack cannot be laid out in a
-      hole, and on 16:9 the reservation would leave the cells nothing at all. The
-      repair still open is moving the SUBJECT, because `full` is the one anchor that
-      names no position; its condition is written beside `FIELD_FOOT`.
+      hole, and on 16:9 the reservation would leave the cells nothing at all. So the
+      SUBJECT is what moves (`clearOf`), because `full` is the one anchor that names
+      no position: it takes the grid rows no cell holds, when those are CONTIGUOUS,
+      and keeps the whole frame when they are not — a `center` cell is exactly what
+      makes them two runs, and a circle cannot be in both. Two clauses hang off it: a
+      scene with no cell at all keeps the frame (there is nothing to be out of the
+      way of), and a subject that moved stops being the scene's SCALE — nothing
+      stands on it any more, and leaving the flag on would cap every heading at the
+      unit of a block solved against a third of a frame.
     - **Nothing in `blocks/` imports `remotion`, writes a colour, or eases.** The
       frame arrives as `progress` and `life`; that is what lets `blocks.test.js`
       load the registry in Mocky's own suite and prove it matches the schema in
