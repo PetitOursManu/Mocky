@@ -953,6 +953,39 @@ The ZIP is written by `src/lib/zip.ts`, with no dependency: store method plus
 CRC32. The same writer serves the image library's "Download all" and
 `npm run backup`.
 
+### Every pack a screen can import, and none it cannot use
+
+`rewrite.ts` builds its import map from the REGISTRY — every snippet-pack export
+becomes `@/components/ui/<capability id>` — while `uiFiles()` was a hand-written
+list of three. Four packs were therefore imported and never shipped:
+`animate`, `scene3d`, `scrollvideo`, `motionfilm`. `<Animated>` is on nearly
+every generated screen, so nearly every export failed on a module that was not
+there. The list is now DERIVED from `CAPABILITIES` in `project.test.ts`, which
+is what stops the next pack repeating it — including a retired one, because a
+screen generated before the retirement still imports it.
+
+**The packs ship as the JavaScript they are.** They were written for a browser
+with no compiler: `var Icon = {}` then `Icon.Home = …`, a variadic `cn` reading
+`arguments`, `window.THREE`. Shipped as `.tsx` they were type-checked, and the
+exported project's own `npm run build` — which is `tsc && vite build` — failed on
+fifty errors in files nobody had asked TypeScript to read. So each pack is a
+`.jsx` with a hand-written `.d.ts` beside it: every export is `React.FC<any>`,
+`Icon` is a record of them, `cn` is variadic. TypeScript resolves the module
+through the declaration, checks the SCREENS — the files worth checking — and
+leaves the vendored JavaScript alone. An export was installed and built to find
+this, which is the only way it is ever found.
+
+**three.js follows the screens.** `<Scene3D>` reads `window.THREE`, so the
+exported `scene3d.jsx` imports the library and assigns it — but only when a
+screen names a scene (`capabilitiesUsedBy`, on the code rather than on
+`screen.caps`). 600 KB in every export would be paying for the catalogue instead
+of for the screens, and without it the component draws the calm gradient it draws
+in a browser with no WebGL.
+
+**Images and films are still Mocky's.** A generated `src="/api/images/…"` or
+`"/api/video/…"` resolves only where that server is; the export's README says so
+rather than pretending otherwise.
+
 **This is not Motion**, which shares only the word. That one turns
 images from the media library into an `.mp4` on a separate, opt-in Docker service
 and never touches a screen — see [Motion](video-export.md).
