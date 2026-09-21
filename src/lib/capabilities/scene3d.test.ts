@@ -301,7 +301,7 @@ describe('a scene answers the cursor and the scroll', () => {
     expect(Scene3DSource).toContain("window.removeEventListener('pointermove', onPointer)")
     expect(Scene3DSource).toMatch(/function stop\(keep\) \{\s*\n(\s*\/\*[\s\S]*?\*\/\s*\n)?\s*deafen\(\);/)
     // A scene that must hold still attaches none of it.
-    expect(Scene3DSource).toContain('if (listening || reduced || stillOnly) return;')
+    expect(Scene3DSource).toContain('if (listening || frozen) return;')
     // And no frame reads layout: the box is measured on scroll and on resize.
     expect(Scene3DSource).toContain("window.addEventListener('scroll', measure, { passive: true })")
   })
@@ -384,15 +384,34 @@ describe('a screen spends one context, whatever the model wrote', () => {
     expect(Scene3DSource).toContain('function mockySceneClaim()')
     expect(Scene3DSource).toContain('if (window.__mockyScene) return false;')
     expect(Scene3DSource).toContain('var slot = rationed ? mockySceneClaim() : true;')
-    // Refused: no renderer, no listeners, no cleanup to undo — the gradient
-    // the element already draws stands, which is the no-WebGL fallback.
-    expect(Scene3DSource).toContain('if (!slot) return function () {};')
+    // Refused: one frame and the context straight back, which is the path a
+    // capture and a reduced-motion page already take.
+    expect(Scene3DSource).toContain('var frozen = stillOnly || reduced || !slot;')
+  })
+
+  it('shows the object it lost the slot for, held still', () => {
+    // What the slot buys is MOVEMENT. A refused scene used to return before
+    // building anything and left the element on its gradient — right about the
+    // budget, wrong about the page: a reader met a flat fade where an object
+    // had been asked for, on two of the six generated screens that carry a
+    // scene at all. A still costs no budget (one render, context back inside
+    // the same task) so it takes that path and stands as a photograph of
+    // itself.
+    expect(Scene3DSource).toContain('if (frozen) { owe(true); settle(); if (!settled) ladder(); return; }')
+    // Held still means exactly that: no pointer, no scroll, no loop.
+    expect(Scene3DSource).toContain('if (listening || frozen) return;')
+    // And the picture is the element's own last frame, kept before the context
+    // goes — the same keepStill every other path uses.
+    expect(Scene3DSource).toMatch(/settled = true;[\s\S]{0,40}keepStill\(\);/)
   })
 
   it('gives the slot back when the scene goes away', () => {
     // A screen is re-rendered on every edit; a slot never released would make
-    // the second render of the same page draw nothing at all.
-    expect(Scene3DSource).toContain('if (rationed) mockySceneRelease();')
+    // the second render of the same page draw nothing at all. And only the
+    // scene that CLAIMED it: a refused one releasing would hand the live
+    // scene's context to whatever mounts next, which is the blank hole this
+    // arbitration exists to prevent.
+    expect(Scene3DSource).toContain('if (rationed && slot) mockySceneRelease();')
     expect(Scene3DSource).toContain('function mockySceneRelease()')
   })
 

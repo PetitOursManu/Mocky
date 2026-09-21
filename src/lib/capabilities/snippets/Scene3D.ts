@@ -39,9 +39,12 @@
  *   3. It listens for `webglcontextlost`, because the browser can take the
  *      context anyway, and shows the same still if it does.
  *
- * Nothing granted, no WebGL at all, or `prefers-reduced-motion`: the element is
- * a quiet gradient built from its own colour. A page that loses its 3D looks
- * plainer; it never looks broken.
+ * Nothing granted, no WebGL at all: the element is a quiet gradient built from
+ * its own colour. A page that loses its 3D looks plainer; it never looks broken.
+ * `prefers-reduced-motion`, a capture frame and a scene that lost the slot to
+ * the one above it are a different answer to the same question — one frame,
+ * kept as an image, the context back inside the task. They show the object and
+ * not the fade, because none of them is about giving up the picture.
  */
 export const Scene3DSource = `var MOCKY_SCENES = {
   orb: { body: 'sphere', lit: true, spin: 0.35, bob: 0.4, fits: true },
@@ -93,9 +96,12 @@ var MOCKY_LOOK_SLIDE = 0.05;
  * is a sentence a model can miss and a person editing code can undo.
  *
  * First to mount holds the slot — source order, which is the order a reader
- * meets them in. The others draw the gradient they draw in a browser with no
- * WebGL: plainer, never broken, and the one they would have been given anyway
- * once the seventeenth context arrived.
+ * meets them in. What the others lose is MOVEMENT and not the object: a scene
+ * with no slot takes one frame and gives the context straight back (see frozen
+ * in the effect), so it stands as a photograph of itself. It drew a gradient
+ * for one release, which is right about the budget and wrong about the page —
+ * a reader met a flat fade where an object had been asked for, on two
+ * generations out of six.
  */
 function mockySceneClaim() {
   try {
@@ -216,7 +222,31 @@ function Scene3D(props) {
      */
     var rationed = !(stillOnly || reduced);
     var slot = rationed ? mockySceneClaim() : true;
-    if (!slot) return function () {};
+
+    /*
+     * ONE FRAME IS NOT NOTHING, and the scene that lost the slot takes one.
+     *
+     * The refused scene used to return here and leave the element on its
+     * gradient — the same calm surface a browser with no WebGL gets. That is
+     * right about the BUDGET and wrong about the page: measured on two real
+     * generations, a model writes two or three scenes on a page about as often
+     * as it writes one, so what a reader met under the hero was a flat fade
+     * where an object had been asked for.
+     *
+     * A still costs no budget. It is one render and the context back inside the
+     * same task — the capture frame has done exactly this from the start, and
+     * the reduced-motion page too — so the refused scene now takes that path
+     * and shows a real picture of ITSELF, held still. What the slot buys is
+     * MOVEMENT, which is what it was always about: the live scene turns, the
+     * others are photographs of themselves.
+     *
+     * The three cases are one word from here on. They differ in two places
+     * only: a capture encodes at full size (its picture IS the product) while
+     * these encode at 640 like a revoked scene, and only a scene that really
+     * CLAIMED the slot gives it back at cleanup — releasing one this effect
+     * never took would hand a live scene's context away and blank it.
+     */
+    var frozen = stillOnly || reduced || !slot;
 
     var renderer = null, raf = 0, disposed = false, visible = true, drew = false, granted = window.__mockyGL !== false;
     var settled = false, ladderTimer = 0, owed = false;
@@ -549,7 +579,7 @@ function Scene3D(props) {
       /* One frame, then the context back. The scene is still THERE — it is the
          image of itself — and the slot returns to the budget for a screen that
          is going to move. */
-      if (reduced || stillOnly) { owe(true); settle(); if (!settled) ladder(); return; }
+      if (frozen) { owe(true); settle(); if (!settled) ladder(); return; }
       listen();
       loop();
     }
@@ -631,7 +661,7 @@ function Scene3D(props) {
 
     var listening = false;
     function listen() {
-      if (listening || reduced || stillOnly) return;
+      if (listening || frozen) return;
       listening = true;
       measure();
       window.addEventListener('pointermove', onPointer, { passive: true });
@@ -659,7 +689,7 @@ function Scene3D(props) {
 
     var ro = null;
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(function () { size(); measure(); if (reduced || stillOnly) settle(); });
+      ro = new ResizeObserver(function () { size(); measure(); if (frozen) settle(); });
       ro.observe(node);
     }
     function onHidden() { if (document.hidden) stop(true); else start(); }
@@ -669,7 +699,11 @@ function Scene3D(props) {
 
     return function () {
       disposed = true;
-      if (rationed) mockySceneRelease();
+      /* Only the scene that CLAIMED it. A refused scene calling this would
+         release the live scene's slot and hand it to whichever element mounts
+         next — the blank hole this whole arbitration exists to prevent, opened
+         by the line meant to be tidy. */
+      if (rationed && slot) mockySceneRelease();
       deafen();
       owe(false);
       if (ladderTimer) window.clearInterval(ladderTimer);

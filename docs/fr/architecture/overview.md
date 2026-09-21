@@ -165,10 +165,23 @@ scènes dépense trois des seize contextes du navigateur pendant que l'arbitre e
 compte un — quatre écrans comme celui-là font douze, et le dix-septième tue le
 plus ancien. La carte de la capacité demandait une scène par écran ;
 `mockySceneClaim` est ce qui rend la phrase vraie. La première montée garde la
-place, les autres dessinent leur propre dégradé, et les chemins figés (une
-capture, `prefers-reduced-motion`) ne rationnent rien puisqu'une scène y tient
-son contexte le temps d'une image dans une seule tâche. Vérifié avec trois
-scènes sur une page : trois éléments, un seul canvas.
+place, et les chemins figés (une capture, `prefers-reduced-motion`) ne
+rationnent rien puisqu'une scène y tient son contexte le temps d'une image dans
+une seule tâche. Vérifié avec trois scènes sur une page : trois éléments, un
+seul canvas.
+
+Ce qu'une scène refusée perd, c'est le MOUVEMENT, pas l'objet. Elle dessinait le
+dégradé du « pas de WebGL » pendant une version — juste pour le budget, faux
+pour la page : un modèle écrit deux ou trois scènes aussi volontiers qu'une (deux
+des six écrans générés ici qui en portent une), donc ce qu'un lecteur trouvait
+sous le héros était un fondu plat là où un objet avait été demandé. Une image
+figée ne coûte rien au budget — un rendu, et le contexte rendu dans la même
+tâche — donc la scène refusée prend ce chemin et se tient comme une photographie
+d'ELLE-MÊME. Mesuré sur la même page de trois scènes, avant et après : un canvas
+vivant dans les deux cas, et zéro image figée contre deux (24 ko et 45 ko, 61 et
+159 couleurs distinctes). Après un re-rendu, toujours un canvas et deux images :
+seule la scène qui a vraiment pris la place la rend, sinon une scène refusée
+donnerait le contexte d'une scène vivante au premier élément monté ensuite.
 
 Cette dernière clause n'a été qu'une phrase pendant une version. `stillOnly`
 était déclaré quinze lignes SOUS la seule ligne qui le lit, la remontée des `var`

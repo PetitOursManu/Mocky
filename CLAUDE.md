@@ -806,9 +806,17 @@ here:
    buffer is 35 ms of the main thread, measured. A capture frame is the one
    place that pays full price. And the frame RATIONS ITSELF: the grant is per
    SCREEN, so a page drawing three scenes spends three contexts while the
-   arbiter counts one — `mockySceneClaim` gives the slot to the first to mount
-   and the rest draw the gradient. Not on the still paths, where a scene holds
-   its context for one frame inside one task.
+   arbiter counts one — `mockySceneClaim` gives the slot to the first to mount.
+   What the others lose is MOVEMENT and not the object: a scene with no slot
+   takes one frame and gives the context straight back, so it stands as a
+   photograph of itself. It drew a GRADIENT for one release, which is right
+   about the budget and wrong about the page — two of the six generated screens
+   that carry a scene at all carry two or three, and what a reader met under the
+   hero was a flat fade where an object had been asked for. Measured on a page
+   of three scenes, before and after: one live canvas either way, zero posters
+   then two. Only the scene that really claimed the slot releases it, or a
+   refused one hands away a live scene's context on unmount. Not on the still
+   paths, where a scene holds its context for one frame inside one task.
 2. **Everything is procedural, and that is the CSP's doing.** `connect-src
    'none'` means no glTF, no HDRI and no texture file — ever. `/vendor/three.js`
    is built by `npm run vendor:three` from a hand-written entry point that
