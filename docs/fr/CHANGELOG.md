@@ -32,6 +32,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `provider` | la reflexion recoit un budget la ou on peut en demander un | `c4fce19` |
 | `provider` | une generation qui ne rend rien dit enfin pourquoi | `67523a4` |
 | `3d` | un ecran depense un contexte, quoi que le modele ait ecrit | `b108ceb` |
 | `export` | un projet exporte porte tous ses composants, et se construit | `beac878` |
