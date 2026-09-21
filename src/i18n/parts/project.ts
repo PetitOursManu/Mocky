@@ -157,6 +157,8 @@ export const project = {
       'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
     'project.motionPlacedBeside':
       'Le film est prêt et rattaché à l’écran, mais la mise en page proposée le sortait des sections existantes — elle a été écartée pour ne pas ouvrir la page sur une vidéo seule.',
+    'project.motionPlacedOver':
+      'Le film est prêt et rattaché à l’écran, mais la mise en page proposée posait le film et une image de la page l’un sur l’autre — elle a été écartée pour ne pas cacher l’un sous l’autre.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
     'project.briefImageFailed': 'Image non générée — {reason}',
     'project.briefBackend': 'Backend Mocky requis',
@@ -402,6 +404,8 @@ export const project = {
       'The Motion film could not be produced: {detail}. The screen is produced without a film.',
     'project.motionPlacedBeside':
       'The film is ready and attached to the screen, but the proposed layout put it outside the page’s own sections — it was set aside rather than open the page on a bare video.',
+    'project.motionPlacedOver':
+      'The film is ready and attached to the screen, but the proposed layout stacked the film and one of the page’s own pictures — it was set aside rather than hide one under the other.',
     'project.museNoImage': 'the dossier proposed no image',
     'project.briefImageFailed': 'No image generated — {reason}',
     'project.briefBackend': 'Mocky backend required',

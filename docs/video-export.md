@@ -3608,6 +3608,57 @@ nothing on it. Three things answer it, and the last one is the only guarantee:
   inlining. Only when the screen had ids to land in — a page with none gives
   this nothing to compare against.
 
+### A film is not a container
+
+The next placement landed in the right section and was wrong anyway. `Nîmes 3D`:
+the film took the hero, and the hero's whole grid — an interactive map of the
+city, its photograph, its pins, its view controls — came back INSIDE the
+`<MotionFilm>`, in an `aspect-video` box with `overflow: hidden`, over a film
+that had already burnt its own title into the frames. Two pictures in one box,
+and the one that cost a model call and a render is the one underneath.
+
+Nothing there was invented. `<MotionFilm>` takes children and lays them over the
+video, the catalogue says "use that for a hero rather than positioning your own
+overlay", and the placement's own instruction for a `hero` film said to pass the
+existing headline and CTA as its children. That sentence had gone stale in the
+one case that matters: when a film burns its own text, the paragraph two further
+down tells the model to DELETE that headline. A model handed a contradiction
+resolves it by inventing, and what it put over the film was everything the hero
+had left.
+
+Three changes, and the third is the only guarantee:
+
+- the instruction for a `hero` film is now read off the film. One that carries
+  its own title asks for nothing over it — at most the eyebrow and the buttons —
+  and only a wordless film is still offered the page's headline;
+- a paragraph of its own says what may STAND on a film: type, buttons, a badge, a
+  thin layer. Never a picture of the page's own — no `<img>`, no map, no card
+  carrying a photograph, no `<Scene3D>`, no `<ScrollSequence>`, no
+  background-image class — and never a section, a column or a grid: the film is
+  not a container, and what the page already draws stays outside it;
+- and the result is READ. `filmCovers` walks the film's OWN children and names
+  the first picture among them — a tag from `FILM_COVERS`, or a background
+  painted in a class or a style — and a placement that laid one on the film is
+  not written back.
+
+Refused rather than repaired, for two reasons. Unwrapping the children
+mechanically would move a column of the page to a place nobody chose, and asking
+the model again is another paid call for a layout the instruction now describes
+twice. What refusing keeps is the better page: the screen as it was generated,
+its hero and its picture intact, with the film attached to it — the same
+degradation `filmSectionIn` makes, one defect over.
+
+`svg` is deliberately absent from the list. An icon inside a button on the
+overlay is the common case; an inline illustration over a film is rare enough
+that refusing every icon to catch it is the worse trade.
+
+One case is refused that a designer might have meant: cards with thumbnails in
+them, passed as the children of a `background` film. It is accepted rather than
+carved out — a `background` film is asked to sit BEHIND its section, absolutely
+positioned with the copy as its siblings, so the case only arises once the
+placement has already ignored the shape it was given, and what it costs is the
+inlining of a film that stays attached.
+
 ## Motion at the start of a project: the kinds
 
 Motion began as a panel you open on a project that already exists, over pictures

@@ -3846,6 +3846,61 @@ une garantie :
   perdu sauf l'insertion. Uniquement quand l'écran avait des identifiants où
   atterrir — une page qui n'en a aucun ne donne rien à comparer.
 
+### Un film n'est pas un conteneur
+
+La mise en page suivante a atterri dans la bonne section et était fausse quand
+même. `Nîmes 3D` : le film a pris le héros, et toute la grille du héros — une
+carte interactive de la ville, sa photographie, ses points, ses commandes de vue
+— est revenue DANS le `<MotionFilm>`, dans une boîte `aspect-video` en
+`overflow: hidden`, par-dessus un film qui avait déjà gravé son propre titre dans
+les images. Deux images dans une boîte, et celle qui a coûté un appel au modèle
+et un rendu est celle du dessous.
+
+Rien là-dedans n'a été inventé. `<MotionFilm>` prend des enfants et les pose sur
+la vidéo, le catalogue dit « servez-vous-en pour un héros plutôt que de
+positionner votre propre calque », et l'instruction de la passe pour un film
+`hero` disait de passer le titre et le bouton existants en enfants. Cette phrase
+était devenue fausse dans le seul cas qui compte : quand un film grave son propre
+texte, le paragraphe deux plus bas demande au modèle de SUPPRIMER ce titre. Un
+modèle à qui l'on tend une contradiction la résout en inventant, et ce qu'il a
+posé sur le film, c'est tout ce qui restait du héros.
+
+Trois changements, et seul le troisième est une garantie :
+
+- l'instruction pour un film `hero` se lit désormais sur le film. Celui qui porte
+  son propre titre ne demande rien par-dessus — au plus le surtitre et les
+  boutons — et seul un film sans texte se voit encore proposer le titre de la
+  page ;
+- un paragraphe à part dit ce qui peut se TENIR sur un film : du texte, des
+  boutons, une pastille, un calque mince. Jamais une image de la page — pas
+  d'`<img>`, pas de carte, pas de carte-produit portant une photographie, pas de
+  `<Scene3D>`, pas de `<ScrollSequence>`, pas de classe d'image de fond — et
+  jamais une section, une colonne ou une grille : le film n'est pas un conteneur,
+  et ce que la page dessine déjà reste dehors ;
+- et le résultat est RELU. `filmCovers` parcourt les enfants PROPRES du film et
+  nomme la première image qui s'y trouve — une balise de `FILM_COVERS`, ou un
+  fond peint dans une classe ou un style — et une mise en page qui a posé une
+  image sur le film n'est pas réécrite.
+
+Refusée plutôt que réparée, pour deux raisons. Désemballer les enfants
+mécaniquement déplacerait une colonne de la page à un endroit que personne n'a
+choisi, et redemander au modèle est un appel payant de plus pour une mise en page
+que l'instruction décrit maintenant deux fois. Ce que le refus garde, c'est la
+meilleure page : l'écran tel qu'il a été généré, son héros et son image intacts,
+avec le film rattaché — la même dégradation que `filmSectionIn`, un défaut plus
+loin.
+
+`svg` est volontairement absent de la liste. Une icône dans un bouton posé sur le
+film est le cas courant ; une illustration en ligne par-dessus un film est assez
+rare pour que refuser toutes les icônes afin de l'attraper soit le pire échange.
+
+Un cas est refusé qu'un designer aurait pu vouloir : des cartes avec vignettes
+passées en enfants d'un film `background`. Il est accepté plutôt que taillé en
+exception — un film `background` doit se tenir DERRIÈRE sa section, positionné en
+absolu avec la copie en frères et sœurs, donc le cas n'arrive qu'une fois que la
+mise en page a déjà ignoré la forme qu'on lui donnait, et ce qu'il coûte est
+l'insertion d'un film qui reste rattaché.
+
 ## Motion au début d’un projet : les types
 
 Motion a commencé comme un panneau qu’on ouvre sur un projet qui existe déjà, au-
