@@ -40,7 +40,7 @@ describe('a 3D scene in a capture frame', () => {
     expect(scene).toContain('window.__mockyStill === true')
     // One frame, and `settled` is what keeps it at one however many grant,
     // resize or visibility events follow.
-    expect(scene).toContain('if (reduced || stillOnly) { owe(true); settle(); if (!settled) ladder(); return; }')
+    expect(scene).toContain('if (frozen) { owe(true); settle(); if (!settled) ladder(); return; }')
     expect(scene).toMatch(/settled = true;\s*\n\s*size\(\);\s*\n\s*draw\(0\);\s*\n\s*keepStill\(\);\s*\n\s*stop\(false\);/)
   })
 
@@ -54,7 +54,7 @@ describe('a 3D scene in a capture frame', () => {
     // shooting on a fixed delay and hoping.
     expect(capture).toContain('window.__mockyStillPending')
     expect(scene).toContain('window.__mockyStillPending = Math.max(0,')
-    expect(scene).toMatch(/new ResizeObserver\(function \(\) \{ size\(\); measure\(\); if \(reduced \|\| stillOnly\) settle\(\); \}\)/)
+    expect(scene).toMatch(/new ResizeObserver\(function \(\) \{ size\(\); measure\(\); if \(frozen\) settle\(\); \}\)/)
   })
 
   it('gives EVERY scene on the page its one frame, not only the first', () => {
@@ -67,7 +67,7 @@ describe('a 3D scene in a capture frame', () => {
     // a gradient where the object was. The line said otherwise the whole time,
     // which is why this reads the ORDER of the two.
     const declared = scene.indexOf('var stillOnly = window.__mockyStill === true')
-    const read = scene.indexOf('var rationed = !(stillOnly || reduced);')
+    const read = scene.indexOf('var frozen = stillOnly || reduced || !slot;')
     expect(declared).toBeGreaterThan(-1)
     expect(read).toBeGreaterThan(declared)
     // And the shell counts the scenes rather than waiting on a flag, which is

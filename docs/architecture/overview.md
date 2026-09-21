@@ -158,10 +158,22 @@ to an iframe and cannot see inside it, so a page drawing three scenes spends
 three of the browser's sixteen contexts while the arbiter counts one — four such
 screens are twelve, and the seventeenth kills the oldest. The capability card
 asked for one per screen; `mockySceneClaim` is what makes it true. First to
-mount holds the slot, the rest draw their own gradient, and the still paths (a
-capture, `prefers-reduced-motion`) ration nothing because a scene there holds
-its context for one frame inside one task. Verified with three scenes on one
-page: three elements, one canvas.
+mount holds the slot, and the still paths (a capture, `prefers-reduced-motion`)
+ration nothing because a scene there holds its context for one frame inside one
+task. Verified with three scenes on one page: three elements, one canvas.
+
+What a refused scene loses is MOVEMENT, not the object. It drew the no-WebGL
+gradient for one release — right about the budget, wrong about the page: a model
+writes two or three scenes about as readily as one (two of the six generated
+screens here that carry a scene at all), so what a reader met under the hero was
+a flat fade where an object had been asked for. A still costs no budget, being
+one render and the context back inside the same task, so the refused scene takes
+that path and stands as a photograph of ITSELF. Measured on the same page of
+three scenes, before and after: one live canvas either way, and zero posters
+against two (24 KB and 45 KB, 61 and 159 distinct colours). Re-rendered, still
+one canvas and two posters — only the scene that really claimed the slot
+releases it, or a refused one would hand a live scene's context to whatever
+mounts next.
 
 That last clause was prose for one release. `stillOnly` was declared fifteen
 lines BELOW the only line that reads it, `var` hoisting made it `undefined`
