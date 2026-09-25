@@ -1421,6 +1421,8 @@ export default function ProjectView({
          */
         let ultraRecord: ScreenUltra | undefined
         let ultraImageHash: string | undefined
+        /** The section Motion Ultra opened the page with — a film must not take it. */
+        let ultraOpening: string | undefined
         if (ultraActive && project.ultra) {
           try {
             setPhase('ultra')
@@ -1452,6 +1454,7 @@ export default function ProjectView({
               planned: project.ultra.count,
             }
             ultraImageHash = made[0]?.hash
+            ultraOpening = board.sections[0]?.id
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
             if (ac.signal.aborted) throw err
@@ -1583,6 +1586,7 @@ export default function ProjectView({
           kinds: motionKindIds,
           dossier: museRan ? museDossier?.film : undefined,
           pageAnimatesBackground: page3d.animatedBackdrop,
+          openingTaken: ultraOpening,
         })
         if (museFilm) {
           const kindName = t(`muse.motionKind.${museFilm.kind}` as TranslationKey)

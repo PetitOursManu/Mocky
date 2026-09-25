@@ -105,3 +105,28 @@ describe('a film is never the second animated background', () => {
     ).toEqual({ kind: 'figure' })
   })
 })
+
+/** A real run: a hero film placed over Motion Ultra's hero left it empty, with no headline. */
+describe('a film on a Motion Ultra screen', () => {
+  const ALL = ['hero', 'background', 'showcase', 'globe']
+
+  it('never takes the opening Motion Ultra built', () => {
+    const hero = { wanted: true, kind: 'hero', section: 'hero', why: 'Open on the product.' }
+    expect(decideFilm({ mode: 'auto', kinds: ALL, dossier: hero, openingTaken: 'hero' })).toEqual({ kind: 'showcase' })
+    const bg = { wanted: true, kind: 'background', section: '#features' }
+    expect(decideFilm({ mode: 'auto', kinds: ALL, dossier: bg, openingTaken: 'hero' })).toEqual({ kind: 'showcase' })
+    // Another kind aimed AT the opening moves too.
+    const there = { wanted: true, kind: 'globe', section: '#Hero' }
+    expect(decideFilm({ mode: 'auto', kinds: ALL, dossier: there, openingTaken: 'hero' })).toEqual({ kind: 'showcase' })
+  })
+
+  it('leaves a film elsewhere alone, and makes none when only the opening kinds exist', () => {
+    const elsewhere = { wanted: true, kind: 'globe', section: 'reach', why: 'Where we ship.' }
+    expect(decideFilm({ mode: 'auto', kinds: ALL, dossier: elsewhere, openingTaken: 'hero' })).toEqual({
+      kind: 'globe', section: 'reach', why: 'Where we ship.',
+    })
+    expect(decideFilm({ mode: 'on', kinds: ['hero', 'background'], openingTaken: 'hero' })).toBeNull()
+    // Without Motion Ultra, nothing changes.
+    expect(decideFilm({ mode: 'on', kinds: ALL })).toEqual({ kind: 'hero' })
+  })
+})

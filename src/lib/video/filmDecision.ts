@@ -53,6 +53,21 @@ export function decideFilm(opts: {
    * than a second background, if nothing else is on offer.
    */
   pageAnimatesBackground?: boolean
+  /**
+   * The id of a section Motion Ultra built as the page's OPENING, when it did.
+   *
+   * A real run: Motion Ultra storyboarded a cinematic hero around a generated
+   * photograph, then the dossier asked for a `hero` film, and the placement did
+   * what a hero film's placement is told to do — it deleted the `<h1>` (the
+   * film carries its own title) and put the film where the photograph was. The
+   * film was letterboxed in the middle of a dark band, and what the user saw
+   * was an empty hero on a page with no headline at all.
+   *
+   * The opening was already designed, paid for and moving. So a film that
+   * would take it becomes a film that goes ELSEWHERE: not `hero`, not
+   * `background`, and never the section named here.
+   */
+  openingTaken?: string
 }): { kind: string; section?: string; why?: string } | null {
   if (opts.mode === 'off' || opts.kinds.length === 0) return null
   const offered = (kind?: string) => (kind && opts.kinds.includes(kind) ? kind : undefined)
@@ -62,8 +77,20 @@ export function decideFilm(opts: {
    * is a film over a moving backdrop, which is the collision one level down.
    */
   const notASecondBackground = (chosen: { kind: string; section?: string; why?: string }) => {
-    if (!opts.pageAnimatesBackground || chosen.kind !== 'background') return chosen
+    const opened = notTheOpening(chosen)
+    if (!opened) return null
+    if (!opts.pageAnimatesBackground || opened.kind !== 'background') return opened
     const instead = INSTEAD_OF_BACKGROUND.find((kind) => opts.kinds.includes(kind))
+    return instead ? { kind: instead } : null
+  }
+  const notTheOpening = (chosen: { kind: string; section?: string; why?: string }) => {
+    const taken = opts.openingTaken
+    if (!taken) return chosen
+    const opening = chosen.kind === 'hero' || chosen.kind === 'background'
+    const there = !!chosen.section && chosen.section.replace(/^#/, '').toLowerCase() === taken.toLowerCase()
+    if (!opening && !there) return chosen
+    const instead = INSTEAD_OF_BACKGROUND.find((kind) => kind !== 'hero' && opts.kinds.includes(kind))
+    // The section and the reason go too: both were chosen FOR the opening.
     return instead ? { kind: instead } : null
   }
   if (opts.dossier) {
