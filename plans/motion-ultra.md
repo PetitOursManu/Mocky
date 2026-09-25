@@ -97,18 +97,18 @@ la qualité baisse à chaque retouche :
 ## Étape 4 — Assemblage et contrôles (~2 j)
 
 - [x] Prompt « Ultra » : reçoit recettes + images, génère l'écran
-- [ ] Contrôle : chaque image prévue est utilisée
+- [x] Contrôle : chaque image prévue est utilisée (signalé, pas corrigé)
 - [ ] Contrôle : texte posé sur image lisible (réutiliser l'audit de contraste)
 - [ ] Contrôle : budget CSS/animation respecté
 - [ ] Une passe de correction si un contrôle échoue (sur le modèle de Polish)
 
 ## Étape 5 — Rester modifiable sans perte (~1–2 j)
 
-- [ ] Politique qualité spécifique aux écrans Ultra (condition 1)
+- [x] Politique qualité spécifique aux écrans Ultra (condition 1)
 - [x] Contexte Ultra transmis aux 5 chemins (le vocabulaire du kit suit l'écran
       via ses capacités) : génération, retouche, réparation,
       Polish, correction d'audit (condition 2)
-- [ ] Après une retouche : vérifier que les recettes et les images sont toujours
+- [x] Après une retouche : vérifier que les images et le kit sont toujours
       là, sinon avertir et proposer « Revenir »
 
 ## Étape 6 — Interface (~1–2 j)
@@ -117,7 +117,7 @@ la qualité baisse à chaque retouche :
 - [x] Dans le composer : boutons **×3** / **×6** + interrupteur pour désactiver
       Motion Ultra sur cette génération
 - [x] Progression par étape : storyboard → images 2/6 → page
-- [ ] Badge « Motion Ultra » sur les écrans concernés du canevas
+- [x] Badge « Motion Ultra » sur les écrans concernés du canevas
 - [x] Textes d'interface FR + EN (`src/i18n/parts/`)
 
 ## Étape 7 — Finition v1 (~1–2 j)
@@ -210,3 +210,26 @@ vérifiés dans un banc d'essai non isolé. Dans un navigateur normal, pas de so
 
 Non re-testé en réel après correction : `u-cutout` sur un vrai objet héros, et le
 choix du type d'écran par le storyboard (couverts par les tests unitaires).
+
+### 2026-09-25 — deuxième tranche (branche `feat/motion-ultra`)
+
+- **Héros vide signalé par l'utilisateur** : cause trouvée. Avec Muse et les
+  animations auto, un film Motion « héros » était placé dans le héros Motion Ultra,
+  supprimait la photo et le `<h1>`, et restait letterboxé sur un fond sombre. Un
+  film ne prend plus jamais l'ouverture construite par Motion Ultra : il devient
+  un autre type, ailleurs, ou n'est pas fait (`openingTaken`, filmDecision.ts).
+- **Polish** : sur un écran Motion Ultra, verre, dégradés, halos, projecteur,
+  typographie serrée et fond rogné passent en conseil (`ULTRA_TREATMENTS`).
+- **Contrôles** : images de la série absentes après génération, et images ou
+  kit perdus après une retouche → message, avec « Revenir à la version précédente ».
+- **Badge** « Motion Ultra · N images » sur la carte d'image du canevas.
+- Voile de la recette `cinematic-hero` : doit couvrir chaque ligne de texte (un
+  surtitre sur un mur clair était illisible au test).
+
+Test réel n° 4 (Muse + animations auto + ×3) : héros intact avec son `<h1>`,
+3 images sur 3, recettes de page vitrine (le type d'écran est bien reconnu).
+Muse n'a pas demandé de film cette fois : la règle du film n'est vérifiée que
+par les tests unitaires.
+
+Reste : documentation + invariants « U », régénérer une seule image, fonds
+vidéo (v2), test du chemin « film demandé » en réel.

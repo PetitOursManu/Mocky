@@ -87,8 +87,8 @@ export const ULTRA_RECIPES: Record<UltraRecipeId, UltraRecipe> = {
     images: ['scene', 'backdrop'],
     card: [
       'A full-bleed photograph as the opening, slowly breathing, with the headline set low over it like a film title.',
-      'The scene `<img>` `absolute inset-0 h-full w-full object-cover u-kenburns`, a veil from transparent to the ground colour over its lower half (`bg-gradient-to-t`), then `u-display` type anchored bottom-left in a `relative z-10` block with a `u-eyebrow` and one action.',
-      'It fails when the veil is skipped and the type lands on a bright patch of the picture; the headline must be readable on the darkest AND the lightest frame of the zoom.',
+      'The scene `<img>` `absolute inset-0 h-full w-full object-cover u-kenburns`, a veil that reaches EVERY line of text — the eyebrow included, which sits highest and is smallest — so a gradient from the side the text is on (`bg-gradient-to-t` for type at the bottom, `bg-gradient-to-r` for type on the left) at 60–80% on that side, then `u-display` type anchored bottom-left in a `relative z-10` block with a `u-eyebrow` and one action.',
+      'It fails when the veil stops short of the text — a first real run veiled the lower half and left a small eyebrow on a sunlit wall, unreadable; every line must be readable on the darkest AND the lightest frame of the zoom.',
     ],
   },
   'giant-type': {
