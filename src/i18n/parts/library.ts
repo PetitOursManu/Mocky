@@ -168,6 +168,9 @@ export const library = {
     'library.swapGenerate': 'Générer',
     'library.swapGeneratePlaceholder': 'Décrivez l’image à générer…',
     'library.swapGenerating': 'Génération…',
+    'library.variant': 'Autre version',
+    'library.variantHint': 'Générer une autre version de cette image — même description, même format — et la mettre à sa place partout où elle apparaît.',
+    'library.variantNoPrompt': 'Cette image n’a pas de description enregistrée (image importée ?) : choisissez-en une autre avec « Remplacer ».',
     'library.swapGenerateSkipped':
       'Le fournisseur n’a produit aucune image. Réessayez, ou choisissez-en une dans la médiathèque.',
     'library.swapDone': 'Image remplacée.',
@@ -387,6 +390,9 @@ export const library = {
     'library.swapGenerate': 'Generate',
     'library.swapGeneratePlaceholder': 'Describe the image to generate…',
     'library.swapGenerating': 'Generating…',
+    'library.variant': 'Another version',
+    'library.variantHint': 'Generate another version of this picture — same description, same format — and put it in its place wherever it appears.',
+    'library.variantNoPrompt': 'This picture has no recorded description (an upload?): pick another one with “Replace”.',
     'library.swapGenerateSkipped':
       'The provider produced no image. Try again, or pick one from the media library.',
     'library.swapDone': 'Image replaced.',

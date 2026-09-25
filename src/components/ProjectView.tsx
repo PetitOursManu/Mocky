@@ -2805,14 +2805,23 @@ export default function ProjectView({
     screenId: string,
     nextCode: string,
     sequence?: { hash: string; frames: number },
+    swap?: { from: string; to: string },
   ) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
+    /*
+     * A Motion Ultra screen records which pictures its series is made of, and
+     * the checks read that record: a swapped picture must move in it, or the
+     * next edit reports the OLD one as lost. `imageHash` is left alone: it
+     * says what the screen was BUILT from, which a later swap does not change.
+     */
+    const follows = (hash: string) => (swap && hash === swap.from ? swap.to : hash)
     onUpdateScreen(screenId, {
       code: nextCode,
       componentName: detectComponentName(nextCode),
       previousCode: screen.code,
       ...(sequence ? { videoHash: sequence.hash, videoFrames: sequence.frames } : {}),
+      ...(swap && screen.ultra ? { ultra: { ...screen.ultra, images: screen.ultra.images.map(follows) } } : {}),
     })
   }
 
@@ -2948,7 +2957,7 @@ export default function ProjectView({
           projectId={project.id}
           attached={imageSwapScreen.attachedMedia}
           videoHash={imageSwapScreen.videoHash}
-          onReplace={(code, sequence) => swapScreenImages(imageSwapScreen.id, code, sequence)}
+          onReplace={(code, sequence, swap) => swapScreenImages(imageSwapScreen.id, code, sequence, swap)}
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
         />

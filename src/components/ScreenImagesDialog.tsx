@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { imageUrl } from '../lib/imageLibrary'
+import { generateImage, imageUrl, listLibrary } from '../lib/imageLibrary'
 import { findScreenImages, replaceScreenImage, type ImageSpan, type ScreenImage } from '../lib/screenImages'
 import {
   findScreenSequences,
@@ -86,7 +86,12 @@ export default function ScreenImagesDialog({
    * everywhere else. Absent means the metadata was about some other clip, or
    * about none, and must not be touched.
    */
-  onReplace: (nextCode: string, sequence?: { hash: string; frames: number }) => void
+  onReplace: (
+    nextCode: string,
+    sequence?: { hash: string; frames: number },
+    /** The picture that was swapped out and the one that took its place. */
+    swap?: { from: string; to: string },
+  ) => void
   /** Attaches a media, or detaches with null. Never touches the code. */
   onAttach: (media: AttachedMedia | null) => void
   onClose: () => void
@@ -106,6 +111,8 @@ export default function ScreenImagesDialog({
   const [target, setTarget] = useState<{ hash: string; spanIndex: number | null } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** The image a new version is being generated for, if any. */
+  const [varying, setVarying] = useState<string | null>(null)
 
   // Re-derived from `code`, never held in state across a swap: the parent
   // rewrites the source, hands it back down, and the lists must describe THAT.
@@ -149,7 +156,7 @@ export default function ScreenImagesDialog({
           setError(t('library.swapFailed'))
           return
         }
-        onReplace(next)
+        onReplace(next, undefined, { from: image.hash, to: nextHash })
         setNotice(t('library.swapDone'))
         setError(null)
         setTarget(null)
@@ -204,6 +211,49 @@ export default function ScreenImagesDialog({
       }
     },
     [code, onReplace, t, videoHash],
+  )
+
+  /**
+   * Another take of the SAME picture: its own prompt and size, a new seed.
+   *
+   * What a Motion Ultra screen needs when one picture of the series missed —
+   * rerunning the whole screen to replace one image would pay for every other
+   * picture again and rewrite the page around it. The library already keeps the
+   * prompt and the size of every generated image, and it caches on
+   * provider+prompt+seed+size (M8), which is why the seed is new: without it the
+   * "new" version is the old one, served from the cache.
+   */
+  const variant = useCallback(
+    async (image: ScreenImage) => {
+      setNotice(null)
+      setError(null)
+      setVarying(image.hash)
+      try {
+        const meta = (await listLibrary({ project: projectId })).find((m) => m.hash === image.hash)
+          ?? (await listLibrary({})).find((m) => m.hash === image.hash)
+        if (!meta || !meta.prompt.trim()) {
+          setError(t('library.variantNoPrompt'))
+          return
+        }
+        const out = await generateImage(meta.prompt, {
+          project: projectId,
+          seed: Math.floor(Math.random() * 2 ** 31),
+          tags: meta.tags.includes('variant') ? meta.tags : [...meta.tags, 'variant'],
+          width: meta.width,
+          height: meta.height,
+        })
+        if (!out) {
+          setError(t('library.swapGenerateSkipped'))
+          return
+        }
+        apply(image, image.spans, out.hash)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setVarying(null)
+      }
+    },
+    [apply, projectId, t],
   )
 
   const targeted = images?.find((i) => i.hash === target?.hash) ?? null
@@ -297,6 +347,16 @@ export default function ScreenImagesDialog({
                       : t('library.swapUsedTimes', { n: img.spans.length })}
                   </p>
                 </div>
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  disabled={varying !== null}
+                  title={t('library.variantHint')}
+                  onClick={() => variant(img)}
+                >
+                  <Icon name="refresh" size={15} />
+                  {varying === img.hash ? t('library.swapGenerating') : t('library.variant')}
+                </Button>
                 <Button
                   size="sm"
                   variant={isAll(img) ? 'primary' : 'ghost'}
