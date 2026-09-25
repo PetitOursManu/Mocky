@@ -67,7 +67,7 @@ describe('a 3D scene in a capture frame', () => {
     // a gradient where the object was. The line said otherwise the whole time,
     // which is why this reads the ORDER of the two.
     const declared = scene.indexOf('var stillOnly = window.__mockyStill === true')
-    const read = scene.indexOf('var frozen = stillOnly || reduced || !slot;')
+    const read = scene.indexOf('var frozen = stillOnly || reduced || !held;')
     expect(declared).toBeGreaterThan(-1)
     expect(read).toBeGreaterThan(declared)
     // And the shell counts the scenes rather than waiting on a flag, which is

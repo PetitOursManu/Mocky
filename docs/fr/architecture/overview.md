@@ -179,9 +179,42 @@ figée ne coûte rien au budget — un rendu, et le contexte rendu dans la même
 tâche — donc la scène refusée prend ce chemin et se tient comme une photographie
 d'ELLE-MÊME. Mesuré sur la même page de trois scènes, avant et après : un canvas
 vivant dans les deux cas, et zéro image figée contre deux (24 ko et 45 ko, 61 et
-159 couleurs distinctes). Après un re-rendu, toujours un canvas et deux images :
-seule la scène qui a vraiment pris la place la rend, sinon une scène refusée
-donnerait le contexte d'une scène vivante au premier élément monté ensuite.
+159 couleurs distinctes). Après un re-rendu, toujours un canvas et deux images.
+
+**Et la place suit le lecteur.** La première montée la gardait pour toute la vie
+de la page — la scène du haut. En descendant vers la deuxième, on trouvait une
+photographie pendant que le héros, hors écran, tenait le seul contexte. La page
+tient donc son propre arbitre sur `window` (`mockySceneJoin`) : chaque scène
+rationnée s'y inscrit, dit quelle part d'elle est à l'écran, et la place vivante
+va à celle qui en montre le plus. Quatre règles :
+
+1. la première inscrite la prend **tout de suite** — au chargement, c'est le
+   haut de la page qu'on voit, et attendre un classement figerait le héros ;
+2. un changement attend que le défilement se soit arrêté depuis
+   `MOCKY_SCENE_SETTLE_MS`, les 300 ms du canevas pour la raison du canevas :
+   chaque changement est un contexte détruit, une image encodée et un autre
+   contexte construit ;
+3. une challengeuse doit montrer `MOCKY_SCENE_STICKY` (1,25) fois la surface de
+   la tenante, sinon deux scènes à moitié visibles s'échangent la place à chaque
+   arrêt ;
+4. la tenante lâche **avant** que la gagnante démarre, dans la même tâche.
+
+Le classement se fait à la SURFACE sur le vrai viewport, pas au ratio et pas sur
+la marge de 120 px de l'observateur : un héros à moitié visible, c'est plus de ce
+que le lecteur regarde qu'une carte entièrement visible, et une scène dans la
+marge n'est pas encore arrivée. Une scène qui n'a pas encore répondu garde la
+place qu'elle tient, parce qu'un re-rendu la réinscrit et qu'elle la perdrait
+sinon dans les millisecondes avant que son observateur réponde. Partir rend la
+place plus tard, jamais pendant le commit qui part.
+
+Ce qui a pu être prouvé et ce qui n'a pas pu l'être : l'arbitre est pur, extrait
+de la source livrée et exécuté avec une horloge avancée à la main (dix cas). La
+passation a été vérifiée dans un navigateur avec de vrais contextes — héros,
+puis grille, puis bulles vivants tour à tour, celle qui lâche montrant sa
+dernière image, un seul canvas tout du long, et deux scènes montrées à peu près
+autant gardant la tenante. L'observateur qui l'ALIMENTE n'a pas pu l'être : un
+panneau d'aperçu masqué ne peint aucune image, donc ne livre aucun rappel, et ce
+dernier maillon se juge à l'écran.
 
 Cette dernière clause n'a été qu'une phrase pendant une version. `stillOnly`
 était déclaré quinze lignes SOUS la seule ligne qui le lit, la remontée des `var`

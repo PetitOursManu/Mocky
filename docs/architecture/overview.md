@@ -171,9 +171,38 @@ one render and the context back inside the same task, so the refused scene takes
 that path and stands as a photograph of ITSELF. Measured on the same page of
 three scenes, before and after: one live canvas either way, and zero posters
 against two (24 KB and 45 KB, 61 and 159 distinct colours). Re-rendered, still
-one canvas and two posters — only the scene that really claimed the slot
-releases it, or a refused one would hand a live scene's context to whatever
-mounts next.
+one canvas and two posters.
+
+**And the slot follows the reader.** First to mount held it for the life of the
+page — the scene at the top. Scroll to the second one and it stayed a photograph
+while the hero, off screen, kept the only context. So the page keeps an arbiter
+of its own on `window` (`mockySceneJoin`): every rationed scene joins it,
+reports how much of itself is on screen, and the one live slot goes to the scene
+with the most. Four rules:
+
+1. the first to join holds it **at once** — on load the top of the page is what
+   is on screen, and waiting for a ranking would hold the hero still;
+2. a change waits until the scroll has held still for `MOCKY_SCENE_SETTLE_MS`,
+   the canvas's own 300 ms for the canvas's own reason: every change is a
+   context torn down, a still encoded and another context built;
+3. a challenger must show `MOCKY_SCENE_STICKY` (1.25) times the holder's area,
+   or two scenes half on screen each trade the slot on every settle;
+4. the holder lets go **before** the winner starts, in the same task.
+
+It ranks by AREA on the real viewport, not by ratio and not on the observer's
+120 px margin: a hero half on screen is more of what the reader sees than a card
+wholly on it, and a scene inside the margin has not arrived. A scene that has
+not reported yet keeps the slot it holds, because a re-render joins again and
+would otherwise lose it in the milliseconds before its observer answers. Leaving
+hands the slot on later, never during the commit that leaves.
+
+What could be proved and what could not: the arbiter is pure, lifted out of the
+shipped source and run with a hand-moved clock (ten cases). The hand-over was
+checked in a browser with real contexts — hero, then grid, then bubbles live in
+turn, the one letting go showing its last frame, one canvas throughout, and two
+scenes shown about equally keeping the holder. The observer that FEEDS it could
+not be: a hidden preview pane paints no frames, so it delivers no callbacks, and
+that last link is judged on screen.
 
 That last clause was prose for one release. `stillOnly` was declared fifteen
 lines BELOW the only line that reads it, `var` hoisting made it `undefined`

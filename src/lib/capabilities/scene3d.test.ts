@@ -380,13 +380,11 @@ describe('a scene keeps its own time', () => {
  * gradients.
  */
 describe('a screen spends one context, whatever the model wrote', () => {
-  it('claims a slot before it builds anything', () => {
-    expect(Scene3DSource).toContain('function mockySceneClaim()')
-    expect(Scene3DSource).toContain('if (window.__mockyScene) return false;')
-    expect(Scene3DSource).toContain('var slot = rationed ? mockySceneClaim() : true;')
+  it('joins the page arbiter before it builds anything', () => {
+    expect(Scene3DSource).toContain('var seat = rationed ? mockySceneJoin(slotChanged) : { id: 0, held: true };')
     // Refused: one frame and the context straight back, which is the path a
     // capture and a reduced-motion page already take.
-    expect(Scene3DSource).toContain('var frozen = stillOnly || reduced || !slot;')
+    expect(Scene3DSource).toContain('var frozen = stillOnly || reduced || !held;')
   })
 
   it('shows the object it lost the slot for, held still', () => {
@@ -405,14 +403,24 @@ describe('a screen spends one context, whatever the model wrote', () => {
     expect(Scene3DSource).toMatch(/settled = true;[\s\S]{0,40}keepStill\(\);/)
   })
 
-  it('gives the slot back when the scene goes away', () => {
-    // A screen is re-rendered on every edit; a slot never released would make
-    // the second render of the same page draw nothing at all. And only the
-    // scene that CLAIMED it: a refused one releasing would hand the live
-    // scene's context to whatever mounts next, which is the blank hole this
-    // arbitration exists to prevent.
-    expect(Scene3DSource).toContain('if (rationed && slot) mockySceneRelease();')
-    expect(Scene3DSource).toContain('function mockySceneRelease()')
+  it('leaves the arbiter when the scene goes away', () => {
+    // A screen is re-rendered on every edit; a slot never given back would make
+    // the second render of the same page draw nothing at all. Leaving is by
+    // id, so a refused scene cannot hand away a slot it never held — which the
+    // previous shape, a flag on window, had to guard against by hand. The
+    // arbiter below proves the rest.
+    expect(Scene3DSource).toContain('if (rationed) mockySceneLeave(seat.id);')
+  })
+
+  it('reports how much of itself is on screen, and moves when the slot does', () => {
+    expect(Scene3DSource).toContain(
+      'mockySceneSeen(seat.id, mockySceneSeenArea(entries[i].boundingClientRect, window.innerWidth || 0, window.innerHeight || 0));',
+    )
+    expect(Scene3DSource).toContain("{ rootMargin: '120px', threshold: MOCKY_SCENE_STEPS }")
+    // Coming: the one frame taken is forgotten and the scene starts.
+    expect(Scene3DSource).toMatch(/if \(on\) \{\s*settled = false;/)
+    // Going: a scene that drew keeps the frame it stopped on.
+    expect(Scene3DSource).toContain('if (renderer && drew) { stop(true); settled = true; return; }')
   })
 
   it('rations nothing on the paths that hold no context', () => {
@@ -437,5 +445,221 @@ describe('a screen spends one context, whatever the model wrote', () => {
     const card = cap('scene3d')?.components?.[0]?.description ?? ''
     expect(card).toContain('ENFORCED')
     expect(card).toContain('tilt-3d')
+  })
+})
+
+/**
+ * The slot follows the reader.
+ *
+ * First to mount held the one live context for the life of the page, which is
+ * the scene at the top: scroll to the second and it stayed a photograph while
+ * the hero, off screen, kept the context. The page now keeps an arbiter that
+ * hands the slot to the scene with the most of itself on screen, once the
+ * scroll has held still.
+ *
+ * None of it can be observed without a browser that paints — a hidden preview
+ * pane delivers no observer callbacks — so it is checked the way the framing
+ * is: the arbiter is lifted out of the shipped source and run, with a window
+ * whose clock is moved by hand.
+ */
+describe('the live slot follows the scene the reader is looking at', () => {
+  const lift = (re: RegExp) => {
+    const found = Scene3DSource.match(re)?.[0]
+    if (!found) throw new Error(`not in the shipped source: ${re}`)
+    return found
+  }
+  const ARBITER = [
+    lift(/var MOCKY_SCENE_SETTLE_MS = \d+;/),
+    lift(/var MOCKY_SCENE_STICKY = [\d.]+;/),
+    lift(/function mockySceneHub\(\)[\s\S]*?\n\}/),
+    lift(/function mockySceneRank\([\s\S]*?\n\}/),
+    lift(/function mockySceneSeenArea\([\s\S]*?\n\}/),
+    lift(/function mockySceneJoin\([\s\S]*?\n\}/),
+    lift(/function mockySceneSettle\([\s\S]*?\n\}/),
+    lift(/function mockySceneLater\([\s\S]*?\n\}/),
+    lift(/function mockySceneSeen\([\s\S]*?\n\}/),
+    lift(/function mockySceneLeave\([\s\S]*?\n\}/),
+  ].join('\n')
+
+  type Seat = { id: number; held: boolean }
+  interface Arbiter {
+    join: (onSlot: (on: boolean) => void) => Seat
+    seen: (id: number, area: number) => void
+    leave: (id: number) => void
+    area: (rect: { left: number; top: number; right: number; bottom: number }, vw: number, vh: number) => number
+    SETTLE: number
+    STICKY: number
+  }
+
+  /** One page: a window, a clock moved by hand, and a log of every hand-over. */
+  function page() {
+    let now = 0
+    let seq = 0
+    const timers: { at: number; id: number; fn: () => void }[] = []
+    const win: Record<string, unknown> = {
+      setTimeout: (fn: () => void, ms: number) => {
+        seq += 1
+        timers.push({ at: now + ms, id: seq, fn })
+        return seq
+      },
+      clearTimeout: (id: number) => {
+        const i = timers.findIndex((t) => t.id === id)
+        if (i >= 0) timers.splice(i, 1)
+      },
+    }
+    const api = new Function(
+      'window',
+      `${ARBITER}
+       return { join: mockySceneJoin, seen: mockySceneSeen, leave: mockySceneLeave, area: mockySceneSeenArea,
+                SETTLE: MOCKY_SCENE_SETTLE_MS, STICKY: MOCKY_SCENE_STICKY }`,
+    )(win) as Arbiter
+    const log: string[] = []
+    const wait = (ms: number) => {
+      now += ms
+      for (;;) {
+        const due = timers.filter((t) => t.at <= now).sort((a, b) => a.at - b.at)[0]
+        if (!due) return
+        timers.splice(timers.indexOf(due), 1)
+        due.fn()
+      }
+    }
+    const scene = (name: string) => ({ name, ...api.join((on) => log.push(`${name}:${on ? 'on' : 'off'}`)) })
+    return { api, wait, log, scene, win }
+  }
+
+  it('gives the slot to the first scene at once, and to nobody else', () => {
+    // On load the top of the page is what is on screen, and waiting for a
+    // ranking would hold the hero still for the length of a settle.
+    const { scene, log } = page()
+    const hero = scene('hero')
+    const grid = scene('grid')
+    const bubbles = scene('bubbles')
+    expect([hero.held, grid.held, bubbles.held]).toEqual([true, false, false])
+    expect(log).toEqual([])
+  })
+
+  it('hands it to the scene on screen once the scroll holds still, letting go first', () => {
+    const { api, scene, wait, log } = page()
+    const hero = scene('hero')
+    const grid = scene('grid')
+    // Scrolled down: the hero has left, the grid fills the screen.
+    api.seen(hero.id, 0)
+    api.seen(grid.id, 640 * 300)
+    wait(api.SETTLE - 1)
+    expect(log).toEqual([])
+    wait(1)
+    // Rule 4, in the order the calls land: the holder lets go BEFORE the
+    // winner starts, so two live contexts never overlap because of the page.
+    expect(log).toEqual(['hero:off', 'grid:on'])
+  })
+
+  it('does not hand over while the reader is still scrolling', () => {
+    // A scroll re-ranks on every frame; every change is a context torn down, a
+    // still encoded and another context built. Only a scroll that STOPS pays.
+    const { api, scene, wait, log } = page()
+    const hero = scene('hero')
+    const grid = scene('grid')
+    for (let step = 0; step < 10; step += 1) {
+      api.seen(hero.id, step % 2 ? 0 : 640 * 300)
+      api.seen(grid.id, step % 2 ? 640 * 300 : 0)
+      wait(api.SETTLE / 3)
+    }
+    expect(log).toEqual([])
+    // It stopped with the grid on screen.
+    wait(api.SETTLE)
+    expect(log).toEqual(['hero:off', 'grid:on'])
+  })
+
+  it('keeps the slot where it is between two scenes shown about equally', () => {
+    // Two scenes half on screen each would otherwise trade the slot on every
+    // settle, and a scene that stops and starts is worse than one that waits.
+    const { api, scene, wait, log } = page()
+    const hero = scene('hero')
+    const grid = scene('grid')
+    api.seen(hero.id, 1000)
+    api.seen(grid.id, 1000 * api.STICKY - 1)
+    wait(api.SETTLE)
+    expect(log).toEqual([])
+    api.seen(grid.id, 1000 * api.STICKY + 1)
+    wait(api.SETTLE)
+    expect(log).toEqual(['hero:off', 'grid:on'])
+  })
+
+  it('breaks a tie by source order, the order a reader meets them in', () => {
+    const { api, scene, wait, log } = page()
+    const hero = scene('hero')
+    const grid = scene('grid')
+    const bubbles = scene('bubbles')
+    api.seen(hero.id, 0)
+    api.seen(bubbles.id, 5000)
+    api.seen(grid.id, 5000)
+    wait(api.SETTLE)
+    expect(log).toEqual(['hero:off', 'grid:on'])
+  })
+
+  it('does not take the slot from a scene that has not said where it is yet', () => {
+    // A scene that has just joined again (an edit re-renders the page) would
+    // otherwise lose the slot to its neighbours in the milliseconds before its
+    // observer answers.
+    const { api, scene, wait, log } = page()
+    scene('hero')
+    const grid = scene('grid')
+    api.seen(grid.id, 640 * 300)
+    wait(api.SETTLE)
+    expect(log).toEqual([])
+  })
+
+  it('hands the slot on only later when its holder leaves, and only to a scene still there', () => {
+    const { api, scene, wait, log } = page()
+    const hero = scene('hero')
+    const grid = scene('grid')
+    const bubbles = scene('bubbles')
+    api.seen(grid.id, 100)
+    api.seen(bubbles.id, 900)
+    wait(api.SETTLE)
+    expect(log).toEqual([])
+    api.leave(hero.id)
+    // Nothing during the leave itself: a slot handed over in the middle of a
+    // commit builds a context the next line of that commit tears down.
+    expect(log).toEqual([])
+    wait(api.SETTLE)
+    expect(log).toEqual(['bubbles:on'])
+  })
+
+  it('survives a re-render: every scene leaves and joins again, and the first holds at once', () => {
+    const { api, scene, log } = page()
+    const first = [scene('hero'), scene('grid'), scene('bubbles')]
+    for (const s of first) api.leave(s.id)
+    const again = [scene('hero'), scene('grid'), scene('bubbles')]
+    expect(again.map((s) => s.held)).toEqual([true, false, false])
+    expect(log).toEqual([])
+  })
+
+  it('never lets a scene that did not hold the slot hand it away', () => {
+    // The blank hole the previous shape had to guard against by hand: a
+    // refused scene releasing a flag it never set.
+    const { api, scene, wait, log } = page()
+    const hero = scene('hero')
+    const grid = scene('grid')
+    api.seen(hero.id, 5000)
+    api.leave(grid.id)
+    wait(api.SETTLE * 3)
+    expect(log).toEqual([])
+    const bubbles = scene('bubbles')
+    expect(bubbles.held).toBe(false)
+  })
+
+  it('counts the part on the real screen, not the observer margin', () => {
+    const { api } = page()
+    const vw = 1440
+    const vh = 900
+    // Entirely on screen.
+    expect(api.area({ left: 100, top: 100, right: 740, bottom: 400 }, vw, vh)).toBe(640 * 300)
+    // Half below the fold.
+    expect(api.area({ left: 0, top: 750, right: 640, bottom: 1050 }, vw, vh)).toBe(640 * 150)
+    // Inside the 120px margin but not yet on screen: zero, or a scene that has
+    // not arrived would outrank the one the reader is looking at.
+    expect(api.area({ left: 0, top: 960, right: 640, bottom: 1260 }, vw, vh)).toBe(0)
+    expect(api.area({ left: 0, top: -400, right: 640, bottom: -100 }, vw, vh)).toBe(0)
   })
 })
