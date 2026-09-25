@@ -1614,11 +1614,19 @@ export default function ProjectView({
             const theme = themeFromDesign(dir.markdown)
             const proposal = await proposeVideoTimeline(
               text,
-              // The pictures Muse just made, and nothing else. The composer
+              // The pictures this run made, and nothing else. The composer
               // never picks a picture (the founding rule), so this list is the
               // whole world it is shown — and a kind that needs none composes
               // from the twenty-one blocks that need none.
-              museImgs.map((im) => im.url.split('/').pop() || '').filter((h) => /^[a-f0-9]{64}$/.test(h)),
+              //
+              // Motion Ultra's series counts: with it on, Muse generates none
+              // of its own, so a film moved off the opening to a `showcase`
+              // was refused for want of a single picture while three sat in
+              // the library, made for this very screen.
+              [
+                ...museImgs.map((im) => im.url.split('/').pop() || ''),
+                ...(ultraRecord?.images ?? []),
+              ].filter((h, i, all) => /^[a-f0-9]{64}$/.test(h) && all.indexOf(h) === i),
               {
                 settings,
                 theme,
