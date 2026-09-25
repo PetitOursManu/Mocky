@@ -8,11 +8,12 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a trois séries :
+Il y a quatre séries :
 
 - **I1 à I8**, les invariants d'origine, reconstitués à partir du code.
 - **M1 à M8**, apportés par Muse.
 - **Q1 à Q5**, apportés par la passe de qualité.
+- **U1 à U5**, apportés par Motion Ultra.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -663,6 +664,99 @@ d'exemple et exige son absence, et exige la présence de l'en-tête dans
 au juge est écarté : seuls les identifiants présents dans `JUDGED_MAP` survivent.
 Un modèle capable d'inventer un identifiant de règle ne doit pas pouvoir inventer
 un constat avec.
+
+---
+
+## Série U — Motion Ultra
+
+Ces cinq-là sont arrivées avec Motion Ultra, le réglage de projet qui
+storyboarde un écran, génère une série d'images pour lui et l'écrit avec le kit
+Ultra : `src/lib/ultra/`, `src/lib/capabilities/snippets/Ultra.ts`,
+`src/components/UltraControl.tsx`.
+
+C'est la première fonctionnalité qui dépense plusieurs appels payants pour UN
+écran avant qu'une ligne en existe, et la première qui demande exactement les
+traitements que la passe de qualité a été construite pour signaler. Ces deux
+faits ont dessiné les règles.
+
+### U1. Motion Ultra éteint laisse le chemin de génération inchangé
+
+**La règle.** Réglage de projet éteint — ou en pause dans le composer — : aucun
+storyboard, aucune image générée, la capacité `ultra` n'est pas ajoutée, et le
+prompt est celui d'avant Motion Ultra.
+
+**Ce que ça protège.** La même promesse que M1 : une fonctionnalité à activer ne
+doit rien coûter à ceux qui ne l'activent pas. Le kit est ajouté de force, jamais
+déclenché par mot-clé, justement pour qu'un prompt contenant « landing » ne se
+mette pas à recevoir une typographie géante et une aurore.
+
+**Comment c'est fait.** Toute la passe est derrière `ultraActive` dans
+`ProjectView.tsx`, et la capacité `ultra` a des `triggers` vides.
+
+### U2. Le modèle nomme un traitement ; il n'en décrit jamais un
+
+**La règle.** Un storyboard choisit des recettes dans un catalogue fermé
+(`src/lib/ultra/recipes.ts`) ; une page utilise les classes `u-*` et
+`<Backdrop>` du kit. Le modèle n'écrit ni `@keyframes` ni bloc `<style>`.
+
+**Ce que ça protège.** La vérifiabilité, et les trois chemins d'immobilité. Chaque
+traitement du kit reste visible sous `prefers-reduced-motion`, sous « Sans
+animation » (`u-still`) et dans la capture (`u-capture`) ; une boucle écrite à la
+main n'en respecte aucun, et html2canvas lève sur une couleur calculée, ce qui
+donne une miniature blanche. Un bloc `<style>` libre a été envisagé et refusé :
+un effet qui manque s'ajoute au kit, une fois et testé.
+
+**Comment c'est vérifié.** `src/lib/capabilities/ultra.test.ts` tient la feuille
+de style à la liste des classes dans les deux sens, interdit les couleurs
+calculées, et exige que chaque entrée se repose à son état final quand le
+mouvement est suspendu.
+
+### U3. L'utilisateur décide du nombre d'images ; jamais le modèle
+
+**La règle.** ×3 ou ×6, choisi dans le composer, le coût dans l'infobulle. Un
+storyboard qui en demande plus est coupé, moins est complété à partir des rôles
+des recettes.
+
+**Ce que ça protège.** La facture. Une série se paie image par image.
+
+**Comment c'est vérifié.** `src/lib/ultra/ultra.test.ts` ramène des réponses
+trop généreuses et trop maigres exactement au nombre demandé.
+
+### U4. Motion Ultra se dégrade, n'échoue jamais
+
+**La règle.** Un storyboard inutilisable retombe sur un storyboard déterministe
+pour le type d'écran ; une image impossible à produire laisse sa recette à
+`<Backdrop>` ; tout le reste qui lève, hors annulation, laisse une génération
+ordinaire. Ce qui manque est DIT — une image absente, une image non utilisée, une
+image ou le kit perdus lors d'une retouche — et jamais réparé en silence.
+
+**Ce que ça protège.** M3 et Q1, un étage plus haut — et la confiance de
+l'utilisateur dans ce qu'il a payé.
+
+### U5. Ce que Motion Ultra a construit n'est pas défait par une autre passe
+
+**La règle.** Trois passes pourraient défaire un écran Motion Ultra, et aucune
+n'en a le droit :
+
+- **Polish.** Sur un écran Motion Ultra, `ULTRA_TREATMENTS` dans
+  `quality/policy.js` rétrograde en conseil le verre, le texte en dégradé, les
+  halos, le projecteur, la typographie d'affichage serrée et le fond rogné. Tout
+  le reste est toujours appliqué.
+- **Un film Motion.** Un film ne prend jamais l'ouverture construite par Motion
+  Ultra (`openingTaken` dans `video/filmDecision.ts`) : un film `hero` ou
+  `background`, ou tout film visant cette section, devient un autre type ailleurs
+  — et reçoit les images de la série, puisque Muse n'en génère pas quand Motion
+  Ultra tourne.
+- **Une retouche.** Chaque chemin de correction reçoit le vocabulaire du kit par
+  les capacités enregistrées de l'écran, et `ultraLoss` signale une retouche qui a
+  retiré des images ou le kit, avec « Revenir » à un clic.
+
+**Ce que ça protège.** Un vrai essai : un film héros placé sur un héros
+storyboardé a supprimé son image et son `<h1>`, et l'utilisateur a vu un héros
+vide sur une page sans titre.
+
+**Comment c'est vérifié.** `quality.test.js` (la politique), `filmDecision.test.ts`
+(l'ouverture), `ultra.test.ts` (`ultraLoss`).
 
 ---
 
