@@ -119,6 +119,11 @@ export const project = {
     'project.ultraStageStoryboard': 'Motion Ultra — storyboard…',
     'project.ultraStageImages': 'Motion Ultra — images {done}/{total}…',
     'project.ultraImagesMissing': 'Motion Ultra : {made} image(s) sur {total} ont pu être générées ({reason}). Les sections concernées utilisent un fond animé à la place.',
+    'project.ultraUnusedImages': 'Motion Ultra : {count} image(s) sur {total} générées pour cet écran n’y apparaissent pas. Elles restent disponibles dans Média.',
+    'project.ultraEditLoss': 'Cette modification a retiré {what} de « {name} ». « Revenir à la version précédente », dans le menu de l’écran, le rétablit.',
+    'project.ultraLossImages': '{count} image(s) Motion Ultra',
+    'project.ultraLossKit': 'le style Motion Ultra',
+    'project.ultraLossAnd': ' et ',
 
     // ---- animations (interrupteur à trois états) ----
     'project.animAuto': '✦ Animations auto',
@@ -386,6 +391,11 @@ export const project = {
     'project.ultraStageStoryboard': 'Motion Ultra — storyboard…',
     'project.ultraStageImages': 'Motion Ultra — pictures {done}/{total}…',
     'project.ultraImagesMissing': 'Motion Ultra: {made} of {total} pictures could be generated ({reason}). The sections that wanted them use an animated background instead.',
+    'project.ultraUnusedImages': 'Motion Ultra: {count} of the {total} pictures generated for this screen do not appear in it. They are still in Media.',
+    'project.ultraEditLoss': 'This change removed {what} from “{name}”. “Revert to the previous version”, in the screen’s menu, brings it back.',
+    'project.ultraLossImages': '{count} Motion Ultra picture(s)',
+    'project.ultraLossKit': 'the Motion Ultra style',
+    'project.ultraLossAnd': ' and ',
 
     // ---- animations (three-state override) ----
     'project.animAuto': '✦ Animations auto',

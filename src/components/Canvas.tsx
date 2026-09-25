@@ -1309,7 +1309,11 @@ export default function Canvas({
                     <button
                       type="button"
                       className="block w-full overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
-                      title={t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)}
+                      title={
+                        s.ultra
+                          ? t('canvas.ultraTitle', { count: s.ultra.images.length, planned: s.ultra.planned, recipes: s.ultra.recipes.join(', ') })
+                          : t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)
+                      }
                       style={{ cursor: 'pointer' }}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -1321,8 +1325,19 @@ export default function Canvas({
                         className="flex items-center bg-muse/15 text-muse-ink"
                         style={{ padding: '7px 10px', fontSize: 17, gap: 6 }}
                       >
-                        <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={17} />
-                        {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
+                        {/* A Motion Ultra screen says so here: the picture is the
+                            first of a series, not the one image Muse placed. */}
+                        {s.ultra ? (
+                          <>
+                            <Icon name="film" size={17} />
+                            {t('canvas.ultraLabel', { count: s.ultra.images.length })}
+                          </>
+                        ) : (
+                          <>
+                            <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={17} />
+                            {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
+                          </>
+                        )}
                       </span>
                     </button>
                   )}

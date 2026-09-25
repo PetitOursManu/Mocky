@@ -193,3 +193,26 @@ describe('an application screen', () => {
     expect(buildUltraPreamble(fallbackStoryboard('Landing', 3, 'persuade'), [])).not.toContain('ONE application screen')
   })
 })
+
+describe('what a Motion Ultra screen must still hold', () => {
+  const A = 'a'.repeat(64)
+  const B = 'b'.repeat(64)
+  const record = { images: [A, B] }
+  const page = `<section className="u-glass"><img src="http://x/api/images/${A}" /><img src="http://x/api/images/${B}" /></section>`
+
+  it('names the pictures a generation left out', async () => {
+    const { missingUltraImages } = await import('./check')
+    expect(missingUltraImages(page, record)).toEqual([])
+    expect(missingUltraImages(page.replace(B, 'zz'), record)).toEqual([B])
+  })
+
+  it('reports what an edit took away, and only that', async () => {
+    const { ultraLoss } = await import('./check')
+    expect(ultraLoss(page, page.replace('Hello', 'Bonjour'), record)).toBeNull()
+    expect(ultraLoss(page, page.replace(`<img src="http://x/api/images/${B}" />`, ''), record)).toEqual({ images: [B], kit: false })
+    expect(ultraLoss(page, page.replace('u-glass', 'bg-white'), record)).toEqual({ images: [], kit: true })
+    // A picture the screen had already dropped is not the edit's loss.
+    const without = page.replace(`<img src="http://x/api/images/${B}" />`, '')
+    expect(ultraLoss(without, without, record)).toBeNull()
+  })
+})

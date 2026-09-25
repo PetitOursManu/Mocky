@@ -17,6 +17,7 @@ import { generateUltraImages } from '../lib/ultra/images'
 import { buildUltraPreamble } from '../lib/ultra/preamble'
 import UltraControl from './UltraControl'
 import { isEnvironmentError } from '../lib/previewErrors'
+import { missingUltraImages, ultraLoss } from '../lib/ultra/check'
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
@@ -1124,6 +1125,16 @@ export default function ProjectView({
               caps,
             )
             onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
+            // A Motion Ultra screen can lose its pictures or its kit to an edit
+            // about one line. Said, not undone: Revert is one click away.
+            const loss = sc.ultra ? ultraLoss(oldCode, res.code, sc.ultra) : null
+            if (loss) {
+              const what = [
+                loss.images.length ? t('project.ultraLossImages', { count: loss.images.length }) : '',
+                loss.kit ? t('project.ultraLossKit') : '',
+              ].filter(Boolean).join(t('project.ultraLossAnd'))
+              setNotice(t('project.ultraEditLoss', { what, name: sc.name }))
+            }
           } catch (err) {
             // Put the screen back the way we found it. A half-written component
             // is worse than no change at all.
@@ -1549,6 +1560,14 @@ export default function ProjectView({
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())
+        // Every picture of the series was paid for; one the page left out is
+        // worth a sentence (see lib/ultra/check.ts).
+        if (ultraRecord) {
+          const unused = missingUltraImages(result.code, ultraRecord)
+          if (unused.length) {
+            setNotice(t('project.ultraUnusedImages', { count: unused.length, total: ultraRecord.images.length }))
+          }
+        }
 
         /*
          * The Motion film, when the animation switch and the request call for one.

@@ -38,6 +38,8 @@ export const canvas = {
     'canvas.deriveDesignTitle':
       'Écrire le système de design de cet écran dans DESIGN.md, pour que les prochains écrans lui ressemblent. L’ancien texte restera récupérable.',
     'canvas.imageRole.contentLabel': 'Insérée',
+    'canvas.ultraLabel': 'Motion Ultra · {count} images',
+    'canvas.ultraTitle': 'Écran Motion Ultra — {count} image(s) sur {planned} générées. Recettes : {recipes}. Cliquez pour voir la première en grand.',
     'canvas.imageRole.contentTitle':
       'Image de CONTENU — elle est placée dans l’écran comme une vraie <img>. Cliquer pour l’ouvrir en grand.',
     'canvas.imageRole.inspirationLabel': 'Inspiration',
@@ -117,6 +119,8 @@ export const canvas = {
     'canvas.deriveDesignTitle':
       'Write this screen’s design system into DESIGN.md, so the next screens look like it. The old text stays recoverable.',
     'canvas.imageRole.contentLabel': 'Placed',
+    'canvas.ultraLabel': 'Motion Ultra · {count} pictures',
+    'canvas.ultraTitle': 'Motion Ultra screen — {count} of {planned} pictures generated. Recipes: {recipes}. Click to see the first one full size.',
     'canvas.imageRole.contentTitle':
       'CONTENT image — it sits in the screen as a real <img>. Click to open it full size.',
     'canvas.imageRole.inspirationLabel': 'Inspiration',
