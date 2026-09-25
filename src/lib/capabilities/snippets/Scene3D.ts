@@ -41,8 +41,8 @@
  *
  * Nothing granted, no WebGL at all: the element is a quiet gradient built from
  * its own colour. A page that loses its 3D looks plainer; it never looks broken.
- * `prefers-reduced-motion`, a capture frame and a scene that lost the slot to
- * the one above it are a different answer to the same question — one frame,
+ * `prefers-reduced-motion`, a capture frame and a scene that does not hold the
+ * page's one live slot are a different answer to the same question — one frame,
  * kept as an image, the context back inside the task. They show the object and
  * not the fade, because none of them is about giving up the picture.
  */
@@ -95,27 +95,147 @@ var MOCKY_LOOK_SLIDE = 0.05;
  * was only requested: the capability card says "at most ONE per screen", which
  * is a sentence a model can miss and a person editing code can undo.
  *
- * First to mount holds the slot — source order, which is the order a reader
- * meets them in. What the others lose is MOVEMENT and not the object: a scene
- * with no slot takes one frame and gives the context straight back (see frozen
- * in the effect), so it stands as a photograph of itself. It drew a gradient
- * for one release, which is right about the budget and wrong about the page —
- * a reader met a flat fade where an object had been asked for, on two
- * generations out of six.
+ * What the others lose is MOVEMENT and not the object: a scene with no slot
+ * takes one frame and gives the context straight back (see frozen in the
+ * effect), so it stands as a photograph of itself. It drew a gradient for one
+ * release, which is right about the budget and wrong about the page — a reader
+ * met a flat fade where an object had been asked for, on two generations out of
+ * six.
+ *
+ * AND THE SLOT FOLLOWS THE READER. First to mount held it for the life of the
+ * page, which is the scene at the top: scroll down to the second one and it
+ * stayed a photograph while the hero, off screen, kept the only context. So the
+ * page keeps a small arbiter on window — every rationed scene joins it, reports
+ * how much of itself is on screen, and the one live slot goes to the scene with
+ * the most. Four rules, and each is there for a reason that was measured or
+ * that the canvas one level up already paid for:
+ *
+ *   1. The first to join holds it AT ONCE. On load the top of the page is what
+ *      is on screen, and waiting for a ranking would leave the hero still for
+ *      the length of a settle.
+ *   2. A change waits until the scroll has held still for
+ *      MOCKY_SCENE_SETTLE_MS — the canvas's own GL_SETTLE_MS, for the canvas's
+ *      own reason: a scroll re-ranks on every frame, and every change is a
+ *      context torn down, a still encoded and another context built.
+ *   3. A challenger must show MOCKY_SCENE_STICKY times the holder's area. Two
+ *      scenes half on screen each would otherwise trade the slot on every
+ *      settle, and a scene that stops and starts is worse than one that waits.
+ *   4. The holder lets go BEFORE the winner starts, inside the same task, so
+ *      two live contexts never overlap because of the page.
+ *
+ * AREA, not ratio: a hero half on screen is more of what the reader is looking
+ * at than a card entirely on it. Measured against the real viewport rather
+ * than the observer's inflated one — the 120px margin exists so a scene starts
+ * before it arrives, and counting it would rank a scene that has not.
  */
-function mockySceneClaim() {
+var MOCKY_SCENE_SETTLE_MS = 300;
+var MOCKY_SCENE_STICKY = 1.25;
+/* Where the observer calls back. Six steps is enough for a ranking with a
+   25 percent hysteresis, and each call is one array walk. */
+var MOCKY_SCENE_STEPS = [0, 0.1, 0.25, 0.5, 0.75, 1];
+
+function mockySceneHub() {
   try {
-    if (window.__mockyScene) return false;
-    window.__mockyScene = true;
-    return true;
+    if (!window.__mockySceneHub) window.__mockySceneHub = { seq: 0, scenes: [], holder: 0, timer: 0 };
+    return window.__mockySceneHub;
   } catch (e) {
-    /* No window to count in is no canvas to starve: draw. */
-    return true;
+    /* No window to count in is no canvas to starve: every scene draws. */
+    return null;
   }
 }
 
-function mockySceneRelease() {
-  try { window.__mockyScene = false; } catch (e) {}
+/**
+ * Who should hold the slot, as arithmetic — see the rules above.
+ *
+ * A scene's seen is -1 until its observer has answered once. The holder is not
+ * taken on an UNKNOWN, because a scene that has just joined (a re-render joins
+ * again) would otherwise lose the slot to its neighbours in the few
+ * milliseconds before it could say it is on screen.
+ */
+function mockySceneRank(scenes, holder) {
+  var best = null, current = null;
+  for (var i = 0; i < scenes.length; i++) {
+    var s = scenes[i];
+    if (s.id === holder) current = s;
+    /* Strictly more: a tie goes to source order, which is the order a reader
+       meets them in. */
+    if (s.seen > 0 && (!best || s.seen > best.seen)) best = s;
+  }
+  if (!best) return current ? current.id : (scenes.length ? scenes[0].id : 0);
+  if (current && current !== best) {
+    if (current.seen < 0) return current.id;
+    if (current.seen > 0 && best.seen < current.seen * MOCKY_SCENE_STICKY) return current.id;
+  }
+  return best.id;
+}
+
+/** The part of a box on screen, in px squared. */
+function mockySceneSeenArea(rect, vw, vh) {
+  if (!rect) return 0;
+  var w = Math.min(rect.right, vw) - Math.max(rect.left, 0);
+  var h = Math.min(rect.bottom, vh) - Math.max(rect.top, 0);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+function mockySceneJoin(onSlot) {
+  var hub = mockySceneHub();
+  if (!hub) return { id: 0, held: true };
+  var id = ++hub.seq;
+  var held = !hub.holder;
+  if (held) hub.holder = id;
+  hub.scenes.push({ id: id, seen: -1, onSlot: onSlot });
+  return { id: id, held: held };
+}
+
+function mockySceneSettle(hub) {
+  var next = mockySceneRank(hub.scenes, hub.holder);
+  if (!next || next === hub.holder) return;
+  var prev = null, won = null;
+  for (var i = 0; i < hub.scenes.length; i++) {
+    if (hub.scenes[i].id === hub.holder) prev = hub.scenes[i];
+    if (hub.scenes[i].id === next) won = hub.scenes[i];
+  }
+  hub.holder = next;
+  /* Rule 4: let go first. */
+  if (prev) prev.onSlot(false);
+  if (won) won.onSlot(true);
+}
+
+function mockySceneLater(hub) {
+  if (hub.timer) window.clearTimeout(hub.timer);
+  hub.timer = window.setTimeout(function () {
+    hub.timer = 0;
+    mockySceneSettle(hub);
+  }, MOCKY_SCENE_SETTLE_MS);
+}
+
+function mockySceneSeen(id, seen) {
+  var hub = mockySceneHub();
+  if (!hub || !id) return;
+  for (var i = 0; i < hub.scenes.length; i++) {
+    if (hub.scenes[i].id === id) hub.scenes[i].seen = seen;
+  }
+  mockySceneLater(hub);
+}
+
+/**
+ * Leaving hands the slot on LATER, never at once: an edit re-renders the page,
+ * every scene leaves and joins again in one commit, and a slot handed to the
+ * second scene during the first one's cleanup would build a context that the
+ * next line tears down. A vacant slot goes to the first scene to join, which on
+ * a re-render is the one that just left.
+ */
+function mockySceneLeave(id) {
+  var hub = mockySceneHub();
+  if (!hub || !id) return;
+  var kept = [];
+  for (var i = 0; i < hub.scenes.length; i++) {
+    if (hub.scenes[i].id !== id) kept.push(hub.scenes[i]);
+  }
+  hub.scenes = kept;
+  if (hub.holder !== id) return;
+  hub.holder = 0;
+  if (kept.length) mockySceneLater(hub);
 }
 
 /** Where the element sits in the viewport, as -1 (entering) to 1 (leaving). */
@@ -221,7 +341,8 @@ function Scene3D(props) {
      * ORDER rather than the line.
      */
     var rationed = !(stillOnly || reduced);
-    var slot = rationed ? mockySceneClaim() : true;
+    var seat = rationed ? mockySceneJoin(slotChanged) : { id: 0, held: true };
+    var held = seat.held;
 
     /*
      * ONE FRAME IS NOT NOTHING, and the scene that lost the slot takes one.
@@ -240,13 +361,13 @@ function Scene3D(props) {
      * MOVEMENT, which is what it was always about: the live scene turns, the
      * others are photographs of themselves.
      *
-     * The three cases are one word from here on. They differ in two places
-     * only: a capture encodes at full size (its picture IS the product) while
-     * these encode at 640 like a revoked scene, and only a scene that really
-     * CLAIMED the slot gives it back at cleanup — releasing one this effect
-     * never took would hand a live scene's context away and blank it.
+     * The three cases are one word from here on. They differ in one place: a
+     * capture encodes at full size (its picture IS the product) while these
+     * encode at 640 like a revoked scene. And frozen is no longer settled at
+     * mount — the slot can come to this scene later, when the reader scrolls
+     * to it (slotChanged, below).
      */
-    var frozen = stillOnly || reduced || !slot;
+    var frozen = stillOnly || reduced || !held;
 
     var renderer = null, raf = 0, disposed = false, visible = true, drew = false, granted = window.__mockyGL !== false;
     var settled = false, ladderTimer = 0, owed = false;
@@ -534,6 +655,7 @@ function Scene3D(props) {
           out.getContext('2d').drawImage(src, 0, 0, out.width, out.height);
         }
         setPoster(out.toDataURL('image/png'));
+        hasStill = true;
       } catch (e) {}
     }
 
@@ -623,6 +745,36 @@ function Scene3D(props) {
       owe(false);
     }
 
+    /**
+     * The slot came to this scene, or left it — see mockySceneRank.
+     *
+     * Coming: the one frame it took is no reason to stay still any more, so
+     * settled is forgotten and the scene starts as it would have at mount. A
+     * scene caught in the middle of taking that frame already has a renderer,
+     * and the ladder is simply called off.
+     *
+     * Going: a scene that has DRAWN keeps the frame it stopped on, which is the
+     * continuity a scene revoked by the canvas already gets — the reader
+     * scrolls back to the object where they left it rather than to a fade. One
+     * that never drew takes its one frame like any scene without a slot.
+     */
+    var hasStill = false;
+    function slotChanged(on) {
+      if (disposed || held === on) return;
+      held = on;
+      frozen = stillOnly || reduced || !held;
+      if (on) {
+        settled = false;
+        if (ladderTimer) { window.clearInterval(ladderTimer); ladderTimer = 0; owe(false); }
+        if (renderer) { listen(); loop(); } else start();
+        return;
+      }
+      if (renderer && drew) { stop(true); settled = true; return; }
+      if (renderer) { owe(true); settle(); if (!settled) ladder(); return; }
+      settled = hasStill;
+      if (!settled) start();
+    }
+
     function grantChanged() {
       granted = window.__mockyGL !== false;
       if (granted) start(); else stop(true);
@@ -681,9 +833,12 @@ function Scene3D(props) {
       io = new IntersectionObserver(function (entries) {
         for (var i = 0; i < entries.length; i++) {
           visible = entries[i].isIntersecting;
+          if (seat.id) {
+            mockySceneSeen(seat.id, mockySceneSeenArea(entries[i].boundingClientRect, window.innerWidth || 0, window.innerHeight || 0));
+          }
         }
         if (visible) start(); else stop(true);
-      }, { rootMargin: '120px' });
+      }, { rootMargin: '120px', threshold: MOCKY_SCENE_STEPS });
       io.observe(node);
     }
 
@@ -699,11 +854,11 @@ function Scene3D(props) {
 
     return function () {
       disposed = true;
-      /* Only the scene that CLAIMED it. A refused scene calling this would
-         release the live scene's slot and hand it to whichever element mounts
-         next — the blank hole this whole arbitration exists to prevent, opened
-         by the line meant to be tidy. */
-      if (rationed && slot) mockySceneRelease();
+      /* Leaving the arbiter, which hands the slot on only if this scene held
+         it. A refused scene releasing a flag it never set is what the previous
+         shape had to guard against by hand; an id cannot release someone
+         else's. */
+      if (rationed) mockySceneLeave(seat.id);
       deafen();
       owe(false);
       if (ladderTimer) window.clearInterval(ladderTimer);
