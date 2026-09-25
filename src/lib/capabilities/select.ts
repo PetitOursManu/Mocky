@@ -93,6 +93,17 @@ export function capabilitiesUsedBy(code: string): string[] {
     // Not every capability ships code: daisyUI is a stylesheet and declares no
     // globals, so there is nothing here to look for.
     const names = (cap.snippets ?? []).flatMap((s) => s.exports ?? [])
+    // A stylesheet's classes, inside a class string: bounded by a quote, a
+    // brace or whitespace on both sides, so `u-glass` does not match inside
+    // `menu-glass` or `u-glass-light` stand in for a name it is not.
+    for (const cls of cap.classes ?? []) {
+      const c = cls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      if (new RegExp(`(?:^|[\\s"'\`{])${c}(?=[\\s"'\`}]|$)`).test(code)) {
+        out.add(cap.id)
+        break
+      }
+    }
+    if (out.has(cap.id)) continue
     for (const name of names) {
       // `<Animated`, `<Icon.Mail`, `Icon.Mail`, or the bare identifier in an
       // expression. Escaped because a name could in principle contain a dot.

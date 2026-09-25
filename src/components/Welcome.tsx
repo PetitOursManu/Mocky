@@ -6,6 +6,8 @@ import { Banner, Button, Icon, MockyLoader } from '../ui'
 import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability } from '../lib/muse'
 import type { AnimationMode } from '../lib/animations'
 import type { PinnedImage } from '../lib/imageLibrary'
+import type { ProjectUltra } from '../lib/project'
+import UltraControl from './UltraControl'
 
 type Props = {
   prompt: string
@@ -35,6 +37,13 @@ type Props = {
   /** auto · on · off — owned by ProjectView so both composers agree. */
   animationMode: AnimationMode
   onCycleAnimations: () => void
+  /** Motion Ultra — the project's setting and the composer's pause. */
+  ultra: ProjectUltra | undefined
+  ultraPaused: boolean
+  onSetUltra: (ultra: ProjectUltra | null) => void
+  onToggleUltraPause: () => void
+  /** What a running pass is doing, when it has more to say than "generating". */
+  busyLabel: string | null
 }
 
 /** Translation keys per animation state. Mirrors the in-project composer. */
@@ -71,6 +80,11 @@ export default function Welcome({
   museVideo,
   animationMode,
   onCycleAnimations,
+  ultra,
+  ultraPaused,
+  onSetUltra,
+  onToggleUltraPause,
+  busyLabel,
 }: Props) {
   const t = useT()
 
@@ -117,7 +131,7 @@ export default function Welcome({
             onKeyDown={onKeyDown}
           />
           <div className="flex items-center justify-between gap-3 px-1 pt-1">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <button
                 type="button"
                 onClick={onOpenDesign}
@@ -164,6 +178,16 @@ export default function Welcome({
                 <Icon name="play" size={15} />
                 {t(ANIM_LABELS[animationMode].label)}
               </button>
+              {/* The first screen is the one Motion Ultra matters most for: it
+                  is usually the landing page, and it sets the tone. */}
+              <UltraControl
+                ultra={ultra}
+                paused={ultraPaused}
+                onSetUltra={onSetUltra}
+                onTogglePause={onToggleUltraPause}
+                size={15}
+                className="text-body-sm"
+              />
             </div>
             <div className="flex items-center gap-3">
               <span className="hidden text-caption text-ink-faint sm:inline">⌘/Ctrl + Enter</span>
@@ -177,8 +201,8 @@ export default function Welcome({
                     {/* MockyLoader porte deja role="status" + aria-label : le texte
                         visible est masque aux lecteurs d'ecran pour que l'etat ne
                         soit pas annonce deux fois. */}
-                    <MockyLoader size={64} label={t('auth.welcome.generatingAria')} className="shrink-0" />
-                    <span aria-hidden>{t('composer.generating')}</span>
+                    <MockyLoader size={64} label={busyLabel || t('auth.welcome.generatingAria')} className="shrink-0" />
+                    <span aria-hidden>{busyLabel || t('composer.generating')}</span>
                   </>
                 ) : (
                   `${t('composer.generate')} ↵`

@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, type ScreenUltra, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
@@ -12,6 +12,11 @@ import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from '../lib/plan'
+import { runStoryboard } from '../lib/ultra/storyboard'
+import { generateUltraImages } from '../lib/ultra/images'
+import { buildUltraPreamble } from '../lib/ultra/preamble'
+import UltraControl from './UltraControl'
+import { isEnvironmentError } from '../lib/previewErrors'
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
@@ -195,6 +200,7 @@ export default function ProjectView({
   onSetReference,
   onRenameProject,
   onSetDesign,
+  onSetUltra,
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -209,11 +215,26 @@ export default function ProjectView({
   onRenameProject: (name: string) => void
   /** Set this project's own design direction, or null to fall back to DESIGN.md. */
   onSetDesign: (markdown: string | null) => void
+  /** Switch Motion Ultra on for this project (with its picture count), or off with null. */
+  onSetUltra: (ultra: ProjectUltra | null) => void
 }) {
   const t = useT()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | null>(null)
+  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | null>(null)
+  /**
+   * Motion Ultra paused for the next generations, from the composer.
+   *
+   * The project decides whether it is an Ultra project; this is the composer's
+   * "not this one". Kept for the session rather than spent on one generation:
+   * someone who pauses it to add three plain settings screens should not have
+   * to pause it three times. Not persisted — a reload hands the decision back
+   * to the project.
+   */
+  const [ultraPaused, setUltraPaused] = useState(false)
+  /** Where a running Motion Ultra pass is: "storyboard", "images 2/6"… */
+  const [ultraStage, setUltraStage] = useState<string | null>(null)
+  const ultraActive = !!project.ultra && !ultraPaused
   /**
    * "Cette génération redéfinit la direction" — armed by hand, spent on use.
    *
@@ -922,6 +943,9 @@ export default function ProjectView({
   // the code is still streaming and incomplete errors are expected.
   const onScreenError = useCallback(async (screenId: string, errorMessage: string) => {
     if (busy) return
+    // The frame could not load its own runtime — nothing in the screen's code
+    // can fix that. See isEnvironmentError.
+    if (isEnvironmentError(errorMessage)) return
     const state = retryRefs.current[screenId] || { count: 0, lastError: '' }
     if (state.count >= MAX_FIX_ATTEMPTS) return
     if (state.count > 0 && errorMessage === state.lastError) return // no progress → stop
@@ -1210,7 +1234,10 @@ export default function ProjectView({
             // Generate a new hero only when no pin already covers a slot (capped
             // to keep the run fast; multi-image is a later increment).
             const remaining = plan.slice(pins.length)
-            if (remaining.length && pins.length === 0) {
+            // Motion Ultra generates its own series further down, planned as
+            // one shoot. Muse's hero on top of it would be a seventh picture
+            // nobody placed, paid for on every run.
+            if (remaining.length && pins.length === 0 && !ultraActive) {
               // A mood/art-direction reference and a hero photo are different
               // jobs, so they run on different image models (Admin → profils).
               const profile = profileForMode(effectiveImageMode)
@@ -1241,7 +1268,7 @@ export default function ProjectView({
                 onError: (msg) => setMuseImageError(msg),
               })
               imgs = [...imgs, ...gen]
-            } else if (!remaining.length && !pins.length) {
+            } else if (!remaining.length && !pins.length && !ultraActive) {
               // No imagery slot at all. The dossier now guarantees a hero, so
               // this means something upstream produced nothing — say so rather
               // than finishing silently with an image-less screen.
@@ -1381,7 +1408,59 @@ export default function ProjectView({
         // skipped on every Muse run and whenever the setting is off, and a mode
         // that only existed on the planner path would almost never exist.
         let mode = inferMode(text)
-        if (settings.usePlanner && !musePreamble) {
+
+        /*
+         * Motion Ultra: storyboard → a series of pictures → a section that
+         * replaces the planner's (the storyboard IS the plan, in recipes).
+         *
+         * Off, this block does not run and the path below is exactly the one
+         * every non-Ultra project has always taken. On, it degrades rather than
+         * fails: the storyboard falls back on its own, a picture that could not
+         * be made leaves its recipe to <Backdrop>, and anything that throws here
+         * short of a cancel leaves an ordinary generation.
+         */
+        let ultraRecord: ScreenUltra | undefined
+        let ultraImageHash: string | undefined
+        if (ultraActive && project.ultra) {
+          try {
+            setPhase('ultra')
+            setUltraStage(t('project.ultraStageStoryboard'))
+            const board = await runStoryboard(settings, text, project.ultra.count, mode, {
+              design: dir.markdown,
+              presetHint: preset.hint,
+              signal: ac.signal,
+            })
+            // The storyboard read the whole request; its mode beats the keyword guess.
+            mode = board.mode
+            const total = board.images.length
+            setUltraStage(t('project.ultraStageImages', { done: 0, total }))
+            const failures: string[] = []
+            const made = await generateUltraImages(board, project.id, {
+              signal: ac.signal,
+              onImage: (_im, done) => setUltraStage(t('project.ultraStageImages', { done, total })),
+              onError: (msg) => failures.push(msg),
+            })
+            if (made.length < total) {
+              setMuseImageError(
+                t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
+              )
+            }
+            planSection = [buildUltraPreamble(board, made), modeToPromptSection(mode)].join('\n\n')
+            ultraRecord = {
+              recipes: board.sections.map((s) => s.recipe),
+              images: made.map((im) => im.hash),
+              planned: project.ultra.count,
+            }
+            ultraImageHash = made[0]?.hash
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            if (ac.signal.aborted) throw err
+          } finally {
+            setUltraStage(null)
+          }
+        }
+
+        if (settings.usePlanner && !musePreamble && !ultraRecord) {
           setPhase('planning')
           const plan = await planScreen(
             settings, text, shortlist,
@@ -1407,6 +1486,9 @@ export default function ProjectView({
         // keyword triggers precisely because it is never a guess: it is added
         // here, and only here, when there is something for it to draw.
         if (museVideo) capIds = capIds.includes('scrollvideo') ? capIds : [...capIds, 'scrollvideo']
+        // Same rule for the Ultra kit: force-added when a storyboard exists, and
+        // then persisted on the screen, so every later edit of it sees the kit.
+        if (ultraRecord && !capIds.includes('ultra')) capIds = [...capIds, 'ultra']
 
         setPhase('generating')
         const caps = resolveCapabilities(capIds)
@@ -1434,12 +1516,13 @@ export default function ProjectView({
           // generated under an older direction must keep saying so — that is
           // what makes "reprendre ce DESIGN.md" meaningful.
           design: dir.markdown,
-          imageHash: museImageHash,
+          imageHash: museImageHash ?? ultraImageHash,
           // Recorded so the canvas can say what the image was for. Without it
           // the badge could only ever say "Image Muse", which is exactly the
           // ambiguity that made it impossible to tell whether inspiration mode
           // had done anything.
-          imageRole: museImageHash ? effectiveImageMode : undefined,
+          imageRole: museImageHash ? effectiveImageMode : ultraImageHash ? 'content' : undefined,
+          ultra: ultraRecord,
           // Persisted as a pair so a reload can rebuild the sequence without
           // asking the server what it cut.
           videoHash: museVideo?.hash,
@@ -1681,7 +1764,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, motionAvail, redesign])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, motionAvail, redesign, ultraActive])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2779,7 +2862,7 @@ export default function ProjectView({
   }
 
   /** Ce que fabrique Mocky en ce moment — sert de libelle ET de nom accessible. */
-  const busyLabel = t(
+  const busyLabel = phase === 'ultra' && ultraStage ? ultraStage : t(
     phase === 'muse'
       ? 'project.busyMuse'
       : phase === 'planning'
@@ -2919,6 +3002,11 @@ export default function ProjectView({
         museVideo={videoAvail}
         animationMode={animationMode}
         onCycleAnimations={cycleAnimations}
+        ultra={project.ultra}
+        ultraPaused={ultraPaused}
+        onSetUltra={onSetUltra}
+        onToggleUltraPause={() => setUltraPaused((v) => !v)}
+        busyLabel={phase === 'ultra' ? ultraStage : null}
       />
       {libraryModal}
       </>
@@ -3711,6 +3799,18 @@ export default function ProjectView({
               <Icon name="play" size={14} />
               {t(ANIM_LABELS[animationMode].label)}
             </button>
+            {/* New screens only: an edit reworks a screen that already is, or
+                is not, Motion Ultra — the pass that builds one is a storyboard
+                and a series of pictures, not an instruction to an edit. */}
+            {!editing && (
+              <UltraControl
+                ultra={project.ultra}
+                paused={ultraPaused}
+                onSetUltra={onSetUltra}
+                onTogglePause={() => setUltraPaused((v) => !v)}
+                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+              />
+            )}
           </div>
 
           <div className="flex items-end gap-2">

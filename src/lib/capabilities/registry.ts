@@ -6,6 +6,7 @@ import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from './snippets/ScrollVideo'
 import { MotionFilmSource, MOTIONFILM_EXPORTS } from './snippets/MotionFilm'
 import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
 import { Scene3DSource, SCENE3D_EXPORTS, SCENE3D_PRESETS } from './snippets/Scene3D'
+import { UltraSource, ULTRA_EXPORTS, ULTRA_CLASSES, BACKDROP_PRESETS } from './snippets/Ultra'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
 function validatePack(id: string, components: { name: string }[], snippets: { exports: string[] }[]) {
@@ -194,6 +195,34 @@ export const CAPABILITIES: Capability[] = [
         description:
           `A real 3D object, drawn with WebGL, as a decoration inside a section. \`preset\` is REQUIRED and must be EXACTLY one of these ten: ${SCENE3D_PRESETS.map((p) => `"${p}"`).join(', ')} — "orb" is a lit sphere, "solid" a turning knot, "crystal" a faceted rock, "ring" a torus, "globe" a sphere of dots with an orbit ring, "stack" three cards floating in depth, "bubbles" a cluster of spheres, "particles" a slow field of points, "grid" a tunnel of points travelling towards the viewer, "wave" a rippling surface. \`color\` is a hex from your own palette; anything else falls back to the house ink. \`accent\` is an OPTIONAL second hex, used by the scenes made of several parts — the globe's ring, one card in two, half the bubbles, the tunnel's ceiling. Give it your palette's second colour when you have one; leave it out and the scene is painted in \`color\` alone. \`speed\` is "slow" (the default and almost always right), "medium" or "fast". Give it a SIZE with Tailwind — it fills the box you put it in. Two shapes work: a sized box beside your text (\`h-72 w-full\`), or a full-bleed backdrop — \`className="absolute inset-0"\` as the FIRST child of a \`relative\` section, with the text after it in a \`relative\` wrapper of its own so it sits above. As a backdrop it draws itself quieter on its own, because nothing in a page measures the contrast of a moving pixel — so you do not need a veil, and a dark \`color\` is still the safer choice under pale text. It turns towards the cursor and with the scroll by itself; do not try to animate it. At most ONE per screen, and it is ENFORCED rather than requested: only one \`<Scene3D>\` on a screen MOVES at a time — the one the visitor is looking at — and any other is shown as a still picture of itself, because a browser grants about sixteen WebGL contexts for the whole canvas and one screen may hold one. A second scene is therefore never worth writing for its motion. For depth elsewhere on the page use \`<Animated preset="tilt-3d">\`, which costs no context at all. It is decorative, so it carries no text and no meaning a reader needs.`,
         tags: ['3d', 'webgl', 'three', 'volume', 'sphere', 'particles', 'hero', 'immersive'],
+      },
+    ],
+  },
+  {
+    /**
+     * Motion Ultra's kit: the `u-*` stylesheet and `<Backdrop>`.
+     *
+     * Force-added, never keyword-triggered. The kit is only worth its prompt
+     * space on a screen that was storyboarded for it; offered on a guess, a
+     * "landing" prompt would get display type and an aurora whether or not the
+     * project asked for Motion Ultra — and Motion Ultra OFF must leave the
+     * generation path exactly as it was. Once a screen has it, `Screen.caps`
+     * keeps it, so an edit, a repair or a polish of that screen sees the same
+     * kit the generation did (see `buildCapabilitiesPrompt`).
+     */
+    id: 'ultra',
+    kind: 'snippet-pack',
+    requires: ['animate'],
+    triggers: { keywords: [], intents: [] },
+    snippets: [{ source: UltraSource, exports: [...ULTRA_EXPORTS] }],
+    classes: Object.keys(ULTRA_CLASSES),
+    components: [
+      {
+        name: 'Backdrop',
+        signature: '<Backdrop preset="aurora" colors={["#7c5cff", "#22d3ee", "#f472b6"]} image="…" tone="dark" veil={0.35} />',
+        description:
+          `A living background for ONE section, drawn in CSS — no WebGL, so it costs nothing a browser rations. \`preset\` is exactly one of ${BACKDROP_PRESETS.map((p) => `"${p}"`).join(', ')}: "aurora" is three blurred colour masses drifting, "mesh" a slow gradient mesh, "spotlight" a light that follows the cursor (dark grounds only), "beams" rays turning very slowly from above, "grid" a perspective floor of lines with a glow on the horizon. \`colors\` are up to three hexes from YOUR palette (they also set --u-a/--u-b/--u-c for the section's u-* classes). \`image\` is an optional generated picture, drawn underneath and slowly zoomed — use it only with a URL you were given. \`tone\` is "dark" (default) or "light", for the ground it sits on. \`veil\` (0–0.9) lays the ground colour over it so text stays readable; default 0.35 with an image, 0 without. It is absolutely positioned: make it the FIRST child of a \`relative overflow-hidden\` section and put the content after it in a \`relative z-10\` wrapper. At most two per screen. Decorative: it carries no text.`,
+        tags: ['background', 'aurora', 'gradient', 'mesh', 'spotlight', 'beams', 'grid', 'hero', 'ultra'],
       },
     ],
   },

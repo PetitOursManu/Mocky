@@ -53,6 +53,16 @@ export interface Capability {
    * rendering. Removing the entry instead would break them at load.
    */
   retired?: boolean
+  /**
+   * Class names this capability's stylesheet defines, for a pack that styles
+   * as well as renders.
+   *
+   * `capabilitiesUsedBy` looks for component names, and a screen that uses the
+   * Ultra kit's `u-glass` but no `<Backdrop>` names none: it would be judged as
+   * not needing the pack, and its every frosted surface would silently turn
+   * into a plain box. Declared here so the check can find them too.
+   */
+  classes?: string[]
   /** For snippet-packs: metadata for the CAPABILITIES prompt section. */
   components?: CapabilityComponent[]
   /** For snippet-packs: one or more source blocks, each with an explicit exports list. */

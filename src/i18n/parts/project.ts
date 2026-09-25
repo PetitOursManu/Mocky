@@ -105,6 +105,21 @@ export const project = {
     'project.museStageHero': 'Génération de l’image héro…',
     'project.museStageMedia': 'Lecture de votre média (palette, ambiance)…',
 
+    // ---- Motion Ultra (réglage projet, pause dans le composer) ----
+    'project.ultraChip': 'Motion Ultra',
+    'project.ultraPaused': 'en pause',
+    'project.ultraEnableTitle':
+      'Activer Motion Ultra pour ce projet : chaque nouvel écran est storyboardé, illustré par une série d’images générées ensemble et mis en mouvement (fonds vivants, verre, typographie géante).',
+    'project.ultraActiveTitle':
+      'Motion Ultra est actif pour ce projet. Cliquez pour le mettre en pause pour les prochaines générations.',
+    'project.ultraPausedTitle':
+      'Motion Ultra est en pause dans ce composer — les prochains écrans seront générés normalement. Cliquez pour le reprendre.',
+    'project.ultraCountTitle': '{count} images générées par écran — environ {minutes} min d’attente en plus, et {count} images facturées par votre fournisseur.',
+    'project.ultraDisable': 'Désactiver Motion Ultra pour ce projet',
+    'project.ultraStageStoryboard': 'Motion Ultra — storyboard…',
+    'project.ultraStageImages': 'Motion Ultra — images {done}/{total}…',
+    'project.ultraImagesMissing': 'Motion Ultra : {made} image(s) sur {total} ont pu être générées ({reason}). Les sections concernées utilisent un fond animé à la place.',
+
     // ---- animations (interrupteur à trois états) ----
     'project.animAuto': '✦ Animations auto',
     'project.animOn': '✦ Animations forcées',
@@ -356,6 +371,21 @@ export const project = {
     'project.museStageInspiration': 'Generating the inspiration image…',
     'project.museStageHero': 'Generating the hero image…',
     'project.museStageMedia': 'Reading your media (palette, mood)…',
+
+    // ---- Motion Ultra (project setting, paused from the composer) ----
+    'project.ultraChip': 'Motion Ultra',
+    'project.ultraPaused': 'paused',
+    'project.ultraEnableTitle':
+      'Turn Motion Ultra on for this project: every new screen is storyboarded, illustrated with a series of pictures generated together, and set in motion (living backgrounds, glass, display type).',
+    'project.ultraActiveTitle':
+      'Motion Ultra is on for this project. Click to pause it for the next generations.',
+    'project.ultraPausedTitle':
+      'Motion Ultra is paused in this composer — the next screens are generated normally. Click to resume it.',
+    'project.ultraCountTitle': '{count} pictures generated per screen — about {minutes} more minutes of waiting, and {count} pictures billed by your provider.',
+    'project.ultraDisable': 'Turn Motion Ultra off for this project',
+    'project.ultraStageStoryboard': 'Motion Ultra — storyboard…',
+    'project.ultraStageImages': 'Motion Ultra — pictures {done}/{total}…',
+    'project.ultraImagesMissing': 'Motion Ultra: {made} of {total} pictures could be generated ({reason}). The sections that wanted them use an animated background instead.',
 
     // ---- animations (three-state override) ----
     'project.animAuto': '✦ Animations auto',
