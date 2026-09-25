@@ -157,10 +157,12 @@ the position does.
 to an iframe and cannot see inside it, so a page drawing three scenes spends
 three of the browser's sixteen contexts while the arbiter counts one — four such
 screens are twelve, and the seventeenth kills the oldest. The capability card
-asked for one per screen; `mockySceneClaim` is what makes it true. First to
-mount holds the slot, and the still paths (a capture, `prefers-reduced-motion`)
-ration nothing because a scene there holds its context for one frame inside one
-task. Verified with three scenes on one page: three elements, one canvas.
+asked for one per screen; the page's own arbiter (`mockySceneJoin`, below) is
+what makes it true — exactly one scene is live, and the first to mount holds
+the slot until the reader scrolls to another. The still paths (a capture,
+`prefers-reduced-motion`) ration nothing because a scene there holds its context
+for one frame inside one task. Verified with three scenes on one page: three
+elements, one canvas.
 
 What a refused scene loses is MOVEMENT, not the object. It drew the no-WebGL
 gradient for one release — right about the budget, wrong about the page: a model

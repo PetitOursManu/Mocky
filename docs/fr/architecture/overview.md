@@ -164,11 +164,12 @@ vaut déjà pour la position.
 scènes dépense trois des seize contextes du navigateur pendant que l'arbitre en
 compte un — quatre écrans comme celui-là font douze, et le dix-septième tue le
 plus ancien. La carte de la capacité demandait une scène par écran ;
-`mockySceneClaim` est ce qui rend la phrase vraie. La première montée garde la
-place, et les chemins figés (une capture, `prefers-reduced-motion`) ne
-rationnent rien puisqu'une scène y tient son contexte le temps d'une image dans
-une seule tâche. Vérifié avec trois scènes sur une page : trois éléments, un
-seul canvas.
+l'arbitre propre à la page (`mockySceneJoin`, plus bas) est ce qui rend la
+phrase vraie — une seule scène est vivante, et la première montée garde la place
+jusqu'à ce que le lecteur fasse défiler vers une autre. Les chemins figés (une
+capture, `prefers-reduced-motion`) ne rationnent rien puisqu'une scène y tient
+son contexte le temps d'une image dans une seule tâche. Vérifié avec trois
+scènes sur une page : trois éléments, un seul canvas.
 
 Ce qu'une scène refusée perd, c'est le MOUVEMENT, pas l'objet. Elle dessinait le
 dégradé du « pas de WebGL » pendant une version — juste pour le budget, faux
