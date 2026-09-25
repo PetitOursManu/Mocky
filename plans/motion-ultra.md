@@ -79,7 +79,8 @@ la qualité baisse à chaque retouche :
       même, avec un avis visible
 - [~] Estimation temps + coût affichée **avant** de lancer — dans l'infobulle des
       boutons ×3 / ×6 ; pas encore de chiffre visible sans survol
-- [ ] Régénérer **une seule** image de la série sans refaire la page
+- [x] Régénérer **une seule** image de la série sans refaire la page
+      (médias de l'écran → « Autre version »)
 
 ## Étape 3 — La couche « gros CSS » (~3 j)
 
@@ -126,8 +127,8 @@ la qualité baisse à chaque retouche :
       assurée par le code, pas encore par un test
 - [~] Tests — catalogue, storyboard, kit CSS, export : faits ; contrôles et
       politique qualité : à écrire avec leurs étapes
-- [ ] Nouvelle série d'invariants « U » dans `docs/architecture/invariants.md` + FR
-- [ ] Documentation `docs/` + `docs/fr/`, mention dans les deux README
+- [x] Nouvelle série d'invariants « U » dans `docs/architecture/invariants.md` + FR
+- [x] Documentation `docs/` + `docs/fr/`, mention dans les deux README
 - [x] `npx tsc --noEmit && npm test && npm run build`
 
 ---
@@ -233,3 +234,19 @@ par les tests unitaires.
 
 Reste : documentation + invariants « U », régénérer une seule image, fonds
 vidéo (v2), test du chemin « film demandé » en réel.
+
+### 2026-09-26 — troisième tranche
+
+- **Test « film demandé »** (Muse + animations forcées + ×3) : le dossier voulait
+  un film héros dans `#hero`. Il a été transformé en `showcase`… puis refusé,
+  faute d'image (Muse n'en génère pas quand Motion Ultra tourne). Corrigé : le
+  compositeur reçoit la série. Retesté : film rendu et placé dans `#ateliers`,
+  héros intact avec son `<h1>`, 3 images sur 3.
+- **« Autre version »** d'une image dans les médias de l'écran, testé en réel :
+  image remplacée, « Revenir » possible, série Motion Ultra à jour.
+- **Documentation** : `docs/motion-ultra.md` + FR, invariants U1–U5, README,
+  CLAUDE.md.
+
+Reste pour la v1 : chiffre de coût visible sans survol ; contrôle du budget
+d'animation après génération ; test automatisé de « éteint = inchangé ».
+Puis la v2 (fonds vidéo).
