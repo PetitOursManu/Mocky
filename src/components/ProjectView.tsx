@@ -1912,6 +1912,9 @@ export default function ProjectView({
               // An established direction owns the palette and the typography,
               // so the rules about them become advice rather than corrections.
               hasDirection: Boolean(designMd && designMd.trim()),
+              // Motion Ultra's glass, gradients and halos are what the user
+              // switched it on for — reported, never "corrected" away.
+              ultra: Boolean(screen.ultra) || capIds.includes('ultra'),
               settings,
               signal: ac.signal,
             }),
