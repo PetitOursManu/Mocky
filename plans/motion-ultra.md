@@ -261,8 +261,11 @@ Puis la v2 (fonds vidéo).
 - contrôle de lisibilité du texte sur image *après* génération (l'audit de
   contraste existe, mais il ne mesure pas un pixel d'image) — aujourd'hui géré
   par les consignes des recettes ;
-- « une passe de correction si un contrôle échoue » : décidé non — les contrôles
-  signalent, l'utilisateur décide (U4) ;
+- « une passe de correction si un contrôle échoue » : remplacé par un **retour
+  arrière automatique** quand un écran ne s'affiche plus après une modification
+  et que la réparation automatique a échoué (gratuit, signalé). Les autres
+  contrôles (images, animations, style perdu) restent des messages : revenir en
+  arrière annulerait une modification que l'utilisateur a peut-être voulue ;
 - lecture page par page du corpus motionsites.ai.
 
 Suite : v2, fonds vidéo.

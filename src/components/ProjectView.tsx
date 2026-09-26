@@ -566,7 +566,15 @@ export default function ProjectView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkMode])
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
-  const retryRefs = useRef<Record<string, { count: number; lastError: string }>>({})
+  /**
+   * Per screen: how many repairs ran, the last error, and what to fall back on.
+   *
+   * `fallback` is the screen's `previousCode` at the FIRST failure — the version
+   * before the write that broke it. Read later it would be useless: each repair
+   * records the broken code as `previousCode`. `reverted` stops a fallback that
+   * itself fails from being reverted again.
+   */
+  const retryRefs = useRef<Record<string, { count: number; lastError: string; fallback?: string; reverted?: boolean }>>({})
   /** In-flight auto-repairs, keyed by screen id so each can be cancelled alone. */
   const retryAborts = useRef<Map<string, AbortController>>(new Map())
   // ProjectView is mounted with key={project.id} and unmounted the moment you
@@ -948,9 +956,29 @@ export default function ProjectView({
     // can fix that. See isEnvironmentError.
     if (isEnvironmentError(errorMessage)) return
     const state = retryRefs.current[screenId] || { count: 0, lastError: '' }
-    if (state.count >= MAX_FIX_ATTEMPTS) return
-    if (state.count > 0 && errorMessage === state.lastError) return // no progress → stop
-    retryRefs.current[screenId] = { count: state.count + 1, lastError: errorMessage }
+    const fallback = state.count === 0 ? screensRef.current.find((s) => s.id === screenId)?.previousCode : state.fallback
+    /*
+     * The repairs are spent, or the last one changed nothing: put the screen
+     * back to the version it had before the change that broke it, rather than
+     * leave an error where a screen was.
+     *
+     * Only HERE — once the model has finished trying, never while a repair is
+     * in flight (an error only arrives after its result has been written). It
+     * costs nothing: the previous version is already stored, no call is made.
+     * And it is SAID, because a change the user asked for has just been undone;
+     * the broken version stays one "Revert" away if they want to work from it.
+     * A screen with no previous version — a first generation — keeps its error.
+     */
+    if (state.count >= MAX_FIX_ATTEMPTS || (state.count > 0 && errorMessage === state.lastError)) {
+      if (state.reverted) return
+      retryRefs.current[screenId] = { ...state, reverted: true }
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now || !fallback || fallback === now.code) return
+      onUpdateScreen(screenId, { code: fallback, componentName: detectComponentName(fallback), previousCode: now.code })
+      setNotice(t('project.autoReverted', { name: now.name }))
+      return
+    }
+    retryRefs.current[screenId] = { count: state.count + 1, lastError: errorMessage, fallback }
     const screen = screens.find((s) => s.id === screenId)
     if (!screen || !screen.code.trim()) return
     const settings = loadSettings()
@@ -994,7 +1022,7 @@ export default function ProjectView({
         return next
       })
     }
-  }, [screens, onUpdateScreen, busy])
+  }, [screens, onUpdateScreen, busy, t])
 
   function addHotspot(screenId: string, target: string) {
     const screen = screens.find((s) => s.id === screenId)

@@ -106,6 +106,7 @@ export const project = {
     'project.museStageMedia': 'Lecture de votre média (palette, ambiance)…',
 
     // ---- Motion Ultra (réglage projet, pause dans le composer) ----
+    'project.autoReverted': '« {name} » ne s’affichait plus après la dernière modification et la réparation automatique n’y est pas arrivée : l’écran a été remis à sa version précédente, sans appel supplémentaire. « Revenir à la version précédente » rouvre la version cassée si vous voulez repartir d’elle.',
     'project.ultraChip': 'Motion Ultra',
     'project.ultraPaused': 'en pause',
     'project.ultraEnableTitle':
@@ -380,6 +381,7 @@ export const project = {
     'project.museStageMedia': 'Reading your media (palette, mood)…',
 
     // ---- Motion Ultra (project setting, paused from the composer) ----
+    'project.autoReverted': '“{name}” stopped rendering after the last change and the automatic repair could not fix it: the screen was put back to its previous version, at no extra cost. “Revert to the previous version” reopens the broken one if you want to work from it.',
     'project.ultraChip': 'Motion Ultra',
     'project.ultraPaused': 'paused',
     'project.ultraEnableTitle':
