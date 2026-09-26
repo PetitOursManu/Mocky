@@ -105,6 +105,41 @@ export const project = {
     'project.museStageHero': 'Génération de l’image héro…',
     'project.museStageMedia': 'Lecture de votre média (palette, ambiance)…',
 
+    // ---- Motion Ultra (réglage projet, pause dans le composer) ----
+    'project.autoReverted': '« {name} » ne s’affichait plus après la dernière modification et la réparation automatique n’y est pas arrivée : l’écran a été remis à sa version précédente, sans appel supplémentaire. « Revenir à la version précédente » rouvre la version cassée si vous voulez repartir d’elle.',
+    'project.ultraChip': 'Motion Ultra',
+    'project.ultraPaused': 'en pause',
+    'project.ultraEnableTitle':
+      'Activer Motion Ultra pour ce projet : chaque nouvel écran est storyboardé, illustré par une série d’images générées ensemble et mis en mouvement (fonds vivants, verre, typographie géante).',
+    'project.ultraActiveTitle':
+      'Motion Ultra est actif pour ce projet. Cliquez pour le mettre en pause pour les prochaines générations.',
+    'project.ultraPausedTitle':
+      'Motion Ultra est en pause dans ce composer — les prochains écrans seront générés normalement. Cliquez pour le reprendre.',
+    'project.ultraCountTitle': '{count} images générées par écran — environ {minutes} min d’attente en plus, et {count} images facturées par votre fournisseur.',
+    'project.ultraDisable': 'Désactiver Motion Ultra pour ce projet',
+    'project.ultraCost': '≈ +{minutes} min',
+    'project.ultraVideo': 'Fond vidéo',
+    'project.ultraVideoCost': '+1–3 min',
+    'project.ultraVideoTitle': 'Une section de chaque nouvel écran reçoit un fond vidéo : un film Motion fabriqué par votre machine à partir des images de la série — aucune vidéo facturée, un appel au modèle de texte et 1 à 3 minutes de rendu en plus.',
+    'project.ultraFilmStage': 'Motion Ultra — fond vidéo : {step}…',
+    'project.ultraFilmCompose': 'composition',
+    'project.ultraFilmRender': 'rendu (1 à 3 min)',
+    'project.ultraFilmUnavailable': 'Motion Ultra : le rendu vidéo n’est pas disponible en ce moment (module Motion arrêté ou non activé pour votre compte) ; l’écran garde ses fonds animés.',
+    'project.ultraFilmNoSection': 'Motion Ultra : aucune section de cet écran ne se prête à un fond vidéo, il n’a pas été fabriqué.',
+    'project.ultraFilmNoSlot': 'Motion Ultra : le fond vidéo a été fabriqué mais la page ne lui a pas réservé de place ; il est attaché à l’écran (carte à côté du cadre).',
+    'project.ultraFilmFailed': 'Motion Ultra : le fond vidéo n’a pas pu être fabriqué ({detail}). La section garde son fond animé.',
+    'project.legibility': '{count} texte(s) posé(s) sur une image se lisent mal ({list}). « Modifier » peut ajouter un voile ou un fond derrière eux.',
+    'project.ultraLegibility': 'Motion Ultra : {count} texte(s) posé(s) sur une image se lisent mal ({list}). « Modifier » peut ajouter un voile ou un fond derrière eux.',
+    'project.ultraTooMuchMotion': 'Motion Ultra : cette page anime beaucoup à la fois ({backdrops} fond(s) animé(s) pour {maxBackdrops} conseillés, {loops} animation(s) en boucle pour {maxLoops}). Elle peut ramer sur le canevas ; « Modifier » peut en retirer.',
+    'project.ultraStageStoryboard': 'Motion Ultra — storyboard…',
+    'project.ultraStageImages': 'Motion Ultra — images {done}/{total}…',
+    'project.ultraImagesMissing': 'Motion Ultra : {made} image(s) sur {total} ont pu être générées ({reason}). Les sections concernées utilisent un fond animé à la place.',
+    'project.ultraUnusedImages': 'Motion Ultra : {count} image(s) sur {total} générées pour cet écran n’y apparaissent pas. Elles restent disponibles dans Média.',
+    'project.ultraEditLoss': 'Cette modification a retiré {what} de « {name} ». « Revenir à la version précédente », dans le menu de l’écran, le rétablit.',
+    'project.ultraLossImages': '{count} image(s) Motion Ultra',
+    'project.ultraLossKit': 'le style Motion Ultra',
+    'project.ultraLossAnd': ' et ',
+
     // ---- animations (interrupteur à trois états) ----
     'project.animAuto': '✦ Animations auto',
     'project.animOn': '✦ Animations forcées',
@@ -356,6 +391,41 @@ export const project = {
     'project.museStageInspiration': 'Generating the inspiration image…',
     'project.museStageHero': 'Generating the hero image…',
     'project.museStageMedia': 'Reading your media (palette, mood)…',
+
+    // ---- Motion Ultra (project setting, paused from the composer) ----
+    'project.autoReverted': '“{name}” stopped rendering after the last change and the automatic repair could not fix it: the screen was put back to its previous version, at no extra cost. “Revert to the previous version” reopens the broken one if you want to work from it.',
+    'project.ultraChip': 'Motion Ultra',
+    'project.ultraPaused': 'paused',
+    'project.ultraEnableTitle':
+      'Turn Motion Ultra on for this project: every new screen is storyboarded, illustrated with a series of pictures generated together, and set in motion (living backgrounds, glass, display type).',
+    'project.ultraActiveTitle':
+      'Motion Ultra is on for this project. Click to pause it for the next generations.',
+    'project.ultraPausedTitle':
+      'Motion Ultra is paused in this composer — the next screens are generated normally. Click to resume it.',
+    'project.ultraCountTitle': '{count} pictures generated per screen — about {minutes} more minutes of waiting, and {count} pictures billed by your provider.',
+    'project.ultraDisable': 'Turn Motion Ultra off for this project',
+    'project.ultraCost': '≈ +{minutes} min',
+    'project.ultraVideo': 'Video background',
+    'project.ultraVideoCost': '+1–3 min',
+    'project.ultraVideoTitle': 'One section of each new screen gets a video background: a Motion film made by your own machine from the series’ pictures — no video is billed, one text-model call and 1 to 3 minutes of rendering on top.',
+    'project.ultraFilmStage': 'Motion Ultra — video background: {step}…',
+    'project.ultraFilmCompose': 'composing',
+    'project.ultraFilmRender': 'rendering (1 to 3 min)',
+    'project.ultraFilmUnavailable': 'Motion Ultra: video rendering is not available right now (Motion worker stopped, or not enabled for your account); the screen keeps its animated backgrounds.',
+    'project.ultraFilmNoSection': 'Motion Ultra: no section of this screen suits a video background, so none was made.',
+    'project.ultraFilmNoSlot': 'Motion Ultra: the video background was made but the page kept no place for it; it is attached to the screen (card beside the frame).',
+    'project.ultraFilmFailed': 'Motion Ultra: the video background could not be made ({detail}). The section keeps its animated background.',
+    'project.legibility': '{count} piece(s) of text laid over a picture are hard to read ({list}). “Edit” can add a veil or a panel behind them.',
+    'project.ultraLegibility': 'Motion Ultra: {count} piece(s) of text laid over a picture are hard to read ({list}). “Edit” can add a veil or a panel behind them.',
+    'project.ultraTooMuchMotion': 'Motion Ultra: this page moves a lot at once ({backdrops} animated background(s) for {maxBackdrops} advised, {loops} looping animation(s) for {maxLoops}). It may stutter on the canvas; “Edit” can take some out.',
+    'project.ultraStageStoryboard': 'Motion Ultra — storyboard…',
+    'project.ultraStageImages': 'Motion Ultra — pictures {done}/{total}…',
+    'project.ultraImagesMissing': 'Motion Ultra: {made} of {total} pictures could be generated ({reason}). The sections that wanted them use an animated background instead.',
+    'project.ultraUnusedImages': 'Motion Ultra: {count} of the {total} pictures generated for this screen do not appear in it. They are still in Media.',
+    'project.ultraEditLoss': 'This change removed {what} from “{name}”. “Revert to the previous version”, in the screen’s menu, brings it back.',
+    'project.ultraLossImages': '{count} Motion Ultra picture(s)',
+    'project.ultraLossKit': 'the Motion Ultra style',
+    'project.ultraLossAnd': ' and ',
 
     // ---- animations (three-state override) ----
     'project.animAuto': '✦ Animations auto',

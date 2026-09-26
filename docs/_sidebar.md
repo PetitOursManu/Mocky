@@ -10,6 +10,7 @@
   - [Inspiration engine](muse/inspiration-engine.md)
   - [Animations](muse/animations.md)
 - [Quality pass](quality.md)
+- [Motion Ultra](motion-ultra.md)
 - [SEO and accessibility](seo-accessibility.md)
 - [Motion](video-export.md)
 - [Deployment](deployment.md)

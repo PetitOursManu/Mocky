@@ -447,7 +447,8 @@ export default function Canvas({
   onRenameScreen: (id: string, name: string) => void
   onDeleteScreen: (id: string) => void
   /** Open the Muse image of a screen full size. */
-  onOpenImage?: (hash: string) => void
+  /** Open a picture full size; `series` lets the viewer step through a Motion Ultra screen's set. */
+  onOpenImage?: (hash: string, series?: string[]) => void
   /** Play the media attached to a screen — the card beside the frame. */
   onOpenScreenMedia?: (media: AttachedMedia) => void
   linkMode: boolean
@@ -1306,14 +1307,28 @@ export default function Canvas({
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   {s.imageHash && (
+                    <div className={s.ultra && s.ultra.images.length > 1 ? 'relative mt-3 mr-3' : 'relative'}>
+                      {/* Frames stacked behind the card: a Motion Ultra screen was
+                          made from a SERIES, and a single picture on the card hid
+                          that there was anything more to open. */}
+                      {s.ultra && s.ultra.images.length > 1 && (
+                        <>
+                          <div aria-hidden className="absolute inset-0 rounded-xl border border-muse/50 bg-muse/15" style={{ transform: 'translate(12px, -12px)' }} />
+                          <div aria-hidden className="absolute inset-0 rounded-xl border border-muse/60 bg-muse/10" style={{ transform: 'translate(6px, -6px)' }} />
+                        </>
+                      )}
                     <button
                       type="button"
-                      className="block w-full overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
-                      title={t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)}
+                      className="relative block w-full overflow-hidden rounded-xl border border-muse/60 bg-raised shadow-xl transition hover:border-muse"
+                      title={
+                        s.ultra
+                          ? t('canvas.ultraTitle', { count: s.ultra.images.length, planned: s.ultra.planned, recipes: s.ultra.recipes.join(', ') })
+                          : t(IMAGE_ROLE[s.imageRole ?? 'unknown'].titleKey)
+                      }
                       style={{ cursor: 'pointer' }}
                       onClick={(e) => {
                         e.stopPropagation()
-                        onOpenImage?.(s.imageHash as string)
+                        onOpenImage?.(s.imageHash as string, s.ultra && s.ultra.images.length > 1 ? s.ultra.images : undefined)
                       }}
                     >
                       <img src={`/api/images/${s.imageHash}`} alt="" className="block w-full object-cover" />
@@ -1321,10 +1336,22 @@ export default function Canvas({
                         className="flex items-center bg-muse/15 text-muse-ink"
                         style={{ padding: '7px 10px', fontSize: 17, gap: 6 }}
                       >
-                        <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={17} />
-                        {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
+                        {/* A Motion Ultra screen says so here: the picture is the
+                            first of a series, not the one image Muse placed. */}
+                        {s.ultra ? (
+                          <>
+                            <Icon name="film" size={17} />
+                            {t('canvas.ultraLabel', { count: s.ultra.images.length })}
+                          </>
+                        ) : (
+                          <>
+                            <Icon name={IMAGE_ROLE[s.imageRole ?? 'unknown'].icon} size={17} />
+                            {t(IMAGE_ROLE[s.imageRole ?? 'unknown'].labelKey)}
+                          </>
+                        )}
                       </span>
                     </button>
+                    </div>
                   )}
 
                   {/* Under the image rather than over it: the picture is what the

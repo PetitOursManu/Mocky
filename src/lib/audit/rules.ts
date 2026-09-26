@@ -579,7 +579,9 @@ function textSizeOf(base: string): number {
   if (!base.startsWith('text-')) return NaN
   const value = base.slice('text-'.length)
   const named = TEXT_SIZE_PX[value]
-  // `typeof`, not truthiness: `text-constructor` reaches Object.prototype.
+  // `typeof`, not truthiness: a class named after `constructor` reaches
+  // Object.prototype. (Never spelled out as one token here — Tailwind scans this
+  // file and emitted a `font-size: function Object()` rule for it.)
   if (typeof named === 'number') return named
   const inner = bracketed(value)
   // `text-[#0f172a]` and `text-[13px]` share every character of their shape,

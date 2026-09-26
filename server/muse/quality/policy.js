@@ -87,24 +87,57 @@ export const RULE_POLICY = {
   //   'extreme-card-radius': { disposition: 'advise', reason: 'Large radii are part of the brand; report, do not rewrite.' },
 }
 
+/**
+ * What a Motion Ultra screen is MADE of, and so what the correction loop must
+ * not take away from it.
+ *
+ * Motion Ultra is a project setting the user switched on to get exactly these
+ * treatments: frosted surfaces, gradient display type, halos, a light that
+ * follows the cursor, display type set tight, a living background clipped by
+ * its section. Enforced, the polish pass reads each of them as slop and
+ * rewrites the screen into the ordinary one the user did not ask for — the same
+ * fight as `generate.ts`'s direction sentence, one level up. So on such a
+ * screen they are reported and never fed to the loop.
+ *
+ * Only these. Everything else a Motion Ultra screen can get wrong — placeholder
+ * copy, contrast, identical card grids — is still enforced, because the kit
+ * does not make any of it right.
+ */
+export const ULTRA_TREATMENTS = {
+  'glassmorphism-everywhere': 'Frosted surfaces are one of the kit’s recipes (u-glass).',
+  'gradient-text': 'Gradient display type is one of the kit’s classes (u-text-gradient).',
+  'dark-glow': 'The kit’s halo (u-glow) and <Backdrop> glows are the requested look.',
+  'radial-halo': 'A halo behind an isolated object is the object-hero recipe.',
+  'radial-spotlight-glow': 'The spotlight backdrop is one of the kit’s presets.',
+  'extreme-negative-tracking': 'Display type set tight is the kit’s u-display.',
+  'clipped-overflow-container': 'A <Backdrop> is clipped by its section on purpose.',
+}
+
 /** Disposition for any rule the table above does not mention. */
 export const DEFAULT_DISPOSITION = 'enforce'
 
 /**
  * Resolve a rule's disposition for one particular run.
  *
- * `hasDirection` is the only context that matters: it flips every 'direction'
- * rule between 'enforce' and 'advise'. Everything else is static.
+ * `hasDirection` flips every 'direction' rule between 'enforce' and 'advise';
+ * `ultra` demotes the treatments a Motion Ultra screen is built from (see
+ * ULTRA_TREATMENTS). Everything else is static.
  */
-export function dispositionFor(ruleId, { hasDirection = false } = {}) {
+export function dispositionFor(ruleId, { hasDirection = false, ultra = false } = {}) {
   const entry = RULE_POLICY[ruleId]
-  if (!entry) return DEFAULT_DISPOSITION
-  if (entry.disposition === 'direction') return hasDirection ? 'advise' : 'enforce'
-  return entry.disposition
+  const base = !entry
+    ? DEFAULT_DISPOSITION
+    : entry.disposition === 'direction'
+      ? hasDirection ? 'advise' : 'enforce'
+      : entry.disposition
+  // Demote, never promote: a rule the table ignores stays ignored.
+  if (ultra && ULTRA_TREATMENTS[ruleId] && base === 'enforce') return 'advise'
+  return base
 }
 
 /** The human-readable justification, or null when the rule takes the default. */
-export function reasonFor(ruleId) {
+export function reasonFor(ruleId, { ultra = false } = {}) {
+  if (ultra && ULTRA_TREATMENTS[ruleId]) return ULTRA_TREATMENTS[ruleId]
   return RULE_POLICY[ruleId]?.reason ?? null
 }
 
@@ -116,11 +149,11 @@ export function reasonFor(ruleId) {
  * shrinking the list. Nothing here throws: a quality run can never fail a
  * generation (invariant Q1).
  */
-export function applyPolicy(findings, { hasDirection = false } = {}) {
+export function applyPolicy(findings, { hasDirection = false, ultra = false } = {}) {
   const kept = []
   const ignored = []
   for (const f of findings) {
-    const disposition = dispositionFor(f.rule, { hasDirection })
+    const disposition = dispositionFor(f.rule, { hasDirection, ultra })
     if (disposition === 'ignore') {
       ignored.push(f.rule)
       continue

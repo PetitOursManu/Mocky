@@ -14,6 +14,7 @@
  * `import React` is genuinely used and there are no dangling imports.
  */
 import { CAPABILITIES } from '../capabilities/registry'
+import { capabilitiesUsedBy } from '../capabilities/select'
 
 /** React named exports the preview hoists onto window as bare globals. */
 export const REACT_HOOKS = [
@@ -151,7 +152,24 @@ export async function rewriteScreenToEsm(code: string): Promise<RewrittenScreen>
   } catch {
     free = new Set()
   }
-  const { header, imports } = buildImportHeader(free)
+  const built = buildImportHeader(free)
+  const imports = built.imports
+  let header = built.header
+  /*
+   * A pack that STYLES is needed by a screen that names none of its components.
+   * The Ultra kit's stylesheet is injected when its module is evaluated, and a
+   * screen written only in `u-glass` / `u-display` references no identifier from
+   * it — the scope walk above finds nothing to import, and the exported site
+   * renders every frosted surface as a plain box. So the class check that
+   * `capabilitiesUsedBy` does for the preview decides a side-effect import here.
+   */
+  for (const cap of CAPABILITIES) {
+    if (!cap.classes?.length) continue
+    const mod = `@/components/ui/${cap.id}`
+    if (imports.includes(mod) || !capabilitiesUsedBy(jsx).includes(cap.id)) continue
+    header = header ? `${header}\nimport '${mod}'` : `import '${mod}'`
+    imports.push(mod)
+  }
   const body = jsx.endsWith('\n') ? jsx : jsx + '\n'
   const source = header ? `${header}\n\n${body}` : body
   return { source, imports }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { detectQuality, enforceable, signature } from './detect.js'
-import { dispositionFor, applyPolicy, RULE_POLICY } from './policy.js'
+import { dispositionFor, applyPolicy, RULE_POLICY, ULTRA_TREATMENTS, reasonFor } from './policy.js'
 import { critiqueScreen } from './critique.js'
 import { buildAudit, priorityOf, bandFor, dimensionOf } from './audit.js'
 import { runQuality } from './index.js'
@@ -363,5 +363,41 @@ describe('runQuality', () => {
     }
     await expect(runQuality({ code: SLOPPY }, { llm })).resolves.toBeTruthy()
     await expect(runQuality({ code: '' }, { llm })).resolves.toBeTruthy()
+  })
+})
+
+/**
+ * A Motion Ultra screen is built from the treatments the slop rules exist to
+ * catch. Enforced, polish rewrites the screen into the ordinary one the user
+ * switched Motion Ultra on to avoid.
+ */
+describe('policy on a Motion Ultra screen', () => {
+  it('reports its own treatments and never feeds them to the loop', () => {
+    for (const rule of Object.keys(ULTRA_TREATMENTS)) {
+      expect(dispositionFor(rule, { ultra: true }), rule).toBe('advise')
+      expect(reasonFor(rule, { ultra: true }), rule).toBeTruthy()
+    }
+    expect(dispositionFor('glassmorphism-everywhere')).toBe('enforce')
+    expect(dispositionFor('gradient-text')).toBe('enforce')
+  })
+
+  it('still enforces what the kit does not make right, and never promotes an ignored rule', () => {
+    expect(dispositionFor('identical-card-grid', { ultra: true })).toBe('enforce')
+    expect(dispositionFor('placeholder-identities', { ultra: true })).toBe('enforce')
+    expect(dispositionFor('broken-image', { ultra: true })).toBe('ignore')
+    const { findings } = applyPolicy(
+      [{ rule: 'gradient-text' }, { rule: 'identical-card-grid' }],
+      { ultra: true },
+    )
+    expect(findings.map((f) => [f.rule, f.disposition])).toEqual([
+      ['gradient-text', 'advise'],
+      ['identical-card-grid', 'enforce'],
+    ])
+  })
+
+  it('names only rules that exist, in the detector or the judged catalogue', async () => {
+    const { ANTIPATTERNS } = await import('impeccable')
+    const known = new Set([...ANTIPATTERNS.map((a) => a.id), ...JUDGED_RULES.map((r) => r.id)])
+    for (const rule of Object.keys(ULTRA_TREATMENTS)) expect(known.has(rule), rule).toBe(true)
   })
 })

@@ -28,6 +28,7 @@ export { RULE_POLICY, dispositionFor, applyPolicy } from './policy.js'
  * @param {object} args
  * @param {string} args.code            The generated component source.
  * @param {boolean} [args.hasDirection] Project has an established art direction.
+ * @param {boolean} [args.ultra]        The screen was built by Motion Ultra.
  * @param {boolean} [args.critique]     Run the judged pass (needs a model).
  * @param {object} deps
  * @param {((req:object)=>Promise<any>)|null} [deps.llm]
@@ -39,13 +40,14 @@ export async function runQuality(args, deps = {}) {
 
   const code = typeof args?.code === 'string' ? args.code : ''
   const hasDirection = args?.hasDirection === true
+  const ultra = args?.ultra === true
   const wantCritique = args?.critique !== false
 
-  const detected = await detectQuality(code, { hasDirection, onNotice })
+  const detected = await detectQuality(code, { hasDirection, ultra, onNotice })
 
   let judged = { findings: [], verdicts: [], available: false }
   if (wantCritique) {
-    judged = await critiqueScreen(deps.llm || null, code, { hasDirection, onNotice, signal: deps.signal })
+    judged = await critiqueScreen(deps.llm || null, code, { hasDirection, ultra, onNotice, signal: deps.signal })
   }
 
   const audit = buildAudit([...detected.findings, ...judged.findings], {

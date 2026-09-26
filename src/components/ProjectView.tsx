@@ -2,16 +2,24 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
 import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type Screen, headline } from '../lib/project'
+import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, type ScreenUltra, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
-import { captureRegion } from '../lib/capture'
+import { captureRegion, checkLegibility } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from '../lib/plan'
+import { runStoryboard } from '../lib/ultra/storyboard'
+import { generateUltraImages } from '../lib/ultra/images'
+import { buildUltraPreamble } from '../lib/ultra/preamble'
+import UltraControl from './UltraControl'
+import { isEnvironmentError } from '../lib/previewErrors'
+import { missingUltraImages, ultraLoss, ultraMotionCount, ULTRA_BUDGET } from '../lib/ultra/check'
+import { filmSectionOf, plugFilmIntoSlot } from '../lib/ultra/filmSlot'
+import { buildReuseSection, projectUltraPictures } from '../lib/ultra/reuse'
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
@@ -195,6 +203,7 @@ export default function ProjectView({
   onSetReference,
   onRenameProject,
   onSetDesign,
+  onSetUltra,
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -209,11 +218,26 @@ export default function ProjectView({
   onRenameProject: (name: string) => void
   /** Set this project's own design direction, or null to fall back to DESIGN.md. */
   onSetDesign: (markdown: string | null) => void
+  /** Switch Motion Ultra on for this project (with its picture count), or off with null. */
+  onSetUltra: (ultra: ProjectUltra | null) => void
 }) {
   const t = useT()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | null>(null)
+  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | null>(null)
+  /**
+   * Motion Ultra paused for the next generations, from the composer.
+   *
+   * The project decides whether it is an Ultra project; this is the composer's
+   * "not this one". Kept for the session rather than spent on one generation:
+   * someone who pauses it to add three plain settings screens should not have
+   * to pause it three times. Not persisted — a reload hands the decision back
+   * to the project.
+   */
+  const [ultraPaused, setUltraPaused] = useState(false)
+  /** Where a running Motion Ultra pass is: "storyboard", "images 2/6"… */
+  const [ultraStage, setUltraStage] = useState<string | null>(null)
+  const ultraActive = !!project.ultra && !ultraPaused
   /**
    * "Cette génération redéfinit la direction" — armed by hand, spent on use.
    *
@@ -271,6 +295,8 @@ export default function ProjectView({
   const [libraryTab, setLibraryTab] = useState<MediaTab>('images')
   /** Image opened full size (from the canvas card or the library grid). */
   const [lightboxHash, setLightboxHash] = useState<string | null>(null)
+  /** The series the open picture belongs to, when the canvas opened a Motion Ultra card. */
+  const [lightboxSeries, setLightboxSeries] = useState<string[] | undefined>(undefined)
   /**
    * A film opened for playback from the attached-media card on the canvas.
    *
@@ -453,6 +479,8 @@ export default function ProjectView({
    * outcome of not knowing.
    */
   const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
+  /** Motion Ultra's video background can be offered: a `background` film is renderable. */
+  const ultraVideoAvailable = !!motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')
   useEffect(() => {
     // Asked once whatever Muse's state: the composer's animation switch can
     // impose a film without Muse, so whether one can be made is a question the
@@ -544,7 +572,15 @@ export default function ProjectView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkMode])
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
-  const retryRefs = useRef<Record<string, { count: number; lastError: string }>>({})
+  /**
+   * Per screen: how many repairs ran, the last error, and what to fall back on.
+   *
+   * `fallback` is the screen's `previousCode` at the FIRST failure — the version
+   * before the write that broke it. Read later it would be useless: each repair
+   * records the broken code as `previousCode`. `reverted` stops a fallback that
+   * itself fails from being reverted again.
+   */
+  const retryRefs = useRef<Record<string, { count: number; lastError: string; fallback?: string; reverted?: boolean }>>({})
   /** In-flight auto-repairs, keyed by screen id so each can be cancelled alone. */
   const retryAborts = useRef<Map<string, AbortController>>(new Map())
   // ProjectView is mounted with key={project.id} and unmounted the moment you
@@ -922,10 +958,33 @@ export default function ProjectView({
   // the code is still streaming and incomplete errors are expected.
   const onScreenError = useCallback(async (screenId: string, errorMessage: string) => {
     if (busy) return
+    // The frame could not load its own runtime — nothing in the screen's code
+    // can fix that. See isEnvironmentError.
+    if (isEnvironmentError(errorMessage)) return
     const state = retryRefs.current[screenId] || { count: 0, lastError: '' }
-    if (state.count >= MAX_FIX_ATTEMPTS) return
-    if (state.count > 0 && errorMessage === state.lastError) return // no progress → stop
-    retryRefs.current[screenId] = { count: state.count + 1, lastError: errorMessage }
+    const fallback = state.count === 0 ? screensRef.current.find((s) => s.id === screenId)?.previousCode : state.fallback
+    /*
+     * The repairs are spent, or the last one changed nothing: put the screen
+     * back to the version it had before the change that broke it, rather than
+     * leave an error where a screen was.
+     *
+     * Only HERE — once the model has finished trying, never while a repair is
+     * in flight (an error only arrives after its result has been written). It
+     * costs nothing: the previous version is already stored, no call is made.
+     * And it is SAID, because a change the user asked for has just been undone;
+     * the broken version stays one "Revert" away if they want to work from it.
+     * A screen with no previous version — a first generation — keeps its error.
+     */
+    if (state.count >= MAX_FIX_ATTEMPTS || (state.count > 0 && errorMessage === state.lastError)) {
+      if (state.reverted) return
+      retryRefs.current[screenId] = { ...state, reverted: true }
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now || !fallback || fallback === now.code) return
+      onUpdateScreen(screenId, { code: fallback, componentName: detectComponentName(fallback), previousCode: now.code })
+      setNotice(t('project.autoReverted', { name: now.name }))
+      return
+    }
+    retryRefs.current[screenId] = { count: state.count + 1, lastError: errorMessage, fallback }
     const screen = screens.find((s) => s.id === screenId)
     if (!screen || !screen.code.trim()) return
     const settings = loadSettings()
@@ -969,7 +1028,7 @@ export default function ProjectView({
         return next
       })
     }
-  }, [screens, onUpdateScreen, busy])
+  }, [screens, onUpdateScreen, busy, t])
 
   function addHotspot(screenId: string, target: string) {
     const screen = screens.find((s) => s.id === screenId)
@@ -1100,6 +1159,16 @@ export default function ProjectView({
               caps,
             )
             onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
+            // A Motion Ultra screen can lose its pictures or its kit to an edit
+            // about one line. Said, not undone: Revert is one click away.
+            const loss = sc.ultra ? ultraLoss(oldCode, res.code, sc.ultra) : null
+            if (loss) {
+              const what = [
+                loss.images.length ? t('project.ultraLossImages', { count: loss.images.length }) : '',
+                loss.kit ? t('project.ultraLossKit') : '',
+              ].filter(Boolean).join(t('project.ultraLossAnd'))
+              setNotice(t('project.ultraEditLoss', { what, name: sc.name }))
+            }
           } catch (err) {
             // Put the screen back the way we found it. A half-written component
             // is worse than no change at all.
@@ -1210,7 +1279,10 @@ export default function ProjectView({
             // Generate a new hero only when no pin already covers a slot (capped
             // to keep the run fast; multi-image is a later increment).
             const remaining = plan.slice(pins.length)
-            if (remaining.length && pins.length === 0) {
+            // Motion Ultra generates its own series further down, planned as
+            // one shoot. Muse's hero on top of it would be a seventh picture
+            // nobody placed, paid for on every run.
+            if (remaining.length && pins.length === 0 && !ultraActive) {
               // A mood/art-direction reference and a hero photo are different
               // jobs, so they run on different image models (Admin → profils).
               const profile = profileForMode(effectiveImageMode)
@@ -1241,7 +1313,7 @@ export default function ProjectView({
                 onError: (msg) => setMuseImageError(msg),
               })
               imgs = [...imgs, ...gen]
-            } else if (!remaining.length && !pins.length) {
+            } else if (!remaining.length && !pins.length && !ultraActive) {
               // No imagery slot at all. The dossier now guarantees a hero, so
               // this means something upstream produced nothing — say so rather
               // than finishing silently with an image-less screen.
@@ -1381,7 +1453,70 @@ export default function ProjectView({
         // skipped on every Muse run and whenever the setting is off, and a mode
         // that only existed on the planner path would almost never exist.
         let mode = inferMode(text)
-        if (settings.usePlanner && !musePreamble) {
+
+        /*
+         * Motion Ultra: storyboard → a series of pictures → a section that
+         * replaces the planner's (the storyboard IS the plan, in recipes).
+         *
+         * Off, this block does not run and the path below is exactly the one
+         * every non-Ultra project has always taken. On, it degrades rather than
+         * fails: the storyboard falls back on its own, a picture that could not
+         * be made leaves its recipe to <Backdrop>, and anything that throws here
+         * short of a cancel leaves an ordinary generation.
+         */
+        let ultraRecord: ScreenUltra | undefined
+        let ultraImageHash: string | undefined
+        /** The section Motion Ultra opened the page with — a film must not take it. */
+        let ultraOpening: string | undefined
+        /** The one section whose background becomes a rendered film (v2), if any. */
+        let ultraFilmSection: string | null = null
+        /** Video background asked for, and a film can be rendered right now. */
+        const ultraVideo = !!project.ultra?.video && motionKindIds.includes('background')
+        if (ultraActive && project.ultra) {
+          try {
+            setPhase('ultra')
+            setUltraStage(t('project.ultraStageStoryboard'))
+            const board = await runStoryboard(settings, text, project.ultra.count, mode, {
+              design: dir.markdown,
+              presetHint: preset.hint,
+              signal: ac.signal,
+            })
+            // The storyboard read the whole request; its mode beats the keyword guess.
+            mode = board.mode
+            const total = board.images.length
+            setUltraStage(t('project.ultraStageImages', { done: 0, total }))
+            const failures: string[] = []
+            const made = await generateUltraImages(board, project.id, {
+              signal: ac.signal,
+              onImage: (_im, done) => setUltraStage(t('project.ultraStageImages', { done, total })),
+              onError: (msg) => failures.push(msg),
+            })
+            if (made.length < total) {
+              setMuseImageError(
+                t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
+              )
+            }
+            ultraFilmSection = ultraVideo ? filmSectionOf(board.sections, board.mode) : null
+            planSection = [
+              buildUltraPreamble(board, made, { filmSection: ultraFilmSection }),
+              modeToPromptSection(mode),
+            ].join('\n\n')
+            ultraRecord = {
+              recipes: board.sections.map((s) => s.recipe),
+              images: made.map((im) => im.hash),
+              planned: project.ultra.count,
+            }
+            ultraImageHash = made[0]?.hash
+            ultraOpening = board.sections[0]?.id
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            if (ac.signal.aborted) throw err
+          } finally {
+            setUltraStage(null)
+          }
+        }
+
+        if (settings.usePlanner && !musePreamble && !ultraRecord) {
           setPhase('planning')
           const plan = await planScreen(
             settings, text, shortlist,
@@ -1397,6 +1532,29 @@ export default function ProjectView({
         // Appended to the plan section rather than folded into it, so the mode
         // still reaches generation on the paths where no plan was produced.
         if (!planSection) planSection = modeToPromptSection(mode)
+        /*
+         * No series for THIS screen, but the project has pictures a Motion Ultra
+         * run already paid for: offer them (lib/ultra/reuse.ts). Only a project
+         * that has such pictures is touched, so one that never used Motion
+         * Ultra takes exactly the path it always took (U1). Best-effort: a
+         * library that does not answer offers nothing.
+         */
+        if (!ultraRecord) {
+          const owned = projectUltraPictures(screensRef.current)
+          if (owned.length) {
+            try {
+              const lib = await listLibrary({ project: project.id }, ac.signal)
+              const pictures = owned.map((hash) => {
+                const meta = lib.find((m) => m.hash === hash)
+                return { url: absoluteUrl(imageUrl(hash)), about: (meta?.prompt || '').split('.')[0].slice(0, 140) || 'a picture of this project' }
+              })
+              const reuse = buildReuseSection(pictures)
+              if (reuse) planSection = [planSection, reuse].filter(Boolean).join('\n\n')
+            } catch (err) {
+              if (err instanceof Error && err.name === 'AbortError') throw err
+            }
+          }
+        }
         // The user's standing answer about motion, applied once, after both the
         // shortlist and the planner have had their say. 'auto' — the default —
         // changes nothing.
@@ -1407,6 +1565,9 @@ export default function ProjectView({
         // keyword triggers precisely because it is never a guess: it is added
         // here, and only here, when there is something for it to draw.
         if (museVideo) capIds = capIds.includes('scrollvideo') ? capIds : [...capIds, 'scrollvideo']
+        // Same rule for the Ultra kit: force-added when a storyboard exists, and
+        // then persisted on the screen, so every later edit of it sees the kit.
+        if (ultraRecord && !capIds.includes('ultra')) capIds = [...capIds, 'ultra']
 
         setPhase('generating')
         const caps = resolveCapabilities(capIds)
@@ -1434,12 +1595,13 @@ export default function ProjectView({
           // generated under an older direction must keep saying so — that is
           // what makes "reprendre ce DESIGN.md" meaningful.
           design: dir.markdown,
-          imageHash: museImageHash,
+          imageHash: museImageHash ?? ultraImageHash,
           // Recorded so the canvas can say what the image was for. Without it
           // the badge could only ever say "Image Muse", which is exactly the
           // ambiguity that made it impossible to tell whether inspiration mode
           // had done anything.
-          imageRole: museImageHash ? effectiveImageMode : undefined,
+          imageRole: museImageHash ? effectiveImageMode : ultraImageHash ? 'content' : undefined,
+          ultra: ultraRecord,
           // Persisted as a pair so a reload can rebuild the sequence without
           // asking the server what it cut.
           videoHash: museVideo?.hash,
@@ -1463,6 +1625,53 @@ export default function ProjectView({
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())
+        // Every picture of the series was paid for; one the page left out is
+        // worth a sentence (see lib/ultra/check.ts).
+        if (ultraRecord) {
+          const said: string[] = []
+          const unused = missingUltraImages(result.code, ultraRecord)
+          if (unused.length) {
+            said.push(t('project.ultraUnusedImages', { count: unused.length, total: ultraRecord.images.length }))
+          }
+          // The budget the prompt states, checked on what came back.
+          const moving = ultraMotionCount(result.code)
+          if (moving.over) {
+            said.push(
+              t('project.ultraTooMuchMotion', {
+                backdrops: moving.backdrops,
+                loops: moving.loops,
+                maxBackdrops: ULTRA_BUDGET.backdrops,
+                maxLoops: ULTRA_BUDGET.loops,
+              }),
+            )
+          }
+          if (said.length) setNotice(said.join(' '))
+          /*
+           * Text laid over a picture, read on the rendered pixels (see
+           * lib/legibility.ts) — the one thing the class-based contrast audit
+           * cannot see. In the background, after the screen is on the canvas:
+           * about a second of rendering, no model call, and a failure to check
+           * is not a finding (Q1).
+           */
+        }
+        /*
+         * Text laid over a picture, read on the rendered pixels (lib/legibility.ts)
+         * — for EVERY screen that lays text over one, not only Motion Ultra's: a
+         * Muse hero photo or a pinned image has the same blind spot in the
+         * class-based audit. A screen with no picture is never rendered for it.
+         * Local, about a second, in the background; a failure to check is not a
+         * finding (Q1).
+         */
+        if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence'].some((k) => result.code.includes(k))) {
+          checkLegibility(result.code, preset.w, preset.h, caps)
+            .then((hard) => {
+              if (!hard.length) return
+              const list = hard.slice(0, 3).map((f) => `« ${f.text.length > 40 ? f.text.slice(0, 40) + '…' : f.text} »`).join(', ')
+              const line = t(ultraRecord ? 'project.ultraLegibility' : 'project.legibility', { count: hard.length, list })
+              setNotice((prev) => (prev ? `${prev} ${line}` : line))
+            })
+            .catch(() => {})
+        }
 
         /*
          * The Motion film, when the animation switch and the request call for one.
@@ -1495,11 +1704,14 @@ export default function ProjectView({
          * or there is no film.
          */
         const page3d = await readPage3D(result.code)
-        const museFilm = decideFilm({
+        // A Motion Ultra video background IS this screen's film; a Muse film on
+        // top would be a second render for the same page, paid in minutes.
+        const museFilm = ultraFilmSection ? null : decideFilm({
           mode: animationMode,
           kinds: motionKindIds,
           dossier: museRan ? museDossier?.film : undefined,
           pageAnimatesBackground: page3d.animatedBackdrop,
+          openingTaken: ultraOpening,
         })
         if (museFilm) {
           const kindName = t(`muse.motionKind.${museFilm.kind}` as TranslationKey)
@@ -1508,11 +1720,19 @@ export default function ProjectView({
             const theme = themeFromDesign(dir.markdown)
             const proposal = await proposeVideoTimeline(
               text,
-              // The pictures Muse just made, and nothing else. The composer
+              // The pictures this run made, and nothing else. The composer
               // never picks a picture (the founding rule), so this list is the
               // whole world it is shown — and a kind that needs none composes
               // from the twenty-one blocks that need none.
-              museImgs.map((im) => im.url.split('/').pop() || '').filter((h) => /^[a-f0-9]{64}$/.test(h)),
+              //
+              // Motion Ultra's series counts: with it on, Muse generates none
+              // of its own, so a film moved off the opening to a `showcase`
+              // was refused for want of a single picture while three sat in
+              // the library, made for this very screen.
+              [
+                ...museImgs.map((im) => im.url.split('/').pop() || ''),
+                ...(ultraRecord?.images ?? []),
+              ].filter((h, i, all) => /^[a-f0-9]{64}$/.test(h) && all.indexOf(h) === i),
               {
                 settings,
                 theme,
@@ -1611,6 +1831,69 @@ export default function ProjectView({
         }
 
         /*
+         * Motion Ultra's video background (v2).
+         *
+         * The page already has the place for it — `<Backdrop slot="film">` in
+         * the section the storyboard pass chose — and is already alive there in
+         * CSS. What runs here is the film: composed from the series' pictures
+         * as a `background` kind, rendered by the LOCAL worker (no video is
+         * billed), then plugged into that slot by one attribute at a parsed
+         * offset, with no call and no rewrite. Every failure leaves the section
+         * exactly as designed and says so (U4).
+         */
+        if (project.ultra?.video && ultraRecord && !ultraFilmSection) {
+          setNotice((prev) => [prev, t(ultraVideo ? 'project.ultraFilmNoSection' : 'project.ultraFilmUnavailable')].filter(Boolean).join(' '))
+        }
+        if (ultraFilmSection && ultraRecord) {
+          try {
+            motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmCompose') }))
+            const theme = themeFromDesign(dir.markdown)
+            const proposal = await proposeVideoTimeline(text, ultraRecord.images, {
+              settings,
+              theme,
+              motionKind: 'background',
+              placement: {
+                section: ultraFilmSection,
+                why: 'The moving ground of this section, behind its own copy: it carries no words of its own.',
+              },
+              scenery: page3d.scenes,
+              direction: directionBriefFrom(dir.markdown),
+              signal: ac.signal,
+            })
+            if (!proposal.timeline) {
+              setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: motionNotices(proposal.notices) })].filter(Boolean).join(' '))
+            } else {
+              motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmRender') }))
+              const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
+              const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: ac.signal })
+              const finished = await awaitVideoJob(job.id, ac.signal)
+              if (finished.status === 'done' && finished.videoHash) {
+                const now = screensRef.current.find((s) => s.id === screenId)
+                const plugged = now ? await plugFilmIntoSlot(now.code, absoluteUrl(`/api/video/${finished.videoHash}`)) : null
+                if (now && plugged) {
+                  onUpdateScreen(screenId, {
+                    code: plugged,
+                    componentName: detectComponentName(plugged),
+                    previousCode: now.code,
+                    attachedMedia: filmMedia(finished.videoHash),
+                  })
+                } else {
+                  onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
+                  setNotice((prev) => [prev, t('project.ultraFilmNoSlot')].filter(Boolean).join(' '))
+                }
+              } else {
+                setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: finished.error || '—' })].filter(Boolean).join(' '))
+              }
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: err instanceof Error ? err.message : String(err) })].filter(Boolean).join(' '))
+          } finally {
+            motionStageDone()
+          }
+        }
+
+        /*
          * The direction is kept only once the screen exists.
          *
          * Doing it at onAddScreen time would have changed what the whole project
@@ -1681,7 +1964,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, motionAvail, redesign])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, motionAvail, redesign, ultraActive])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -1825,6 +2108,9 @@ export default function ProjectView({
               // An established direction owns the palette and the typography,
               // so the rules about them become advice rather than corrections.
               hasDirection: Boolean(designMd && designMd.trim()),
+              // Motion Ultra's glass, gradients and halos are what the user
+              // switched it on for — reported, never "corrected" away.
+              ultra: Boolean(screen.ultra) || capIds.includes('ultra'),
               settings,
               signal: ac.signal,
             }),
@@ -2688,14 +2974,23 @@ export default function ProjectView({
     screenId: string,
     nextCode: string,
     sequence?: { hash: string; frames: number },
+    swap?: { from: string; to: string },
   ) {
     const screen = screensRef.current.find((s) => s.id === screenId)
     if (!screen || screen.code === nextCode) return
+    /*
+     * A Motion Ultra screen records which pictures its series is made of, and
+     * the checks read that record: a swapped picture must move in it, or the
+     * next edit reports the OLD one as lost. `imageHash` is left alone: it
+     * says what the screen was BUILT from, which a later swap does not change.
+     */
+    const follows = (hash: string) => (swap && hash === swap.from ? swap.to : hash)
     onUpdateScreen(screenId, {
       code: nextCode,
       componentName: detectComponentName(nextCode),
       previousCode: screen.code,
       ...(sequence ? { videoHash: sequence.hash, videoFrames: sequence.frames } : {}),
+      ...(swap && screen.ultra ? { ultra: { ...screen.ultra, images: screen.ultra.images.map(follows) } } : {}),
     })
   }
 
@@ -2779,7 +3074,7 @@ export default function ProjectView({
   }
 
   /** Ce que fabrique Mocky en ce moment — sert de libelle ET de nom accessible. */
-  const busyLabel = t(
+  const busyLabel = phase === 'ultra' && ultraStage ? ultraStage : t(
     phase === 'muse'
       ? 'project.busyMuse'
       : phase === 'planning'
@@ -2822,7 +3117,16 @@ export default function ProjectView({
           onOpenImage={setLightboxHash}
         />
       )}
-      {lightboxHash && <ImageLightbox hash={lightboxHash} onClose={() => setLightboxHash(null)} />}
+      {lightboxHash && (
+        <ImageLightbox
+          hash={lightboxHash}
+          series={lightboxSeries}
+          onClose={() => {
+            setLightboxHash(null)
+            setLightboxSeries(undefined)
+          }}
+        />
+      )}
       {playingFilm && <FilmLightbox hash={playingFilm} onClose={() => setPlayingFilm(null)} />}
       {imageSwapScreen && (
         <ScreenImagesDialog
@@ -2831,7 +3135,7 @@ export default function ProjectView({
           projectId={project.id}
           attached={imageSwapScreen.attachedMedia}
           videoHash={imageSwapScreen.videoHash}
-          onReplace={(code, sequence) => swapScreenImages(imageSwapScreen.id, code, sequence)}
+          onReplace={(code, sequence, swap) => swapScreenImages(imageSwapScreen.id, code, sequence, swap)}
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
         />
@@ -2919,6 +3223,12 @@ export default function ProjectView({
         museVideo={videoAvail}
         animationMode={animationMode}
         onCycleAnimations={cycleAnimations}
+        ultra={project.ultra}
+        ultraPaused={ultraPaused}
+        onSetUltra={onSetUltra}
+        onToggleUltraPause={() => setUltraPaused((v) => !v)}
+        ultraVideoAvailable={ultraVideoAvailable}
+        busyLabel={phase === 'ultra' ? ultraStage : null}
       />
       {libraryModal}
       </>
@@ -3067,7 +3377,10 @@ export default function ProjectView({
         onMoveScreens={(updates) => updates.forEach((u) => onUpdateScreen(u.id, { x: u.x, y: u.y }))}
         onResizeScreen={(id, box) => onUpdateScreen(id, box)}
         onRenameScreen={(id, name) => onUpdateScreen(id, { name })}
-        onOpenImage={setLightboxHash}
+        onOpenImage={(hash, series) => {
+          setLightboxSeries(series)
+          setLightboxHash(hash)
+        }}
         /*
          * A film plays here; a sequence goes to Média.
          *
@@ -3711,6 +4024,19 @@ export default function ProjectView({
               <Icon name="play" size={14} />
               {t(ANIM_LABELS[animationMode].label)}
             </button>
+            {/* New screens only: an edit reworks a screen that already is, or
+                is not, Motion Ultra — the pass that builds one is a storyboard
+                and a series of pictures, not an instruction to an edit. */}
+            {!editing && (
+              <UltraControl
+                ultra={project.ultra}
+                paused={ultraPaused}
+                onSetUltra={onSetUltra}
+                onTogglePause={() => setUltraPaused((v) => !v)}
+                videoAvailable={ultraVideoAvailable}
+                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+              />
+            )}
           </div>
 
           <div className="flex items-end gap-2">

@@ -78,6 +78,8 @@ function normalize(raw) {
  * @param {boolean} [opts.hasDirection]  Whether the project has an established
  *   art direction. Flips the taste-related rules from enforce to advise, see
  *   policy.js.
+ * @param {boolean} [opts.ultra]  The screen was built by Motion Ultra — see
+ *   ULTRA_TREATMENTS in policy.js.
  * @param {(msg: string) => void} [opts.onNotice]  Soft-failure channel, the
  *   same one the Inspiration Engine uses (invariant M3).
  *
@@ -86,7 +88,7 @@ function normalize(raw) {
  *   caller distinguish "clean screen" from "never checked".
  */
 export async function detectQuality(code, opts = {}) {
-  const { hasDirection = false, onNotice } = opts
+  const { hasDirection = false, ultra = false, onNotice } = opts
 
   if (typeof code !== 'string' || !code.trim()) {
     return { findings: [], ignored: [], available: true }
@@ -109,7 +111,7 @@ export async function detectQuality(code, opts = {}) {
   }
 
   const normalized = (Array.isArray(raw) ? raw : []).map(normalize).filter((f) => f.rule)
-  return { ...applyPolicy(normalized, { hasDirection }), available: true }
+  return { ...applyPolicy(normalized, { hasDirection, ultra }), available: true }
 }
 
 /**

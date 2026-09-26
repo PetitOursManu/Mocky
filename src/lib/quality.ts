@@ -114,6 +114,8 @@ function emptyAudit(): QualityAudit {
 export interface QualityOptions {
   /** The project has an established art direction — demotes the taste rules. */
   hasDirection?: boolean
+  /** The screen was built by Motion Ultra — its own treatments become advice. */
+  ultra?: boolean
   /** Run the judged pass. Costs one model call; on by default. */
   critique?: boolean
   signal?: AbortSignal
@@ -142,6 +144,7 @@ export async function checkQuality(code: string, opts: QualityOptions = {}): Pro
         code,
         model: s.model,
         hasDirection: opts.hasDirection === true,
+        ultra: opts.ultra === true,
         critique: opts.critique !== false,
       }),
       signal: opts.signal,

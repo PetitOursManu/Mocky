@@ -113,6 +113,7 @@ function toFinding(verdict, disposition) {
 export async function critiqueScreen(llm, code, opts = {}) {
   const onNotice = opts.onNotice || (() => {})
   const hasDirection = opts.hasDirection === true
+  const ultra = opts.ultra === true
   const empty = { findings: [], verdicts: [], available: false }
 
   if (!llm) {
@@ -127,7 +128,7 @@ export async function critiqueScreen(llm, code, opts = {}) {
   // makes a taste call like "glass is decoration here" tunable: these rules are
   // opinionated by nature, and a project whose direction genuinely wants a
   // glass treatment should not have to argue with the correction loop.
-  const asked = JUDGED_RULES.filter((r) => dispositionFor(r.id, { hasDirection }) !== 'ignore')
+  const asked = JUDGED_RULES.filter((r) => dispositionFor(r.id, { hasDirection, ultra }) !== 'ignore')
   if (!asked.length) return { ...empty, available: true }
 
   const truncated = code.length > MAX_CODE_CHARS
@@ -169,6 +170,6 @@ export async function critiqueScreen(llm, code, opts = {}) {
 
   const findings = verdicts
     .filter((v) => !v.pass)
-    .map((v) => toFinding(v, dispositionFor(v.rule, { hasDirection })))
+    .map((v) => toFinding(v, dispositionFor(v.rule, { hasDirection, ultra })))
   return { findings, verdicts, available: true }
 }

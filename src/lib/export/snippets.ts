@@ -29,6 +29,7 @@ import { AnimateSource, ANIMATE_EXPORTS } from '../capabilities/snippets/Animate
 import { Scene3DSource, SCENE3D_EXPORTS } from '../capabilities/snippets/Scene3D'
 import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from '../capabilities/snippets/ScrollVideo'
 import { MotionFilmSource, MOTIONFILM_EXPORTS } from '../capabilities/snippets/MotionFilm'
+import { UltraSource, ULTRA_EXPORTS } from '../capabilities/snippets/Ultra'
 import { cnSource } from '../capabilities/snippets/cn'
 
 const MOCKY_HEADER = '/* Vendored by Mocky export — inline, dependency-free. */'
@@ -148,6 +149,20 @@ export function motionFilmJsx(): string {
   return packJsx(MotionFilmSource, MOTIONFILM_EXPORTS)
 }
 
+/**
+ * src/components/ui/ultra.jsx — the Motion Ultra kit: the `u-*` stylesheet and
+ * `<Backdrop>`.
+ *
+ * The stylesheet is injected when this module is evaluated, so a screen that
+ * uses the classes and no component still imports it for its side effect — see
+ * `rewriteScreenToEsm`. Outside Mocky there is no capture shell and no "no
+ * animation" switch, so of the three hold-still paths only reduced motion is
+ * live, which is the one a visitor can ask for.
+ */
+export function ultraJsx(): string {
+  return packJsx(UltraSource, ULTRA_EXPORTS)
+}
+
 export interface UiFile {
   /** path relative to project root */
   path: string
@@ -179,5 +194,6 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('scene3d', scene3dJsx(opts.three === true), SCENE3D_EXPORTS),
     ...pack('scrollvideo', scrollVideoJsx(), SCROLLVIDEO_EXPORTS),
     ...pack('motionfilm', motionFilmJsx(), MOTIONFILM_EXPORTS),
+    ...pack('ultra', ultraJsx(), ULTRA_EXPORTS),
   ]
 }

@@ -141,6 +141,9 @@ export const library = {
     'library.altGenerated': 'image générée',
     'library.promptLabel': 'Prompt',
     'library.escHint': 'Échap ou clic à l’extérieur pour fermer',
+    'library.previousImage': 'Image précédente',
+    'library.nextImage': 'Image suivante',
+    'library.showImage': 'Voir l’image {n}',
 
     // ---- replacing an image inside a screen ----
     // Le titre dit « Médias », comme l'entrée de menu qui l'ouvre
@@ -168,6 +171,9 @@ export const library = {
     'library.swapGenerate': 'Générer',
     'library.swapGeneratePlaceholder': 'Décrivez l’image à générer…',
     'library.swapGenerating': 'Génération…',
+    'library.variant': 'Autre version',
+    'library.variantHint': 'Générer une autre version de cette image — même description, même format — et la mettre à sa place partout où elle apparaît.',
+    'library.variantNoPrompt': 'Cette image n’a pas de description enregistrée (image importée ?) : choisissez-en une autre avec « Remplacer ».',
     'library.swapGenerateSkipped':
       'Le fournisseur n’a produit aucune image. Réessayez, ou choisissez-en une dans la médiathèque.',
     'library.swapDone': 'Image remplacée.',
@@ -360,6 +366,9 @@ export const library = {
     'library.altGenerated': 'generated image',
     'library.promptLabel': 'Prompt',
     'library.escHint': 'Press Esc, or click outside, to close',
+    'library.previousImage': 'Previous picture',
+    'library.nextImage': 'Next picture',
+    'library.showImage': 'Show picture {n}',
 
     // ---- replacing an image inside a screen ----
     // The title reads “Media”, like the menu entry that opens it
@@ -387,6 +396,9 @@ export const library = {
     'library.swapGenerate': 'Generate',
     'library.swapGeneratePlaceholder': 'Describe the image to generate…',
     'library.swapGenerating': 'Generating…',
+    'library.variant': 'Another version',
+    'library.variantHint': 'Generate another version of this picture — same description, same format — and put it in its place wherever it appears.',
+    'library.variantNoPrompt': 'This picture has no recorded description (an upload?): pick another one with “Replace”.',
     'library.swapGenerateSkipped':
       'The provider produced no image. Try again, or pick one from the media library.',
     'library.swapDone': 'Image replaced.',

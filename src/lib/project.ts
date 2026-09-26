@@ -109,6 +109,15 @@ export interface Screen {
    * record with `open: []`, meaning "checked and clean".
    */
   quality?: ScreenQuality
+  /**
+   * What Motion Ultra made this screen from, when it did.
+   *
+   * A record, like `design`: the recipes the storyboard chose and the library
+   * hashes of the pictures that were actually generated. The canvas reads it for
+   * the badge; a later edit reads it to check the screen still uses what it was
+   * built on. Absent means an ordinary screen.
+   */
+  ultra?: ScreenUltra
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -145,6 +154,28 @@ export interface AttachedMedia {
    * its last frame for the rest of the scroll.
    */
   frames?: number
+}
+
+/** See Screen.ultra. */
+export interface ScreenUltra {
+  /** Recipe ids, in page order. */
+  recipes: string[]
+  /** Library hashes of the pictures generated for it. */
+  images: string[]
+  /** How many were asked for (×3 or ×6) — `images` can be shorter. */
+  planned: number
+}
+
+/** Motion Ultra as a project setting. See Project.ultra. */
+export interface ProjectUltra {
+  /** Pictures per screen: the composer's ×3 / ×6, remembered. */
+  count: 3 | 6
+  /**
+   * One section of each new screen gets a video background — a Motion film
+   * rendered by the local worker, never a paid AI video. Off by default: it
+   * costs a text call and one to three minutes of the machine per screen.
+   */
+  video?: boolean
 }
 
 /** The compact record of one quality check. See Screen.quality. */
@@ -251,6 +282,18 @@ export interface Project {
    * that would drop it.
    */
   productName?: string
+  /**
+   * Motion Ultra, switched on for this project. Absent means off.
+   *
+   * A project setting and not a composer toggle, because it is a decision about
+   * what the project IS — a showcase site is Ultra on every screen, an admin
+   * tool is not — and a toggle that reset with each session would be forgotten
+   * on the third screen. The composer can still pause it for one generation.
+   *
+   * On Project for the reason `design` is: `normalizeScreen` rebuilds screens
+   * from a whitelist, the projects blob travels as an opaque string.
+   */
+  ultra?: ProjectUltra
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -685,6 +728,18 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // from a server response, and everything on a Screen survives a reload only
     // if it is named here.
     quality: normalizeQuality(s.quality),
+    ultra: normalizeUltra(s.ultra),
+  }
+}
+
+/** Validate a stored Motion Ultra record, or drop it. */
+function normalizeUltra(u: Partial<ScreenUltra> | undefined): ScreenUltra | undefined {
+  if (!u || typeof u !== 'object' || !Array.isArray(u.recipes)) return undefined
+  const strings = (a: unknown) => (Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [])
+  return {
+    recipes: strings(u.recipes),
+    images: strings(u.images),
+    planned: u.planned === 6 ? 6 : 3,
   }
 }
 
@@ -987,6 +1042,20 @@ export function useProjects() {
     )
   }, [])
 
+  /** Switch Motion Ultra on for a project (with its picture count), or off with null. */
+  const setProjectUltra = useCallback((projectId: string, ultra: ProjectUltra | null) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        if ((p.ultra?.count ?? null) === (ultra?.count ?? null) && !!p.ultra?.video === !!ultra?.video) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (ultra) next.ultra = { count: ultra.count === 6 ? 6 : 3, ...(ultra.video ? { video: true } : {}) }
+        else delete next.ultra
+        return next
+      }),
+    )
+  }, [])
+
   return {
     projects,
     createProject,
@@ -994,6 +1063,7 @@ export function useProjects() {
     renameProject,
     setProjectsFolder,
     setProjectDesign,
+    setProjectUltra,
     renameFolder,
     addScreen,
     updateScreen,

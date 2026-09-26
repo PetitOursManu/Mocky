@@ -2,6 +2,7 @@ import type { Settings } from './settings'
 import { proxyFetch, truncate } from './proxy'
 import type { Capability } from './capabilities/types'
 import { stripForbiddenMotion } from './stripMotion'
+import { ULTRA_CLASSES } from './capabilities/snippets/Ultra'
 
 /**
  * Last gate before generated code becomes a screen.
@@ -311,6 +312,20 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     lines.push('')
     lines.push('ANIMATION: use the components listed above (' + motionNames + ').')
     lines.push('framer-motion is NOT available — never write <motion.div> or import any animation library.')
+  }
+  /*
+   * The Ultra kit's classes, printed wherever the pack is in scope — which is
+   * what makes an EDIT of a Motion Ultra screen know the vocabulary it was
+   * written in. Every correction path passes `caps`, so the repair, the polish
+   * and the audit fix read this too, and none of them has to be told separately
+   * that `u-glass` is a real class and not a typo to clean up.
+   */
+  if (caps.some((c) => c.id === 'ultra')) {
+    lines.push('')
+    lines.push('ULTRA KIT — these CSS classes are defined in the page. Use them in className alongside Tailwind; they are deliberate, never "clean them up" or replace them with approximations:')
+    for (const [cls, what] of Object.entries(ULTRA_CLASSES)) lines.push(`- ${cls}: ${what}`)
+    lines.push('Colours come from three variables, --u-a, --u-b, --u-c (set them from your palette on the page root, e.g. className="[--u-a:#123456] [--u-b:#…] [--u-c:#…]", or through <Backdrop colors>).')
+    lines.push('Do not write your own @keyframes or <style> blocks — everything above already respects reduced motion and the "no animation" switch, and a hand-written loop does not.')
   }
   return lines.join('\n')
 }

@@ -132,6 +132,49 @@ The judged rules in `catalog.js` are Mocky's own questions, written for this
 pipeline. The audit rubric follows the structure Impeccable documents publicly
 (five dimensions, 0–4, P0–P3); the scoring and the confidence model are ours.
 
+## Motion Ultra
+
+A **project** setting (`Project.ultra`, paused per session from the composer)
+that storyboards each new screen, generates ×3 or ×6 pictures as one series, and
+writes the page with the Ultra kit. Invariants U1–U5; user doc
+`docs/motion-ultra.md`.
+
+```
+src/lib/ultra/recipes.ts     the closed catalogue a storyboard picks from
+src/lib/ultra/storyboard.ts  one model call: mode, sections, pictures, style
+src/lib/ultra/images.ts      the series, two at a time, one shared style
+src/lib/ultra/preamble.ts    the generation section — replaces the planner's
+src/lib/ultra/check.ts       unused pictures after generation, losses after an edit
+src/lib/capabilities/snippets/Ultra.ts  the `u-*` stylesheet + <Backdrop>
+```
+
+Four things that will bite you:
+
+1. **The kit is a class vocabulary, so `Capability.classes` exists.**
+   `capabilitiesUsedBy` looks for component names; a screen of `u-glass` alone
+   names none. Same reason `rewriteScreenToEsm` adds a side-effect import.
+2. **The storyboard decides the mode, not `inferMode`.** The keyword guess is
+   biased to `operate`, and on `operate` only app recipes are allowed — a
+   product page came back as an app shell before this.
+3. **Three passes must not undo a Motion Ultra screen** (U5): Polish
+   (`ULTRA_TREATMENTS` in `policy.js`), a Motion film (`openingTaken` in
+   `filmDecision.ts`, and the series' pictures go to the composer), and an edit
+   (`ultraLoss`). A new pass that rewrites screens joins this list.
+4. **No free `<style>` from the model.** Decided with the user: a missing effect
+   goes into the kit, tested against reduced motion, "Sans animation" and the
+   capture shell (html2canvas throws on computed colours).
+
+**The video background (v2) is a film PLANNED for, not placed.** The storyboard
+picks one section (`filmSectionOf`), the page writes `<Backdrop slot="film">`
+there, and `plugFilmIntoSlot` sets its `video` attribute once the local worker
+has rendered a `background` film — an AST offset, no model call. Do not route it
+through `placeFilmInScreen`: that is the model-driven placement for films
+nobody planned.
+
+Related, found while testing it: a preview error that is about the ENVIRONMENT
+(React/Babel failed to load) is never sent to the repair loop —
+`src/lib/previewErrors.ts`.
+
 ## Video export — the feature is called **Motion**
 
 Every string a user reads says Motion; every identifier still says `video`. That

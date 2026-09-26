@@ -148,6 +148,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
         {
           code,
           hasDirection: body.hasDirection === true,
+          ultra: body.ultra === true,
           critique: body.critique !== false,
         },
         { llm },
