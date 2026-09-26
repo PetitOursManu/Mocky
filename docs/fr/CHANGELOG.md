@@ -10,6 +10,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `ultra` | Motion Ultra ×3 et ×6 ouverts par compte, indépendamment | `ff3895a` |
 | `ui` | les films s'appellent Motion Ultra partout | `7161595` |
 | `video` | accès aux vidéos par compte, et un vrai choix de source dans Muse | `807a979` |
 | `media` | vidéos libres de droits Pexels et Pixabay, configurables dans Admin | `52847f1` |
