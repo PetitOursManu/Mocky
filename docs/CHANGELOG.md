@@ -68,6 +68,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | Motion Ultra dans l'interface, la vue d'ensemble et le changelog | `9bb2e5a` |
 | `ultra` | v2 — le fond vidéo, FR/EN, CLAUDE.md et suivi | `cf0301f` |
 | `ultra` | suivi mis à jour | `6090c84` |
 | `ultra` | Motion Ultra — page FR/EN, invariants U1–U5, README et CLAUDE.md | `290f7a0` |
