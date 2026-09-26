@@ -1792,8 +1792,9 @@ project. And nothing is asked at all when Motion cannot run for the account.
 > **Since 2026-09, none of this runs.** The composer's animation switch was
 > removed, and with it the automatic film: "forced" rendered a film for every
 > screen, a text call and minutes of the worker each time, for a switch most
-> people read as "should the page move". `decideFilm`, `dossierMotionRequest`
-> and the placement edit are gone; page animations are always on; a film is made
+> people read as "should the page move". `decideFilm`, `dossierMotionRequest`,
+> the placement edit and its readers (`filmSectionIn`, `filmCovers`,
+> `filmTextRuns`, `lib/screenSections.ts`) are gone; page animations are always on; a film is made
 > only when asked for — Motion Ultra's video background, planned into the page
 > and plugged without a model call, or this panel. The paragraphs above and the
 > ones about the film's placement are kept as the record of how it worked.

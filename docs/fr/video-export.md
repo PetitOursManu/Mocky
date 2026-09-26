@@ -1884,7 +1884,9 @@ Motion ne peut pas tourner pour ce compte.
 > composer a été retiré, et avec lui le film automatique : « forcées » rendait un
 > film pour chaque écran, un appel au modèle et des minutes du worker à chaque
 > fois, pour un bouton que la plupart lisaient comme « la page doit-elle bouger ».
-> `decideFilm`, `dossierMotionRequest` et la retouche de placement ont disparu ;
+> `decideFilm`, `dossierMotionRequest`, la retouche de placement et ses lecteurs
+> (`filmSectionIn`, `filmCovers`, `filmTextRuns`, `lib/screenSections.ts`) ont
+> disparu ;
 > les animations de page sont toujours actives ; un film n’est fabriqué que sur
 > demande — le fond vidéo de Motion Ultra, prévu dans la page et branché sans
 > appel au modèle, ou ce panneau. Les paragraphes ci-dessus et ceux sur le

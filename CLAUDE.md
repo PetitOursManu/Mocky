@@ -761,7 +761,8 @@ Ten things, and the first one is not negotiable.
 
 14. **Historical since 2026-09: no film is made on its own.** The composer's
     animation switch is gone (page animations are always on, `withAnimations`),
-    and with it `decideFilm`, `dossierMotionRequest` and `placeFilmInScreen`. A
+    and with it `decideFilm`, `dossierMotionRequest`, `placeFilmInScreen` and its
+    readers (`filmSectionIn`, `filmCovers`, `filmTextRuns`, `lib/screenSections.ts`). A
     generation makes a film only as Motion Ultra's video background. What follows
     describes the automatic path as it was; `pageScenesIn` still feeds the video
     background and the Motion panel.
