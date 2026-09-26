@@ -550,12 +550,13 @@ ordre ils arrivent et comment une scène cède la place à la suivante. Un compo
 écrit à la main dessine chacun d'eux. Il ne choisit jamais une image : il ne peut
 utiliser que celles que vous avez sélectionnées.
 
-**Il peut aussi décider tout seul.** Avec l'interrupteur d'animation du composer
-sur automatique, le même appel Muse qui écrit la direction artistique dit si
-l'écran veut un film, de quel TYPE il s'agit (un hero, un bandeau, un fond, une
-vitrine, un chiffre, un globe, une signature, une story pour un fil) et dans
-quelle section de la page il va. Le film est alors composé pour cet endroit — et
-on lui dit, en toutes lettres, que la page écrit elle-même ses produits, ses
+**Un film est fabriqué quand vous le demandez** — depuis ce panneau, ou comme
+fond vidéo d'un écran Motion Ultra ; l'ancien interrupteur d'animation du
+composer, qui pouvait en fabriquer un pour chaque écran, a disparu. Un film
+composé pour une page le sait : il reçoit son TYPE (un hero, un bandeau, un fond,
+une vitrine, un chiffre, un globe, une signature, une story pour un fil — un
+fond, pour Motion Ultra) et la section de la page où il va, il est composé pour
+cet endroit — et on lui dit, en toutes lettres, que la page écrit elle-même ses produits, ses
 offres et ses prix, et que le film n'en dit rien : chaque type porte un budget de
 mots, compté, et un film au-dessus repart une fois chez le modèle.
 

@@ -141,37 +141,22 @@ export const project = {
     'project.ultraLossAnd': ' et ',
 
     // ---- animations (interrupteur à trois états) ----
-    'project.animAuto': '✦ Animations auto',
-    'project.animOn': '✦ Animations forcées',
-    'project.animOff': '✦ Sans animation',
-    'project.animHintAuto':
-      'Mocky décide selon l’écran demandé — une landing page respire, un tableau d’administration reste immobile — et ajoute un film animé quand la demande s’y prête (Muse activé). Cliquez pour forcer.',
-    'project.animHintOn':
-      'Chaque écran généré aura des animations et un film animé (1 à 3 min de rendu en plus), si Motion est activé pour votre compte. Cliquez pour les couper.',
-    'project.animHintOff':
-      'Aucune animation ni film animé, même si l’écran s’y prêterait — utile pour une démo ou une capture. Cliquez pour revenir à l’automatique.',
 
     // ---- lire ou non les animations d'UN écran (menu contextuel) ----
     'project.playAnimations': 'Lire les animations',
-    'project.playAuto': 'Auto',
     'project.playOn': 'Oui',
     'project.playOff': 'Non',
-    'project.playAutoTitle': 'Suit l’interrupteur du composer.',
-    'project.playOnTitle': 'Cet écran s’anime, même si le composer est sur « sans animation ».',
-    'project.playOffTitle': 'Cet écran ne bouge pas, même si le composer autorise les animations.',
+    'project.playOnTitle': 'Cet écran s’anime (par défaut).',
+    'project.playOffTitle': 'Cet écran ne bouge pas — utile pour une démo ou une capture.',
     'project.museStageVideo': 'Génération de la vidéo (30 s à 3 min)…',
     'project.museVideoFailed': 'La vidéo n’a pas pu être générée : {detail}. L’écran est produit sans séquence.',
     // Motion : deux étapes parce qu’elles ratent différemment. La composition
     // est un appel modèle qui peut refuser en une phrase ; le rendu est une
     // attente. Une seule ligne pour les deux laisserait l’utilisateur devant
     // « en cours » sans savoir laquelle il regarde.
-    'project.motionStageCompose': 'Film Motion — composition… ne quittez pas la page',
     // Le type que le dossier a choisi, dit sur le badge : c'est la seule trace
     // visible d'une décision que personne n'a prise à la main.
-    'project.motionStageComposeKind': 'Film Motion · {kind} — composition… ne quittez pas la page',
-    'project.motionStageRenderKind': 'Film Motion · {kind} — rendu, 1 à 3 min… ne quittez pas la page',
     'project.motionStageRender': 'Film Motion — rendu, 1 à 3 min… ne quittez pas la page',
-    'project.motionStagePlace': 'Film Motion — insertion dans l’écran… presque fini',
     'project.motionStageRevise': 'Film Motion — modification… ne quittez pas la page',
     'project.motionRevise': 'Modifier le film Motion…',
     'project.motionReviseTitle': 'Modifier le film Motion',
@@ -190,10 +175,6 @@ export const project = {
       'Un film Motion est en cours. Le rendu se termine côté serveur et le film sera dans Média, mais il ne sera PAS inséré dans l’écran si vous partez maintenant. Quitter quand même ?',
     'project.motionFailed':
       'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
-    'project.motionPlacedBeside':
-      'Le film est prêt et rattaché à l’écran, mais la mise en page proposée le sortait des sections existantes — elle a été écartée pour ne pas ouvrir la page sur une vidéo seule.',
-    'project.motionPlacedOver':
-      'Le film est prêt et rattaché à l’écran, mais la mise en page proposée posait le film et une image de la page l’un sur l’autre — elle a été écartée pour ne pas cacher l’un sous l’autre.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
     'project.briefImageFailed': 'Image non générée — {reason}',
     'project.briefBackend': 'Backend Mocky requis',
@@ -428,33 +409,18 @@ export const project = {
     'project.ultraLossAnd': ' and ',
 
     // ---- animations (three-state override) ----
-    'project.animAuto': '✦ Animations auto',
-    'project.animOn': '✦ Animations forced',
-    'project.animOff': '✦ No animation',
-    'project.animHintAuto':
-      'Mocky decides from the screen you asked for — a landing page breathes, an admin table holds still — and adds an animated film when the request calls for one (with Muse on). Click to force.',
-    'project.animHintOn':
-      'Every generated screen will be animated and get an animated film (1 to 3 min more of rendering), if Motion is enabled for your account. Click to switch them off.',
-    'project.animHintOff':
-      'No animation and no animated film, even where the screen would suit it — useful for a demo or a recording. Click to go back to automatic.',
 
     // ---- play ONE screen's animations, or not (context menu) ----
     'project.playAnimations': 'Play animations',
-    'project.playAuto': 'Auto',
     'project.playOn': 'Yes',
     'project.playOff': 'No',
-    'project.playAutoTitle': 'Follows the composer switch.',
-    'project.playOnTitle': 'This screen animates, even when the composer says no animation.',
-    'project.playOffTitle': 'This screen holds still, even when the composer allows animations.',
+    'project.playOnTitle': 'This screen animates (the default).',
+    'project.playOffTitle': 'This screen holds still — useful for a demo or a recording.',
     'project.museStageVideo': 'Generating the video (30 s to 3 min)…',
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
-    'project.motionStageCompose': 'Motion film — composing… do not leave the page',
     // The kind the dossier chose, said on the badge: the only visible trace of a
     // decision nobody made by hand.
-    'project.motionStageComposeKind': 'Motion film · {kind} — composing… do not leave the page',
-    'project.motionStageRenderKind': 'Motion film · {kind} — rendering, 1 to 3 min… do not leave the page',
     'project.motionStageRender': 'Motion film — rendering, 1 to 3 min… do not leave the page',
-    'project.motionStagePlace': 'Motion film — placing it in the screen… nearly done',
     'project.motionStageRevise': 'Motion film — revising… do not leave the page',
     'project.motionRevise': 'Revise the Motion film…',
     'project.motionReviseTitle': 'Revise the Motion film',
@@ -472,10 +438,6 @@ export const project = {
       'A Motion film is in progress. The render finishes on the server and the film will be in Media, but it will NOT be placed in the screen if you leave now. Leave anyway?',
     'project.motionFailed':
       'The Motion film could not be produced: {detail}. The screen is produced without a film.',
-    'project.motionPlacedBeside':
-      'The film is ready and attached to the screen, but the proposed layout put it outside the page’s own sections — it was set aside rather than open the page on a bare video.',
-    'project.motionPlacedOver':
-      'The film is ready and attached to the screen, but the proposed layout stacked the film and one of the page’s own pictures — it was set aside rather than hide one under the other.',
     'project.museNoImage': 'the dossier proposed no image',
     'project.briefImageFailed': 'No image generated — {reason}',
     'project.briefBackend': 'Mocky backend required',

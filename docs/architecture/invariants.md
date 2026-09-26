@@ -706,11 +706,11 @@ they paid for.
   `quality/policy.js` demotes glass, gradient type, halos, the spotlight, tight
   display tracking and a clipped backdrop to advice. Everything else is still
   enforced.
-- **A Motion film.** A film never takes the opening Motion Ultra built
-  (`openingTaken` in `video/filmDecision.ts`): a `hero` or `background` film, or
-  any film aimed at that section, becomes another kind elsewhere — and receives
-  the series' pictures, since Muse generates none of its own when Motion Ultra
-  runs.
+- **A Motion film.** No film is made on its own any more (the composer's
+  animation switch is gone), so the only film a generation makes is Motion
+  Ultra's own video background — planned into the page, plugged without a model
+  call, and folding a full-bleed picture of that section UNDER it rather than
+  letting the picture cover it (`lib/ultra/filmSlot.ts`).
 - **An edit.** Every correction path receives the kit's vocabulary through the
   screen's persisted capabilities, and `ultraLoss` reports an edit that dropped
   pictures or the kit, with "Revert" one click away.

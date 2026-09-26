@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { selectCapabilities } from '../src/lib/capabilities/select'
 import { CAPABILITY_MAP } from '../src/lib/capabilities/registry'
-import { decideFilm } from '../src/lib/video/filmDecision'
 
 /**
  * Invariant U1: with Motion Ultra off, the generation path is the one it was
@@ -43,8 +42,7 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
       const guard = view.lastIndexOf('if (ultraFilmSection && ultraRecord) {', at[0])
       expect(guard, call).toBeGreaterThan(0)
     }
-    // Off, ultraFilmSection stays null and the Muse film decision is untouched.
-    expect(view).toContain('const museFilm = ultraFilmSection ? null : decideFilm({')
+    // Off, ultraFilmSection stays null and no film is made.
     expect(view).toContain('let ultraFilmSection: string | null = null')
   })
 
@@ -62,15 +60,12 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     expect(view).toContain('if (owned.length) {')
   })
 
-  it("keeps Muse's own picture and the film's placement as they were", () => {
+  it("keeps Muse's own picture as it was, and makes no film on its own", () => {
     expect(view).toContain('if (remaining.length && pins.length === 0 && !ultraActive)')
-    // Undefined when Motion Ultra did not run, and decideFilm ignores undefined.
-    expect(view).toContain('openingTaken: ultraOpening,')
-    const kinds = ['hero', 'background', 'showcase']
-    const dossier = { wanted: true, kind: 'hero', section: 'hero' }
-    expect(decideFilm({ mode: 'auto', kinds, dossier, openingTaken: undefined })).toEqual(
-      decideFilm({ mode: 'auto', kinds, dossier }),
-    )
+    // The automatic film is gone for everyone: a film is only ever asked for.
+    expect(view).not.toContain('decideFilm(')
+    expect(view).not.toContain('placeFilmInScreen(')
+    expect(view).not.toContain('dossierMotionRequest(')
   })
 
   it('never offers the kit on a guess, and never documents it unless it is in scope', () => {

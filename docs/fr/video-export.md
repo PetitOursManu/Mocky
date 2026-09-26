@@ -1880,6 +1880,16 @@ de le poser dans la page. La décision n’est pas écrite dans DESIGN.md : un f
 concerne un écran, la direction concerne le projet. Et rien n’est demandé quand
 Motion ne peut pas tourner pour ce compte.
 
+> **Depuis 2026-09, rien de ceci ne tourne plus.** L’interrupteur d’animation du
+> composer a été retiré, et avec lui le film automatique : « forcées » rendait un
+> film pour chaque écran, un appel au modèle et des minutes du worker à chaque
+> fois, pour un bouton que la plupart lisaient comme « la page doit-elle bouger ».
+> `decideFilm`, `dossierMotionRequest` et la retouche de placement ont disparu ;
+> les animations de page sont toujours actives ; un film n’est fabriqué que sur
+> demande — le fond vidéo de Motion Ultra, prévu dans la page et branché sans
+> appel au modèle, ou ce panneau. Les paragraphes ci-dessus et ceux sur le
+> placement du film restent comme trace de son fonctionnement.
+
 **Ce que le SERVEUR peut porter est mesuré, puis réglé.** Sans carte graphique,
 Chrome sans écran dessine chaque image WebGL sur le processeur : sur un poste de
 douze cœurs, un film de cinq secondes a pris 16 s sans 3D, 28 s avec un bloc 3D et
