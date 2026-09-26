@@ -2,6 +2,19 @@ import { detectComponentName, toPreviewModule } from './generate'
 import { buildPrelude } from './capabilities/prelude'
 import type { Capability } from './capabilities/types'
 import { compileJsx } from './compile'
+import { legibilityVerdict, type LegibilityFinding } from './legibility'
+
+/**
+ * The legibility probe, as source for the capture frame.
+ *
+ * Runs instead of `shoot()`: find every run of text laid over a picture (an
+ * <img>, a <video>, a canvas, a Motion Ultra <Backdrop>, a background image),
+ * rasterise the page once with html2canvas, and hand each run's pixels to
+ * `legibilityVerdict` — injected here as source, since nothing of this module
+ * exists inside the frame. See src/lib/legibility.ts for why.
+ */
+const PROBE_TEMPLATE = "  function probe(){\n    try {\n      var verdict = __VERDICT__;\n      var H = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);\n      var W = document.documentElement.scrollWidth;\n      var grounds = [];\n      var all = document.body.getElementsByTagName('*');\n      for (var i = 0; i < all.length; i++) {\n        var el = all[i]; var tag = el.tagName;\n        var isPic = tag === 'IMG' || tag === 'VIDEO' || tag === 'CANVAS' || (el.classList && el.classList.contains('u-backdrop'));\n        if (!isPic) { var bi = getComputedStyle(el).backgroundImage; isPic = !!bi && bi !== 'none' && bi.indexOf('url(') >= 0; }\n        if (!isPic) continue;\n        var gr0 = el.getBoundingClientRect();\n        if (gr0.width >= 60 && gr0.height >= 40) grounds.push({ el: el, r: gr0 });\n      }\n      if (!grounds.length) return post({ legibility: [] });\n      var runs = [];\n      var seen = [];\n      var tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);\n      var n;\n      while ((n = tw.nextNode())) {\n        var txt = (n.textContent || '').replace(/\\s+/g, ' ').trim();\n        if (txt.length < 2) continue;\n        var host = n.parentElement;\n        if (!host || host.tagName === 'SCRIPT' || host.tagName === 'STYLE' || seen.indexOf(host) >= 0) continue;\n        /* Gradient, shining or hollow type has no single colour to measure\n           against \u2014 and in this frame it is flattened to the accent anyway. */\n        if (host.closest('.u-text-gradient,.u-text-shine,.u-text-outline,[class*=\"bg-clip-text\"]')) continue;\n        var cs = getComputedStyle(host);\n        if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) continue;\n        var range = document.createRange(); range.selectNodeContents(n);\n        var rr = range.getBoundingClientRect();\n        if (rr.width < 4 || rr.height < 4) continue;\n        var over = false;\n        for (var g = 0; g < grounds.length; g++) {\n          var gr = grounds[g].r;\n          if (grounds[g].el.contains(host)) continue;\n          if (rr.left < gr.right && rr.right > gr.left && rr.top < gr.bottom && rr.bottom > gr.top) { over = true; break; }\n        }\n        if (!over) continue;\n        var m = /rgba?\\(([^)]+)\\)/.exec(cs.color);\n        if (!m) continue;\n        var parts = m[1].split(',').map(function (x) { return parseFloat(x); });\n        if (parts.length > 3 && parts[3] < 0.05) continue;\n        var size = parseFloat(cs.fontSize) || 16;\n        var weight = parseInt(cs.fontWeight, 10) || 400;\n        seen.push(host);\n        runs.push({ text: txt.slice(0, 60), r: rr, rgb: [parts[0], parts[1], parts[2]], large: size >= 24 || (size >= 18.66 && weight >= 700) });\n        if (runs.length >= 60) break;\n      }\n      if (!runs.length) return post({ legibility: [] });\n      /* The ink goes, the layout stays: every glyph and icon is made\n         transparent, so the raster below is the GROUND alone \u2014 exactly what each\n         run of text is set on, with nothing of its own or its neighbours' in it.\n         The boxes were measured above, before this, and colour does not move a\n         box. */\n      var hide = document.createElement('style');\n      hide.textContent = '*{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;caret-color:transparent!important}svg{visibility:hidden!important}';\n      document.head.appendChild(hide);\n      /* No windowWidth/windowHeight: html2canvas lays the clone out in a window of\n         that size, and a page with `min-h-screen` or a 90vh hero then stretches \u2014\n         every text box measured above is somewhere else in the picture. The\n         window stays the screen's own; only the rasterised area grows. */\n      html2canvas(document.body, { x: 0, y: 0, width: W, height: H, scale: 1, backgroundColor: '#ffffff', logging: false })\n        .then(function (canvas) {\n          var ctx = canvas.getContext('2d');\n          var out = [];\n          for (var k = 0; k < runs.length; k++) {\n            var q = runs[k].r;\n            var x = Math.max(0, Math.floor(q.left)), y = Math.max(0, Math.floor(q.top));\n            var w = Math.min(canvas.width - x, Math.ceil(q.width)), h = Math.min(canvas.height - y, Math.ceil(q.height));\n            if (w < 2 || h < 2) continue;\n            var band = ctx.getImageData(x, y, w, h).data;\n            var v = verdict(band, runs[k].rgb, runs[k].large);\n            if (v && v.ratio < v.need) out.push({ text: runs[k].text, ratio: v.ratio, need: v.need });\n          }\n          out.sort(function (a, b) { return a.ratio - b.ratio; });\n          post({ legibility: out.slice(0, 8) });\n        })\n        .catch(function (e) { post({ error: String((e && e.message) || e) }); });\n    } catch (e) { post({ error: String((e && e.message) || e) }); }\n  }\n"
+const PROBE_SOURCE = PROBE_TEMPLATE.replace('__VERDICT__', `(${legibilityVerdict.toString()})`)
 
 /**
  * Screenshots a region of a generated component.
@@ -165,6 +178,8 @@ function buildCaptureShell(
   componentName: string,
   caps: Capability[] = [],
   scale = 2,
+  /** Run the legibility probe instead of taking a picture. */
+  probe = false,
 ): string {
   // Local, pinned copy — see public/vendor/VENDOR.md. This used to point at an
   // UNVERSIONED unpkg URL, loaded into an iframe that ran with Mocky's own
@@ -312,6 +327,7 @@ ${preludeTag}
   try {
     ${runner}
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
+${probe ? PROBE_SOURCE : ''}
   function shoot(){
     var vw = window.innerWidth||1, vh = window.innerHeight||1, r = ${JSON.stringify(rect)};
     try {
@@ -329,7 +345,7 @@ ${preludeTag}
      never arrives is not. window.__mockyStillPending is that count. */
   var owed = 0;
   setTimeout(function wait(){
-    if (!window.__mockyStillPending || owed >= 600) return shoot();
+    if (!window.__mockyStillPending || owed >= 600) return ${probe ? 'probe' : 'shoot'}();
     owed += 60;
     setTimeout(wait, 60);
   }, 400);
@@ -341,7 +357,8 @@ function mountCaptureIframe(
   id: string,
   width: number,
   height: number,
-  resolve: (dataUrl: string) => void,
+  // A picture's data URL, or the probe's findings.
+  resolve: (payload: any) => void,
   reject: (err: Error) => void,
 ): void {
   const iframe = document.createElement('iframe')
@@ -371,6 +388,7 @@ function mountCaptureIframe(
     done = true
     cleanup()
     if (d.dataUrl) resolve(d.dataUrl)
+    else if (Array.isArray(d.legibility)) resolve(d.legibility)
     else reject(new Error(d.error || 'capture failed'))
   }
   window.addEventListener('message', onMsg)
@@ -388,4 +406,40 @@ function mountCaptureIframe(
     // with a full-bleed image genuinely takes a while to rasterise; giving up
     // early just means no thumbnail at all.
   }, 25000)
+}
+
+/**
+ * The runs of text laid over a picture that cannot be read on it.
+ *
+ * Renders the screen in the same offscreen shell as a thumbnail — so the same
+ * known limitation applies (see the top of this file) — and measures, rather
+ * than infers, the pixels behind each run. No model call. Resolves to an empty
+ * list when nothing is laid over a picture; rejects only when the screen could
+ * not be rendered at all, which the caller treats as "not checked".
+ */
+export function checkLegibility(
+  code: string,
+  width: number,
+  height: number,
+  caps: Capability[] = [],
+): Promise<LegibilityFinding[]> {
+  return new Promise((resolve, reject) => {
+    const id = 'leg' + Math.random().toString(36).slice(2)
+    const previewCode = toPreviewModule(code)
+    const componentName = detectComponentName(code)
+    const whole = { x: 0, y: 0, w: 1, h: 1 }
+    const babel = () =>
+      mountCaptureIframe(
+        buildCaptureShell(id + 'b', whole, true, utf8ToBase64(previewCode), componentName, caps, 1, true),
+        id + 'b', width, height, resolve, reject,
+      )
+    compileJsx(previewCode)
+      .then((compiled) =>
+        mountCaptureIframe(
+          buildCaptureShell(id, whole, false, utf8ToBase64(compiled), componentName, caps, 1, true),
+          id, width, height, resolve, babel,
+        ),
+      )
+      .catch(babel)
+  })
 }

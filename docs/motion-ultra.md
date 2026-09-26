@@ -46,7 +46,11 @@ prompt → storyboard → series of pictures → page → checks
    the page is written with the **Ultra kit**: `u-*` classes (glass, display
    type, gradient text, reveals, parallax, grain…) and `<Backdrop>`, five living
    backgrounds drawn in CSS.
-4. **Checks.** A picture of the series the page left out is reported.
+4. **Checks.** Reported, never silently repaired: a picture of the series the
+   page left out; a page that moves too much at once; and **text laid over a
+   picture that cannot be read on it** — measured on the rendered pixels, with
+   the ink removed, since a photograph has no single colour the accessibility
+   audit could compare against. About a second, no model call.
 
 The composer shows where it is: *storyboard*, *pictures 2/6*, then the usual
 generation.

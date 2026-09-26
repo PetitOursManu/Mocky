@@ -7,7 +7,7 @@ import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
-import { captureRegion } from '../lib/capture'
+import { captureRegion, checkLegibility } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
@@ -1609,6 +1609,21 @@ export default function ProjectView({
             )
           }
           if (said.length) setNotice(said.join(' '))
+          /*
+           * Text laid over a picture, read on the rendered pixels (see
+           * lib/legibility.ts) — the one thing the class-based contrast audit
+           * cannot see. In the background, after the screen is on the canvas:
+           * about a second of rendering, no model call, and a failure to check
+           * is not a finding (Q1).
+           */
+          checkLegibility(result.code, preset.w, preset.h, caps)
+            .then((hard) => {
+              if (!hard.length) return
+              const list = hard.slice(0, 3).map((f) => `« ${f.text.length > 40 ? f.text.slice(0, 40) + '…' : f.text} »`).join(', ')
+              const line = t('project.ultraLegibility', { count: hard.length, list })
+              setNotice((prev) => (prev ? `${prev} ${line}` : line))
+            })
+            .catch(() => {})
         }
 
         /*

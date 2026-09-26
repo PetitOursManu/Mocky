@@ -48,7 +48,11 @@ prompt → storyboard → série d'images → page → contrôles
    page est écrite avec le **kit Ultra** : les classes `u-*` (verre, typographie
    d'affichage, texte en dégradé, apparitions, parallaxe, grain…) et
    `<Backdrop>`, cinq fonds vivants dessinés en CSS.
-4. **Contrôles.** Une image de la série absente de la page est signalée.
+4. **Contrôles.** Signalés, jamais réparés en silence : une image de la série
+   absente de la page ; une page qui anime trop à la fois ; et **un texte posé sur
+   une image qui s'y lit mal** — mesuré sur les pixels rendus, encre retirée,
+   puisqu'une photo n'a pas de couleur unique que l'audit d'accessibilité pourrait
+   comparer. Environ une seconde, aucun appel au modèle.
 
 Le composer indique où on en est : *storyboard*, *images 2/6*, puis la génération
 habituelle.
