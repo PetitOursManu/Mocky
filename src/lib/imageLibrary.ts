@@ -170,6 +170,11 @@ export async function generateImage(
      */
     width?: number
     height?: number
+    /**
+     * The Motion Ultra series this picture belongs to, ×3 or ×6. The server
+     * checks it against what the administrator allows this account.
+     */
+    ultra?: number
   } = {},
 ): Promise<{ hash: string } | null> {
   const res = await fetch('/api/images/generate', {
@@ -187,6 +192,7 @@ export async function generateImage(
       // leaving the library's own to apply.
       ...(opts.width ? { width: opts.width } : {}),
       ...(opts.height ? { height: opts.height } : {}),
+      ...(opts.ultra ? { ultra: opts.ultra } : {}),
     }),
     signal: opts.signal,
   })

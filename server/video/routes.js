@@ -262,6 +262,13 @@ export function createVideoRouter({
       // Presentation only, like `threeD`: /compose and /render are the gates.
       fullThreeD: enabled && mayFull(req.user),
       /*
+       * The Motion Ultra series this account may ask for, ×3 and/or ×6. Not
+       * gated by `enabled`: a page series needs the image provider, not the
+       * render worker. Presentation, like the two above — the gate is
+       * POST /api/images/generate, which refuses a series size not listed here.
+       */
+      ultraCounts: config.ultraCountsFor ? config.ultraCountsFor(req.user) : [3, 6],
+      /*
        * Will a variant really be derived from the user's picture?
        *
        * The /variants response answers this after the fact, and after the fact

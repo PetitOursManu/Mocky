@@ -96,6 +96,12 @@ export default function VideoExportSettings() {
   // three people, which is the whole configuration this setting exists for.
   const [threeDAccess, setThreeDAccess] = useState<VideoAccessMode>('all')
   const [threeDAllowed, setThreeDAllowed] = useState<string[]>([])
+  // Motion Ultra's two series sizes, each its own scope: ×3 for one account and
+  // not ×6 is exactly the configuration these exist for.
+  const [ultraX3Access, setUltraX3Access] = useState<VideoAccessMode>('all')
+  const [ultraX3Allowed, setUltraX3Allowed] = useState<string[]>([])
+  const [ultraX6Access, setUltraX6Access] = useState<VideoAccessMode>('all')
+  const [ultraX6Allowed, setUltraX6Allowed] = useState<string[]>([])
   const [workerUrl, setWorkerUrl] = useState('')
   const [renderTier, setRenderTier] = useState<VideoRenderTier>('limited')
   const [benchmarking, setBenchmarking] = useState(false)
@@ -114,6 +120,10 @@ export default function VideoExportSettings() {
     setAllowed(c.allowedUserIds)
     setThreeDAccess(c.threeDAccess)
     setThreeDAllowed(c.threeDAllowedUserIds)
+    setUltraX3Access(c.ultraX3Access ?? 'all')
+    setUltraX3Allowed(c.ultraX3AllowedUserIds ?? [])
+    setUltraX6Access(c.ultraX6Access ?? 'all')
+    setUltraX6Allowed(c.ultraX6AllowedUserIds ?? [])
     setWorkerUrl(c.workerUrl || '')
     setRenderTier(c.renderTier)
     setLicenseKey('')
@@ -167,6 +177,10 @@ export default function VideoExportSettings() {
         allowedUserIds: allowed,
         threeDAccess,
         threeDAllowedUserIds: threeDAllowed,
+        ultraX3Access,
+        ultraX3AllowedUserIds: ultraX3Allowed,
+        ultraX6Access,
+        ultraX6AllowedUserIds: ultraX6Allowed,
         renderTier,
         workerUrl: workerUrl.trim() || null,
         // '' would be read as "keep", which is what we want for an untouched
@@ -247,7 +261,11 @@ export default function VideoExportSettings() {
     // The 3D list is in here for the reason every other field is: everything on
     // this form saves together, and a half-dirty state is how an administrator
     // walks away certain a list took when only the switch did.
-    !sameList(threeDAllowed, cfg.threeDAllowedUserIds)
+    !sameList(threeDAllowed, cfg.threeDAllowedUserIds) ||
+    ultraX3Access !== (cfg.ultraX3Access ?? 'all') ||
+    ultraX6Access !== (cfg.ultraX6Access ?? 'all') ||
+    !sameList(ultraX3Allowed, cfg.ultraX3AllowedUserIds ?? []) ||
+    !sameList(ultraX6Allowed, cfg.ultraX6AllowedUserIds ?? [])
 
   return (
     <section>
@@ -345,6 +363,51 @@ export default function VideoExportSettings() {
         error={benchmarkError}
         onRun={runBenchmark}
         workerAvailable={health?.available === true}
+      />
+      </div>
+
+      {/* Motion Ultra's picture series — who may ask for three pictures a
+          screen, and who for six, independently. Beside each other because they
+          are one decision in two sizes, and apart from the film scopes above
+          because a page series needs no render worker: these apply even with
+          the switch above off. */}
+      <div className="grid items-start gap-x-6 xl:grid-cols-2">
+      <AccountScope
+        modes={cfg.accessModes}
+        access={ultraX3Access}
+        onAccess={(mode) => {
+          setUltraX3Access(mode)
+          setSaved(false)
+        }}
+        allowed={ultraX3Allowed}
+        onToggle={toggleIn(setUltraX3Allowed)}
+        users={users}
+        labels={{
+          title: 'video.ultraX3Title',
+          help: 'video.ultraX3Help',
+          listTitle: 'video.ultraX3AllowedTitle',
+          empty: 'video.ultraAllowedEmpty',
+          allNote: 'video.ultraAllowedAllNote',
+        }}
+      />
+      <AccountScope
+        modes={cfg.accessModes}
+        access={ultraX6Access}
+        onAccess={(mode) => {
+          setUltraX6Access(mode)
+          setSaved(false)
+        }}
+        allowed={ultraX6Allowed}
+        onToggle={toggleIn(setUltraX6Allowed)}
+        users={users}
+        labels={{
+          title: 'video.ultraX6Title',
+          help: 'video.ultraX6Help',
+          listTitle: 'video.ultraX6AllowedTitle',
+          empty: 'video.ultraAllowedEmpty',
+          allNote: 'video.ultraAllowedAllNote',
+        }}
+        footnote="video.ultraIndependentNote"
       />
       </div>
 

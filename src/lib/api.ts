@@ -252,6 +252,11 @@ export interface VideoExportConfig {
    */
   threeDAccess: VideoAccessMode
   threeDAllowedUserIds: string[]
+  /** Who may use Motion Ultra's ×3 series, and who its ×6 — independently. */
+  ultraX3Access: VideoAccessMode
+  ultraX3AllowedUserIds: string[]
+  ultraX6Access: VideoAccessMode
+  ultraX6AllowedUserIds: string[]
   workerUrl: string | null
   /** How much rendering this SERVER carries — see RENDER_TIERS in server/video/config.js. */
   renderTiers: VideoRenderTier[]
@@ -296,6 +301,10 @@ export interface VideoExportConfigPatch {
   /** Replaced rather than merged, exactly like `allowedUserIds` above. */
   threeDAccess?: VideoAccessMode
   threeDAllowedUserIds?: string[]
+  ultraX3Access?: VideoAccessMode
+  ultraX3AllowedUserIds?: string[]
+  ultraX6Access?: VideoAccessMode
+  ultraX6AllowedUserIds?: string[]
   workerUrl?: string | null
   renderTier?: VideoRenderTier
 }

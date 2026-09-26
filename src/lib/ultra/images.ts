@@ -66,6 +66,8 @@ export async function generateUltraImages(
     onImage?: (img: UltraImage, done: number, total: number) => void
     /** Called with the provider's reason when one picture fails. */
     onError?: (message: string) => void
+    /** The series size the user chose, ×3 or ×6 — sent so the server can check it. */
+    series?: number
   } = {},
 ): Promise<UltraImage[]> {
   const total = board.images.length
@@ -82,6 +84,7 @@ export async function generateUltraImages(
           project,
           signal: opts.signal,
           tags: ['ultra', plan.role],
+          ultra: opts.series,
           ...ROLE_SIZE[plan.role],
         })
         if (got) {

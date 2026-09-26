@@ -267,7 +267,7 @@ describe('GET /status', () => {
     expect(probed).toBe(false)
   })
 
-  it('answers with seven fields and nothing from the stored config', async () => {
+  it('answers with eight fields and nothing from the stored config', async () => {
     const body = await (await fetch(`${base}/api/video/status`)).json()
     // Named explicitly rather than checked for the absence of one word: the
     // config holds a licence key and a worker URL, and this route is the one an
@@ -280,6 +280,8 @@ describe('GET /status', () => {
       'limits',
       'motionKinds',
       'threeD',
+      // The sizes THIS account may use, [3, 6] or fewer — never the lists.
+      'ultraCounts',
       'variantsDerived',
       'worker',
     ])

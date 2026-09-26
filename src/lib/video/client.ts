@@ -65,6 +65,11 @@ export interface VideoAccess {
    * permission is the one place a missing value must fail shut.
    */
   threeD?: boolean
+  /**
+   * The Motion Ultra series sizes this account may use, ×3 and/or ×6. Absent
+   * from a server older than the setting, which allowed both.
+   */
+  ultraCounts?: number[]
   limits: { maxScenes: number; maxTotalDurationMs: number; minVariants?: number; maxVariants?: number }
   /**
    * Whether a variant will really be derived from the user's own picture.

@@ -12,7 +12,7 @@ import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
 import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from '../lib/plan'
-import { runStoryboard } from '../lib/ultra/storyboard'
+import { runStoryboard, type UltraImageCount } from '../lib/ultra/storyboard'
 import { generateUltraImages } from '../lib/ultra/images'
 import { buildUltraPreamble } from '../lib/ultra/preamble'
 import UltraControl from './UltraControl'
@@ -222,7 +222,18 @@ export default function ProjectView({
   const [ultraPaused, setUltraPaused] = useState(false)
   /** Where a running Motion Ultra pass is: "storyboard", "images 2/6"… */
   const [ultraStage, setUltraStage] = useState<string | null>(null)
-  const ultraActive = !!project.ultra && !ultraPaused
+  // Declared up here because `ultraActive` needs it; filled by the same
+  // /api/video/status probe as `motionAvail` below.
+  const [ultraCountsAllowed, setUltraCountsAllowed] = useState<number[] | null>(null)
+  /**
+   * The Motion Ultra series sizes this account may use (Admin → Motion Ultra).
+   * Unknown reads as both: the server is the gate — it refuses a series size it
+   * was not given — so the composer only ever hides what would be refused.
+   */
+  const ultraCounts = ultraCountsAllowed ?? [3, 6]
+  const ultraActive = !!project.ultra && !ultraPaused && ultraCounts.length > 0
+  /** The size a generation will use: the project's, or the first one allowed. */
+  const ultraCount = project.ultra && ultraCounts.includes(project.ultra.count) ? project.ultra.count : ultraCounts[0]
   /**
    * "Cette génération redéfinit la direction" — armed by hand, spent on use.
    *
@@ -471,6 +482,7 @@ export default function ProjectView({
           available: Boolean(access.enabled && access.worker?.available),
           kinds: Array.isArray(access.motionKinds) ? access.motionKinds : [],
         })
+        if (Array.isArray(access.ultraCounts)) setUltraCountsAllowed(access.ultraCounts)
       })
       .catch(() => alive && setMotionAvail({ available: false, kinds: [] }))
     return () => {
@@ -1453,7 +1465,7 @@ export default function ProjectView({
           try {
             setPhase('ultra')
             setUltraStage(t('project.ultraStageStoryboard'))
-            const board = await runStoryboard(settings, text, project.ultra.count, mode, {
+            const board = await runStoryboard(settings, text, ultraCount as UltraImageCount, mode, {
               design: dir.markdown,
               presetHint: preset.hint,
               signal: ac.signal,
@@ -1467,6 +1479,7 @@ export default function ProjectView({
               signal: ac.signal,
               onImage: (_im, done) => setUltraStage(t('project.ultraStageImages', { done, total })),
               onError: (msg) => failures.push(msg),
+              series: ultraCount,
             })
             if (made.length < total) {
               setMuseImageError(
@@ -1481,7 +1494,7 @@ export default function ProjectView({
             ultraRecord = {
               recipes: board.sections.map((s) => s.recipe),
               images: made.map((im) => im.hash),
-              planned: project.ultra.count,
+              planned: ultraCount,
             }
             ultraImageHash = made[0]?.hash
           } catch (err) {
@@ -1796,7 +1809,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2700,6 +2713,7 @@ export default function ProjectView({
         onSetUltra={onSetUltra}
         onToggleUltraPause={() => setUltraPaused((v) => !v)}
         ultraVideoAvailable={ultraVideoAvailable}
+        ultraCounts={ultraCounts}
         busyLabel={phase === 'ultra' ? ultraStage : null}
       />
       {libraryModal}
@@ -3491,6 +3505,7 @@ export default function ProjectView({
                 onSetUltra={onSetUltra}
                 onTogglePause={() => setUltraPaused((v) => !v)}
                 videoAvailable={ultraVideoAvailable}
+                allowedCounts={ultraCounts}
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
             )}

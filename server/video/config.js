@@ -103,6 +103,15 @@ export function defaultVideoConfig() {
     // DEFAULT_THREE_D_ACCESS argues that.
     threeDAccess: DEFAULT_THREE_D_ACCESS,
     threeDAllowedUserIds: [],
+    // Motion Ultra's picture series, ×3 and ×6, each its own scope: an account
+    // may be allowed three pictures a screen and not six. Open by default, like
+    // the 3D scope and for its reason — an upgrade must not take away from every
+    // account what it used yesterday. Independent of `enabled` above: a page
+    // series needs no render worker, only the image provider.
+    ultraX3Access: 'all',
+    ultraX3AllowedUserIds: [],
+    ultraX6Access: 'all',
+    ultraX6AllowedUserIds: [],
     workerUrl: DEFAULT_WORKER_URL,
     renderTier: DEFAULT_RENDER_TIER,
     // The last "Tester ce serveur" result, kept so the panel can show it after a
@@ -190,6 +199,10 @@ export function mergeVideoConfig(current, patch) {
     allowedUserIds: mergeAllowedUserIds(p.allowedUserIds, base.allowedUserIds),
     threeDAccess: ACCESS_MODES.includes(p.threeDAccess) ? p.threeDAccess : base.threeDAccess,
     threeDAllowedUserIds: mergeAllowedUserIds(p.threeDAllowedUserIds, base.threeDAllowedUserIds),
+    ultraX3Access: ACCESS_MODES.includes(p.ultraX3Access) ? p.ultraX3Access : ACCESS_MODES.includes(base.ultraX3Access) ? base.ultraX3Access : 'all',
+    ultraX3AllowedUserIds: mergeAllowedUserIds(p.ultraX3AllowedUserIds, base.ultraX3AllowedUserIds),
+    ultraX6Access: ACCESS_MODES.includes(p.ultraX6Access) ? p.ultraX6Access : ACCESS_MODES.includes(base.ultraX6Access) ? base.ultraX6Access : 'all',
+    ultraX6AllowedUserIds: mergeAllowedUserIds(p.ultraX6AllowedUserIds, base.ultraX6AllowedUserIds),
     workerUrl: mergeWorkerUrl(p.workerUrl, base.workerUrl),
     renderTier: RENDER_TIERS.includes(p.renderTier) ? p.renderTier : RENDER_TIERS.includes(base.renderTier) ? base.renderTier : DEFAULT_RENDER_TIER,
     benchmark: base.benchmark && typeof base.benchmark === 'object' ? base.benchmark : null,
@@ -212,6 +225,10 @@ export function publicVideoConfig(cfg) {
     // that IS secret stays a boolean two lines up.
     threeDAccess: ACCESS_MODES.includes(c.threeDAccess) ? c.threeDAccess : DEFAULT_THREE_D_ACCESS,
     threeDAllowedUserIds: Array.isArray(c.threeDAllowedUserIds) ? [...c.threeDAllowedUserIds] : [],
+    ultraX3Access: ACCESS_MODES.includes(c.ultraX3Access) ? c.ultraX3Access : 'all',
+    ultraX3AllowedUserIds: Array.isArray(c.ultraX3AllowedUserIds) ? [...c.ultraX3AllowedUserIds] : [],
+    ultraX6Access: ACCESS_MODES.includes(c.ultraX6Access) ? c.ultraX6Access : 'all',
+    ultraX6AllowedUserIds: Array.isArray(c.ultraX6AllowedUserIds) ? [...c.ultraX6AllowedUserIds] : [],
     workerUrl: c.workerUrl || null,
     renderTiers: RENDER_TIERS,
     renderTier: RENDER_TIERS.includes(c.renderTier) ? c.renderTier : DEFAULT_RENDER_TIER,
@@ -266,6 +283,40 @@ export function videoThreeDEnabledFor(cfg, user) {
   const id = typeof user?.id === 'string' ? user.id.trim() : ''
   if (!id) return false
   return Array.isArray(c.threeDAllowedUserIds) && c.threeDAllowedUserIds.includes(id)
+}
+
+/**
+ * Which Motion Ultra series sizes this account may use: [3, 6], [3], [6] or [].
+ *
+ * Asked of each size on its own, never "6 implies 3": an administrator who
+ * gives an account the six-picture series and not the three is making an odd
+ * choice, but it is theirs, and a rule that quietly widened it would be a
+ * permission nobody granted. An administrator is not allowed on their role
+ * alone, as everywhere else in this file.
+ */
+export function ultraCountsFor(cfg, user) {
+  const c = { ...defaultVideoConfig(), ...(cfg || {}) }
+  const id = typeof user?.id === 'string' ? user.id.trim() : ''
+  const may = (mode, ids) => mode !== 'allowlist' || (Boolean(id) && Array.isArray(ids) && ids.includes(id))
+  const counts = []
+  if (may(c.ultraX3Access, c.ultraX3AllowedUserIds)) counts.push(3)
+  if (may(c.ultraX6Access, c.ultraX6AllowedUserIds)) counts.push(6)
+  return counts
+}
+
+/**
+ * Why an image request may not go through, or null when it may.
+ *
+ * Only a request that SAYS it belongs to a Motion Ultra series is judged: one
+ * without the field is any other picture, which Muse can already ask for. The
+ * series size must be one this account was given, read as a number because it
+ * arrives in JSON from a browser.
+ */
+export function ultraSeriesRefusal(allowedCounts, series) {
+  if (series === undefined || series === null) return null
+  const n = Number(series)
+  if (Array.isArray(allowedCounts) && allowedCounts.includes(n)) return null
+  return `Votre compte n'a pas accès à Motion Ultra ×${Number.isFinite(n) ? n : '?'} — un administrateur peut l'ouvrir dans Admin → Motion Ultra.`
 }
 
 export class VideoConfigStore {
@@ -324,6 +375,11 @@ export class VideoConfigStore {
 
   threeDEnabledFor(user) {
     return videoThreeDEnabledFor(this.config, user)
+  }
+
+  /** Motion Ultra series sizes this account may use — see `ultraCountsFor`. */
+  ultraCountsFor(user) {
+    return ultraCountsFor(this.config, user)
   }
 
   /** The server's tier, for the engines that exist only at `full`. */

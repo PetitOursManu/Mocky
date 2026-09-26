@@ -33,6 +33,17 @@ cadre et un panneau, les données restent sur des surfaces opaques.
 Motion Ultra ne s'applique qu'aux **nouveaux** écrans. Une retouche d'un écran
 existant le garde tel qu'il est.
 
+**Qui peut utiliser quel format** est la décision de l'administrateur, dans
+Admin → Motion Ultra : une liste pour ×3 et une pour ×6, chacune « tout le monde »
+ou des comptes nommés, et indépendantes — un compte peut avoir ×3 sans ×6. Le
+composer ne propose que les formats qu'un compte a, et aucun veut dire aucun
+contrôle Motion Ultra ; un projet enregistré dans un format que le compte n'a
+plus utilise celui qu'il a. C'est le serveur qui décide, pas le bouton : chaque
+image d'une série est demandée avec son format, et `POST /api/images/generate`
+refuse un format qui n'a pas été accordé au compte. Ces réglages valent aussi
+interrupteur des films fermé — une série d'images n'a pas besoin du worker de
+rendu.
+
 ## Ce qui se passe à la génération
 
 ```

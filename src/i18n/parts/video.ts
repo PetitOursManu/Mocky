@@ -37,6 +37,16 @@ export const video = {
       'Rend une suite d’images en .mp4 via un worker Remotion, service Docker séparé et facultatif (profil « video-export »). Désactivé par défaut : une instance qui n’a pas construit ce service ne gagne rien à l’activer.',
 
     'video.enable': 'Activer Motion Ultra',
+    'video.ultraX3Title': 'Motion Ultra ×3',
+    'video.ultraX3Help': 'Trois images générées par écran. Environ 1 min de plus par génération.',
+    'video.ultraX3AllowedTitle': 'Comptes autorisés à ×3',
+    'video.ultraX6Title': 'Motion Ultra ×6',
+    'video.ultraX6Help': 'Six images générées par écran. Environ 2 à 3 min de plus, et deux fois plus d’images facturées.',
+    'video.ultraX6AllowedTitle': 'Comptes autorisés à ×6',
+    'video.ultraAllowedEmpty': 'Aucun compte coché : personne n’y a accès.',
+    'video.ultraAllowedAllNote': 'Les {total} comptes de l’instance y ont accès.',
+    'video.ultraIndependentNote':
+      'Les deux sont indépendants : un compte peut avoir ×3 sans ×6. Un compte qui n’a ni l’un ni l’autre ne voit pas Motion Ultra dans le composer. Ces réglages valent même quand l’interrupteur ci-dessus est fermé : une série d’images n’a pas besoin du worker de rendu. Un administrateur n’a pas accès d’office.',
     'video.enableHelp':
       'Interrupteur maître. Fermé, personne n’exporte, quelle que soit la portée réglée ci-dessous.',
 
@@ -485,6 +495,16 @@ export const video = {
       'Renders a sequence of images to .mp4 through a Remotion worker — a separate, optional Docker service (the “video-export” profile). Off by default: an instance that has not built that service gains nothing by turning this on.',
 
     'video.enable': 'Enable Motion Ultra',
+    'video.ultraX3Title': 'Motion Ultra ×3',
+    'video.ultraX3Help': 'Three generated pictures per screen. About 1 min more per generation.',
+    'video.ultraX3AllowedTitle': 'Accounts allowed ×3',
+    'video.ultraX6Title': 'Motion Ultra ×6',
+    'video.ultraX6Help': 'Six generated pictures per screen. About 2 to 3 min more, and twice the pictures billed.',
+    'video.ultraX6AllowedTitle': 'Accounts allowed ×6',
+    'video.ultraAllowedEmpty': 'No account ticked: nobody has access.',
+    'video.ultraAllowedAllNote': 'All {total} accounts on this instance have access.',
+    'video.ultraIndependentNote':
+      'The two are independent: an account may have ×3 without ×6. An account with neither does not see Motion Ultra in the composer. These apply even with the switch above off: a picture series needs no render worker. An administrator is not allowed by default.',
     'video.enableHelp': 'Master switch. Off, nobody exports, whatever the scope below is set to.',
 
     'video.accessTitle': 'Scope',

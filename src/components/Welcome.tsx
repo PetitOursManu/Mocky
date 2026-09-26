@@ -41,6 +41,8 @@ type Props = {
   onToggleUltraPause: () => void
   /** Whether a Motion Ultra video background can be rendered right now. */
   ultraVideoAvailable?: boolean
+  /** The Motion Ultra series sizes this account may use. */
+  ultraCounts?: readonly number[]
   /** What a running pass is doing, when it has more to say than "generating". */
   busyLabel: string | null
 }
@@ -75,6 +77,7 @@ export default function Welcome({
   onSetUltra,
   onToggleUltraPause,
   ultraVideoAvailable = false,
+  ultraCounts,
   busyLabel,
 }: Props) {
   const t = useT()
@@ -158,6 +161,7 @@ export default function Welcome({
                 onSetUltra={onSetUltra}
                 onTogglePause={onToggleUltraPause}
                 videoAvailable={ultraVideoAvailable}
+                allowedCounts={ultraCounts}
                 size={15}
                 className="text-body-sm"
               />

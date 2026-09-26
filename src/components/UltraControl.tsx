@@ -23,6 +23,7 @@ export default function UltraControl({
   onSetUltra,
   onTogglePause,
   videoAvailable = false,
+  allowedCounts = ULTRA_IMAGE_COUNTS,
   size = 14,
   className = '',
 }: {
@@ -32,16 +33,27 @@ export default function UltraControl({
   onTogglePause: () => void
   /** Whether this account can render a Motion `background` film right now. */
   videoAvailable?: boolean
+  /**
+   * The series sizes the administrator allows this account (Admin → Motion
+   * Ultra). None means no Motion Ultra here at all: the chip is not drawn,
+   * because a switch whose every setting is refused is furniture.
+   */
+  allowedCounts?: readonly number[]
   size?: number
   className?: string
 }) {
   const t = useT()
+  const counts = ULTRA_IMAGE_COUNTS.filter((c) => allowedCounts.includes(c))
+  if (!counts.length) return null
+  // A project saved at a size this account may no longer use shows the size
+  // it WILL use — the generation makes the same substitution.
+  const shown = ultra && counts.includes(ultra.count) ? ultra.count : counts[0]
 
   if (!ultra) {
     return (
       <button
         type="button"
-        onClick={() => onSetUltra({ count: 3 })}
+        onClick={() => onSetUltra({ count: counts[0] })}
         className={`inline-flex items-center gap-1 text-ink-faint transition hover:text-ink-muted ${className}`}
         title={t('project.ultraEnableTitle')}
         aria-pressed={false}
@@ -69,15 +81,15 @@ export default function UltraControl({
       </button>
       {!paused && (
         <span role="group" aria-label={t('project.ultraChip')} className="inline-flex overflow-hidden rounded border border-line">
-          {ULTRA_IMAGE_COUNTS.map((count) => (
+          {counts.map((count) => (
             <button
               key={count}
               type="button"
               onClick={() => onSetUltra({ ...ultra, count })}
-              aria-pressed={ultra.count === count}
+              aria-pressed={shown === count}
               title={t('project.ultraCountTitle', { count, minutes: count === 3 ? '1' : '2–3' })}
               className={`px-1.5 py-0.5 text-caption tabular-nums transition ${
-                ultra.count === count ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
+                shown === count ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
               }`}
             >
               ×{count}
@@ -90,7 +102,7 @@ export default function UltraControl({
           on somebody's bill. */}
       {!paused && (
         <span className="text-caption tabular-nums text-ink-faint">
-          {t('project.ultraCost', { minutes: ultra.count === 3 ? '1' : '2–3' })}
+          {t('project.ultraCost', { minutes: shown === 3 ? '1' : '2–3' })}
         </span>
       )}
       {/* The video background, off by default and said to cost what it costs.

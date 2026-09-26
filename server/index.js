@@ -13,7 +13,7 @@ import { createMuseRouter } from './muse/routes.js'
 import { createImages } from './images/index.js'
 import { createVideos } from './videos/index.js'
 import { PUBLIC_VIDEO_PATH } from './videos/routes.js'
-import { VideoConfigStore } from './video/config.js'
+import { VideoConfigStore, ultraSeriesRefusal } from './video/config.js'
 import { VideoQueue } from './video/queue.js'
 import { createVideoWorker, collectImages } from './video/worker.js'
 import { VideoExportStore } from './video/store.js'
@@ -522,6 +522,21 @@ app.use('/__provider', (req, res) => {
 })
 
 app.use('/api', express.json({ limit: '25mb' }))
+
+/*
+ * Motion Ultra's series sizes are a per-account permission (Admin → Motion
+ * Ultra), and a series is made of ordinary image requests — so the gate sits
+ * in front of the image route, on the one field that says a picture belongs to
+ * a series. A request without it is any other image, which Muse can already
+ * ask for; what this refuses is the series an account was not given.
+ */
+// requireUser first: it is what sets req.user, and without it every account
+// would read as nobody and an allowlist would refuse them all.
+app.post('/api/images/generate', requireUser, (req, res, next) => {
+  const refusal = ultraSeriesRefusal(videoConfig.ultraCountsFor(req.user), req.body?.ultra)
+  if (!refusal) return next()
+  res.status(403).json({ code: 'no-access', error: refusal })
+})
 
 // ---- session helpers ----
 

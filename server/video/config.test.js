@@ -4,6 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import {
+  ultraCountsFor,
+  ultraSeriesRefusal,
   VideoConfigStore,
   mergeVideoConfig,
   publicVideoConfig,
@@ -355,5 +357,63 @@ describe('VideoConfigStore', () => {
     s.update({ enabled: true, allowedUserIds: ['u1'] })
     expect(s.enabledFor({ id: 'u1' })).toBe(true)
     expect(s.enabledFor({ id: 'u2', role: 'admin' })).toBe(false)
+  })
+})
+
+describe('Motion Ultra series sizes, per account', () => {
+  const alice = { id: 'alice' }
+  const bob = { id: 'bob' }
+
+  it('are both open by default, so an upgrade takes nothing away', () => {
+    expect(ultraCountsFor(defaultVideoConfig(), alice)).toEqual([3, 6])
+  })
+
+  it('are two independent scopes — ×3 without ×6, or the other way round', () => {
+    const cfg = mergeVideoConfig(defaultVideoConfig(), {
+      ultraX3Access: 'allowlist',
+      ultraX3AllowedUserIds: ['alice', 'bob'],
+      ultraX6Access: 'allowlist',
+      ultraX6AllowedUserIds: ['alice'],
+    })
+    expect(ultraCountsFor(cfg, alice)).toEqual([3, 6])
+    expect(ultraCountsFor(cfg, bob)).toEqual([3])
+    expect(ultraCountsFor(cfg, { id: 'carol' })).toEqual([])
+    // Six without three is odd, and still the administrator's to decide.
+    const odd = mergeVideoConfig(cfg, { ultraX3AllowedUserIds: [] })
+    expect(ultraCountsFor(odd, alice)).toEqual([6])
+  })
+
+  it('does not depend on the film switch, and grants nothing on a role alone', () => {
+    const cfg = mergeVideoConfig(defaultVideoConfig(), {
+      enabled: false,
+      ultraX3Access: 'allowlist',
+      ultraX3AllowedUserIds: ['alice'],
+      ultraX6Access: 'allowlist',
+      ultraX6AllowedUserIds: [],
+    })
+    expect(ultraCountsFor(cfg, alice)).toEqual([3])
+    expect(ultraCountsFor(cfg, { id: 'root', role: 'admin' })).toEqual([])
+    expect(ultraCountsFor(cfg, { id: '' })).toEqual([])
+  })
+
+  it('reach the panel through the public view, with nothing secret in them', () => {
+    const cfg = mergeVideoConfig(defaultVideoConfig(), { ultraX6Access: 'allowlist', ultraX6AllowedUserIds: ['alice'] })
+    const view = publicVideoConfig(cfg)
+    expect(view).toMatchObject({
+      ultraX3Access: 'all',
+      ultraX3AllowedUserIds: [],
+      ultraX6Access: 'allowlist',
+      ultraX6AllowedUserIds: ['alice'],
+    })
+  })
+
+  it('gate an image request only when it says it belongs to a series', () => {
+    expect(ultraSeriesRefusal([3], undefined)).toBeNull()
+    expect(ultraSeriesRefusal([], null)).toBeNull()
+    expect(ultraSeriesRefusal([3], 3)).toBeNull()
+    expect(ultraSeriesRefusal([3], '3')).toBeNull()
+    expect(ultraSeriesRefusal([3], 6)).toMatch(/Motion Ultra ×6/)
+    expect(ultraSeriesRefusal([], 3)).toMatch(/Admin → Motion Ultra/)
+    expect(ultraSeriesRefusal([3, 6], 'x')).toMatch(/×\?/)
   })
 })

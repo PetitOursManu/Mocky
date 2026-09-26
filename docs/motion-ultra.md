@@ -30,6 +30,15 @@ panel, the data stays on opaque surfaces.
 Motion Ultra only applies to **new** screens. An edit of an existing screen keeps
 what it is.
 
+**Who may use which size** is the administrator's decision, in Admin → Motion
+Ultra: one list for ×3 and one for ×6, each "everyone" or named accounts, and
+independent — an account may have ×3 without ×6. The composer offers only the
+sizes an account has, and none means no Motion Ultra control at all; a project
+saved at a size the account no longer has uses the one it does. The server is the
+gate, not the button: every picture of a series is requested with its size, and
+`POST /api/images/generate` refuses a size the account was not given. These apply
+with the film switch off too — a picture series needs no render worker.
+
 ## What happens when you generate
 
 ```
