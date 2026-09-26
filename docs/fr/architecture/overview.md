@@ -247,7 +247,7 @@ objets : ils sont FAITS pour déborder, exactement comme un fond, et les cadrer
 entiers les réduirait à un motif flottant au milieu de leur boîte.
 
 **Et une scène cesse d'être une scène en trois endroits, par un seul chemin.**
-Une frame de capture, un écran en « Sans animation » et `prefers-reduced-motion`
+Une frame de capture, un écran figé depuis son menu et `prefers-reduced-motion`
 reçoivent chacun une image, gardée comme telle, puis rendent le contexte. La
 capture est le cas intéressant : html2canvas clone le document et recopie chaque
 canvas, et un canvas WebGL vivant se recopie VIDE — son tampon de dessin a

@@ -10,6 +10,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | animations de page toujours actives, plus de film automatique | `d910b88` |
 | `ultra` | série visible sur le canevas, images réutilisées, film vraiment visible | `55c8d51` |
 | `ultra` | v2 — fond vidéo, fabriqué en local et branché sans appel | `c0f31d4` |
 | `ultra` | quatre effets repérés dans le corpus motionsites | `e0841dd` |

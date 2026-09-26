@@ -113,9 +113,10 @@ Fond vidéo actif, aucun autre film Motion n'est fabriqué pour le même écran.
 Muse écrit toujours la direction et les textes ; avec Motion Ultra actif, elle ne
 génère pas d'image de héros à elle — la série la remplace.
 
-Un film Motion n'est jamais placé dans l'ouverture construite par Motion Ultra.
-Il va dans une autre section, sous un autre type de film, et il est composé à
-partir des images de la série.
+Aucun film n'est fabriqué tout seul. Le seul film qu'une génération fabrique est
+le `Fond vidéo` ci-dessus, quand il est allumé ; tout autre film vient du panneau
+Motion, et les animations de page sont toujours actives — un écran se fige depuis
+son propre menu.
 
 ## Pourquoi c'est construit ainsi
 

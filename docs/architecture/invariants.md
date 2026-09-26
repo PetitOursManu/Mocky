@@ -666,8 +666,8 @@ prompt, however "landing"-shaped, selects the kit.
 from the kit. The model does not write `@keyframes` or `<style>` blocks.
 
 **What it protects.** Checkability, and the three hold-still paths. Every kit
-treatment rests visible under `prefers-reduced-motion`, under "Sans animation"
-(`u-still`) and in the capture shell (`u-capture`); a hand-written loop honours
+treatment rests visible under `prefers-reduced-motion`, on a screen held still
+from its own menu (`u-still`) and in the capture shell (`u-capture`); a hand-written loop honours
 none of them, and html2canvas throws on a computed colour, which blanks a
 thumbnail. A free `<style>` block was considered and refused: a missing effect is
 added to the kit, once and tested.
@@ -719,8 +719,9 @@ they paid for.
 deleted its picture and its `<h1>`, and the user saw an empty hero on a page
 with no headline.
 
-**How it is checked.** `quality.test.js` (policy), `filmDecision.test.ts`
-(the opening), `ultra.test.ts` (`ultraLoss`).
+**How it is checked.** `quality.test.js` (policy), `ultra.test.ts` (the film
+slot and `ultraLoss`), and `tests/ultra-off.test.js`, which also requires that no
+film is ever made on its own.
 
 ---
 

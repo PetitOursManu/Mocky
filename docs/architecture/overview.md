@@ -235,7 +235,7 @@ background does, and framing one whole would shrink it to a motif floating in
 the middle of its box.
 
 **And a scene stops being a scene in three places, by one path.** A capture
-frame, a screen with "Sans animation" on, and `prefers-reduced-motion` each get
+frame, a screen held still from its own menu, and `prefers-reduced-motion` each get
 one frame, kept as an image, and the context back. The capture frame is the
 interesting one: html2canvas clones the document and copies each canvas, and a
 live WebGL canvas copies BLANK — its drawing buffer is gone by then, and keeping

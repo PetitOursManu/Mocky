@@ -106,9 +106,10 @@ With the video background on, no other Motion film is made for the same screen.
 Muse still writes the direction and the copy; with Motion Ultra on it does not
 generate a hero picture of its own — the series replaces it.
 
-A Motion film is never placed in the opening Motion Ultra built. It goes into
-another section, as another kind of film, and is composed from the series'
-pictures.
+No film is made on its own. The only film a generation makes is the `Video
+background` above, when it is switched on; any other film comes from the Motion
+panel, and page animations are always on — a screen is held still from its own
+menu.
 
 ## Why it is built this way
 

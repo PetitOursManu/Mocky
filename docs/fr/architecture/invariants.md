@@ -709,8 +709,8 @@ prompt, même très « landing », ne sélectionne le kit.
 `<Backdrop>` du kit. Le modèle n'écrit ni `@keyframes` ni bloc `<style>`.
 
 **Ce que ça protège.** La vérifiabilité, et les trois chemins d'immobilité. Chaque
-traitement du kit reste visible sous `prefers-reduced-motion`, sous « Sans
-animation » (`u-still`) et dans la capture (`u-capture`) ; une boucle écrite à la
+traitement du kit reste visible sous `prefers-reduced-motion`, sur un écran figé
+depuis son menu (`u-still`) et dans la capture (`u-capture`) ; une boucle écrite à la
 main n'en respecte aucun, et html2canvas lève sur une couleur calculée, ce qui
 donne une miniature blanche. Un bloc `<style>` libre a été envisagé et refusé :
 un effet qui manque s'ajoute au kit, une fois et testé.
@@ -764,8 +764,9 @@ n'en a le droit :
 storyboardé a supprimé son image et son `<h1>`, et l'utilisateur a vu un héros
 vide sur une page sans titre.
 
-**Comment c'est vérifié.** `quality.test.js` (la politique), `filmDecision.test.ts`
-(l'ouverture), `ultra.test.ts` (`ultraLoss`).
+**Comment c'est vérifié.** `quality.test.js` (la politique), `ultra.test.ts` (la
+place du film et `ultraLoss`), et `tests/ultra-off.test.js`, qui exige aussi
+qu'aucun film ne soit jamais fabriqué tout seul.
 
 ---
 
