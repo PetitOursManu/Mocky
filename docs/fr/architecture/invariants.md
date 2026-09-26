@@ -693,6 +693,11 @@ mette pas à recevoir une typographie géante et une aurore.
 **Comment c'est fait.** Toute la passe est derrière `ultraActive` dans
 `ProjectView.tsx`, et la capacité `ultra` a des `triggers` vides.
 
+Une exception voulue, et seulement pour un projet qui A des images Motion Ultra :
+un écran généré sans Motion Ultra se les voit proposer (`lib/ultra/reuse.ts`).
+Un projet qui n'a jamais utilisé Motion Ultra n'a rien à proposer et suit
+l'ancien chemin.
+
 **Comment c'est vérifié.** `tests/ultra-off.test.js` attache chaque appel Motion
 Ultra du chemin de génération à la garde qui l'éteint, et vérifie qu'aucun
 prompt, même très « landing », ne sélectionne le kit.

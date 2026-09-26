@@ -89,6 +89,18 @@ section of each new screen gets a moving background:
 
 With the video background on, no other Motion film is made for the same screen.
 
+## The series, after the screen
+
+- On the canvas, the picture card of a Motion Ultra screen shows **stacked
+  frames** when it holds several pictures; clicking it opens the viewer on the
+  **whole series** — arrows, ← →, thumbnails, "2 / 3".
+- A screen generated **without** Motion Ultra (paused, or switched off) in a
+  project that has Motion Ultra pictures is **offered them**: the model may reuse
+  one where a picture helps, and is never made to. Nothing is generated for it.
+- The legibility check (text laid over a picture) runs after **every** new
+  screen that has a picture, Muse's and pinned ones included — not only Motion
+  Ultra's.
+
 ## With Muse and Motion films
 
 Muse still writes the direction and the copy; with Motion Ultra on it does not

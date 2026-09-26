@@ -80,7 +80,18 @@ export const FILM_RECIPES = [
   'banner-panel',
 ] as const
 
-export function filmSectionOf(sections: Array<{ id: string; recipe: string }>): string | null {
-  const hit = sections.find((s) => (FILM_RECIPES as readonly string[]).includes(s.recipe))
+export function filmSectionOf(
+  sections: Array<{ id: string; recipe: string }>,
+  mode?: string,
+): string | null {
+  /*
+   * On an application screen, only the banner. A real run put the film in a
+   * `spotlight-feature` panel halfway down a finance dashboard, under a chart and
+   * two figures: a dark film under a dark veil under data, rendered and plugged
+   * correctly, and invisible. The one panel an app screen gives to expression is
+   * where a moving picture can be seen at all.
+   */
+  const allowed: readonly string[] = mode === 'operate' ? ['banner-panel'] : FILM_RECIPES
+  const hit = sections.find((s) => allowed.includes(s.recipe))
   return hit ? hit.id : null
 }

@@ -19,6 +19,7 @@ import UltraControl from './UltraControl'
 import { isEnvironmentError } from '../lib/previewErrors'
 import { missingUltraImages, ultraLoss, ultraMotionCount, ULTRA_BUDGET } from '../lib/ultra/check'
 import { filmSectionOf, plugFilmIntoSlot } from '../lib/ultra/filmSlot'
+import { buildReuseSection, projectUltraPictures } from '../lib/ultra/reuse'
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
@@ -294,6 +295,8 @@ export default function ProjectView({
   const [libraryTab, setLibraryTab] = useState<MediaTab>('images')
   /** Image opened full size (from the canvas card or the library grid). */
   const [lightboxHash, setLightboxHash] = useState<string | null>(null)
+  /** The series the open picture belongs to, when the canvas opened a Motion Ultra card. */
+  const [lightboxSeries, setLightboxSeries] = useState<string[] | undefined>(undefined)
   /**
    * A film opened for playback from the attached-media card on the canvas.
    *
@@ -1493,7 +1496,7 @@ export default function ProjectView({
                 t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
               )
             }
-            ultraFilmSection = ultraVideo ? filmSectionOf(board.sections) : null
+            ultraFilmSection = ultraVideo ? filmSectionOf(board.sections, board.mode) : null
             planSection = [
               buildUltraPreamble(board, made, { filmSection: ultraFilmSection }),
               modeToPromptSection(mode),
@@ -1529,6 +1532,29 @@ export default function ProjectView({
         // Appended to the plan section rather than folded into it, so the mode
         // still reaches generation on the paths where no plan was produced.
         if (!planSection) planSection = modeToPromptSection(mode)
+        /*
+         * No series for THIS screen, but the project has pictures a Motion Ultra
+         * run already paid for: offer them (lib/ultra/reuse.ts). Only a project
+         * that has such pictures is touched, so one that never used Motion
+         * Ultra takes exactly the path it always took (U1). Best-effort: a
+         * library that does not answer offers nothing.
+         */
+        if (!ultraRecord) {
+          const owned = projectUltraPictures(screensRef.current)
+          if (owned.length) {
+            try {
+              const lib = await listLibrary({ project: project.id }, ac.signal)
+              const pictures = owned.map((hash) => {
+                const meta = lib.find((m) => m.hash === hash)
+                return { url: absoluteUrl(imageUrl(hash)), about: (meta?.prompt || '').split('.')[0].slice(0, 140) || 'a picture of this project' }
+              })
+              const reuse = buildReuseSection(pictures)
+              if (reuse) planSection = [planSection, reuse].filter(Boolean).join('\n\n')
+            } catch (err) {
+              if (err instanceof Error && err.name === 'AbortError') throw err
+            }
+          }
+        }
         // The user's standing answer about motion, applied once, after both the
         // shortlist and the planner have had their say. 'auto' — the default —
         // changes nothing.
@@ -1627,11 +1653,21 @@ export default function ProjectView({
            * about a second of rendering, no model call, and a failure to check
            * is not a finding (Q1).
            */
+        }
+        /*
+         * Text laid over a picture, read on the rendered pixels (lib/legibility.ts)
+         * — for EVERY screen that lays text over one, not only Motion Ultra's: a
+         * Muse hero photo or a pinned image has the same blind spot in the
+         * class-based audit. A screen with no picture is never rendered for it.
+         * Local, about a second, in the background; a failure to check is not a
+         * finding (Q1).
+         */
+        if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence'].some((k) => result.code.includes(k))) {
           checkLegibility(result.code, preset.w, preset.h, caps)
             .then((hard) => {
               if (!hard.length) return
               const list = hard.slice(0, 3).map((f) => `« ${f.text.length > 40 ? f.text.slice(0, 40) + '…' : f.text} »`).join(', ')
-              const line = t('project.ultraLegibility', { count: hard.length, list })
+              const line = t(ultraRecord ? 'project.ultraLegibility' : 'project.legibility', { count: hard.length, list })
               setNotice((prev) => (prev ? `${prev} ${line}` : line))
             })
             .catch(() => {})
@@ -3081,7 +3117,16 @@ export default function ProjectView({
           onOpenImage={setLightboxHash}
         />
       )}
-      {lightboxHash && <ImageLightbox hash={lightboxHash} onClose={() => setLightboxHash(null)} />}
+      {lightboxHash && (
+        <ImageLightbox
+          hash={lightboxHash}
+          series={lightboxSeries}
+          onClose={() => {
+            setLightboxHash(null)
+            setLightboxSeries(undefined)
+          }}
+        />
+      )}
       {playingFilm && <FilmLightbox hash={playingFilm} onClose={() => setPlayingFilm(null)} />}
       {imageSwapScreen && (
         <ScreenImagesDialog
@@ -3332,7 +3377,10 @@ export default function ProjectView({
         onMoveScreens={(updates) => updates.forEach((u) => onUpdateScreen(u.id, { x: u.x, y: u.y }))}
         onResizeScreen={(id, box) => onUpdateScreen(id, box)}
         onRenameScreen={(id, name) => onUpdateScreen(id, { name })}
-        onOpenImage={setLightboxHash}
+        onOpenImage={(hash, series) => {
+          setLightboxSeries(series)
+          setLightboxHash(hash)
+        }}
         /*
          * A film plays here; a sequence goes to Média.
          *

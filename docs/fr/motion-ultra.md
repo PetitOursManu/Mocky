@@ -95,6 +95,19 @@ Allumé, une section de chaque nouvel écran reçoit un fond qui bouge :
 
 Fond vidéo actif, aucun autre film Motion n'est fabriqué pour le même écran.
 
+## La série, après l'écran
+
+- Sur le canevas, la carte d'image d'un écran Motion Ultra affiche des **cadres
+  empilés** quand elle contient plusieurs images ; un clic ouvre la visionneuse
+  sur **toute la série** — flèches, ← →, vignettes, « 2 / 3 ».
+- Un écran généré **sans** Motion Ultra (en pause, ou désactivé) dans un projet
+  qui a des images Motion Ultra **se les voit proposer** : le modèle peut en
+  réutiliser une là où une image aide, sans jamais y être obligé. Rien n'est
+  généré pour ça.
+- Le contrôle de lisibilité (texte posé sur une image) tourne après **chaque**
+  nouvel écran qui contient une image, celles de Muse et les images épinglées
+  comprises — pas seulement Motion Ultra.
+
 ## Avec Muse et les films Motion
 
 Muse écrit toujours la direction et les textes ; avec Motion Ultra actif, elle ne

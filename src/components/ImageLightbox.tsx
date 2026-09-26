@@ -15,35 +15,61 @@ import { useT } from '../i18n'
  * they never end up buried below the prompt.
  */
 export default function ImageLightbox({
-  hash,
+  hash: first,
   meta,
+  series,
   onClose,
 }: {
   hash: string
   meta?: LibraryImage | null
+  /**
+   * The whole series this picture belongs to — a Motion Ultra screen's
+   * pictures. With more than one, the viewer steps through them (arrows, ← →,
+   * the strip of thumbnails) instead of showing one and hiding the rest.
+   */
+  series?: string[]
   onClose: () => void
 }) {
   const t = useT()
-  const [info, setInfo] = useState<LibraryImage | null>(meta ?? null)
+  const list = series && series.length > 1 ? series : [first]
+  const [index, setIndex] = useState(() => Math.max(0, list.indexOf(first)))
+  const hash = list[index] ?? first
+  /** Library records by hash, so stepping back does not refetch. */
+  const [infos, setInfos] = useState<Record<string, LibraryImage | null>>(() => (meta ? { [first]: meta } : {}))
+  const info = infos[hash] ?? null
   const [copied, setCopied] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (info) return
+    if (hash in infos) return
     let alive = true
     listLibrary()
-      .then((all) => alive && setInfo(all.find((i) => i.hash === hash) ?? null))
+      .then((all) => {
+        if (!alive) return
+        const found: Record<string, LibraryImage | null> = {}
+        for (const h of list) found[h] = all.find((i) => i.hash === h) ?? null
+        setInfos((prev) => ({ ...found, ...prev }))
+      })
       .catch(() => {})
     return () => {
       alive = false
     }
-  }, [hash, info])
+    // `list` is derived from props that do not change while the viewer is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hash, infos])
+
+  const step = (delta: number) => setIndex((i) => (i + delta + list.length) % list.length)
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      else if (list.length > 1 && e.key === 'ArrowRight') step(1)
+      else if (list.length > 1 && e.key === 'ArrowLeft') step(-1)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, list.length])
 
   // A newly opened image must start at the top, whatever the previous one did.
   useEffect(() => {
@@ -94,12 +120,53 @@ export default function ImageLightbox({
       {/* Top-aligned, never centred: centring a taller-than-viewport column
           scrolls the top out of reach in most browsers. */}
       <div className="flex flex-col items-center gap-4 px-4 pb-10 -mt-2">
-        <img
-          src={imageUrl(hash)}
-          alt={info?.prompt || t('library.altGenerated')}
-          className="max-h-[78vh] w-auto max-w-full rounded-xl object-contain shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        />
+        <div className="relative flex max-w-full items-center justify-center" onClick={(e) => e.stopPropagation()}>
+          {list.length > 1 && (
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              className="absolute left-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-raised/90 text-ink shadow-lg transition hover:border-accent"
+              aria-label={t('library.previousImage')}
+            >
+              <Icon name="chevronLeft" size={20} />
+            </button>
+          )}
+          <img
+            src={imageUrl(hash)}
+            alt={info?.prompt || t('library.altGenerated')}
+            className="max-h-[78vh] w-auto max-w-full rounded-xl object-contain shadow-2xl"
+          />
+          {list.length > 1 && (
+            <button
+              type="button"
+              onClick={() => step(1)}
+              className="absolute right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-raised/90 text-ink shadow-lg transition hover:border-accent"
+              aria-label={t('library.nextImage')}
+            >
+              <Icon name="chevronRight" size={20} />
+            </button>
+          )}
+        </div>
+
+        {list.length > 1 && (
+          <div className="flex flex-wrap items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <span className="border border-line bg-raised px-2 py-1 font-mono text-caption text-ink-muted">
+              {index + 1} / {list.length}
+            </span>
+            {list.map((h, i) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={t('library.showImage', { n: i + 1 })}
+                aria-current={i === index}
+                className={`overflow-hidden rounded border-2 transition ${i === index ? 'border-accent' : 'border-transparent opacity-70 hover:opacity-100'}`}
+              >
+                <img src={imageUrl(h)} alt="" className="block h-12 w-16 object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
 
         {info && (
           <div className="flex flex-wrap items-center justify-center gap-2 border border-line bg-raised px-3 py-1.5 text-caption text-ink-muted">

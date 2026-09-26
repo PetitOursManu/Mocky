@@ -141,6 +141,9 @@ export const library = {
     'library.altGenerated': 'image générée',
     'library.promptLabel': 'Prompt',
     'library.escHint': 'Échap ou clic à l’extérieur pour fermer',
+    'library.previousImage': 'Image précédente',
+    'library.nextImage': 'Image suivante',
+    'library.showImage': 'Voir l’image {n}',
 
     // ---- replacing an image inside a screen ----
     // Le titre dit « Médias », comme l'entrée de menu qui l'ouvre
@@ -363,6 +366,9 @@ export const library = {
     'library.altGenerated': 'generated image',
     'library.promptLabel': 'Prompt',
     'library.escHint': 'Press Esc, or click outside, to close',
+    'library.previousImage': 'Previous picture',
+    'library.nextImage': 'Next picture',
+    'library.showImage': 'Show picture {n}',
 
     // ---- replacing an image inside a screen ----
     // The title reads “Media”, like the menu entry that opens it

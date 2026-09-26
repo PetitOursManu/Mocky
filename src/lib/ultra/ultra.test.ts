@@ -265,6 +265,9 @@ describe('the video background (v2)', () => {
     expect(filmSectionOf([{ id: 'hero', recipe: 'object-hero' }, { id: 'band', recipe: 'parallax-band' }, { id: 'cta', recipe: 'cinematic-cta' }])).toBe('band')
     expect(filmSectionOf([{ id: 'shell', recipe: 'ambient-shell' }, { id: 'overview', recipe: 'banner-panel' }])).toBe('overview')
     expect(filmSectionOf([{ id: 'features', recipe: 'glass-cards' }])).toBeNull()
+    // On an application screen, the banner and nothing else: a film under data is invisible.
+    expect(filmSectionOf([{ id: 'shell', recipe: 'ambient-shell' }, { id: 'flow', recipe: 'spotlight-feature' }], 'operate')).toBeNull()
+    expect(filmSectionOf([{ id: 'flow', recipe: 'spotlight-feature' }, { id: 'welcome', recipe: 'banner-panel' }], 'operate')).toBe('welcome')
   })
 
   it('tells the generator to keep the place, only in that section', () => {
@@ -273,5 +276,29 @@ describe('the video background (v2)', () => {
     expect(text.match(/slot="film"/g)?.length).toBeGreaterThanOrEqual(1)
     expect(text).toContain('Do NOT write <video> or <MotionFilm>')
     expect(buildUltraPreamble(board, [])).not.toContain('slot="film"')
+  })
+})
+
+describe('pictures a project already paid for', () => {
+  it('offers the project series, most recent screen first, without duplicates and within bounds', async () => {
+    const { projectUltraPictures, REUSE_MAX } = await import('./reuse')
+    const h = (c: string) => c.repeat(64)
+    const screens = [
+      { createdAt: 1, ultra: { recipes: [], images: [h('a'), h('b')], planned: 3 as const } },
+      { createdAt: 2, ultra: { recipes: [], images: [h('c'), h('a')], planned: 3 as const } },
+      { createdAt: 3 },
+    ]
+    expect(projectUltraPictures(screens)).toEqual([h('c'), h('a'), h('b')])
+    expect(projectUltraPictures([{ createdAt: 1 }])).toEqual([])
+    const many = [{ createdAt: 1, ultra: { recipes: [], images: 'abcdefghijk'.split('').map(h), planned: 6 as const } }]
+    expect(projectUltraPictures(many)).toHaveLength(REUSE_MAX)
+  })
+
+  it('lets the model reuse them, never forces it, and says nothing when there are none', async () => {
+    const { buildReuseSection } = await import('./reuse')
+    const text = buildReuseSection([{ url: 'http://x/api/images/abc', about: 'the speaker' }])
+    expect(text).toContain('MAY reuse')
+    expect(text).toContain('http://x/api/images/abc — shows: the speaker')
+    expect(buildReuseSection([])).toBe('')
   })
 })

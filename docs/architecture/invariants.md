@@ -651,6 +651,10 @@ getting display type and an aurora.
 **How it is done.** The whole pass sits behind `ultraActive` in
 `ProjectView.tsx`, and the `ultra` capability has empty `triggers`.
 
+One deliberate exception, and only for a project that HAS Motion Ultra pictures:
+a screen generated without Motion Ultra is offered them (`lib/ultra/reuse.ts`).
+A project that never used Motion Ultra has none to offer and takes the old path.
+
 **How it is checked.** `tests/ultra-off.test.js` pins every Motion Ultra call
 in the generation path to the guard that switches it off, and checks that no
 prompt, however "landing"-shaped, selects the kit.

@@ -55,6 +55,13 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord)')
   })
 
+  it('offers earlier pictures only to a project that has Motion Ultra pictures', () => {
+    // projectUltraPictures() is empty for a project that never used Motion Ultra,
+    // so the section is never built and the path is the old one.
+    expect(view).toContain('const owned = projectUltraPictures(screensRef.current)')
+    expect(view).toContain('if (owned.length) {')
+  })
+
   it("keeps Muse's own picture and the film's placement as they were", () => {
     expect(view).toContain('if (remaining.length && pins.length === 0 && !ultraActive)')
     // Undefined when Motion Ultra did not run, and decideFilm ignores undefined.
