@@ -147,12 +147,18 @@ export async function extractFrames(videoPath, outDir, opts = {}) {
 
   // -2 on the height keeps the aspect ratio AND lands on an even number, which
   // the JPEG encoder requires for chroma subsampling.
+  //
+  // `min(width, iw)`: the setting is a CEILING, never a target. Written as a
+  // target it enlarged every clip narrower than it — a vertical stock clip
+  // 1440 px wide came out as 164 frames of 1920×3642, a third more pixels on
+  // disk and on the wire, and not one more detail in any of them. The comma
+  // is escaped because an unescaped one ends the filter.
   const args = [
     '-hide_banner',
     '-loglevel', 'error',
     '-nostdin',
     '-i', videoPath,
-    '-vf', `fps=${fps},scale=${width}:-2`,
+    '-vf', `fps=${fps},scale=w=min(${width}\\,iw):h=-2`,
     '-frames:v', String(max),
     '-q:v', String(JPEG_Q),
     path.join(outDir, 'f%04d.jpg'),
@@ -173,5 +179,29 @@ export async function extractFrames(videoPath, outDir, opts = {}) {
   const poster = path.join(outDir, 'poster.jpg')
   fs.copyFileSync(path.join(outDir, written[0]), poster)
 
-  return { frames: written.length, width, fps, poster }
+  // The width the frames really have: with a ceiling rather than a target it
+  // is no longer the setting, and the Media card prints it.
+  const real = jpegSize(fs.readFileSync(poster))
+  return { frames: written.length, width: real ? real.width : width, fps, poster }
+}
+
+/**
+ * Width and height of a JPEG, read from its start-of-frame marker. Enough of
+ * the format to answer one question without a second process or a dependency;
+ * null when the bytes are not a JPEG this can read.
+ */
+export function jpegSize(buf) {
+  if (!buf || buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) return null
+  let i = 2
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xff) return null
+    const marker = buf[i + 1]
+    const len = buf.readUInt16BE(i + 2)
+    // SOF0–SOF15 carry the size, except DHT (C4), JPG (C8) and DAC (CC).
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) }
+    }
+    i += 2 + len
+  }
+  return null
 }
