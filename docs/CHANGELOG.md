@@ -83,6 +83,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | retire les lecteurs du placement automatique de film | `60d2276` |
 | `motion` | journaliser une composition qui n'aboutit pas, avec sa duree et sa raison | `396ca74` |
 
 ## August 2026
