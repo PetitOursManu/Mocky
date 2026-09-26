@@ -170,6 +170,12 @@ export interface ScreenUltra {
 export interface ProjectUltra {
   /** Pictures per screen: the composer's ×3 / ×6, remembered. */
   count: 3 | 6
+  /**
+   * One section of each new screen gets a video background — a Motion film
+   * rendered by the local worker, never a paid AI video. Off by default: it
+   * costs a text call and one to three minutes of the machine per screen.
+   */
+  video?: boolean
 }
 
 /** The compact record of one quality check. See Screen.quality. */
@@ -1041,9 +1047,9 @@ export function useProjects() {
     setProjects((prev) =>
       prev.map((p) => {
         if (p.id !== projectId) return p
-        if ((p.ultra?.count ?? null) === (ultra?.count ?? null)) return p
+        if ((p.ultra?.count ?? null) === (ultra?.count ?? null) && !!p.ultra?.video === !!ultra?.video) return p
         const next = { ...p, updatedAt: Date.now() }
-        if (ultra) next.ultra = { count: ultra.count === 6 ? 6 : 3 }
+        if (ultra) next.ultra = { count: ultra.count === 6 ? 6 : 3, ...(ultra.video ? { video: true } : {}) }
         else delete next.ultra
         return next
       }),

@@ -128,6 +128,7 @@ export const ULTRA_CSS = [
   // <Backdrop>
   '.u-backdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}',
   '.u-backdrop-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:u-kenburns 30s ease-in-out infinite alternate}',
+  '.u-backdrop-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
   '.u-backdrop-layer{position:absolute;inset:0}',
   '.u-blob{position:absolute;width:60%;aspect-ratio:1;border-radius:50%;filter:blur(80px);opacity:.55;mix-blend-mode:screen;animation:u-drift 22s ease-in-out infinite alternate}',
   '.u-blob-1{background:var(--u-a);top:-20%;left:-10%}',
@@ -218,7 +219,15 @@ function Backdrop(props) {
   var tone = p.tone === 'light' ? 'light' : 'dark';
   var colors = (Array.isArray(p.colors) ? p.colors : []).map(mockyUltraHex).filter(Boolean);
   var image = typeof p.image === 'string' && p.image ? p.image : null;
-  var veil = typeof p.veil === 'number' && isFinite(p.veil) ? Math.max(0, Math.min(0.9, p.veil)) : (image ? 0.35 : 0);
+  var video = typeof p.video === 'string' && p.video ? p.video : null;
+  var veil = typeof p.veil === 'number' && isFinite(p.veil) ? Math.max(0, Math.min(0.9, p.veil)) : (image || video ? 0.35 : 0);
+  /* A film is drawn over the CSS layers, never instead of them: they are what
+     the section looks like while it loads, in the capture shell (html2canvas
+     cannot paint a video frame), and if it never loads. Held still — reduced
+     motion or "Sans animation" — it shows its first frame and does not play. */
+  var capture = typeof window !== 'undefined' && window.__mockyStill === true;
+  var calm = typeof window !== 'undefined' && (window.__mockyAnimations === false ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
   var ref = React.useRef(null);
 
   /* The spotlight follows the cursor, read from the window: in a hero the
@@ -251,6 +260,13 @@ function Backdrop(props) {
     layers.push(React.createElement('span', { key: 'b3', className: 'u-blob u-blob-3' }));
   } else {
     layers.push(React.createElement('div', { key: 'layer', className: 'u-backdrop-layer' }));
+  }
+  if (video && !capture) {
+    layers.push(React.createElement('video', {
+      key: 'video', className: 'u-backdrop-video', src: video,
+      autoPlay: !calm, muted: true, loop: true, playsInline: true, controls: false,
+      preload: calm ? 'metadata' : 'auto',
+    }));
   }
   if (veil > 0) layers.push(React.createElement('div', { key: 'veil', className: 'u-backdrop-veil', style: { opacity: veil } }));
   if (p.grain !== false) layers.push(React.createElement('div', { key: 'grain', className: 'u-grain-layer' }));

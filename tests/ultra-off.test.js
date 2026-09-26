@@ -36,6 +36,18 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     }
   })
 
+  it('makes and plugs a video background only when Motion Ultra planned one', () => {
+    for (const call of ['plugFilmIntoSlot(', "motionKind: 'background'"]) {
+      const at = indexesOf(view, call)
+      expect(at.length, call).toBeGreaterThan(0)
+      const guard = view.lastIndexOf('if (ultraFilmSection && ultraRecord) {', at[0])
+      expect(guard, call).toBeGreaterThan(0)
+    }
+    // Off, ultraFilmSection stays null and the Muse film decision is untouched.
+    expect(view).toContain('const museFilm = ultraFilmSection ? null : decideFilm({')
+    expect(view).toContain('let ultraFilmSection: string | null = null')
+  })
+
   it('adds the kit only when a storyboard exists, and leaves the planner to run otherwise', () => {
     expect(indexesOf(view, "capIds = [...capIds, 'ultra']")).toHaveLength(1)
     expect(view).toContain("if (ultraRecord && !capIds.includes('ultra')) capIds = [...capIds, 'ultra']")

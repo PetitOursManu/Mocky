@@ -18,6 +18,7 @@ import { buildUltraPreamble } from '../lib/ultra/preamble'
 import UltraControl from './UltraControl'
 import { isEnvironmentError } from '../lib/previewErrors'
 import { missingUltraImages, ultraLoss, ultraMotionCount, ULTRA_BUDGET } from '../lib/ultra/check'
+import { filmSectionOf, plugFilmIntoSlot } from '../lib/ultra/filmSlot'
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
@@ -475,6 +476,8 @@ export default function ProjectView({
    * outcome of not knowing.
    */
   const [motionAvail, setMotionAvail] = useState<{ available: boolean; kinds: MotionKindOffer[] } | null>(null)
+  /** Motion Ultra's video background can be offered: a `background` film is renderable. */
+  const ultraVideoAvailable = !!motionAvail?.available && motionAvail.kinds.some((k) => k.id === 'background')
   useEffect(() => {
     // Asked once whatever Muse's state: the composer's animation switch can
     // impose a film without Muse, so whether one can be made is a question the
@@ -1462,6 +1465,10 @@ export default function ProjectView({
         let ultraImageHash: string | undefined
         /** The section Motion Ultra opened the page with — a film must not take it. */
         let ultraOpening: string | undefined
+        /** The one section whose background becomes a rendered film (v2), if any. */
+        let ultraFilmSection: string | null = null
+        /** Video background asked for, and a film can be rendered right now. */
+        const ultraVideo = !!project.ultra?.video && motionKindIds.includes('background')
         if (ultraActive && project.ultra) {
           try {
             setPhase('ultra')
@@ -1486,7 +1493,11 @@ export default function ProjectView({
                 t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
               )
             }
-            planSection = [buildUltraPreamble(board, made), modeToPromptSection(mode)].join('\n\n')
+            ultraFilmSection = ultraVideo ? filmSectionOf(board.sections) : null
+            planSection = [
+              buildUltraPreamble(board, made, { filmSection: ultraFilmSection }),
+              modeToPromptSection(mode),
+            ].join('\n\n')
             ultraRecord = {
               recipes: board.sections.map((s) => s.recipe),
               images: made.map((im) => im.hash),
@@ -1657,7 +1668,9 @@ export default function ProjectView({
          * or there is no film.
          */
         const page3d = await readPage3D(result.code)
-        const museFilm = decideFilm({
+        // A Motion Ultra video background IS this screen's film; a Muse film on
+        // top would be a second render for the same page, paid in minutes.
+        const museFilm = ultraFilmSection ? null : decideFilm({
           mode: animationMode,
           kinds: motionKindIds,
           dossier: museRan ? museDossier?.film : undefined,
@@ -1777,6 +1790,69 @@ export default function ProjectView({
           } finally {
             // Both, always: a badge left on a frame for a job that ended is a
             // screen that looks stuck for as long as the tab stays open.
+            motionStageDone()
+          }
+        }
+
+        /*
+         * Motion Ultra's video background (v2).
+         *
+         * The page already has the place for it — `<Backdrop slot="film">` in
+         * the section the storyboard pass chose — and is already alive there in
+         * CSS. What runs here is the film: composed from the series' pictures
+         * as a `background` kind, rendered by the LOCAL worker (no video is
+         * billed), then plugged into that slot by one attribute at a parsed
+         * offset, with no call and no rewrite. Every failure leaves the section
+         * exactly as designed and says so (U4).
+         */
+        if (project.ultra?.video && ultraRecord && !ultraFilmSection) {
+          setNotice((prev) => [prev, t(ultraVideo ? 'project.ultraFilmNoSection' : 'project.ultraFilmUnavailable')].filter(Boolean).join(' '))
+        }
+        if (ultraFilmSection && ultraRecord) {
+          try {
+            motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmCompose') }))
+            const theme = themeFromDesign(dir.markdown)
+            const proposal = await proposeVideoTimeline(text, ultraRecord.images, {
+              settings,
+              theme,
+              motionKind: 'background',
+              placement: {
+                section: ultraFilmSection,
+                why: 'The moving ground of this section, behind its own copy: it carries no words of its own.',
+              },
+              scenery: page3d.scenes,
+              direction: directionBriefFrom(dir.markdown),
+              signal: ac.signal,
+            })
+            if (!proposal.timeline) {
+              setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: motionNotices(proposal.notices) })].filter(Boolean).join(' '))
+            } else {
+              motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmRender') }))
+              const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
+              const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: ac.signal })
+              const finished = await awaitVideoJob(job.id, ac.signal)
+              if (finished.status === 'done' && finished.videoHash) {
+                const now = screensRef.current.find((s) => s.id === screenId)
+                const plugged = now ? await plugFilmIntoSlot(now.code, absoluteUrl(`/api/video/${finished.videoHash}`)) : null
+                if (now && plugged) {
+                  onUpdateScreen(screenId, {
+                    code: plugged,
+                    componentName: detectComponentName(plugged),
+                    previousCode: now.code,
+                    attachedMedia: filmMedia(finished.videoHash),
+                  })
+                } else {
+                  onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
+                  setNotice((prev) => [prev, t('project.ultraFilmNoSlot')].filter(Boolean).join(' '))
+                }
+              } else {
+                setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: finished.error || '—' })].filter(Boolean).join(' '))
+              }
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: err instanceof Error ? err.message : String(err) })].filter(Boolean).join(' '))
+          } finally {
             motionStageDone()
           }
         }
@@ -3106,6 +3182,7 @@ export default function ProjectView({
         ultraPaused={ultraPaused}
         onSetUltra={onSetUltra}
         onToggleUltraPause={() => setUltraPaused((v) => !v)}
+        ultraVideoAvailable={ultraVideoAvailable}
         busyLabel={phase === 'ultra' ? ultraStage : null}
       />
       {libraryModal}
@@ -3908,6 +3985,7 @@ export default function ProjectView({
                 paused={ultraPaused}
                 onSetUltra={onSetUltra}
                 onTogglePause={() => setUltraPaused((v) => !v)}
+                videoAvailable={ultraVideoAvailable}
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
             )}

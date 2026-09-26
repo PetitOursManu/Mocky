@@ -22,6 +22,7 @@ export default function UltraControl({
   paused,
   onSetUltra,
   onTogglePause,
+  videoAvailable = false,
   size = 14,
   className = '',
 }: {
@@ -29,6 +30,8 @@ export default function UltraControl({
   paused: boolean
   onSetUltra: (ultra: ProjectUltra | null) => void
   onTogglePause: () => void
+  /** Whether this account can render a Motion `background` film right now. */
+  videoAvailable?: boolean
   size?: number
   className?: string
 }) {
@@ -70,7 +73,7 @@ export default function UltraControl({
             <button
               key={count}
               type="button"
-              onClick={() => onSetUltra({ count })}
+              onClick={() => onSetUltra({ ...ultra, count })}
               aria-pressed={ultra.count === count}
               title={t('project.ultraCountTitle', { count, minutes: count === 3 ? '1' : '2–3' })}
               className={`px-1.5 py-0.5 text-caption tabular-nums transition ${
@@ -89,6 +92,24 @@ export default function UltraControl({
         <span className="text-caption tabular-nums text-ink-faint">
           {t('project.ultraCost', { minutes: ultra.count === 3 ? '1' : '2–3' })}
         </span>
+      )}
+      {/* The video background, off by default and said to cost what it costs.
+          Offered only when a film can actually be rendered: a switch that turns
+          on something the server cannot make is a promise nobody keeps. */}
+      {!paused && videoAvailable && (
+        <button
+          type="button"
+          onClick={() => onSetUltra({ ...ultra, video: !ultra.video })}
+          aria-pressed={!!ultra.video}
+          title={t('project.ultraVideoTitle')}
+          className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-caption transition ${
+            ultra.video ? 'border-accent bg-accent text-on-accent' : 'border-line text-ink-muted hover:bg-ink/5'
+          }`}
+        >
+          <Icon name="play" size={11} />
+          {t('project.ultraVideo')}
+          {ultra.video && <span className="tabular-nums">{t('project.ultraVideoCost')}</span>}
+        </button>
       )}
       <button
         type="button"

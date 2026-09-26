@@ -42,6 +42,8 @@ type Props = {
   ultraPaused: boolean
   onSetUltra: (ultra: ProjectUltra | null) => void
   onToggleUltraPause: () => void
+  /** Whether a Motion Ultra video background can be rendered right now. */
+  ultraVideoAvailable?: boolean
   /** What a running pass is doing, when it has more to say than "generating". */
   busyLabel: string | null
 }
@@ -84,6 +86,7 @@ export default function Welcome({
   ultraPaused,
   onSetUltra,
   onToggleUltraPause,
+  ultraVideoAvailable = false,
   busyLabel,
 }: Props) {
   const t = useT()
@@ -185,6 +188,7 @@ export default function Welcome({
                 paused={ultraPaused}
                 onSetUltra={onSetUltra}
                 onTogglePause={onToggleUltraPause}
+                videoAvailable={ultraVideoAvailable}
                 size={15}
                 className="text-body-sm"
               />

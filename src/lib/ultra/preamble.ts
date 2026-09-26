@@ -12,7 +12,12 @@ import { ULTRA_RECIPES } from './recipes'
 import type { UltraImage } from './images'
 import type { UltraStoryboard } from './storyboard'
 
-export function buildUltraPreamble(board: UltraStoryboard, images: UltraImage[]): string {
+export function buildUltraPreamble(
+  board: UltraStoryboard,
+  images: UltraImage[],
+  /** The one section whose background will be a rendered film. */
+  opts: { filmSection?: string | null } = {},
+): string {
   const lines = [
     'MOTION ULTRA — this screen is built as a high-end, motion-led page: a living ground, display type, frosted surfaces, reveals tied to the scroll. It follows the storyboard below, section by section, using the ULTRA KIT and <Backdrop> described in the capabilities.',
     '',
@@ -29,6 +34,11 @@ export function buildUltraPreamble(board: UltraStoryboard, images: UltraImage[])
     lines.push(`   Build: ${r.card[1]}`)
     lines.push(`   Avoid: ${r.card[2]}`)
     if (s.content) lines.push(`   Content: ${s.content}`)
+    if (opts.filmSection && s.id === opts.filmSection) {
+      lines.push(
+        '   VIDEO BACKGROUND: a film will be rendered for this section after the page. Make its FIRST child `<Backdrop slot="film" preset="…" colors={[…]} veil={0.4} />` — a living CSS ground now, the film plays in it once ready. Exactly one `slot="film"` on the whole page, only here. Do NOT write <video> or <MotionFilm>; keep every line of text readable on a moving picture (the veil, or a panel).',
+      )
+    }
   })
 
   if (images.length) {

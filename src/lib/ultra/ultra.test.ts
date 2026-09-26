@@ -229,3 +229,49 @@ describe('how much of a Motion Ultra page moves at once', () => {
     expect(ultraMotionCount(backdrops).over).toBe(true)
   })
 })
+
+describe('the video background (v2)', () => {
+  const page = [
+    'function App() {',
+    '  return (<main>',
+    '    <section id="hero" className="relative overflow-hidden">',
+    '      <Backdrop slot="film" preset="aurora" colors={["#111111"]} veil={0.4} />',
+    '      <h1>Hi</h1>',
+    '    </section>',
+    '    <section id="cta"><Backdrop preset="beams" /></section>',
+    '  </main>)',
+    '}',
+  ].join('\n')
+
+  it('plugs the film into the slot the page kept, and touches nothing else', async () => {
+    const { plugFilmIntoSlot } = await import('./filmSlot')
+    const out = (await plugFilmIntoSlot(page, 'http://x/api/video/abc'))!
+    expect(out).toContain('<Backdrop video="http://x/api/video/abc" slot="film" preset="aurora"')
+    expect(out.replace(' video="http://x/api/video/abc"', '')).toBe(page)
+    // A second film replaces the first rather than stacking a second attribute.
+    const again = (await plugFilmIntoSlot(out, 'http://x/api/video/def'))!
+    expect(again.match(/video=/g)).toHaveLength(1)
+    expect(again).toContain('video="http://x/api/video/def"')
+  })
+
+  it('does nothing without a slot, or on a source that does not parse', async () => {
+    const { plugFilmIntoSlot } = await import('./filmSlot')
+    expect(await plugFilmIntoSlot(page.replace('slot="film" ', ''), 'u')).toBeNull()
+    expect(await plugFilmIntoSlot('function App( { return <Backdrop slot="film" /', 'u')).toBeNull()
+  })
+
+  it('gives the film to the first section built on a full-bleed ground, never a grid or a shell', async () => {
+    const { filmSectionOf } = await import('./filmSlot')
+    expect(filmSectionOf([{ id: 'hero', recipe: 'object-hero' }, { id: 'band', recipe: 'parallax-band' }, { id: 'cta', recipe: 'cinematic-cta' }])).toBe('band')
+    expect(filmSectionOf([{ id: 'shell', recipe: 'ambient-shell' }, { id: 'overview', recipe: 'banner-panel' }])).toBe('overview')
+    expect(filmSectionOf([{ id: 'features', recipe: 'glass-cards' }])).toBeNull()
+  })
+
+  it('tells the generator to keep the place, only in that section', () => {
+    const board = fallbackStoryboard('Landing', 3, 'persuade')
+    const text = buildUltraPreamble(board, [], { filmSection: board.sections[0].id })
+    expect(text.match(/slot="film"/g)?.length).toBeGreaterThanOrEqual(1)
+    expect(text).toContain('Do NOT write <video> or <MotionFilm>')
+    expect(buildUltraPreamble(board, [])).not.toContain('slot="film"')
+  })
+})
