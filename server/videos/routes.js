@@ -26,7 +26,19 @@ const MAX_VIDEO_BYTES = 200 * 1024 * 1024
  */
 export const PUBLIC_VIDEO_PATH = /^\/[a-f0-9]{64}\/(poster\.jpg|f\/[0-9]{1,4}\.jpg)$/
 
-export function createVideosRouter({ library, generate, availability, recheck, frameSettings, budget }) {
+/** Everyone may do everything: what a router built without an access rule means. */
+const OPEN_ACCESS = () => ({ generate: true, stock: true })
+
+export function createVideosRouter({
+  library,
+  generate,
+  availability,
+  recheck,
+  frameSettings,
+  budget,
+  stock,
+  accessFor = OPEN_ACCESS,
+}) {
   const router = express.Router()
 
   // Immutable, content-addressed: cache for a year. Also readable from any
@@ -40,12 +52,40 @@ export function createVideosRouter({ library, generate, availability, recheck, f
     res.setHeader('Access-Control-Allow-Origin', '*')
   }
 
-  router.get('/availability', async (_req, res) => {
-    res.json(await availability())
+  /**
+   * The account's own answer, not the instance's. `access` says what the
+   * administrator allows THIS account, and `available` is false for an account
+   * that may not generate — so every caller that already reads it (the Muse
+   * panel, the generation itself) stops offering a clip it would be refused.
+   */
+  const personal = (state, user) => {
+    const access = accessFor(user)
+    return {
+      ...state,
+      access,
+      available: Boolean(state.available) && access.generate,
+      reason: access.generate ? state.reason : 'no-access',
+    }
+  }
+
+  /** A refusal that names what is missing and who can change it. */
+  const refuse = (res, what) =>
+    res.status(403).json({
+      code: 'no-access',
+      error:
+        what === 'stock'
+          ? "Votre compte n'a pas accès aux vidéos libres de droits — un administrateur peut l'ouvrir dans Admin."
+          : what === 'generate'
+            ? "Votre compte n'a pas accès aux vidéos générées — un administrateur peut l'ouvrir dans Admin."
+            : "Votre compte n'a pas accès aux vidéos — un administrateur peut l'ouvrir dans Admin.",
+    })
+
+  router.get('/availability', async (req, res) => {
+    res.json(personal(await availability(), req.user))
   })
 
-  router.post('/recheck', async (_req, res) => {
-    res.json(await recheck())
+  router.post('/recheck', async (req, res) => {
+    res.json(personal(await recheck(), req.user))
   })
 
   /** Account ids never leave the server — see the note in images/routes.js. */
@@ -59,8 +99,79 @@ export function createVideosRouter({ library, generate, availability, recheck, f
     res.json({ videos: library.list({ project }).map(withoutOwners) })
   })
 
+  /**
+   * Free stock footage (see stock.js). Three routes: which libraries are on,
+   * one page of results, and importing the clip a person chose.
+   *
+   * The import is cut exactly like an upload — same ffmpeg check, same quota
+   * refused BEFORE writing, same frame settings — because that is what it is:
+   * an upload whose download step the server did.
+   */
+  router.get('/stock/status', async (req, res) => {
+    const state = await availability()
+    const allowed = accessFor(req.user).stock
+    // A library this account may not use is reported as off: the interface
+    // hides what it would only be refused.
+    const on = stock && allowed ? stock.status() : { pexels: false, pixabay: false }
+    res.json({ providers: on, ffmpeg: state.ffmpeg.available, allowed })
+  })
+
+  // Query: ?provider=pexels|pixabay&q=&page=
+  router.get('/stock/search', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock footage is not available.' })
+    if (!accessFor(req.user).stock) return refuse(res, 'stock')
+    try {
+      res.json(await stock.search(String(req.query.provider || ''), String(req.query.q || ''), { page: req.query.page }))
+    } catch (err) {
+      res.status(err?.statusCode || 502).json({ error: err instanceof Error ? err.message : String(err), code: err?.code })
+    }
+  })
+
+  // Body: { provider, id, project? }
+  router.post('/stock/import', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock footage is not available.' })
+    if (!accessFor(req.user).stock) return refuse(res, 'stock')
+    const state = await availability()
+    if (!state.ffmpeg.available) {
+      return res
+        .status(503)
+        .json({ code: 'no-ffmpeg', error: "ffmpeg n'est pas disponible dans ce conteneur — le clip ne peut pas être découpé." })
+    }
+    const body = req.body || {}
+    try {
+      // The byte limit is the upload's, less what the quota can still take:
+      // a clip is kept whole AND cut, three times its size on disk.
+      const usage = budget?.usage()
+      const room = usage?.maxBytes ? Math.floor((usage.maxBytes - usage.bytes) / 3) : Infinity
+      const maxBytes = Math.min(MAX_VIDEO_BYTES, room)
+      if (maxBytes <= 0) return res.status(507).json({ error: quotaError(usage) })
+      const { buffer, spec } = await stock.fetchClip(String(body.provider || ''), body.id, { maxBytes })
+      if (budget?.wouldExceed(buffer.length * 3)) {
+        return res.status(507).json({ error: quotaError(budget.usage()) })
+      }
+      const out = await library.ingest(
+        buffer,
+        { ...spec, project: String(body.project || ''), slot: 'hero', owner: req.user?.id },
+        frameSettings ? frameSettings() : {},
+      )
+      res.json({
+        hash: out.hash,
+        frames: out.meta.frames,
+        width: out.meta.width,
+        fps: out.meta.fps,
+        fromCache: Boolean(out.fromCache),
+        base: `/api/videos/${out.hash}`,
+        poster: `/api/videos/${out.hash}/poster.jpg`,
+      })
+    } catch (err) {
+      res.status(err?.statusCode || 502).json({ error: err instanceof Error ? err.message : String(err), code: err?.code })
+    }
+  })
+
   // Body: { prompt, negative?, project?, slot?, seed? }
   router.post('/generate', async (req, res) => {
+    // Checked here and not only in the panel: this route is what spends money.
+    if (!accessFor(req.user).generate) return refuse(res, 'generate')
     try {
       // From the session, not the body: an attribution the caller can write is
       // worth less than none. `requireUser` guards this router.
@@ -95,6 +206,10 @@ export function createVideosRouter({ library, generate, availability, recheck, f
    * Body: raw bytes.  Query: ?name=&project=
    */
   router.post('/upload', async (req, res) => {
+    // A person's own clip is free to cut, so either kind of access admits it;
+    // an account with neither has no video feature to put it in.
+    const access = accessFor(req.user)
+    if (!access.generate && !access.stock) return refuse(res, 'any')
     const mime = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
     if (!ACCEPTED_VIDEO.test(mime)) {
       return res.status(415).json({ error: `Unsupported video type "${mime || 'unknown'}".` })

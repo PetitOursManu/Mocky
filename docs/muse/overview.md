@@ -275,6 +275,39 @@ the last one lands would leave a hole for a second or two on a cold cache.
 Sequences live in `data/video-library/`, addressed by the SHA-256 of the clip. An
 identical request reuses the sequence instead of paying for it twice.
 
+A clip **chosen** from Media can also be steered by the **pointer** instead of the
+scroll — the toggle sits under the chosen clip in the Muse panel. The page then
+gets `<PointerSequence>`: the same cut frames, the same loader and painter, but
+the cursor picks the frame and the drawn position eases towards it, so sixty
+stills read as a head that turns. It is a box rather than a pinned section, and
+the prompt tells the model to place it **where the request says** — a footer
+whose face follows the mouse cannot be the first thing on the page, which is the
+one place a scroll sequence insists on. A frame table in the brief (a "gaze
+map") becomes the `map` prop, inline, because the sandbox imports no file. The
+dossier stops calling such a clip the hero for the same reason. A clip Muse
+generates is always a scroll sequence: it was shot for a hero. Reduced motion,
+"Sans animation" and a capture hold it on its resting frame.
+
+The clip itself can come from a **free stock library**. With a Pexels or Pixabay
+API key saved in Admin (Videos (Muse) → Free stock videos; both keys are free), Media's
+Videos tab gains a search box. Importing a result is an upload the server
+downloads: the browser sends the library and an id, the server reads the file's
+address back from the library's own API, picks the widest mp4 the cutter will
+keep (1920 px), and cuts it with the same settings as any clip. The author and
+the source page are stored with it and shown on its card, which both licences
+ask for. Searches are cached for 24 hours — Pixabay's terms, and both free
+quotas, want it.
+
+In the Muse panel the clip is a **choice**, not a checkbox and a link: *None*,
+*AI-generated* or *Free*. The link to Media was the only way to the free path,
+and a person who did not think to click it never learned it existed. *Free*
+opens Media on its Videos tab, where the search is. Which options an account
+sees is the administrator's decision (Admin → Videos (Muse) → Video access): one list
+for generated clips, which cost per use, one for free ones, each "everyone" or
+named accounts, with Motion Ultra's own control. An account with neither sees no video
+option, and the server refuses it at `/generate`, `/stock/*` and `/upload`
+whatever the panel shows — the panel only hides what would be refused.
+
 ---
 
 ## Anti-slop

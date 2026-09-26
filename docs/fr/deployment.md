@@ -157,7 +157,7 @@ cette section, rien de ce que contient `.env` n'atteindrait le conteneur.
 > faux partout ailleurs.
 
 
-### Le worker de rendu de Motion, sur un serveur
+### Le worker de rendu de Motion Ultra, sur un serveur
 
 `docker-compose.yml` garde le worker derrière `profiles: ["video-export"]`, qui
 est un drapeau de ligne de commande — et une plateforme qui déploie un fichier
@@ -187,12 +187,12 @@ Trois choses à vérifier après le premier déploiement, dans cet ordre :
 1. **Le conteneur est là.** `docker ps` montre `mocky-video-worker`, et sa sonde
    de santé passe au vert en une minute et demie environ — il compile le bundle
    de rendu après s’être mis à écouter, ce à quoi sert `start_period`.
-2. **Mocky le joint.** Administration → Motion l’affiche comme disponible.
+2. **Mocky le joint.** Administration → Motion Ultra l’affiche comme disponible.
    L’adresse est `http://video-worker:3030` — le nom du service sur le pont
    interne, pas une URL publique, et il n’en a jamais besoin.
 3. **La machine le porte.** Le worker demande 4 Go de mémoire et 2 cœurs pendant
    un rendu, en plus de Mocky. Lancez le test du serveur dans Administration →
-   Motion : il rend trois films de référence et dit ce que coûte réellement
+   Motion Ultra : il rend trois films de référence et dit ce que coûte réellement
    chaque niveau de rendu sur cette machine, puis en recommande un.
 
 Le worker ne publie aucun port et son pont n’a aucune route vers l’extérieur :
@@ -406,13 +406,13 @@ Ce qui vit dans le volume `mocky-data` :
 | `muse-cache.json` | Les distillations, 7 jours, du texte | Petite |
 | `image-library.json` et `image-library/` | La bibliothèque d'images | Moyenne |
 | `video-library/` | Les séquences : un clip plus jusqu'à 150 images chacune | **De loin la plus grosse** |
-| `video-config.json` | Les réglages de Motion — l'interrupteur maître, la liste d'accès à la 3D, le niveau de rendu et le dernier test du serveur, et **la clé de licence Remotion** | Minuscule |
+| `video-config.json` | Les réglages de Motion Ultra — l'interrupteur maître, la liste d'accès à la 3D, le niveau de rendu et le dernier test du serveur, et **la clé de licence Remotion** | Minuscule |
 | `video-exports.json` et `video-exports/` | Les films exportés, entiers. Rien ne les élague : le hash d'un job est un lien que quelqu'un peut suivre des jours plus tard, c'est donc le budget disque qui borne le répertoire | Moyenne à grosse |
 
 **Combien de 3D le worker de rendu peut dépenser est un réglage, et le panneau
 le mesure pour vous.** Sans carte graphique, Chromium sans écran dessine chaque
 image WebGL sur le processeur : le coût d'un film est donc une propriété de la
-machine et non de Mocky. Administration → Motion propose trois niveaux de rendu
+machine et non de Mocky. Administration → Motion Ultra propose trois niveaux de rendu
 — sans 3D, 3D limitée (le défaut), 3D complète — et un test du serveur qui rend
 trois films de référence et donne, par niveau, la durée d'un film typique, le
 nombre de films par heure et combien de personnes peuvent en lancer un au même

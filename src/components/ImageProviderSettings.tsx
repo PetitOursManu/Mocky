@@ -6,8 +6,13 @@ import {
   type ImagesProfileConfig,
   type ImagesProfilePatch,
   type ImagesTestResult,
+  type AdminUser,
+  type VideoAccessMode,
+  type VideoAccessScope,
 } from '../lib/api'
+import { AccountScope } from './VideoExportSettings'
 import { checkVideoAvailability, type MuseVideoAvailability } from '../lib/muse'
+import { STOCK_LABELS, STOCK_PROVIDERS, type StockProvider } from '../lib/videoLibrary'
 import { Button, Field, Icon, Input, Select } from '../ui'
 import { useT } from '../i18n'
 
@@ -616,6 +621,241 @@ function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
 }
 
 /**
+ * Free stock footage: one API key per library, and nothing else to choose.
+ *
+ * A key is the whole switch — with one, the library appears in Media's search;
+ * without, it is absent. Saved from its own button because it has nothing to do
+ * with the paid provider above: an instance with no fal account at all is
+ * exactly the one this is for. The test runs one real search, so "the key
+ * works" means footage came back, not merely that nobody refused it.
+ */
+function StockForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
+  const t = useT()
+  const stock = cfg.video.stock ?? { pexels: { hasApiKey: false }, pixabay: { hasApiKey: false } }
+  const [keys, setKeys] = useState<Record<StockProvider, string>>({ pexels: '', pixabay: '' })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [tests, setTests] = useState<Partial<Record<StockProvider, { ok: boolean; text: string } | 'running'>>>({})
+
+  async function persist(patch: Partial<Record<StockProvider, string | null>>) {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const fresh = await api.admin.setImagesConfig({
+        video: {
+          stock: {
+            pexels: { apiKey: patch.pexels === undefined ? undefined : patch.pexels },
+            pixabay: { apiKey: patch.pixabay === undefined ? undefined : patch.pixabay },
+          },
+        },
+      })
+      onConfig(fresh)
+      setKeys({ pexels: '', pixabay: '' })
+      setTests({})
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function runTest(p: StockProvider) {
+    setTests((prev) => ({ ...prev, [p]: 'running' }))
+    try {
+      const res = await fetch('/api/admin/videos/stock-test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: p }),
+      })
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; count?: number; error?: string }
+      setTests((prev) => ({
+        ...prev,
+        [p]: j.ok
+          ? { ok: true, text: t('settings.stockTestOk', { count: j.count ?? 0 }) }
+          : { ok: false, text: j.error || `HTTP ${res.status}` },
+      }))
+    } catch (e) {
+      setTests((prev) => ({ ...prev, [p]: { ok: false, text: e instanceof Error ? e.message : String(e) } }))
+    }
+  }
+
+  return (
+    <div className="border border-line-soft p-4">
+      <h4 className="text-h4 text-ink">{t('settings.stockTitle')}</h4>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.stockBlurb')}</p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {STOCK_PROVIDERS.map((p) => {
+          const has = stock[p].hasApiKey
+          const test = tests[p]
+          return (
+            <div key={p}>
+              <Field
+                label={t('settings.stockKey', { name: STOCK_LABELS[p] })}
+                hint={has ? t('settings.keyStored') : t('settings.stockKeyWhere')}
+              >
+                {(fp) => (
+                  <Input
+                    {...fp}
+                    type="password"
+                    value={keys[p]}
+                    onChange={(e) => setKeys((prev) => ({ ...prev, [p]: e.target.value }))}
+                    placeholder={has ? '••••••••' : ''}
+                    autoComplete="off"
+                  />
+                )}
+              </Field>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-caption">
+                <a href={STOCK_KEY_PAGE[p]} target="_blank" rel="noopener noreferrer" className="text-ink-faint underline underline-offset-2">
+                  {t('settings.stockGetKey')}
+                </a>
+                {has && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => void runTest(p)} disabled={test === 'running'}>
+                      {test === 'running' ? t('settings.stockTesting') : t('settings.stockTest')}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => void persist({ [p]: null })} disabled={saving}>
+                      {t('settings.stockRemove')}
+                    </Button>
+                  </>
+                )}
+                {test && test !== 'running' && (
+                  <span className={test.ok ? 'text-ok' : 'text-danger'}>{test.text}</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => void persist({ pexels: keys.pexels || undefined, pixabay: keys.pixabay || undefined })}
+          disabled={saving || (!keys.pexels.trim() && !keys.pixabay.trim())}
+        >
+          {saving ? t('settings.saving') : t('common.save')}
+        </Button>
+        {saved && <span className="text-body-sm text-ok">{t('settings.saved')}</span>}
+        {error && <span className="text-body-sm text-danger">{error}</span>}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Who may use which kind of clip: generated (paid per use) and free (stock
+ * libraries). Two scopes with Motion's own control, because they are the same
+ * kind of decision about the same accounts; a third vocabulary for "who may"
+ * would be one more thing to learn. An account in neither sees no video
+ * option at all, and the server refuses it whatever the panel shows.
+ */
+function VideoAccessForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
+  const t = useT()
+  const current = cfg.video.access ?? {
+    generated: { mode: 'all' as const, userIds: [] },
+    stock: { mode: 'all' as const, userIds: [] },
+  }
+  const modes = cfg.video.accessModes ?? (['all', 'allowlist'] as VideoAccessMode[])
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [generated, setGenerated] = useState<VideoAccessScope>(current.generated)
+  const [stock, setStock] = useState<VideoAccessScope>(current.stock)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.admin
+      .listUsers()
+      .then(setUsers)
+      .catch(() => setUsers([]))
+  }, [])
+
+  const toggle = (set: (fn: (s: VideoAccessScope) => VideoAccessScope) => void) => (id: string) => {
+    setSaved(false)
+    set((s) => ({ ...s, userIds: s.userIds.includes(id) ? s.userIds.filter((x) => x !== id) : [...s.userIds, id] }))
+  }
+
+  async function save() {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const fresh = await api.admin.setImagesConfig({ video: { access: { generated, stock } } })
+      onConfig(fresh)
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="border border-line-soft p-4">
+      <h4 className="text-h4 text-ink">{t('settings.videoAccessTitle')}</h4>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.videoAccessBlurb')}</p>
+
+      <AccountScope
+        modes={modes}
+        access={generated.mode}
+        onAccess={(mode) => {
+          setGenerated((s) => ({ ...s, mode }))
+          setSaved(false)
+        }}
+        allowed={generated.userIds}
+        onToggle={toggle(setGenerated)}
+        users={users}
+        labels={{
+          title: 'settings.videoAccessGenerated',
+          help: 'settings.videoAccessGeneratedHelp',
+          listTitle: 'settings.videoAccessGeneratedList',
+          empty: 'settings.videoAccessEmpty',
+          allNote: 'settings.videoAccessAllNote',
+        }}
+      />
+      <AccountScope
+        modes={modes}
+        access={stock.mode}
+        onAccess={(mode) => {
+          setStock((s) => ({ ...s, mode }))
+          setSaved(false)
+        }}
+        allowed={stock.userIds}
+        onToggle={toggle(setStock)}
+        users={users}
+        labels={{
+          title: 'settings.videoAccessStock',
+          help: 'settings.videoAccessStockHelp',
+          listTitle: 'settings.videoAccessStockList',
+          empty: 'settings.videoAccessEmpty',
+          allNote: 'settings.videoAccessAllNote',
+        }}
+        footnote="settings.videoAccessNote"
+      />
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button variant="primary" size="sm" onClick={() => void save()} disabled={saving}>
+          {saving ? t('settings.saving') : t('common.save')}
+        </Button>
+        {saved && <span className="text-body-sm text-ok">{t('settings.saved')}</span>}
+        {error && <span className="text-body-sm text-danger">{error}</span>}
+      </div>
+    </div>
+  )
+}
+
+/** Where each library hands out its free key. */
+const STOCK_KEY_PAGE: Record<StockProvider, string> = {
+  pexels: 'https://www.pexels.com/api/',
+  pixabay: 'https://pixabay.com/api/docs/',
+}
+
+/**
  * Admin settings for Muse's image generation. Three profiles, because the three
  * jobs need different models: the art-direction reference must render a
  * convincing site/app layout (slower, stronger model), hero/product pictures
@@ -659,7 +899,9 @@ export default function ImageProviderSettings() {
         {t('settings.imagesBlurb2')}
       </p>
 
-      <div className="space-y-4">
+      {/* Three columns from xl: the three profiles are siblings, read side by
+          side, and a card is taller than it is wide only when it is stacked. */}
+      <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <ProfileForm
           profile="inspiration"
           title={t('settings.imgProfileInspiration')}
@@ -703,7 +945,22 @@ export default function ImageProviderSettings() {
           cfg={cfg}
           onConfig={setCfg}
         />
+      </div>
+
+      {/* Videos get a heading of their own: generated clips, free ones and who
+          may use which are one subject, and they were three more cards at the
+          foot of a column of image profiles. Generation on one side, the free
+          libraries and the access lists on the other — about the same height. */}
+      <header className="rule-thin mb-4 mt-10 border-accent/40 pb-2">
+        <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+        <h3 className="mt-1 text-h3 text-ink">{t('settings.videosSectionTitle')}</h3>
+      </header>
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <VideoForm cfg={cfg} onConfig={setCfg} />
+        <div className="space-y-4">
+          <StockForm cfg={cfg} onConfig={setCfg} />
+          <VideoAccessForm cfg={cfg} onConfig={setCfg} />
+        </div>
       </div>
     </section>
   )

@@ -7,6 +7,7 @@ import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability 
 import type { PinnedImage } from '../lib/imageLibrary'
 import type { ProjectUltra } from '../lib/project'
 import UltraControl from './UltraControl'
+import type { MediaTab } from './Bibliotheque'
 
 type Props = {
   prompt: string
@@ -27,7 +28,7 @@ type Props = {
   museResult: MuseResult | null
   museImages: GeneratedSlotImage[]
   museStage: string | null
-  onOpenLibrary: () => void
+  onOpenLibrary: (tab?: MediaTab) => void
   pinned: PinnedImage[]
   onUnpin: (hash: string) => void
   museImageError: string | null

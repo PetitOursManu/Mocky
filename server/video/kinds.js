@@ -315,7 +315,7 @@ export function isMotionKind(value) {
 export function unknownMotionKindRefusal(asked, consequence) {
   const named = typeof asked === 'string' && asked.trim() ? `"${asked.trim().slice(0, 40)}"` : 'that'
   return (
-    `${named} is not a kind of Motion this instance offers. The kinds are: ${MOTION_KINDS.join(', ')} — ` +
+    `${named} is not a kind of Motion Ultra film this instance offers. The kinds are: ${MOTION_KINDS.join(', ')} — ` +
     `or none at all, which composes a film freely from the whole catalogue. ${consequence}`
   )
 }

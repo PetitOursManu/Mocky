@@ -396,7 +396,7 @@ export default function TextProviderSettings() {
         </span>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <ProfileForm
           profile="generation"
           title={t('settings.textProfileGeneration')}

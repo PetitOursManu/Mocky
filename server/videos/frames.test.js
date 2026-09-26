@@ -9,6 +9,7 @@ import {
   frameName,
   FfmpegMissingError,
   DEFAULT_FPS,
+  jpegSize,
 } from './frames.js'
 
 /**
@@ -131,7 +132,8 @@ describe('extractFrames', () => {
       return { stdout: '', stderr: '' }
     }
     await extractFrames('/tmp/x.mp4', dir, { exec: spy, fps: 8, width: 640, max: 40 })
-    expect(seen.join(' ')).toContain('fps=8,scale=640:-2')
+    // A ceiling, not a target: a narrower clip is never enlarged.
+    expect(seen.join(' ')).toContain('fps=8,scale=w=min(640\\,iw):h=-2')
     expect(seen[seen.indexOf('-frames:v') + 1]).toBe('40')
   })
 
@@ -145,10 +147,28 @@ describe('extractFrames', () => {
       return { stdout: '', stderr: '' }
     }
     await extractFrames('/tmp/x.mp4', dir, { exec: spy, fps: 240, width: 99999, max: 100000 })
-    expect(seen.join(' ')).toContain('fps=30,scale=1920:-2')
+    expect(seen.join(' ')).toContain('fps=30,scale=w=min(1920\\,iw):h=-2')
     expect(seen[seen.indexOf('-frames:v') + 1]).toBe('600')
     // And a nonsense value falls back to the default rather than to zero.
     await extractFrames('/tmp/x.mp4', dir, { exec: spy, fps: 0 })
     expect(seen.join(' ')).toContain(`fps=${DEFAULT_FPS},`)
+  })
+})
+
+describe('jpegSize', () => {
+  it('reads the size from the start-of-frame marker, past the segments before it', () => {
+    const buf = Buffer.from([
+      0xff, 0xd8, // SOI
+      0xff, 0xe0, 0x00, 0x04, 0x00, 0x00, // APP0, 2 bytes of payload
+      0xff, 0xc0, 0x00, 0x11, 0x08, 0x0e, 0x3a, 0x07, 0x80, 0x03, // SOF0: 3642 x 1920
+      0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
+    ])
+    expect(jpegSize(buf)).toEqual({ width: 1920, height: 3642 })
+  })
+
+  it('answers null for anything that is not a JPEG it can read', () => {
+    expect(jpegSize(Buffer.from('x'))).toBeNull()
+    expect(jpegSize(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0, 0, 0, 0]))).toBeNull()
+    expect(jpegSize(null)).toBeNull()
   })
 })

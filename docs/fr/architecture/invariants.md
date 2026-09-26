@@ -326,6 +326,14 @@ Seules persistent les images **produites par Mocky** et les distillations
 C'est autant une règle éthique qu'une règle technique. Muse apprend de sites
 qu'il ne recopie pas.
 
+Les vidéos libres de droits (Pexels, Pixabay, cherchées depuis Média) ne sont pas
+une exception à cette règle mais un autre contrat. Ces clips sont publiés **pour
+être réutilisés**, sous une licence qui le dit, et aucun n'est récupéré au hasard :
+une personne cherche, regarde et importe un clip. C'est un import dont le serveur
+a fait le téléchargement, conservé comme tel, avec le crédit de l'auteur à côté.
+Le navigateur envoie un identifiant, jamais une URL, et chaque adresse que le
+serveur télécharge passe la protection SSRF, redirections comprises.
+
 ### M3. Tout échec dégrade ; un passage de Muse ne peut jamais faire échouer une génération
 
 Le motif est le même partout, et c'est celui que `plan.ts` avait déjà établi :
@@ -381,7 +389,7 @@ L'interdiction générale des `<img>` externes dans le prompt de génération es
 emplacements du plan d'imagerie de Muse, qui sont sur l'origine de Mocky, sont
 autorisées.
 
-**Les films Motion suivent la même règle, et il a fallu deux changements pour
+**Les films Motion Ultra suivent la même règle, et il a fallu deux changements pour
 cela.** Un film dans une maquette est un `<video src="/api/video/<hash>">`, et
 l'iframe d'aperçu a une origine opaque (I2, I3), donc :
 
@@ -465,7 +473,7 @@ une liste sur une image, et désormais sur un film exporté : l'adressage par
 contenu fait que deux projets peuvent aboutir aux mêmes octets, donc le second
 rattachement s'ajoute au lieu de remplacer. C'est ce qui rend un fichier stocké
 retrouvable — l'empreinte dit ce qu'il contient et rien sur qui l'a voulu — et le
-magasin d'exports Motion est parti sans, ce qui produisait des fichiers sur le
+magasin d'exports Motion Ultra est parti sans, ce qui produisait des fichiers sur le
 volume qu'aucune interface ne pouvait atteindre. Un fichier sans projet est
 classé sous aucun, jamais sous un projet supposé.
 
@@ -698,7 +706,7 @@ un écran généré sans Motion Ultra se les voit proposer (`lib/ultra/reuse.ts`
 Un projet qui n'a jamais utilisé Motion Ultra n'a rien à proposer et suit
 l'ancien chemin.
 
-**Comment c'est vérifié.** `tests/ultra-off.test.js` attache chaque appel Motion
+**Comment c'est vérifié.** `tests/ultra-off.test.js` attache chaque appel Motion Ultra
 Ultra du chemin de génération à la garde qui l'éteint, et vérifie qu'aucun
 prompt, même très « landing », ne sélectionne le kit.
 
@@ -751,7 +759,7 @@ n'en a le droit :
   `quality/policy.js` rétrograde en conseil le verre, le texte en dégradé, les
   halos, le projecteur, la typographie d'affichage serrée et le fond rogné. Tout
   le reste est toujours appliqué.
-- **Un film Motion.** Aucun film n'est plus fabriqué tout seul (l'interrupteur
+- **Un film Motion Ultra.** Aucun film n'est plus fabriqué tout seul (l'interrupteur
   d'animation du composer a disparu), donc le seul film qu'une génération
   fabrique est le fond vidéo de Motion Ultra — prévu dans la page, branché sans
   appel au modèle, et qui range une photo plein cadre de sa section SOUS lui au
@@ -805,7 +813,7 @@ contrôle, puis répondait `302` vers l'adresse de métadonnées cloud.
 - une cible de texte configurée par un administrateur, parce que pointer vers un
   modèle local est un montage prévu ;
 - l'URL de base `sd-webui`, qui est locale par définition ;
-- l'**URL du worker** de rendu Motion, `assertWorkerTarget()` dans
+- l'**URL du worker** de rendu Motion Ultra, `assertWorkerTarget()` dans
   `server/video/worker.js`.
 
 Le troisième a été ajouté, pas hérité, et la raison vaut le paragraphe. Protégé,
@@ -829,7 +837,7 @@ injectable : qui exécute le worker sur un hôte public peut y remettre
 
 Le reste de la fonctionnalité à laquelle il appartient — pourquoi le worker est
 une image séparée, et pourquoi le modèle qui décrit un film n'écrit jamais le
-code qui le rend — est dans [Motion](fr/video-export.md).
+code qui le rend — est dans [Motion Ultra](fr/video-export.md).
 
 Toute URL venue d'un navigateur reste entièrement protégée — y compris sur
 `POST /api/text/vision`. C'était la seule route qui prenait une URL de base dans
@@ -847,7 +855,7 @@ choses. C'est lui qui a fait rejeter SQLite pour la persistance de Muse, et qui 
 fait réutiliser l'écrivain ZIP sans dépendance du dépôt au lieu d'ajouter
 `archiver`.
 
-La file d'attente de rendu de Motion est la plus récente chose que cet invariant a
+La file d'attente de rendu de Motion Ultra est la plus récente chose que cet invariant a
 tranchée, et la plus tentante à rater : un exécuteur de tâches est exactement la
 fonctionnalité pour laquelle on tend la main vers Redis. `server/video/queue.js`
 est une file en mémoire, avec un journal JSON atomique et une seule tâche à la

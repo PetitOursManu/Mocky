@@ -19,7 +19,53 @@ export interface LibraryVideo {
   createdAt: number
   /** Set by a re-cut. Feeds the cache-buster above. */
   recutAt?: number
+  /** Who made a stock clip and where it lives; the licences ask for credit. */
+  credit?: StockCredit
 }
+
+/** The free stock-footage libraries an administrator can turn on. */
+export type StockProvider = 'pexels' | 'pixabay'
+export const STOCK_PROVIDERS: StockProvider[] = ['pexels', 'pixabay']
+export const STOCK_LABELS: Record<StockProvider, string> = { pexels: 'Pexels', pixabay: 'Pixabay' }
+/** The libraries' own home pages, for the "provided by" link both ask for. */
+export const STOCK_HOME: Record<StockProvider, string> = {
+  pexels: 'https://www.pexels.com',
+  pixabay: 'https://pixabay.com',
+}
+
+export interface StockCredit {
+  source: StockProvider
+  id: string
+  author: string
+  authorUrl: string
+  pageUrl: string
+}
+
+/** One search result. Pictures are the library's own; nothing here is stored. */
+export interface StockResult {
+  provider: StockProvider
+  id: string
+  title: string
+  thumbnail: string
+  /** A small mp4, played on hover so a clip can be judged before importing. */
+  preview: string
+  duration: number
+  width: number
+  height: number
+  author: string
+  authorUrl: string
+  pageUrl: string
+}
+
+/**
+ * What steers a cut clip once it is on a page.
+ *
+ * `scroll` is the pinned hero `<ScrollSequence>` Muse has always written.
+ * `pointer` is `<PointerSequence>`: the cursor steers it, and it goes wherever
+ * the brief puts it — a footer whose face follows the mouse cannot be the
+ * first thing on the page, which is the one place `scroll` insists on.
+ */
+export type VideoDrive = 'scroll' | 'pointer'
 
 /** A sequence chosen for the next generation, instead of paying for a new one. */
 export interface PinnedVideo {
@@ -27,6 +73,8 @@ export interface PinnedVideo {
   frames: number
   poster: string
   label: string
+  /** Absent on pins saved before the choice existed, which were all `scroll`. */
+  drive?: VideoDrive
 }
 
 /** Containers the server hands to ffmpeg. */
@@ -101,5 +149,48 @@ export async function uploadVideo(
   })
   const j = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(j?.error ? String(j.error) : `Upload HTTP ${res.status}`)
+  return { hash: String(j.hash), frames: Number(j.frames) || 0, poster: String(j.poster) }
+}
+
+/** Which stock libraries this instance has a key for, and whether ffmpeg can cut. */
+export async function stockStatus(
+  signal?: AbortSignal,
+): Promise<{ providers: Record<StockProvider, boolean>; ffmpeg: boolean; allowed?: boolean }> {
+  const res = await fetch('/api/videos/stock/status', { signal })
+  if (!res.ok) return { providers: { pexels: false, pixabay: false }, ffmpeg: false }
+  return res.json()
+}
+
+export async function searchStock(
+  provider: StockProvider,
+  q: string,
+  page = 1,
+  signal?: AbortSignal,
+): Promise<{ results: StockResult[]; page: number; hasMore: boolean }> {
+  const p = new URLSearchParams({ provider, q, page: String(page) })
+  const res = await fetch(`/api/videos/stock/search?${p}`, { signal })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(j?.error ? String(j.error) : `Search HTTP ${res.status}`)
+  return { results: j.results || [], page: Number(j.page) || page, hasMore: Boolean(j.hasMore) }
+}
+
+/**
+ * Import one stock clip: the server downloads it from the library and cuts it
+ * like an upload. Sends an id, never a URL — the server reads the file's
+ * address back from the library itself.
+ */
+export async function importStock(
+  provider: StockProvider,
+  id: string,
+  opts: { project?: string; signal?: AbortSignal } = {},
+): Promise<{ hash: string; frames: number; poster: string }> {
+  const res = await fetch('/api/videos/stock/import', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider, id, project: opts.project || '' }),
+    signal: opts.signal,
+  })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(j?.error ? String(j.error) : `Import HTTP ${res.status}`)
   return { hash: String(j.hash), frames: Number(j.frames) || 0, poster: String(j.poster) }
 }

@@ -149,13 +149,13 @@ below `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Frame` | `Show or hide the iPhone frame on mobile screens`. **Disabled when the project has no mobile screen** — and the preference is not cleared with it, because it lives in one browser-wide key shared by every project. Disabling the control rather than resetting the setting is what keeps your other projects framed. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `System` | `Live design system — your DESIGN.md tokens, and a way to recolor them`. Closes `Audit`, or `Link` mode, if one was open. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Evaluate SEO and accessibility`. Closes `System`, or `Link` mode, if one was open — all three want the same slot. **Opening the panel evaluates nothing.** | free |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion` | `Cut a video from the media library`. Opens the Motion panel — see below. | free to open |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion Ultra` | `Cut a video from the media library`. Opens the Motion Ultra panel — see below. | free to open |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Demo` | `Play the prototype — follows the links you placed`. Starts on the selected screen, or the first one if nothing is selected. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Export` | `Export a runnable Vite + React + Tailwind project`. Opens a menu of three stacks. | free |
 
 The rule falls before `Demo`. The last two are the two ways to get something
 **out** of a project: a demo of screens that already exist, an archive of code
-that already exists. `Motion` is on the other side of it, with the modes and the
+that already exists. `Motion Ultra` is on the other side of it, with the modes and the
 panels, because it is the opposite operation — it makes something that did not
 exist a minute ago, out of the media library, and it opens a panel exactly as
 `System` and `Audit` do. Beside `Export` it read as a fourth output format, which
@@ -257,7 +257,7 @@ Under it, the media **attached** to the screen, when there is one — an exporte
 cut, or a scroll sequence. Attached, never *used*: none of it is in the screen's
 code, which is the whole distinction `Change the media…` keeps in two sections.
 The still is drawn by the browser out of the file itself, because no poster is
-cut for a cut (that would mean ffmpeg, the one dependency Motion deliberately
+cut for a cut (that would mean ffmpeg, the one dependency Motion Ultra deliberately
 does not have). Clicking it plays the cut; a sequence opens in `Media`, where
 the frame-by-frame player already lives.
 
@@ -423,15 +423,15 @@ in its product name, not in any screen's markup.
 
 ---
 
-## The Motion panel
+## The Motion Ultra panel
 
-Open with `Motion`. A film for a screen. The ordinary answer is **composed**: a
+Open with `Motion Ultra`. A film for a screen. The ordinary answer is **composed**: a
 model builds each scene out of a catalogue of typed blocks over a ground that can
 move, and five ready-made compositions stay reachable by name — a slideshow, a
 banded screenshot, a phone-shaped cut, animated titling, a product spotlight.
 **The render runs on the Remotion worker, not in this browser** — and that worker
 is a separate, opt-in Docker service, so the first thing the panel does is say
-whether it is there. Why it is built that way is in [Motion](video-export.md).
+whether it is there. Why it is built that way is in [Motion Ultra](video-export.md).
 
 No film is made on its own. There are two ways to get one: Motion Ultra's
 `Video background`, which gives one section of each new screen a film rendered
@@ -441,7 +441,7 @@ screen when set to "forced", is gone: page animations are always on, and a
 screen is held still from its own menu.)
 
 The feature was called "Video export" and the file names still are. That is
-deliberate and explained on the page above: what a user reads says Motion, what a
+deliberate and explained on the page above: what a user reads says Motion Ultra, what a
 developer greps says `video`.
 
 An account the feature is not enabled for gets one terse sentence and nothing
@@ -534,7 +534,7 @@ refused a picture nobody has looked at, which is the whole reason that guard is
 on the server and not in this panel.
 
 **Where the finished file goes**, and the panel says it rather than leaving a
-download link that disappears with it: `Media`, under the **`Motion`** tab —
+download link that disappears with it: `Media`, under the **`Motion Ultra`** tab —
 attached to the project you cut it in, or to no project at all when you cut it
 from the standalone Media page. That tab carries the name of the feature, not of
 the object, because it is where the panel sends you and the two have to read the
@@ -651,11 +651,11 @@ this is the complete list.
 | `Deep analysis` | Audit panel | Changes what `Evaluate` costs. Off by default. |
 | `Fix` / `Fix all` | Audit panel | |
 | `Generate` (an image) | `Change the media…`, image library | Calls the image provider, not the text model. |
-| `Propose a cut` | Motion panel | The only model call in Motion. It picks a composition and cuts the images you picked; it never picks one of the pictures. |
-| `Generate a model image`, `Produce {n} variants` | Motion panel | The image provider, once per picture. Six variants is six calls. |
-| `Start the render` | Motion panel | No model and no provider — but minutes of CPU on the render worker, which is the most expensive click in the product on a small box. |
+| `Propose a cut` | Motion Ultra panel | The only model call in Motion Ultra. It picks a composition and cuts the images you picked; it never picks one of the pictures. |
+| `Generate a model image`, `Produce {n} variants` | Motion Ultra panel | The image provider, once per picture. Six variants is six calls. |
+| `Start the render` | Motion Ultra panel | No model and no provider — but minutes of CPU on the render worker, which is the most expensive click in the product on a small box. |
 
 And the notable absences — things that look expensive and are not:
 `Evaluate` in the audit panel with `Deep analysis` off, `Suggest links`, `Use this design`, `Export`,
 `Download .tsx`, `Duplicate`, `Arrange`, the whole `System` panel, opening the
-`Motion` panel, and every format, frame and playback toggle in the product.
+`Motion Ultra` panel, and every format, frame and playback toggle in the product.

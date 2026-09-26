@@ -80,7 +80,7 @@ C'est [l'invariant I3](fr/architecture/invariants.md), et il porte sur la
 | `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Déclare `requires: ['motion-lib']` |
 | `three-lib` | cdn-script | aucun — tirée par `requires` | `window.THREE`, depuis `/vendor/three.js` |
 | `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — dix scènes procédurales. Déclare `requires: ['three-lib']` |
-| `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence` |
+| `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence`, `PointerSequence` |
 
 
 ### La 3D dans une page, et le budget qui la gouverne
@@ -90,7 +90,7 @@ modèle : dix scènes procédurales — une sphère éclairée, un nœud qui tou
 cristal facetté, un tore, un globe de points avec son anneau, trois cartes qui
 flottent en profondeur, une grappe de bulles, un champ de points, un tunnel qui
 vient vers le lecteur, une surface qui ondule — nommées dans une liste fermée,
-comme `<Animated preset>` à côté et comme les blocs de Motion une fonctionnalité
+comme `<Animated preset>` à côté et comme les blocs de Motion Ultra une fonctionnalité
 plus loin. Il n'écrit jamais de three.js, et `stripForbiddenMotion` retire un
 `import … from 'three'` comme il retire déjà celui de `motion`.
 
@@ -101,7 +101,7 @@ facultative, utilisée par les scènes faites de plusieurs morceaux (l'anneau du
 globe, une carte sur deux, la moitié des bulles, le plafond du tunnel), qui
 retombe sur `color` et non sur l'encre de la maison, pour qu'un modèle ne
 connaissant qu'un seul hexadécimal obtienne tout de même un objet cohérent.
-`globe` porte le nom que porte le bloc de Motion, exprès : un film et la page
+`globe` porte le nom que porte le bloc de Motion Ultra, exprès : un film et la page
 d'où il vient doivent dire le même mot pour le même objet.
 
 **Tout est procédural parce que la CSP de l'aperçu le dit.** `connect-src
@@ -151,7 +151,7 @@ rester immobile n'attache rien de tout cela.
 pas aussi sûres l'une que l'autre : une boîte dimensionnée à côté du texte n'a
 rien au-dessus d'elle, alors qu'une scène en `absolute inset-0` porte le titre
 SUR elle. Rien dans une page ne mesure le contraste d'un pixel en mouvement —
-c'est le travail que fait Motion avec `composedPalette` et qu'une page ne peut
+c'est le travail que fait Motion Ultra avec `composedPalette` et qu'une page ne peut
 pas faire — donc la forme « fond » est dessinée à 0,62 et ne prend aucun
 événement de pointeur, étant décorative et `aria-hidden` à la fois. Uniquement
 `absolute` et `fixed` : `relative` et `sticky` restent dans le flux, un sujet
@@ -1141,10 +1141,10 @@ dessine dans un navigateur sans WebGL.
 `"/api/video/…"` généré ne résout que là où ce serveur est ; le README de
 l'export le dit plutôt que de faire semblant.
 
-**Ce n'est pas Motion**, avec lequel il ne partage que le mot. Celui-là
+**Ce n'est pas Motion Ultra**, avec lequel il ne partage que le mot. Celui-là
 transforme des images de la médiathèque en `.mp4` sur un service Docker séparé et
 facultatif, et ne touche jamais à un écran — voir
-[Motion](fr/video-export.md).
+[Motion Ultra](fr/video-export.md).
 
 ---
 
@@ -1214,7 +1214,7 @@ l'ont jamais demandé — ce qui est une régression de licence, pas de taille, 
 qu'aucun test ultérieur ne peut dé-livrer. La même suite refuse un serveur de
 file d'attente ou un pilote de base de données, car un exécuteur de tâches est
 exactement la fonctionnalité pour laquelle on tend la main vers Redis. Voir
-[Motion](fr/video-export.md).
+[Motion Ultra](fr/video-export.md).
 
 À côté : `registry.test.ts` pour les invariants du registre au chargement,
 `ssrf-guard.test.js`, `routes-auth.test.js`,

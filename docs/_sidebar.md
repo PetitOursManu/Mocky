@@ -10,9 +10,9 @@
   - [Inspiration engine](muse/inspiration-engine.md)
   - [Animations](muse/animations.md)
 - [Quality pass](quality.md)
-- [Motion Ultra](motion-ultra.md)
+- [Motion Ultra — pages](motion-ultra.md)
 - [SEO and accessibility](seo-accessibility.md)
-- [Motion](video-export.md)
+- [Motion Ultra — films](video-export.md)
 - [Deployment](deployment.md)
 - [Changelog](CHANGELOG.md)
 - Reference

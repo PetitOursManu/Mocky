@@ -119,3 +119,39 @@ describe('ScrollSequence', () => {
     expect(prelude).toMatch(/progress\s*<\s*0\s*\?\s*0\s*:\s*progress\s*>\s*1\s*\?\s*1/)
   })
 })
+
+describe('PointerSequence', () => {
+  const prelude = buildPrelude(resolveCapabilities(['scrollvideo']))
+
+  it('compiles together with a screen that uses it as a footer, map included', () => {
+    const screen = `
+      function App() {
+        return (
+          <main>
+            <section className="p-10">haut de page</section>
+            <footer>
+              <PointerSequence base="/api/videos/abc" frames={48} map={[[1, 24, 48], [12, 30, 40]]} className="min-h-[420px]">
+                <a href="#">Contact</a>
+              </PointerSequence>
+            </footer>
+          </main>
+        )
+      }
+    `
+    expect(() => transform(prelude + '\n' + screen)).not.toThrow()
+  })
+
+  it('shares the loader and the painter, and still never reaches for a media element', () => {
+    // One loader for both components: the same '/f/<n>.jpg' files the server cut.
+    expect(prelude.match(/\/f\//g)?.length).toBe(1)
+    expect(prelude).toContain('mockySeqLoad(base, total')
+    expect(prelude).not.toMatch(/<video|createElement\(\s*['"]video['"]/)
+  })
+
+  it('answers the pointer, and rests when motion is held', () => {
+    expect(prelude).toContain("addEventListener('pointermove'")
+    expect(prelude).toContain('__mockyAnimations === false')
+    expect(prelude).toContain('prefers-reduced-motion')
+  })
+})
+

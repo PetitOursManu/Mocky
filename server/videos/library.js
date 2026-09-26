@@ -22,6 +22,32 @@ import { extractFrames, frameName } from './frames.js'
 
 const HASH_RE = /^[a-f0-9]{64}$/
 
+/**
+ * A stock clip's credit, reduced to what the Media page shows: short strings,
+ * and links only to the two libraries' own https pages — this ends up in an
+ * href, so a `javascript:` URL arriving from anywhere must not survive it.
+ */
+export function cleanCredit(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const source = raw.source === 'pexels' || raw.source === 'pixabay' ? raw.source : null
+  if (!source) return null
+  const link = (v) => {
+    try {
+      const u = new URL(String(v || ''))
+      return u.protocol === 'https:' && /(^|\.)(pexels|pixabay)\.com$/i.test(u.hostname) ? u.href : ''
+    } catch {
+      return ''
+    }
+  }
+  return {
+    source,
+    id: String(raw.id || '').slice(0, 30),
+    author: String(raw.author || '').slice(0, 120),
+    authorUrl: link(raw.authorUrl),
+    pageUrl: link(raw.pageUrl),
+  }
+}
+
 function sha256hex(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex')
 }
@@ -213,6 +239,11 @@ export class VideoLibrary {
       owners: [],
       createdAt: this.now(),
     }
+    // Who made a stock clip, and where it lives. Kept with the clip rather
+    // than looked up again: the licences ask for credit, and the provider's
+    // API is not something the Media page should need to reach to give it.
+    const credit = cleanCredit(spec.credit)
+    if (credit) meta.credit = credit
     this._addOwner(meta, spec.owner)
     this.state.byHash[hash] = meta
     this.state.byRequest[key] = hash

@@ -152,7 +152,7 @@ section, nothing in `.env` would ever reach the container.
 > `http://localhost:8787`, which is right on a laptop and wrong everywhere else.
 
 
-### Motion's render worker, on a server
+### Motion Ultra's render worker, on a server
 
 `docker-compose.yml` keeps the worker behind `profiles: ["video-export"]`, which
 is a flag on a command line — and a platform that deploys a compose file from a
@@ -182,11 +182,11 @@ Three things to check after the first deploy, in this order:
 1. **The container is there.** `docker ps` shows `mocky-video-worker`, and its
    health check turns healthy within about a minute and a half — it compiles the
    render bundle after it starts listening, which is what `start_period` is for.
-2. **Mocky can reach it.** Admin → Motion shows the worker as available. The
+2. **Mocky can reach it.** Admin → Motion Ultra shows the worker as available. The
    address is `http://video-worker:3030` — the service's name on the internal
    bridge, not a public URL, and it never needs one.
 3. **The machine can carry it.** The worker asks for 4 GB of memory and 2 cores
-   while it renders, on top of Mocky. Run the server test in Admin → Motion: it
+   while it renders, on top of Mocky. Run the server test in Admin → Motion Ultra: it
    renders three reference films and says what each render level really costs on
    this host, then recommends one.
 
@@ -391,13 +391,13 @@ What lives in the `mocky-data` volume:
 | `muse-cache.json` | Distillations, 7-day TTL, text | Small |
 | `image-library.json` and `image-library/` | The image library | Medium |
 | `video-library/` | Sequences: one clip plus up to 150 frames each | **By far the largest** |
-| `video-config.json` | Motion settings — the master switch, the 3D access list, the render level and the last server test, and **the Remotion licence key** | Tiny |
+| `video-config.json` | Motion Ultra settings — the master switch, the 3D access list, the render level and the last server test, and **the Remotion licence key** | Tiny |
 | `video-exports.json` and `video-exports/` | Exported films, whole. Nothing prunes them: a job's hash is a link somebody may follow days later, so the disk budget bounds the directory instead | Medium to large |
 
 **How much 3D the render worker may spend is a setting, and the panel measures
 it for you.** Without a graphics card, headless Chromium draws every WebGL frame
 on the CPU, so the cost of a film is a property of the host rather than of Mocky:
-Admin → Motion has three render levels — no 3D, limited 3D (the default), full 3D
+Admin → Motion Ultra has three render levels — no 3D, limited 3D (the default), full 3D
 — and a server test that renders three reference films and reports, per level,
 how long a typical film takes, how many an hour the queue gets through, and how
 many people can launch one at the same moment and all have it within three

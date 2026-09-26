@@ -1,12 +1,15 @@
-# Motion Ultra
+# Motion Ultra — pages
 
 Motion Ultra est un réglage de projet qui construit chaque nouvel écran comme une
 page haut de gamme portée par le mouvement : un fond vivant, une typographie
 d'affichage, des surfaces en verre dépoli, des apparitions liées au défilement —
 et une **série d'images générées ensemble pour lui**.
 
-Il porte le nom Motion comme l'export de films, exprès : Motion Ultra, c'est la
-page ; Motion, c'est le film ; et les deux peuvent vivre sur le même écran.
+Les films portent le même nom, exprès : jusqu'en 2026-09 ils s'appelaient
+« Motion », et une personne qui bâtit une page autour d'un film ne se sert pas de
+deux fonctionnalités. La page, c'est ce réglage ; le film se fabrique dans le
+panneau Motion Ultra ([Motion Ultra — films](fr/video-export.md)) ; les deux peuvent
+vivre sur le même écran.
 
 ---
 
@@ -85,15 +88,15 @@ Allumé, une section de chaque nouvel écran reçoit un fond qui bouge :
   application).
 - La page est écrite avec le `<Backdrop slot="film">` de cette section : un fond
   CSS vivant dès la première seconde.
-- Un film Motion est ensuite composé à partir des images de la série et **rendu
-  par votre propre machine** (le module Motion) — aucune vidéo n'est facturée ;
+- Un film Motion Ultra est ensuite composé à partir des images de la série et **rendu
+  par votre propre machine** (le module Motion Ultra) — aucune vidéo n'est facturée ;
   le coût est un appel au modèle de texte et une à trois minutes. Le badge de
   l'écran dit où on en est.
 - Le film est branché sur ce fond — un attribut, sans appel au modèle, sans
   réécrire la page. Il joue par-dessus les couches CSS, qui restent dessous pour
   la miniature, pour le mouvement réduit et si le film n'arrive jamais.
 
-Fond vidéo actif, aucun autre film Motion n'est fabriqué pour le même écran.
+Fond vidéo actif, aucun autre film Motion Ultra n'est fabriqué pour le même écran.
 
 ## La série, après l'écran
 
@@ -108,14 +111,14 @@ Fond vidéo actif, aucun autre film Motion n'est fabriqué pour le même écran.
   nouvel écran qui contient une image, celles de Muse et les images épinglées
   comprises — pas seulement Motion Ultra.
 
-## Avec Muse et les films Motion
+## Avec Muse et les films Motion Ultra
 
 Muse écrit toujours la direction et les textes ; avec Motion Ultra actif, elle ne
 génère pas d'image de héros à elle — la série la remplace.
 
 Aucun film n'est fabriqué tout seul. Le seul film qu'une génération fabrique est
 le `Fond vidéo` ci-dessus, quand il est allumé ; tout autre film vient du panneau
-Motion, et les animations de page sont toujours actives — un écran se fige depuis
+Motion Ultra, et les animations de page sont toujours actives — un écran se fige depuis
 son propre menu.
 
 ## Pourquoi c'est construit ainsi

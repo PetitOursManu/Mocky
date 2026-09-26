@@ -232,7 +232,8 @@ export const CAPABILITIES: Capability[] = [
     // has actually paid for a clip. It is force-added at generation time when
     // one was produced (see ProjectView), never guessed from the prompt — a
     // screen offered <ScrollSequence> with nothing to show would render a black
-    // box the size of three viewports.
+    // box the size of three viewports. <PointerSequence> lives in the same pack
+    // for the same reason: it draws the same cut frames, only steered otherwise.
     id: 'scrollvideo',
     kind: 'snippet-pack',
     triggers: { keywords: [], intents: [] },
@@ -244,6 +245,14 @@ export const CAPABILITIES: Capability[] = [
         description:
           'A generated clip that advances frame by frame as the visitor scrolls, pinned full-height while it plays out. `base` and `frames` are provided by Muse; `height` is the scroll travel in viewport-heights. Children are overlaid on top, centred.',
         tags: ['video', 'scroll', 'scrub', 'hero', 'pinned', 'cinematic'],
+      },
+      {
+        name: 'PointerSequence',
+        signature:
+          '<PointerSequence base="/api/videos/<hash>" frames={60} axis="x" className="min-h-[420px]">{content}</PointerSequence>',
+        description:
+          'The same kind of clip, steered by the CURSOR instead of the scroll: moving the pointer across the page moves through the clip, easing towards it — a face whose eyes follow the mouse, an object that turns as the pointer crosses. `base` and `frames` are provided — never invent them, never change them. It is a BOX, not a section: put it where the brief places it (a footer, a hero, a card) and size it with `className` (`min-h-[420px]`, `h-full` inside a sized parent); with children and no height it is as tall as its content. Children are laid ON the clip and stay clickable, so the footer\'s or section\'s own content goes inside it. `axis` is "x" (default: left edge = first frame, right edge = last) or "y"; `reverse` flips it. `map` is optional: a grid of frame numbers (1 to `frames`), rows top to bottom and cells left to right, e.g. map={[[12,6,1],[18,30,24],[42,36,48]]} — the cell under the pointer picks the frame; use it when the brief gives a gaze or frame table, and write the table inline, never as an import. `track` is "window" (default: the pointer anywhere on the page) or "self" (only over the box). `rest` is "center" (default), "start" or "end": the frame shown before the first move and when the pointer leaves. `fit` is "cover" (default) or "contain". Never add a <video> or an <img> for the clip — the component draws the frames itself.',
+        tags: ['video', 'pointer', 'mouse', 'cursor', 'gaze', 'follow', 'scrub', 'interactive', 'footer', 'hero'],
       },
     ],
   },

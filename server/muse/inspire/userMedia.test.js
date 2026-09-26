@@ -88,6 +88,19 @@ describe('the dossier prompt', () => {
     expect(seen[0].user).toMatch(/scrubs through by scrolling|scrubs through it|scrolling/i)
   })
 
+  it('does not call a pointer-steered clip the hero, since the request places it', async () => {
+    // The footer whose face follows the cursor is the case this exists for: a
+    // dossier insisting on a hero would argue with the prompt it serves.
+    const { llm, seen } = captor()
+    await buildDossier(llm, ctx({ userMedia: { ...MEDIA, kind: 'video', drive: 'pointer' } }))
+    const user = seen[0].user
+    expect(user).toMatch(/VIDEO CLIP/)
+    expect(user).not.toMatch(/THIS IS THE HERO OF THE SCREEN/i)
+    expect(user).not.toMatch(/scrubs through by scrolling/i)
+    expect(user).toMatch(/cursor/i)
+    expect(user).toMatch(/Do not describe the clip again/i)
+  })
+
   it('attaches the picture only when one was provided', async () => {
     const { llm, seen } = captor()
     await buildDossier(llm, ctx({ userMedia: MEDIA }))
@@ -166,5 +179,12 @@ describe('sanitizeUserMedia', () => {
     const out = sanitizeUserMedia({ swatches: many })
     expect(out.swatches).toHaveLength(8)
     expect(out.swatches[0].weight).toBe(1)
+  })
+
+  it('passes the pointer drive through for a clip, and only that value', () => {
+    expect(sanitizeUserMedia({ ...MEDIA, kind: 'video', drive: 'pointer' }).drive).toBe('pointer')
+    expect(sanitizeUserMedia({ ...MEDIA, kind: 'video', drive: 'anything' }).drive).toBeUndefined()
+    // An image has nothing to steer.
+    expect(sanitizeUserMedia({ ...MEDIA, kind: 'image', drive: 'pointer' }).drive).toBeUndefined()
   })
 })

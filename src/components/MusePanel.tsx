@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react'
 import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability } from '../lib/muse'
 import { imageUrl, type PinnedImage } from '../lib/imageLibrary'
+import { stockStatus } from '../lib/videoLibrary'
+import type { MediaTab } from './Bibliotheque'
 import { Button, Icon, Spinner } from '../ui'
 import { useT } from '../i18n'
 
@@ -42,7 +45,8 @@ export default function MusePanel({
   images: GeneratedSlotImage[]
   stage: string | null
   busy: boolean
-  onOpenLibrary: () => void
+  /** Opens Media; on the videos tab when the free-video choice asks for it. */
+  onOpenLibrary: (tab?: MediaTab) => void
   pinned: PinnedImage[]
   onUnpin: (hash: string) => void
   /** Why an image slot stayed empty (bad model id, provider down, quota…). */
@@ -54,12 +58,73 @@ export default function MusePanel({
 }) {
   const t = useT()
   const d = result?.dossier
+  /*
+   * Where the clip comes from, as a choice rather than a checkbox and a link.
+   * The link was the only way to the free path, and a person who did not think
+   * to click it never learned there was one. What the account may pick is the
+   * administrator's decision (`video.access`), read off the server; an older
+   * server that does not say allowed everything.
+   */
+  const access = video?.access ?? { generate: true, stock: true }
+  const [stockOn, setStockOn] = useState(false)
+  // Chosen "free" before any clip was picked: the choice must hold while Media
+  // is open, or the row would snap back to "none" behind the dialog.
+  const [picking, setPicking] = useState(false)
+  useEffect(() => {
+    if (!video || !access.stock) return
+    const ac = new AbortController()
+    stockStatus(ac.signal)
+      .then((st) => setStockOn(st.allowed !== false && Boolean(st.providers?.pexels || st.providers?.pixabay)))
+      .catch(() => {})
+    return () => ac.abort()
+  }, [video, access.stock])
+  const generateReady = Boolean(video?.available)
+  const source: 'off' | 'generate' | 'free' =
+    config.videoPin || picking ? 'free' : config.video && generateReady ? 'generate' : 'off'
+  // "Free" means the stock libraries when this account has them, and the
+  // person's own clips either way; named for what it will actually offer.
+  const stockReady = access.stock && stockOn
+  const chooseSource = (next: 'off' | 'generate' | 'free') => {
+    if (next === 'free') {
+      setPicking(true)
+      if (!config.videoPin) {
+        onChange({ ...config, video: false })
+        onOpenLibrary('videos')
+      }
+      return
+    }
+    setPicking(false)
+    onChange({ ...config, video: next === 'generate', videoPin: null })
+  }
+  const sourceOptions = [
+    { id: 'off' as const, label: t('muse.videoSourceOff'), hint: undefined, disabled: false },
+    ...(access.generate
+      ? [
+          {
+            id: 'generate' as const,
+            label: t('muse.videoSourceGenerated'),
+            hint: generateReady
+              ? t('muse.videoSourceGeneratedHint')
+              : video?.reason === 'no-ffmpeg'
+                ? t('muse.videoNoFfmpeg')
+                : t('muse.videoGenerateOff'),
+            disabled: !generateReady,
+          },
+        ]
+      : []),
+    {
+      id: 'free' as const,
+      label: t(stockReady ? 'muse.videoSourceFree' : 'muse.videoSourceMine'),
+      hint: t(stockReady ? 'muse.videoSourceFreeHint' : 'muse.videoSourceMineHint'),
+      disabled: false,
+    },
+  ]
   return (
     <div className="mb-2 rounded-xl border border-muse/40 bg-muse/5 p-2.5 text-body-sm">
       {/* Library access + pinned images */}
       <div className="mb-2 flex items-center gap-2">
         <span className="kicker text-muse-ink">{t('muse.title')}</span>
-        <Button variant="ghost" size="sm" onClick={onOpenLibrary}>
+        <Button variant="ghost" size="sm" onClick={() => onOpenLibrary()}>
           <Icon name="library" size={16} />
           {t('muse.library')}
         </Button>
@@ -127,7 +192,8 @@ export default function MusePanel({
 
       {/* What the generated image is for */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="kicker">{t('muse.imageMode')}</span>
+        {/* "Generated" is false the moment the picture is the user's own. */}
+        <span className="kicker">{t(pinned.length ? 'muse.imageModeChosen' : 'muse.imageMode')}</span>
         <span className="flex overflow-hidden border border-line-soft">
           <button
             type="button"
@@ -177,86 +243,114 @@ export default function MusePanel({
         )}
       </div>
 
-      {/* The scroll sequence.
-          A permanently greyed-out box teaches nothing, so when the instance is
-          one prerequisite away the panel names which one — the two possible
-          answers are fixed in two different places (Admin, or the container). */}
-      {/* A chosen sequence outranks everything above: it is shown even when no
-          provider is configured, because using one needs neither a key nor a
-          generation — only ffmpeg, which already cut it. */}
-      {config.videoPin ? (
-        <div className="mt-2 flex items-center gap-2.5 border border-muse/50 bg-muse/5 p-2">
-          <img
-            src={config.videoPin.poster}
-            alt=""
-            className="h-12 w-20 shrink-0 border border-line-soft object-cover"
-          />
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5 text-muse-ink">
-              <Icon name="play" size={14} />
-              {t('muse.videoChosenTitle')}
+      {/* The video, and where it comes from. Shown only when this account may
+          use at least one kind: a row of choices that are all refused is
+          furniture. A generated option that cannot run says why under the row,
+          so the free one beside it reads as the way that IS open. */}
+      {video && (access.generate || access.stock) && (
+        <div className="mt-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="kicker">{t('muse.videoSource')}</span>
+            <span className="flex overflow-hidden border border-line-soft" role="group" aria-label={t('muse.videoSource')}>
+              {sourceOptions.map((o, i) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  aria-pressed={source === o.id}
+                  onClick={() => chooseSource(o.id)}
+                  disabled={busy || o.disabled}
+                  title={o.hint}
+                  className={`kicker border-b-2 px-2.5 py-1 ${i > 0 ? 'border-l border-l-line-soft' : ''} ${
+                    source === o.id ? 'border-b-accent bg-ink text-surface' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+                  } ${o.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                >
+                  {o.label}
+                </button>
+              ))}
             </span>
-            <span className="mt-0.5 block truncate text-caption text-ink-muted" title={config.videoPin.label}>
-              {config.videoPin.label}
-            </span>
-            <span className="block text-caption text-ink-faint">
-              {t('muse.videoChosenDetail', { count: config.videoPin.frames })}
-            </span>
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={busy}
-            onClick={() => onChange({ ...config, videoPin: null })}
-            title={t('muse.videoChosenDropHint')}
-          >
-            {t('muse.videoChosenDrop')}
-          </Button>
-        </div>
-      ) : (
-        video && (
-          <div className="mt-2">
-            <label
-              className={`flex items-start gap-2 ${video.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
-              title={video.available ? t('muse.videoHint') : undefined}
-            >
-              <input
-                type="checkbox"
-                className="mt-0.5 accent-accent"
-                checked={config.video && video.available}
-                onChange={(e) => onChange({ ...config, video: e.target.checked })}
-                disabled={busy || !video.available}
+          </div>
+
+          {source === 'generate' && <p className="mt-1 text-caption text-ink-faint">{t('muse.videoCost')}</p>}
+
+          {access.generate && !generateReady && source !== 'free' && video.reason !== 'no-access' && (
+            <p className="mt-1 text-caption text-ink-faint">
+              {video.reason === 'no-ffmpeg' ? t('muse.videoNoFfmpeg') : t('muse.videoNoProviderButImport')}
+            </p>
+          )}
+
+          {source === 'free' && !config.videoPin && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 border border-dashed border-muse/50 p-2">
+              <span className="min-w-0 flex-1 text-caption text-ink-muted">
+                {t(stockReady ? 'muse.videoFreePick' : 'muse.videoMinePick')}
+              </span>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => onOpenLibrary('videos')}>
+                <Icon name="library" size={15} />
+                {t('muse.videoFreeButton')}
+              </Button>
+            </div>
+          )}
+
+          {config.videoPin && (
+            <div className="mt-2 flex items-center gap-2.5 border border-muse/50 bg-muse/5 p-2">
+              <img
+                src={config.videoPin.poster}
+                alt=""
+                className="h-12 w-20 shrink-0 border border-line-soft object-cover"
               />
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5 text-ink-muted">
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5 text-muse-ink">
                   <Icon name="play" size={14} />
-                  {t('muse.video')}
+                  {t('muse.videoChosenTitle')}
                 </span>
-                <span className="mt-0.5 block text-caption text-ink-faint">
-                  {video.available
-                    ? t('muse.videoCost')
-                    : video.reason === 'no-ffmpeg'
-                      ? t('muse.videoNoFfmpeg')
-                      : // ffmpeg is there, only the provider is missing — so
-                        // GENERATING is off, but a clip the user imported still
-                        // works. Saying only "no provider" reads as "feature
-                        // unavailable" and hides a path that is open.
-                        t('muse.videoNoProviderButImport')}
+                <span className="mt-0.5 block truncate text-caption text-ink-muted" title={config.videoPin.label}>
+                  {config.videoPin.label}
+                </span>
+                <span className="block text-caption text-ink-faint">
+                  {t(config.videoPin.drive === 'pointer' ? 'muse.videoChosenDetailPointer' : 'muse.videoChosenDetail', {
+                    count: config.videoPin.frames,
+                  })}
+                </span>
+                {/* What steers the clip decides WHERE it can go: the scroll needs the
+                    top of the page, the pointer goes wherever the prompt says. So
+                    the choice is shown with the clip rather than buried in a menu. */}
+                <span className="mt-1 inline-flex border border-line-soft" role="group" aria-label={t('muse.videoDrive')}>
+                  {(['scroll', 'pointer'] as const).map((drive) => {
+                    const on = (config.videoPin?.drive ?? 'scroll') === drive
+                    return (
+                      <button
+                        key={drive}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={busy}
+                        onClick={() => config.videoPin && onChange({ ...config, videoPin: { ...config.videoPin, drive } })}
+                        title={t(drive === 'pointer' ? 'muse.videoDrivePointerHint' : 'muse.videoDriveScrollHint')}
+                        className={`kicker border-b-2 px-2 py-0.5 ${drive === 'pointer' ? 'border-l border-l-line-soft' : ''} ${
+                          on ? 'border-b-accent bg-ink text-surface' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+                        }`}
+                      >
+                        {t(drive === 'pointer' ? 'muse.videoDrivePointer' : 'muse.videoDriveScroll')}
+                      </button>
+                    )
+                  })}
                 </span>
               </span>
-            </label>
-            {/* The way in, stated where the decision is made. */}
-            <button
-              type="button"
-              onClick={onOpenLibrary}
-              className="mt-1 pl-6 text-caption text-ink-faint underline underline-offset-2 transition hover:text-accent-ink"
-            >
-              {t('muse.videoPickFromLibrary')}
-            </button>
-          </div>
-        )
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  // Still on "free": removing a clip is usually choosing another.
+                  setPicking(true)
+                  onChange({ ...config, videoPin: null, video: false })
+                }}
+                title={t('muse.videoChosenDropHint')}
+              >
+                {t('muse.videoChosenDrop')}
+              </Button>
+            </div>
+          )}
+        </div>
       )}
-
 
       {/* The saved choice is never rewritten — say plainly that THIS run will
           fall back, so the setting isn't silently undone behind the user. */}

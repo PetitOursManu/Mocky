@@ -116,6 +116,17 @@ export interface ImagesVideoConfig {
   provider: string
   fal: { model: string; hasApiKey: boolean; timeoutSec: number }
   frames: { fps: number; width: number; max: number }
+  /** Free stock-footage libraries. A stored key is what turns one on. */
+  stock: { pexels: { hasApiKey: boolean }; pixabay: { hasApiKey: boolean } }
+  /** Who may use generated clips, and who may use free ones. */
+  accessModes: VideoAccessMode[]
+  access: { generated: VideoAccessScope; stock: VideoAccessScope }
+}
+
+/** One scope: everyone, or the accounts a list names. */
+export interface VideoAccessScope {
+  mode: VideoAccessMode
+  userIds: string[]
 }
 
 export interface ImagesConfig {
@@ -143,6 +154,8 @@ export interface ImagesVideoPatch {
   provider?: string
   fal?: { model?: string; apiKey?: string | null; timeoutSec?: number }
   frames?: { fps?: number; width?: number; max?: number }
+  stock?: { pexels?: { apiKey?: string | null }; pixabay?: { apiKey?: string | null } }
+  access?: { generated?: Partial<VideoAccessScope>; stock?: Partial<VideoAccessScope> }
 }
 export interface ImagesConfigPatch {
   content?: ImagesProfilePatch

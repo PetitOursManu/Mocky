@@ -42,7 +42,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - ▶️ **Mode Interagir** — cliquez sur les boutons ; les états de survol et les animations s'exécutent en direct, à même la grille.
 - ✦ **De vraies animations, sans danger** — onze préréglages d'animation et trois composants derrière un unique emballage `<Animated preset="…">`, propulsés par [Motion](https://motion.dev). Le modèle qui génère n'écrit jamais de code d'animation : il choisit un nom dans une liste fermée (voir [Animations](#animations) plus bas). Un seul interrupteur, par projet ou par écran, fige l'ensemble.
 - 🎞️ **Vidéo au défilement** — Muse peut générer un clip (ou vous pouvez en importer un) et laisser le visiteur le parcourir à la molette, épinglé en pleine hauteur.
-- 🎬 **Motion** — un `.mp4` composé pour un écran : un modèle bâtit chaque scène à partir d'un catalogue fermé de blocs typés — typographie, graphiques, images, icônes animées, objets 3D — sur un fond qui peut bouger, et un moteur écrit à la main les dessine. Il n'écrit jamais une ligne de code de rendu (voir [Motion](#motion) plus bas). Le film peut être décidé par votre seule demande, et un film destiné à vivre sous une page peut boucler sans couture visible. Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
+- 🎬 **Motion Ultra** — un `.mp4` composé pour un écran : un modèle bâtit chaque scène à partir d'un catalogue fermé de blocs typés — typographie, graphiques, images, icônes animées, objets 3D — sur un fond qui peut bouger, et un moteur écrit à la main les dessine. Il n'écrit jamais une ligne de code de rendu (voir [Motion Ultra](#motion) plus bas). Le film peut être décidé par votre seule demande, et un film destiné à vivre sous une page peut boucler sans couture visible. Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
 - 🧊 **De la vraie 3D, rationnée** — un écran peut porter un objet WebGL (sphère éclairée, nœud qui tourne, cristal, tore, globe de points, cartes qui flottent en profondeur, grappe de bulles, champ de points, tunnel, surface qui ondule) via un unique composant fermé, dans les deux couleurs de votre palette. Le modèle n'écrit jamais de three.js, la bibliothèque est livrée et épinglée par empreinte, chaque scène est procédurale — la CSP de l'aperçu interdit de télécharger un modèle — et le canevas distribue lui-même les seize contextes WebGL du navigateur : une scène hors champ garde sa dernière image au lieu d'en effacer une que vous regardez. La profondeur qui ne coûte aucun contexte (une carte qui s'incline vers le curseur) est un préréglage à côté des animations plates.
 - 🖼️ **Bibliothèque de médias** — toutes les images et séquences générées au même endroit, plus **vos propres** images et clips. Muse construit sa direction artistique *à partir de* ce que vous sélectionnez.
 - 🔗 **Liens d'interaction + mode Démo** — reliez un véritable élément d'un écran à un autre écran, puis jouez le prototype cliquable.
@@ -310,7 +310,7 @@ Mocky détecte automatiquement ce dont le prompt a besoin et injecte des capacit
 - **Icons** (socle, toujours chargé) : 26 icônes SVG en ligne sous l'espace de noms `Icon.*`. Le prompt interdit d'écrire à la main `<svg><path d="...">`, pour éviter la troncature.
 - **Charts** (conditionnel) : 5 composants de graphique en SVG en ligne (BarChart, LineChart, DonutChart, Sparkline, ProgressRing). Aucune bibliothèque de graphiques externe.
 - **Animate** (conditionnel) : l'emballage `<Animated>` plus `Ticker` et `CountUp`, appuyés sur Motion — voir [Animations](#animations).
-- **ScrollVideo** (seulement quand une séquence existe) : `<ScrollSequence>`, le héros parcouru au défilement.
+- **ScrollVideo** (seulement quand une séquence existe) : `<ScrollSequence>`, le héros parcouru au défilement, et `<PointerSequence>`, le même clip piloté par le curseur là où le prompt le place.
 - **DaisyUI** (conditionnel) : une feuille de style embarquée pour les classes de composants sémantiques.
 
 Les capacités sont des paquets d'extraits (du code JavaScript simple, embarqué, préfixé au code généré), des feuilles de style ou des scripts. **Rien n'est chargé depuis une autre origine.** C'est la règle, et elle est appliquée par un test : l'enjeu n'a jamais été la forme de la balise mais la dépendance — une requête peu fiable vers un tiers subordonnerait un aperçu par ailleurs valide à la disponibilité de quelqu'un d'autre. Un fichier placé sous `public/vendor/` est servi par le même serveur que la page, son empreinte est figée, et il ne peut pas tomber indépendamment d'elle.
@@ -530,11 +530,11 @@ Muse est conçu pour respecter les sites dont il s'inspire :
 > d'avis de sécurité (`hono`, `body-parser`, `shell-quote`, `esbuild`) — tous dans le transport
 > serveur HTTP du SDK, que Mocky n'utilise **pas** (nous sommes un client stdio).
 
-## Motion
+## Motion Ultra
 
 > **Pourquoi c'est ainsi —** Le moteur de rendu dont cette fonctionnalité a besoin est gratuit pour les particuliers et les petites sociétés, payant au-delà, et ses conditions ne disent rien du fait d'être transmis à l'intérieur de quelque chose que l'on héberge soi-même — l'arrangement honnête est donc qu'il n'arrive jamais tant qu'on ne va pas le chercher, ce qui fait appartenir la question à qui y répond plutôt qu'à chaque exploitant qui n'utilisera jamais la fonctionnalité. La seconde décision découle de la première, puisqu'il s'agit d'un programme qui ouvre un navigateur et touche à un disque : un modèle a le droit de décrire le film dans un vocabulaire fermé, vérifié avant que quoi que ce soit ne tourne, et le code qui transforme cette description en images est écrit à la main et couvert par des tests.
 
-Montez un film pour un écran. `Plus → Motion`, dans un projet, ouvre le
+Montez un film pour un écran. `Plus → Motion Ultra`, dans un projet, ouvre le
 panneau : on choisit les images, on décrit le film en une phrase, et on lance le
 rendu. Douze scènes au plus, deux minutes au plus, en `16:9`, `9:16` ou `1:1`.
 Il n'y a pas de son.
@@ -576,7 +576,7 @@ n'est illisible, icônes et 3D comprises.
 
 **Combien de 3D une instance autorise est une décision d'administrateur**, parce
 que sans carte graphique un navigateur sans écran dessine chaque image WebGL sur
-le processeur. Administration → Motion propose trois niveaux de rendu et un
+le processeur. Administration → Motion Ultra propose trois niveaux de rendu et un
 **test du serveur** qui rend trois films de référence et donne, par niveau, la
 durée d'un film typique, le nombre de films par heure et combien de personnes
 peuvent en lancer un au même moment et tous l'avoir en moins de trois minutes.
@@ -602,7 +602,7 @@ moment où la question de licence devient la vôtre — le seuil compte **les
 salariés de votre organisation, pas les comptes de cette instance**, et Mocky ne
 prétend délibérément pas savoir dans quel cas vous êtes.
 
-Il reste à l'activer dans **Administration → Motion** : un interrupteur
+Il reste à l'activer dans **Administration → Motion Ultra** : un interrupteur
 maître, une liste d'accès (un administrateur n'est *pas* autorisé d'office),
 l'URL du worker (`http://video-worker:3030` est la valeur livrée et la réponse
 normale), et une clé de licence facultative — stockée côté serveur, jamais

@@ -240,4 +240,34 @@ describe('generateSlotImages guards', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(out).toEqual([])
   })
+
+  describe('a chosen clip', () => {
+    const clip = {
+      hash: 'a'.repeat(64),
+      base: 'http://localhost:5173/api/videos/' + 'a'.repeat(64),
+      poster: 'http://localhost:5173/api/videos/' + 'a'.repeat(64) + '/poster.jpg',
+      frames: 48,
+      fromCache: true,
+    }
+
+    it('is a scroll hero by default, as every clip was before the choice existed', () => {
+      const out = buildMusePreamble('# Dossier', [], 'content', undefined, clip)
+      expect(out).toMatch(/SCROLL SEQUENCE/)
+      expect(out).toMatch(/MUST be the hero/)
+      expect(out).toContain(`<ScrollSequence base="${clip.base}" frames={48}`)
+      expect(out).not.toMatch(/PointerSequence/)
+    })
+
+    it('steered by the pointer, goes where the request puts it — not forced to the top', () => {
+      const out = buildMusePreamble('# Dossier', [], 'content', undefined, { ...clip, drive: 'pointer' })
+      expect(out).toMatch(/POINTER SEQUENCE/)
+      expect(out).toContain(`<PointerSequence base="${clip.base}" frames={48}`)
+      expect(out).toMatch(/footer/)
+      expect(out).not.toMatch(/MUST be the hero/)
+      expect(out).not.toMatch(/<ScrollSequence/)
+      // A frame table in the brief becomes a prop, never a file the sandbox
+      // cannot import.
+      expect(out).toMatch(/inline as `map`/)
+    })
+  })
 })

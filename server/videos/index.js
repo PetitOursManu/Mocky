@@ -9,6 +9,7 @@ import { createFal } from '../images/providers/fal.js'
 import { ffmpegStatus, resetFfmpegStatus } from './frames.js'
 import { VideoLibrary } from './library.js'
 import { createVideosRouter } from './routes.js'
+import { createStock } from './stock.js'
 
 /**
  * @param {object} deps
@@ -106,8 +107,16 @@ export function createVideos({ dataDir, configStore, fetchImpl, budget } = {}) {
     )
   }
 
+  // Keys read at call time, like the frame settings below: a key saved in
+  // Admin works on the next search, without a restart.
+  const stock = createStock({ keys: () => configStore.videoProfile().stock || {}, fetchImpl })
+
   const router = createVideosRouter({
     budget,
+    stock,
+    // Read at call time, like everything else here: a list saved in Admin
+    // applies on the next request.
+    accessFor: (user) => configStore.videoAccessFor(user),
     library,
     generate,
     availability,
@@ -116,5 +125,5 @@ export function createVideos({ dataDir, configStore, fetchImpl, budget } = {}) {
     // time so an admin change applies without a restart.
     frameSettings: () => configStore.videoProfile().frames || {},
   })
-  return { library, router, availability, recheck, generate }
+  return { library, router, availability, recheck, generate, stock }
 }

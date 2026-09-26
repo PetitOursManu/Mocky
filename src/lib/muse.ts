@@ -9,7 +9,7 @@
 import { loadSettings } from './settings'
 import { extractPalette } from './palette'
 import { extractProductName } from './design'
-import type { PinnedVideo } from './videoLibrary'
+import type { PinnedVideo, VideoDrive } from './videoLibrary'
 
 export interface MuseImagerySlot {
   id: string
@@ -131,7 +131,13 @@ export interface MuseVideoAvailability {
   model: string
   ffmpeg: { available: boolean; version?: string; reason?: string }
   /** null when available; otherwise which of the two prerequisites is missing. */
-  reason: 'no-provider' | 'no-key' | 'no-ffmpeg' | null
+  reason: 'no-provider' | 'no-key' | 'no-ffmpeg' | 'no-access' | null
+  /**
+   * What the administrator allows THIS account: generating clips, fetching free
+   * ones, both or neither. Absent from a server older than the setting, which
+   * allowed everything.
+   */
+  access?: { generate: boolean; stock: boolean }
 }
 
 /**
@@ -160,6 +166,11 @@ export interface GeneratedVideo {
   poster: string
   frames: number
   fromCache: boolean
+  /**
+   * How the page drives it. Only a clip the user CHOSE carries `pointer`: one
+   * Muse generates is shot for a hero, and stays a scroll sequence.
+   */
+  drive?: VideoDrive
 }
 
 /**
@@ -239,6 +250,12 @@ export interface MuseUserMedia {
   accent: string | null
   /** The picture itself, only when the model can actually look at it. */
   image?: string
+  /**
+   * For a clip: what steers it. The dossier writes the page AROUND the clip,
+   * and "a hero you scroll through" and "a surface the cursor steers,
+   * wherever the prompt puts it" are two different pages.
+   */
+  drive?: VideoDrive
 }
 
 /**
@@ -634,8 +651,26 @@ export function buildMusePreamble(
    * scrolls through. A model told about it in passing writes a normal hero and
    * drops <ScrollSequence> somewhere below the fold, which is the one place the
    * effect cannot work.
+   *
+   * A clip the user chose to be steered by the POINTER is the opposite case on
+   * place: it goes where the brief says — a footer's background is the case it
+   * was added for — so this instruction names the component and its values and
+   * leaves the position to the request, instead of ordering a hero.
    */
-  if (video && video.frames > 0) {
+  if (video && video.frames > 0 && video.drive === 'pointer') {
+    lines.push(
+      '',
+      'POINTER SEQUENCE — the user chose a video for this screen, cut into frames, to be steered by the CURSOR: moving the mouse moves through the clip.',
+      'Use the predefined <PointerSequence> component with EXACTLY these two values:',
+      '',
+      `<PointerSequence base="${video.base}" frames={${video.frames}} className="min-h-[420px]">`,
+      '  {/* the section\'s own content, laid on the clip */}',
+      '</PointerSequence>',
+      '',
+      'Place it where the request puts the video — a footer, a hero, a section background, a card. If the request says nothing about where, make it the background of the hero. Use it ONCE.',
+      'Rules: `base` and `frames` are exactly the values above; changing either breaks it. Do NOT add an <img> or a <video> for it — the component draws the frames itself. Size it with `className`; its children stay clickable, so the section\'s links and buttons go inside it. If the request gives a table of which frame to show where the pointer is (a "gaze" or frame map), pass it inline as `map` — a grid of frame numbers from 1 to the count above — rather than importing a file.',
+    )
+  } else if (video && video.frames > 0) {
     lines.push(
       '',
       'SCROLL SEQUENCE — a video has been generated for this screen and cut into frames. It MUST be the hero, and it MUST be the FIRST element the visitor sees.',

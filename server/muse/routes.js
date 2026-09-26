@@ -52,6 +52,9 @@ export function sanitizeUserMedia(raw) {
     swatches,
     accent: HEX_RE.test(String(raw.accent || '')) ? String(raw.accent).toLowerCase() : null,
     image,
+    // Only ever the one value that changes the wording; anything else is the
+    // scroll hero every clip used to be.
+    ...(raw.kind === 'video' && raw.drive === 'pointer' ? { drive: 'pointer' } : {}),
   }
 }
 

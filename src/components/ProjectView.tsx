@@ -1187,6 +1187,13 @@ export default function ProjectView({
         let museImageHash: string | undefined
         /** The scroll sequence, when one was asked for and produced. */
         let museVideo: GeneratedVideo | null = null
+        // A clip pinned before the administrator closed video to this account
+        // is not used: the pin lives in the browser, the permission on the
+        // server, and the server's answer is the one that holds.
+        const runPin =
+          pinnedVideo && (!videoAvail?.access || videoAvail.access.generate || videoAvail.access.stock)
+            ? pinnedVideo
+            : null
         // The saved preference is kept as-is; a model without vision can only
         // honour "content", so THIS RUN degrades without touching the setting.
         const effectiveImageMode: MuseImageMode =
@@ -1211,8 +1218,8 @@ export default function ProjectView({
              * without vision: Muse runs exactly as it did before.
              */
             let userMedia = null
-            const mediaSource = pinnedVideo
-              ? { url: absoluteUrl(pinnedVideo.poster), kind: 'video' as const }
+            const mediaSource = runPin
+              ? { url: absoluteUrl(runPin.poster), kind: 'video' as const }
               : pinnedImages[0]
                 ? { url: absoluteUrl(pinnedImages[0].url), kind: 'image' as const }
                 : null
@@ -1222,6 +1229,7 @@ export default function ProjectView({
                 vision: museVision,
                 signal: ac.signal,
               })
+              if (userMedia && runPin?.drive === 'pointer') userMedia = { ...userMedia, drive: 'pointer' as const }
             }
 
             setMuseStage(t('project.museStageDossier'))
@@ -1311,17 +1319,18 @@ export default function ProjectView({
              * have got with the box unticked. But it is reported, unlike an
              * image failure, because this one cost minutes and money.
              */
-            if (pinnedVideo) {
+            if (runPin) {
               // A sequence chosen from the library wins over generating one.
               // Same rule the pinned IMAGES follow, and for the same reason:
               // the user has already answered the question this step exists to
               // ask, and answering it again costs minutes and money.
               museVideo = {
-                hash: pinnedVideo.hash,
-                base: absoluteUrl(videoBase(pinnedVideo.hash)),
-                poster: absoluteUrl(pinnedVideo.poster),
-                frames: pinnedVideo.frames,
+                hash: runPin.hash,
+                base: absoluteUrl(videoBase(runPin.hash)),
+                poster: absoluteUrl(runPin.poster),
+                frames: runPin.frames,
                 fromCache: true,
+                drive: runPin.drive,
               }
             } else if (museConfig.video && videoAvail?.available) {
               const heroSlot = plan[0]
@@ -1629,7 +1638,7 @@ export default function ProjectView({
          * Local, about a second, in the background; a failure to check is not a
          * finding (Q1).
          */
-        if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence'].some((k) => result.code.includes(k))) {
+        if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence', '<PointerSequence'].some((k) => result.code.includes(k))) {
           checkLegibility(result.code, preset.w, preset.h, caps)
             .then((hard) => {
               if (!hard.length) return
@@ -2673,11 +2682,12 @@ export default function ProjectView({
         museResult={museResult}
         museImages={museImages}
         museStage={museStage}
-        onOpenLibrary={() => {
-                      // Back to images. `libraryTab` is sticky so that "see it
-                      // in Media" can land on the cut; leaving it there would
-                      // make the ordinary Media button open on Motion ever after.
-                      setLibraryTab('images')
+        onOpenLibrary={(tab) => {
+                      // Back to images unless a tab was asked for. `libraryTab`
+                      // is sticky so that "see it in Media" can land on the cut;
+                      // leaving it there would make the ordinary Media button
+                      // open on Motion ever after.
+                      setLibraryTab(tab ?? 'images')
                       setShowLibrary(true)
                     }}
         pinned={pinnedImages}
@@ -3388,11 +3398,12 @@ export default function ProjectView({
                     images={museImages}
                     stage={museStage}
                     busy={busy}
-                    onOpenLibrary={() => {
-                      // Back to images. `libraryTab` is sticky so that "see it
-                      // in Media" can land on the cut; leaving it there would
-                      // make the ordinary Media button open on Motion ever after.
-                      setLibraryTab('images')
+                    onOpenLibrary={(tab) => {
+                      // Back to images unless a tab was asked for. `libraryTab`
+                      // is sticky so that "see it in Media" can land on the cut;
+                      // leaving it there would make the ordinary Media button
+                      // open on Motion ever after.
+                      setLibraryTab(tab ?? 'images')
                       setShowLibrary(true)
                     }}
                     pinned={pinnedImages}
