@@ -135,12 +135,13 @@ la qualité baisse à chaque retouche :
 
 ## v2 — Fonds vidéo
 
-- [ ] Réutiliser le film Motion de type `background` comme fond d'une section
-      Ultra (placement via `<MotionFilm>`, déjà prévu)
-- [ ] Choix par section : fond image + CSS **ou** fond vidéo
-- [ ] Coût et temps de rendu annoncés avant, comme pour les images
-- [ ] Repli automatique sur image + CSS si le rendu vidéo échoue ou n'est pas
-      configuré sur le serveur
+- [x] Film Motion de type `background` comme fond d'une section Ultra — prévu
+      dès la page (`<Backdrop slot="film">`) et branché sans appel au modèle
+- [x] Une section par écran, choisie par le storyboard ; interrupteur « Fond
+      vidéo » (éteint par défaut) à côté de ×3 / ×6
+- [x] Coût et temps de rendu annoncés avant (« +1–3 min »), badge pendant
+- [x] Repli : la section garde son fond animé CSS si le rendu échoue ou n'est
+      pas disponible, avec un message
 
 ---
 
@@ -281,3 +282,10 @@ Suite : v2, fonds vidéo.
   mot géant rogné (`u-bleed`) et l'éventail en perspective (`u-fan`) ; deux
   recettes (`cropped-wordmark`, `fanned-showcase`) ; chiffres aux coins de
   l'objet dans `object-hero`.
+
+### 2026-09-26 — v2 fonds vidéo
+
+Rendu par le module Motion local : aucune vidéo facturée. Testé en réel sur 2
+écrans : landing (film derrière le héros, `<h1>` intact) et espace membre (film
+dans le panneau « Mes billets », pas derrière la navigation). Le contrôle
+d'animation a signalé à juste titre 3 fonds animés sur l'espace membre.

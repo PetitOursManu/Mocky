@@ -164,6 +164,13 @@ Four things that will bite you:
    goes into the kit, tested against reduced motion, "Sans animation" and the
    capture shell (html2canvas throws on computed colours).
 
+**The video background (v2) is a film PLANNED for, not placed.** The storyboard
+picks one section (`filmSectionOf`), the page writes `<Backdrop slot="film">`
+there, and `plugFilmIntoSlot` sets its `video` attribute once the local worker
+has rendered a `background` film — an AST offset, no model call. Do not route it
+through `placeFilmInScreen`: that is the model-driven placement for films
+nobody planned.
+
 Related, found while testing it: a preview error that is about the ENVIRONMENT
 (React/Babel failed to load) is never sent to the repair loop —
 `src/lib/previewErrors.ts`.

@@ -74,6 +74,27 @@ le reste :
   version** : même description, même format, une nouvelle prise, mise à sa place.
   Rien d'autre n'est régénéré.
 
+## Fond vidéo
+
+L'interrupteur **Fond vidéo**, à côté de ×3 / ×6, est **éteint par défaut**.
+Allumé, une section de chaque nouvel écran reçoit un fond qui bouge :
+
+- Le storyboard choisit la section — la première construite sur un fond plein
+  cadre (une ouverture, un bandeau, un appel final, le panneau expressif d'une
+  application ; jamais une grille de cartes, jamais la navigation d'une
+  application).
+- La page est écrite avec le `<Backdrop slot="film">` de cette section : un fond
+  CSS vivant dès la première seconde.
+- Un film Motion est ensuite composé à partir des images de la série et **rendu
+  par votre propre machine** (le module Motion) — aucune vidéo n'est facturée ;
+  le coût est un appel au modèle de texte et une à trois minutes. Le badge de
+  l'écran dit où on en est.
+- Le film est branché sur ce fond — un attribut, sans appel au modèle, sans
+  réécrire la page. Il joue par-dessus les couches CSS, qui restent dessous pour
+  la miniature, pour le mouvement réduit et si le film n'arrive jamais.
+
+Fond vidéo actif, aucun autre film Motion n'est fabriqué pour le même écran.
+
 ## Avec Muse et les films Motion
 
 Muse écrit toujours la direction et les textes ; avec Motion Ultra actif, elle ne

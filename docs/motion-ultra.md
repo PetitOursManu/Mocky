@@ -70,6 +70,25 @@ one:
   same description and format, a new take, put in its place. Nothing else is
   regenerated.
 
+## Video background
+
+The **Video background** switch, beside ×3 / ×6, is **off by default**. On, one
+section of each new screen gets a moving background:
+
+- The storyboard picks the section — the first one built on a full-bleed ground
+  (an opening, a band, a closing call to action, an app's one expressive panel;
+  never a card grid, never an app's navigation).
+- The page is written with that section's `<Backdrop slot="film">`: a living CSS
+  background from the first second.
+- A Motion film is then composed from the series' pictures and **rendered by
+  your own machine** (the Motion worker) — no video is billed; the cost is one
+  text-model call and one to three minutes. The screen's badge says where it is.
+- The film is plugged into that background — one attribute, no model call, no
+  rewrite of the page. It plays over the CSS layers, which stay underneath for
+  the thumbnail, for reduced motion and if the film never arrives.
+
+With the video background on, no other Motion film is made for the same screen.
+
 ## With Muse and Motion films
 
 Muse still writes the direction and the copy; with Motion Ultra on it does not
