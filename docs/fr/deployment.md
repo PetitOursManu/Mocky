@@ -157,7 +157,7 @@ cette section, rien de ce que contient `.env` n'atteindrait le conteneur.
 > faux partout ailleurs.
 
 
-### Le worker de rendu de Motion, sur un serveur
+### Le worker de rendu de Motion Ultra, sur un serveur
 
 `docker-compose.yml` garde le worker derrière `profiles: ["video-export"]`, qui
 est un drapeau de ligne de commande — et une plateforme qui déploie un fichier
@@ -406,7 +406,7 @@ Ce qui vit dans le volume `mocky-data` :
 | `muse-cache.json` | Les distillations, 7 jours, du texte | Petite |
 | `image-library.json` et `image-library/` | La bibliothèque d'images | Moyenne |
 | `video-library/` | Les séquences : un clip plus jusqu'à 150 images chacune | **De loin la plus grosse** |
-| `video-config.json` | Les réglages de Motion — l'interrupteur maître, la liste d'accès à la 3D, le niveau de rendu et le dernier test du serveur, et **la clé de licence Remotion** | Minuscule |
+| `video-config.json` | Les réglages de Motion Ultra — l'interrupteur maître, la liste d'accès à la 3D, le niveau de rendu et le dernier test du serveur, et **la clé de licence Remotion** | Minuscule |
 | `video-exports.json` et `video-exports/` | Les films exportés, entiers. Rien ne les élague : le hash d'un job est un lien que quelqu'un peut suivre des jours plus tard, c'est donc le budget disque qui borne le répertoire | Moyenne à grosse |
 
 **Combien de 3D le worker de rendu peut dépenser est un réglage, et le panneau

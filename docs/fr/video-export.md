@@ -1,14 +1,17 @@
-# Motion
+# Motion Ultra — films
 
 Mocky transforme une liste d’images de la médiathèque en `.mp4`. Pas un écran,
 pas une séquence au défilement : un film, monté à partir d’images que
 l’utilisateur a choisies, rendu par [Remotion](https://www.remotion.dev/) dans un
 conteneur absent d’une installation par défaut.
 
-**La fonctionnalité s’appelle Motion ; le code s’appelle `video`.** Elle est
+**La fonctionnalité s’appelle Motion Ultra ; le code s’appelle `video`.** Elle est
 sortie sous le nom « Export vidéo », qui nommait un format de fichier plutôt que
-ce qui est offert : toutes les chaînes que lit un utilisateur disent désormais
-Motion. Rien en dessous n’a suivi — `server/video/`, `src/lib/video/`,
+ce qui est offert, puis s'est appelée « Motion ». Depuis 2026-09, toutes les
+chaînes que lit un utilisateur disent Motion Ultra — le nom du réglage de projet
+dont les pages sont bâties autour de ces films ([Motion Ultra — pages](fr/motion-ultra.md)),
+parce que pour la personne qui se sert des deux, c'est une seule fonctionnalité,
+et deux noms pour elle, c'était un de trop. Rien en dessous n’a suivi — `server/video/`, `src/lib/video/`,
 `/api/video/*`, le profil compose `video-export` et les clés de traduction
 `video.*` gardent leurs noms. Les renommer toucherait les deux moitiés d’un
 dictionnaire, tous les appels et les tests qui les épinglent, pour changer des
@@ -1808,12 +1811,13 @@ un brief qui a CHANGÉ est une révision : pas de tirage, pas d’historique, le
 actuel dans le tour utilisateur comme donnée, température 0,2, et « ne changez que
 ce que le nouveau brief demande — une couleur ou une police ne change rien à ce
 document ». Le même brief pressé à nouveau demande un autre film, et compte d’abord
-celui qui est à l’écran. Le panneau porte cette décision (evisesProposal) parce
+celui qui est à l’écran. Le panneau porte cette décision (
+evisesProposal) parce
 qu’il étiquette aussi le bouton — « Modifier le film » contre « Générer autre
 chose » — et « Nouveau montage » oublie le film.
 
 Un film posé dans un écran au premier prompt n’a plus de panneau où écrire : le
-menu de l’écran porte donc **« Modifier le film Motion… »**. L’écran ne garde que
+menu de l’écran porte donc **« Modifier le film Motion Ultra… »**. L’écran ne garde que
 l’empreinte ; `POST /compose` avec `previousHash` relit le document et son brief
 dans le journal des rendus de CE compte (`queue.filmFor` — un rendu enregistre
 désormais son brief), garde les images et l’apparence du film, et pose par-dessus,
@@ -1863,8 +1867,8 @@ ExtraBold compose 1,63 fois plus large et est dessinée à 61 % — tandis qu’
 police plus étroite est laissée telle quelle, puisque l’agrandir ferait sortir ses
 lettres de la ligne qu’un titre masque.
 
-**Plus personne ne coche « Motion ».** Le panneau Muse du composer portait une
-case Motion et un sélecteur de type — une question sur Remotion posée à des gens
+**Plus personne ne coche « Motion Ultra ».** Le panneau Muse du composer portait une
+case Motion Ultra et un sélecteur de type — une question sur Remotion posée à des gens
 qui ne savent pas ce qu’est Remotion. Qu’un écran reçoive un film est désormais
 décidé par l’interrupteur d’ANIMATION qui existait déjà dans le composer et par la
 demande (`decideFilm` dans `src/lib/video/filmDecision.ts`) : « sans animation »
@@ -1878,7 +1882,7 @@ type que le compte ne peut pas rendre est un non, jamais une supposition. La
 section du film, quand le dossier en nomme une, est essayée en premier au moment
 de le poser dans la page. La décision n’est pas écrite dans DESIGN.md : un film
 concerne un écran, la direction concerne le projet. Et rien n’est demandé quand
-Motion ne peut pas tourner pour ce compte.
+Motion Ultra ne peut pas tourner pour ce compte.
 
 > **Depuis 2026-09, rien de ceci ne tourne plus.** L’interrupteur d’animation du
 > composer a été retiré, et avec lui le film automatique : « forcées » rendait un
@@ -2059,7 +2063,7 @@ que soit la qualité de la proposition.
 
 ### Le panneau choisit aussi, et son défaut est de ne pas choisir
 
-Le sélecteur de composition est le premier contrôle du panneau Motion, et il
+Le sélecteur de composition est le premier contrôle du panneau Motion Ultra, et il
 s’ouvre sur **`Automatique`** — le modèle lit le brief et choisit. Ce défaut est
 l’argument du catalogue redit sous forme de décision d’interface : un formulaire
 qui ouvrirait sur `slideshow` ferait des quatre autres une option que l’on
@@ -3217,7 +3221,7 @@ d’oracle — et une liste nommant les exports des autres rendrait précisémen
 que ce contrôle retient. `owners` est retiré en sortie, comme dans toutes les
 listes de ce dépôt.
 
-**Média gagne un troisième onglet, « Motion ».** Son propre onglet, pas une ligne
+**Média gagne un troisième onglet, « Motion Ultra ».** Son propre onglet, pas une ligne
 dans « Vidéos », et la raison est celle qui a fait naître le magasin. Une entrée
 `videos` est une séquence au défilement : vignette, nombre d’images, bouton
 « Redécouper », lue en parcourant `/f/1.jpg … /f/N.jpg`. Un film n’a rien de
@@ -3389,7 +3393,7 @@ lecteurs qui divergent.
 
 ## Partir d’une image
 
-Le panneau Motion sait aussi fabriquer les images. On décrit un sujet, on
+Le panneau Motion Ultra sait aussi fabriquer les images. On décrit un sujet, on
 obtient une image modèle, on la garde ou on la régénère, puis on demande de deux
 à six variantes et on coche celles qui méritent d’être montées.
 
@@ -3613,7 +3617,7 @@ quelqu’un.
 **Son défaut est `all`, et c’est le seul défaut de ce fichier qui ne soit pas le
 plus fermé.** Le raisonnement est écrit dans `DEFAULT_THREE_D_ACCESS` et tient en
 trois points. La porte fermée existe déjà un niveau au-dessus : « tout le monde »
-signifie ici « tous ceux qu’un administrateur a déjà mis sur la liste de Motion »
+signifie ici « tous ceux qu’un administrateur a déjà mis sur la liste de Motion Ultra »
 et non « tout le monde » ; un second défaut fermé serait la même porte verrouillée
 deux fois, et c’est le second verrou que personne ne connaît. Le coût est un
 supplément, pas une facture nouvelle — un rendu dépense déjà environ 4,3 s de
@@ -3755,7 +3759,7 @@ rend un bloc tridimensionnel, c’est son rendu.
 | `server/video/worker.js` | Le client HTTP du worker de rendu, et `assertWorkerTarget` |
 | `server/video/store.js` | Le fichier terminé, gardé entier. **Pas** `server/videos/` |
 | `server/video/routes.js` | `/api/video`, le garde des images en attente, et le routeur d’administration |
-| `src/components/VideoExportDialog.tsx` | Le panneau Motion. Ouvert depuis la barre d’outils, jamais depuis un écran |
+| `src/components/VideoExportDialog.tsx` | Le panneau Motion Ultra. Ouvert depuis la barre d’outils, jamais depuis un écran |
 | `worker/video/` | Le worker Remotion : sous-projet séparé, image séparée, README séparé |
 | `worker/video/encoding.js` | Le tableau des codecs et ce qu’on dit à chacun sur la qualité. Aucun import Remotion, pour que la seule part testable d’un rendu le soit |
 | `worker/video/remotion/composition.js` | L’arithmétique partagée de toutes les compositions, leur thème et leurs palettes. Ni React ni Remotion, pour qu’un test puisse y accéder |
@@ -3917,9 +3921,9 @@ absolu avec la copie en frères et sœurs, donc le cas n'arrive qu'une fois que 
 mise en page a déjà ignoré la forme qu'on lui donnait, et ce qu'il coûte est
 l'insertion d'un film qui reste rattaché.
 
-## Motion au début d’un projet : les types
+## Motion Ultra au début d’un projet : les types
 
-Motion a commencé comme un panneau qu’on ouvre sur un projet qui existe déjà, au-
+Motion Ultra a commencé comme un panneau qu’on ouvre sur un projet qui existe déjà, au-
 dessus d’images déjà choisies. La demande qui a produit cette section en est
 l’autre bout : une case cochée à côté de Muse, au tout premier prompt, pour que
 le film soit coupé dans le dossier au moment où le dossier s’écrit.
@@ -3931,7 +3935,7 @@ la nommer plutôt que de la contourner.
 
 ### Un type est une porte d’entrée dans le catalogue, jamais un sixième modèle
 
-« Des templates de création Motion » — un globe, un fond, un bouton, un héro. Lus
+« Des templates de création Motion Ultra » — un globe, un fond, un bouton, un héro. Lus
 comme des modèles, ce sont quatre entrées de plus dans `VIDEO_TEMPLATES` : quatre
 compositions à écrire, quatre branches dans le worker, et tout l’argument du
 sixième modèle jeté. `composed` existe précisément pour qu’un look neuf soit une

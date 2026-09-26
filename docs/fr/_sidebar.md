@@ -10,9 +10,9 @@
   - [Moteur d'inspiration](fr/muse/inspiration-engine.md)
   - [Animations](fr/muse/animations.md)
 - [Passe de qualité](fr/quality.md)
-- [Motion Ultra](fr/motion-ultra.md)
+- [Motion Ultra — pages](fr/motion-ultra.md)
 - [SEO et accessibilité](fr/seo-accessibility.md)
-- [Motion](fr/video-export.md)
+- [Motion Ultra — films](fr/video-export.md)
 - [Déploiement](fr/deployment.md)
 - [Journal des modifications](fr/CHANGELOG.md)
 - Références

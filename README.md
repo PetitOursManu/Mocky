@@ -42,7 +42,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - ▶️ **Interact mode** — click buttons, hover states and animations run live, right in the grid.
 - ✦ **Real motion, safely** — eleven animation presets and three components behind a single `<Animated preset="…">` wrapper, powered by [Motion](https://motion.dev). The generating model never writes animation code: it picks a name from a closed list (see [Animations](#animations) below). One switch, per project or per screen, holds everything still.
 - 🎞️ **Scroll-driven video** — Muse can generate (or you can import) a clip and let the visitor scrub through it with the scroll wheel, pinned full-height.
-- 🎬 **Motion** — an `.mp4` composed for a screen: a model builds each scene out of a closed catalogue of typed blocks — type, charts, pictures, animated icons, 3D set pieces — over a ground that can move, and a hand-written renderer draws it. It never writes a frame of rendering code (see [Motion](#motion) below). It can be decided by your prompt alone, and a film meant to sit under a page can loop with an invisible seam. Off by default, and its renderer is a separate opt-in container.
+- 🎬 **Motion Ultra** — an `.mp4` composed for a screen: a model builds each scene out of a closed catalogue of typed blocks — type, charts, pictures, animated icons, 3D set pieces — over a ground that can move, and a hand-written renderer draws it. It never writes a frame of rendering code (see [Motion Ultra](#motion) below). It can be decided by your prompt alone, and a film meant to sit under a page can loop with an invisible seam. Off by default, and its renderer is a separate opt-in container.
 - 🧊 **Real 3D, rationed** — a screen can carry a WebGL object (a lit sphere, a turning knot, a crystal, a torus, a globe of dots, cards floating in depth, a cluster of bubbles, a field of points, a tunnel, a rippling surface) through one closed component, in your palette's two colours. The model never writes three.js, the library is vendored and hash-pinned, every scene is procedural — the preview's CSP forbids fetching a model — and the canvas hands out the browser's sixteen WebGL contexts itself, so a scene off-view holds its last frame instead of blanking one you are looking at. Depth that costs no context (a card tilting towards the cursor) is a preset beside the flat ones.
 - 🖼️ **Media library** — every generated image and sequence in one place, plus **your own** images and clips. Muse builds its art direction *from* what you select.
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
@@ -548,11 +548,11 @@ Muse is built to respect the sites it learns from:
 > advisories (`hono`, `body-parser`, `shell-quote`, `esbuild`) — all in the SDK's
 > HTTP-server transport, which Mocky does **not** use (we're a stdio client).
 
-## Motion
+## Motion Ultra
 
 > **Why it works this way —** The renderer this feature needs is free for individuals and small companies and paid past that, and its terms say nothing about being handed on inside something you host yourself — so the honest arrangement is that it never arrives unless you fetch it, which makes the question belong to whoever answers it rather than to every operator who will never use the feature. The second decision follows from the first being a program that opens a browser and touches a disk: a model is allowed to describe the film in a fixed vocabulary that is checked before anything runs, and the code that turns that description into pictures is written by hand and covered by tests.
 
-Cut a film for a screen. `More → Motion` on a project opens the panel: pick
+Cut a film for a screen. `More → Motion Ultra` on a project opens the panel: pick
 images, describe the film in a sentence, and start the render. Twelve scenes at
 most, two minutes at most, in `16:9`, `9:16` or `1:1`. There is no audio.
 
@@ -629,7 +629,7 @@ stills, and everything that reads them expects frames a film does not have.
 
 Full reasoning: [`docs/video-export.md`](docs/video-export.md), and
 [`worker/video/README.md`](worker/video/README.md) for the worker itself. The
-feature is called **Motion** everywhere a user reads, and `video` everywhere a
+feature is called **Motion Ultra** everywhere a user reads, and `video` everywhere a
 developer greps — a rename of the keys, the routes and the directories would
 change nothing anybody sees.
 

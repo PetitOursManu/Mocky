@@ -1,11 +1,13 @@
-# Motion Ultra
+# Motion Ultra — pages
 
 Motion Ultra is a project setting that builds each new screen like a high-end,
 motion-led page: a living background, display type, frosted surfaces, reveals
 tied to the scroll — and a **series of pictures generated together for it**.
 
-It is the same Motion name as the film export on purpose: Motion Ultra is the
-page, Motion is the film, and both can live on one screen.
+The films carry the same name, on purpose: until 2026-09 they were called
+"Motion", and a person who builds a page around a film does not use two
+features. The page is this setting; the film is made in the Motion Ultra panel
+([Motion Ultra — films](video-export.md)); both can live on one screen.
 
 ---
 
@@ -80,14 +82,14 @@ section of each new screen gets a moving background:
   never a card grid, never an app's navigation).
 - The page is written with that section's `<Backdrop slot="film">`: a living CSS
   background from the first second.
-- A Motion film is then composed from the series' pictures and **rendered by
-  your own machine** (the Motion worker) — no video is billed; the cost is one
+- A Motion Ultra film is then composed from the series' pictures and **rendered by
+  your own machine** (the Motion Ultra worker) — no video is billed; the cost is one
   text-model call and one to three minutes. The screen's badge says where it is.
 - The film is plugged into that background — one attribute, no model call, no
   rewrite of the page. It plays over the CSS layers, which stay underneath for
   the thumbnail, for reduced motion and if the film never arrives.
 
-With the video background on, no other Motion film is made for the same screen.
+With the video background on, no other Motion Ultra film is made for the same screen.
 
 ## The series, after the screen
 
@@ -98,16 +100,16 @@ With the video background on, no other Motion film is made for the same screen.
   project that has Motion Ultra pictures is **offered them**: the model may reuse
   one where a picture helps, and is never made to. Nothing is generated for it.
 - The legibility check (text laid over a picture) runs after **every** new
-  screen that has a picture, Muse's and pinned ones included — not only Motion
+  screen that has a picture, Muse's and pinned ones included — not only Motion Ultra
   Ultra's.
 
-## With Muse and Motion films
+## With Muse and Motion Ultra films
 
 Muse still writes the direction and the copy; with Motion Ultra on it does not
 generate a hero picture of its own — the series replaces it.
 
 No film is made on its own. The only film a generation makes is the `Video
-background` above, when it is switched on; any other film comes from the Motion
+background` above, when it is switched on; any other film comes from the Motion Ultra
 panel, and page animations are always on — a screen is held still from its own
 menu.
 

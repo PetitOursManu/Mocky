@@ -367,7 +367,7 @@ The generation prompt's blanket ban on external `<img>` tags is **narrowed**, no
 lifted: no arbitrary external images, but the Muse imagery-plan slot URLs, which
 are on Mocky's origin, are allowed.
 
-**Motion films follow the same rule, and needed two changes to do so.** A film in
+**Motion Ultra films follow the same rule, and needed two changes to do so.** A film in
 a mockup is `<video src="/api/video/<hash>">`, and the preview iframe has an
 opaque origin (I2, I3), so:
 
@@ -443,7 +443,7 @@ the set of ids that still exist.
 image and now on an exported film too: content addressing means two projects can
 arrive at identical bytes, so the second attachment adds rather than replaces.
 This is what makes a stored blob findable at all — the hash says what a file
-contains and nothing about who wanted it — and the Motion export store went out
+contains and nothing about who wanted it — and the Motion Ultra export store went out
 without it, which produced files on the volume that no interface could reach.
 A blob with no project is filed under none, never under a guessed one.
 
@@ -714,8 +714,8 @@ they paid for.
   `quality/policy.js` demotes glass, gradient type, halos, the spotlight, tight
   display tracking and a clipped backdrop to advice. Everything else is still
   enforced.
-- **A Motion film.** No film is made on its own any more (the composer's
-  animation switch is gone), so the only film a generation makes is Motion
+- **A Motion Ultra film.** No film is made on its own any more (the composer's
+  animation switch is gone), so the only film a generation makes is Motion Ultra
   Ultra's own video background — planned into the page, plugged without a model
   call, and folding a full-bleed picture of that section UNDER it rather than
   letting the picture cover it (`lib/ultra/filmSlot.ts`).
@@ -767,7 +767,7 @@ then answered `302` towards the cloud metadata endpoint.
 - an administrator-configured text target, because pointing at a local model is a
   supported setup;
 - the `sd-webui` base URL, which is local by definition;
-- the Motion render **worker URL**, `assertWorkerTarget()` in
+- the Motion Ultra render **worker URL**, `assertWorkerTarget()` in
   `server/video/worker.js`.
 
 The third one was added, not inherited, and the reason is worth the paragraph.
@@ -790,7 +790,7 @@ the worker on a public host can pass `assertSafeTargetResolved` back in.
 
 The rest of the feature this belongs to — why the worker is a separate image at
 all, and why the model that describes a film never writes the code that renders
-it — is in [Motion](video-export.md).
+it — is in [Motion Ultra](video-export.md).
 
 Any URL that came from a browser stays fully guarded — including on
 `POST /api/text/vision`. That was the one route taking a base URL from a header,
@@ -807,7 +807,7 @@ This invariant is de facto rather than declared, but it really did decide things
 It is why SQLite was rejected for Muse's persistence, and why the repository's
 dependency-free ZIP writer was reused instead of adding `archiver`.
 
-The Motion render queue is the newest thing it decided, and the most tempting one
+The Motion Ultra render queue is the newest thing it decided, and the most tempting one
 to get wrong: a job runner is exactly the feature somebody reaches for Redis to
 build. `server/video/queue.js` is an in-memory queue with an atomic JSON journal
 and a concurrency of one. A self-hosted Mocky is one process, and a queue needing

@@ -219,7 +219,7 @@ export function fullTierFeaturesIn(timeline) {
 export function fullTierRefusal(used, consequence) {
   return (
     `This film uses ${used.join(', ')}, which only a server set to full 3D draws. That setting belongs to the ` +
-    `administrator, who can measure what this machine carries with the server test in Motion's settings. ` +
+    `administrator, who can measure what this machine carries with the server test in Motion Ultra's settings. ` +
     `The same film composes without ${used.length > 1 ? 'them' : 'it'}: every block, every other ground and ` +
     `transition, and the other letter effects are available. ${consequence}`
   )

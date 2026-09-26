@@ -42,7 +42,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - ▶️ **Mode Interagir** — cliquez sur les boutons ; les états de survol et les animations s'exécutent en direct, à même la grille.
 - ✦ **De vraies animations, sans danger** — onze préréglages d'animation et trois composants derrière un unique emballage `<Animated preset="…">`, propulsés par [Motion](https://motion.dev). Le modèle qui génère n'écrit jamais de code d'animation : il choisit un nom dans une liste fermée (voir [Animations](#animations) plus bas). Un seul interrupteur, par projet ou par écran, fige l'ensemble.
 - 🎞️ **Vidéo au défilement** — Muse peut générer un clip (ou vous pouvez en importer un) et laisser le visiteur le parcourir à la molette, épinglé en pleine hauteur.
-- 🎬 **Motion** — un `.mp4` composé pour un écran : un modèle bâtit chaque scène à partir d'un catalogue fermé de blocs typés — typographie, graphiques, images, icônes animées, objets 3D — sur un fond qui peut bouger, et un moteur écrit à la main les dessine. Il n'écrit jamais une ligne de code de rendu (voir [Motion](#motion) plus bas). Le film peut être décidé par votre seule demande, et un film destiné à vivre sous une page peut boucler sans couture visible. Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
+- 🎬 **Motion Ultra** — un `.mp4` composé pour un écran : un modèle bâtit chaque scène à partir d'un catalogue fermé de blocs typés — typographie, graphiques, images, icônes animées, objets 3D — sur un fond qui peut bouger, et un moteur écrit à la main les dessine. Il n'écrit jamais une ligne de code de rendu (voir [Motion Ultra](#motion) plus bas). Le film peut être décidé par votre seule demande, et un film destiné à vivre sous une page peut boucler sans couture visible. Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
 - 🧊 **De la vraie 3D, rationnée** — un écran peut porter un objet WebGL (sphère éclairée, nœud qui tourne, cristal, tore, globe de points, cartes qui flottent en profondeur, grappe de bulles, champ de points, tunnel, surface qui ondule) via un unique composant fermé, dans les deux couleurs de votre palette. Le modèle n'écrit jamais de three.js, la bibliothèque est livrée et épinglée par empreinte, chaque scène est procédurale — la CSP de l'aperçu interdit de télécharger un modèle — et le canevas distribue lui-même les seize contextes WebGL du navigateur : une scène hors champ garde sa dernière image au lieu d'en effacer une que vous regardez. La profondeur qui ne coûte aucun contexte (une carte qui s'incline vers le curseur) est un préréglage à côté des animations plates.
 - 🖼️ **Bibliothèque de médias** — toutes les images et séquences générées au même endroit, plus **vos propres** images et clips. Muse construit sa direction artistique *à partir de* ce que vous sélectionnez.
 - 🔗 **Liens d'interaction + mode Démo** — reliez un véritable élément d'un écran à un autre écran, puis jouez le prototype cliquable.
@@ -530,11 +530,11 @@ Muse est conçu pour respecter les sites dont il s'inspire :
 > d'avis de sécurité (`hono`, `body-parser`, `shell-quote`, `esbuild`) — tous dans le transport
 > serveur HTTP du SDK, que Mocky n'utilise **pas** (nous sommes un client stdio).
 
-## Motion
+## Motion Ultra
 
 > **Pourquoi c'est ainsi —** Le moteur de rendu dont cette fonctionnalité a besoin est gratuit pour les particuliers et les petites sociétés, payant au-delà, et ses conditions ne disent rien du fait d'être transmis à l'intérieur de quelque chose que l'on héberge soi-même — l'arrangement honnête est donc qu'il n'arrive jamais tant qu'on ne va pas le chercher, ce qui fait appartenir la question à qui y répond plutôt qu'à chaque exploitant qui n'utilisera jamais la fonctionnalité. La seconde décision découle de la première, puisqu'il s'agit d'un programme qui ouvre un navigateur et touche à un disque : un modèle a le droit de décrire le film dans un vocabulaire fermé, vérifié avant que quoi que ce soit ne tourne, et le code qui transforme cette description en images est écrit à la main et couvert par des tests.
 
-Montez un film pour un écran. `Plus → Motion`, dans un projet, ouvre le
+Montez un film pour un écran. `Plus → Motion Ultra`, dans un projet, ouvre le
 panneau : on choisit les images, on décrit le film en une phrase, et on lance le
 rendu. Douze scènes au plus, deux minutes au plus, en `16:9`, `9:16` ou `1:1`.
 Il n'y a pas de son.

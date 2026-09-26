@@ -120,11 +120,11 @@ export const project = {
     'project.ultraCost': '≈ +{minutes} min',
     'project.ultraVideo': 'Fond vidéo',
     'project.ultraVideoCost': '+1–3 min',
-    'project.ultraVideoTitle': 'Une section de chaque nouvel écran reçoit un fond vidéo : un film Motion fabriqué par votre machine à partir des images de la série — aucune vidéo facturée, un appel au modèle de texte et 1 à 3 minutes de rendu en plus.',
+    'project.ultraVideoTitle': 'Une section de chaque nouvel écran reçoit un fond vidéo : un film Motion Ultra fabriqué par votre machine à partir des images de la série — aucune vidéo facturée, un appel au modèle de texte et 1 à 3 minutes de rendu en plus.',
     'project.ultraFilmStage': 'Motion Ultra — fond vidéo : {step}…',
     'project.ultraFilmCompose': 'composition',
     'project.ultraFilmRender': 'rendu (1 à 3 min)',
-    'project.ultraFilmUnavailable': 'Motion Ultra : le rendu vidéo n’est pas disponible en ce moment (module Motion arrêté ou non activé pour votre compte) ; l’écran garde ses fonds animés.',
+    'project.ultraFilmUnavailable': 'Motion Ultra : le rendu vidéo n’est pas disponible en ce moment (module Motion Ultra arrêté ou non activé pour votre compte) ; l’écran garde ses fonds animés.',
     'project.ultraFilmNoSection': 'Motion Ultra : aucune section de cet écran ne se prête à un fond vidéo, il n’a pas été fabriqué.',
     'project.ultraFilmNoSlot': 'Motion Ultra : le fond vidéo a été fabriqué mais la page ne lui a pas réservé de place ; il est attaché à l’écran (carte à côté du cadre).',
     'project.ultraFilmFailed': 'Motion Ultra : le fond vidéo n’a pas pu être fabriqué ({detail}). La section garde son fond animé.',
@@ -156,10 +156,10 @@ export const project = {
     // « en cours » sans savoir laquelle il regarde.
     // Le type que le dossier a choisi, dit sur le badge : c'est la seule trace
     // visible d'une décision que personne n'a prise à la main.
-    'project.motionStageRender': 'Film Motion — rendu, 1 à 3 min… ne quittez pas la page',
-    'project.motionStageRevise': 'Film Motion — modification… ne quittez pas la page',
-    'project.motionRevise': 'Modifier le film Motion…',
-    'project.motionReviseTitle': 'Modifier le film Motion',
+    'project.motionStageRender': 'Film Motion Ultra — rendu, 1 à 3 min… ne quittez pas la page',
+    'project.motionStageRevise': 'Film Motion Ultra — modification… ne quittez pas la page',
+    'project.motionRevise': 'Modifier le film Motion Ultra…',
+    'project.motionReviseTitle': 'Modifier le film Motion Ultra',
     'project.motionReviseBlurb':
       'Dites ce qui doit changer : le reste du film est gardé tel quel. Le nouveau rendu prend 1 à 3 minutes, puis remplace l’ancien film au même endroit — « Revenir à la version précédente » le remet.',
     'project.motionReviseLabel': 'Ce qui doit changer',
@@ -172,9 +172,9 @@ export const project = {
     'project.motionReviseDetached':
       'Le nouveau film est prêt et rattaché à l’écran, mais la page ne contient plus l’ancien film à remplacer : ajoutez-le depuis Médias.',
     'project.motionLeaveConfirm':
-      'Un film Motion est en cours. Le rendu se termine côté serveur et le film sera dans Média, mais il ne sera PAS inséré dans l’écran si vous partez maintenant. Quitter quand même ?',
+      'Un film Motion Ultra est en cours. Le rendu se termine côté serveur et le film sera dans Média, mais il ne sera PAS inséré dans l’écran si vous partez maintenant. Quitter quand même ?',
     'project.motionFailed':
-      'Le film Motion n’a pas pu être produit : {detail}. L’écran est produit sans film.',
+      'Le film Motion Ultra n’a pas pu être produit : {detail}. L’écran est produit sans film.',
     'project.museNoImage': 'le dossier n’a proposé aucune image',
     'project.briefImageFailed': 'Image non générée — {reason}',
     'project.briefBackend': 'Backend Mocky requis',
@@ -388,11 +388,11 @@ export const project = {
     'project.ultraCost': '≈ +{minutes} min',
     'project.ultraVideo': 'Video background',
     'project.ultraVideoCost': '+1–3 min',
-    'project.ultraVideoTitle': 'One section of each new screen gets a video background: a Motion film made by your own machine from the series’ pictures — no video is billed, one text-model call and 1 to 3 minutes of rendering on top.',
+    'project.ultraVideoTitle': 'One section of each new screen gets a video background: a Motion Ultra film made by your own machine from the series’ pictures — no video is billed, one text-model call and 1 to 3 minutes of rendering on top.',
     'project.ultraFilmStage': 'Motion Ultra — video background: {step}…',
     'project.ultraFilmCompose': 'composing',
     'project.ultraFilmRender': 'rendering (1 to 3 min)',
-    'project.ultraFilmUnavailable': 'Motion Ultra: video rendering is not available right now (Motion worker stopped, or not enabled for your account); the screen keeps its animated backgrounds.',
+    'project.ultraFilmUnavailable': 'Motion Ultra: video rendering is not available right now (Motion Ultra worker stopped, or not enabled for your account); the screen keeps its animated backgrounds.',
     'project.ultraFilmNoSection': 'Motion Ultra: no section of this screen suits a video background, so none was made.',
     'project.ultraFilmNoSlot': 'Motion Ultra: the video background was made but the page kept no place for it; it is attached to the screen (card beside the frame).',
     'project.ultraFilmFailed': 'Motion Ultra: the video background could not be made ({detail}). The section keeps its animated background.',
@@ -420,10 +420,10 @@ export const project = {
     'project.museVideoFailed': 'The video could not be generated: {detail}. The screen is produced without a sequence.',
     // The kind the dossier chose, said on the badge: the only visible trace of a
     // decision nobody made by hand.
-    'project.motionStageRender': 'Motion film — rendering, 1 to 3 min… do not leave the page',
-    'project.motionStageRevise': 'Motion film — revising… do not leave the page',
-    'project.motionRevise': 'Revise the Motion film…',
-    'project.motionReviseTitle': 'Revise the Motion film',
+    'project.motionStageRender': 'Motion Ultra film — rendering, 1 to 3 min… do not leave the page',
+    'project.motionStageRevise': 'Motion Ultra film — revising… do not leave the page',
+    'project.motionRevise': 'Revise the Motion Ultra film…',
+    'project.motionReviseTitle': 'Revise the Motion Ultra film',
     'project.motionReviseBlurb':
       'Say what should change: the rest of the film is kept as it is. The new render takes 1 to 3 minutes, then replaces the old film in the same place — “Revert to previous version” brings it back.',
     'project.motionReviseLabel': 'What should change',
@@ -435,9 +435,9 @@ export const project = {
     'project.motionReviseDetached':
       'The new film is ready and attached to the screen, but the page no longer contains the old film to replace: add it from Media.',
     'project.motionLeaveConfirm':
-      'A Motion film is in progress. The render finishes on the server and the film will be in Media, but it will NOT be placed in the screen if you leave now. Leave anyway?',
+      'A Motion Ultra film is in progress. The render finishes on the server and the film will be in Media, but it will NOT be placed in the screen if you leave now. Leave anyway?',
     'project.motionFailed':
-      'The Motion film could not be produced: {detail}. The screen is produced without a film.',
+      'The Motion Ultra film could not be produced: {detail}. The screen is produced without a film.',
     'project.museNoImage': 'the dossier proposed no image',
     'project.briefImageFailed': 'No image generated — {reason}',
     'project.briefBackend': 'Mocky backend required',

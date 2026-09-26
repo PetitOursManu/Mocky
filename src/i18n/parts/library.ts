@@ -93,7 +93,7 @@ export const library = {
     // L'objet, lui, garde le mot que le panneau emploie déjà pour lui —
     // « Monter », « Proposer un montage », « Nouveau montage » — parce qu'un
     // troisième mot pour la même chose est ce qu'on vient de retirer.
-    'library.tabFilms': 'Motion',
+    'library.tabFilms': 'Motion Ultra',
     // Le temps sous chaque vignette. Aujourd'hui en relatif — c'est la question
     // qu'on pose vraiment devant une bibliotheque (« mon rendu est-il arrive ? ») —
     // et une date sinon, parce que « il y a 4 jours » oblige a compter a l'envers.
@@ -109,7 +109,7 @@ export const library = {
     'library.filmWord_other': 'montages',
     'library.noFilms': 'Aucun montage exporté pour l’instant.',
     'library.noFilmsHint':
-      'Montez-en un depuis le panneau Motion d’un projet : il se retrouvera ici, rattaché à ce projet.',
+      'Montez-en un depuis le panneau Motion Ultra d’un projet : il se retrouvera ici, rattaché à ce projet.',
     // Deux formes, comme « vidéo »/« vidéos » juste au-dessus : le dictionnaire
     // n'a pas de moteur de pluriel, il ne fait que substituer `{nom}`. Un
     // montage d'une seule scène est légal (le schéma accepte `min(1)`), donc
@@ -250,7 +250,7 @@ export const library = {
       'Ce média n’est plus dans la médiathèque. Il reste attaché tant que vous ne le détachez pas.',
     'library.attachFilms': 'Montages exportés',
     'library.attachSequences': 'Séquences de défilement',
-    'library.attachNoFilms': 'Aucun montage exporté. Montez-en un depuis le panneau Motion.',
+    'library.attachNoFilms': 'Aucun montage exporté. Montez-en un depuis le panneau Motion Ultra.',
     'library.attachNoSequences': 'Aucune séquence dans la médiathèque.',
     'library.attachFilmsFailed':
       'Impossible de lister les montages. Les séquences ci-dessous restent utilisables.',
@@ -336,7 +336,7 @@ export const library = {
     // tab read “Films” while everything else read Motion. The object keeps the
     // word the panel already uses for it — “Cut one”, “Propose a cut”, “New cut”
     // — because a third word for the same thing is what was just removed.
-    'library.tabFilms': 'Motion',
+    'library.tabFilms': 'Motion Ultra',
     'library.madeSeconds_one': '{n} second ago',
     'library.madeSeconds_other': '{n} seconds ago',
     'library.madeMinutes_one': '{n} minute ago',
@@ -348,7 +348,7 @@ export const library = {
     'library.filmWord_one': 'cut',
     'library.filmWord_other': 'cuts',
     'library.noFilms': 'No cuts exported yet.',
-    'library.noFilmsHint': 'Cut one from a project’s Motion panel: it lands here, attached to that project.',
+    'library.noFilmsHint': 'Cut one from a project’s Motion Ultra panel: it lands here, attached to that project.',
     // Two forms, like “video”/“videos” just above: this dictionary has no plural
     // engine, it only substitutes `{name}`. A one-scene cut is legal (the schema
     // accepts `min(1)`), so “1 scenes” was reachable.
@@ -486,7 +486,7 @@ export const library = {
       'This media is no longer in the library. It stays attached until you detach it.',
     'library.attachFilms': 'Exported cuts',
     'library.attachSequences': 'Scroll sequences',
-    'library.attachNoFilms': 'No cut exported yet. Make one from a project’s Motion panel.',
+    'library.attachNoFilms': 'No cut exported yet. Make one from a project’s Motion Ultra panel.',
     'library.attachNoSequences': 'No sequence in the library.',
     'library.attachFilmsFailed': 'Could not list the cuts. The sequences below still work.',
     'library.attachSequencesFailed': 'Could not list the sequences. The cuts above still work.',

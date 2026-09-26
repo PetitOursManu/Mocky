@@ -175,9 +175,11 @@ Related, found while testing it: a preview error that is about the ENVIRONMENT
 (React/Babel failed to load) is never sent to the repair loop —
 `src/lib/previewErrors.ts`.
 
-## Video export — the feature is called **Motion**
+## Video export — the feature is called **Motion Ultra**
 
-Every string a user reads says Motion; every identifier still says `video`. That
+Every string a user reads says Motion Ultra — since 2026-09 the films and the
+project setting below share that one name, at the user's request; before, the
+films were "Motion". Every identifier still says `video`. That
 split is deliberate and documented in `docs/video-export.md`: renaming the keys,
 the routes and the directories would change nothing anybody reads. Do not "finish"
 the rename.
@@ -698,7 +700,7 @@ Ten things, and the first one is not negotiable.
       load the registry in Mocky's own suite and prove it matches the schema in
       both directions. `blocks/index.js` is a map and nothing else, so
       twenty-seven people can each own one file without touching the same line.
-11. **A Motion KIND is a doorway into that catalogue, never a sixth template.**
+11. **A Motion Ultra KIND is a doorway into that catalogue, never a sixth template.**
     `server/video/kinds.js` — eight of them (`hero`, `background`, `banner`,
     `showcase`, `figure`, `globe`, `mark`, `story`), and each resolves to nothing
     but a subset of `BLOCK_KINDS`, a subset of `BACKGROUND_KINDS`, one
@@ -765,7 +767,7 @@ Ten things, and the first one is not negotiable.
     readers (`filmSectionIn`, `filmCovers`, `filmTextRuns`, `lib/screenSections.ts`). A
     generation makes a film only as Motion Ultra's video background. What follows
     describes the automatic path as it was; `pageScenesIn` still feeds the video
-    background and the Motion panel.
+    background and the Motion Ultra panel.
 
     **A film composed for a page is TOLD what that page already draws in 3D.**
     A screen came back with `<Scene3D preset="grid">` full-bleed behind its
@@ -838,7 +840,7 @@ Ten things, and the first one is not negotiable.
 `<Animated preset>` is the only animation: ten procedural scenes out of a closed
 list, drawn by a hand-written component, painted in `color` and an optional
 `accent` that falls back to it. `stripForbiddenMotion` now removes an `import …
-from 'three'` too. `globe` is named after Motion's own block on purpose — a film
+from 'three'` too. `globe` is named after Motion Ultra's own block on purpose — a film
 and the page it came from say the same word. Seven things are easy to break
 here:
 

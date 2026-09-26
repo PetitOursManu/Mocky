@@ -89,7 +89,7 @@ sees: ten procedural scenes — a lit sphere, a turning knot, a faceted crystal,
 a torus, a globe of dots with an orbit ring, three cards floating in depth, a
 cluster of bubbles, a field of points, a tunnel travelling towards the viewer, a
 rippling surface — named out of a closed list, like `<Animated preset>` beside it
-and like Motion's blocks one feature over. It never writes three.js, and
+and like Motion Ultra's blocks one feature over. It never writes three.js, and
 `stripForbiddenMotion` removes an `import … from 'three'` the way it already
 removes one from `motion`.
 
@@ -99,7 +99,7 @@ they arrived with a second hue — `accent`, optional, used by the scenes made o
 several parts (the globe's ring, one card in two, half the bubbles, the tunnel's
 ceiling), falling back to `color` rather than to the house ink so that a model
 which only knew one hex still gets a coherent object. `globe` carries the name
-Motion's own block carries, deliberately: a film and the page it came from
+Motion Ultra's own block carries, deliberately: a film and the page it came from
 should say the same word for the same object.
 
 **Everything is procedural because the preview's CSP says so.** `connect-src
@@ -145,7 +145,7 @@ still attaches none of it.
 **And a backdrop stays behind.** The card teaches two shapes and they are not
 equally safe: a sized box beside the text has nothing over it, while a scene at
 `absolute inset-0` has the headline standing ON it. Nothing in a page measures
-the contrast of a moving pixel — that is the work Motion does with
+the contrast of a moving pixel — that is the work Motion Ultra does with
 `composedPalette` and a page cannot — so the backdrop shape is drawn at 0.62 and
 takes no pointer events, being decorative and `aria-hidden` both. Only
 `absolute` and `fixed`: `relative` and `sticky` are still in the flow, a subject
@@ -292,7 +292,7 @@ three viewports tall.
 ### The Ultra kit
 
 `ultra` is the third capability with no triggers, and for the reason
-`scrollvideo` has none: it is only worth its prompt space on a screen a Motion
+`scrollvideo` has none: it is only worth its prompt space on a screen a Motion Ultra
 Ultra storyboard planned. It is force-added then, and persisted in
 `Screen.caps`, so every later edit, repair, polish or audit fix of that screen
 reads the same vocabulary.
@@ -1089,9 +1089,9 @@ in a browser with no WebGL.
 `"/api/video/…"` resolves only where that server is; the export's README says so
 rather than pretending otherwise.
 
-**This is not Motion**, which shares only the word. That one turns
+**This is not Motion Ultra**, which shares only the word. That one turns
 images from the media library into an `.mp4` on a separate, opt-in Docker service
-and never touches a screen — see [Motion](video-export.md).
+and never touches a screen — see [Motion Ultra](video-export.md).
 
 ---
 
@@ -1155,7 +1155,7 @@ Remotion to every operator who never asked for it — which is a licensing
 regression, not a size one, and no later test can un-ship it. The same suite
 refuses a queue server or a database driver, because a job runner is exactly the
 feature somebody reaches for Redis to build. See
-[Motion](video-export.md).
+[Motion Ultra](video-export.md).
 
 Alongside those: `registry.test.ts` for registry invariants at load time,
 `ssrf-guard.test.js`, `routes-auth.test.js`,

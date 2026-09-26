@@ -1,13 +1,16 @@
-# Motion
+# Motion Ultra — films
 
 Mocky turns a list of images from the media library into an `.mp4`. Not a screen,
 not a scroll sequence: a film, cut from pictures the user picked, rendered by
 [Remotion](https://www.remotion.dev/) in a container that is absent from a
 default install.
 
-**The feature is called Motion; the code is called `video`.** It shipped as
-"Video export", which named a file format rather than the thing on offer, so
-every string a user reads now says Motion. Nothing under the surface followed:
+**The feature is called Motion Ultra; the code is called `video`.** It shipped as
+"Video export", which named a file format rather than the thing on offer, then
+became "Motion". Since 2026-09 every string a user reads says Motion Ultra — the
+name of the project setting whose pages are built around these films
+([Motion Ultra — pages](motion-ultra.md)), because to the person using both they
+are one feature, and two names for it was one too many. Nothing under the surface followed:
 `server/video/`, `src/lib/video/`, `/api/video/*`, the `video-export` compose
 profile and the `video.*` translation keys all keep their names. Renaming them
 would touch both halves of a dictionary, every call site and the tests that pin
@@ -1723,11 +1726,12 @@ brief that CHANGED is a revision: no draw, no history, the current film in the
 user turn as data, temperature 0.2, and "change only what the new brief asks —
 a colour or a typeface changes nothing in this document". The same brief pressed
 again asks for another film, and counts the one on screen first. The panel owns
-that decision (evisesProposal) because it also labels the button — "Modifier
+that decision (
+evisesProposal) because it also labels the button — "Modifier
 le film" against "Générer autre chose" — and "Nouveau montage" forgets the film.
 
 A film placed in a screen at the first prompt has no panel left to type into, so
-the screen's menu carries **"Modifier le film Motion…"**. The screen holds only
+the screen's menu carries **"Modifier le film Motion Ultra…"**. The screen holds only
 the hash; `POST /compose` with `previousHash` reads the document and its brief
 back from THIS account's job journal (`queue.filmFor` — a render now records its
 brief), keeps the film's own pictures and look, and lays the request's declared
@@ -1774,8 +1778,8 @@ scales it back onto the estimate — Syne ExtraBold sets 1.63× wider and is dra
 at 61% — while a narrower one is left alone, since enlarging it would push its
 glyphs out of the line box a heading masks.
 
-**Nobody ticks "Motion" any more.** The composer's Muse panel used to carry a
-Motion checkbox and a kind selector — a question about Remotion put to people who
+**Nobody ticks "Motion Ultra" any more.** The composer's Muse panel used to carry a
+Motion Ultra checkbox and a kind selector — a question about Remotion put to people who
 do not know what Remotion is. Whether a screen gets a film is now decided by the
 composer's existing ANIMATION switch and by the request (`decideFilm` in
 `src/lib/video/filmDecision.ts`): "sans animation" makes none; "auto" follows the
@@ -1787,7 +1791,7 @@ answer (`settleFilm`): a model cannot overrule "forcées", and in "auto" a kind 
 account cannot render is a no, never a guess. The film's section, when the dossier
 names one, is tried first when the film is placed in the page. The decision is not
 written into DESIGN.md: a film is about one screen, the direction about the
-project. And nothing is asked at all when Motion cannot run for the account.
+project. And nothing is asked at all when Motion Ultra cannot run for the account.
 
 > **Since 2026-09, none of this runs.** The composer's animation switch was
 > removed, and with it the automatic film: "forced" rendered a film for every
@@ -1954,7 +1958,7 @@ leave four over however good the proposal is.
 
 ### The panel chooses too, and its default is not to
 
-The composition selector is the first control in the Motion panel, and it opens
+The composition selector is the first control in the Motion Ultra panel, and it opens
 on **`Automatic`** — the model reads the brief and picks. That default is the
 argument for the catalogue restated as an interface decision: a form defaulting
 to `slideshow` makes the other four an option people find by accident, and the
@@ -3024,7 +3028,7 @@ so the route cannot be used as an oracle — and a listing naming other people's
 exports would hand back exactly what that check withholds. `owners` is stripped
 on the way out, like every other listing in this repository.
 
-**Media grows a third tab, "Motion".** Its own tab, not a row in "Videos", and the
+**Media grows a third tab, "Motion Ultra".** Its own tab, not a row in "Videos", and the
 reason is the one the store was built on. A `videos` entry is a scroll sequence:
 poster, frame count, a "Recut" button, played by scrubbing `/f/1.jpg …
 /f/N.jpg`. A film has none of those, and `VideoPlayer.tsx` handed one would ask
@@ -3181,7 +3185,7 @@ two players that drift.
 
 ## Starting from one image
 
-The Motion panel can also make the pictures. Describe a subject, get one model
+The Motion Ultra panel can also make the pictures. Describe a subject, get one model
 image, keep or regenerate it, then ask for two to six variants and tick the ones
 worth cutting.
 
@@ -3386,7 +3390,7 @@ alone, so 3D renders keep appearing against a name.
 **Its default is `all`, and it is the one default in that file that is not the
 closed one.** The reasoning is written out in `DEFAULT_THREE_D_ACCESS`, and it
 comes down to three things. The closed door already exists one level up, so "all"
-here means "everyone an administrator already put on Motion's list", not
+here means "everyone an administrator already put on Motion Ultra's list", not
 "everyone"; a second closed default would be the same door locked twice, and the
 second lock is the one nobody knows about. The cost is a surcharge rather than a
 new bill — a render already spends about 4.3 s of real time per second of film
@@ -3522,7 +3526,7 @@ renderer.
 | `server/video/worker.js` | HTTP client for the render worker, and `assertWorkerTarget` |
 | `server/video/store.js` | The finished file, kept whole. **Not** `server/videos/` |
 | `server/video/routes.js` | `/api/video`, the pending guard, and the admin router |
-| `src/components/VideoExportDialog.tsx` | The Motion panel. Opened from the toolbar, never from a screen |
+| `src/components/VideoExportDialog.tsx` | The Motion Ultra panel. Opened from the toolbar, never from a screen |
 | `worker/video/` | The Remotion worker: separate sub-project, separate image, separate README |
 | `worker/video/encoding.js` | The codec table and what each codec is told about quality. No Remotion import, so the one testable part of a render can be tested |
 | `worker/video/remotion/composition.js` | Every composition's shared arithmetic, their theme, and their palettes. No React, no Remotion, so a test can reach it |
@@ -3674,9 +3678,9 @@ positioned with the copy as its siblings, so the case only arises once the
 placement has already ignored the shape it was given, and what it costs is the
 inlining of a film that stays attached.
 
-## Motion at the start of a project: the kinds
+## Motion Ultra at the start of a project: the kinds
 
-Motion began as a panel you open on a project that already exists, over pictures
+Motion Ultra began as a panel you open on a project that already exists, over pictures
 you have already chosen. The request that produced this section is the other end
 of it: a box ticked beside Muse, on the very first prompt, so that the film is
 cut from the dossier at the moment the dossier is written.
@@ -3687,7 +3691,7 @@ honest thing to do with one is to name it rather than route around it.
 
 ### A kind is a doorway into the catalogue, never a sixth template
 
-"Templates de création Motion" — a globe, a background, a button, a hero. Read as
+"Templates de création Motion Ultra" — a globe, a background, a button, a hero. Read as
 templates those are four more entries in `VIDEO_TEMPLATES`: four compositions to
 write, four branches in the worker, and the sixth template's whole argument
 thrown away. `composed` exists precisely so that a new look is a COMBINATION

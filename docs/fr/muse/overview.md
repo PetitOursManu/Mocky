@@ -331,7 +331,7 @@ savait jamais qu'elle existait. *Gratuite* ouvre Média sur l'onglet Vidéos, l�
 se trouve la recherche. Les options qu'un compte voit sont la décision de
 l'administrateur (Admin → Vidéos (Muse) → Accès aux vidéos) : une liste pour les clips
 générés, qui coûtent à chaque usage, une pour les gratuits, chacune « tout le
-monde » ou des comptes nommés, avec le contrôle de Motion. Un compte qui n'a ni
+monde » ou des comptes nommés, avec le contrôle de Motion Ultra. Un compte qui n'a ni
 l'un ni l'autre ne voit aucune option vidéo, et le serveur le refuse sur
 `/generate`, `/stock/*` et `/upload` quoi qu'affiche le panneau — le panneau ne
 fait que cacher ce qui serait refusé.

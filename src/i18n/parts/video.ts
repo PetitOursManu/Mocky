@@ -65,7 +65,7 @@ export const video = {
     'video.threeDAllowedAllNote':
       'Tous les comptes qui peuvent exporter peuvent aussi rendre en 3D. Cela ne concerne donc que les comptes autorisés ci-dessus.',
     'video.threeDNarrowsNote':
-      'Ce réglage restreint la portée ci-dessus, il ne l’élargit pas : cocher un compte qui n’a pas Motion ne lui donne rien.',
+      'Ce réglage restreint la portée ci-dessus, il ne l’élargit pas : cocher un compte qui n’a pas Motion Ultra ne lui donne rien.',
     // La puissance du SERVEUR, mesurée plutôt que devinée. Voir
     // server/video/benchmark.js : les rendus passent un par un, donc « en même
     // temps » veut dire « combien de personnes servies en moins de 3 min ».
@@ -134,10 +134,10 @@ export const video = {
     'video.unsaved': 'Modifications non enregistrées',
 
     // ---- the export panel -------------------------------------------------
-    'video.toolbarLabel': 'Motion',
+    'video.toolbarLabel': 'Motion Ultra',
     'video.toolbarTitle': 'Monter une vidéo à partir des images de la médiathèque',
 
-    'video.exportTitle': 'Motion',
+    'video.exportTitle': 'Motion Ultra',
     // Ce que le panneau demande, et ce qu'il ne demande plus. La deuxième phrase
     // est là parce que l'absence de réglages se lit sinon comme un panneau
     // inachevé : personne ne choisit de mise en scène ici, c'est le parti pris.
@@ -146,8 +146,8 @@ export const video = {
 
     // Volontairement laconique : un compte sans accès n’apprend rien de la
     // configuration de l’instance, ni de ce à quoi ressemble un montage valide.
-    'video.notEnabled': 'Motion n’est pas activé pour ce compte.',
-    'video.statusUnknown': 'Impossible de savoir si Motion est disponible pour ce compte.',
+    'video.notEnabled': 'Motion Ultra n’est pas activé pour ce compte.',
+    'video.statusUnknown': 'Impossible de savoir si Motion Ultra est disponible pour ce compte.',
 
     'video.workerDown': 'Worker de rendu injoignable',
     'video.workerDownBody':
@@ -163,7 +163,7 @@ export const video = {
     'video.themeFromProject':
       'Les couleurs et les polices viennent de la direction artistique de ce projet : il n’y a rien à régler ici, et le modèle n’en décide pas. Seuls les jetons que la direction déclare vraiment sont repris — pour le reste, la composition applique ses propres défauts.',
     'video.themeStatesNothing':
-      'Ce projet a une direction artistique, mais elle ne déclare aucune couleur, police ou arrondi que Motion sache reprendre : chaque composition applique ses propres défauts.',
+      'Ce projet a une direction artistique, mais elle ne déclare aucune couleur, police ou arrondi que Motion Ultra sache reprendre : chaque composition applique ses propres défauts.',
     'video.themeNone':
       'Aucune direction artistique ici : chaque composition applique ses propres défauts, choisis une fois pour toutes dans son code.',
 
@@ -427,9 +427,9 @@ export const video = {
     // un itinéraire qui nomme un onglet autrement que la barre d'onglets envoie
     // chercher quelque chose qui n'existe pas.
     'video.savedInProject':
-      'Le montage est enregistré dans Média, onglet « Motion », rattaché à ce projet. Vous le retrouverez là après avoir fermé ce panneau.',
+      'Le montage est enregistré dans Média, onglet « Motion Ultra », rattaché à ce projet. Vous le retrouverez là après avoir fermé ce panneau.',
     'video.savedInMedia':
-      'Le montage est enregistré dans Média, onglet « Motion ». Vous le retrouverez là après avoir fermé ce panneau.',
+      'Le montage est enregistré dans Média, onglet « Motion Ultra ». Vous le retrouverez là après avoir fermé ce panneau.',
     'video.openInMedia': 'Voir dans Média',
     // Rattacher le montage à un écran. La phrase dit explicitement que le code
     // n'est pas touché : « attacher à un écran » se lit sinon comme « mettre la
@@ -472,7 +472,7 @@ export const video = {
     'video.err3DHint':
       'Ce film contient une scène dessinée en 3D, et ce compte n’a pas le droit d’en rendre sur cette instance. Demandez-le à un administrateur, ou générez un film sans 3D : tous les autres blocs restent disponibles.',
     'video.errInvalid': 'Le montage a été refusé',
-    'video.errNoAccess': 'Motion n’est plus activé pour ce compte.',
+    'video.errNoAccess': 'Motion Ultra n’est plus activé pour ce compte.',
     'video.errOffline': 'Serveur injoignable',
     'video.errOfflineHint': 'Rien n’a été mis en file d’attente.',
     'video.errJobGone': 'Ce rendu n’est plus suivi',
@@ -511,7 +511,7 @@ export const video = {
     'video.threeDAllowedAllNote':
       'Every account that can export can also render in 3D. That means the accounts allowed above, and nobody else.',
     'video.threeDNarrowsNote':
-      'This setting narrows the scope above, it does not widen it: ticking an account that has no Motion grants it nothing.',
+      'This setting narrows the scope above, it does not widen it: ticking an account that has no Motion Ultra grants it nothing.',
     // The SERVER's power, measured rather than guessed. See
     // server/video/benchmark.js: renders run one at a time, so "at once" means
     // "how many people get their film within 3 min".
@@ -580,10 +580,10 @@ export const video = {
     'video.unsaved': 'Unsaved changes',
 
     // ---- the export panel -------------------------------------------------
-    'video.toolbarLabel': 'Motion',
+    'video.toolbarLabel': 'Motion Ultra',
     'video.toolbarTitle': 'Cut a video from the media library',
 
-    'video.exportTitle': 'Motion',
+    'video.exportTitle': 'Motion Ultra',
     // What the panel asks for, and what it no longer asks for. The second
     // sentence is there because the absence of settings otherwise reads as an
     // unfinished panel: nobody picks a layout here, and that is the point.
@@ -592,8 +592,8 @@ export const video = {
 
     // Deliberately terse: an account without access learns nothing about how the
     // instance is configured, nor about what a valid timeline looks like.
-    'video.notEnabled': 'Motion is not enabled for this account.',
-    'video.statusUnknown': 'Could not tell whether Motion is available for this account.',
+    'video.notEnabled': 'Motion Ultra is not enabled for this account.',
+    'video.statusUnknown': 'Could not tell whether Motion Ultra is available for this account.',
 
     'video.workerDown': 'Render worker unreachable',
     'video.workerDownBody':
@@ -609,7 +609,7 @@ export const video = {
     'video.themeFromProject':
       'The colours and typefaces come from this project’s art direction: there is nothing to set here, and the model does not decide it. Only the tokens the direction actually states are carried over — for the rest, each composition uses its own defaults.',
     'video.themeStatesNothing':
-      'This project has an art direction, but it states no colour, typeface or corner radius that Motion can carry: each composition uses its own defaults.',
+      'This project has an art direction, but it states no colour, typeface or corner radius that Motion Ultra can carry: each composition uses its own defaults.',
     'video.themeNone':
       'No art direction here: each composition uses its own defaults, chosen once and for all in its code.',
 
@@ -869,9 +869,9 @@ export const video = {
     // that name a tab differently from the tab strip send somebody looking for
     // something that is not there.
     'video.savedInProject':
-      'The cut is saved in Media, under “Motion”, attached to this project. It will be there after you close this panel.',
+      'The cut is saved in Media, under “Motion Ultra”, attached to this project. It will be there after you close this panel.',
     'video.savedInMedia':
-      'The cut is saved in Media, under “Motion”. It will be there after you close this panel.',
+      'The cut is saved in Media, under “Motion Ultra”. It will be there after you close this panel.',
     'video.openInMedia': 'See it in Media',
     // Hanging the cut on a screen. The sentence says outright that the code is
     // untouched: "attach to a screen" otherwise reads as "put the video in the
@@ -914,7 +914,7 @@ export const video = {
     'video.err3DHint':
       'This film carries a scene drawn in 3D, and this account may not render one on this instance. Ask an administrator for it, or generate a film without 3D: every other block stays available.',
     'video.errInvalid': 'The cut was refused',
-    'video.errNoAccess': 'Motion is no longer enabled for this account.',
+    'video.errNoAccess': 'Motion Ultra is no longer enabled for this account.',
     'video.errOffline': 'Server unreachable',
     'video.errOfflineHint': 'Nothing was queued.',
     'video.errJobGone': 'This render is no longer tracked',

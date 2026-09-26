@@ -304,7 +304,7 @@ and a person who did not think to click it never learned it existed. *Free*
 opens Media on its Videos tab, where the search is. Which options an account
 sees is the administrator's decision (Admin → Videos (Muse) → Video access): one list
 for generated clips, which cost per use, one for free ones, each "everyone" or
-named accounts, with Motion's own control. An account with neither sees no video
+named accounts, with Motion Ultra's own control. An account with neither sees no video
 option, and the server refuses it at `/generate`, `/stock/*` and `/upload`
 whatever the panel shows — the panel only hides what would be refused.
 

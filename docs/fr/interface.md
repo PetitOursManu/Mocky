@@ -154,13 +154,13 @@ lui-même n’existe que sous `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Cadre` | `Afficher ou masquer le cadre iPhone sur les écrans mobiles`. **Désactivé quand le projet n’a aucun écran mobile** — et la préférence n’est pas effacée pour autant, car elle vit dans une clé unique partagée par tous les projets. Désactiver le contrôle plutôt que remettre le réglage à zéro, c’est ce qui garde vos autres projets encadrés. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Système` | `Système de design en direct — vos tokens DESIGN.md, et de quoi les recolorer`. Ferme `Audit`, ou le mode `Lier`, si l’un des deux était ouvert. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Évaluer le SEO et l’accessibilité`. Ferme `Système`, ou le mode `Lier`, si l’un des deux était ouvert — les trois veulent la même place. **Ouvrir le panneau n’évalue rien.** | libre |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion` | `Monter une vidéo à partir des images de la médiathèque`. Ouvre le panneau Motion — voir plus bas. | libre à l’ouverture |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion Ultra` | `Monter une vidéo à partir des images de la médiathèque`. Ouvre le panneau Motion Ultra — voir plus bas. | libre à l’ouverture |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Démo` | `Lancer le prototype — suit les liens que vous avez posés`. Démarre sur l’écran sélectionné, ou sur le premier si rien ne l’est. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Exporter` | `Exporter un projet Vite + React + Tailwind prêt à lancer`. Ouvre un menu de trois piles. | libre |
 
 Le séparateur tombe avant `Démo`. Les deux derniers sont les deux façons de faire
 **sortir** quelque chose d’un projet : une démo d’écrans qui existent déjà, une
-archive de code qui existe déjà. `Motion` est de l’autre côté, avec les modes et
+archive de code qui existe déjà. `Motion Ultra` est de l’autre côté, avec les modes et
 les panneaux, parce qu’il fait l’opération inverse — il fabrique ce qui n’existait
 pas il y a une minute, à partir de la médiathèque, et il ouvre un panneau
 exactement comme `Système` et `Audit`. À côté d’`Exporter`, il se lisait comme un
@@ -269,7 +269,7 @@ exporté, ou une séquence de défilement. Attaché, et non *utilisé* : rien de
 cela n’est dans le code de l’écran, et c’est exactement la distinction que
 `Changer les médias…` tient en deux sections. L’image fixe est dessinée par le
 navigateur à partir du fichier lui-même, parce qu’aucune affiche n’est découpée
-pour un montage — cela demanderait ffmpeg, la seule dépendance que Motion n’a
+pour un montage — cela demanderait ffmpeg, la seule dépendance que Motion Ultra n’a
 délibérément pas. Un clic lit le montage ; une séquence s’ouvre dans `Média`, où
 vit déjà le lecteur image par image.
 
@@ -439,16 +439,16 @@ projet ou dans son nom de produit, pas dans le balisage d’un écran.
 
 ---
 
-## Le panneau Motion
+## Le panneau Motion Ultra
 
-S’ouvre avec `Motion`. Un film pour un écran. La réponse ordinaire est
+S’ouvre avec `Motion Ultra`. Un film pour un écran. La réponse ordinaire est
 **composée** : un modèle bâtit chaque scène à partir d’un catalogue de blocs
 typés sur un fond qui peut bouger, et cinq compositions toutes faites restent
 accessibles par leur nom — diaporama, bandeau sur capture, format téléphone,
 titrage animé, mise en avant produit. **Le rendu tourne sur le worker Remotion,
 pas dans ce navigateur** — et ce worker est un service Docker séparé et
 facultatif, donc la première chose que fait le panneau est de dire s’il est là.
-Pourquoi c’est bâti ainsi est dans [Motion](fr/video-export.md).
+Pourquoi c’est bâti ainsi est dans [Motion Ultra](fr/video-export.md).
 
 Aucun film n’est fabriqué tout seul. Il y a deux façons d’en obtenir un : le
 `Fond vidéo` de Motion Ultra, qui donne à une section de chaque nouvel écran un
@@ -460,7 +460,7 @@ propre menu.)
 
 La fonctionnalité s’appelait « Export vidéo » et les fichiers s’appellent encore
 ainsi. C’est délibéré, et expliqué sur la page ci-dessus : ce que lit un
-utilisateur dit Motion, ce que cherche un développeur dit `video`.
+utilisateur dit Motion Ultra, ce que cherche un développeur dit `video`.
 
 Un compte pour lequel la fonctionnalité n’est pas activée reçoit une phrase
 laconique et rien d’autre : il n’apprend rien de la configuration de l’instance,
@@ -555,7 +555,7 @@ que personne n’a regardée, ce qui est toute la raison pour laquelle ce garde 
 sur le serveur et non dans ce panneau.
 
 **Où va le fichier terminé**, et le panneau le dit au lieu de laisser un lien de
-téléchargement qui disparaît avec lui : dans `Média`, onglet **`Motion`** —
+téléchargement qui disparaît avec lui : dans `Média`, onglet **`Motion Ultra`** —
 rattaché au projet où vous l’avez monté, ou à aucun projet quand vous l’avez
 monté depuis la page Média autonome. Cet onglet porte le nom de la
 fonctionnalité, pas celui de l’objet, parce que c’est là que le panneau vous
@@ -678,13 +678,13 @@ ci-dessous est un clic, et la liste est complète.
 | `Analyse approfondie` | Panneau Audit | Change ce que coûte `Évaluer`. Décochée par défaut. |
 | `Corriger` / `Tout corriger` | Panneau Audit | |
 | `Générer` (une image) | `Changer les médias…`, bibliothèque d’images | Appelle le fournisseur d’images, pas le modèle de texte. |
-| `Proposer un montage` | Panneau Motion | Le seul appel au modèle de Motion. Il choisit une composition et monte les images que vous avez choisies ; il n’en choisit jamais une. |
-| `Générer une image modèle`, `Produire {n} variantes` | Panneau Motion | Le fournisseur d’images, une fois par image. Six variantes, six appels. |
-| `Lancer le rendu` | Panneau Motion | Ni modèle ni fournisseur — mais des minutes de processeur sur le worker de rendu, ce qui en fait le clic le plus cher du produit sur une petite machine. |
+| `Proposer un montage` | Panneau Motion Ultra | Le seul appel au modèle de Motion Ultra. Il choisit une composition et monte les images que vous avez choisies ; il n’en choisit jamais une. |
+| `Générer une image modèle`, `Produire {n} variantes` | Panneau Motion Ultra | Le fournisseur d’images, une fois par image. Six variantes, six appels. |
+| `Lancer le rendu` | Panneau Motion Ultra | Ni modèle ni fournisseur — mais des minutes de processeur sur le worker de rendu, ce qui en fait le clic le plus cher du produit sur une petite machine. |
 
 Et les absences notables — ce qui a l’air cher et ne l’est pas : `Évaluer` dans
 le panneau Audit avec `Analyse approfondie` décochée, `Proposer des liens`,
 `Reprendre ce design`, `Exporter`,
 `Télécharger le .tsx`, `Dupliquer`, `Réorganiser`, tout le panneau `Système`,
-l’ouverture du panneau `Motion`, et chacune des bascules de format, de cadre et de
+l’ouverture du panneau `Motion Ultra`, et chacune des bascules de format, de cadre et de
 lecture du produit.
