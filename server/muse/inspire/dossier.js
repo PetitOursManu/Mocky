@@ -193,8 +193,13 @@ function buildSystem(ctx = {}) {
 function buildMediaSection(media) {
   if (!media || !Array.isArray(media.swatches) || media.swatches.length === 0) return null
   const kind = media.kind === 'video' ? 'video clip' : 'image'
+  // A clip steered by the pointer is placed by the request — a footer, most
+  // often — so calling it THE HERO would argue with the very prompt it serves.
+  const pointer = media.kind === 'video' && media.drive === 'pointer'
   const lines = [
-    `THE USER'S OWN ${kind.toUpperCase()} — THIS IS THE HERO OF THE SCREEN. It already exists; you are designing around it.`,
+    pointer
+      ? `THE USER'S OWN ${kind.toUpperCase()} — THE SCREEN IS BUILT AROUND IT, wherever the request places it. It already exists; you are designing around it.`
+      : `THE USER'S OWN ${kind.toUpperCase()} — THIS IS THE HERO OF THE SCREEN. It already exists; you are designing around it.`,
     '',
     'Its palette, sampled from the actual pixels (share of the picture in brackets):',
     ...media.swatches.map((s) => `- ${s.hex} (${Math.round((s.weight || 0) * 100)}%)`),
@@ -207,13 +212,19 @@ function buildMediaSection(media) {
     '- Do NOT introduce a colour family that is absent from this list. A page whose palette disagrees with its own hero image is the failure this section exists to prevent.',
     '- The `concept` must describe a direction that suits THIS picture — its light, its density, its mood — not a generic one.',
   )
-  if (media.kind === 'video') {
+  if (pointer) {
+    lines.push(
+      "- The clip is steered by the visitor's cursor and fills the section the request puts it in (a footer, a hero, a band). Design that section around a full-bleed moving image with its content laid over it: the copy must stay readable on top of these colours.",
+    )
+  } else if (media.kind === 'video') {
     lines.push(
       '- The hero is a video the visitor scrubs through by scrolling. Design the section around a full-bleed moving image with text laid over it: the copy must stay readable on top of these colours.',
     )
   }
   lines.push(
-    '- The imagery plan still describes the SECONDARY images. Do not describe the hero again — it is provided.',
+    pointer
+      ? '- The imagery plan still describes the OTHER images. Do not describe the clip again — it is provided.'
+      : '- The imagery plan still describes the SECONDARY images. Do not describe the hero again — it is provided.',
   )
   return lines.join('\n')
 }

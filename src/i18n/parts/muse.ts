@@ -46,6 +46,13 @@ export const muse = {
     'muse.videoPickFromLibrary': 'ou choisir une séquence dans Média',
     'muse.videoChosenTitle': 'Séquence choisie',
     'muse.videoChosenDetail': '{count} images — elle servira au défilement, aucune génération.',
+    'muse.videoChosenDetailPointer': '{count} images — elle suivra la souris, là où le prompt la place. Aucune génération.',
+    'muse.videoDrive': 'Ce qui fait avancer la séquence',
+    'muse.videoDriveScroll': 'Défilement',
+    'muse.videoDriveScrollHint': "La séquence ouvre la page et avance quand on fait défiler",
+    'muse.videoDrivePointer': 'Souris',
+    'muse.videoDrivePointerHint':
+      'La séquence suit le curseur et se place où le prompt le demande (pied de page, section, carte…)',
     'muse.videoChosenDrop': 'Retirer',
     'muse.videoChosenDropHint': 'Ne plus utiliser cette séquence',
 
@@ -130,6 +137,13 @@ export const muse = {
     'muse.videoPickFromLibrary': 'or choose a sequence from Media',
     'muse.videoChosenTitle': 'Chosen sequence',
     'muse.videoChosenDetail': '{count} frames — it will drive the scroll, nothing is generated.',
+    'muse.videoChosenDetailPointer': '{count} frames — it will follow the mouse, wherever the prompt puts it. Nothing is generated.',
+    'muse.videoDrive': 'What moves the sequence',
+    'muse.videoDriveScroll': 'Scroll',
+    'muse.videoDriveScrollHint': 'The sequence opens the page and advances as the visitor scrolls',
+    'muse.videoDrivePointer': 'Mouse',
+    'muse.videoDrivePointerHint':
+      'The sequence follows the cursor and goes wherever the prompt asks (footer, section, card…)',
     'muse.videoChosenDrop': 'Remove',
     'muse.videoChosenDropHint': 'Stop using this sequence',
 

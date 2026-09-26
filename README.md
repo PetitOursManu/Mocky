@@ -330,7 +330,7 @@ Mocky auto-detects what the prompt needs and injects capabilities into the sandb
 - **Icons** (baseline, always loaded): 26 inline SVG icons under the `Icon.*` namespace. The prompt bans hand-written `<svg><path d="...">` to prevent truncation.
 - **Charts** (conditional): 5 inline-SVG chart components (BarChart, LineChart, DonutChart, Sparkline, ProgressRing). No external chart library.
 - **Animate** (conditional): the `<Animated>` wrapper plus `Ticker` and `CountUp`, backed by Motion — see [Animations](#animations).
-- **ScrollVideo** (only when a sequence exists): `<ScrollSequence>`, the scroll-scrubbed hero.
+- **ScrollVideo** (only when a sequence exists): `<ScrollSequence>`, the scroll-scrubbed hero, and `<PointerSequence>`, the same clip steered by the cursor wherever the prompt places it.
 - **DaisyUI** (conditional): a vendored stylesheet for semantic component classes.
 
 Capabilities are snippet-packs (vendored plain-JS source prepended to the generated code), stylesheets, or scripts. **Nothing is loaded from another origin.** That is the rule, and it is enforced by a test: the point was never the shape of the tag but the dependency — an unreliable third-party fetch would gate an otherwise-valid preview behind someone else's uptime. A file under `public/vendor/` is served by the same server as the page, is hash-pinned, and cannot fail independently of it.

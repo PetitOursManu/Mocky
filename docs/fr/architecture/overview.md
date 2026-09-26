@@ -80,7 +80,7 @@ C'est [l'invariant I3](fr/architecture/invariants.md), et il porte sur la
 | `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Déclare `requires: ['motion-lib']` |
 | `three-lib` | cdn-script | aucun — tirée par `requires` | `window.THREE`, depuis `/vendor/three.js` |
 | `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — dix scènes procédurales. Déclare `requires: ['three-lib']` |
-| `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence` |
+| `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence`, `PointerSequence` |
 
 
 ### La 3D dans une page, et le budget qui la gouverne

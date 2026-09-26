@@ -310,7 +310,7 @@ Mocky détecte automatiquement ce dont le prompt a besoin et injecte des capacit
 - **Icons** (socle, toujours chargé) : 26 icônes SVG en ligne sous l'espace de noms `Icon.*`. Le prompt interdit d'écrire à la main `<svg><path d="...">`, pour éviter la troncature.
 - **Charts** (conditionnel) : 5 composants de graphique en SVG en ligne (BarChart, LineChart, DonutChart, Sparkline, ProgressRing). Aucune bibliothèque de graphiques externe.
 - **Animate** (conditionnel) : l'emballage `<Animated>` plus `Ticker` et `CountUp`, appuyés sur Motion — voir [Animations](#animations).
-- **ScrollVideo** (seulement quand une séquence existe) : `<ScrollSequence>`, le héros parcouru au défilement.
+- **ScrollVideo** (seulement quand une séquence existe) : `<ScrollSequence>`, le héros parcouru au défilement, et `<PointerSequence>`, le même clip piloté par le curseur là où le prompt le place.
 - **DaisyUI** (conditionnel) : une feuille de style embarquée pour les classes de composants sémantiques.
 
 Les capacités sont des paquets d'extraits (du code JavaScript simple, embarqué, préfixé au code généré), des feuilles de style ou des scripts. **Rien n'est chargé depuis une autre origine.** C'est la règle, et elle est appliquée par un test : l'enjeu n'a jamais été la forme de la balise mais la dépendance — une requête peu fiable vers un tiers subordonnerait un aperçu par ailleurs valide à la disponibilité de quelqu'un d'autre. Un fichier placé sous `public/vendor/` est servi par le même serveur que la page, son empreinte est figée, et il ne peut pas tomber indépendamment d'elle.

@@ -200,7 +200,32 @@ export default function MusePanel({
               {config.videoPin.label}
             </span>
             <span className="block text-caption text-ink-faint">
-              {t('muse.videoChosenDetail', { count: config.videoPin.frames })}
+              {t(config.videoPin.drive === 'pointer' ? 'muse.videoChosenDetailPointer' : 'muse.videoChosenDetail', {
+                count: config.videoPin.frames,
+              })}
+            </span>
+            {/* What steers the clip decides WHERE it can go: the scroll needs the
+                top of the page, the pointer goes wherever the prompt says. So
+                the choice is shown with the clip rather than buried in a menu. */}
+            <span className="mt-1 inline-flex border border-line-soft" role="group" aria-label={t('muse.videoDrive')}>
+              {(['scroll', 'pointer'] as const).map((drive) => {
+                const on = (config.videoPin?.drive ?? 'scroll') === drive
+                return (
+                  <button
+                    key={drive}
+                    type="button"
+                    aria-pressed={on}
+                    disabled={busy}
+                    onClick={() => config.videoPin && onChange({ ...config, videoPin: { ...config.videoPin, drive } })}
+                    title={t(drive === 'pointer' ? 'muse.videoDrivePointerHint' : 'muse.videoDriveScrollHint')}
+                    className={`kicker border-b-2 px-2 py-0.5 ${drive === 'pointer' ? 'border-l border-l-line-soft' : ''} ${
+                      on ? 'border-b-accent bg-ink text-surface' : 'border-b-transparent text-ink-muted hover:bg-ink/5'
+                    }`}
+                  >
+                    {t(drive === 'pointer' ? 'muse.videoDrivePointer' : 'muse.videoDriveScroll')}
+                  </button>
+                )
+              })}
             </span>
           </span>
           <Button

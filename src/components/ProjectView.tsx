@@ -1222,6 +1222,7 @@ export default function ProjectView({
                 vision: museVision,
                 signal: ac.signal,
               })
+              if (userMedia && pinnedVideo?.drive === 'pointer') userMedia = { ...userMedia, drive: 'pointer' as const }
             }
 
             setMuseStage(t('project.museStageDossier'))
@@ -1322,6 +1323,7 @@ export default function ProjectView({
                 poster: absoluteUrl(pinnedVideo.poster),
                 frames: pinnedVideo.frames,
                 fromCache: true,
+                drive: pinnedVideo.drive,
               }
             } else if (museConfig.video && videoAvail?.available) {
               const heroSlot = plan[0]
@@ -1629,7 +1631,7 @@ export default function ProjectView({
          * Local, about a second, in the background; a failure to check is not a
          * finding (Q1).
          */
-        if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence'].some((k) => result.code.includes(k))) {
+        if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence', '<PointerSequence'].some((k) => result.code.includes(k))) {
           checkLegibility(result.code, preset.w, preset.h, caps)
             .then((hard) => {
               if (!hard.length) return

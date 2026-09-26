@@ -296,6 +296,22 @@ Les séquences vivent dans `data/video-library/`, adressées par l'empreinte
 SHA-256 du clip. Une demande identique réutilise la séquence au lieu de la payer
 deux fois.
 
+Un clip **choisi** dans Média peut aussi être piloté par la **souris** plutôt que
+par le défilement — le sélecteur se trouve sous le clip choisi, dans le panneau
+Muse. La page reçoit alors `<PointerSequence>` : les mêmes images découpées, le
+même chargeur et le même dessin, mais c'est le curseur qui choisit l'image, et la
+position dessinée le rejoint en douceur, si bien que soixante images fixes se
+lisent comme une tête qui tourne. C'est une boîte et non une section épinglée, et
+le prompt demande au modèle de la placer **là où la demande le dit** — un pied de
+page dont le visage suit la souris ne peut pas être la première chose de la page,
+le seul endroit qu'exige une séquence au défilement. Une table d'images dans le
+brief (une « carte du regard ») devient la propriété `map`, écrite en ligne, parce
+que le bac à sable n'importe aucun fichier. Le dossier cesse d'appeler un tel clip
+le visuel principal pour la même raison. Un clip que Muse génère reste toujours
+une séquence au défilement : il a été tourné pour une ouverture de page. Le
+mouvement réduit, « Sans animation » et une capture le figent sur son image de
+repos.
+
 ---
 
 ## L'anti-slop

@@ -79,7 +79,7 @@ about the shape of the tag.
 | `animate` | snippet-pack | `animation`, `motion`, `hero`, `landing`, `parallax`… | `Animated`, `Ticker`, `CountUp`. Declares `requires: ['motion-lib']` |
 | `three-lib` | cdn-script | none — pulled in by `requires` | `window.THREE`, from `/vendor/three.js` |
 | `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — ten procedural scenes. Declares `requires: ['three-lib']` |
-| `scrollvideo` | snippet-pack | none — added explicitly | `ScrollSequence` |
+| `scrollvideo` | snippet-pack | none — added explicitly | `ScrollSequence`, `PointerSequence` |
 
 
 ### 3D in a page, and the budget that governs it

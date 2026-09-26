@@ -275,6 +275,19 @@ the last one lands would leave a hole for a second or two on a cold cache.
 Sequences live in `data/video-library/`, addressed by the SHA-256 of the clip. An
 identical request reuses the sequence instead of paying for it twice.
 
+A clip **chosen** from Media can also be steered by the **pointer** instead of the
+scroll — the toggle sits under the chosen clip in the Muse panel. The page then
+gets `<PointerSequence>`: the same cut frames, the same loader and painter, but
+the cursor picks the frame and the drawn position eases towards it, so sixty
+stills read as a head that turns. It is a box rather than a pinned section, and
+the prompt tells the model to place it **where the request says** — a footer
+whose face follows the mouse cannot be the first thing on the page, which is the
+one place a scroll sequence insists on. A frame table in the brief (a "gaze
+map") becomes the `map` prop, inline, because the sandbox imports no file. The
+dossier stops calling such a clip the hero for the same reason. A clip Muse
+generates is always a scroll sequence: it was shot for a hero. Reduced motion,
+"Sans animation" and a capture hold it on its resting frame.
+
 ---
 
 ## Anti-slop

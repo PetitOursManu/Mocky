@@ -21,12 +21,24 @@ export interface LibraryVideo {
   recutAt?: number
 }
 
+/**
+ * What steers a cut clip once it is on a page.
+ *
+ * `scroll` is the pinned hero `<ScrollSequence>` Muse has always written.
+ * `pointer` is `<PointerSequence>`: the cursor steers it, and it goes wherever
+ * the brief puts it — a footer whose face follows the mouse cannot be the
+ * first thing on the page, which is the one place `scroll` insists on.
+ */
+export type VideoDrive = 'scroll' | 'pointer'
+
 /** A sequence chosen for the next generation, instead of paying for a new one. */
 export interface PinnedVideo {
   hash: string
   frames: number
   poster: string
   label: string
+  /** Absent on pins saved before the choice existed, which were all `scroll`. */
+  drive?: VideoDrive
 }
 
 /** Containers the server hands to ffmpeg. */
