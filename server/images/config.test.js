@@ -9,6 +9,7 @@ import {
   publicImagesConfig,
   defaultImagesConfig,
   resolveImageProfile,
+  videoAccessFor,
   PROVIDER_IDS,
   IMAGE_PROFILES,
   EDIT_PROVIDER_IDS,
@@ -272,5 +273,43 @@ describe('stock footage keys', () => {
   it('exist on a config file written before they did', () => {
     const cfg = mergeImagesConfig(defaultImagesConfig(), { video: { provider: '', fal: {} } })
     expect(cfg.video.stock).toEqual({ pexels: { apiKey: '' }, pixabay: { apiKey: '' } })
+  })
+})
+
+describe('video access per account', () => {
+  const alice = { id: 'alice' }
+  const bob = { id: 'bob' }
+
+  it('is open to everyone by default, so an upgrade takes nothing away', () => {
+    expect(videoAccessFor(defaultImagesConfig(), alice)).toEqual({ generate: true, stock: true })
+  })
+
+  it('narrows each kind to its own list, independently', () => {
+    const cfg = mergeImagesConfig(defaultImagesConfig(), {
+      video: {
+        access: {
+          generated: { mode: 'allowlist', userIds: ['alice'] },
+          stock: { mode: 'allowlist', userIds: ['alice', 'bob', ''] },
+        },
+      },
+    })
+    expect(videoAccessFor(cfg, alice)).toEqual({ generate: true, stock: true })
+    expect(videoAccessFor(cfg, bob)).toEqual({ generate: false, stock: true })
+    // An empty id never matches, and an admin role grants nothing by itself.
+    expect(videoAccessFor(cfg, { id: '' })).toEqual({ generate: false, stock: false })
+    expect(videoAccessFor(cfg, { id: 'root', role: 'admin' })).toEqual({ generate: false, stock: false })
+    expect(cfg.video.access.stock.userIds).toEqual(['alice', 'bob'])
+  })
+
+  it('replaces a list rather than merging it, so an account can be removed', () => {
+    let cfg = mergeImagesConfig(defaultImagesConfig(), {
+      video: { access: { generated: { mode: 'allowlist', userIds: ['alice', 'bob'] } } },
+    })
+    cfg = mergeImagesConfig(cfg, { video: { access: { generated: { userIds: ['alice'] } } } })
+    expect(cfg.video.access.generated).toEqual({ mode: 'allowlist', userIds: ['alice'] })
+    // A patch about something else leaves the lists alone.
+    cfg = mergeImagesConfig(cfg, { video: { provider: 'fal' } })
+    expect(cfg.video.access.generated.userIds).toEqual(['alice'])
+    expect(publicImagesConfig(cfg).video.access.generated).toEqual({ mode: 'allowlist', userIds: ['alice'] })
   })
 })

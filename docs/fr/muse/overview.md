@@ -324,6 +324,18 @@ affichés sur sa carte, comme les deux licences le demandent. Les recherches son
 gardées en cache 24 heures — les conditions de Pixabay, et les deux quotas
 gratuits, le demandent.
 
+Dans le panneau Muse, le clip est un **choix**, pas une case et un lien :
+*Aucune*, *Générée par IA* ou *Gratuite*. Le lien vers Média était le seul chemin
+vers la voie gratuite, et une personne qui ne pensait pas à cliquer dessus ne
+savait jamais qu'elle existait. *Gratuite* ouvre Média sur l'onglet Vidéos, là où
+se trouve la recherche. Les options qu'un compte voit sont la décision de
+l'administrateur (Admin → Images → Accès aux vidéos) : une liste pour les clips
+générés, qui coûtent à chaque usage, une pour les gratuits, chacune « tout le
+monde » ou des comptes nommés, avec le contrôle de Motion. Un compte qui n'a ni
+l'un ni l'autre ne voit aucune option vidéo, et le serveur le refuse sur
+`/generate`, `/stock/*` et `/upload` quoi qu'affiche le panneau — le panneau ne
+fait que cacher ce qui serait refusé.
+
 ---
 
 ## L'anti-slop

@@ -153,7 +153,9 @@ export async function uploadVideo(
 }
 
 /** Which stock libraries this instance has a key for, and whether ffmpeg can cut. */
-export async function stockStatus(signal?: AbortSignal): Promise<{ providers: Record<StockProvider, boolean>; ffmpeg: boolean }> {
+export async function stockStatus(
+  signal?: AbortSignal,
+): Promise<{ providers: Record<StockProvider, boolean>; ffmpeg: boolean; allowed?: boolean }> {
   const res = await fetch('/api/videos/stock/status', { signal })
   if (!res.ok) return { providers: { pexels: false, pixabay: false }, ffmpeg: false }
   return res.json()

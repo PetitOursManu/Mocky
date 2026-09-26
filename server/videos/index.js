@@ -114,6 +114,9 @@ export function createVideos({ dataDir, configStore, fetchImpl, budget } = {}) {
   const router = createVideosRouter({
     budget,
     stock,
+    // Read at call time, like everything else here: a list saved in Admin
+    // applies on the next request.
+    accessFor: (user) => configStore.videoAccessFor(user),
     library,
     generate,
     availability,

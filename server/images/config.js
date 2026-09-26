@@ -100,7 +100,34 @@ export function defaultVideoProfile() {
      * same cutter as a generated or uploaded clip.
      */
     stock: { pexels: { apiKey: '' }, pixabay: { apiKey: '' } },
+    /**
+     * Who may use which kind of clip. Two scopes because they are two
+     * different decisions: a GENERATED clip is paid per use, a free one costs a
+     * download. Same shape as Motion's own scopes (a mode, and the accounts a
+     * list names), and open by default for the reason Motion's 3D scope is: an
+     * upgrade must not take away from every account what they used yesterday.
+     */
+    access: {
+      generated: { mode: 'all', userIds: [] },
+      stock: { mode: 'all', userIds: [] },
+    },
   }
+}
+
+/** The two modes a video scope can be in. Motion's vocabulary, on purpose. */
+export const VIDEO_ACCESS_MODES = ['all', 'allowlist']
+
+/**
+ * What one account may do with clips: generate them, fetch free ones, both or
+ * neither. An administrator is not allowed on their role alone — same rule, and
+ * same reason, as `videoEnabledFor`: the list is what names who used what.
+ */
+export function videoAccessFor(cfg, user) {
+  const access = { ...defaultVideoProfile().access, ...(cfg?.video?.access || {}) }
+  const id = typeof user?.id === 'string' ? user.id.trim() : ''
+  const may = (scope) =>
+    scope?.mode !== 'allowlist' || (Boolean(id) && Array.isArray(scope.userIds) && scope.userIds.includes(id))
+  return { generate: may(access.generated), stock: may(access.stock) }
 }
 
 export function defaultImagesConfig() {
@@ -224,6 +251,22 @@ function mergeProfile(current, patch, { allowEmpty = false, ids = PROVIDER_IDS, 
   return out
 }
 
+/**
+ * One access scope. The list is REPLACED by a patch that carries one, never
+ * merged — the panel edits a list, and a merge would make removing an account
+ * impossible. Empty ids are dropped: `[''].includes('')` is a quiet way to let
+ * an account with no id through.
+ */
+function mergeScope(next, prev) {
+  const base = prev && typeof prev === 'object' ? prev : { mode: 'all', userIds: [] }
+  const n = next && typeof next === 'object' ? next : {}
+  const ids = Array.isArray(n.userIds) ? n.userIds : base.userIds
+  return {
+    mode: VIDEO_ACCESS_MODES.includes(n.mode) ? n.mode : VIDEO_ACCESS_MODES.includes(base.mode) ? base.mode : 'all',
+    userIds: [...new Set((Array.isArray(ids) ? ids : []).map((v) => String(v || '').trim()).filter(Boolean))].slice(0, 1000),
+  }
+}
+
 /** Merge the video section. Same secret rules as an image profile. */
 function mergeVideo(current, patch) {
   const base = { ...defaultVideoProfile(), ...(current || {}) }
@@ -250,6 +293,10 @@ function mergeVideo(current, patch) {
     stock: {
       pexels: { apiKey: secret(p.stock?.pexels?.apiKey, base.stock?.pexels?.apiKey || '') },
       pixabay: { apiKey: secret(p.stock?.pixabay?.apiKey, base.stock?.pixabay?.apiKey || '') },
+    },
+    access: {
+      generated: mergeScope(p.access?.generated, base.access?.generated),
+      stock: mergeScope(p.access?.stock, base.access?.stock),
     },
     frames: {
       fps: clamp(f.fps, 4, 30, bf.fps),
@@ -312,6 +359,11 @@ export function publicImagesConfig(cfg) {
       stock: {
         pexels: { hasApiKey: Boolean(v.stock?.pexels?.apiKey) },
         pixabay: { hasApiKey: Boolean(v.stock?.pixabay?.apiKey) },
+      },
+      accessModes: VIDEO_ACCESS_MODES,
+      access: {
+        generated: mergeScope(undefined, v.access?.generated),
+        stock: mergeScope(undefined, v.access?.stock),
       },
     },
   }
@@ -402,6 +454,11 @@ export class ImagesConfigStore {
   /** Video settings, always a complete object even on a pre-video config file. */
   videoProfile() {
     return { ...defaultVideoProfile(), ...(this.config.video || {}) }
+  }
+
+  /** What this account may do with clips — see `videoAccessFor`. */
+  videoAccessFor(user) {
+    return videoAccessFor(this.config, user)
   }
 
   /** Merge a partial update, persist atomically, return the new config. */

@@ -191,6 +191,19 @@ export const settings = {
     'settings.framesWidthHint': 'De 320 à 1920 px sur le bord long.',
     'settings.framesMax': 'Images au maximum',
     'settings.framesMaxHint': 'De 10 à 600. C’est ce qui borne la durée, voir ci-dessous.',
+    'settings.videoAccessTitle': 'Accès aux vidéos',
+    'settings.videoAccessBlurb':
+      'Qui peut utiliser une vidéo dans un écran, et laquelle. Une vidéo générée coûte à chaque clip ; une vidéo libre de droits est gratuite. Un compte qui n’a ni l’une ni l’autre ne voit aucune option vidéo.',
+    'settings.videoAccessGenerated': 'Vidéos générées par IA',
+    'settings.videoAccessGeneratedHelp': 'Payantes, créées par le fournisseur vidéo configuré ci-dessus.',
+    'settings.videoAccessGeneratedList': 'Comptes autorisés à générer',
+    'settings.videoAccessStock': 'Vidéos gratuites',
+    'settings.videoAccessStockHelp': 'Pexels et Pixabay, plus les clips que le compte importe lui-même.',
+    'settings.videoAccessStockList': 'Comptes autorisés aux vidéos gratuites',
+    'settings.videoAccessEmpty': 'Aucun compte coché : personne n’y a accès.',
+    'settings.videoAccessAllNote': 'Les {total} comptes de l’instance y ont accès.',
+    'settings.videoAccessNote':
+      'Un administrateur n’a pas accès d’office : cochez aussi votre propre compte si la liste est restreinte. Un compte qui a au moins un des deux accès peut importer ses propres clips.',
     'settings.stockTitle': 'Vidéos libres de droits',
     'settings.stockBlurb':
       'Pexels et Pixabay offrent des vidéos gratuites, utilisables librement. Collez la clé API gratuite de l’une ou des deux : la recherche apparaît alors dans Média, onglet Vidéos. Sans clé, rien ne s’affiche.',
@@ -488,6 +501,19 @@ export const settings = {
     'settings.framesWidthHint': '320 to 1920 px on the long edge.',
     'settings.framesMax': 'Most frames',
     'settings.framesMaxHint': '10 to 600. This is what bounds the duration — see below.',
+    'settings.videoAccessTitle': 'Video access',
+    'settings.videoAccessBlurb':
+      'Who may use a video in a screen, and which kind. A generated video costs per clip; a free stock video costs nothing. An account with neither sees no video option at all.',
+    'settings.videoAccessGenerated': 'AI-generated videos',
+    'settings.videoAccessGeneratedHelp': 'Paid, made by the video provider configured above.',
+    'settings.videoAccessGeneratedList': 'Accounts allowed to generate',
+    'settings.videoAccessStock': 'Free videos',
+    'settings.videoAccessStockHelp': 'Pexels and Pixabay, plus the clips the account imports itself.',
+    'settings.videoAccessStockList': 'Accounts allowed free videos',
+    'settings.videoAccessEmpty': 'No account ticked: nobody has access.',
+    'settings.videoAccessAllNote': 'All {total} accounts on this instance have access.',
+    'settings.videoAccessNote':
+      'An administrator is not allowed by default: tick your own account too when the list is restricted. An account with at least one of the two may import its own clips.',
     'settings.stockTitle': 'Free stock videos',
     'settings.stockBlurb':
       'Pexels and Pixabay offer free videos anyone may reuse. Paste the free API key of one or both: search then appears in Media, Videos tab. Without a key, nothing is shown.',

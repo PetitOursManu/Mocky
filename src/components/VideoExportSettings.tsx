@@ -610,7 +610,7 @@ function RenderPower({
  * nothing about the licence reminder, and it never reads the config. The parent
  * owns the form, because the whole form saves under one button.
  */
-function AccountScope({
+export function AccountScope({
   modes,
   access,
   onAccess,

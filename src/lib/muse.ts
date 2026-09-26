@@ -131,7 +131,13 @@ export interface MuseVideoAvailability {
   model: string
   ffmpeg: { available: boolean; version?: string; reason?: string }
   /** null when available; otherwise which of the two prerequisites is missing. */
-  reason: 'no-provider' | 'no-key' | 'no-ffmpeg' | null
+  reason: 'no-provider' | 'no-key' | 'no-ffmpeg' | 'no-access' | null
+  /**
+   * What the administrator allows THIS account: generating clips, fetching free
+   * ones, both or neither. Absent from a server older than the setting, which
+   * allowed everything.
+   */
+  access?: { generate: boolean; stock: boolean }
 }
 
 /**

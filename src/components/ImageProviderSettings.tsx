@@ -6,7 +6,11 @@ import {
   type ImagesProfileConfig,
   type ImagesProfilePatch,
   type ImagesTestResult,
+  type AdminUser,
+  type VideoAccessMode,
+  type VideoAccessScope,
 } from '../lib/api'
+import { AccountScope } from './VideoExportSettings'
 import { checkVideoAvailability, type MuseVideoAvailability } from '../lib/muse'
 import { STOCK_LABELS, STOCK_PROVIDERS, type StockProvider } from '../lib/videoLibrary'
 import { Button, Field, Icon, Input, Select } from '../ui'
@@ -743,6 +747,108 @@ function StockForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
   )
 }
 
+/**
+ * Who may use which kind of clip: generated (paid per use) and free (stock
+ * libraries). Two scopes with Motion's own control, because they are the same
+ * kind of decision about the same accounts; a third vocabulary for "who may"
+ * would be one more thing to learn. An account in neither sees no video
+ * option at all, and the server refuses it whatever the panel shows.
+ */
+function VideoAccessForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
+  const t = useT()
+  const current = cfg.video.access ?? {
+    generated: { mode: 'all' as const, userIds: [] },
+    stock: { mode: 'all' as const, userIds: [] },
+  }
+  const modes = cfg.video.accessModes ?? (['all', 'allowlist'] as VideoAccessMode[])
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [generated, setGenerated] = useState<VideoAccessScope>(current.generated)
+  const [stock, setStock] = useState<VideoAccessScope>(current.stock)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.admin
+      .listUsers()
+      .then(setUsers)
+      .catch(() => setUsers([]))
+  }, [])
+
+  const toggle = (set: (fn: (s: VideoAccessScope) => VideoAccessScope) => void) => (id: string) => {
+    setSaved(false)
+    set((s) => ({ ...s, userIds: s.userIds.includes(id) ? s.userIds.filter((x) => x !== id) : [...s.userIds, id] }))
+  }
+
+  async function save() {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const fresh = await api.admin.setImagesConfig({ video: { access: { generated, stock } } })
+      onConfig(fresh)
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="border border-line-soft p-4">
+      <h4 className="text-h4 text-ink">{t('settings.videoAccessTitle')}</h4>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.videoAccessBlurb')}</p>
+
+      <AccountScope
+        modes={modes}
+        access={generated.mode}
+        onAccess={(mode) => {
+          setGenerated((s) => ({ ...s, mode }))
+          setSaved(false)
+        }}
+        allowed={generated.userIds}
+        onToggle={toggle(setGenerated)}
+        users={users}
+        labels={{
+          title: 'settings.videoAccessGenerated',
+          help: 'settings.videoAccessGeneratedHelp',
+          listTitle: 'settings.videoAccessGeneratedList',
+          empty: 'settings.videoAccessEmpty',
+          allNote: 'settings.videoAccessAllNote',
+        }}
+      />
+      <AccountScope
+        modes={modes}
+        access={stock.mode}
+        onAccess={(mode) => {
+          setStock((s) => ({ ...s, mode }))
+          setSaved(false)
+        }}
+        allowed={stock.userIds}
+        onToggle={toggle(setStock)}
+        users={users}
+        labels={{
+          title: 'settings.videoAccessStock',
+          help: 'settings.videoAccessStockHelp',
+          listTitle: 'settings.videoAccessStockList',
+          empty: 'settings.videoAccessEmpty',
+          allNote: 'settings.videoAccessAllNote',
+        }}
+        footnote="settings.videoAccessNote"
+      />
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button variant="primary" size="sm" onClick={() => void save()} disabled={saving}>
+          {saving ? t('settings.saving') : t('common.save')}
+        </Button>
+        {saved && <span className="text-body-sm text-ok">{t('settings.saved')}</span>}
+        {error && <span className="text-body-sm text-danger">{error}</span>}
+      </div>
+    </div>
+  )
+}
+
 /** Where each library hands out its free key. */
 const STOCK_KEY_PAGE: Record<StockProvider, string> = {
   pexels: 'https://www.pexels.com/api/',
@@ -839,6 +945,7 @@ export default function ImageProviderSettings() {
         />
         <VideoForm cfg={cfg} onConfig={setCfg} />
         <StockForm cfg={cfg} onConfig={setCfg} />
+        <VideoAccessForm cfg={cfg} onConfig={setCfg} />
       </div>
     </section>
   )

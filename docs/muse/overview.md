@@ -298,6 +298,16 @@ the source page are stored with it and shown on its card, which both licences
 ask for. Searches are cached for 24 hours — Pixabay's terms, and both free
 quotas, want it.
 
+In the Muse panel the clip is a **choice**, not a checkbox and a link: *None*,
+*AI-generated* or *Free*. The link to Media was the only way to the free path,
+and a person who did not think to click it never learned it existed. *Free*
+opens Media on its Videos tab, where the search is. Which options an account
+sees is the administrator's decision (Admin → Images → Video access): one list
+for generated clips, which cost per use, one for free ones, each "everyone" or
+named accounts, with Motion's own control. An account with neither sees no video
+option, and the server refuses it at `/generate`, `/stock/*` and `/upload`
+whatever the panel shows — the panel only hides what would be refused.
+
 ---
 
 ## Anti-slop
