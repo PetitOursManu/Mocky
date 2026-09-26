@@ -10,6 +10,16 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `ultra` | série visible sur le canevas, images réutilisées, film vraiment visible | `55c8d51` |
+| `ultra` | v2 — fond vidéo, fabriqué en local et branché sans appel | `c0f31d4` |
+| `ultra` | quatre effets repérés dans le corpus motionsites | `e0841dd` |
+| `ultra` | contrôle de lisibilité du texte posé sur une image | `9d1dfde` |
+| — | retour arrière automatique quand la réparation d'un écran échoue | `9e0a4ce` |
+| `ultra` | fin de la v1 — coût visible, budget d'animation, test U1 | `972d8e9` |
+| `images` | « Autre version » d'une image dans les médias d'un écran | `def84f0` |
+| `ultra` | contrôles après génération et après retouche, badge sur le canevas | `14931a3` |
+| `ultra` | Polish ne corrige plus le style d'un écran Motion Ultra | `37cf5e9` |
+| `ultra` | Motion Ultra — storyboard, série d'images et kit CSS | `64370c0` |
 | `3d` | la place vivante suit la scene qu'on regarde | `b9915c7` |
 | `3d` | une scene sans place montre une image d'elle-meme | `f62e8a9` |
 | `motion` | le film sait ce que la page dessine deja en 3D | `f4f7c24` |
@@ -34,6 +44,10 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `ultra` | une photo plein cadre ne recouvre plus le fond vidéo; cadres empilés sans débord | `a0046d9` |
+| `ultra` | le film d'un écran Motion Ultra reçoit les images de la série | `0525a06` |
+| `ultra` | le voile du héros cinématique couvre chaque ligne de texte; suivi mis à jour | `0fa77e9` |
+| `ultra` | un film Motion ne prend plus l'ouverture construite par Motion Ultra | `e207122` |
 | `3d` | une capture donne son image a CHAQUE scene de la page | `1df6187` |
 | `motion` | le film n'est pas un conteneur | `a2a302f` |
 | `motion` | le sujet plein cadre s'ecarte des mots | `1328f9b` |
@@ -54,6 +68,9 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `ultra` | v2 — le fond vidéo, FR/EN, CLAUDE.md et suivi | `cf0301f` |
+| `ultra` | suivi mis à jour | `6090c84` |
+| `ultra` | Motion Ultra — page FR/EN, invariants U1–U5, README et CLAUDE.md | `290f7a0` |
 | `3d` | la vue d'ensemble nommait encore mockySceneClaim au présent | `ce0338d` |
 | `motion` | comment faire demarrer le worker avec les autres services | `f227871` |
 | `deployment` | le niveau de rendu et le test du serveur, cote exploitant | `ed5d0b9` |

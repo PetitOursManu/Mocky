@@ -248,6 +248,10 @@ see by looking at it:
 - `Placed + ref.` — both.
 - `Muse image` — the role was never written down. Not a fourth role: it is what
   a screen generated before the distinction existed says instead of guessing.
+- `Motion Ultra · N pictures` — the screen was built by Motion Ultra, and the
+  card is the first picture of its series. With several, frames are stacked
+  behind it; clicking opens the viewer on the whole series (arrows, ← →,
+  thumbnails).
 
 Under it, the media **attached** to the screen, when there is one — an exported
 cut, or a scroll sequence. Attached, never *used*: none of it is in the screen's
@@ -334,6 +338,7 @@ changes verb depending on what is selected.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, art direction and real copy. Turning it on changes what a generation costs — see [Muse](muse/overview.md). | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `✦ Animations auto` / `✦ Animations forced` / `✦ No animation` | Three states. `✦ No animation` also holds the screens already on the canvas still, so the button and the board never disagree. | free |
 | | `Format` | The viewport preset for the next screen. Only shown when creating, not when editing. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4"/></svg> | `Motion Ultra` | A **project** setting. Off: one quiet chip, and clicking it switches Motion Ultra on for the project. On: the chip pauses it for the next generations of this session, `×3` / `×6` picks how many pictures each new screen gets (`≈ +1 min` / `≈ +2–3 min` beside it), `Video background` gives one section a film rendered by your own machine (`+1–3 min`, off by default), and `✕` switches it off for the project. Hidden while editing. See [Motion Ultra](motion-ultra.md). | ×3 or ×6 pictures, one storyboard call, and one film render when the video background is on |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | The brief | Folds and unfolds the Muse dossier. Shown only when Muse is on and you are creating. `Show the full brief` / `Collapse the brief`. | free |
 
 Above those sit the transient rows: numbered annotation thumbnails, each with a
@@ -632,7 +637,7 @@ this is the complete list.
 
 | Control | Where | Note |
 |---|---|---|
-| `Generate` | Composer | With `Muse` on, the one click also runs the inspiration pass and may call the image provider. |
+| `Generate` | Composer | With `Muse` on, the one click also runs the inspiration pass and may call the image provider. With `Motion Ultra` on, it also runs a storyboard call and generates ×3 or ×6 pictures — and, with `Video background`, composes one film (a text call) and renders it on the worker. |
 | `Update ({count})` | Composer | One call per selected screen. |
 | Repair | Automatic, after a failed render | The only unprompted model call — and it only happens after a generation you asked for produced code that will not run. Capped at two attempts. |
 | `Regenerate (new variant)` | Screen context menu | |

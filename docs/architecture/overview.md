@@ -289,6 +289,21 @@ It is added at generation time when a sequence was produced, and only then. A
 screen offered `<ScrollSequence>` with nothing to draw would render a black box
 three viewports tall.
 
+### The Ultra kit
+
+`ultra` is the third capability with no triggers, and for the reason
+`scrollvideo` has none: it is only worth its prompt space on a screen a Motion
+Ultra storyboard planned. It is force-added then, and persisted in
+`Screen.caps`, so every later edit, repair, polish or audit fix of that screen
+reads the same vocabulary.
+
+It is also the one pack that STYLES rather than only renders: a stylesheet of
+`u-*` classes injected when the prelude runs, plus `<Backdrop>`. A screen can use
+the classes without naming a single component, so the capability declares them
+(`Capability.classes`) and both `capabilitiesUsedBy` and the export's import
+rewriting look for them. See [Motion Ultra](../motion-ultra.md) and invariants
+U1–U5.
+
 ### Validation at module load
 
 ```js

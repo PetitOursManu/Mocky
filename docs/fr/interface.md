@@ -259,6 +259,10 @@ pas deviner en la regardant :
 - `Image Muse` — le rôle n’a jamais été noté. Ce n’est pas un quatrième rôle :
   c’est ce qu’affiche un écran généré avant que la distinction existe, plutôt
   que de deviner.
+- `Motion Ultra · N images` — l’écran a été construit par Motion Ultra, et la
+  carte montre la première image de sa série. S’il y en a plusieurs, des cadres
+  s’empilent derrière ; un clic ouvre la visionneuse sur toute la série
+  (flèches, ← →, vignettes).
 
 En dessous, le média **attaché** à l’écran, quand il y en a un — un montage
 exporté, ou une séquence de défilement. Attaché, et non *utilisé* : rien de tout
@@ -349,6 +353,7 @@ selon ce qui est sélectionné.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, direction artistique et vraie copie. L’activer change ce que coûte une génération — voir [Muse](fr/muse/overview.md). | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `✦ Animations auto` / `✦ Animations forcées` / `✦ Sans animation` | Trois états. `✦ Sans animation` immobilise aussi les écrans déjà posés sur le canevas, pour que le bouton et le plateau ne se contredisent pas. | libre |
 | | `Format` | Le gabarit du prochain écran. Affiché seulement en création, pas en édition. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4"/></svg> | `Motion Ultra` | Un réglage de **projet**. Éteint : une pastille discrète, et un clic active Motion Ultra pour le projet. Actif : la pastille le met en pause pour les prochaines générations de la session, `×3` / `×6` choisit le nombre d'images de chaque nouvel écran (`≈ +1 min` / `≈ +2–3 min` à côté), `Fond vidéo` donne à une section un film rendu par votre propre machine (`+1–3 min`, éteint par défaut), et `✕` le désactive pour le projet. Caché pendant une édition. Voir [Motion Ultra](fr/motion-ultra.md). | ×3 ou ×6 images, un appel de storyboard, et un rendu de film quand le fond vidéo est actif |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | Le brief | Plie et déplie le dossier Muse. Affiché seulement quand Muse est actif et que vous créez. `Afficher le détail du brief` / `Replier le brief`. | libre |
 
 Au-dessus se posent les rangées passagères : les vignettes d’annotation
@@ -659,7 +664,7 @@ ci-dessous est un clic, et la liste est complète.
 
 | Contrôle | Où | Remarque |
 |---|---|---|
-| `Générer` | Composeur | Avec `Muse` actif, le même clic lance aussi la passe d’inspiration et peut appeler le fournisseur d’images. |
+| `Générer` | Composeur | Avec `Muse` actif, le même clic lance aussi la passe d’inspiration et peut appeler le fournisseur d’images. Avec `Motion Ultra` actif, il lance aussi un appel de storyboard et génère ×3 ou ×6 images — et, avec `Fond vidéo`, compose un film (un appel au modèle de texte) et le rend sur le worker. |
 | `Mettre à jour ({count})` | Composeur | Un appel par écran sélectionné. |
 | Réparation | Automatique, après un affichage raté | Le seul appel au modèle non sollicité — et il n’arrive qu’après qu’une génération que vous avez demandée a produit du code qui ne tourne pas. Plafonné à deux tentatives. |
 | `Régénérer (nouvelle variante)` | Menu contextuel d’un écran | |

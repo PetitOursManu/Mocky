@@ -289,3 +289,11 @@ Rendu par le module Motion local : aucune vidéo facturée. Testé en réel sur 
 écrans : landing (film derrière le héros, `<h1>` intact) et espace membre (film
 dans le panneau « Mes billets », pas derrière la navigation). Le contrôle
 d'animation a signalé à juste titre 3 fonds animés sur l'espace membre.
+
+### 2026-09-26 — fusion dans `main`
+
+Derniers correctifs avant fusion : une photo plein cadre posée après le fond
+réservé recouvrait le film (elle passe désormais sous le film, au branchement) ;
+cadres empilés de la carte replacés en haut à droite. Documentation officielle
+mise à jour : `docs/motion-ultra.md`, `docs/interface.md`,
+`docs/architecture/overview.md`, invariants U1–U5, README, CHANGELOG (FR/EN).

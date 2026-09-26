@@ -303,6 +303,21 @@ produite, et seulement à ce moment-là. Un écran à qui l'on offrirait
 `<ScrollSequence>` sans rien à dessiner afficherait un rectangle noir haut de
 trois écrans.
 
+### Le kit Ultra
+
+`ultra` est la troisième capacité sans déclencheur, pour la raison de
+`scrollvideo` : elle ne vaut sa place dans le prompt que sur un écran qu’un
+storyboard Motion Ultra a prévu. Elle est ajoutée d’office à ce moment-là, puis
+enregistrée dans `Screen.caps`, si bien que chaque retouche, réparation, Polish
+ou correction d’audit de cet écran lit le même vocabulaire.
+
+C’est aussi le seul pack qui STYLE au lieu de seulement dessiner : une feuille de
+classes `u-*` injectée quand le prélude s’exécute, plus `<Backdrop>`. Un écran
+peut employer les classes sans nommer un seul composant, donc la capacité les
+déclare (`Capability.classes`) et `capabilitiesUsedBy` comme la réécriture des
+imports de l’export les cherchent. Voir [Motion Ultra](../motion-ultra.md) et les
+invariants U1–U5.
+
 ### La validation au chargement du module
 
 ```js
