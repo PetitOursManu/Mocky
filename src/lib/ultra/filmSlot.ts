@@ -13,9 +13,24 @@
  * puts the film in the wrong place. Here the place was planned, so the write is
  * one attribute at an offset the parser vouched for (I1) — no call, nothing
  * else in the file moves.
+ *
+ * With one exception, found on a real run: a cinematic hero kept its own
+ * full-bleed photograph AFTER the backdrop, so the photograph painted over the
+ * film and the film — rendered, plugged, playing — was never seen. A full-bleed
+ * `<img>` beside the film slot is therefore folded INTO the backdrop (its `src`
+ * becomes `image`, which the backdrop draws under the film) and removed from the
+ * section. Same picture, now underneath; still no model call.
  */
 
 export const FILM_SLOT = 'film'
+
+type Edit = { start: number; end: number; text: string }
+
+/** A className string that makes an element cover its whole positioned parent. */
+function coversParent(cls: string): boolean {
+  const tokens = cls.split(/\s+/)
+  return tokens.includes('absolute') && (tokens.includes('inset-0') || (tokens.includes('h-full') && tokens.includes('w-full')))
+}
 
 /**
  * The source with the film plugged in, or null when the page has no film slot
@@ -23,26 +38,50 @@ export const FILM_SLOT = 'film'
  */
 export async function plugFilmIntoSlot(source: string, videoUrl: string): Promise<string | null> {
   if (!source || !source.includes('Backdrop')) return null
-  let edit: { start: number; end: number; text: string } | null = null
+  const edits: Edit[] = []
   try {
     const Babel = await import('@babel/standalone')
     const transform = Babel.transform ?? (Babel as any).default?.transform
     if (typeof transform !== 'function') return null
     const value = JSON.stringify(videoUrl)
+    let done = false
+    const attr = (node: any, name: string) =>
+      (Array.isArray(node?.attributes) ? node.attributes : []).find((a: any) => a?.type === 'JSXAttribute' && a.name?.name === name)
     const plugin = () => ({
       visitor: {
-        JSXOpeningElement(path: any) {
-          if (edit) return
-          const node = path.node
-          if (node?.name?.type !== 'JSXIdentifier' || node.name.name !== 'Backdrop') return
-          const attrs: any[] = Array.isArray(node.attributes) ? node.attributes : []
-          const slot = attrs.find((a) => a?.type === 'JSXAttribute' && a.name?.name === 'slot')
+        JSXElement(path: any) {
+          if (done) return
+          const opening = path.node?.openingElement
+          if (opening?.name?.type !== 'JSXIdentifier' || opening.name.name !== 'Backdrop') return
+          const slot = attr(opening, 'slot')
           if (slot?.value?.type !== 'StringLiteral' || slot.value.value !== FILM_SLOT) return
-          const video = attrs.find((a) => a?.type === 'JSXAttribute' && a.name?.name === 'video')
+          done = true
+
+          // The film itself.
+          const video = attr(opening, 'video')
           if (video && typeof video.start === 'number' && typeof video.end === 'number') {
-            edit = { start: video.start, end: video.end, text: `video=${value}` }
-          } else if (typeof node.name.end === 'number') {
-            edit = { start: node.name.end, end: node.name.end, text: ` video=${value}` }
+            edits.push({ start: video.start, end: video.end, text: `video=${value}` })
+          } else if (typeof opening.name.end === 'number') {
+            edits.push({ start: opening.name.end, end: opening.name.end, text: ` video=${value}` })
+          }
+
+          // A full-bleed picture among the backdrop's siblings would paint over
+          // the film: fold it into the backdrop instead (see the header).
+          const siblings: any[] = Array.isArray(path.parent?.children) ? path.parent.children : []
+          for (const sib of siblings) {
+            if (sib === path.node || sib?.type !== 'JSXElement') continue
+            const o = sib.openingElement
+            if (o?.name?.type !== 'JSXIdentifier' || o.name.name !== 'img') continue
+            const cls = attr(o, 'className')
+            const src = attr(o, 'src')
+            if (cls?.value?.type !== 'StringLiteral' || !coversParent(cls.value.value)) continue
+            if (src?.value?.type !== 'StringLiteral') continue
+            if (typeof sib.start !== 'number' || typeof sib.end !== 'number') continue
+            if (!attr(opening, 'image') && typeof opening.name.end === 'number') {
+              edits.push({ start: opening.name.end, end: opening.name.end, text: ` image=${JSON.stringify(src.value.value)}` })
+            }
+            edits.push({ start: sib.start, end: sib.end, text: '' })
+            break
           }
         },
       },
@@ -56,9 +95,13 @@ export async function plugFilmIntoSlot(source: string, videoUrl: string): Promis
   } catch {
     return null
   }
-  if (!edit) return null
-  const e = edit as { start: number; end: number; text: string }
-  return source.slice(0, e.start) + e.text + source.slice(e.end)
+  if (!edits.length) return null
+  // Applied from the end, so every earlier offset still points where it did.
+  // Two inserts at the same offset keep their written order.
+  let out = source
+  const ordered = edits.map((e, i) => ({ ...e, i })).sort((a, b) => b.start - a.start || b.i - a.i)
+  for (const e of ordered) out = out.slice(0, e.start) + e.text + out.slice(e.end)
+  return out
 }
 
 /**

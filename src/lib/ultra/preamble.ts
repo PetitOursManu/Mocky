@@ -36,7 +36,7 @@ export function buildUltraPreamble(
     if (s.content) lines.push(`   Content: ${s.content}`)
     if (opts.filmSection && s.id === opts.filmSection) {
       lines.push(
-        '   VIDEO BACKGROUND: a film will be rendered for this section after the page. Make its FIRST child `<Backdrop slot="film" preset="…" colors={[…]} veil={0.25} />` — a living CSS ground now, the film plays in it once ready. Exactly one `slot="film"` on the whole page, only here. Do NOT write <video> or <MotionFilm>.',
+        '   VIDEO BACKGROUND: a film will be rendered for this section after the page. Make its FIRST child `<Backdrop slot="film" preset="…" colors={[…]} veil={0.25} />` — a living CSS ground now, the film plays in it once ready. Exactly one `slot="film"` on the whole page, only here. Do NOT write <video> or <MotionFilm>, and put NO other full-bleed picture in this section — a picture planned for it goes in `<Backdrop image="…">`, where the film plays over it; an <img> laid after the backdrop would cover the film.',
         '   The film must be SEEN: this section is picture-led, at least 280px tall, and nothing is laid on the film but a heading, one line and at most one action — no table, chart, list, form or card grid over it. Keep that text readable with a gradient veil on its side rather than darkening the whole film.' +
           (board.mode === 'operate'
             ? ' On this application screen it is the wide banner at the TOP of the main area, full width, above every data panel.'

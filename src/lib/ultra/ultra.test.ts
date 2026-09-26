@@ -302,3 +302,29 @@ describe('pictures a project already paid for', () => {
     expect(buildReuseSection([])).toBe('')
   })
 })
+
+describe('a film slot next to a full-bleed picture', () => {
+  /** A real run: the hero's photograph, written after the backdrop, covered the film. */
+  it('folds the picture into the backdrop so the film plays over it', async () => {
+    const { plugFilmIntoSlot } = await import('./filmSlot')
+    const hero = [
+      '<section id="hero" className="relative overflow-hidden">',
+      '  <Backdrop slot="film" preset="mesh" veil={0.4} />',
+      '  <img src="http://x/api/images/abc" alt="Mountains" className="u-kenburns absolute inset-0 h-full w-full object-cover" />',
+      '  <div className="relative z-10"><h1>Hi</h1></div>',
+      '</section>',
+    ].join('\n')
+    const out = (await plugFilmIntoSlot(`function App(){ return (${hero}) }`, 'http://x/api/video/v'))!
+    expect(out).toContain('<Backdrop video="http://x/api/video/v" image="http://x/api/images/abc" slot="film"')
+    expect(out).not.toContain('<img')
+    expect(out).toContain('<h1>Hi</h1>')
+  })
+
+  it('leaves a picture that is not full-bleed where it is', async () => {
+    const { plugFilmIntoSlot } = await import('./filmSlot')
+    const src = 'function App(){ return (<section><Backdrop slot="film" /><img src="http://x/a" className="w-40 rounded" /></section>) }'
+    const out = (await plugFilmIntoSlot(src, 'v'))!
+    expect(out).toContain('<img src="http://x/a"')
+    expect(out).not.toContain('image=')
+  })
+})

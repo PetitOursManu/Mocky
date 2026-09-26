@@ -1307,14 +1307,14 @@ export default function Canvas({
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   {s.imageHash && (
-                    <div className={s.ultra && s.ultra.images.length > 1 ? 'relative mb-5' : 'relative'}>
+                    <div className={s.ultra && s.ultra.images.length > 1 ? 'relative mt-3 mr-3' : 'relative'}>
                       {/* Frames stacked behind the card: a Motion Ultra screen was
                           made from a SERIES, and a single picture on the card hid
                           that there was anything more to open. */}
                       {s.ultra && s.ultra.images.length > 1 && (
                         <>
-                          <div aria-hidden className="absolute inset-0 rounded-xl border border-muse/50 bg-muse/15 shadow-lg" style={{ transform: 'translate(16px, 12px) rotate(4deg)' }} />
-                          <div aria-hidden className="absolute inset-0 rounded-xl border border-muse/60 bg-muse/10 shadow-lg" style={{ transform: 'translate(8px, 6px) rotate(2deg)' }} />
+                          <div aria-hidden className="absolute inset-0 rounded-xl border border-muse/50 bg-muse/15" style={{ transform: 'translate(12px, -12px)' }} />
+                          <div aria-hidden className="absolute inset-0 rounded-xl border border-muse/60 bg-muse/10" style={{ transform: 'translate(6px, -6px)' }} />
                         </>
                       )}
                     <button
