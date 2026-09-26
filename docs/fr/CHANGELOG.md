@@ -69,6 +69,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | plus de bouton d'animation ni de film automatique — pages, invariants et changelog à jour | `183c132` |
 | — | Motion Ultra dans l'interface, la vue d'ensemble et le changelog | `9bb2e5a` |
 | `ultra` | v2 — le fond vidéo, FR/EN, CLAUDE.md et suivi | `cf0301f` |
 | `ultra` | suivi mis à jour | `6090c84` |
