@@ -10,6 +10,10 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `ui` | les films s'appellent Motion Ultra partout | `7161595` |
+| `video` | accès aux vidéos par compte, et un vrai choix de source dans Muse | `807a979` |
+| `media` | vidéos libres de droits Pexels et Pixabay, configurables dans Admin | `52847f1` |
+| `muse` | une séquence vidéo pilotée par la souris, placée où le prompt le dit | `8dce2ee` |
 | — | animations de page toujours actives, plus de film automatique | `d910b88` |
 | `ultra` | série visible sur le canevas, images réutilisées, film vraiment visible | `55c8d51` |
 | `ultra` | v2 — fond vidéo, fabriqué en local et branché sans appel | `c0f31d4` |
@@ -45,6 +49,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `videos` | le découpage n'agrandit plus un clip plus étroit que le réglage | `e0939e1` |
 | `ultra` | une photo plein cadre ne recouvre plus le fond vidéo; cadres empilés sans débord | `a0046d9` |
 | `ultra` | le film d'un écran Motion Ultra reçoit les images de la série | `0525a06` |
 | `ultra` | le voile du héros cinématique couvre chaque ligne de texte; suivi mis à jour | `0fa77e9` |
@@ -83,6 +88,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `admin` | une page moitié moins haute, et la section Motion devient Motion Ultra | `170ccd8` |
 | — | retire les lecteurs du placement automatique de film | `60d2276` |
 | `motion` | journaliser une composition qui n'aboutit pas, avec sa duree et sa raison | `396ca74` |
 
