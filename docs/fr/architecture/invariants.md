@@ -693,6 +693,10 @@ mette pas à recevoir une typographie géante et une aurore.
 **Comment c'est fait.** Toute la passe est derrière `ultraActive` dans
 `ProjectView.tsx`, et la capacité `ultra` a des `triggers` vides.
 
+**Comment c'est vérifié.** `tests/ultra-off.test.js` attache chaque appel Motion
+Ultra du chemin de génération à la garde qui l'éteint, et vérifie qu'aucun
+prompt, même très « landing », ne sélectionne le kit.
+
 ### U2. Le modèle nomme un traitement ; il n'en décrit jamais un
 
 **La règle.** Un storyboard choisit des recettes dans un catalogue fermé

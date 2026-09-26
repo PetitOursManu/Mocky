@@ -651,6 +651,10 @@ getting display type and an aurora.
 **How it is done.** The whole pass sits behind `ultraActive` in
 `ProjectView.tsx`, and the `ultra` capability has empty `triggers`.
 
+**How it is checked.** `tests/ultra-off.test.js` pins every Motion Ultra call
+in the generation path to the guard that switches it off, and checks that no
+prompt, however "landing"-shaped, selects the kit.
+
 ### U2. The model names a treatment; it never describes one
 
 **The rule.** A storyboard picks recipes from a closed catalogue

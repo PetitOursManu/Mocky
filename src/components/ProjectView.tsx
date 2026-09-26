@@ -17,7 +17,7 @@ import { generateUltraImages } from '../lib/ultra/images'
 import { buildUltraPreamble } from '../lib/ultra/preamble'
 import UltraControl from './UltraControl'
 import { isEnvironmentError } from '../lib/previewErrors'
-import { missingUltraImages, ultraLoss } from '../lib/ultra/check'
+import { missingUltraImages, ultraLoss, ultraMotionCount, ULTRA_BUDGET } from '../lib/ultra/check'
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
@@ -1563,10 +1563,24 @@ export default function ProjectView({
         // Every picture of the series was paid for; one the page left out is
         // worth a sentence (see lib/ultra/check.ts).
         if (ultraRecord) {
+          const said: string[] = []
           const unused = missingUltraImages(result.code, ultraRecord)
           if (unused.length) {
-            setNotice(t('project.ultraUnusedImages', { count: unused.length, total: ultraRecord.images.length }))
+            said.push(t('project.ultraUnusedImages', { count: unused.length, total: ultraRecord.images.length }))
           }
+          // The budget the prompt states, checked on what came back.
+          const moving = ultraMotionCount(result.code)
+          if (moving.over) {
+            said.push(
+              t('project.ultraTooMuchMotion', {
+                backdrops: moving.backdrops,
+                loops: moving.loops,
+                maxBackdrops: ULTRA_BUDGET.backdrops,
+                maxLoops: ULTRA_BUDGET.loops,
+              }),
+            )
+          }
+          if (said.length) setNotice(said.join(' '))
         }
 
         /*

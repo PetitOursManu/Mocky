@@ -21,6 +21,37 @@ export function missingUltraImages(code: string, record: Pick<ScreenUltra, 'imag
   return (record.images || []).filter((hash) => !code.includes(hash))
 }
 
+/**
+ * How much of the page is moving at once, counted on the code.
+ *
+ * The kit makes motion cheap to write, and a page where every card floats and
+ * every heading shines is the "effect on every block" the storyboard prompt
+ * warns against — and a real cost: each `<Backdrop>` is blurred layers
+ * animating for as long as the page is open, several screens are live on the
+ * canvas at once, and the preview is the product. The rule in the prompt says
+ * two backdrops; this is where it is checked rather than hoped for.
+ *
+ * Counted as `className` tokens and `<Backdrop` tags, which is what the kit is
+ * written in. Reveals are not counted: they run once, as the section arrives.
+ */
+export const ULTRA_BUDGET = { backdrops: 2, loops: 6 }
+
+/** Classes that animate for as long as the page is open. */
+const LOOPING = ['u-float', 'u-spin-slow', 'u-kenburns', 'u-text-shine', 'u-sheen', 'u-border-beam']
+
+export interface UltraMotionCount {
+  backdrops: number
+  loops: number
+  over: boolean
+}
+
+export function ultraMotionCount(code: string): UltraMotionCount {
+  const backdrops = (code.match(/<Backdrop\b/g) || []).length
+  // Whole tokens only, so `u-sheen` is not counted inside some `menu-sheen`.
+  const loops = code.split(/[\s"'`{}]+/).filter((tok) => LOOPING.includes(tok)).length
+  return { backdrops, loops, over: backdrops > ULTRA_BUDGET.backdrops || loops > ULTRA_BUDGET.loops }
+}
+
 /** Whether the code still uses the Ultra kit at all — a class or <Backdrop>. */
 export function usesUltraKit(code: string): boolean {
   return capabilitiesUsedBy(code).includes('ultra')

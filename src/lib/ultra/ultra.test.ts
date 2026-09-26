@@ -216,3 +216,16 @@ describe('what a Motion Ultra screen must still hold', () => {
     expect(ultraLoss(without, without, record)).toBeNull()
   })
 })
+
+describe('how much of a Motion Ultra page moves at once', () => {
+  it('counts backdrops and looping classes, and nothing that merely resembles them', async () => {
+    const { ultraMotionCount, ULTRA_BUDGET } = await import('./check')
+    const calm = '<section><Backdrop preset="mesh" /><h1 className="u-display u-reveal">Hi</h1><img className="u-float" /></section>'
+    expect(ultraMotionCount(calm)).toEqual({ backdrops: 1, loops: 1, over: false })
+    expect(ultraMotionCount('<p className="menu-sheen u-sheenish">x</p>').loops).toBe(0)
+    const busy = Array.from({ length: ULTRA_BUDGET.loops + 1 }, () => '<div className="u-float">x</div>').join('')
+    expect(ultraMotionCount(busy).over).toBe(true)
+    const backdrops = Array.from({ length: ULTRA_BUDGET.backdrops + 1 }, () => '<Backdrop preset="aurora" />').join('')
+    expect(ultraMotionCount(backdrops).over).toBe(true)
+  })
+})

@@ -82,6 +82,14 @@ export default function UltraControl({
           ))}
         </span>
       )}
+      {/* The cost in plain sight, not only in a title: a tooltip is invisible on
+          a touch screen and easy to miss everywhere else, and ×6 is six pictures
+          on somebody's bill. */}
+      {!paused && (
+        <span className="text-caption tabular-nums text-ink-faint">
+          {t('project.ultraCost', { minutes: ultra.count === 3 ? '1' : '2–3' })}
+        </span>
+      )}
       <button
         type="button"
         onClick={() => onSetUltra(null)}

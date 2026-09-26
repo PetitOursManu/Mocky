@@ -77,8 +77,8 @@ la qualité baisse à chaque retouche :
 - [x] Toutes les images rattachées au projet et à l'écran (bibliothèque)
 - [x] Échec ou fournisseur absent → dégradé de remplacement, la page sort quand
       même, avec un avis visible
-- [~] Estimation temps + coût affichée **avant** de lancer — dans l'infobulle des
-      boutons ×3 / ×6 ; pas encore de chiffre visible sans survol
+- [x] Estimation temps + coût affichée **avant** de lancer — « ≈ +1 min » à côté
+      des boutons ×3 / ×6, le détail du coût dans leur infobulle
 - [x] Régénérer **une seule** image de la série sans refaire la page
       (médias de l'écran → « Autre version »)
 
@@ -92,15 +92,15 @@ la qualité baisse à chaque retouche :
       ressource externe, pas d'`@import`) et nettoyé
 - [x] Respect de « mouvement réduit », du mode « Sans animation » et des captures
       figées (même exigence que la 3D)
-- [~] Budget de performance — règle dans le prompt (2 `<Backdrop>` max) ;
-      aucun contrôle après génération
+- [x] Budget de performance — règle dans le prompt, et contrôle après génération
+      (2 `<Backdrop>`, 6 animations en boucle au plus ; au-delà, un message)
 
 ## Étape 4 — Assemblage et contrôles (~2 j)
 
 - [x] Prompt « Ultra » : reçoit recettes + images, génère l'écran
 - [x] Contrôle : chaque image prévue est utilisée (signalé, pas corrigé)
 - [ ] Contrôle : texte posé sur image lisible (réutiliser l'audit de contraste)
-- [ ] Contrôle : budget CSS/animation respecté
+- [x] Contrôle : budget CSS/animation respecté
 - [ ] Une passe de correction si un contrôle échoue (sur le modèle de Polish)
 
 ## Étape 5 — Rester modifiable sans perte (~1–2 j)
@@ -123,8 +123,8 @@ la qualité baisse à chaque retouche :
 
 ## Étape 7 — Finition v1 (~1–2 j)
 
-- [~] Garantie : Motion Ultra éteint = génération identique à aujourd'hui —
-      assurée par le code, pas encore par un test
+- [x] Garantie : Motion Ultra éteint = génération identique à aujourd'hui
+      (`tests/ultra-off.test.js`)
 - [~] Tests — catalogue, storyboard, kit CSS, export : faits ; contrôles et
       politique qualité : à écrire avec leurs étapes
 - [x] Nouvelle série d'invariants « U » dans `docs/architecture/invariants.md` + FR
@@ -250,3 +250,19 @@ vidéo (v2), test du chemin « film demandé » en réel.
 Reste pour la v1 : chiffre de coût visible sans survol ; contrôle du budget
 d'animation après génération ; test automatisé de « éteint = inchangé ».
 Puis la v2 (fonds vidéo).
+
+### 2026-09-26 — fin de la v1
+
+- Coût visible sans survol (« ≈ +1 min » / « ≈ +2–3 min »).
+- Contrôle du budget d'animation après génération (`ultraMotionCount`).
+- Test U1 : `tests/ultra-off.test.js`.
+
+**V1 terminée.** Points laissés ouverts volontairement :
+- contrôle de lisibilité du texte sur image *après* génération (l'audit de
+  contraste existe, mais il ne mesure pas un pixel d'image) — aujourd'hui géré
+  par les consignes des recettes ;
+- « une passe de correction si un contrôle échoue » : décidé non — les contrôles
+  signalent, l'utilisateur décide (U4) ;
+- lecture page par page du corpus motionsites.ai.
+
+Suite : v2, fonds vidéo.
