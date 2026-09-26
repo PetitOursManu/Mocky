@@ -282,8 +282,12 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
         />
       )}
 
-      {/* Instance-wide model providers */}
-      <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 xl:grid-cols-2">
+      {/* Instance-wide model providers.
+          Stacked full width, each section laying its own cards out ACROSS the
+          page. They used to be two columns of their own: text ended after two
+          cards while images, videos and their access ran on for six, which left
+          some 2,500 px of empty column beside them at 1440 px. */}
+      <div className="mt-8 space-y-10 border-t border-line pt-8">
         <TextProviderSettings />
         <ImageProviderSettings />
       </div>

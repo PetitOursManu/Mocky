@@ -590,7 +590,7 @@ uses. Nothing in a film is unreadable, including the icons and the 3D.
 
 **How much 3D an instance allows is an administrator's decision**, because
 without a graphics card a headless browser draws every WebGL frame on the CPU.
-Admin → Motion has three render levels and a **server test** that renders three
+Admin → Motion Ultra has three render levels and a **server test** that renders three
 reference films and reports, per level, how long a typical film takes, how many
 an hour the queue gets through, and how many people can launch one at the same
 moment and all have it within three minutes.
@@ -615,7 +615,7 @@ licence question becomes yours — the threshold counts **your organisation's
 employees, not this instance's accounts**, and Mocky deliberately does not
 pretend to know which case you are in.
 
-Then turn it on in **Admin → Video export**: a master switch, an access list
+Then turn it on in **Admin → Motion Ultra**: a master switch, an access list
 (an administrator is *not* allowed implicitly), the worker URL
 (`http://video-worker:3030` is the shipped default and the normal answer), and an
 optional licence key — which is stored server-side, never returned to the

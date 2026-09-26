@@ -277,6 +277,11 @@ export default function VideoExportSettings() {
         />
       </label>
 
+      {/* The two scopes on one side, the machine on the other: three blocks
+          the full width of the page each, when none of them needs more than
+          half of it. */}
+      <div className="grid items-start gap-x-6 xl:grid-cols-2">
+      <div>
       {/* Who may export */}
       <AccountScope
         modes={cfg.accessModes}
@@ -323,6 +328,7 @@ export default function VideoExportSettings() {
         // that the setting did nothing.
         footnote="video.threeDNarrowsNote"
       />
+      </div>
 
       {/* How much this MACHINE can carry: a tier the admin sets, and a test that
           measures instead of letting them guess. After the 3D scope because it
@@ -340,6 +346,7 @@ export default function VideoExportSettings() {
         onRun={runBenchmark}
         workerAvailable={health?.available === true}
       />
+      </div>
 
 
       {/* The licence reminder. Non-blocking by construction: it says what the

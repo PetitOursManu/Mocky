@@ -32,11 +32,11 @@
  */
 export const video = {
   fr: {
-    'video.sectionTitle': 'Motion',
+    'video.sectionTitle': 'Motion Ultra',
     'video.blurb':
       'Rend une suite d’images en .mp4 via un worker Remotion, service Docker séparé et facultatif (profil « video-export »). Désactivé par défaut : une instance qui n’a pas construit ce service ne gagne rien à l’activer.',
 
-    'video.enable': 'Activer Motion',
+    'video.enable': 'Activer Motion Ultra',
     'video.enableHelp':
       'Interrupteur maître. Fermé, personne n’exporte, quelle que soit la portée réglée ci-dessous.',
 
@@ -480,11 +480,11 @@ export const video = {
       'Le serveur ne garde qu’un historique borné, et il l’oublie au redémarrage. Relancez le montage.',
   } as Record<string, string>,
   en: {
-    'video.sectionTitle': 'Motion',
+    'video.sectionTitle': 'Motion Ultra',
     'video.blurb':
       'Renders a sequence of images to .mp4 through a Remotion worker — a separate, optional Docker service (the “video-export” profile). Off by default: an instance that has not built that service gains nothing by turning this on.',
 
-    'video.enable': 'Enable Motion',
+    'video.enable': 'Enable Motion Ultra',
     'video.enableHelp': 'Master switch. Off, nobody exports, whatever the scope below is set to.',
 
     'video.accessTitle': 'Scope',

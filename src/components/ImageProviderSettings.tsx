@@ -899,7 +899,9 @@ export default function ImageProviderSettings() {
         {t('settings.imagesBlurb2')}
       </p>
 
-      <div className="space-y-4">
+      {/* Three columns from xl: the three profiles are siblings, read side by
+          side, and a card is taller than it is wide only when it is stacked. */}
+      <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <ProfileForm
           profile="inspiration"
           title={t('settings.imgProfileInspiration')}
@@ -943,9 +945,22 @@ export default function ImageProviderSettings() {
           cfg={cfg}
           onConfig={setCfg}
         />
+      </div>
+
+      {/* Videos get a heading of their own: generated clips, free ones and who
+          may use which are one subject, and they were three more cards at the
+          foot of a column of image profiles. Generation on one side, the free
+          libraries and the access lists on the other — about the same height. */}
+      <header className="rule-thin mb-4 mt-10 border-accent/40 pb-2">
+        <span className="kicker text-accent-ink">{t('settings.instance')}</span>
+        <h3 className="mt-1 text-h3 text-ink">{t('settings.videosSectionTitle')}</h3>
+      </header>
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <VideoForm cfg={cfg} onConfig={setCfg} />
-        <StockForm cfg={cfg} onConfig={setCfg} />
-        <VideoAccessForm cfg={cfg} onConfig={setCfg} />
+        <div className="space-y-4">
+          <StockForm cfg={cfg} onConfig={setCfg} />
+          <VideoAccessForm cfg={cfg} onConfig={setCfg} />
+        </div>
       </div>
     </section>
   )

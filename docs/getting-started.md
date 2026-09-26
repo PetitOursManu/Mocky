@@ -381,7 +381,7 @@ the moment the licence question becomes yours: read
 <https://www.remotion.dev/> first, and note that the threshold counts **your
 organisation's employees, not this instance's accounts**.
 
-**2. Turn it on in Admin → Motion.**
+**2. Turn it on in Admin → Motion Ultra.**
 
 | Setting | Detail |
 |---|---|

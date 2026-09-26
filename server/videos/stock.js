@@ -169,7 +169,7 @@ export function createStock({ keys, fetchImpl = fetch, guard = assertSafeTargetR
       throw err
     }
     if (!keyOf(provider)) {
-      const err = new Error(`${STOCK_LABELS[provider]} is not configured on this instance (Admin → Images → Free stock videos).`)
+      const err = new Error(`${STOCK_LABELS[provider]} is not configured on this instance (Admin → Videos (Muse) → Free stock videos).`)
       err.statusCode = 409
       err.code = 'no-key'
       throw err

@@ -576,7 +576,7 @@ n'est illisible, icônes et 3D comprises.
 
 **Combien de 3D une instance autorise est une décision d'administrateur**, parce
 que sans carte graphique un navigateur sans écran dessine chaque image WebGL sur
-le processeur. Administration → Motion propose trois niveaux de rendu et un
+le processeur. Administration → Motion Ultra propose trois niveaux de rendu et un
 **test du serveur** qui rend trois films de référence et donne, par niveau, la
 durée d'un film typique, le nombre de films par heure et combien de personnes
 peuvent en lancer un au même moment et tous l'avoir en moins de trois minutes.
@@ -602,7 +602,7 @@ moment où la question de licence devient la vôtre — le seuil compte **les
 salariés de votre organisation, pas les comptes de cette instance**, et Mocky ne
 prétend délibérément pas savoir dans quel cas vous êtes.
 
-Il reste à l'activer dans **Administration → Motion** : un interrupteur
+Il reste à l'activer dans **Administration → Motion Ultra** : un interrupteur
 maître, une liste d'accès (un administrateur n'est *pas* autorisé d'office),
 l'URL du worker (`http://video-worker:3030` est la valeur livrée et la réponse
 normale), et une clé de licence facultative — stockée côté serveur, jamais

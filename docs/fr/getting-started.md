@@ -397,7 +397,7 @@ est le moment où la question de licence devient la vôtre : lisez d'abord
 <https://www.remotion.dev/>, et notez que le seuil compte **les salariés de votre
 organisation, pas les comptes de cette instance**.
 
-**2. L’activer dans Administration → Motion.**
+**2. L’activer dans Administration → Motion Ultra.**
 
 | Réglage | Détail |
 |---|---|

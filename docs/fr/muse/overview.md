@@ -313,8 +313,8 @@ mouvement réduit, « Sans animation » et une capture le figent sur son image d
 repos.
 
 Le clip lui-même peut venir d'une **bibliothèque de vidéos libres de droits**.
-Avec une clé API Pexels ou Pixabay enregistrée dans Admin (Images → Vidéos libres
-de droits ; les deux clés sont gratuites), l'onglet Vidéos de Média gagne une
+Avec une clé API Pexels ou Pixabay enregistrée dans Admin (Vidéos (Muse) → Vidéos
+libres de droits ; les deux clés sont gratuites), l'onglet Vidéos de Média gagne une
 recherche. Importer un résultat, c'est un import que le serveur télécharge : le
 navigateur envoie la bibliothèque et un identifiant, le serveur relit l'adresse
 du fichier dans l'API de la bibliothèque elle-même, choisit le mp4 le plus large
@@ -329,7 +329,7 @@ Dans le panneau Muse, le clip est un **choix**, pas une case et un lien :
 vers la voie gratuite, et une personne qui ne pensait pas à cliquer dessus ne
 savait jamais qu'elle existait. *Gratuite* ouvre Média sur l'onglet Vidéos, là où
 se trouve la recherche. Les options qu'un compte voit sont la décision de
-l'administrateur (Admin → Images → Accès aux vidéos) : une liste pour les clips
+l'administrateur (Admin → Vidéos (Muse) → Accès aux vidéos) : une liste pour les clips
 générés, qui coûtent à chaque usage, une pour les gratuits, chacune « tout le
 monde » ou des comptes nommés, avec le contrôle de Motion. Un compte qui n'a ni
 l'un ni l'autre ne voit aucune option vidéo, et le serveur le refuse sur

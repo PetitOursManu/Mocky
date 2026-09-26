@@ -191,6 +191,7 @@ export const settings = {
     'settings.framesWidthHint': 'De 320 à 1920 px sur le bord long.',
     'settings.framesMax': 'Images au maximum',
     'settings.framesMaxHint': 'De 10 à 600. C’est ce qui borne la durée, voir ci-dessous.',
+    'settings.videosSectionTitle': 'Vidéos (Muse)',
     'settings.videoAccessTitle': 'Accès aux vidéos',
     'settings.videoAccessBlurb':
       'Qui peut utiliser une vidéo dans un écran, et laquelle. Une vidéo générée coûte à chaque clip ; une vidéo libre de droits est gratuite. Un compte qui n’a ni l’une ni l’autre ne voit aucune option vidéo.',
@@ -501,6 +502,7 @@ export const settings = {
     'settings.framesWidthHint': '320 to 1920 px on the long edge.',
     'settings.framesMax': 'Most frames',
     'settings.framesMaxHint': '10 to 600. This is what bounds the duration — see below.',
+    'settings.videosSectionTitle': 'Videos (Muse)',
     'settings.videoAccessTitle': 'Video access',
     'settings.videoAccessBlurb':
       'Who may use a video in a screen, and which kind. A generated video costs per clip; a free stock video costs nothing. An account with neither sees no video option at all.',
