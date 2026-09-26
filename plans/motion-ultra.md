@@ -47,8 +47,8 @@ la qualité baisse à chaque retouche :
 
 ## Étape 0 — Corpus et catalogue de recettes (~½ j)
 
-- [~] Analyser ~10 pages de motionsites.ai (landing, app, portfolio, e-commerce)
-      — fait sur la page d'accueil et le genre ; une lecture page par page reste à faire
+- [x] Analyser ~10 pages de motionsites.ai — une trentaine d'exemples de la
+      galerie parcourus (26/09) ; idées d'effets seulement, aucun texte repris
 - [x] En tirer un catalogue **fermé** de ~12 recettes nommées (fond aurora, objet
       héros détouré, texte géant masqué, cartes en verre, bandeau défilant,
       parallaxe, pile collante au scroll, grain, halo, grille en perspective…)
@@ -269,3 +269,15 @@ Puis la v2 (fonds vidéo).
 - lecture page par page du corpus motionsites.ai.
 
 Suite : v2, fonds vidéo.
+
+### 2026-09-26 — lisibilité réelle et corpus motionsites
+
+- **Contrôle de lisibilité** du texte posé sur une image : mesuré sur le rendu
+  réel, encre retirée (`src/lib/legibility.ts`, mode « probe » de la capture).
+  Validé sur les 6 écrans Aurel : les fonds unis ne sont plus signalés, les vrais
+  cas (petit texte blanc sur pastille translucide sur photo claire) le sont.
+- **Corpus motionsites.ai** : ajoutés au kit l'horizon de planète (`<Backdrop
+  preset="horizon">`), le mot en italique à empattements (`u-serif-accent`), le
+  mot géant rogné (`u-bleed`) et l'éventail en perspective (`u-fan`) ; deux
+  recettes (`cropped-wordmark`, `fanned-showcase`) ; chiffres aux coins de
+  l'objet dans `object-hero`.

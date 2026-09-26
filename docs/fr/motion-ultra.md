@@ -37,7 +37,7 @@ prompt → storyboard → série d'images → page → contrôles
 ```
 
 1. **Storyboard.** Un appel au modèle décide du type d'écran, de ses sections, de
-   la recette de chacune (un catalogue fermé de seize, dans
+   la recette de chacune (un catalogue fermé de dix-huit, dans
    `src/lib/ultra/recipes.ts`), des images à générer avec leur rôle — fond, objet
    isolé, scène, texture — et d'**une phrase de style commune à toutes**, pour
    qu'elles forment une série.
@@ -47,7 +47,7 @@ prompt → storyboard → série d'images → page → contrôles
 3. **Page.** Le prompt de génération reçoit le storyboard et les images, et la
    page est écrite avec le **kit Ultra** : les classes `u-*` (verre, typographie
    d'affichage, texte en dégradé, apparitions, parallaxe, grain…) et
-   `<Backdrop>`, cinq fonds vivants dessinés en CSS.
+   `<Backdrop>`, six fonds vivants dessinés en CSS.
 4. **Contrôles.** Signalés, jamais réparés en silence : une image de la série
    absente de la page ; une page qui anime trop à la fois ; et **un texte posé sur
    une image qui s'y lit mal** — mesuré sur les pixels rendus, encre retirée,

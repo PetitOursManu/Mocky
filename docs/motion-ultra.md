@@ -35,7 +35,7 @@ prompt → storyboard → series of pictures → page → checks
 ```
 
 1. **Storyboard.** One model call decides the screen's type, its sections, the
-   recipe each one uses (a closed catalogue of sixteen, in
+   recipe each one uses (a closed catalogue of eighteen, in
    `src/lib/ultra/recipes.ts`), the pictures to generate with their role — a
    backdrop, an isolated object, a scene, a texture — and **one style sentence
    they all share**, so they read as one shoot.
@@ -44,7 +44,7 @@ prompt → storyboard → series of pictures → page → checks
    background; the page is still produced and a notice says what happened.
 3. **Page.** The generation prompt receives the storyboard and the pictures, and
    the page is written with the **Ultra kit**: `u-*` classes (glass, display
-   type, gradient text, reveals, parallax, grain…) and `<Backdrop>`, five living
+   type, gradient text, reveals, parallax, grain…) and `<Backdrop>`, six living
    backgrounds drawn in CSS.
 4. **Checks.** Reported, never silently repaired: a picture of the series the
    page left out; a page that moves too much at once; and **text laid over a

@@ -39,6 +39,8 @@ export const ULTRA_RECIPE_IDS = [
   'sticky-stack',
   'parallax-band',
   'marquee-strip',
+  'cropped-wordmark',
+  'fanned-showcase',
   'spotlight-feature',
   'glow-metrics',
   'cinematic-cta',
@@ -67,7 +69,7 @@ export const ULTRA_RECIPES: Record<UltraRecipeId, UltraRecipe> = {
     images: ['backdrop'],
     card: [
       'A full-viewport opening on a living colour field, with display type far past body scale.',
-      'A `relative min-h-[90vh]` section, `<Backdrop preset="aurora">` (or "mesh"/"beams") as its first child, the copy in a `relative z-10` wrapper: a `u-eyebrow`, a `u-display` headline with ONE word in `u-text-gradient`, a short `u-reveal` subline, two actions of which the primary carries `u-sheen`. A backdrop image, when one is listed for it, goes in `<Backdrop image="…">`.',
+      'A `relative min-h-[90vh]` section, `<Backdrop preset="aurora">` (or "mesh"/"beams", or "horizon" for a planet’s lit edge under stars) as its first child, the copy in a `relative z-10` wrapper: a `u-eyebrow`, a `u-display` headline with ONE word in `u-text-gradient` or `u-serif-accent`, a short `u-reveal` subline, two actions of which the primary carries `u-sheen`. A backdrop image, when one is listed for it, goes in `<Backdrop image="…">`.',
       'It fails when the brightest part of the field sits behind the headline — raise `veil` rather than shrinking the type — and when every word is gradient, which reads as a template.',
     ],
   },
@@ -77,7 +79,7 @@ export const ULTRA_RECIPES: Record<UltraRecipeId, UltraRecipe> = {
     images: ['subject', 'backdrop'],
     card: [
       'A split opening: the words on one side, ONE isolated object on the other, floating in its own light.',
-      'Two columns; the subject image in a `relative` box with a soft halo behind it (`absolute inset-0 rounded-full blur-3xl` in the accent at low opacity), the `<img>` itself `u-float u-cutout` and `object-contain` — `u-cutout` is NOT optional, it is what dissolves the background the picture was generated on, two or three small `u-glass` chips (a figure, a label) overlapping its edges. The text column is `u-display-sm` + `u-reveal`.',
+      'Two columns; the subject image in a `relative` box with a soft halo behind it (`absolute inset-0 rounded-full blur-3xl` in the accent at low opacity), the `<img>` itself `u-float u-cutout` and `object-contain` — `u-cutout` is NOT optional, it is what dissolves the background the picture was generated on, two to four small `u-glass` chips (a real figure, a label) placed at the object’s corners, as if measuring it. The text column is `u-display-sm` + `u-reveal`.',
       'It fails when the picture keeps a visible rectangle of its own background — which is what an `<img>` without `u-cutout` does — and when the chips cover the object instead of framing it.',
     ],
   },
@@ -97,7 +99,7 @@ export const ULTRA_RECIPES: Record<UltraRecipeId, UltraRecipe> = {
     images: [],
     card: [
       'One statement set so large it becomes the section — a manifesto line between two denser blocks.',
-      'A generous section holding a single `u-display` line, mixing a solid run with a `u-text-outline` run and at most one `u-text-gradient` word, each line `u-reveal` so the sentence assembles as it scrolls in. Nothing else in the section but a one-line caption.',
+      'A generous section holding a single `u-display` line, mixing a solid run with a `u-text-outline` run and at most one `u-text-gradient` or `u-serif-accent` word, each line `u-reveal` so the sentence assembles as it scrolls in. Nothing else in the section but a one-line caption.',
       'It fails as a paragraph: past about eight words display type stops being read and starts being looked at.',
     ],
   },
@@ -151,6 +153,26 @@ export const ULTRA_RECIPES: Record<UltraRecipeId, UltraRecipe> = {
       'It fails as content: nothing a visitor needs to READ may live in a moving strip.',
     ],
   },
+  'cropped-wordmark': {
+    id: 'cropped-wordmark',
+    modes: ['persuade', 'experience'],
+    images: ['scene', 'subject'],
+    card: [
+      'One word set so large that the bottom of the section crops it — the brand or the promise as architecture.',
+      'An `overflow-hidden` section whose LAST child is the word in `u-bleed`; a scene or subject picture may stand in front of it (`relative z-10`) so the word runs behind; the rest of the copy is small and sits above.',
+      'It fails with more than one word, and when the crop cuts so high that the word can no longer be read.',
+    ],
+  },
+  'fanned-showcase': {
+    id: 'fanned-showcase',
+    modes: ['experience', 'persuade'],
+    images: ['subject', 'scene', 'texture'],
+    card: [
+      'A row of covers, products or cards fanned in perspective — the collection shown as an object.',
+      'A `u-fan` container with `style={{ "--n": count }}` whose children are tall rounded cards with `style={{ "--i": index }}`, each a picture or a solid cover with a short title; a heading above, one line of caption below.',
+      'It fails with fewer than four items or more than nine, and when the cards carry text somebody must read.',
+    ],
+  },
   'spotlight-feature': {
     id: 'spotlight-feature',
     modes: ['persuade', 'operate', 'experience'],
@@ -177,7 +199,7 @@ export const ULTRA_RECIPES: Record<UltraRecipeId, UltraRecipe> = {
     images: ['backdrop'],
     card: [
       'The closing call to action as a scene of its own rather than a banner.',
-      'A `relative` section with `<Backdrop preset="beams">` (or the listed backdrop image), a `u-display-sm` line, one primary action with `u-border-beam` and `u-sheen`, a quiet secondary link.',
+      'A `relative` section with `<Backdrop preset="beams">` (or "horizon", or the listed backdrop image), a `u-display-sm` line, one primary action with `u-border-beam` and `u-sheen`, a quiet secondary link.',
       'It fails when it repeats the hero word for word, and when it offers more than one primary action.',
     ],
   },

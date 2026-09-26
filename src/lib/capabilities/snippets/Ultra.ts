@@ -41,6 +41,8 @@ export const ULTRA_CLASSES: Record<string, string> = {
   'u-text-gradient': 'gradient-filled text across --u-a → --u-b → --u-c (use on ONE word, not a sentence)',
   'u-text-shine': 'a light sweeping across the text, looping',
   'u-text-outline': 'outlined, hollow letters in the current colour',
+  'u-serif-accent': 'ONE word of a sans headline set in italic serif — a voice change inside the sentence',
+  'u-bleed': 'one word so large the section cuts it at the bottom — put it LAST in an overflow-hidden section',
   'u-glass': 'frosted dark-ground surface: translucent fill, blur, hairline border',
   'u-glass-light': 'the same surface for a pale ground',
   'u-glow': 'a soft halo in --u-a around a box',
@@ -58,10 +60,11 @@ export const ULTRA_CLASSES: Record<string, string> = {
   'u-fade-bottom': 'the element fades to transparent at its bottom edge',
   'u-fade-x': 'fades both horizontal edges — for a marquee',
   'u-stack': 'direct children become sticky cards piling up on scroll; give each style={{"--i": index}}',
+  'u-fan': 'a row of cards fanned in perspective; set style={{"--n": count}} on it and style={{"--i": index}} on each child',
 }
 
 /** The presets `<Backdrop>` draws. Anything else falls back to the first. */
-export const BACKDROP_PRESETS = ['aurora', 'mesh', 'spotlight', 'beams', 'grid'] as const
+export const BACKDROP_PRESETS = ['aurora', 'mesh', 'spotlight', 'beams', 'grid', 'horizon'] as const
 
 /* A static film grain. No `#` in a data URI inside CSS: it would end the URL. */
 const GRAIN =
@@ -81,6 +84,8 @@ export const ULTRA_CSS = [
   '.u-text-gradient{background:linear-gradient(100deg,var(--u-a),var(--u-b) 50%,var(--u-c));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}',
   '.u-text-shine{background:linear-gradient(110deg,currentColor 38%,rgba(255,255,255,.95) 50%,currentColor 62%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:u-shine 5s linear infinite}',
   '.u-text-outline{-webkit-text-fill-color:transparent;-webkit-text-stroke:1.5px currentColor}',
+  '.u-serif-accent{font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif;font-style:italic;font-weight:400;letter-spacing:-.01em}',
+  '.u-bleed{display:block;font-size:clamp(6rem,22vw,22rem);line-height:.78;letter-spacing:-.06em;font-weight:800;white-space:nowrap;margin-bottom:-.14em}',
 
   // Surfaces
   '.u-glass{background:rgba(255,255,255,.07);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 24px 60px -24px rgba(0,0,0,.5)}',
@@ -116,6 +121,9 @@ export const ULTRA_CSS = [
   '.u-fade-bottom{-webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent);mask-image:linear-gradient(to bottom,#000 60%,transparent)}',
   '.u-fade-x{-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}',
   '.u-stack>*{position:sticky;top:calc(5rem + var(--i,0) * 1.25rem)}',
+  '.u-fan{display:flex;justify-content:center;perspective:1400px}',
+  '.u-fan>*{flex:0 0 auto;margin-inline:-1.25rem;transform:rotateY(calc((var(--i,0) - (var(--n,5) - 1) / 2) * -10deg)) translateY(calc(max(var(--i,0) - (var(--n,5) - 1) / 2, (var(--n,5) - 1) / 2 - var(--i,0)) * 10px));transition:transform .6s cubic-bezier(.2,.7,.1,1);box-shadow:0 30px 60px -30px rgba(0,0,0,.5)}',
+  '.u-fan>*:hover{transform:rotateY(0) translateY(-16px);z-index:2}',
 
   // <Backdrop>
   '.u-backdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}',
@@ -135,6 +143,12 @@ export const ULTRA_CSS = [
   '.u-backdrop-grid::before{content:"";position:absolute;left:50%;bottom:-25%;width:70%;height:60%;transform:translateX(-50%);background:radial-gradient(closest-side,var(--u-a),transparent);opacity:.45;filter:blur(40px)}',
   '.u-backdrop-veil{position:absolute;inset:0;background:#000}',
   '.u-tone-light .u-backdrop-veil{background:#fff}',
+  // A planet's edge: a lit arc at the foot of the section under a field of
+  // stars. The disc is a circle much wider than the section, so only its rim
+  // shows; the stars are two tiled dot patterns, which cost no animation.
+  '.u-backdrop-horizon .u-backdrop-layer{inset:auto;left:-35%;right:-35%;top:64%;height:auto;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 50% 0%,var(--u-b),transparent 42%);box-shadow:0 0 0 1px var(--u-a),0 -24px 90px 0 var(--u-a),inset 0 36px 90px -36px var(--u-a);animation:u-breathe 9s ease-in-out infinite}',
+  '.u-backdrop-horizon::before{content:"";position:absolute;inset:0;background-image:radial-gradient(1.2px 1.2px at 12px 18px,rgba(255,255,255,.85),transparent 2px),radial-gradient(1px 1px at 60px 70px,rgba(255,255,255,.6),transparent 2px);background-size:97px 89px,131px 113px;opacity:.55}',
+  '.u-tone-light.u-backdrop-horizon::before{opacity:0}',
   `.u-grain-layer{position:absolute;inset:0;background-image:${GRAIN};opacity:.09;mix-blend-mode:overlay}`,
 
   // Keyframes
@@ -152,6 +166,7 @@ export const ULTRA_CSS = [
   '@keyframes u-mesh{to{transform:rotate(8deg) scale(1.1)}}',
   '@keyframes u-beams{from{transform:translateX(-50%) rotate(0)}to{transform:translateX(-50%) rotate(360deg)}}',
   '@keyframes u-grid{to{background-position:0 56px}}',
+  '@keyframes u-breathe{0%,100%{opacity:.8}50%{opacity:1}}',
 
   // Held still: reduced motion, "Sans animation", and the capture shell. Loops
   // stop; every entrance rests at its FINAL state, never its first.
