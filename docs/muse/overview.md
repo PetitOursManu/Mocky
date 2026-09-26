@@ -288,6 +288,16 @@ dossier stops calling such a clip the hero for the same reason. A clip Muse
 generates is always a scroll sequence: it was shot for a hero. Reduced motion,
 "Sans animation" and a capture hold it on its resting frame.
 
+The clip itself can come from a **free stock library**. With a Pexels or Pixabay
+API key saved in Admin (Images → Free stock videos; both keys are free), Media's
+Videos tab gains a search box. Importing a result is an upload the server
+downloads: the browser sends the library and an id, the server reads the file's
+address back from the library's own API, picks the widest mp4 the cutter will
+keep (1920 px), and cuts it with the same settings as any clip. The author and
+the source page are stored with it and shown on its card, which both licences
+ask for. Searches are cached for 24 hours — Pixabay's terms, and both free
+quotas, want it.
+
 ---
 
 ## Anti-slop

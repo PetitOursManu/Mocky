@@ -92,6 +92,14 @@ export function defaultVideoProfile() {
     /** True once someone has actually SET the frame settings, not merely saved
      *  the form around them. Guards dropLegacyFrames — see its note. */
     framesChosen: false,
+    /**
+     * Free stock-footage libraries, searched from Media and imported as
+     * ordinary clips. A key is the whole configuration: a library with one is
+     * on, a library without one is absent from the interface. Lives here, with
+     * the rest of the video settings, because what it produces goes through the
+     * same cutter as a generated or uploaded clip.
+     */
+    stock: { pexels: { apiKey: '' }, pixabay: { apiKey: '' } },
   }
 }
 
@@ -239,6 +247,10 @@ function mergeVideo(current, patch) {
     // sent { provider, fal } and nothing else, which is precisely why the
     // defaults of the day got frozen into every saved config.
     framesChosen: Boolean(base.framesChosen) || (p.frames && typeof p.frames === 'object'),
+    stock: {
+      pexels: { apiKey: secret(p.stock?.pexels?.apiKey, base.stock?.pexels?.apiKey || '') },
+      pixabay: { apiKey: secret(p.stock?.pixabay?.apiKey, base.stock?.pixabay?.apiKey || '') },
+    },
     frames: {
       fps: clamp(f.fps, 4, 30, bf.fps),
       width: clamp(f.width, 320, 1920, bf.width),
@@ -297,6 +309,10 @@ export function publicImagesConfig(cfg) {
       provider: v.provider || '',
       fal: { model: v.fal?.model || '', hasApiKey: Boolean(v.fal?.apiKey), timeoutSec: v.fal?.timeoutSec ?? 600 },
       frames: { ...defaultVideoProfile().frames, ...(v.frames || {}) },
+      stock: {
+        pexels: { hasApiKey: Boolean(v.stock?.pexels?.apiKey) },
+        pixabay: { hasApiKey: Boolean(v.stock?.pixabay?.apiKey) },
+      },
     },
   }
 }

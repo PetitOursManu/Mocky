@@ -307,6 +307,14 @@ Only **Mocky-generated** images and **text** distillations persist.
 This is an ethical rule as much as a technical one. Muse learns from sites it
 does not copy.
 
+Free stock footage (Pexels, Pixabay, searched from Media) is not an exception to
+this rule but a different contract. Those clips are published **for reuse**,
+under a licence that says so, and none is fetched on a guess: a person searches,
+looks and imports one clip. That is an upload whose download step the server
+did, stored like one, with the author's credit kept beside it. The browser sends
+an id, never a URL, and every address the server downloads passes the SSRF
+guard, redirects included.
+
 ### M3. Every failure degrades; a Muse run can never fail a generation
 
 The pattern is the same everywhere, and it is the one `plan.ts` already

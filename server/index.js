@@ -1116,6 +1116,19 @@ app.post('/api/admin/images/test', requireAdmin, async (req, res) => {
   res.json(await images.testProvider(id, profile))
 })
 
+// Proves a stock-footage key works with one real search. Nothing is stored —
+// and the answer is the count, so the admin sees the key is not merely
+// accepted but actually returning footage.
+app.post('/api/admin/videos/stock-test', requireAdmin, async (req, res) => {
+  const provider = String(req.body?.provider || '')
+  try {
+    const out = await videos.stock.search(provider, 'nature')
+    res.json({ ok: true, count: out.results.length })
+  } catch (err) {
+    res.json({ ok: false, error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
 // ---- vision capability of the active text model ----
 // Muse's "image as inspiration" mode only works if the model accepts images.
 // Uses the instance provider when configured, else the credentials the browser

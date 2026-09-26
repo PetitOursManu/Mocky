@@ -326,6 +326,14 @@ Seules persistent les images **produites par Mocky** et les distillations
 C'est autant une règle éthique qu'une règle technique. Muse apprend de sites
 qu'il ne recopie pas.
 
+Les vidéos libres de droits (Pexels, Pixabay, cherchées depuis Média) ne sont pas
+une exception à cette règle mais un autre contrat. Ces clips sont publiés **pour
+être réutilisés**, sous une licence qui le dit, et aucun n'est récupéré au hasard :
+une personne cherche, regarde et importe un clip. C'est un import dont le serveur
+a fait le téléchargement, conservé comme tel, avec le crédit de l'auteur à côté.
+Le navigateur envoie un identifiant, jamais une URL, et chaque adresse que le
+serveur télécharge passe la protection SSRF, redirections comprises.
+
 ### M3. Tout échec dégrade ; un passage de Muse ne peut jamais faire échouer une génération
 
 Le motif est le même partout, et c'est celui que `plan.ts` avait déjà établi :

@@ -191,6 +191,16 @@ export const settings = {
     'settings.framesWidthHint': 'De 320 à 1920 px sur le bord long.',
     'settings.framesMax': 'Images au maximum',
     'settings.framesMaxHint': 'De 10 à 600. C’est ce qui borne la durée, voir ci-dessous.',
+    'settings.stockTitle': 'Vidéos libres de droits',
+    'settings.stockBlurb':
+      'Pexels et Pixabay offrent des vidéos gratuites, utilisables librement. Collez la clé API gratuite de l’une ou des deux : la recherche apparaît alors dans Média, onglet Vidéos. Sans clé, rien ne s’affiche.',
+    'settings.stockKey': 'Clé API {name}',
+    'settings.stockKeyWhere': 'Gratuite : il suffit d’un compte.',
+    'settings.stockGetKey': 'Obtenir une clé gratuite',
+    'settings.stockTest': 'Tester',
+    'settings.stockTesting': 'Test…',
+    'settings.stockTestOk': 'La clé fonctionne ({count} vidéos trouvées pour « nature »).',
+    'settings.stockRemove': 'Retirer la clé',
     'settings.framesBudget':
       '{frames} images à {fps} par seconde = {seconds} s de clip au maximum. Au-delà, la fin est coupée.',
     'settings.videoRecheck': 'Revérifier',
@@ -478,6 +488,16 @@ export const settings = {
     'settings.framesWidthHint': '320 to 1920 px on the long edge.',
     'settings.framesMax': 'Most frames',
     'settings.framesMaxHint': '10 to 600. This is what bounds the duration — see below.',
+    'settings.stockTitle': 'Free stock videos',
+    'settings.stockBlurb':
+      'Pexels and Pixabay offer free videos anyone may reuse. Paste the free API key of one or both: search then appears in Media, Videos tab. Without a key, nothing is shown.',
+    'settings.stockKey': '{name} API key',
+    'settings.stockKeyWhere': 'Free: an account is all it takes.',
+    'settings.stockGetKey': 'Get a free key',
+    'settings.stockTest': 'Test',
+    'settings.stockTesting': 'Testing…',
+    'settings.stockTestOk': 'The key works ({count} videos found for “nature”).',
+    'settings.stockRemove': 'Remove key',
     'settings.framesBudget':
       '{frames} frames at {fps} per second = {seconds} s of clip at most. Past that, the end is cut off.',
     'settings.videoRecheck': 'Re-check',

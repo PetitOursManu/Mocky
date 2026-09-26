@@ -116,6 +116,8 @@ export interface ImagesVideoConfig {
   provider: string
   fal: { model: string; hasApiKey: boolean; timeoutSec: number }
   frames: { fps: number; width: number; max: number }
+  /** Free stock-footage libraries. A stored key is what turns one on. */
+  stock: { pexels: { hasApiKey: boolean }; pixabay: { hasApiKey: boolean } }
 }
 
 export interface ImagesConfig {
@@ -143,6 +145,7 @@ export interface ImagesVideoPatch {
   provider?: string
   fal?: { model?: string; apiKey?: string | null; timeoutSec?: number }
   frames?: { fps?: number; width?: number; max?: number }
+  stock?: { pexels?: { apiKey?: string | null }; pixabay?: { apiKey?: string | null } }
 }
 export interface ImagesConfigPatch {
   content?: ImagesProfilePatch

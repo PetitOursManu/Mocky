@@ -20,6 +20,7 @@ import {
   videoPosterUrl,
   recutVideo,
   ACCEPTED_VIDEO_TYPES,
+  STOCK_LABELS,
   type LibraryVideo,
   type PinnedVideo,
 } from '../lib/videoLibrary'
@@ -35,6 +36,7 @@ import { mediaTimeLabel } from '../lib/mediaTime'
 import VideoPlayer from './VideoPlayer'
 import FilmLightbox from './FilmLightbox'
 import { Banner, Button, Icon, IconButton, Spinner } from '../ui'
+import StockVideoSearch from './StockVideoSearch'
 import { useLang, useT, type TranslationKey } from '../i18n'
 
 /**
@@ -820,12 +822,33 @@ export default function Bibliotheque({
               </div>
               <div className="mt-0.5 flex flex-wrap items-center gap-1">
                 <span className="rounded border border-line-soft px-1 text-caption text-ink-faint">
-                  {v.provider || 'upload'}
+                  {v.credit ? STOCK_LABELS[v.credit.source] : v.provider || 'upload'}
                 </span>
                 <span className="rounded bg-ink/5 px-1 text-caption text-ink-muted">
                   {v.width}px · {v.fps} fps
                 </span>
               </div>
+              {/* The credit both libraries ask for, kept with the clip. */}
+              {v.credit && (
+                <div className="mt-0.5 truncate text-caption text-ink-faint">
+                  {v.credit.author &&
+                    (v.credit.authorUrl ? (
+                      <a href={v.credit.authorUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                        {v.credit.author}
+                      </a>
+                    ) : (
+                      v.credit.author
+                    ))}
+                  {v.credit.author && ' · '}
+                  {v.credit.pageUrl ? (
+                    <a href={v.credit.pageUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                      {STOCK_LABELS[v.credit.source]}
+                    </a>
+                  ) : (
+                    STOCK_LABELS[v.credit.source]
+                  )}
+                </div>
+              )}
               <MadeAt at={v.createdAt} lang={lang} t={t} />
             </div>
             {/* Damped rather than hidden, like the image plate above: hover is
@@ -961,6 +984,9 @@ export default function Bibliotheque({
   ) : null
 
   const activeGrid = tab === 'images' ? grid : tab === 'videos' ? videoGrid : filmGrid
+  // Above the clips, on their tab only: what it imports lands in that grid.
+  const stockSearch =
+    tab === 'videos' ? <StockVideoSearch projectId={projectId} onImported={() => void refreshVideos()} /> : null
 
   const zipLink = (
     <a href={libraryZipUrl(filters)} className="btn-ghost px-3 py-1 text-body-sm" title={t('library.zipHint')}>
@@ -1011,6 +1037,7 @@ export default function Bibliotheque({
           </Banner>
         )}
         {selectionNote && <div className="mb-4">{selectionNote}</div>}
+        {stockSearch}
         {activeGrid}
         {lightbox}
       {player}
@@ -1068,6 +1095,7 @@ export default function Bibliotheque({
             </Banner>
           )}
           {selectionNote && <div className="mb-3">{selectionNote}</div>}
+          {stockSearch}
           {activeGrid}
         </div>
 

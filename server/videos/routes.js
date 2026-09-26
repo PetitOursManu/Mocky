@@ -26,7 +26,7 @@ const MAX_VIDEO_BYTES = 200 * 1024 * 1024
  */
 export const PUBLIC_VIDEO_PATH = /^\/[a-f0-9]{64}\/(poster\.jpg|f\/[0-9]{1,4}\.jpg)$/
 
-export function createVideosRouter({ library, generate, availability, recheck, frameSettings, budget }) {
+export function createVideosRouter({ library, generate, availability, recheck, frameSettings, budget, stock }) {
   const router = express.Router()
 
   // Immutable, content-addressed: cache for a year. Also readable from any
@@ -57,6 +57,69 @@ export function createVideosRouter({ library, generate, availability, recheck, f
   router.get('/library', (req, res) => {
     const project = typeof req.query.project === 'string' ? req.query.project : undefined
     res.json({ videos: library.list({ project }).map(withoutOwners) })
+  })
+
+  /**
+   * Free stock footage (see stock.js). Three routes: which libraries are on,
+   * one page of results, and importing the clip a person chose.
+   *
+   * The import is cut exactly like an upload — same ffmpeg check, same quota
+   * refused BEFORE writing, same frame settings — because that is what it is:
+   * an upload whose download step the server did.
+   */
+  router.get('/stock/status', async (_req, res) => {
+    const state = await availability()
+    res.json({ providers: stock ? stock.status() : { pexels: false, pixabay: false }, ffmpeg: state.ffmpeg.available })
+  })
+
+  // Query: ?provider=pexels|pixabay&q=&page=
+  router.get('/stock/search', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock footage is not available.' })
+    try {
+      res.json(await stock.search(String(req.query.provider || ''), String(req.query.q || ''), { page: req.query.page }))
+    } catch (err) {
+      res.status(err?.statusCode || 502).json({ error: err instanceof Error ? err.message : String(err), code: err?.code })
+    }
+  })
+
+  // Body: { provider, id, project? }
+  router.post('/stock/import', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock footage is not available.' })
+    const state = await availability()
+    if (!state.ffmpeg.available) {
+      return res
+        .status(503)
+        .json({ code: 'no-ffmpeg', error: "ffmpeg n'est pas disponible dans ce conteneur — le clip ne peut pas être découpé." })
+    }
+    const body = req.body || {}
+    try {
+      // The byte limit is the upload's, less what the quota can still take:
+      // a clip is kept whole AND cut, three times its size on disk.
+      const usage = budget?.usage()
+      const room = usage?.maxBytes ? Math.floor((usage.maxBytes - usage.bytes) / 3) : Infinity
+      const maxBytes = Math.min(MAX_VIDEO_BYTES, room)
+      if (maxBytes <= 0) return res.status(507).json({ error: quotaError(usage) })
+      const { buffer, spec } = await stock.fetchClip(String(body.provider || ''), body.id, { maxBytes })
+      if (budget?.wouldExceed(buffer.length * 3)) {
+        return res.status(507).json({ error: quotaError(budget.usage()) })
+      }
+      const out = await library.ingest(
+        buffer,
+        { ...spec, project: String(body.project || ''), slot: 'hero', owner: req.user?.id },
+        frameSettings ? frameSettings() : {},
+      )
+      res.json({
+        hash: out.hash,
+        frames: out.meta.frames,
+        width: out.meta.width,
+        fps: out.meta.fps,
+        fromCache: Boolean(out.fromCache),
+        base: `/api/videos/${out.hash}`,
+        poster: `/api/videos/${out.hash}/poster.jpg`,
+      })
+    } catch (err) {
+      res.status(err?.statusCode || 502).json({ error: err instanceof Error ? err.message : String(err), code: err?.code })
+    }
   })
 
   // Body: { prompt, negative?, project?, slot?, seed? }

@@ -8,6 +8,7 @@ import {
   type ImagesTestResult,
 } from '../lib/api'
 import { checkVideoAvailability, type MuseVideoAvailability } from '../lib/muse'
+import { STOCK_LABELS, STOCK_PROVIDERS, type StockProvider } from '../lib/videoLibrary'
 import { Button, Field, Icon, Input, Select } from '../ui'
 import { useT } from '../i18n'
 
@@ -616,6 +617,139 @@ function VideoForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesC
 }
 
 /**
+ * Free stock footage: one API key per library, and nothing else to choose.
+ *
+ * A key is the whole switch — with one, the library appears in Media's search;
+ * without, it is absent. Saved from its own button because it has nothing to do
+ * with the paid provider above: an instance with no fal account at all is
+ * exactly the one this is for. The test runs one real search, so "the key
+ * works" means footage came back, not merely that nobody refused it.
+ */
+function StockForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
+  const t = useT()
+  const stock = cfg.video.stock ?? { pexels: { hasApiKey: false }, pixabay: { hasApiKey: false } }
+  const [keys, setKeys] = useState<Record<StockProvider, string>>({ pexels: '', pixabay: '' })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [tests, setTests] = useState<Partial<Record<StockProvider, { ok: boolean; text: string } | 'running'>>>({})
+
+  async function persist(patch: Partial<Record<StockProvider, string | null>>) {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const fresh = await api.admin.setImagesConfig({
+        video: {
+          stock: {
+            pexels: { apiKey: patch.pexels === undefined ? undefined : patch.pexels },
+            pixabay: { apiKey: patch.pixabay === undefined ? undefined : patch.pixabay },
+          },
+        },
+      })
+      onConfig(fresh)
+      setKeys({ pexels: '', pixabay: '' })
+      setTests({})
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function runTest(p: StockProvider) {
+    setTests((prev) => ({ ...prev, [p]: 'running' }))
+    try {
+      const res = await fetch('/api/admin/videos/stock-test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: p }),
+      })
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; count?: number; error?: string }
+      setTests((prev) => ({
+        ...prev,
+        [p]: j.ok
+          ? { ok: true, text: t('settings.stockTestOk', { count: j.count ?? 0 }) }
+          : { ok: false, text: j.error || `HTTP ${res.status}` },
+      }))
+    } catch (e) {
+      setTests((prev) => ({ ...prev, [p]: { ok: false, text: e instanceof Error ? e.message : String(e) } }))
+    }
+  }
+
+  return (
+    <div className="border border-line-soft p-4">
+      <h4 className="text-h4 text-ink">{t('settings.stockTitle')}</h4>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.stockBlurb')}</p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {STOCK_PROVIDERS.map((p) => {
+          const has = stock[p].hasApiKey
+          const test = tests[p]
+          return (
+            <div key={p}>
+              <Field
+                label={t('settings.stockKey', { name: STOCK_LABELS[p] })}
+                hint={has ? t('settings.keyStored') : t('settings.stockKeyWhere')}
+              >
+                {(fp) => (
+                  <Input
+                    {...fp}
+                    type="password"
+                    value={keys[p]}
+                    onChange={(e) => setKeys((prev) => ({ ...prev, [p]: e.target.value }))}
+                    placeholder={has ? '••••••••' : ''}
+                    autoComplete="off"
+                  />
+                )}
+              </Field>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-caption">
+                <a href={STOCK_KEY_PAGE[p]} target="_blank" rel="noopener noreferrer" className="text-ink-faint underline underline-offset-2">
+                  {t('settings.stockGetKey')}
+                </a>
+                {has && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => void runTest(p)} disabled={test === 'running'}>
+                      {test === 'running' ? t('settings.stockTesting') : t('settings.stockTest')}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => void persist({ [p]: null })} disabled={saving}>
+                      {t('settings.stockRemove')}
+                    </Button>
+                  </>
+                )}
+                {test && test !== 'running' && (
+                  <span className={test.ok ? 'text-ok' : 'text-danger'}>{test.text}</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => void persist({ pexels: keys.pexels || undefined, pixabay: keys.pixabay || undefined })}
+          disabled={saving || (!keys.pexels.trim() && !keys.pixabay.trim())}
+        >
+          {saving ? t('settings.saving') : t('common.save')}
+        </Button>
+        {saved && <span className="text-body-sm text-ok">{t('settings.saved')}</span>}
+        {error && <span className="text-body-sm text-danger">{error}</span>}
+      </div>
+    </div>
+  )
+}
+
+/** Where each library hands out its free key. */
+const STOCK_KEY_PAGE: Record<StockProvider, string> = {
+  pexels: 'https://www.pexels.com/api/',
+  pixabay: 'https://pixabay.com/api/docs/',
+}
+
+/**
  * Admin settings for Muse's image generation. Three profiles, because the three
  * jobs need different models: the art-direction reference must render a
  * convincing site/app layout (slower, stronger model), hero/product pictures
@@ -704,6 +838,7 @@ export default function ImageProviderSettings() {
           onConfig={setCfg}
         />
         <VideoForm cfg={cfg} onConfig={setCfg} />
+        <StockForm cfg={cfg} onConfig={setCfg} />
       </div>
     </section>
   )

@@ -250,3 +250,27 @@ describe('ImagesConfigStore', () => {
     expect(s.get().content.provider).toBe('none') // still applied in memory
   })
 })
+
+describe('stock footage keys', () => {
+  it('are stored, kept when omitted, cleared by null — and never sent back', () => {
+    let cfg = mergeImagesConfig(defaultImagesConfig(), { video: { stock: { pexels: { apiKey: 'px-secret' } } } })
+    expect(cfg.video.stock.pexels.apiKey).toBe('px-secret')
+    expect(cfg.video.stock.pixabay.apiKey).toBe('')
+
+    // Saving the video form without retyping the key keeps it.
+    cfg = mergeImagesConfig(cfg, { video: { provider: 'fal' } })
+    expect(cfg.video.stock.pexels.apiKey).toBe('px-secret')
+
+    const view = publicImagesConfig(cfg)
+    expect(view.video.stock).toEqual({ pexels: { hasApiKey: true }, pixabay: { hasApiKey: false } })
+    expect(JSON.stringify(view)).not.toContain('px-secret')
+
+    cfg = mergeImagesConfig(cfg, { video: { stock: { pexels: { apiKey: null } } } })
+    expect(cfg.video.stock.pexels.apiKey).toBe('')
+  })
+
+  it('exist on a config file written before they did', () => {
+    const cfg = mergeImagesConfig(defaultImagesConfig(), { video: { provider: '', fal: {} } })
+    expect(cfg.video.stock).toEqual({ pexels: { apiKey: '' }, pixabay: { apiKey: '' } })
+  })
+})

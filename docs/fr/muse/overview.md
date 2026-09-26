@@ -312,6 +312,18 @@ une séquence au défilement : il a été tourné pour une ouverture de page. Le
 mouvement réduit, « Sans animation » et une capture le figent sur son image de
 repos.
 
+Le clip lui-même peut venir d'une **bibliothèque de vidéos libres de droits**.
+Avec une clé API Pexels ou Pixabay enregistrée dans Admin (Images → Vidéos libres
+de droits ; les deux clés sont gratuites), l'onglet Vidéos de Média gagne une
+recherche. Importer un résultat, c'est un import que le serveur télécharge : le
+navigateur envoie la bibliothèque et un identifiant, le serveur relit l'adresse
+du fichier dans l'API de la bibliothèque elle-même, choisit le mp4 le plus large
+que le découpage gardera (1920 px) et le découpe avec les mêmes réglages que
+n'importe quel clip. L'auteur et la page d'origine sont conservés avec lui et
+affichés sur sa carte, comme les deux licences le demandent. Les recherches sont
+gardées en cache 24 heures — les conditions de Pixabay, et les deux quotas
+gratuits, le demandent.
+
 ---
 
 ## L'anti-slop
