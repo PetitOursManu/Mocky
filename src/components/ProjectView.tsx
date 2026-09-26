@@ -86,34 +86,19 @@ import {
   BRIEF_MAX_LENGTH,
   type MotionKindOffer,
 } from '../lib/video/client'
-import { filmTextRuns, toRenderInputFrom } from '../lib/video/draft'
-import { filmCovers, filmSectionIn, findScreenSections } from '../lib/screenSections'
+import { toRenderInputFrom } from '../lib/video/draft'
 import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
-import type { RenderTimeline, VideoTimeline } from '../lib/video/timeline'
 import { themeFromDesign } from '../lib/video/theme'
 import { pageScenesIn, readPage3D } from '../lib/video/pageScenes'
 import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
-import { decideFilm, dossierMotionRequest } from '../lib/video/filmDecision'
 import { matchImagesToScreens } from '../lib/imageBackfill'
-import {
-  applyAnimationMode,
-  loadAnimationMode,
-  nextAnimationMode,
-  saveAnimationMode,
-  type AnimationMode,
-} from '../lib/animations'
+import { withAnimations } from '../lib/animations'
 import { lintSlop } from '../lib/lint'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
 /** Translation keys per animation state — resolved at render, like every label. */
-const ANIM_LABELS: Record<AnimationMode, { label: string; hint: string }> = {
-  auto: { label: 'project.animAuto', hint: 'project.animHintAuto' },
-  on: { label: 'project.animOn', hint: 'project.animHintOn' },
-  off: { label: 'project.animOff', hint: 'project.animHintOff' },
-}
-
 /** Fixed viewport formats offered in the screen context menu. */
 type ViewportFormat = 'mobile' | 'tablet' | 'desktop' | 'full'
 const VIEWPORTS: Record<Exclude<ViewportFormat, 'full'>, { w: number; h: number; device: 'iphone' | 'none' }> = {
@@ -258,30 +243,22 @@ export default function ProjectView({
   /** null until probed: does the active model accept images? */
   const [museVision, setMuseVision] = useState<boolean | null>(null)
   /** auto (Mocky decides) · on (force) · off (hold still). See lib/animations. */
-  const [animationMode, setAnimationMode] = useState<AnimationMode>(() => loadAnimationMode())
   /**
-   * One screen's own answer, cycled: follow the composer → forced on → off.
+   * One screen's own answer about motion: animated (the default) or held still.
    *
-   * Three states rather than a checkbox, so an override can be handed BACK.
-   * With two, a screen switched off would stay off for good — the composer's
-   * setting could never reach it again.
+   * Two states now. There used to be a third, "follow the composer's switch",
+   * and the switch is gone — page animations are always on — so "follow" and
+   * "on" became the same thing. Holding one screen still is what is left, and
+   * it is what a demo or a screen recording needs.
    */
   const cycleScreenAnimations = useCallback(
     (screenId: string) => {
       const screen = screensRef.current.find((s) => s.id === screenId)
       if (!screen) return
-      const next = screen.animations === undefined ? true : screen.animations ? false : undefined
-      onUpdateScreen(screenId, { animations: next })
+      onUpdateScreen(screenId, { animations: screen.animations === false ? undefined : false })
     },
     [onUpdateScreen],
   )
-  const cycleAnimations = useCallback(() => {
-    setAnimationMode((cur) => {
-      const next = nextAnimationMode(cur)
-      saveAnimationMode(next)
-      return next
-    })
-  }, [])
   const [showLibrary, setShowLibrary] = useState(false)
   /**
    * Which media tab the library opens on next time.
@@ -1253,15 +1230,8 @@ export default function ProjectView({
               useFetch: museConfig.useFetch,
               projectName: project.name,
               userMedia,
-              /*
-               * Whether this screen gets a Motion film is decided in the same
-               * call — prudently in "auto", unconditionally when the composer's
-               * animation switch is on "forcées", not at all when it is off. Asked
-               * only when a film could actually be made: an account without
-               * Motion, or a worker that does not answer, gets the dossier it
-               * always got and no question about films at all.
-               */
-              motion: dossierMotionRequest(animationMode, motionKindIds),
+              // No question about films: none is made on its own any more (see
+              // the note where the screen's 3D is read, after generation).
               signal: ac.signal,
             })
             setMuseResult(res)
@@ -1466,8 +1436,6 @@ export default function ProjectView({
          */
         let ultraRecord: ScreenUltra | undefined
         let ultraImageHash: string | undefined
-        /** The section Motion Ultra opened the page with — a film must not take it. */
-        let ultraOpening: string | undefined
         /** The one section whose background becomes a rendered film (v2), if any. */
         let ultraFilmSection: string | null = null
         /** Video background asked for, and a film can be rendered right now. */
@@ -1507,7 +1475,6 @@ export default function ProjectView({
               planned: project.ultra.count,
             }
             ultraImageHash = made[0]?.hash
-            ultraOpening = board.sections[0]?.id
           } catch (err) {
             if (err instanceof Error && err.name === 'AbortError') throw err
             if (ac.signal.aborted) throw err
@@ -1555,10 +1522,10 @@ export default function ProjectView({
             }
           }
         }
-        // The user's standing answer about motion, applied once, after both the
-        // shortlist and the planner have had their say. 'auto' — the default —
-        // changes nothing.
-        capIds = applyAnimationMode(capIds, animationMode)
+        // Page animations are always offered: the vocabulary costs nothing and
+        // a screen that does not need motion simply does not use it. Holding a
+        // screen still is its own setting, in its menu.
+        capIds = withAnimations(capIds)
 
         // A sequence exists → the component that plays it must be in scope,
         // whatever the shortlist or the planner decided. 'scrollvideo' has no
@@ -1674,161 +1641,17 @@ export default function ProjectView({
         }
 
         /*
-         * The Motion film, when the animation switch and the request call for one.
+         * No film is made on its own any more. The composer's animation switch
+         * used to decide one — "forced" rendered a film for EVERY screen, a
+         * text call and minutes of the worker each time — and it is gone: page
+         * animations are always on and free, and a film is made only when asked
+         * for, by Motion Ultra's video background below or the Motion panel.
          *
-         * ── Why it runs HERE, after the screen exists ───────────────────────
-         *
-         * A film is a model call and a render, and the render is minutes. Run
-         * before generation it would hold the screen — the thing the person
-         * actually asked for — behind a wait for something they may not even
-         * have asked for by name. Run here, the screen is already on the canvas
-         * and finished, and the film arrives in it when it arrives; the badge on
-         * the screen says which kind is coming and that the page must stay open.
-         *
-         * ── And it degrades, always (Q1) ────────────────────────────────────
-         *
-         * Every failure here leaves exactly the screen the user would have had
-         * with no film. It is REPORTED, unlike an image failure, because this
-         * one cost a model call and minutes of a render.
-         */
-        // Decided by the composer's ANIMATION switch and the request — never by a
-        // Motion checkbox. The rules, and why, are in `decideFilm`.
-        /*
-         * What the page just drew, read once: the scenes the composer is told
-         * about, and whether the page already animates its own background.
-         *
-         * The second one changes the DECISION and not just the composition. A
-         * brief asking for "un fond animé en 3D" is answered by the page
-         * itself, and a film composed as a background for it is the second one
-         * on that screen — so the film becomes another kind in another place,
-         * or there is no film.
+         * What the page drew in 3D is still read: the video background is told
+         * about it, so it does not draw a second world on the same screen.
          */
         const page3d = await readPage3D(result.code)
-        // A Motion Ultra video background IS this screen's film; a Muse film on
-        // top would be a second render for the same page, paid in minutes.
-        const museFilm = ultraFilmSection ? null : decideFilm({
-          mode: animationMode,
-          kinds: motionKindIds,
-          dossier: museRan ? museDossier?.film : undefined,
-          pageAnimatesBackground: page3d.animatedBackdrop,
-          openingTaken: ultraOpening,
-        })
-        if (museFilm) {
-          const kindName = t(`muse.motionKind.${museFilm.kind}` as TranslationKey)
-          try {
-            motionStage(screenId, t('project.motionStageComposeKind', { kind: kindName }))
-            const theme = themeFromDesign(dir.markdown)
-            const proposal = await proposeVideoTimeline(
-              text,
-              // The pictures this run made, and nothing else. The composer
-              // never picks a picture (the founding rule), so this list is the
-              // whole world it is shown — and a kind that needs none composes
-              // from the twenty-one blocks that need none.
-              //
-              // Motion Ultra's series counts: with it on, Muse generates none
-              // of its own, so a film moved off the opening to a `showcase`
-              // was refused for want of a single picture while three sat in
-              // the library, made for this very screen.
-              [
-                ...museImgs.map((im) => im.url.split('/').pop() || ''),
-                ...(ultraRecord?.images ?? []),
-              ].filter((h, i, all) => /^[a-f0-9]{64}$/.test(h) && all.indexOf(h) === i),
-              {
-                settings,
-                theme,
-                motionKind: museFilm.kind,
-                // The film is ONE element of this page: where it goes, and why. With
-                // it the page's prompt is read as the page's, not as a script for the
-                // film, and the kind's word budget bounds what the film says.
-                placement: { section: museFilm.section || museFilm.kind, why: museFilm.why },
-                /*
-                 * What the page just drew in 3D, so the film does not draw a
-                 * second one. A screen with a tunnel of points behind its
-                 * content got a film whose ground was the continuous 3D world:
-                 * two three-dimensional things on one screen, neither aware of
-                 * the other. Names only — the colours are already in `theme`.
-                 */
-                scenery: page3d.scenes,
-                // The dossier in its own words. Not the theme, which travels
-                // separately and never reaches the model: this is what makes a
-                // film RESEMBLE the direction rather than merely carry its
-                // colours. See lib/video/directionBrief.ts.
-                direction: directionBriefFrom(dir.markdown),
-                signal: ac.signal,
-              },
-            )
-            if (!proposal.timeline) {
-              // A proposal that could not be made is not a request that failed —
-              // the server says why in its own sentence, and it is the only
-              // thing here worth repeating verbatim.
-              reportMotionFailure(t('project.motionFailed', { detail: motionNotices(proposal.notices) }))
-            } else {
-              motionStage(screenId, t('project.motionStageRenderKind', { kind: kindName }))
-              /*
-               * The theme is STRIPPED before this goes back out, and forgetting
-               * that is what made this whole path silently produce nothing.
-               *
-               * `/compose` answers with the render document — the timeline the
-               * server already attached a theme to. `startVideoRender` validates
-               * its input against `VideoTimelineSchema`, which is `.strict()`
-               * and has no `theme` key, precisely so a model that writes one is
-               * refused. So handing the proposal straight back threw
-               * "refused before it was sent", the catch below turned it into a
-               * Motion failure notice, and no render was ever requested: a film
-               * composed, paid for, and dropped one line later.
-               *
-               * `toRenderInputFrom` is the panel's own helper, which has always
-               * done this. Using it rather than a local `delete` is the point —
-               * two paths that build the same request must build it the same
-               * way, or only one of them keeps working.
-               */
-              const renderable = toRenderInputFrom(
-                proposal.timeline,
-                proposal.timeline.outputFormat,
-                proposal.timeline.aspectRatio,
-              )
-              const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: ac.signal })
-              /*
-               * Polled until it lands, and bounded by the queue's own deadline
-               * rather than by a number invented here.
-               *
-               * `pollDeadlinePassed` is the panel's rule and it needs a budget
-               * this call does not have, so the bound is the job itself: the
-               * queue kills a render that overruns and reports it as failed, and
-               * this loop simply stops when the job stops being queued.
-               */
-              const finished = await awaitVideoJob(job.id, ac.signal)
-              if (finished.status === 'done' && finished.videoHash) {
-                // Attached to the SCREEN first, and unconditionally: this is
-                // what makes the film findable on the canvas and in Media, and
-                // it is the part that cannot fail. The edit pass below can.
-                onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
-                await placeFilmInScreen(
-                  screenId,
-                  finished.videoHash,
-                  museFilm.kind,
-                  ac.signal,
-                  // The proposal, not the job: it is the document that carries
-                  // the words, and it is right here.
-                  proposal.timeline,
-                  // Where the dossier said it belongs, when it said so.
-                  museFilm.section,
-                )
-              } else {
-                reportMotionFailure(t('project.motionFailed', { detail: finished.error || '' }))
-              }
-            }
-          } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') throw err
-            reportMotionFailure(
-              t('project.motionFailed', { detail: err instanceof Error ? err.message : String(err) }),
-            )
-          } finally {
-            // Both, always: a badge left on a frame for a job that ended is a
-            // screen that looks stuck for as long as the tab stays open.
-            motionStageDone()
-          }
-        }
+
 
         /*
          * Motion Ultra's video background (v2).
@@ -1964,7 +1787,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, animationMode, museVision, videoAvail, motionAvail, redesign, ultraActive])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2424,365 +2247,6 @@ export default function ProjectView({
     }
   }
 
-  /**
-   * Put a rendered film INTO the screen, once it exists.
-   *
-   * ── Why an edit pass and not the generation itself ────────────────────────
-   *
-   * Because the film is not ready when the screen is generated, and making the
-   * screen wait for it was the trade this flow already refused: a film is a
-   * model call plus minutes of render, and holding the thing the person asked
-   * for behind the thing they ticked as an extra is the wrong order. So the
-   * screen lands fast, and the film slots into it when it arrives — the same
-   * shape `addMotion` uses to add an animation pack to a screen already drawn.
-   *
-   * ── Why it is not merely attached ─────────────────────────────────────────
-   *
-   * It IS also attached, on the line above, and that used to be all. It put the
-   * film in a card beside the frame on the canvas, which is a perfectly good
-   * place to find one and not a place anybody asked for: a hero was requested
-   * and the mockup came back without one. Two things had to change before this
-   * could exist at all — `GET /api/video/:hash` is now public by hash, and the
-   * preview's CSP names `media-src`, without which a `<video>` falls back to
-   * `default-src 'none'` and is blocked outright.
-   *
-   * ── And it degrades (Q1) ──────────────────────────────────────────────────
-   *
-   * A failure here leaves the screen exactly as generated, with the film still
-   * attached beside it. `previousCode` is set, so the edit is revertible like
-   * every other screen mutation. It is reported rather than swallowed: it cost
-   * a model call.
-   */
-  async function placeFilmInScreen(
-    screenId: string,
-    hash: string,
-    kind: string | undefined,
-    signal: AbortSignal,
-    /*
-     * What the film already SAYS, read off its own document.
-     *
-     * The first version of this omitted it and produced two headlines stacked
-     * on one another: the page had written its hero copy and the film had burnt
-     * its own into the frames, each correct, neither told about the other. The
-     * answer is not to render a still and ask a vision model to look — a film
-     * is structured data, so its words and their zones are exact, already in
-     * hand, and cost nothing.
-     */
-    film: VideoTimeline | RenderTimeline | null,
-    /**
-     * The section the Muse dossier named for this film, when it decided one. It
-     * comes first among the preferences below, and like them it counts only if
-     * the screen really has a section by that id.
-     */
-    section?: string,
-  ) {
-    const settings = loadSettings()
-    if (!settings.model.trim()) return
-    /*
-     * Through the REF, and that is the whole reason this function did nothing.
-     *
-     * `screens` is captured when the generate callback is built — before the
-     * screen this film belongs to has been created. Reading it here found
-     * nothing, `codeAtStart` was empty, and the early return below fired: the
-     * film was composed, rendered, attached to the screen, and then never put
-     * INTO it, silently, because the guard that exists to skip an empty screen
-     * cannot tell one apart from a screen it simply could not see.
-     *
-     * `screensRef` is kept current on every render for exactly this, and the
-     * other three long-running mutations in this file already read it.
-     */
-    const screen = screensRef.current.find((s) => s.id === screenId)
-    const codeAtStart = screen?.code ?? ''
-    if (!codeAtStart.trim()) return
-
-    const src = videoStreamUrl(hash)
-
-    /*
-     * WHICH SECTION, by name, read off the screen itself.
-     *
-     * A `showcase` film — a product tile — was placed over the hero, and the
-     * instruction had already said "it is NOT the hero". The instruction was
-     * not the problem: the model still had to FIND the product section by
-     * reading anonymous elements, and it took the first one. An instruction
-     * cannot name a place the document does not name either.
-     *
-     * Generation now puts a stable id on every top-level section, and this
-     * quotes the ones this screen REALLY has — parsed, never matched with a
-     * regex (I1). A preference is offered per kind, and it is a preference: the
-     * ids are the model's own from a moment ago, and a screen about something
-     * else may legitimately have none of the names below.
-     *
-     * Degrades to the old wording when a screen has no ids at all — an older
-     * screen, or one Babel could not parse.
-     */
-    const sections = await findScreenSections(codeAtStart)
-    /*
-     * The page may already own the ground the film is about to take.
-     *
-     * A screen came back with a full-bleed <Scene3D> behind its content AND a
-     * film laid over the same section: two backdrops in one place, each paid
-     * for, each fighting the other. The composer now knows about the scene (it
-     * is told, and the 3D world is withheld from it), but knowing is not
-     * enough here — the page is where the two actually meet, and this edit is
-     * the only moment anything can move one of them.
-     *
-     * Removing the scene rather than the film: the film cost a model call and a
-     * render, the scene is one line the model can write again, and a <Scene3D>
-     * left under a video is a WebGL context spent on something nobody can see.
-     */
-    const pageScenes = await pageScenesIn(codeAtStart)
-    const sceneUnder = pageScenes.some((sc) => sc.backdrop)
-      ? [
-          '',
-          'This screen already draws its own 3D scene as a SURFACE — <Scene3D> with an absolute or fixed class.',
-          'In the section where you put the film, DELETE it: whether it sits behind the whole section or fills one',
-          'column of it, the film has taken that ground and two moving pictures in one section play against each',
-          'other. A <Scene3D> in ANOTHER section, or one sized as a box beside the text, stays exactly as it is.',
-        ]
-      : []
-    const PREFERRED: Record<string, string[]> = {
-      hero: ['hero'],
-      background: ['hero', 'features', 'cta'],
-      banner: ['cta', 'banner', 'nav', 'footer'],
-      showcase: ['product', 'products', 'showcase', 'features', 'gallery'],
-      figure: ['stats', 'numbers', 'results', 'features'],
-      globe: ['coverage', 'map', 'about', 'features'],
-      mark: ['footer', 'cta', 'hero'],
-      story: ['hero', 'features'],
-    }
-    const wanted = [...(section ? [section] : []), ...(PREFERRED[kind || ''] || [])].filter((id) =>
-      sections.some((sec) => sec.id === id),
-    )
-    const placement = sections.length
-      ? [
-          '',
-          `The screen's sections, by id: ${sections.map((sec) => `#${sec.id}`).join(', ')}.`,
-          wanted.length
-            ? `Put the film in #${wanted[0]} — that is where a "${kind}" film belongs.`
-            : 'None of them is an obvious home for this film, so choose the one whose SUBJECT it shares — not the first one on the page.',
-          'Say which id you used by leaving the film inside that element. Do not rename or remove any id: they are handles the rest of the app places things by.',
-          'Put the <MotionFilm> INSIDE that section, as a layer of it. Never create a section for the film, never',
-          'wrap it in one, and never give it a band of its own above the page: a first screen that is only a film',
-          'makes the site start below the fold, and a visitor sees a video where a home page should be.',
-        ]
-      : []
-
-    /*
-     * Read here rather than beside `shape`, because the sentence below depends
-     * on it. A film that burns its own title was being told to put the page's
-     * headline over it two paragraphs before being told to delete that same
-     * headline, and a model handed a contradiction resolves it by inventing:
-     * what came back over one film was the whole hero, map and photograph
-     * included.
-     */
-    const burnt = filmTextRuns(film)
-
-    const where =
-      kind === 'background'
-        ? 'Use it as a section BACKGROUND: absolutely positioned inside a relative parent, with the existing copy on top of it. It is never the subject.'
-        : kind === 'hero'
-          ? burnt.length
-            ? 'Use it as the HERO: the first thing the visitor sees. It already carries the page title itself, so it needs nothing laid over it — give it the width and let it play. At most the eyebrow and the buttons go on top.'
-            : 'Use it as the HERO: the first thing the visitor sees, with the existing headline and CTA passed as its children so they sit over the film.'
-          : 'Give it the size its role deserves — a banner strip, a product card, a feature tile. It is NOT the hero unless the page has no other subject.'
-
-    /*
-     * THE FILM IS NOT A CONTAINER, and this is the half of it the prompt owns.
-     *
-     * `<MotionFilm>` takes children and lays them over the video — written for
-     * a hero, where a headline and a button stand on a moving ground, and
-     * described in the catalogue as "use that for a hero rather than
-     * positioning your own overlay". One placement read that as "a container"
-     * and wrapped the hero's whole grid in it: an interactive map of Nimes, its
-     * photograph, its pins and its controls, squeezed into an `aspect-video`
-     * box with `overflow: hidden`, over a film that had already burnt its own
-     * title into the frames. Two pictures in one box, the one that cost a
-     * render underneath.
-     *
-     * Naming what may stand on it rather than forbidding children: the overlay
-     * is the component's whole reason for taking them, and "do not pass
-     * children" would send every hero back to positioning its own layer, which
-     * is the stacking this component exists to get right.
-     */
-    const overlay = [
-      '',
-      'WHAT MAY STAND ON THE FILM: type, buttons, a small badge — a thin layer, and nothing else.',
-      'Children of <MotionFilm> are drawn ON the video, so everything you pass it is laid over the picture.',
-      'Never pass a picture of your own: no <img>, no photograph, no map, no card that carries one, no <Scene3D>,',
-      'no <ScrollSequence>, no background-image class. And never wrap a section, a column or a grid of the page',
-      'in it — the film is not a container. Everything the page already draws stays OUTSIDE the film: beside it,',
-      'above it or below it, in the same section, keeping the size and the shape it has now.',
-    ]
-
-    /*
-     * The film's own words, quoted, with the instruction to DELETE the page's
-     * duplicate rather than lay one over the other.
-     *
-     * Deleting is the right verb and it was the user's call: the film already
-     * says it, and two headlines stacked is the one outcome nobody wants. The
-     * page keeps everything the film does NOT say — the navigation, the body
-     * copy, the cards — so what is thrown away is exactly what became a repeat.
-     *
-     * Quoted verbatim so the model can match on the words rather than guess
-     * from a role name: Muse writes the page's copy and the composer writes the
-     * film's, and the two say the same thing in different words about half the
-     * time. Naming the ZONE as well, because a film that burns its title
-     * bottom-left and a page that puts its own top-right do not collide, and
-     * telling the model to delete then would cost real copy for nothing.
-     */
-    /*
-     * The rule is about the ZONE, not about repetition — and getting that
-     * backwards is what left two headlines on screen after the first fix.
-     *
-     * The instruction used to say "delete the page copy where it says the same
-     * thing". A film burning "Des objets qui gardent la trace du geste" and a
-     * page writing "La terre, façonnée à la main" say DIFFERENT things, so the
-     * model correctly judged them not duplicates and kept both — stacked, in the
-     * same place, unreadable. Two headlines collide because they are in the same
-     * zone, whatever they happen to say.
-     *
-     * So: the film has taken that ground. The page's own display type there
-     * goes. Deleting is the user's explicit call ("pas grave si elle jette du
-     * code"), and it is the right one — the film already carries the words a
-     * hero needs, and nothing below the hero is touched.
-     */
-    /*
-     * THE FILM'S OWN SHAPE, and why it has to travel.
-     *
-     * A film is composed at the ratio its KIND declares — `showcase` is 1:1,
-     * `banner` is wide, `story` is 9:16 — and the page then puts it in a box of
-     * whatever shape the layout wanted. `<MotionFilm>` defaulted to
-     * `fit: cover`, which fills that box by CROPPING, so a 1:1 film in a wide
-     * hero lost its left and right edges: "DIGITAL WELLNESS" and "Softly" came
-     * back sliced down both sides, and "for your digital life." lost its full
-     * stop. Two screenshots of the same defect.
-     *
-     * Two halves, and neither is enough alone. The page is told the shape so it
-     * can reserve a box of that proportion — which is what "il faut que Remotion
-     * sache quel est le format qui va être nécessaire" is really asking, from
-     * the other end. And a film that BURNS TEXT is never cropped: `contain`
-     * letterboxes it instead, so a box that ends up slightly wrong costs a band
-     * of ground rather than a word. A wordless film keeps `cover`, because
-     * cropping a texture is free and a letterboxed background is a bug.
-     */
-    const ratio = (film as { aspectRatio?: string } | null)?.aspectRatio ?? '16:9'
-    const fit = burnt.length ? 'contain' : 'cover'
-    const shape = [
-      '',
-      `The film is ${ratio}. Give its box that proportion — an aspect-ratio class, or a height that matches the`,
-      'width you are giving it. A box of the wrong shape is the whole reason this instruction exists.',
-      burnt.length
-        ? `Use fit="${fit}": this film has words burnt into it, and cropping a film crops its type. If the box is`
-        : `Use fit="${fit}": this film carries no text, so filling the box is free.`,
-      ...(burnt.length ? ['slightly off, a band of background is the right price to pay; a sliced headline is not.'] : []),
-    ]
-
-    const carries = burnt.length
-      ? [
-          '',
-          'THE FILM ALREADY BURNS ITS OWN TEXT INTO THE FRAMES:',
-          ...burnt.map((r) => `  · "${r.text}"${r.anchor ? ` (${r.anchor})` : ''}`),
-          '',
-          'That ground is TAKEN. The page must not put its own headline or subheadline over the film — not a',
-          'shorter one, not a different one, not one that says something else. Two runs of display type in the',
-          'same place collide whatever they say, and the film is the one that moves with the picture.',
-          'DELETE the page copy that would land there: its <h1> and its subheadline. Keep the logo, the',
-          'navigation, the eyebrow, the buttons, the figures beside them, and every section below the film',
-          'exactly as they are.',
-          'The section must still hold something a reader can act on. If removing the headline would leave the',
-          'film alone in it, keep the subheadline and remove only the <h1>: a screen that is nothing but a film',
-          'is a page that has not started yet.',
-        ]
-      : [
-          '',
-          'The film carries no text of its own, so the page keeps all of its copy — lay it over the film.',
-        ]
-
-    motionStage(screenId, t('project.motionStagePlace'))
-    const capIds = Array.from(new Set([...(screen?.caps ?? []), 'motionfilm']))
-    const res = await editComponent(
-      settings,
-      [
-        `A film has been rendered for this screen. Place it in the page using the <MotionFilm> component.`,
-        `Use src="${src}" exactly — it is a content hash, and changing one character gives a screen whose film silently never loads.`,
-        where,
-        ...placement,
-        ...sceneUnder,
-        ...overlay,
-        ...shape,
-        ...carries,
-        '',
-        'Change nothing else: every other section, its copy and its classes stay exactly as they are. Do not add',
-        'a <video> tag of your own.',
-      ].join('\n'),
-      codeAtStart,
-      undefined,
-      undefined,
-      signal,
-      undefined,
-      resolveCapabilities(capIds),
-    )
-    // The same guard every screen mutation in this file uses: the code may have
-    // moved under us while the model was working, and writing back over a newer
-    // edit would silently discard whatever the user did in the meantime.
-    // The ref again, and here the stale read was worse than useless: `screens`
-    // never contains this screen, so `now` was always undefined and the guard
-    // silently passed — it would have overwritten whatever the user had edited
-    // during the minutes this took, which is the one thing it exists to stop.
-    const now = screensRef.current.find((s) => s.id === screenId)
-    if (now && now.code !== codeAtStart) return
-    /*
-     * Did it land in the page, or beside it?
-     *
-     * One placement came back with the film in a band of its own at the top:
-     * the site began below the fold and the first screen was a video with
-     * nothing on it. The instruction above says not to, and an instruction is
-     * not a guarantee — so the result is read (`filmSectionIn`) and a film that
-     * ended up outside every section this screen already had is not written
-     * back. The screen stays as it was and the film stays ATTACHED to it, which
-     * is exactly the state a screen with no placement is in: visible on the
-     * canvas, one click from the lightbox, nothing lost but the inlining.
-     *
-     * Only when the screen had sections to land in: a page with no ids at all
-     * gives this nothing to compare against, and refusing every placement on
-     * such a page would be worse than the defect.
-     */
-    if (sections.length) {
-      const home = await filmSectionIn(res.code)
-      if (!home || !sections.some((sec) => sec.id === home)) {
-        setNotice(t('project.motionPlacedBeside'))
-        return
-      }
-    }
-    /*
-     * And did it lay the page's own picture on top of it?
-     *
-     * The other half of "the film is not a container", and the same argument
-     * `filmSectionIn` makes one paragraph up: the instruction says the overlay
-     * is type and buttons, and an instruction is not a guarantee. `filmCovers`
-     * reads the result and names the first picture among the film's OWN
-     * children — an <img>, another moving surface, a painted background.
-     *
-     * Refused rather than repaired, for `filmSectionIn`'s reason and one of its
-     * own. Unwrapping the children mechanically would move a column of the
-     * page to a place no one chose, and asking the model again is another paid
-     * call for a layout the instruction now describes twice. What refusing
-     * keeps is the better page: the screen as it was generated, its hero and
-     * its picture intact, with the film ATTACHED — on the canvas, one click
-     * from the lightbox, nothing lost but the inlining.
-     */
-    const covered = await filmCovers(res.code)
-    if (covered) {
-      setNotice(t('project.motionPlacedOver'))
-      return
-    }
-    onUpdateScreen(screenId, {
-      code: res.code,
-      componentName: res.componentName,
-      previousCode: codeAtStart,
-      caps: capabilitiesFor(capIds, res.code),
-    })
-  }
 
   /**
    * Apply a no-code, targeted change to a single clicked element (Lot C).
@@ -3221,8 +2685,6 @@ export default function ProjectView({
         museImageError={museImageError}
         museVision={museVision}
         museVideo={videoAvail}
-        animationMode={animationMode}
-        onCycleAnimations={cycleAnimations}
         ultra={project.ultra}
         ultraPaused={ultraPaused}
         onSetUltra={onSetUltra}
@@ -3406,9 +2868,8 @@ export default function ProjectView({
         onContentHeight={(id, h) => {
           contentHeights.current[id] = h
         }}
-        // "Sans animation" holds the screens already on the canvas still too —
-        // otherwise the button says one thing and the mockups do another.
-        animations={animationMode !== 'off'}
+        // Every screen animates unless its own menu says otherwise.
+        animations
         onCycleScreenAnimations={cycleScreenAnimations}
         onDeriveDesign={(id) => {
           const sc = screens.find((x) => x.id === id)
@@ -4009,21 +3470,6 @@ export default function ProjectView({
               <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
               <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
             </button>
-            <button
-              type="button"
-              onClick={cycleAnimations}
-              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
-                animationMode === 'on'
-                  ? 'text-accent-ink hover:opacity-80'
-                  : animationMode === 'off'
-                    ? 'text-ink-faint line-through hover:text-ink-muted'
-                    : 'text-ink-faint hover:text-ink-muted'
-              }`}
-              title={t(ANIM_LABELS[animationMode].hint)}
-            >
-              <Icon name="play" size={14} />
-              {t(ANIM_LABELS[animationMode].label)}
-            </button>
             {/* New screens only: an edit reworks a screen that already is, or
                 is not, Motion Ultra — the pass that builds one is a storyboard
                 and a series of pictures, not an instruction to an edit. */}
@@ -4436,8 +3882,7 @@ export default function ProjectView({
                 <div className="flex gap-1 px-2 pb-1.5">
                   {(
                     [
-                      [undefined, 'project.playAuto', 'project.playAutoTitle'],
-                      [true, 'project.playOn', 'project.playOnTitle'],
+                      [undefined, 'project.playOn', 'project.playOnTitle'],
                       [false, 'project.playOff', 'project.playOffTitle'],
                     ] as const
                   ).map(([value, labelKey, titleKey]) => (
@@ -4450,7 +3895,7 @@ export default function ProjectView({
                         onUpdateScreen(s.id, { animations: value })
                       }}
                       className={`flex-1 rounded-md border py-1 text-caption font-medium transition ${
-                        s.animations === value
+                        (value === false ? s.animations === false : s.animations !== false)
                           ? 'border-accent bg-ink text-surface'
                           : 'border-line-soft hover:border-accent hover:text-accent-ink'
                       }`}

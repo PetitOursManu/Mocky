@@ -1193,19 +1193,11 @@ export default function Canvas({
                     >
                       <Icon name="comment" size={13 * inv} />
                     </LabelBtn>
-                    {/* This screen's own answer about motion. Three states, so
-                        it can also be handed BACK to the composer's setting —
-                        a two-way switch would strand a screen on an override
-                        the user could no longer clear. */}
+                    {/* This screen's own answer about motion: animated (the
+                        default) or held still for a demo. */}
                     <LabelBtn
                       inv={inv}
-                      title={t(
-                        s.animations === undefined
-                          ? 'canvas.animFollow'
-                          : s.animations
-                            ? 'canvas.animOn'
-                            : 'canvas.animOff',
-                      )}
+                      title={t(s.animations === false ? 'canvas.animOff' : 'canvas.animOn')}
                       onClick={() => onCycleScreenAnimations?.(s.id)}
                     >
                       <span className={s.animations === false ? 'line-through opacity-60' : undefined}>

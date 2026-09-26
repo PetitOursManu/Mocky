@@ -1,69 +1,28 @@
 /**
- * Whether a generated screen is allowed to move.
+ * Page animations are always offered.
  *
- * THREE STATES, NOT TWO
+ * There used to be a three-state switch in the composer — auto, forced, none —
+ * and it did two unrelated things under one name: it decided whether a screen
+ * got the animation vocabulary, and whether a Motion FILM was rendered for it
+ * ("forced" meant a text call and minutes of the worker on every screen). Both
+ * halves are settled now:
  *
- * Mocky already decides which capabilities a screen needs — a keyword shortlist
- * plus an optional planner pass — and that decision is usually right: a landing
- * page wants entrances, an admin table does not. A plain on/off switch would
- * throw that away and make the user answer the same question on every
- * generation.
+ * - the vocabulary (`<Animated>`, `<Ticker>`, `<CountUp>`) is always in scope.
+ *   It costs nothing, a screen that does not need motion simply does not use it,
+ *   and prefers-reduced-motion is honoured by the components themselves;
+ * - a film is made only when asked for — Motion Ultra's video background, or
+ *   the Motion panel — never on its own.
  *
- * So the default is `auto`: the existing selection stands. The other two are
- * overrides for the times it guesses wrong — `on` when a screen the shortlist
- * read as static should still breathe, `off` when a demo has to hold still
- * (a screen recording, a slow machine, a client who hates motion).
- *
- * The choice is per-device and sticky, like the theme: it is a working
- * preference, not a property of the project.
+ * Holding ONE screen still, for a demo or a recording, is that screen's own
+ * setting (`Screen.animations === false`, in its menu).
  */
-
-export type AnimationMode = 'auto' | 'on' | 'off'
-
-const KEY = 'mocky.animations.v1'
-
-export const ANIMATION_MODES: AnimationMode[] = ['auto', 'on', 'off']
-
-export function loadAnimationMode(): AnimationMode {
-  try {
-    const v = localStorage.getItem(KEY)
-    return v === 'on' || v === 'off' ? v : 'auto'
-  } catch {
-    return 'auto'
-  }
-}
-
-export function saveAnimationMode(mode: AnimationMode): void {
-  try {
-    localStorage.setItem(KEY, mode)
-  } catch {
-    /* A preference that cannot persist still applies for this session. */
-  }
-}
-
-/** auto → on → off → auto. */
-export function nextAnimationMode(mode: AnimationMode): AnimationMode {
-  return mode === 'auto' ? 'on' : mode === 'on' ? 'off' : 'auto'
-}
 
 /** The capability ids the animation vocabulary needs. */
 const ANIMATION_CAPS = ['animate', 'motion-lib']
 
-/**
- * Apply the override to a capability shortlist.
- *
- * Pure, and deliberately the only place the three states turn into ids — the
- * generation path calls this once and stays unaware of the mode.
- *
- * `off` removes the library too: leaving `motion-lib` behind would load 129 kB
- * into a preview that has nothing to animate.
- */
-export function applyAnimationMode(capIds: string[], mode: AnimationMode): string[] {
-  if (mode === 'off') return capIds.filter((id) => !ANIMATION_CAPS.includes(id))
-  if (mode === 'on') {
-    const out = [...capIds]
-    for (const id of ANIMATION_CAPS) if (!out.includes(id)) out.push(id)
-    return out
-  }
-  return capIds
+/** A capability shortlist with the animation vocabulary in it. Pure. */
+export function withAnimations(capIds: string[]): string[] {
+  const out = [...capIds]
+  for (const id of ANIMATION_CAPS) if (!out.includes(id)) out.push(id)
+  return out
 }

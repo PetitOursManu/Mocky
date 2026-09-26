@@ -751,11 +751,11 @@ n'en a le droit :
   `quality/policy.js` rétrograde en conseil le verre, le texte en dégradé, les
   halos, le projecteur, la typographie d'affichage serrée et le fond rogné. Tout
   le reste est toujours appliqué.
-- **Un film Motion.** Un film ne prend jamais l'ouverture construite par Motion
-  Ultra (`openingTaken` dans `video/filmDecision.ts`) : un film `hero` ou
-  `background`, ou tout film visant cette section, devient un autre type ailleurs
-  — et reçoit les images de la série, puisque Muse n'en génère pas quand Motion
-  Ultra tourne.
+- **Un film Motion.** Aucun film n'est plus fabriqué tout seul (l'interrupteur
+  d'animation du composer a disparu), donc le seul film qu'une génération
+  fabrique est le fond vidéo de Motion Ultra — prévu dans la page, branché sans
+  appel au modèle, et qui range une photo plein cadre de sa section SOUS lui au
+  lieu de la laisser le recouvrir (`lib/ultra/filmSlot.ts`).
 - **Une retouche.** Chaque chemin de correction reçoit le vocabulaire du kit par
   les capacités enregistrées de l'écran, et `ultraLoss` signale une retouche qui a
   retiré des images ou le kit, avec « Revenir » à un clic.

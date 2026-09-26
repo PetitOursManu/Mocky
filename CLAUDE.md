@@ -157,9 +157,9 @@ Four things that will bite you:
    biased to `operate`, and on `operate` only app recipes are allowed — a
    product page came back as an app shell before this.
 3. **Three passes must not undo a Motion Ultra screen** (U5): Polish
-   (`ULTRA_TREATMENTS` in `policy.js`), a Motion film (`openingTaken` in
-   `filmDecision.ts`, and the series' pictures go to the composer), and an edit
-   (`ultraLoss`). A new pass that rewrites screens joins this list.
+   (`ULTRA_TREATMENTS` in `policy.js`), a film (there is no automatic film any
+   more; the video background folds a full-bleed picture of its section UNDER
+   the film, `filmSlot.ts`), and an edit (`ultraLoss`). A new pass that rewrites screens joins this list.
 4. **No free `<style>` from the model.** Decided with the user: a missing effect
    goes into the kit, tested against reduced motion, "Sans animation" and the
    capture shell (html2canvas throws on computed colours).
@@ -759,7 +759,14 @@ Ten things, and the first one is not negotiable.
     asked again, once; a second answer still over is kept with a notice (Q1).
     Nothing here truncates a document.
 
-14. **A film composed for a page is TOLD what that page already draws in 3D.**
+14. **Historical since 2026-09: no film is made on its own.** The composer's
+    animation switch is gone (page animations are always on, `withAnimations`),
+    and with it `decideFilm`, `dossierMotionRequest` and `placeFilmInScreen`. A
+    generation makes a film only as Motion Ultra's video background. What follows
+    describes the automatic path as it was; `pageScenesIn` still feeds the video
+    background and the Motion panel.
+
+    **A film composed for a page is TOLD what that page already draws in 3D.**
     A screen came back with `<Scene3D preset="grid">` full-bleed behind its
     content and a film whose ground was `world` with a `particleField` over it:
     two unrelated three-dimensional things on one screen, neither aware of the

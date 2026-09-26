@@ -566,11 +566,12 @@ order they arrive and how a scene gives way to the next. A hand-written componen
 draws every one of them. It never picks a picture: it may only use the ones you
 selected.
 
-**It can also decide for itself.** With the composer's animation switch on
-automatic, the same Muse call that writes the art direction says whether the
-screen wants a film, which KIND it is (a hero, a band, a background, a showcase,
-a figure, a globe, a mark, a story for a feed) and which section of the page it
-belongs in. The film is then composed for that place — and told, in so many
+**A film is made when you ask for one** — from this panel, or as the video
+background of a Motion Ultra screen; the composer's old animation switch, which
+could make one for every screen, is gone. A film composed for a page knows it:
+it is given its KIND (a hero, a band, a background, a showcase, a figure, a
+globe, a mark, a story for a feed — a background, for Motion Ultra) and the
+section of the page it belongs in, is composed for that place — and is told, in so many
 words, that the page states its own products, plans and prices and that the film
 states none of them: each kind carries a word budget, counted, and a film over it
 is sent back to the model once.

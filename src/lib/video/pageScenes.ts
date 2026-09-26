@@ -86,9 +86,11 @@ export interface Page3D {
    * The page already animates its own background — a `<Scene3D>` laid out as a
    * surface, or a full-bleed layer carrying a CSS animation.
    *
-   * Read by `decideFilm`: a film composed as a BACKGROUND for a page that has
-   * one is the second animated background on that screen, and a visitor has no
-   * way to tell which of the two is the site. The user's own words for it:
+   * It was read by the automatic film decision (removed in 2026-09, with the
+   * composer's animation switch): a film composed as a BACKGROUND for a page
+   * that has one is the second animated background on that screen, and a
+   * visitor has no way to tell which of the two is the site. Kept because it is
+   * cheap and true, and the next thing that places a film will want it. The user's own words for it:
    * "si le LLM a déjà fait un fond animé, pas besoin de dire à Motion d'en
    * refaire un".
    */
