@@ -53,9 +53,11 @@ describe('site screenshots in the generation path', () => {
 })
 
 describe('site screenshots stay in the browser', () => {
-  it('are named only by the composer, the Screen type and their own module', () => {
+  it('are named only by the two composers, the Screen type and their own module', () => {
     const allowed = new Set([
       'src/components/ProjectView.tsx',
+      'src/components/SiteReferencePicker.tsx',
+      'src/components/Welcome.tsx',
       'src/lib/project.ts',
       'src/lib/siteReference.ts',
       'src/lib/siteReference.test.ts',

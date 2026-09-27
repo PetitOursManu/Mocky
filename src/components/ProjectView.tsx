@@ -55,12 +55,11 @@ import {
   partsUsed,
   prepareSiteShot,
   refuseSiteFile,
-  SITE_IMAGE_TYPES,
   SITE_PARTS_MAX,
-  SITE_REF_MODES,
   type SiteRefMode,
   type SiteShot,
 } from '../lib/siteReference'
+import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
 import {
   createStockFinder,
   loadImageSource,
@@ -622,7 +621,6 @@ export default function ProjectView({
   /** Decoding and cutting a large capture takes a moment; the thumbnail row says so. */
   const [siteReading, setSiteReading] = useState(0)
   const [siteDragOver, setSiteDragOver] = useState(false)
-  const siteInputRef = useRef<HTMLInputElement>(null)
   /** Mirrors `siteShots` for the async reader, which outlives the render that started it. */
   const siteShotsRef = useRef<SiteShot[]>([])
   siteShotsRef.current = siteShots
@@ -666,6 +664,10 @@ export default function ProjectView({
         setSiteReading((n) => n - 1)
       }
     }
+  }
+
+  function removeSiteShot(id: string) {
+    setSiteShots((arr) => arr.filter((x) => x.id !== id))
   }
 
   /** A pasted screenshot goes to the site references; pasted text stays text. */
@@ -2972,6 +2974,13 @@ export default function ProjectView({
         onImageSource={setImageSource}
         imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive)}
         busyLabel={phase === 'ultra' ? ultraStage : null}
+        siteShots={siteShots}
+        siteReading={siteReading}
+        siteMode={siteMode}
+        onSiteMode={setSiteMode}
+        onRemoveSiteShot={removeSiteShot}
+        onAddSiteFiles={(files) => void addSiteFiles(files)}
+        onComposerPaste={onComposerPaste}
       />
       {libraryModal}
       </>
@@ -3513,22 +3522,7 @@ export default function ProjectView({
           className={`pointer-events-auto w-full max-w-2xl rounded-2xl border bg-surface p-2 shadow-2xl transition ${
             siteDragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
           }`}
-          onDragOver={(e) => {
-            if (!Array.from(e.dataTransfer.types).includes('Files')) return
-            e.preventDefault()
-            e.dataTransfer.dropEffect = 'copy'
-            setSiteDragOver(true)
-          }}
-          onDragLeave={(e) => {
-            // Leaving for a child is not leaving the composer.
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSiteDragOver(false)
-          }}
-          onDrop={(e) => {
-            if (!e.dataTransfer.files.length) return
-            e.preventDefault()
-            setSiteDragOver(false)
-            void addSiteFiles(Array.from(e.dataTransfer.files))
-          }}
+          {...siteDropHandlers((files) => void addSiteFiles(files), setSiteDragOver)}
         >
           {/*
             The whole message, wrapped — never `truncate`. A one-line ellipsis cut
@@ -3623,77 +3617,15 @@ export default function ProjectView({
           )}
 
           {/* Site screenshots — what they are, and on a new screen what they are FOR */}
-          {(siteShots.length > 0 || siteReading > 0) && (
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              {siteShots.map((shot, i) => (
-                <div
-                  key={shot.id}
-                  className="group relative h-14 w-14 overflow-hidden rounded-lg border border-accent/60 bg-surface"
-                  title={shot.name || t('project.siteShotN', { n: i + 1 })}
-                >
-                  {/* object-top: the head of a page is what identifies it. */}
-                  <img src={shot.parts[0]} alt={t('project.siteShotN', { n: i + 1 })} className="h-full w-full object-cover object-top" />
-                  {shot.parts.length > 1 && (
-                    <span
-                      className="absolute bottom-0 left-0 rounded-tr bg-accent px-1 font-mono text-caption font-bold text-on-accent"
-                      title={t('project.siteShotParts', { count: shot.parts.length })}
-                    >
-                      ×{shot.parts.length}
-                    </span>
-                  )}
-                  {/* Visible by default, like the annotation's: hover-only is unreachable on touch. */}
-                  <button
-                    type="button"
-                    onClick={() => setSiteShots((arr) => arr.filter((x) => x.id !== shot.id))}
-                    className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
-                    aria-label={t('project.siteRemoveN', { n: i + 1 })}
-                    title={t('project.siteRemove')}
-                  >
-                    <Icon name="close" size={12} />
-                  </button>
-                </div>
-              ))}
-              {siteReading > 0 && (
-                <div
-                  className="flex h-14 w-14 items-center justify-center rounded-lg border border-accent/60"
-                  role="status"
-                  aria-label={t('project.siteReading')}
-                >
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent/40 border-t-accent" />
-                </div>
-              )}
-              {/* On an edit they are references for the words; the intent is a
-                  new screen's, because it decides which stages run. */}
-              {editing ? (
-                <span className="min-w-0 flex-1 text-body-sm text-ink-muted">{t('project.siteEditHint')}</span>
-              ) : (
-                <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span
-                    role="group"
-                    aria-label={t('project.siteModeLabel')}
-                    className="inline-flex w-fit overflow-hidden rounded border border-line"
-                  >
-                    {SITE_REF_MODES.map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setSiteMode(m)}
-                        aria-pressed={siteMode === m}
-                        className={`px-2 py-1 text-body-sm transition ${
-                          siteMode === m ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
-                        }`}
-                      >
-                        {t(m === 'reproduce' ? 'project.siteReproduce' : 'project.siteRedesign')}
-                      </button>
-                    ))}
-                  </span>
-                  <span className="text-body-sm text-ink-muted">
-                    {t(siteMode === 'reproduce' ? 'project.siteReproduceHint' : 'project.siteRedesignHint')}
-                  </span>
-                </span>
-              )}
-            </div>
-          )}
+          <SiteShotsRow
+            className="mb-2"
+            shots={siteShots}
+            reading={siteReading}
+            mode={siteMode}
+            onMode={setSiteMode}
+            onRemove={removeSiteShot}
+            editing={editing}
+          />
 
           {/* Selected-screen chips */}
           {editing && (
@@ -3875,29 +3807,11 @@ export default function ProjectView({
             {/* Screenshots of an existing site. The same files also arrive by
                 paste into the field and by a drop anywhere on the bar; the
                 button is the one of the three a phone has. */}
-            <input
-              ref={siteInputRef}
-              type="file"
-              accept={SITE_IMAGE_TYPES.join(',')}
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                // Cleared so choosing the same file again still fires a change.
-                e.target.value = ''
-                void addSiteFiles(files)
-              }}
-            />
-            <button
-              type="button"
-              className="btn-ghost tap-target mb-0.5 shrink-0 px-2 py-2"
-              onClick={() => siteInputRef.current?.click()}
+            <SiteAttachButton
+              onFiles={(files) => void addSiteFiles(files)}
               disabled={busy}
-              aria-label={t('project.siteAttach')}
-              title={t('project.siteAttachTitle')}
-            >
-              <Icon name="image" size={18} />
-            </button>
+              className="btn-ghost tap-target mb-0.5 shrink-0 px-2 py-2"
+            />
             {/* min-w-0: a textarea's automatic minimum size comes from `cols`
                 (20 by default), which is wider than the room left beside the
                 two buttons at 390px — so without this the row overflowed the

@@ -366,8 +366,8 @@ a screen is selected, you are editing it, and there is no new screen coming.
 
 ### Screenshots of an existing site
 
-Attach up to four screenshots of a site that already exists, and choose what
-they are for. A prompt becomes optional — the screenshots are the request; a
+Attach up to four screenshots of a site that already exists — from the floating
+bar, or from the welcome card of an empty project — and choose what they are for. A prompt becomes optional — the screenshots are the request; a
 sentence can still say which page to build or what matters.
 
 | Choice | What the screen takes from the screenshots | What does not run |

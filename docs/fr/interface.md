@@ -382,7 +382,8 @@ un écran est sélectionné, vous êtes en train de le modifier, et aucun nouvel
 
 ### Captures d’un site existant
 
-Joignez jusqu’à quatre captures d’un site qui existe déjà, et dites à quoi
+Joignez jusqu’à quatre captures d’un site qui existe déjà — depuis la barre
+flottante, ou depuis la carte d’accueil d’un projet vide — et dites à quoi
 elles servent. Le prompt devient facultatif — les captures sont la demande ; une
 phrase peut encore préciser quelle page construire ou ce qui compte.
 
