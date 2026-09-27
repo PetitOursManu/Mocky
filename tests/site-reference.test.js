@@ -33,7 +33,7 @@ describe('site screenshots in the generation path', () => {
     expect(view).toContain('const siteNew = !!site && targets.length === 0')
     expect(view).toContain("const reproducing = siteNew && site.mode === 'reproduce'")
     expect(view).toContain('let siteSection = siteNew ? buildSiteReferenceSection(')
-    expect(view).toContain('if (siteSection) planSection = [planSection, siteSection]')
+    expect(view).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
   })
 
   it('keep the annotations first, so their visible numbers stay the model’s', () => {
@@ -57,6 +57,12 @@ describe('site screenshots in the generation path', () => {
     expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew) {')
   })
 
+  it('replace the site pictures only where no dossier already made them', () => {
+    // A redesign Muse ran for has its pictures; a second set would compete.
+    expect(view).toContain('const sitePictures = siteNew && (reproducing || !museRan) ? parseSitePictures(siteContent) : []')
+    expect(view).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
+  })
+
   it('refuse to regenerate a screen whose screenshots are gone, instead of inventing one', () => {
     expect(view).toContain('if (screen.siteRef && !siteRun) {')
   })
@@ -67,6 +73,7 @@ describe('site screenshots stay in the browser', () => {
     const allowed = new Set([
       'src/components/ProjectView.tsx',
       'src/components/SiteReferencePicker.tsx',
+      'src/lib/sitePictures.ts',
       'src/components/Welcome.tsx',
       'src/lib/project.ts',
       'src/lib/siteReference.ts',

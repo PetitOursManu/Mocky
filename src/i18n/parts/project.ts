@@ -114,6 +114,8 @@ export const project = {
       'Motion Ultra n’est pas appliqué à un écran fait d’après un site : son storyboard inventerait des sections que le site a déjà.',
     'project.siteMuseSkipped':
       'Le contenu du site n’a pas pu être lu : Muse n’a pas tourné, pour ne pas inventer un autre produit. La refonte suit la direction du projet.',
+    'project.sitePicturesMissing':
+      '{missing} image(s) du site sur {total} sans remplaçante ({reason}) : un bloc de couleur tient leur place.',
     'project.siteRegenGone':
       'Cet écran a été fait d’après des captures qui ne sont plus en mémoire — elles ne sont jamais enregistrées. Joignez-les de nouveau au composer pour le refaire.',
     'project.composerEdit_one': 'Décrivez le changement à appliquer à l’écran sélectionné…',
@@ -133,6 +135,7 @@ export const project = {
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planification…',
     'project.busySite': 'Lecture du site…',
+    'project.busySitePictures': 'Images du site…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Inspiration & rédaction du dossier…',
     'project.museStageInspiration': 'Génération de l’image d’inspiration…',
@@ -423,6 +426,8 @@ export const project = {
       'Motion Ultra is not applied to a screen built from a site: its storyboard would invent sections the site already has.',
     'project.siteMuseSkipped':
       'The site’s content could not be read, so Muse did not run rather than invent another product. The redesign follows the project’s direction.',
+    'project.sitePicturesMissing':
+      '{missing} of the site’s {total} pictures got no replacement ({reason}): a colour block stands in.',
     'project.siteRegenGone':
       'This screen was built from screenshots that are no longer in memory — they are never saved. Attach them again in the composer to redo it.',
     'project.composerEdit_one': 'Describe a change to apply to the selected screen…',
@@ -442,6 +447,7 @@ export const project = {
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planning…',
     'project.busySite': 'Reading the site…',
+    'project.busySitePictures': 'Site pictures…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Gathering inspiration & writing the dossier…',
     'project.museStageInspiration': 'Generating the inspiration image…',

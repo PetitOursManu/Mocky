@@ -372,12 +372,19 @@ sentence can still say which page to build or what matters.
 
 | Choice | What the screen takes from the screenshots | What does not run |
 |---|---|---|
-| `Reproduce` | Everything: the same sections in the same order, the copy transcribed word for word in its own language, the colours as exact hex values, the character of the type, radii and shadows. | Muse, the planner, Motion Ultra and the project's direction — the screenshot is all four. When the project has no direction yet, the reproduced site **becomes** it, so the next page you ask for belongs to the same site. |
+| `Reproduce` | Everything: the same sections in the same order, the copy transcribed word for word in its own language, the colours as exact hex values, the character of the type, radii and shadows. Pop-ups and banners floating over the page are left out. | Muse, the planner, Motion Ultra and the project's direction — the screenshot is all four. When the project has no direction yet, the reproduced site **becomes** it, so the next page you ask for belongs to the same site. |
 | `Redesign` | The content only: brand, navigation, headings, figures, prices, calls to action. The look is new — the project's direction, or Muse's when it is on — and a result that could be mistaken for the screenshot has failed. | The planner and Motion Ultra, whose job is to invent a structure the site already has. |
 
 Pictures inside a screenshot (photos, illustrations, logos) cannot be lifted
-out of it: they come back as blocks of the same size and dominant colour. A
-redesign with Muse or free photos on uses those pictures instead.
+out of it — they are the site's, and they are never stored. What they **show**
+can be: the reading step lists up to six of them (section, subject, shape), and
+each gets a replacement from the composer's `Images` choice — a free photo that
+a vision model picks among thumbnails (or refuses them all), or a generated one.
+Each lands where the original was. One that finds nothing, and every picture
+past the sixth, stays a block of the same size and dominant colour, and a
+sentence says how many. A redesign with Muse on takes its pictures from Muse's
+dossier instead, so there are never two sets. Logos and icons are drawn as SVG
+or text.
 
 A full-page capture is cut, in the browser, into near-screen-shaped parts of
 1 280 px wide with a slight overlap, because a 1 440 × 9 000 page shrunk whole to

@@ -383,7 +383,12 @@ Contact details, addresses, opening hours, link groups — verbatim.
 ## Tone
 Three words or fewer on how the site talks.
 
-Rules: transcribe in the site's own language, exactly — do not translate, correct or improve. Never mention colours, fonts, layout or pictures. Leave out anything you cannot read rather than guess it. Consecutive images may be parts of one long page that overlap slightly: write a repeated line once.`
+## Pictures
+One line per photograph or illustration on the page, top to bottom, at most 6 — not logos, icons, charts, maps, screenshots of an interface, or anything inside a pop-up or banner floating over the page:
+- <heading of the section it is in> | <what it shows, in ENGLISH, concrete enough to search for or to paint: subject, setting, light> | <wide, square or tall>
+Write "none" when the page has no such picture.
+
+Rules: transcribe in the site's own language, exactly — do not translate, correct or improve. Outside the Pictures section, never mention colours, fonts, layout or pictures. Leave out anything you cannot read rather than guess it. Consecutive images may be parts of one long page that overlap slightly: write a repeated line once.`
 
 /**
  * Read what a site SAYS off its screenshots, for a redesign.

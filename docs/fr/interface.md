@@ -389,13 +389,19 @@ phrase peut encore préciser quelle page construire ou ce qui compte.
 
 | Choix | Ce que l’écran prend aux captures | Ce qui ne tourne pas |
 |---|---|---|
-| `Reproduire` | Tout : les mêmes sections dans le même ordre, les textes transcrits mot pour mot dans leur langue, les couleurs en valeurs hex exactes, le caractère de la typographie, les arrondis et les ombres. | Muse, le planificateur, Motion Ultra et la direction du projet — la capture tient les quatre rôles. Quand le projet n’a pas encore de direction, le site reproduit **le devient**, et la page suivante que vous demandez appartient au même site. |
+| `Reproduire` | Tout : les mêmes sections dans le même ordre, les textes transcrits mot pour mot dans leur langue, les couleurs en valeurs hex exactes, le caractère de la typographie, les arrondis et les ombres. Les pop-ups et bandeaux posés sur la page sont laissés de côté. | Muse, le planificateur, Motion Ultra et la direction du projet — la capture tient les quatre rôles. Quand le projet n’a pas encore de direction, le site reproduit **le devient**, et la page suivante que vous demandez appartient au même site. |
 | `Refonte` | Le contenu seulement : marque, navigation, titres, chiffres, prix, appels à l’action. L’apparence est neuve — la direction du projet, ou celle de Muse si elle est active — et un résultat qu’on pourrait confondre avec la capture a échoué. | Le planificateur et Motion Ultra, dont le métier est d’inventer une structure que le site a déjà. |
 
 Les images d’une capture (photos, illustrations, logos) ne peuvent pas en être
-extraites : elles reviennent comme des blocs de même taille et de même couleur
-dominante. Une refonte avec Muse ou les photos libres actives utilise ces
-images-là à la place.
+extraites — elles appartiennent au site, et elles ne sont jamais enregistrées. Ce
+qu’elles **montrent**, si : la lecture en relève jusqu’à six (section, sujet,
+format), et chacune reçoit une remplaçante selon le choix `Images` du composeur —
+une photo libre qu’un modèle de vision choisit parmi des vignettes (ou refuse
+toutes), ou une image générée. Chacune arrive à la place de l’originale. Celle
+pour laquelle rien ne convient, et toute image au-delà de la sixième, reste un
+bloc de même taille et de même couleur dominante, et une phrase dit combien. Une
+refonte avec Muse actif prend ses images dans le dossier de Muse, pour qu’il
+n’y en ait jamais deux jeux. Logos et icônes sont dessinés en SVG ou en texte.
 
 Une capture pleine page est découpée, dans le navigateur, en morceaux proches
 de la forme d’un écran, larges de 1 280 px et qui se chevauchent un peu : une

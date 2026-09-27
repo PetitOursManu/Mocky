@@ -52,6 +52,8 @@ import AuditPanel from './AuditPanel'
 import ImageSourceControl from './ImageSourceControl'
 import {
   buildSiteReferenceSection,
+  buildSitePicturesSection,
+  parseSitePictures,
   partsUsed,
   prepareSiteShot,
   siteLanguage,
@@ -61,6 +63,7 @@ import {
   type SiteShot,
 } from '../lib/siteReference'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
+import { findSitePictures, type SitePictureFound } from '../lib/sitePictures'
 import {
   createStockFinder,
   loadImageSource,
@@ -234,7 +237,7 @@ export default function ProjectView({
   const t = useT()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | null>(null)
+  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | null>(null)
   /**
    * Motion Ultra paused for the next generations, from the composer.
    *
@@ -634,7 +637,7 @@ export default function ProjectView({
    * then says so rather than guessing.
    */
   const siteRefsByScreen = useRef<
-    Map<string, { mode: SiteRefMode; groups: number[]; parts: string[]; content?: string | null }>
+    Map<string, { mode: SiteRefMode; groups: number[]; parts: string[]; content?: string | null; pictures?: string }>
   >(new Map())
 
   /**
@@ -1408,9 +1411,12 @@ export default function ProjectView({
          * preamble made that invention authoritative: the first real test came
          * back as an unrelated site. With it, the dossier is about the site that
          * exists, and the page gets the copy in words as well as in pixels.
+         *
+         * A reproduction reads too, for the list of the site's PICTURES the
+         * reading also returns: each gets a replacement below.
          */
         let siteContent: string | null = null
-        if (siteNew && !reproducing) {
+        if (siteNew) {
           setPhase('site')
           siteContent = await readSiteContent(settings, site.parts, ac.signal)
           siteSection = buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1, siteContent)
@@ -1802,8 +1808,41 @@ export default function ProjectView({
         // Page animations are always offered: the vocabulary costs nothing and
         // a screen that does not need motion simply does not use it. Holding a
         // screen still is its own setting, in its menu.
+        /*
+         * The site's pictures, replaced: a free photo of the same subject, or a
+         * generated one, following the composer's "Images" choice. A reproduction
+         * with every photograph turned into a flat block was faithful and
+         * unshowable. Not on a redesign Muse ran for — its dossier already
+         * planned and made the pictures, and a second set would compete.
+         */
+        let sitePics: SitePictureFound[] = []
+        let sitePicturesSection = ''
+        const sitePictures = siteNew && (reproducing || !museRan) ? parseSitePictures(siteContent) : []
+        if (sitePictures.length) {
+          setPhase('sitePictures')
+          const failures: string[] = []
+          const finder = effectiveImageSource === 'stock' ? await stockFinder() : undefined
+          const got = await findSitePictures(sitePictures, {
+            source: effectiveImageSource,
+            project: project.id,
+            finder,
+            signal: ac.signal,
+            onError: (m) => failures.push(m),
+          })
+          sitePics = got.found
+          sitePicturesSection = buildSitePicturesSection(got.found, got.missing)
+          if (got.missing) {
+            const line = t('project.sitePicturesMissing', {
+              missing: got.missing,
+              total: sitePictures.length,
+              // The finder's sentences end with a full stop; this one is in brackets.
+              reason: failures.find(Boolean)?.replace(/[.\s]+$/, '') || '—',
+            })
+            setNotice((prev) => (prev ? `${prev} ${line}` : line))
+          }
+        }
         // Last, so on a reproduction it is the final word over the base rules' taste.
-        if (siteSection) planSection = [planSection, siteSection].filter(Boolean).join('\n\n')
+        if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
         capIds = withAnimations(capIds)
 
         // A sequence exists → the component that plays it must be in scope,
@@ -1841,12 +1880,12 @@ export default function ProjectView({
           // generated under an older direction must keep saying so — that is
           // what makes "reprendre ce DESIGN.md" meaningful.
           design: dir.markdown,
-          imageHash: museImageHash ?? ultraImageHash,
+          imageHash: museImageHash ?? ultraImageHash ?? sitePics[0]?.hash,
           // Recorded so the canvas can say what the image was for. Without it
           // the badge could only ever say "Image Muse", which is exactly the
           // ambiguity that made it impossible to tell whether inspiration mode
           // had done anything.
-          imageRole: museImageHash ? effectiveImageMode : ultraImageHash ? 'content' : undefined,
+          imageRole: museImageHash ? effectiveImageMode : ultraImageHash || sitePics.length ? 'content' : undefined,
           ultra: ultraRecord,
           // Persisted as a pair so a reload can rebuild the sequence without
           // asking the server what it cut.
@@ -1854,7 +1893,7 @@ export default function ProjectView({
           videoFrames: museVideo?.frames,
           siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined,
         })
-        if (siteNew) siteRefsByScreen.current.set(screenId, { ...site, content: siteContent })
+        if (siteNew) siteRefsByScreen.current.set(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
         // Name the project after its FIRST prompt, so it stops being called
         // "Untitled project". A name the user already chose is never touched.
         if (screens.length === 0 && project.name.trim() === DEFAULT_PROJECT_NAME) {
@@ -2170,7 +2209,12 @@ export default function ProjectView({
         settings, screen.prompt, extraSystem, siteRun?.parts, ac.signal,
         undefined,
         caps,
-        siteRun ? buildSiteReferenceSection(siteRun.mode, siteRun.groups, 1, siteRun.content) : undefined,
+        // The pictures already found are reused: a variant of the page, not a new shopping trip.
+        siteRun
+          ? [buildSiteReferenceSection(siteRun.mode, siteRun.groups, 1, siteRun.content), siteRun.pictures]
+              .filter(Boolean)
+              .join('\n\n')
+          : undefined,
       )
       // Regenerating rebuilds the screen from the design system as it stands
       // now, so the recorded copy moves with it. Editing a screen does not: an
@@ -2844,6 +2888,8 @@ export default function ProjectView({
   const busyLabel = phase === 'ultra' && ultraStage ? ultraStage : t(
     phase === 'site'
       ? 'project.busySite'
+      : phase === 'sitePictures'
+      ? 'project.busySitePictures'
       : phase === 'muse'
       ? 'project.busyMuse'
       : phase === 'planning'
@@ -2999,8 +3045,16 @@ export default function ProjectView({
         ultraCounts={ultraCounts}
         imageSource={imageSource}
         onImageSource={setImageSource}
-        imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive)}
-        busyLabel={phase === 'ultra' ? ultraStage : phase === 'site' ? t('project.busySite') : null}
+        imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0)}
+        busyLabel={
+          phase === 'ultra'
+            ? ultraStage
+            : phase === 'site'
+              ? t('project.busySite')
+              : phase === 'sitePictures'
+                ? t('project.busySitePictures')
+                : null
+        }
         siteShots={siteShots}
         siteReading={siteReading}
         siteMode={siteMode}
@@ -3821,7 +3875,7 @@ export default function ProjectView({
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
             )}
-            {!editing && stockImagesUsable && (museConfig.enabled || ultraActive) && (
+            {!editing && stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0) && (
               <ImageSourceControl
                 value={imageSource}
                 onChange={setImageSource}

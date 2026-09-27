@@ -6,6 +6,10 @@ import {
   describeSiteImages,
   buildSiteReferenceSection,
   siteLanguage,
+  parseSitePictures,
+  buildSitePicturesSection,
+  sitePicturePrompt,
+  SITE_PICTURES_MAX,
   SITE_PART_WIDTH,
   SITE_PARTS_MAX,
   SITE_SHOTS_MAX,
@@ -131,5 +135,68 @@ describe('siteLanguage', () => {
   it('makes a redesign keep the site language for added copy too', () => {
     const s = buildSiteReferenceSection('redesign', [1], 1, '## Language\nEnglish\n\n## Brand\nPython')
     expect(s).toContain("in the site's language (English)")
+  })
+})
+
+const TRANSCRIPT = `## Language
+English
+
+## Brand
+Blue Bottle
+
+## Pictures
+- Hero | a barista pouring milk into a latte, warm morning light | wide
+- Our beans | close-up of roasted coffee beans in a burlap sack | square
+- Team | portrait of a smiling barista behind a counter | tall
+- broken line without pipes
+- Footer | none | wide
+
+## Tone
+warm`
+
+describe('parseSitePictures', () => {
+  it('reads section, subject and shape, in page order', () => {
+    const pics = parseSitePictures(TRANSCRIPT)
+    expect(pics).toEqual([
+      { section: 'Hero', subject: 'a barista pouring milk into a latte, warm morning light', shape: 'wide' },
+      { section: 'Our beans', subject: 'close-up of roasted coffee beans in a burlap sack', shape: 'square' },
+      { section: 'Team', subject: 'portrait of a smiling barista behind a counter', shape: 'tall' },
+    ])
+  })
+
+  it('stops at the next section, and reads "none" as nothing', () => {
+    expect(parseSitePictures('## Pictures\nnone\n\n## Tone\n- a | b c d | wide')).toEqual([])
+    expect(parseSitePictures('## Brand\nX')).toEqual([])
+    expect(parseSitePictures(null)).toEqual([])
+  })
+
+  it('caps the list and strips markup from what reaches a prompt', () => {
+    const many = '## Pictures\n' + Array.from({ length: 12 }, (_, i) => `- S${i} | a <b>photo</b> of \`thing\` ${i} | wide`).join('\n')
+    const pics = parseSitePictures(many)
+    expect(pics).toHaveLength(SITE_PICTURES_MAX)
+    expect(pics[0].subject).toBe('a bphoto/b of thing 0')
+  })
+})
+
+describe('buildSitePicturesSection', () => {
+  const found = [{ section: 'Hero', subject: 'a latte', shape: 'wide' as const, url: 'http://x/api/images/abc' }]
+
+  it('lists each replacement with its place and exact URL', () => {
+    const s = buildSitePicturesSection(found, 0)
+    expect(s).toContain('SITE PICTURES')
+    expect(s).toContain('1. In "Hero" (wide): a latte → http://x/api/images/abc')
+    expect(s).not.toContain('no replacement')
+  })
+
+  it('says how many have none, so a found one is not repeated', () => {
+    expect(buildSitePicturesSection(found, 2)).toContain('2 other pictures of the site have no replacement')
+  })
+
+  it('is empty when nothing was found', () => {
+    expect(buildSitePicturesSection([], 3)).toBe('')
+  })
+
+  it('keeps lettering out of a generated stand-in', () => {
+    expect(sitePicturePrompt({ section: 'Hero', subject: 'a latte.', shape: 'wide' })).toMatch(/^a latte\. .*no text/)
   })
 })

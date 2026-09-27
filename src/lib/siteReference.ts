@@ -205,9 +205,9 @@ export function describeSiteImages(groups: number[], first: number): string {
   return lines.join('\n')
 }
 
-/** The pictures of the page cannot travel, in either mode. */
+/** The pictures of the page cannot travel, in either mode — replacements can. */
 const PICTURES =
-  'Photographs, illustrations and logos cannot be copied out of a screenshot. Stand in for each picture with a block of the same size, position and dominant colour (a gradient or a flat tone, never a stock-photo URL you guessed), and draw a simple logo or icon as inline SVG or as styled text.'
+  'Photographs, illustrations and logos cannot be copied out of a screenshot. Where SITE PICTURES below lists a replacement for one, use it, in that place. Stand in for any other picture with a block of the same size, position and dominant colour (a gradient or a flat tone, never a stock-photo URL you guessed), and draw a simple logo or icon as inline SVG or as styled text.'
 
 /**
  * The system section that tells the model what the screenshots are FOR.
@@ -232,7 +232,9 @@ export function buildSiteReferenceSection(
       "- Language: the page is in the site's language even when this request is written in another one.",
       '- Look: match the colours with exact hex values in Tailwind arbitrary classes (e.g. bg-[#0f172a], text-[#e11d48]), the character of the type (serif, sans or mono; weights; size hierarchy; letter case; tracking), corner radii, borders, shadows and the style of the icons.',
       `- Pictures: ${PICTURES}`,
-      '- State: where a screenshot shows a transient state (an open menu, a hover, a cookie banner), build the page in its default state.',
+      // A Yosemite reproduction came back with the site's newsletter pop-up
+      // built into the page: "cookie banner" alone did not cover it.
+      '- State: build the page in its default state. Leave out whatever floats OVER the page in a screenshot — a cookie banner, a newsletter or sign-up pop-up, a chat bubble, an open menu, a hover.',
       "- Format: if the screenshots were taken at another width than this screen's format, keep every section and its content and adapt the layout to the format, the way the site's own responsive version would.",
       'This section OVERRIDES every stylistic rule above — palettes to prefer, fonts or looks to avoid, "distinctive" choices to make. Here the target is the reference, not taste: a faithful copy of an ordinary design is the right answer.',
     ].join('\n')
@@ -258,7 +260,7 @@ export function buildSiteReferenceSection(
     "PRECEDENCE: a design dossier or DESIGN.md above governs the LOOK only. Wherever it names a product, a headline, a slogan or any copy that differs from this site, the SITE wins — use the site's brand name and the site's words.",
     // Muse or a free-photo search may have supplied real pictures for this run;
     // those win over a stand-in, which is only for what nothing supplied.
-    `- Pictures: when images are supplied above with their URLs, use those. Otherwise: ${PICTURES}`,
+    `- Pictures: when images are supplied in this prompt with their URLs (a design dossier's, or SITE PICTURES below), use those. Otherwise: ${PICTURES}`,
     ...(content?.trim()
       ? [
           '',
@@ -269,4 +271,108 @@ export function buildSiteReferenceSection(
         ]
       : []),
   ].join('\n')
+}
+
+/*
+ * The site's pictures, replaced.
+ *
+ * A reproduction came back with every photograph as a flat block — honest, and
+ * a page nobody would show a client. The originals cannot be taken (they are
+ * the site's, and M2 keeps third-party pictures out of storage), but what they
+ * SHOW can be read off the screenshot and found again: a free photo of the same
+ * subject, or one generated from the description. The reading call lists them;
+ * this module decides their shape and how the page is told about them.
+ */
+
+export type SitePictureShape = 'wide' | 'square' | 'tall'
+
+export interface SitePicture {
+  /** The heading of the section the picture sits in, as the transcript wrote it. */
+  section: string
+  /** What it shows, in English — searched for, or painted from. */
+  subject: string
+  shape: SitePictureShape
+}
+
+/**
+ * Pictures replaced per page. Each one is a vision call to judge free photos,
+ * or the price of a generated image, so a gallery of forty is not forty calls:
+ * the first six, top to bottom, are the ones a page is recognised by.
+ */
+export const SITE_PICTURES_MAX = 6
+
+/** Pixel size asked of the image model, per shape. */
+export const SITE_PICTURE_SIZE: Record<SitePictureShape, { width: number; height: number }> = {
+  wide: { width: 1024, height: 640 },
+  square: { width: 1024, height: 1024 },
+  tall: { width: 768, height: 1024 },
+}
+
+/** The same intent, in the only vocabulary a stock search understands. */
+export const SITE_PICTURE_ORIENTATION: Record<SitePictureShape, 'landscape' | 'square' | 'portrait'> = {
+  wide: 'landscape',
+  square: 'square',
+  tall: 'portrait',
+}
+
+/** A clean line of text out of a model's transcript: no markup, no control characters, bounded. */
+function cleanField(s: string, max: number): string {
+  return s
+    .replace(/[`*_<>[\]{}]/g, '')
+    .replace(/[\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max)
+}
+
+/** The `## Pictures` list of `readSiteContent`'s transcript. Malformed lines are skipped. */
+export function parseSitePictures(content?: string | null): SitePicture[] {
+  const block = content?.match(/^##\s*Pictures\s*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/im)?.[1]
+  if (!block) return []
+  const out: SitePicture[] = []
+  for (const line of block.split('\n')) {
+    const m = line.match(/^\s*[-*]\s*(.+)$/)
+    if (!m) continue
+    const parts = m[1].split('|').map((p) => p.trim())
+    if (parts.length < 2) continue
+    const subject = cleanField(parts[1], 200)
+    if (subject.length < 3 || /^none$/i.test(subject)) continue
+    const shapeWord = (parts[2] || '').toLowerCase()
+    const shape: SitePictureShape = /tall|portrait|vertical/.test(shapeWord)
+      ? 'tall'
+      : /square/.test(shapeWord)
+        ? 'square'
+        : 'wide'
+    out.push({ section: cleanField(parts[0], 80) || 'page', subject, shape })
+    if (out.length >= SITE_PICTURES_MAX) break
+  }
+  return out
+}
+
+/** Keeps type and interface out of a generated stand-in: fake lettering is the fastest tell. */
+const PICTURE_NEGATIVE = 'no text, no letters, no words, no logo, no watermark, no user interface, no screenshot, no frame, no border'
+
+/** The prompt a generated replacement is painted from. */
+export function sitePicturePrompt(picture: SitePicture): string {
+  return `${picture.subject.replace(/[.\s]+$/, '')}. High-quality image as used on a professional website. ${PICTURE_NEGATIVE}.`
+}
+
+/**
+ * The section that hands the page its replacement pictures, in page order.
+ * `missing` counts the ones nothing could be found or made for: the page is
+ * told they have no replacement, so it keeps a stand-in rather than reusing one
+ * of the others twice.
+ */
+export function buildSitePicturesSection(found: Array<SitePicture & { url: string }>, missing: number): string {
+  if (!found.length) return ''
+  return [
+    'SITE PICTURES — replacements for the pictures of the site, which cannot be copied. Put each one where the original was, in the section named, at the original\'s size and crop:',
+    ...found.map((p, i) => `${i + 1}. In "${p.section}" (${p.shape}): ${p.subject} → ${p.url}`),
+    'Embed them as <img src="URL" alt="…" className="… object-cover"> with exactly these URLs, and an alt text describing what the picture shows. Use each at most once.',
+    missing > 0
+      ? `${missing} other picture${missing === 1 ? '' : 's'} of the site ${missing === 1 ? 'has' : 'have'} no replacement: stand in for ${missing === 1 ? 'it' : 'them'} as described above rather than repeating one of these.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
