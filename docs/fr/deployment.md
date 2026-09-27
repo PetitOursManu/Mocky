@@ -396,6 +396,12 @@ casse l'argument `-v`.
 **L'archive contient des empreintes de mots de passe et des jetons de session.**
 `backups/` est ignoré par git ; qu'il le reste.
 
+Pour **déplacer** une instance vers un autre serveur plutôt que la restaurer sur
+le même, passez plutôt par Admin → Maintenance et migration : la copie se fait
+morceau par morceau, le nouveau serveur est vérifié d'abord, et les données ne
+passent jamais par un fichier à transporter. Voir
+[Maintenance et migration](fr/migration.md).
+
 Ce qui vit dans le volume `mocky-data` :
 
 | Chemin | Contenu | Taille |

@@ -1,3 +1,6 @@
+import { MaintenanceError, noteMaintenance, type MaintenanceState } from './maintenance'
+import { getLang, translate } from '../i18n'
+
 export interface AuthUser {
   username: string
   role: 'admin' | 'user'
@@ -66,7 +69,18 @@ async function req(path: string, options?: RequestInit): Promise<any> {
     credentials: 'same-origin',
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+  if (!res.ok) {
+    // Every write refused for maintenance goes through here, so this is where
+    // the tab learns of it — before the next poll of /api/config.
+    if (res.status === 503 && data.code === 'maintenance') {
+      noteMaintenance(typeof data.message === 'string' ? data.message : undefined)
+      throw new MaintenanceError(translate(getLang(), 'migration.maintenance.refused'))
+    }
+    const err = new Error(data.error || `HTTP ${res.status}`) as Error & { code?: string }
+    // The migration panel keys its messages on the code, not on the sentence.
+    if (typeof data.code === 'string') err.code = data.code
+    throw err
+  }
   return data
 }
 
@@ -377,6 +391,7 @@ export const api = {
       allowRegistration: boolean
       setup: boolean
       sso: { enabled: boolean; dashyUrl: string | null }
+      maintenance?: MaintenanceState
       textProvider?: {
         configured: boolean
         model: string | null
@@ -450,5 +465,101 @@ export const api = {
     videoWorkerHealth: () => req('/api/admin/video/health') as Promise<VideoWorkerHealth>,
     /** Render the three reference films and measure them. About a minute; 409 while a render runs. */
     runVideoBenchmark: () => req('/api/admin/video/benchmark', { method: 'POST' }) as Promise<VideoBenchmark>,
+
+    /** Maintenance mode: read-only for everyone but admins. */
+    getMaintenance: () => req('/api/admin/maintenance') as Promise<MaintenanceState>,
+    setMaintenance: (on: boolean, message: string) =>
+      req('/api/admin/maintenance', { method: 'PUT', body: JSON.stringify({ on, message }) }) as Promise<MaintenanceState>,
+
+    /** Migration, old-server side: the pairing code. */
+    migrationSource: () => req('/api/admin/migration/source') as Promise<MigrationSourceStatus>,
+    createMigrationCode: (password: string) =>
+      req('/api/admin/migration/source', { method: 'POST', body: JSON.stringify({ password }) }) as Promise<
+        MigrationSourceStatus & { code: string }
+      >,
+    revokeMigrationCode: () =>
+      req('/api/admin/migration/source', { method: 'DELETE' }) as Promise<MigrationSourceStatus>,
+
+    /** Migration, new-server side: pull, check, swap. */
+    migrationImport: () => req('/api/admin/migration/import') as Promise<MigrationImportStatus>,
+    connectMigration: (url: string, code: string) =>
+      req('/api/admin/migration/import/connect', { method: 'POST', body: JSON.stringify({ url, code }) }) as Promise<
+        MigrationImportStatus
+      >,
+    startMigrationPass: () =>
+      req('/api/admin/migration/import/pass', { method: 'POST' }) as Promise<MigrationImportStatus>,
+    cancelMigrationPass: () =>
+      req('/api/admin/migration/import/cancel', { method: 'POST' }) as Promise<MigrationImportStatus>,
+    disconnectMigration: () =>
+      req('/api/admin/migration/import/disconnect', { method: 'POST' }) as Promise<MigrationImportStatus>,
+    finalizeMigration: (password: string) =>
+      req('/api/admin/migration/import/finalize', { method: 'POST', body: JSON.stringify({ password }) }) as Promise<{
+        ok: boolean
+        restarting: boolean
+      }>,
+    verifyMigration: () =>
+      req('/api/admin/migration/import/verify', { method: 'POST' }) as Promise<MigrationVerifyResult>,
   },
+}
+
+export interface MigrationSourceStatus {
+  active: boolean
+  createdAt?: number
+  expiresAt?: number
+  lastSeen?: number | null
+  lastIp?: string | null
+  requests?: number
+  bytes?: number
+}
+
+/** What the instance holds — see `summarize` in server/migration/manifest.js. */
+export interface MigrationSummary {
+  users: number
+  projectFiles: number
+  images: number
+  clips: number
+  films: number
+  avatars: number
+  files: number
+  bytes: number
+}
+
+export interface MigrationCheck {
+  id: string
+  status: 'ok' | 'warn' | 'fail'
+  params?: Record<string, string | number>
+}
+
+export interface MigrationImportStatus {
+  connected: boolean
+  source: string | null
+  summary: MigrationSummary | null
+  preflight: { checks: MigrationCheck[]; blocking: boolean } | null
+  pass: {
+    running: boolean
+    startedAt: number
+    finishedAt: number | null
+    filesTotal: number
+    filesDone: number
+    bytesTotal: number
+    bytesDone: number
+    current: string | null
+    failed: { path: string; code: string }[]
+    failedCount: number
+    /** Ran against a source in maintenance with no render in flight. */
+    final: boolean
+    error: string | null
+  } | null
+  staged: number
+  ready: boolean
+  report: { finishedAt: number; source: string; summary: MigrationSummary; files: number } | null
+}
+
+export interface MigrationVerifyResult {
+  total: number
+  same: number
+  changed: string[]
+  missing: string[]
+  changedCount: number
+  missingCount: number
 }

@@ -785,13 +785,15 @@ Redirects are not followed (`redirect: 'manual'`). `undici` follows them by
 default, which walked around the guard in one step: the target passed the check,
 then answered `302` towards the cloud metadata endpoint.
 
-**Three deliberate bypasses**, all administrator-only:
+**Four deliberate bypasses**, all administrator-only:
 
 - an administrator-configured text target, because pointing at a local model is a
   supported setup;
 - the `sd-webui` base URL, which is local by definition;
 - the Motion Ultra render **worker URL**, `assertWorkerTarget()` in
-  `server/video/worker.js`.
+  `server/video/worker.js`;
+- the **old server's address** typed during a migration, `parseSourceUrl()` in
+  `server/migration/destination.js`.
 
 The third one was added, not inherited, and the reason is worth the paragraph.
 Guarded, it had **no working configuration at all**: the Remotion worker ships as
@@ -814,6 +816,15 @@ the worker on a public host can pass `assertSafeTargetResolved` back in.
 The rest of the feature this belongs to — why the worker is a separate image at
 all, and why the model that describes a film never writes the code that renders
 it — is in [Motion Ultra](video-export.md).
+
+The fourth exists for the worker's reason: moving between two machines on one LAN
+is the ordinary case for a self-hosted tool, and the guard refuses every private
+address. It is typed behind `requireAdmin`, keeps the scheme check and
+`redirect: 'manual'`, and refuses credentials in the URL. And what a bypass
+normally buys — reading an internal service — it does not buy: every answer is
+sealed under a key derived from the pairing code, so whatever else answers is
+discarded unread. The whole procedure is in
+[Maintenance and migration](migration.md).
 
 Any URL that came from a browser stays fully guarded — including on
 `POST /api/text/vision`. That was the one route taking a base URL from a header,

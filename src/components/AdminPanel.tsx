@@ -4,6 +4,7 @@ import ImageProviderSettings from './ImageProviderSettings'
 import TextProviderSettings from './TextProviderSettings'
 import UsageReport from './UsageReport'
 import VideoExportSettings from './VideoExportSettings'
+import MigrationSettings from './MigrationSettings'
 import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../ui'
 import { useT } from '../i18n'
 
@@ -300,6 +301,13 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
           needs the room a column does not have. */}
       <div className="mt-8 border-t border-line pt-8">
         <VideoExportSettings />
+      </div>
+
+      {/* Last: it is the one block here that can lock everybody out or replace
+          the whole instance, and nobody should meet it on the way to something
+          else. */}
+      <div className="mt-8 border-t border-line pt-8">
+        <MigrationSettings />
       </div>
     </div>
   )

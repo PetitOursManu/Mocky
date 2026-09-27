@@ -23,6 +23,20 @@ export default function SyncIndicator() {
 
   if (state === 'idle') return null
 
+  // Neutral, not red: nothing is lost, and nothing the user does can fix it —
+  // the banner already says who can.
+  if (state === 'paused') {
+    return (
+      <span
+        className="ml-1 flex h-8 items-center gap-1.5 px-2 text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted"
+        title={t('migration.maintenance.syncPausedHelp')}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-ink-muted" />
+        {t('migration.maintenance.syncPaused')}
+      </span>
+    )
+  }
+
   const storageError = getStorageError()
 
   if (state === 'syncing') {

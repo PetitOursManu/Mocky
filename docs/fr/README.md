@@ -63,6 +63,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 | Contrôler un écran généré, et corriger ce que le contrôle trouve | [Passe de qualité](fr/quality.md) |
 | Composer un `.mp4` pour un écran à partir d'un catalogue de blocs, et savoir pourquoi son moteur de rendu est livré à part | [Motion Ultra](fr/video-export.md) |
 | Déployer Mocky | [Déploiement](fr/deployment.md) |
+| Passer l'instance en lecture seule, ou la déplacer vers un autre serveur | [Maintenance et migration](fr/migration.md) |
 
 ---
 

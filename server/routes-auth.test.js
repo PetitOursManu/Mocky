@@ -107,6 +107,17 @@ const GUARDED = [
   ['POST', '/api/admin/text/models', 'makes the server call the provider with the instance key'],
   ['POST', '/api/share', 'minting a link is what DECIDES something becomes publicly readable'],
   ['GET', '/api/share', 'lists this account’s live links'],
+  ['PUT', '/api/admin/maintenance', 'locks every user out of writing'],
+  ['POST', '/api/admin/migration/source', 'mints the code that exports the whole instance'],
+  ['GET', '/api/admin/migration/source', ''],
+  ['DELETE', '/api/admin/migration/source', ''],
+  ['POST', '/api/admin/migration/import/connect', 'makes the server fetch an admin-typed URL'],
+  ['POST', '/api/admin/migration/import/finalize', 'replaces every account and file'],
+  [
+    'GET',
+    '/api/migration/manifest',
+    'authenticated by a pairing code rather than a session, and closed while none is active',
+  ],
 ]
 
 const call = (method, p) =>

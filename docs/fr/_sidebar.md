@@ -14,6 +14,7 @@
 - [SEO et accessibilité](fr/seo-accessibility.md)
 - [Motion Ultra — films](fr/video-export.md)
 - [Déploiement](fr/deployment.md)
+- [Maintenance et migration](fr/migration.md)
 - [Journal des modifications](fr/CHANGELOG.md)
 - Références
   - [ADR 001 — Muse](adr/001-muse.fr.md)

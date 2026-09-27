@@ -14,6 +14,7 @@
 - [SEO and accessibility](seo-accessibility.md)
 - [Motion Ultra — films](video-export.md)
 - [Deployment](deployment.md)
+- [Maintenance and migration](migration.md)
 - [Changelog](CHANGELOG.md)
 - Reference
   - [ADR 001 — Muse](adr/001-muse.md)

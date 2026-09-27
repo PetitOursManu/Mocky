@@ -14,6 +14,7 @@ import AuthModal from './components/AuthModal'
 import AdminPanel from './components/AdminPanel'
 import Bibliotheque from './components/Bibliotheque'
 import SyncIndicator from './components/SyncIndicator'
+import MaintenanceBanner from './components/MaintenanceBanner'
 import SharedScreen from './components/SharedScreen'
 import { shareTokenFromLocation } from './lib/share'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -484,6 +485,7 @@ function MockyApp() {
           </nav>
         </div>
       </header>
+      <MaintenanceBanner isAdmin={account?.role === 'admin'} />
 
       {route === 'home' && (
         <ProjectsHome
