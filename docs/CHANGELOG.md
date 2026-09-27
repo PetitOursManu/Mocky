@@ -10,6 +10,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | notes privées par écran, et photos libres de droits choisies par la vision | `ad4b301` |
 | `ultra` | Motion Ultra ×3 et ×6 ouverts par compte, indépendamment | `ff3895a` |
 | `ui` | les films s'appellent Motion Ultra partout | `7161595` |
 | `video` | accès aux vidéos par compte, et un vrai choix de source dans Muse | `807a979` |
@@ -50,6 +51,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `video` | la séquence au défilement reste collée malgré un overflow-hidden | `c806490` |
 | `videos` | le découpage n'agrandit plus un clip plus étroit que le réglage | `e0939e1` |
 | `ultra` | une photo plein cadre ne recouvre plus le fond vidéo; cadres empilés sans débord | `a0046d9` |
 | `ultra` | le film d'un écran Motion Ultra reçoit les images de la série | `0525a06` |
