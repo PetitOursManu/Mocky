@@ -4,6 +4,8 @@
 // relative "/api/images/:hash" URLs work in the app DOM (the absolute-URL form is
 // only needed when injecting into the null-origin preview iframe — see muse.ts).
 
+import type { StockCredit } from './videoLibrary'
+
 export interface LibraryImage {
   hash: string
   prompt: string
@@ -24,6 +26,8 @@ export interface LibraryImage {
    * above `confirm()` in server/images/library.js).
    */
   pending?: boolean
+  /** A free stock photo's author and page, kept because both licences ask for it. */
+  credit?: StockCredit
 }
 
 export interface LibraryFilters {

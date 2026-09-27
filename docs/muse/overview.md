@@ -308,6 +308,26 @@ named accounts, with Motion Ultra's own control. An account with neither sees no
 option, and the server refuses it at `/generate`, `/stock/*` and `/upload`
 whatever the panel shows — the panel only hides what would be refused.
 
+**Photos can be free too.** The same keys serve Pexels' and Pixabay's photos, in
+two places. By hand: Media's Images tab gains the same search, and an imported
+photo is stored like an upload, with its author's credit shown on its card — pin
+it and Muse uses it like any picture of yours. Automatically: the composer's
+`Images · AI / Free` choice. On *Free*, the imagery plan's slots are FOUND
+instead of generated — up to three of them, since a search costs neither a
+provider's pace nor a price. The dossier writes a `searchQuery` for each slot
+(two to four English words), the server returns eight thumbnails, and the model
+looks at them with the subject and the photos already chosen, and picks one —
+or none. A first version chose on words alone and put a gas mask on a
+space-exploration page; a photo that fits nothing is worse than no photo,
+because the whole page is then built around it. A model without vision takes
+the search's first result. Nothing found or nothing fitting is a notice, not a
+failure — and never a quiet fall-back to a paid generation the person turned
+off. In *Inspiration* mode, the found photo of the hero is the reference; in
+the default mode, the thumbnails of the photos found are shown to the model that
+writes the page, so the page is designed around the pictures it embeds rather
+than around a dossier written before they were found. Who
+may use this is its own list, in Admin → Images → Free stock photos.
+
 ---
 
 ## Anti-slop

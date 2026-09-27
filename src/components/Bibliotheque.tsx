@@ -272,12 +272,15 @@ export default function Bibliotheque({
     }
   }, [refresh])
 
-  const refreshVideos = useCallback(async () => {
+  const refreshVideos = useCallback(async (): Promise<LibraryVideo[]> => {
     setVideoError(null)
     try {
-      setVideos(await listVideos(onlyProject && projectId ? projectId : undefined))
+      const list = await listVideos(onlyProject && projectId ? projectId : undefined)
+      setVideos(list)
+      return list
     } catch {
       setVideoError('library.backendDown')
+      return []
     }
   }, [onlyProject, projectId])
 
@@ -711,6 +714,20 @@ export default function Bibliotheque({
                 <span className="rounded border border-line-soft px-1 text-caption text-ink-faint">{img.provider}</span>
               )}
             </div>
+            {/* The credit both libraries ask for, kept with a free photo. */}
+            {img.credit?.author && (
+              <div className="mt-0.5 truncate text-caption text-ink-faint">
+                {img.credit.authorUrl ? (
+                  <a href={img.credit.authorUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    {img.credit.author}
+                  </a>
+                ) : (
+                  img.credit.author
+                )}
+                {' · '}
+                {STOCK_LABELS[img.credit.source]}
+              </div>
+            )}
             {isPage && usedBy(img) && (
               <div className="mt-0.5 truncate text-caption text-ink-faint" title={usedBy(img)}>
                 {t('library.usedBy', { names: usedBy(img) })}
@@ -986,7 +1003,21 @@ export default function Bibliotheque({
   const activeGrid = tab === 'images' ? grid : tab === 'videos' ? videoGrid : filmGrid
   // Above the clips, on their tab only: what it imports lands in that grid.
   const stockSearch =
-    tab === 'videos' ? <StockVideoSearch projectId={projectId} onImported={() => void refreshVideos()} /> : null
+    tab === 'videos' ? (
+      <StockVideoSearch
+        projectId={projectId}
+        onImported={async (hash) => {
+          const list = await refreshVideos()
+          // A clip somebody searched for and imported is the clip they want:
+          // making them go back and choose it a second time was the whole
+          // round trip this saves. Only where choosing exists at all.
+          const v = hash ? list.find((x) => x.hash === hash) : undefined
+          if (v && canPinVideo) onPinVideo?.(v)
+        }}
+      />
+    ) : tab === 'images' ? (
+      <StockVideoSearch kind="image" projectId={projectId} onImported={() => void refresh()} />
+    ) : null
 
   const zipLink = (
     <a href={libraryZipUrl(filters)} className="btn-ghost px-3 py-1 text-body-sm" title={t('library.zipHint')}>

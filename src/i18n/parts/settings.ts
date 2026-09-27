@@ -205,9 +205,20 @@ export const settings = {
     'settings.videoAccessAllNote': 'Les {total} comptes de l’instance y ont accès.',
     'settings.videoAccessNote':
       'Un administrateur n’a pas accès d’office : cochez aussi votre propre compte si la liste est restreinte. Un compte qui a au moins un des deux accès peut importer ses propres clips.',
-    'settings.stockTitle': 'Vidéos libres de droits',
+    'settings.stockTitle': 'Vidéos et photos libres de droits',
     'settings.stockBlurb':
-      'Pexels et Pixabay offrent des vidéos gratuites, utilisables librement. Collez la clé API gratuite de l’une ou des deux : la recherche apparaît alors dans Média, onglet Vidéos. Sans clé, rien ne s’affiche.',
+      'Pexels et Pixabay offrent des vidéos et des photos gratuites, utilisables librement. Collez la clé API gratuite de l’une ou des deux : la recherche apparaît alors dans Média (onglets Vidéos et Images), et le composeur peut remplacer les images générées par de vraies photos. Sans clé, rien ne s’affiche.',
+    'settings.stockImagesTitle': 'Photos libres de droits',
+    'settings.stockImagesBlurb':
+      'Au lieu de générer les images de Muse et de Motion Ultra, le composeur peut aller chercher de vraies photos chez Pexels et Pixabay (choix « Images : Libres »). Aucun coût, rien de généré ; le crédit du photographe est conservé.',
+    'settings.stockImagesKeys': 'Actif avec les clés {names} enregistrées dans « Vidéos et photos libres de droits ».',
+    'settings.stockImagesNoKey':
+      'Aucune clé Pexels ou Pixabay n’est enregistrée : collez-en une dans « Vidéos et photos libres de droits », plus bas. Sans clé, cette option n’apparaît nulle part.',
+    'settings.stockImagesAccess': 'Qui peut utiliser les photos libres',
+    'settings.stockImagesAccessHelp': 'Dans le composeur et dans Média → Images.',
+    'settings.stockImagesAccessList': 'Comptes autorisés aux photos libres',
+    'settings.stockImagesNote':
+      'Un administrateur n’a pas accès d’office : cochez aussi votre propre compte si la liste est restreinte. Liste restreinte sans aucun compte coché = option fermée à tous.',
     'settings.stockKey': 'Clé API {name}',
     'settings.stockKeyWhere': 'Gratuite : il suffit d’un compte.',
     'settings.stockGetKey': 'Obtenir une clé gratuite',
@@ -516,9 +527,20 @@ export const settings = {
     'settings.videoAccessAllNote': 'All {total} accounts on this instance have access.',
     'settings.videoAccessNote':
       'An administrator is not allowed by default: tick your own account too when the list is restricted. An account with at least one of the two may import its own clips.',
-    'settings.stockTitle': 'Free stock videos',
+    'settings.stockTitle': 'Free stock videos and photos',
     'settings.stockBlurb':
-      'Pexels and Pixabay offer free videos anyone may reuse. Paste the free API key of one or both: search then appears in Media, Videos tab. Without a key, nothing is shown.',
+      'Pexels and Pixabay offer free videos and photos anyone may reuse. Paste the free API key of one or both: search then appears in Media (Videos and Images tabs), and the composer can replace generated pictures with real photos. Without a key, nothing is shown.',
+    'settings.stockImagesTitle': 'Free stock photos',
+    'settings.stockImagesBlurb':
+      'Instead of generating Muse’s and Motion Ultra’s pictures, the composer can fetch real photos from Pexels and Pixabay (the “Images: Free” choice). No cost, nothing generated; the photographer’s credit is kept.',
+    'settings.stockImagesKeys': 'On, with the {names} keys stored under “Free stock videos and photos”.',
+    'settings.stockImagesNoKey':
+      'No Pexels or Pixabay key is stored: paste one under “Free stock videos and photos”, below. Without a key, this option appears nowhere.',
+    'settings.stockImagesAccess': 'Who may use free photos',
+    'settings.stockImagesAccessHelp': 'In the composer and in Media → Images.',
+    'settings.stockImagesAccessList': 'Accounts allowed free photos',
+    'settings.stockImagesNote':
+      'An administrator has no access by right: tick your own account too if the list is restricted. A restricted list with no account ticked closes the option to everyone.',
     'settings.stockKey': '{name} API key',
     'settings.stockKeyWhere': 'Free: an account is all it takes.',
     'settings.stockGetKey': 'Get a free key',

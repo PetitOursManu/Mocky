@@ -60,7 +60,7 @@ function clampDimension(value, fallback) {
  * @param {(profile:string)=>object} deps.registryFor  provider registry for an
  *   image profile ('content' | 'inspiration').
  */
-export function createImagesRouter({ library, registryFor, budget }) {
+export function createImagesRouter({ library, registryFor, budget, stock, stockAccessFor = () => true }) {
   const router = express.Router()
 
   /**
@@ -266,6 +266,153 @@ export function createImagesRouter({ library, registryFor, budget }) {
       res.status(err?.statusCode === 413 ? 413 : 400).json({
         error: err instanceof Error ? err.message : String(err),
       })
+    }
+  })
+
+  /**
+   * Free stock photos (see stock.js). Four routes: which libraries this account
+   * may use, one page of results, importing the photo a person chose, and the
+   * automatic PICK the generation uses instead of generating a picture.
+   *
+   * Every one of them answers for the ACCOUNT, not the instance: an account the
+   * administrator did not open this to sees both libraries as off, and is
+   * refused by name if it asks anyway.
+   */
+  const refuseStock = (res) =>
+    res.status(403).json({
+      code: 'no-access',
+      error: "Votre compte n'a pas accès aux images libres de droits — un administrateur peut l'ouvrir dans Admin.",
+    })
+  const cleanTags = (v) => (Array.isArray(v) ? v.slice(0, 5).map((t) => String(t).slice(0, 40)) : [])
+  const stockFailure = (res, err) =>
+    res.status(err?.statusCode || 502).json({ error: err instanceof Error ? err.message : String(err), code: err?.code })
+
+  /** Store what stock.js downloaded, refusing BEFORE writing when the quota is full. */
+  function storeStock(res, { buffer, spec }, extra) {
+    if (budget?.wouldExceed(buffer.length)) {
+      res.status(507).json({ error: quotaError(budget.usage()) })
+      return null
+    }
+    const out = library.ingestStock(buffer, { ...spec, ...extra })
+    if (!out.fromCache) budget?.add(buffer.length)
+    return out
+  }
+
+  router.get('/stock/status', (req, res) => {
+    const allowed = Boolean(stock) && stockAccessFor(req.user)
+    res.json({ providers: allowed ? stock.status() : { pexels: false, pixabay: false }, allowed })
+  })
+
+  // Query: ?provider=pexels|pixabay&q=&page=&orientation=
+  router.get('/stock/search', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock photos are not available.' })
+    if (!stockAccessFor(req.user)) return refuseStock(res)
+    try {
+      res.json(
+        await stock.search(String(req.query.provider || ''), String(req.query.q || ''), {
+          page: req.query.page,
+          orientation: req.query.orientation,
+        }),
+      )
+    } catch (err) {
+      stockFailure(res, err)
+    }
+  })
+
+  // Body: { provider, id, project? }
+  // Body: { provider, id, project?, tags?: string[], ultra? } — `ultra` is read
+  // by the Motion Ultra gate in server/index.js when a series imports its pick.
+  router.post('/stock/import', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock photos are not available.' })
+    if (!stockAccessFor(req.user)) return refuseStock(res)
+    const body = req.body || {}
+    try {
+      const got = await stock.fetchPhoto(String(body.provider || ''), body.id, { maxBytes: MAX_IMAGE_BYTES })
+      const out = storeStock(res, got, {
+        project: typeof body.project === 'string' ? body.project : '',
+        owner: req.user?.id,
+        tags: cleanTags(body.tags),
+      })
+      if (!out) return
+      res.json({
+        hash: out.hash,
+        url: `/api/images/${out.hash}`,
+        fromCache: out.fromCache,
+        stockId: `${body.provider}:${body.id}`,
+        meta: withoutOwners(out.meta),
+      })
+    } catch (err) {
+      stockFailure(res, err)
+    }
+  })
+
+  /*
+   * Body: { query, orientation?, exclude?: string[], count? }
+   *
+   * Thumbnails for a vision model to choose among, as data URLs — nothing is
+   * stored. The chosen one then goes through /stock/import like a person's.
+   * `{ candidates: [] }` is a 200: nothing found is an answer about the query.
+   */
+  router.post('/stock/candidates', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock photos are not available.' })
+    if (!stockAccessFor(req.user)) return refuseStock(res)
+    const body = req.body || {}
+    const query = String(body.query || '').trim().slice(0, 200)
+    if (!query) return res.status(400).json({ error: 'A "query" is required.' })
+    try {
+      res.json(
+        await stock.candidates(query, {
+          orientation: body.orientation,
+          exclude: Array.isArray(body.exclude) ? body.exclude.slice(0, 50) : [],
+          count: body.count,
+        }),
+      )
+    } catch (err) {
+      stockFailure(res, err)
+    }
+  })
+
+  /*
+   * Body: { query, orientation?, exclude?: string[], project?, tags?: string[], ultra? }
+   *
+   * The pick WITHOUT a vision model: the first result, stored.
+   *
+   * `ultra` is read by the Motion Ultra gate in server/index.js, in front of
+   * this route exactly as in front of /generate: a series is a series whether
+   * its pictures are generated or found.
+   *
+   * `{ found: false }` is a 200. Nothing matching three words in two libraries
+   * is an answer about the query, and the caller carries on without that picture.
+   */
+  router.post('/stock/pick', async (req, res) => {
+    if (!stock) return res.status(503).json({ error: 'Stock photos are not available.' })
+    if (!stockAccessFor(req.user)) return refuseStock(res)
+    const body = req.body || {}
+    const query = String(body.query || '').trim().slice(0, 200)
+    if (!query) return res.status(400).json({ error: 'A "query" is required.' })
+    try {
+      const got = await stock.pick(query, {
+        orientation: body.orientation,
+        exclude: Array.isArray(body.exclude) ? body.exclude.slice(0, 50) : [],
+        maxBytes: MAX_IMAGE_BYTES,
+      })
+      if (!got) return res.json({ found: false })
+      const out = storeStock(res, got, {
+        project: typeof body.project === 'string' ? body.project : '',
+        owner: req.user?.id,
+        tags: cleanTags(body.tags),
+      })
+      if (!out) return
+      res.json({
+        found: true,
+        hash: out.hash,
+        url: `/api/images/${out.hash}`,
+        stockId: `${got.item.provider}:${got.item.id}`,
+        query: got.query,
+        credit: out.meta.credit || null,
+      })
+    } catch (err) {
+      stockFailure(res, err)
     }
   })
 

@@ -8,6 +8,7 @@ import { sampleSourceImage } from './providers/init.js'
 import { ImagesConfigStore, IMAGE_PROFILES, resolveImageProfile } from './config.js'
 import { ImageLibrary } from './library.js'
 import { createImagesRouter } from './routes.js'
+import { createStockPhotos } from './stock.js'
 
 // Pollinations' anonymous tier is ≈ 1 req / 15 s and must be paced. Every other
 // provider (paid API or the user's own GPU) has no such constraint.
@@ -114,6 +115,16 @@ export function createImages({ dataDir, intervalMs, budget } = {}) {
     }
   }
 
-  const router = createImagesRouter({ library, registryFor, budget })
-  return { queue, registries, registryFor, library, router, configStore, reload, testProvider }
+  // The footage keys, read at call time: one Pexels or Pixabay key serves
+  // photos and videos alike (see defaultStockImages in config.js).
+  const stock = createStockPhotos({ keys: () => configStore.videoProfile().stock || {} })
+
+  const router = createImagesRouter({
+    library,
+    registryFor,
+    budget,
+    stock,
+    stockAccessFor: (user) => configStore.stockImagesAccessFor(user),
+  })
+  return { queue, registries, registryFor, library, router, configStore, reload, testProvider, stock }
 }

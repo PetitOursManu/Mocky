@@ -849,6 +849,91 @@ function VideoAccessForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: I
   )
 }
 
+/**
+ * Free stock PHOTOS, for Muse's hero and Motion Ultra's series when the
+ * composer says "Images: free", and for the search in Media → Images.
+ *
+ * Only a question of WHO: the keys are the footage keys, pasted once under
+ * Videos, because a Pexels or Pixabay key is not scoped to one medium. The card
+ * says which libraries those keys turn on, so an administrator does not look for
+ * a second place to paste them — and says plainly when there are none, since an
+ * access list over a feature with no key opens nothing.
+ */
+function StockImagesForm({ cfg, onConfig }: { cfg: ImagesConfig; onConfig: (c: ImagesConfig) => void }) {
+  const t = useT()
+  const modes = cfg.video.accessModes ?? (['all', 'allowlist'] as VideoAccessMode[])
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [scope, setScope] = useState<VideoAccessScope>(cfg.stockImages?.access ?? { mode: 'all', userIds: [] })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const keyed = STOCK_PROVIDERS.filter((p) => cfg.video.stock?.[p]?.hasApiKey)
+
+  useEffect(() => {
+    api.admin
+      .listUsers()
+      .then(setUsers)
+      .catch(() => setUsers([]))
+  }, [])
+
+  async function save() {
+    setSaving(true)
+    setError(null)
+    setSaved(false)
+    try {
+      onConfig(await api.admin.setImagesConfig({ stockImages: { access: scope } }))
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="border border-line-soft p-4">
+      <h4 className="text-h4 text-ink">{t('settings.stockImagesTitle')}</h4>
+      <p className="measure mt-1 text-body-sm text-ink-muted">{t('settings.stockImagesBlurb')}</p>
+      <p className={`mt-2 text-body-sm ${keyed.length ? 'text-ok' : 'text-warn'}`}>
+        {keyed.length
+          ? t('settings.stockImagesKeys', { names: keyed.map((p) => STOCK_LABELS[p]).join(', ') })
+          : t('settings.stockImagesNoKey')}
+      </p>
+
+      <AccountScope
+        modes={modes}
+        access={scope.mode}
+        onAccess={(mode) => {
+          setScope((s) => ({ ...s, mode }))
+          setSaved(false)
+        }}
+        allowed={scope.userIds}
+        onToggle={(id) => {
+          setSaved(false)
+          setScope((s) => ({ ...s, userIds: s.userIds.includes(id) ? s.userIds.filter((x) => x !== id) : [...s.userIds, id] }))
+        }}
+        users={users}
+        labels={{
+          title: 'settings.stockImagesAccess',
+          help: 'settings.stockImagesAccessHelp',
+          listTitle: 'settings.stockImagesAccessList',
+          empty: 'settings.videoAccessEmpty',
+          allNote: 'settings.videoAccessAllNote',
+        }}
+        footnote="settings.stockImagesNote"
+      />
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button variant="primary" size="sm" onClick={() => void save()} disabled={saving}>
+          {saving ? t('settings.saving') : t('common.save')}
+        </Button>
+        {saved && <span className="text-body-sm text-ok">{t('settings.saved')}</span>}
+        {error && <span className="text-body-sm text-danger">{error}</span>}
+      </div>
+    </div>
+  )
+}
+
 /** Where each library hands out its free key. */
 const STOCK_KEY_PAGE: Record<StockProvider, string> = {
   pexels: 'https://www.pexels.com/api/',
@@ -945,6 +1030,9 @@ export default function ImageProviderSettings() {
           cfg={cfg}
           onConfig={setCfg}
         />
+        {/* Found rather than made: the free alternative to the three profiles
+            above, which is why it sits beside them and not under Videos. */}
+        <StockImagesForm cfg={cfg} onConfig={setCfg} />
       </div>
 
       {/* Videos get a heading of their own: generated clips, free ones and who

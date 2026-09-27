@@ -148,6 +148,14 @@ export const library = {
     'library.stockImported': 'Importée',
     'library.stockNone': 'Aucune vidéo trouvée. Essayez un autre mot, en anglais de préférence.',
     'library.stockMore': 'Plus de résultats',
+    'library.stockImagesTitle': 'Photos libres de droits',
+    'library.stockImagesPlaceholder': 'Chercher une photo (en anglais de préférence : lighthouse, coffee shop…)',
+    'library.stockImagesProvidedBy': 'Photos fournies par',
+    'library.stockImagesLicence':
+      'utilisables gratuitement, y compris dans un projet commercial. Le crédit de l’auteur est conservé avec la photo.',
+    'library.stockImagesImportHint': 'Ajouter cette photo à Média, prête à être épinglée pour un écran',
+    'library.stockImagesImported': 'Ajoutée',
+    'library.stockImagesNone': 'Aucune photo trouvée. Essayez un autre mot, en anglais de préférence.',
     'library.selectedClear': 'retirer',
 
     // ---- lightbox ----
@@ -386,6 +394,13 @@ export const library = {
     'library.stockImported': 'Imported',
     'library.stockNone': 'No video found. Try another word.',
     'library.stockMore': 'More results',
+    'library.stockImagesTitle': 'Free stock photos',
+    'library.stockImagesPlaceholder': 'Search for a photo (lighthouse, coffee shop…)',
+    'library.stockImagesProvidedBy': 'Photos provided by',
+    'library.stockImagesLicence': 'free to use, commercial projects included. The author’s credit is kept with the photo.',
+    'library.stockImagesImportHint': 'Add this photo to Media, ready to be pinned for a screen',
+    'library.stockImagesImported': 'Added',
+    'library.stockImagesNone': 'No photo found. Try another word.',
     'library.selectedClear': 'remove',
 
     // ---- lightbox ----

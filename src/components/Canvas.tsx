@@ -431,6 +431,7 @@ export default function Canvas({
   regenLabel,
   referenceScreenId,
   onScreenContextMenu,
+  onOpenScreenNotes,
   onContentHeight,
   animations,
   onCycleScreenAnimations,
@@ -480,6 +481,8 @@ export default function Canvas({
   referenceScreenId?: string
   /** Open the per-screen context menu at client coords (right-click or the label's More button). */
   onScreenContextMenu?: (screenId: string, x: number, y: number) => void
+  /** Open the private notes of a screen (see lib/screenNotes.ts). */
+  onOpenScreenNotes?: (screenId: string) => void
   /** Reports a screen's rendered content height (px) for the "Full height" format. */
   onContentHeight?: (screenId: string, height: number) => void
   /** false = "Sans animation" — passed through to every preview. */
@@ -1161,6 +1164,24 @@ export default function Canvas({
                     {t('canvas.animOffBadge')}
                   </span>
                 )}
+                {/* Notes show whether or not the screen is selected: they are
+                    what you wrote so you would see it next time, and a note
+                    only visible once you already clicked the screen is one you
+                    will not think to look for. */}
+                {s.userNotes && s.userNotes.length > 0 && editingLabelId !== s.id && (
+                  <button
+                    type="button"
+                    className="flex shrink-0 items-center rounded-full border border-accent bg-accent font-semibold text-on-accent shadow-sm transition hover:opacity-90"
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, fontSize: 12 * inv }}
+                    title={t('notes.badgeTitle', { count: s.userNotes.length })}
+                    aria-label={t('notes.badgeTitle', { count: s.userNotes.length })}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => onOpenScreenNotes?.(s.id)}
+                  >
+                    <Icon name="note" size={13 * inv} />
+                    {s.userNotes.length}
+                  </button>
+                )}
                 {soloInteractive && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-accent/10 text-accent-ink"
@@ -1192,6 +1213,11 @@ export default function Canvas({
                       onClick={() => setPromptShownId((id) => (id === s.id ? null : s.id))}
                     >
                       <Icon name="comment" size={13 * inv} />
+                    </LabelBtn>
+                    <LabelBtn inv={inv} title={t('notes.open')} onClick={() => onOpenScreenNotes?.(s.id)}>
+                      <span className={s.userNotes?.length ? 'text-accent-ink' : undefined}>
+                        <Icon name="note" size={13 * inv} />
+                      </span>
                     </LabelBtn>
                     {/* This screen's own answer about motion: animated (the
                         default) or held still for a demo. */}

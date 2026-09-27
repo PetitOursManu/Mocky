@@ -532,7 +532,9 @@ app.use('/api', express.json({ limit: '25mb' }))
  */
 // requireUser first: it is what sets req.user, and without it every account
 // would read as nobody and an allowlist would refuse them all.
-app.post('/api/images/generate', requireUser, (req, res, next) => {
+// The same gate in front of the free-photo pick: a series of found photos is a
+// series all the same.
+app.post(['/api/images/generate', '/api/images/stock/pick', '/api/images/stock/import'], requireUser, (req, res, next) => {
   const refusal = ultraSeriesRefusal(videoConfig.ultraCountsFor(req.user), req.body?.ultra)
   if (!refusal) return next()
   res.status(403).json({ code: 'no-access', error: refusal })
@@ -1437,7 +1439,12 @@ app.use(
   // throttled — 30/min is far above any human pace and far below what a runaway
   // loop or a stuck retry produces.
   (req, res, next) => {
-    if (req.method === 'POST' && (req.path.startsWith('/generate') || req.path.startsWith('/upload'))) {
+    // A stock pick or import costs a download and a slice of a free quota
+    // (Pexels: 200 requests an hour), so it is throttled with them.
+    if (
+      req.method === 'POST' &&
+      (req.path.startsWith('/generate') || req.path.startsWith('/upload') || req.path.startsWith('/stock/'))
+    ) {
       return authRateLimit(30, 60_000, 'images')(req, res, next)
     }
     next()

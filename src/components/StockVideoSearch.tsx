@@ -11,6 +11,36 @@ import {
   type StockProvider,
   type StockResult,
 } from '../lib/videoLibrary'
+import { importStockImage, searchStockImages, stockImageStatus, type StockPhoto } from '../lib/stockImages'
+
+/**
+ * What differs between searching footage and searching photos: the three
+ * calls, and the words. Everything else — the libraries, the keys, the credit,
+ * the layout — is the same search, and one component keeps it that way.
+ */
+type Kind = 'video' | 'image'
+type Hit = StockResult | (StockPhoto & { duration?: undefined; preview?: undefined })
+
+const WORDS: Record<Kind, Record<'title' | 'placeholder' | 'providedBy' | 'licence' | 'importHint' | 'imported' | 'none', string>> = {
+  video: {
+    title: 'library.stockTitle',
+    placeholder: 'library.stockPlaceholder',
+    providedBy: 'library.stockProvidedBy',
+    licence: 'library.stockLicence',
+    importHint: 'library.stockImportHint',
+    imported: 'library.stockImported',
+    none: 'library.stockNone',
+  },
+  image: {
+    title: 'library.stockImagesTitle',
+    placeholder: 'library.stockImagesPlaceholder',
+    providedBy: 'library.stockImagesProvidedBy',
+    licence: 'library.stockImagesLicence',
+    importHint: 'library.stockImagesImportHint',
+    imported: 'library.stockImagesImported',
+    none: 'library.stockImagesNone',
+  },
+}
 
 /**
  * Search the free stock libraries an administrator turned on, and import one
@@ -27,16 +57,21 @@ import {
 export default function StockVideoSearch({
   projectId,
   onImported,
+  kind = 'video',
 }: {
   projectId?: string
-  onImported: () => void
+  /** Called with the library hash of what was just imported. */
+  onImported: (hash?: string) => void
+  /** Footage (cut into a sequence) or photos (stored as a library image). */
+  kind?: Kind
 }) {
   const t = useT()
+  const w = WORDS[kind]
   const [enabled, setEnabled] = useState<StockProvider[]>([])
   const [ffmpeg, setFfmpeg] = useState(true)
   const [provider, setProvider] = useState<StockProvider>('pexels')
   const [q, setQ] = useState('')
-  const [results, setResults] = useState<StockResult[]>([])
+  const [results, setResults] = useState<Hit[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [searching, setSearching] = useState(false)
@@ -48,16 +83,21 @@ export default function StockVideoSearch({
 
   useEffect(() => {
     const ac = new AbortController()
-    stockStatus(ac.signal)
+    const status =
+      kind === 'image'
+        ? stockImageStatus(ac.signal).then((s) => ({ ...s, ffmpeg: true }))
+        : stockStatus(ac.signal)
+    status
       .then((s) => {
         const on = STOCK_PROVIDERS.filter((p) => s.providers?.[p])
         setEnabled(on)
+        // A photo is stored as it is; only footage needs ffmpeg to be cut.
         setFfmpeg(s.ffmpeg)
         if (on.length) setProvider(on[0])
       })
       .catch(() => {})
     return () => ac.abort()
-  }, [])
+  }, [kind])
 
   useEffect(() => () => searchAbort.current?.abort(), [])
 
@@ -72,7 +112,10 @@ export default function StockVideoSearch({
     setSearching(true)
     setError(null)
     try {
-      const out = await searchStock(provider, query, nextPage, ac.signal)
+      const out =
+        kind === 'image'
+          ? await searchStockImages(provider, query, nextPage, ac.signal)
+          : await searchStock(provider, query, nextPage, ac.signal)
       setResults((prev) => (nextPage === 1 ? out.results : [...prev, ...out.results]))
       setPage(out.page)
       setHasMore(out.hasMore)
@@ -85,14 +128,17 @@ export default function StockVideoSearch({
     }
   }
 
-  async function onImport(r: StockResult) {
+  async function onImport(r: Hit) {
     const key = `${r.provider}:${r.id}`
     setImporting(key)
     setError(null)
     try {
-      await importStock(r.provider, r.id, { project: projectId })
+      const out =
+        kind === 'image'
+          ? await importStockImage(r.provider, r.id, { project: projectId })
+          : await importStock(r.provider, r.id, { project: projectId })
       setImported((prev) => new Set(prev).add(key))
-      onImported()
+      onImported(out.hash)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -114,7 +160,7 @@ export default function StockVideoSearch({
       <div className="flex flex-wrap items-center gap-2">
         <span className="kicker flex items-center gap-1.5 text-accent-ink">
           <Icon name="search" size={14} />
-          {t('library.stockTitle')}
+          {t(w.title)}
         </span>
         {enabled.length > 1 && (
           <span className="inline-flex border border-line-soft" role="group" aria-label={t('library.stockLibrary')}>
@@ -143,8 +189,8 @@ export default function StockVideoSearch({
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={t('library.stockPlaceholder')}
-            aria-label={t('library.stockPlaceholder')}
+            placeholder={t(w.placeholder)}
+            aria-label={t(w.placeholder)}
             maxLength={100}
             className="flex-1"
           />
@@ -156,12 +202,12 @@ export default function StockVideoSearch({
       </div>
 
       <p className="mt-1.5 text-caption text-ink-faint">
-        {t('library.stockProvidedBy')}{' '}
+        {t(w.providedBy)}{' '}
         <a href={STOCK_HOME[provider]} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
           {STOCK_LABELS[provider]}
         </a>
         {' — '}
-        {t('library.stockLicence')}
+        {t(w.licence)}
       </p>
 
       {!ffmpeg && (
@@ -182,7 +228,7 @@ export default function StockVideoSearch({
             const done = imported.has(key)
             return (
               <div key={key} className="group overflow-hidden border border-line-soft bg-surface">
-                <StockPreview result={r} />
+                <StockPreview result={r} kind={kind} />
                 <div className="p-1.5">
                   <div className="truncate text-caption text-ink-muted" title={r.title}>
                     {r.title || `${STOCK_LABELS[r.provider]} ${r.id}`}
@@ -196,7 +242,7 @@ export default function StockVideoSearch({
                       ) : (
                         r.author
                       ))}
-                    {r.duration > 0 && <span className="font-mono"> · {Math.round(r.duration)} s</span>}
+                    {!!r.duration && r.duration > 0 && <span className="font-mono"> · {Math.round(r.duration)} s</span>}
                   </div>
                   <Button
                     variant={done ? 'ghost' : 'primary'}
@@ -204,7 +250,7 @@ export default function StockVideoSearch({
                     className="mt-1.5 w-full"
                     disabled={done || importing !== null || !ffmpeg}
                     onClick={() => void onImport(r)}
-                    title={t('library.stockImportHint')}
+                    title={t(w.importHint)}
                   >
                     {importing === key ? (
                       <>
@@ -214,7 +260,7 @@ export default function StockVideoSearch({
                     ) : done ? (
                       <>
                         <Icon name="check" size={14} />
-                        {t('library.stockImported')}
+                        {t(w.imported)}
                       </>
                     ) : (
                       <>
@@ -230,7 +276,7 @@ export default function StockVideoSearch({
         </div>
       )}
       {searched && !searching && results.length === 0 && error === null && (
-        <p className="mt-3 text-body-sm text-ink-faint">{t('library.stockNone')}</p>
+        <p className="mt-3 text-body-sm text-ink-faint">{t(w.none)}</p>
       )}
       {hasMore && (
         <div className="mt-3 flex justify-center">
@@ -248,14 +294,14 @@ export default function StockVideoSearch({
  * on it. The video element exists only while hovered: twenty-four previews
  * preloading at once would be megabytes nobody asked to download.
  */
-function StockPreview({ result }: { result: StockResult }) {
+function StockPreview({ result, kind }: { result: Hit; kind: Kind }) {
   const [hover, setHover] = useState(false)
   return (
     <a
       href={result.pageUrl || undefined}
       target="_blank"
       rel="noopener noreferrer"
-      className="relative block aspect-[16/9] w-full overflow-hidden bg-sunken"
+      className={`relative block w-full overflow-hidden bg-sunken ${kind === 'image' ? 'aspect-[4/3]' : 'aspect-[16/9]'}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onFocus={() => setHover(true)}

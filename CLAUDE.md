@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Three series: I1–I8 (core), M1–M8 (Muse), Q1–Q5 (quality). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Three series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -170,6 +170,22 @@ there, and `plugFilmIntoSlot` sets its `video` attribute once the local worker
 has rendered a `background` film — an AST offset, no model call. Do not route it
 through `placeFilmInScreen`: that is the model-driven placement for films
 nobody planned.
+
+**Free stock photos** (`Images · Free` in the composer) replace Muse's and
+Ultra's generated pictures with Pexels/Pixabay photos — `server/images/stock.js`,
+`src/lib/stockImages.ts`. The planner writes the search (`query`,
+`searchQuery`), a vision model picks among thumbnails or refuses them all, and
+the chosen thumbnails are shown to the page's author. Choosing on words alone
+was tried first and put a gas mask on a space page: do not remove the judge to
+save a call. The keys are the footage keys (`video.stock`); only the access list
+is separate (`stockImages.access`).
+
+**`<ScrollSequence>` pins with `position: sticky`**, and generated pages wrap
+themselves in `overflow-hidden`, which silently cancels it — the clip scrolls
+away over a black section. `mockySeqKeepSticky` switches hidden ancestors to
+`overflow: clip`, and keeps re-checking because Tailwind's runtime writes the
+class's CSS a task AFTER mount (a single check at mount shipped and fixed
+nothing).
 
 Related, found while testing it: a preview error that is about the ENVIRONMENT
 (React/Babel failed to load) is never sent to the repair loop —

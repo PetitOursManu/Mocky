@@ -10,6 +10,7 @@ import {
   defaultImagesConfig,
   resolveImageProfile,
   videoAccessFor,
+  stockImagesAccessFor,
   PROVIDER_IDS,
   IMAGE_PROFILES,
   EDIT_PROVIDER_IDS,
@@ -311,5 +312,23 @@ describe('video access per account', () => {
     cfg = mergeImagesConfig(cfg, { video: { provider: 'fal' } })
     expect(cfg.video.access.generated.userIds).toEqual(['alice'])
     expect(publicImagesConfig(cfg).video.access.generated).toEqual({ mode: 'allowlist', userIds: ['alice'] })
+  })
+})
+
+describe('free stock photos, per account', () => {
+  it('is open by default and survives a patch about something else', () => {
+    let cfg = defaultImagesConfig()
+    expect(stockImagesAccessFor(cfg, { id: 'alice' })).toBe(true)
+    cfg = mergeImagesConfig(cfg, { stockImages: { access: { mode: 'allowlist', userIds: ['alice'] } } })
+    cfg = mergeImagesConfig(cfg, { video: { provider: 'fal' } })
+    expect(stockImagesAccessFor(cfg, { id: 'alice' })).toBe(true)
+    expect(stockImagesAccessFor(cfg, { id: 'bob' })).toBe(false)
+    expect(stockImagesAccessFor(cfg, { id: 'root', role: 'admin' })).toBe(false)
+    expect(publicImagesConfig(cfg).stockImages.access).toEqual({ mode: 'allowlist', userIds: ['alice'] })
+  })
+
+  it('an allowlist with nobody on it closes the feature to everyone', () => {
+    const cfg = mergeImagesConfig(defaultImagesConfig(), { stockImages: { access: { mode: 'allowlist', userIds: [] } } })
+    expect(stockImagesAccessFor(cfg, { id: 'alice' })).toBe(false)
   })
 })

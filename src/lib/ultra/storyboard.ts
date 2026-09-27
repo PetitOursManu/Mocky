@@ -51,6 +51,13 @@ export interface UltraImagePlan {
   role: UltraImageRole
   /** What the picture shows, without the shared style (that is added once). */
   subject: string
+  /**
+   * The stock-photo search for it, written by the same call that chose the
+   * subject — asked for only when the pictures will be FOUND rather than
+   * generated (`runStoryboard`'s `stockQueries`), so the ordinary storyboard
+   * prompt does not change.
+   */
+  query?: string
 }
 
 export interface UltraStoryboard {
@@ -79,6 +86,23 @@ export const MAX_SECTIONS = 8
 const MAX_STYLE = 300
 const MAX_SUBJECT = 240
 const MAX_CONTENT = 240
+const MAX_QUERY = 60
+
+/** The schema, with the stock `query` field on each picture when it is asked for. */
+function storyboardSchema(stockQueries: boolean) {
+  if (!stockQueries) return STORYBOARD_SCHEMA
+  const images = STORYBOARD_SCHEMA.properties.images
+  return {
+    ...STORYBOARD_SCHEMA,
+    properties: {
+      ...STORYBOARD_SCHEMA.properties,
+      images: {
+        ...images,
+        items: { ...images.items, properties: { ...images.items.properties, query: { type: 'string' } } },
+      },
+    },
+  }
+}
 
 const STORYBOARD_SCHEMA = {
   type: 'object',
@@ -113,7 +137,12 @@ const STORYBOARD_SCHEMA = {
   required: ['mode', 'style', 'sections', 'images'],
 }
 
-export function buildStoryboardSystem(count: UltraImageCount, hint: ScreenMode, design?: string): string {
+export function buildStoryboardSystem(
+  count: UltraImageCount,
+  hint: ScreenMode,
+  design?: string,
+  stockQueries = false,
+): string {
   const parts = [
     'You are the art director of a high-end, motion-led web page — the kind of page that wins awards for its opening seconds. PLAN one screen; do NOT write code.',
     'Respond with ONLY a JSON object matching the provided schema. No prose, no code fences.',
@@ -124,6 +153,11 @@ export function buildStoryboardSystem(count: UltraImageCount, hint: ScreenMode, 
     `- images: EXACTLY ${count} pictures to generate for this screen. Each names the \`section\` it belongs to (one of your ids), its \`role\`, and its \`subject\`: what the picture shows, concretely, in one sentence, WITHOUT style words — the style is given once, below.`,
     '  Roles: "backdrop" — an atmospheric ground with no subject, for text to sit on; "subject" — ONE isolated object on a plain ground, the hero of a section; "scene" — a photograph of a place, a person at work, a product in use; "texture" — a close-up of a material, abstract.',
     '  Give each picture to a section whose recipe lists that role. Spread them: the opening gets the strongest one, and no section gets more than two unless it is a mosaic.',
+    ...(stockQueries
+      ? [
+          '  The pictures will be REAL PHOTOS found in a stock library (Pexels, Pixabay), not generated. So choose subjects such libraries actually have — real places, people, objects, materials, not invented creatures or impossible scenes — and give each picture a `query`: 2 to 4 ENGLISH keywords that find it ("astronaut spacewalk", "ceramic mug table", "misty mountain ridge"), concrete nouns, no style words.',
+        ]
+      : []),
     '- style: ONE sentence every picture shares, so they read as a series from one shoot — the light, the palette, the material, the lens. Concrete ("soft studio light, deep violet and ice blue, matte ceramic, shallow depth of field"), never "modern" or "beautiful".',
     '',
     'Each recipe below says which modes it is written for ("for: …"). Prefer recipes written for your mode; on a page (persuade, read, experience) any recipe may be used where it genuinely serves the screen.',
@@ -199,7 +233,8 @@ export function validateStoryboard(raw: unknown, count: UltraImageCount, hint: S
     const role = ULTRA_IMAGE_ROLES.includes(im.role as UltraImageRole) ? (im.role as UltraImageRole) : null
     const subject = clip(im.subject, MAX_SUBJECT)
     if (!role || !subject) continue
-    images.push({ section: homeFor(slug(im.section), role, sections), role, subject })
+    const query = clip(im.query, MAX_QUERY)
+    images.push({ section: homeFor(slug(im.section), role, sections), role, subject, ...(query ? { query } : {}) })
   }
   padImages(images, count, sections)
   return { mode, style, sections, images, fallback: false }
@@ -276,21 +311,27 @@ export async function runStoryboard(
   prompt: string,
   count: UltraImageCount,
   mode: ScreenMode,
-  opts: { design?: string; presetHint?: string; signal?: AbortSignal } = {},
+  opts: {
+    design?: string
+    presetHint?: string
+    signal?: AbortSignal
+    /** The pictures will be found in a stock library: ask for a search per picture. */
+    stockQueries?: boolean
+  } = {},
 ): Promise<UltraStoryboard> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), STORYBOARD_TIMEOUT_MS)
   const onAbort = () => ctrl.abort()
   opts.signal?.addEventListener('abort', onAbort)
   try {
-    const system = buildStoryboardSystem(count, mode, opts.design)
+    const system = buildStoryboardSystem(count, mode, opts.design, !!opts.stockQueries)
     const user = opts.presetHint ? `${prompt}\n\nTarget form factor: ${opts.presetHint}` : prompt
     const res = await proxyFetch(s, '/api/chat', {
       method: 'POST',
       body: JSON.stringify({
         model: s.model,
         stream: false,
-        format: STORYBOARD_SCHEMA,
+        format: storyboardSchema(!!opts.stockQueries),
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },

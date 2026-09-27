@@ -336,6 +336,28 @@ l'un ni l'autre ne voit aucune option vidéo, et le serveur le refuse sur
 `/generate`, `/stock/*` et `/upload` quoi qu'affiche le panneau — le panneau ne
 fait que cacher ce qui serait refusé.
 
+**Les photos aussi peuvent être libres.** Les mêmes clés servent les photos de
+Pexels et Pixabay, à deux endroits. À la main : l'onglet Images de Média gagne la
+même recherche, et une photo importée est rangée comme un import, avec le crédit
+de son auteur sur sa carte — épinglez-la et Muse l'utilise comme n'importe
+laquelle de vos images. Automatiquement : le choix `Images · IA / Libres` du
+composeur. Sur *Libres*, les emplacements du plan d'images sont TROUVÉS au lieu
+d'être générés — jusqu'à trois, puisqu'une recherche ne coûte ni le rythme d'un
+fournisseur ni un prix. Le dossier écrit une `searchQuery` pour chaque
+emplacement (deux à quatre mots anglais), le serveur renvoie huit vignettes, et
+le modèle les regarde avec le sujet et les photos déjà choisies, puis en choisit
+une — ou aucune. Une première version choisissait sur les mots seuls et a mis un
+masque à gaz sur une page d'exploration spatiale ; une photo qui ne sert rien
+est pire qu'aucune photo, parce que toute la page est ensuite construite autour.
+Un modèle sans vision prend le premier résultat de la recherche. Rien trouvé ou
+rien qui convienne, c'est un message, pas un échec — et jamais un repli
+silencieux sur une génération payante que la personne a écartée. En mode *Inspiration*, la photo
+trouvée du héros sert de référence ; dans le mode par défaut, les vignettes des
+photos trouvées sont montrées au modèle qui écrit la page, pour qu'elle soit
+dessinée autour des images qu'elle contient plutôt qu'autour d'un dossier écrit
+avant qu'elles soient trouvées. Qui peut s'en servir est une liste à part,
+dans Admin → Images → Photos libres de droits.
+
 ---
 
 ## L'anti-slop

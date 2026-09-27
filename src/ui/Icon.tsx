@@ -32,6 +32,7 @@ export type IconName =
   | 'trash'
   | 'pencil'
   | 'comment'
+  | 'note'
   | 'more'
   | 'close'
   | 'check'
@@ -85,6 +86,9 @@ const PATHS: Record<IconName, string> = {
   trash: 'M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5',
   pencil: 'M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4',
   comment: 'M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z',
+  // A sticky note with its corner folded: distinct from `comment`, which
+  // already means "the request that made this screen" in the label bar.
+  note: 'M4 4h16v10l-6 6H4zM14 20v-6h6M8 9h8M8 13h4',
   // Three real discs, drawn as arc pairs. They were `M5 12h.01M12 12h.01…` —
   // zero-height segments relying on a round linecap to paint a dot, which gave
   // a path with a bounding box 14 wide and 0 tall and, at the size this renders

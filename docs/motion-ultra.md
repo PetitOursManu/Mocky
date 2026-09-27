@@ -53,6 +53,19 @@ prompt → storyboard → series of pictures → page → checks
 2. **Pictures.** Exactly as many as you chose, two at a time, through the image
    library. A picture that fails leaves its section to an animated CSS
    background; the page is still produced and a notice says what happened.
+   With the composer's `Images · Free`, each picture is **found** in Pexels or
+   Pixabay instead. The storyboard then also writes, per picture, a search of
+   two to four English words and picks subjects a stock library actually has.
+   The server returns eight thumbnails for it, and the model **looks at them**
+   — with the subject, the picture's role and the photos already chosen for the
+   series — and picks one, or none: a picture nothing fits is left to an
+   animated CSS background rather than filled with an absurd photo. That look is
+   what holds a found series together. One call per picture on small
+   thumbnails, far below the price of a generated image. A model without vision
+   takes the search's first result instead. The thumbnails of up to three of
+   the chosen photos are then shown to the model that writes the page, so it
+   takes its accents and its light from the real pictures — the storyboard was
+   written before they existed.
 3. **Page.** The generation prompt receives the storyboard and the pictures, and
    the page is written with the **Ultra kit**: `u-*` classes (glass, display
    type, gradient text, reveals, parallax, grain…) and `<Backdrop>`, six living

@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { makeZip } from './zip.js'
+import { cleanCredit } from '../videos/library.js'
 
 const HASH_RE = /^[a-f0-9]{16,64}$/
 
@@ -25,6 +26,23 @@ function slugify(s, fallback) {
 
 function sha256hex(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex')
+}
+
+/**
+ * What a downloaded file really is, read from its first bytes.
+ *
+ * An upload says its type in the request and the route checks it against an
+ * allowlist. A stock photo arrives from a CDN whose Content-Type nobody here
+ * chose, and these bytes are served back from Mocky's own origin — so the type
+ * is taken from the file itself, and anything that is not one of the three
+ * photo formats is refused rather than stored under a guess.
+ */
+export function sniffImageMime(buf) {
+  if (!buf || buf.length < 12) return null
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg'
+  if (buf[0] === 0x89 && buf.toString('latin1', 1, 4) === 'PNG') return 'image/png'
+  if (buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'image/webp'
+  return null
 }
 
 export class ImageLibrary {
@@ -318,6 +336,41 @@ export class ImageLibrary {
     this.state.byHash[contentHash] = meta
     this._persist()
     return { hash: contentHash, meta, fromCache: Boolean(existing) }
+  }
+
+  /**
+   * Store a free stock photo (server/images/stock.js).
+   *
+   * An upload whose download the server did, and stored as one — same file
+   * layout, same dedup by content — with two differences that matter: the
+   * provider is the library it came from, and the author's CREDIT is kept, as
+   * both licences ask and as a stock clip already does. Tagged `stock` so the
+   * Media page can tell a photo somebody took from a picture somebody generated.
+   */
+  ingestStock(buffer, spec = {}) {
+    const mime = sniffImageMime(buffer)
+    if (!mime) {
+      const err = new Error('The stock library returned a file that is not a JPEG, PNG or WebP photo.')
+      err.statusCode = 502
+      throw err
+    }
+    const source = spec.provider === 'pexels' || spec.provider === 'pixabay' ? spec.provider : 'stock'
+    const out = this.ingestUpload(buffer, {
+      ...spec,
+      mime,
+      tags: ['stock', source, ...(Array.isArray(spec.tags) ? spec.tags : [])],
+    })
+    const meta = out.meta
+    // Only on the entry's first arrival: a photo already in the library keeps
+    // the record it was stored with.
+    if (!out.fromCache) {
+      meta.provider = source
+      meta.tags = meta.tags.filter((t) => t !== 'upload')
+      const credit = cleanCredit(spec.credit)
+      if (credit) meta.credit = credit
+      this._persist()
+    }
+    return out
   }
 
   /**

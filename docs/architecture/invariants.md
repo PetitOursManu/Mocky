@@ -10,7 +10,8 @@ explains them.
 
 There are four series:
 
-- **I1 to I8**, the original invariants, reconstructed from the code.
+- **I1 to I9**, the original invariants, reconstructed from the code, and the
+  privacy of a screen's notes.
 - **M1 to M8**, introduced by Muse.
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
@@ -269,6 +270,28 @@ empty string that **looks like** a success.
 
 A test in `server/text/dialect.test.js` verifies that the dialect translation
 never sends a non-positive `max_tokens` upstream.
+
+---
+
+### I9. A screen's notes never reach a model
+
+**The rule.** `Screen.userNotes` is written by the person and read by the
+person. No prompt, no Muse call, no quality pass, no film composition and no
+server route reads it, and no Screen is ever serialised whole into a prompt.
+
+**What it protects.** A note is somebody talking to themselves — "too dense",
+"Paul hates this footer", "try the dark version next" — and a model handed that
+text treats every word as an instruction. Notes were asked for on exactly that
+condition: a place to write about a screen that the model does not see. The
+composer, the modify mode and the annotation snips are the channels that DO
+talk to the model; a note meant to steer a generation is copied into one of
+them, and then it is a request the person chose to make.
+
+**How it is held.** `tests/screen-notes-private.test.js` allows the field to be
+named in six files — the type, its rules, the dialog, the canvas, the project
+view — and fails on a mention anywhere else in `src/`, `server/` or `worker/`.
+The notes do travel in the projects blob the server stores for sync, which the
+server keeps as an opaque string and never parses.
 
 ---
 

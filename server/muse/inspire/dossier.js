@@ -66,6 +66,7 @@ export const DossierSchema = z.object({
         aspectRatio: z.string().optional(),
         negative: z.string().optional(),
         prompt: z.string().optional(),
+        searchQuery: z.string().optional(),
       }),
     )
     .default([]),
@@ -129,6 +130,7 @@ const DOSSIER_JSON_SCHEMA = {
         properties: {
           id: { type: 'string' }, slot: { type: 'string' }, subject: { type: 'string' }, style: { type: 'string' },
           lighting: { type: 'string' }, aspectRatio: { type: 'string' }, negative: { type: 'string' }, prompt: { type: 'string' },
+          searchQuery: { type: 'string' },
         },
         required: ['id', 'prompt'],
       },
@@ -170,6 +172,7 @@ function buildSystem(ctx = {}) {
     '  EACH item MUST include a short string `id` (e.g. "hero", "product-1") plus subject/style/lighting/aspectRatio/negative and a final ready-to-use generation prompt ending with "high quality, no text, no watermark".',
     '  CRITICAL — image subjects must be PHOTOGRAPHIC or ILLUSTRATIVE: a place, a person, an object, a texture, an abstract composition. NEVER ask for a user interface, a website, a landing page, an app screen, a dashboard, a mockup, a browser window, a phone showing an app, a chart, a logo, or anything containing readable text — image generators render these as garbled fake UI. If the screen needs a product visual, describe the REAL-WORLD subject behind the product (the team, the workshop, the material, the environment, an abstract brand texture), never a picture of the interface itself.',
     '  Each `negative` MUST include: "text, letters, words, watermark, logo, user interface, screenshot, mockup".',
+    '  Each item also gets `searchQuery`: 2 to 4 ENGLISH keywords a stock-photo library (Pexels, Pixabay) would find a REAL photo of this subject with — concrete nouns, no style words ("astronaut spacewalk", "barista pouring coffee", "ceramic mug table"). The photo may be used instead of generating the image.',
     '  CRITICAL — every image prompt MUST depict the SUBJECT OF THE USER REQUEST. The art-direction pattern only sets the *look* (framing, palette, lighting); it is NEVER the subject. A pattern named "Swiss / International", "Brutalist" or "Scandinavian" describes TYPOGRAPHY AND LAYOUT — do not photograph a Swiss watch, a concrete building or a Nordic forest unless the user asked for one. If the request is a SaaS pricing page, the hero shows something from that product\'s world, rendered in the pattern\'s style.',
     '- References: an ARRAY of objects, each { sourceUrl, note }, citing which reference or pattern inspired which choice.',
     '- Forbidden: restate the key clichés to avoid for THIS project. NEVER forbid something the user explicitly asked for — a request for a 3D mascot, a neon look or a gradient is the brief, not a cliché; the list is for what nobody asked for.',

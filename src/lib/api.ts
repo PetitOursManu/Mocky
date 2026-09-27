@@ -139,6 +139,11 @@ export interface ImagesConfig {
   edit: ImagesProfileConfig
   videoProviders: string[]
   video: ImagesVideoConfig
+  /**
+   * Free stock PHOTOS: who may use them. No keys of its own — the footage keys
+   * under `video.stock` serve both. Absent from a server older than the feature.
+   */
+  stockImages?: { access: VideoAccessScope }
 }
 
 /** Partial update. Omit (or send '') a secret to keep it; send null to clear. */
@@ -162,6 +167,7 @@ export interface ImagesConfigPatch {
   inspiration?: ImagesProfilePatch
   edit?: ImagesProfilePatch
   video?: ImagesVideoPatch
+  stockImages?: { access?: Partial<VideoAccessScope> }
 }
 
 /** Admin view of the text (LLM) provider. Secrets are never sent back. */

@@ -20,6 +20,12 @@ export interface MuseImagerySlot {
   aspectRatio?: string
   negative?: string
   prompt?: string
+  /**
+   * Two to four English words a stock-photo library would find this subject
+   * with — what "Images: free" searches for (src/lib/stockImages.ts). Absent on
+   * a dossier written before it was asked for, or by a model that skipped it.
+   */
+  searchQuery?: string
 }
 export interface MuseDossier {
   concept: string

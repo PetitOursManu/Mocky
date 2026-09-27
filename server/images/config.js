@@ -130,12 +130,33 @@ export function videoAccessFor(cfg, user) {
   return { generate: may(access.generated), stock: may(access.stock) }
 }
 
+/**
+ * Free stock PHOTOS (server/images/stock.js): who may use them.
+ *
+ * Only an access scope, no keys: a Pexels or Pixabay key is not scoped to one
+ * medium, so the photos use the keys stored under `video.stock` and there is
+ * one place to paste them. Open by default like the video scopes — the feature
+ * does nothing on an instance without a key anyway, and an administrator who
+ * pasted one for footage should not have to find a second switch for photos.
+ */
+export function defaultStockImages() {
+  return { access: { mode: 'all', userIds: [] } }
+}
+
+/** Whether this account may use free stock photos. Same rule as `videoAccessFor`. */
+export function stockImagesAccessFor(cfg, user) {
+  const scope = { ...defaultStockImages().access, ...(cfg?.stockImages?.access || {}) }
+  const id = typeof user?.id === 'string' ? user.id.trim() : ''
+  return scope.mode !== 'allowlist' || (Boolean(id) && Array.isArray(scope.userIds) && scope.userIds.includes(id))
+}
+
 export function defaultImagesConfig() {
   return {
     content: defaultImageProfile('pollinations'),
     inspiration: defaultImageProfile(''),
     edit: defaultImageProfile('', 'edit'),
     video: defaultVideoProfile(),
+    stockImages: defaultStockImages(),
   }
 }
 
@@ -318,6 +339,7 @@ export function mergeImagesConfig(current, patch) {
     inspiration: mergeProfile(base.inspiration, p.inspiration, { allowEmpty: true }),
     edit: mergeProfile(base.edit, p.edit, { allowEmpty: true, ids: EDIT_PROVIDER_IDS, kind: 'edit' }),
     video: mergeVideo(base.video, p.video),
+    stockImages: { access: mergeScope(p.stockImages?.access, base.stockImages?.access) },
   }
 }
 
@@ -366,6 +388,7 @@ export function publicImagesConfig(cfg) {
         stock: mergeScope(undefined, v.access?.stock),
       },
     },
+    stockImages: { access: mergeScope(undefined, c.stockImages?.access) },
   }
 }
 
@@ -459,6 +482,11 @@ export class ImagesConfigStore {
   /** What this account may do with clips — see `videoAccessFor`. */
   videoAccessFor(user) {
     return videoAccessFor(this.config, user)
+  }
+
+  /** Whether this account may use free stock photos — see `stockImagesAccessFor`. */
+  stockImagesAccessFor(user) {
+    return stockImagesAccessFor(this.config, user)
   }
 
   /** Merge a partial update, persist atomically, return the new config. */

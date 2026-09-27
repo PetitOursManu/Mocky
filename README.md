@@ -45,6 +45,8 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 🎬 **Motion Ultra** — an `.mp4` composed for a screen: a model builds each scene out of a closed catalogue of typed blocks — type, charts, pictures, animated icons, 3D set pieces — over a ground that can move, and a hand-written renderer draws it. It never writes a frame of rendering code (see [Motion Ultra](#motion) below). It can be decided by your prompt alone, and a film meant to sit under a page can loop with an invisible seam. Off by default, and its renderer is a separate opt-in container.
 - 🧊 **Real 3D, rationed** — a screen can carry a WebGL object (a lit sphere, a turning knot, a crystal, a torus, a globe of dots, cards floating in depth, a cluster of bubbles, a field of points, a tunnel, a rippling surface) through one closed component, in your palette's two colours. The model never writes three.js, the library is vendored and hash-pinned, every scene is procedural — the preview's CSP forbids fetching a model — and the canvas hands out the browser's sixteen WebGL contexts itself, so a scene off-view holds its last frame instead of blanking one you are looking at. Depth that costs no context (a card tilting towards the cursor) is a preset beside the flat ones.
 - 🖼️ **Media library** — every generated image and sequence in one place, plus **your own** images and clips. Muse builds its art direction *from* what you select.
+- 📷 **Free stock photos instead of generated ones** — with a free Pexels or Pixabay key, the composer's `Images · AI / Free` switch makes Muse and Motion Ultra use real photos: the model writes the search, a vision model looks at the thumbnails and picks one — or none — and the page is then written looking at the photos it embeds. Searchable by hand in Media too; who may use it is an Admin list. See [Free stock photos](#free-stock-photos).
+- 🗒️ **Private notes on a screen** — jot what works and what to try next on each frame; the notes are yours alone and never reach a model (invariant I9).
 - 🔗 **Interaction links + Demo mode** — bind a real element of one screen to another, then play the clickable prototype.
 - 📱 **Format presets & device frame** — Mobile (iPhone) / Desktop / Tablet; mobile screens render inside a CSS iPhone frame (status bar, notch, home indicator).
 - 🎨 **Design system + style presets** — load/paste a `DESIGN.md` or pick a built-in visual style (17 presets); it drives every generation.
@@ -457,6 +459,28 @@ from Mocky's own origin.
 An imported clip needs **only ffmpeg** — no provider, no key, no cost. An
 instance that has never configured fal can therefore use the whole scroll-video
 feature with its own footage.
+
+### Free stock photos
+
+> **Why it works this way —** A picture chosen on words alone is a guess, and a wrong one costs more than a missing one, because the whole page is then written around it — the first version of this feature put a gas mask on a space-exploration page. So the words come from the model that planned the picture, a model with eyes makes the choice among a handful of thumbnails and may refuse them all, and the page's author is shown what was chosen. One look at small thumbnails per picture stays far cheaper than generating the picture.
+
+The Pexels and Pixabay keys pasted for free footage (**Admin → Free stock videos
+and photos**) serve photos too. With one, the composer offers **Images · AI /
+Free** whenever Muse or Motion Ultra is on:
+
+- the dossier or the storyboard writes a short English search for each picture;
+- the server returns eight thumbnails for it — nothing is stored yet;
+- a vision model looks at them with the subject, the picture's role and the
+  photos already chosen for the page, and picks one or none. None leaves the
+  slot to the page (a CSS ground in Motion Ultra) with a notice — never a quiet
+  fall-back to a paid generation. A model without vision takes the search's
+  first result;
+- the chosen photo is stored in the library with its author's credit, and its
+  thumbnail is shown to the model that writes the page.
+
+**Media → Images** has the same search by hand. **Admin → Images → Free stock
+photos** decides which accounts may use it; the server refuses the others by
+name.
 
 ### Muse designs *from* your media
 

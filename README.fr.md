@@ -45,6 +45,8 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - 🎬 **Motion Ultra** — un `.mp4` composé pour un écran : un modèle bâtit chaque scène à partir d'un catalogue fermé de blocs typés — typographie, graphiques, images, icônes animées, objets 3D — sur un fond qui peut bouger, et un moteur écrit à la main les dessine. Il n'écrit jamais une ligne de code de rendu (voir [Motion Ultra](#motion) plus bas). Le film peut être décidé par votre seule demande, et un film destiné à vivre sous une page peut boucler sans couture visible. Désactivé par défaut, et son moteur de rendu est un conteneur séparé et facultatif.
 - 🧊 **De la vraie 3D, rationnée** — un écran peut porter un objet WebGL (sphère éclairée, nœud qui tourne, cristal, tore, globe de points, cartes qui flottent en profondeur, grappe de bulles, champ de points, tunnel, surface qui ondule) via un unique composant fermé, dans les deux couleurs de votre palette. Le modèle n'écrit jamais de three.js, la bibliothèque est livrée et épinglée par empreinte, chaque scène est procédurale — la CSP de l'aperçu interdit de télécharger un modèle — et le canevas distribue lui-même les seize contextes WebGL du navigateur : une scène hors champ garde sa dernière image au lieu d'en effacer une que vous regardez. La profondeur qui ne coûte aucun contexte (une carte qui s'incline vers le curseur) est un préréglage à côté des animations plates.
 - 🖼️ **Bibliothèque de médias** — toutes les images et séquences générées au même endroit, plus **vos propres** images et clips. Muse construit sa direction artistique *à partir de* ce que vous sélectionnez.
+- 📷 **Des photos libres de droits au lieu d'images générées** — avec une clé Pexels ou Pixabay gratuite, le choix `Images · IA / Libres` du composeur fait utiliser de vraies photos à Muse et à Motion Ultra : le modèle écrit la recherche, un modèle à vision regarde les vignettes et en choisit une — ou aucune — et la page est ensuite écrite en voyant les photos qu'elle contient. Recherche manuelle aussi dans Média ; qui peut s'en servir est une liste dans Admin. Voir [Photos libres de droits](#photos-libres-de-droits).
+- 🗒️ **Des notes privées sur un écran** — notez ce qui marche et ce qu'il faut essayer ensuite, cadre par cadre ; ces notes ne sont qu'à vous et n'atteignent jamais un modèle (invariant I9).
 - 🔗 **Liens d'interaction + mode Démo** — reliez un véritable élément d'un écran à un autre écran, puis jouez le prototype cliquable.
 - 📱 **Préréglages de format et cadre d'appareil** — Mobile (iPhone) / Bureau / Tablette ; les écrans mobiles s'affichent dans un cadre d'iPhone en CSS (barre d'état, encoche, barre d'accueil).
 - 🎨 **Système de design et préréglages de style** — chargez ou collez un `DESIGN.md`, ou choisissez un style visuel intégré (17 préréglages) ; il pilote chaque génération.
@@ -439,6 +441,29 @@ depuis l'origine de Mocky elle-même.
 Un clip importé n'a besoin **que de ffmpeg** — aucun fournisseur, aucune clé, aucun coût. Une
 instance qui n'a jamais configuré fal peut donc utiliser toute la fonctionnalité de vidéo au
 défilement avec ses propres images.
+
+### Photos libres de droits
+
+> **Pourquoi c'est ainsi —** Une image choisie sur les seuls mots est un pari, et une mauvaise image coûte plus cher qu'une image absente, parce que toute la page est ensuite écrite autour — la première version de cette fonction a mis un masque à gaz sur une page d'exploration spatiale. Les mots viennent donc du modèle qui a prévu l'image, un modèle doté de la vue fait le choix parmi quelques vignettes et peut toutes les refuser, et l'auteur de la page voit ce qui a été retenu. Un regard sur de petites vignettes par image reste bien moins cher que de générer l'image.
+
+Les clés Pexels et Pixabay collées pour les vidéos libres (**Admin → Vidéos et
+photos libres de droits**) servent aussi aux photos. Avec l'une d'elles, le
+composeur propose **Images · IA / Libres** dès que Muse ou Motion Ultra est actif :
+
+- le dossier ou le storyboard écrit une courte recherche en anglais pour chaque
+  image ;
+- le serveur renvoie huit vignettes — rien n'est encore stocké ;
+- un modèle à vision les regarde avec le sujet, le rôle de l'image et les photos
+  déjà choisies pour la page, et en retient une ou aucune. Aucune laisse
+  l'emplacement à la page (un fond CSS dans Motion Ultra) avec un message —
+  jamais un repli silencieux sur une génération payante. Un modèle sans vision
+  prend le premier résultat de la recherche ;
+- la photo retenue est rangée dans la médiathèque avec le crédit de son auteur,
+  et sa vignette est montrée au modèle qui écrit la page.
+
+**Média → Images** propose la même recherche à la main. **Admin → Images → Photos
+libres de droits** décide quels comptes peuvent s'en servir ; le serveur refuse
+les autres en le disant.
 
 ### Muse conçoit *à partir de* vos médias
 

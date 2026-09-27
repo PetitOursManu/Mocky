@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scheduleSync, reportStorageFailure } from './sync'
 import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
 import { extractProductName } from './design'
+import { normalizeNotes, type ScreenNote } from './screenNotes'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -118,6 +119,12 @@ export interface Screen {
    * built on. Absent means an ordinary screen.
    */
   ultra?: ScreenUltra
+  /**
+   * What the person wrote about this screen, for themselves. Never read by
+   * anything that builds a prompt — see `lib/screenNotes.ts` for why, and
+   * `tests/screen-notes-private.test.js` for what holds it. Absent means none.
+   */
+  userNotes?: ScreenNote[]
   /** Position on the infinite canvas (canvas coordinates). */
   x: number
   y: number
@@ -729,6 +736,7 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // if it is named here.
     quality: normalizeQuality(s.quality),
     ultra: normalizeUltra(s.ultra),
+    userNotes: normalizeNotes(s.userNotes),
   }
 }
 

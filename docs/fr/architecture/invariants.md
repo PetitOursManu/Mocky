@@ -10,7 +10,8 @@ mises par écrit ; cette page les explique.
 
 Il y a quatre séries :
 
-- **I1 à I8**, les invariants d'origine, reconstitués à partir du code.
+- **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
+  confidentialité des notes d'un écran.
 - **M1 à M8**, apportés par Muse.
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
@@ -283,6 +284,31 @@ donc un plafond serré renvoie une chaîne vide qui **ressemble** à un succès.
 
 Un test, dans `server/text/dialect.test.js`, vérifie que la traduction de
 dialecte n'envoie jamais un `max_tokens` négatif ou nul en amont.
+
+---
+
+### I9. Les notes d'un écran n'atteignent jamais un modèle
+
+**La règle.** `Screen.userNotes` est écrit par la personne et lu par la
+personne. Aucun prompt, aucun appel Muse, aucune passe de qualité, aucune
+composition de film et aucune route serveur ne le lit, et aucun Screen n'est
+jamais sérialisé en entier dans un prompt.
+
+**Ce qu'elle protège.** Une note, c'est quelqu'un qui se parle à lui-même —
+« trop dense », « Paul déteste ce pied de page », « essayer la version sombre » —
+et un modèle à qui l'on donne ce texte prend chaque mot pour une consigne. Les
+notes ont été demandées exactement à cette condition : un endroit où écrire sur
+un écran sans que le modèle le voie. Le composeur, le mode Modifier et les
+découpes d'annotation sont les canaux qui PARLENT au modèle ; une note censée
+orienter une génération se recopie dans l'un d'eux, et c'est alors une demande
+que la personne a choisi de faire.
+
+**Ce qui la tient.** `tests/screen-notes-private.test.js` autorise le champ à
+être nommé dans six fichiers — le type, ses règles, la boîte de dialogue, le
+canevas, la vue projet — et échoue sur toute mention ailleurs dans `src/`,
+`server/` ou `worker/`. Les notes voyagent bien dans le blob de projets que le
+serveur stocke pour la synchronisation, qu'il garde comme une chaîne opaque et
+ne parse jamais.
 
 ---
 

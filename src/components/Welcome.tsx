@@ -7,6 +7,8 @@ import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability 
 import type { PinnedImage } from '../lib/imageLibrary'
 import type { ProjectUltra } from '../lib/project'
 import UltraControl from './UltraControl'
+import ImageSourceControl from './ImageSourceControl'
+import type { ImageSource } from '../lib/stockImages'
 import type { MediaTab } from './Bibliotheque'
 
 type Props = {
@@ -43,6 +45,11 @@ type Props = {
   ultraVideoAvailable?: boolean
   /** The Motion Ultra series sizes this account may use. */
   ultraCounts?: readonly number[]
+  /** Where the pictures come from — generated, or found in the free libraries. */
+  imageSource: ImageSource
+  onImageSource: (source: ImageSource) => void
+  /** The account can use the free libraries AND a pass that makes pictures is on. */
+  imageSourceAvailable: boolean
   /** What a running pass is doing, when it has more to say than "generating". */
   busyLabel: string | null
 }
@@ -78,6 +85,9 @@ export default function Welcome({
   onToggleUltraPause,
   ultraVideoAvailable = false,
   ultraCounts,
+  imageSource,
+  onImageSource,
+  imageSourceAvailable,
   busyLabel,
 }: Props) {
   const t = useT()
@@ -165,6 +175,9 @@ export default function Welcome({
                 size={15}
                 className="text-body-sm"
               />
+              {imageSourceAvailable && (
+                <ImageSourceControl value={imageSource} onChange={onImageSource} size={15} className="text-body-sm" />
+              )}
             </div>
             <div className="flex items-center gap-3">
               <span className="hidden text-caption text-ink-faint sm:inline">⌘/Ctrl + Enter</span>

@@ -244,41 +244,8 @@ export function createStock({ keys, fetchImpl = fetch, guard = assertSafeTargetR
     return normalizePixabay(hit)
   }
 
-  /**
-   * Download one file, bounded three ways: every hop through the SSRF guard,
-   * a size limit enforced while READING (a missing or lying Content-Length
-   * must not be what decides), and a timeout.
-   */
-  async function download(provider, link, maxBytes) {
-    let url = new URL(link)
-    if (url.protocol !== 'https:' || !FILE_HOSTS[provider].test(url.hostname)) {
-      throw new Error(`Refusing to download from ${url.hostname}.`)
-    }
-    const signal = AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS)
-    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      await guard(url.href)
-      const res = await fetchImpl(url.href, { redirect: 'manual', signal })
-      if (res.status >= 300 && res.status < 400) {
-        const next = res.headers.get('location')
-        if (!next) throw new Error('Redirect without a location.')
-        url = new URL(next, url)
-        if (url.protocol !== 'https:') throw new Error('Refusing a redirect away from https.')
-        continue
-      }
-      if (!res.ok) throw new Error(`${STOCK_LABELS[provider]} file answered HTTP ${res.status}.`)
-      const announced = Number(res.headers.get('content-length'))
-      if (Number.isFinite(announced) && announced > maxBytes) throw tooLarge(maxBytes)
-      const chunks = []
-      let size = 0
-      for await (const chunk of res.body) {
-        size += chunk.length
-        if (size > maxBytes) throw tooLarge(maxBytes)
-        chunks.push(Buffer.from(chunk))
-      }
-      return Buffer.concat(chunks)
-    }
-    throw new Error('Too many redirects.')
-  }
+  const download = (provider, link, maxBytes) =>
+    downloadStockFile(provider, link, { maxBytes, hosts: FILE_HOSTS, fetchImpl, guard })
 
   /**
    * Fetch the clip a person chose, ready for the library: the bytes, and the
@@ -314,7 +281,54 @@ export function createStock({ keys, fetchImpl = fetch, guard = assertSafeTargetR
   return { status, search, lookup, fetchClip }
 }
 
-function tooLarge(maxBytes) {
+/**
+ * Download one file a stock library handed out, bounded three ways: every hop
+ * through the SSRF guard, a size limit enforced while READING (a missing or
+ * lying Content-Length must not be what decides), and a timeout.
+ *
+ * Exported because the free PHOTOS (server/images/stock.js) download through
+ * exactly the same door: two copies of a guard are one that drifts.
+ *
+ * @param {string} provider
+ * @param {string} link
+ * @param {{ maxBytes: number, hosts: Record<string, RegExp>, fetchImpl?: typeof fetch, guard?: (url: string) => Promise<unknown>, timeoutMs?: number }} opts
+ */
+export async function downloadStockFile(
+  provider,
+  link,
+  { maxBytes, hosts, fetchImpl = fetch, guard = assertSafeTargetResolved, timeoutMs = DOWNLOAD_TIMEOUT_MS },
+) {
+  let url = new URL(link)
+  if (url.protocol !== 'https:' || !hosts[provider]?.test(url.hostname)) {
+    throw new Error(`Refusing to download from ${url.hostname}.`)
+  }
+  const signal = AbortSignal.timeout(timeoutMs)
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    await guard(url.href)
+    const res = await fetchImpl(url.href, { redirect: 'manual', signal })
+    if (res.status >= 300 && res.status < 400) {
+      const next = res.headers.get('location')
+      if (!next) throw new Error('Redirect without a location.')
+      url = new URL(next, url)
+      if (url.protocol !== 'https:') throw new Error('Refusing a redirect away from https.')
+      continue
+    }
+    if (!res.ok) throw new Error(`${STOCK_LABELS[provider] || provider} file answered HTTP ${res.status}.`)
+    const announced = Number(res.headers.get('content-length'))
+    if (Number.isFinite(announced) && announced > maxBytes) throw tooLarge(maxBytes)
+    const chunks = []
+    let size = 0
+    for await (const chunk of res.body) {
+      size += chunk.length
+      if (size > maxBytes) throw tooLarge(maxBytes)
+      chunks.push(Buffer.from(chunk))
+    }
+    return Buffer.concat(chunks)
+  }
+  throw new Error('Too many redirects.')
+}
+
+export function tooLarge(maxBytes) {
   const err = new Error(`This clip is larger than ${Math.round(maxBytes / 1024 / 1024)} MB.`)
   err.statusCode = 413
   return err

@@ -15,6 +15,7 @@
  */
 import { generateImage } from '../imageLibrary'
 import { absoluteUrl } from '../muse'
+import type { ImageSource, StockFinder, StockOrientation } from '../stockImages'
 import type { UltraImageRole } from './recipes'
 import type { UltraImagePlan, UltraStoryboard } from './storyboard'
 
@@ -38,6 +39,17 @@ const ROLE_FRAMING: Record<UltraImageRole, string> = {
   subject: 'a single isolated object centred on a plain seamless background, product render, crisp edges, nothing else in frame',
   scene: 'cinematic photograph, wide shot, natural composition, room at the top for a headline',
   texture: 'abstract close-up of a material, seamless, rich surface detail, no object',
+}
+
+/**
+ * The shape to ask a stock library for, per role — the same intent as
+ * ROLE_SIZE, in the only vocabulary a search understands.
+ */
+export const ROLE_ORIENTATION: Record<UltraImageRole, StockOrientation> = {
+  backdrop: 'landscape',
+  subject: 'square',
+  scene: 'landscape',
+  texture: 'square',
 }
 
 const NEGATIVE = 'no text, no letters, no words, no logo, no watermark, no user interface, no screenshot, no frame, no border'
@@ -68,6 +80,21 @@ export async function generateUltraImages(
     onError?: (message: string) => void
     /** The series size the user chose, ×3 or ×6 — sent so the server can check it. */
     series?: number
+    /**
+     * 'stock' FINDS each picture in the free libraries instead of generating
+     * it. What is lost is the one shared style sentence that makes a generated
+     * series read as one shoot — a search matches the subject, not the light —
+     * and the role's shape survives as an orientation. Nothing else changes:
+     * the result is the same list of library hashes, in storyboard order.
+     */
+    source?: ImageSource
+    /**
+     * For 'stock': the finder that searches, lets a vision model choose among
+     * the thumbnails, and remembers the series (src/lib/stockImages.ts). What
+     * holds a found series together is that the judge SEES the photos already
+     * chosen — a generated one gets the same from its shared style sentence.
+     */
+    finder?: StockFinder
   } = {},
 ): Promise<UltraImage[]> {
   const total = board.images.length
@@ -75,18 +102,35 @@ export async function generateUltraImages(
   let next = 0
   let done = 0
 
+  async function findStock(plan: UltraImagePlan): Promise<{ hash: string } | null> {
+    const finder = opts.finder
+    if (!finder) return null
+    const got = await finder.find({
+      subject: plan.subject,
+      query: plan.query,
+      orientation: ROLE_ORIENTATION[plan.role],
+      role: plan.role,
+      tags: ['ultra', plan.role],
+    })
+    if (!got) opts.onError?.(finder.lastMiss)
+    return got
+  }
+
   async function worker(): Promise<void> {
     while (next < total) {
       const i = next++
       const plan = board.images[i]
       try {
-        const got = await generateImage(buildUltraImagePrompt(plan, board.style), {
-          project,
-          signal: opts.signal,
-          tags: ['ultra', plan.role],
-          ultra: opts.series,
-          ...ROLE_SIZE[plan.role],
-        })
+        const got =
+          opts.source === 'stock'
+            ? await findStock(plan)
+            : await generateImage(buildUltraImagePrompt(plan, board.style), {
+                project,
+                signal: opts.signal,
+                tags: ['ultra', plan.role],
+                ultra: opts.series,
+                ...ROLE_SIZE[plan.role],
+              })
         if (got) {
           results[i] = { ...plan, hash: got.hash, url: absoluteUrl(`/api/images/${got.hash}`) }
           done++
@@ -102,7 +146,10 @@ export async function generateUltraImages(
     }
   }
 
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, total) }, worker))
+  // Found photos one at a time: a pick takes a second, and two in flight would
+  // each exclude only what was used BEFORE them — the same photo twice.
+  const concurrency = opts.source === 'stock' ? 1 : CONCURRENCY
+  await Promise.all(Array.from({ length: Math.min(concurrency, total) }, worker))
   // Storyboard order, not completion order: the prompt lists them page-first.
   return results.filter((r): r is UltraImage => r !== null)
 }

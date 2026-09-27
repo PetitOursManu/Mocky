@@ -37,6 +37,7 @@ import DemoPlayer from './DemoPlayer'
 import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
 import ShareDialog from './ShareDialog'
+import ScreenNotesDialog from './ScreenNotesDialog'
 import { SaveDesignDialog } from './DesignLibrary'
 import DesignSpecSheet from './DesignSpecSheet'
 import { type PickInfo } from './Preview'
@@ -48,6 +49,19 @@ import ScreenImagesDialog from './ScreenImagesDialog'
 import VideoExportDialog from './VideoExportDialog'
 import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
+import ImageSourceControl from './ImageSourceControl'
+import {
+  createStockFinder,
+  loadImageSource,
+  photoReferenceNote,
+  pickStockSlotImages,
+  PHOTO_REFERENCES_MAX,
+  saveImageSource,
+  stockImageStatus,
+  stockUsable,
+  type ImageSource,
+  type StockImageStatus,
+} from '../lib/stockImages'
 import {
   loadMuseConfig,
   saveMuseConfig,
@@ -246,6 +260,30 @@ export default function ProjectView({
   const [error, setError] = useState<string | null>(null)
   // --- Muse — optional design-intelligence pass before generation ---
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
+  /**
+   * Where this browser wants a generation's pictures from — made by the image
+   * model, or found in the free libraries. Remembered like Muse's own choices.
+   */
+  const [imageSource, setImageSourceState] = useState<ImageSource>(() => loadImageSource())
+  const setImageSource = useCallback((s: ImageSource) => {
+    setImageSourceState(s)
+    saveImageSource(s)
+  }, [])
+  /** Which free libraries this ACCOUNT may use; null until the server answered. */
+  const [stockImages, setStockImages] = useState<StockImageStatus | null>(null)
+  useEffect(() => {
+    const ac = new AbortController()
+    stockImageStatus(ac.signal).then((s) => !ac.signal.aborted && setStockImages(s))
+    return () => ac.abort()
+  }, [])
+  const stockImagesUsable = stockUsable(stockImages)
+  /**
+   * The source a generation actually uses. A saved "free" on an account that
+   * lost access, or an instance whose key was removed, is honoured as "AI"
+   * without touching the preference — the same degradation Muse's image mode
+   * makes when the model loses vision.
+   */
+  const effectiveImageSource: ImageSource = imageSource === 'stock' && stockImagesUsable ? 'stock' : 'ai'
   const [museAvail, setMuseAvail] = useState<boolean | null>(null)
   const [museResult, setMuseResult] = useState<MuseResult | null>(null)
   const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
@@ -783,7 +821,9 @@ export default function ProjectView({
    * DESIGN.md — the copy really was made from that design.
    */
   function duplicateScreen(s: Screen) {
-    const { id: _id, x: _x, y: _y, links: _links, ...rest } = s
+    // Notes stay behind, like links: they were written about the original, and
+    // a copy that arrives already annotated reads as if someone had reviewed it.
+    const { id: _id, x: _x, y: _y, links: _links, userNotes: _notes, ...rest } = s
     onAddScreen({
       ...rest,
       id: newId(),
@@ -795,6 +835,8 @@ export default function ProjectView({
 
   /** The screen whose share dialog is open, if any. */
   const [shareScreenId, setShareScreenId] = useState<string | null>(null)
+  /** The screen whose private notes are open, if any. */
+  const [notesScreenId, setNotesScreenId] = useState<string | null>(null)
   /** The screen whose recorded design is being looked at full size, if any. */
   const [inspectDesignId, setInspectDesignId] = useState<string | null>(null)
   /** Set when saving that design into the named library. */
@@ -1106,6 +1148,25 @@ export default function ProjectView({
      * mode for the same reason — see the composer.
      */
     const redesigning = redesign && targets.length === 0
+    /**
+     * The free-photo finder for this run, when the composer says "Images: free".
+     *
+     * Vision is what makes it choose well (the judge looks at the thumbnails),
+     * so it is asked for here if Muse did not already probe it: Motion Ultra
+     * can run without Muse, and then nobody had. The answer is cached server
+     * side, so asking again costs a round trip at most.
+     */
+    const stockFinder = async (ultra?: number) => {
+      const vision = museVision ?? (await checkVision(ac.signal)).vision
+      return createStockFinder({
+        project: project.id,
+        settings,
+        vision: vision === true,
+        brief: text,
+        ultra,
+        signal: ac.signal,
+      })
+    }
     try {
       // Read fresh, not from the render-scope memo: this callback outlives the
       // render that created it, and DESIGN.md is edited in an overlay that
@@ -1195,6 +1256,13 @@ export default function ProjectView({
         let museImgs: GeneratedSlotImage[] = []
         /** Art-direction reference sent to a vision model ("inspiration" mode). */
         let museVisionRef: string | undefined
+        /**
+         * Thumbnails of the free photos this run FOUND, shown to the model that
+         * writes the page so it designs around them (`photoReferenceNote`).
+         * Only filled when a vision model chose them — the thumbnails exist
+         * because it looked.
+         */
+        let photoRefs: string[] = []
         /** Library hash of the image backing this screen, shown on the canvas. */
         let museImageHash: string | undefined
         /** The scroll sequence, when one was asked for and produced. */
@@ -1295,13 +1363,36 @@ export default function ProjectView({
                       },
                     ]
                   : remaining
-              const gen = await generateSlotImages(slotsToRun, project.id, {
-                max: 1,
-                profile,
-                signal: ac.signal,
-                onImage: (im) => setMuseImages((a) => [...a, im]),
-                onError: (msg) => setMuseImageError(msg),
-              })
+              /*
+               * Free photos instead of a model. Up to three slots rather than
+               * one: the cap on generation is Pollinations' pace and a price per
+               * picture, and a search has neither — a page with its real
+               * product shots is worth three quick requests. In 'inspiration'
+               * the found photo of the HERO is the reference; an abstract mood
+               * plate is something a model paints, not something a library has.
+               */
+              let gen: GeneratedSlotImage[]
+              if (effectiveImageSource === 'stock') {
+                setMuseStage(t('project.museStageStock'))
+                const finder = await stockFinder()
+                gen = await pickStockSlotImages(remaining, finder, {
+                  max: profile === 'inspiration' ? 1 : 3,
+                  signal: ac.signal,
+                  onImage: (im) => setMuseImages((a) => [...a, im]),
+                  onError: (msg) => setMuseImageError(msg),
+                })
+                // Only where nothing else shows them: 'inspiration' and 'both'
+                // already attach the hero at full size, with their own words.
+                if (effectiveImageMode === 'content') photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
+              } else {
+                gen = await generateSlotImages(slotsToRun, project.id, {
+                  max: 1,
+                  profile,
+                  signal: ac.signal,
+                  onImage: (im) => setMuseImages((a) => [...a, im]),
+                  onError: (msg) => setMuseImageError(msg),
+                })
+              }
               imgs = [...imgs, ...gen]
             } else if (!remaining.length && !pins.length && !ultraActive) {
               // No imagery slot at all. The dossier now guarantees a hero, so
@@ -1469,18 +1560,24 @@ export default function ProjectView({
               design: dir.markdown,
               presetHint: preset.hint,
               signal: ac.signal,
+              stockQueries: effectiveImageSource === 'stock',
             })
             // The storyboard read the whole request; its mode beats the keyword guess.
             mode = board.mode
             const total = board.images.length
             setUltraStage(t('project.ultraStageImages', { done: 0, total }))
             const failures: string[] = []
+            const finder = effectiveImageSource === 'stock' ? await stockFinder(ultraCount) : undefined
             const made = await generateUltraImages(board, project.id, {
               signal: ac.signal,
               onImage: (_im, done) => setUltraStage(t('project.ultraStageImages', { done, total })),
               onError: (msg) => failures.push(msg),
               series: ultraCount,
+              source: effectiveImageSource,
+              finder,
             })
+            // In storyboard order, since the finder runs one picture at a time.
+            if (finder) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
             if (made.length < total) {
               setMuseImageError(
                 t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
@@ -1605,12 +1702,15 @@ export default function ProjectView({
         setSelectedIds([screenId])
         setPrompt('')
         setAnnotations([])
+        // The found photos go LAST, after the user's annotations and any
+        // inspiration reference: the note that explains them counts from the end.
         const result = await generateComponent(
           settings, text, extraSystem,
-          museVisionRef ? [...images, museVisionRef] : images,
+          [...images, ...(museVisionRef ? [museVisionRef] : []), ...photoRefs],
           ac.signal,
           (partial) => onUpdateScreen(screenId, { code: partial }),
-          caps, planSection,
+          caps,
+          [planSection, photoReferenceNote(photoRefs.length)].filter(Boolean).join('\n\n') || undefined,
         )
         onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
         setGeneratingIds(new Set())
@@ -1809,7 +1909,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2714,6 +2814,9 @@ export default function ProjectView({
         onToggleUltraPause={() => setUltraPaused((v) => !v)}
         ultraVideoAvailable={ultraVideoAvailable}
         ultraCounts={ultraCounts}
+        imageSource={imageSource}
+        onImageSource={setImageSource}
+        imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive)}
         busyLabel={phase === 'ultra' ? ultraStage : null}
       />
       {libraryModal}
@@ -2889,6 +2992,7 @@ export default function ProjectView({
         }}
         referenceScreenId={project.referenceScreenId}
         onScreenContextMenu={(id, x, y) => setMenu({ screenId: id, x, y })}
+        onOpenScreenNotes={setNotesScreenId}
         onContentHeight={(id, h) => {
           contentHeights.current[id] = h
         }}
@@ -3509,6 +3613,13 @@ export default function ProjectView({
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
             )}
+            {!editing && stockImagesUsable && (museConfig.enabled || ultraActive) && (
+              <ImageSourceControl
+                value={imageSource}
+                onChange={setImageSource}
+                className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+              />
+            )}
           </div>
 
           <div className="flex items-end gap-2">
@@ -3832,6 +3943,11 @@ export default function ProjectView({
                     if (n && n.trim()) onUpdateScreen(s.id, { name: n.trim() })
                   }}
                 />
+                <MenuItem
+                  icon="note"
+                  label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.menu')}
+                  onClick={() => { close(); setNotesScreenId(s.id) }}
+                />
                 <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
                 <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
                 <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
@@ -4031,6 +4147,21 @@ export default function ProjectView({
 
       {/* Resolved by id, like the code viewer: a screen deleted while the
           dialog is open closes it rather than leaving a ghost. */}
+      {/* Resolved by id for the same reason: the dialog always edits the
+          screen as it is now, not a snapshot taken when it opened. */}
+      {notesScreenId &&
+        (() => {
+          const sc = screens.find((x) => x.id === notesScreenId)
+          if (!sc) return null
+          return (
+            <ScreenNotesDialog
+              screen={sc}
+              onChange={(userNotes) => onUpdateScreen(sc.id, { userNotes })}
+              onClose={() => setNotesScreenId(null)}
+            />
+          )
+        })()}
+
       {shareScreenId &&
         (() => {
           const sc = screens.find((x) => x.id === shareScreenId)

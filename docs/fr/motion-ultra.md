@@ -58,6 +58,19 @@ prompt → storyboard → série d'images → page → contrôles
 2. **Images.** Exactement le nombre choisi, deux à la fois, via la médiathèque.
    Une image qui échoue laisse sa section à un fond animé en CSS ; la page est
    quand même produite et un message dit ce qui s'est passé.
+   Avec `Images · Libres` dans le composeur, chaque image est **trouvée** chez
+   Pexels ou Pixabay. Le storyboard écrit alors aussi, pour chaque image, une
+   recherche de deux à quatre mots anglais, et choisit des sujets qu'une banque
+   d'images possède vraiment. Le serveur renvoie huit vignettes, et le modèle
+   **les regarde** — avec le sujet, le rôle de l'image et les photos déjà
+   choisies pour la série — puis en choisit une, ou aucune : une image que rien
+   ne sert est laissée à un fond CSS animé plutôt que remplie par une photo
+   absurde. C'est ce regard qui tient la série. Un appel par image sur de
+   petites vignettes, bien en dessous du prix d'une image générée. Un modèle
+   sans vision prend le premier résultat de la recherche. Les vignettes de trois
+   des photos choisies, au plus, sont ensuite montrées au modèle qui écrit la
+   page, pour qu'il prenne ses accents et sa lumière dans les vraies images — le
+   storyboard a été écrit avant qu'elles existent.
 3. **Page.** Le prompt de génération reçoit le storyboard et les images, et la
    page est écrite avec le **kit Ultra** : les classes `u-*` (verre, typographie
    d'affichage, texte en dégradé, apparitions, parallaxe, grain…) et
