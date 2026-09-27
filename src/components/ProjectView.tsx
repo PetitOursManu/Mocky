@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, readSiteContent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, type ScreenUltra, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
@@ -54,6 +54,7 @@ import {
   buildSiteReferenceSection,
   partsUsed,
   prepareSiteShot,
+  siteLanguage,
   refuseSiteFile,
   SITE_PARTS_MAX,
   type SiteRefMode,
@@ -233,7 +234,7 @@ export default function ProjectView({
   const t = useT()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | null>(null)
+  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | null>(null)
   /**
    * Motion Ultra paused for the next generations, from the composer.
    *
@@ -632,7 +633,9 @@ export default function ProjectView({
    * persisted (see `Screen.siteRef`), so a reload loses them, and regenerate
    * then says so rather than guessing.
    */
-  const siteRefsByScreen = useRef<Map<string, { mode: SiteRefMode; groups: number[]; parts: string[] }>>(new Map())
+  const siteRefsByScreen = useRef<
+    Map<string, { mode: SiteRefMode; groups: number[]; parts: string[]; content?: string | null }>
+  >(new Map())
 
   /**
    * Read image files into site screenshots, one after the other, each cut to
@@ -1226,7 +1229,7 @@ export default function ProjectView({
     // Annotations first: their numbers in the composer are the numbers the
     // model reads, and the site section counts its own from after them.
     const images = [...annotations.map((a) => a.dataUrl), ...(site ? site.parts : [])]
-    const siteSection = siteNew ? buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1) : undefined
+    let siteSection = siteNew ? buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1) : undefined
     const ac = new AbortController()
     abortRef.current = ac
     setBusy(true)
@@ -1398,9 +1401,30 @@ export default function ProjectView({
         // honour "content", so THIS RUN degrades without touching the setting.
         const effectiveImageMode: MuseImageMode =
           museVision === false && museConfig.imageMode !== 'content' ? 'content' : museConfig.imageMode
+        /*
+         * A redesign reads the site's CONTENT first — brand, navigation, sections,
+         * copy — as words. Without it Muse wrote its dossier from "Refonte
+         * graphique de ce site" alone, invented a product to go with it, and its
+         * preamble made that invention authoritative: the first real test came
+         * back as an unrelated site. With it, the dossier is about the site that
+         * exists, and the page gets the copy in words as well as in pixels.
+         */
+        let siteContent: string | null = null
+        if (siteNew && !reproducing) {
+          setPhase('site')
+          siteContent = await readSiteContent(settings, site.parts, ac.signal)
+          siteSection = buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1, siteContent)
+        }
+        /** Muse would write about a product it cannot see: not without the reading. */
+        const museBlind = siteNew && !reproducing && !siteContent
+        if (museBlind && museConfig.enabled && museAvail !== false) setNotice(t('project.siteMuseSkipped'))
+        const siteLang = siteLanguage(siteContent)
+        const museBrief = siteContent
+          ? `${text}\n\nThe existing site to REDESIGN, as read from the user's screenshots. Its brand, content and copy are to be KEPT; only its visual design is to be reinvented.${siteLang ? ` All copy stays in ${siteLang}.` : ''}\n\n${siteContent}`
+          : text
         // A reproduction's direction is the screenshot: a dossier would be a
         // second, contradicting one, and a paid call to write it.
-        if (museConfig.enabled && museAvail !== false && !reproducing) {
+        if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
           try {
             setMuseResult(null)
             setMuseImages([])
@@ -1435,7 +1459,8 @@ export default function ProjectView({
             }
 
             setMuseStage(t('project.museStageDossier'))
-            const res = await runMuseDossier(text, {
+            const res = await runMuseDossier(museBrief, {
+              language: siteLang,
               urls: parseUrls(museConfig.urls),
               useFetch: museConfig.useFetch,
               projectName: project.name,
@@ -1829,7 +1854,7 @@ export default function ProjectView({
           videoFrames: museVideo?.frames,
           siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined,
         })
-        if (siteNew) siteRefsByScreen.current.set(screenId, site)
+        if (siteNew) siteRefsByScreen.current.set(screenId, { ...site, content: siteContent })
         // Name the project after its FIRST prompt, so it stops being called
         // "Untitled project". A name the user already chose is never touched.
         if (screens.length === 0 && project.name.trim() === DEFAULT_PROJECT_NAME) {
@@ -2145,7 +2170,7 @@ export default function ProjectView({
         settings, screen.prompt, extraSystem, siteRun?.parts, ac.signal,
         undefined,
         caps,
-        siteRun ? buildSiteReferenceSection(siteRun.mode, siteRun.groups, 1) : undefined,
+        siteRun ? buildSiteReferenceSection(siteRun.mode, siteRun.groups, 1, siteRun.content) : undefined,
       )
       // Regenerating rebuilds the screen from the design system as it stands
       // now, so the recorded copy moves with it. Editing a screen does not: an
@@ -2817,7 +2842,9 @@ export default function ProjectView({
 
   /** Ce que fabrique Mocky en ce moment — sert de libelle ET de nom accessible. */
   const busyLabel = phase === 'ultra' && ultraStage ? ultraStage : t(
-    phase === 'muse'
+    phase === 'site'
+      ? 'project.busySite'
+      : phase === 'muse'
       ? 'project.busyMuse'
       : phase === 'planning'
         ? 'project.busyPlanning'
@@ -2973,7 +3000,7 @@ export default function ProjectView({
         imageSource={imageSource}
         onImageSource={setImageSource}
         imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive)}
-        busyLabel={phase === 'ultra' ? ultraStage : null}
+        busyLabel={phase === 'ultra' ? ultraStage : phase === 'site' ? t('project.busySite') : null}
         siteShots={siteShots}
         siteReading={siteReading}
         siteMode={siteMode}
@@ -3801,17 +3828,22 @@ export default function ProjectView({
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
             )}
-          </div>
-
-          <div className="flex items-end gap-2">
             {/* Screenshots of an existing site. The same files also arrive by
                 paste into the field and by a drop anywhere on the bar; the
-                button is the one of the three a phone has. */}
+                button is the one of the three a phone has. Shown while editing
+                too: there they are references, like the annotations. */}
             <SiteAttachButton
               onFiles={(files) => void addSiteFiles(files)}
               disabled={busy}
-              className="btn-ghost tap-target mb-0.5 shrink-0 px-2 py-2"
+              size={14}
+              labelled
+              className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
+                siteShots.length ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
+              }`}
             />
+          </div>
+
+          <div className="flex items-end gap-2">
             {/* min-w-0: a textarea's automatic minimum size comes from `cols`
                 (20 by default), which is wider than the room left beside the
                 two buttons at 390px — so without this the row overflowed the

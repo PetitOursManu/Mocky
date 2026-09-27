@@ -175,7 +175,8 @@ export default function Welcome({
                 onFiles={onAddSiteFiles}
                 disabled={busy}
                 size={15}
-                className="inline-flex items-center text-body-sm text-ink-faint transition hover:text-ink"
+                labelled
+                className="inline-flex items-center gap-1.5 text-body-sm text-ink-faint transition hover:text-ink"
               />
               <button
                 type="button"

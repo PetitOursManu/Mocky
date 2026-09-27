@@ -85,6 +85,7 @@ export const project = {
       'Essayez Muse : elle cherche des références, écrit une direction artistique et remplace le faux texte par de vrais contenus. Cliquez pour l’activer.',
     // ---- composer: screenshots of an existing site ----
     'project.siteAttach': 'Joindre des captures d’un site',
+    'project.siteAttachShort': 'Captures d’un site',
     'project.siteAttachTitle':
       'Joindre des captures d’un site existant, pour le reproduire ou en faire la refonte. Vous pouvez aussi les coller dans le champ ou les déposer sur la barre.',
     'project.sitePlaceholder': 'Précisez si besoin (quelle page, ce qui compte)… ou générez directement',
@@ -111,6 +112,8 @@ export const project = {
       'Le modèle actif ne lit pas les images : il ne pourrait pas voir les captures. Choisissez un modèle avec vision dans Réglages.',
     'project.siteUltraSkipped':
       'Motion Ultra n’est pas appliqué à un écran fait d’après un site : son storyboard inventerait des sections que le site a déjà.',
+    'project.siteMuseSkipped':
+      'Le contenu du site n’a pas pu être lu : Muse n’a pas tourné, pour ne pas inventer un autre produit. La refonte suit la direction du projet.',
     'project.siteRegenGone':
       'Cet écran a été fait d’après des captures qui ne sont plus en mémoire — elles ne sont jamais enregistrées. Joignez-les de nouveau au composer pour le refaire.',
     'project.composerEdit_one': 'Décrivez le changement à appliquer à l’écran sélectionné…',
@@ -129,6 +132,7 @@ export const project = {
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planification…',
+    'project.busySite': 'Lecture du site…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Inspiration & rédaction du dossier…',
     'project.museStageInspiration': 'Génération de l’image d’inspiration…',
@@ -390,6 +394,7 @@ export const project = {
       'Try Muse: it finds references, writes an art direction, and replaces lorem ipsum with real copy. Click to turn it on.',
     // ---- composer: screenshots of an existing site ----
     'project.siteAttach': 'Attach screenshots of a site',
+    'project.siteAttachShort': 'Site screenshots',
     'project.siteAttachTitle':
       'Attach screenshots of an existing site, to reproduce it or to redesign it. You can also paste them into the field or drop them on the bar.',
     'project.sitePlaceholder': 'Add details if needed (which page, what matters)… or just generate',
@@ -416,6 +421,8 @@ export const project = {
       'The active model does not read images, so it could not see the screenshots. Pick a vision model in Settings.',
     'project.siteUltraSkipped':
       'Motion Ultra is not applied to a screen built from a site: its storyboard would invent sections the site already has.',
+    'project.siteMuseSkipped':
+      'The site’s content could not be read, so Muse did not run rather than invent another product. The redesign follows the project’s direction.',
     'project.siteRegenGone':
       'This screen was built from screenshots that are no longer in memory — they are never saved. Attach them again in the composer to redo it.',
     'project.composerEdit_one': 'Describe a change to apply to the selected screen…',
@@ -434,6 +441,7 @@ export const project = {
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planning…',
+    'project.busySite': 'Reading the site…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Gathering inspiration & writing the dossier…',
     'project.museStageInspiration': 'Generating the inspiration image…',

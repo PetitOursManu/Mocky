@@ -32,7 +32,7 @@ describe('site screenshots in the generation path', () => {
   it('derive every branch from the attached shots, so none runs without them', () => {
     expect(view).toContain('const siteNew = !!site && targets.length === 0')
     expect(view).toContain("const reproducing = siteNew && site.mode === 'reproduce'")
-    expect(view).toContain('const siteSection = siteNew ? buildSiteReferenceSection(')
+    expect(view).toContain('let siteSection = siteNew ? buildSiteReferenceSection(')
     expect(view).toContain('if (siteSection) planSection = [planSection, siteSection]')
   })
 
@@ -42,7 +42,17 @@ describe('site screenshots in the generation path', () => {
   })
 
   it('skip Muse, Motion Ultra and the planner where the screenshot is the authority', () => {
-    expect(view).toContain('if (museConfig.enabled && museAvail !== false && !reproducing) {')
+    expect(view).toContain('if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {')
+  })
+
+  it('read the site before Muse on a redesign, and keep Muse out when the reading failed', () => {
+    // Written from "Refonte graphique de ce site" alone, the dossier invented a
+    // product and its preamble made the invention authoritative.
+    const reading = view.indexOf('siteContent = await readSiteContent(settings, site.parts, ac.signal)')
+    const dossier = view.indexOf('const res = await runMuseDossier(museBrief, {')
+    expect(reading).toBeGreaterThan(0)
+    expect(dossier).toBeGreaterThan(reading)
+    expect(view).toContain('const museBlind = siteNew && !reproducing && !siteContent')
     expect(view).toContain('if (ultraActive && project.ultra && !siteNew) {')
     expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew) {')
   })

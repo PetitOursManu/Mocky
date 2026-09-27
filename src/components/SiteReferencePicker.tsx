@@ -20,11 +20,18 @@ export function SiteAttachButton({
   disabled,
   size = 18,
   className = '',
+  labelled = false,
 }: {
   onFiles: (files: File[]) => void
   disabled?: boolean
   size?: number
   className?: string
+  /**
+   * Show the word beside the icon. An icon alone was the first version, and the
+   * first person to look for the feature did not find it: every neighbour of
+   * this button is a word, so a lone glyph read as decoration.
+   */
+  labelled?: boolean
 }) {
   const t = useT()
   const input = useRef<HTMLInputElement>(null)
@@ -52,6 +59,7 @@ export function SiteAttachButton({
         title={t('project.siteAttachTitle')}
       >
         <Icon name="image" size={size} />
+        {labelled && <span>{t('project.siteAttachShort')}</span>}
       </button>
     </>
   )

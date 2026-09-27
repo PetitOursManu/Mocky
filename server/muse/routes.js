@@ -101,7 +101,11 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
           prompt: body.prompt,
           urls: Array.isArray(body.urls) ? body.urls : [],
           useFetch: body.useFetch === true, // explicit opt-in (avoids surprise Chromium install)
-          language: body.language,
+          // Interpolated into the dossier prompt: a language NAME, nothing more.
+          language:
+            typeof body.language === 'string'
+              ? body.language.replace(/[^\p{L} \-]/gu, '').trim().slice(0, 30) || undefined
+              : undefined,
           projectName: body.projectName,
           userMedia: sanitizeUserMedia(body.userMedia),
           // Read strictly: two modes and the server's own kinds, or nothing.

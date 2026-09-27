@@ -416,6 +416,12 @@ export async function runMuseDossier(
      * the dossier is then written exactly as before.
      */
     motion?: { mode: 'auto' | 'force'; kinds: string[] } | null
+    /**
+     * The language the copy must be written in. Absent, the dossier follows the
+     * request's — right for a brief, wrong for a redesign of a site in another
+     * language, which is the one caller that sets it.
+     */
+    language?: string
     signal?: AbortSignal
   } = {},
 ): Promise<MuseResult> {
@@ -434,6 +440,7 @@ export async function runMuseDossier(
       projectName: opts.projectName,
       userMedia: opts.userMedia,
       motion: opts.motion ?? undefined,
+      language: opts.language,
     }),
     signal: opts.signal,
   })
