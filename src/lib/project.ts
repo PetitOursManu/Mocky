@@ -3,6 +3,7 @@ import { scheduleSync, reportStorageFailure } from './sync'
 import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
 import { extractProductName } from './design'
 import { normalizeNotes, type ScreenNote } from './screenNotes'
+import type { SiteRefMode } from './siteReference'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -119,6 +120,14 @@ export interface Screen {
    * built on. Absent means an ordinary screen.
    */
   ultra?: ScreenUltra
+  /**
+   * Built from screenshots of an existing site, and for which of the two
+   * intents. The screenshots themselves are NOT kept — they are someone's site,
+   * and M2 keeps third-party pictures out of storage — so this is what lets
+   * "Regenerate" say it cannot redo the screen without them, instead of quietly
+   * rolling an unrelated page from the short prompt that came with them.
+   */
+  siteRef?: { mode: SiteRefMode; shots: number }
   /**
    * What the person wrote about this screen, for themselves. Never read by
    * anything that builds a prompt — see `lib/screenNotes.ts` for why, and

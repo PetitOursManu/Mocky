@@ -51,6 +51,17 @@ import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
 import ImageSourceControl from './ImageSourceControl'
 import {
+  buildSiteReferenceSection,
+  partsUsed,
+  prepareSiteShot,
+  refuseSiteFile,
+  SITE_IMAGE_TYPES,
+  SITE_PARTS_MAX,
+  SITE_REF_MODES,
+  type SiteRefMode,
+  type SiteShot,
+} from '../lib/siteReference'
+import {
   createStockFinder,
   loadImageSource,
   photoReferenceNote,
@@ -600,6 +611,71 @@ export default function ProjectView({
   }, [linkMode])
   const [annotations, setAnnotations] = useState<{ id: string; dataUrl: string }[]>([])
   /**
+   * Screenshots of an existing site, attached from the composer (file picker,
+   * paste or drop), and what they are for. Kept apart from the annotations
+   * because they are not one picture each — a full page arrives cut into parts —
+   * and because, on a new screen, they change which stages of the pipeline run.
+   * See lib/siteReference.ts.
+   */
+  const [siteShots, setSiteShots] = useState<SiteShot[]>([])
+  const [siteMode, setSiteMode] = useState<SiteRefMode>('reproduce')
+  /** Decoding and cutting a large capture takes a moment; the thumbnail row says so. */
+  const [siteReading, setSiteReading] = useState(0)
+  const [siteDragOver, setSiteDragOver] = useState(false)
+  const siteInputRef = useRef<HTMLInputElement>(null)
+  /** Mirrors `siteShots` for the async reader, which outlives the render that started it. */
+  const siteShotsRef = useRef<SiteShot[]>([])
+  siteShotsRef.current = siteShots
+  /**
+   * The screenshots each screen was built from, for THIS session only.
+   *
+   * "Regenerate" on a reproduced screen without its screenshots would roll an
+   * unrelated page from the three words that came with them. They are not
+   * persisted (see `Screen.siteRef`), so a reload loses them, and regenerate
+   * then says so rather than guessing.
+   */
+  const siteRefsByScreen = useRef<Map<string, { mode: SiteRefMode; groups: number[]; parts: string[] }>>(new Map())
+
+  /**
+   * Read image files into site screenshots, one after the other, each cut to
+   * fit what is left of the request's budget. A refused file says why and the
+   * others still go through.
+   */
+  async function addSiteFiles(files: File[]) {
+    const images = files.filter((f) => f.type.startsWith('image/'))
+    if (!images.length) return
+    for (const file of images) {
+      // Read fresh each time: a thumbnail removed while the previous file was
+      // being cut must not come back with the next one.
+      const shots = siteShotsRef.current
+      const refusal = refuseSiteFile(file, shots)
+      if (refusal) {
+        setError(t(refusal as TranslationKey))
+        if (refusal === 'project.siteFull') break
+        continue
+      }
+      setSiteReading((n) => n + 1)
+      try {
+        const shot = await prepareSiteShot(file, newId(), file.name || '', SITE_PARTS_MAX - partsUsed(shots))
+        const next = [...siteShotsRef.current, shot]
+        siteShotsRef.current = next
+        setSiteShots(next)
+      } catch {
+        setError(t('project.siteUnreadable'))
+      } finally {
+        setSiteReading((n) => n - 1)
+      }
+    }
+  }
+
+  /** A pasted screenshot goes to the site references; pasted text stays text. */
+  function onComposerPaste(e: React.ClipboardEvent) {
+    const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'))
+    if (!files.length) return
+    e.preventDefault()
+    void addSiteFiles(files)
+  }
+  /**
    * Per screen: how many repairs ran, the last error, and what to fall back on.
    *
    * `fallback` is the screen's `previousCode` at the FIRST failure — the version
@@ -1122,15 +1198,33 @@ export default function ProjectView({
   }
 
   const generate = useCallback(async () => {
-    const text = prompt.trim()
+    const targets = screens.filter((s) => selectedIds.includes(s.id))
+    /**
+     * The site screenshots of this run. On a new screen they come with an
+     * intent (lib/siteReference.ts) and a prompt is optional — the screenshots
+     * ARE the request, and a default sentence names the screen. On an edit they
+     * are plain references, like the annotations, and the words say what to do
+     * with them.
+     */
+    const site = siteShots.length
+      ? { mode: siteMode, groups: siteShots.map((s) => s.parts.length), parts: siteShots.flatMap((s) => s.parts) }
+      : null
+    const siteNew = !!site && targets.length === 0
+    /** A reproduction takes the look from the screenshots, so nothing else may supply one. */
+    const reproducing = siteNew && site.mode === 'reproduce'
+    const text =
+      prompt.trim() ||
+      (siteNew ? t(reproducing ? 'project.siteDefaultReproduce' : 'project.siteDefaultRedesign') : '')
     if (!text) return
     const settings = loadSettings()
     if (!settings.model.trim()) {
       setError(t('project.noModel'))
       return
     }
-    const targets = screens.filter((s) => selectedIds.includes(s.id))
-    const images = annotations.map((a) => a.dataUrl)
+    // Annotations first: their numbers in the composer are the numbers the
+    // model reads, and the site section counts its own from after them.
+    const images = [...annotations.map((a) => a.dataUrl), ...(site ? site.parts : [])]
+    const siteSection = siteNew ? buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1) : undefined
     const ac = new AbortController()
     abortRef.current = ac
     setBusy(true)
@@ -1168,6 +1262,21 @@ export default function ProjectView({
       })
     }
     try {
+      /*
+       * Screenshots to a model that cannot see them would be dropped in silence
+       * by some gateways and refused by others, and either way the screen would
+       * be invented from the default sentence. Refused only on a definite answer
+       * — a probe that timed out is not one — since the generation's own error
+       * is clearer than a guess.
+       */
+      if (site) {
+        let blind = museVision === false
+        if (museVision === null) {
+          const probe = await checkVision(ac.signal)
+          blind = !probe.vision && /^HTTP 4\d\d/.test(probe.error ?? '')
+        }
+        if (blind) throw new Error(t('project.siteNoVision'))
+      }
       // Read fresh, not from the render-scope memo: this callback outlives the
       // render that created it, and DESIGN.md is edited in an overlay that
       // leaves this view mounted underneath.
@@ -1235,10 +1344,19 @@ export default function ProjectView({
         setGeneratingIds(new Set())
         setPrompt('')
         setAnnotations([])
+        setSiteShots([])
       } else {
         // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
-        const referencePreamble = identityOrLayoutReference()
+        // With site screenshots, the site's own brand is the identity to carry,
+        // not the one an earlier screen invented. A PINNED layout still holds on
+        // a redesign — pinning is the user's own statement — and never on a
+        // reproduction, whose chrome is the screenshot's.
+        const referencePreamble = !siteNew
+          ? identityOrLayoutReference()
+          : !reproducing && project.referenceScreenId
+            ? identityOrLayoutReference()
+            : undefined
 
         // --- Muse: build a Design Dossier + hero image. The dossier is a
         // CANDIDATE direction, not the authority it once was — see the
@@ -1278,7 +1396,9 @@ export default function ProjectView({
         // honour "content", so THIS RUN degrades without touching the setting.
         const effectiveImageMode: MuseImageMode =
           museVision === false && museConfig.imageMode !== 'content' ? 'content' : museConfig.imageMode
-        if (museConfig.enabled && museAvail !== false) {
+        // A reproduction's direction is the screenshot: a dossier would be a
+        // second, contradicting one, and a paid call to write it.
+        if (museConfig.enabled && museAvail !== false && !reproducing) {
           try {
             setMuseResult(null)
             setMuseImages([])
@@ -1482,12 +1602,14 @@ export default function ProjectView({
          * any other, and it only wins when there is nothing to protect (the
          * project's first screen) or when the user asked for a redesign.
          */
-        const dir = resolveDirection({
-          established: project.design,
-          fresh: museMarkdown,
-          global: globalMd,
-          redesign: redesigning,
-        })
+        const dir: { markdown?: string; establish?: string } = reproducing
+          ? {}
+          : resolveDirection({
+              established: project.design,
+              fresh: museMarkdown,
+              global: globalMd,
+              redesign: redesigning,
+            })
 
         /*
          * Muse's preamble, carrying whichever direction won.
@@ -1552,7 +1674,13 @@ export default function ProjectView({
         let ultraFilmSection: string | null = null
         /** Video background asked for, and a film can be rendered right now. */
         const ultraVideo = !!project.ultra?.video && motionKindIds.includes('background')
-        if (ultraActive && project.ultra) {
+        /*
+         * Not on site screenshots. A storyboard invents the page's sections, and
+         * the site already has its sections — the page would be asked to follow
+         * two structures at once. Said, because the project setting is on.
+         */
+        if (ultraActive && siteNew) setNotice(t('project.siteUltraSkipped'))
+        if (ultraActive && project.ultra && !siteNew) {
           try {
             setPhase('ultra')
             setUltraStage(t('project.ultraStageStoryboard'))
@@ -1602,7 +1730,8 @@ export default function ProjectView({
           }
         }
 
-        if (settings.usePlanner && !musePreamble && !ultraRecord) {
+        // Nor the planner, for the same reason: the screenshots are the plan.
+        if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew) {
           setPhase('planning')
           const plan = await planScreen(
             settings, text, shortlist,
@@ -1617,7 +1746,9 @@ export default function ProjectView({
         }
         // Appended to the plan section rather than folded into it, so the mode
         // still reaches generation on the paths where no plan was produced.
-        if (!planSection) planSection = modeToPromptSection(mode)
+        // A reproduction's mode is whatever the site is; the generic advice for
+        // a mode would only argue with the screenshot.
+        if (!planSection && !reproducing) planSection = modeToPromptSection(mode)
         /*
          * No series for THIS screen, but the project has pictures a Motion Ultra
          * run already paid for: offer them (lib/ultra/reuse.ts). Only a project
@@ -1625,7 +1756,7 @@ export default function ProjectView({
          * Ultra takes exactly the path it always took (U1). Best-effort: a
          * library that does not answer offers nothing.
          */
-        if (!ultraRecord) {
+        if (!ultraRecord && !reproducing) {
           const owned = projectUltraPictures(screensRef.current)
           if (owned.length) {
             try {
@@ -1644,6 +1775,8 @@ export default function ProjectView({
         // Page animations are always offered: the vocabulary costs nothing and
         // a screen that does not need motion simply does not use it. Holding a
         // screen still is its own setting, in its menu.
+        // Last, so on a reproduction it is the final word over the base rules' taste.
+        if (siteSection) planSection = [planSection, siteSection].filter(Boolean).join('\n\n')
         capIds = withAnimations(capIds)
 
         // A sequence exists → the component that plays it must be in scope,
@@ -1692,7 +1825,9 @@ export default function ProjectView({
           // asking the server what it cut.
           videoHash: museVideo?.hash,
           videoFrames: museVideo?.frames,
+          siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined,
         })
+        if (siteNew) siteRefsByScreen.current.set(screenId, site)
         // Name the project after its FIRST prompt, so it stops being called
         // "Untitled project". A name the user already chose is never touched.
         if (screens.length === 0 && project.name.trim() === DEFAULT_PROJECT_NAME) {
@@ -1702,6 +1837,7 @@ export default function ProjectView({
         setSelectedIds([screenId])
         setPrompt('')
         setAnnotations([])
+        setSiteShots([])
         // The found photos go LAST, after the user's annotations and any
         // inspiration reference: the note that explains them counts from the end.
         const result = await generateComponent(
@@ -1848,7 +1984,7 @@ export default function ProjectView({
          */
         if (dir.establish) {
           onSetDesign(dir.establish)
-        } else if (redesigning && result.code.trim()) {
+        } else if ((redesigning || (reproducing && !project.design?.trim())) && result.code.trim()) {
           /*
            * A redesign with Muse off.
            *
@@ -1860,6 +1996,10 @@ export default function ProjectView({
            * Best-effort: the screen is finished and correct either way, and a
            * failure here only means the next screen falls back to the direction
            * that was in force before.
+           *
+           * A reproduction takes the same road when the project has no direction
+           * yet: the site it copied becomes the project's look, so the next page
+           * asked for is a page of that site and not of the global DESIGN.md.
            */
           setPhase('design')
           try {
@@ -1909,7 +2049,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource])
+  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, siteShots, siteMode])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -1968,6 +2108,14 @@ export default function ProjectView({
       setError(t('project.noModel'))
       return
     }
+    // A screen built from site screenshots is only a variant of itself WITH
+    // them; without, it would be a page invented from "Reproduis ce site".
+    const siteRun = screen.siteRef ? siteRefsByScreen.current.get(screenId) : undefined
+    if (screen.siteRef && !siteRun) {
+      setError(t('project.siteRegenGone'))
+      return
+    }
+    const reproducing = siteRun?.mode === 'reproduce'
     const ac = new AbortController()
     abortRef.current = ac
     setBusy(true)
@@ -1977,9 +2125,14 @@ export default function ProjectView({
     setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
-      const designMd = activeDirection()
+      // The same choices as the run that made it — see `generate`.
+      const designMd = reproducing ? undefined : activeDirection()
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
-      const referencePreamble = identityOrLayoutReference(screenId)
+      const referencePreamble = !siteRun
+        ? identityOrLayoutReference(screenId)
+        : !reproducing && project.referenceScreenId
+          ? identityOrLayoutReference(screenId)
+          : undefined
       const extraSystem = joinSystem([designPreamble, referencePreamble, hintForDevice(screen.device)])
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
       const caps = resolveCapabilities(capIds)
@@ -1987,9 +2140,10 @@ export default function ProjectView({
       // No onChunk: the new code is generated fully in the background, then
       // swapped in at once, so the old design never disappears mid-stream.
       const result = await generateComponent(
-        settings, screen.prompt, extraSystem, undefined, ac.signal,
+        settings, screen.prompt, extraSystem, siteRun?.parts, ac.signal,
         undefined,
         caps,
+        siteRun ? buildSiteReferenceSection(siteRun.mode, siteRun.groups, 1) : undefined,
       )
       // Regenerating rebuilds the screen from the design system as it stands
       // now, so the recorded copy moves with it. Editing a screen does not: an
@@ -3353,7 +3507,29 @@ export default function ProjectView({
 
       {/* Floating composer */}
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-        <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-line bg-surface p-2 shadow-2xl">
+        {/* The whole bar takes a dropped screenshot, not only the field: a drop
+            aimed at "the composer" lands wherever the pointer happens to be. */}
+        <div
+          className={`pointer-events-auto w-full max-w-2xl rounded-2xl border bg-surface p-2 shadow-2xl transition ${
+            siteDragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
+          }`}
+          onDragOver={(e) => {
+            if (!Array.from(e.dataTransfer.types).includes('Files')) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+            setSiteDragOver(true)
+          }}
+          onDragLeave={(e) => {
+            // Leaving for a child is not leaving the composer.
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSiteDragOver(false)
+          }}
+          onDrop={(e) => {
+            if (!e.dataTransfer.files.length) return
+            e.preventDefault()
+            setSiteDragOver(false)
+            void addSiteFiles(Array.from(e.dataTransfer.files))
+          }}
+        >
           {/*
             The whole message, wrapped — never `truncate`. A one-line ellipsis cut
             "…refused at scenes.0.layers" off exactly before the part that said
@@ -3442,6 +3618,79 @@ export default function ProjectView({
                 <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-warn/60">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-warn/40 border-t-warn" />
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Site screenshots — what they are, and on a new screen what they are FOR */}
+          {(siteShots.length > 0 || siteReading > 0) && (
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              {siteShots.map((shot, i) => (
+                <div
+                  key={shot.id}
+                  className="group relative h-14 w-14 overflow-hidden rounded-lg border border-accent/60 bg-surface"
+                  title={shot.name || t('project.siteShotN', { n: i + 1 })}
+                >
+                  {/* object-top: the head of a page is what identifies it. */}
+                  <img src={shot.parts[0]} alt={t('project.siteShotN', { n: i + 1 })} className="h-full w-full object-cover object-top" />
+                  {shot.parts.length > 1 && (
+                    <span
+                      className="absolute bottom-0 left-0 rounded-tr bg-accent px-1 font-mono text-caption font-bold text-on-accent"
+                      title={t('project.siteShotParts', { count: shot.parts.length })}
+                    >
+                      ×{shot.parts.length}
+                    </span>
+                  )}
+                  {/* Visible by default, like the annotation's: hover-only is unreachable on touch. */}
+                  <button
+                    type="button"
+                    onClick={() => setSiteShots((arr) => arr.filter((x) => x.id !== shot.id))}
+                    className="absolute right-0 top-0 rounded-bl bg-ink/60 p-0.5 text-surface opacity-60 transition group-hover:opacity-100 focus-visible:opacity-100"
+                    aria-label={t('project.siteRemoveN', { n: i + 1 })}
+                    title={t('project.siteRemove')}
+                  >
+                    <Icon name="close" size={12} />
+                  </button>
+                </div>
+              ))}
+              {siteReading > 0 && (
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-lg border border-accent/60"
+                  role="status"
+                  aria-label={t('project.siteReading')}
+                >
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent/40 border-t-accent" />
+                </div>
+              )}
+              {/* On an edit they are references for the words; the intent is a
+                  new screen's, because it decides which stages run. */}
+              {editing ? (
+                <span className="min-w-0 flex-1 text-body-sm text-ink-muted">{t('project.siteEditHint')}</span>
+              ) : (
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span
+                    role="group"
+                    aria-label={t('project.siteModeLabel')}
+                    className="inline-flex w-fit overflow-hidden rounded border border-line"
+                  >
+                    {SITE_REF_MODES.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setSiteMode(m)}
+                        aria-pressed={siteMode === m}
+                        className={`px-2 py-1 text-body-sm transition ${
+                          siteMode === m ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
+                        }`}
+                      >
+                        {t(m === 'reproduce' ? 'project.siteReproduce' : 'project.siteRedesign')}
+                      </button>
+                    ))}
+                  </span>
+                  <span className="text-body-sm text-ink-muted">
+                    {t(siteMode === 'reproduce' ? 'project.siteReproduceHint' : 'project.siteRedesignHint')}
+                  </span>
+                </span>
               )}
             </div>
           )}
@@ -3623,6 +3872,32 @@ export default function ProjectView({
           </div>
 
           <div className="flex items-end gap-2">
+            {/* Screenshots of an existing site. The same files also arrive by
+                paste into the field and by a drop anywhere on the bar; the
+                button is the one of the three a phone has. */}
+            <input
+              ref={siteInputRef}
+              type="file"
+              accept={SITE_IMAGE_TYPES.join(',')}
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? [])
+                // Cleared so choosing the same file again still fires a change.
+                e.target.value = ''
+                void addSiteFiles(files)
+              }}
+            />
+            <button
+              type="button"
+              className="btn-ghost tap-target mb-0.5 shrink-0 px-2 py-2"
+              onClick={() => siteInputRef.current?.click()}
+              disabled={busy}
+              aria-label={t('project.siteAttach')}
+              title={t('project.siteAttachTitle')}
+            >
+              <Icon name="image" size={18} />
+            </button>
             {/* min-w-0: a textarea's automatic minimum size comes from `cols`
                 (20 by default), which is wider than the room left beside the
                 two buttons at 390px — so without this the row overflowed the
@@ -3636,17 +3911,22 @@ export default function ProjectView({
                       selectedScreens.length === 1 ? 'project.composerEdit_one' : 'project.composerEdit_other',
                       { count: selectedScreens.length },
                     )
-                  : t('composer.placeholder')
+                  : siteShots.length
+                    ? t('project.sitePlaceholder')
+                    : t('composer.placeholder')
               }
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={onComposerKey}
+              onPaste={onComposerPaste}
             />
             <button
               type="button"
               className="btn-primary mb-0.5 flex shrink-0 items-center gap-2"
               onClick={generate}
-              disabled={busy || !prompt.trim()}
+              // Screenshots are a request on their own for a new screen; an
+              // edit still needs the words saying what to change.
+              disabled={busy || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
             >
               {busy ? (
                 <>
