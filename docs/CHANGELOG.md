@@ -10,6 +10,8 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `site` | les images du site remplacées par des photos libres ou générées | `9f971a0` |
+| `composer` | captures d'un site existant, à reproduire ou à refondre | `5fb8c03` |
 | — | notes privées par écran, et photos libres de droits choisies par la vision | `ad4b301` |
 | `ultra` | Motion Ultra ×3 et ×6 ouverts par compte, indépendamment | `ff3895a` |
 | `ui` | les films s'appellent Motion Ultra partout | `7161595` |
@@ -51,6 +53,8 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `site` | une refonte lit d'abord le contenu du site, et le garde dans sa langue | `1d6b06e` |
+| `composer` | les captures d'un site aussi depuis l'accueil d'un projet vide | `77edc5e` |
 | `video` | la séquence au défilement reste collée malgré un overflow-hidden | `c806490` |
 | `videos` | le découpage n'agrandit plus un clip plus étroit que le réglage | `e0939e1` |
 | `ultra` | une photo plein cadre ne recouvre plus le fond vidéo; cadres empilés sans débord | `a0046d9` |
@@ -77,6 +81,7 @@
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `readme` | reproduire ou refondre un site existant | `ce5838d` |
 | — | plus de bouton d'animation ni de film automatique — pages, invariants et changelog à jour | `183c132` |
 | — | Motion Ultra dans l'interface, la vue d'ensemble et le changelog | `9bb2e5a` |
 | `ultra` | v2 — le fond vidéo, FR/EN, CLAUDE.md et suivi | `cf0301f` |
