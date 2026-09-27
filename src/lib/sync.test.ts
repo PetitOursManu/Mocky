@@ -187,3 +187,42 @@ describe('pushNow', () => {
     enableSync(true)
   })
 })
+
+describe('maintenance', () => {
+  it('pauses on the first refusal instead of retrying, and pushes once maintenance ends', async () => {
+    const { MaintenanceError, setMaintenance } = await import('./maintenance')
+    setMaintenance({ on: true })
+    putData.mockRejectedValueOnce(new MaintenanceError('closed'))
+    storage.setItem(PROJECTS_KEY, 'during')
+
+    await expect(pushNow()).rejects.toThrow('closed')
+    // One call: the refusal is not transient, and five attempts would spend 15 s
+    // reaching the same answer.
+    expect(putData).toHaveBeenCalledTimes(1)
+    expect(getSyncState()).toBe('paused')
+    expect(hasUnsyncedChanges()).toBe(true)
+
+    // A change made while paused is kept, not pushed into a refusal.
+    storage.setItem(PROJECTS_KEY, 'later')
+    scheduleSync()
+    await new Promise((r) => setTimeout(r, 900))
+    expect(putData).toHaveBeenCalledTimes(1)
+
+    setMaintenance({ on: false })
+    await vi.waitFor(() => expect(putData).toHaveBeenCalledTimes(2))
+    expect(putData.mock.calls[1][0]).toBe('later')
+    await vi.waitFor(() => expect(getSyncState()).toBe('idle'))
+  })
+
+  it('does not turn a refused reconcile into a sign-out', async () => {
+    const { MaintenanceError, setMaintenance } = await import('./maintenance')
+    setMaintenance({ on: true })
+    storage.setItem(PROJECTS_KEY, JSON.stringify([project('p1', 2_000)]))
+    getData.mockResolvedValue({ projects: null, design: null })
+    putData.mockRejectedValueOnce(new MaintenanceError('closed'))
+    await expect(reconcileOnLogin()).resolves.toBeTypeOf('boolean')
+    expect(getSyncState()).toBe('paused')
+    setMaintenance({ on: false })
+    await vi.waitFor(() => expect(getSyncState()).toBe('idle'))
+  })
+})

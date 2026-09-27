@@ -24,6 +24,12 @@ import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
+import { cleanMaintenanceMessage, maintenanceBlocks, maintenanceBody } from './maintenance.js'
+import { createMigrationSource } from './migration/source.js'
+import { createMigrationDestination, MigrationError } from './migration/destination.js'
+import { comparePreflight } from './migration/preflight.js'
+import { secretTag } from './migration/crypto.js'
+import { ffmpegStatus } from './videos/frames.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -434,6 +440,28 @@ app.use((req, res, next) => {
   next()
 })
 
+// ---- maintenance mode ----
+// Mounted before every route, the provider proxy included, so the rule is one
+// default-deny on the METHOD and not a list somebody has to keep complete — see
+// server/maintenance.js for why it is read-only rather than "no creating or
+// deleting". Held in memory and persisted in config.json, which is also how an
+// imported instance boots in maintenance: the file travels with the migration.
+let maintenance = normalizeMaintenance(loadConfig().maintenance)
+function normalizeMaintenance(m) {
+  return {
+    on: Boolean(m?.on),
+    message: cleanMaintenanceMessage(m?.message),
+    since: typeof m?.since === 'number' ? m.since : null,
+  }
+}
+app.use((req, res, next) => {
+  if (!maintenance.on) return next()
+  const user = currentUser(req)
+  if (!maintenanceBlocks(req, maintenance, (user?.role || 'user') === 'admin')) return next()
+  res.setHeader('Retry-After', '300')
+  res.status(503).json(maintenanceBody(maintenance))
+})
+
 /**
  * One line per authentication event, in a shape fail2ban can match.
  *
@@ -708,6 +736,9 @@ app.get('/api/config', (req, res) => {
   res.json({
     allowRegistration: loadConfig().allowRegistration !== false,
     setup: loadUsers().length === 0,
+    // Public on purpose: the banner has to reach a signed-out visitor too, and
+    // the only thing it says is what every refused write would say anyway.
+    maintenance,
     sso: {
       enabled: ssoEnabled,
       dashyUrl: SSO_DASHY_URL || null,
@@ -964,6 +995,14 @@ app.get('/sso/dashy/callback', (req, res, next) => {
     return res.redirect(302, u.toString())
   }
 
+  // Signing in is allowed during maintenance; CREATING an account is not, and
+  // this is the one GET that creates one, so the method rule cannot see it.
+  if (maintenance.on && !loadUsers().some((u) => u.dashySub === claims.sub)) {
+    const u = new URL(MOCKY_ORIGIN)
+    u.searchParams.set('sso', 'error')
+    u.searchParams.set('reason', 'maintenance')
+    return res.redirect(302, u.toString())
+  }
   const user = findOrCreateSsoUser(claims)
   setSession(res, user.id, req)
 
@@ -1557,6 +1596,233 @@ app.use(
 // field can probe it: an admin is not implicitly on the allowlist, so the
 // per-account /api/video/status would answer them "no-access" instead.
 app.use('/api/admin/video', requireAdmin, createVideoAdminRouter({ config: videoConfig, worker: videoWorker, queue: videoQueue }))
+
+// ---- admin: maintenance mode ----
+app.get('/api/admin/maintenance', requireAdmin, (req, res) => res.json(maintenance))
+app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
+  const on = Boolean(req.body?.on)
+  const next = {
+    on,
+    message: cleanMaintenanceMessage(req.body?.message ?? maintenance.message),
+    // Kept across a message edit: "since" answers "how long have users been
+    // locked out", which rewording the notice does not change.
+    since: on ? (maintenance.on ? maintenance.since : Date.now()) : null,
+  }
+  saveConfig({ ...loadConfig(), maintenance: next })
+  maintenance = next
+  console.log(`mocky maintenance ${on ? 'on' : 'off'} by=${JSON.stringify(req.user.username)}`)
+  res.json(maintenance)
+})
+
+// ---- server-to-server migration ----
+// Both halves live in every instance: any server can be the old one or the new
+// one. See server/migration/ and docs/migration.md; the design choices (pull
+// rather than push, sessions left behind, end-to-end encryption under the
+// pairing code) are argued at the top of each file.
+const MOCKY_VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+})()
+
+/** One line per migration event, in the same fixed shape as `mocky auth`. */
+function logMigration(event, detail) {
+  const fields = Object.entries(detail || {})
+    .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+    .join(' ')
+  console.log(`mocky migration ${event}${fields ? ' ' + fields : ''}`)
+}
+
+/** Renders queued or running: a final pass taken while one is in flight misses its film. */
+const activeRenders = () => videoQueue.jobs.filter((j) => j.status === 'queued' || j.status === 'running').length
+
+const migrationSource = createMigrationSource({
+  dataDir: DATA_DIR,
+  log: logMigration,
+  facts: (keys) => {
+    const vc = videoConfig.get() || {}
+    return {
+      mocky: MOCKY_VERSION,
+      node: process.version,
+      now: Date.now(),
+      origin: MOCKY_ORIGIN,
+      trustProxy: Boolean(process.env.TRUST_PROXY),
+      sso: {
+        enabled: ssoEnabled,
+        dashyUrl: SSO_DASHY_URL,
+        secretTag: secretTag(keys, 'sso', SSO_SHARED_SECRET),
+      },
+      needs: {
+        // Clips already cut keep working without ffmpeg; cutting a new one or
+        // re-cutting does not. Reported only when there is something to cut for.
+        ffmpeg: videos.library.list().length > 0,
+        videoWorker: vc.enabled && vc.workerUrl ? String(vc.workerUrl) : null,
+      },
+      maintenance: maintenance.on,
+      queue: { active: activeRenders() },
+    }
+  },
+})
+
+/** What this server finds about itself, compared against the source's facts. */
+async function migrationLocalFacts({ keys, manifest }) {
+  let free = null
+  try {
+    const st = fs.statfsSync(DATA_DIR)
+    free = st.bavail * st.bsize
+  } catch {
+    /* reported as unknown */
+  }
+  let writable = false
+  try {
+    fs.accessSync(DATA_DIR, fs.constants.W_OK)
+    writable = true
+  } catch {
+    /* reported */
+  }
+  const users = loadUsers()
+  // A project blob that holds projects. The admin doing the import has a file
+  // too as soon as the app has loaded once — with `projects: "[]"` — and that is
+  // not data anybody would miss.
+  const hasData = fs
+    .readdirSync(DATA_DIR)
+    .filter((n) => /^data-.+\.json$/.test(n))
+    .some((n) => {
+      try {
+        const blob = JSON.parse(fs.readFileSync(path.join(DATA_DIR, n), 'utf8'))
+        const list = typeof blob?.projects === 'string' ? JSON.parse(blob.projects) : blob?.projects
+        return Array.isArray(list) ? list.length > 0 : Boolean(list)
+      } catch {
+        return true
+      }
+    })
+  const needs = manifest?.facts?.needs || {}
+  let ffmpeg = null
+  if (needs.ffmpeg) ffmpeg = (await ffmpegStatus().catch(() => ({ available: false }))).available
+  let worker = null
+  if (needs.videoWorker) {
+    // The URL the imported config will use, probed now: the worker usually has
+    // the same compose name on both machines, and "it will be tested after the
+    // import" is the answer the admin asked not to get.
+    worker = await createVideoWorker({ config: { get: () => ({ workerUrl: needs.videoWorker }) } }).health()
+  }
+  return {
+    mocky: MOCKY_VERSION,
+    node: process.version,
+    now: Date.now(),
+    origin: MOCKY_ORIGIN,
+    trustProxy: Boolean(process.env.TRUST_PROXY),
+    sso: { enabled: ssoEnabled, dashyUrl: SSO_DASHY_URL, secretTag: secretTag(keys, 'sso', SSO_SHARED_SECRET) },
+    disk: { free },
+    writable,
+    users: users.length,
+    // One account — the admin doing the import — and nothing else is empty.
+    empty: users.length <= 1 && !hasData && images.library.list({ includePending: true }).length === 0,
+    ffmpeg,
+    worker,
+  }
+}
+
+const migrationDestination = createMigrationDestination({
+  dataDir: DATA_DIR,
+  localFacts: migrationLocalFacts,
+  compare: comparePreflight,
+  log: logMigration,
+})
+
+/**
+ * Step-up for the two actions that hand over or replace the whole instance.
+ * A session is not enough: an unlocked laptop is a session. SSO-only admins have
+ * no local password; Dashy vouched for them at sign-in and nothing here can ask
+ * again, so they pass on the session alone — said in docs/migration.md.
+ */
+function confirmAdminPassword(req, res) {
+  const user = loadUsers().find((u) => u.id === req.user.id)
+  if (!user) {
+    res.status(401).json({ error: 'Not signed in.' })
+    return false
+  }
+  if (!user.salt || !user.hash) return true
+  if (accountLocked(user.username)) {
+    res.status(429).json({ code: 'locked', error: 'Too many failed attempts on this account.' })
+    return false
+  }
+  if (!verifyPw(user, String(req.body?.password || ''))) {
+    noteAuthFailure(user.username)
+    logAuth('failure', req, user.username)
+    res.status(401).json({ code: 'password', error: 'Mot de passe incorrect.' })
+    return false
+  }
+  clearAuthFailures(user.username)
+  return true
+}
+
+function migrationFailure(res, err) {
+  if (err instanceof MigrationError) return res.status(400).json({ code: err.code, error: err.message })
+  console.error('mocky: migration failed —', err?.message || err)
+  res.status(500).json({ code: 'io', error: 'Migration failed.' })
+}
+
+// The source's two read routes. Authenticated by the pairing, not by a session:
+// the caller is another server. Off (401) whenever no code is active.
+app.use('/api/migration', migrationSource.router)
+
+app.get('/api/admin/migration/source', requireAdmin, (req, res) => res.json(migrationSource.status()))
+app.post('/api/admin/migration/source', requireAdmin, authRateLimit(8, 60_000, 'migration'), (req, res) => {
+  if (!confirmAdminPassword(req, res)) return
+  res.json(migrationSource.create(req.user.username))
+})
+app.delete('/api/admin/migration/source', requireAdmin, (req, res) => {
+  migrationSource.revoke(req.user.username)
+  res.json(migrationSource.status())
+})
+
+app.get('/api/admin/migration/import', requireAdmin, (req, res) => res.json(migrationDestination.status()))
+app.post('/api/admin/migration/import/connect', requireAdmin, authRateLimit(10, 60_000, 'migration'), async (req, res) => {
+  try {
+    res.json(await migrationDestination.connect(req.body?.url, req.body?.code))
+  } catch (err) {
+    migrationFailure(res, err)
+  }
+})
+app.post('/api/admin/migration/import/pass', requireAdmin, (req, res) => {
+  try {
+    res.json(migrationDestination.startPass())
+  } catch (err) {
+    migrationFailure(res, err)
+  }
+})
+app.post('/api/admin/migration/import/cancel', requireAdmin, (req, res) => {
+  migrationDestination.cancel()
+  res.json(migrationDestination.status())
+})
+app.post('/api/admin/migration/import/disconnect', requireAdmin, (req, res) => {
+  migrationDestination.disconnect()
+  res.json(migrationDestination.status())
+})
+app.post('/api/admin/migration/import/verify', requireAdmin, async (req, res) => {
+  try {
+    res.json(await migrationDestination.verifyImport())
+  } catch (err) {
+    migrationFailure(res, err)
+  }
+})
+app.post('/api/admin/migration/import/finalize', requireAdmin, authRateLimit(8, 60_000, 'migration'), (req, res) => {
+  if (!confirmAdminPassword(req, res)) return
+  let out
+  try {
+    out = migrationDestination.finalize()
+  } catch (err) {
+    return migrationFailure(res, err)
+  }
+  // Restart so every store re-reads the files it caches. Under Docker the
+  // `restart: unless-stopped` policy brings it back; a source install has to be
+  // started again by hand, and the panel says so.
+  res.json({ ...out, restarting: true })
+  res.on('finish', () => setTimeout(() => gracefulShutdown('migration'), 300))
+})
 
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {

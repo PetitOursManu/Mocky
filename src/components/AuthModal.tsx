@@ -206,6 +206,7 @@ function ssoErrorKey(code: string): string | null {
     'Wrong audience': 'auth.sso.wrongAudience',
     'Wrong issuer': 'auth.sso.wrongIssuer',
     'unknown-error': 'auth.sso.unknown',
+    maintenance: 'migration.maintenance.ssoNewAccount',
   }
   return map[code] ?? null
 }

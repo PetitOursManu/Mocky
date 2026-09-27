@@ -1,5 +1,6 @@
 import { api } from './api'
 import { mergeProjects, parseProjects } from './merge'
+import { isMaintenanceError, onMaintenance } from './maintenance'
 
 const PROJECTS_KEY = 'mocky.projects.v1'
 const DESIGN_KEY = 'mocky.design.v1'
@@ -18,7 +19,12 @@ export function enableSync(on: boolean) {
 // to nobody: not the user, not the console. The UI needs a channel it can
 // subscribe to, so a failed sync becomes something you can see and retry.
 
-export type SyncState = 'idle' | 'syncing' | 'failed'
+/**
+ * `paused`: the server refused the write for maintenance. Not a failure — the
+ * local copy is intact and is pushed the moment maintenance ends — so it must
+ * not arm the unload warning or read as an error in red.
+ */
+export type SyncState = 'idle' | 'syncing' | 'failed' | 'paused'
 
 let state: SyncState = 'idle'
 const listeners = new Set<(s: SyncState) => void>()
@@ -42,7 +48,7 @@ function setState(next: SyncState) {
 
 /** True while local changes have not reached the server yet. */
 export function hasUnsyncedChanges(): boolean {
-  return enabled && (state === 'syncing' || state === 'failed' || dirty)
+  return enabled && (state === 'syncing' || state === 'failed' || state === 'paused' || dirty)
 }
 
 /** A translatable reason, resolved by whoever displays it. */
@@ -90,6 +96,9 @@ let dirty = false
 export function scheduleSync() {
   if (!enabled) return
   dirty = true
+  // Paused for maintenance: every push would be refused. The change is in
+  // localStorage and `dirty` remembers it; the resume below sends it.
+  if (state === 'paused') return
   if (timer) clearTimeout(timer)
   timer = window.setTimeout(() => {
     void pushNow().catch(() => {
@@ -107,13 +116,13 @@ export async function pushNow(): Promise<void> {
     await pending
     setState('idle')
   } catch (err) {
-    setState('failed')
+    setState(isMaintenanceError(err) ? 'paused' : 'failed')
     throw err
   } finally {
     pending = null
   }
   // A write that arrived mid-flight was not included in what we just pushed.
-  if (dirty) {
+  if (dirty && state !== 'paused') {
     await pushNow()
   }
 }
@@ -130,7 +139,14 @@ async function doPushWithRetry(): Promise<void> {
     try {
       await api.putData(projects, design)
       return
-    } catch {
+    } catch (err) {
+      // Retrying a refusal the server will repeat until an admin lifts it only
+      // spends fifteen seconds reaching the same answer. Kept dirty, pushed on
+      // resume (below).
+      if (isMaintenanceError(err)) {
+        dirty = true
+        throw err
+      }
       if (attempt === maxAttempts - 1) {
         // Mark dirty again so the next scheduleSync/pushNow retries from scratch
         // rather than assuming this payload made it.
@@ -200,7 +216,30 @@ export async function reconcileOnLogin(): Promise<boolean> {
   // typically because the local side contributed the newer copy.
   const serverIsStale =
     mergedRaw !== (server.projects ?? '') || (nextDesign ?? '') !== (server.design ?? '')
-  if (serverIsStale) await api.putData(mergedRaw, nextDesign ?? null)
+  if (serverIsStale) {
+    try {
+      await api.putData(mergedRaw, nextDesign ?? null)
+    } catch (err) {
+      // During maintenance the merge still stands locally — throwing here would
+      // read as "not signed in" to the caller — and it goes up on resume.
+      if (!isMaintenanceError(err)) throw err
+      dirty = true
+      setState('paused')
+    }
+  }
 
   return projectsChanged || designChanged
 }
+
+// ---- resuming after maintenance -----------------------------------------
+// Whatever was refused while the instance was read-only is still in
+// localStorage; send it as soon as the instance says it is open again.
+onMaintenance((m) => {
+  if (m.on || state !== 'paused') return
+  setState('idle')
+  if (enabled && dirty) {
+    void pushNow().catch(() => {
+      /* reported through the status channel */
+    })
+  }
+})
