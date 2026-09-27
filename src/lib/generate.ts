@@ -363,6 +363,67 @@ export async function generateComponent(
   return { raw: content, code, componentName, truncated: meta.truncated }
 }
 
+const SITE_READING_PROMPT = `You read screenshots of an existing website and write down its CONTENT — never its design. Output markdown only, no preamble, in exactly these sections:
+
+## Language
+The language the site is written in, as one English word (English, French, German…).
+
+## Brand
+The name exactly as written on the site, then one sentence: what this business or product is, and who it serves.
+
+## Navigation
+The menu items, in order, verbatim.
+
+## Sections
+One "### " heading per section of the page, top to bottom. Under each: its heading verbatim, then its key sentences, figures, prices, list items and button labels verbatim. Skip purely decorative text.
+
+## Footer
+Contact details, addresses, opening hours, link groups — verbatim.
+
+## Tone
+Three words or fewer on how the site talks.
+
+## Pictures
+One line per photograph or illustration on the page, top to bottom, at most 6 — not logos, icons, charts, maps, screenshots of an interface, or anything inside a pop-up or banner floating over the page:
+- <heading of the section it is in> | <what it shows, in ENGLISH, concrete enough to search for or to paint: subject, setting, light> | <wide, square or tall>
+Write "none" when the page has no such picture.
+
+Rules: transcribe in the site's own language, exactly — do not translate, correct or improve. Outside the Pictures section, never mention colours, fonts, layout or pictures. Leave out anything you cannot read rather than guess it. Consecutive images may be parts of one long page that overlap slightly: write a repeated line once.`
+
+/**
+ * Read what a site SAYS off its screenshots, for a redesign.
+ *
+ * The step a redesign was missing. Muse writes its dossier from the brief, and
+ * with site screenshots the brief is "Refonte graphique de ce site" — so it
+ * invented a product, a name and a page of copy, and its preamble then declared
+ * that copy authoritative. The result was a whole unrelated site, drawn with
+ * great confidence. Given this transcript, the dossier is written about the
+ * site that exists, and the generation gets the copy in words as well as in
+ * pixels. One vision call; null on any failure, and the caller decides what a
+ * redesign may still do without it.
+ */
+export async function readSiteContent(
+  s: Settings,
+  images: string[],
+  signal?: AbortSignal,
+): Promise<string | null> {
+  try {
+    const content = await chat(
+      s,
+      [
+        { role: 'system', content: SITE_READING_PROMPT },
+        { role: 'user', content: withImageNote('Read these screenshots.', images), images: images.map(stripDataUrl) },
+      ],
+      signal,
+    )
+    const md = content.replace(/^```(?:markdown|md)?\s*/i, '').replace(/```\s*$/, '').trim()
+    return md.length > 40 ? md : null
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw err
+    return null
+  }
+}
+
 /** Prepend a note so the model knows the attached reference images are numbered. */
 function withImageNote(prompt: string, images?: string[]): string {
   if (!images || images.length === 0) return prompt

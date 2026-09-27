@@ -358,10 +358,48 @@ with `Remove from selection`, plus `clear`.
 | `Generate` | Creates a new screen. | model |
 | `Update ({count})` | The same button, when screens are selected: edits those screens instead of creating one. | model |
 | `Stop` | Appears while working. Aborts the request. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Attach screenshots of a site`: see below. Screenshots also arrive by **pasting** into the field or **dropping** them anywhere on the bar. | free |
 
 That one button doing two jobs is the single most common surprise in Mocky: if
 a screen is selected, you are editing it, and there is no new screen coming.
 `clear` next to the chips is the way out.
+
+### Screenshots of an existing site
+
+Attach up to four screenshots of a site that already exists — from the floating
+bar, or from the welcome card of an empty project — and choose what they are for. A prompt becomes optional — the screenshots are the request; a
+sentence can still say which page to build or what matters.
+
+| Choice | What the screen takes from the screenshots | What does not run |
+|---|---|---|
+| `Reproduce` | Everything: the same sections in the same order, the copy transcribed word for word in its own language, the colours as exact hex values, the character of the type, radii and shadows. Pop-ups and banners floating over the page are left out. | Muse, the planner, Motion Ultra and the project's direction — the screenshot is all four. When the project has no direction yet, the reproduced site **becomes** it, so the next page you ask for belongs to the same site. |
+| `Redesign` | The content only: brand, navigation, headings, figures, prices, calls to action. The look is new — the project's direction, or Muse's when it is on — and a result that could be mistaken for the screenshot has failed. | The planner and Motion Ultra, whose job is to invent a structure the site already has. |
+
+Pictures inside a screenshot (photos, illustrations, logos) cannot be lifted
+out of it — they are the site's, and they are never stored. What they **show**
+can be: the reading step lists up to six of them (section, subject, shape), and
+each gets a replacement from the composer's `Images` choice — a free photo that
+a vision model picks among thumbnails (or refuses them all), or a generated one.
+Each lands where the original was. One that finds nothing, and every picture
+past the sixth, stays a block of the same size and dominant colour, and a
+sentence says how many. A redesign with Muse on takes its pictures from Muse's
+dossier instead, so there are never two sets. Logos and icons are drawn as SVG
+or text.
+
+A full-page capture is cut, in the browser, into near-screen-shaped parts of
+1 280 px wide with a slight overlap, because a 1 440 × 9 000 page shrunk whole to
+a model's input size arrives 250 px wide with every line of copy unreadable. The
+thumbnail says `×5` when that happened. Eight parts in all per request.
+
+**The screenshots are never saved.** They leave the browser in the one request
+that uses them and nowhere else — no upload, no library, no sync. A screen
+remembers that it was built from a site and in which mode, so `Regenerate`
+reuses the screenshots during the same session and, after a reload, says it
+needs them again rather than inventing a page from "Reproduce this site".
+
+On a selected screen, attached screenshots are plain references like the
+annotations: the words say what to take from them. A model without vision is
+refused up front, with a sentence saying so.
 
 ---
 

@@ -10,6 +10,9 @@ import UltraControl from './UltraControl'
 import ImageSourceControl from './ImageSourceControl'
 import type { ImageSource } from '../lib/stockImages'
 import type { MediaTab } from './Bibliotheque'
+import { useState } from 'react'
+import type { SiteRefMode, SiteShot } from '../lib/siteReference'
+import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
 
 type Props = {
   prompt: string
@@ -52,6 +55,14 @@ type Props = {
   imageSourceAvailable: boolean
   /** What a running pass is doing, when it has more to say than "generating". */
   busyLabel: string | null
+  /** Screenshots of an existing site — state and reader live in ProjectView. */
+  siteShots: SiteShot[]
+  siteReading: number
+  siteMode: SiteRefMode
+  onSiteMode: (mode: SiteRefMode) => void
+  onRemoveSiteShot: (id: string) => void
+  onAddSiteFiles: (files: File[]) => void
+  onComposerPaste: (e: React.ClipboardEvent) => void
 }
 
 export default function Welcome({
@@ -89,8 +100,16 @@ export default function Welcome({
   onImageSource,
   imageSourceAvailable,
   busyLabel,
+  siteShots,
+  siteReading,
+  siteMode,
+  onSiteMode,
+  onRemoveSiteShot,
+  onAddSiteFiles,
+  onComposerPaste,
 }: Props) {
   const t = useT()
+  const [dragOver, setDragOver] = useState(false)
 
   /**
    * The Muse control announces itself whenever Muse is off — see `.muse-sweep`.
@@ -125,17 +144,40 @@ export default function Welcome({
           <p className="mt-3 text-lead text-ink-muted">{t('auth.welcome.lead')}</p>
         </header>
 
-        <div className="rounded-2xl border border-line bg-surface p-3 shadow-xl">
+        <div
+          className={`rounded-2xl border bg-surface p-3 shadow-xl transition ${
+            dragOver ? 'border-accent ring-2 ring-accent/40' : 'border-line'
+          }`}
+          {...siteDropHandlers(onAddSiteFiles, setDragOver)}
+        >
           <textarea
             autoFocus
             className="input min-h-[120px] resize-y border-0 bg-transparent text-lead"
-            placeholder={t('auth.welcome.placeholder')}
+            placeholder={siteShots.length ? t('project.sitePlaceholder') : t('auth.welcome.placeholder')}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={onKeyDown}
+            onPaste={onComposerPaste}
+          />
+          <SiteShotsRow
+            className="px-1 pb-2"
+            shots={siteShots}
+            reading={siteReading}
+            mode={siteMode}
+            onMode={onSiteMode}
+            onRemove={onRemoveSiteShot}
           />
           <div className="flex items-center justify-between gap-3 px-1 pt-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {/* First, because on an empty project "reproduce this site" is
+                  the whole request, not an option among the others. */}
+              <SiteAttachButton
+                onFiles={onAddSiteFiles}
+                disabled={busy}
+                size={15}
+                labelled
+                className="inline-flex items-center gap-1.5 text-body-sm text-ink-faint transition hover:text-ink"
+              />
               <button
                 type="button"
                 onClick={onOpenDesign}
@@ -184,7 +226,8 @@ export default function Welcome({
               <Button
                 variant="primary"
                 onClick={onGenerate}
-                disabled={busy || !prompt.trim()}
+                // Screenshots alone are a request for a new screen.
+                disabled={busy || siteReading > 0 || (!prompt.trim() && !siteShots.length)}
               >
                 {busy ? (
                   <>

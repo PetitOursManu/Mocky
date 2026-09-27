@@ -374,10 +374,51 @@ plus `tout désélectionner`.
 | `Générer` | Crée un nouvel écran. | modèle |
 | `Mettre à jour ({count})` | Le même bouton, quand des écrans sont sélectionnés : il modifie ces écrans au lieu d’en créer un. | modèle |
 | `Arrêter` | Apparaît pendant le travail. Interrompt la requête. | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Joindre des captures d’un site` : voir ci-dessous. Les captures arrivent aussi en les **collant** dans le champ ou en les **déposant** n’importe où sur la barre. | libre |
 
 Ce bouton qui fait deux métiers est la surprise la plus fréquente de Mocky : si
 un écran est sélectionné, vous êtes en train de le modifier, et aucun nouvel
 écran n’arrivera. `tout désélectionner`, à côté des puces, est la sortie.
+
+### Captures d’un site existant
+
+Joignez jusqu’à quatre captures d’un site qui existe déjà — depuis la barre
+flottante, ou depuis la carte d’accueil d’un projet vide — et dites à quoi
+elles servent. Le prompt devient facultatif — les captures sont la demande ; une
+phrase peut encore préciser quelle page construire ou ce qui compte.
+
+| Choix | Ce que l’écran prend aux captures | Ce qui ne tourne pas |
+|---|---|---|
+| `Reproduire` | Tout : les mêmes sections dans le même ordre, les textes transcrits mot pour mot dans leur langue, les couleurs en valeurs hex exactes, le caractère de la typographie, les arrondis et les ombres. Les pop-ups et bandeaux posés sur la page sont laissés de côté. | Muse, le planificateur, Motion Ultra et la direction du projet — la capture tient les quatre rôles. Quand le projet n’a pas encore de direction, le site reproduit **le devient**, et la page suivante que vous demandez appartient au même site. |
+| `Refonte` | Le contenu seulement : marque, navigation, titres, chiffres, prix, appels à l’action. L’apparence est neuve — la direction du projet, ou celle de Muse si elle est active — et un résultat qu’on pourrait confondre avec la capture a échoué. | Le planificateur et Motion Ultra, dont le métier est d’inventer une structure que le site a déjà. |
+
+Les images d’une capture (photos, illustrations, logos) ne peuvent pas en être
+extraites — elles appartiennent au site, et elles ne sont jamais enregistrées. Ce
+qu’elles **montrent**, si : la lecture en relève jusqu’à six (section, sujet,
+format), et chacune reçoit une remplaçante selon le choix `Images` du composeur —
+une photo libre qu’un modèle de vision choisit parmi des vignettes (ou refuse
+toutes), ou une image générée. Chacune arrive à la place de l’originale. Celle
+pour laquelle rien ne convient, et toute image au-delà de la sixième, reste un
+bloc de même taille et de même couleur dominante, et une phrase dit combien. Une
+refonte avec Muse actif prend ses images dans le dossier de Muse, pour qu’il
+n’y en ait jamais deux jeux. Logos et icônes sont dessinés en SVG ou en texte.
+
+Une capture pleine page est découpée, dans le navigateur, en morceaux proches
+de la forme d’un écran, larges de 1 280 px et qui se chevauchent un peu : une
+page de 1 440 × 9 000 réduite d’un bloc à la taille d’entrée d’un modèle arrive
+large de 250 px, et plus une ligne de texte n’y est lisible. La vignette affiche
+`×5` quand c’est arrivé. Huit morceaux en tout par demande.
+
+**Les captures ne sont jamais enregistrées.** Elles quittent le navigateur dans
+la seule requête qui s’en sert, et nulle part ailleurs — ni envoi, ni
+médiathèque, ni synchronisation. Un écran retient qu’il a été fait d’après un
+site et dans quel mode : `Régénérer` réutilise les captures pendant la même
+session et, après un rechargement, dit qu’il en a de nouveau besoin plutôt que
+d’inventer une page à partir de « Reproduis ce site ».
+
+Sur un écran sélectionné, les captures jointes sont de simples références, comme
+les annotations : les mots disent ce qu’il faut en reprendre. Un modèle sans
+vision est refusé d’emblée, avec une phrase qui le dit.
 
 ---
 

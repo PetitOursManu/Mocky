@@ -7,6 +7,7 @@ import {
   fromOpenAiResponse,
   boundsThinking,
   buildUpstream,
+  base64ImageType,
   KIND_OLLAMA,
   KIND_OPENAI,
 } from './dialect.js'
@@ -42,6 +43,14 @@ describe('toOpenAiRequest', () => {
       { type: 'text', text: 'look' },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,QUJD' } },
     ])
+  })
+
+  it('labels a JPEG or WebP attachment by its bytes, not as PNG', () => {
+    const out = toOpenAiRequest({ messages: [{ role: 'user', content: 'x', images: ['/9j/4AAQ', 'UklGRiQA'] }] })
+    expect(out.messages[0].content[1].image_url.url).toBe('data:image/jpeg;base64,/9j/4AAQ')
+    expect(out.messages[0].content[2].image_url.url).toBe('data:image/webp;base64,UklGRiQA')
+    expect(base64ImageType('iVBORw0K')).toBe('image/png')
+    expect(base64ImageType('????')).toBe('image/png')
   })
 
   it('leaves a plain message untouched', () => {

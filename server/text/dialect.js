@@ -13,6 +13,24 @@
 export const KIND_OLLAMA = 'ollama'
 export const KIND_OPENAI = 'openai'
 
+/**
+ * The media type of a bare base64 image, read off its first bytes.
+ *
+ * Ollama's dialect carries raw base64 with no type, and every image used to be
+ * relabelled `image/png`. That was true of the only images sent then — canvas
+ * snips — and false of a reference screenshot, which the browser re-encodes as
+ * JPEG to keep a tall page under the request cap. Several providers check the
+ * declared type against the bytes and refuse a mismatch, so the label is read
+ * rather than assumed. PNG stays the answer for anything unrecognised: that is
+ * the previous behaviour, not a new guess.
+ */
+export function base64ImageType(b64) {
+  if (b64.startsWith('/9j/')) return 'image/jpeg'
+  if (b64.startsWith('UklGR')) return 'image/webp'
+  if (b64.startsWith('R0lGOD')) return 'image/gif'
+  return 'image/png'
+}
+
 /** Turn an Ollama message into an OpenAI one (handles vision attachments). */
 function toOpenAiMessage(m) {
   const images = Array.isArray(m.images) ? m.images.filter(Boolean) : []
@@ -24,7 +42,7 @@ function toOpenAiMessage(m) {
       ...images.map((b64) => ({
         type: 'image_url',
         // Ollama takes raw base64; OpenAI wants a data URL.
-        image_url: { url: /^data:/.test(b64) ? b64 : `data:image/png;base64,${b64}` },
+        image_url: { url: /^data:/.test(b64) ? b64 : `data:${base64ImageType(b64)};base64,${b64}` },
       })),
     ],
   }

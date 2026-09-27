@@ -83,6 +83,41 @@ export const project = {
     'project.museToggle': 'Muse — inspiration, direction artistique et vraie copie',
     'project.museHint':
       'Essayez Muse : elle cherche des références, écrit une direction artistique et remplace le faux texte par de vrais contenus. Cliquez pour l’activer.',
+    // ---- composer: screenshots of an existing site ----
+    'project.siteAttach': 'Joindre des captures d’un site',
+    'project.siteAttachShort': 'Captures d’un site',
+    'project.siteAttachTitle':
+      'Joindre des captures d’un site existant, pour le reproduire ou en faire la refonte. Vous pouvez aussi les coller dans le champ ou les déposer sur la barre.',
+    'project.sitePlaceholder': 'Précisez si besoin (quelle page, ce qui compte)… ou générez directement',
+    'project.siteModeLabel': 'Que faire de ce site',
+    'project.siteReproduce': 'Reproduire',
+    'project.siteRedesign': 'Refonte',
+    'project.siteReproduceHint':
+      'Même mise en page, mêmes textes, mêmes couleurs. Muse et la direction du projet ne s’appliquent pas.',
+    'project.siteRedesignHint':
+      'Mêmes contenus, nouveau design : celui de la direction du projet, ou de Muse si elle est active.',
+    'project.siteEditHint': 'Captures jointes comme références : dites ce qu’il faut en reprendre.',
+    'project.siteShotN': 'Capture {n}',
+    'project.siteShotParts': 'Page longue, découpée en {count} morceaux pour rester lisible',
+    'project.siteRemove': 'Retirer cette capture',
+    'project.siteRemoveN': 'Retirer la capture {n}',
+    'project.siteReading': 'Lecture de la capture…',
+    'project.siteDefaultReproduce': 'Reproduis ce site',
+    'project.siteDefaultRedesign': 'Refonte graphique de ce site',
+    'project.siteNotImage': 'Seules les images PNG, JPEG, WebP ou GIF peuvent servir de capture.',
+    'project.siteTooLarge': 'Cette image dépasse 30 Mo : ce n’est sans doute pas une capture d’écran.',
+    'project.siteFull': 'Assez de captures pour une demande : 4 au plus, et 8 morceaux de page en tout.',
+    'project.siteUnreadable': 'Cette image n’a pas pu être lue.',
+    'project.siteNoVision':
+      'Le modèle actif ne lit pas les images : il ne pourrait pas voir les captures. Choisissez un modèle avec vision dans Réglages.',
+    'project.siteUltraSkipped':
+      'Motion Ultra n’est pas appliqué à un écran fait d’après un site : son storyboard inventerait des sections que le site a déjà.',
+    'project.siteMuseSkipped':
+      'Le contenu du site n’a pas pu être lu : Muse n’a pas tourné, pour ne pas inventer un autre produit. La refonte suit la direction du projet.',
+    'project.sitePicturesMissing':
+      '{missing} image(s) du site sur {total} sans remplaçante ({reason}) : un bloc de couleur tient leur place.',
+    'project.siteRegenGone':
+      'Cet écran a été fait d’après des captures qui ne sont plus en mémoire — elles ne sont jamais enregistrées. Joignez-les de nouveau au composer pour le refaire.',
     'project.composerEdit_one': 'Décrivez le changement à appliquer à l’écran sélectionné…',
     'project.composerEdit_other': 'Décrivez le changement à appliquer aux {count} écrans sélectionnés…',
     'project.stopTitle': 'Arrêter la génération en cours',
@@ -99,6 +134,8 @@ export const project = {
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planification…',
+    'project.busySite': 'Lecture du site…',
+    'project.busySitePictures': 'Images du site…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Inspiration & rédaction du dossier…',
     'project.museStageInspiration': 'Génération de l’image d’inspiration…',
@@ -358,6 +395,41 @@ export const project = {
     'project.museToggle': 'Muse — inspiration, art direction & real copy',
     'project.museHint':
       'Try Muse: it finds references, writes an art direction, and replaces lorem ipsum with real copy. Click to turn it on.',
+    // ---- composer: screenshots of an existing site ----
+    'project.siteAttach': 'Attach screenshots of a site',
+    'project.siteAttachShort': 'Site screenshots',
+    'project.siteAttachTitle':
+      'Attach screenshots of an existing site, to reproduce it or to redesign it. You can also paste them into the field or drop them on the bar.',
+    'project.sitePlaceholder': 'Add details if needed (which page, what matters)… or just generate',
+    'project.siteModeLabel': 'What to do with this site',
+    'project.siteReproduce': 'Reproduce',
+    'project.siteRedesign': 'Redesign',
+    'project.siteReproduceHint':
+      'Same layout, same copy, same colours. Muse and the project’s direction do not apply.',
+    'project.siteRedesignHint':
+      'Same content, new design: the project’s direction, or Muse’s when it is on.',
+    'project.siteEditHint': 'Screenshots attached as references: say what to take from them.',
+    'project.siteShotN': 'Screenshot {n}',
+    'project.siteShotParts': 'Long page, cut into {count} parts to stay legible',
+    'project.siteRemove': 'Remove this screenshot',
+    'project.siteRemoveN': 'Remove screenshot {n}',
+    'project.siteReading': 'Reading the screenshot…',
+    'project.siteDefaultReproduce': 'Reproduce this site',
+    'project.siteDefaultRedesign': 'Redesign this site',
+    'project.siteNotImage': 'Only PNG, JPEG, WebP or GIF images can be used as screenshots.',
+    'project.siteTooLarge': 'This image is over 30 MB — probably not a screenshot.',
+    'project.siteFull': 'That is enough screenshots for one request: 4 at most, and 8 page parts in all.',
+    'project.siteUnreadable': 'This image could not be read.',
+    'project.siteNoVision':
+      'The active model does not read images, so it could not see the screenshots. Pick a vision model in Settings.',
+    'project.siteUltraSkipped':
+      'Motion Ultra is not applied to a screen built from a site: its storyboard would invent sections the site already has.',
+    'project.siteMuseSkipped':
+      'The site’s content could not be read, so Muse did not run rather than invent another product. The redesign follows the project’s direction.',
+    'project.sitePicturesMissing':
+      '{missing} of the site’s {total} pictures got no replacement ({reason}): a colour block stands in.',
+    'project.siteRegenGone':
+      'This screen was built from screenshots that are no longer in memory — they are never saved. Attach them again in the composer to redo it.',
     'project.composerEdit_one': 'Describe a change to apply to the selected screen…',
     'project.composerEdit_other': 'Describe a change to apply to the {count} selected screens…',
     'project.stopTitle': 'Stop the generation in progress',
@@ -374,6 +446,8 @@ export const project = {
     // ---- busy & brief ----
     'project.busyMuse': 'Muse…',
     'project.busyPlanning': 'Planning…',
+    'project.busySite': 'Reading the site…',
+    'project.busySitePictures': 'Site pictures…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Gathering inspiration & writing the dossier…',
     'project.museStageInspiration': 'Generating the inspiration image…',

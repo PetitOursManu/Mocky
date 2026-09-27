@@ -61,6 +61,18 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
   mutation follows the same conventions: an `AbortController`, a `codeAtStart`
   snapshot re-checked before writing back, and `previousCode` so "Revert" works.
 
+**Screenshots of an existing site** (`src/lib/siteReference.ts`, composer's
+image button, paste or drop) come with an intent, and the intent decides which
+stages run: `reproduce` skips Muse, the planner, Motion Ultra and the direction
+(the screenshot is all four); `redesign` keeps the direction and skips only the
+planner and Ultra. Three things: the annotations stay FIRST in the image list so
+their visible numbers remain the model's; a tall capture is cut into parts in
+the browser, never shrunk whole; and the pictures are never stored or uploaded
+(M2) — `Screen.siteRef` records only the mode, `tests/site-reference.test.js`
+holds both. What the site's pictures SHOW is read with its content and replaced
+(`lib/sitePictures.ts`, free photos or generated, per the `Images` choice) —
+except on a redesign Muse ran for, whose dossier already made its pictures.
+
 There are three independent correction loops, and they are not interchangeable:
 
 | | Trigger | Prompt | Budget |

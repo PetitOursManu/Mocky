@@ -24,8 +24,8 @@ const indexesOf = (src, needle) => {
 
 describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
   it('runs the storyboard and the series only inside the Motion Ultra block', () => {
-    const start = view.indexOf('if (ultraActive && project.ultra) {')
-    const end = view.indexOf('if (settings.usePlanner && !musePreamble && !ultraRecord)')
+    const start = view.indexOf('if (ultraActive && project.ultra && !siteNew) {')
+    const end = view.indexOf('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew)')
     expect(start).toBeGreaterThan(0)
     expect(end).toBeGreaterThan(start)
     for (const call of ['runStoryboard(', 'generateUltraImages(', 'buildUltraPreamble(']) {
@@ -49,8 +49,9 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
   it('adds the kit only when a storyboard exists, and leaves the planner to run otherwise', () => {
     expect(indexesOf(view, "capIds = [...capIds, 'ultra']")).toHaveLength(1)
     expect(view).toContain("if (ultraRecord && !capIds.includes('ultra')) capIds = [...capIds, 'ultra']")
-    // `!ultraRecord` is true whenever Motion Ultra did not run: the old condition.
-    expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord)')
+    // `!ultraRecord` is true whenever Motion Ultra did not run, and `!siteNew`
+    // whenever no site screenshot was attached: the old condition.
+    expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew)')
   })
 
   it('offers earlier pictures only to a project that has Motion Ultra pictures', () => {
