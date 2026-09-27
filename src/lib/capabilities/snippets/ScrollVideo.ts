@@ -86,6 +86,71 @@ function mockySeqLoad(base, total, onFrame) {
   return { images: images, loaded: loaded, cancel: function () { cancelled = true; } };
 }
 
+/* Let the pinned canvas pin, whatever the page wrapped it in.
+
+   \`position: sticky\` sticks to the nearest SCROLL CONTAINER, and an element
+   with \`overflow: hidden\` is one even though it never scrolls. Generated pages
+   put \`overflow-hidden\` on their outermost wrapper all the time — to keep a
+   glow or a bleeding headline from widening the page — and that one class
+   turned every scroll sequence into a canvas that scrolled away with the page,
+   over a black hole three screens tall. Seen on three Motion Ultra pages in a
+   row, each with a different wrapper.
+
+   \`overflow: clip\` cuts exactly what \`hidden\` cuts and is NOT a scroll
+   container, so each such ancestor is switched to it, axis by axis. \`auto\` and
+   \`scroll\` are left alone: those really scroll, and changing them would change
+   the page. Idempotent — an ancestor already switched reads \`clip\` and is
+   skipped — and it records what it changed in \`undo\` when given one. Returns
+   the undo for its own changes. */
+function mockySeqFreeSticky(el, undo) {
+  var mine = [];
+  if (!el || typeof getComputedStyle !== 'function') return function () {};
+  if (window.CSS && CSS.supports && !CSS.supports('overflow', 'clip')) return function () {};
+  for (var node = el.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+    var cs = getComputedStyle(node);
+    ['overflowX', 'overflowY'].forEach(function (axis) {
+      if (cs[axis] !== 'hidden') return;
+      mine.push([node, axis, node.style[axis]]);
+      node.style[axis] = 'clip';
+    });
+  }
+  if (undo) mine.forEach(function (u) { undo.push(u); });
+  return function () {
+    mine.forEach(function (u) { u[0].style[u[1]] = u[2]; });
+  };
+}
+
+/* ...and KEEP it pinned, because once at mount is too early.
+
+   The preview runs Tailwind's runtime, which writes the CSS for a class a moment
+   AFTER the element carrying it exists: measured, an \`overflow-hidden\` wrapper
+   reads \`visible\` in the same task and \`hidden\` one task later. A check made
+   when the sequence mounted therefore saw nothing to fix, and the page broke
+   right after — which is how the first version of this fix shipped and changed
+   nothing. So the check runs again whenever Tailwind writes CSS (its style tag
+   lives in <head>), on the next frames, and on the first scroll. Each run costs a
+   walk up a dozen ancestors. */
+function mockySeqKeepSticky(el) {
+  var undo = [];
+  var run = function () { mockySeqFreeSticky(el, undo); };
+  run();
+  var raf = window.requestAnimationFrame ? window.requestAnimationFrame(run) : 0;
+  var timers = [0, 150, 500, 1500, 4000].map(function (ms) { return setTimeout(run, ms); });
+  var mo = null;
+  if (typeof MutationObserver === 'function' && document.head) {
+    mo = new MutationObserver(run);
+    mo.observe(document.head, { childList: true, subtree: true, characterData: true });
+  }
+  window.addEventListener('scroll', run, { passive: true, once: true });
+  return function () {
+    if (raf && window.cancelAnimationFrame) window.cancelAnimationFrame(raf);
+    timers.forEach(clearTimeout);
+    if (mo) mo.disconnect();
+    window.removeEventListener('scroll', run);
+    for (var i = undo.length - 1; i >= 0; i--) undo[i][0].style[undo[i][1]] = undo[i][2];
+  };
+}
+
 var ScrollSequence = function (props) {
   var base = String(props.base || '');
   var total = Math.max(0, parseInt(props.frames, 10) || 0);
@@ -141,6 +206,10 @@ var ScrollSequence = function (props) {
     lastRef.current = -1;
     return set.cancel;
   }, [base, total]);
+
+  React.useEffect(function () {
+    return mockySeqKeepSticky(wrapRef.current);
+  }, []);
 
   React.useEffect(function () {
     window.addEventListener('scroll', schedule, { passive: true });
