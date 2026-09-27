@@ -953,6 +953,35 @@ here:
    the picture) and waits on `__mockyStillPending`, because a scene has no real
    box until Tailwind's runtime has applied its classes.
 
+## Maintenance mode and server migration
+
+Admin → Maintenance et migration. User doc: `docs/migration.md`.
+
+```
+server/maintenance.js          read-only rule: default-deny on the METHOD, admins pass
+server/migration/crypto.js     pairing code → HKDF → id, request HMAC, response AES-GCM
+server/migration/manifest.js   what travels ("everything minus"), safe paths
+server/migration/source.js     the OLD server: two signed GET routes, nothing else
+server/migration/destination.js the NEW server: pull, verify, stage, swap, restart
+server/migration/preflight.js  pure comparison, four blocking checks
+```
+
+Four things that will bite you:
+
+1. **Maintenance is read-only, not "no create/delete".** `PUT /api/data` is one
+   blob; an edit and a deletion look the same, and an edit after the final pass
+   is lost anyway. A new write route is covered by the method rule — do not add
+   an allowlist of routes to block. The one GET that writes (SSO account
+   creation) is guarded by hand.
+2. **The new server pulls; the old one only reads.** Do not add a push route: the
+   receiving side would expose "write every account and key" to the network.
+3. **Sessions never travel** (`EXCLUDED_FILES`), and neither the code nor its
+   keys ever touch a disk. A restart of the old server revokes the code.
+4. **The old server's address is the fourth admin-only SSRF bypass**
+   (`invariants.md`). It stays safe because every answer must open under the
+   pairing key — keep `redirect: 'manual'` and never parse an unsealed body.
+   `tests/migration-e2e.test.js` runs the whole thing between two processes.
+
 ## Conventions
 
 - **Comments explain why, not what.** The house style is unusually discursive:

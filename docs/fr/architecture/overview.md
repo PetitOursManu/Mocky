@@ -959,7 +959,7 @@ pour qu'une suppression faite sur un appareil ne revienne pas depuis un autre.
 |---|---|
 | `users.json` | Les comptes : sel et empreinte scrypt, rôle, `dashySub` |
 | `sessions.json` | Jeton → `{ u: userId, t: horodatage }` |
-| `config.json` | `{ allowRegistration }` |
+| `config.json` | `{ allowRegistration, maintenance }` — le second vaut `{ on, message, since }` et voyage avec une migration, ce qui explique qu'une instance importée démarre en lecture seule |
 | `sso-jti.json` | Les identifiants de jeton SSO déjà consommés, purgés après 10 minutes |
 | `data-<uuid>.json` | Les projets et le design d'un utilisateur |
 | `avatars/<userId>` | Un fichier par compte ayant envoyé une photo. Compté en `bytes.avatar` dans le rapport d'utilisation |
@@ -973,6 +973,7 @@ pour qu'une suppression faite sur un appareil ne revienne pas depuis un autre.
 | `video-exports.json` | Les films exportés : octets, conteneur, nombre de scènes, durée — et `owners` sous la même borne. Jamais le montage, qui porte le texte incrusté écrit par quelqu'un |
 | `video-exports/<hash>.mp4\|.webm` | Le film terminé, entier. Un répertoire distinct de `video-library/` à dessein : celui-là contient des *séquences de défilement*, découpées en images par ffmpeg, et tout ce qui lit son `list()` attend des images qu'un film n'a pas |
 | `video-jobs.json` | Le journal de la file de rendu : les 50 derniers jobs terminés, plus ceux en cours. Un job trouvé en cours au démarrage passe en erreur, jamais repris |
+| `.migration/` | L'état d'une migration sur le NOUVEAU serveur : `staging/` (les fichiers déjà récupérés), `staged.json` (leurs empreintes, pour qu'un passage reprenne), `report.json` (le dernier import, pour *Vérifier l'intégrité*) et `previous-<heure>/` (ce que contenait le dossier avant le remplacement — déplacé, jamais supprimé). Jamais listé lui-même dans un manifeste |
 
 Les fichiers contenant des secrets sont écrits en mode `0600`. Le `0644` par
 défaut les laissait lisibles par tous les autres comptes de la machine.
@@ -1018,6 +1019,10 @@ plafond.
 | `GET /api/video/jobs/:id` | session | `403`, pas `404`, sur le job d'un autre : un job porte le montage, et un montage porte son texte incrusté |
 | `GET /api/video/:hash` | session | Le film terminé. **Jamais public** — la propriété est vérifiée avant l'existence, donc un hash inconnu et celui d'un autre répondent pareil |
 | `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | La clé de licence sort en `hasLicenseKey`, un booléen |
+| `GET`/`PUT` `/api/admin/maintenance` | admin | Mode lecture seule. Actif, toute requête autre que `GET` d'un non-administrateur reçoit `503 { code: 'maintenance' }`, sauf connexion et déconnexion — voir `server/maintenance.js` |
+| `GET`/`POST`/`DELETE` `/api/admin/migration/source` | admin ; `POST` redemande le mot de passe | Le code d'appairage de l'ANCIEN serveur. Affiché une fois, gardé en mémoire seulement, 24 h |
+| `GET /api/admin/migration/import`, `POST …/connect`, `…/pass`, `…/cancel`, `…/disconnect`, `…/verify`, `…/finalize` | admin ; `finalize` redemande le mot de passe | Le côté du NOUVEAU serveur : vérifier, tirer, remplacer, redémarrer. `connect` interroge une URL saisie par l'administrateur — le quatrième contournement SSRF |
+| `GET /api/migration/manifest`, `/api/migration/file` | **signature d'appairage**, pas de session | Les deux seules routes que l'ancien serveur expose au nouveau. `401` tant qu'aucun code n'est actif ; chaque corps est scellé en AES-256-GCM sous le code |
 | `POST /api/admin/video/benchmark` | admin | Rend trois films de référence via le worker, dans le créneau exclusif de la file, et donne ce que coûte chaque niveau de rendu sur cette machine. `409` tant qu’un rendu d’utilisateur tient le créneau |
 | `ALL /__provider/api/chat`, `/api/tags` | session **si** un modèle d'instance est configuré | Proxy et traduction de dialecte |
 

@@ -916,7 +916,7 @@ another.
 |---|---|
 | `users.json` | Accounts: scrypt salt and hash, role, `dashySub` |
 | `sessions.json` | Token → `{ u: userId, t: timestamp }` |
-| `config.json` | `{ allowRegistration }` |
+| `config.json` | `{ allowRegistration, maintenance }` — the second is `{ on, message, since }`, and it travels with a migration, which is why an imported instance boots read-only |
 | `sso-jti.json` | Consumed SSO token ids, pruned after 10 minutes |
 | `data-<uuid>.json` | One user's projects and design |
 | `avatars/<userId>` | One file per account that uploaded a picture. Counted as `bytes.avatar` in the usage report |
@@ -930,6 +930,7 @@ another.
 | `video-exports.json` | Exported films: bytes, container, scene count, duration — and `owners` under the same cap. Never the timeline, which carries somebody's overlay text |
 | `video-exports/<hash>.mp4\|.webm` | The finished film, whole. A different directory from `video-library/` on purpose: that one holds *scroll sequences*, cut into stills by ffmpeg, and every consumer of its `list()` expects frames a film does not have |
 | `video-jobs.json` | The render queue's journal: the newest 50 finished jobs, plus whatever is live. A job found mid-flight at boot is marked failed, never resumed |
+| `.migration/` | A migration's own state on the NEW server: `staging/` (the files pulled so far), `staged.json` (their hashes, so a pass resumes), `report.json` (the last import, for *Check integrity*) and `previous-<time>/` (what the data directory held before the swap — moved, never deleted). Never listed by a manifest itself |
 
 Files holding secrets are written with mode `0600`. The default `0644` left them
 readable by every other account on the machine.
@@ -974,6 +975,10 @@ nothing inside them may grow without a ceiling.
 | `GET /api/video/jobs/:id` | session | `403`, not `404`, on someone else's job: a job carries the timeline, and a timeline carries their overlay text |
 | `GET /api/video/:hash` | session | The finished film. **Never public** — ownership is checked before existence, so an unknown hash and a stranger's answer alike |
 | `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | The licence key leaves as `hasLicenseKey`, a boolean |
+| `GET`/`PUT` `/api/admin/maintenance` | admin | Read-only mode. While on, every non-`GET` from a non-admin answers `503 { code: 'maintenance' }`, sign-in and sign-out excepted — see `server/maintenance.js` |
+| `GET`/`POST`/`DELETE` `/api/admin/migration/source` | admin; `POST` re-asks the password | The pairing code of the OLD server. Shown once, held in memory only, 24 h |
+| `GET /api/admin/migration/import`, `POST …/connect`, `…/pass`, `…/cancel`, `…/disconnect`, `…/verify`, `…/finalize` | admin; `finalize` re-asks the password | The NEW server's side: check, pull, swap, restart. `connect` fetches an admin-typed URL — the fourth SSRF bypass |
+| `GET /api/migration/manifest`, `/api/migration/file` | **pairing signature**, no session | The only two routes the old server exposes to the new one. `401` whenever no code is active; every body is sealed with AES-256-GCM under the code |
 | `POST /api/admin/video/benchmark` | admin | Renders three reference films through the worker, inside the queue's exclusive slot, and reports what each render level costs on this machine. `409` while a user's render holds the slot |
 | `ALL /__provider/api/chat`, `/api/tags` | session **if** an instance model is configured | Proxy and dialect translation |
 

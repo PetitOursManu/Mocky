@@ -55,6 +55,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 - 🔁 **Reproduce or redesign an existing site** — attach screenshots of a site in the composer (button, paste or drop) and choose **Reproduce** (same layout, copy and colours) or **Redesign** (same content, new design from the project's direction or Muse). A vision call reads the site's content first, long pages are cut into legible parts, and the site's pictures are replaced by free or generated ones in the same places. The screenshots are never stored. See [the composer](docs/interface.md#screenshots-of-an-existing-site).
 - 📦 **Projects & export** — multiple projects, per-screen `.tsx` download, and a runnable Vite project as `.zip`.
 - 👤 **Optional accounts + SSO** — sign in to a Mocky instance and your projects + DESIGN.md sync across devices (self-hosted backend, no cloud). With a [Dashy](https://github.com/PetitOursManu/Dashy) instance, users can also **"Sign in with Dashy"** and reuse their projects. Without an account everything stays in your browser's `localStorage`.
+- 🚚 **Maintenance mode and server migration** — an admin can make the instance read-only for everyone else, and move the whole instance — accounts, projects, keys, images, clips, films — to another server piece by piece: the new server pulls, end-to-end encrypted with a one-time code, checks itself first (Node, version, disk, ffmpeg, render worker, SSO…) and replaces nothing until you confirm. Sessions are never transferred. See [Maintenance and migration](docs/migration.md).
 - 🌗 **Two themes** — Papier and Encre, both first-class: same tokens, neither patched on top of the other. Every pairing is checked against WCAG AA by a test that reads the real token file.
 
 ## Tech stack
@@ -238,6 +239,8 @@ docker compose start
 > The previous `docker run -v $(pwd):/backup alpine tar …` recipe does not work on Windows: `$(pwd)` is not `cmd.exe` syntax, and under PowerShell it expands to a path that may contain spaces, which breaks the `-v` argument.
 
 The archive contains password hashes and session tokens — `backups/` is git-ignored, keep it that way.
+
+**Moving to another server?** Use **Admin → Maintenance and migration** rather than carrying a backup: the new server fetches everything itself, verified file by file, while the old one keeps serving users until a short final pass in maintenance. See [Maintenance and migration](docs/migration.md).
 
 ### Ports
 

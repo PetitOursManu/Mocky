@@ -55,6 +55,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - 🔁 **Reproduire ou refondre un site existant** — joignez des captures d'un site dans le composeur (bouton, coller ou déposer) et choisissez **Reproduire** (même mise en page, mêmes textes, mêmes couleurs) ou **Refonte** (mêmes contenus, nouveau design selon la direction du projet ou Muse). Un appel de vision lit d'abord le contenu du site, les pages longues sont découpées pour rester lisibles, et les images du site sont remplacées par des photos libres ou générées, aux mêmes endroits. Les captures ne sont jamais enregistrées. Voir [le composeur](docs/fr/interface.md#captures-dun-site-existant).
 - 📦 **Projets et export** — plusieurs projets, téléchargement `.tsx` écran par écran, et un projet Vite exécutable en `.zip`.
 - 👤 **Comptes et SSO en option** — connectez-vous à une instance Mocky et vos projets ainsi que votre DESIGN.md se synchronisent d'un appareil à l'autre (backend auto-hébergé, aucun cloud). Avec une instance [Dashy](https://github.com/PetitOursManu/Dashy), les utilisateurs peuvent aussi **« Se connecter avec Dashy »** et retrouver leurs projets. Sans compte, tout reste dans le `localStorage` de votre navigateur.
+- 🚚 **Mode maintenance et migration de serveur** — un administrateur peut passer l'instance en lecture seule pour tous les autres, et déplacer toute l'instance — comptes, projets, clés, images, séquences, films — vers un autre serveur morceau par morceau : le nouveau serveur tire les données, chiffrées de bout en bout avec un code à usage unique, se vérifie d'abord (Node, version, disque, ffmpeg, worker de rendu, SSO…) et ne remplace rien avant votre confirmation. Les sessions ne sont jamais transférées. Voir [Maintenance et migration](docs/fr/migration.md).
 - 🌗 **Deux thèmes** — Papier et Encre, tous deux de plein droit : mêmes jetons, aucun des deux plaqué sur l'autre. Chaque association est vérifiée face au WCAG AA par un test qui lit le vrai fichier de jetons.
 
 ## Pile technique
@@ -218,6 +219,8 @@ docker compose restart
 > L'ancienne recette `docker run -v $(pwd):/backup alpine tar …` ne fonctionne pas sous Windows : `$(pwd)` n'est pas de la syntaxe `cmd.exe`, et sous PowerShell elle se développe en un chemin qui peut contenir des espaces, ce qui casse l'argument `-v`.
 
 L'archive contient des empreintes de mots de passe et des jetons de session — `backups/` est ignoré par git, gardez-le ainsi.
+
+**Vous changez de serveur ?** Passez par **Admin → Maintenance et migration** plutôt que de transporter une sauvegarde : le nouveau serveur récupère tout lui-même, vérifié fichier par fichier, pendant que l'ancien continue de servir les utilisateurs jusqu'à un court passage final en maintenance. Voir [Maintenance et migration](docs/fr/migration.md).
 
 ### Ports
 

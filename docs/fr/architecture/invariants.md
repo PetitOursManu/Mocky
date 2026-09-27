@@ -834,13 +834,15 @@ Les redirections ne sont pas suivies (`redirect: 'manual'`). `undici` les suit
 par défaut, ce qui contournait la protection d'un seul pas : la cible passait le
 contrôle, puis répondait `302` vers l'adresse de métadonnées cloud.
 
-**Trois contournements volontaires**, tous réservés à un administrateur :
+**Quatre contournements volontaires**, tous réservés à un administrateur :
 
 - une cible de texte configurée par un administrateur, parce que pointer vers un
   modèle local est un montage prévu ;
 - l'URL de base `sd-webui`, qui est locale par définition ;
 - l'**URL du worker** de rendu Motion Ultra, `assertWorkerTarget()` dans
-  `server/video/worker.js`.
+  `server/video/worker.js` ;
+- l'**adresse de l'ancien serveur** saisie pendant une migration,
+  `parseSourceUrl()` dans `server/migration/destination.js`.
 
 Le troisième a été ajouté, pas hérité, et la raison vaut le paragraphe. Protégé,
 il n'existait **aucune configuration fonctionnelle** : le worker Remotion est un
@@ -864,6 +866,15 @@ injectable : qui exécute le worker sur un hôte public peut y remettre
 Le reste de la fonctionnalité à laquelle il appartient — pourquoi le worker est
 une image séparée, et pourquoi le modèle qui décrit un film n'écrit jamais le
 code qui le rend — est dans [Motion Ultra](fr/video-export.md).
+
+Le quatrième existe pour la raison du worker : passer d'une machine à l'autre sur
+un même réseau local est le cas ordinaire pour un outil auto-hébergé, et le garde
+refuse toute adresse privée. Il est saisi derrière `requireAdmin`, garde le
+contrôle du schéma et `redirect: 'manual'`, et refuse les identifiants dans l'URL.
+Et ce qu'un contournement permet d'ordinaire — lire un service interne — il ne le
+permet pas : chaque réponse est scellée sous une clé dérivée du code
+d'appairage, si bien que tout autre répondant est écarté sans être lu. La
+procédure complète est dans [Maintenance et migration](fr/migration.md).
 
 Toute URL venue d'un navigateur reste entièrement protégée — y compris sur
 `POST /api/text/vision`. C'était la seule route qui prenait une URL de base dans

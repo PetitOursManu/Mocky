@@ -381,6 +381,11 @@ expands to a path that may contain spaces, which breaks the `-v` argument.
 **The archive contains password hashes and session tokens.** `backups/` is
 git-ignored; keep it that way.
 
+To **move** an instance to another server rather than restore it on the same
+one, use Admin → Maintenance and migration instead: it copies piece by piece,
+checks the new server first, and never puts the data in a file you have to carry.
+See [Maintenance and migration](migration.md).
+
 What lives in the `mocky-data` volume:
 
 | Path | Contents | Size |
