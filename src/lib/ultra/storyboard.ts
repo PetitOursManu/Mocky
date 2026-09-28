@@ -328,6 +328,8 @@ export async function runStoryboard(
     const user = opts.presetHint ? `${prompt}\n\nTarget form factor: ${opts.presetHint}` : prompt
     const res = await proxyFetch(s, '/api/chat', {
       method: 'POST',
+      // For Admin → Activity only; see `chat` in generate.ts.
+      headers: { 'x-mocky-purpose': 'storyboard' },
       body: JSON.stringify({
         model: s.model,
         stream: false,

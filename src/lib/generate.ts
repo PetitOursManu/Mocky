@@ -144,12 +144,21 @@ export function stripDataUrl(dataUrl: string): string {
 /** Shared chat call: posts messages and returns the assistant content.
  *  If `onChunk` is provided, uses streaming mode (stream: true) and invokes
  *  the callback with each incremental content piece as it arrives. */
+/**
+ * What a model call is FOR, sent as `x-mocky-purpose`. The server reads it from
+ * a closed list (server/admin/activity.js) so Admin → Activity can say "Alice is
+ * polishing a screen" rather than "Alice called the model"; nothing else changes
+ * with it, and the header is never forwarded to the provider.
+ */
+type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'design-system'
+
 async function chat(
   s: Settings,
   messages: ChatMessage[],
   signal?: AbortSignal,
   onChunk?: (partial: string) => void,
   meta?: ChatMeta,
+  purpose: ChatPurpose = 'generate',
 ): Promise<string> {
   const useStream = !!onChunk
   const body = JSON.stringify({
@@ -164,7 +173,7 @@ async function chat(
 
   let res: Response
   try {
-    res = await proxyFetch(s, '/api/chat', { method: 'POST', body, signal })
+    res = await proxyFetch(s, '/api/chat', { method: 'POST', body, signal, headers: { 'x-mocky-purpose': purpose } })
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') throw err
     throw new Error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
@@ -415,6 +424,9 @@ export async function readSiteContent(
         { role: 'user', content: withImageNote('Read these screenshots.', images), images: images.map(stripDataUrl) },
       ],
       signal,
+      undefined,
+      undefined,
+      'read-site',
     )
     const md = content.replace(/^```(?:markdown|md)?\s*/i, '').replace(/```\s*$/, '').trim()
     return md.length > 40 ? md : null
@@ -654,6 +666,7 @@ export async function editComponent(
     signal,
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
     meta,
+    'edit',
   )
   const code = await guardMotion(extractCode(content))
   const componentName = detectComponentName(code)
@@ -867,7 +880,7 @@ export async function fixComponent(
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user },
-  ], signal)
+  ], signal, undefined, undefined, 'fix')
   const code = await guardMotion(extractCode(content))
   return { raw: content, code, componentName: detectComponentName(code) }
 }
@@ -927,7 +940,7 @@ export async function polishComponent(
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user },
-  ], signal)
+  ], signal, undefined, undefined, 'polish')
   const fixed = await guardMotion(extractCode(content))
   return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
 }
@@ -988,7 +1001,7 @@ export async function auditFixComponent(
   const content = await chat(s, [
     { role: 'system', content: system },
     { role: 'user', content: user },
-  ], signal)
+  ], signal, undefined, undefined, 'audit-fix')
   const fixed = await guardMotion(extractCode(content))
   return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
 }
@@ -1044,6 +1057,9 @@ export async function deriveDesignSystem(
       { role: 'user', content: user },
     ],
     signal,
+    undefined,
+    undefined,
+    'design-system',
   )
   // Models wrap prose in a fence about half the time, despite being told not
   // to. Unwrap a fence that contains the WHOLE answer; leave inner ones alone,

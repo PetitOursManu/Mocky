@@ -194,7 +194,13 @@ export async function planScreen(
       // num_predict MUST be positive — Ollama Cloud rejects -1 (invariant 8).
       options: { temperature: 0.2, num_ctx: 8192, num_predict: 1024 },
     })
-    const res = await proxyFetch(s, '/api/chat', { method: 'POST', body, signal: ctrl.signal })
+    // The purpose is for Admin → Activity only; see `chat` in generate.ts.
+    const res = await proxyFetch(s, '/api/chat', {
+      method: 'POST',
+      body,
+      signal: ctrl.signal,
+      headers: { 'x-mocky-purpose': 'plan' },
+    })
     if (!res.ok) return null
     const data = (await res.json()) as { message?: { content?: string }; choices?: Array<{ message?: { content?: string } }> }
     const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''

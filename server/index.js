@@ -30,6 +30,14 @@ import { createMigrationDestination, MigrationError } from './migration/destinat
 import { comparePreflight } from './migration/preflight.js'
 import { secretTag } from './migration/crypto.js'
 import { ffmpegStatus } from './videos/frames.js'
+import { createPresence } from './admin/presence.js'
+import { createActivity, createTracker } from './admin/activity.js'
+import { createSystemMonitor } from './admin/system.js'
+import { createGpuProbe } from './admin/gpu.js'
+import { createAuditLog } from './admin/audit.js'
+import { describeUserAgent, sessionId } from './admin/sessions.js'
+import { liveAnnouncement } from './admin/announcement.js'
+import { createDashboardRouter } from './admin/routes.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -75,6 +83,16 @@ try {
   )
   process.exit(1)
 }
+
+// ---- admin dashboard: what is happening on the instance ----
+// Created before everything that reports to them — the render queue below ends
+// its jobs into `activity`. All three are in memory except the audit log; see
+// the header of each file under server/admin/ for why.
+const presence = createPresence()
+const activity = createActivity()
+const audit = createAuditLog({ dataDir: DATA_DIR })
+/** Last request per session handle; sessions.json's own stamp is written once a day. */
+const sessionLastUse = new Map()
 
 // ---- Muse (MCP host + inspiration engine) ----
 // Lazy: importing/creating this spawns nothing. Servers start on first use.
@@ -133,28 +151,38 @@ const videoExports = new VideoExportStore(DATA_DIR, { budget: diskBudget })
 const videoQueue = new VideoQueue({
   dataDir: DATA_DIR,
   render: async (job, { signal }) => {
-    const payload = collectImages(images.library, job.timeline)
-    const out = await videoWorker.render(job.timeline, payload, { signal })
-    /*
-     * Stored here rather than by the queue, because the queue deliberately does
-     * not judge a result: it turns a rejection into a job marked `error`, and
-     * `put` throwing on a full volume is exactly that — a render that produced
-     * bytes with nowhere to go has not succeeded, and a job saying `done` with
-     * no `videoHash` would be a download button pointing at nothing.
-     */
-    const stored = videoExports.put(out.buffer, {
-      owner: job.userId,
-      // Carried by the job because nothing downstream could reconstruct it: the
-      // store is content-addressed, so the bytes say what the film contains and
-      // nothing about where it was cut. Without this the Media tab has no
-      // question to ask, and a finished export is a file nobody can find.
-      project: job.projectId || undefined,
-      format: job.timeline.outputFormat,
-      aspectRatio: job.timeline.aspectRatio,
-      scenes: job.timeline.scenes.length,
-      durationMs: totalDurationMs(job.timeline),
-    })
-    return { videoHash: stored.hash }
+    // Reported like any other work: the minutes a film spends in the worker are
+    // exactly what "who is using Motion Ultra right now" is asking about, and
+    // the request that queued it answered in milliseconds long before.
+    const tracked = activity.begin({ userId: job.userId, kind: 'film', action: 'render', provider: 'worker' })
+    try {
+      const payload = collectImages(images.library, job.timeline)
+      const out = await videoWorker.render(job.timeline, payload, { signal })
+      /*
+       * Stored here rather than by the queue, because the queue deliberately does
+       * not judge a result: it turns a rejection into a job marked `error`, and
+       * `put` throwing on a full volume is exactly that — a render that produced
+       * bytes with nowhere to go has not succeeded, and a job saying `done` with
+       * no `videoHash` would be a download button pointing at nothing.
+       */
+      const stored = videoExports.put(out.buffer, {
+        owner: job.userId,
+        // Carried by the job because nothing downstream could reconstruct it: the
+        // store is content-addressed, so the bytes say what the film contains and
+        // nothing about where it was cut. Without this the Media tab has no
+        // question to ask, and a finished export is a file nobody can find.
+        project: job.projectId || undefined,
+        format: job.timeline.outputFormat,
+        aspectRatio: job.timeline.aspectRatio,
+        scenes: job.timeline.scenes.length,
+        durationMs: totalDurationMs(job.timeline),
+      })
+      activity.end(tracked, { status: 200 })
+      return { videoHash: stored.hash }
+    } catch (err) {
+      activity.end(tracked, signal?.aborted ? { aborted: true } : { status: 502 })
+      throw err
+    }
   },
 })
 
@@ -474,6 +502,13 @@ app.use((req, res, next) => {
  * Format is fixed and boring on purpose; `deploy/fail2ban/mocky.conf` matches
  * it, so changing the wording here means changing the filter there.
  */
+function clientIp(req) {
+  return req?.ip || req?.socket?.remoteAddress || null
+}
+
+/** The acting account, in the shape the audit log records. */
+const auditActor = (user) => (user ? { id: user.id, name: user.username } : null)
+
 function logAuth(event, req, username) {
   const ip = req.ip || req.socket?.remoteAddress || 'unknown'
   const name = String(username || '').slice(0, 64).replace(/[\r\n]/g, '')
@@ -517,6 +552,60 @@ function authRateLimit(limit = 8, windowMs = 60_000, name = 'auth') {
     next()
   }
 }
+
+/**
+ * Which provider served a piece of work, for Admin → Providers.
+ *
+ * An instance-configured provider is named by its id; a browser's own key is
+ * named by the HOST it points at and marked `browser`, so the administrator can
+ * tell "our OpenRouter account is failing" from "Alice's Ollama is down". The
+ * host only: a base URL can carry a path or a token in its query, and neither
+ * belongs on this screen.
+ */
+function hostOf(raw) {
+  try {
+    return new URL(String(raw || '')).hostname || null
+  } catch {
+    return null
+  }
+}
+function textProviderFor(req, profile) {
+  const t = textConfig.target(profile)
+  if (t) return { provider: t.id, source: 'instance' }
+  // No base header either: nothing says which provider, and 'unknown' is what
+  // the panel translates rather than inventing a name.
+  return { provider: hostOf(req.headers['x-provider-base']) || 'unknown', source: 'browser' }
+}
+function providerFor({ kind, action }, req) {
+  switch (kind) {
+    case 'mocky':
+      return textProviderFor(req, profileFromRequest(req))
+    case 'muse':
+      return textProviderFor(req, action === 'dossier' ? 'inspiration' : 'generation')
+    case 'image': {
+      const p = req.body?.profile === 'inspiration' || req.body?.profile === 'edit' ? req.body.profile : 'content'
+      return { provider: images.configStore.profile(p)?.provider || images.configStore.profile('content')?.provider }
+    }
+    case 'stock':
+      return { provider: typeof req.body?.provider === 'string' ? req.body.provider : 'stock' }
+    case 'clip':
+      return { provider: images.configStore.videoProfile()?.provider || 'video' }
+    case 'film':
+      return action === 'variants'
+        ? { provider: images.configStore.profile('edit')?.provider || images.configStore.profile('content')?.provider }
+        : action === 'compose'
+          ? textProviderFor(req, 'generation')
+          : { provider: 'queue' }
+    default:
+      return { provider: 'unknown' }
+  }
+}
+
+// Watches the requests that are work — a generation, a Muse run, an image, a
+// film — and records who, what and how it ended; never a prompt (see
+// server/admin/activity.js). Before the proxy, because the proxy answers the
+// request itself and nothing after it would see it.
+app.use(createTracker({ activity, userOf: currentUser, providerOf: providerFor }))
 
 // Model-provider proxy — forwards to `${x-provider-base}<subpath>` (raw body,
 // so it must run before express.json()). The logic (incl. the SSRF guard) lives
@@ -573,7 +662,25 @@ app.post(['/api/images/generate', '/api/images/stock/pick', '/api/images/stock/i
 /** How long a session stays valid. Refreshed on use (sliding expiry). */
 const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000
 
+/**
+ * The signed-in account, and a note that it was here.
+ *
+ * The note is the dashboard's "last seen": every authenticated request passes
+ * through this, so it costs one Map write and no disk. The two callers that must
+ * NOT count as activity — the heartbeat, and the live stream re-checking its
+ * own admin — use `sessionUser` directly: a tab left open behind a dozen others
+ * beats every minute, and it would otherwise read as somebody working.
+ */
 function currentUser(req) {
+  const user = sessionUser(req)
+  if (user) {
+    presence.touch(user.id)
+    sessionLastUse.set(sessionId(req.cookies.mocky_sess), Date.now())
+  }
+  return user
+}
+
+function sessionUser(req) {
   const token = req.cookies?.mocky_sess
   if (!token) return null
   const sessions = loadSessions()
@@ -632,7 +739,17 @@ function isHttps(req) {
 function setSession(res, userId, req) {
   const token = crypto.randomBytes(32).toString('hex')
   const sessions = loadSessions()
-  sessions[token] = { u: userId, t: Date.now() }
+  // `c`, `ua` and `ip` are what Admin → Sessions shows to tell one device from
+  // another before revoking it. The device is a summary ("Firefox 131 ·
+  // Windows"), never the full header; the address is the one the `mocky auth`
+  // line already logs for the same sign-in.
+  sessions[token] = {
+    u: userId,
+    t: Date.now(),
+    c: Date.now(),
+    ua: describeUserAgent(req?.headers?.['user-agent']) || undefined,
+    ip: clientIp(req) || undefined,
+  }
   saveSessions(sessions)
   res.cookie('mocky_sess', token, {
     httpOnly: true,
@@ -739,6 +856,9 @@ app.get('/api/config', (req, res) => {
     // Public on purpose: the banner has to reach a signed-out visitor too, and
     // the only thing it says is what every refused write would say anyway.
     maintenance,
+    // Public for the same reason, and written by an administrator for exactly
+    // this audience. Null once it has expired.
+    announcement: liveAnnouncement(loadConfig().announcement),
     sso: {
       enabled: ssoEnabled,
       dashyUrl: SSO_DASHY_URL || null,
@@ -781,6 +901,7 @@ app.post('/api/register', authRateLimit(8, 60_000, 'register'), (req, res) => {
   const user = makeUser(username, password, isFirst ? 'admin' : 'user')
   users.push(user)
   saveUsers(users)
+  audit.record({ action: 'auth.register', actor: auditActor(user), detail: { first: isFirst }, ip: clientIp(req) })
   // Close the door behind the first account. Leaving public sign-ups on by
   // default meant anyone who could reach the instance made themselves an
   // account and spent the owner's model credits. The admin re-opens it from the
@@ -803,6 +924,7 @@ app.post('/api/login', authRateLimit(8, 60_000, 'login'), (req, res) => {
   const lockedFor = accountLocked(username)
   if (lockedFor) {
     logAuth('locked', req, username)
+    audit.record({ action: 'auth.locked', target: { name: username }, ip: clientIp(req) })
     res.setHeader('Retry-After', String(lockedFor))
     return res.status(429).json({
       error: `Too many failed attempts on this account. Try again in ${Math.ceil(lockedFor / 60)} minute(s).`,
@@ -816,10 +938,12 @@ app.post('/api/login', authRateLimit(8, 60_000, 'login'), (req, res) => {
     // real, which is half of what a guesser is after.
     noteAuthFailure(username)
     logAuth('failure', req, username)
+    audit.record({ action: 'auth.login-failed', target: { name: username }, ip: clientIp(req) })
     return res.status(401).json({ error: 'Invalid username or password.' })
   }
   clearAuthFailures(username)
   logAuth('success', req, username)
+  audit.record({ action: 'auth.login', actor: auditActor(user), ip: clientIp(req) })
   setSession(res, user.id, req)
   res.json({ user: publicUser(user) })
 })
@@ -840,6 +964,25 @@ app.get('/api/me', (req, res) => {
   // 200 with null rather than 401 — the SPA polls this on every load to know
   // whether a session exists; a 401 there just adds noise to the console.
   res.json({ user: user ? publicUser(user) : null })
+})
+
+/**
+ * A tab says it is open (every 30 s), or that it is closing (`pagehide`, sent
+ * as a beacon). Feeds Admin → Activity; see server/admin/presence.js.
+ *
+ * `sessionUser`, not `currentUser`: a heartbeat is not activity, and counting it
+ * as a request would make a forgotten background tab read as somebody working.
+ * The limit is per address and generous on purpose — an office behind one NAT
+ * is ten people with two tabs each, which is forty beats a minute.
+ */
+app.post('/api/presence', authRateLimit(240, 60_000, 'presence'), (req, res) => {
+  const user = sessionUser(req)
+  if (!user) return res.status(401).end()
+  const b = req.body || {}
+  const tab = typeof b.tab === 'string' ? b.tab : ''
+  if (b.leaving === true) presence.leave(user.id, tab)
+  else presence.beat(user.id, { tab, area: b.area, visible: b.visible !== false })
+  res.status(204).end()
 })
 
 // ---- account: change your own password ----
@@ -948,6 +1091,7 @@ app.post('/api/account/password', requireUser, authRateLimit(8, 60_000, 'passwor
 
   setPassword(user, next)
   saveUsers(users)
+  audit.record({ action: 'account.password', actor: auditActor(user), ip: clientIp(req) })
 
   // Every other device is signed out, and the current session gets a brand-new
   // token rather than being spared: reusing the old one would leave the exact
@@ -1004,6 +1148,7 @@ app.get('/sso/dashy/callback', (req, res, next) => {
     return res.redirect(302, u.toString())
   }
   const user = findOrCreateSsoUser(claims)
+  audit.record({ action: 'auth.sso', actor: auditActor(user), ip: clientIp(req) })
   setSession(res, user.id, req)
 
   // Redirect to the SPA. In production we serve it ourselves; in dev the Vite
@@ -1022,7 +1167,15 @@ app.get('/api/admin/config', requireAdmin, (req, res) => {
 
 app.put('/api/admin/config', requireAdmin, (req, res) => {
   const cfg = loadConfig()
-  if (typeof req.body?.allowRegistration === 'boolean') cfg.allowRegistration = req.body.allowRegistration
+  if (typeof req.body?.allowRegistration === 'boolean') {
+    cfg.allowRegistration = req.body.allowRegistration
+    audit.record({
+      action: 'config.registration',
+      actor: auditActor(req.user),
+      detail: { allowRegistration: cfg.allowRegistration },
+      ip: clientIp(req),
+    })
+  }
   saveConfig(cfg)
   res.json({ allowRegistration: cfg.allowRegistration !== false })
 })
@@ -1101,6 +1254,15 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
   const user = makeUser(username, password, role, mustChangePassword)
   users.push(user)
   saveUsers(users)
+  audit.record({
+    action: 'user.create',
+    actor: auditActor(req.user),
+    target: auditActor(user),
+    // `mustChange`, not `mustChangePassword`: the audit log drops any key that
+    // contains "pass", and this one is a yes/no, not a secret.
+    detail: { role, mustChange: mustChangePassword },
+    ip: clientIp(req),
+  })
   res.json({
     user: {
       id: user.id,
@@ -1130,6 +1292,13 @@ app.put('/api/admin/users/:id/password', requireAdmin, (req, res) => {
   setPassword(user, password)
   if (mustChange) user.mustChangePassword = true
   saveUsers(users)
+  audit.record({
+    action: 'user.password-reset',
+    actor: auditActor(req.user),
+    target: auditActor(user),
+    detail: { mustChange },
+    ip: clientIp(req),
+  })
 
   // The target is signed out everywhere — a reset exists precisely for accounts
   // that may be compromised. When an admin resets their own password we hand
@@ -1158,8 +1327,29 @@ app.get('/api/admin/images/config', requireAdmin, (req, res) => {
   res.json(images.configStore.publicView())
 })
 
+/**
+ * The field NAMES a configuration change touched, never their values: the body
+ * of these PUTs carries provider keys. One level down as well, because the
+ * image config is grouped by profile ("content.apiKey").
+ */
+function changedFields(body) {
+  if (!body || typeof body !== 'object') return []
+  const out = []
+  for (const [k, v] of Object.entries(body)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) for (const k2 of Object.keys(v)) out.push(`${k}.${k2}`)
+    else out.push(k)
+  }
+  return out.slice(0, 20)
+}
+
 app.put('/api/admin/images/config', requireAdmin, (req, res) => {
   images.configStore.update(req.body || {})
+  audit.record({
+    action: 'config.images',
+    actor: auditActor(req.user),
+    detail: { fields: changedFields(req.body) },
+    ip: clientIp(req),
+  })
   images.reload() // swap providers + re-pace the queue immediately
   res.json(images.configStore.publicView())
 })
@@ -1222,6 +1412,12 @@ app.get('/api/admin/text/config', requireAdmin, (req, res) => {
 
 app.put('/api/admin/text/config', requireAdmin, (req, res) => {
   textConfig.update(req.body || {})
+  audit.record({
+    action: 'config.text',
+    actor: auditActor(req.user),
+    detail: { fields: changedFields(req.body) },
+    ip: clientIp(req),
+  })
   res.json(textConfig.publicView())
 })
 
@@ -1364,6 +1560,9 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   const sessions = loadSessions()
   for (const t of Object.keys(sessions)) if (sessions[t].u === id) delete sessions[t]
   saveSessions(sessions)
+  presence.forget(id)
+  const gone = users.find((u) => u.id === id)
+  audit.record({ action: 'user.delete', actor: auditActor(req.user), target: auditActor(gone), ip: clientIp(req) })
   // Their share links go too. A capability URL outlives the account that minted
   // it otherwise — a deleted user's screens would stay readable by anyone
   // holding a link, which is not what "delete this account" means to anybody.
@@ -1595,7 +1794,28 @@ app.use(
 // The worker is handed to the admin router too, so the panel that owns the URL
 // field can probe it: an admin is not implicitly on the allowlist, so the
 // per-account /api/video/status would answer them "no-access" instead.
-app.use('/api/admin/video', requireAdmin, createVideoAdminRouter({ config: videoConfig, worker: videoWorker, queue: videoQueue }))
+app.use(
+  '/api/admin/video',
+  requireAdmin,
+  // Audited here rather than inside the router: it is the one admin router
+  // mounted whole, and a successful PUT /config is the only write it serves.
+  (req, res, next) => {
+    if (req.method === 'PUT' && req.path === '/config') {
+      res.once('finish', () => {
+        if (res.statusCode < 400) {
+          audit.record({
+            action: 'config.video',
+            actor: auditActor(req.user),
+            detail: { fields: changedFields(req.body) },
+            ip: clientIp(req),
+          })
+        }
+      })
+    }
+    next()
+  },
+  createVideoAdminRouter({ config: videoConfig, worker: videoWorker, queue: videoQueue }),
+)
 
 // ---- admin: maintenance mode ----
 app.get('/api/admin/maintenance', requireAdmin, (req, res) => res.json(maintenance))
@@ -1608,9 +1828,15 @@ app.put('/api/admin/maintenance', requireAdmin, (req, res) => {
     // locked out", which rewording the notice does not change.
     since: on ? (maintenance.on ? maintenance.since : Date.now()) : null,
   }
+  const was = maintenance
   saveConfig({ ...loadConfig(), maintenance: next })
   maintenance = next
   console.log(`mocky maintenance ${on ? 'on' : 'off'} by=${JSON.stringify(req.user.username)}`)
+  audit.record({
+    action: on === was.on ? 'maintenance.message' : on ? 'maintenance.on' : 'maintenance.off',
+    actor: auditActor(req.user),
+    ip: clientIp(req),
+  })
   res.json(maintenance)
 })
 
@@ -1772,10 +1998,12 @@ app.use('/api/migration', migrationSource.router)
 app.get('/api/admin/migration/source', requireAdmin, (req, res) => res.json(migrationSource.status()))
 app.post('/api/admin/migration/source', requireAdmin, authRateLimit(8, 60_000, 'migration'), (req, res) => {
   if (!confirmAdminPassword(req, res)) return
+  audit.record({ action: 'migration.code', actor: auditActor(req.user), ip: clientIp(req) })
   res.json(migrationSource.create(req.user.username))
 })
 app.delete('/api/admin/migration/source', requireAdmin, (req, res) => {
   migrationSource.revoke(req.user.username)
+  audit.record({ action: 'migration.revoke', actor: auditActor(req.user), ip: clientIp(req) })
   res.json(migrationSource.status())
 })
 
@@ -1817,12 +2045,69 @@ app.post('/api/admin/migration/import/finalize', requireAdmin, authRateLimit(8, 
   } catch (err) {
     return migrationFailure(res, err)
   }
+  // After the swap, so it is appended to the IMPORTED log (audit.jsonl travels
+  // like every other file): the source's history, then the line saying when and
+  // by whom it arrived here.
+  audit.record({ action: 'migration.finalize', actor: auditActor(req.user), ip: clientIp(req) })
   // Restart so every store re-reads the files it caches. Under Docker the
   // `restart: unless-stopped` policy brings it back; a source install has to be
   // started again by hand, and the panel says so.
   res.json({ ...out, restarting: true })
   res.on('finish', () => setTimeout(() => gracefulShutdown('migration'), 300))
 })
+
+// ---- admin dashboard ----
+// One screen, reading the stores created at the top of this file. The GPU is
+// asked every sample only while somebody watches the dashboard (see
+// server/admin/system.js); the sampler itself runs from boot, so the charts
+// show the hour BEFORE the screen was opened, which is usually the hour that
+// prompted opening it.
+const gpu = createGpuProbe()
+const system = createSystemMonitor({ dataDir: DATA_DIR, gpu, watched: () => dashboard.watched() })
+const dashboard = createDashboardRouter({
+  presence,
+  activity,
+  system,
+  audit,
+  users: loadUsers,
+  sessions: {
+    load: loadSessions,
+    save: saveSessions,
+    lastUse: sessionLastUse,
+    revokeUser: revokeSessions,
+  },
+  tokenOf: (req) => req.cookies?.mocky_sess || null,
+  stillAdmin: (req) => (sessionUser(req)?.role || 'user') === 'admin',
+  announcement: {
+    get: () => loadConfig().announcement || null,
+    set: (a) => {
+      const cfg = loadConfig()
+      if (a) cfg.announcement = a
+      else delete cfg.announcement
+      saveConfig(cfg)
+    },
+  },
+  maintenance: () => maintenance,
+  queue: videoQueue,
+  workerHealth: () => {
+    const vc = videoConfig.get() || {}
+    // Not configured is an answer, not a probe: a stack without the worker
+    // must not spend a timeout every 30 s finding out again.
+    return vc.enabled && vc.workerUrl ? videoWorker.health() : Promise.resolve({ available: false, reason: 'not-configured' })
+  },
+  storage: () => {
+    let disk = null
+    try {
+      const st = fs.statfsSync(DATA_DIR)
+      disk = { free: st.bavail * st.bsize, total: st.blocks * st.bsize }
+    } catch {
+      /* reported as unknown */
+    }
+    return { budget: diskBudget.usage(), disk }
+  },
+  actor: (req) => auditActor(req.user),
+})
+app.use('/api/admin/dashboard', requireAdmin, dashboard.router)
 
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {
@@ -1909,6 +2194,7 @@ const server = app.listen(PORT, HOST, () => {
   }
   const pruned = pruneSessions()
   if (pruned) console.log(`Sessions: pruned ${pruned} expired`)
+  system.start()
   console.log(
     ssoEnabled
       ? `SSO: enabled (Dashy at ${SSO_DASHY_URL})`
@@ -1939,6 +2225,10 @@ let shuttingDown = false
 async function gracefulShutdown(signal) {
   if (shuttingDown) return
   shuttingDown = true
+  // First: an open live stream is a request that never ends, and it would hold
+  // `server.close()` until the three-second fallback below.
+  system.stop()
+  dashboard.closeAll()
   console.log(`\n${signal} received — shutting down Muse MCP servers…`)
   try {
     await muse.host.shutdown()

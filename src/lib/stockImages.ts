@@ -321,6 +321,8 @@ export async function judgeStockCandidates(
   try {
     const res = await proxyFetch(s, '/api/chat', {
       method: 'POST',
+      // For Admin → Activity only; see `chat` in generate.ts.
+      headers: { 'x-mocky-purpose': 'stock-pick' },
       body: JSON.stringify({
         model: s.model,
         stream: false,
