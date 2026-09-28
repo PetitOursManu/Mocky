@@ -4,19 +4,28 @@
     {
       "name": "mocky-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:all"],
+      "runtimeArgs": [
+        "run",
+        "dev:all"
+      ],
       "port": 5173
     },
     {
       "name": "mocky-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "mocky-docs",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/serve-docs.mjs"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "docs"
+      ],
       "port": 4173
     }
   ]

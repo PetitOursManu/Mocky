@@ -1,3 +1,7 @@
+---
+source_hash: 61789c1a35f7
+---
+
 # Invariants
 
 Ce sont les règles que le code refuse d'enfreindre. Aucune n'est une préférence
@@ -5,7 +9,7 @@ de style. Chacune existe parce qu'un type de bug précis s'est produit, ou parce
 que la contourner casserait quelque chose de peu évident.
 
 Elles étaient citées par numéro dans les commentaires du code — `invariant
-1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](adr/001-muse.md) les a
+1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
 Il y a cinq séries :
@@ -808,7 +812,7 @@ qu'aucun film ne soit jamais fabriqué tout seul.
 ## Série D — le tableau de bord d’administration
 
 Ces cinq-là sont arrivés avec le tableau de bord (`server/admin/`,
-`src/components/admin/`, [sa page](fr/admin-dashboard.md)) : la première partie de
+`src/components/admin/`, [sa page](../admin-dashboard.md)) : la première partie de
 Mocky qui observe les autres, et donc la première qui pourrait apprendre — et
 montrer à quelqu’un d’autre — ce que les gens en font.
 
@@ -949,7 +953,7 @@ injectable : qui exécute le worker sur un hôte public peut y remettre
 
 Le reste de la fonctionnalité à laquelle il appartient — pourquoi le worker est
 une image séparée, et pourquoi le modèle qui décrit un film n'écrit jamais le
-code qui le rend — est dans [Motion Ultra](fr/video-export.md).
+code qui le rend — est dans [Motion Ultra](../video-export.md).
 
 Le quatrième existe pour la raison du worker : passer d'une machine à l'autre sur
 un même réseau local est le cas ordinaire pour un outil auto-hébergé, et le garde
@@ -958,7 +962,7 @@ contrôle du schéma et `redirect: 'manual'`, et refuse les identifiants dans l'
 Et ce qu'un contournement permet d'ordinaire — lire un service interne — il ne le
 permet pas : chaque réponse est scellée sous une clé dérivée du code
 d'appairage, si bien que tout autre répondant est écarté sans être lu. La
-procédure complète est dans [Maintenance et migration](fr/migration.md).
+procédure complète est dans [Maintenance et migration](../migration.md).
 
 Toute URL venue d'un navigateur reste entièrement protégée — y compris sur
 `POST /api/text/vision`. C'était la seule route qui prenait une URL de base dans

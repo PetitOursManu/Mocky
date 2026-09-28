@@ -6,8 +6,8 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
-# The documentation site reads Markdown straight from this branch, so the file
-# has to be COMMITTED to be visible — generating it in the runner and throwing
+# The documentation site is built from the Markdown on this branch, so the file
+# has to be COMMITTED to be published — generating it in the runner and throwing
 # it away would publish nothing.
 permissions:
   contents: write

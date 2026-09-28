@@ -1,3 +1,7 @@
+---
+source_hash: d3ed6ad5076c
+---
+
 # Animations
 
 Le mouvement dans Mocky repose sur [Motion](https://motion.dev), et **le modèle
@@ -387,7 +391,7 @@ uniquement en CSS — `FadeIn`, `Stagger`, `Marquee`, `Counter`, `Reveal`,
 
 Elle est marquée `retired: true` : **injectée** pour les écrans qui la portent
 dans `Screen.caps`, **jamais documentée** au modèle. Le mécanisme complet est
-dans la [vue d'ensemble de l'architecture](fr/architecture/overview.md).
+dans la [vue d'ensemble de l'architecture](../architecture/overview.md).
 
 Une action de l'interface la réactive volontairement : **« Ajouter des
 animations »**, dans le menu d'un écran, qui superpose du mouvement à un écran

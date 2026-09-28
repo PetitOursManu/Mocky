@@ -1,12 +1,17 @@
+---
+source_hash: c7b06999d950
+---
+
 # Modèles de DESIGN.md
 
-[English](../design-presets.md) · **Français**
-
-> **Pourquoi c’est ainsi —** Un DESIGN.md n’est pas un réglage, c’est un document : quelques jetons de couleur, une échelle typographique et des règles écrites en toutes lettres. Mocky en fournit 17 tout faits, appliquables en un clic depuis la page **DESIGN.md** de l’application. Ils sont montrés ici pour que la notion cesse d’être abstraite — chaque vignette est rendue avec les jetons du modèle qu’elle nomme, elle n’est pas une image de celui-ci.
+:::why
+Un DESIGN.md n’est pas un réglage, c’est un document : quelques jetons de couleur, une échelle typographique et des règles écrites en toutes lettres. Mocky en fournit 17 tout faits, appliquables en un clic depuis la page **DESIGN.md** de l’application. Ils sont montrés ici pour que la notion cesse d’être abstraite — chaque vignette est rendue avec les jetons du modèle qu’elle nomme, elle n’est pas une image de celui-ci.
+:::
 
 ## La galerie
 
-<div data-mocky-widget="presets"></div>
+:::widget presets
+:::
 
 ## La liste
 

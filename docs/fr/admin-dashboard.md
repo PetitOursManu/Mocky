@@ -1,3 +1,7 @@
+---
+source_hash: f53b06bb1847
+---
+
 # Le tableau de bord d’administration
 
 L’administration tient sur une seule page, avec un menu à gauche. Neuf sections,
@@ -15,7 +19,7 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 | **Fournisseurs** | Comment les fournisseurs de texte, d’images et de vidéo ont répondu sur la dernière heure, puis leurs réglages (les trois blocs de l’ancienne page). |
 | **Journal d’audit** | Qui a fait quoi : connexions et échecs, comptes, sessions, réglages, maintenance, annonces, migrations. |
 | **Annonce** | Un message affiché à tout le monde sous l’en-tête, tout de suite ou à partir d’une date programmée, avec une fin facultative — et des dates dans le texte affichées dans le fuseau de chaque lecteur. |
-| **Maintenance et migration** | Inchangée — voir [Maintenance et migration](fr/migration.md). |
+| **Maintenance et migration** | Inchangée — voir [Maintenance et migration](migration.md). |
 
 Le code est dans `server/admin/` (un fichier par magasin, chacun s’explique en
 tête) et `src/components/admin/`.
@@ -124,7 +128,7 @@ presque aucun processeur.
 
 Dans Docker, une carte NVIDIA n’est visible qu’avec le NVIDIA Container Toolkit sur
 l’hôte et `docker-compose.gpu.yml` par-dessus le fichier habituel — voir
-[Déploiement](fr/deployment.md#la-carte-graphique-dans-docker).
+[Déploiement](deployment.md#la-carte-graphique-dans-docker).
 
 ## La santé des fournisseurs
 

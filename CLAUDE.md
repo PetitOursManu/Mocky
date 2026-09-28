@@ -34,6 +34,27 @@ READMEs are mirrors as well. **If you change one, change the other.** The UI
 strings in `src/i18n/parts/` are also bilingual, and a test fails when the FR
 and EN key sets diverge.
 
+## The documentation site
+
+Built by [Lumy](https://github.com/PetitOursManu/Lumy) from `docs/`; its
+configuration, Mocky's two widgets and their data are in `docs-site/`.
+`npm run docs` previews it with live reload, `npm run docs:check` fails on a
+broken link or an unknown block (CI runs it).
+
+- Blocks (`:::why`, `:::steps`, `:::tabs`, `:::widget presets`…) are listed in
+  Lumy's own docs, page "Writing". A section's reason goes in a `:::why` block
+  directly under the heading; `tests/docs-parity.test.js` demands one under every
+  heading of the design system, the ADR and the audit.
+- Links are relative to the file, as on GitHub: `[x](../deployment.md)` from
+  `docs/fr/muse/`, never Docsify's root-relative `fr/deployment.md`.
+- A French page records the English version it translates (`source_hash`).
+  After updating a French page to match its English one, run
+  `npx lumy translations --root docs-site --stamp fr/<page>`; otherwise readers
+  see it flagged as outdated. The changelog is exempt (`generated: true`).
+- The site is built, not fetched live: `docs-site/Dockerfile` serves it, and a
+  pushed page reaches readers when that resource redeploys
+  (`docs/deployment.md`, "The documentation").
+
 ## The generation pipeline
 
 Generation runs **in the browser**. The server only proxies the provider call

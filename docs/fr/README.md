@@ -1,3 +1,7 @@
+---
+source_hash: 859e4d1af6b2
+---
+
 # Mocky
 
 Mocky est un générateur d'écrans que vous hébergez vous-même. Vous décrivez une
@@ -29,7 +33,7 @@ TypeScript.
 | Aperçu | Une iframe isolée, sans origine propre. React, ReactDOM, Babel et Tailwind sont copiés localement. Le JSX est compilé à l'intérieur de l'iframe |
 | Modèles | Mocky parle toujours le dialecte Ollama en interne. Un proxy traduit vers les API compatibles OpenAI |
 | Binaire externe | `ffmpeg`, uniquement pour la vidéo au défilement |
-| Service séparé facultatif | Le worker de rendu Remotion, dans `worker/video/`, derrière le profil Compose `video-export`. Absent de l'image par défaut, pour des [raisons de licence](fr/video-export.md) |
+| Service séparé facultatif | Le worker de rendu Remotion, dans `worker/video/`, derrière le profil Compose `video-export`. Absent de l'image par défaut, pour des [raisons de licence](video-export.md) |
 
 ---
 
@@ -46,7 +50,7 @@ modèle.
 Il y a une exception. **Muse** doit lancer des processus, piloter un navigateur
 sans interface et écrire des fichiers. Ses étapes vivent donc dans
 `server/muse/`. C'est le premier vrai pipeline serveur du projet, et
-[l'ADR 001](adr/001-muse.md) en explique le raisonnement.
+[l'ADR 001](../adr/001-muse.md) en explique le raisonnement.
 
 ---
 
@@ -54,17 +58,17 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 
 | Si vous voulez… | Lisez |
 |---|---|
-| Installer Mocky et configurer un modèle | [Démarrage](fr/getting-started.md) |
-| Comprendre le registre de capacités, le planificateur et l'isolation de l'aperçu | [Vue d'ensemble de l'architecture](fr/architecture/overview.md) |
-| Savoir quelles règles le code refuse d'enfreindre, et pourquoi | [Invariants](fr/architecture/invariants.md) |
-| Voir ce que Muse ajoute à une génération | [Vue d'ensemble de Muse](fr/muse/overview.md) |
-| Suivre Discover, Distill et Dossier en détail | [Moteur d'inspiration](fr/muse/inspiration-engine.md) |
-| Comprendre le système d'animations | [Animations](fr/muse/animations.md) |
-| Contrôler un écran généré, et corriger ce que le contrôle trouve | [Passe de qualité](fr/quality.md) |
-| Composer un `.mp4` pour un écran à partir d'un catalogue de blocs, et savoir pourquoi son moteur de rendu est livré à part | [Motion Ultra](fr/video-export.md) |
-| Déployer Mocky | [Déploiement](fr/deployment.md) |
-| Passer l'instance en lecture seule, ou la déplacer vers un autre serveur | [Maintenance et migration](fr/migration.md) |
-| Voir qui est connecté, ce que fait la machine, et qui a changé quoi | [Tableau de bord d'administration](fr/admin-dashboard.md) |
+| Installer Mocky et configurer un modèle | [Démarrage](getting-started.md) |
+| Comprendre le registre de capacités, le planificateur et l'isolation de l'aperçu | [Vue d'ensemble de l'architecture](architecture/overview.md) |
+| Savoir quelles règles le code refuse d'enfreindre, et pourquoi | [Invariants](architecture/invariants.md) |
+| Voir ce que Muse ajoute à une génération | [Vue d'ensemble de Muse](muse/overview.md) |
+| Suivre Discover, Distill et Dossier en détail | [Moteur d'inspiration](muse/inspiration-engine.md) |
+| Comprendre le système d'animations | [Animations](muse/animations.md) |
+| Contrôler un écran généré, et corriger ce que le contrôle trouve | [Passe de qualité](quality.md) |
+| Composer un `.mp4` pour un écran à partir d'un catalogue de blocs, et savoir pourquoi son moteur de rendu est livré à part | [Motion Ultra](video-export.md) |
+| Déployer Mocky | [Déploiement](deployment.md) |
+| Passer l'instance en lecture seule, ou la déplacer vers un autre serveur | [Maintenance et migration](migration.md) |
+| Voir qui est connecté, ce que fait la machine, et qui a changé quoi | [Tableau de bord d'administration](admin-dashboard.md) |
 
 ---
 
@@ -83,7 +87,7 @@ Sept étapes. Les étapes 1 et 3 sont facultatives.
 | 7 | **`<Preview>`** l'affiche | Navigateur | Iframe isolée avec une politique de sécurité stricte |
 
 Chaque étape est détaillée dans la
-[vue d'ensemble de l'architecture](fr/architecture/overview.md).
+[vue d'ensemble de l'architecture](architecture/overview.md).
 
 ---
 
@@ -116,14 +120,13 @@ retirée reste injectée pour les écrans qui l'utilisent.
 
 ## Comment cette documentation est servie
 
-Les fichiers Markdown sont lus en direct depuis `docs/` sur la branche `main`. La
-page que vous lisez est le fichier Markdown lui-même, sans étape de compilation.
-Publier une correction, c'est pousser un commit.
-
-Le lecteur est constitué de sept fichiers statiques dans `docs-site/` : quatre
-écrits pour le projet, trois copies locales de Docsify. Il n'a aucune dépendance
-npm et ne charge rien depuis un CDN. Voir [Déploiement](fr/deployment.md), qui
-les liste un par un.
+Les pages sont construites par [Lumy](https://github.com/PetitOursManu/Lumy), un
+outil de documentation écrit pour Mocky et publié à part, en open source. Le
+Markdown de `docs/` reste la source ; Lumy en fait un site avec une recherche,
+les deux langues, un thème clair et un thème sombre, et des blocs avec lesquels
+le lecteur peut interagir. `docs-site/` contient sa configuration et les widgets
+propres à Mocky. Voir [Déploiement](deployment.md), qui explique comment le site
+est construit et servi.
 
 Pour lire le site en local avant d'y publier une modification :
 
@@ -131,12 +134,9 @@ Pour lire le site en local avant d'y publier une modification :
 npm run docs
 ```
 
-Cela sert `docs-site/` sur `http://127.0.0.1:4173`. La prose continue d'être lue
-depuis GitHub : ce que vous prévisualisez est donc le vrai site à sa vraie
-longueur — avec une barre latérale assez longue pour défiler, ce qui est la
-condition sous laquelle sa mise en page mérite d'être vérifiée. C'est faute de
-toute prévisualisation locale que le sélecteur de thème a passé un moment au
-milieu du menu sur tous les écrans étroits.
+Cela le sert sur `http://127.0.0.1:4173` et le reconstruit à chaque
+enregistrement. `npm run docs:check` cherche les liens cassés et les blocs que
+Lumy ne connaît pas, et l'intégration continue la lance à chaque push.
 
 ---
 
@@ -148,14 +148,13 @@ sujets. Les quatre existent désormais dans les deux langues.
 | Document | Sujet | English | Français |
 |---|---|---|---|
 | README du dépôt | La présentation du produit : ce que Mocky fait, et comment l'installer rapidement | `README.md` | `README.fr.md` |
-| ADR 001 — Muse | La décision d'architecture complète, avec la première mise par écrit des huit invariants d'origine | [001-muse.md](adr/001-muse.md) | [001-muse.fr.md](adr/001-muse.fr.md) |
-| Système de design | Les jetons de l'interface de Mocky, les thèmes Papier et Encre, les primitives. À ne pas confondre avec le `DESIGN.md` que l'utilisateur fournit pour ses écrans générés | [DESIGN-SYSTEM.en.md](DESIGN-SYSTEM.en.md) | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
-| Audit 2026-07 | L'audit multi-agents et sa feuille de route, aujourd'hui appliquée en grande partie | [AUDIT-2026-07.en.md](AUDIT-2026-07.en.md) | [AUDIT-2026-07.md](AUDIT-2026-07.md) |
+| ADR 001 — Muse | La décision d'architecture complète, avec la première mise par écrit des huit invariants d'origine | [adr/001-muse.md](../adr/001-muse.md) | [fr/adr/001-muse.md](adr/001-muse.md) |
+| Système de design | Les jetons de l'interface de Mocky, les thèmes Papier et Encre, les primitives. À ne pas confondre avec le `DESIGN.md` que l'utilisateur fournit pour ses écrans générés | [DESIGN-SYSTEM.md](../DESIGN-SYSTEM.md) | [fr/DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
+| Audit 2026-07 | L'audit multi-agents et sa feuille de route, aujourd'hui appliquée en grande partie | [AUDIT-2026-07.md](../AUDIT-2026-07.md) | [fr/AUDIT-2026-07.md](AUDIT-2026-07.md) |
 
-Chacun des huit fichiers porte un sélecteur de langue sur sa première ligne
-utile, et `tests/docs-parity.test.js` tient les paires ensemble : même nombre de
-titres, mêmes niveaux dans le même ordre, un bloc « pourquoi » sous chacun
-d'eux, et jamais un bloc rédigé dans l'autre langue.
+`tests/docs-parity.test.js` tient chaque paire ensemble : même nombre de titres,
+mêmes niveaux dans le même ordre et, pour les trois derniers, un bloc
+« pourquoi » sous chaque titre, que le site replie tant qu'on ne le demande pas.
 
 Ils n'ont longtemps existé que dans une seule langue, et on présentait cela
 comme un choix : un ADR est un document daté, le traduire invite deux versions
@@ -168,11 +167,7 @@ anglais, un audit en français et un README en anglais, c'est cette rangée-là
 s'adressait. Le remède est celui que `src/i18n` avait déjà trouvé : un fichier
 complet par langue, tenu au pas par un test.
 
-D'où des noms de fichiers qui se lisent à l'envers du reste de `docs/`, où le
-chemin nu porte l'anglais et où `fr/` porte la traduction. Ici, chaque document
-a gardé le chemin et la langue qu'il avait déjà, et a reçu un jumeau suffixé de
-l'autre : `DESIGN-SYSTEM.md` est la page **française** et `DESIGN-SYSTEM.en.md`
-l'anglaise ; à l'inverse, `adr/001-muse.md` est la page **anglaise** et
-`adr/001-muse.fr.md` la française. Les renommer casserait le tableau `DOCS` du
-test de parité et tous les liens entrants, pour une symétrie que personne n'a
-jamais réclamée.
+Ils ont d'abord reçu des jumeaux suffixés de l'autre langue : `DESIGN-SYSTEM.md`
+était la page française et `DESIGN-SYSTEM.en.md` l'anglaise. Quand le site est
+passé à Lumy, ils ont rejoint le reste de `docs/` : le chemin nu porte l'anglais,
+et `fr/` porte la traduction, chemin pour chemin.

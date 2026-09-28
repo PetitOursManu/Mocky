@@ -1,3 +1,7 @@
+---
+source_hash: e489adf9bc8a
+---
+
 # Déploiement
 
 ## L'image Docker
@@ -202,7 +206,7 @@ est la seule exception, et le fichier compose dit où la décommenter.
 ### La carte graphique dans Docker
 
 Administration → Système affiche la carte graphique de la machine quand il y en a
-une (voir [Le tableau de bord d’administration](fr/admin-dashboard.md#la-carte-graphique)).
+une (voir [Le tableau de bord d’administration](admin-dashboard.md#la-carte-graphique)).
 Mocky n’en a pas besoin ; la carte est affichée pour ce qui tourne d’autre sur la
 machine. Hors de Docker, rien à faire. Dans un conteneur :
 
@@ -388,7 +392,7 @@ res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
 Il n'y a pas de politique de sécurité du contenu sur l'application elle-même :
 les aperçus isolés ont besoin de scripts en ligne. La politique stricte vit
 **dans le `srcDoc` de chaque aperçu**, là où le code généré s'exécute réellement.
-Voir la [vue d'ensemble de l'architecture](fr/architecture/overview.md).
+Voir la [vue d'ensemble de l'architecture](architecture/overview.md).
 
 `x-powered-by` est explicitement désactivé. Annoncer le framework et sa version
 offre gratuitement une liste d'exploits ciblés.
@@ -425,7 +429,7 @@ Pour **déplacer** une instance vers un autre serveur plutôt que la restaurer s
 le même, passez plutôt par Admin → Maintenance et migration : la copie se fait
 morceau par morceau, le nouveau serveur est vérifié d'abord, et les données ne
 passent jamais par un fichier à transporter. Voir
-[Maintenance et migration](fr/migration.md).
+[Maintenance et migration](migration.md).
 
 Ce qui vit dans le volume `mocky-data` :
 
@@ -603,248 +607,153 @@ survivre.
 
 ### Ressource 2 — la documentation
 
-Voir la section suivante. C'est une ressource **statique**, entièrement
-séparée : pas de construction, pas de Node, pas de volume.
+Voir la section suivante. C'est une ressource **à part, et légère**, avec son
+propre `Dockerfile` : ni Chromium, ni ffmpeg, et rien de partagé avec
+l'application sinon le dépôt.
 
 ---
 
 ## La documentation
 
-Deux dossiers, deux ressources, volontairement découplés.
+Deux dossiers, volontairement découplés.
 
 - **`docs/`** — le contenu. Des fichiers Markdown, rien d'autre.
-- **`docs-site/`** — le lecteur. Sept fichiers statiques.
+- **`docs-site/`** — le site autour : `lumy.config.json`, les widgets propres à
+  Mocky, et le `Dockerfile` qui le sert.
+
+Le site est construit par [Lumy](https://github.com/PetitOursManu/Lumy), un
+outil de documentation écrit pour Mocky et publié à part, open source comme
+Mocky. C'est la dépendance de développement `lumy-docs` : la version qui
+construit le site en production est donc celle de `package-lock.json`.
 
 ### Comment ça marche
 
-`docs-site/index.html` charge Docsify depuis `./vendor/` et définit :
+Lumy lit `docs/` et écrit un site statique : une page HTML par page et par
+langue, un index de recherche, un `llms.txt` pour les modèles de langage, un
+plan du site. Tout ce dont le site a besoin est dans la construction — pas de
+CDN, pas de police tierce, aucune requête vers GitHub.
 
-```js
-basePath: 'https://raw.githubusercontent.com/PetitOursManu/Mocky/main/docs/'
-```
+L'anglais vit à la racine de `docs/` ; le français vit sous `docs/fr/`, chemin
+pour chemin. Une page française qui n'existe pas encore affiche l'anglaise, avec
+un avis qui le dit, plutôt qu'une erreur.
 
-Le lecteur va donc chercher le Markdown **directement sur GitHub, à chaque
-affichage de page**. Trois conséquences :
+`docs-site/lumy.config.json` contient tout ce qui n'est pas de la prose : les
+deux langues, la navigation et le public de chaque groupe, les couleurs (le
+turquoise du logo), les liens de l'en-tête. Les anciennes adresses de la forme
+`/#/architecture/overview` mènent toujours à la bonne page (`legacyHashRoutes`),
+si bien que les liens partagés avant le changement continuent de marcher.
 
-- **Il n'y a jamais d'étape de construction.** Publier de la documentation, c'est
-  pousser un `.md` sur `main`. Le site le sert à la requête suivante.
-- **Le site n'a pas besoin d'être redéployé** quand le contenu change.
-- Le contenu doit rester **public**. `raw.githubusercontent.com` sur un dépôt
-  privé demanderait un jeton, qu'une page statique ne peut pas porter.
+> **Ce que le changement a modifié.** L'ancien lecteur allait chercher le
+> Markdown sur GitHub à chaque affichage : un `.md` poussé apparaissait sans
+> redéploiement. Le site est désormais construit, donc **le contenu arrive aux
+> lecteurs quand la ressource est redéployée**. Avec le déploiement automatique à
+> chaque push, qui est le réglage habituel de Coolify, cela revient au même
+> quelques minutes plus tard. En échange, les pages ne dépendent plus de la
+> réponse de GitHub, et elles portent la recherche, les deux langues et les blocs
+> interactifs.
 
-> **La réciproque est le piège.** Tout ce qui est dans `docs-site/` —
-> `index.html`, `mocky.css`, la favicon, les fichiers Docsify copiés — est servi
-> par la ressource déployée, et non lu depuis GitHub. Pousser une modification de
-> ces fichiers sur `main` ne change **rien** tant que la ressource statique n'a
-> pas été **redéployée**.
->
-> Autrement dit : une faute corrigée dans un `.md` apparaît au chargement
-> suivant ; une nouvelle favicon, un titre modifié, une retouche de la feuille de
-> style ou une montée de version de Docsify n'apparaissent qu'après un
-> redéploiement.
-
-### Anti-cache : incrémentez `?v=` dès que vous touchez à `docs-site/`
-
-Chaque ressource locale d'`index.html` est demandée avec un marqueur de
-version :
-
-```html
-<link rel="stylesheet" href="./mocky.css?v=2">
-```
-
-**Vous modifiez un fichier de `docs-site/` → incrémentez ce numéro sur toutes les
-ressources.**
-
-Sans lui, un redéploiement peut laisser un visiteur exécuter le **nouvel
-`index.html` avec l'ancien `mocky.css`**. Les hébergements statiques servent les
-feuilles de style avec une durée de cache longue, et un navigateur garde une
-feuille de style bien plus longtemps que le HTML qui la référence.
-
-Ce n'est pas théorique : c'est arrivé, et cela ne ressemblait pas à un problème
-de cache. La page était toujours habillée — simplement avec les règles d'une
-révision antérieure — donc cela se lisait comme un défaut de style dans du code
-qui était en réalité déjà correct.
-
-Il n'y a pas d'étape de construction ici pour signer les noms de fichiers, donc
-le marqueur se tient à la main. C'est un seul nombre, dans un seul fichier.
-
-### Déployer `docs-site/`
-
-N'importe quel hébergement statique convient. Sur Coolify : une ressource
-**statique**, répertoire de publication `docs-site/`, aucune commande de
-construction, aucun volume.
-
-Les fichiers :
-
-| Fichier | Origine |
-|---|---|
-| `index.html` | Écrit pour ce projet |
-| `mocky.css` | Écrit pour ce projet — l'aspect de Mocky, transposé de `src/styles/tokens.css` |
-| `favicon.ico` | Copié depuis `public/favicon.ico` — l'icône de l'application |
-| `logo.png` | Le même dessin, rendu une fois en 128 px pour le sommaire |
-| `vendor/docsify.min.js` | docsify 4.13.1 — `lib/docsify.min.js` |
-| `vendor/docsify-theme.css` | docsify 4.13.1 — `lib/themes/vue.css`, modifié |
-| `vendor/docsify-search.min.js` | docsify 4.13.1 — `lib/plugins/search.min.js` |
-
-### L'aspect
-
-`mocky.css` est chargé après le `vue.css` copié localement, et le remplace. Les
-valeurs ne sont pas inventées : elles sont transposées de
-`src/styles/tokens.css` et de `tailwind.config.js`, pour que la documentation et
-l'application soient d'accord.
-
-Ce que cela donne, repris du fichier de jetons de l'application — *noir et
-blanc, filets d'un pixel, aucun arrondi, aucune ombre, un seul aplat de
-signature* :
-
-| Élément | Traitement |
-|---|---|
-| Fond | Papier journal, pas blanc d'écran. Le `#fff` pur se lit comme « application » |
-| Titres | La pile serif, resserrée. Aucune police n'est téléchargée — ces polices sont livrées avec Windows et macOS, donc la page n'a besoin d'aucune requête vers un tiers |
-| Titres de groupe du sommaire | Un cavalier : 11 px, majuscules, interlettrage `0.14em`, avec un filet dessous |
-| Liens du sommaire | Un chevron à gauche, et le vert de la maison sur la page active |
-| Angles | `0` partout, comme dans l'application |
-| Accent | Le vert du logo, seule couleur chromatique de l'habillage |
-
-Une surprise de structure mérite d'être connue avant d'y toucher. Docsify rend
-un groupe du sommaire sous la forme `<li>Architecture<ul>…</ul></li>` : **le
-titre est un nœud texte nu**, pas un élément. La règle `.sidebar li > p` du
-thème vue ne correspond donc à rien. La typographie est par conséquent posée sur
-le `<li>`, chaque lien enfant la réinitialise, et le filet du groupe est dessiné
-comme la bordure haute de la liste imbriquée — ce qui le place exactement sous le
-titre.
-
-### Le sélecteur de thème
-
-Un bouton en bas du sommaire, et la préférence est retenue.
-
-Le thème est appliqué par un script en ligne dans le `<head>`, de façon
-synchrone, avant le premier affichage. C'est la même astuce et la même raison que
-dans l'`index.html` de l'application : l'exécuter plus tard signifie que la
-première image est déjà à l'écran, donc ouvrir la page en thème sombre provoque
-un éclair de clair à chaque chargement.
-
-Sans préférence enregistrée, il suit le système d'exploitation via
-`prefers-color-scheme`. La clé est `mocky.docs.theme`, réservée à la
-documentation : c'est une origine différente de celle de l'application, donc les
-deux préférences ne peuvent de toute façon pas être partagées.
-
-### La favicon
-
-L'onglet de la documentation porte la même icône que l'onglet de l'application.
-Le fichier est copié plutôt que lié, pour que `docs-site/` reste autonome et
-n'aille rien chercher sur un autre serveur.
-
-C'est le `.ico` et non le `.svg`, volontairement. `public/favicon.svg` est un PNG
-de 1141×1107 enveloppé dans un élément SVG : 665 Ko, qu'une page de documentation
-redemanderait à chaque navigation. Le `.ico` contient le même dessin en 16, 32 et
-48 px pour 15 Ko, et tous les navigateurs le lisent.
-
-Si l'icône de l'application change, recopiez-la :
+### Prévisualiser en local
 
 ```bash
-cp public/favicon.ico docs-site/favicon.ico
+npm run docs
 ```
 
-Puis **redéployez la ressource statique** — voir l'avertissement plus haut. Une
-favicon poussée sur `main` mais pas redéployée laisse l'onglet afficher l'icône
-de document vierge du navigateur, ce qui est exactement l'aspect d'une favicon
-absente.
+Cela sert le site sur `http://127.0.0.1:4173` et le reconstruit à chaque
+enregistrement, dans les deux langues. Avant de pousser une modification de la
+documentation :
 
-Les navigateurs mettent aussi une favicon en cache de façon agressive, y compris
-son *absence*. Après un redéploiement, vérifiez avec un rechargement forcé, ou en
-ouvrant directement `<votre-domaine>/favicon.ico` : il doit répondre `200` avec
-`image/x-icon`.
-
-### Le titre de l'onglet
-
-Docsify nomme l'onglet d'après le **premier lien du sommaire qui correspond à la
-route courante**. Le bloc de langue est en tête du sommaire et son entrée
-anglaise pointe vers `/` : la page d'accueil s'est donc retrouvée intitulée
-« English », et l'accueil français « Français » — le nom de la langue, pas celui
-de la page.
-
-Un petit plugin dans `index.html` fixe lui-même le titre à chaque route :
-`Doc Mocky` sur les pages d'accueil, `Doc Mocky — <page>` ailleurs. Le nom du
-site vient en premier parce qu'un onglet de navigateur est étroit, et que les
-premiers caractères sont les seuls que l'on lise.
-
-### Pourquoi Docsify est copié localement
-
-La même règle que `public/vendor/` côté application, pour la même raison.
-
-Le thème d'origine commence par :
-
-```css
-@import url("https://fonts.googleapis.com/css?family=Roboto+Mono|Source+Sans+Pro:300,400,600");
+```bash
+npm run docs:check
 ```
 
-C'est une requête vers un CDN tiers à chaque chargement de page, c'est-à-dire
-exactement la dépendance que la copie locale existe pour supprimer. La ligne a
-été retirée, et ce retrait est documenté en tête du fichier. Les deux familles de
-polices déclarent déjà des solutions de repli locales dans les règles qui
-suivent, donc rien d'autre ne change.
+La commande échoue sur un lien cassé, une image qui n'existe pas, ou un bloc que
+Lumy ne connaît pas. L'intégration continue la lance à chaque push. L'ancien
+lecteur, lui, montrait ces erreurs aux lecteurs.
 
-**À refaire après toute montée de version de Docsify.**
+### Déployer le site
 
-### Les langues
+| Réglage Coolify | Valeur | Pourquoi |
+|---|---|---|
+| Type de build | **Dockerfile** | |
+| Dockerfile | `./docs-site/Dockerfile`, contexte de build à la racine du dépôt | Il a besoin de `docs/` et de `docs-site/` |
+| Port exposé | `4000` | |
+| Sonde de santé | `GET /_lumy/api/health` | |
+| Volume persistant | monté sur `/data` | Le compte du tableau de bord et les retours des lecteurs. Les pages elles-mêmes sont reconstruites à chaque démarrage |
+| Domaine | `mocky-docs.emanuelvigreux.fr` | Le proxy de Coolify termine le TLS |
 
-L'anglais est la langue par défaut et vit à la racine de `docs/`. Le français vit
-sous `docs/fr/`, avec son propre `_sidebar.md`.
+Variables à définir dans Coolify :
 
-`index.html` renvoie chaque demande de sommaire imbriqué vers le bon fichier :
-
-```js
-alias: {
-  '/fr/.*_sidebar.md': '/fr/_sidebar.md',
-  '/.*_sidebar.md': '/_sidebar.md',
-}
+```bash
+LUMY_TRUST_PROXY=1               # le proxy de Coolify est devant
+LUMY_ADMIN_USER=…                # crée le compte du tableau de bord au premier démarrage
+LUMY_ADMIN_PASSWORD=…
+LUMY_SECRET=…                    # chiffre les clés d'API enregistrées dans le tableau de bord
 ```
 
-L'ordre compte : la règle `/fr/` doit venir en premier, parce que Docsify renvoie
-la première correspondance et que `/.*/_sidebar.md` correspondrait aussi à un
-chemin français.
+**Définissez les deux variables `LUMY_ADMIN_*` avant le premier déploiement.**
+Comme dans Mocky, le premier compte créé devient l'administrateur ; sur un
+domaine public, la première personne à ouvrir `/_lumy/setup` l'obtiendrait
+sinon.
 
-`fallbackLanguages: ['fr']` fait qu'une page française qui n'existe pas retombe
-sur son équivalent anglais au lieu d'afficher une erreur.
+Lire ne demande aucun compte : le site est public et les inscriptions restent
+fermées. Le compte ouvre seulement le tableau de bord, sur `/_lumy/admin`, où
+arrivent les réponses à « Cette page vous a-t-elle aidé ? », chacune avec sa
+page et, quand le lecteur l'a écrit, ce qui manquait. C'est aussi là que
+l'assistant de lecture de Lumy pourra être activé plus tard, avec un Ollama
+local ou un modèle hébergé.
 
-### Le sélecteur de langue
+Un hébergeur statique ordinaire convient aussi : `npm run docs:build` écrit le
+site dans `docs-site/dist/`. Passez d'abord `"feedback": false` dans
+`lumy.config.json`, puisqu'un hébergeur statique n'a nulle part où envoyer les
+réponses.
 
-Deux onglets sous la manchette, construits par un plugin dans `index.html` —
-**et non** une entrée de `_sidebar.md`.
+### Les traductions
 
-Cette distinction a été apprise à la dure. En tant que groupe du sommaire, le
-lien anglais pointait vers `/`, c'est-à-dire la même route que « Home ». Or
-Docsify marque comme page active le **premier** lien du sommaire correspondant à
-la route courante, et accroche sous lui le sommaire de cette page. Sur la page
-d'accueil, le bloc de langue devenait donc l'élément actif et avalait toute la
-table des matières, avec « Français » échoué en dessous. Choisir une langue est
-une préférence, comme le thème ; ce n'est pas une page de l'arborescence, et le
-sommaire ne liste plus que des documents.
+Chaque page française commence par un `source_hash` : l'empreinte de la page
+anglaise qu'elle traduit. Quand la page anglaise change, l'empreinte ne
+correspond plus, la page française prévient ses lecteurs qu'elle peut être en
+retard, et `npm run docs:check` la signale.
 
-Chaque onglet porte un petit drapeau dessiné en **SVG en ligne**, et non en
-emoji : les emoji d'indicateur régional (🇬🇧, 🇫🇷) s'affichent comme de simples
-paires de lettres sous Windows, qui est la plateforme de développement de ce
-projet. Chaque drapeau porte aussi un filet d'un pixel — sans lui, la bande
-blanche du drapeau français disparaît sur le fond du sommaire et le drapeau se
-lit comme deux rectangles séparés.
+Après avoir mis une traduction à jour, enregistrez-le :
 
-La langue courante est signalée par `aria-current`, et pas seulement par la
-couleur.
+```bash
+npx lumy translations --root docs-site --stamp fr/deployment
+```
+
+`--stamp fr` enregistre toutes les pages françaises d'un coup — seulement après
+les avoir toutes vérifiées. Le journal des modifications fait exception :
+`scripts/build-changelog.mjs` écrit les deux langues à partir du même
+historique, sa page française porte donc `generated: true` et n'est jamais
+comptée comme en retard.
+
+`tests/docs-parity.test.js` tient les deux arborescences au pas : les mêmes
+pages, les mêmes titres aux mêmes niveaux, et un bloc `:::why` argumenté sous
+chaque titre des trois documents qui expliquent leurs décisions.
+
+### Les blocs propres à Mocky
+
+Deux pages montrent les vraies données plutôt qu'une copie : `:::widget presets`
+dessine la galerie des presets et `:::widget rules` les règles de qualité.
+`docs-site/widgets.js` les déclare tous deux auprès de Lumy et lit
+`docs-site/data/*.json`, que `scripts/build-docs-data.mjs` génère à partir des
+sources de l'application. `npm run check:docs-data` échoue quand les deux
+divergent.
+
+Le texte à l'intérieur de chaque bloc sert de repli : c'est ce que la recherche
+indexe, et ce que voit un lecteur sans JavaScript.
 
 ### Ajouter une page
 
-1. Créez le fichier `.md` sous `docs/`, et sa traduction sous `docs/fr/`.
-2. Ajoutez-le à `docs/_sidebar.md` et à `docs/fr/_sidebar.md`.
-3. Poussez.
+1. Créez le fichier `.md` sous `docs/`, et sa traduction sous `docs/fr/` au même
+   chemin.
+2. Ajoutez son chemin, sans `.md`, à `nav` dans `docs-site/lumy.config.json`.
+   Donnez-lui une `audience` si elle ne s'adresse qu'à un type de lecteur.
+3. Lancez `npm run docs:check`, puis poussez.
 
-Deux règles font que les liens fonctionnent :
+Les liens sont des liens Markdown ordinaires, **relatifs au fichier courant**,
+comme GitHub les lit : depuis `architecture/overview.md`, écrivez
+`invariants.md` pour sa voisine et `../deployment.md` pour cette page. Un lien
+qui sort de `docs/` — vers `src/` ou `server/` — ouvre le fichier sur GitHub.
 
-**Écrivez toujours les chemins depuis la racine de `docs/`**, jamais par rapport
-à la page courante. Depuis `architecture/overview.md`, écrivez
-`architecture/invariants.md`, pas `invariants.md`. Docsify résout tout depuis
-`basePath`.
-
-**`docs/README.md` est la page d'accueil obligatoire de Docsify.** Sans elle, le
-site affiche une erreur de chargement silencieuse au premier affichage. La même
-règle vaut pour `docs/fr/README.md` côté français.
+`docs/README.md` est la page d'accueil, et `docs/fr/README.md` l'accueil
+français.

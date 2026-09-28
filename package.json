@@ -22,7 +22,9 @@
     "docs:data": "node --experimental-strip-types scripts/build-docs-data.mjs",
     "check:docs-data": "node --experimental-strip-types scripts/check-docs-data.mjs",
     "backup": "node scripts/backup.mjs",
-    "docs": "node scripts/serve-docs.mjs"
+    "docs": "lumy dev --root docs-site --port 4173",
+    "docs:build": "lumy build --root docs-site",
+    "docs:check": "lumy check --root docs-site"
   },
   "overrides": {
     "@hono/node-server": "^2.0.5"

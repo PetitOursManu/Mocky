@@ -1,3 +1,7 @@
+---
+source_hash: d5ddc41942d9
+---
+
 # Démarrage
 
 ## Prérequis
@@ -17,8 +21,8 @@ indisponible au lieu d'échouer.
 
 ## Installation
 
-### Docker
-
+:::tabs group=install
+@tab Docker
 ```bash
 git clone https://github.com/PetitOursManu/Mocky.git
 cd Mocky
@@ -30,10 +34,8 @@ et les séquences vidéo sont conservés dans le volume `mocky-data`.
 
 Le port n'est publié que sur `127.0.0.1`. Plusieurs routes dépensent vos crédits
 de modèle, donc l'instance n'est pas joignable depuis le réseau tant que vous ne
-l'avez pas demandé. Voir [Déploiement](fr/deployment.md).
-
-### Développement local
-
+l'avez pas demandé. Voir [Déploiement](deployment.md).
+@tab Développement local {#dev}
 ```bash
 npm install
 npm run dev:all
@@ -41,18 +43,18 @@ npm run dev:all
 
 Puis ouvrez **http://localhost:5173**.
 
+:::warning
 Utilisez `dev:all`, pas `dev`. `npm run dev` ne lance que le serveur web, sans le
 back-end. Or Mocky exige un compte, et les comptes vivent sur le back-end : la
 boîte de connexion annoncera qu'elle ne peut pas le joindre. Muse, la
 bibliothèque média et la synchronisation sont indisponibles dans ce mode aussi.
+:::
 
 En développement, Vite renvoie `/api` et `/sso` vers `http://localhost:8787`, et
 sert lui-même `/__provider` par un middleware qui importe le module du back-end
 (`server/provider-proxy.js`). Les deux environnements appliquent donc la même
 protection contre le SSRF et la même liste de sous-chemins autorisés.
-
-### Compilation de production
-
+@tab Compilation de production {#prod}
 ```bash
 npm run build          # tsc && vite build  →  dist/
 npm start              # Express sert dist/, l'API et le proxy sur :8787
@@ -61,6 +63,7 @@ npm start              # Express sert dist/, l'API et le proxy sur :8787
 `npm start` sans `npm run build` démarre bien, mais chaque page est un 404 nu. Le
 serveur affiche un avertissement, et `/api/health` répond `503` avec
 `frontendBuilt: false`. C'est ce que lit la sonde de santé du conteneur.
+:::
 
 ---
 
@@ -70,19 +73,21 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 
 *La manchette est la même partout : les sections à droite, puis le thème et votre compte.*
 
-1. Ouvrez Mocky. La boîte de connexion apparaît et **ne peut pas être fermée**.
+:::steps id=first-run
+1. **Ouvrez Mocky.** La boîte de connexion apparaît et **ne peut pas être fermée**.
    Il n'existe pas de mode anonyme.
-2. Créez le premier compte. **Il devient l'administrateur de l'instance.** Il n'y
+2. **Créez le premier compte.** **Il devient l'administrateur de l'instance.** Il n'y
    a pas de procédure de mot de passe oublié, et promouvoir un autre compte se
    fait en éditant `server/data/users.json` à la main.
-3. Configurez un modèle de texte. Voir la section suivante.
-4. Décrivez un écran et générez-le.
+3. **Configurez un modèle de texte.** Voir la section suivante.
+4. **Décrivez un écran et générez-le.**
+:::
 
 ![Le composer : format, design, Muse, animations, demande](../assets/09-composer.png)
 
 *Le composer. Le format d’abord, puis les trois interrupteurs qui décident de ce que reçoit le modèle — la direction de design, Muse, et le mouvement.*
 
-Un projet garde **une seule** direction de design, pour que ses écrans aient
+Un projet garde **une seule** [[direction de design|direction]], pour que ses écrans aient
 l’air d’un produit et non de cinq esquisses. Elle est fixée par le premier écran
 généré, puis laissée tranquille. **Nouvelle direction** est l’exception : cochez
 la case et la demande que vous vous apprêtez à envoyer réécrit la direction pour
@@ -104,7 +109,7 @@ plan se recadre tout seul. Jusqu’à ce que vous vous déplaciez ou zoomiez à 
 main, geste qui vous rend la vue pour de bon. **Zoomer sur le dernier écran**
 saute vers celui que vous venez de générer, qui n’est pas forcément celui que
 vous avez sélectionné. Les deux sont dans
-[L’interface](fr/interface.md#la-barre-de-zoom), avec le reste de la barre.
+[L’interface](interface.md#la-barre-de-zoom), avec le reste de la barre.
 
 ![L'accueil : la liste des projets](../assets/02-home-projects.png)
 
@@ -224,7 +229,7 @@ Trois lectures méritent d'être connues avant d'agir sur ce tableau :
 En haut à droite de l'en-tête de section, à côté du mot **Utilisation**, se
 trouve le total de l'instance rapporté à `MOCKY_MAX_STORAGE_MB` — ou « sans
 plafond » quand cette variable vaut `0`. Voir le
-[Déploiement](fr/deployment.md).
+[Déploiement](deployment.md).
 
 ### Configurer OpenRouter
 
@@ -381,7 +386,7 @@ gratuit pour les particuliers, les organisations à but non lucratif et les
 sociétés jusqu'à trois salariés, et sa licence ne traite pas de la
 redistribution au sein d'un produit auto-hébergé — il vit donc dans une image
 séparée que personne ne construit par accident. Pourquoi toute la fonctionnalité
-est bâtie autour de cela est dans [Motion Ultra](fr/video-export.md).
+est bâtie autour de cela est dans [Motion Ultra](video-export.md).
 
 Trois étapes, dans cet ordre.
 
@@ -403,7 +408,7 @@ organisation, pas les comptes de cette instance**.
 |---|---|
 | Activer Motion Ultra | L’interrupteur maître. Fermé, personne n'exporte, quelle que soit la portée |
 | Portée | `Tout le monde`, ou une liste de comptes. Un administrateur n'est **pas** autorisé d'office — un rendu coûte du processeur et se compte par compte, donc l'accès s'accorde explicitement, y compris à soi-même |
-| URL du worker de rendu | `http://video-worker:3030` par défaut, c'est-à-dire le nom du service Compose sur un pont interne. Cela a l'air de ne pas pouvoir marcher : c'est la troisième dérogation réservée à l'administrateur au garde SSRF, et le raisonnement est dans [les invariants](fr/architecture/invariants.md) |
+| URL du worker de rendu | `http://video-worker:3030` par défaut, c'est-à-dire le nom du service Compose sur un pont interne. Cela a l'air de ne pas pouvoir marcher : c'est la troisième dérogation réservée à l'administrateur au garde SSRF, et le raisonnement est dans [les invariants](architecture/invariants.md) |
 | Clé de licence Remotion | Facultative. Stockée côté serveur, jamais renvoyée au navigateur. En renseigner une active la télémétrie sortante qu'un rendu sous licence exige à partir de Remotion 5.0 ; sans clé, le conteneur du worker n'a aucune sortie réseau |
 
 Le panneau sonde le worker et rapporte `Disponible` avec sa version,
@@ -445,7 +450,7 @@ dépôt, et lancés par le back-end en stdio. Le fichier livré en déclare un s
 Le routeur associe des **rôles** sémantiques au serveur qui expose un outil
 correspondant, ce qui permet d'en changer sans toucher au code. La santé est
 rapportée par `GET /api/mcp/status`. Les détails sont dans la page
-[moteur d'inspiration](fr/muse/inspiration-engine.md).
+[moteur d'inspiration](muse/inspiration-engine.md).
 
 Un fichier absent ou invalide n'est jamais fatal. Il donne une liste de serveurs
 vide, et Muse retombe sur sa bibliothèque de patterns hors ligne.

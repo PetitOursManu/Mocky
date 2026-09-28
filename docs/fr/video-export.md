@@ -1,3 +1,7 @@
+---
+source_hash: f58fed7f9980
+---
+
 # Motion Ultra — films
 
 Mocky transforme une liste d’images de la médiathèque en `.mp4`. Pas un écran,
@@ -9,7 +13,7 @@ conteneur absent d’une installation par défaut.
 sortie sous le nom « Export vidéo », qui nommait un format de fichier plutôt que
 ce qui est offert, puis s'est appelée « Motion ». Depuis 2026-09, toutes les
 chaînes que lit un utilisateur disent Motion Ultra — le nom du réglage de projet
-dont les pages sont bâties autour de ces films ([Motion Ultra — pages](fr/motion-ultra.md)),
+dont les pages sont bâties autour de ces films ([Motion Ultra — pages](motion-ultra.md)),
 parce que pour la personne qui se sert des deux, c'est une seule fonctionnalité,
 et deux noms pour elle, c'était un de trop. Rien en dessous n’a suivi — `server/video/`, `src/lib/video/`,
 `/api/video/*`, le profil compose `video-export` et les clés de traduction
@@ -19,7 +23,7 @@ identifiants qu’aucune interface n’imprime — et casserait la distinction d
 lettre ci-dessous, sur laquelle on trébuche déjà.
 
 Cette page traite des décisions. Ce que fait chaque contrôle est dans
-[l’interface](fr/interface.md) ; le contrat HTTP du worker lui-même est dans
+[l’interface](interface.md) ; le contrat HTTP du worker lui-même est dans
 `worker/video/README.fr.md`.
 
 ---
@@ -80,7 +84,7 @@ quelqu’un du code arbitraire écrit par le fournisseur qu’il a configuré, d
 conteneur qui contient un navigateur et un encodeur. Mocky exécute déjà du code
 écrit par un modèle dans l’aperçu, et il s’en sort parce que ce code tourne dans
 une iframe sans origine propre et sans accès à quoi que ce soit
-([I2](fr/architecture/invariants.md)). Un worker de rendu n’a pas de cage
+([I2](architecture/invariants.md)). Un worker de rendu n’a pas de cage
 équivalente : c’est un processus Node dont le métier est de toucher au système de
 fichiers et de lancer Chromium.
 
@@ -98,10 +102,10 @@ fréquences ; pas de `src`, donc aucun moyen de nommer une image absente de la
 bibliothèque.
 
 `imageId` est un SHA-256 de 64 caractères minuscules — une adresse dans la
-bibliothèque d’images de Mocky ([M8](fr/architecture/invariants.md)), jamais une
+bibliothèque d’images de Mocky ([M8](architecture/invariants.md)), jamais une
 URL. Accepter un emplacement ici donnerait au modèle un moyen de tirer des octets
 distants dans un fichier que Mocky hébergerait ensuite comme le sien, ce que
-[M2](fr/architecture/invariants.md) existe précisément pour interdire. En
+[M2](architecture/invariants.md) existe précisément pour interdire. En
 minuscules seulement, parce que `data/image-library/{hash}` est un chemin : `AB…`
 et `ab…` seraient deux noms pour un fichier sur un volume sensible à la casse, et
 un fichier à deux orthographes ailleurs — un échec de recherche qui ne se
@@ -2426,7 +2430,7 @@ de rendre son propre film dans ses propres couleurs.
 
 **Une direction illisible coûte les couleurs, jamais l’export.** L’utilisateur a
 déjà attendu dans une file ; `POST /render` répond 202 avec une remarque nommant
-ce qui a été abandonné ([Q1](fr/architecture/invariants.md)). Tout ou rien
+ce qui a été abandonné ([Q1](architecture/invariants.md)). Tout ou rien
 cependant : ne retirer que le champ fautif serait la réparation que cette
 fonctionnalité refuse partout ailleurs, et cela rendrait un film aux couleurs du
 projet avec la typographie de quelqu’un d’autre.
@@ -2522,7 +2526,7 @@ de demander est un appariement qu’aucun document de design n’a modéré. C�
 précisément le cas dont traite la section suivante : `resolveTheme` apparie ce
 qui reste non déclaré, chaque texte est mesuré contre la surface sur laquelle il
 est réellement peint, et celui qui ne peut pas franchir son plancher est dégradé
-plutôt que de faire échouer l’export ([Q1](architecture/invariants.md)). Le
+plutôt que de faire échouer l’export ([Q1](../architecture/invariants.md)). Le
 corpus de `composition.test.js` porte cette demande exacte — un vert foncé sur
 noir — pour que la garantie soit balayée sur les cinq palettes plutôt
 qu’argumentée.
@@ -2581,7 +2585,7 @@ un blanc générique franchirait tous les seuils et effacerait la direction
 artistique, ce que cet ordre existe précisément pour empêcher. Quand rien ne
 passe — une palette mi-ton sur une surface mi-ton peut réellement n’avoir aucune
 réponse — la paire la plus lisible trouvée est utilisée et l’export part quand
-même ([Q1](architecture/invariants.md)).
+même ([Q1](../architecture/invariants.md)).
 
 La liste se termine sur le noir pur (`INK_FLOOR`) et non sur le presque-noir que
 les compositions préfèrent, et cette dernière entrée relève de l’arithmétique et
@@ -2685,7 +2689,7 @@ l’utilisateur ne peut le corriger en reformulant quoi que ce soit.
 Une proposition qui n’a rien produit répond **`200` avec `timeline: null` et des
 remarques**, jamais une erreur 4xx. L’utilisateur dispose toujours de l’éditeur
 manuel avec lequel il a ouvert la fenêtre, et une proposition ratée n’est pas une
-requête ratée ([Q1](fr/architecture/invariants.md)).
+requête ratée ([Q1](architecture/invariants.md)).
 
 ### Deux copies du schéma, tenues ensemble par un test
 
@@ -2790,7 +2794,7 @@ moment de la saisie, plutôt que d’ouvrir la sortie réseau en silence.
 L’URL du worker de rendu est la **troisième dérogation réservée à
 l’administrateur** au garde SSRF de Mocky, à côté de la cible texte
 administrateur et de l’URL de base sd-webui. Elle est énumérée avec elles dans
-[les invariants](fr/architecture/invariants.md), et tout le raisonnement y vit
+[les invariants](architecture/invariants.md), et tout le raisonnement y vit
 plutôt que d’être répété ici — cette liste est courte et complète à dessein, et
 une dérogation défendue dans une page de fonctionnalité plutôt que dans les
 invariants est une dérogation que quelqu’un finit par retirer.
@@ -3154,7 +3158,7 @@ place :
 - **l’adressage par contenu** — le fichier porte le nom du SHA-256 de ses octets,
   donc deux personnes qui rendent des montages identiques partagent un fichier ;
 - **`owners` comme ensemble**, exactement comme
-  [M8](fr/architecture/invariants.md) l’exige : le magasin déduplique, donc la
+  [M8](architecture/invariants.md) l’exige : le magasin déduplique, donc la
   deuxième personne arrivée ne doit pas effacer la première, et `server/usage.js`
   répartit l’empreinte entre elles ;
 - **des écritures atomiques** — fichier temporaire puis renommage, dans le même
@@ -3578,7 +3582,7 @@ est précisément le sujet. La liste d’autorisation est ce que compte le rappo
 d’usage par compte, et un rôle qui accorderait l’accès implicitement ferait
 apparaître des rendus au nom de personne. Un administrateur qui veut la
 fonctionnalité s’ajoute à la liste, et le compte reste honnête. C’est la règle
-comptable de [M8](fr/architecture/invariants.md) appliquée au processeur plutôt
+comptable de [M8](architecture/invariants.md) appliquée au processeur plutôt
 qu’aux octets.
 
 En aval, la propriété est vérifiée à la sortie. `GET /api/video/:hash` vérifie la

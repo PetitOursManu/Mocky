@@ -1,12 +1,13 @@
 # DESIGN.md presets
 
-**English** · [Français](fr/design-presets.md)
-
-> **Why it works this way —** A DESIGN.md is not a setting, it is a document: a few colour tokens, a type scale and rules written out in words. Mocky ships 17 ready-made ones, applied in a click from the application's **DESIGN.md** page. They are shown here so the idea stops being abstract — each specimen is rendered from the tokens of the preset it names, rather than being a picture of one.
+:::why
+A DESIGN.md is not a setting, it is a document: a few colour tokens, a type scale and rules written out in words. Mocky ships 17 ready-made ones, applied in a click from the application's **DESIGN.md** page. They are shown here so the idea stops being abstract — each specimen is rendered from the tokens of the preset it names, rather than being a picture of one.
+:::
 
 ## The gallery
 
-<div data-mocky-widget="presets"></div>
+:::widget presets
+:::
 
 ## The list
 

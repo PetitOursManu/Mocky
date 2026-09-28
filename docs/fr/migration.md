@@ -1,3 +1,7 @@
+---
+source_hash: 53b47b017791
+---
+
 # Maintenance et migration de serveur
 
 Deux outils d'administration qui forment une seule procédure : le **mode
@@ -164,7 +168,7 @@ comptent.
   au même format fixe que `mocky auth`.
 
 L'adresse saisie sur le nouveau serveur est le **quatrième contournement du garde
-SSRF réservé à l'administrateur** (voir [les invariants](fr/architecture/invariants.md)) :
+SSRF réservé à l'administrateur** (voir [les invariants](architecture/invariants.md)) :
 passer d'une machine à l'autre sur un même réseau local est le cas ordinaire, et
 le garde refuse les adresses privées. Ce qu'il permettrait normalement — lire un
 service interne — il ne le permet pas ici : une réponse n'est utilisée que si elle

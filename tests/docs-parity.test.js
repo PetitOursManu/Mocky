@@ -12,22 +12,21 @@ import { fileURLToPath } from 'node:url'
  * créé cet écran", "More options", "Delete screen". The docs were heading the
  * same way: a French design system, an English ADR, a French audit, an English
  * README, and no way to tell which reader each was for. The fix is the one
- * already in `src/i18n` — a complete file per language, kept in step by a test —
- * transposed to Markdown: each document keeps its path and its language and
- * gains a twin suffixed with the other one.
+ * already in `src/i18n` — a complete file per language, kept in step by a test.
  *
- * On top of parity this guards the thing the twins exist for: under every
- * heading, a one-line block giving the reason the section is arranged the way it
- * is. Written by hand across four documents and eight files, that convention
- * decays silently — a heading added without its block, an ASCII hyphen typed
- * instead of an em dash, an English block pasted into the French file. Each of
- * those is a test failure here.
+ * Two families obey it. The READMEs sit side by side at the root, each carrying
+ * a language switch and, under every heading, a one-line block giving the
+ * reason the section is arranged the way it is. `docs/` is English and
+ * `docs/fr/` its French twin, path for path; that is the tree the Lumy site is
+ * built from, and Lumy draws the language switch itself.
  *
- * There is a SECOND mirror family, and it is checked at the bottom of this file:
- * `docs/` is English, `docs/fr/` is its French twin path for path. It does not
- * carry the "why" blocks or the language switch — those belong to the four
- * side-by-side documents above — but it obeys the same shape rule, and until now
- * nothing enforced it at all.
+ * The design system, the ADR and the audit used to be side-by-side twins too,
+ * with a language suffix. Moving the site to Lumy put them in the mirror like
+ * every other page, and their "why" blocks became `:::why` blocks, which the
+ * site folds away under the heading. The rule they carried did not move: a
+ * reason under every heading, checked below. Written by hand, that convention
+ * decays silently — a heading added without its block, an English block pasted
+ * into the French file. Each of those is a test failure here.
  *
  * The files are read as text, like the two tests above, so this needs no
  * Markdown parser and no DOM.
@@ -101,13 +100,8 @@ function normalizeSelector(line) {
     .trim()
 }
 
-/** The four documents. Each keeps its own language; the twin carries the other. */
-const DOCS = [
-  { en: 'README.md', fr: 'README.fr.md', htmlTitle: true },
-  { fr: 'docs/DESIGN-SYSTEM.md', en: 'docs/DESIGN-SYSTEM.en.md' },
-  { en: 'docs/adr/001-muse.md', fr: 'docs/adr/001-muse.fr.md' },
-  { fr: 'docs/AUDIT-2026-07.md', en: 'docs/AUDIT-2026-07.en.md' },
-]
+/** The side-by-side twins. Each keeps its own language; the twin carries the other. */
+const DOCS = [{ en: 'README.md', fr: 'README.fr.md', htmlTitle: true }]
 
 /** One entry per file, each knowing its language and the path back to its twin. */
 const FILES = DOCS.flatMap((doc) =>
@@ -308,9 +302,6 @@ describe.each(DOCS)('$en ↔ $fr', (doc) => {
  * thing in two languages cannot be compared by a regular expression, and a test
  * that pretended otherwise would be turned off the first time it was wrong.
  */
-/** The twin-suffixed documents live under `docs/` too, and are not mirrored there. */
-const TWINS = new Set(DOCS.flatMap((doc) => [doc.en, doc.fr]))
-
 /** Every `.md` under a directory, relative to it, skipping the mirror and the screenshots. */
 function markdownUnder(dir, base = dir) {
   return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((entry) => {
@@ -319,7 +310,7 @@ function markdownUnder(dir, base = dir) {
       // `fr/` is the mirror itself, and `assets/` holds the screenshots.
       return entry.name === 'fr' || entry.name === 'assets' ? [] : markdownUnder(rel, base)
     }
-    return entry.name.endsWith('.md') && !TWINS.has(rel) ? [rel.slice(base.length + 1)] : []
+    return entry.name.endsWith('.md') ? [rel.slice(base.length + 1)] : []
   })
 }
 
@@ -377,4 +368,44 @@ describe('README opening block', () => {
       expect(lines[opening].slice(WHY[lang].length).trim().length).toBeGreaterThanOrEqual(MIN_REASON)
     })
   }
+})
+
+/**
+ * The reasoned documents: a `:::why` block under every heading, in both
+ * languages. They were the side-by-side twins before the site moved to Lumy;
+ * the rule that made them worth reading came with them.
+ */
+const REASONED = ['DESIGN-SYSTEM.md', 'adr/001-muse.md', 'AUDIT-2026-07.md'].flatMap((rel) => [`docs/${rel}`, `docs/fr/${rel}`])
+
+describe.each(REASONED)('%s gives its reasons', (file) => {
+  const lines = read(file).split(/\r?\n/)
+
+  it('has a :::why block under every heading, with an actual reason in it', () => {
+    const missing = []
+    for (const h of headings(read(file))) {
+      let i = h.line
+      while (i < lines.length && lines[i].trim() === '') i++
+      if (lines[i]?.trim() !== ':::why') {
+        missing.push(`${file}:${h.line} ${'#'.repeat(h.level)} ${h.text} → found ${JSON.stringify((lines[i] ?? '').slice(0, 60))}`)
+        continue
+      }
+      let reason = ''
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ':::'; j++) reason += lines[j].trim() + ' '
+      if (reason.trim().length < MIN_REASON) missing.push(`${file}:${h.line} — a :::why block of ${reason.trim().length} chars`)
+    }
+    expect(missing.join('\n'), `${missing.length} heading(s) without a reason`).toBe('')
+  })
+})
+
+describe('docs/ carries no Docsify-era "why" quote', () => {
+  // The site folds `:::why` blocks away; a leftover `> **Why it works this way —**`
+  // quote would sit open in the middle of the page, and nothing else would notice.
+  const files = [...markdownUnder('docs').map((r) => `docs/${r}`), ...markdownUnder('docs/fr').map((r) => `docs/fr/${r}`)]
+  it.each(files)('%s', (file) => {
+    const strays = read(file)
+      .split(/\r?\n/)
+      .map((line, i) => (WHY_ISH.test(line) ? `${file}:${i + 1}` : null))
+      .filter(Boolean)
+    expect(strays).toEqual([])
+  })
 })

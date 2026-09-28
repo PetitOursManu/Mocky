@@ -1,3 +1,7 @@
+---
+source_hash: 7af7fd342a98
+---
+
 # Motion Ultra — pages
 
 Motion Ultra est un réglage de projet qui construit chaque nouvel écran comme une
@@ -8,7 +12,7 @@ et une **série d'images générées ensemble pour lui**.
 Les films portent le même nom, exprès : jusqu'en 2026-09 ils s'appelaient
 « Motion », et une personne qui bâtit une page autour d'un film ne se sert pas de
 deux fonctionnalités. La page, c'est ce réglage ; le film se fabrique dans le
-panneau Motion Ultra ([Motion Ultra — films](fr/video-export.md)) ; les deux peuvent
+panneau Motion Ultra ([Motion Ultra — films](video-export.md)) ; les deux peuvent
 vivre sur le même écran.
 
 ---
@@ -149,4 +153,4 @@ son propre menu.
 
 Les règles derrière — pourquoi le modèle nomme des traitements au lieu d'écrire
 du CSS, pourquoi le nombre d'images vous appartient, comment tout se dégrade —
-sont les invariants **U1 à U5** dans [Invariants](architecture/invariants.md).
+sont les invariants **U1 à U5** dans [Invariants](../architecture/invariants.md).

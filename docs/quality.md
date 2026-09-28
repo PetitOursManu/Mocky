@@ -285,7 +285,8 @@ colour or type move from *corrected* to *reported*, because with a direction in
 force the model was told to obey it. The reason recorded against each rule is
 printed under its name.
 
-<div data-mocky-widget="rules"></div>
+:::widget rules
+:::
 
 The table is generated from the `impeccable` registry, `catalog.js` and
 `policy.js` by `npm run docs:data`, and `npm run check:docs-data` fails the

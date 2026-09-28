@@ -38,6 +38,10 @@ jobs:
       # docs quietly showing last month's palette — into a red build.
       - name: Verify generated docs data
         run: npm run check:docs-data
+      # Builds the documentation aside and fails on a broken link, a missing
+      # image or a block Lumy does not know. Docsify showed those to readers.
+      - name: Check the documentation
+        run: npm run docs:check
       # Production dependencies only. The dev-server advisories (vite/esbuild)
       # do not apply to a deployment, where Express serves the built dist/.
       - name: Audit production dependencies

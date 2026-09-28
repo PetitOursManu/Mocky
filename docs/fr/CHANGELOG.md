@@ -1,8 +1,13 @@
+---
+generated: true
+source_hash: dba6bb7a44e1
+---
+
 # Journal des modifications
 
-[English](../CHANGELOG.md) · **Français**
-
-> **Pourquoi c’est ainsi —** Cette page est produite à partir de l’historique Git par `npm run changelog`. Les messages de commit de ce dépôt sont écrits en français : ils sont reproduits **tels quels**, sans traduction, parce qu’un intitulé traduit posé à côté d’une empreinte renvoie vers un commit dont le texte dit autre chose — et le lecteur ne peut alors chercher ni l’un ni l’autre.
+:::why
+Cette page est produite à partir de l’historique Git par `npm run changelog`. Les messages de commit de ce dépôt sont écrits en français : ils sont reproduits **tels quels**, sans traduction, parce qu’un intitulé traduit posé à côté d’une empreinte renvoie vers un commit dont le texte dit autre chose — et le lecteur ne peut alors chercher ni l’un ni l’autre.
+:::
 
 ## septembre 2026
 

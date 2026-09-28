@@ -101,9 +101,9 @@ dossier was written afresh on every generation. A project therefore accumulated
 one visual language per screen. The dossier is now a **candidate** direction
 rather than the authority — `resolveDirection` keeps the first one and discards
 the rest, and the later runs exist for their imagery plan, the one part of a
-dossier that was ever legitimately per-screen. See [D11](adr/001-muse.md).
+dossier that was ever legitimately per-screen. See [D11](../adr/001-muse.md).
 
-Full details are in the [inspiration engine](muse/inspiration-engine.md) page.
+Full details are in the [inspiration engine](inspiration-engine.md) page.
 
 ---
 
@@ -227,7 +227,7 @@ Without that sentence the model politely acknowledges the image and then uses th
 pattern's indigo anyway — which is exactly the failure the feature exists to fix.
 
 The media block is sanitized before it reaches any prompt or provider. See
-`sanitizeUserMedia()` in the [inspiration engine](muse/inspiration-engine.md)
+`sanitizeUserMedia()` in the [inspiration engine](inspiration-engine.md)
 page.
 
 ---
@@ -376,7 +376,7 @@ Muse is built to respect the sites it learns from.
   key and no account**.
 
 These are invariants M2, M4, M5 and M7. See
-[Invariants](architecture/invariants.md).
+[Invariants](../architecture/invariants.md).
 
 ---
 

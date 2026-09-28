@@ -1,3 +1,7 @@
+---
+source_hash: 3dd279074f9f
+---
+
 # Vue d'ensemble de Muse
 
 ## Le problème que Muse résout
@@ -108,10 +112,10 @@ génération. Un projet accumulait donc une langue visuelle par écran. Le dossi
 est désormais une direction **candidate** plutôt que l'autorité —
 `resolveDirection` garde le premier et écarte les suivants, ceux-ci n'existant
 plus que pour leur plan d'imagerie, la seule partie d'un dossier qui ait jamais
-été légitimement propre à un écran. Voir [D11](adr/001-muse.fr.md).
+été légitimement propre à un écran. Voir [D11](../adr/001-muse.md).
 
 Le détail complet est dans la page
-[moteur d'inspiration](fr/muse/inspiration-engine.md).
+[moteur d'inspiration](inspiration-engine.md).
 
 ---
 
@@ -243,7 +247,7 @@ pour corriger.
 
 Le bloc média est nettoyé avant d'atteindre le moindre prompt ou fournisseur.
 Voir `sanitizeUserMedia()` dans la page
-[moteur d'inspiration](fr/muse/inspiration-engine.md).
+[moteur d'inspiration](inspiration-engine.md).
 
 ---
 
@@ -412,7 +416,7 @@ Muse est construit pour respecter les sites dont il apprend.
   demande **aucune clé d'API ni aucun compte**.
 
 Ce sont les invariants M2, M4, M5 et M7. Voir
-[Invariants](fr/architecture/invariants.md).
+[Invariants](../architecture/invariants.md).
 
 ---
 

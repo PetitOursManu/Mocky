@@ -17,8 +17,8 @@ unavailable rather than failing.
 
 ## Install
 
-### Docker
-
+:::tabs group=install
+@tab Docker
 ```bash
 git clone https://github.com/PetitOursManu/Mocky.git
 cd Mocky
@@ -31,9 +31,7 @@ sequences persist in the `mocky-data` volume.
 The port is published on `127.0.0.1` only. Several routes spend your model
 credits, so the instance is not reachable from the network until you say so. See
 [Deployment](deployment.md).
-
-### Local development
-
+@tab Local development {#dev}
 ```bash
 npm install
 npm run dev:all
@@ -41,18 +39,18 @@ npm run dev:all
 
 Then open **http://localhost:5173**.
 
+:::warning
 Use `dev:all`, not `dev`. `npm run dev` starts the web server alone, with no back
 end. Mocky requires an account and accounts live on the back end, so the sign-in
 box will report that it cannot reach it. Muse, the media library and syncing are
 unavailable in that mode too.
+:::
 
 In development, Vite proxies `/api` and `/sso` to `http://localhost:8787`, and
 serves `/__provider` itself through a middleware that imports the back end's own
 module (`server/provider-proxy.js`). Both environments therefore apply the same
 SSRF guard and the same allowed-subpath list.
-
-### Production build
-
+@tab Production build {#prod}
 ```bash
 npm run build          # tsc && vite build  →  dist/
 npm start              # Express serves dist/, the API and the proxy on :8787
@@ -61,6 +59,7 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 `npm start` without `npm run build` starts successfully but every page is a bare
 404. The server prints a warning, and `/api/health` answers `503` with
 `frontendBuilt: false`. That is what the container health check reads.
+:::
 
 ---
 
@@ -70,19 +69,21 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 
 *The masthead is the same on every screen: the sections on the right, then the theme switch and your account.*
 
-1. Open Mocky. The sign-in box appears and **cannot be dismissed**. There is no
+:::steps id=first-run
+1. **Open Mocky.** The sign-in box appears and **cannot be dismissed**. There is no
    anonymous mode.
-2. Create the first account. **It becomes the instance administrator.** There is
+2. **Create the first account.** **It becomes the instance administrator.** There is
    no password-reset flow, and promoting another account means editing
    `server/data/users.json` by hand.
-3. Configure a text model. See the next section.
-4. Describe a screen and generate it.
+3. **Configure a text model.** See the next section.
+4. **Describe a screen and generate it.**
+:::
 
 ![The composer: format, design, Muse, animations, prompt](assets/09-composer.png)
 
 *The composer. Format first, then the three switches that decide what the model is given — the design direction, Muse, and motion.*
 
-A project keeps **one** design direction, so its screens look like one product
+A project keeps **one** [[design direction|direction]], so its screens look like one product
 rather than five sketches. It is set by the first screen you generate and then
 left alone. **New direction** is the exception: tick it and the prompt you are
 about to send rewrites the direction for every screen after it. It unticks

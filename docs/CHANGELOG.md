@@ -1,8 +1,8 @@
 # Changelog
 
-**English** · [Français](fr/CHANGELOG.md)
-
-> **Why it works this way —** This page is generated from the Git history by `npm run changelog`. Commit messages in this repository are written in French, and are reproduced **verbatim** rather than translated: a translated subject sitting beside a hash points at a commit whose text says something else, and the reader can then search for neither.
+:::why
+This page is generated from the Git history by `npm run changelog`. Commit messages in this repository are written in French, and are reproduced **verbatim** rather than translated: a translated subject sitting beside a hash points at a commit whose text says something else, and the reader can then search for neither.
+:::
 
 ## September 2026
 
