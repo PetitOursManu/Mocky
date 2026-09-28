@@ -10,6 +10,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `admin` | tableau de bord d'administration en direct | `7f6ee0e` |
 | `admin` | mode maintenance et migration vers un nouveau serveur | `d526746` |
 | `site` | les images du site remplacées par des photos libres ou générées | `9f971a0` |
 | `composer` | captures d'un site existant, à reproduire ou à refondre | `5fb8c03` |
@@ -82,6 +83,7 @@
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | tableau de bord d'administration, invariants D1–D5 | `8d3ca06` |
 | — | maintenance et migration de serveur, README et architecture | `0fc16a7` |
 | `readme` | reproduire ou refondre un site existant | `ce5838d` |
 | — | plus de bouton d'animation ni de film automatique — pages, invariants et changelog à jour | `183c132` |
