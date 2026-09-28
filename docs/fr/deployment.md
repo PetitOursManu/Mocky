@@ -199,6 +199,31 @@ Le worker ne publie aucun port et son pont n’a aucune route vers l’extérieu
 rien là-dedans n’expose quoi que ce soit de nouveau. Une clé de licence Remotion
 est la seule exception, et le fichier compose dit où la décommenter.
 
+### La carte graphique dans Docker
+
+Administration → Système affiche la carte graphique de la machine quand il y en a
+une (voir [Le tableau de bord d’administration](fr/admin-dashboard.md#la-carte-graphique)).
+Mocky n’en a pas besoin ; la carte est affichée pour ce qui tourne d’autre sur la
+machine. Hors de Docker, rien à faire. Dans un conteneur :
+
+- **AMD, Intel** — le conteneur voit le `/sys/class/drm` de l’hôte : l’utilisation
+  d’une carte AMD se lit sans rien configurer ; un iGPU Intel apparaît présent mais
+  non mesurable.
+- **NVIDIA** — le conteneur ne voit pas `nvidia-smi` tant que l’hôte n’a pas le
+  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+  et que le service ne demande pas la carte. `docker-compose.gpu.yml` est cette
+  demande, par-dessus le fichier habituel :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+```
+
+C’est un fichier à part plutôt qu’une ligne de `docker-compose.yml`, parce qu’une
+réservation de GPU fait REFUSER à Compose de démarrer le service sur un hôte sans
+le toolkit — le fichier par défaut doit démarrer partout. Il ne demande que la
+capacité `utility` : de quoi faire tourner `nvidia-smi`, rien qui permette au
+conteneur de calculer sur la carte.
+
 ---
 
 ## Les variables d'environnement

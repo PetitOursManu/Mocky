@@ -102,7 +102,7 @@ No font is downloaded. The serif stack relies on faces shipped with the system (
 
 > **Why it works this way —** An icon has to take the colour of the text beside it and draw the same for everyone; an emoji can do neither, because it is a small colour image supplied by the operating system, and a different one under Windows, macOS and Android. A vector path painted in `currentColor` — the CSS keyword that picks up the text colour currently in force — inherits the theme instead, without being told to, and is sized like a character.
 
-`src/ui/Icon.tsx` — 38 vector icons in `currentColor`.
+`src/ui/Icon.tsx` — 48 vector icons in `currentColor`.
 
 ```tsx
 import { Icon, IconButton } from '../ui'

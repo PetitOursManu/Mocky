@@ -15,6 +15,7 @@
 - [Motion Ultra — films](fr/video-export.md)
 - [Déploiement](fr/deployment.md)
 - [Maintenance et migration](fr/migration.md)
+- [Tableau de bord d’administration](fr/admin-dashboard.md)
 - [Journal des modifications](fr/CHANGELOG.md)
 - Références
   - [ADR 001 — Muse](adr/001-muse.fr.md)

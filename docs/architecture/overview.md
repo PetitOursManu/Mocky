@@ -915,8 +915,9 @@ another.
 | Path under `server/data/` | Contents |
 |---|---|
 | `users.json` | Accounts: scrypt salt and hash, role, `dashySub` |
-| `sessions.json` | Token → `{ u: userId, t: timestamp }` |
-| `config.json` | `{ allowRegistration, maintenance }` — the second is `{ on, message, since }`, and it travels with a migration, which is why an imported instance boots read-only |
+| `sessions.json` | Token → `{ u: userId, t: timestamp, c: opened, ua: "Firefox 131 · Windows", ip }` — the device is a summary, never the header. Only a hash of the token ever reaches the admin dashboard (D2) |
+| `config.json` | `{ allowRegistration, maintenance, announcement }` — the second is `{ on, message, since }`, and it travels with a migration, which is why an imported instance boots read-only; the third is the administrator's banner, `{ id, message, tone, createdAt, startsAt, expiresAt }` — its dates in the text are `{{datetime:ISO}}` instants, written out by each browser in its own zone |
+| `audit.jsonl` | Admin → Audit log: one JSON object per line, the last 2,000. Sign-ins, accounts, sessions, settings (field NAMES only), maintenance, announcements, migrations. The one dashboard store on disk (D4) |
 | `sso-jti.json` | Consumed SSO token ids, pruned after 10 minutes |
 | `data-<uuid>.json` | One user's projects and design |
 | `avatars/<userId>` | One file per account that uploaded a picture. Counted as `bytes.avatar` in the usage report |
@@ -949,6 +950,7 @@ nothing inside them may grow without a ceiling.
 | `GET /api/config` | — | Registration open?, setup mode, SSO, instance model (no secrets) |
 | `POST /api/register`, `/api/login` | rate-limited | The first account becomes administrator |
 | `POST /api/logout`, `GET /api/me` | cookie | `/api/me` answers `200 { user: null }`, not `401` |
+| `POST /api/presence` | session | A tab's heartbeat — or its goodbye, as a beacon. `204`; not counted as activity, allowed during maintenance (D5) |
 | `POST /api/account/password` | session, rate-limited | Revokes every session and issues a fresh one |
 | `GET /sso/dashy/callback` | rate-limited | Verifies the HS256 token, finds or creates the account |
 | `GET`/`PUT` `/api/admin/config`, `/users`, `…/password`, `DELETE /users/:id` | admin | Instance and user management |
@@ -975,6 +977,9 @@ nothing inside them may grow without a ceiling.
 | `GET /api/video/jobs/:id` | session | `403`, not `404`, on someone else's job: a job carries the timeline, and a timeline carries their overlay text |
 | `GET /api/video/:hash` | session | The finished film. **Never public** — ownership is checked before existence, so an unknown hash and a stranger's answer alike |
 | `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | The licence key leaves as `hasLicenseKey`, a boolean |
+| `GET /api/admin/dashboard/overview`, `/live` | admin | The dashboard: an hour of samples and events, then Server-Sent Events every 2 s. The stream re-checks the admin on every tick and ends with `event: bye` when that stops being true |
+| `GET /api/admin/dashboard/sessions`, `DELETE …/sessions/:id`, `POST …/users/:id/signout` | admin | Sessions by hash of their token (D2). Your own session is refused (`400`) — sign out instead |
+| `GET /api/admin/dashboard/audit`, `PUT`/`DELETE …/announcement` | admin | The audit log, newest first, by group; the announcement, published through `GET /api/config` once its `startsAt` has passed — the dashboard sees it `scheduled` before that |
 | `GET`/`PUT` `/api/admin/maintenance` | admin | Read-only mode. While on, every non-`GET` from a non-admin answers `503 { code: 'maintenance' }`, sign-in and sign-out excepted — see `server/maintenance.js` |
 | `GET`/`POST`/`DELETE` `/api/admin/migration/source` | admin; `POST` re-asks the password | The pairing code of the OLD server. Shown once, held in memory only, 24 h |
 | `GET /api/admin/migration/import`, `POST …/connect`, `…/pass`, `…/cancel`, `…/disconnect`, `…/verify`, `…/finalize` | admin; `finalize` re-asks the password | The NEW server's side: check, pull, swap, restart. `connect` fetches an admin-typed URL — the fourth SSRF bypass |

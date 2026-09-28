@@ -58,6 +58,7 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 | Compose an `.mp4` for a screen out of a catalogue of blocks — and know why its renderer ships separately | [Motion Ultra](video-export.md) |
 | Deploy Mocky | [Deployment](deployment.md) |
 | Put the instance in read-only mode, or move it to another server | [Maintenance and migration](migration.md) |
+| See who is connected, what the machine is doing, and who changed what | [Admin dashboard](admin-dashboard.md) |
 
 ---
 

@@ -8,13 +8,14 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a quatre séries :
+Il y a cinq séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
 - **M1 à M8**, apportés par Muse.
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
+- **D1 à D5**, apportés par le tableau de bord d’administration.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -801,6 +802,89 @@ vide sur une page sans titre.
 **Comment c'est vérifié.** `quality.test.js` (la politique), `ultra.test.ts` (la
 place du film et `ultraLoss`), et `tests/ultra-off.test.js`, qui exige aussi
 qu'aucun film ne soit jamais fabriqué tout seul.
+
+---
+
+## Série D — le tableau de bord d’administration
+
+Ces cinq-là sont arrivés avec le tableau de bord (`server/admin/`,
+`src/components/admin/`, [sa page](fr/admin-dashboard.md)) : la première partie de
+Mocky qui observe les autres, et donc la première qui pourrait apprendre — et
+montrer à quelqu’un d’autre — ce que les gens en font.
+
+### D1. Le tableau de bord note le type de travail, jamais son contenu
+
+**La règle.** Un événement d’activité contient qui, quel type, quel fournisseur,
+combien de temps et comment cela s’est terminé — un mot et un statut HTTP. Jamais
+un prompt, un brief, un nom de projet ou d’écran, ni le texte d’erreur d’un
+fournisseur. Ce à quoi sert un appel au modèle arrive dans `x-mocky-purpose` et se
+lit dans une liste fermée ; tout le reste est une génération.
+
+**Ce que ça protège.** Les utilisateurs de l’instance, vis-à-vis de leur
+administrateur. L’administrateur a choisi « le type d’action seulement », et la
+façon la plus sûre de le respecter est de ne pas collecter le reste : un message
+d’erreur peut citer le prompt qu’il refuse, alors même le texte « anodin » est
+réduit à une issue. Un motif en texte libre laisserait n’importe quel appelant
+mettre les mots de son choix sur l’écran de l’administrateur.
+
+**Comment c'est vérifié.** `server/admin/activity.test.js` (un motif hors liste
+est une génération), `dashboard-e2e.test.js` (le journal ne contient jamais le mot
+de passe essayé).
+
+### D2. Un jeton de session ne quitte jamais le serveur
+
+**La règle.** L’écran Sessions affiche et ferme une session par une empreinte de
+son jeton. Le jeton lui-même n’est jamais sérialisé dans une réponse.
+
+**Ce que ça protège.** Le jeton est l’identifiant. Un écran qui listerait les
+jetons ferait de chaque capture d’écran, de chaque ticket de support, de chaque
+extension qui lit la page un moyen de devenir n’importe quel utilisateur.
+
+**Comment c'est vérifié.** `server/admin/sessions.test.js` et
+`dashboard-e2e.test.js`, qui lit le vrai `sessions.json` et exige qu’aucune de ses
+clés n’apparaisse dans la liste.
+
+### D3. Les pourcentages se calculent sur ce que Mocky a le droit d’utiliser
+
+**La règle.** Dans un conteneur, le processeur se mesure sur le quota du cgroup et
+la mémoire sur sa limite (mémoire de travail, pas usage brut) ; le matériel de
+l’hôte ne donne l’échelle qu’en dehors d’un conteneur.
+
+**Ce que ça protège.** La seule lecture pour laquelle l’écran existe. Sur un hôte
+de 32 cœurs limité à deux, un processus bloqué à son plafond affiche 6 % face au
+matériel ; l’usage mémoire brut compte chaque fichier lu depuis le démarrage et
+grimpe jusqu’à la limite sans que rien n’aille mal.
+
+**Comment c'est vérifié.** `server/admin/system.test.js` (les deux façons d’écrire
+« pas de limite », la mémoire de travail, l’arithmétique d’un quota de deux cœurs).
+
+### D4. Seul le journal d’audit est écrit, et il ne contient jamais la valeur d’un secret
+
+**La règle.** Présence, activité et mesures vivent une heure en mémoire. Le journal
+d’audit est le seul magasin sur disque ; un réglage modifié note les NOMS des
+champs changés, et tout détail dont la clé évoque un secret est écarté, quel que
+soit l’appelant.
+
+**Ce que ça protège.** Le volume (aucune écriture par requête) et les clés : le
+corps d’un PUT de fournisseur les contient, et un seul `detail: req.body`
+négligent les aurait mises dans un fichier qui voyage avec chaque migration.
+
+**Comment c'est vérifié.** `server/admin/audit.test.js` fournit un corps de
+réglages, clé comprise, et exige que seule la liste des champs survive.
+
+### D5. Regarder n’est pas travailler
+
+**La règle.** Le battement et le flux en direct de l’administrateur résolvent la
+session sans compter comme une activité (`sessionUser`, pas `currentUser`). Le
+battement est permis pendant la maintenance parce qu’il n’écrit rien.
+
+**Ce que ça protège.** Le sens de « actif ». Un onglet oublié derrière une dizaine
+d’autres bat toute la journée, et un administrateur qui a le tableau de bord ouvert
+serait sinon, par construction, l’utilisateur le plus actif de l’instance.
+
+**Comment c'est vérifié.** `server/admin/presence.test.js` (un battement n’est pas
+une requête ; un battement tardif d’un onglet fermé est ignoré),
+`migration.test.js` (le battement passe la maintenance).
 
 ---
 

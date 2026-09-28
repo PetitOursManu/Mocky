@@ -64,6 +64,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 | Composer un `.mp4` pour un écran à partir d'un catalogue de blocs, et savoir pourquoi son moteur de rendu est livré à part | [Motion Ultra](fr/video-export.md) |
 | Déployer Mocky | [Déploiement](fr/deployment.md) |
 | Passer l'instance en lecture seule, ou la déplacer vers un autre serveur | [Maintenance et migration](fr/migration.md) |
+| Voir qui est connecté, ce que fait la machine, et qui a changé quoi | [Tableau de bord d'administration](fr/admin-dashboard.md) |
 
 ---
 

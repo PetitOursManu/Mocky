@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Three series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Five series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -981,6 +981,48 @@ Four things that will bite you:
    (`invariants.md`). It stays safe because every answer must open under the
    pairing key — keep `redirect: 'manual'` and never parse an unsealed body.
    `tests/migration-e2e.test.js` runs the whole thing between two processes.
+
+## The admin dashboard
+
+Admin is one page with a left menu, fed by one live stream. User doc:
+`docs/admin-dashboard.md`; invariants D1–D5.
+
+```
+server/admin/presence.js   who is here: heartbeats + requests, in memory, 150 s window
+server/admin/activity.js   the work: classify, time, end as a WORD; health is derived from it
+server/admin/system.js     CPU/RAM/event loop every 5 s, cgroup-aware, one hour in memory
+server/admin/gpu.js        nvidia-smi → sysfs → ioreg → registry+typeperf; "absent" ≠ "unmeasurable"
+server/admin/audit.js      the one store on disk: audit.jsonl, 2,000 entries, no secret values
+server/admin/sessions.js   sessions by HASH of their token, device as a UA summary
+server/admin/routes.js     /api/admin/dashboard/*, Server-Sent Events every 2 s
+src/components/admin/      the page; charts.tsx is hand-drawn SVG, one series each
+```
+
+Five things that will bite you:
+
+1. **Never record content.** An event is who/kind/provider/duration/outcome.
+   A provider's error text is reduced to `outcomeOf`'s word because it can quote
+   the prompt it refused (D1). `x-mocky-purpose` is read from `PURPOSES`, a closed
+   list; `chat()` in `generate.ts` takes it as its last argument, and a new model
+   call that should be told apart needs a purpose there AND in `PURPOSES` AND in
+   `dashboard.action.*`.
+2. **`currentUser` counts as activity; `sessionUser` does not.** The heartbeat
+   and the live stream's re-check use the second (D5). A new route that must not
+   make someone look busy uses it too.
+3. **The tracker runs before `express.json()`** — it has to, the provider proxy
+   reads a raw body. So `providerOf` is asked twice: at the start (no body yet)
+   and at `close` (body parsed). Do not "simplify" it to one call.
+4. **An audit `detail` key containing "pass", "key", "token"… is dropped**, by
+   design (D4). Name a yes/no `mustChange`, not `mustChangePassword`. Config
+   changes pass `changedFields(req.body)`, never the body.
+5. **In `npm run dev`, Vite serves `/__provider` itself**, so generations never
+   reach Express and are not tracked; the Activity screen says so under
+   `import.meta.env.DEV`. Check the dashboard against a production build.
+
+The heartbeat (`POST /api/presence`) is in maintenance's `ALWAYS_ALLOWED`: it
+writes nothing. `docker-compose.gpu.yml` is the NVIDIA override; it is its own
+file because a GPU reservation makes Compose refuse to start on a host without the
+toolkit.
 
 ## Conventions
 
