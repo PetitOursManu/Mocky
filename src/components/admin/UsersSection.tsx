@@ -1,18 +1,29 @@
 import { useEffect, useState } from 'react'
-import { api, type AdminUser } from '../lib/api'
-import ImageProviderSettings from './ImageProviderSettings'
-import TextProviderSettings from './TextProviderSettings'
-import UsageReport from './UsageReport'
-import VideoExportSettings from './VideoExportSettings'
-import MigrationSettings from './MigrationSettings'
-import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../ui'
-import { useT } from '../i18n'
+import { api, type AdminUser } from '../../lib/api'
+import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../../ui'
+import { useT } from '../../i18n'
+import UsageReport from '../UsageReport'
+import { SectionHead } from './AdminDashboard'
+import { StateMark } from './ActivitySection'
+import { useFmt } from './format'
+import type { useDashboard } from './useDashboard'
+
+type Live = ReturnType<typeof useDashboard>
 
 /** Must match MIN_NEW_PASSWORD in server/index.js — the server is the authority. */
 const MIN_PASSWORD = 8
 
-export default function AdminPanel({ currentUsername }: { currentUsername: string }) {
+/**
+ * Accounts: who may sign up, who exists, and what each one weighs.
+ *
+ * Everything the old Admin page did for accounts, unchanged in behaviour, with
+ * two additions from the live stream — whether each person is here right now,
+ * and a way to sign an account out of every device at once without changing
+ * its password.
+ */
+export default function UsersSection({ live, currentUsername }: { live: Live; currentUsername: string }) {
   const t = useT()
+  const f = useFmt()
   const [allowReg, setAllowReg] = useState(true)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +56,8 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
   useEffect(() => {
     refresh()
   }, [])
+
+  const presence = new Map((live.data?.people || []).map((p) => [p.id, p]))
 
   async function toggleReg() {
     const next = !allowReg
@@ -90,43 +103,48 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
     }
   }
 
+  async function signOut(u: AdminUser) {
+    const self = u.username === currentUsername
+    if (!confirm(t(self ? 'dashboard.users.signOutSelfConfirm' : 'dashboard.users.signOutConfirm', { name: u.username }))) return
+    setError(null)
+    setNotice(null)
+    try {
+      const out = await api.admin.dashboard.signOutEverywhere(u.id)
+      setNotice(t('dashboard.users.signedOut', { name: u.username, n: out.revoked }))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   return (
-    <div className="border border-line bg-surface px-6 py-6">
-      <header className="rule-double pb-3">
-        <span className="kicker text-accent-ink">{t('nav.admin')}</span>
-        <h2 className="mt-1 text-h2 text-ink">{t('settings.instance')}</h2>
-        <p className="measure mt-2 text-body text-ink-muted">{t('settings.adminBlurb')}</p>
-      </header>
+    <section>
+      <SectionHead kicker={t('dashboard.nav.users')} title={t('dashboard.users.title')} blurb={t('settings.adminBlurb')} />
 
       {error && (
-        <Banner tone="danger" title={t('common.error')} className="mt-4">
+        <Banner tone="danger" title={t('common.error')} className="mb-4">
           {error}
         </Banner>
       )}
       {notice && !error && (
-        <Banner tone="ok" className="mt-4">
+        <Banner tone="ok" className="mb-4">
           {notice}
         </Banner>
       )}
 
-      <div className="mt-6 grid gap-x-12 gap-y-8 lg:grid-cols-2">
-        <section>
+      <div className="grid gap-x-12 gap-y-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div>
           <div className="section-head">
             <span className="kicker text-accent-ink">{t('settings.access')}</span>
           </div>
 
-          {/* Registration toggle */}
           <label className="flex cursor-pointer items-center justify-between gap-3 border border-line-soft bg-ink/5 p-3">
             <span>
               <span className="block text-body font-medium text-ink">{t('admin.allowSignups')}</span>
-              <span className="measure block text-body-sm text-ink-muted">
-                {t('settings.allowSignupsHelp')}
-              </span>
+              <span className="measure block text-body-sm text-ink-muted">{t('settings.allowSignupsHelp')}</span>
             </span>
             <input type="checkbox" className="h-5 w-5 accent-accent" checked={allowReg} onChange={toggleReg} />
           </label>
 
-          {/* Add user */}
           <form onSubmit={addUser} className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
             <div className="kicker">{t('admin.addUser')}</div>
 
@@ -161,11 +179,7 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
 
               <Field label={t('settings.role')}>
                 {(p) => (
-                  <Select
-                    {...p}
-                    value={newRole}
-                    onChange={(e) => setNewRole(e.currentTarget.value as 'admin' | 'user')}
-                  >
+                  <Select {...p} value={newRole} onChange={(e) => setNewRole(e.currentTarget.value as 'admin' | 'user')}>
                     <option value="user">{t('settings.roleUser')}</option>
                     <option value="admin">{t('settings.roleAdmin')}</option>
                   </Select>
@@ -181,27 +195,18 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
                 onChange={(e) => setNewMustChange(e.target.checked)}
               />
               <span>
-                <span className="block text-body font-medium text-ink">
-                  {t('settings.mustChangeFirstLogin')}
-                </span>
-                <span className="measure mt-0.5 block text-body-sm text-ink-muted">
-                  {t('settings.mustChangeFirstLoginHelp')}
-                </span>
+                <span className="block text-body font-medium text-ink">{t('settings.mustChangeFirstLogin')}</span>
+                <span className="measure mt-0.5 block text-body-sm text-ink-muted">{t('settings.mustChangeFirstLoginHelp')}</span>
               </span>
             </label>
 
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={adding || newName.trim().length < 3 || newPass.length < MIN_PASSWORD}
-            >
+            <Button type="submit" variant="primary" disabled={adding || newName.trim().length < 3 || newPass.length < MIN_PASSWORD}>
               {adding ? t('settings.creating') : t('settings.createAccount')}
             </Button>
           </form>
-        </section>
+        </div>
 
-        {/* Users list */}
-        <section>
+        <div>
           <div className="section-head">
             <span className="kicker text-accent-ink">{t('admin.users')}</span>
             <span className="ml-auto font-mono text-caption text-accent-ink">{users.length}</span>
@@ -210,63 +215,69 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
             <p className="text-body text-ink-faint">{t('common.loading')}</p>
           ) : (
             <ul className="border-t border-line-soft">
-              {users.map((u) => (
-                <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft py-2">
-                  <span className="text-body text-ink">{u.username}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-caption font-semibold uppercase ${
-                      u.role === 'admin' ? 'bg-accent/10 text-accent-ink' : 'bg-ink/5 text-ink-muted'
-                    }`}
-                  >
-                    {u.role === 'admin' ? t('settings.roleAdminShort') : t('settings.roleUser')}
-                  </span>
-                  <span className="font-mono text-body-sm text-ink-faint">
-                    {new Date(u.createdAt).toLocaleDateString()}
-                  </span>
-                  {u.mustChangePassword && (
+              {users.map((u) => {
+                const p = presence.get(u.id)
+                return (
+                  <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft py-2">
+                    <span className="text-body text-ink">{u.username}</span>
                     <span
-                      className="flex items-center gap-1 text-caption text-warn"
-                      title={t('settings.mustChangeBadgeTitle')}
+                      className={`px-2 py-0.5 text-caption font-semibold uppercase ${
+                        u.role === 'admin' ? 'bg-accent/10 text-accent-ink' : 'bg-ink/5 text-ink-muted'
+                      }`}
                     >
-                      <Icon name="warning" size={14} />
-                      {t('settings.mustChangeBadge')}
+                      {u.role === 'admin' ? t('settings.roleAdminShort') : t('settings.roleUser')}
                     </span>
-                  )}
-                  <div className="ml-auto flex items-center gap-2">
-                    {u.username === currentUsername && (
-                      <span className="text-body-sm text-ink-faint">{t('settings.you')}</span>
+                    <span className="text-body-sm">
+                      <StateMark state={p?.state || 'offline'} />
+                    </span>
+                    <span className="font-mono text-caption text-ink-faint" title={t('dashboard.users.createdAt')}>
+                      {new Date(u.createdAt).toLocaleDateString()}
+                      {p?.lastSeen && p.state === 'offline' ? ` · ${f.ago(p.lastSeen, live.data?.now)}` : ''}
+                    </span>
+                    {u.mustChangePassword && (
+                      <span className="flex items-center gap-1 text-caption text-warn" title={t('settings.mustChangeBadgeTitle')}>
+                        <Icon name="warning" size={14} />
+                        {t('settings.mustChangeBadge')}
+                      </span>
                     )}
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setError(null)
-                        setNotice(null)
-                        setResetting(u)
-                      }}
-                      title={t('settings.resetPasswordOf', { name: u.username })}
-                    >
-                      {t('account.password')}
-                    </Button>
-                    {u.username !== currentUsername && (
-                      <IconButton
-                        label={t('settings.deleteAccountOf', { name: u.username })}
-                        onClick={() => removeUser(u)}
+                    <div className="ml-auto flex items-center gap-2">
+                      {u.username === currentUsername && <span className="text-body-sm text-ink-faint">{t('settings.you')}</span>}
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        onClick={() => signOut(u)}
+                        title={t('dashboard.users.signOutOf', { name: u.username })}
                       >
-                        <Icon name="trash" size={16} />
-                      </IconButton>
-                    )}
-                  </div>
-                </li>
-              ))}
+                        {t('dashboard.users.signOut')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setError(null)
+                          setNotice(null)
+                          setResetting(u)
+                        }}
+                        title={t('settings.resetPasswordOf', { name: u.username })}
+                      >
+                        {t('account.password')}
+                      </Button>
+                      {u.username !== currentUsername && (
+                        <IconButton label={t('settings.deleteAccountOf', { name: u.username })} onClick={() => removeUser(u)}>
+                          <Icon name="trash" size={16} />
+                        </IconButton>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           )}
-        </section>
+        </div>
       </div>
 
-      {/* Usage sits below the two columns rather than inside the account list:
-          it fetches on its own, and a row per account with a bar needs the full
-          width to stay readable at the sizes the grid gives a column. */}
-      <div className="mt-8 border-t border-line pt-8">
+      {/* Usage below the two columns: it fetches on its own, and a row per
+          account with a bar needs the full width to stay readable. */}
+      <div className="mt-10 border-t border-line pt-8">
         <UsageReport />
       </div>
 
@@ -282,34 +293,7 @@ export default function AdminPanel({ currentUsername }: { currentUsername: strin
           }}
         />
       )}
-
-      {/* Instance-wide model providers.
-          Stacked full width, each section laying its own cards out ACROSS the
-          page. They used to be two columns of their own: text ended after two
-          cards while images, videos and their access ran on for six, which left
-          some 2,500 px of empty column beside them at 1440 px. */}
-      <div className="mt-8 space-y-10 border-t border-line pt-8">
-        <TextProviderSettings />
-        <ImageProviderSettings />
-      </div>
-
-      {/* Full width, below the providers rather than beside them.
-          It reads as a third provider block, and it was one — the third child of
-          a two-column grid, which put it in row two column one and left half the
-          screen empty next to it. It is also the only one of the three that
-          decides WHO may use the capability, so it carries an account list that
-          needs the room a column does not have. */}
-      <div className="mt-8 border-t border-line pt-8">
-        <VideoExportSettings />
-      </div>
-
-      {/* Last: it is the one block here that can lock everybody out or replace
-          the whole instance, and nobody should meet it on the way to something
-          else. */}
-      <div className="mt-8 border-t border-line pt-8">
-        <MigrationSettings />
-      </div>
-    </div>
+    </section>
   )
 }
 
@@ -364,11 +348,7 @@ function ResetPasswordModal({
           <Button onClick={onClose} disabled={busy}>
             {t('common.cancel')}
           </Button>
-          <Button
-            variant="primary"
-            onClick={submit}
-            disabled={busy || password.length < MIN_PASSWORD}
-          >
+          <Button variant="primary" onClick={submit} disabled={busy || password.length < MIN_PASSWORD}>
             {busy ? t('settings.resetting') : t('settings.reset')}
           </Button>
         </>
@@ -376,9 +356,7 @@ function ResetPasswordModal({
     >
       <form onSubmit={submit} className="space-y-4">
         <p className="measure text-body text-ink-muted">
-          {isSelf
-            ? t('settings.resetSelfBlurb')
-            : t('settings.resetOtherBlurb', { name: user.username })}
+          {isSelf ? t('settings.resetSelfBlurb') : t('settings.resetOtherBlurb', { name: user.username })}
         </p>
 
         {user.sso && (
@@ -413,12 +391,8 @@ function ResetPasswordModal({
             onChange={(e) => setMustChange(e.target.checked)}
           />
           <span>
-            <span className="block text-body font-medium text-ink">
-              {t('settings.mustChangeShort')}
-            </span>
-            <span className="measure mt-0.5 block text-body-sm text-ink-muted">
-              {t('settings.mustChangeShortHelp')}
-            </span>
+            <span className="block text-body font-medium text-ink">{t('settings.mustChangeShort')}</span>
+            <span className="measure mt-0.5 block text-body-sm text-ink-muted">{t('settings.mustChangeShortHelp')}</span>
           </span>
         </label>
 

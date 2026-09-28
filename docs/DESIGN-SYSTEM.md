@@ -102,7 +102,7 @@ Aucune police n'est téléchargée. La pile serif s'appuie sur des faces livrée
 
 > **Pourquoi c'est ainsi —** Une icône doit prendre la couleur du texte qui l'accompagne et se dessiner pareil chez tout le monde ; un emoji ne peut ni l'un ni l'autre, parce que c'est une petite image en couleurs fournie par le système d'exploitation, différente sous Windows, macOS et Android. Un tracé vectoriel peint en `currentColor` — le mot-clé CSS qui reprend la couleur de texte en vigueur — hérite au contraire du thème sans qu'on ait à le lui dire, et se règle en taille comme un caractère.
 
-`src/ui/Icon.tsx` — 38 icônes vectorielles en `currentColor`.
+`src/ui/Icon.tsx` — 48 icônes vectorielles en `currentColor`.
 
 ```tsx
 import { Icon, IconButton } from '../ui'

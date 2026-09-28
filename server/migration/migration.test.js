@@ -162,6 +162,8 @@ describe('maintenance', () => {
     expect(maintenanceBlocks({ method: 'GET', path: '/api/data' }, on, false)).toBe(false)
     expect(maintenanceBlocks({ method: 'POST', path: '/api/login' }, on, false)).toBe(false)
     expect(maintenanceBlocks({ method: 'POST', path: '/api/logout' }, on, false)).toBe(false)
+    // The heartbeat writes nothing; refusing it would show everyone offline.
+    expect(maintenanceBlocks({ method: 'POST', path: '/api/presence' }, on, false)).toBe(false)
     expect(maintenanceBlocks({ method: 'PUT', path: '/api/data' }, on, true)).toBe(false)
     for (const [method, p] of [
       ['PUT', '/api/data'],

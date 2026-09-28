@@ -958,8 +958,9 @@ pour qu'une suppression faite sur un appareil ne revienne pas depuis un autre.
 | Chemin sous `server/data/` | Contenu |
 |---|---|
 | `users.json` | Les comptes : sel et empreinte scrypt, rôle, `dashySub` |
-| `sessions.json` | Jeton → `{ u: userId, t: horodatage }` |
-| `config.json` | `{ allowRegistration, maintenance }` — le second vaut `{ on, message, since }` et voyage avec une migration, ce qui explique qu'une instance importée démarre en lecture seule |
+| `sessions.json` | Jeton → `{ u: userId, t: horodatage, c: ouverture, ua: "Firefox 131 · Windows", ip }` — l'appareil est un résumé, jamais l'en-tête. Seule une empreinte du jeton atteint le tableau de bord (D2) |
+| `config.json` | `{ allowRegistration, maintenance, announcement }` — le deuxième vaut `{ on, message, since }` et voyage avec une migration, ce qui explique qu'une instance importée démarre en lecture seule ; le troisième est le bandeau de l'administrateur, `{ id, message, tone, createdAt, startsAt, expiresAt }` — ses dates dans le texte sont des instants `{{datetime:ISO}}`, que chaque navigateur écrit dans son propre fuseau |
+| `audit.jsonl` | Administration → Journal d'audit : un objet JSON par ligne, les 2 000 derniers. Connexions, comptes, sessions, réglages (NOMS des champs seulement), maintenance, annonces, migrations. Le seul magasin du tableau de bord sur disque (D4) |
 | `sso-jti.json` | Les identifiants de jeton SSO déjà consommés, purgés après 10 minutes |
 | `data-<uuid>.json` | Les projets et le design d'un utilisateur |
 | `avatars/<userId>` | Un fichier par compte ayant envoyé une photo. Compté en `bytes.avatar` dans le rapport d'utilisation |
@@ -993,6 +994,7 @@ plafond.
 | `GET /api/config` | — | Inscription ouverte ?, mode installation, SSO, modèle d'instance (sans secret) |
 | `POST /api/register`, `/api/login` | limité | Le premier compte devient administrateur |
 | `POST /api/logout`, `GET /api/me` | cookie | `/api/me` répond `200 { user: null }`, pas `401` |
+| `POST /api/presence` | session | Le battement d'un onglet — ou son au revoir, en balise. `204` ; ne compte pas comme une activité, permis pendant la maintenance (D5) |
 | `POST /api/account/password` | session, limité | Révoque toutes les sessions et en délivre une neuve |
 | `GET /sso/dashy/callback` | limité | Vérifie le jeton HS256, trouve ou crée le compte |
 | `GET`/`PUT` `/api/admin/config`, `/users`, `…/password`, `DELETE /users/:id` | admin | Gestion de l'instance et des utilisateurs |
@@ -1019,6 +1021,9 @@ plafond.
 | `GET /api/video/jobs/:id` | session | `403`, pas `404`, sur le job d'un autre : un job porte le montage, et un montage porte son texte incrusté |
 | `GET /api/video/:hash` | session | Le film terminé. **Jamais public** — la propriété est vérifiée avant l'existence, donc un hash inconnu et celui d'un autre répondent pareil |
 | `GET`/`PUT` `/api/admin/video/config`, `GET /api/admin/video/health` | admin | La clé de licence sort en `hasLicenseKey`, un booléen |
+| `GET /api/admin/dashboard/overview`, `/live` | admin | Le tableau de bord : une heure de mesures et d'événements, puis des Server-Sent Events toutes les 2 s. Le flux revérifie l'administrateur à chaque envoi et se termine par `event: bye` quand ce n'est plus vrai |
+| `GET /api/admin/dashboard/sessions`, `DELETE …/sessions/:id`, `POST …/users/:id/signout` | admin | Les sessions, par empreinte de leur jeton (D2). Sa propre session est refusée (`400`) — se déconnecter à la place |
+| `GET /api/admin/dashboard/audit`, `PUT`/`DELETE …/announcement` | admin | Le journal d'audit, du plus récent au plus ancien, par groupe ; l'annonce, publiée par `GET /api/config` une fois son `startsAt` passé — le tableau de bord la voit `scheduled` avant |
 | `GET`/`PUT` `/api/admin/maintenance` | admin | Mode lecture seule. Actif, toute requête autre que `GET` d'un non-administrateur reçoit `503 { code: 'maintenance' }`, sauf connexion et déconnexion — voir `server/maintenance.js` |
 | `GET`/`POST`/`DELETE` `/api/admin/migration/source` | admin ; `POST` redemande le mot de passe | Le code d'appairage de l'ANCIEN serveur. Affiché une fois, gardé en mémoire seulement, 24 h |
 | `GET /api/admin/migration/import`, `POST …/connect`, `…/pass`, `…/cancel`, `…/disconnect`, `…/verify`, `…/finalize` | admin ; `finalize` redemande le mot de passe | Le côté du NOUVEAU serveur : vérifier, tirer, remplacer, redémarrer. `connect` interroge une URL saisie par l'administrateur — le quatrième contournement SSRF |

@@ -1,4 +1,5 @@
 import { MaintenanceError, noteMaintenance, type MaintenanceState } from './maintenance'
+import type { Announcement, AuditEntry, Overview, SessionRow } from './dashboard'
 import { getLang, translate } from '../i18n'
 
 export interface AuthUser {
@@ -392,6 +393,8 @@ export const api = {
       setup: boolean
       sso: { enabled: boolean; dashyUrl: string | null }
       maintenance?: MaintenanceState
+      /** Admin → Dashboard → Announcement; null when none, or once it expired. */
+      announcement?: Announcement | null
       textProvider?: {
         configured: boolean
         model: string | null
@@ -499,8 +502,39 @@ export const api = {
       }>,
     verifyMigration: () =>
       req('/api/admin/migration/import/verify', { method: 'POST' }) as Promise<MigrationVerifyResult>,
+
+    /** Admin → Dashboard. The live half is an EventSource on `dashboardLiveUrl`. */
+    dashboard: {
+      overview: () => req('/api/admin/dashboard/overview') as Promise<Overview>,
+      sessions: () => req('/api/admin/dashboard/sessions').then((d) => d.sessions as SessionRow[]),
+      revokeSession: (id: string) =>
+        req(`/api/admin/dashboard/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+      signOutEverywhere: (userId: string) =>
+        req(`/api/admin/dashboard/users/${encodeURIComponent(userId)}/signout`, { method: 'POST' }) as Promise<{
+          ok: boolean
+          revoked: number
+        }>,
+      audit: (opts: { group?: string | null; before?: string | null; limit?: number } = {}) => {
+        const q = new URLSearchParams()
+        if (opts.group) q.set('group', opts.group)
+        if (opts.before) q.set('before', opts.before)
+        if (opts.limit) q.set('limit', String(opts.limit))
+        const qs = q.toString()
+        return req(`/api/admin/dashboard/audit${qs ? `?${qs}` : ''}`).then((d) => d.entries as AuditEntry[])
+      },
+      /** `startsAt` is an ISO instant, or null to start now; the duration runs from it. */
+      setAnnouncement: (message: string, tone: 'info' | 'warn', expiresInHours: number | null, startsAt: string | null) =>
+        req('/api/admin/dashboard/announcement', {
+          method: 'PUT',
+          body: JSON.stringify({ message, tone, expiresInHours, startsAt }),
+        }).then((d) => d.announcement as Announcement | null),
+      clearAnnouncement: () => req('/api/admin/dashboard/announcement', { method: 'DELETE' }),
+    },
   },
 }
+
+/** Where the dashboard's event stream lives; `since` resumes the activity feed. */
+export const dashboardLiveUrl = (since: number) => `/api/admin/dashboard/live?since=${Math.max(0, since | 0)}`
 
 export interface MigrationSourceStatus {
   active: boolean

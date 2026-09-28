@@ -11,10 +11,12 @@ import ProjectView from './components/ProjectView'
 import SettingsPanel from './components/SettingsPanel'
 import DesignPanel from './components/DesignPanel'
 import AuthModal from './components/AuthModal'
-import AdminPanel from './components/AdminPanel'
+import AdminDashboard from './components/admin/AdminDashboard'
 import Bibliotheque from './components/Bibliotheque'
 import SyncIndicator from './components/SyncIndicator'
 import MaintenanceBanner from './components/MaintenanceBanner'
+import AnnouncementBanner from './components/AnnouncementBanner'
+import { beatNow, startPresence } from './lib/presence'
 import SharedScreen from './components/SharedScreen'
 import { shareTokenFromLocation } from './lib/share'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -168,6 +170,22 @@ function MockyApp() {
   }, [])
 
   useEffect(() => installUnloadGuard(), [])
+
+  /**
+   * Admin → Activity's "who is here, and where". Beats only while signed in,
+   * and reports the ROUTE, never what is open in it. A ref, so a navigation
+   * does not restart the timer — it sends one beat instead, below.
+   */
+  const routeRef = useRef(route)
+  routeRef.current = route
+  const signedIn = account?.username ?? null
+  useEffect(() => {
+    if (!signedIn) return
+    return startPresence(() => routeRef.current)
+  }, [signedIn])
+  useEffect(() => {
+    beatNow()
+  }, [route])
 
   /**
    * The browser's own ctrl/⌘+wheel page zoom, refused across the whole app.
@@ -486,6 +504,7 @@ function MockyApp() {
         </div>
       </header>
       <MaintenanceBanner isAdmin={account?.role === 'admin'} />
+      <AnnouncementBanner />
 
       {route === 'home' && (
         <ProjectsHome
@@ -590,8 +609,8 @@ function MockyApp() {
       )}
       {route === 'admin' &&
         (account?.role === 'admin' ? (
-          <main className="page py-10">
-            <AdminPanel currentUsername={account.username} />
+          <main className="page py-6">
+            <AdminDashboard currentUsername={account.username} />
           </main>
         ) : (
           <div className="page py-16 text-center text-body text-ink-faint">{t('app.adminsOnly')}</div>

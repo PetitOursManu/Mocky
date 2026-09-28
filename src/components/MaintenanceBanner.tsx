@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { getMaintenance, onMaintenance, setMaintenance } from '../lib/maintenance'
+import { setAnnouncement } from '../lib/announcement'
 import { useT } from '../i18n'
 
 /** Often enough that a lifted maintenance resumes sync within a minute; rare enough to cost nothing. */
@@ -16,7 +17,9 @@ const POLL_MS = 60_000
  *
  * It also owns the poll of /api/config, because it is the component whose
  * answer changes when the poll does — and sync.ts listens to the same store to
- * resume the moment maintenance ends.
+ * resume the moment maintenance ends. The administrator's announcement rides the
+ * same answer (AnnouncementBanner reads it): a second poll of the same URL
+ * would double the requests for no new information.
  */
 export default function MaintenanceBanner({ isAdmin }: { isAdmin: boolean }) {
   const t = useT()
@@ -30,7 +33,9 @@ export default function MaintenanceBanner({ isAdmin }: { isAdmin: boolean }) {
       api
         .config()
         .then((cfg) => {
-          if (!stopped) setMaintenance(cfg.maintenance)
+          if (stopped) return
+          setMaintenance(cfg.maintenance)
+          setAnnouncement(cfg.announcement)
         })
         .catch(() => {
           /* offline: the next poll, or the next refused write, will tell */

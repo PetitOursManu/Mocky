@@ -194,6 +194,31 @@ The worker publishes no port and its bridge has no route out, so nothing about
 this exposes anything new. A Remotion licence key is the one exception, and the
 compose file says where to uncomment it.
 
+### The graphics card in Docker
+
+Admin → System shows the machine's graphics card when there is one (see
+[The admin dashboard](admin-dashboard.md#the-graphics-card)). Mocky does not need
+it; the card is shown for whatever else runs on the machine. Outside Docker nothing
+is needed. Inside a container:
+
+- **AMD, Intel** — the container sees the host's `/sys/class/drm`, so an AMD card's
+  utilisation reads with nothing to configure; an Intel iGPU shows as present but
+  unmeasurable.
+- **NVIDIA** — the container sees no `nvidia-smi` until the host has the
+  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+  and the service asks for the card. `docker-compose.gpu.yml` is that request, on
+  top of the usual file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+```
+
+It is a separate file rather than a line in `docker-compose.yml` because a GPU
+reservation makes Compose REFUSE to start the service on a host without the
+toolkit — the default file has to start everywhere. It asks for the `utility`
+capability only: enough for `nvidia-smi`, nothing that would let the container
+compute on the card.
+
 ---
 
 ## Environment variables

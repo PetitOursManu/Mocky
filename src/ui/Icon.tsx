@@ -58,6 +58,12 @@ export type IconName =
   | 'fit'
   | 'target'
   | 'pin'
+  | 'pulse'
+  | 'cpu'
+  | 'key'
+  | 'megaphone'
+  | 'list'
+  | 'plug'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
 const PATHS: Record<IconName, string> = {
@@ -123,6 +129,14 @@ const PATHS: Record<IconName, string> = {
   target:
     'M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM12 2v3M12 19v3M2 12h3M19 12h3M13.4 12a1.4 1.4 0 1 0-2.8 0a1.4 1.4 0 1 0 2.8 0',
   pin: 'M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z',
+  // Admin → Dashboard's menu. `list` draws its bullets as squares rather than
+  // zero-length segments, for the reason given on `more`.
+  pulse: 'M3 12h4l3-8 4 16 3-8h4',
+  cpu: 'M7 7h10v10H7zM10 10h4v4h-4zM9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4',
+  key: 'M8 20a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM10.9 13.1 20 4M16 8l2.5 2.5M18.5 5.5 21 8',
+  megaphone: 'M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11',
+  list: 'M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z',
+  plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v4',
 }
 
 /** Icons whose shape reads better filled than stroked. */

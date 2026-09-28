@@ -8,13 +8,14 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are four series:
+There are five series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
 - **M1 to M8**, introduced by Muse.
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
+- **D1 to D5**, introduced by the admin dashboard.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -753,6 +754,87 @@ with no headline.
 **How it is checked.** `quality.test.js` (policy), `ultra.test.ts` (the film
 slot and `ultraLoss`), and `tests/ultra-off.test.js`, which also requires that no
 film is ever made on its own.
+
+---
+
+## Series D — the admin dashboard
+
+These five came with the admin dashboard (`server/admin/`,
+`src/components/admin/`, [its page](admin-dashboard.md)): the first part of
+Mocky that watches the other parts, and so the first that could learn — and show
+to somebody else — what people do with it.
+
+### D1. The dashboard records the kind of work, never its content
+
+**The rule.** An activity event holds who, which kind, which provider, how long
+and how it ended — a word and an HTTP status. Never a prompt, a brief, a project
+or screen name, or a provider's error text. What a model call is for arrives as
+`x-mocky-purpose` and is read from a closed list; anything else is a generation.
+
+**What it protects.** The users of the instance, from their administrator. The
+administrator chose "the type of action only", and the cheapest way to honour it
+is not to collect the rest: an error message can quote the prompt it refused, so
+even the "harmless" text is reduced to an outcome. A free-text purpose would let
+any caller put words of their choosing on the admin's screen.
+
+**How it is checked.** `server/admin/activity.test.js` (a purpose outside the
+list is a generation), `dashboard-e2e.test.js` (the audit log never contains the
+password tried).
+
+### D2. A session token never leaves the server
+
+**The rule.** The Sessions screen shows and revokes a session by a hash of its
+token. The token itself is never serialised into a response.
+
+**What it protects.** The token is the credential. A screen listing tokens would
+turn every screenshot of it, every support ticket, every extension reading the page
+into a way to become any user.
+
+**How it is checked.** `server/admin/sessions.test.js` and
+`dashboard-e2e.test.js`, which reads the real `sessions.json` and requires that
+none of its keys appears in the listing.
+
+### D3. Percentages are taken against what Mocky may use
+
+**The rule.** Inside a container, CPU is measured against the cgroup's quota and
+memory against its limit (working set, not raw usage); only outside one does the
+host's hardware set the scale.
+
+**What it protects.** The one reading the screen exists for. On a 32-core host
+limited to two cores, a process pinned at its ceiling reads as 6 % against the
+hardware; raw memory usage counts every file read since boot and climbs to the
+limit while nothing is wrong.
+
+**How it is checked.** `server/admin/system.test.js` (both spellings of "no
+limit", the working set, the arithmetic of a two-core quota).
+
+### D4. Only the audit log is written, and it never holds a secret's value
+
+**The rule.** Presence, activity and metrics live in memory for an hour. The audit
+log is the one store on disk; a settings change records the NAMES of the fields
+that changed, and any detail whose key smells of a secret is dropped whoever
+wrote the call.
+
+**What it protects.** The volume (no write per request) and the keys: the body of
+a provider PUT carries them, and one careless `detail: req.body` would have put
+them in a file that travels with every migration.
+
+**How it is checked.** `server/admin/audit.test.js` feeds a config body, key
+included, and requires only the field list to survive.
+
+### D5. Watching is not working
+
+**The rule.** The heartbeat and the admin's live stream resolve the session
+without counting as activity (`sessionUser`, not `currentUser`). The heartbeat is
+allowed during maintenance because it writes nothing.
+
+**What it protects.** The meaning of "active". A tab forgotten behind a dozen
+others beats every minute all day, and an admin with the dashboard open would
+otherwise be the most active user of the instance by construction.
+
+**How it is checked.** `server/admin/presence.test.js` (a beat is not a request; a
+late beat from a closed tab is ignored), `migration.test.js` (the heartbeat passes
+maintenance).
 
 ---
 

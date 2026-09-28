@@ -1,0 +1,27 @@
+# Lets Admin → System read an NVIDIA graphics card from inside the container.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# Needs the NVIDIA Container Toolkit on the host. Without it Compose refuses to
+# start the service — which is exactly why this is a file of its own and not a
+# line in docker-compose.yml: the default file has to start on every machine,
+# most of which have no NVIDIA card at all.
+#
+# Mocky computes nothing on the card. `utility` is the capability that injects
+# `nvidia-smi` and its library, and nothing more; the card is shown because
+# something ELSE on the machine may use it (a local Stable Diffusion, a local
+# LLM). AMD and Intel cards need no file like this: the container already sees
+# the host's /sys/class/drm. See docs/admin-dashboard.md.
+
+services:
+  mocky:
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [utility]

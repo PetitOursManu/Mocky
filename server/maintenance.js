@@ -15,8 +15,13 @@
 // written down in docs/migration.md: on the OLD server, an admin's own changes
 // after the final pass are not transferred either.
 
-/** Writes anyone may make during maintenance: signing in and out. Nothing else. */
-const ALWAYS_ALLOWED = new Set(['/api/login', '/api/logout'])
+/**
+ * Writes anyone may make during maintenance: signing in and out — and the
+ * dashboard's heartbeat, which is a POST but writes nothing anywhere (presence
+ * lives in memory). Refusing it would show every user offline to the admin
+ * during exactly the window in which they want to see who is still around.
+ */
+const ALWAYS_ALLOWED = new Set(['/api/login', '/api/logout', '/api/presence'])
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
