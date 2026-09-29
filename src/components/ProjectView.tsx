@@ -819,9 +819,20 @@ export default function ProjectView({
       return
     }
     try {
-      const dataUrl = await captureRegion(screen.code, screen.w, screen.h, rect)
+      // The screen's own capabilities, as the thumbnails pass them. Without them
+      // the capture shell has no Icon/Charts/Motion globals, and since nearly
+      // every generated screen uses Icon, the component threw on render and
+      // every snip ended in "la capture a échoué" — only a screen with no icon
+      // at all could be annotated.
+      const caps = resolveCapabilities(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt),
+      )
+      const dataUrl = await captureRegion(screen.code, screen.w, screen.h, rect, caps)
       setAnnotations((a) => [...a, { id, dataUrl }])
-    } catch {
+    } catch (err) {
+      // Kept in the console: a bare "capture failed" banner is all the person
+      // sees, and without the cause this bug stayed undiagnosable for weeks.
+      console.warn('mocky: annotation capture failed —', err)
       setError(t('project.captureFailed'))
     } finally {
       setCapturing(false)
