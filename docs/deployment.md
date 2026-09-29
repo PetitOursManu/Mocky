@@ -594,8 +594,9 @@ Two folders, deliberately decoupled.
 
 The site is built by [Lumy](https://github.com/PetitOursManu/Lumy), a
 documentation tool written for Mocky and published on its own, open source like
-Mocky. It is the `lumy-docs` development dependency, so the version that builds
-the site in production is the one in `package-lock.json`.
+Mocky. It is the `lumy-docs` development dependency, installed from Lumy's release
+on GitHub, so the version that builds the site in production is the one in
+`package-lock.json`.
 
 ### How it works
 

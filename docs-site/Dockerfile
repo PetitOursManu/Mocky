@@ -10,10 +10,11 @@
 # dashboard account and the feedback, so it is the one volume to persist.
 FROM node:22-slim
 
-# The same Lumy as `npm run docs` and the CI check: the version is read from
-# package-lock.json rather than written a second time here.
+# The same Lumy as `npm run docs` and the CI check: the exact file recorded in
+# package-lock.json (today Lumy's GitHub release), rather than a version written
+# a second time here.
 COPY package-lock.json /tmp/mocky-lock.json
-RUN npm install -g "lumy-docs@$(node -p "require('/tmp/mocky-lock.json').packages['node_modules/lumy-docs'].version")" \
+RUN npm install -g "$(node -p "require('/tmp/mocky-lock.json').packages['node_modules/lumy-docs'].resolved")" \
  && npm cache clean --force \
  && rm /tmp/mocky-lock.json
 

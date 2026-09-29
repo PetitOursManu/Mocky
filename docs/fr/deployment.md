@@ -1,5 +1,5 @@
 ---
-source_hash: e489adf9bc8a
+source_hash: 51cf24a45d89
 ---
 
 # Déploiement
@@ -623,8 +623,9 @@ Deux dossiers, volontairement découplés.
 
 Le site est construit par [Lumy](https://github.com/PetitOursManu/Lumy), un
 outil de documentation écrit pour Mocky et publié à part, open source comme
-Mocky. C'est la dépendance de développement `lumy-docs` : la version qui
-construit le site en production est donc celle de `package-lock.json`.
+Mocky. C'est la dépendance de développement `lumy-docs`, installée depuis la
+version publiée sur GitHub : celle qui construit le site en production est donc
+celle de `package-lock.json`.
 
 ### Comment ça marche
 
