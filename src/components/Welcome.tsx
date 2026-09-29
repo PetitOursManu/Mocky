@@ -13,6 +13,10 @@ import type { MediaTab } from './Bibliotheque'
 import { useState } from 'react'
 import type { SiteRefMode, SiteShot } from '../lib/siteReference'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
+import ScreenThemePicker from './ScreenThemePicker'
+import { EnhanceNotice, PromptEnhanceButton } from './PromptEnhancer'
+import type { PromptEnhancer } from '../lib/usePromptEnhancer'
+import type { ScreenThemeId } from '../lib/screenThemes'
 
 type Props = {
   prompt: string
@@ -63,6 +67,12 @@ type Props = {
   onRemoveSiteShot: (id: string) => void
   onAddSiteFiles: (files: File[]) => void
   onComposerPaste: (e: React.ClipboardEvent) => void
+  /** The screen type for the first screen — state lives in ProjectView, like the preset. */
+  themeId: ScreenThemeId | null
+  onThemeChange: (id: ScreenThemeId | null) => void
+  /** "Améliorer le prompt", shared with the floating bar so an Undo survives the switch. */
+  enhancer: PromptEnhancer
+  onEnhance: () => void
 }
 
 export default function Welcome({
@@ -107,6 +117,10 @@ export default function Welcome({
   onRemoveSiteShot,
   onAddSiteFiles,
   onComposerPaste,
+  themeId,
+  onThemeChange,
+  enhancer,
+  onEnhance,
 }: Props) {
   const t = useT()
   const [dragOver, setDragOver] = useState(false)
@@ -131,7 +145,7 @@ export default function Welcome({
   function onKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
-      onGenerate()
+      if (!enhancer.running) onGenerate()
     }
   }
 
@@ -158,6 +172,8 @@ export default function Welcome({
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={onKeyDown}
             onPaste={onComposerPaste}
+            readOnly={enhancer.running}
+            aria-busy={enhancer.running || undefined}
           />
           <SiteShotsRow
             className="px-1 pb-2"
@@ -167,7 +183,7 @@ export default function Welcome({
             onMode={onSiteMode}
             onRemove={onRemoveSiteShot}
           />
-          <div className="flex items-center justify-between gap-3 px-1 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {/* First, because on an empty project "reproduce this site" is
                   the whole request, not an option among the others. */}
@@ -222,12 +238,20 @@ export default function Welcome({
               )}
             </div>
             <div className="flex items-center gap-3">
+              <PromptEnhanceButton
+                enhancer={enhancer}
+                onStart={onEnhance}
+                disabled={busy || !prompt.trim()}
+                // Captures describe the screen; a brief invented on top would
+                // argue with them (Reproduce: "nothing added"; Redesign: "keep the content").
+                disabledReason={siteShots.length ? t('composer.enhanceCaptures') : undefined}
+              />
               <span className="hidden text-caption text-ink-faint sm:inline">⌘/Ctrl + Enter</span>
               <Button
                 variant="primary"
                 onClick={onGenerate}
                 // Screenshots alone are a request for a new screen.
-                disabled={busy || siteReading > 0 || (!prompt.trim() && !siteShots.length)}
+                disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && !siteShots.length)}
               >
                 {busy ? (
                   <>
@@ -244,6 +268,8 @@ export default function Welcome({
             </div>
           </div>
         </div>
+
+        <EnhanceNotice enhancer={enhancer} className="mt-3" />
 
         {museConfig.enabled && (
           <div className="mt-3">
@@ -265,9 +291,16 @@ export default function Welcome({
           </div>
         )}
 
-        <div className="mt-4 flex items-center justify-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <span className="kicker">{t('auth.welcome.format')}</span>
-          <PresetPicker value={presetId} onChange={onPresetChange} />
+          <PresetPicker value={presetId} onChange={onPresetChange} disabled={enhancer.running} />
+          <ScreenThemePicker
+            value={themeId}
+            onChange={onThemeChange}
+            placement="down"
+            disabled={busy || enhancer.running}
+            ignored={siteShots.length > 0 && siteMode === 'reproduce'}
+          />
         </div>
 
         {/* First-run style picker (D.1) — sets a DESIGN.md so the very first
@@ -317,7 +350,10 @@ export default function Welcome({
                 key={ex}
                 type="button"
                 onClick={() => setPrompt(ex)}
-                className="rounded-full border border-line-soft px-3 py-1.5 text-body-sm text-ink-muted transition hover:border-accent hover:bg-ink/5 hover:text-accent-ink"
+                // The field is read-only while a rewrite streams into it; an
+                // example written now is overwritten by the next chunk.
+                disabled={enhancer.running}
+                className="rounded-full border border-line-soft px-3 py-1.5 text-body-sm text-ink-muted transition hover:border-accent hover:bg-ink/5 hover:text-accent-ink disabled:opacity-50"
               >
                 {ex}
               </button>

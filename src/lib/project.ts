@@ -129,6 +129,15 @@ export interface Screen {
    */
   siteRef?: { mode: SiteRefMode; shots: number }
   /**
+   * The screen type chosen in the composer (`lib/screenThemes.ts`), when one
+   * was. Kept so "Regenerate" asks for the same KIND of screen: its prompt is
+   * often just "un dashboard", and without the type's brief a variant would be
+   * rolled from those two words alone. An id, not the brief — a brief improved
+   * later reaches old screens too. Absent means none, as on every screen made
+   * before types existed; an unknown id reads as none.
+   */
+  theme?: string
+  /**
    * What the person wrote about this screen, for themselves. Never read by
    * anything that builds a prompt — see `lib/screenNotes.ts` for why, and
    * `tests/screen-notes-private.test.js` for what holds it. Absent means none.
@@ -740,6 +749,11 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // Only a real boolean is an override; anything else means "follow the
     // composer", which is what every screen made before this field says.
     animations: typeof s.animations === 'boolean' ? s.animations : undefined,
+    // Kept as the raw id: an id this build does not know (a type removed later)
+    // already reads as "no type" in getScreenTheme, so there is nothing to
+    // validate here — only something to forget, which is what Regenerate did
+    // after the first reload before this line existed.
+    theme: typeof s.theme === 'string' && s.theme ? s.theme : undefined,
     // Rebuilt field by field rather than passed through: this record is written
     // from a server response, and everything on a Screen survives a reload only
     // if it is named here.

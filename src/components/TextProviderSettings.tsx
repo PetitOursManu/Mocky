@@ -8,6 +8,7 @@ import {
   type TextTestResult,
 } from '../lib/api'
 import { Icon } from '../ui'
+import { groupProviders, providerGroupKey } from '../lib/providerGroups'
 import { useT } from '../i18n'
 
 /** Translation keys, resolved at render — `useT` only runs inside a component. */
@@ -16,7 +17,17 @@ const HINT_KEYS: Record<string, string> = {
   'ollama-cloud': 'settings.textHintOllamaCloud',
   openai: 'settings.textHintOpenai',
   anthropic: 'settings.textHintAnthropic',
+  gemini: 'settings.textHintGemini',
+  mistral: 'settings.textHintMistral',
+  deepseek: 'settings.textHintDeepseek',
+  xai: 'settings.textHintXai',
+  moonshot: 'settings.textHintMoonshot',
   openrouter: 'settings.textHintOpenrouter',
+  groq: 'settings.textHintGroq',
+  together: 'settings.textHintTogether',
+  fireworks: 'settings.textHintFireworks',
+  cerebras: 'settings.textHintCerebras',
+  huggingface: 'settings.textHintHuggingface',
   fal: 'settings.textHintFal',
   'openai-compatible': 'settings.textHintOpenaiCompatible',
 }
@@ -25,9 +36,21 @@ const MODEL_PLACEHOLDER: Record<string, string> = {
   'ollama-cloud': 'gpt-oss:120b',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-sonnet-4-5',
+  gemini: 'gemini-3.8-flash',
+  mistral: 'mistral-medium-latest',
+  deepseek: 'deepseek-flash',
+  xai: 'grok-4.7',
+  moonshot: 'kimi-k3',
   openrouter: 'openai/gpt-4o-mini',
+  groq: 'openai/gpt-oss-120b',
+  together: 'openai/gpt-oss-120b',
+  fireworks: 'accounts/fireworks/models/gpt-oss-120b',
+  cerebras: 'gpt-oss-120b',
+  huggingface: 'openai/gpt-oss-120b',
   fal: 'openai/gpt-4o-mini',
-  'openai-compatible': 'llama-3.3-70b-versatile',
+  // Neutral to the endpoints the label names (Qwen first): Groq, whose id this
+  // was, now has a preset of its own.
+  'openai-compatible': 'qwen-plus',
 }
 
 /** fal keys are `<id>:<secret>` pairs, not `sk-…` tokens — don't mislead. */
@@ -183,10 +206,14 @@ function ProfileForm({
         <span className="mb-1 block text-body-sm font-medium text-ink">{t('settings.provider')}</span>
         <select className="input w-full" value={provider} onChange={(e) => hydrate(section, e.target.value)}>
           <option value="">{emptyLabel}</option>
-          {cfg.providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
+          {groupProviders(cfg.providers).map((block) => (
+            <optgroup key={block.group} label={t(providerGroupKey(block.group))}>
+              {block.items.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>
@@ -206,7 +233,7 @@ function ProfileForm({
               spellCheck={false}
             />
             <span className="mt-1 block text-caption text-ink-faint">
-              {t('settings.noV1Before')} <code>/v1</code> {t('settings.noV1After')}
+              {t('settings.baseUrlRule')}
             </span>
           </label>
           <label className="block">

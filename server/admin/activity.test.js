@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { classifyRequest, createActivity, createTracker, outcomeOf, cleanProvider } from './activity.js'
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { PURPOSES, classifyRequest, createActivity, createTracker, outcomeOf, cleanProvider } from './activity.js'
 
 function clock(start = 10 * 60_000) {
   let t = start
@@ -25,6 +27,28 @@ describe('classifyRequest', () => {
     expect(classifyRequest(req('POST', '/__provider/api/chat', { 'x-mocky-purpose': 'hello admin' })).action).toBe(
       'generate',
     )
+  })
+
+  /*
+   * The three places a new purpose has to be written (CLAUDE.md, the admin
+   * dashboard's first rule), held together. Forgetting the server's list files
+   * the call under "generation" in silence; forgetting a dictionary shows the
+   * administrator a raw key. Read as text: the dictionaries and generate.ts are
+   * TypeScript, which this server-side test does not import.
+   */
+  it('accepts every purpose the client declares, and names each in both languages', () => {
+    const read = (rel) => fs.readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), 'utf8')
+    const declared = /export type ChatPurpose = ([^\n]+)/.exec(read('src/lib/generate.ts'))
+    expect(declared, 'ChatPurpose not found in generate.ts').toBeTruthy()
+    const client = [...declared[1].matchAll(/'([\w-]+)'/g)].map((m) => m[1])
+    expect(client).toContain('enhance')
+    expect(client.filter((p) => !PURPOSES.has(p))).toEqual([])
+
+    const dict = read('src/i18n/parts/dashboard.ts')
+    const fr = dict.slice(dict.indexOf('fr: {'), dict.indexOf('en: {'))
+    const en = dict.slice(dict.indexOf('en: {'))
+    const unnamed = [...PURPOSES].filter((p) => !fr.includes(`'dashboard.action.${p}':`) || !en.includes(`'dashboard.action.${p}':`))
+    expect(unnamed).toEqual([])
   })
 
   it('ignores reads, listings and everything that is not work', () => {

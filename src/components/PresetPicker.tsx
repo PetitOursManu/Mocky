@@ -16,10 +16,16 @@ export default function PresetPicker({
   value,
   onChange,
   className = '',
+  disabled = false,
 }: {
   value: string
   onChange: (id: string) => void
   className?: string
+  /**
+   * While a prompt is being rewritten. The rewrite was asked for THIS form
+   * factor; switching mid-stream left a phone brief under the Desktop chip.
+   */
+  disabled?: boolean
 }) {
   const t = useT()
   return (
@@ -48,7 +54,8 @@ export default function PresetPicker({
             type="button"
             onClick={() => onChange(p.id)}
             aria-pressed={active}
-            className="flex transition hover:opacity-80"
+            disabled={disabled}
+            className="flex transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
             title={`${full} · ${p.w}×${p.h}`}
           >
             <Chip tone={active ? 'accent' : 'default'}>{short}</Chip>

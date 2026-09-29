@@ -6,6 +6,7 @@ import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, 
 import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
+import { useWorkChime } from '../lib/useWorkChime'
 import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
 import { captureRegion, checkLegibility } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
@@ -33,6 +34,16 @@ import MobileProject from './MobileProject'
 import type { SweptElement } from './Preview'
 import DesignSystemPanel from './DesignSystemPanel'
 import PresetPicker from './PresetPicker'
+import ScreenThemePicker from './ScreenThemePicker'
+import { EnhanceNotice, PromptEnhanceButton } from './PromptEnhancer'
+import { usePromptEnhancer } from '../lib/usePromptEnhancer'
+import {
+  getScreenTheme,
+  promptForThemeChange,
+  screenThemeBriefLine,
+  withScreenTheme,
+  type ScreenThemeId,
+} from '../lib/screenThemes'
 import DemoPlayer from './DemoPlayer'
 import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
@@ -406,6 +417,14 @@ export default function ProjectView({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
   /**
+   * The screen type for the NEXT screen (lib/screenThemes.ts). Session state
+   * like the preset, but spent with the prompt it came with: a project is
+   * usually one form factor, while two screens in a row are rarely the same
+   * type, and a Dashboard brief left armed would quietly shape the settings
+   * page typed next. The screen keeps it (`Screen.theme`) for Regenerate.
+   */
+  const [themeId, setThemeId] = useState<ScreenThemeId | null>(null)
+  /**
    * The one panel over the canvas' top-right corner — see lib/rightSlot.ts.
    *
    * One value and not three booleans: the Design System inspector, the audit
@@ -424,7 +443,17 @@ export default function ProjectView({
   const [modifyHex, setModifyHex] = useState('')
   const [interactAll, setInteractAll] = useState(false)
   const [showFrame, setShowFrame] = useState(() => localStorage.getItem(FRAME_PREF_KEY) !== '0')
-  const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
+  /**
+   * An element picked in link mode. While `list` is unset its cable is in hand
+   * on the canvas (`CableConnect`); `list` means the user asked for the list of
+   * screens instead — the same pick, answered from a dialog.
+   */
+  const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo; list?: boolean } | null>(null)
+  // Leaving link mode lets go of a cable in hand: it was a modal once, and
+  // nothing else could happen while it was open; on the canvas it can.
+  useEffect(() => {
+    if (!linkMode) setPendingLink(null)
+  }, [linkMode])
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
   /** The toolbar's overflow menu below md. See the bar itself for why it exists. */
@@ -444,8 +473,12 @@ export default function ProjectView({
   // phone has no Escape key, so each of them also carries a tap-to-dismiss
   // backdrop. A dropdown whose only exit is a hardware key is a dropdown a
   // touch user cannot close.
+  // The list of link targets too: it is the keyboard path to a link, and a
+  // keyboard path with no key out of it is half of one. (A cable in hand, the
+  // same pick without the list, handles its own Escape in `CableConnect`.)
+  const linkListOpen = !!pendingLink?.list
   useEffect(() => {
-    if (!menu && !codeScreen && !pendingModify && !plusMenu && !exportMenu) return
+    if (!menu && !codeScreen && !pendingModify && !plusMenu && !exportMenu && !linkListOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMenu(null)
@@ -453,11 +486,12 @@ export default function ProjectView({
         setPendingModify(null)
         setPlusMenu(false)
         setExportMenu(false)
+        setPendingLink((p) => (p?.list ? null : p))
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [menu, codeScreen, pendingModify, plusMenu, exportMenu])
+  }, [menu, codeScreen, pendingModify, plusMenu, exportMenu, linkListOpen])
 
   // Probe the backend once Muse is switched on (Muse needs it; frontend-only ⇒ unavailable).
   useEffect(() => {
@@ -834,6 +868,24 @@ export default function ProjectView({
   )
   const designColors = useMemo(() => extractDesignColors(directionMd || '').slice(0, 10), [directionMd])
 
+  /** "Améliorer le prompt" — one state for both composers, see usePromptEnhancer. */
+  const enhancer = usePromptEnhancer(prompt, setPrompt)
+  function startEnhance() {
+    enhancer.start({
+      formFactor: getPreset(presetId).label,
+      theme: getScreenTheme(themeId),
+      // Muse writes a direction on this run if it is on: the rewrite must not
+      // pre-empt it any more than it may contradict a DESIGN.md.
+      directionDecided: !!directionMd || (museConfig.enabled && museAvail !== false),
+    })
+  }
+  /** A type chosen on an empty field brings its starter prompt; typed words are never replaced. */
+  function chooseTheme(id: ScreenThemeId | null) {
+    const starter = (th: ScreenThemeId | null) => (th ? t(`composer.themes.${th}.starter`) : undefined)
+    setThemeId(id)
+    setPrompt(promptForThemeChange(prompt, starter(themeId), starter(id)))
+  }
+
   /**
    * Apply a starter style from the Welcome quick-picker (D.1).
    *
@@ -928,6 +980,30 @@ export default function ProjectView({
 
   /** The screen a DESIGN.md is currently being derived from, if any. */
   const [derivingDesignId, setDerivingDesignId] = useState<string | null>(null)
+  /*
+   * A chime and a title mark when the work ends while this tab is hidden. Fed
+   * with the state every flow already sets: `busy` covers generation, edit,
+   * regenerate, polish, animations, audit fix, modify and Motion Ultra; the
+   * automatic repair and the DESIGN.md derivation run outside it. `error` is the
+   * banner, which is what makes a burst "failed". See lib/workChime.ts.
+   *
+   * Three pieces of state exist only for it, each because the banner alone
+   * told the wrong story. `workFailures` counts failures that never reach the
+   * banner — a repair that gave up and left a broken or reverted screen — so a
+   * hidden tab no longer chimes "done" over a red overlay. `slopAdvisory` is the
+   * placeholder-text hint, which shares the banner but describes a screen that
+   * works, so it does not make the burst "failed". `filmRendering` is a render
+   * in the Motion Ultra export panel, the longest job anyone walks away from.
+   */
+  const [workFailures, setWorkFailures] = useState(0)
+  const noteWorkFailure = useCallback(() => setWorkFailures((n) => n + 1), [])
+  const [slopAdvisory, setSlopAdvisory] = useState<string | null>(null)
+  const [filmRendering, setFilmRendering] = useState(false)
+  useWorkChime(
+    busy || fixingIds.size > 0 || derivingDesignId !== null || filmRendering,
+    error !== null && error === slopAdvisory ? null : error,
+    workFailures,
+  )
 
   /**
    * Adopt the DESIGN.md a screen recorded at generation time.
@@ -1094,7 +1170,11 @@ export default function ProjectView({
       if (state.reverted) return
       retryRefs.current[screenId] = { ...state, reverted: true }
       const now = screensRef.current.find((s) => s.id === screenId)
-      if (!now || !fallback || fallback === now.code) return
+      if (!now) return
+      // Kept broken or put back, the change the user waited for did not land:
+      // the end-of-work chime must not call that a success (useWorkChime).
+      noteWorkFailure()
+      if (!fallback || fallback === now.code) return
       onUpdateScreen(screenId, { code: fallback, componentName: detectComponentName(fallback), previousCode: now.code })
       setNotice(t('project.autoReverted', { name: now.name }))
       return
@@ -1134,7 +1214,9 @@ export default function ProjectView({
       // still fall back to.
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: screen.code })
     } catch {
-      // Retry failed — leave the error visible to the user.
+      // Retry failed — leave the error visible to the user, and let the chime
+      // say so (a Stop is the user's own doing, not a failure to announce).
+      if (!ac.signal.aborted) noteWorkFailure()
     } finally {
       retryAborts.current.delete(screenId)
       setFixingIds((prev) => {
@@ -1143,7 +1225,7 @@ export default function ProjectView({
         return next
       })
     }
-  }, [screens, onUpdateScreen, busy, t])
+  }, [screens, onUpdateScreen, busy, t, noteWorkFailure])
 
   function addHotspot(screenId: string, target: string) {
     const screen = screens.find((s) => s.id === screenId)
@@ -1203,6 +1285,13 @@ export default function ProjectView({
     const screen = screens.find((s) => s.id === screenId)
     if (!screen) return
     onUpdateScreen(screenId, { links: screen.links.filter((h) => h.id !== hotspotId) })
+  }
+
+  /** A cable dragged onto another screen: same hotspot, same element, new target. */
+  function retargetHotspot(screenId: string, hotspotId: string, target: string) {
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || target === screenId) return
+    onUpdateScreen(screenId, { links: screen.links.map((h) => (h.id === hotspotId ? { ...h, target } : h)) })
   }
 
   const generate = useCallback(async () => {
@@ -1356,6 +1445,15 @@ export default function ProjectView({
       } else {
         // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
+        /*
+         * The screen type rides on the form-factor hint, so it reaches every
+         * stage the hint does — the preamble (and Muse's), the planner, the
+         * storyboard. Not on a reproduction: the screenshot is the brief, and a
+         * type's structure would argue with the structure it shows. No type,
+         * and this IS `preset.hint`, byte for byte.
+         */
+        const runTheme = reproducing ? null : themeId
+        const formHint = withScreenTheme(preset.hint, runTheme)
         // With site screenshots, the site's own brand is the identity to carry,
         // not the one an earlier screen invented. A PINNED layout still holds on
         // a redesign — pinning is the user's own statement — and never on a
@@ -1425,9 +1523,13 @@ export default function ProjectView({
         const museBlind = siteNew && !reproducing && !siteContent
         if (museBlind && museConfig.enabled && museAvail !== false) setNotice(t('project.siteMuseSkipped'))
         const siteLang = siteLanguage(siteContent)
-        const museBrief = siteContent
+        const museBriefBase = siteContent
           ? `${text}\n\nThe existing site to REDESIGN, as read from the user's screenshots. Its brand, content and copy are to be KEPT; only its visual design is to be reinvented.${siteLang ? ` All copy stays in ${siteLang}.` : ''}\n\n${siteContent}`
           : text
+        // The dossier is told WHAT it is dressing — a dashboard wants no hero
+        // photograph — and nothing more: the layout is the page's business.
+        const museThemeLine = screenThemeBriefLine(runTheme)
+        const museBrief = museThemeLine ? `${museBriefBase}\n\n${museThemeLine}` : museBriefBase
         // A reproduction's direction is the screenshot: a dossier would be a
         // second, contradicting one, and a paid call to write it.
         if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
@@ -1674,8 +1776,8 @@ export default function ProjectView({
         // exact pre-Muse composition (M1). Both now carry the same direction.
         const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
         const extraSystem = musePreamble
-          ? joinSystem([musePreamble, referencePreamble, preset.hint])
-          : joinSystem([dirPreamble, referencePreamble, preset.hint])
+          ? joinSystem([musePreamble, referencePreamble, formHint])
+          : joinSystem([dirPreamble, referencePreamble, formHint])
 
         // Deterministic shortlist first — this is the guaranteed fallback.
         const shortlist = selectCapabilities(text, dir.markdown)
@@ -1719,7 +1821,7 @@ export default function ProjectView({
             setUltraStage(t('project.ultraStageStoryboard'))
             const board = await runStoryboard(settings, text, ultraCount as UltraImageCount, mode, {
               design: dir.markdown,
-              presetHint: preset.hint,
+              presetHint: formHint,
               signal: ac.signal,
               stockQueries: effectiveImageSource === 'stock',
             })
@@ -1768,7 +1870,7 @@ export default function ProjectView({
           setPhase('planning')
           const plan = await planScreen(
             settings, text, shortlist,
-            { design: dir.markdown, presetHint: preset.hint },
+            { design: dir.markdown, presetHint: formHint },
             ac.signal,
           )
           if (plan) {
@@ -1892,6 +1994,7 @@ export default function ProjectView({
           videoHash: museVideo?.hash,
           videoFrames: museVideo?.frames,
           siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined,
+          theme: runTheme ?? undefined,
         })
         if (siteNew) siteRefsByScreen.current.set(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
         // Name the project after its FIRST prompt, so it stops being called
@@ -1902,6 +2005,7 @@ export default function ProjectView({
         setGeneratingIds(new Set([screenId]))
         setSelectedIds([screenId])
         setPrompt('')
+        setThemeId(null)
         setAnnotations([])
         setSiteShots([])
         // The found photos go LAST, after the user's annotations and any
@@ -2084,7 +2188,9 @@ export default function ProjectView({
           // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
           const lint = lintSlop(result.code)
           if (!lint.ok) {
-            setError(t('project.slop', { list: lint.violations.join(', ') }))
+            const advisory = t('project.slop', { list: lint.violations.join(', ') })
+            setSlopAdvisory(advisory)
+            setError(advisory)
           }
         }
       }
@@ -2115,7 +2221,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, siteShots, siteMode])
+  }, [prompt, screens, selectedIds, presetId, themeId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, siteShots, siteMode])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2199,7 +2305,8 @@ export default function ProjectView({
         : !reproducing && project.referenceScreenId
           ? identityOrLayoutReference(screenId)
           : undefined
-      const extraSystem = joinSystem([designPreamble, referencePreamble, hintForDevice(screen.device)])
+      // The type it was made as, too (`Screen.theme`) — never on a reproduction.
+      const extraSystem = joinSystem([designPreamble, referencePreamble, withScreenTheme(hintForDevice(screen.device), reproducing ? null : screen.theme)])
       const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
@@ -2694,6 +2801,10 @@ export default function ProjectView({
     const ac = new AbortController()
     abortRef.current = ac
     setBusy(true)
+    // Cleared like every other flow clears it. Left up, a second failure with
+    // the same provider message is not a NEW error, and the end-of-work chime
+    // would call that failed run a success.
+    setError(null)
     setRegenLabel(t('audit.fixing'))
     setRegeneratingIds(new Set([screenId]))
     // Every path that hands a screen wholesale to the model resets this first,
@@ -2853,11 +2964,35 @@ export default function ProjectView({
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
-      generate()
+      // Not on half a brief: the shortcut obeys what the disabled button says.
+      if (!enhancer.running) generate()
     }
   }
 
   const editing = selectedScreens.length > 0
+
+  // A rewrite is a NEW-screen brief. Selecting a screen mid-stream turns the
+  // field into an edit instruction and unmounts the only Stop, so the stream
+  // used to land 200 words of redesign in an edit field nobody could cancel.
+  // Stopping restores the typed text through the enhancer's own abort path.
+  const stopEnhance = enhancer.stop
+  useEffect(() => {
+    if (editing) stopEnhance()
+  }, [editing, stopEnhance])
+
+  // Captures arriving mid-stream (a paste into the read-only field, a drop, the
+  // image button) would land the rewrite beside them — the very pairing
+  // `enhanceBlocked` refuses up front, since an invented brief then argues
+  // with the screenshots. Both composers read siteShots from here, so one
+  // effect covers them.
+  useEffect(() => {
+    if (siteShots.length) stopEnhance()
+  }, [siteShots.length, stopEnhance])
+
+  /** Site captures describe the screen themselves; see PromptEnhanceButton's `disabledReason`. */
+  const enhanceBlocked = siteShots.length ? t('composer.enhanceCaptures') : undefined
+  /** In Reproduce mode the captures are the brief and the type is dropped — the chip says so. */
+  const themeIgnored = siteShots.length > 0 && siteMode === 'reproduce'
 
   /**
    * Whether the iPhone bezel has anything to draw around in this project.
@@ -2982,6 +3117,10 @@ export default function ProjectView({
             attachedHash: s.attachedMedia?.kind === 'film' ? s.attachedMedia.hash : undefined,
           }))}
           onAttachFilm={(screenId, hash) => attachScreenMedia(screenId, filmMedia(hash))}
+          onRenderActivity={(state) => {
+            setFilmRendering(state === 'active')
+            if (state === 'failed') noteWorkFailure()
+          }}
           jobId={videoJobId}
           onJobId={setVideoJobId}
           /*
@@ -3062,6 +3201,10 @@ export default function ProjectView({
         onRemoveSiteShot={removeSiteShot}
         onAddSiteFiles={(files) => void addSiteFiles(files)}
         onComposerPaste={onComposerPaste}
+        themeId={themeId}
+        onThemeChange={chooseTheme}
+        enhancer={enhancer}
+        onEnhance={startEnhance}
       />
       {libraryModal}
       </>
@@ -3266,6 +3409,15 @@ export default function ProjectView({
         }}
         onRemoveHotspot={removeHotspot}
         highlightedHotspotId={highlightHotspot}
+        pendingLink={
+          pendingLink && !pendingLink.list
+            ? { screenId: pendingLink.screenId, rect: pendingLink.info.rect, label: pendingLink.info.label }
+            : null
+        }
+        onConnectLink={(target) => pendingLink && addHotspot(pendingLink.screenId, target)}
+        onCancelLink={() => setPendingLink(null)}
+        onChooseLinkTarget={() => setPendingLink((p) => p && { ...p, list: true })}
+        onRetargetHotspot={retargetHotspot}
         focusScreenId={focus?.screenId ?? null}
         focusNonce={focus?.nonce}
         annotateMode={annotateMode}
@@ -3799,9 +3951,16 @@ export default function ProjectView({
 
           {/* Format preset — only relevant when creating a new screen */}
           {!editing && (
-            <div className="mb-2 flex items-center gap-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="kicker">{t('project.format')}</span>
-              <PresetPicker value={presetId} onChange={setPresetId} />
+              <PresetPicker value={presetId} onChange={setPresetId} disabled={enhancer.running} />
+              <ScreenThemePicker
+                value={themeId}
+                onChange={chooseTheme}
+                placement="up"
+                disabled={busy || enhancer.running}
+                ignored={themeIgnored}
+              />
             </div>
           )}
 
@@ -3897,6 +4056,7 @@ export default function ProjectView({
             />
           </div>
 
+          <EnhanceNotice enhancer={enhancer} className="mb-2" />
           <div className="flex items-end gap-2">
             {/* min-w-0: a textarea's automatic minimum size comes from `cols`
                 (20 by default), which is wider than the room left beside the
@@ -3919,14 +4079,31 @@ export default function ProjectView({
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={onComposerKey}
               onPaste={onComposerPaste}
+              // The brief is being written INTO the field: a keystroke now would
+              // be overwritten by the next chunk, or overwrite it.
+              readOnly={enhancer.running}
+              aria-busy={enhancer.running || undefined}
             />
+            {/* New screens only. An edit instruction must stay narrow — EDIT_RULES
+                change only what is asked — and a 200-word brief would read as a
+                redesign of the selected screens. */}
+            {!editing && (
+              <PromptEnhanceButton
+                enhancer={enhancer}
+                onStart={startEnhance}
+                disabled={busy || !prompt.trim()}
+                disabledReason={enhanceBlocked}
+                compact
+                className="mb-0.5"
+              />
+            )}
             <button
               type="button"
               className="btn-primary mb-0.5 flex shrink-0 items-center gap-2"
               onClick={generate}
               // Screenshots are a request on their own for a new screen; an
               // edit still needs the words saying what to change.
-              disabled={busy || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
+              disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
             >
               {busy ? (
                 <>
@@ -3965,18 +4142,21 @@ export default function ProjectView({
         </div>
       </div>
 
-      {/* Target picker after drawing a hotspot */}
-      {pendingLink && (
+      {/* Target picker — the list behind the cable's "Choose from the list" */}
+      {pendingLink?.list && (
         <div
           className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
           onClick={() => setPendingLink(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="link-target-title"
             className="w-full max-w-sm rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="kicker mb-1 text-accent-ink">{t('project.linkKicker')}</div>
-            <h3 className="mb-1 text-lead text-ink">
+            <h3 id="link-target-title" className="mb-1 text-lead text-ink">
               {pendingLink.info.label
                 ? t('project.linkElement', { label: pendingLink.info.label })
                 : t('project.thisElement')}{' '}
@@ -3984,12 +4164,17 @@ export default function ProjectView({
             </h3>
             <p className="measure mb-3 text-body-sm text-ink-muted">{t('project.linkHelp')}</p>
             <div className="max-h-72 space-y-1 overflow-auto">
+              {/* The first screen takes the focus: the list is opened from the
+                  cable's bar, which unmounts as it opens, and the focus fell
+                  to <body> — a keyboard user then had to Tab through the whole
+                  toolbar and every frame to reach a screen. */}
               {screens
                 .filter((s) => s.id !== pendingLink.screenId)
-                .map((s) => (
+                .map((s, i) => (
                   <button
                     key={s.id}
                     type="button"
+                    autoFocus={i === 0}
                     onClick={() => addHotspot(pendingLink.screenId, s.id)}
                     className="block w-full truncate rounded-lg border border-line-soft px-3 py-2 text-left text-body text-ink transition hover:border-accent hover:bg-ink/5 hover:text-accent-ink"
                   >
@@ -4002,6 +4187,7 @@ export default function ProjectView({
             </div>
             <button
               type="button"
+              autoFocus={screens.every((s) => s.id === pendingLink.screenId)}
               className="btn-ghost mt-3 w-full text-body-sm"
               onClick={() => setPendingLink(null)}
             >

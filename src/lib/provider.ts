@@ -5,6 +5,8 @@ export interface TestResult {
   ok: boolean
   message: string
   models?: string[]
+  /** Same meaning as `ModelsResult.noListing`: a 404 on the listing, said in words by the caller. */
+  noListing?: boolean
 }
 
 interface OllamaTagsResponse {
@@ -15,6 +17,14 @@ export interface ModelsResult {
   ok: boolean
   models: string[]
   error?: string
+  /**
+   * The provider answered 404 on its model listing: it has none (Cohere's
+   * compatibility API), or the base URL is wrong. The two cannot be told apart
+   * from here, so the caller's sentence names both — "type the model id" alone
+   * sent someone with a typo in the base URL off to type an id every
+   * generation would then 404 on.
+   */
+  noListing?: boolean
 }
 
 /** Fetches the list of models the provider can serve (GET /api/tags), sorted. */
@@ -32,7 +42,12 @@ export async function listModels(s: Settings): Promise<ModelsResult> {
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    return { ok: false, models: [], error: `HTTP ${res.status} from provider. ${truncate(text, 150)}` }
+    return {
+      ok: false,
+      models: [],
+      error: `HTTP ${res.status} from provider. ${truncate(text, 150)}`,
+      ...(res.status === 404 ? { noListing: true } : {}),
+    }
   }
 
   let data: OllamaTagsResponse
@@ -73,7 +88,15 @@ export async function testConnection(s: Settings): Promise<TestResult> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    return { ok: false, message: `HTTP ${res.status} from provider. ${truncate(text, 200)}` }
+    // A 404 here is the listing, not the chat: the Tester button is the most
+    // visible check in Settings, and a bare "HTTP 404" read as a dead endpoint
+    // for providers that simply publish no list. Not `ok` — a wrong base URL
+    // 404s too — but flagged, so the banner can say both in words.
+    return {
+      ok: false,
+      message: `HTTP ${res.status} from provider. ${truncate(text, 200)}`,
+      ...(res.status === 404 ? { noListing: true } : {}),
+    }
   }
 
   let data: OllamaTagsResponse

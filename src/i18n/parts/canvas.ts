@@ -71,9 +71,25 @@ export const canvas = {
     'canvas.removeLink': 'Supprimer le lien',
     'canvas.missingScreen': '(écran manquant)',
 
+    // ---- cables ----
+    'canvas.cablesShow': 'Afficher les câbles entre les écrans',
+    'canvas.cablesHide': 'Masquer les câbles entre les écrans',
+    'canvas.cableText': '« {label} » → {target}',
+    'canvas.cableTextBare': '→ {target}',
+    'canvas.cableSelect': 'Sélectionner le lien {label}',
+    'canvas.cableRemoveTitle': 'Supprimer le lien (touche Suppr.)',
+    'canvas.cableRetarget': 'Glissez sur un autre écran pour rebrancher le lien',
+    'canvas.connectFrom': 'Lier « {label} »',
+    'canvas.connectFromElement': 'Lier cet élément',
+    'canvas.connectHow': 'Tirez le câble jusqu’à l’écran de destination, puis cliquez',
+    'canvas.retargetHint': 'Rebrancher le lien',
+    'canvas.retargetHow': 'Relâchez sur le nouvel écran de destination',
+    'canvas.connectList': 'Choisir dans la liste',
+    'canvas.connectCancelTitle': 'Annuler — ou Échap, ou un clic dans le vide',
+
     // ---- mode hints ----
     'canvas.hintLink':
-      'Mode Lier — cliquez un bouton ou un élément dans un écran, puis choisissez l’écran de destination',
+      'Mode Lier — cliquez un bouton ou un élément dans un écran, puis tirez le câble jusqu’à l’écran de destination',
     'canvas.hintModify': 'Mode Modifier — cliquez un élément dans un écran, puis décrivez le changement',
     'canvas.hintAnnotate': 'Mode Annoter — tracez un rectangle sur un écran pour le joindre à la conversation',
     'canvas.hintDefault':
@@ -89,6 +105,11 @@ export const canvas = {
     'canvas.demoFlowHint': 'Flèches ← → pour naviguer · Échap pour sortir',
     'canvas.demoHint': 'Cliquez les zones liées pour naviguer · Échap pour sortir',
     'canvas.demoGoToScreen': 'Aller à l’écran lié',
+    'canvas.demoFrame': 'Appareil',
+    'canvas.demoFrameTitle': 'Montrer l’écran dans un ordinateur, une tablette ou un smartphone dessiné au trait',
+    'canvas.demoDeviceComputer': 'Ordinateur',
+    'canvas.demoDeviceTablet': 'Tablette',
+    'canvas.demoDevicePhone': 'Smartphone',
     'canvas.phoneLimits': 'Sur téléphone, un écran à la fois. Comparer plusieurs écrans, les relier, les annoter ou les redimensionner demande un écran plus large.',
   } as Record<string, string>,
   en: {
@@ -151,8 +172,24 @@ export const canvas = {
     'canvas.removeLink': 'Remove the link',
     'canvas.missingScreen': '(missing screen)',
 
+    // ---- cables ----
+    'canvas.cablesShow': 'Show the cables between screens',
+    'canvas.cablesHide': 'Hide the cables between screens',
+    'canvas.cableText': '“{label}” → {target}',
+    'canvas.cableTextBare': '→ {target}',
+    'canvas.cableSelect': 'Select the link {label}',
+    'canvas.cableRemoveTitle': 'Remove the link (Delete key)',
+    'canvas.cableRetarget': 'Drag onto another screen to reconnect the link',
+    'canvas.connectFrom': 'Link “{label}”',
+    'canvas.connectFromElement': 'Link this element',
+    'canvas.connectHow': 'Draw the cable to the destination screen, then click',
+    'canvas.retargetHint': 'Reconnect the link',
+    'canvas.retargetHow': 'Release on the new destination screen',
+    'canvas.connectList': 'Choose from the list',
+    'canvas.connectCancelTitle': 'Cancel — or Esc, or a click on empty space',
+
     // ---- mode hints ----
-    'canvas.hintLink': 'Link mode — click a button or an element in a screen, then pick the destination screen',
+    'canvas.hintLink': 'Link mode — click a button or an element in a screen, then draw the cable to the destination screen',
     'canvas.hintModify': 'Modify mode — click an element in a screen, then describe the change',
     'canvas.hintAnnotate': 'Annotate mode — drag a rectangle over a screen to attach it to the conversation',
     'canvas.hintDefault':
@@ -168,6 +205,11 @@ export const canvas = {
     'canvas.demoFlowHint': 'Arrows ← → to move · Esc to leave',
     'canvas.demoHint': 'Click linked areas to navigate · Esc to exit',
     'canvas.demoGoToScreen': 'Go to the linked screen',
+    'canvas.demoFrame': 'Device',
+    'canvas.demoFrameTitle': 'Show the screen inside a line-drawn computer, tablet or smartphone',
+    'canvas.demoDeviceComputer': 'Computer',
+    'canvas.demoDeviceTablet': 'Tablet',
+    'canvas.demoDevicePhone': 'Smartphone',
     'canvas.phoneLimits': 'One screen at a time on a phone. Comparing several screens, linking, annotating and resizing them need a wider screen.',
   } as Record<string, string>,
 }

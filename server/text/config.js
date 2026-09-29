@@ -12,33 +12,108 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { KIND_OLLAMA, KIND_OPENAI } from './dialect.js'
 
-/** Selectable providers, in the order shown in the Admin UI. */
+/**
+ * Selectable providers, in the order shown in the Admin UI.
+ *
+ * `group` sorts a list that grew to sixteen into what a person is choosing
+ * between: a lab's own API (`vendor`), a host or router serving other people's
+ * models (`host`), or an address typed by hand (`custom`). The UIs render it as
+ * <optgroup>s (src/lib/providerGroups.ts).
+ *
+ * Mirrored by PROVIDERS in src/lib/settings.ts, minus fal (its `Key` auth
+ * cannot ride the browser's Bearer header); tests/text-providers-mirror.test.js
+ * holds the two together. Every preset added since Anthropic is `openai` kind
+ * with Bearer auth, so each is data and nothing else: where a vendor refuses a
+ * corner of the OpenAI shape, that is a row of PROVIDER_QUIRKS in dialect.js,
+ * and where its surface is not at `<base>/v1`, `openAiRoot` reads that off the
+ * documented base URL. Checked 2026-09-28 against each vendor's documentation
+ * (the URL is on each entry). Left out on purpose:
+ *  - Cohere: its compatibility API has no model listing, so a preset would
+ *    open on a picker that cannot fill. Its older Command models also cap
+ *    output under the 16 384 a screen asks for — PROVIDER_QUIRKS clamps those
+ *    per model, which is what lets the "Compatible OpenAI" label name it.
+ *  - Alibaba Qwen (DashScope): the international base URL now carries the
+ *    account's workspace id, so there is no address a preset could hold.
+ * Both work through "Compatible OpenAI" with the URL their docs give.
+ */
 export const TEXT_PROVIDERS = [
-  { id: 'ollama-cloud', label: 'Ollama Cloud', kind: KIND_OLLAMA, baseUrl: 'https://ollama.com', model: 'gpt-oss:120b' },
-  { id: 'openai', label: 'OpenAI', kind: KIND_OPENAI, baseUrl: 'https://api.openai.com', model: 'gpt-4o-mini' },
+  { id: 'ollama-cloud', label: 'Ollama Cloud', group: 'host', kind: KIND_OLLAMA, baseUrl: 'https://ollama.com', model: 'gpt-oss:120b' },
+  { id: 'openai', label: 'OpenAI', group: 'vendor', kind: KIND_OPENAI, baseUrl: 'https://api.openai.com', model: 'gpt-4o-mini' },
   // Anthropic publishes an OpenAI-compatible surface at /v1/chat/completions
   // with Bearer auth, so the existing translation covers it and no new dialect
   // code is needed — the entry is purely declarative, like every other preset.
   {
     id: 'anthropic',
     label: 'Anthropic (Claude)',
+    group: 'vendor',
     kind: KIND_OPENAI,
     baseUrl: 'https://api.anthropic.com',
     model: 'claude-sonnet-4-5',
   },
-  { id: 'openrouter', label: 'OpenRouter', kind: KIND_OPENAI, baseUrl: 'https://openrouter.ai/api', model: 'openai/gpt-4o-mini' },
+  // https://ai.google.dev/gemini-api/docs/openai — the OpenAI surface is at
+  // /v1beta/openai, not /v1 (see `openAiRoot`); model from …/docs/models.
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    group: 'vendor',
+    kind: KIND_OPENAI,
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    model: 'gemini-3.8-flash',
+  },
+  // https://docs.mistral.ai/api/ — `-latest` follows the current Medium, which
+  // Mistral describes as its frontier model for coding.
+  { id: 'mistral', label: 'Mistral AI', group: 'vendor', kind: KIND_OPENAI, baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-medium-latest' },
+  // https://api-docs.deepseek.com/ — documented at the bare root, no /v1.
+  { id: 'deepseek', label: 'DeepSeek', group: 'vendor', kind: KIND_OPENAI, baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash' },
+  // https://docs.x.ai/docs/models — chat completions is xAI's "legacy" surface
+  // but still served; the Responses API would be a second dialect.
+  { id: 'xai', label: 'xAI (Grok)', group: 'vendor', kind: KIND_OPENAI, baseUrl: 'https://api.x.ai/v1', model: 'grok-4.7' },
+  // https://platform.kimi.ai/docs/api/chat
+  { id: 'moonshot', label: 'Moonshot AI (Kimi)', group: 'vendor', kind: KIND_OPENAI, baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3' },
+  { id: 'openrouter', label: 'OpenRouter', group: 'host', kind: KIND_OPENAI, baseUrl: 'https://openrouter.ai/api', model: 'openai/gpt-4o-mini' },
+  // https://console.groq.com/docs/openai; gpt-oss-120b allows 65 536 output
+  // tokens (https://console.groq.com/docs/models).
+  { id: 'groq', label: 'Groq', group: 'host', kind: KIND_OPENAI, baseUrl: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b' },
+  // https://docs.together.ai/docs/openai-api-compatibility
+  { id: 'together', label: 'Together AI', group: 'host', kind: KIND_OPENAI, baseUrl: 'https://api.together.ai/v1', model: 'openai/gpt-oss-120b' },
+  // https://docs.fireworks.ai/tools-sdks/openai-compatibility
+  {
+    id: 'fireworks',
+    label: 'Fireworks AI',
+    group: 'host',
+    kind: KIND_OPENAI,
+    baseUrl: 'https://api.fireworks.ai/inference/v1',
+    model: 'accounts/fireworks/models/gpt-oss-120b',
+  },
+  // https://inference-docs.cerebras.ai/api-reference/chat-completions; 32K of
+  // output on the free tier (https://inference-docs.cerebras.ai/models/openai-oss).
+  { id: 'cerebras', label: 'Cerebras', group: 'host', kind: KIND_OPENAI, baseUrl: 'https://api.cerebras.ai/v1', model: 'gpt-oss-120b' },
+  // https://huggingface.co/docs/inference-providers/index — one HF token, the
+  // router picks the backend (`:fastest` by default).
+  {
+    id: 'huggingface',
+    label: 'Hugging Face (Inference Providers)',
+    group: 'host',
+    kind: KIND_OPENAI,
+    baseUrl: 'https://router.huggingface.co/v1',
+    model: 'openai/gpt-oss-120b',
+  },
   // fal.ai exposes an OpenAI-compatible passthrough (routed via OpenRouter), so
   // the existing translation covers it — only the auth scheme differs: fal wants
   // `Key <id>:<secret>`, and reads a `Bearer` as a JWT ("Invalid token").
   {
     id: 'fal',
     label: 'fal.ai (Claude, GPT, Gemini, Qwen… via OpenRouter)',
+    group: 'host',
     kind: KIND_OPENAI,
     auth: 'key',
     baseUrl: 'https://fal.run/openrouter/router/openai',
     model: 'openai/gpt-4o-mini',
   },
-  { id: 'openai-compatible', label: 'Compatible OpenAI (Groq, Together, LM Studio, vLLM…)', kind: KIND_OPENAI, baseUrl: '', model: '' },
+  // Last, always: the escape hatch. The names in the label are the ones with no
+  // preset of their own; LM Studio is one here because an ADMIN endpoint is
+  // trusted past the SSRF guard (a local model is a supported setup).
+  { id: 'openai-compatible', label: 'Compatible OpenAI (Qwen, Cohere, LM Studio, vLLM…)', group: 'custom', kind: KIND_OPENAI, baseUrl: '', model: '' },
 ]
 export const TEXT_PROVIDER_IDS = TEXT_PROVIDERS.map((p) => p.id)
 
@@ -145,7 +220,7 @@ function publicProfile(prof) {
 export function publicTextConfig(cfg) {
   const c = liftLegacy(cfg) || { ...defaultTextConfig(), ...(cfg || {}) }
   return {
-    providers: TEXT_PROVIDERS.map((p) => ({ id: p.id, label: p.label })),
+    providers: TEXT_PROVIDERS.map((p) => ({ id: p.id, label: p.label, group: p.group })),
     profiles: TEXT_PROFILES,
     generation: publicProfile(c.generation),
     inspiration: publicProfile(c.inspiration),
