@@ -373,7 +373,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       if (!wantsStream) {
         const json = await upstream.json().catch(() => ({}))
         res.setHeader('content-type', 'application/json')
-        res.end(JSON.stringify(plan.isModels ? fromOpenAiModels(json) : fromOpenAiResponse(json)))
+        res.end(JSON.stringify(plan.isModels ? fromOpenAiModels(json, plan.quirks) : fromOpenAiResponse(json)))
         return
       }
 

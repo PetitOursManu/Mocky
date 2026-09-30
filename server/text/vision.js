@@ -8,6 +8,7 @@
 // Honest caveat: a 200 means the request was ACCEPTED, not that the model
 // truly reasons about pixels — some gateways silently drop the image. So the
 // UI says "détectée / non détectée", never "garantie".
+import crypto from 'node:crypto'
 import zlib from 'node:zlib'
 import { buildUpstream } from './dialect.js'
 import { crc32 } from '../images/zip.js'
@@ -58,9 +59,29 @@ function errorProvesVision(detail) {
   )
 }
 
-/** Probe results are stable per (baseUrl, model) — cache them for the process. */
+/**
+ * Probe results are stable per (baseUrl, model, credential) — cache them for the
+ * process.
+ *
+ * The credential is part of the key, as a short hash. Without it the first
+ * answer for a preset was everybody's: a mistyped key cached its 401 for every
+ * user of api.openai.com + gpt-4o-mini until a restart, together with the
+ * provider's error text, which can quote a masked fragment of that key. It did
+ * not matter while bring-your-own-key probes always went to <base>/api/chat and
+ * 404'd whatever the key; since the probe reads the dialect, it reaches the real
+ * authenticated endpoint.
+ */
 const cache = new Map()
-const keyOf = (t) => `${t.kind}|${t.baseUrl}|${t.model}`
+const keyOf = (t) =>
+  `${t.kind}|${t.baseUrl}|${t.model}|${t.apiKey ? crypto.createHash('sha256').update(t.apiKey).digest('hex').slice(0, 16) : ''}`
+
+/**
+ * Only an answer about the MODEL is worth remembering: it accepted the image, or
+ * it refused it with a 400. An auth failure, a rate limit, a server error or a
+ * network error says something about this minute, and caching it refused every
+ * screenshot until a restart after the key was fixed.
+ */
+const definitive = (result, status) => result.vision === true || status === 400
 
 /**
  * @param {{kind:string, baseUrl:string, apiKey?:string, model:string}} target
@@ -90,6 +111,7 @@ export async function probeVision(target, opts = {}) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000)
   let result
+  let status = 0
   try {
     const plan = buildUpstream(target, '/api/chat', body)
     const res = await fetchImpl(plan.url, {
@@ -97,8 +119,17 @@ export async function probeVision(target, opts = {}) {
       headers: plan.headers,
       body: plan.body,
       signal: ctrl.signal,
+      // Not followed, and never read. A browser-supplied base passes the SSRF
+      // guard as a public host, and that host can answer 302 to a metadata
+      // address or a LAN port; following it, then echoing the first 400
+      // characters of whatever answered, made this route the readable port
+      // scanner invariants.md says is closed. Same rule as handleProviderProxy.
+      redirect: 'manual',
     })
-    if (res && res.ok) {
+    status = res ? res.status : 0
+    if (res && (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400))) {
+      result = { vision: false, error: 'redirect not followed' }
+    } else if (res && res.ok) {
       result = { vision: true }
     } else {
       let detail = ''
@@ -118,8 +149,28 @@ export async function probeVision(target, opts = {}) {
     clearTimeout(timer)
   }
 
-  cache.set(key, result)
+  if (definitive(result, status)) cache.set(key, result)
   return result
+}
+
+/**
+ * The probe target for a browser-configured provider ("bring your own key"),
+ * read off the same headers `/__provider` gets from src/lib/proxy.ts — or null
+ * when there is no base URL or no model.
+ *
+ * The kind is read and not assumed: this route hard-coded `ollama` and so
+ * posted to `<base>/api/chat` for every OpenAI-dialect provider in the picker,
+ * got a 404, and reported "no vision" for Gemini, Grok or GPT-4o — after which
+ * the inspiration image was dropped for a model that could see it.
+ * `credsFromReq` in server/muse/llm.js fixed the same bug for Muse's routes.
+ */
+export function browserVisionTarget(req) {
+  const baseUrl = String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
+  const auth = String(req.headers['authorization'] || '')
+  const model = String(req.body?.model || '')
+  if (!baseUrl || !model) return null
+  const kind = String(req.headers['x-provider-kind'] || '') === 'openai' ? 'openai' : 'ollama'
+  return { kind, baseUrl, apiKey: auth.startsWith('Bearer ') ? auth.slice(7) : '', model }
 }
 
 /** Drop cached probes (model or credentials changed). */

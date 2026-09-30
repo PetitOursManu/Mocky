@@ -6,9 +6,11 @@ import {
   saveSettings,
 } from '../lib/settings'
 import { listModels, testConnection, type TestResult } from '../lib/provider'
+import { groupProviders, providerGroupKey } from '../lib/providerGroups'
 import { api, type AuthUser } from '../lib/api'
 import { Banner, Button, Field, Icon, IconButton, Input, Segmented, Select } from '../ui'
 import { LANGS, useLang, useT } from '../i18n'
+import ChimeSetting from './ChimeSetting'
 
 type TestState =
   | { status: 'idle' }
@@ -89,7 +91,9 @@ export default function SettingsPanel() {
     } else {
       setModels([])
       setModelsState('error')
-      setModelsError(res.error ?? t('settings.modelsLoadFailed'))
+      // A provider with no listing is not a failure: the free-text field below
+      // takes the id, and saying so beats a bare "HTTP 404".
+      setModelsError(res.noListing ? t('settings.modelsNoListing') : (res.error ?? t('settings.modelsLoadFailed')))
     }
   }
 
@@ -185,10 +189,14 @@ export default function SettingsPanel() {
                       setTest({ status: 'idle' })
                     }}
                   >
-                    {PROVIDERS.map((provider) => (
-                      <option key={provider.id} value={provider.id}>
-                        {provider.label}
-                      </option>
+                    {groupProviders(PROVIDERS).map((block) => (
+                      <optgroup key={block.group} label={t(providerGroupKey(block.group))}>
+                        {block.items.map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.label}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </Select>
                 )}
@@ -212,7 +220,23 @@ export default function SettingsPanel() {
 
               <Field
                 label={t('settings.apiKey')}
-                hint={t('settings.apiKeyHint')}
+                hint={
+                  activeProvider.keyUrl ? (
+                    <>
+                      {t('settings.apiKeyHint')} {t('settings.apiKeyWhere')}{' '}
+                      <a
+                        href={activeProvider.keyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all text-accent-ink underline underline-offset-2 hover:opacity-80"
+                      >
+                        {activeProvider.keyUrl.replace(/^https:\/\//, '')}
+                      </a>
+                    </>
+                  ) : (
+                    t('settings.apiKeyHint')
+                  )
+                }
               >
                 {(p) => (
                   <div className="flex gap-2">
@@ -354,6 +378,8 @@ export default function SettingsPanel() {
             options={LANGS.map((l) => ({ value: l.id, label: l.label }))}
           />
         </section>
+
+        <ChimeSetting />
       </div>
 
       <p className="mt-8 border-t border-line-soft pt-3 text-body-sm text-ink-muted">
@@ -497,15 +523,18 @@ function PasswordSection({
 
 function TestBanner({ result, onPick }: { result: TestResult; onPick: (m: string) => void }) {
   const t = useT()
+  // A 404 on the listing is a warning, not a failure: the provider may simply
+  // publish no list, and generation works with a typed model id.
+  const tone = result.ok
+    ? 'border-ok/50 bg-ok/10 text-ok'
+    : result.noListing
+      ? 'border-warn/40 bg-warn/10 text-warn'
+      : 'border-danger/50 bg-danger/10 text-danger'
   return (
-    <div
-      className={`mt-4 border p-3 text-body ${
-        result.ok ? 'border-ok/50 bg-ok/10 text-ok' : 'border-danger/50 bg-danger/10 text-danger'
-      }`}
-    >
+    <div className={`mt-4 border p-3 text-body ${tone}`}>
       <div className="flex items-start gap-1.5 font-medium">
-        <Icon name={result.ok ? 'check' : 'close'} size={16} className="mt-0.5" />
-        <span>{result.message}</span>
+        <Icon name={result.ok ? 'check' : result.noListing ? 'warning' : 'close'} size={16} className="mt-0.5" />
+        <span>{result.noListing ? t('settings.modelsNoListing') : result.message}</span>
       </div>
       {result.models && result.models.length > 0 && (
         <div className="mt-2">

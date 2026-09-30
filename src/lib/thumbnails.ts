@@ -1,6 +1,7 @@
 import { captureRegion } from './capture'
 import { resolveCapabilities, selectCapabilities } from './capabilities/select'
 import type { Screen } from './project'
+import { thumbFrame } from './documentMode'
 
 /**
  * A cache of real screenshots, used to illustrate projects on the home page.
@@ -228,8 +229,8 @@ export async function captureThumb(screen: Screen): Promise<string | null> {
   const mark = screen.id + ':' + hashCode(screen.code)
   if (failed.has(mark)) return null
   try {
-    const w = screen.w > 0 ? screen.w : 1024
-    const h = screen.h > 0 ? screen.h : 720
+    // A document is photographed on its FIRST PAGE alone — see thumbFrame.
+    const { w, h, region } = thumbFrame(screen, THUMB_REGION)
     // Same capabilities the screen was generated with — the shell needs the
     // Icon/Charts/Motion globals or the component throws on render. Screens
     // saved before `caps` was persisted fall back to re-deriving them.
@@ -241,7 +242,7 @@ export async function captureThumb(screen: Screen): Promise<string | null> {
     // 480 px file — on a screen with a full-bleed background image that alone
     // was enough to hit the capture timeout.
     const scale = Math.min(2, Math.max(0.5, (MAX_WIDTH * 1.5) / w))
-    const raw = await captureRegion(screen.code, w, h, THUMB_REGION, caps, scale)
+    const raw = await captureRegion(screen.code, w, h, region, caps, scale)
     const small = await shrink(raw)
     putThumb(screen.id, screen.code, small)
     return small

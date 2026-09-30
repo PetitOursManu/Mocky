@@ -21,6 +21,9 @@ import { parseDesignSystem } from '../lib/designTokens'
 import { ScaledMockup, type PreviewCfg } from './DesignMockup'
 import Preview, { type PickInfo, type SweptElement } from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
+import CableLayer from './CableLayer'
+import CableConnect from './CableConnect'
+import { cullWindow, linksOf, readShowCables, routeCables, writeShowCables, type Cable } from '../lib/cables'
 import { Icon, IconButton } from '../ui'
 import { useT } from '../i18n'
 
@@ -433,12 +436,19 @@ export default function Canvas({
   onScreenContextMenu,
   onOpenScreenNotes,
   onContentHeight,
+  onDocPages,
+  onDownloadDocument,
   animations,
   onCycleScreenAnimations,
   onDeriveDesign,
   onApplyScreenDesign,
   onInspectScreenDesign,
   derivingDesignId,
+  pendingLink,
+  onConnectLink,
+  onCancelLink,
+  onChooseLinkTarget,
+  onRetargetHotspot,
 }: {
   screens: Screen[]
   selectedIds: string[]
@@ -485,6 +495,10 @@ export default function Canvas({
   onOpenScreenNotes?: (screenId: string) => void
   /** Reports a screen's rendered content height (px) for the "Full height" format. */
   onContentHeight?: (screenId: string, height: number) => void
+  /** A DOCUMENT's page kit reported its pages — raw, see Preview's `onDocPages`. */
+  onDocPages?: (screenId: string, count: unknown, overflow: unknown, format: unknown) => void
+  /** Open the download dialog of a DOCUMENT screen. Absent = no button. */
+  onDownloadDocument?: (screenId: string) => void
   /** false = "Sans animation" — passed through to every preview. */
   animations?: boolean
   /** Cycle one screen between follow-the-composer, forced on, and forced off. */
@@ -497,6 +511,20 @@ export default function Canvas({
   onInspectScreenDesign?: (screenId: string) => void
   /** The screen whose DESIGN.md derivation is currently running, if any. */
   derivingDesignId?: string | null
+  /**
+   * An element picked in link mode, waiting for its cable to be plugged into a
+   * screen (`CableConnect`). Null while nothing is in hand — or while the list
+   * of screens is open instead, which is the same pick answered another way.
+   */
+  pendingLink?: { screenId: string; rect: Box; label?: string } | null
+  /** The pending cable was plugged into this screen. */
+  onConnectLink?: (targetId: string) => void
+  /** The pending cable was let go of (Escape, a click on nothing, the bar's Cancel). */
+  onCancelLink?: () => void
+  /** Answer the pending pick from the list of screens instead. */
+  onChooseLinkTarget?: () => void
+  /** An existing cable was dragged onto another screen. */
+  onRetargetHotspot?: (screenId: string, hotspotId: string, targetId: string) => void
 }) {
   const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -520,6 +548,10 @@ export default function Canvas({
   const [resizePreview, setResizePreview] = useState<(Box & { id: string }) | null>(null)
   const [marquee, setMarquee] = useState<Box | null>(null)
   const [annotateRect, setAnnotateRect] = useState<Box | null>(null)
+  /** The quiet map of cables outside link mode — per browser, see `readShowCables`. */
+  const [showCables, setShowCables] = useState(readShowCables)
+  /** A cable whose socket was grabbed to plug it into another screen. */
+  const [retargeting, setRetargeting] = useState<Cable | null>(null)
 
   const gesture = useRef<Gesture | null>(null)
   /** Last frame pressed, for detecting a double-press (see onFrameDown). */
@@ -665,10 +697,17 @@ export default function Canvas({
   // Bibliothèque checkboxes (whose only activation key IS Space) became
   // impossible to tick. So: never intercept Space while focus is on an
   // interactive element.
+  //
+  // `data-canvas-keys` marks a focusable element that belongs to the canvas
+  // itself and leaves Space to it: the bar shown while a cable is in hand takes
+  // the focus (to get it back from the preview iframe the pick happened in),
+  // and Space+drag must still pan then, or a distant screen is unreachable.
   useEffect(() => {
-    const isInteractive = (node: EventTarget | null) =>
-      node instanceof HTMLElement &&
-      Boolean(node.closest('input, textarea, select, button, a, [role="button"], [contenteditable], [tabindex]'))
+    const isInteractive = (node: EventTarget | null) => {
+      if (!(node instanceof HTMLElement)) return false
+      const hit = node.closest('input, textarea, select, button, a, [role="button"], [contenteditable], [tabindex]')
+      return Boolean(hit) && !hit!.hasAttribute('data-canvas-keys')
+    }
     const down = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setInteractiveId(null)
       if (e.code === 'Space' && !isInteractive(e.target)) {
@@ -935,6 +974,44 @@ export default function Canvas({
   }
 
   /**
+   * The frames as they are DRAWN, for the cables: during a move or a resize the
+   * stored boxes are where a frame was, and a cable routed on them stays behind
+   * while the frame travels, then jumps on release. `moveDelta` and
+   * `resizePreview` are what change on every step of those gestures, so they
+   * are what the memo listens to.
+   */
+  const liveBoxes = useMemo(() => {
+    const m = new Map<string, Box>()
+    for (const s of screens) m.set(s.id, effBox(s))
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screens, moveDelta, resizePreview])
+  const cables = useMemo(() => routeCables(linksOf(screens), liveBoxes), [screens, liveBoxes])
+  const screenNames = useMemo(() => new Map(screens.map((s) => [s.id, s.name])), [screens])
+  const screenOrder = useMemo(() => screens.map((s) => s.id), [screens])
+  /**
+   * The world area worth drawing cables in. Snapped (see `cullWindow`), and
+   * memoised on its VALUE: a pan inside the snap returns equal numbers in a new
+   * object, and a new object would re-render the memoised layer for nothing.
+   */
+  const cullNow = cullWindow(
+    view,
+    typeof window !== 'undefined' ? window.innerWidth : 1440,
+    typeof window !== 'undefined' ? window.innerHeight : 900,
+  )
+  const cullKey = `${cullNow.x}|${cullNow.y}|${cullNow.w}|${cullNow.h}`
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cull = useMemo(() => cullNow, [cullKey])
+
+  // A reconnection in progress ends with link mode — the socket it was dragged
+  // from is no longer drawn.
+  useEffect(() => {
+    if (!linkMode) setRetargeting(null)
+  }, [linkMode])
+
+  const onRetargetStart = useCallback((c: Cable) => setRetargeting(c), [])
+
+  /**
    * Which screens may hold a live WebGL context.
    *
    * A browser keeps about sixteen per renderer process and silently kills the
@@ -1059,6 +1136,10 @@ export default function Canvas({
         className="absolute left-0 top-0 origin-top-left"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
       >
+        {/* The quiet map: BEFORE the frames, so it is drawn under them. */}
+        {showCables && !linkMode && cables.length > 0 && (
+          <CableLayer cables={cables} scale={view.scale} cull={cull} mode="map" names={screenNames} />
+        )}
         {screens.map((s) => {
           const b = effBox(s)
           const selected = selectedIds.includes(s.id)
@@ -1068,9 +1149,10 @@ export default function Canvas({
           const soloInteractive = interactiveId === s.id && !modeBlocks
           const pickable = (linkMode || modifyMode) && !annotateMode && !spaceDown
           const animateSize = (animUntil.current.get(s.id) ?? 0) > nowMs && !reducedMotion && !gesture.current
-          const bw = b.w
-          const bh = b.h
           const useFrame = s.device === 'iphone' && showFrame
+          // A document is sheets of paper: square corners, or the rounding
+          // would trim the corners of a page the export prints whole.
+          const frameRadius = useFrame ? '13% / 6%' : s.page ? '0' : '1rem'
           return (
             <div
               key={s.id}
@@ -1089,7 +1171,7 @@ export default function Canvas({
                 width: b.w,
                 height: b.h,
                 background: useFrame ? 'transparent' : 'white',
-                borderRadius: useFrame ? '13% / 6%' : '1rem',
+                borderRadius: frameRadius,
                 transition: animateSize ? easeProps('width', 'height') : undefined,
               }}
               onPointerDown={(e) => onFrameDown(e, s)}
@@ -1154,7 +1236,7 @@ export default function Canvas({
                 {/* A screen frozen on purpose says so even when it is not
                     selected — otherwise "why is this one not moving?" has no
                     visible answer anywhere on the canvas. */}
-                {s.animations === false && editingLabelId !== s.id && (
+                {s.animations === false && !s.page && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-ink/10 text-ink-muted"
                     style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
@@ -1180,6 +1262,24 @@ export default function Canvas({
                   >
                     <Icon name="note" size={13 * inv} />
                     {s.userNotes.length}
+                  </button>
+                )}
+                {/* A document's download is a button with its word on it,
+                    selected or not: it is what a flyer is FOR, and asked for
+                    in so many words ("un bouton pour le téléchargement") —
+                    an entry three levels into a menu is not a button. */}
+                {s.page && onDownloadDocument && editingLabelId !== s.id && (
+                  <button
+                    type="button"
+                    className="flex shrink-0 items-center rounded-full border border-accent bg-accent font-semibold text-on-accent shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, fontSize: 12 * inv }}
+                    title={t('canvas.docDownloadTitle')}
+                    disabled={!s.code.trim() || generatingIds?.has(s.id)}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => onDownloadDocument(s.id)}
+                  >
+                    <Icon name="download" size={13 * inv} />
+                    {t('canvas.docDownload')}
                   </button>
                 )}
                 {soloInteractive && editingLabelId !== s.id && (
@@ -1220,16 +1320,19 @@ export default function Canvas({
                       </span>
                     </LabelBtn>
                     {/* This screen's own answer about motion: animated (the
-                        default) or held still for a demo. */}
-                    <LabelBtn
-                      inv={inv}
-                      title={t(s.animations === false ? 'canvas.animOff' : 'canvas.animOn')}
-                      onClick={() => onCycleScreenAnimations?.(s.id)}
-                    >
-                      <span className={s.animations === false ? 'line-through opacity-60' : undefined}>
-                        <Icon name="play" size={13 * inv} />
-                      </span>
-                    </LabelBtn>
+                        default) or held still for a demo. Not on a document:
+                        paper holds still, and it was made so on purpose. */}
+                    {!s.page && (
+                      <LabelBtn
+                        inv={inv}
+                        title={t(s.animations === false ? 'canvas.animOff' : 'canvas.animOn')}
+                        onClick={() => onCycleScreenAnimations?.(s.id)}
+                      >
+                        <span className={s.animations === false ? 'line-through opacity-60' : undefined}>
+                          <Icon name="play" size={13 * inv} />
+                        </span>
+                      </LabelBtn>
+                    )}
                     <button
                       type="button"
                       title={t('canvas.more')}
@@ -1405,7 +1508,7 @@ export default function Canvas({
               {/* Live preview fills the frame. Interactive when in interact/link mode. */}
               <div
                 className="h-full w-full overflow-hidden"
-                style={{ pointerEvents: interactive || pickable ? 'auto' : 'none', borderRadius: useFrame ? '13% / 6%' : '1rem' }}
+                style={{ pointerEvents: interactive || pickable ? 'auto' : 'none', borderRadius: frameRadius }}
               >
                 {useFrame ? (
                   <DeviceChrome>
@@ -1437,8 +1540,12 @@ export default function Canvas({
                     pickOutlineOnly={modifyMode}
                     pickPrecise={modifyMode}
                     onPick={(info) => onPickElement(s.id, info)}
-                    hideScrollbars={s.device === 'iphone'}
-                    radius="1rem"
+                    // A document's frame is sized to its pages, so a scrollbar
+                    // could only appear in the moment before the kit reports
+                    // them — and would narrow the page it is measuring.
+                    hideScrollbars={s.device === 'iphone' || !!s.page}
+                    onDocPages={s.page ? (count, overflow, format) => onDocPages?.(s.id, count, overflow, format) : undefined}
+                    radius={s.page ? '0' : '1rem'}
                     captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
                     onCaptureRect={onCaptureRect}
                     sweepRequest={sweepReq?.screenId === s.id ? sweepReq.nonce : null}
@@ -1457,7 +1564,7 @@ export default function Canvas({
               {regeneratingIds?.has(s.id) && (
                 <div
                   className="mocky-regen-ring pointer-events-none absolute z-10"
-                  style={{ inset: -5 * inv, padding: 7 * inv, borderRadius: useFrame ? '13% / 6%' : '1rem' }}
+                  style={{ inset: -5 * inv, padding: 7 * inv, borderRadius: frameRadius }}
                 />
               )}
 
@@ -1475,45 +1582,10 @@ export default function Canvas({
                 </div>
               )}
 
-              {/* Interaction-link hotspots (shown while linking) */}
-              {linkMode &&
-                s.links.map((h) => {
-                  const targetName = screens.find((sc) => sc.id === h.target)?.name ?? t('canvas.missingScreen')
-                  const hi = highlightedHotspotId === h.id
-                  return (
-                    <div
-                      key={h.id}
-                      className={`pointer-events-none absolute rounded border-2 ${
-                        hi
-                          ? 'border-warn bg-warn/30 ring-4 ring-warn/40'
-                          : 'border-accent bg-accent/20'
-                      }`}
-                      style={{ left: h.x * bw, top: h.y * bh, width: h.w * bw, height: h.h * bh }}
-                    >
-                      <div
-                        className="pointer-events-auto absolute left-0 top-0 flex max-w-full items-center gap-1 rounded bg-accent px-1 font-medium text-on-accent"
-                        style={{ fontSize: 10 / view.scale, transform: `translateY(-100%)` }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                      >
-                        <span className="truncate">
-                          {h.label ? `"${h.label}" ` : ''}→ {targetName}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => onRemoveHotspot(s.id, h.id)}
-                          className="flex shrink-0 items-center rounded px-0.5 hover:bg-on-accent/20"
-                          title={t('canvas.removeLink')}
-                          aria-label={t('canvas.removeLink')}
-                        >
-                          <Icon name="close" size={10 / view.scale} />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-
-              {/* Resize handles (only on the selected frame) */}
-              {selected && !linkMode &&
+              {/* Resize handles (only on the selected frame). Never on a
+                  document: its size is its pages', the resize is refused, and
+                  a handle that previews a size and snaps back is a lie. */}
+              {selected && !linkMode && !s.page &&
                 HANDLES.map((handle) => {
                   const pos: React.CSSProperties = { width: hs, height: hs, position: 'absolute' }
                   const half = hs / 2
@@ -1566,7 +1638,62 @@ export default function Canvas({
             </div>
           )
         })}
+        {/* Link mode: AFTER the frames, so the cables and the elements they
+            leave from are drawn over the screens. This replaced a rectangle and
+            a "→ Target" tag per hotspot, drawn inside each frame, which said
+            where a link went in words and never showed it. */}
+        {linkMode && (
+          <CableLayer
+            cables={cables}
+            scale={view.scale}
+            cull={cull}
+            mode="edit"
+            names={screenNames}
+            highlightedId={highlightedHotspotId}
+            hiddenId={retargeting?.id}
+            suspended={!!retargeting || !!pendingLink}
+            onRemove={onRemoveHotspot}
+            onRetargetStart={onRetargetHotspot ? onRetargetStart : undefined}
+          />
+        )}
       </div>
+
+      {/* A cable in hand: a new link, or an old one being reconnected. */}
+      {linkMode && retargeting ? (
+        <CableConnect
+          key={`re:${retargeting.id}`}
+          source={{ screenId: retargeting.sourceId, rect: sourceRectOf(screens, retargeting), label: retargeting.label }}
+          retarget={{ targetId: retargeting.targetId }}
+          pressed
+          boxes={liveBoxes}
+          order={screenOrder}
+          names={screenNames}
+          view={view}
+          reducedMotion={reducedMotion}
+          spaceDown={spaceDown}
+          onDrop={(targetId) => {
+            const c = retargeting
+            setRetargeting(null)
+            if (targetId !== c.targetId) onRetargetHotspot?.(c.sourceId, c.id, targetId)
+          }}
+          onCancel={() => setRetargeting(null)}
+        />
+      ) : linkMode && pendingLink ? (
+        <CableConnect
+          key={`new:${pendingLink.screenId}:${pendingLink.rect.x}:${pendingLink.rect.y}`}
+          source={pendingLink}
+          pressed={false}
+          boxes={liveBoxes}
+          order={screenOrder}
+          names={screenNames}
+          view={view}
+          reducedMotion={reducedMotion}
+          spaceDown={spaceDown}
+          onDrop={(targetId) => onConnectLink?.(targetId)}
+          onCancel={() => onCancelLink?.()}
+          onChooseList={onChooseLinkTarget}
+        />
+      ) : null}
 
       {/* Marquee selection rectangle */}
       {marquee && (marquee.w > 0 || marquee.h > 0) && (
@@ -1611,10 +1738,14 @@ export default function Canvas({
          * the bar was already being painted over. The seventh control makes it
          * 251px and needs W > 1206.
          *
-         * Budget for whoever adds the eighth: at `xl` the clearance is 1280/2
-         * - 336 - 16 - width. Past ~330px of controls this has to move again,
-         * and a wider breakpoint is the wrong answer at that point — the bar
-         * would spend its life at top-14. Fold something into a menu instead.
+         * Budget for whoever adds the ninth: at `xl` the clearance is 1280/2
+         * - 336 - 16 - width, which is 288px of controls — not the ~330 this
+         * note used to say; the arithmetic was right and the total was not.
+         * The eighth (the cables toggle) is a 32px button and a 4px gap, paid
+         * for by narrowing the zoom readout from w-12 to w-11 — "100%" in the
+         * mono face is ~31px — so the bar is ~285px and still clears. There is
+         * nothing left: the next control goes into a menu. A wider breakpoint
+         * is the wrong answer — the bar would spend its life at top-14.
          */
         className="absolute left-4 top-14 flex items-center gap-1 rounded-lg border border-line bg-raised/90 p-1 shadow-lg xl:bottom-4 xl:top-auto"
         onPointerDown={(e) => e.stopPropagation()}
@@ -1622,7 +1753,7 @@ export default function Canvas({
         <IconButton variant="toolbar" label={t('canvas.zoomOut')} onClick={() => zoomBy(1 / 1.2)}>
           <Icon name="zoomOut" size={16} />
         </IconButton>
-        <span className="w-12 text-center font-mono text-body-sm text-ink-muted">{Math.round(view.scale * 100)}%</span>
+        <span className="w-11 text-center font-mono text-body-sm text-ink-muted">{Math.round(view.scale * 100)}%</span>
         <IconButton variant="toolbar" label={t('canvas.zoomIn')} onClick={() => zoomBy(1.2)}>
           <Icon name="zoomIn" size={16} />
         </IconButton>
@@ -1658,6 +1789,25 @@ export default function Canvas({
         >
           <Icon name="grid" size={16} />
         </IconButton>
+        {/* The map of cables outside link mode. Here rather than on the main
+            toolbar because it is a way of LOOKING at the board, like the zoom
+            beside it, and the main toolbar has no width left to give. In link
+            mode the cables are always drawn — that is what the mode is for — so
+            the toggle only ever governs the quiet view. */}
+        <IconButton
+          variant="toolbar"
+          label={t(showCables ? 'canvas.cablesHide' : 'canvas.cablesShow')}
+          active={showCables}
+          aria-pressed={showCables}
+          onClick={() => {
+            setShowCables((v) => {
+              writeShowCables(!v)
+              return !v
+            })
+          }}
+        >
+          <Icon name="cable" size={16} />
+        </IconButton>
       </div>
 
       {/* Hint */}
@@ -1683,6 +1833,12 @@ export default function Canvas({
       </div>
     </div>
   )
+}
+
+/** The stored rectangle of the hotspot a cable was routed from. */
+function sourceRectOf(screens: Screen[], c: Cable): Box {
+  const h = screens.find((s) => s.id === c.sourceId)?.links.find((l) => l.id === c.id)
+  return h ? { x: h.x, y: h.y, w: h.w, h: h.h } : { x: 0, y: 0, w: 0, h: 0 }
 }
 
 function LabelBtn({

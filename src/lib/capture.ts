@@ -138,6 +138,38 @@ export function captureRegion(
   })
 }
 
+/**
+ * "Sans animation" as a stylesheet: every CSS animation and transition run to
+ * its end at once, never removed — `animation: none` on a fade-in whose resting
+ * state is `opacity: 0` leaves the content invisible for good.
+ *
+ * The same rule Preview writes when the switch is off (its `stillCss`; the two
+ * are held together by `capture.test.ts`, since Preview builds its copy inline).
+ * A document export wants it for a stronger reason than a mockup: a PDF is one
+ * instant of the page, and the instant html2canvas or the SVG image happened to
+ * catch was often the FIRST frame of an entrance — a flyer whose headline
+ * `animate-fade-in` exported at opacity 0.
+ */
+export const STILL_ANIMATIONS_CSS =
+  '*,*::before,*::after{animation-duration:0.01ms !important;animation-delay:0ms !important;' +
+  'animation-iteration-count:1 !important;animation-fill-mode:forwards !important;' +
+  'transition-duration:0.01ms !important;transition-delay:0ms !important;' +
+  'scroll-behavior:auto !important}'
+
+/**
+ * No transition at all in the EXPORT frame — not a short one.
+ *
+ * The still stylesheet gives every element a 0.01 ms transition, which is right
+ * for a preview (transitions end at once, and their events still fire) and
+ * wrong here: `transition-property` defaults to `all`, so every style the export
+ * pins — a gradient headline flattened to its ink before it is measured —
+ * started a transition, and a computed style read in the same task returns the
+ * transition's START value. The headline was measured transparent, dropped from
+ * the .pptx as invisible, and erased from its background: gone from the slide.
+ * Kept apart from STILL_ANIMATIONS_CSS, which must stay identical to Preview's.
+ */
+export const EXPORT_NO_TRANSITIONS_CSS = '*,*::before,*::after{transition:none !important}'
+
 function utf8ToBase64(str: string): string {
   return window.btoa(
     encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
@@ -178,8 +210,13 @@ function buildCaptureShell(
   componentName: string,
   caps: Capability[] = [],
   scale = 2,
-  /** Run the legibility probe instead of taking a picture. */
-  probe = false,
+  /**
+   * What the frame does once the page has settled: take the picture (`shoot`),
+   * run the legibility probe (`probe`), or only say it is ready (`document`) —
+   * a document export drives the frame from the parent, page by page, and
+   * needs it to stay alive after the first answer.
+   */
+  mode: 'shoot' | 'probe' | 'document' = 'shoot',
 ): string {
   // Local, pinned copy — see public/vendor/VENDOR.md. This used to point at an
   // UNVERSIONED unpkg URL, loaded into an iframe that ran with Mocky's own
@@ -305,6 +342,7 @@ ${capScripts}
 ${babelScript}
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
+${mode === 'document' ? `<style>${STILL_ANIMATIONS_CSS}${EXPORT_NO_TRANSITIONS_CSS}</style>` : ''}
 </head><body><div id="root"></div>
 <script type="text/plain" id="mocky-b64">${b64}</script>
 ${preludeTag}
@@ -312,7 +350,11 @@ ${preludeTag}
   /* One frame and the context back, for every <Scene3D> on this screen — see
      the note by capScripts. Set before the prelude runs, because the component
      reads it when its effect first fires. */
-  window.__mockyStill = true;
+  window.__mockyStill = true;${mode === 'document' ? `
+  /* A document is exported at rest: <Animated> reads this at mount and renders
+     its resting state instead of an entrance the export would catch at its
+     first frame (see STILL_ANIMATIONS_CSS for the CSS half). */
+  window.__mockyAnimations = false;` : ''}
   function post(m){ var o={__mockyCap:true,id:${JSON.stringify(id)}}; for(var k in m) o[k]=m[k]; parent.postMessage(o,'*'); }
   // createRoot().render() commits asynchronously, so a render error is thrown
   // AFTER the synchronous try/catch below has already returned. Without this the
@@ -327,7 +369,8 @@ ${preludeTag}
   try {
     ${runner}
   } catch(e){ post({ error: String((e&&e.message)||e) }); return; }
-${probe ? PROBE_SOURCE : ''}
+${mode === 'probe' ? PROBE_SOURCE : ''}
+  function ready(){ post({ ready: true }); }
   function shoot(){
     var vw = window.innerWidth||1, vh = window.innerHeight||1, r = ${JSON.stringify(rect)};
     try {
@@ -345,7 +388,7 @@ ${probe ? PROBE_SOURCE : ''}
      never arrives is not. window.__mockyStillPending is that count. */
   var owed = 0;
   setTimeout(function wait(){
-    if (!window.__mockyStillPending || owed >= 600) return ${probe ? 'probe' : 'shoot'}();
+    if (!window.__mockyStillPending || owed >= 600) return ${mode === 'probe' ? 'probe' : mode === 'document' ? 'ready' : 'shoot'}();
     owed += 60;
     setTimeout(wait, 60);
   }, 400);
@@ -430,16 +473,131 @@ export function checkLegibility(
     const whole = { x: 0, y: 0, w: 1, h: 1 }
     const babel = () =>
       mountCaptureIframe(
-        buildCaptureShell(id + 'b', whole, true, utf8ToBase64(previewCode), componentName, caps, 1, true),
+        buildCaptureShell(id + 'b', whole, true, utf8ToBase64(previewCode), componentName, caps, 1, 'probe'),
         id + 'b', width, height, resolve, reject,
       )
     compileJsx(previewCode)
       .then((compiled) =>
         mountCaptureIframe(
-          buildCaptureShell(id, whole, false, utf8ToBase64(compiled), componentName, caps, 1, true),
+          buildCaptureShell(id, whole, false, utf8ToBase64(compiled), componentName, caps, 1, 'probe'),
           id, width, height, resolve, babel,
         ),
       )
       .catch(babel)
+  })
+}
+
+/** A document rendered in the capture shell and left standing, for the export to read. */
+export interface DocumentFrame {
+  /** The frame's window — same-origin, so its DOM and its html2canvas are reachable. */
+  win: Window
+  doc: Document
+  /** Resize the frame: the pages stack below the first viewport. */
+  resize(height: number): void
+  dispose(): void
+}
+
+/**
+ * Renders a DOCUMENT screen offscreen and hands the live frame back.
+ *
+ * Same shell as a thumbnail — the prelude, Tailwind, the vendored html2canvas,
+ * the `__mockyStill` wait — and therefore the same KNOWN LIMITATION described at
+ * the top of this file: the model's code runs with Mocky's origin for as long as
+ * the export takes. What differs is who drives. A thumbnail is one picture the
+ * frame takes of itself; an export is a page-by-page walk (measure the text,
+ * hide it, rasterise, next page) that the parent performs on the frame's DOM.
+ * So the frame only answers "ready", and stays until `dispose()`.
+ *
+ * Rejects when the screen could not be rendered at all — the parent-compiled
+ * build first, the in-frame Babel build second, as `captureRegion` does — or
+ * when `signal` aborts.
+ */
+export function openDocumentFrame(
+  code: string,
+  caps: Capability[],
+  width: number,
+  height: number,
+  signal?: AbortSignal,
+): Promise<DocumentFrame> {
+  const id = 'doc' + Math.random().toString(36).slice(2)
+  const previewCode = toPreviewModule(code)
+  const componentName = detectComponentName(code)
+  const whole = { x: 0, y: 0, w: 1, h: 1 }
+  const viaBabel = () =>
+    mountDocumentIframe(
+      buildCaptureShell(id + 'b', whole, true, utf8ToBase64(previewCode), componentName, caps, 1, 'document'),
+      id + 'b', width, height, signal,
+    )
+  return compileJsx(previewCode).then(
+    (compiled) =>
+      mountDocumentIframe(
+        buildCaptureShell(id, whole, false, utf8ToBase64(compiled), componentName, caps, 1, 'document'),
+        id, width, height, signal,
+      ).catch((err) => {
+        if (signal?.aborted) throw err
+        return viaBabel()
+      }),
+    () => viaBabel(),
+  )
+}
+
+function mountDocumentIframe(
+  srcdoc: string,
+  id: string,
+  width: number,
+  height: number,
+  signal?: AbortSignal,
+): Promise<DocumentFrame> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'))
+    const iframe = document.createElement('iframe')
+    // KNOWN LIMITATION — same-origin, see the top of this file.
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin')
+    iframe.setAttribute('aria-hidden', 'true')
+    iframe.tabIndex = -1
+    iframe.style.cssText = `position:fixed;left:-99999px;top:0;width:${Math.round(width)}px;height:${Math.round(height)}px;border:0;`
+    iframe.srcdoc = srcdoc
+
+    let settled = false
+    const detach = () => {
+      window.removeEventListener('message', onMsg)
+      signal?.removeEventListener('abort', onAbort)
+      clearTimeout(timer)
+    }
+    const fail = (err: Error) => {
+      if (settled) return
+      settled = true
+      detach()
+      iframe.remove()
+      reject(err)
+    }
+    function onAbort() {
+      fail(new DOMException('Aborted', 'AbortError'))
+    }
+    function onMsg(e: MessageEvent) {
+      if (e.source !== iframe.contentWindow) return
+      const d = e.data
+      if (!d || !d.__mockyCap || d.id !== id || settled) return
+      if (!d.ready) return fail(new Error(d.error || 'render failed'))
+      const win = iframe.contentWindow
+      const doc = iframe.contentDocument
+      if (!win || !doc) return fail(new Error('render failed'))
+      // From here on an abort is the export's to handle between pages, and the
+      // frame's own error reports are not ours: it measures what DID render.
+      settled = true
+      detach()
+      resolve({
+        win,
+        doc,
+        resize: (h) => {
+          iframe.style.height = `${Math.round(h)}px`
+        },
+        dispose: () => iframe.remove(),
+      })
+    }
+    const timer = setTimeout(() => fail(new Error('render timed out')), 25000)
+    window.addEventListener('message', onMsg)
+    signal?.addEventListener('abort', onAbort)
+    document.body.appendChild(iframe)
   })
 }

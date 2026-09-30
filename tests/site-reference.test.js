@@ -53,13 +53,17 @@ describe('site screenshots in the generation path', () => {
     expect(reading).toBeGreaterThan(0)
     expect(dossier).toBeGreaterThan(reading)
     expect(view).toContain('const museBlind = siteNew && !reproducing && !siteContent')
-    expect(view).toContain('if (ultraActive && project.ultra && !siteNew) {')
-    expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew) {')
+    expect(view).toContain('if (runUltra && project.ultra && !siteNew) {')
+    expect(view).toContain('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew) {')
   })
 
   it('replace the site pictures only where no dossier already made them', () => {
     // A redesign Muse ran for has its pictures; a second set would compete.
-    expect(view).toContain('const sitePictures = siteNew && (reproducing || !museRan) ? parseSitePictures(siteContent) : []')
+    expect(view).toContain('const sitePictures = siteNew && (reproducing || !museRan) && picturesAllowed ? parseSitePictures(siteContent) : []')
+    // `picturesAllowed` only ever says no for a DOCUMENT whose own Images choice
+    // is "Sans image": for every other screen it is true, and the rule above is
+    // the one it always was.
+    expect(view).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
     expect(view).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
   })
 

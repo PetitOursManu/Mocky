@@ -490,7 +490,7 @@ en train d'arriver, et couper dessus tronquerait l'aperçu à chaque morceau. Un
 fois la réponse complète, une sentinelle mal formée est tout ce qu'il y aura
 jamais : là, elle coupe.
 
-### Les cinq points d'appel
+### Les six points d'appel
 
 | Fonction | Sert à | Règles supplémentaires |
 |---|---|---|
@@ -499,6 +499,7 @@ jamais : là, elle coupe.
 | `fixComponent()` | Réparer automatiquement après une erreur d'affichage | Non diffusé. Reçoit **le même** prompt de capacités : sans la liste des variables globales existantes, le modèle ne peut pas savoir quel composant est indéfini, et échange une erreur React #130 contre une autre |
 | `polishComponent()` | Corriger des défauts de qualité nommés | Non diffusé non plus : l'appelant revérifie le résultat, et un écran incomplet ne peut pas être vérifié. Reçoit lui aussi le prompt de capacités, et `POLISH_PROMPT` à la place de `FIX_PROMPT` |
 | `auditFixComponent()` | Corriger des défauts de balisage SEO / accessibilité nommés | Non diffusé non plus. Reçoit `AUDIT_FIX_PROMPT`, dont la consigne centrale — *l'écran doit rester exactement le même* — est l'inverse de celle de `POLISH_PROMPT` |
+| `fitComponent()` | Faire tenir les pages d'un document (« Ajuster à la page ») | Non diffusé. Reçoit `FIT_PROMPT` et le dépassement MESURÉ par la lecture même de l'export (`lib/docExport/fit.ts`) : les pixels par bord et les mots dehors. Il dépense précisément les espacements, ce qu'`AUDIT_FIX_PROMPT` interdit ; la réponse est mesurée à nouveau et gardée seulement si elle tient, ou s'en approche, sur le même nombre de pages |
 
 `polishComponent` et `auditFixComponent` sont délibérément des **frères** de
 `fixComponent`, jamais des variantes. Les trois partagent le transport, la fin
@@ -515,14 +516,15 @@ propre au troisième. Dans chaque cas, les défauts sont filtrés par l'appelant
 ceux que la politique déclare à corriger : une passe n'est donc jamais dépensée
 sur une règle que Mocky a décidé de ne pas imposer.
 
-Les cinq se terminent sur la même expression —
+Les six se terminent sur la même expression —
 `guardMotion(extractCode(content))` — et c'est là que la source générée complète
 existe pour la première fois. D'où l'intérêt de garder juste le compte de ce
 titre, et de le vérifier au grep plutôt que de le croire : il disait « trois »
-jusqu'à l'arrivée de `polishComponent`, puis « quatre » jusqu'à celle
-d'`auditFixComponent`. Une vérification post-génération branchée sur le seul
-`generateComponent` ne voit ni une modification, ni une réparation, ni un
-polissage, ni une correction d'accessibilité.
+jusqu'à l'arrivée de `polishComponent`, « quatre » jusqu'à celle
+d'`auditFixComponent`, et « cinq » jusqu'à `fitComponent`. Une vérification
+post-génération branchée sur le seul `generateComponent` ne voit ni une
+modification, ni une réparation, ni un polissage, ni une correction
+d'accessibilité, ni un ajustement.
 
 ### Modifier sans appeler le modèle
 

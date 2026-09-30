@@ -47,12 +47,13 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
 
 - `src/lib/generate.ts` — prompts, `chat()`, extraction. The complete generated
   source first exists at `guardMotion(extractCode(content))`, which appears in
-  **five** places: `generateComponent`, `editComponent`, `fixComponent`,
-  `polishComponent`, `auditFixComponent`. A post-generation check that only
-  hooks the first one misses edits, repairs, polishes and accessibility
-  corrections. This note said "three" for an hour after `polishComponent` was
-  added — by the person who had just written the note — and said "four" until
-  `auditFixComponent` arrived. Count them with grep before trusting the number.
+  **six** places: `generateComponent`, `editComponent`, `fixComponent`,
+  `polishComponent`, `auditFixComponent`, `fitComponent`. A post-generation
+  check that only hooks the first one misses edits, repairs, polishes,
+  accessibility corrections and page fits. This note said "three" for an hour
+  after `polishComponent` was added — by the person who had just written the
+  note — "four" until `auditFixComponent` arrived and "five" until
+  `fitComponent`. Count them with grep before trusting the number.
 - `src/lib/plan.ts` — the optional planner. Runs only when `usePlanner` is on
   **and** Muse did not run. Also decides the screen's *mode*.
 - `src/components/Preview.tsx` — builds the sandboxed `srcDoc`. Invariant-dense;
@@ -73,16 +74,18 @@ holds both. What the site's pictures SHOW is read with its content and replaced
 (`lib/sitePictures.ts`, free photos or generated, per the `Images` choice) —
 except on a redesign Muse ran for, whose dossier already made its pictures.
 
-There are three independent correction loops, and they are not interchangeable:
+There are four independent correction passes, and they are not interchangeable:
 
 | | Trigger | Prompt | Budget |
 |---|---|---|---|
 | **Repair** | The iframe reports a render/compile error | `FIX_PROMPT` — "fix ONLY the error, do not restyle" | `MAX_FIX_ATTEMPTS = 2` |
 | **Polish** | The user asks for it | `POLISH_PROMPT` — "fix these named findings, change nothing else" | `DEFAULT_MAX_ITERATIONS = 2` |
 | **Audit fix** | The user asks for it, from the SEO/a11y panel | `AUDIT_FIX_PROMPT` — "fix the markup, the screen must look identical" | `DEFAULT_MAX_ITERATIONS = 2` |
+| **Fit** | The user asks for it, from a document's right-click menu (or the download dialog's overflow notice) | `FIT_PROMPT` — "win back the measured pixels, same design, same pages" | one call per click, measured before AND after (`lib/docExport/fit.ts`) |
 
 They share the transport, `runPolishLoop` and the write-back conventions, and
-nothing else. Do not merge them. Each one's instruction breaks the other two: a
+nothing else (Fit does not use `runPolishLoop`: its progress is pixels, not rule
+ids). Do not merge them. Each one's instruction breaks the others: a
 slop finding *is* a styling problem, so a model told not to restyle hands the
 screen back unchanged — while an accessibility pass that restyles has failed
 even with every finding gone, because a semantics fix came back as a redesign.

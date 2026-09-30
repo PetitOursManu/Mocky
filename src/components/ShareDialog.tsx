@@ -50,6 +50,8 @@ export default function ShareDialog({ screen, onClose }: { screen: Screen; onClo
           h: screen.h,
           device: screen.device,
           animations: screen.animations,
+          // Without it a shared flyer opened as a web page, cut at the phone's width.
+          page: screen.page,
         },
         ttl,
       )

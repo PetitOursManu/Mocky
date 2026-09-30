@@ -1,12 +1,25 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, readSiteContent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, readSiteContent, polishComponent, auditFixComponent, fitComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, type ScreenUltra, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
-import { DEFAULT_PRESET_ID, getPreset, hintForDevice } from '../lib/presets'
+import { useWorkChime } from '../lib/useWorkChime'
+import { DEFAULT_PRESET_ID, getPreset } from '../lib/presets'
+import {
+  composerPageFormat,
+  docFrameUpdate,
+  pickReference,
+  documentHint,
+  documentPipeline,
+  hintForScreen,
+  pageFormatName,
+} from '../lib/documentMode'
+import { getPageFormat, type PageFormatId } from '../lib/pageFormats'
+import { fitFindings, fitVerdict, measureFit, pageExcessPx, type FitReport, type FitVerdict } from '../lib/docExport/fit'
+import DocumentDownloadDialog from './DocumentDownloadDialog'
 import { captureRegion, checkLegibility } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
@@ -33,6 +46,17 @@ import MobileProject from './MobileProject'
 import type { SweptElement } from './Preview'
 import DesignSystemPanel from './DesignSystemPanel'
 import PresetPicker from './PresetPicker'
+import ScreenThemePicker from './ScreenThemePicker'
+import { EnhanceNotice, PromptEnhanceButton } from './PromptEnhancer'
+import { usePromptEnhancer } from '../lib/usePromptEnhancer'
+import {
+  getScreenTheme,
+  promptForThemeChange,
+  screenThemeBriefLine,
+  projectScreenType,
+  withScreenTheme,
+  type ScreenThemeId,
+} from '../lib/screenThemes'
 import DemoPlayer from './DemoPlayer'
 import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
@@ -49,7 +73,7 @@ import ScreenImagesDialog from './ScreenImagesDialog'
 import VideoExportDialog from './VideoExportDialog'
 import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
-import ImageSourceControl from './ImageSourceControl'
+import ImageSourceControl, { DocumentImageControl } from './ImageSourceControl'
 import {
   buildSiteReferenceSection,
   buildSitePicturesSection,
@@ -64,6 +88,19 @@ import {
 } from '../lib/siteReference'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
 import { findSitePictures, type SitePictureFound } from '../lib/sitePictures'
+import {
+  buildDocumentPictureSection,
+  documentImageChoices,
+  documentPictureSectionFor,
+  documentPictureSource,
+  documentPictureWant,
+  findDocumentPicture,
+  imageGenerationAvailable,
+  loadDocumentImageChoice,
+  saveDocumentImageChoice,
+  shownDocumentImageChoice,
+  type DocumentImageChoice,
+} from '../lib/documentPictures'
 import {
   createStockFinder,
   loadImageSource,
@@ -237,7 +274,7 @@ export default function ProjectView({
   const t = useT()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
-  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | null>(null)
+  const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture' | null>(null)
   /**
    * Motion Ultra paused for the next generations, from the composer.
    *
@@ -298,6 +335,28 @@ export default function ProjectView({
    * makes when the model loses vision.
    */
   const effectiveImageSource: ImageSource = imageSource === 'stock' && stockImagesUsable ? 'stock' : 'ai'
+  /**
+   * A DOCUMENT's own picture: "Sans image" unless this browser chose a source
+   * for documents (lib/documentPictures.ts). Its own preference, not the one
+   * above — that one's "AI" default is what billed a picture per flyer.
+   */
+  const [docImageChoice, setDocImageChoiceState] = useState<DocumentImageChoice>(() => loadDocumentImageChoice())
+  const setDocImageChoice = useCallback((c: DocumentImageChoice) => {
+    setDocImageChoiceState(c)
+    saveDocumentImageChoice(c)
+  }, [])
+  /** Whether this instance can generate a picture at all; null until asked. */
+  const [imageGenOk, setImageGenOk] = useState<boolean | null>(null)
+  useEffect(() => {
+    const ac = new AbortController()
+    imageGenerationAvailable(ac.signal).then((ok) => !ac.signal.aborted && setImageGenOk(ok))
+    return () => ac.abort()
+  }, [])
+  const docImageDoors = { generation: imageGenOk, stock: stockImagesUsable }
+  const docImageChoicesNow = documentImageChoices(docImageDoors)
+  const docImageShown = shownDocumentImageChoice(docImageChoice, docImageDoors)
+  /** Null: this document gets no picture of its own. */
+  const docPictureSource = documentPictureSource(docImageChoice, docImageDoors)
   const [museAvail, setMuseAvail] = useState<boolean | null>(null)
   const [museResult, setMuseResult] = useState<MuseResult | null>(null)
   const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
@@ -406,6 +465,28 @@ export default function ProjectView({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
   /**
+   * The screen type for the NEXT screen (lib/screenThemes.ts). It starts on the
+   * type this project's latest screen was made with and STAYS armed after a
+   * generation (`projectScreenType` says why: a flyer's recto came back as a
+   * website once the menu had gone back to nothing). The screen keeps it
+   * (`Screen.theme`) for Regenerate.
+   */
+  const [themeId, setThemeId] = useState<ScreenThemeId | null>(() => projectScreenType(project.screens).theme)
+  /**
+   * The page format picked for DOCUMENT types, starting — like the type — on
+   * the latest screen's. Null until one is known: the type's own default stands
+   * until then (`composerPageFormat`), and the app preset is kept untouched
+   * beside it.
+   */
+  const [pageFormatId, setPageFormatId] = useState<PageFormatId | null>(() => projectScreenType(project.screens).page)
+  /** The document whose download dialog is open, or null. */
+  const [downloadDocId, setDownloadDocId] = useState<string | null>(null)
+  /**
+   * The overflow already reported per document, so a page that runs past its
+   * edge is named once per distinct answer rather than on every re-measure.
+   */
+  const docOverflowSaid = useRef<Record<string, string>>({})
+  /**
    * The one panel over the canvas' top-right corner — see lib/rightSlot.ts.
    *
    * One value and not three booleans: the Design System inspector, the audit
@@ -424,7 +505,17 @@ export default function ProjectView({
   const [modifyHex, setModifyHex] = useState('')
   const [interactAll, setInteractAll] = useState(false)
   const [showFrame, setShowFrame] = useState(() => localStorage.getItem(FRAME_PREF_KEY) !== '0')
-  const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo } | null>(null)
+  /**
+   * An element picked in link mode. While `list` is unset its cable is in hand
+   * on the canvas (`CableConnect`); `list` means the user asked for the list of
+   * screens instead — the same pick, answered from a dialog.
+   */
+  const [pendingLink, setPendingLink] = useState<{ screenId: string; info: PickInfo; list?: boolean } | null>(null)
+  // Leaving link mode lets go of a cable in hand: it was a modal once, and
+  // nothing else could happen while it was open; on the canvas it can.
+  useEffect(() => {
+    if (!linkMode) setPendingLink(null)
+  }, [linkMode])
   const [demoStartId, setDemoStartId] = useState<string | null>(null)
   const [exportMenu, setExportMenu] = useState(false)
   /** The toolbar's overflow menu below md. See the bar itself for why it exists. */
@@ -444,8 +535,12 @@ export default function ProjectView({
   // phone has no Escape key, so each of them also carries a tap-to-dismiss
   // backdrop. A dropdown whose only exit is a hardware key is a dropdown a
   // touch user cannot close.
+  // The list of link targets too: it is the keyboard path to a link, and a
+  // keyboard path with no key out of it is half of one. (A cable in hand, the
+  // same pick without the list, handles its own Escape in `CableConnect`.)
+  const linkListOpen = !!pendingLink?.list
   useEffect(() => {
-    if (!menu && !codeScreen && !pendingModify && !plusMenu && !exportMenu) return
+    if (!menu && !codeScreen && !pendingModify && !plusMenu && !exportMenu && !linkListOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMenu(null)
@@ -453,11 +548,12 @@ export default function ProjectView({
         setPendingModify(null)
         setPlusMenu(false)
         setExportMenu(false)
+        setPendingLink((p) => (p?.list ? null : p))
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [menu, codeScreen, pendingModify, plusMenu, exportMenu])
+  }, [menu, codeScreen, pendingModify, plusMenu, exportMenu, linkListOpen])
 
   // Probe the backend once Muse is switched on (Muse needs it; frontend-only ⇒ unavailable).
   useEffect(() => {
@@ -622,6 +718,13 @@ export default function ProjectView({
    */
   const [siteShots, setSiteShots] = useState<SiteShot[]>([])
   const [siteMode, setSiteMode] = useState<SiteRefMode>('reproduce')
+  /**
+   * What the composer's format chips show: a page format, or null for the app
+   * presets. Null too while site captures are to be REPRODUCED — the type is
+   * ignored then (the captures are the brief), so the next screen is not a
+   * document and the chips must not say it will be.
+   */
+  const composerPage = composerPageFormat(siteShots.length > 0 && siteMode === 'reproduce' ? null : themeId, pageFormatId)
   /** Decoding and cutting a large capture takes a moment; the thumbnail row says so. */
   const [siteReading, setSiteReading] = useState(0)
   const [siteDragOver, setSiteDragOver] = useState(false)
@@ -785,9 +888,20 @@ export default function ProjectView({
       return
     }
     try {
-      const dataUrl = await captureRegion(screen.code, screen.w, screen.h, rect)
+      // The screen's own capabilities, as the thumbnails pass them. Without them
+      // the capture shell has no Icon/Charts/Motion globals, and since nearly
+      // every generated screen uses Icon, the component threw on render and
+      // every snip ended in "la capture a échoué" — only a screen with no icon
+      // at all could be annotated.
+      const caps = resolveCapabilities(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt),
+      )
+      const dataUrl = await captureRegion(screen.code, screen.w, screen.h, rect, caps)
       setAnnotations((a) => [...a, { id, dataUrl }])
-    } catch {
+    } catch (err) {
+      // Kept in the console: a bare "capture failed" banner is all the person
+      // sees, and without the cause this bug stayed undiagnosable for weeks.
+      console.warn('mocky: annotation capture failed —', err)
       setError(t('project.captureFailed'))
     } finally {
       setCapturing(false)
@@ -834,6 +948,24 @@ export default function ProjectView({
   )
   const designColors = useMemo(() => extractDesignColors(directionMd || '').slice(0, 10), [directionMd])
 
+  /** "Améliorer le prompt" — one state for both composers, see usePromptEnhancer. */
+  const enhancer = usePromptEnhancer(prompt, setPrompt)
+  function startEnhance() {
+    enhancer.start({
+      formFactor: composerPage ? pageFormatName(composerPage) : getPreset(presetId).label,
+      theme: getScreenTheme(themeId),
+      // Muse writes a direction on this run if it is on: the rewrite must not
+      // pre-empt it any more than it may contradict a DESIGN.md.
+      directionDecided: !!directionMd || (museConfig.enabled && museAvail !== false),
+    })
+  }
+  /** A type chosen on an empty field brings its starter prompt; typed words are never replaced. */
+  function chooseTheme(id: ScreenThemeId | null) {
+    const starter = (th: ScreenThemeId | null) => (th ? t(`composer.themes.${th}.starter`) : undefined)
+    setThemeId(id)
+    setPrompt(promptForThemeChange(prompt, starter(themeId), starter(id)))
+  }
+
   /**
    * Apply a starter style from the Welcome quick-picker (D.1).
    *
@@ -874,22 +1006,18 @@ export default function ProjectView({
    *    a second brand — and did.
    *
    * `excludeId` keeps a regenerating screen from being handed its own source as
-   * a reference to copy.
+   * a reference to copy. `forDocument` says what is being made: documents and app
+   * screens do not lend each other a layout (`pickReference`).
+   *
+   * The identity comes from the oldest screen that actually rendered — the one
+   * whose name and mark the rest of the project has been following. Not simply
+   * screens[0]: a screen that never generated has no identity to lend, and
+   * canvas order is position on a board, not chronology.
    */
-  function identityOrLayoutReference(excludeId?: string): string | undefined {
-    const pinnedId = project.referenceScreenId
-    if (pinnedId && pinnedId !== excludeId) {
-      const pinned = screens.find((s) => s.id === pinnedId)
-      return pinned && pinned.code.trim() ? buildLayoutReference(pinned.code) : undefined
-    }
-    // The oldest screen that actually rendered — the one whose name and mark the
-    // rest of the project has been following. Not simply screens[0]: a screen
-    // that never generated has no identity to lend, and canvas order is position
-    // on a board, not chronology.
-    const first = screens
-      .filter((s) => s.id !== excludeId && s.code.trim())
-      .reduce<Screen | undefined>((best, s) => (!best || s.createdAt < best.createdAt ? s : best), undefined)
-    return first ? buildIdentityReference(first.code) : undefined
+  function identityOrLayoutReference(excludeId: string | undefined, forDocument: boolean): string | undefined {
+    const ref = pickReference(screens, { pinnedId: project.referenceScreenId, excludeId, document: forDocument })
+    if (!ref) return undefined
+    return ref.kind === 'layout' ? buildLayoutReference(ref.screen.code) : buildIdentityReference(ref.screen.code)
   }
 
   /**
@@ -928,6 +1056,30 @@ export default function ProjectView({
 
   /** The screen a DESIGN.md is currently being derived from, if any. */
   const [derivingDesignId, setDerivingDesignId] = useState<string | null>(null)
+  /*
+   * A chime and a title mark when the work ends while this tab is hidden. Fed
+   * with the state every flow already sets: `busy` covers generation, edit,
+   * regenerate, polish, animations, audit fix, modify and Motion Ultra; the
+   * automatic repair and the DESIGN.md derivation run outside it. `error` is the
+   * banner, which is what makes a burst "failed". See lib/workChime.ts.
+   *
+   * Three pieces of state exist only for it, each because the banner alone
+   * told the wrong story. `workFailures` counts failures that never reach the
+   * banner — a repair that gave up and left a broken or reverted screen — so a
+   * hidden tab no longer chimes "done" over a red overlay. `slopAdvisory` is the
+   * placeholder-text hint, which shares the banner but describes a screen that
+   * works, so it does not make the burst "failed". `filmRendering` is a render
+   * in the Motion Ultra export panel, the longest job anyone walks away from.
+   */
+  const [workFailures, setWorkFailures] = useState(0)
+  const noteWorkFailure = useCallback(() => setWorkFailures((n) => n + 1), [])
+  const [slopAdvisory, setSlopAdvisory] = useState<string | null>(null)
+  const [filmRendering, setFilmRendering] = useState(false)
+  useWorkChime(
+    busy || fixingIds.size > 0 || derivingDesignId !== null || filmRendering,
+    error !== null && error === slopAdvisory ? null : error,
+    workFailures,
+  )
 
   /**
    * Adopt the DESIGN.md a screen recorded at generation time.
@@ -1094,7 +1246,11 @@ export default function ProjectView({
       if (state.reverted) return
       retryRefs.current[screenId] = { ...state, reverted: true }
       const now = screensRef.current.find((s) => s.id === screenId)
-      if (!now || !fallback || fallback === now.code) return
+      if (!now) return
+      // Kept broken or put back, the change the user waited for did not land:
+      // the end-of-work chime must not call that a success (useWorkChime).
+      noteWorkFailure()
+      if (!fallback || fallback === now.code) return
       onUpdateScreen(screenId, { code: fallback, componentName: detectComponentName(fallback), previousCode: now.code })
       setNotice(t('project.autoReverted', { name: now.name }))
       return
@@ -1134,7 +1290,9 @@ export default function ProjectView({
       // still fall back to.
       onUpdateScreen(screenId, { code: res.code, componentName: res.componentName, previousCode: screen.code })
     } catch {
-      // Retry failed — leave the error visible to the user.
+      // Retry failed — leave the error visible to the user, and let the chime
+      // say so (a Stop is the user's own doing, not a failure to announce).
+      if (!ac.signal.aborted) noteWorkFailure()
     } finally {
       retryAborts.current.delete(screenId)
       setFixingIds((prev) => {
@@ -1143,7 +1301,7 @@ export default function ProjectView({
         return next
       })
     }
-  }, [screens, onUpdateScreen, busy, t])
+  }, [screens, onUpdateScreen, busy, t, noteWorkFailure])
 
   function addHotspot(screenId: string, target: string) {
     const screen = screens.find((s) => s.id === screenId)
@@ -1203,6 +1361,13 @@ export default function ProjectView({
     const screen = screens.find((s) => s.id === screenId)
     if (!screen) return
     onUpdateScreen(screenId, { links: screen.links.filter((h) => h.id !== hotspotId) })
+  }
+
+  /** A cable dragged onto another screen: same hotspot, same element, new target. */
+  function retargetHotspot(screenId: string, hotspotId: string, target: string) {
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || target === screenId) return
+    onUpdateScreen(screenId, { links: screen.links.map((h) => (h.id === hotspotId ? { ...h, target } : h)) })
   }
 
   const generate = useCallback(async () => {
@@ -1302,8 +1467,13 @@ export default function ProjectView({
         const ids = new Set(targets.map((sc) => sc.id))
         setGeneratingIds(ids)
         for (const sc of targets) {
-          const extraSystem = joinSystem([designPreamble, hintForDevice(sc.device)])
-          const capIds = sc.caps && sc.caps.length > 0 ? sc.caps : selectCapabilities(text, designMd)
+          // `hintForScreen`: a document keeps its page hint on every edit.
+          const extraSystem = joinSystem([designPreamble, hintForScreen(sc)])
+          // A document is offered only what can live on paper; what its code
+          // already uses comes back through capabilitiesFor below.
+          const capIds = documentPipeline(sc.page).caps(
+            sc.caps && sc.caps.length > 0 ? sc.caps : selectCapabilities(text, designMd),
+          )
           const caps = resolveCapabilities(capIds)
           // Snapshot the old code before overwriting.
           const oldCode = sc.code
@@ -1356,14 +1526,60 @@ export default function ProjectView({
       } else {
         // Create a new screen using the selected format preset.
         const preset = getPreset(presetId)
+        /*
+         * The screen type rides on the form-factor hint, so it reaches every
+         * stage the hint does — the preamble (and Muse's), the planner, the
+         * storyboard. Not on a reproduction: the screenshot is the brief, and a
+         * type's structure would argue with the structure it shows. No type,
+         * and this IS `preset.hint`, byte for byte.
+         */
+        const runTheme = reproducing ? null : themeId
+        /*
+         * A DOCUMENT type makes a document: its page format, its page hint in
+         * place of the preset's, and every stage decision in one place
+         * (`documentPipeline`). No document type, and `pipe` changes nothing —
+         * `formHint` is the line it always was.
+         */
+        const runPage = composerPageFormat(runTheme, pageFormatId)
+        const pipe = documentPipeline(runPage)
+        /*
+         * The document's picture source for THIS run. A remembered "Générée"
+         * cannot be honoured until the server has said whether generation
+         * exists here, and a run started before that answer went ahead with no
+         * picture and no word about it. So a pending answer is awaited, once.
+         */
+        let runDocPicture = docPictureSource
+        if (pipe.document && docImageChoice === 'ai' && imageGenOk === null) {
+          const ok = await imageGenerationAvailable(ac.signal).catch(() => false)
+          setImageGenOk(ok)
+          runDocPicture = documentPictureSource(docImageChoice, { generation: ok, stock: stockImagesUsable })
+        }
+        /*
+         * Where a document's pictures come from: its OWN choice, for every path
+         * that makes one. On a document the composer shows that choice INSTEAD
+         * of the general Images control, so the general one is invisible there —
+         * and "Sans image" beside a Muse hero or redesigned-site pictures being
+         * generated from the hidden setting was a paid picture the screen said
+         * would not happen. Muse still writes its dossier (palette, type); only
+         * its pictures follow the document's choice.
+         */
+        const museImageSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
+        const picturesAllowed = !pipe.document || runDocPicture !== null
+        const pictureSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
+        const formHint =withScreenTheme(pipe.format ? documentHint(pipe.format) : preset.hint, runTheme)
+        /** Motion Ultra for THIS run: the project's setting, unless the screen is a document. */
+        const runUltra = ultraActive && pipe.motionUltra
+        if (ultraActive && !runUltra) setNotice(t('project.docUltraSkipped'))
+        const frameW = pipe.frame?.w ?? preset.w
+        const frameH = pipe.frame?.h ?? preset.h
         // With site screenshots, the site's own brand is the identity to carry,
         // not the one an earlier screen invented. A PINNED layout still holds on
         // a redesign — pinning is the user's own statement — and never on a
         // reproduction, whose chrome is the screenshot's.
         const referencePreamble = !siteNew
-          ? identityOrLayoutReference()
+          ? identityOrLayoutReference(undefined, pipe.document)
           : !reproducing && project.referenceScreenId
-            ? identityOrLayoutReference()
+            ? identityOrLayoutReference(undefined, pipe.document)
             : undefined
 
         // --- Muse: build a Design Dossier + hero image. The dossier is a
@@ -1395,9 +1611,12 @@ export default function ProjectView({
         let museVideo: GeneratedVideo | null = null
         // A clip pinned before the administrator closed video to this account
         // is not used: the pin lives in the browser, the permission on the
-        // server, and the server's answer is the one that holds.
+        // server, and the server's answer is the one that holds. Nor on a
+        // document: a scroll sequence scrubs on a scroll a page does not have.
         const runPin =
-          pinnedVideo && (!videoAvail?.access || videoAvail.access.generate || videoAvail.access.stock)
+          pipe.scrollVideo &&
+          pinnedVideo &&
+          (!videoAvail?.access || videoAvail.access.generate || videoAvail.access.stock)
             ? pinnedVideo
             : null
         // The saved preference is kept as-is; a model without vision can only
@@ -1425,9 +1644,13 @@ export default function ProjectView({
         const museBlind = siteNew && !reproducing && !siteContent
         if (museBlind && museConfig.enabled && museAvail !== false) setNotice(t('project.siteMuseSkipped'))
         const siteLang = siteLanguage(siteContent)
-        const museBrief = siteContent
+        const museBriefBase = siteContent
           ? `${text}\n\nThe existing site to REDESIGN, as read from the user's screenshots. Its brand, content and copy are to be KEPT; only its visual design is to be reinvented.${siteLang ? ` All copy stays in ${siteLang}.` : ''}\n\n${siteContent}`
           : text
+        // The dossier is told WHAT it is dressing — a dashboard wants no hero
+        // photograph — and nothing more: the layout is the page's business.
+        const museThemeLine = screenThemeBriefLine(runTheme)
+        const museBrief = museThemeLine ? `${museBriefBase}\n\n${museThemeLine}` : museBriefBase
         // A reproduction's direction is the screenshot: a dossier would be a
         // second, contradicting one, and a paid call to write it.
         if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
@@ -1493,7 +1716,7 @@ export default function ProjectView({
             // Motion Ultra generates its own series further down, planned as
             // one shoot. Muse's hero on top of it would be a seventh picture
             // nobody placed, paid for on every run.
-            if (remaining.length && pins.length === 0 && !ultraActive) {
+            if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed) {
               // A mood/art-direction reference and a hero photo are different
               // jobs, so they run on different image models (Admin → profils).
               const profile = profileForMode(effectiveImageMode)
@@ -1525,7 +1748,7 @@ export default function ProjectView({
                * plate is something a model paints, not something a library has.
                */
               let gen: GeneratedSlotImage[]
-              if (effectiveImageSource === 'stock') {
+              if (museImageSource === 'stock') {
                 setMuseStage(t('project.museStageStock'))
                 const finder = await stockFinder()
                 gen = await pickStockSlotImages(remaining, finder, {
@@ -1547,7 +1770,7 @@ export default function ProjectView({
                 })
               }
               imgs = [...imgs, ...gen]
-            } else if (!remaining.length && !pins.length && !ultraActive) {
+            } else if (!remaining.length && !pins.length && !runUltra) {
               // No imagery slot at all. The dossier now guarantees a hero, so
               // this means something upstream produced nothing — say so rather
               // than finishing silently with an image-less screen.
@@ -1588,7 +1811,7 @@ export default function ProjectView({
                 fromCache: true,
                 drive: runPin.drive,
               }
-            } else if (museConfig.video && videoAvail?.available) {
+            } else if (museConfig.video && videoAvail?.available && pipe.scrollVideo) {
               const heroSlot = plan[0]
               const heroPrompt = heroSlot?.prompt || heroSlot?.subject || text
               setMuseStage(t('project.museStageVideo'))
@@ -1674,8 +1897,8 @@ export default function ProjectView({
         // exact pre-Muse composition (M1). Both now carry the same direction.
         const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
         const extraSystem = musePreamble
-          ? joinSystem([musePreamble, referencePreamble, preset.hint])
-          : joinSystem([dirPreamble, referencePreamble, preset.hint])
+          ? joinSystem([musePreamble, referencePreamble, formHint])
+          : joinSystem([dirPreamble, referencePreamble, formHint])
 
         // Deterministic shortlist first — this is the guaranteed fallback.
         const shortlist = selectCapabilities(text, dir.markdown)
@@ -1712,14 +1935,14 @@ export default function ProjectView({
          * the site already has its sections — the page would be asked to follow
          * two structures at once. Said, because the project setting is on.
          */
-        if (ultraActive && siteNew) setNotice(t('project.siteUltraSkipped'))
-        if (ultraActive && project.ultra && !siteNew) {
+        if (runUltra && siteNew) setNotice(t('project.siteUltraSkipped'))
+        if (runUltra && project.ultra && !siteNew) {
           try {
             setPhase('ultra')
             setUltraStage(t('project.ultraStageStoryboard'))
             const board = await runStoryboard(settings, text, ultraCount as UltraImageCount, mode, {
               design: dir.markdown,
-              presetHint: preset.hint,
+              presetHint: formHint,
               signal: ac.signal,
               stockQueries: effectiveImageSource === 'stock',
             })
@@ -1764,11 +1987,13 @@ export default function ProjectView({
         }
 
         // Nor the planner, for the same reason: the screenshots are the plan.
-        if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew) {
+        // Nor on a document: its vocabulary is screens a visitor uses, and the
+        // page hint and the type's brief already say what a page holds.
+        if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew) {
           setPhase('planning')
           const plan = await planScreen(
             settings, text, shortlist,
-            { design: dir.markdown, presetHint: preset.hint },
+            { design: dir.markdown, presetHint: formHint },
             ac.signal,
           )
           if (plan) {
@@ -1781,7 +2006,7 @@ export default function ProjectView({
         // still reaches generation on the paths where no plan was produced.
         // A reproduction's mode is whatever the site is; the generic advice for
         // a mode would only argue with the screenshot.
-        if (!planSection && !reproducing) planSection = modeToPromptSection(mode)
+        if (!planSection && !reproducing && pipe.modeGuidance) planSection = modeToPromptSection(mode)
         /*
          * No series for THIS screen, but the project has pictures a Motion Ultra
          * run already paid for: offer them (lib/ultra/reuse.ts). Only a project
@@ -1817,13 +2042,13 @@ export default function ProjectView({
          */
         let sitePics: SitePictureFound[] = []
         let sitePicturesSection = ''
-        const sitePictures = siteNew && (reproducing || !museRan) ? parseSitePictures(siteContent) : []
+        const sitePictures = siteNew && (reproducing || !museRan) && picturesAllowed ? parseSitePictures(siteContent) : []
         if (sitePictures.length) {
           setPhase('sitePictures')
           const failures: string[] = []
-          const finder = effectiveImageSource === 'stock' ? await stockFinder() : undefined
+          const finder = pictureSource === 'stock' ? await stockFinder() : undefined
           const got = await findSitePictures(sitePictures, {
-            source: effectiveImageSource,
+            source: pictureSource,
             project: project.id,
             finder,
             signal: ac.signal,
@@ -1841,6 +2066,38 @@ export default function ProjectView({
             setNotice((prev) => (prev ? `${prev} ${line}` : line))
           }
         }
+        /*
+         * A document's own picture, when nothing above made one and the person
+         * ASKED for one: Motion Ultra is skipped for paper and Muse is off by
+         * default, so this is the only way a flyer gets a hero — and it may be
+         * a paid generation, which is why "Sans image" is the default and the
+         * choice is drawn wherever a page format is (lib/documentPictures.ts).
+         * With none, the flyer's brief composes shapes instead. Not on site
+         * captures, whose pictures were just replaced above.
+         */
+        let docPicture: { hash: string; url: string } | null = null
+        if (pipe.ownPicture && pipe.format && !museRan && !siteNew && runDocPicture) {
+          setPhase('docPicture')
+          const want = documentPictureWant(text, pipe.format)
+          let miss = ''
+          const finder = runDocPicture === 'stock' ? await stockFinder() : undefined
+          docPicture = await findDocumentPicture(want, {
+            source: runDocPicture,
+            project: project.id,
+            finder,
+            signal: ac.signal,
+            onError: (m) => {
+              miss = m
+            },
+          })
+          if (docPicture) {
+            planSection = [planSection, buildDocumentPictureSection({ ...want, url: docPicture.url })].filter(Boolean).join('\n\n')
+            if (finder) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
+          } else {
+            const line = t('project.docPictureMissing', { reason: miss.replace(/[.\s]+$/, '') || '—' })
+            setNotice((prev) => (prev ? `${prev} ${line}` : line))
+          }
+        }
         // Last, so on a reproduction it is the final word over the base rules' taste.
         if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
         capIds = withAnimations(capIds)
@@ -1853,6 +2110,9 @@ export default function ProjectView({
         // Same rule for the Ultra kit: force-added when a storyboard exists, and
         // then persisted on the screen, so every later edit of it sees the kit.
         if (ultraRecord && !capIds.includes('ultra')) capIds = [...capIds, 'ultra']
+        // A document: what cannot live on paper out, the page kit in. Identity
+        // for every other screen.
+        capIds = pipe.caps(capIds)
 
         setPhase('generating')
         const caps = resolveCapabilities(capIds)
@@ -1865,9 +2125,9 @@ export default function ProjectView({
           code: '',
           componentName: 'App',
           createdAt: Date.now(),
-          w: preset.w,
-          h: preset.h,
-          device: preset.device,
+          w: frameW,
+          h: frameH,
+          device: pipe.document ? 'none' : preset.device,
           links: [],
           caps: capIds,
           // Whatever was ACTUALLY authoritative for this screen — which, now
@@ -1880,18 +2140,23 @@ export default function ProjectView({
           // generated under an older direction must keep saying so — that is
           // what makes "reprendre ce DESIGN.md" meaningful.
           design: dir.markdown,
-          imageHash: museImageHash ?? ultraImageHash ?? sitePics[0]?.hash,
+          imageHash: museImageHash ?? ultraImageHash ?? sitePics[0]?.hash ?? docPicture?.hash,
           // Recorded so the canvas can say what the image was for. Without it
           // the badge could only ever say "Image Muse", which is exactly the
           // ambiguity that made it impossible to tell whether inspiration mode
           // had done anything.
-          imageRole: museImageHash ? effectiveImageMode : ultraImageHash || sitePics.length ? 'content' : undefined,
+          imageRole: museImageHash ? effectiveImageMode : ultraImageHash || sitePics.length || docPicture ? 'content' : undefined,
           ultra: ultraRecord,
           // Persisted as a pair so a reload can rebuild the sequence without
           // asking the server what it cut.
           videoHash: museVideo?.hash,
           videoFrames: museVideo?.frames,
           siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined,
+          theme: runTheme ?? undefined,
+          page: runPage ?? undefined,
+          // A document holds still: an entrance whose resting state is
+          // opacity 0 prints blank. Undefined — the default — otherwise.
+          animations: pipe.animations,
         })
         if (siteNew) siteRefsByScreen.current.set(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
         // Name the project after its FIRST prompt, so it stops being called
@@ -1914,7 +2179,13 @@ export default function ProjectView({
           caps,
           [planSection, photoReferenceNote(photoRefs.length)].filter(Boolean).join('\n\n') || undefined,
         )
-        onUpdateScreen(screenId, { code: result.code, componentName: result.componentName })
+        onUpdateScreen(screenId, {
+          code: result.code,
+          componentName: result.componentName,
+          // A document was OFFERED no animation and no 3D, and may have used
+          // one anyway: load what the code names, or it renders undefined.
+          ...(pipe.document ? { caps: capabilitiesFor(capIds, result.code) } : {}),
+        })
         setGeneratingIds(new Set())
         // Every picture of the series was paid for; one the page left out is
         // worth a sentence (see lib/ultra/check.ts).
@@ -1954,7 +2225,7 @@ export default function ProjectView({
          * finding (Q1).
          */
         if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence', '<PointerSequence'].some((k) => result.code.includes(k))) {
-          checkLegibility(result.code, preset.w, preset.h, caps)
+          checkLegibility(result.code, frameW, pipe.format?.h ?? preset.h, caps)
             .then((hard) => {
               if (!hard.length) return
               const list = hard.slice(0, 3).map((f) => `« ${f.text.length > 40 ? f.text.slice(0, 40) + '…' : f.text} »`).join(', ')
@@ -2084,7 +2355,9 @@ export default function ProjectView({
           // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
           const lint = lintSlop(result.code)
           if (!lint.ok) {
-            setError(t('project.slop', { list: lint.violations.join(', ') }))
+            const advisory = t('project.slop', { list: lint.violations.join(', ') })
+            setSlopAdvisory(advisory)
+            setError(advisory)
           }
         }
       }
@@ -2115,7 +2388,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, siteShots, siteMode])
+  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2136,8 +2409,20 @@ export default function ProjectView({
       setError(t('project.exportEmpty'))
       return
     }
+    /*
+     * Documents stay out of the React project. A page kit whose `<Page>` is a
+     * fixed 794 × 1123 px box is not a route of an app, and exporting it as one
+     * would ship the kit's globals into a codebase that has no use for them.
+     * A document has its own download, beside its frame.
+     */
+    const appScreens = screens.filter((s) => !s.page)
+    if (!appScreens.length) {
+      setError(t('project.exportDocsOnly'))
+      return
+    }
+    if (appScreens.length < screens.length) setNotice(t('project.exportDocsSkipped'))
     try {
-      await downloadZip(screens, {
+      await downloadZip(appScreens, {
         stack,
         designMarkdown: activeDirection(),
         projectName: project.name,
@@ -2150,6 +2435,124 @@ export default function ProjectView({
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  /**
+   * A document's page kit reported its pages: the frame is resized to hold
+   * exactly them, and a page whose words run past its edge is NAMED — once per
+   * distinct answer — as a soft notice. Never the repair loop: nothing failed
+   * to render, and FIX_PROMPT ("fix only the error, do not restyle") has no
+   * error to fix. Shortening copy is an edit, and the person's to ask for.
+   */
+  function onDocPages(screenId: string, count: unknown, overflow: unknown, format: unknown) {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen) return
+    const update = docFrameUpdate(screen, count, overflow, format)
+    if (!update) return
+    // The format follows the code (an edit asked for landscape): see docFrameUpdate.
+    if (update.page || update.size) onUpdateScreen(screenId, { ...(update.page ? { page: update.page } : {}), ...(update.size ?? {}) })
+    if (docOverflowSaid.current[screenId] === update.overflowKey) return
+    docOverflowSaid.current[screenId] = update.overflowKey
+    if (update.overflow.length) {
+      const pages = update.overflow.join(', ')
+      setNotice(t(update.overflow.length > 1 ? 'project.docOverflowMany' : 'project.docOverflow', { name: screen.name, pages }))
+    }
+  }
+
+  /**
+   * "Ajuster à la page": measure what a document loses at the trim, ask the
+   * model to win it back, measure the answer, and keep it only if it is better
+   * (lib/docExport/fit.ts says why each step is there). Offered in a document's
+   * right-click menu and on the download dialog's overflow notice — not in the
+   * composer, which is for making screens. One model call per click: a page
+   * still over is said, never retried behind the person's back. Same write-back conventions as every
+   * other screen mutation: an AbortController, `codeAtStart` re-checked, and
+   * `previousCode` so "Revert" undoes it.
+   */
+  async function fitDocument(screenId: string) {
+    if (busy) return
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim() || !screen.page) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    setRegenLabel(t('project.docFitMeasuring'))
+    setRegeneratingIds(new Set([screenId]))
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
+    const name = screen.name
+    try {
+      const capIds = documentPipeline(screen.page).caps(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, activeDirection()),
+      )
+      const caps = resolveCapabilities(capIds)
+      const format = getPageFormat(screen.page)
+      const codeAtStart = screen.code
+      let before: FitReport
+      try {
+        before = await measureFit(codeAtStart, caps, format, ac.signal)
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        setNotice(t('project.docFitFailed', { name }))
+        return
+      }
+      if (!before.over.length) {
+        setNotice(t('project.docFitNothing', { name }))
+        return
+      }
+
+      setRegenLabel(t('project.docFitting'))
+      const res = await fitComponent(settings, codeAtStart, fitFindings(before, format), ac.signal, caps)
+      let verdict: FitVerdict = 'rejected'
+      let after: FitReport | null = null
+      if (res.code.trim() && res.code.trim() !== codeAtStart.trim()) {
+        setRegenLabel(t('project.docFitMeasuring'))
+        try {
+          after = await measureFit(res.code, caps, format, ac.signal)
+          verdict = fitVerdict(before, after)
+        } catch (err) {
+          // A rewrite that does not render is not a page that fits.
+          if (err instanceof Error && err.name === 'AbortError') return
+        }
+      }
+
+      // Someone else rewrote this screen meanwhile: theirs stands.
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now || now.code !== codeAtStart) return
+
+      if (verdict === 'rejected' || !after) {
+        setNotice(t('project.docFitRejected', { name }))
+        return
+      }
+      // The kit re-reports the new pages by itself; the verdict below is the
+      // sentence that answers the click, so its report is not said twice.
+      docOverflowSaid.current[screenId] = after.over.map((p) => p.page).join(',')
+      onUpdateScreen(screenId, {
+        code: res.code,
+        componentName: detectComponentName(res.code),
+        previousCode: codeAtStart,
+        caps: capabilitiesFor(capIds, res.code),
+      })
+      if (verdict === 'fits') {
+        setNotice(t('project.docFitDone', { name }))
+      } else {
+        const px = Math.max(...after.over.map(pageExcessPx))
+        setNotice(t('project.docFitCloser', { name, px, pages: after.over.map((p) => p.page).join(', ') }))
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setRegeneratingIds(new Set())
     }
   }
 
@@ -2195,12 +2598,16 @@ export default function ProjectView({
       const designMd = reproducing ? undefined : activeDirection()
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
       const referencePreamble = !siteRun
-        ? identityOrLayoutReference(screenId)
+        ? identityOrLayoutReference(screenId, documentPipeline(screen.page).document)
         : !reproducing && project.referenceScreenId
-          ? identityOrLayoutReference(screenId)
+          ? identityOrLayoutReference(screenId, documentPipeline(screen.page).document)
           : undefined
-      const extraSystem = joinSystem([designPreamble, referencePreamble, hintForDevice(screen.device)])
-      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      // The type it was made as, too (`Screen.theme`) — never on a reproduction.
+      const extraSystem = joinSystem([designPreamble, referencePreamble, withScreenTheme(hintForScreen(screen), reproducing ? null : screen.theme)])
+      // Identity off a document; on one, only what paper can hold is offered.
+      const capIds = documentPipeline(screen.page).caps(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
+      )
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
       // No onChunk: the new code is generated fully in the background, then
@@ -2210,11 +2617,14 @@ export default function ProjectView({
         undefined,
         caps,
         // The pictures already found are reused: a variant of the page, not a new shopping trip.
+        // A document's own picture too — its section rebuilt from the stored
+        // hash, so the variant keeps the hero instead of paying for another
+        // or losing it (documentPictureSectionFor).
         siteRun
           ? [buildSiteReferenceSection(siteRun.mode, siteRun.groups, 1, siteRun.content), siteRun.pictures]
               .filter(Boolean)
               .join('\n\n')
-          : undefined,
+          : documentPictureSectionFor(screen) || undefined,
       )
       // Regenerating rebuilds the screen from the design system as it stands
       // now, so the recorded copy moves with it. Editing a screen does not: an
@@ -2266,7 +2676,10 @@ export default function ProjectView({
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
       const designMd = activeDirection()
-      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      // Identity off a document; on one, only what paper can hold is offered.
+      const capIds = documentPipeline(screen.page).caps(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
+      )
       const caps = resolveCapabilities(capIds)
       const codeAtStart = screen.code
 
@@ -2387,7 +2800,7 @@ export default function ProjectView({
         const md = activeDirection()
         return md ? buildDesignPreamble(md) : undefined
       })()
-      const extraSystem = joinSystem([designPreamble, hintForDevice(screen.device)])
+      const extraSystem = joinSystem([designPreamble, hintForScreen(screen)])
       // Make the Motion pack available on top of whatever the screen already uses.
       const capIds = Array.from(new Set([...(screen.caps ?? []), 'motion']))
       const caps = resolveCapabilities(capIds)
@@ -2623,8 +3036,11 @@ export default function ProjectView({
     try {
       const designMd = activeDirection()
       const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
-      const extraSystem = joinSystem([designPreamble, hintForDevice(screen.device)])
-      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      const extraSystem = joinSystem([designPreamble, hintForScreen(screen)])
+      // Identity off a document; on one, only what paper can hold is offered.
+      const capIds = documentPipeline(screen.page).caps(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
+      )
       const caps = resolveCapabilities(capIds)
       const oldCode = screen.code
       const instruction = buildElementEditInstruction(
@@ -2694,6 +3110,10 @@ export default function ProjectView({
     const ac = new AbortController()
     abortRef.current = ac
     setBusy(true)
+    // Cleared like every other flow clears it. Left up, a second failure with
+    // the same provider message is not a NEW error, and the end-of-work chime
+    // would call that failed run a success.
+    setError(null)
     setRegenLabel(t('audit.fixing'))
     setRegeneratingIds(new Set([screenId]))
     // Every path that hands a screen wholesale to the model resets this first,
@@ -2705,7 +3125,10 @@ export default function ProjectView({
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
       const designMd = activeDirection()
-      const capIds = screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd)
+      // Identity off a document; on one, only what paper can hold is offered.
+      const capIds = documentPipeline(screen.page).caps(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
+      )
       const caps = resolveCapabilities(capIds)
       const codeAtStart = screen.code
 
@@ -2853,11 +3276,35 @@ export default function ProjectView({
   function onComposerKey(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
-      generate()
+      // Not on half a brief: the shortcut obeys what the disabled button says.
+      if (!enhancer.running) generate()
     }
   }
 
   const editing = selectedScreens.length > 0
+
+  // A rewrite is a NEW-screen brief. Selecting a screen mid-stream turns the
+  // field into an edit instruction and unmounts the only Stop, so the stream
+  // used to land 200 words of redesign in an edit field nobody could cancel.
+  // Stopping restores the typed text through the enhancer's own abort path.
+  const stopEnhance = enhancer.stop
+  useEffect(() => {
+    if (editing) stopEnhance()
+  }, [editing, stopEnhance])
+
+  // Captures arriving mid-stream (a paste into the read-only field, a drop, the
+  // image button) would land the rewrite beside them — the very pairing
+  // `enhanceBlocked` refuses up front, since an invented brief then argues
+  // with the screenshots. Both composers read siteShots from here, so one
+  // effect covers them.
+  useEffect(() => {
+    if (siteShots.length) stopEnhance()
+  }, [siteShots.length, stopEnhance])
+
+  /** Site captures describe the screen themselves; see PromptEnhanceButton's `disabledReason`. */
+  const enhanceBlocked = siteShots.length ? t('composer.enhanceCaptures') : undefined
+  /** In Reproduce mode the captures are the brief and the type is dropped — the chip says so. */
+  const themeIgnored = siteShots.length > 0 && siteMode === 'reproduce'
 
   /**
    * Whether the iPhone bezel has anything to draw around in this project.
@@ -2890,6 +3337,8 @@ export default function ProjectView({
       ? 'project.busySite'
       : phase === 'sitePictures'
       ? 'project.busySitePictures'
+      : phase === 'docPicture'
+      ? 'project.busyDocPicture'
       : phase === 'muse'
       ? 'project.busyMuse'
       : phase === 'planning'
@@ -2982,6 +3431,10 @@ export default function ProjectView({
             attachedHash: s.attachedMedia?.kind === 'film' ? s.attachedMedia.hash : undefined,
           }))}
           onAttachFilm={(screenId, hash) => attachScreenMedia(screenId, filmMedia(hash))}
+          onRenderActivity={(state) => {
+            setFilmRendering(state === 'active')
+            if (state === 'failed') noteWorkFailure()
+          }}
           jobId={videoJobId}
           onJobId={setVideoJobId}
           /*
@@ -3015,6 +3468,8 @@ export default function ProjectView({
         examples={EXAMPLE_KEYS.map((k) => t(k))}
         presetId={presetId}
         onPresetChange={setPresetId}
+        pageFormat={composerPage}
+        onPageFormatChange={setPageFormatId}
         onOpenSettings={onOpenSettings}
         onOpenDesign={onOpenDesign}
         onApplyStyle={applyStyleMarkdown}
@@ -3046,6 +3501,7 @@ export default function ProjectView({
         imageSource={imageSource}
         onImageSource={setImageSource}
         imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0)}
+        documentImage={{ value: docImageShown, choices: docImageChoicesNow, onChange: setDocImageChoice }}
         busyLabel={
           phase === 'ultra'
             ? ultraStage
@@ -3053,7 +3509,9 @@ export default function ProjectView({
               ? t('project.busySite')
               : phase === 'sitePictures'
                 ? t('project.busySitePictures')
-                : null
+                : phase === 'docPicture'
+                  ? t('project.busyDocPicture')
+                  : null
         }
         siteShots={siteShots}
         siteReading={siteReading}
@@ -3062,6 +3520,10 @@ export default function ProjectView({
         onRemoveSiteShot={removeSiteShot}
         onAddSiteFiles={(files) => void addSiteFiles(files)}
         onComposerPaste={onComposerPaste}
+        themeId={themeId}
+        onThemeChange={chooseTheme}
+        enhancer={enhancer}
+        onEnhance={startEnhance}
       />
       {libraryModal}
       </>
@@ -3208,7 +3670,11 @@ export default function ProjectView({
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
         onMoveScreens={(updates) => updates.forEach((u) => onUpdateScreen(u.id, { x: u.x, y: u.y }))}
-        onResizeScreen={(id, box) => onUpdateScreen(id, box)}
+        // A document's size is its pages: a dragged corner would crop the
+        // sheet on the canvas while the export still printed all of it.
+        onResizeScreen={(id, box) => {
+          if (!screensRef.current.find((s) => s.id === id)?.page) onUpdateScreen(id, box)
+        }}
         onRenameScreen={(id, name) => onUpdateScreen(id, { name })}
         onOpenImage={(hash, series) => {
           setLightboxSeries(series)
@@ -3240,6 +3706,8 @@ export default function ProjectView({
         onContentHeight={(id, h) => {
           contentHeights.current[id] = h
         }}
+        onDocPages={onDocPages}
+        onDownloadDocument={setDownloadDocId}
         // Every screen animates unless its own menu says otherwise.
         animations
         onCycleScreenAnimations={cycleScreenAnimations}
@@ -3266,6 +3734,15 @@ export default function ProjectView({
         }}
         onRemoveHotspot={removeHotspot}
         highlightedHotspotId={highlightHotspot}
+        pendingLink={
+          pendingLink && !pendingLink.list
+            ? { screenId: pendingLink.screenId, rect: pendingLink.info.rect, label: pendingLink.info.label }
+            : null
+        }
+        onConnectLink={(target) => pendingLink && addHotspot(pendingLink.screenId, target)}
+        onCancelLink={() => setPendingLink(null)}
+        onChooseLinkTarget={() => setPendingLink((p) => p && { ...p, list: true })}
+        onRetargetHotspot={retargetHotspot}
         focusScreenId={focus?.screenId ?? null}
         focusNonce={focus?.nonce}
         annotateMode={annotateMode}
@@ -3648,7 +4125,7 @@ export default function ProjectView({
             <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-raised px-3 py-2 text-body-sm text-ink-muted">
               <span className="flex min-w-0 items-center gap-2">
                 <Icon name="sparkle" size={16} />
-                <span className="truncate">{notice}</span>
+                <span className="truncate" title={notice}>{notice}</span>
               </span>
               <button
                 type="button"
@@ -3799,9 +4276,22 @@ export default function ProjectView({
 
           {/* Format preset — only relevant when creating a new screen */}
           {!editing && (
-            <div className="mb-2 flex items-center gap-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="kicker">{t('project.format')}</span>
-              <PresetPicker value={presetId} onChange={setPresetId} />
+              <PresetPicker
+                value={presetId}
+                onChange={setPresetId}
+                pageFormat={composerPage}
+                onPageFormatChange={setPageFormatId}
+                disabled={enhancer.running}
+              />
+              <ScreenThemePicker
+                value={themeId}
+                onChange={chooseTheme}
+                placement="up"
+                disabled={busy || enhancer.running}
+                ignored={themeIgnored}
+              />
             </div>
           )}
 
@@ -3875,12 +4365,27 @@ export default function ProjectView({
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
             )}
-            {!editing && stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0) && (
-              <ImageSourceControl
-                value={imageSource}
-                onChange={setImageSource}
+            {/* A document has a choice of its own, "Sans image" first, drawn
+                whenever a page format is active: it is where a paid picture is
+                decided, so no other condition may hide it
+                (lib/documentPictures.ts). */}
+            {!editing && composerPage ? (
+              <DocumentImageControl
+                value={docImageShown}
+                choices={docImageChoicesNow}
+                onChange={setDocImageChoice}
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
+            ) : (
+              !editing &&
+              stockImagesUsable &&
+              (museConfig.enabled || ultraActive || siteShots.length > 0) && (
+                <ImageSourceControl
+                  value={imageSource}
+                  onChange={setImageSource}
+                  className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+                />
+              )
             )}
             {/* Screenshots of an existing site. The same files also arrive by
                 paste into the field and by a drop anywhere on the bar; the
@@ -3897,6 +4402,7 @@ export default function ProjectView({
             />
           </div>
 
+          <EnhanceNotice enhancer={enhancer} className="mb-2" />
           <div className="flex items-end gap-2">
             {/* min-w-0: a textarea's automatic minimum size comes from `cols`
                 (20 by default), which is wider than the room left beside the
@@ -3919,14 +4425,31 @@ export default function ProjectView({
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={onComposerKey}
               onPaste={onComposerPaste}
+              // The brief is being written INTO the field: a keystroke now would
+              // be overwritten by the next chunk, or overwrite it.
+              readOnly={enhancer.running}
+              aria-busy={enhancer.running || undefined}
             />
+            {/* New screens only. An edit instruction must stay narrow — EDIT_RULES
+                change only what is asked — and a 200-word brief would read as a
+                redesign of the selected screens. */}
+            {!editing && (
+              <PromptEnhanceButton
+                enhancer={enhancer}
+                onStart={startEnhance}
+                disabled={busy || !prompt.trim()}
+                disabledReason={enhanceBlocked}
+                compact
+                className="mb-0.5"
+              />
+            )}
             <button
               type="button"
               className="btn-primary mb-0.5 flex shrink-0 items-center gap-2"
               onClick={generate}
               // Screenshots are a request on their own for a new screen; an
               // edit still needs the words saying what to change.
-              disabled={busy || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
+              disabled={busy || enhancer.running || siteReading > 0 || (!prompt.trim() && (editing || !siteShots.length))}
             >
               {busy ? (
                 <>
@@ -3965,18 +4488,21 @@ export default function ProjectView({
         </div>
       </div>
 
-      {/* Target picker after drawing a hotspot */}
-      {pendingLink && (
+      {/* Target picker — the list behind the cable's "Choose from the list" */}
+      {pendingLink?.list && (
         <div
           className="absolute inset-0 z-40 flex items-center justify-center bg-ink/60 p-4"
           onClick={() => setPendingLink(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="link-target-title"
             className="w-full max-w-sm rounded-2xl border border-line bg-raised p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="kicker mb-1 text-accent-ink">{t('project.linkKicker')}</div>
-            <h3 className="mb-1 text-lead text-ink">
+            <h3 id="link-target-title" className="mb-1 text-lead text-ink">
               {pendingLink.info.label
                 ? t('project.linkElement', { label: pendingLink.info.label })
                 : t('project.thisElement')}{' '}
@@ -3984,12 +4510,17 @@ export default function ProjectView({
             </h3>
             <p className="measure mb-3 text-body-sm text-ink-muted">{t('project.linkHelp')}</p>
             <div className="max-h-72 space-y-1 overflow-auto">
+              {/* The first screen takes the focus: the list is opened from the
+                  cable's bar, which unmounts as it opens, and the focus fell
+                  to <body> — a keyboard user then had to Tab through the whole
+                  toolbar and every frame to reach a screen. */}
               {screens
                 .filter((s) => s.id !== pendingLink.screenId)
-                .map((s) => (
+                .map((s, i) => (
                   <button
                     key={s.id}
                     type="button"
+                    autoFocus={i === 0}
                     onClick={() => addHotspot(pendingLink.screenId, s.id)}
                     className="block w-full truncate rounded-lg border border-line-soft px-3 py-2 text-left text-body text-ink transition hover:border-accent hover:bg-ink/5 hover:text-accent-ink"
                   >
@@ -4002,6 +4533,7 @@ export default function ProjectView({
             </div>
             <button
               type="button"
+              autoFocus={screens.every((s) => s.id === pendingLink.screenId)}
               className="btn-ghost mt-3 w-full text-body-sm"
               onClick={() => setPendingLink(null)}
             >
@@ -4189,6 +4721,25 @@ export default function ProjectView({
         <DemoPlayer screens={screens} startId={demoStartId} onExit={() => setDemoStartId(null)} />
       )}
 
+      {/* A document's download: PDF with fillable fields, slides, pictures. */}
+      {(() => {
+        const doc = downloadDocId ? screens.find((x) => x.id === downloadDocId && x.page) : undefined
+        return doc ? (
+          <DocumentDownloadDialog
+            screen={doc}
+            onClose={() => setDownloadDocId(null)}
+            onFit={
+              busy
+                ? undefined
+                : () => {
+                    setDownloadDocId(null)
+                    void fitDocument(doc.id)
+                  }
+            }
+          />
+        ) : null
+      })()}
+
       {/* Per-screen context menu (right-click or ⋯) */}
       {menu &&
         (() => {
@@ -4207,6 +4758,25 @@ export default function ProjectView({
                 }}
               />
               <ContextMenuShell x={menu.x} y={menu.y}>
+                {s.page && (
+                  <MenuItem
+                    icon="download"
+                    label={t('project.docDownload')}
+                    // As the pill on the frame: a document still being written
+                    // would export half a page.
+                    disabled={!s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
+                    onClick={() => { close(); setDownloadDocId(s.id) }}
+                  />
+                )}
+                {/* A document only: pages are what a fit is measured against. */}
+                {s.page && (
+                  <MenuItem
+                    icon="fit"
+                    label={t('project.docFit')}
+                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
+                    onClick={() => { close(); void fitDocument(s.id) }}
+                  />
+                )}
                 <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />
                 <MenuItem icon="sparkle" label={t('project.polish')} disabled={busy} onClick={() => { close(); polishScreen(s.id) }} />
                 {/* Only on a screen that carries a film: the one place a film made
@@ -4231,11 +4801,16 @@ export default function ProjectView({
                 <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
                 <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
                 <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
-                <MenuItem
-                  icon="pin"
-                  label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
-                  onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
-                />
+                {/* Not offered on a document: its chrome is <Doc>/<Page>, which an
+                    app screen has no kit for, and `pickReference` passes a pinned
+                    document over anyway. Still there to UNPIN one. */}
+                {(!s.page || isRef) && (
+                  <MenuItem
+                    icon="pin"
+                    label={t(isRef ? 'project.unpinReference' : 'project.pinReference')}
+                    onClick={() => { close(); onSetReference(isRef ? null : s.id) }}
+                  />
+                )}
                 <MenuItem icon="download" label={t('canvas.download')} onClick={() => { close(); downloadTsx(s) }} />
                 {s.previousCode && (
                   <MenuItem icon="undo" label={t('common.revert')} onClick={() => { close(); onRevertScreen(s.id) }} />
@@ -4252,6 +4827,10 @@ export default function ProjectView({
                   onClick={() => { close(); setImagesForScreen(s.id) }}
                 />
 
+                {/* A document's size is its page format, and a page does not
+                    move: neither the viewport formats nor the animation
+                    controls below mean anything for it. */}
+                {!s.page && (<>
                 <div className="my-1 border-t border-line-soft" />
                 <div className="kicker px-3 pb-1 pt-0.5 text-accent-ink">{t('project.displayFormat')}</div>
                 <div className="flex gap-1 px-2 pb-1.5">
@@ -4326,6 +4905,7 @@ export default function ProjectView({
                     </button>
                   ))}
                 </div>
+                </>)}
 
                 <div className="my-1 border-t border-line-soft" />
                 <MenuItem

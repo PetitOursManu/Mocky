@@ -53,6 +53,30 @@ function newToken() {
 const TOKEN_RE = /^[a-f0-9]{64}$/
 export const isShareToken = (t) => TOKEN_RE.test(String(t || ''))
 
+/**
+ * The page formats a DOCUMENT can be shared at — `PAGE_FORMAT_IDS` in
+ * `src/lib/pageFormats.ts`, copied because `node server/index.js` cannot import
+ * TypeScript at the 22.12 floor, and held to it by share.test.js.
+ *
+ * The whitelist below dropped `page`, so a shared flyer opened as a web page:
+ * its 794-px pages squeezed into a phone's viewport, cut at under half their
+ * width. The viewer needs the format to show them as pages; anything that is
+ * not one of these names is dropped, never stored.
+ */
+export const SHARE_PAGE_FORMATS = [
+  'a4',
+  'a4-landscape',
+  'a3',
+  'letter',
+  'letter-landscape',
+  'slides',
+  'social-square',
+  'social-portrait',
+  'social-story',
+  'social-landscape',
+]
+const isPageFormat = (v) => typeof v === 'string' && SHARE_PAGE_FORMATS.includes(v)
+
 export function createShareStore(dataDir, { now = () => Date.now() } = {}) {
   const file = path.join(dataDir, 'shares.json')
 
@@ -132,6 +156,7 @@ export function createShareStore(dataDir, { now = () => Date.now() } = {}) {
           h: Number(snapshot.h) || 900,
           device: snapshot.device === 'iphone' ? 'iphone' : 'none',
           animations: snapshot.animations === false ? false : true,
+          ...(isPageFormat(snapshot.page) ? { page: snapshot.page } : {}),
         },
       }
       save(all)

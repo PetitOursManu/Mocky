@@ -7,6 +7,7 @@
 // via the same headers the /__provider proxy uses (ADR D7) — never stored server
 // side.
 import { loadSettings } from './settings'
+import { proxyHeaders } from './proxy'
 import { extractPalette } from './palette'
 import { extractProductName } from './design'
 import type { PinnedVideo, VideoDrive } from './videoLibrary'
@@ -306,9 +307,9 @@ export async function describeUserMedia(
  */
 export async function checkVision(signal?: AbortSignal): Promise<{ vision: boolean; model?: string; error?: string }> {
   const s = loadSettings()
-  const headers: Record<string, string> = { 'content-type': 'application/json' }
-  if (s.baseUrl) headers['x-provider-base'] = s.baseUrl
-  if (s.apiKey.trim()) headers['authorization'] = `Bearer ${s.apiKey.trim()}`
+  // proxyHeaders, not a hand-built subset: without `x-provider-kind` the server
+  // probed every OpenAI-dialect provider as Ollama and reported "no vision".
+  const headers = proxyHeaders(s)
   try {
     const res = await fetch('/api/text/vision', {
       method: 'POST',

@@ -90,6 +90,8 @@ export function capabilitiesUsedBy(code: string): string[] {
   if (!code || !code.trim()) return []
   const out = new Set<string>()
   for (const cap of CAPABILITIES) {
+    // Its names are ordinary words a screen defines for itself — see the field.
+    if (cap.forcedOnly) continue
     // Not every capability ships code: daisyUI is a stylesheet and declares no
     // globals, so there is nothing here to look for.
     const names = (cap.snippets ?? []).flatMap((s) => s.exports ?? [])

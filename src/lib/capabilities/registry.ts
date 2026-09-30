@@ -7,6 +7,8 @@ import { MotionFilmSource, MOTIONFILM_EXPORTS } from './snippets/MotionFilm'
 import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
 import { Scene3DSource, SCENE3D_EXPORTS, SCENE3D_PRESETS } from './snippets/Scene3D'
 import { UltraSource, ULTRA_EXPORTS, ULTRA_CLASSES, BACKDROP_PRESETS } from './snippets/Ultra'
+import { DocumentSource, DOCUMENT_EXPORTS } from './snippets/Document'
+import { FIELD_TYPES, PAGE_FORMAT_IDS } from '../pageFormats'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
 function validatePack(id: string, components: { name: string }[], snippets: { exports: string[] }[]) {
@@ -274,6 +276,48 @@ export const CAPABILITIES: Capability[] = [
         description:
           'A rendered Motion film, playing muted and looping. `src` is provided — never invent one. It fills whatever box you put it in, so it is a hero background at full width AND a product card, a banner strip or a section background at any smaller size; give the parent a height. `fit` is "cover" (default, fills and crops) or "contain" (whole frame, letterboxed). Pass children to lay content OVER the film — use that for a hero rather than positioning your own overlay. They are a THIN layer: type, buttons, a badge. Never pass a picture of your own — no `<img>`, no `<Scene3D>`, no `bg-[url(…)]` — and never wrap a section, a column or a grid of the page in it: it is not a container, and two pictures in one box hide one another. There is no sound and no controls.',
         tags: ['video', 'film', 'motion', 'hero', 'background', 'banner', 'loop', 'showreel'],
+      },
+    ],
+  },
+  {
+    /**
+     * The page kit of DOCUMENT screens — see snippets/Document.ts and
+     * lib/documentMode.ts.
+     *
+     * Force-added to a screen created with a page format, and to no other:
+     * no keyword can make an app screen a document, and `forcedOnly` keeps
+     * `capabilitiesUsedBy` from inferring it off a screen that merely defines
+     * its own `Field`. Persisted in `Screen.caps` like `ultra`, which is what
+     * makes every later pass — edit, repair, polish, audit fix — print
+     * DOCUMENT_RULES after the app-oriented base rules.
+     */
+    id: 'document',
+    kind: 'snippet-pack',
+    forcedOnly: true,
+    triggers: { keywords: [], intents: [] },
+    snippets: [{ source: DocumentSource, exports: [...DOCUMENT_EXPORTS] }],
+    components: [
+      {
+        name: 'Doc',
+        signature: '<Doc format="a4">{pages}</Doc>',
+        description: `The root of the document — the one element App returns. \`format\` is exactly the one named in FORMAT (${PAGE_FORMAT_IDS.map((id) => `"${id}"`).join(', ')}). Its children are <Page> elements and nothing else. It stacks the pages for the canvas and tells the exporter where each one is; it takes no className — style the pages, not the document.`,
+        tags: ['document', 'print', 'pdf', 'flyer'],
+      },
+      {
+        name: 'Page',
+        // No colour and no language in the examples: the only Page a model is
+        // shown is the one it copies, and a literal yellow here made every flyer
+        // without a direction the same yellow.
+        signature: '<Page className="relative p-[40px] flex flex-col">…</Page>',
+        description:
+          'One page, EXACTLY the format\'s size, with overflow hidden: absolutely positioned shapes may bleed off its edges and are cut at the trim like a printed sheet. Style it freely with className — a background in the palette of the direction, padding, flex or grid layout — but never give it a width, a height, a min-h-screen or a margin: the kit sets them and ignores yours. Words taller than the page are CLIPPED on paper and reported as an overflow: cut copy or add a <Page>.',
+        tags: ['page', 'document', 'print', 'sheet', 'slide'],
+      },
+      {
+        name: 'Field',
+        signature: '<Field name="email" type="email" label="…" />',
+        description: `A blank to fill in, which becomes a REAL form field in the exported PDF. \`name\` is unique in the document. \`type\` is exactly one of ${FIELD_TYPES.map((t) => `"${t}"`).join(', ')} (default "text"). \`label\` is printed above it (beside it for a checkbox), in the document's language, like an optional \`placeholder\`. \`options\` is an array of strings for "select"; \`rows\` sets the height of a "multiline". Without className it has a neutral bordered look; a className REPLACES that look entirely, so give it its own border or background and padding. It fills the width of its parent — size it with the parent.`,
+        tags: ['form', 'field', 'input', 'coupon', 'pdf'],
       },
     ],
   },

@@ -1,6 +1,7 @@
 import { useT } from '../i18n'
 import { Icon } from '../ui'
 import type { ImageSource } from '../lib/stockImages'
+import type { DocumentImageChoice } from '../lib/documentPictures'
 
 /**
  * Where a generation's pictures come from: made by the image model, or found
@@ -28,19 +29,82 @@ export default function ImageSourceControl({
   size?: number
   className?: string
 }) {
-  const t = useT()
   const options: [ImageSource, string, string][] = [
     ['ai', 'project.imageSourceAi', 'project.imageSourceAiTitle'],
     ['stock', 'project.imageSourceStock', 'project.imageSourceStockTitle'],
   ]
+  return <SourceChoices value={value} onChange={onChange} options={options} size={size} className={className} />
+}
+
+const DOCUMENT_OPTIONS: Record<DocumentImageChoice, [string, string]> = {
+  none: ['project.docImageNone', 'project.docImageNoneTitle'],
+  ai: ['project.docImageAi', 'project.docImageAiTitle'],
+  stock: ['project.docImageStock', 'project.docImageStockTitle'],
+}
+
+/**
+ * The same control for a DOCUMENT's one picture, with "no picture" as a real,
+ * visible answer — and the default (`lib/documentPictures.ts`).
+ *
+ * Drawn whenever a page format is active, whatever else is on: this is where
+ * a paid picture is decided, so it cannot be hidden behind the conditions that
+ * gate the general control. `choices` holds only the doors this account can
+ * open; a closed one is absent, never offered and then refused.
+ */
+export function DocumentImageControl({
+  value,
+  choices,
+  onChange,
+  size = 14,
+  className = '',
+}: {
+  value: DocumentImageChoice
+  choices: DocumentImageChoice[]
+  onChange: (choice: DocumentImageChoice) => void
+  size?: number
+  className?: string
+}) {
+  const options = choices.map((id) => [id, ...DOCUMENT_OPTIONS[id]] as [DocumentImageChoice, string, string])
+  return (
+    <SourceChoices
+      value={value}
+      onChange={onChange}
+      options={options}
+      size={size}
+      className={className}
+      lit={value !== 'none'}
+      label="project.docImage"
+    />
+  )
+}
+
+function SourceChoices<T extends string>({
+  value,
+  onChange,
+  options,
+  size,
+  className,
+  lit = value === 'stock',
+  label = 'project.imageSource',
+}: {
+  value: T
+  onChange: (v: T) => void
+  options: [T, string, string][]
+  size: number
+  className: string
+  /** Whether the label is drawn in the accent: the choice departs from the plain default. */
+  lit?: boolean
+  label?: string
+}) {
+  const t = useT()
   return (
     <span className={`inline-flex items-center gap-1 ${className}`}>
-      <span className={`inline-flex items-center gap-1 ${value === 'stock' ? 'text-accent-ink' : 'text-ink-muted'}`}>
+      <span className={`inline-flex items-center gap-1 ${lit ? 'text-accent-ink' : 'text-ink-muted'}`}>
         <Icon name="image" size={size} />
-        {t('project.imageSource')}
+        {t(label)}
       </span>
-      <span role="group" aria-label={t('project.imageSource')} className="inline-flex overflow-hidden rounded border border-line">
-        {options.map(([id, label, title]) => (
+      <span role="group" aria-label={t(label)} className="inline-flex overflow-hidden rounded border border-line">
+        {options.map(([id, optionLabel, title]) => (
           <button
             key={id}
             type="button"
@@ -51,7 +115,7 @@ export default function ImageSourceControl({
               value === id ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-ink/5'
             }`}
           >
-            {t(label)}
+            {t(optionLabel)}
           </button>
         ))}
       </span>

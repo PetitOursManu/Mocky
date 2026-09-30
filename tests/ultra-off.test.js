@@ -12,6 +12,11 @@ import { CAPABILITY_MAP } from '../src/lib/capabilities/registry'
  * like the other cross-cutting tests here, and pins the few places Motion Ultra
  * touches that path to the guards that switch them off — then checks the pure
  * pieces by behaviour. A new call added outside the guard fails here.
+ *
+ * `runUltra` is `ultraActive && pipe.motionUltra` and `pipe.planner` is true:
+ * `pipe` is `documentPipeline(runPage)`, and every one of its switches is on
+ * for a screen that is not a DOCUMENT (`documentMode.test.ts` holds that). So
+ * the guards below are the old conditions, with a document switched off too.
  */
 const view = readFileSync(new URL('../src/components/ProjectView.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const generate = readFileSync(new URL('../src/lib/generate.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
@@ -24,8 +29,8 @@ const indexesOf = (src, needle) => {
 
 describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
   it('runs the storyboard and the series only inside the Motion Ultra block', () => {
-    const start = view.indexOf('if (ultraActive && project.ultra && !siteNew) {')
-    const end = view.indexOf('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew)')
+    const start = view.indexOf('if (runUltra && project.ultra && !siteNew) {')
+    const end = view.indexOf('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew)')
     expect(start).toBeGreaterThan(0)
     expect(end).toBeGreaterThan(start)
     for (const call of ['runStoryboard(', 'generateUltraImages(', 'buildUltraPreamble(']) {
@@ -51,7 +56,7 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     expect(view).toContain("if (ultraRecord && !capIds.includes('ultra')) capIds = [...capIds, 'ultra']")
     // `!ultraRecord` is true whenever Motion Ultra did not run, and `!siteNew`
     // whenever no site screenshot was attached: the old condition.
-    expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew)')
+    expect(view).toContain('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew)')
   })
 
   it('offers earlier pictures only to a project that has Motion Ultra pictures', () => {
@@ -62,7 +67,10 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
   })
 
   it("keeps Muse's own picture as it was, and makes no film on its own", () => {
-    expect(view).toContain('if (remaining.length && pins.length === 0 && !ultraActive)')
+    expect(view).toContain('if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed)')
+    // True for every screen that is not a document — see site-reference.test.js.
+    expect(view).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
+    expect(view).toContain('const runUltra = ultraActive && pipe.motionUltra')
     // The automatic film is gone for everyone: a film is only ever asked for.
     expect(view).not.toContain('decideFilm(')
     expect(view).not.toContain('placeFilmInScreen(')

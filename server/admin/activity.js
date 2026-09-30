@@ -32,11 +32,13 @@ export const PURPOSES = new Set([
   'fix',
   'polish',
   'audit-fix',
+  'fit',
   'plan',
   'read-site',
   'design-system',
   'storyboard',
   'stock-pick',
+  'enhance',
 ])
 
 /** POST routes that are work, mapped to what they are. Everything else is not tracked. */

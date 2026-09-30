@@ -3,6 +3,7 @@ import { proxyFetch, truncate } from './proxy'
 import type { Capability } from './capabilities/types'
 import { stripForbiddenMotion } from './stripMotion'
 import { ULTRA_CLASSES } from './capabilities/snippets/Ultra'
+import { DOCUMENT_CAP, DOCUMENT_RULES } from './documentMode'
 
 /**
  * Last gate before generated code becomes a screen.
@@ -150,9 +151,9 @@ export function stripDataUrl(dataUrl: string): string {
  * polishing a screen" rather than "Alice called the model"; nothing else changes
  * with it, and the header is never forwarded to the provider.
  */
-type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'design-system'
+export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance'
 
-async function chat(
+export async function chat(
   s: Settings,
   messages: ChatMessage[],
   signal?: AbortSignal,
@@ -335,6 +336,17 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     for (const [cls, what] of Object.entries(ULTRA_CLASSES)) lines.push(`- ${cls}: ${what}`)
     lines.push('Colours come from three variables, --u-a, --u-b, --u-c (set them from your palette on the page root, e.g. className="[--u-a:#123456] [--u-b:#…] [--u-c:#…]", or through <Backdrop colors>).')
     lines.push('Do not write your own @keyframes or <style> blocks — everything above already respects reduced motion and the "no animation" switch, and a hand-written loop does not.')
+  }
+  /*
+   * A DOCUMENT's override of the base rules. Here and not in the preamble,
+   * because this section is the only one printed AFTER SYSTEM_PROMPT on all
+   * five paths, and a flyer told "every interactive element MUST have visible
+   * states" last came back with hover rings. Only a screen carrying the page
+   * kit prints it: for every other screen this function is what it was.
+   */
+  if (caps.some((c) => c.id === DOCUMENT_CAP)) {
+    lines.push('')
+    lines.push(DOCUMENT_RULES)
   }
   return lines.join('\n')
 }
@@ -1002,6 +1014,64 @@ export async function auditFixComponent(
     { role: 'system', content: system },
     { role: 'user', content: user },
   ], signal, undefined, undefined, 'audit-fix')
+  const fixed = await guardMotion(extractCode(content))
+  return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
+}
+
+const FIT_PROMPT = `You are making a printed document fit its pages. It is a React component that runs inside a sandbox, laid out with a page kit: <Doc format> holds <Page> elements, and the kit gives every <Page> its exact size and clips it. React, its hooks, and a FIXED set of helper globals are provided — nothing can be imported.
+
+You will be given the component and a measurement: for each page that overflows, by how many pixels its content runs past which edge, and which text is outside. Make every page fit, and change NOTHING else about the design.
+
+Rules:
+- Win back at least the measured pixels on each page, plus about 24 px so the last line sits clear of the edge. Count it in the page's own pixels, the unit the Tailwind classes are written in.
+- Take the space from what is generous first: vertical padding, margins and gaps; then the height of pictures and decorative blocks (a photo 470 px tall can be 380); then oversized display type, a step or two. Shorten a line of copy only when the space cannot be found anywhere else, and never below its meaning.
+- Keep every section, every heading, every field and every picture, in the same order, with the same palette, the same typefaces and the same copy. Someone comparing the two versions should see the same page, a little tighter.
+- Keep the same number of <Page> elements and the same <Doc format>. Never add a page, never make a page scroll, never set a page's width or height yourself.
+- A decorative shape that bleeds off the edge is meant to: leave it alone. Only text and fields must be inside the page.
+
+Return the COMPLETE corrected component in a single fenced jsx code block. No prose.`
+
+/**
+ * Asks the model to make a document's pages fit, given the measured overflow.
+ *
+ * A fourth sibling of `fixComponent`, `polishComponent` and
+ * `auditFixComponent`, and separate for their reason: the instruction is the
+ * feature. FIX_PROMPT has no error to fix here, POLISH_PROMPT invites a
+ * restyle, AUDIT_FIX_PROMPT forbids touching a spacing class — and spacing is
+ * exactly what this pass spends. The caller (lib/docExport/fit.ts) measures
+ * the answer again before writing it back.
+ *
+ * Only ever run on a document screen, where Motion Ultra never runs, so it is
+ * not a pass U5 has to protect a Motion Ultra screen from.
+ *
+ * The SIXTH place the complete generated source first exists as
+ * `guardMotion(extractCode(content))`.
+ */
+export async function fitComponent(
+  s: Settings,
+  code: string,
+  findings: string,
+  signal?: AbortSignal,
+  caps?: Capability[],
+): Promise<GeneratedComponent> {
+  const capsPrompt = caps && caps.length ? buildCapabilitiesPrompt(caps) : ''
+  const system = capsPrompt ? `${FIT_PROMPT}\n${capsPrompt}` : FIT_PROMPT
+  const user = [
+    'Make this document fit its pages.',
+    '',
+    '```jsx',
+    code,
+    '```',
+    '',
+    'Measurement:',
+    findings,
+    '',
+    'Return the COMPLETE corrected component. Every page must fit, and the design must stay the same.',
+  ].join('\n')
+  const content = await chat(s, [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ], signal, undefined, undefined, 'fit')
   const fixed = await guardMotion(extractCode(content))
   return { raw: content, code: fixed, componentName: detectComponentName(fixed) }
 }

@@ -10,6 +10,7 @@ import {
   type Screen,
 } from '../lib/project'
 import { getThumb, pruneThumbs, THUMB_REGION } from '../lib/thumbnails'
+import { thumbFrame } from '../lib/documentMode'
 import { Button, Icon, IconButton, Input, Modal } from '../ui'
 import { useT } from '../i18n'
 
@@ -121,12 +122,12 @@ function ScreenFigure({ screens, tall = false }: { screens: Screen[]; tall?: boo
  * The capture only covers the top THUMB_REGION.h of the screen, so the picture's
  * ratio is `w / (h * region.h)` — using the screen's own ratio would squash it.
  * The result is clamped: a phone screen is nearly square once cropped and would
- * otherwise tower over the row it sits in.
+ * otherwise tower over the row it sits in. A document's picture is its first
+ * page, not its frame (`thumbFrame`), and is measured the same way.
  */
 function thumbBox(screen: Screen, width: number, minH: number, maxH: number) {
-  const w = screen.w > 0 ? screen.w : 1024
-  const h = screen.h > 0 ? screen.h : 720
-  const ratio = w / Math.max(1, h * THUMB_REGION.h)
+  const { w, h, region } = thumbFrame(screen, THUMB_REGION)
+  const ratio = w / Math.max(1, h * region.h)
   return { width, height: Math.round(Math.min(maxH, Math.max(minH, width / ratio))) }
 }
 
