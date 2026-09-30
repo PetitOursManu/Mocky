@@ -14,15 +14,15 @@ export const project = {
     // ---- documents ----
     'project.docDownload': 'Télécharger…',
     'project.docOverflow':
-      'Dans « {name} », le contenu dépasse de la page {pages} : il serait coupé à l’impression. Raccourcissez le texte ou demandez une page de plus.',
+      'Dans « {name} », le contenu dépasse de la page {pages} : il serait coupé à l’impression. Clic droit sur le document › « Ajuster à la page », ou demandez une page de plus.',
     'project.docOverflowMany':
-      'Dans « {name} », le contenu dépasse des pages {pages} : il serait coupé à l’impression. Raccourcissez le texte ou demandez une page de plus.',
+      'Dans « {name} », le contenu dépasse des pages {pages} : il serait coupé à l’impression. Clic droit sur le document › « Ajuster à la page », ou demandez une page de plus.',
     'project.docFit': 'Ajuster à la page',
     'project.docFitting': 'Ajustement à la page…',
     'project.docFitMeasuring': 'Mesure du dépassement…',
     'project.docFitDone': '« {name} » tient maintenant dans sa page.',
     'project.docFitCloser':
-      '« {name} » dépasse encore de {px} px (page {pages}). Relancez l’ajustement, ou raccourcissez le texte.',
+      '« {name} » dépasse encore de {px} px (page {pages}). Relancez « Ajuster à la page » depuis le clic droit, ou raccourcissez le texte.',
     'project.docFitRejected':
       'L’ajustement n’a pas fait tenir « {name} » dans sa page : le document est resté tel quel. Raccourcissez le texte ou demandez une page de plus.',
     'project.docFitNothing': 'Rien ne dépasse de « {name} » : il n’y avait rien à ajuster.',
@@ -359,15 +359,15 @@ export const project = {
     // ---- documents ----
     'project.docDownload': 'Download…',
     'project.docOverflow':
-      'In “{name}”, the content runs past the edge of page {pages}: it would be cut off in print. Shorten the text or ask for one more page.',
+      'In “{name}”, the content runs past the edge of page {pages}: it would be cut off in print. Right-click the document › “Fit to page”, or ask for one more page.',
     'project.docOverflowMany':
-      'In “{name}”, the content runs past the edge of pages {pages}: it would be cut off in print. Shorten the text or ask for one more page.',
+      'In “{name}”, the content runs past the edge of pages {pages}: it would be cut off in print. Right-click the document › “Fit to page”, or ask for one more page.',
     'project.docFit': 'Fit to page',
     'project.docFitting': 'Fitting to the page…',
     'project.docFitMeasuring': 'Measuring the overflow…',
     'project.docFitDone': '“{name}” now fits its page.',
     'project.docFitCloser':
-      '“{name}” still runs {px} px past the edge (page {pages}). Fit it again, or shorten the text.',
+      '“{name}” still runs {px} px past the edge (page {pages}). Run “Fit to page” again from the right-click menu, or shorten the text.',
     'project.docFitRejected':
       'The fit did not make “{name}” fit its page: the document was left as it was. Shorten the text or ask for one more page.',
     'project.docFitNothing': 'Nothing runs past the edge of “{name}”: there was nothing to fit.',

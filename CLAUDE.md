@@ -81,7 +81,7 @@ There are four independent correction passes, and they are not interchangeable:
 | **Repair** | The iframe reports a render/compile error | `FIX_PROMPT` — "fix ONLY the error, do not restyle" | `MAX_FIX_ATTEMPTS = 2` |
 | **Polish** | The user asks for it | `POLISH_PROMPT` — "fix these named findings, change nothing else" | `DEFAULT_MAX_ITERATIONS = 2` |
 | **Audit fix** | The user asks for it, from the SEO/a11y panel | `AUDIT_FIX_PROMPT` — "fix the markup, the screen must look identical" | `DEFAULT_MAX_ITERATIONS = 2` |
-| **Fit** | The user asks for it, on a document's overflow notice | `FIT_PROMPT` — "win back the measured pixels, same design, same pages" | one call per click, measured before AND after (`lib/docExport/fit.ts`) |
+| **Fit** | The user asks for it, from a document's right-click menu (or the download dialog's overflow notice) | `FIT_PROMPT` — "win back the measured pixels, same design, same pages" | one call per click, measured before AND after (`lib/docExport/fit.ts`) |
 
 They share the transport, `runPolishLoop` and the write-back conventions, and
 nothing else (Fit does not use `runPolishLoop`: its progress is pixels, not rule

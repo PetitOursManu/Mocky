@@ -342,3 +342,29 @@ export function promptForThemeChange(
   const untouched = !prompt.trim() || (!!prevStarter && prompt.trim() === prevStarter.trim())
   return untouched ? (nextStarter ?? '') : prompt
 }
+
+export function isScreenThemeId(id: unknown): id is ScreenThemeId {
+  return typeof id === 'string' && (SCREEN_THEME_IDS as readonly string[]).includes(id)
+}
+
+/**
+ * The type — and, for a document, the page format — the composer starts on in
+ * a project: whatever its most recently made screen was made with, "no type"
+ * included.
+ *
+ * The composer used to forget the type after every generation, on the theory
+ * that two screens in a row are rarely the same kind. In a project of flyers
+ * they always are: "fais-moi le recto" was generated as a WEBSITE because the
+ * menu had gone back to nothing, and every document meant opening it again.
+ * Read off the screens rather than stored beside them, so it needs no new
+ * field, survives sync and a reload, and follows what was really generated
+ * rather than what was picked and abandoned.
+ */
+export function projectScreenType(
+  screens: readonly { createdAt: number; theme?: string; page?: PageFormatId }[],
+): { theme: ScreenThemeId | null; page: PageFormatId | null } {
+  let latest: (typeof screens)[number] | undefined
+  for (const s of screens) if (!latest || s.createdAt > latest.createdAt) latest = s
+  const theme = isScreenThemeId(latest?.theme) ? latest.theme : null
+  return { theme, page: theme && latest?.page ? latest.page : null }
+}

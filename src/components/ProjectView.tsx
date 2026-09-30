@@ -53,6 +53,7 @@ import {
   getScreenTheme,
   promptForThemeChange,
   screenThemeBriefLine,
+  projectScreenType,
   withScreenTheme,
   type ScreenThemeId,
 } from '../lib/screenThemes'
@@ -464,19 +465,20 @@ export default function ProjectView({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [presetId, setPresetId] = useState<string>(DEFAULT_PRESET_ID)
   /**
-   * The screen type for the NEXT screen (lib/screenThemes.ts). Session state
-   * like the preset, but spent with the prompt it came with: a project is
-   * usually one form factor, while two screens in a row are rarely the same
-   * type, and a Dashboard brief left armed would quietly shape the settings
-   * page typed next. The screen keeps it (`Screen.theme`) for Regenerate.
+   * The screen type for the NEXT screen (lib/screenThemes.ts). It starts on the
+   * type this project's latest screen was made with and STAYS armed after a
+   * generation (`projectScreenType` says why: a flyer's recto came back as a
+   * website once the menu had gone back to nothing). The screen keeps it
+   * (`Screen.theme`) for Regenerate.
    */
-  const [themeId, setThemeId] = useState<ScreenThemeId | null>(null)
+  const [themeId, setThemeId] = useState<ScreenThemeId | null>(() => projectScreenType(project.screens).theme)
   /**
-   * The page format picked for DOCUMENT types, remembered for the session like
-   * the preset. Null until one is picked: the type's own default stands until
-   * then (`composerPageFormat`), and the app preset is kept untouched beside it.
+   * The page format picked for DOCUMENT types, starting — like the type — on
+   * the latest screen's. Null until one is known: the type's own default stands
+   * until then (`composerPageFormat`), and the app preset is kept untouched
+   * beside it.
    */
-  const [pageFormatId, setPageFormatId] = useState<PageFormatId | null>(null)
+  const [pageFormatId, setPageFormatId] = useState<PageFormatId | null>(() => projectScreenType(project.screens).page)
   /** The document whose download dialog is open, or null. */
   const [downloadDocId, setDownloadDocId] = useState<string | null>(null)
   /**
@@ -484,12 +486,6 @@ export default function ProjectView({
    * edge is named once per distinct answer rather than on every re-measure.
    */
   const docOverflowSaid = useRef<Record<string, string>>({})
-  /**
-   * The notice that may be answered with "Ajuster à la page", and for which
-   * screen. Matched on the TEXT: any other notice replacing it takes the
-   * button away with it, without every setNotice in this file having to know.
-   */
-  const [fitOffer, setFitOffer] = useState<{ screenId: string; text: string } | null>(null)
   /**
    * The one panel over the canvas' top-right corner — see lib/rightSlot.ts.
    *
@@ -2171,7 +2167,6 @@ export default function ProjectView({
         setGeneratingIds(new Set([screenId]))
         setSelectedIds([screenId])
         setPrompt('')
-        setThemeId(null)
         setAnnotations([])
         setSiteShots([])
         // The found photos go LAST, after the user's annotations and any
@@ -2461,21 +2456,17 @@ export default function ProjectView({
     docOverflowSaid.current[screenId] = update.overflowKey
     if (update.overflow.length) {
       const pages = update.overflow.join(', ')
-      offerFit(screenId, t(update.overflow.length > 1 ? 'project.docOverflowMany' : 'project.docOverflow', { name: screen.name, pages }))
+      setNotice(t(update.overflow.length > 1 ? 'project.docOverflowMany' : 'project.docOverflow', { name: screen.name, pages }))
     }
-  }
-
-  function offerFit(screenId: string, text: string) {
-    setNotice(text)
-    setFitOffer({ screenId, text })
   }
 
   /**
    * "Ajuster à la page": measure what a document loses at the trim, ask the
    * model to win it back, measure the answer, and keep it only if it is better
-   * (lib/docExport/fit.ts says why each step is there). One model call per
-   * click — a page still over is said with the button offered again, never
-   * retried behind the person's back. Same write-back conventions as every
+   * (lib/docExport/fit.ts says why each step is there). Offered in a document's
+   * right-click menu and on the download dialog's overflow notice — not in the
+   * composer, which is for making screens. One model call per click: a page
+   * still over is said, never retried behind the person's back. Same write-back conventions as every
    * other screen mutation: an AbortController, `codeAtStart` re-checked, and
    * `previousCode` so "Revert" undoes it.
    */
@@ -2537,7 +2528,7 @@ export default function ProjectView({
       if (!now || now.code !== codeAtStart) return
 
       if (verdict === 'rejected' || !after) {
-        offerFit(screenId, t('project.docFitRejected', { name }))
+        setNotice(t('project.docFitRejected', { name }))
         return
       }
       // The kit re-reports the new pages by itself; the verdict below is the
@@ -2553,7 +2544,7 @@ export default function ProjectView({
         setNotice(t('project.docFitDone', { name }))
       } else {
         const px = Math.max(...after.over.map(pageExcessPx))
-        offerFit(screenId, t('project.docFitCloser', { name, px, pages: after.over.map((p) => p.page).join(', ') }))
+        setNotice(t('project.docFitCloser', { name, px, pages: after.over.map((p) => p.page).join(', ') }))
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
@@ -4136,20 +4127,13 @@ export default function ProjectView({
                 <Icon name="sparkle" size={16} />
                 <span className="truncate" title={notice}>{notice}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-1">
-                {fitOffer && fitOffer.text === notice && (
-                  <Button size="sm" variant="primary" disabled={busy} onClick={() => void fitDocument(fitOffer.screenId)}>
-                    {t('project.docFit')}
-                  </Button>
-                )}
-                <button
-                  type="button"
-                  className="btn-ghost px-2 py-1 text-body-sm"
-                  onClick={() => setNotice(null)}
-                >
-                  {t('common.close')}
-                </button>
-              </span>
+              <button
+                type="button"
+                className="btn-ghost shrink-0 px-2 py-1 text-body-sm"
+                onClick={() => setNotice(null)}
+              >
+                {t('common.close')}
+              </button>
             </div>
           )}
 
@@ -4782,6 +4766,15 @@ export default function ProjectView({
                     // would export half a page.
                     disabled={!s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
                     onClick={() => { close(); setDownloadDocId(s.id) }}
+                  />
+                )}
+                {/* A document only: pages are what a fit is measured against. */}
+                {s.page && (
+                  <MenuItem
+                    icon="fit"
+                    label={t('project.docFit')}
+                    disabled={busy || !s.code.trim() || generatingIds.has(s.id) || regeneratingIds.has(s.id)}
+                    onClick={() => { close(); void fitDocument(s.id) }}
                   />
                 )}
                 <MenuItem icon="refresh" label={t('project.regenerate')} disabled={busy} onClick={() => { close(); regenerate(s.id) }} />

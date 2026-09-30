@@ -10,6 +10,7 @@ import {
   promptForThemeChange,
   screenThemeBriefLine,
   screenThemeSection,
+  projectScreenType,
   themeDocumentPage,
   withScreenTheme,
 } from './screenThemes'
@@ -196,5 +197,25 @@ describe('Screen.theme survives a reload', () => {
     expect(normalizeScreen({ id: 's' }, 0).theme).toBeUndefined()
     expect(normalizeScreen({ id: 's', theme: '' }, 0).theme).toBeUndefined()
     expect(normalizeScreen({ id: 's', theme: 42 as never }, 0).theme).toBeUndefined()
+  })
+})
+
+describe('projectScreenType', () => {
+  it('starts the composer on the type the latest screen was made with, and its page', () => {
+    const screens = [
+      { createdAt: 1, theme: 'dashboard' },
+      { createdAt: 3, theme: 'flyer', page: 'a4-landscape' as const },
+      { createdAt: 2, theme: 'pricing' },
+    ]
+    expect(projectScreenType(screens)).toEqual({ theme: 'flyer', page: 'a4-landscape' })
+  })
+
+  it('keeps "no type" when that is what the latest screen was made with', () => {
+    expect(projectScreenType([{ createdAt: 1, theme: 'flyer', page: 'a4' as const }, { createdAt: 2 }])).toEqual({ theme: null, page: null })
+  })
+
+  it('starts on nothing in an empty project, and ignores a type this build does not know', () => {
+    expect(projectScreenType([])).toEqual({ theme: null, page: null })
+    expect(projectScreenType([{ createdAt: 1, theme: 'brochure-3d' }])).toEqual({ theme: null, page: null })
   })
 })
