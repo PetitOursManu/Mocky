@@ -11,6 +11,29 @@
  */
 export const project = {
   fr: {
+    // ---- documents ----
+    'project.docDownload': 'Télécharger…',
+    'project.docOverflow':
+      'Dans « {name} », le contenu dépasse de la page {pages} : il serait coupé à l’impression. Clic droit sur le document › « Ajuster à la page », ou demandez une page de plus.',
+    'project.docOverflowMany':
+      'Dans « {name} », le contenu dépasse des pages {pages} : il serait coupé à l’impression. Clic droit sur le document › « Ajuster à la page », ou demandez une page de plus.',
+    'project.docFit': 'Ajuster à la page',
+    'project.docFitting': 'Ajustement à la page…',
+    'project.docFitMeasuring': 'Mesure du dépassement…',
+    'project.docFitDone': '« {name} » tient maintenant dans sa page.',
+    'project.docFitCloser':
+      '« {name} » dépasse encore de {px} px (page {pages}). Relancez « Ajuster à la page » depuis le clic droit, ou raccourcissez le texte.',
+    'project.docFitRejected':
+      'L’ajustement n’a pas fait tenir « {name} » dans sa page : le document est resté tel quel. Raccourcissez le texte ou demandez une page de plus.',
+    'project.docFitNothing': 'Rien ne dépasse de « {name} » : il n’y avait rien à ajuster.',
+    'project.docFitFailed': 'L’ajustement de « {name} » a échoué : le document est resté tel quel.',
+    'project.docUltraSkipped':
+      'Motion Ultra ne s’applique pas aux documents : une page imprimée ne bouge pas. Le document est généré sans.',
+    'project.docPictureMissing':
+      'Aucune image n’a pu être trouvée pour ce document ({reason}) : une composition de formes en tient lieu.',
+    'project.exportDocsOnly':
+      'Ce projet ne contient que des documents : ils se téléchargent un par un, avec leur bouton « Télécharger ».',
+    'project.exportDocsSkipped': 'Les documents ne sont pas inclus dans le projet React : utilisez leur bouton « Télécharger ».',
     // ---- toolbar ----
     'project.back': 'Retour',
     'project.linkTitle': 'Relier les écrans entre eux',
@@ -136,6 +159,7 @@ export const project = {
     'project.busyPlanning': 'Planification…',
     'project.busySite': 'Lecture du site…',
     'project.busySitePictures': 'Images du site…',
+    'project.busyDocPicture': 'Image du document…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Inspiration & rédaction du dossier…',
     'project.museStageInspiration': 'Génération de l’image d’inspiration…',
@@ -147,6 +171,13 @@ export const project = {
     'project.imageSourceStock': 'Libres',
     'project.imageSourceStockTitle':
       'Les images de Muse et de Motion Ultra sont de vraies photos libres de droits (Pexels, Pixabay), trouvées d’après le sujet de chaque image — gratuites, rien n’est généré',
+    'project.docImage': 'Image',
+    'project.docImageNone': 'Sans image',
+    'project.docImageNoneTitle': 'Le document est composé de formes et de couleurs, sans photo — rien n’est cherché ni généré',
+    'project.docImageAi': 'Générée',
+    'project.docImageAiTitle': 'Une image est générée pour le document par le modèle d’image configuré (peut être payant)',
+    'project.docImageStock': 'Photo libre',
+    'project.docImageStockTitle': 'Une vraie photo libre de droits (Pexels, Pixabay) est trouvée d’après le sujet du document — gratuite, rien n’est généré',
     'project.museStageMedia': 'Lecture de votre média (palette, ambiance)…',
 
     // ---- Motion Ultra (réglage projet, pause dans le composer) ----
@@ -325,6 +356,28 @@ export const project = {
       'Un tableau de bord analytique avec des cartes de chiffres, un graphique et une liste d’activité',
   } as Record<string, string>,
   en: {
+    // ---- documents ----
+    'project.docDownload': 'Download…',
+    'project.docOverflow':
+      'In “{name}”, the content runs past the edge of page {pages}: it would be cut off in print. Right-click the document › “Fit to page”, or ask for one more page.',
+    'project.docOverflowMany':
+      'In “{name}”, the content runs past the edge of pages {pages}: it would be cut off in print. Right-click the document › “Fit to page”, or ask for one more page.',
+    'project.docFit': 'Fit to page',
+    'project.docFitting': 'Fitting to the page…',
+    'project.docFitMeasuring': 'Measuring the overflow…',
+    'project.docFitDone': '“{name}” now fits its page.',
+    'project.docFitCloser':
+      '“{name}” still runs {px} px past the edge (page {pages}). Run “Fit to page” again from the right-click menu, or shorten the text.',
+    'project.docFitRejected':
+      'The fit did not make “{name}” fit its page: the document was left as it was. Shorten the text or ask for one more page.',
+    'project.docFitNothing': 'Nothing runs past the edge of “{name}”: there was nothing to fit.',
+    'project.docFitFailed': 'Fitting “{name}” failed: the document was left as it was.',
+    'project.docUltraSkipped':
+      'Motion Ultra does not apply to documents: a printed page does not move. The document is generated without it.',
+    'project.docPictureMissing':
+      'No picture could be found for this document ({reason}): a composition of shapes stands in.',
+    'project.exportDocsOnly': 'This project only holds documents: download them one by one, with their “Download” button.',
+    'project.exportDocsSkipped': 'Documents are not part of the React project: use their “Download” button.',
     // ---- toolbar ----
     'project.back': 'Back',
     'project.linkTitle': 'Draw links between screens',
@@ -448,6 +501,7 @@ export const project = {
     'project.busyPlanning': 'Planning…',
     'project.busySite': 'Reading the site…',
     'project.busySitePictures': 'Site pictures…',
+    'project.busyDocPicture': 'Document picture…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Gathering inspiration & writing the dossier…',
     'project.museStageInspiration': 'Generating the inspiration image…',
@@ -459,6 +513,13 @@ export const project = {
     'project.imageSourceStock': 'Free',
     'project.imageSourceStockTitle':
       'Muse and Motion Ultra pictures are real free stock photos (Pexels, Pixabay), found from each picture’s subject — free of charge, nothing is generated',
+    'project.docImage': 'Picture',
+    'project.docImageNone': 'No picture',
+    'project.docImageNoneTitle': 'The document is composed of shapes and colour, with no photo — nothing is searched for or generated',
+    'project.docImageAi': 'Generated',
+    'project.docImageAiTitle': 'One picture is generated for the document by the configured image model (may be paid)',
+    'project.docImageStock': 'Free photo',
+    'project.docImageStockTitle': 'One real free stock photo (Pexels, Pixabay) is found from the document’s subject — free of charge, nothing is generated',
     'project.museStageMedia': 'Reading your media (palette, mood)…',
 
     // ---- Motion Ultra (project setting, paused from the composer) ----

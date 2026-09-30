@@ -39,6 +39,12 @@ export const settings = {
     'settings.modelsNone': 'Aucun modèle chargé — rechargez la liste',
     'settings.modelsReload': 'Recharger la liste des modèles du fournisseur',
     'settings.modelsLoadFailed': 'Impossible de charger la liste des modèles.',
+    'settings.modelsNoListing':
+      'Aucune liste de modèles à cette adresse : vérifiez l’URL de base, ou saisissez l’identifiant du modèle dans le champ ci-dessous.',
+    'settings.apiKeyWhere': 'Créer une clé :',
+    'settings.providerGroup.vendor': 'Éditeurs de modèles',
+    'settings.providerGroup.host': 'Hébergeurs et passerelles',
+    'settings.providerGroup.custom': 'Adresse personnalisée',
     'settings.modelsCount_one': 'modèle disponible chez ce fournisseur.',
     'settings.modelsCount_other': 'modèles disponibles chez ce fournisseur.',
     'settings.modelCustom': 'Modèle personnalisé',
@@ -166,11 +172,31 @@ export const settings = {
       'Une clé, des centaines de modèles. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-4o-mini.',
     'settings.textHintFal':
       'Votre clé fal.ai (la même que pour les images) donne aussi accès aux LLM. Ce champ n’est PAS pour un modèle d’images : fal expose ses LLM via OpenRouter, donc le modèle s’écrit « éditeur/modèle » — openai/gpt-4o-mini, google/gemini-2.5-flash, qwen/qwen3.5-flash-02-23… (un id du type fal-ai/…/text-to-image sera refusé). Pour le mode Inspiration, prenez un modèle qui voit les images.',
+    'settings.textHintGemini':
+      'API Gemini de Google, via sa couche compatible OpenAI (…/v1beta/openai). Clé sur aistudio.google.com/apikey. Modèles : gemini-3.8-flash, gemini-3.1-pro-preview…',
+    'settings.textHintMistral':
+      'API officielle de Mistral AI. Clé sur console.mistral.ai. Modèles : mistral-medium-latest, mistral-large-latest, codestral-latest…',
+    'settings.textHintDeepseek':
+      'API officielle de DeepSeek. Clé sur platform.deepseek.com. Modèles : deepseek-flash, deepseek-v4-pro. Pas de sortie structurée par schéma : Mocky passe en mode JSON simple.',
+    'settings.textHintXai':
+      'API de xAI (Grok), par son interface Chat Completions. Clé sur console.x.ai. Modèles : grok-4.7, grok-4.3…',
+    'settings.textHintMoonshot':
+      'API Kimi de Moonshot AI. Clé sur platform.kimi.ai. Modèles : kimi-k3, kimi-k2.7-code… La température est fixée par Kimi : Mocky ne l’envoie pas.',
+    'settings.textHintGroq':
+      'Inférence très rapide de modèles ouverts. Clé sur console.groq.com/keys. Modèles : openai/gpt-oss-120b, llama-3.3-70b-versatile…',
+    'settings.textHintTogether':
+      'Des centaines de modèles ouverts. Clé sur api.together.ai. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-oss-120b.',
+    'settings.textHintFireworks':
+      'Modèles ouverts hébergés par Fireworks. Clé sur fireworks.ai. Le modèle s’écrit en entier : accounts/fireworks/models/…',
+    'settings.textHintCerebras':
+      'Inférence très rapide sur puces Cerebras. Clé sur cloud.cerebras.ai. Modèles : gpt-oss-120b, qwen-3.8-27b…',
+    'settings.textHintHuggingface':
+      'Un jeton Hugging Face (droit « Inference Providers ») ouvre les modèles de plusieurs hébergeurs. Jeton sur huggingface.co/settings/tokens. Modèles : openai/gpt-oss-120b, avec « :cheapest » ou « :groq » en suffixe pour choisir l’hébergeur.',
     'settings.textHintOpenaiCompatible':
-      'Tout endpoint exposant /v1/chat/completions : Groq, Together, DeepSeek, Mistral, LM Studio, vLLM… Indiquez l’URL de base (sans /v1).',
+      'Tout autre endpoint au format OpenAI : Qwen (DashScope), Cohere, LM Studio, vLLM… Collez l’URL de base que donne sa documentation, version comprise (ex. …/compatible-mode/v1).',
 
-    'settings.noV1Before': 'Sans',
-    'settings.noV1After': '— Mocky l’ajoute.',
+    'settings.baseUrlRule':
+      'Collez l’URL de base telle que la donne la documentation : Mocky ajoute /v1 seulement si elle ne se termine pas déjà par une version (…/v1, …/v1beta/openai).',
     // ---- vidéo au défilement ----
     'settings.videoTitle': 'Vidéo au défilement',
     'settings.videoBlurb':
@@ -362,6 +388,11 @@ export const settings = {
     'settings.modelsNone': 'No model loaded — reload the list',
     'settings.modelsReload': 'Reload the provider’s model list',
     'settings.modelsLoadFailed': 'Could not load the model list.',
+    'settings.modelsNoListing': 'No model list at this address: check the base URL, or type the model id in the field below.',
+    'settings.apiKeyWhere': 'Get a key:',
+    'settings.providerGroup.vendor': 'Model makers',
+    'settings.providerGroup.host': 'Hosts and routers',
+    'settings.providerGroup.custom': 'Custom endpoint',
     'settings.modelsCount_one': 'model available from this provider.',
     'settings.modelsCount_other': 'models available from this provider.',
     'settings.modelCustom': 'Custom model',
@@ -488,11 +519,31 @@ export const settings = {
       'One key, hundreds of models. Model ids read “vendor/model”, e.g. openai/gpt-4o-mini.',
     'settings.textHintFal':
       'Your fal.ai key (the same one as for images) also gives access to LLMs. This field is NOT for an image model: fal serves its LLMs through OpenRouter, so the model reads “vendor/model” — openai/gpt-4o-mini, google/gemini-2.5-flash, qwen/qwen3.5-flash-02-23… (an id like fal-ai/…/text-to-image will be rejected). For Inspiration mode, pick a model that can see images.',
+    'settings.textHintGemini':
+      'Google’s Gemini API, through its OpenAI-compatible surface (…/v1beta/openai). Key at aistudio.google.com/apikey. Models: gemini-3.8-flash, gemini-3.1-pro-preview…',
+    'settings.textHintMistral':
+      'The official Mistral AI API. Key at console.mistral.ai. Models: mistral-medium-latest, mistral-large-latest, codestral-latest…',
+    'settings.textHintDeepseek':
+      'The official DeepSeek API. Key at platform.deepseek.com. Models: deepseek-flash, deepseek-v4-pro. No schema-based structured output: Mocky falls back to plain JSON mode.',
+    'settings.textHintXai':
+      'xAI’s API (Grok), through its Chat Completions surface. Key at console.x.ai. Models: grok-4.7, grok-4.3…',
+    'settings.textHintMoonshot':
+      'Moonshot AI’s Kimi API. Key at platform.kimi.ai. Models: kimi-k3, kimi-k2.7-code… Kimi fixes the temperature, so Mocky does not send one.',
+    'settings.textHintGroq':
+      'Very fast inference of open models. Key at console.groq.com/keys. Models: openai/gpt-oss-120b, llama-3.3-70b-versatile…',
+    'settings.textHintTogether':
+      'Hundreds of open models. Key at api.together.ai. Model ids read “vendor/model”, e.g. openai/gpt-oss-120b.',
+    'settings.textHintFireworks':
+      'Open models hosted by Fireworks. Key at fireworks.ai. Model ids are written in full: accounts/fireworks/models/…',
+    'settings.textHintCerebras':
+      'Very fast inference on Cerebras hardware. Key at cloud.cerebras.ai. Models: gpt-oss-120b, qwen-3.8-27b…',
+    'settings.textHintHuggingface':
+      'One Hugging Face token (with the “Inference Providers” permission) opens models from several hosts. Token at huggingface.co/settings/tokens. Models: openai/gpt-oss-120b, with “:cheapest” or “:groq” as a suffix to pick the host.',
     'settings.textHintOpenaiCompatible':
-      'Any endpoint exposing /v1/chat/completions: Groq, Together, DeepSeek, Mistral, LM Studio, vLLM… Give the base URL (without /v1).',
+      'Any other OpenAI-style endpoint: Qwen (DashScope), Cohere, LM Studio, vLLM… Paste the base URL its documentation gives, version included (e.g. …/compatible-mode/v1).',
 
-    'settings.noV1Before': 'Without',
-    'settings.noV1After': '— Mocky adds it.',
+    'settings.baseUrlRule':
+      'Paste the base URL as its documentation gives it: Mocky adds /v1 only when it does not already end in a version (…/v1, …/v1beta/openai).',
     // ---- scroll-driven video ----
     'settings.videoTitle': 'Scroll-driven video',
     'settings.videoBlurb':

@@ -18,11 +18,14 @@ import { video } from './video'
 import { notes } from './notes'
 import { migration } from './migration'
 import { dashboard } from './dashboard'
+import { composer } from './composer'
+import { chime } from './chime'
+import { docExport } from './docExport'
 
-const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard]
+const AREAS = [app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport]
 
 export const partsFr: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.fr))
 export const partsEn: Record<string, string> = Object.assign({}, ...AREAS.map((a) => a.en))
 
 /** Exposed for the parity test, which checks each area separately. */
-export const AREA_DICTS = { app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard }
+export const AREA_DICTS = { app, auth, canvas, project, muse, library, design, settings, preview, audit, video, notes, migration, dashboard, composer, chime, docExport }

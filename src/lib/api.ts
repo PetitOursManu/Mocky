@@ -203,7 +203,7 @@ export interface TextProfileConfig {
   [providerId: string]: unknown
 }
 export interface TextConfig {
-  providers: { id: string; label: string }[]
+  providers: { id: string; label: string; group?: string }[]
   profiles: TextProfile[]
   generation: TextProfileConfig
   inspiration: TextProfileConfig

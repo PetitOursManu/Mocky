@@ -10,6 +10,15 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `demo` | les posts réseaux sociaux dans un téléphone, dans leur fil | `c921532` |
+| `document` | dix nouveaux types — affiche, rapport, documentation, CV, facture/devis, certificat, menu, posts Instagram, Facebook et LinkedIn | `c51b84b` |
+| `document` | « Ajuster à la page » au clic droit, type d'écran retenu par projet | `fcda24e` |
+| `document` | bouton « Ajuster à la page » sur l'alerte de dépassement | `8ca73c7` |
+| `demo` | un document imprimé tenu en main, dessiné au trait | `37f5828` |
+| `document` | type Flyer, formats de page et téléchargements | `587cf50` |
+| `document` | Screen.page, pdf-lib, et la place de la boîte de téléchargement | `65c0302` |
+| `document` | formats de page et contrat DOM du mode Document | `5b7267e` |
+| — | câbles entre écrans, cadres démo, fournisseurs, types d'écran, amélioration du prompt, son de fin | `c269525` |
 | `admin` | tableau de bord d'administration en direct | `7f6ee0e` |
 | `admin` | mode maintenance et migration vers un nouveau serveur | `d526746` |
 | `site` | les images du site remplacées par des photos libres ou générées | `9f971a0` |
@@ -55,6 +64,11 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `demo` | main retracée sur la référence agrandie, ombre du pouce | `465f293` |
+| `demo` | main tracée d'après la référence choisie | `fb94c2f` |
+| `document` | main redessinée, bouton Enregistrer, images de la bibliothèque | `ce3158f` |
+| `document` | rendu natif des pages, image facultative, partage | `4792f6b` |
+| `annotation` | la capture reçoit les capacités de l'écran ; démo : changer d'écran | `fa08ce4` |
 | `site` | une refonte lit d'abord le contenu du site, et le garde dans sa langue | `1d6b06e` |
 | `composer` | les captures d'un site aussi depuis l'accueil d'un projet vide | `77edc5e` |
 | `video` | la séquence au défilement reste collée malgré un overflow-hidden | `c806490` |
@@ -83,6 +97,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `readme` | types d'écran, documents, posts réseaux sociaux, cadres de démo, câbles, carillon, fournisseurs | `6357efa` |
 | — | tableau de bord d'administration, invariants D1–D5 | `8d3ca06` |
 | — | maintenance et migration de serveur, README et architecture | `0fc16a7` |
 | `readme` | reproduire ou refondre un site existant | `ce5838d` |

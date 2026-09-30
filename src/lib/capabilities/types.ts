@@ -63,6 +63,18 @@ export interface Capability {
    * into a plain box. Declared here so the check can find them too.
    */
   classes?: string[]
+  /**
+   * Never inferred from a screen's code by `capabilitiesUsedBy` — only
+   * force-added by the pipeline that owns it.
+   *
+   * For a pack whose component names are ordinary words. The page kit exports
+   * `Doc`, `Page` and `Field`, and "const Field = ({ label }) => …" is what a
+   * model writes in half the forms it generates: inferred from the code, an
+   * edit of any such form would load the kit, and its `var Field` would collide
+   * with the screen's own `const Field` — a fatal redeclaration on a screen
+   * that never asked to be a document.
+   */
+  forcedOnly?: boolean
   /** For snippet-packs: metadata for the CAPABILITIES prompt section. */
   components?: CapabilityComponent[]
   /** For snippet-packs: one or more source blocks, each with an explicit exports list. */

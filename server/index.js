@@ -1380,27 +1380,25 @@ app.post('/api/admin/videos/stock-test', requireAdmin, async (req, res) => {
 // Uses the instance provider when configured, else the credentials the browser
 // sends (same headers as /__provider). Results are cached per model server-side.
 app.post('/api/text/vision', requireUser, authRateLimit(20, 60_000, 'vision'), async (req, res) => {
-  const { probeVision } = await import('./text/vision.js')
+  const { probeVision, browserVisionTarget } = await import('./text/vision.js')
   // The inspiration IMAGE is attached to the generation request (that's the model
   // that must "see" it), so 'generation' is the profile that matters here. The
   // inspiration profile can be probed explicitly.
   const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'generation'
   let target = textConfig.target(profile)
   if (!target) {
-    const baseUrl = String(req.headers['x-provider-base'] || '').replace(/\/+$/, '')
-    const auth = String(req.headers['authorization'] || '')
-    const model = String(req.body?.model || '')
-    if (!baseUrl || !model) return res.json({ vision: false, error: 'Aucun modèle configuré.' })
+    const browser = browserVisionTarget(req)
+    if (!browser) return res.json({ vision: false, error: 'Aucun modèle configuré.' })
     // This route takes a base URL straight from a request header and then makes
     // the server fetch it — the same shape as /__provider, but it was the one
     // path that never ran the SSRF guard, and probeVision echoes back up to 400
     // characters of the response body. That made it a readable port scanner.
     try {
-      await assertSafeTargetResolved(`${baseUrl}/api/chat`)
+      await assertSafeTargetResolved(`${browser.baseUrl}/api/chat`)
     } catch (err) {
       return res.status(400).json({ vision: false, error: err instanceof Error ? err.message : String(err) })
     }
-    target = { kind: 'ollama', baseUrl, apiKey: auth.startsWith('Bearer ') ? auth.slice(7) : '', model }
+    target = browser
   }
   res.json({ ...(await probeVision(target, { force: req.body?.force === true })), model: target.model })
 })
@@ -1527,7 +1525,7 @@ app.post('/api/admin/text/models', requireAdmin, authRateLimit(20, 60_000, 'text
       })
     }
     const json = await upstream.json()
-    const shaped = plan.translate ? fromOpenAiModels(json) : json
+    const shaped = plan.translate ? fromOpenAiModels(json, plan.quirks) : json
     // Both dialects land on { models: [{ name }] }; Ollama also sends `model`.
     const models = (Array.isArray(shaped?.models) ? shaped.models : [])
       .map((m) => String(m?.name || m?.model || '').trim())

@@ -337,6 +337,7 @@ export default function VideoExportDialog({
   direction,
   screens,
   onAttachFilm,
+  onRenderActivity,
   jobId,
   onJobId,
   onOpenMedia,
@@ -370,6 +371,13 @@ export default function VideoExportDialog({
   screens?: AttachTarget[]
   /** Hangs the finished film on a screen. The caller owns the write-back. */
   onAttachFilm?: (screenId: string, hash: string) => void
+  /**
+   * Whether this panel is doing work the user is waiting on — composing, or a
+   * render queued or running — and how it ended. Told on every change and
+   * `idle` on close, so the project view's end-of-work chime (useWorkChime)
+   * covers a render, the one job long enough that people leave the tab for it.
+   */
+  onRenderActivity?: (state: 'active' | 'idle' | 'failed') => void
   /**
    * A render this account started earlier in the session.
    *
@@ -620,6 +628,33 @@ export default function VideoExportDialog({
       clearTimeout(timer)
     }
   }, [jobId, pollBudgetMs])
+
+  /*
+   * The panel's work, as the chime reads it. A `failure` ends the work even
+   * with the job still marked live: the poll gave up on it (timeout, job gone),
+   * so nothing will move it again.
+   */
+  const renderActive = proposing || starting || ((job?.status === 'queued' || job?.status === 'rendering') && !failure)
+  const renderState: 'active' | 'idle' | 'failed' = renderActive
+    ? 'active'
+    : job?.status === 'error' || failure
+      ? 'failed'
+      : 'idle'
+  const onRenderActivityRef = useRef(onRenderActivity)
+  onRenderActivityRef.current = onRenderActivity
+  // 'failed' is reported only as the END of a render this panel watched run.
+  // Reopening the panel re-polls the job the parent kept, and an old failure
+  // arriving on mount marked whatever generation was running at that moment as
+  // failed — a ⚠ and a sad chime for a screen that came out fine.
+  const prevRenderState = useRef<typeof renderState | null>(null)
+  useEffect(() => {
+    const prev = prevRenderState.current
+    prevRenderState.current = renderState
+    onRenderActivityRef.current?.(renderState === 'failed' && prev !== 'active' ? 'idle' : renderState)
+  }, [renderState])
+  // Closing the panel stops the polling, so it stops the work as far as the
+  // chime can know; left `active`, it would hold every later burst open.
+  useEffect(() => () => onRenderActivityRef.current?.('idle'), [])
 
   // ---- actions ----------------------------------------------------------
 

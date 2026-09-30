@@ -30,6 +30,7 @@ import { Scene3DSource, SCENE3D_EXPORTS } from '../capabilities/snippets/Scene3D
 import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from '../capabilities/snippets/ScrollVideo'
 import { MotionFilmSource, MOTIONFILM_EXPORTS } from '../capabilities/snippets/MotionFilm'
 import { UltraSource, ULTRA_EXPORTS } from '../capabilities/snippets/Ultra'
+import { DocumentSource, DOCUMENT_EXPORTS } from '../capabilities/snippets/Document'
 import { cnSource } from '../capabilities/snippets/cn'
 
 const MOCKY_HEADER = '/* Vendored by Mocky export — inline, dependency-free. */'
@@ -163,6 +164,20 @@ export function ultraJsx(): string {
   return packJsx(UltraSource, ULTRA_EXPORTS)
 }
 
+/**
+ * src/components/ui/document.jsx — the page kit, `<Doc>`, `<Page>`, `<Field>`.
+ *
+ * Shipped although DOCUMENT screens are left out of the project (a fixed
+ * 794 × 1123 px sheet is not a route of an app, and a document has its own
+ * download): `rewrite.ts` maps every pack's names to a module, and an import
+ * of a module that does not exist fails the build. Outside Mocky the kit
+ * reports its pages to nobody — it posts only when the preview's bridge is
+ * there — and the pages still render at their size.
+ */
+export function documentJsx(): string {
+  return packJsx(DocumentSource, DOCUMENT_EXPORTS)
+}
+
 export interface UiFile {
   /** path relative to project root */
   path: string
@@ -195,5 +210,6 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('scrollvideo', scrollVideoJsx(), SCROLLVIDEO_EXPORTS),
     ...pack('motionfilm', motionFilmJsx(), MOTIONFILM_EXPORTS),
     ...pack('ultra', ultraJsx(), ULTRA_EXPORTS),
+    ...pack('document', documentJsx(), DOCUMENT_EXPORTS),
   ]
 }

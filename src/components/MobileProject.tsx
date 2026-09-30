@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Screen } from '../lib/project'
 import Preview from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
+import DocumentPages from './DocumentPages'
 import { Icon, IconButton } from '../ui'
 import { useT } from '../i18n'
 
@@ -116,7 +117,20 @@ export default function MobileProject({
 
       {/* The screen itself, as large as the device allows and fully touchable. */}
       <div ref={areaRef} className="relative min-h-0 flex-1 overflow-hidden">
-        {active && scale > 0 && (
+        {/* A document's pages are fixed-width: shown as a picture of them,
+            scrolled, rather than squeezed into the box (see DocumentPages). */}
+        {active?.page && size.w > 0 && (
+          <DocumentPages
+            key={active.id}
+            screen={active}
+            page={active.page}
+            width={size.w}
+            height={size.h}
+            generating={generatingIds?.has(active.id)}
+            onError={onError ? (m) => onError(active.id, m) : undefined}
+          />
+        )}
+        {active && !active.page && scale > 0 && (
           <div
             className="absolute left-1/2 top-1/2"
             style={{

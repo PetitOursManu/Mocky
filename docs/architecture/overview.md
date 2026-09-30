@@ -468,7 +468,7 @@ sentinel. A half-written sentinel is just the next few characters arriving, and
 cutting on it would truncate the preview on every chunk. Once the response is
 complete, a malformed sentinel is all there will ever be, so it does cut.
 
-### The five call sites
+### The six call sites
 
 | Function | Used for | Additional rules |
 |---|---|---|
@@ -477,6 +477,7 @@ complete, a malformed sentinel is all there will ever be, so it does cut.
 | `fixComponent()` | Auto-repair after a render error | Not streamed. Receives the **same** capability prompt — without the list of existing globals the model cannot tell which component is undefined, and swaps one React #130 error for another |
 | `polishComponent()` | Correcting named quality findings | Not streamed either: the caller re-checks the result, and a partial screen cannot be checked. Receives the capability prompt as well, and `POLISH_PROMPT` in place of `FIX_PROMPT` |
 | `auditFixComponent()` | Correcting named SEO / accessibility findings | Not streamed either. Receives `AUDIT_FIX_PROMPT`, whose central instruction — *the screen must look exactly the same afterwards* — is the inverse of `POLISH_PROMPT`'s |
+| `fitComponent()` | Making a document's pages fit ("Fit to page") | Not streamed. Receives `FIT_PROMPT` and the overflow MEASURED by the export's own reading (`lib/docExport/fit.ts`): pixels per edge and the words outside. Spacing is exactly what it spends, which `AUDIT_FIX_PROMPT` forbids; the answer is measured again and kept only if it fits or comes closer on the same number of pages |
 
 `polishComponent` and `auditFixComponent` are deliberately **siblings** of
 `fixComponent`, never variants of it. All three share the transport, the
@@ -492,13 +493,13 @@ own loop. In each case the findings are filtered by the caller to those the
 policy marks enforceable, so a pass is never spent on a rule Mocky has decided
 not to insist on.
 
-All five end on the same expression — `guardMotion(extractCode(content))` — which
+All six end on the same expression — `guardMotion(extractCode(content))` — which
 is where the complete generated source first exists. That is why the count in
 this heading is worth keeping accurate, and why it is worth grepping rather than
-trusting: it read "three" until `polishComponent` arrived and "four" until
-`auditFixComponent` did. A post-generation check hooked onto `generateComponent`
-alone sees neither an edit, nor a repair, nor a polish, nor an accessibility
-correction.
+trusting: it read "three" until `polishComponent` arrived, "four" until
+`auditFixComponent` did, and "five" until `fitComponent`. A post-generation
+check hooked onto `generateComponent` alone sees neither an edit, nor a repair,
+nor a polish, nor an accessibility correction, nor a fit.
 
 ### Editing without a model call
 

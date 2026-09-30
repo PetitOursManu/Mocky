@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Preview from './Preview'
 import DeviceChrome, { SCREEN_RADIUS } from './DeviceChrome'
+import DocumentPages from './DocumentPages'
 import { fetchShare, expiresInMinutes, type ShareSnapshot } from '../lib/share'
+import { isPageFormat, type PageFormatId } from '../lib/pageFormats'
+import type { Screen } from '../lib/project'
 import { Banner, Spinner } from '../ui'
 import { useT } from '../i18n'
 
@@ -60,6 +63,7 @@ export default function SharedScreen({ token }: { token: string }) {
 
   const minutes = expiresInMinutes(snap.expiresAt)
   const phone = snap.device === 'iphone'
+  const page = isPageFormat(snap.page) ? snap.page : null
 
   return (
     <div className="flex min-h-screen flex-col bg-sunken">
@@ -83,28 +87,78 @@ export default function SharedScreen({ token }: { token: string }) {
         phone. It stays sandboxed exactly as on the canvas — the token grants
         the viewer no privilege inside the frame.
       */}
-      <main className="flex flex-1 items-center justify-center overflow-auto p-3">
-        <div
-          className="w-full"
-          style={{ maxWidth: phone ? 420 : snap.w, aspectRatio: `${snap.w} / ${snap.h}` }}
-        >
-          {phone ? (
-            <DeviceChrome>
-              <Preview
-                code={snap.code}
-                caps={snap.caps}
-                hideScrollbars
-                radius={SCREEN_RADIUS}
-                animations={snap.animations}
-              />
-            </DeviceChrome>
-          ) : (
-            <div className="h-full w-full border border-line">
-              <Preview code={snap.code} caps={snap.caps} animations={snap.animations} />
-            </div>
-          )}
-        </div>
-      </main>
+      {page ? (
+        <SharedDocument snap={snap} page={page} />
+      ) : (
+        <main className="flex flex-1 items-center justify-center overflow-auto p-3">
+          <div
+            className="w-full"
+            style={{ maxWidth: phone ? 420 : snap.w, aspectRatio: `${snap.w} / ${snap.h}` }}
+          >
+            {phone ? (
+              <DeviceChrome>
+                <Preview
+                  code={snap.code}
+                  caps={snap.caps}
+                  hideScrollbars
+                  radius={SCREEN_RADIUS}
+                  animations={snap.animations}
+                />
+              </DeviceChrome>
+            ) : (
+              <div className="h-full w-full border border-line">
+                <Preview code={snap.code} caps={snap.caps} animations={snap.animations} />
+              </div>
+            )}
+          </div>
+        </main>
+      )}
     </div>
+  )
+}
+
+/**
+ * A shared DOCUMENT: its pages at their own width, fitted to the phone's and
+ * scrolled — the same component the phone's project view uses, for the same
+ * reason. Handed to the box above, a flyer lays itself out in a 390-px
+ * viewport while its pages stay 794 px wide, and the right half of every page
+ * is cut off.
+ */
+function SharedDocument({ snap, page }: { snap: ShareSnapshot; page: PageFormatId }) {
+  const areaRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    measure()
+    return () => ro.disconnect()
+  }, [])
+  // DocumentPages reads a Screen; a share is the part of one that travelled.
+  // Nothing here is written back anywhere, so the fields it does not read are
+  // placeholders rather than a claim about the original.
+  const screen: Screen = {
+    id: 'shared',
+    name: snap.name,
+    prompt: '',
+    code: snap.code,
+    componentName: snap.componentName,
+    createdAt: 0,
+    x: 0,
+    y: 0,
+    caps: snap.caps,
+    w: snap.w,
+    h: snap.h,
+    device: 'none',
+    links: [],
+    page,
+    animations: false,
+  }
+  return (
+    <main ref={areaRef} className="relative min-h-0 flex-1 overflow-hidden">
+      {size.w > 0 && <DocumentPages screen={screen} page={page} width={size.w} height={size.h} />}
+    </main>
   )
 }

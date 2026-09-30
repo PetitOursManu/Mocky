@@ -8,9 +8,14 @@ import {
   boundsThinking,
   buildUpstream,
   base64ImageType,
+  openAiRoot,
+  quirksFor,
+  applyQuirks,
+  PROVIDER_QUIRKS,
   KIND_OLLAMA,
   KIND_OPENAI,
 } from './dialect.js'
+import { TEXT_PROVIDERS } from './config.js'
 
 describe('toOpenAiRequest', () => {
   it('maps Ollama options onto OpenAI fields', () => {
@@ -257,5 +262,206 @@ describe('a budget for thinking', () => {
     // The check is on the HOST: a path or a query saying "openrouter" is not it.
     expect(boundsThinking('https://example.com/openrouter.ai')).toBe(false)
     expect(boundsThinking('https://openrouter.ai.evil.example')).toBe(false)
+  })
+})
+
+/**
+ * Every preset lands where its vendor documents it.
+ *
+ * The expected URLs are written out rather than derived: the point is that a
+ * change to `openAiRoot` which moves any of them fails HERE, by name, before a
+ * user meets the 404. The sources are on the presets in config.js.
+ */
+describe('the preset URLs', () => {
+  const EXPECTED = {
+    openai: 'https://api.openai.com/v1',
+    anthropic: 'https://api.anthropic.com/v1',
+    gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    mistral: 'https://api.mistral.ai/v1',
+    deepseek: 'https://api.deepseek.com',
+    xai: 'https://api.x.ai/v1',
+    moonshot: 'https://api.moonshot.ai/v1',
+    openrouter: 'https://openrouter.ai/api/v1',
+    groq: 'https://api.groq.com/openai/v1',
+    together: 'https://api.together.ai/v1',
+    fireworks: 'https://api.fireworks.ai/inference/v1',
+    cerebras: 'https://api.cerebras.ai/v1',
+    huggingface: 'https://router.huggingface.co/v1',
+    fal: 'https://fal.run/openrouter/router/openai/v1',
+  }
+  const presets = TEXT_PROVIDERS.filter((p) => p.kind === KIND_OPENAI && p.baseUrl)
+
+  it('has an expectation for every OpenAI-kind preset, and no stale one', () => {
+    expect(presets.map((p) => p.id).sort()).toEqual(Object.keys(EXPECTED).sort())
+  })
+
+  for (const [id, root] of Object.entries(EXPECTED)) {
+    it(`${id}: chat and models`, () => {
+      const p = presets.find((x) => x.id === id)
+      const target = { kind: KIND_OPENAI, auth: p.auth, baseUrl: p.baseUrl, apiKey: 'k' }
+      const chat = buildUpstream(target, '/api/chat', Buffer.from(JSON.stringify({ model: p.model, messages: [] })))
+      const models = buildUpstream(target, '/api/tags', undefined)
+      expect(chat.url).toBe(`${root}/chat/completions`)
+      expect(models.url).toBe(`${root}/models`)
+      // A trailing slash, as pasted from a docs page, changes nothing.
+      expect(buildUpstream({ ...target, baseUrl: `${p.baseUrl}/` }, '/api/tags', undefined).url).toBe(`${root}/models`)
+    })
+  }
+
+  it('leaves the native Ollama preset alone', () => {
+    const ollama = TEXT_PROVIDERS.find((p) => p.id === 'ollama-cloud')
+    expect(buildUpstream({ kind: KIND_OLLAMA, baseUrl: ollama.baseUrl }, '/api/tags', undefined).url).toBe(
+      'https://ollama.com/api/tags',
+    )
+  })
+})
+
+describe('a base that already ends in a version', () => {
+  it('is used as it is', () => {
+    expect(openAiRoot('https://api.groq.com/openai/v1')).toBe('https://api.groq.com/openai/v1')
+    expect(openAiRoot('https://generativelanguage.googleapis.com/v1beta/openai/')).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai',
+    )
+    expect(openAiRoot('https://dashscope-intl.aliyuncs.com/compatible-mode/v1')).toBe(
+      'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    )
+    expect(openAiRoot('https://api.cohere.ai/compatibility/v1')).toBe('https://api.cohere.ai/compatibility/v1')
+    expect(openAiRoot('https://example.com/openai/v2alpha1')).toBe('https://example.com/openai/v2alpha1')
+  })
+
+  it('gets /v1 otherwise — which is every URL that worked before', () => {
+    // What the old rule produced for these, byte for byte.
+    for (const base of [
+      'https://api.openai.com',
+      'https://openrouter.ai/api',
+      'https://api.anthropic.com',
+      'https://fal.run/openrouter/router/openai', // `openai` after a NON-version
+      'http://127.0.0.1:1234',
+      'https://api.groq.com/openai',
+      'https://api.fireworks.ai/inference',
+      'https://v1.example.com', // a version in the HOST is not in the path
+      'not a url',
+    ]) {
+      expect(openAiRoot(base), base).toBe(`${base}/v1`)
+    }
+  })
+
+  it('no longer doubles the /v1 a user pasted into "Compatible OpenAI"', () => {
+    const plan = buildUpstream({ kind: KIND_OPENAI, baseUrl: 'https://api.groq.com/openai/v1' }, '/api/chat', Buffer.from('{}'))
+    expect(plan.url).toBe('https://api.groq.com/openai/v1/chat/completions')
+  })
+
+  it('adds nothing at the root of a vendor documented there, and only at the root', () => {
+    expect(openAiRoot('https://api.deepseek.com')).toBe('https://api.deepseek.com')
+    expect(openAiRoot('https://api.deepseek.com/v1')).toBe('https://api.deepseek.com/v1')
+    // A path someone chose is theirs: the usual rule applies to it.
+    expect(openAiRoot('https://api.deepseek.com/proxy')).toBe('https://api.deepseek.com/proxy/v1')
+  })
+})
+
+describe('provider quirks', () => {
+  const GEN = { model: 'm', messages: [{ role: 'user', content: 'hi' }], stream: true, options: { temperature: 0.4, num_predict: 16384 }, format: { type: 'object' } }
+  const bodyAt = (baseUrl, model = 'm') =>
+    JSON.parse(buildUpstream({ kind: KIND_OPENAI, baseUrl, apiKey: 'k' }, '/api/chat', Buffer.from(JSON.stringify({ ...GEN, model }))).body)
+
+  it('changes nothing for a host no row names — byte-identical to before', () => {
+    for (const base of ['https://api.openai.com', 'https://api.anthropic.com', 'https://fal.run/openrouter/router/openai', 'https://api.groq.com/openai/v1']) {
+      const plan = buildUpstream({ kind: KIND_OPENAI, baseUrl: base }, '/api/chat', Buffer.from(JSON.stringify(GEN)))
+      expect(plan.body, base).toBe(JSON.stringify(toOpenAiRequest(GEN)))
+      expect(plan.quirks).toBeNull()
+    }
+  })
+
+  it('bounds Gemini’s thinking, on Gemini models only', () => {
+    const base = 'https://generativelanguage.googleapis.com/v1beta/openai'
+    expect(bodyAt(base, 'gemini-3.8-flash').reasoning_effort).toBe('low')
+    expect(bodyAt(base, 'models/gemini-3.8-flash').reasoning_effort).toBe('low')
+    expect(bodyAt(base, 'gemma-4-31b-it').reasoning_effort).toBeUndefined()
+    expect(bodyAt(base, 'gemini-3.8-flash')).toMatchObject({ max_tokens: 16384, temperature: 0.4 })
+    expect(bodyAt(base).response_format.type).toBe('json_schema')
+  })
+
+  it('downgrades structured output to JSON mode at DeepSeek', () => {
+    const body = bodyAt('https://api.deepseek.com')
+    expect(body.response_format).toEqual({ type: 'json_object' })
+    expect(body.max_tokens).toBe(16384)
+    // A plain request has no response_format to downgrade.
+    const plain = JSON.parse(
+      buildUpstream({ kind: KIND_OPENAI, baseUrl: 'https://api.deepseek.com' }, '/api/chat', Buffer.from(JSON.stringify({ model: 'm', messages: [] }))).body,
+    )
+    expect(plain.response_format).toBeUndefined()
+  })
+
+  it('never sends Kimi a temperature, and names the token field its way', () => {
+    const body = bodyAt('https://api.moonshot.ai/v1', 'kimi-k3')
+    expect(body.temperature).toBeUndefined()
+    expect(body.max_tokens).toBeUndefined()
+    expect(body.max_completion_tokens).toBe(16384)
+    expect(body.reasoning_effort).toBe('low')
+    expect(bodyAt('https://api.moonshot.ai/v1', 'kimi-k2.7-code').reasoning_effort).toBeUndefined()
+  })
+
+  it('uses xAI’s current token field', () => {
+    const body = bodyAt('https://api.x.ai/v1', 'grok-4.7')
+    expect(body).toMatchObject({ max_completion_tokens: 16384, temperature: 0.4 })
+    expect(body.max_tokens).toBeUndefined()
+  })
+
+  it('matches the host and its subdomains, never a lookalike', () => {
+    expect(quirksFor('https://api.x.ai/v1')?.hosts).toContain('api.x.ai')
+    expect(quirksFor('https://eu.api.x.ai/v1')?.hosts).toContain('api.x.ai')
+    expect(quirksFor('https://api.x.ai.evil.example/v1')).toBeNull()
+    expect(quirksFor('https://example.com/api.deepseek.com')).toBeNull()
+    expect(quirksFor('not a url')).toBeNull()
+  })
+
+  it('clamps max_tokens when a row says so, before renaming it', () => {
+    expect(applyQuirks({ max_tokens: 16384 }, { hosts: [], maxTokens: 8192 })).toEqual({ max_tokens: 8192 })
+    expect(applyQuirks({ max_tokens: 1024 }, { hosts: [], maxTokens: 8192 })).toEqual({ max_tokens: 1024 })
+    expect(applyQuirks({ max_tokens: 16384 }, { hosts: [], maxTokens: 8192, maxTokensField: 'max_completion_tokens' })).toEqual({
+      max_completion_tokens: 8192,
+    })
+    // Pure: the input is not touched.
+    const input = { max_tokens: 16384, temperature: 1 }
+    applyQuirks(input, { hosts: [], drop: ['temperature'], maxTokens: 1 })
+    expect(input).toEqual({ max_tokens: 16384, temperature: 1 })
+  })
+
+  it('clamps Cohere per model, and downgrades its structured output', () => {
+    const base = 'https://api.cohere.ai/compatibility/v1'
+    expect(bodyAt(base, 'command-a-03-2025').max_tokens).toBe(8192)
+    expect(bodyAt(base, 'command-a-vision-07-2025').max_tokens).toBe(8192)
+    expect(bodyAt(base, 'command-r-plus-08-2024').max_tokens).toBe(4096)
+    // The current models accept more than a generation asks for: left alone.
+    expect(bodyAt(base, 'command-a-plus-05-2026').max_tokens).toBe(16384)
+    expect(bodyAt(base, 'command-a-reasoning-08-2025').max_tokens).toBe(16384)
+    expect(bodyAt(base, 'command-a-03-2025').response_format).toEqual({ type: 'json_object' })
+    expect(bodyAt('https://api.cohere.com/compatibility/v1', 'command-r7b-12-2024').max_tokens).toBe(4096)
+  })
+
+  it('every row names its hosts in lower case and uses only known fields', () => {
+    const KNOWN = new Set(['hosts', 'root', 'drop', 'maxTokens', 'maxTokensField', 'jsonSchema', 'effort', 'stripModelPrefix'])
+    for (const row of PROVIDER_QUIRKS) {
+      expect(row.hosts.length).toBeGreaterThan(0)
+      for (const h of row.hosts) expect(h).toBe(h.toLowerCase())
+      for (const key of Object.keys(row)) expect(KNOWN.has(key), key).toBe(true)
+    }
+  })
+})
+
+describe('model listings', () => {
+  it('strips Gemini’s models/ prefix, since the bare id is what a request takes', () => {
+    const plan = buildUpstream({ kind: KIND_OPENAI, baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' }, '/api/tags', undefined)
+    const json = { object: 'list', data: [{ id: 'models/gemini-3.8-flash' }, { id: 'models/gemini-3.1-pro-preview' }] }
+    expect(fromOpenAiModels(json, plan.quirks).models.map((m) => m.name)).toEqual(['gemini-3.8-flash', 'gemini-3.1-pro-preview'])
+  })
+
+  it('leaves every other listing as it was', () => {
+    const json = { data: [{ id: 'models/x' }, { id: 'openai/gpt-oss-120b' }] }
+    expect(fromOpenAiModels(json).models.map((m) => m.name)).toEqual(['models/x', 'openai/gpt-oss-120b'])
+  })
+
+  it('reads a listing that is a bare array (Together)', () => {
+    expect(fromOpenAiModels([{ id: 'openai/gpt-oss-120b' }, { id: '' }]).models).toEqual([{ name: 'openai/gpt-oss-120b' }])
   })
 })
