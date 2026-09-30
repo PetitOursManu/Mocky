@@ -7,7 +7,7 @@ import {
   parseCssColor,
   splitAcrossRects,
 } from './lines'
-import type { BlockInfo, FieldBox, LinkBox, PageSnapshot, Rect, Word } from './types'
+import type { BlockInfo, FieldBox, LinkBox, OutsideItem, PageSnapshot, Rect, Word } from './types'
 
 /**
  * The DOM walk: what the browser drew on one page, as numbers.
@@ -179,6 +179,10 @@ export const MIN_VISIBLE_FRACTION = 0.5
 /** Mirrors the kit's `MOCKY_DOC_TOLERANCE`: sub-pixel rounding is not overflow. */
 const OVERFLOW_TOLERANCE = 2
 
+/** How much of what crosses the edge a snapshot names: enough to point at, not a transcript. */
+export const OUTSIDE_ITEMS = 8
+const OUTSIDE_WORDS = 14
+
 /**
  * The pages in reading order: by the index the kit wrote on each (`PAGE_ATTR`),
  * document order breaking ties and standing in for a missing index.
@@ -219,6 +223,17 @@ export function snapshotPage(
       r.y < -OVERFLOW_TOLERANCE ||
       r.x + r.w > width + OVERFLOW_TOLERANCE ||
       r.y + r.h > height + OVERFLOW_TOLERANCE)
+  // How far, and what: the words that cross, gathered per element, so a
+  // correction can be told "the footer's two lines" rather than "page 1".
+  const excess = { top: 0, right: 0, bottom: 0, left: 0 }
+  const reach = (r: Rect) => {
+    excess.top = Math.max(excess.top, -r.y)
+    excess.left = Math.max(excess.left, -r.x)
+    excess.right = Math.max(excess.right, r.x + r.w - width)
+    excess.bottom = Math.max(excess.bottom, r.y + r.h - height)
+  }
+  const outside: OutsideItem[] = []
+  const outsideOf = new Map<Element, OutsideItem>()
   const decorative = new Map<Element, boolean>()
   const isDecorative = (el: Element | null): boolean => {
     if (!el || el === page) return false
@@ -358,7 +373,19 @@ export function snapshotPage(
         .map((r) => rel(r, origin))
         .filter((r) => visibleFraction(r, clip) >= MIN_VISIBLE_FRACTION)
       if (rects.length === 0) continue
-      if (!overflow && !isDecorative(host) && rects.some(crosses)) overflow = true
+      const crossing = isDecorative(host) ? [] : rects.filter(crosses)
+      if (crossing.length) {
+        overflow = true
+        crossing.forEach(reach)
+        const item = outsideOf.get(host)
+        if (item) {
+          if (item.text.split(' ').length < OUTSIDE_WORDS) item.text += ' ' + m[0]
+        } else if (outside.length < OUTSIDE_ITEMS) {
+          const fresh = { text: m[0] }
+          outsideOf.set(host, fresh)
+          outside.push(fresh)
+        }
+      }
       // Left in the picture (render.ts keeps its ink): a box could only draw it straight.
       if (tilted(host)) {
         tiltedWords++
@@ -378,7 +405,11 @@ export function snapshotPage(
   const fields: FieldBox[] = []
   page.querySelectorAll(`[${FIELD_ATTR}]`).forEach((el) => {
     const rect = rel(el.getBoundingClientRect(), origin)
-    if (crosses(rect)) overflow = true
+    if (crosses(rect)) {
+      overflow = true
+      reach(rect)
+      if (outside.length < OUTSIDE_ITEMS) outside.push({ text: el.getAttribute(FIELD_ATTR) || '', field: true })
+    }
     if (!onPage(rect, width, height)) return
     const control = el.matches(CONTROL) ? el : el.querySelector(CONTROL)
     const type = inferFieldType(el, control)
@@ -432,5 +463,22 @@ export function snapshotPage(
   })
 
   const lines = groupLines(words)
-  return { index, width, height, lines, blocks: groupBlocks(lines, infos), fields, links, overflow, tilted: tiltedWords }
+  const round = (v: number) => Math.max(0, Math.round(v))
+  return {
+    index,
+    width,
+    height,
+    lines,
+    blocks: groupBlocks(lines, infos),
+    fields,
+    links,
+    overflow,
+    ...(overflow
+      ? {
+          excess: { top: round(excess.top), right: round(excess.right), bottom: round(excess.bottom), left: round(excess.left) },
+          outside,
+        }
+      : {}),
+    tilted: tiltedWords,
+  }
 }

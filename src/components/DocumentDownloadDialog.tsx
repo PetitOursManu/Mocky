@@ -43,7 +43,16 @@ function fraction(p: ExportProgress): number {
   return 0.1 + (0.8 * (p.page - 1)) / Math.max(1, p.total)
 }
 
-export default function DocumentDownloadDialog({ screen, onClose }: { screen: Screen; onClose: () => void }) {
+export default function DocumentDownloadDialog({
+  screen,
+  onClose,
+  onFit,
+}: {
+  screen: Screen
+  onClose: () => void
+  /** "Ajuster à la page", offered on the overflow notice; absent while Mocky is busy. */
+  onFit?: () => void
+}) {
   const t = useT()
   const [lang] = useLang()
   const [state, setState] = useState<State>({ step: 'idle' })
@@ -249,7 +258,17 @@ export default function DocumentDownloadDialog({ screen, onClose }: { screen: Sc
               <span>{t('docExport.saveAgainHint')}</span>
             </div>
             {state.notices.map((n, i) => (
-              <Banner key={i} tone="warn">
+              <Banner
+                key={i}
+                tone="warn"
+                action={
+                  n.code === 'overflow' && onFit ? (
+                    <Button variant="primary" size="sm" onClick={onFit}>
+                      {t('project.docFit')}
+                    </Button>
+                  ) : undefined
+                }
+              >
                 {noticeText(n)}
               </Banner>
             ))}

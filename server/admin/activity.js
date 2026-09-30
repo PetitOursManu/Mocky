@@ -32,6 +32,7 @@ export const PURPOSES = new Set([
   'fix',
   'polish',
   'audit-fix',
+  'fit',
   'plan',
   'read-site',
   'design-system',

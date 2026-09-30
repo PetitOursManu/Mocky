@@ -404,26 +404,44 @@ async function blankImage(w: number, h: number, type: 'image/jpeg' | 'image/png'
   }
 }
 
-export async function renderDocument(
+/** A document standing offscreen, settled, its pages in reading order. `close()` is the caller's. */
+export interface SettledDocument {
+  frame: DocumentFrame
+  pages: Element[]
+  /** Written without the kit's <Page>: the root stands in as the one page. */
+  noPages: boolean
+  close(): void
+}
+
+/**
+ * Open a document the way the export reads it: pictures loaded, fonts in, laid
+ * out at the height the canvas gives it. Shared with the fit measurement
+ * (fit.ts), because "does it fit?" asked of a frame laid out differently from
+ * the one that said "it is cut" gets a different answer.
+ */
+export async function openSettledDocument(
   code: string,
   caps: Capability[],
   format: PageFormat,
-  opts: RenderOptions,
-): Promise<RenderResult> {
-  const { purpose, signal } = opts
+  signal?: AbortSignal,
+): Promise<SettledDocument> {
   const frame = await openDocumentFrame(code, caps, format.w, format.h, signal)
   // Cancel means NOW: the frame — and the model's code running in it — goes the
   // moment the person asks, not when the page being rasterised finishes.
   // Everything awaited below races the same signal.
   const onAbort = () => frame.dispose()
   signal?.addEventListener('abort', onAbort, { once: true })
-  const notices: RenderNotice[] = []
+  const close = () => {
+    signal?.removeEventListener('abort', onAbort)
+    frame.dispose()
+  }
   try {
     throwIfAborted(signal)
     loadEverything(frame.doc)
     await raceAbort(settle(frame), signal)
 
     let pages = orderPages(Array.from(frame.doc.querySelectorAll(`[${PAGE_ATTR}]`)))
+    let noPages = false
     if (pages.length === 0) {
       // A document written without the kit's <Page>: one page, the root, cut
       // at the format's size. A PDF of the first page beats no PDF at all.
@@ -433,7 +451,7 @@ export async function renderDocument(
       // the text boxes, and the PDF kept "Votre nom" under its fillable field.
       root.setAttribute(PAGE_ATTR, '0')
       pages = [root]
-      notices.push({ code: 'noPages' })
+      noPages = true
     }
 
     // The frame was mounted one page tall; the pages below it must be laid out
@@ -444,6 +462,23 @@ export async function renderDocument(
     loadEverything(frame.doc)
     await raceAbort(settle(frame), signal)
     throwIfAborted(signal)
+    return { frame, pages, noPages, close }
+  } catch (err) {
+    close()
+    throw err
+  }
+}
+
+export async function renderDocument(
+  code: string,
+  caps: Capability[],
+  format: PageFormat,
+  opts: RenderOptions,
+): Promise<RenderResult> {
+  const { purpose, signal } = opts
+  const { frame, pages, noPages, close } = await openSettledDocument(code, caps, format, signal)
+  const notices: RenderNotice[] = noPages ? [{ code: 'noPages' }] : []
+  try {
 
     const h2c = (frame.win as Window & { html2canvas?: Html2Canvas }).html2canvas
     const scale = rasterScale(format, purpose)
@@ -566,7 +601,6 @@ export async function renderDocument(
     if (blank.length) notices.push({ code: 'raster', pages: blank })
     return { pages: out, notices }
   } finally {
-    signal?.removeEventListener('abort', onAbort)
-    frame.dispose()
+    close()
   }
 }

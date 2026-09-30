@@ -104,6 +104,20 @@ export interface LinkBox {
   rect: Rect
 }
 
+/** Per edge, in page px, never negative. */
+export interface PageExcess {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+/** A run of text (its crossing words, as drawn) or a field (its name) found past the edge. */
+export interface OutsideItem {
+  text: string
+  field?: boolean
+}
+
 export interface PageSnapshot {
   index: number
   /** The page's size in px (the format's). */
@@ -119,6 +133,14 @@ export interface PageSnapshot {
    * a hand-built snapshot (fixtures, tests) need not say.
    */
   overflow?: boolean
+  /**
+   * How far that text or field runs past each edge, in page px, and WHAT runs
+   * past — present only when `overflow` is. "Content is cut" is a notice; a
+   * correction needs the number and the words, or the model is guessing at a
+   * page it cannot see (lib/docExport/fit.ts).
+   */
+  excess?: PageExcess
+  outside?: OutsideItem[]
   /**
    * Words drawn under a rotation or a scale, left in the picture rather than
    * turned into text (see `makeTiltTest`). Optional for the same reason.

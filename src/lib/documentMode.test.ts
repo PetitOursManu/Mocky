@@ -256,7 +256,7 @@ describe('the words a person reads', () => {
   it('exist in both languages for the download button, the menu and the notices', () => {
     const keys = [
       [canvas, ['canvas.docDownload', 'canvas.docDownloadTitle', 'canvas.docPage']],
-      [projectPart, ['project.docDownload', 'project.docOverflow', 'project.docOverflowMany', 'project.docUltraSkipped', 'project.docPictureMissing', 'project.busyDocPicture', 'project.exportDocsOnly', 'project.exportDocsSkipped']],
+      [projectPart, ['project.docDownload', 'project.docOverflow', 'project.docOverflowMany', 'project.docFit', 'project.docFitting', 'project.docFitMeasuring', 'project.docFitDone', 'project.docFitCloser', 'project.docFitRejected', 'project.docFitNothing', 'project.docFitFailed', 'project.docUltraSkipped', 'project.docPictureMissing', 'project.busyDocPicture', 'project.exportDocsOnly', 'project.exportDocsSkipped']],
       [composer, ['composer.themeGroupDocuments', 'composer.themeGroupScreens']],
     ] as const
     for (const [part, list] of keys) {

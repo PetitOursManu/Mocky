@@ -17,6 +17,16 @@ export const project = {
       'Dans « {name} », le contenu dépasse de la page {pages} : il serait coupé à l’impression. Raccourcissez le texte ou demandez une page de plus.',
     'project.docOverflowMany':
       'Dans « {name} », le contenu dépasse des pages {pages} : il serait coupé à l’impression. Raccourcissez le texte ou demandez une page de plus.',
+    'project.docFit': 'Ajuster à la page',
+    'project.docFitting': 'Ajustement à la page…',
+    'project.docFitMeasuring': 'Mesure du dépassement…',
+    'project.docFitDone': '« {name} » tient maintenant dans sa page.',
+    'project.docFitCloser':
+      '« {name} » dépasse encore de {px} px (page {pages}). Relancez l’ajustement, ou raccourcissez le texte.',
+    'project.docFitRejected':
+      'L’ajustement n’a pas fait tenir « {name} » dans sa page : le document est resté tel quel. Raccourcissez le texte ou demandez une page de plus.',
+    'project.docFitNothing': 'Rien ne dépasse de « {name} » : il n’y avait rien à ajuster.',
+    'project.docFitFailed': 'L’ajustement de « {name} » a échoué : le document est resté tel quel.',
     'project.docUltraSkipped':
       'Motion Ultra ne s’applique pas aux documents : une page imprimée ne bouge pas. Le document est généré sans.',
     'project.docPictureMissing':
@@ -352,6 +362,16 @@ export const project = {
       'In “{name}”, the content runs past the edge of page {pages}: it would be cut off in print. Shorten the text or ask for one more page.',
     'project.docOverflowMany':
       'In “{name}”, the content runs past the edge of pages {pages}: it would be cut off in print. Shorten the text or ask for one more page.',
+    'project.docFit': 'Fit to page',
+    'project.docFitting': 'Fitting to the page…',
+    'project.docFitMeasuring': 'Measuring the overflow…',
+    'project.docFitDone': '“{name}” now fits its page.',
+    'project.docFitCloser':
+      '“{name}” still runs {px} px past the edge (page {pages}). Fit it again, or shorten the text.',
+    'project.docFitRejected':
+      'The fit did not make “{name}” fit its page: the document was left as it was. Shorten the text or ask for one more page.',
+    'project.docFitNothing': 'Nothing runs past the edge of “{name}”: there was nothing to fit.',
+    'project.docFitFailed': 'Fitting “{name}” failed: the document was left as it was.',
     'project.docUltraSkipped':
       'Motion Ultra does not apply to documents: a printed page does not move. The document is generated without it.',
     'project.docPictureMissing':

@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, readSiteContent, polishComponent, auditFixComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, readSiteContent, polishComponent, auditFixComponent, fitComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, type ScreenUltra, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import { resolveDirection } from '../lib/direction'
@@ -17,7 +17,8 @@ import {
   hintForScreen,
   pageFormatName,
 } from '../lib/documentMode'
-import type { PageFormatId } from '../lib/pageFormats'
+import { getPageFormat, type PageFormatId } from '../lib/pageFormats'
+import { fitFindings, fitVerdict, measureFit, pageExcessPx, type FitReport, type FitVerdict } from '../lib/docExport/fit'
 import DocumentDownloadDialog from './DocumentDownloadDialog'
 import { captureRegion, checkLegibility } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
@@ -483,6 +484,12 @@ export default function ProjectView({
    * edge is named once per distinct answer rather than on every re-measure.
    */
   const docOverflowSaid = useRef<Record<string, string>>({})
+  /**
+   * The notice that may be answered with "Ajuster à la page", and for which
+   * screen. Matched on the TEXT: any other notice replacing it takes the
+   * button away with it, without every setNotice in this file having to know.
+   */
+  const [fitOffer, setFitOffer] = useState<{ screenId: string; text: string } | null>(null)
   /**
    * The one panel over the canvas' top-right corner — see lib/rightSlot.ts.
    *
@@ -2454,7 +2461,107 @@ export default function ProjectView({
     docOverflowSaid.current[screenId] = update.overflowKey
     if (update.overflow.length) {
       const pages = update.overflow.join(', ')
-      setNotice(t(update.overflow.length > 1 ? 'project.docOverflowMany' : 'project.docOverflow', { name: screen.name, pages }))
+      offerFit(screenId, t(update.overflow.length > 1 ? 'project.docOverflowMany' : 'project.docOverflow', { name: screen.name, pages }))
+    }
+  }
+
+  function offerFit(screenId: string, text: string) {
+    setNotice(text)
+    setFitOffer({ screenId, text })
+  }
+
+  /**
+   * "Ajuster à la page": measure what a document loses at the trim, ask the
+   * model to win it back, measure the answer, and keep it only if it is better
+   * (lib/docExport/fit.ts says why each step is there). One model call per
+   * click — a page still over is said with the button offered again, never
+   * retried behind the person's back. Same write-back conventions as every
+   * other screen mutation: an AbortController, `codeAtStart` re-checked, and
+   * `previousCode` so "Revert" undoes it.
+   */
+  async function fitDocument(screenId: string) {
+    if (busy) return
+    const screen = screens.find((s) => s.id === screenId)
+    if (!screen || !screen.code.trim() || !screen.page) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    setRegenLabel(t('project.docFitMeasuring'))
+    setRegeneratingIds(new Set([screenId]))
+    retryRefs.current[screenId] = { count: 0, lastError: '' }
+    const name = screen.name
+    try {
+      const capIds = documentPipeline(screen.page).caps(
+        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, activeDirection()),
+      )
+      const caps = resolveCapabilities(capIds)
+      const format = getPageFormat(screen.page)
+      const codeAtStart = screen.code
+      let before: FitReport
+      try {
+        before = await measureFit(codeAtStart, caps, format, ac.signal)
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        setNotice(t('project.docFitFailed', { name }))
+        return
+      }
+      if (!before.over.length) {
+        setNotice(t('project.docFitNothing', { name }))
+        return
+      }
+
+      setRegenLabel(t('project.docFitting'))
+      const res = await fitComponent(settings, codeAtStart, fitFindings(before, format), ac.signal, caps)
+      let verdict: FitVerdict = 'rejected'
+      let after: FitReport | null = null
+      if (res.code.trim() && res.code.trim() !== codeAtStart.trim()) {
+        setRegenLabel(t('project.docFitMeasuring'))
+        try {
+          after = await measureFit(res.code, caps, format, ac.signal)
+          verdict = fitVerdict(before, after)
+        } catch (err) {
+          // A rewrite that does not render is not a page that fits.
+          if (err instanceof Error && err.name === 'AbortError') return
+        }
+      }
+
+      // Someone else rewrote this screen meanwhile: theirs stands.
+      const now = screensRef.current.find((s) => s.id === screenId)
+      if (!now || now.code !== codeAtStart) return
+
+      if (verdict === 'rejected' || !after) {
+        offerFit(screenId, t('project.docFitRejected', { name }))
+        return
+      }
+      // The kit re-reports the new pages by itself; the verdict below is the
+      // sentence that answers the click, so its report is not said twice.
+      docOverflowSaid.current[screenId] = after.over.map((p) => p.page).join(',')
+      onUpdateScreen(screenId, {
+        code: res.code,
+        componentName: detectComponentName(res.code),
+        previousCode: codeAtStart,
+        caps: capabilitiesFor(capIds, res.code),
+      })
+      if (verdict === 'fits') {
+        setNotice(t('project.docFitDone', { name }))
+      } else {
+        const px = Math.max(...after.over.map(pageExcessPx))
+        offerFit(screenId, t('project.docFitCloser', { name, px, pages: after.over.map((p) => p.page).join(', ') }))
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setRegeneratingIds(new Set())
     }
   }
 
@@ -4027,15 +4134,22 @@ export default function ProjectView({
             <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-raised px-3 py-2 text-body-sm text-ink-muted">
               <span className="flex min-w-0 items-center gap-2">
                 <Icon name="sparkle" size={16} />
-                <span className="truncate">{notice}</span>
+                <span className="truncate" title={notice}>{notice}</span>
               </span>
-              <button
-                type="button"
-                className="btn-ghost shrink-0 px-2 py-1 text-body-sm"
-                onClick={() => setNotice(null)}
-              >
-                {t('common.close')}
-              </button>
+              <span className="flex shrink-0 items-center gap-1">
+                {fitOffer && fitOffer.text === notice && (
+                  <Button size="sm" variant="primary" disabled={busy} onClick={() => void fitDocument(fitOffer.screenId)}>
+                    {t('project.docFit')}
+                  </Button>
+                )}
+                <button
+                  type="button"
+                  className="btn-ghost px-2 py-1 text-body-sm"
+                  onClick={() => setNotice(null)}
+                >
+                  {t('common.close')}
+                </button>
+              </span>
             </div>
           )}
 
@@ -4626,7 +4740,20 @@ export default function ProjectView({
       {/* A document's download: PDF with fillable fields, slides, pictures. */}
       {(() => {
         const doc = downloadDocId ? screens.find((x) => x.id === downloadDocId && x.page) : undefined
-        return doc ? <DocumentDownloadDialog screen={doc} onClose={() => setDownloadDocId(null)} /> : null
+        return doc ? (
+          <DocumentDownloadDialog
+            screen={doc}
+            onClose={() => setDownloadDocId(null)}
+            onFit={
+              busy
+                ? undefined
+                : () => {
+                    setDownloadDocId(null)
+                    void fitDocument(doc.id)
+                  }
+            }
+          />
+        ) : null
       })()}
 
       {/* Per-screen context menu (right-click or ⋯) */}

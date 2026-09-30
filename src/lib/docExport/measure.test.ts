@@ -186,6 +186,30 @@ describe('snapshotPage', () => {
     expect(mount(pageEl().add(field)).overflow).toBe(true)
   })
 
+  it('says how far past which edge, and what — the numbers a fit is asked for in', () => {
+    // The page sits at (100, 50): 'débordement' runs 750 → 860 on a 794-px page,
+    // the field 1100 → 1140 on a 1123-px one.
+    const long = new FakeEl('P').add(new FakeText('débordement', 850, 150))
+    const field = new FakeEl('DIV', { [FIELD_ATTR]: 'nom' }, {}, { left: 100, top: 1150, width: 300, height: 40 })
+    const snap = mount(pageEl().add(long, field))
+    expect(snap.excess).toEqual({ top: 0, right: 66, bottom: 17, left: 0 })
+    expect(snap.outside).toEqual([{ text: 'débordement' }, { text: 'nom', field: true }])
+    // Nothing crosses: nothing to say, and no zeros pretending to be a measurement.
+    const inside = mount(pageEl().add(new FakeEl('P').add(new FakeText('dedans', 100, 150))))
+    expect(inside.overflow).toBe(false)
+    expect(inside.excess).toBeUndefined()
+    expect(inside.outside).toBeUndefined()
+  })
+
+  it('never counts a shape or decorative text in the excess', () => {
+    const blob = new FakeEl('DIV', {}, {}, { left: 700, top: 1000, width: 400, height: 400 })
+    const deco = new FakeEl('DIV', { 'aria-hidden': 'true' }).add(new FakeText('2026', 100, 1200))
+    const late = new FakeEl('P').add(new FakeText('fin', 100, 1160))
+    const snap = mount(pageEl().add(blob, deco, late))
+    expect(snap.excess).toEqual({ top: 0, right: 0, bottom: 7, left: 0 })
+    expect(snap.outside).toEqual([{ text: 'fin' }])
+  })
+
   it('leaves rotated or scaled text in the picture, and counts it', () => {
     const sticker = new FakeEl('DIV', {}, { transform: 'matrix(0.994522, -0.104528, 0.104528, 0.994522, 0, 0)' })
     sticker.add(new FakeEl('SPAN', {}, { display: 'inline' }).add(new FakeText('Gratuit', 200, 150)))
