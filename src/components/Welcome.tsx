@@ -17,6 +17,7 @@ import ScreenThemePicker from './ScreenThemePicker'
 import { EnhanceNotice, PromptEnhanceButton } from './PromptEnhancer'
 import type { PromptEnhancer } from '../lib/usePromptEnhancer'
 import type { ScreenThemeId } from '../lib/screenThemes'
+import type { PageFormatId } from '../lib/pageFormats'
 
 type Props = {
   prompt: string
@@ -28,6 +29,9 @@ type Props = {
   examples: string[]
   presetId: string
   onPresetChange: (id: string) => void
+  /** The page format while a DOCUMENT type is chosen, null otherwise — see PresetPicker. */
+  pageFormat: PageFormatId | null
+  onPageFormatChange: (id: PageFormatId) => void
   onOpenSettings: () => void
   onOpenDesign: () => void
   onApplyStyle: (markdown: string) => void
@@ -85,6 +89,8 @@ export default function Welcome({
   examples,
   presetId,
   onPresetChange,
+  pageFormat,
+  onPageFormatChange,
   onOpenSettings,
   onOpenDesign,
   onApplyStyle,
@@ -293,7 +299,13 @@ export default function Welcome({
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <span className="kicker">{t('auth.welcome.format')}</span>
-          <PresetPicker value={presetId} onChange={onPresetChange} disabled={enhancer.running} />
+          <PresetPicker
+            value={presetId}
+            onChange={onPresetChange}
+            pageFormat={pageFormat}
+            onPageFormatChange={onPageFormatChange}
+            disabled={enhancer.running}
+          />
           <ScreenThemePicker
             value={themeId}
             onChange={onThemeChange}

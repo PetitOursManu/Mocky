@@ -14,6 +14,10 @@ export const canvas = {
     // ---- frame label & badges ----
     'canvas.referenceScreen': 'Écran de référence pour la mise en page des nouveaux écrans',
     'canvas.interactive': 'Interactif — clic dehors pour sortir',
+    // ---- documents ----
+    'canvas.docDownload': 'Télécharger',
+    'canvas.docDownloadTitle': 'Télécharger ce document : PDF à remplir, PowerPoint / Google Slides ou images',
+    'canvas.docPage': 'Page {n} / {total}',
     // ---- animations, par écran ----
     'canvas.animOn': 'Cet écran s’anime — cliquez pour le figer',
     'canvas.animOff': 'Cet écran est figé — cliquez pour le réanimer',
@@ -119,6 +123,10 @@ export const canvas = {
     // ---- frame label & badges ----
     'canvas.referenceScreen': 'Reference screen for the layout of new screens',
     'canvas.interactive': 'Interactive — click outside to leave',
+    // ---- documents ----
+    'canvas.docDownload': 'Download',
+    'canvas.docDownloadTitle': 'Download this document: fillable PDF, PowerPoint / Google Slides or images',
+    'canvas.docPage': 'Page {n} of {total}',
     // ---- per-screen animations ----
     'canvas.animOn': 'This screen animates — click to hold it still',
     'canvas.animOff': 'This screen is held still — click to animate it again',

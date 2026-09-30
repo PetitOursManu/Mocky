@@ -22,6 +22,11 @@ import { useT } from '../i18n'
  * floating bar is pinned to the bottom (the menu opens upwards), Welcome's is in
  * the middle of a scrolling page (downwards).
  */
+const THEME_GROUPS = [
+  { key: 'composer.themeGroupDocuments', themes: SCREEN_THEMES.filter((th) => th.document) },
+  { key: 'composer.themeGroupScreens', themes: SCREEN_THEMES.filter((th) => !th.document) },
+].filter((g) => g.themes.length > 0)
+
 export default function ScreenThemePicker({
   value,
   onChange,
@@ -167,34 +172,44 @@ export default function ScreenThemePicker({
             {/* Capped and scrolled: fifteen rows opened upwards from a bar at
                 the bottom of a short window would leave the top of the list
                 above the viewport, where no scroll can reach it. */}
-            <div className="grid max-h-[min(60vh,26rem)] grid-cols-1 overflow-y-auto border-t border-line-soft pt-1 sm:grid-cols-2">
-              {SCREEN_THEMES.map((th) => {
-                const checked = th.id === value
-                return (
-                  <button
-                    key={th.id}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={checked}
-                    onClick={() => {
-                      onChange(th.id)
-                      close()
-                    }}
-                    className={`flex min-h-11 w-full items-start gap-2.5 px-2.5 py-2 text-left transition ${
-                      // Inverted, not tinted — how every active menu row reads here.
-                      checked ? 'bg-ink text-surface' : 'text-ink hover:bg-ink/5'
-                    }`}
-                  >
-                    <Icon name={th.icon} size={16} className="mt-0.5" />
-                    <span className="min-w-0">
-                      <span className="block text-body-sm font-medium">{t(`composer.themes.${th.id}`)}</span>
-                      <span className={`block text-caption ${checked ? 'text-surface/80' : 'text-ink-faint'}`}>
-                        {t(`composer.themes.${th.id}.desc`)}
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
+            <div className="max-h-[min(60vh,26rem)] overflow-y-auto border-t border-line-soft pt-1">
+              {/* Documents first, under their own heading: the document mode is
+                  what replaces a design tool, and as the sixteenth row of a list
+                  of app screens nobody looking for "A4" or "PDF" found it. */}
+              {THEME_GROUPS.map((group) => (
+                <div key={group.key} role="group" aria-label={t(group.key)}>
+                  {THEME_GROUPS.length > 1 && <p className="kicker px-2 pb-1 pt-2">{t(group.key)}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2">
+                    {group.themes.map((th) => {
+                      const checked = th.id === value
+                      return (
+                        <button
+                          key={th.id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={checked}
+                          onClick={() => {
+                            onChange(th.id)
+                            close()
+                          }}
+                          className={`flex min-h-11 w-full items-start gap-2.5 px-2.5 py-2 text-left transition ${
+                            // Inverted, not tinted — how every active menu row reads here.
+                            checked ? 'bg-ink text-surface' : 'text-ink hover:bg-ink/5'
+                          }`}
+                        >
+                          <Icon name={th.icon} size={16} className="mt-0.5" />
+                          <span className="min-w-0">
+                            <span className="block text-body-sm font-medium">{t(`composer.themes.${th.id}`)}</span>
+                            <span className={`block text-caption ${checked ? 'text-surface/80' : 'text-ink-faint'}`}>
+                              {t(`composer.themes.${th.id}.desc`)}
+                            </span>
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </>

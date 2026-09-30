@@ -5,6 +5,7 @@ import { detectComponentName, toPreviewModule } from '../lib/generate'
 import { resolveCapabilities } from '../lib/capabilities/select'
 import { buildPrelude } from '../lib/capabilities/prelude'
 import type { Capability } from '../lib/capabilities/types'
+import { DOC_PAGES_MESSAGE } from '../lib/pageFormats'
 
 export interface PickInfo {
   selector: string
@@ -522,6 +523,7 @@ export default function Preview({
   caps,
   animations,
   onContentHeight,
+  onDocPages,
 }: {
   code: string
   pickMode?: boolean
@@ -562,6 +564,13 @@ export default function Preview({
   animations?: boolean
   /** Reports the rendered content height (px) — used by the "Full height" format. */
   onContentHeight?: (height: number) => void
+  /**
+   * A DOCUMENT's page kit reporting its pages (lib/pageFormats.ts): how many,
+   * and the 0-based indices of those whose words run past the edge. Raw, as
+   * the frame sent it — the caller bounds it (`docFrameUpdate`). `format` is
+   * the page format the kit actually laid out (the code's `<Doc format>`).
+   */
+  onDocPages?: (count: unknown, overflow: unknown, format: unknown) => void
 }) {
   const t = useT()
   const [error, setError] = useState<string | null>(null)
@@ -579,6 +588,8 @@ export default function Preview({
   const onErrorRef = useRef(onError)
   const onContentHeightRef = useRef(onContentHeight)
   const onSweptRef = useRef(onSwept)
+  const onDocPagesRef = useRef(onDocPages)
+  const lastDocPagesRef = useRef<{ count: unknown; overflow: unknown; format: unknown } | null>(null)
   // Same reasoning applied to a value rather than a callback: the listener needs
   // to KNOW whether generation is running, but must not re-subscribe when that
   // changes — re-subscribing resets `ready` and re-arms the render timeout.
@@ -609,6 +620,7 @@ export default function Preview({
   onErrorRef.current = onError
   onContentHeightRef.current = onContentHeight
   onSweptRef.current = onSwept
+  onDocPagesRef.current = onDocPages
   generatingRef.current = generating
   pickModeRef.current = pickMode
   demoLinksRef.current = demoLinks
@@ -698,6 +710,8 @@ export default function Preview({
     if (!srcDoc) return
     setError(null)
     setReady(false)
+    // A new document reports its own pages; the last one's must not be replayed.
+    lastDocPagesRef.current = null
     let timeoutHit = false
     const timeout = setTimeout(() => {
       if (!timeoutHit) {
@@ -741,6 +755,14 @@ export default function Preview({
         onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
       if (d.type === 'navigate' && demoLinksRef.current && demoLinksRef.current.length > 0) onNavRef.current?.(d.target)
       if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
+      // Kept always, forwarded only once the model has stopped writing: a
+      // half-streamed document has half its pages, and the frame would shrink
+      // and grow with every chunk. The kit posts only when its answer changes,
+      // so the last one is replayed when generation ends (effect below).
+      if (d.type === DOC_PAGES_MESSAGE) {
+        lastDocPagesRef.current = { count: d.count, overflow: d.overflow, format: d.format }
+        if (!generatingRef.current) onDocPagesRef.current?.(d.count, d.overflow, d.format)
+      }
       // A fragment pointing at nothing. Reported rather than swallowed: these
       // come from the model's own markup — a nav item written before the
       // section it names was renamed — and used to be indistinguishable from a
@@ -786,6 +808,15 @@ export default function Preview({
     if (!win) return
     win.postMessage({ __mockyCmd: 'sweep', id: sweepRequest }, '*')
   }, [sweepRequest, ready])
+
+  // The page count the kit reported while the model was still writing, handed
+  // over once it has stopped. When the final code equals the last streamed
+  // chunk the frame is not rebuilt, so the kit — which posts only on a change —
+  // would never say it again, and the document would stay one page tall.
+  useEffect(() => {
+    const last = lastDocPagesRef.current
+    if (!generating && last) onDocPagesRef.current?.(last.count, last.overflow, last.format)
+  }, [generating])
 
   // When a capture is requested, translate the client-space rect into this
   // screen's viewport coordinates (handles the device-frame inset + zoom) and

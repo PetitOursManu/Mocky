@@ -436,6 +436,8 @@ export default function Canvas({
   onScreenContextMenu,
   onOpenScreenNotes,
   onContentHeight,
+  onDocPages,
+  onDownloadDocument,
   animations,
   onCycleScreenAnimations,
   onDeriveDesign,
@@ -493,6 +495,10 @@ export default function Canvas({
   onOpenScreenNotes?: (screenId: string) => void
   /** Reports a screen's rendered content height (px) for the "Full height" format. */
   onContentHeight?: (screenId: string, height: number) => void
+  /** A DOCUMENT's page kit reported its pages — raw, see Preview's `onDocPages`. */
+  onDocPages?: (screenId: string, count: unknown, overflow: unknown, format: unknown) => void
+  /** Open the download dialog of a DOCUMENT screen. Absent = no button. */
+  onDownloadDocument?: (screenId: string) => void
   /** false = "Sans animation" — passed through to every preview. */
   animations?: boolean
   /** Cycle one screen between follow-the-composer, forced on, and forced off. */
@@ -1144,6 +1150,9 @@ export default function Canvas({
           const pickable = (linkMode || modifyMode) && !annotateMode && !spaceDown
           const animateSize = (animUntil.current.get(s.id) ?? 0) > nowMs && !reducedMotion && !gesture.current
           const useFrame = s.device === 'iphone' && showFrame
+          // A document is sheets of paper: square corners, or the rounding
+          // would trim the corners of a page the export prints whole.
+          const frameRadius = useFrame ? '13% / 6%' : s.page ? '0' : '1rem'
           return (
             <div
               key={s.id}
@@ -1162,7 +1171,7 @@ export default function Canvas({
                 width: b.w,
                 height: b.h,
                 background: useFrame ? 'transparent' : 'white',
-                borderRadius: useFrame ? '13% / 6%' : '1rem',
+                borderRadius: frameRadius,
                 transition: animateSize ? easeProps('width', 'height') : undefined,
               }}
               onPointerDown={(e) => onFrameDown(e, s)}
@@ -1227,7 +1236,7 @@ export default function Canvas({
                 {/* A screen frozen on purpose says so even when it is not
                     selected — otherwise "why is this one not moving?" has no
                     visible answer anywhere on the canvas. */}
-                {s.animations === false && editingLabelId !== s.id && (
+                {s.animations === false && !s.page && editingLabelId !== s.id && (
                   <span
                     className="flex shrink-0 items-center rounded-full bg-ink/10 text-ink-muted"
                     style={{ gap: 3 * inv, padding: `${1 * inv}px ${6 * inv}px`, fontSize: 11 * inv }}
@@ -1253,6 +1262,24 @@ export default function Canvas({
                   >
                     <Icon name="note" size={13 * inv} />
                     {s.userNotes.length}
+                  </button>
+                )}
+                {/* A document's download is a button with its word on it,
+                    selected or not: it is what a flyer is FOR, and asked for
+                    in so many words ("un bouton pour le téléchargement") —
+                    an entry three levels into a menu is not a button. */}
+                {s.page && onDownloadDocument && editingLabelId !== s.id && (
+                  <button
+                    type="button"
+                    className="flex shrink-0 items-center rounded-full border border-accent bg-accent font-semibold text-on-accent shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                    style={{ gap: 4 * inv, padding: `${2 * inv}px ${8 * inv}px`, fontSize: 12 * inv }}
+                    title={t('canvas.docDownloadTitle')}
+                    disabled={!s.code.trim() || generatingIds?.has(s.id)}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => onDownloadDocument(s.id)}
+                  >
+                    <Icon name="download" size={13 * inv} />
+                    {t('canvas.docDownload')}
                   </button>
                 )}
                 {soloInteractive && editingLabelId !== s.id && (
@@ -1293,16 +1320,19 @@ export default function Canvas({
                       </span>
                     </LabelBtn>
                     {/* This screen's own answer about motion: animated (the
-                        default) or held still for a demo. */}
-                    <LabelBtn
-                      inv={inv}
-                      title={t(s.animations === false ? 'canvas.animOff' : 'canvas.animOn')}
-                      onClick={() => onCycleScreenAnimations?.(s.id)}
-                    >
-                      <span className={s.animations === false ? 'line-through opacity-60' : undefined}>
-                        <Icon name="play" size={13 * inv} />
-                      </span>
-                    </LabelBtn>
+                        default) or held still for a demo. Not on a document:
+                        paper holds still, and it was made so on purpose. */}
+                    {!s.page && (
+                      <LabelBtn
+                        inv={inv}
+                        title={t(s.animations === false ? 'canvas.animOff' : 'canvas.animOn')}
+                        onClick={() => onCycleScreenAnimations?.(s.id)}
+                      >
+                        <span className={s.animations === false ? 'line-through opacity-60' : undefined}>
+                          <Icon name="play" size={13 * inv} />
+                        </span>
+                      </LabelBtn>
+                    )}
                     <button
                       type="button"
                       title={t('canvas.more')}
@@ -1478,7 +1508,7 @@ export default function Canvas({
               {/* Live preview fills the frame. Interactive when in interact/link mode. */}
               <div
                 className="h-full w-full overflow-hidden"
-                style={{ pointerEvents: interactive || pickable ? 'auto' : 'none', borderRadius: useFrame ? '13% / 6%' : '1rem' }}
+                style={{ pointerEvents: interactive || pickable ? 'auto' : 'none', borderRadius: frameRadius }}
               >
                 {useFrame ? (
                   <DeviceChrome>
@@ -1510,8 +1540,12 @@ export default function Canvas({
                     pickOutlineOnly={modifyMode}
                     pickPrecise={modifyMode}
                     onPick={(info) => onPickElement(s.id, info)}
-                    hideScrollbars={s.device === 'iphone'}
-                    radius="1rem"
+                    // A document's frame is sized to its pages, so a scrollbar
+                    // could only appear in the moment before the kit reports
+                    // them — and would narrow the page it is measuring.
+                    hideScrollbars={s.device === 'iphone' || !!s.page}
+                    onDocPages={s.page ? (count, overflow, format) => onDocPages?.(s.id, count, overflow, format) : undefined}
+                    radius={s.page ? '0' : '1rem'}
                     captureRequest={captureReq?.screenId === s.id ? { id: captureReq.id, clientRect: captureReq.clientRect } : null}
                     onCaptureRect={onCaptureRect}
                     sweepRequest={sweepReq?.screenId === s.id ? sweepReq.nonce : null}
@@ -1530,7 +1564,7 @@ export default function Canvas({
               {regeneratingIds?.has(s.id) && (
                 <div
                   className="mocky-regen-ring pointer-events-none absolute z-10"
-                  style={{ inset: -5 * inv, padding: 7 * inv, borderRadius: useFrame ? '13% / 6%' : '1rem' }}
+                  style={{ inset: -5 * inv, padding: 7 * inv, borderRadius: frameRadius }}
                 />
               )}
 
@@ -1548,8 +1582,10 @@ export default function Canvas({
                 </div>
               )}
 
-              {/* Resize handles (only on the selected frame) */}
-              {selected && !linkMode &&
+              {/* Resize handles (only on the selected frame). Never on a
+                  document: its size is its pages', the resize is refused, and
+                  a handle that previews a size and snaps back is a lie. */}
+              {selected && !linkMode && !s.page &&
                 HANDLES.map((handle) => {
                   const pos: React.CSSProperties = { width: hs, height: hs, position: 'absolute' }
                   const half = hs / 2

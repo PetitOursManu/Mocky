@@ -2,11 +2,24 @@
  * Minimal, dependency-free ZIP writer using the "stored" (no compression)
  * method. Produces a standard .zip that Windows Explorer, macOS, and `unzip`
  * all open. Good enough for bundling a handful of small .tsx files.
+ *
+ * It also carries BYTES, because a document export needs a package of pictures:
+ * the PNG pages of a flyer, and a .pptx, which is a zip whose slides are XML and
+ * whose backgrounds are JPEGs. Stored is right for both — a JPEG or a PNG is
+ * already compressed, and OOXML readers (PowerPoint, Google Slides, Keynote)
+ * accept stored parts. A string is still encoded as UTF-8, exactly as before.
  */
 
+/** A text file — what the project export builds, and reads back as text in its tests. */
 export interface ZipEntry {
   name: string
   content: string
+}
+
+/** Any entry the writer accepts: text, or bytes stored as they are. */
+export interface ZipInput {
+  name: string
+  content: string | Uint8Array
 }
 
 function crc32(bytes: Uint8Array): number {
@@ -33,7 +46,15 @@ function concat(parts: Uint8Array[]): Uint8Array {
   return out
 }
 
-export function makeZip(entries: ZipEntry[]): Blob {
+export function makeZip(entries: readonly ZipInput[]): Blob {
+  return new Blob([makeZipBytes(entries)] as BlobPart[], { type: 'application/zip' })
+}
+
+/**
+ * The same archive as bytes. What a test can read back, and what the .pptx
+ * writer wraps in a Blob of its own media type.
+ */
+export function makeZipBytes(entries: readonly ZipInput[]): Uint8Array {
   const enc = new TextEncoder()
   const chunks: Uint8Array[] = []
   const central: Uint8Array[] = []
@@ -41,7 +62,7 @@ export function makeZip(entries: ZipEntry[]): Blob {
 
   for (const entry of entries) {
     const nameBytes = enc.encode(entry.name)
-    const data = enc.encode(entry.content)
+    const data = typeof entry.content === 'string' ? enc.encode(entry.content) : entry.content
     const crc = crc32(data)
 
     const local = concat([
@@ -103,5 +124,5 @@ export function makeZip(entries: ZipEntry[]): Blob {
   ])
   chunks.push(end)
 
-  return new Blob(chunks as BlobPart[], { type: 'application/zip' })
+  return concat(chunks)
 }

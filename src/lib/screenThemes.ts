@@ -1,4 +1,5 @@
 import type { IconName } from '../ui'
+import type { PageFormatId } from './pageFormats'
 
 /**
  * Screen TYPES — what a screen is for, not what it looks like.
@@ -44,6 +45,7 @@ export const SCREEN_THEME_IDS = [
   'booking',
   'article',
   'portfolio',
+  'flyer',
 ] as const
 
 export type ScreenThemeId = (typeof SCREEN_THEME_IDS)[number]
@@ -55,6 +57,14 @@ export interface ScreenTheme {
   name: string
   /** What the screen must contain, for the generation's system preamble. */
   brief: string
+  /**
+   * Set when this type is a DOCUMENT — fixed-size pages to print, export to
+   * PDF or open as slides (lib/pageFormats.ts) — rather than a screen of an
+   * app or a site. `page` is the format the composer offers first; the person
+   * can pick another among the page formats, never among the app presets,
+   * because a flyer at 1440 × 900 is a web page wearing a flyer's name.
+   */
+  document?: { page: PageFormatId }
 }
 
 /*
@@ -238,6 +248,24 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - A contact section with email, social links and a clear call to action.
 - Project names and clients are plausible and coherent with the discipline described.`,
   },
+  {
+    id: 'flyer',
+    icon: 'sparkle',
+    name: 'printed flyer',
+    document: { page: 'a4' },
+    brief: `A FLYER: one striking printed page that stops someone in the street and tells them everything in five seconds. ONE <Page>, unless the request asks for a recto-verso or several pages (then the back carries the detail and any coupon).
+- A bold headline set HUGE — the single biggest thing on the page — with a short sub-headline under it. Three clear levels (headline, key facts, detail), readable from across a room.
+- The KEY FACTS as a scannable block of their own: date, time, place, price or offer — each with a small icon or a label, never buried in a sentence.
+- Three or four highlights (what you get, who is on the bill, what is included) as short punchy lines or badges.
+- A call to action printed as WORDS — a verb and a URL, a phone number or a place — beside a square QR-code placeholder box labelled as such. Never a web button.
+- A footer band with the contact details and a logo slot (the organiser's name set as a wordmark).
+- COLOURFUL and graphic: two or three strong colour blocks and decorative SHAPES — blobs, circles, arcs, waves, stripes, dotted grids, a rotated sticker or starburst badge carrying the offer — layered with care behind and around the content, several bleeding off the page edges. Shapes are CSS boxes (rounded-full, rotate-*, rings, clip-path) or short inline SVG primitives, never long path data, and they carry aria-hidden.
+- A hero picture when pictures are supplied, cropped boldly into a shape, a colour block or a frame; without one, a composition of shapes takes its place.
+- Everything that must be read stays inside the page's safe margin; only backgrounds and decorative shapes bleed.
+- Print contrast: text on a colour block is dark on light or light on dark, never mid on mid; nothing smaller than a caption.
+- Only when the request implies signing up, booking or ordering: a tear-off coupon at the foot, behind a dashed cut line with a scissors mark, made of <Field>s (name, email, phone, a choice or a checkbox).
+- Real copy for the event or offer described — names, dates, prices, an address — never placeholders.`,
+  },
 ]
 
 export function getScreenTheme(id: string | null | undefined): ScreenTheme | undefined {
@@ -248,7 +276,20 @@ export function getScreenTheme(id: string | null | undefined): ScreenTheme | und
 export function screenThemeSection(id: string | null | undefined): string | undefined {
   const theme = getScreenTheme(id)
   if (!theme) return undefined
-  return `SCREEN TYPE — build this screen as the following kind of screen, adapting everything to the user's request (their words win on any conflict):\n${theme.brief}`
+  // A document is not "a screen", and the word matters: a model told to build a
+  // SCREEN reaches for navigation and hover states however many rules further
+  // down say otherwise.
+  return theme.document
+    ? `DOCUMENT TYPE — build this document as the following kind of printed piece, adapting everything to the user's request (their words win on any conflict):\n${theme.brief}`
+    : `SCREEN TYPE — build this screen as the following kind of screen, adapting everything to the user's request (their words win on any conflict):\n${theme.brief}`
+}
+
+/**
+ * The page format a DOCUMENT type starts on — undefined for every other type,
+ * and for none. See `ScreenTheme.document`.
+ */
+export function themeDocumentPage(id: string | null | undefined): PageFormatId | undefined {
+  return getScreenTheme(id)?.document?.page
 }
 
 /**

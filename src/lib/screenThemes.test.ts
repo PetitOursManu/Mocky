@@ -10,6 +10,7 @@ import {
   promptForThemeChange,
   screenThemeBriefLine,
   screenThemeSection,
+  themeDocumentPage,
   withScreenTheme,
 } from './screenThemes'
 
@@ -103,6 +104,54 @@ describe('withScreenTheme', () => {
 
   it('tells the model that the person’s words win over the type', () => {
     expect(screenThemeSection('kanban')).toMatch(/their words win/i)
+  })
+})
+
+describe('the Flyer, the first DOCUMENT type', () => {
+  it('is a document that starts on A4, and the app types are not documents', () => {
+    expect(getScreenTheme('flyer')?.document).toEqual({ page: 'a4' })
+    expect(themeDocumentPage('flyer')).toBe('a4')
+    expect(themeDocumentPage('landing')).toBeUndefined()
+    expect(themeDocumentPage(null)).toBeUndefined()
+    expect(SCREEN_THEMES.filter((th) => th.document).map((th) => th.id)).toEqual(['flyer'])
+  })
+
+  it('is introduced to the model as a printed piece, not a screen', () => {
+    expect(screenThemeSection('flyer')).toMatch(/^DOCUMENT TYPE/)
+    expect(screenThemeSection('flyer')).toMatch(/their words win/i)
+    expect(screenThemeSection('dashboard')).toMatch(/^SCREEN TYPE/)
+  })
+
+  /*
+   * What the person asked for, clause by clause: a striking one-page piece,
+   * colourful and made of shapes, the facts scannable, a call to action that
+   * can be printed, and a coupon of real fields only when it is a sign-up.
+   */
+  it('asks for the flyer the person described', () => {
+    const b = getScreenTheme('flyer')!.brief
+    expect(b).toMatch(/ONE <Page>/)
+    expect(b).toMatch(/recto-verso/)
+    expect(b).toMatch(/headline/i)
+    expect(b).toMatch(/date, time, place, price/)
+    expect(b).toMatch(/QR-code placeholder/)
+    expect(b).toMatch(/logo slot/)
+    expect(b).toMatch(/COLOURFUL/)
+    expect(b).toMatch(/blobs, circles, arcs, waves, stripes/)
+    expect(b).toMatch(/hero picture when pictures are supplied/)
+    expect(b).toMatch(/safe margin/)
+    expect(b).toMatch(/coupon[\s\S]*<Field>s/)
+    expect(b).toMatch(/Only when the request implies signing up/)
+    // Never a web button: a flyer's call to action is printed.
+    expect(b).toMatch(/Never a web button/)
+  })
+
+  it('says nothing about a size, which is the page format’s to say', () => {
+    const b = getScreenTheme('flyer')!.brief
+    expect(b).not.toMatch(/\bA4\b|\bLetter\b|\b\d+\s?px\b|\bmm\b/)
+  })
+
+  it('tells Muse it is dressing a printed flyer', () => {
+    expect(screenThemeBriefLine('flyer')).toBe('Screen type: printed flyer.')
   })
 })
 

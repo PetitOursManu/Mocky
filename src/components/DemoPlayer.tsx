@@ -15,6 +15,7 @@ import {
 } from '../lib/deviceFrames'
 import { Button, Icon, IconButton, Select } from '../ui'
 import { demoOrder, stepScreen } from '../lib/demoNav'
+import DocumentPages from './DocumentPages'
 import { useT } from '../i18n'
 
 /**
@@ -110,7 +111,10 @@ export default function DemoPlayer({
 
   // The device only exists while the frame is on, and it is fitted as a whole
   // — screen, bezel, deck and caption — rather than by the screen alone.
-  const frame = framed ? deviceFrame(frameKindFor(current.device, bodyW, bodyH), bodyW, bodyH) : null
+  // A document is paper, not a device: its pages are shown bare, fitted to the
+  // width and scrolled, and the device frame does not apply to it.
+  const isDoc = !!current.page
+  const frame = framed && !isDoc ? deviceFrame(frameKindFor(current.device, bodyW, bodyH), bodyW, bodyH) : null
   const frameScale = frame && size.w > 0 ? fitFrameScale(size.w, size.h, frame) : 0
 
   /* Fallback overlays for legacy links without an element selector. They are
@@ -160,6 +164,7 @@ export default function DemoPlayer({
           // Explicit, because `active` only sets it when true: off, a screen
           // reader heard a plain button and never learnt it was a toggle.
           aria-pressed={framed}
+          disabled={isDoc}
           onClick={toggleFramed}
           title={t('canvas.demoFrameTitle')}
           aria-label={t('canvas.demoFrame')}
@@ -230,7 +235,10 @@ export default function DemoPlayer({
             )}
           </WireframeDevice>
         )}
-        {!framed && scale > 0 && (
+        {isDoc && current.page && size.w > 0 && (
+          <DocumentPages key={current.id} screen={current} page={current.page} width={size.w} height={size.h} />
+        )}
+        {!isDoc && !framed && scale > 0 && (
           <div className="relative" style={{ width: boxW, height: boxH }}>
             <div className="absolute inset-0">
               {current.device === 'iphone' ? (

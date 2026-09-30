@@ -53,8 +53,8 @@ describe('site screenshots in the generation path', () => {
     expect(reading).toBeGreaterThan(0)
     expect(dossier).toBeGreaterThan(reading)
     expect(view).toContain('const museBlind = siteNew && !reproducing && !siteContent')
-    expect(view).toContain('if (ultraActive && project.ultra && !siteNew) {')
-    expect(view).toContain('if (settings.usePlanner && !musePreamble && !ultraRecord && !siteNew) {')
+    expect(view).toContain('if (runUltra && project.ultra && !siteNew) {')
+    expect(view).toContain('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew) {')
   })
 
   it('replace the site pictures only where no dossier already made them', () => {

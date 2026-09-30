@@ -18,6 +18,8 @@ export const composer = {
     'composer.themeActiveAria': 'Type d’écran : {name}',
     'composer.themeTitle': 'Choisir un type d’écran — sa structure type guide la génération',
     'composer.themeMenu': 'Types d’écran',
+    'composer.themeGroupDocuments': 'Documents à imprimer ou exporter',
+    'composer.themeGroupScreens': 'Écrans',
     'composer.themeHint':
       'Le type donne au modèle les sections, composants et données attendus pour ce genre d’écran. Vos mots restent prioritaires, et le style reste celui de votre direction.',
     'composer.themeClear': 'Retirer le type d’écran',
@@ -70,6 +72,23 @@ export const composer = {
     'composer.themes.portfolio': 'Portfolio',
     'composer.themes.portfolio.desc': 'Projets en grille, filtres, à propos et contact',
     'composer.themes.portfolio.starter': 'Le portfolio d’une photographe d’architecture',
+    'composer.themes.flyer': 'Flyer',
+    'composer.themes.flyer.desc': 'Document imprimable : grand titre, infos clés, formes colorées, PDF',
+    'composer.themes.flyer.starter':
+      'Le flyer d’un festival de musique en plein air, un samedi de juin, entrée 12 €',
+
+    // ---- page formats (document types) ----
+    'composer.pageFormatsAria': 'Format de page',
+    'composer.pageFormat.a4': 'A4',
+    'composer.pageFormat.a4.full': 'A4 portrait (210 × 297 mm)',
+    'composer.pageFormat.a4-landscape': 'A4 paysage',
+    'composer.pageFormat.a4-landscape.full': 'A4 paysage (297 × 210 mm)',
+    'composer.pageFormat.letter': 'US Letter',
+    'composer.pageFormat.letter.full': 'US Letter portrait (8,5 × 11 in)',
+    'composer.pageFormat.letter-landscape': 'US paysage',
+    'composer.pageFormat.letter-landscape.full': 'US Letter paysage (11 × 8,5 in)',
+    'composer.pageFormat.slides': 'Présentation 16:9',
+    'composer.pageFormat.slides.full': 'Diapositive de présentation 16:9',
 
     // ---- improve my prompt ----
     'composer.enhance': 'Améliorer',
@@ -89,6 +108,8 @@ export const composer = {
     'composer.themeActiveAria': 'Screen type: {name}',
     'composer.themeTitle': 'Pick a screen type — its typical structure guides the generation',
     'composer.themeMenu': 'Screen types',
+    'composer.themeGroupDocuments': 'Documents to print or export',
+    'composer.themeGroupScreens': 'Screens',
     'composer.themeHint':
       'The type gives the model the sections, components and data expected for that kind of screen. Your words still come first, and the style stays your direction’s.',
     'composer.themeClear': 'Remove the screen type',
@@ -140,6 +161,22 @@ export const composer = {
     'composer.themes.portfolio': 'Portfolio',
     'composer.themes.portfolio.desc': 'Project grid, filters, about and contact',
     'composer.themes.portfolio.starter': 'The portfolio of an architecture photographer',
+    'composer.themes.flyer': 'Flyer',
+    'composer.themes.flyer.desc': 'Printable document: big headline, key facts, colourful shapes, PDF',
+    'composer.themes.flyer.starter': 'The flyer for an open-air music festival, one Saturday in June, entry €12',
+
+    // ---- page formats (document types) ----
+    'composer.pageFormatsAria': 'Page format',
+    'composer.pageFormat.a4': 'A4',
+    'composer.pageFormat.a4.full': 'A4 portrait (210 × 297 mm)',
+    'composer.pageFormat.a4-landscape': 'A4 landscape',
+    'composer.pageFormat.a4-landscape.full': 'A4 landscape (297 × 210 mm)',
+    'composer.pageFormat.letter': 'US Letter',
+    'composer.pageFormat.letter.full': 'US Letter portrait (8.5 × 11 in)',
+    'composer.pageFormat.letter-landscape': 'US landscape',
+    'composer.pageFormat.letter-landscape.full': 'US Letter landscape (11 × 8.5 in)',
+    'composer.pageFormat.slides': 'Presentation 16:9',
+    'composer.pageFormat.slides.full': 'Presentation slide, 16:9',
 
     // ---- improve my prompt ----
     'composer.enhance': 'Improve',

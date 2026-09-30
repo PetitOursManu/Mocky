@@ -3,6 +3,7 @@ import { proxyFetch, truncate } from './proxy'
 import type { Capability } from './capabilities/types'
 import { stripForbiddenMotion } from './stripMotion'
 import { ULTRA_CLASSES } from './capabilities/snippets/Ultra'
+import { DOCUMENT_CAP, DOCUMENT_RULES } from './documentMode'
 
 /**
  * Last gate before generated code becomes a screen.
@@ -335,6 +336,17 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
     for (const [cls, what] of Object.entries(ULTRA_CLASSES)) lines.push(`- ${cls}: ${what}`)
     lines.push('Colours come from three variables, --u-a, --u-b, --u-c (set them from your palette on the page root, e.g. className="[--u-a:#123456] [--u-b:#…] [--u-c:#…]", or through <Backdrop colors>).')
     lines.push('Do not write your own @keyframes or <style> blocks — everything above already respects reduced motion and the "no animation" switch, and a hand-written loop does not.')
+  }
+  /*
+   * A DOCUMENT's override of the base rules. Here and not in the preamble,
+   * because this section is the only one printed AFTER SYSTEM_PROMPT on all
+   * five paths, and a flyer told "every interactive element MUST have visible
+   * states" last came back with hover rings. Only a screen carrying the page
+   * kit prints it: for every other screen this function is what it was.
+   */
+  if (caps.some((c) => c.id === DOCUMENT_CAP)) {
+    lines.push('')
+    lines.push(DOCUMENT_RULES)
   }
   return lines.join('\n')
 }

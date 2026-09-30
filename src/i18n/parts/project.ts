@@ -11,6 +11,19 @@
  */
 export const project = {
   fr: {
+    // ---- documents ----
+    'project.docDownload': 'Télécharger…',
+    'project.docOverflow':
+      'Dans « {name} », le contenu dépasse de la page {pages} : il serait coupé à l’impression. Raccourcissez le texte ou demandez une page de plus.',
+    'project.docOverflowMany':
+      'Dans « {name} », le contenu dépasse des pages {pages} : il serait coupé à l’impression. Raccourcissez le texte ou demandez une page de plus.',
+    'project.docUltraSkipped':
+      'Motion Ultra ne s’applique pas aux documents : une page imprimée ne bouge pas. Le document est généré sans.',
+    'project.docPictureMissing':
+      'Aucune image n’a pu être trouvée pour ce document ({reason}) : une composition de formes en tient lieu.',
+    'project.exportDocsOnly':
+      'Ce projet ne contient que des documents : ils se téléchargent un par un, avec leur bouton « Télécharger ».',
+    'project.exportDocsSkipped': 'Les documents ne sont pas inclus dans le projet React : utilisez leur bouton « Télécharger ».',
     // ---- toolbar ----
     'project.back': 'Retour',
     'project.linkTitle': 'Relier les écrans entre eux',
@@ -136,6 +149,7 @@ export const project = {
     'project.busyPlanning': 'Planification…',
     'project.busySite': 'Lecture du site…',
     'project.busySitePictures': 'Images du site…',
+    'project.busyDocPicture': 'Image du document…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Inspiration & rédaction du dossier…',
     'project.museStageInspiration': 'Génération de l’image d’inspiration…',
@@ -325,6 +339,18 @@ export const project = {
       'Un tableau de bord analytique avec des cartes de chiffres, un graphique et une liste d’activité',
   } as Record<string, string>,
   en: {
+    // ---- documents ----
+    'project.docDownload': 'Download…',
+    'project.docOverflow':
+      'In “{name}”, the content runs past the edge of page {pages}: it would be cut off in print. Shorten the text or ask for one more page.',
+    'project.docOverflowMany':
+      'In “{name}”, the content runs past the edge of pages {pages}: it would be cut off in print. Shorten the text or ask for one more page.',
+    'project.docUltraSkipped':
+      'Motion Ultra does not apply to documents: a printed page does not move. The document is generated without it.',
+    'project.docPictureMissing':
+      'No picture could be found for this document ({reason}): a composition of shapes stands in.',
+    'project.exportDocsOnly': 'This project only holds documents: download them one by one, with their “Download” button.',
+    'project.exportDocsSkipped': 'Documents are not part of the React project: use their “Download” button.',
     // ---- toolbar ----
     'project.back': 'Back',
     'project.linkTitle': 'Draw links between screens',
@@ -448,6 +474,7 @@ export const project = {
     'project.busyPlanning': 'Planning…',
     'project.busySite': 'Reading the site…',
     'project.busySitePictures': 'Site pictures…',
+    'project.busyDocPicture': 'Document picture…',
     'project.busyDesign': 'Direction…',
     'project.museStageDossier': 'Gathering inspiration & writing the dossier…',
     'project.museStageInspiration': 'Generating the inspiration image…',
