@@ -4,6 +4,7 @@ import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
 import { extractProductName } from './design'
 import { normalizeNotes, type ScreenNote } from './screenNotes'
 import type { SiteRefMode } from './siteReference'
+import { normalizePageFormat, type PageFormatId } from './pageFormats'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -137,6 +138,14 @@ export interface Screen {
    * before types existed; an unknown id reads as none.
    */
   theme?: string
+  /**
+   * The page format when this screen is a DOCUMENT (a flyer, and later other
+   * printed or presented documents): fixed-size pages, see lib/pageFormats.ts.
+   * Stored because an edit or a Regenerate must rebuild the page hint from the
+   * screen itself — the composer's current format is not this screen's. Absent
+   * means an ordinary screen, which is every screen made before documents.
+   */
+  page?: PageFormatId
   /**
    * What the person wrote about this screen, for themselves. Never read by
    * anything that builds a prompt — see `lib/screenNotes.ts` for why, and
@@ -754,6 +763,9 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     // validate here — only something to forget, which is what Regenerate did
     // after the first reload before this line existed.
     theme: typeof s.theme === 'string' && s.theme ? s.theme : undefined,
+    // Same rule as `theme`: a format this build does not know reads as "not a
+    // document" rather than as a guess at one.
+    page: normalizePageFormat(s.page),
     // Rebuilt field by field rather than passed through: this record is written
     // from a server response, and everything on a Screen survives a reload only
     // if it is named here.

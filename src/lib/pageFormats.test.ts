@@ -55,3 +55,12 @@ describe('docFrameHeight', () => {
     expect(docFrameHeight(a4, 0)).toBe(a4.h)
   })
 })
+
+describe('Screen.page survives a save and a reload', () => {
+  it('keeps a known format and drops an unknown one', async () => {
+    const { normalizeScreen } = await import('./project')
+    expect(normalizeScreen({ id: 'd', code: 'x', page: 'a4-landscape' }, 0).page).toBe('a4-landscape')
+    expect(normalizeScreen({ id: 'd', code: 'x', page: 'a5' as never }, 0).page).toBeUndefined()
+    expect(normalizeScreen({ id: 'd', code: 'x' }, 0).page).toBeUndefined()
+  })
+})
