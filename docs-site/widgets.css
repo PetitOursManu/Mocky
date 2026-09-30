@@ -1,0 +1,46 @@
+/* Mocky's widgets in the Lumy documentation. Lumy's tokens (--lm-*) keep them
+   in step with the light and dark themes. */
+
+/* The preset gallery escapes the reading measure on wide screens: a grid of
+   specimens is not prose. */
+.mk-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); margin: 18px 0 24px; }
+@media (min-width: 1400px) { .mk-grid { margin-inline: -3rem; } }
+.mk-card {
+  overflow: hidden; border: 1px solid var(--lm-border); border-radius: var(--lm-radius); background: var(--lm-card);
+  animation: mk-rise var(--lm-d3) var(--lm-ease) both; animation-delay: calc(var(--i, 0) * 30ms);
+  transition: transform var(--lm-d2) var(--lm-ease), box-shadow var(--lm-d2) var(--lm-ease);
+}
+.mk-card:hover { transform: translateY(-2px); box-shadow: var(--lm-shadow); }
+@keyframes mk-rise { from { opacity: 0; transform: translateY(6px); } }
+.mk-demo { display: flex; align-items: center; justify-content: center; height: 132px; padding: 16px; border-bottom: 1px solid var(--lm-border); }
+.mk-panel { width: 100%; padding: 12px; border: 1px solid; }
+.mk-line { height: 6px; width: 62%; opacity: .85; border-radius: 3px; }
+.mk-line--short { width: 40%; margin-top: 6px; opacity: .6; }
+.mk-btn { display: inline-block; margin-top: 12px; padding: 4px 10px; font-size: 11px; font-weight: 600; }
+.mk-body { padding: 12px 14px 14px; }
+.lm-body .mk-name { margin: 0; font-size: 15px; font-weight: 600; color: var(--lm-fg); }
+.lm-body .mk-desc { margin: 2px 0 10px; font-size: 13px; line-height: 1.45; color: var(--lm-muted-fg); }
+.mk-swatches { display: flex; gap: 4px; }
+.mk-swatch { width: 20px; height: 20px; border-radius: 5px; border: 1px solid color-mix(in srgb, var(--lm-fg) 15%, transparent); }
+.lm-body .mk-sections { margin: 10px 0 0; font: 11px/1.5 var(--lm-mono); color: var(--lm-muted-fg); }
+
+/* The quality-rule browser */
+.mk-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 10px; }
+.mk-chips { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--lm-muted); }
+.mk-chip { border: 0; background: none; padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--lm-muted-fg); cursor: pointer; transition: background var(--lm-d2) var(--lm-ease), color var(--lm-d2); }
+.mk-chip[aria-pressed='true'] { background: var(--lm-card); color: var(--lm-fg); box-shadow: 0 1px 2px rgb(0 0 0 / .1); }
+.mk-count { font-size: 13px; color: var(--lm-muted-fg); font-variant-numeric: tabular-nums; }
+.mk-toggle { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; color: var(--lm-fg); }
+.mk-toggle input { position: absolute; opacity: 0; }
+.mk-toggle-track { position: relative; width: 36px; height: 20px; border-radius: 99px; background: var(--lm-border-strong); transition: background var(--lm-d2) var(--lm-ease); }
+.mk-toggle-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform var(--lm-d3) var(--lm-spring); }
+.mk-toggle input:checked + .mk-toggle-track { background: var(--lm-primary); }
+.mk-toggle input:checked + .mk-toggle-track::after { transform: translateX(16px); }
+.mk-toggle input:focus-visible + .mk-toggle-track { outline: 2px solid var(--lm-primary); outline-offset: 2px; }
+.lm-body .mk-hint { margin: 6px 0 12px; font-size: 13px; color: var(--lm-muted-fg); }
+.mk-why { display: block; margin-top: 4px; font-size: 12.5px; color: var(--lm-muted-fg); }
+.mk-pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 500; white-space: nowrap; transition: background var(--lm-d2), color var(--lm-d2); }
+.mk-pill--enforce { background: color-mix(in srgb, var(--lm-ok) 15%, transparent); color: var(--lm-ok); }
+.mk-pill--advise { background: color-mix(in srgb, var(--lm-warn) 15%, transparent); color: var(--lm-warn); }
+.mk-pill--ignore { background: var(--lm-muted); color: var(--lm-muted-fg); }
+.mk-failed { color: var(--lm-bad); font-size: 13.5px; }

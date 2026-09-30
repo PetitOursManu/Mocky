@@ -1,3 +1,7 @@
+---
+source_hash: e2174572a9e3
+---
+
 # Le moteur d'inspiration
 
 Tout ce qui est décrit ici est du code **côté serveur**, sous `server/muse/`. Le
@@ -175,7 +179,7 @@ Si rien ne correspond — une demande inhabituelle — il retombe sur les galeri
 `landing` générales, pour qu'il y ait toujours quelque chose à récupérer.
 
 Chaque source porte un champ `parser`, aujourd'hui toujours `"generic"`.
-[L'ADR](adr/001-muse.md) a tranché : **analyseur générique uniquement en v1**,
+[L'ADR](../../adr/001-muse.md) a tranché : **analyseur générique uniquement en v1**,
 par le chemin Readability. Le balisage d'Awwwards change souvent, et un analyseur
 sur mesure serait fragile. Le champ existe pour en ajouter plus tard sans changer
 la forme du fichier.

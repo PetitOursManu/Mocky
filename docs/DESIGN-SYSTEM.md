@@ -1,212 +1,231 @@
-# Le système de design de Mocky
+# Mocky's design system
 
-[English](DESIGN-SYSTEM.en.md) · **Français**
+:::why
+A tool for judging mockups and the mockups themselves answer to opposite constraints: the shell has to recede, the mockup has to assert itself — hence two separate systems and two documents. The real rules live in the code (`src/styles/tokens.css`, `tailwind.config.js`, `src/ui`); this text exists only to give their reasons, without which a constraint looks like a whim and gets worked around the first time someone is in a hurry.
+:::
 
-> **Pourquoi c'est ainsi —** Un outil qui sert à juger des maquettes et les maquettes elles-mêmes obéissent à des contraintes opposées : la coquille doit s'effacer, la maquette doit s'imposer — d'où deux systèmes distincts et deux documents. Les règles réelles vivent dans le code (`src/styles/tokens.css`, `tailwind.config.js`, `src/ui`) ; ce texte n'existe que pour en donner les raisons, sans lesquelles une contrainte ressemble à un caprice et se fait contourner à la première urgence.
+> This is about the interface of **Mocky itself**, not the screens it generates.
+> For those, see `DESIGN.md` and the presets in `src/lib/styles.ts`.
 
-> Il s'agit de l'interface de **Mocky elle-même**, pas des écrans qu'elle génère.
-> Pour ces derniers, voir `DESIGN.md` et les presets de `src/lib/styles.ts`.
+## The direction: high-contrast editorial
 
-## La direction : éditorial contrasté
+:::why
+The eye never judges a colour in isolation: it compares it to whatever surrounds it, so a tinted frame shifts the perception of everything it frames. Since looking at mockups is precisely what Mocky is for, its shell is achromatic out of professional obligation before it is out of taste — and it is that obligation, not a graphic fashion, that then dictates the absence of shadows and the rarity of the accent.
+:::
 
-> **Pourquoi c'est ainsi —** L'œil ne juge jamais une couleur dans l'absolu : il la compare à ce qui l'entoure, si bien qu'un cadre teinté déplace la perception de tout ce qu'il encadre. Comme Mocky sert précisément à regarder des maquettes, sa coquille est achromatique par obligation professionnelle avant de l'être par goût — et c'est cette obligation, pas une mode graphique, qui dicte ensuite l'absence d'ombres et la rareté de l'accent.
+Black and white, 1px rules, **no radius, no shadow**, one signature flat of colour. Swiss poster rather than dashboard.
 
-Noir et blanc, filets de 1px, **aucun rayon, aucune ombre**, un seul aplat de couleur signature. Affiche suisse plutôt que tableau de bord.
+This is not only a matter of taste. Mocky is a tool for **judging colour**: mockups sit side by side on a canvas, and the chrome surrounds them. The old palette was `slate` — a distinctly blue-leaning grey (`#64748b`). A warm mockup placed on it reads more yellow than it is; a blue mockup reads flat. **The chrome was lying about the colours it presented**, which is disqualifying for a design tool. An achromatic shell is the only one that does not distort what it frames, and black and white is the most complete version of it.
 
-Ce n'est pas seulement un parti pris esthétique. Mocky sert à **juger des couleurs** : des maquettes sont posées côte à côte sur un canvas, et le chrome les entoure. L'ancienne palette était `slate` — un gris nettement bleuté (`#64748b`). Une maquette chaude posée dessus paraît plus jaune qu'elle n'est ; une maquette bleue paraît fade. **Le chrome mentait sur les couleurs qu'il présentait**, ce qui est disqualifiant pour un outil de design. Une coquille achromatique est la seule qui ne déforme pas ce qu'elle encadre, et le noir/blanc en est la version la plus complète.
+Two consequences, accepted deliberately:
 
-Deux conséquences assumées :
+- **Rules replace shadows.** Elevation is read from value (three surface levels) and from a rule, never from a blur.
+- **The accent is rare.** One primary action per view carries it. An active tab or mode does not take the accent: it **inverts** (`bg-ink text-surface`). That is more direct, and it stays legible in both themes.
 
-- **Les filets remplacent les ombres.** L'élévation se lit par la valeur (trois niveaux de surface) et par un filet, jamais par un flou.
-- **L'accent est rare.** Une seule action primaire par vue le porte. Un onglet ou un mode actif ne prend pas l'accent : il **s'inverse** (`bg-ink text-surface`). C'est plus franc, et ça reste lisible dans les deux thèmes.
+## The tokens
 
-## Les jetons
+:::why
+A colour named after its role ("a panel's surface") can change value when the theme changes; a colour named after its appearance ("grey 800") cannot, since its name is already the answer. Themes used to be obtained by re-declaring Tailwind utilities one by one — 96 rules written against the 109 colour classes the components actually used, so 83 were never translated — and that is the hole closed by a single set of variables which each theme reassigns.
+:::
 
-> **Pourquoi c'est ainsi —** Une couleur nommée par son rôle (« la surface d'un panneau ») peut changer de valeur quand le thème change ; une couleur nommée par son apparence (« gris 800 ») ne le peut pas, puisque son nom est déjà la réponse. Les thèmes étaient auparavant obtenus en redéclarant les utilitaires de Tailwind un par un — 96 règles écrites face aux 109 classes de couleur réellement employées par les composants, donc 83 jamais traduites — et c'est ce trou que referme un jeu unique de variables que chaque thème réassigne.
+Everything lives in [`src/styles/tokens.css`](../src/styles/tokens.css), as raw RGB channels — that is what lets Tailwind compose opacity (`bg-surface/60` works).
 
-Tout vit dans [`src/styles/tokens.css`](../src/styles/tokens.css), en canaux RGB bruts — c'est ce qui permet à Tailwind de composer l'opacité (`bg-surface/60` fonctionne).
-
-| Jeton | Rôle |
+| Token | Role |
 |---|---|
-| `--sunken` | le canvas, derrière les cadres |
-| `--surface` | panneaux, cartes, en-tête, composer |
-| `--raised` | popovers, menus, modales |
-| `--line` | le filet **structurel** : bord extérieur d'une surface flottante, règle sous l'en-tête. Rare. |
-| `--line-soft` | le filet **fin** : rangées d'une liste, bordures de champs, séparateurs. Le cas par défaut. |
-| `--ink` / `--ink-muted` / `--ink-faint` | texte principal / secondaire / le plancher (jamais en dessous) |
-| `--accent` / `--on-accent` | l'aplat signature (**#228477**) et son texte |
-| `--accent-ink` | le **petit texte** en couleur d'accent — voir ci-dessous |
-| `--danger` `--warn` `--ok` | statuts, désaturés d'un cran pour ne jamais crier plus fort qu'une maquette |
-| `--muse` | la marque de Muse — un mode, pas un état |
-| `--ring` | l'anneau de focus |
+| `--sunken` | the canvas, behind the frames |
+| `--surface` | panels, cards, the header, the composer |
+| `--raised` | popovers, menus, modals |
+| `--line` | the **structural** rule: the outer edge of a floating surface, the rule under the header. Rare. |
+| `--line-soft` | the **hairline** rule: rows in a list, field borders, separators. The default case. |
+| `--ink` / `--ink-muted` / `--ink-faint` | primary / secondary text / the floor (never below it) |
+| `--accent` / `--on-accent` | the signature flat (**#228477**) and its text |
+| `--accent-ink` | the accent colour for **small text** — see below |
+| `--danger` `--warn` `--ok` | statuses, desaturated one step so they never shout louder than a mockup |
+| `--muse` | Muse's mark — a mode, not a state |
+| `--ring` | the focus ring |
 
-Deux thèmes, **Papier** et **Encre**, définis par les mêmes jetons. Ni l'un ni l'autre n'est une surcharge de l'autre.
+Two themes, **Paper** and **Ink**, defined by the same tokens. Neither one is an override of the other.
 
-## Pourquoi deux jetons d'accent
+## Why two accent tokens
 
-> **Pourquoi c'est ainsi —** Les normes d'accessibilité n'exigent pas le même écart de luminosité pour un texte (4,5:1) et pour un aplat, un filet ou une icône (3:1) : une même couleur de marque peut donc être parfaitement lisible en fond de bouton et illisible en petits caractères, sur la même page. Plutôt que d'interdire cette couleur au texte, le système en décline deux variantes — assez proches pour être indiscernables à l'œil, assez distinctes pour franchir chacune son seuil.
+:::why
+Accessibility standards do not demand the same difference in lightness for text (4.5:1) as for a flat, a rule or an icon (3:1): one and the same brand colour can therefore be perfectly legible behind a button and illegible in small type, on the same page. Rather than forbidding that colour to text, the system declines it into two variants — close enough to be indistinguishable to the eye, distinct enough that each clears its own threshold.
+:::
 
-`#228477` mesuré sur le papier (`#faf8f3`) :
+`#228477` measured on paper (`#faf8f3`):
 
-| Usage | Contraste | Verdict |
+| Usage | Contrast | Verdict |
 |---|---|---|
-| Blanc sur l'aplat (bouton) | **4,53:1** | passe AA |
-| L'accent en **petit texte** sur le papier | **4,27:1** | **échoue** (AA = 4,5) |
-| L'accent en aplat, filet, icône | 4,27:1 | passe (composant d'interface = 3:1) |
+| White on the flat (button) | **4.53:1** | passes AA |
+| The accent as **small text** on paper | **4.27:1** | **fails** (AA = 4.5) |
+| The accent as a flat, a rule, an icon | 4.27:1 | passes (interface component = 3:1) |
 
-D'où `--accent-ink` (`#20796C`, **4,93:1**) : même teinte, un cheveu plus sombre, indiscernable à taille de texte. C'est ce qui permet d'utiliser la couleur **largement** sans livrer du texte illisible.
+Hence `--accent-ink` (`#20796C`, **4.93:1**): the same hue, a hair darker, indistinguishable at text sizes. That is what makes it possible to use the colour **liberally** without shipping unreadable text.
 
-**La règle : `text-accent-ink` pour du texte, `bg-accent` / `border-accent` pour tout le reste.** `text-accent` n'est acceptable que sur un `text-h2` ou plus grand, et sur une icône. Le test de contraste vérifie les deux jetons séparément, avec deux seuils différents.
+**The rule: `text-accent-ink` for text, `bg-accent` / `border-accent` for everything else.** `text-accent` is only acceptable at `text-h2` or larger, and on an icon. The contrast test checks the two tokens separately, against two different thresholds.
 
-En thème Encre, les deux jetons valent la même valeur claire (8,4:1 sur la surface) — un seul suffit là-bas.
+In the Ink theme, both tokens hold the same light value (8.4:1 on the surface) — one is enough there.
 
-## Les dispositifs de presse
+## The devices of print
 
-> **Pourquoi c'est ainsi —** Ce qui fait reconnaître une page imprimée tient à quelques signaux qui reviennent partout — un surtitre, des filets d'épaisseurs différentes, une largeur de colonne, un format fixe — bien plus qu'au dessin de chaque élément pris isolément. Reproduire ces signaux dans une poignée de classes réutilisables coûte moins cher que d'habiller les écrans un par un, et laisse une seule adresse à modifier le jour où le ton doit changer.
+:::why
+What makes a printed page recognisable comes down to a handful of signals that recur everywhere — a kicker, rules of differing weights, a column width, a fixed format — far more than to the drawing of any single element taken on its own. Reproducing those signals in a handful of reusable classes costs less than dressing the screens one by one, and leaves a single address to edit on the day the tone has to change.
+:::
 
-Quatre choses font presque tout le travail pour qu'un écran ait l'air imprimé. Elles sont dans `src/index.css`.
+Four things do almost all the work of making a screen look printed. They live in `src/index.css`.
 
-| Classe | Usage |
+| Class | Usage |
 |---|---|
-| `.masthead` | Le nom du journal, en serif. Une fois, en haut. |
-| `.kicker` | **Le surtitre** — petit, capitales, très espacé. Le dispositif le plus rentable : titres de panneau, libellés de groupe, onglets. Utilisé 69 fois. |
-| `.rule-double` | Le filet double (un gras + un fin) sous la manchette. |
-| `.rule-thin` | Le filet de séparation entre sections. |
-| `.section-head` | Tête de section : surtitre + filet. |
-| `.measure` | 68ch — la largeur de lecture d'un paragraphe. **Pleine largeur ne veut pas dire lignes de 200 caractères** : c'est précisément pour ça que les journaux ont des colonnes. |
-| `.page` | **Le format de la page** : 1440px max, centré, gouttière de 24px. |
-| `.page-wide` | 1760px, réservé à la galerie d'images — une grille de vignettes n'a pas de largeur de lecture. |
+| `.masthead` | The paper's name, in the serif. Once, at the top. |
+| `.kicker` | **The kicker** — small, capitals, widely tracked. The most profitable device of the lot: panel titles, group labels, tabs. Used 69 times. |
+| `.rule-double` | The double rule (one heavy plus one hairline) under the masthead. |
+| `.rule-thin` | The separating rule between sections. |
+| `.section-head` | Section head: kicker plus rule. |
+| `.measure` | 68ch — the reading width of a paragraph. **Full width does not mean 200-character lines**: that is precisely why newspapers have columns. |
+| `.page` | **The page format**: 1440px max, centred, 24px gutter. |
+| `.page-wide` | 1760px, reserved for the image gallery — a grid of thumbnails has no reading width. |
 
-### Le format de page
+### The page format
 
-> **Pourquoi c'est ainsi —** Une mise en page est faite de rapports entre des éléments, et un rapport se défait au-delà d'une certaine distance : la largeur n'est donc pas une variable libre qu'on gagnerait à maximiser, c'est un format à choisir. Le format retenu est un plafond centré parce qu'il se comporte comme une pleine largeur sur les écrans courants et cesse simplement de grandir au-delà — une seule valeur, aucune règle particulière à écrire par écran.
+:::why
+A layout is made of relationships between elements, and a relationship comes apart beyond a certain distance: width is therefore not a free variable that would be worth maximising, it is a format to be chosen. The format settled on is a centred ceiling, because it behaves like full width on ordinary screens and simply stops growing past that — one value, and no per-screen rule to write.
+:::
 
-Un journal a un format fixe, et c'est celui-là. Les pages étaient d'abord enfermées dans `max-w-4xl` (896px), ce qui gâchait la moitié d'un écran large. Les libérer complètement allait trop loin dans l'autre sens : sur un écran de 2000px le contenu allait d'un bord à l'autre, l'œil devait traverser toute la largeur pour relier un nom de projet à sa date, et plus rien n'encadrait la page.
+A newspaper has a fixed format, and this is it. The pages were first locked into `max-w-4xl` (896px), which wasted half of a wide screen. Freeing them completely went too far the other way: on a 2000px screen the content ran edge to edge, the eye had to cross the whole width to connect a project name to its date, and nothing framed the page any more.
 
-Mesuré, contenu utile selon l'écran :
+Measured, usable content by screen:
 
-| Écran | Contenu | Occupation |
+| Screen | Content | Occupancy |
 |---|---|---|
 | 1280 | 1232px | 96% |
 | 1440 | 1392px | 97% |
 | 1920 | 1392px | 73% |
 | 2000 | 1392px | 70% |
 
-En dessous de 1440px le comportement est celui d'une pleine largeur ; au-delà, la page s'arrête. **Une seule valeur à régler**, dans `.page`.
+Below 1440px the behaviour is that of a full width; beyond it, the page stops. **One value to set**, in `.page`.
 
-Les titres `h1/h2/h3` prennent le serif automatiquement, via une règle en couche `base`. C'est la ligne qui sépare « application monochrome » de « page imprimée » : un titre en grotesque se lit comme du chrome, un titre en serif comme un article.
+The `h1/h2/h3` headings take the serif automatically, through a rule in the `base` layer. That is the line separating "monochrome application" from "printed page": a heading in a grotesque reads as chrome, a heading in a serif reads as an article.
 
-Aucune police n'est téléchargée. La pile serif s'appuie sur des faces livrées avec le système (Iowan Old Style et Palatino sur macOS, Georgia sur Windows) — les aperçus doivent fonctionner hors-ligne et sous une CSP stricte.
+No font is downloaded. The serif stack relies on faces shipped with the system (Iowan Old Style and Palatino on macOS, Georgia on Windows) — previews have to work offline and under a strict CSP.
 
-## Les icônes
+## The icons
 
-> **Pourquoi c'est ainsi —** Une icône doit prendre la couleur du texte qui l'accompagne et se dessiner pareil chez tout le monde ; un emoji ne peut ni l'un ni l'autre, parce que c'est une petite image en couleurs fournie par le système d'exploitation, différente sous Windows, macOS et Android. Un tracé vectoriel peint en `currentColor` — le mot-clé CSS qui reprend la couleur de texte en vigueur — hérite au contraire du thème sans qu'on ait à le lui dire, et se règle en taille comme un caractère.
+:::why
+An icon has to take the colour of the text beside it and draw the same for everyone; an emoji can do neither, because it is a small colour image supplied by the operating system, and a different one under Windows, macOS and Android. A vector path painted in `currentColor` — the CSS keyword that picks up the text colour currently in force — inherits the theme instead, without being told to, and is sized like a character.
+:::
 
-`src/ui/Icon.tsx` — 48 icônes vectorielles en `currentColor`.
+`src/ui/Icon.tsx` — 48 vector icons in `currentColor`.
 
 ```tsx
 import { Icon, IconButton } from '../ui'
 
-<Icon name="link" />                                  {/* 20px par défaut */}
-<IconButton label="Supprimer"><Icon name="trash" /></IconButton>
+<Icon name="link" />                                  {/* 20px by default */}
+<IconButton label="Delete"><Icon name="trash" /></IconButton>
 ```
 
-L'interface était construite en emoji. Ce sont des **bitmaps en couleur** : le thème ne peut pas les toucher, ils font autocollant sur une coquille noir et blanc, et ils s'affichent différemment sur chaque système (Segoe UI Emoji, Apple Color Emoji, Noto) — la barre d'outils n'était jamais deux fois la même. Ils rendaient aussi autour de 12px, trop petit pour se lire comme une icône.
+The interface was built out of emoji. Those are **colour bitmaps**: the theme cannot touch them, they look like stickers on a black-and-white shell, and they render differently on every system (Segoe UI Emoji, Apple Color Emoji, Noto) — the toolbar was never twice the same. They also rendered at around 12px, too small to read as an icon.
 
-`Icon` est `aria-hidden` par construction : le nom accessible appartient au bouton, et `IconButton` l'impose.
+`Icon` is `aria-hidden` by construction: the accessible name belongs to the button, and `IconButton` enforces it.
 
-## Les règles
+## The rules
 
-> **Pourquoi c'est ainsi —** Chacune de ces cinq lignes répond à une dérive constatée dans le code, pas à une préférence théorique : des dizaines de tailles de texte inventées au cas par cas, sept z-index improvisés auxquels s'ajoutaient deux panneaux flottants dépourvus de tout z-index et qui se recouvraient au pixel près, quatre déclarations de focus pour cent sept boutons. Une règle formulée court se contrôle en relecture, et parfois par un test, ce qu'un paragraphe d'intentions ne permet pas.
+:::why
+Each of these five lines answers a drift observed in the code, not a theoretical preference: dozens of text sizes invented case by case, seven improvised z-index values plus two floating panels carrying no z-index at all that overlapped to the pixel, four focus declarations for a hundred and seven buttons. A rule stated briefly can be checked in review, and sometimes by a test, which a paragraph of intentions cannot.
+:::
 
-**1. Un composant décrit ce qu'un contrôle *est*, jamais sa couleur.**
-`bg-surface`, `text-ink-muted`, `border-line` — oui. `bg-slate-800`, `text-indigo-400` — non : ça ne suivra pas le thème.
+**1. A component describes what a control *is*, never its colour.**
+`bg-surface`, `text-ink-muted`, `border-line` — yes. `bg-slate-800`, `text-indigo-400` — no: that will not follow the theme.
 
-**2. L'échelle typographique a six pas, et rien entre eux.**
-`caption` 11px (badges uniquement) · `body-sm` 13px (contrôles, barre d'outils) · `body` 14px (**le défaut**) · `lead` 16px · `h3` 20px · `h2` 28px · `display` 44px.
-Les tailles arbitraires (`text-[11px]`…) sont interdites. Les chiffres qui changent sous l'œil — zoom, dimensions, empreintes — prennent `font-mono` pour cesser de sautiller.
+**2. The type scale has six steps, and nothing between them.**
+`caption` 11px (badges only) · `body-sm` 13px (controls, toolbar) · `body` 14px (**the default**) · `lead` 16px · `h3` 20px · `h2` 28px · `display` 44px.
+Arbitrary sizes (`text-[11px]`…) are forbidden. Figures that change under the eye — zoom, dimensions, footprints — take `font-mono` so they stop jittering.
 
-**3. Toute cible cliquable fait au moins 32px de haut — et 44px au doigt.**
-Les primitives l'imposent. Passer par elles suffit.
+**3. Every clickable target is at least 32px high — and 44px under a finger.**
+The primitives enforce it. Going through them is enough.
 
-Les 32px sont dimensionnés pour un pavé tactile : un pointeur fin, guidé par un
-curseur qu'on voit. Un doigt n'a ni l'un ni l'autre, et il cache la cible au
-moment de la toucher. Sous `@media (pointer: coarse)`, dans `index.css`, le
-plancher passe donc à 44px. Ce n'est pas une contradiction de la règle mais une
-seconde valeur pour un second appareil : la requête est purement additive — le
-fichier ne contient aucune autre requête de média sur la largeur — et ne peut
-donc rien régresser sur ordinateur.
+The 32px are sized for a trackpad: a fine pointer, guided by a cursor you can
+see. A finger has neither, and it covers the target at the moment of touching
+it. Under `@media (pointer: coarse)`, in `index.css`, the floor therefore rises
+to 44px. That is not a contradiction of the rule but a second value for a
+second device: the query is purely additive — the file holds no other
+width-based media query — so it cannot regress the desktop.
 
-**4. Le focus est visible partout.**
-Une règle unique en couche `base` dans `index.css`, posée en `:where()` pour rester à spécificité zéro. Ne l'annulez pas.
+**4. Focus is visible everywhere.**
+A single rule in the `base` layer of `index.css`, written with `:where()` so it stays at zero specificity. Do not cancel it.
 
-**5. Une seule échelle de z-index.**
-`panel: 20` · `menu: 30` · `overlay: 40` · `modal: 50` · `top: 60`. Pas de `z-[70]`.
+**5. One z-index scale, and only one.**
+`panel: 20` · `menu: 30` · `overlay: 40` · `modal: 50` · `top: 60`. No `z-[70]`.
 
-## Les primitives
+## The primitives
 
-> **Pourquoi c'est ainsi —** Les exigences qui se répètent — un nom prononçable par un lecteur d'écran sur un bouton sans texte, une étiquette réellement reliée à son champ, un piège de focus dans une boîte de dialogue, une cible d'au moins 32 pixels — se tiennent une fois pour toutes si elles vivent dans un composant, et se perdent une fois sur deux s'il faut y penser à chaque appel. Ces primitives existent donc pour rendre le comportement correct plus court à écrire que le comportement bâclé.
+:::why
+Requirements that keep recurring — a name a screen reader can pronounce on a button with no text, a label genuinely tied to its field, a focus trap in a dialog, a target of at least 32 pixels — hold once and for all if they live inside a component, and are lost every other time if they have to be remembered at each call site. These primitives exist, then, to make the correct behaviour shorter to write than the sloppy one.
+:::
 
-Importer depuis [`src/ui`](../src/ui) :
+Import from [`src/ui`](../src/ui):
 
 ```tsx
 import { Button, IconButton, Field, Input, Modal, Banner, Chip, Segmented, Panel } from '../ui'
 ```
 
-| Primitive | À utiliser pour |
+| Primitive | Use it for |
 |---|---|
-| `Button` | variantes `primary` (l'action de la vue) · `ghost` (le défaut) · `quiet` (tertiaire, sans filet) · `danger` · `toolbar`. `active` inverse. |
-| `IconButton` | bouton à icône seule. **`label` est obligatoire.** |
-| `Field` + `Input`/`Textarea`/`Select` | `Field` génère l'`id` et le câble au `<label>` — impossible d'oublier. |
-| `Modal` | `role="dialog"`, `aria-modal`, piège de focus, Échap, restitution du focus, voile unique. |
-| `Panel` / `PanelRow` | surfaces flottantes du canvas. Les actions d'une rangée restent visibles au focus, pas seulement au survol. |
-| `Segmented` | modes mutuellement exclusifs. L'exclusivité est structurelle. |
-| `Chip` | jetons retirables. |
-| `Banner` | messages en ligne. `role="alert"` quand `tone="danger"`. |
-| `Spinner` / `Skeleton` / `ScreenSkeleton` / `EmptyState` | états d'attente et de vide. |
+| `Button` | variants `primary` (the view's action) · `ghost` (the default) · `quiet` (tertiary, no rule) · `danger` · `toolbar`. `active` inverts. |
+| `IconButton` | icon-only button. **`label` is mandatory.** |
+| `Field` + `Input`/`Textarea`/`Select` | `Field` generates the `id` and wires it to the `<label>` — impossible to forget. |
+| `Modal` | `role="dialog"`, `aria-modal`, focus trap, Escape, focus restoration, a single overlay. |
+| `Panel` / `PanelRow` | the canvas's floating surfaces. A row's actions stay visible on focus, not only on hover. |
+| `Segmented` | mutually exclusive modes. The exclusivity is structural. |
+| `Chip` | removable tokens. |
+| `Banner` | inline messages. `role="alert"` when `tone="danger"`. |
+| `Spinner` / `Skeleton` / `ScreenSkeleton` / `EmptyState` | waiting and empty states. |
 
-**Aucune primitive ne code un libellé en dur.** `Panel`, `Modal`, `Chip`,
-`Spinner` et `MockyLoader` portent tous un nom accessible qui est le nom *entier*
-d'un contrôle sans texte — une croix de fermeture, un anneau qui tourne — et
-toutes les cinq le livraient en français, deux d'entre elles (`Panel` et `Modal`)
-sans aucune prop pour le surcharger. Une
-interface en anglais annonçait « Fermer le panneau », « Retirer » et
-« Chargement… », sur chaque panneau et chaque spinner de l'application. Chacune
-passe désormais par `t('common.*')` par défaut, et accepte une prop optionnelle
-pour les appelants qui ont mieux à dire. Un bloc de `tests/i18n-parity.test.js`
-échoue sur toute prop en forme de libellé affectée à une chaîne littérale sous
-`src/ui` : les contrôles de parité FR/EN ne pouvaient pas attraper ça, car une
-phrase qui n'atteint aucun dictionnaire est parfaitement cohérente entre deux
-dictionnaires.
+**No primitive hard-codes a label.** `Panel`, `Modal`, `Chip`, `Spinner` and
+`MockyLoader` all carry an accessible name that is the *entire* name of a control
+with no text in it — a close cross, a spinning ring — and all five shipped it as
+a French sentence, two of them (`Panel` and `Modal`) with no prop to override it
+at all. An English interface
+announced "Fermer le panneau", "Retirer" and "Chargement…", on every panel and
+every spinner in the app. Each one now defaults through `t('common.*')` and takes
+an optional prop for the callers that can say something more specific. A block in
+`tests/i18n-parity.test.js` fails on any label-shaped prop assigned a literal
+under `src/ui`: the FR/EN parity checks could never have caught this, because a
+sentence that reaches no dictionary is perfectly consistent between two of them.
 
-## Les garde-fous
+## The guardrails
 
-> **Pourquoi c'est ainsi —** Le contraste est l'une des rares qualités d'une interface qu'une machine peut trancher seule : c'est un nombre, calculé à partir de deux couleurs, comparé à un seuil publié. Il est branché sur le fichier livré, et non sur une copie de ses valeurs : une teinte retouchée à la main fait donc échouer la suite tout de suite, au lieu d'attendre qu'un utilisateur ne voie plus un libellé.
+:::why
+Contrast is one of the few qualities of an interface a machine can settle on its own: it is a number, computed from two colours and compared to a published threshold. The check is wired to the file that ships, and not to a copy of its values: a hue retouched by hand therefore fails the suite straight away, instead of waiting for a user to stop being able to see a label.
+:::
 
 ```bash
 npx vitest run tokens-contrast
 ```
 
-[`tests/tokens-contrast.test.js`](../tests/tokens-contrast.test.js) lit le vrai fichier de jetons et vérifie **chaque paire texte/fond** contre WCAG AA, dans les deux thèmes. Il vérifie aussi que les deux thèmes déclarent exactement les mêmes jetons — un jeton présent d'un côté seulement, c'est précisément comme une couleur retombe silencieusement sur la valeur de l'autre thème.
+[`tests/tokens-contrast.test.js`](../tests/tokens-contrast.test.js) reads the real token file and checks **every text/background pair** against WCAG AA, in both themes. It also checks that both themes declare exactly the same tokens — a token present on one side only is precisely how a colour silently falls back to the other theme's value.
 
-Ce test existe à cause de ce qui a été mesuré sur l'ancienne version :
+This test exists because of what was measured on the old version:
 
-| Ancien | Contraste réel |
+| Old | Actual contrast |
 |---|---|
-| `text-slate-500` | 3,75:1 (sombre) · 2,09:1 (beige) · 2,34:1 (Mocky) |
-| `text-slate-600` | 2,36:1 |
-| bouton « Frame » actif (`bg-slate-700 text-white`) | **1,21:1** — le fond était remappé pour les thèmes clairs, le texte jamais. Le libellé du bouton actif était invisible. |
+| `text-slate-500` | 3.75:1 (dark) · 2.09:1 (beige) · 2.34:1 (Mocky) |
+| `text-slate-600` | 2.36:1 |
+| the active "Frame" button (`bg-slate-700 text-white`) | **1.21:1** — the background was remapped for the light themes, the text never was. The active button's label was invisible. |
 
-## Modifier le système
+## Changing the system
 
-> **Pourquoi c'est ainsi —** Un système centralisé ne tient que si la manière de le modifier est écrite quelque part : sinon la première urgence le contourne et repose une couleur en dur dans un composant. Les trois gestes rappelés ici — déclarer la couleur dans les deux thèmes, l'exposer dans `tailwind.config.js`, ajouter sa paire au test de contraste — sont ceux que personne n'énonçait dans l'ancienne version, celle où 83 des 109 classes de couleur ne suivaient aucun thème.
+:::why
+A centralised system only holds if the way to modify it is written down somewhere: otherwise the first emergency goes around it and puts a hard-coded colour back into a component. The three moves recalled here — declare the colour in both themes, expose it in `tailwind.config.js`, add its pair to the contrast test — are the ones nobody stated in the old version, the one where 83 of the 109 colour classes followed no theme at all.
+:::
 
-- **Changer l'accent** : une variable, dans les deux blocs de thème. Rien d'autre.
-- **Ajouter un thème** : dupliquer un bloc de jetons. Aucun composant à toucher.
-- **Ajouter une couleur** : demandez-vous d'abord si c'est un *rôle* existant. Si oui, utilisez le jeton. Sinon, ajoutez le jeton **dans les deux thèmes**, exposez-le dans `tailwind.config.js`, et ajoutez sa paire au test de contraste.
+- **Changing the accent**: one variable, in both theme blocks. Nothing else.
+- **Adding a theme**: duplicate a token block. No component to touch.
+- **Adding a colour**: first ask yourself whether it is an existing *role*. If it is, use the token. If not, add the token **in both themes**, expose it in `tailwind.config.js`, and add its pair to the contrast test.
 
-## Ce qui n'a pas été fait, et pourquoi
+## What was not done, and why
 
-> **Pourquoi c'est ainsi —** Une option écartée sans laisser de trace revient tous les six mois et se réévalue de zéro ; consignée avec sa raison, elle ne se rediscute que si la raison a changé. Celle-ci est particulière à un générateur : le vocabulaire de classes que Mocky écrit dans les maquettes est déjà parti chez les utilisateurs, dans des écrans qu'ils ont produits et exportés, et qu'aucune mise à jour de l'outil ne peut aller corriger.
+:::why
+An option dismissed without leaving a trace comes back every six months and is re-evaluated from scratch; recorded together with its reason, it is only reopened if the reason has changed. This one is peculiar to a generator: the vocabulary of classes Mocky writes into mockups has already left for its users, inside screens they produced and exported, and that no update to the tool can go back and fix.
+:::
 
-**Pas de migration vers Tailwind 4.** Le gain principal (variables natives) est déjà obtenu en v3 par `rgb(var(--x) / <alpha-value>)`. La v4 impose `shadow-sm`→`shadow-xs`, `outline-none`→`outline-hidden`, change l'anneau par défaut, supprime la config JS au profit de `@theme`, déplace le CDN Play vers `@tailwindcss/browser` — et surtout **invaliderait les classes v3 des écrans déjà générés** ainsi que toute la chaîne d'export (`src/lib/export/`). Coût réel, bénéfice utilisateur nul.
+**No migration to Tailwind 4.** The main gain (native variables) is already obtained in v3 through `rgb(var(--x) / <alpha-value>)`. v4 forces `shadow-sm`→`shadow-xs`, `outline-none`→`outline-hidden`, changes the default ring, drops the JS config in favour of `@theme`, moves the Play CDN to `@tailwindcss/browser` — and above all **would invalidate the v3 classes of screens already generated**, along with the whole export chain (`src/lib/export/`). Real cost, zero user benefit.

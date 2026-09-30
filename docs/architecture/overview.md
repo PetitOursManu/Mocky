@@ -41,7 +41,7 @@ This "no database, no native dependencies" posture is a de facto invariant, and
 the `node:22-slim` image depends on it holding. `impeccable` does not weaken it:
 its six runtime dependencies are all pure JavaScript, and the Puppeteer it
 declares is **optional**, for a URL-scanning engine Mocky never calls. See
-[invariants](architecture/invariants.md) for why that flag lives in the Dockerfile and not in
+[invariants](invariants.md) for why that flag lives in the Dockerfile and not in
 an `.npmrc`.
 
 ---
@@ -64,7 +64,7 @@ export type CapabilityKind = 'cdn-script' | 'cdn-css' | 'snippet-pack'
 The `cdn-*` names are historical. **No capability points at a third party.**
 `daisyui` loads `/vendor/daisyui.min.css` and `motion-lib` loads
 `/vendor/motion.js`, both served by the same server that served the page. That is
-[invariant I3](architecture/invariants.md), and it is about the *dependency*, not
+[invariant I3](invariants.md), and it is about the *dependency*, not
 about the shape of the tag.
 
 ### What ships
@@ -315,7 +315,7 @@ in both directions: a documented component that no snippet exports, or an export
 with no component metadata.
 
 The `exports` list is written by hand, never derived from the source. That is
-[invariant I1](architecture/invariants.md) applied to the prelude itself.
+[invariant I1](invariants.md) applied to the prelude itself.
 
 ### The prelude
 
@@ -450,7 +450,7 @@ options: { temperature: 0.4, num_ctx: 32768, num_predict: 16384 }
 A full screen easily exceeds 8 000 tokens. When the cap is hit the code is cut
 mid-string and the preview shows an incomprehensible syntax error, so the budget
 is generous. `num_predict` must stay strictly positive — see
-[invariant I8](architecture/invariants.md).
+[invariant I8](invariants.md).
 
 Truncation is detected through `done_reason` or `finish_reason` being `length`,
 including via `choices[0]`, and reported to the user in plain words.
@@ -488,7 +488,7 @@ for a slop finding, which *is* a styling problem — a model told not to restyle
 hands the screen back unchanged and burns an iteration. `POLISH_PROMPT` invites
 visual change, which is right there and wrong for an accessibility pass, where a
 semantics correction returned as a redesign has failed even with every finding
-gone. See [SEO and accessibility](seo-accessibility.md) for the third one's
+gone. See [SEO and accessibility](../seo-accessibility.md) for the third one's
 own loop. In each case the findings are filtered by the caller to those the
 policy marks enforceable, so a pass is never spent on a rule Mocky has decided
 not to insist on.
@@ -520,7 +520,7 @@ selector is passed only as a last-resort hint.
 
 `guardMotion()` runs every output through `stripForbiddenMotion()`, a real Babel
 AST walk rather than a regular expression. See
-[Animations](muse/animations.md).
+[Animations](../muse/animations.md).
 
 ---
 
@@ -596,7 +596,7 @@ three that still answers "the last one generated" in all of those cases.
 
 Two controls in the zoom bar expose all of this — `Fit all` and `Zoom to the
 latest screen`. Their labels, their icons and what they cost are in
-[The interface](interface.md#the-zoom-bar).
+[The interface](../interface.md#the-zoom-bar).
 
 ---
 
@@ -617,7 +617,7 @@ open panels is a state the type cannot express — and a fourth panel arriving
 cannot forget a clear nobody wrote. It is the kind of detail a legend should
 carry, because nothing on screen explains why turning one on turns another off.
 Every control in that toolbar is documented, with its exact label and what it
-costs, in [The interface](interface.md#the-project-toolbar).
+costs, in [The interface](../interface.md#the-project-toolbar).
 
 `src/components/Preview.tsx` builds a self-contained HTML document and injects it
 as `srcDoc`.
@@ -631,7 +631,7 @@ as `srcDoc`.
 `allow-scripts` and nothing else. Without `allow-same-origin` the origin is
 opaque: no `localStorage`, no cookies, no access to the parent DOM. Blob URLs are
 same-origin relative to that opaque origin, so the compiled module runs without
-CORS. This is [invariant I2](architecture/invariants.md).
+CORS. This is [invariant I2](invariants.md).
 
 A test reads the source file and requires **exact equality** of the attribute,
 not a substring match. `"allow-scripts allow-same-origin"` contains
@@ -700,7 +700,7 @@ comes from a `blob:null` origin.
 The boundary catches it with the real message and the component stack, and posts
 it to the parent. That feeds both the error box and `fixComponent`. It only ever
 fires on real errors, which is
-[invariant I5](architecture/invariants.md).
+[invariant I5](invariants.md).
 
 React error #130 is rewritten before being reported, because its minified message
 teaches nothing:
@@ -1040,7 +1040,7 @@ findings that were found, an audit that says which dimensions were actually
 looked at, and a notice naming what did not run. A `4xx` would instead say "this
 screen could not be checked", which is untrue, and the browser would raise it as
 a failure over a screen that had generated perfectly well. Degrade, never fail —
-[invariant Q1](architecture/invariants.md).
+[invariant Q1](invariants.md).
 
 ---
 
@@ -1102,7 +1102,7 @@ rather than pretending otherwise.
 
 **This is not Motion Ultra**, which shares only the word. That one turns
 images from the media library into an `.mp4` on a separate, opt-in Docker service
-and never touches a screen — see [Motion Ultra](video-export.md).
+and never touches a screen — see [Motion Ultra](../video-export.md).
 
 ---
 
@@ -1166,7 +1166,7 @@ Remotion to every operator who never asked for it — which is a licensing
 regression, not a size one, and no later test can un-ship it. The same suite
 refuses a queue server or a database driver, because a job runner is exactly the
 feature somebody reaches for Redis to build. See
-[Motion Ultra](video-export.md).
+[Motion Ultra](../video-export.md).
 
 Alongside those: `registry.test.ts` for registry invariants at load time,
 `ssrf-guard.test.js`, `routes-auth.test.js`,

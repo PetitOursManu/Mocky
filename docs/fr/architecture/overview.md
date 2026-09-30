@@ -1,3 +1,7 @@
+---
+source_hash: eb3a747ffc8f
+---
+
 # Vue d'ensemble de l'architecture
 
 ## 1. Où vit chaque chose
@@ -42,7 +46,7 @@ Cette posture « pas de base de données, pas de dépendance native » est un
 invariant de fait, et l'image `node:22-slim` repose dessus. `impeccable` ne
 l'affaiblit pas : ses six dépendances d'exécution sont toutes en JavaScript pur,
 et le Puppeteer qu'il déclare est **optionnel**, pour un moteur d'analyse d'URL
-que Mocky n'appelle jamais. Voir les [invariants](fr/architecture/invariants.md) pour savoir
+que Mocky n'appelle jamais. Voir les [invariants](invariants.md) pour savoir
 pourquoi ce drapeau vit dans le Dockerfile et pas dans un `.npmrc`.
 
 ---
@@ -65,7 +69,7 @@ export type CapabilityKind = 'cdn-script' | 'cdn-css' | 'snippet-pack'
 Les noms `cdn-*` sont un héritage. **Aucune capacité ne pointe vers un tiers.**
 `daisyui` charge `/vendor/daisyui.min.css` et `motion-lib` charge
 `/vendor/motion.js` : les deux sont servis par le serveur qui a servi la page.
-C'est [l'invariant I3](fr/architecture/invariants.md), et il porte sur la
+C'est [l'invariant I3](invariants.md), et il porte sur la
 *dépendance*, pas sur la forme de la balise.
 
 ### Ce qui est livré
@@ -329,7 +333,7 @@ importé, et elle lève dans les deux sens : un composant documenté qu'aucun
 snippet n'exporte, ou un export sans métadonnées.
 
 La liste `exports` est écrite à la main, jamais déduite du code source. C'est
-[l'invariant I1](fr/architecture/invariants.md) appliqué au prélude lui-même.
+[l'invariant I1](invariants.md) appliqué au prélude lui-même.
 
 ### Le prélude
 
@@ -470,7 +474,7 @@ options: { temperature: 0.4, num_ctx: 32768, num_predict: 16384 }
 Un écran complet dépasse facilement 8 000 jetons. Quand le plafond est atteint,
 le code est coupé au milieu d'une chaîne et l'aperçu affiche une erreur de
 syntaxe incompréhensible : le budget est donc large. `num_predict` doit rester
-strictement positif — voir [l'invariant I8](fr/architecture/invariants.md).
+strictement positif — voir [l'invariant I8](invariants.md).
 
 La coupure est détectée via `done_reason` ou `finish_reason` valant `length`, y
 compris à travers `choices[0]`, et signalée à l'utilisateur en clair.
@@ -511,7 +515,7 @@ problème de style — un modèle à qui l'on interdit de restyler rend l'écran
 inchangé et brûle une itération. `POLISH_PROMPT` invite au changement visuel, ce
 qui est juste là et faux pour une passe d'accessibilité : une correction de
 sémantique rendue sous forme de refonte a échoué même si plus aucun défaut ne
-subsiste. Voir [SEO et accessibilité](fr/seo-accessibility.md) pour la boucle
+subsiste. Voir [SEO et accessibilité](../seo-accessibility.md) pour la boucle
 propre au troisième. Dans chaque cas, les défauts sont filtrés par l'appelant sur
 ceux que la politique déclare à corriger : une passe n'est donc jamais dépensée
 sur une règle que Mocky a décidé de ne pas imposer.
@@ -546,7 +550,7 @@ le repère le plus solide. Le sélecteur n'est transmis qu'en dernier recours.
 
 `guardMotion()` fait passer chaque sortie par `stripForbiddenMotion()`, un vrai
 parcours d'arbre syntaxique Babel, pas une expression régulière. Voir
-[Animations](fr/muse/animations.md).
+[Animations](../muse/animations.md).
 
 ---
 
@@ -626,7 +630,7 @@ ces cas.
 
 Deux boutons de la barre de zoom exposent tout cela — « Tout afficher » et
 « Zoomer sur le dernier écran ». Leurs libellés, leurs icônes et ce qu'ils
-coûtent sont dans [L'interface](fr/interface.md#la-barre-de-zoom).
+coûtent sont dans [L'interface](../interface.md#la-barre-de-zoom).
 
 ---
 
@@ -649,7 +653,7 @@ un quatrième panneau ne peut pas oublier une remise à zéro que personne n'a
 écrite. C'est exactement le genre de détail qu'une légende doit porter, parce que
 rien à l'écran n'explique pourquoi activer l'un désactive l'autre. Chaque
 contrôle de cette barre est documenté, avec son libellé exact et ce qu'il coûte,
-dans [L'interface](fr/interface.md#la-barre-doutils-du-projet).
+dans [L'interface](../interface.md#la-barre-doutils-du-projet).
 
 `src/components/Preview.tsx` construit un document HTML autonome et l'injecte en
 `srcDoc`.
@@ -664,7 +668,7 @@ dans [L'interface](fr/interface.md#la-barre-doutils-du-projet).
 d'origine propre : pas de `localStorage`, pas de cookies, pas d'accès au DOM du
 parent. Les URL `blob:` sont considérées de même origine que ce document, donc le
 module compilé s'exécute sans CORS. C'est
-[l'invariant I2](fr/architecture/invariants.md).
+[l'invariant I2](invariants.md).
 
 Un test lit le fichier source et exige l'**égalité exacte** de l'attribut, pas
 une correspondance partielle. `"allow-scripts allow-same-origin"` contient
@@ -735,7 +739,7 @@ synchrone, donc elle s'échapperait vers `window.onerror` sous la forme d'un
 La frontière l'attrape avec le vrai message et la pile de composants, et la
 transmet au parent. Cela alimente à la fois la boîte d'erreur et `fixComponent`.
 Elle ne se déclenche que sur de vraies erreurs, c'est
-[l'invariant I5](fr/architecture/invariants.md).
+[l'invariant I5](invariants.md).
 
 L'erreur React #130 est reformulée avant d'être signalée, parce que son message
 minifié n'apprend rien :
@@ -1090,7 +1094,7 @@ défauts trouvés, un audit qui dit quelles dimensions ont réellement été
 examinées, et une note qui nomme ce qui n'a pas tourné. Un `4xx` dirait « cet
 écran n'a pas pu être vérifié », ce qui est faux, et le navigateur le
 remonterait comme un échec au-dessus d'un écran généré sans le moindre problème.
-Dégrader, jamais échouer — [l'invariant Q1](fr/architecture/invariants.md).
+Dégrader, jamais échouer — [l'invariant Q1](invariants.md).
 
 ---
 
@@ -1156,7 +1160,7 @@ l'export le dit plutôt que de faire semblant.
 **Ce n'est pas Motion Ultra**, avec lequel il ne partage que le mot. Celui-là
 transforme des images de la médiathèque en `.mp4` sur un service Docker séparé et
 facultatif, et ne touche jamais à un écran — voir
-[Motion Ultra](fr/video-export.md).
+[Motion Ultra](../video-export.md).
 
 ---
 
@@ -1226,7 +1230,7 @@ l'ont jamais demandé — ce qui est une régression de licence, pas de taille, 
 qu'aucun test ultérieur ne peut dé-livrer. La même suite refuse un serveur de
 file d'attente ou un pilote de base de données, car un exécuteur de tâches est
 exactement la fonctionnalité pour laquelle on tend la main vers Redis. Voir
-[Motion Ultra](fr/video-export.md).
+[Motion Ultra](../video-export.md).
 
 À côté : `registry.test.ts` pour les invariants du registre au chargement,
 `ssrf-guard.test.js`, `routes-auth.test.js`,

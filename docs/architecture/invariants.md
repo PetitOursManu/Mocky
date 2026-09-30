@@ -5,7 +5,7 @@ preference. Each exists because a specific class of bug happened, or because
 working around it would break something non-obvious.
 
 They were referenced by number in code comments — `invariant 1/2/3/5/8` — without
-being collected anywhere. [ADR 001](adr/001-muse.md) wrote them down; this page
+being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
 There are five series:
@@ -760,7 +760,7 @@ film is ever made on its own.
 ## Series D — the admin dashboard
 
 These five came with the admin dashboard (`server/admin/`,
-`src/components/admin/`, [its page](admin-dashboard.md)): the first part of
+`src/components/admin/`, [its page](../admin-dashboard.md)): the first part of
 Mocky that watches the other parts, and so the first that could learn — and show
 to somebody else — what people do with it.
 
@@ -897,7 +897,7 @@ the worker on a public host can pass `assertSafeTargetResolved` back in.
 
 The rest of the feature this belongs to — why the worker is a separate image at
 all, and why the model that describes a film never writes the code that renders
-it — is in [Motion Ultra](video-export.md).
+it — is in [Motion Ultra](../video-export.md).
 
 The fourth exists for the worker's reason: moving between two machines on one LAN
 is the ordinary case for a self-hosted tool, and the guard refuses every private
@@ -906,7 +906,7 @@ address. It is typed behind `requireAdmin`, keeps the scheme check and
 normally buys — reading an internal service — it does not buy: every answer is
 sealed under a key derived from the pairing code, so whatever else answers is
 discarded unread. The whole procedure is in
-[Maintenance and migration](migration.md).
+[Maintenance and migration](../migration.md).
 
 Any URL that came from a browser stays fully guarded — including on
 `POST /api/text/vision`. That was the one route taking a base URL from a header,

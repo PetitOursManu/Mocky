@@ -578,229 +578,147 @@ those 3 seconds, or child processes may survive.
 
 ### Resource 2 — the documentation
 
-See the next section. It is a **static** resource, entirely separate: no build,
-no Node, no volume.
+See the next section. It is a **separate, small** resource with its own
+`Dockerfile`: no Chromium, no ffmpeg, and nothing shared with the application
+but the repository.
 
 ---
 
 ## The documentation
 
-Two folders, two resources, deliberately decoupled.
+Two folders, deliberately decoupled.
 
 - **`docs/`** — the content. Markdown files, nothing else.
-- **`docs-site/`** — the viewer. Seven static files.
+- **`docs-site/`** — the site around it: `lumy.config.json`, Mocky's own
+  widgets, and the `Dockerfile` that serves it.
+
+The site is built by [Lumy](https://github.com/PetitOursManu/Lumy), a
+documentation tool written for Mocky and published on its own, open source like
+Mocky. It is the `lumy-docs` development dependency, installed from Lumy's release
+on GitHub, so the version that builds the site in production is the one in
+`package-lock.json`.
 
 ### How it works
 
-`docs-site/index.html` loads Docsify from `./vendor/` and sets:
+Lumy reads `docs/` and writes a static site: one HTML page per page and per
+language, a search index, `llms.txt` for language models, a sitemap. Everything
+the site needs is in the build — no CDN, no third-party font, no request to
+GitHub.
 
-```js
-basePath: 'https://raw.githubusercontent.com/PetitOursManu/Mocky/main/docs/'
-```
+English lives at the root of `docs/`; French lives under `docs/fr/`, path for
+path. A French page that does not exist yet shows the English one, with a notice
+saying so, instead of an error.
 
-The viewer therefore fetches the Markdown **directly from GitHub on every page
-view**. Three consequences:
+`docs-site/lumy.config.json` holds everything that is not prose: the two
+languages, the navigation and who each group is for, the colours (the logo's
+teal), the header links. Old addresses of the form `/#/architecture/overview`
+still land on the right page (`legacyHashRoutes`), so links shared before the
+move keep working.
 
-- **There is no build step, ever.** Publishing documentation means pushing a
-  `.md` to `main`. The site serves it on the next request.
-- **The site does not need redeploying** when content changes.
-- The content must stay **public**. `raw.githubusercontent.com` on a private
-  repository would require a token, which a static page cannot hold.
+> **What changed with the move.** The previous viewer fetched the Markdown from
+> GitHub on every page view, so a pushed `.md` appeared without a redeploy. The
+> site is now built, so **content reaches readers when the resource is
+> redeployed**. With automatic deployment on push, which is how Coolify is
+> usually set up, that is the same thing a few minutes later. In exchange, pages
+> no longer depend on GitHub answering, and they carry search, both languages
+> and the interactive blocks.
 
-> **The converse is the trap.** Everything in `docs-site/` — `index.html`,
-> `mocky.css`, the favicon, the vendored Docsify files — is served by the
-> deployed resource, not fetched from GitHub. Pushing a change to those files to
-> `main` does **nothing** until the static resource is **redeployed**.
->
-> So: a typo fixed in a `.md` appears on the next page load; a new favicon, a
-> changed title, a stylesheet edit or a Docsify upgrade appears only after a
-> redeploy.
-
-### Cache busting: bump `?v=` when you touch `docs-site/`
-
-Every local asset in `index.html` is requested with a version marker:
-
-```html
-<link rel="stylesheet" href="./mocky.css?v=2">
-```
-
-**Change any file under `docs-site/` → bump that number on every asset.**
-
-Without it, a redeploy can leave a visitor running the **new `index.html`
-against the old `mocky.css`**. Static hosts serve stylesheets with a long cache
-lifetime, and a browser holds on to a stylesheet far longer than to the HTML that
-references it.
-
-This is not hypothetical: it happened, and it did not look like a caching
-problem. The page was still themed — just with rules from a previous revision —
-so it read as a styling bug in code that was in fact already correct.
-
-There is no build step here to hash filenames, so the marker is maintained by
-hand. It is one number, in one file.
-
-### Deploying `docs-site/`
-
-Any static host works. On Coolify: a **static** resource, publish directory
-`docs-site/`, no build command, no volume.
-
-The files:
-
-| File | Origin |
-|---|---|
-| `index.html` | Written for this project |
-| `mocky.css` | Written for this project — Mocky's look, transposed from `src/styles/tokens.css` |
-| `favicon.ico` | Copied from `public/favicon.ico` — the application's own icon |
-| `logo.png` | The same artwork, rendered once at 128 px for the sidebar |
-| `vendor/docsify.min.js` | docsify 4.13.1 — `lib/docsify.min.js` |
-| `vendor/docsify-theme.css` | docsify 4.13.1 — `lib/themes/vue.css`, patched |
-| `vendor/docsify-search.min.js` | docsify 4.13.1 — `lib/plugins/search.min.js` |
-
-### The look
-
-`mocky.css` loads after the vendored `vue.css` and overrides it. The values are
-not invented: they are transposed from `src/styles/tokens.css` and
-`tailwind.config.js`, so the documentation and the application agree.
-
-What that gives, restated from the application's own token file — *black and
-white, 1px rules, no radius, no shadow, one signature flat*:
-
-| Element | Treatment |
-|---|---|
-| Background | Newsprint, not screen white. Pure `#fff` reads as "app" |
-| Headings | The serif stack, tightened. No webfont is loaded — the faces ship with Windows and macOS, so the page needs no third-party request |
-| Sidebar group titles | A kicker: 11 px, uppercase, letterspaced `0.14em`, with a rule under it |
-| Sidebar links | A chevron on the left, and the teal on the active page |
-| Corners | `0` everywhere, as in the application |
-| Accent | The logo's teal, and it is the only chromatic colour in the chrome |
-
-There is one structural surprise worth knowing before editing it. Docsify renders
-a sidebar group as `<li>Architecture<ul>…</ul></li>`: **the title is a bare text
-node**, not an element. The vue theme's own `.sidebar li > p` rule therefore
-matches nothing. So the type is set on the `<li>` and every child link resets it,
-and the group underline is drawn as the nested list's top border — which lands
-exactly under the title.
-
-### The theme switch
-
-A button at the bottom of the sidebar, and the preference is remembered.
-
-The theme is applied by an inline script in `<head>`, synchronously, before the
-first paint. That is the same trick and the same reason as the application's own
-`index.html`: running it later means the first frame is already on screen, so
-opening the page in the dark theme flashes light on every single load.
-
-With nothing stored it follows the operating system, through
-`prefers-color-scheme`. The key is `mocky.docs.theme`, namespaced to the
-documentation — this is a different origin from the application, so the two
-preferences cannot be shared anyway.
-
-### The favicon
-
-The documentation tab carries the same icon as the application tab. The file is
-copied rather than linked, so `docs-site/` stays self-contained and fetches
-nothing from another host.
-
-It is the `.ico` and not the `.svg`, deliberately. `public/favicon.svg` is a
-1141×1107 PNG wrapped in an SVG element — 665 KB, which a documentation page
-would re-request on every navigation. The `.ico` holds the same artwork at 16,
-32 and 48 px for 15 KB, and every browser reads it.
-
-If the application's icon changes, copy it again:
+### Previewing locally
 
 ```bash
-cp public/favicon.ico docs-site/favicon.ico
+npm run docs
 ```
 
-Then **redeploy the static resource** — see the warning above. A favicon pushed
-to `main` but not redeployed leaves the tab showing the browser's blank-document
-icon, which is exactly what a missing favicon looks like.
+That serves the site on `http://127.0.0.1:4173` and rebuilds it on every save,
+in both languages. Before pushing a change to the documentation:
 
-Browsers also cache a favicon aggressively, including the *absence* of one. After
-a redeploy, confirm with a hard reload, or by opening `<your-domain>/favicon.ico`
-directly: it must answer `200` with `image/x-icon`.
-
-### The tab title
-
-Docsify names the tab after the **first sidebar link matching the current
-route**. The language block sits at the top of the sidebar and its English entry
-points at `/`, so the home page ended up titled "English" and the French home
-"Français" — the language name, not the page.
-
-A small plugin in `index.html` sets the title itself on every route: `Doc Mocky`
-on the home pages, `Doc Mocky — <page>` elsewhere. The site name comes first
-because a browser tab is narrow, and the first few characters are the only ones
-anyone reads.
-
-### Why Docsify is vendored
-
-The same rule as `public/vendor/` on the application side, for the same reason.
-
-The upstream theme opens with:
-
-```css
-@import url("https://fonts.googleapis.com/css?family=Roboto+Mono|Source+Sans+Pro:300,400,600");
+```bash
+npm run docs:check
 ```
 
-That is a request to a third-party CDN on every page load — exactly the
-dependency the local copy exists to remove. The line was removed and the removal
-is documented at the top of the file. Both families already declare local
-fallbacks in the rules below, so nothing else changes.
+It fails on a broken link, an image that does not exist, or a
+block Lumy does not know. CI runs it on every push. The previous viewer showed
+those mistakes to readers instead.
 
-**Re-apply this after any Docsify version bump.**
+### Deploying the site
 
-### Languages
+| Coolify setting | Value | Why |
+|---|---|---|
+| Build type | **Dockerfile** | |
+| Dockerfile | `./docs-site/Dockerfile`, build context the repository root | It needs both `docs/` and `docs-site/` |
+| Exposed port | `4000` | |
+| Health check | `GET /_lumy/api/health` | |
+| Persistent volume | mounted at `/data` | The dashboard account and the readers' feedback. The pages themselves are rebuilt at every start |
+| Domain | `mocky-docs.emanuelvigreux.fr` | Coolify's proxy terminates TLS |
 
-English is the default and lives at the root of `docs/`. French lives under
-`docs/fr/`, with its own `_sidebar.md`.
+Variables to set in Coolify:
 
-`index.html` maps every nested sidebar request back to the right one:
-
-```js
-alias: {
-  '/fr/.*_sidebar.md': '/fr/_sidebar.md',
-  '/.*_sidebar.md': '/_sidebar.md',
-}
+```bash
+LUMY_TRUST_PROXY=1               # Coolify's proxy sits in front
+LUMY_ADMIN_USER=…                # creates the dashboard account at first start
+LUMY_ADMIN_PASSWORD=…
+# LUMY_SECRET=…                  # optional: encrypts the API keys saved in the
+                                 # dashboard; without it, a key is created in /data
 ```
 
-Order matters: the `/fr/` rule must come first, because Docsify returns the first
-match and `/.*/_sidebar.md` would also match a French path.
+**Set the two `LUMY_ADMIN_*` variables before the first deploy.** Like Mocky
+itself, the first account created becomes the administrator; on a public domain,
+whoever opens `/_lumy/setup` first would otherwise get it.
 
-`fallbackLanguages: ['fr']` means a French page that does not exist falls back to
-its English equivalent instead of showing an error.
+Reading needs no account: the site is public and registration stays closed. The
+account only opens the dashboard at `/_lumy/admin`, where the answers to "Was
+this page helpful?" arrive, each with the page and, when the reader wrote one,
+what was missing. The dashboard is also where Lumy's reader assistant can be
+switched on later, with a local Ollama or a hosted model.
 
-### The language switch
+A plain static host works too: `npm run docs:build` writes the site to
+`docs-site/dist/`. Set `"feedback": false` in `lumy.config.json` first, since a
+static host has nowhere to send the answers.
 
-Two tabs under the masthead, built by a plugin in `index.html` — **not** an entry
-in `_sidebar.md`.
+### Translations
 
-That distinction was learned the hard way. As a sidebar group, the English link
-pointed at `/`, which is the same route as "Home". Docsify marks the **first**
-sidebar link matching the current route as the active page and hangs that page's
-table of contents underneath it — so on the home page the language block became
-the active item and swallowed the whole contents list, with "Français" stranded
-below it. Choosing a language is a preference, like the theme; it is not a page
-in the document tree, and the sidebar now lists documents only.
+Every French page starts with a `source_hash`: a fingerprint of the English page
+it translates. When the English page changes, the fingerprint no longer matches,
+the French page shows readers a notice that it may be behind, and
+`npm run docs:check` lists it.
 
-Each tab carries a small flag drawn as **inline SVG**, not as an emoji: the
-regional-indicator emoji (🇬🇧, 🇫🇷) render as bare letter pairs on Windows, which
-is the platform this project is developed on. Each flag also carries a
-one-pixel outline — without it the white band of the French flag disappears
-against the sidebar and the flag reads as two loose rectangles.
+After bringing a translation up to date, record it:
 
-The current language is marked with `aria-current`, not only with colour.
+```bash
+npx lumy translations --root docs-site --stamp fr/deployment
+```
+
+`--stamp fr` records every French page at once — only after checking them all.
+The changelog is the exception: `scripts/build-changelog.mjs` writes both
+languages from the same history, so its French page says `generated: true` and
+is never counted as behind.
+
+`tests/docs-parity.test.js` keeps the two trees in step: the same pages, the
+same headings at the same levels, and a reasoned `:::why` block under every
+heading of the three documents that explain their decisions.
+
+### Mocky's own blocks
+
+Two pages show real data rather than a copy of it: `:::widget presets` draws the
+preset gallery and `:::widget rules` the quality rules. `docs-site/widgets.js`
+registers both with Lumy and reads `docs-site/data/*.json`, which
+`scripts/build-docs-data.mjs` generates from the application's own sources.
+`npm run check:docs-data` fails when the two drift apart.
+
+The text inside each block is the fallback: it is what search indexes, and what
+a reader without JavaScript sees.
 
 ### Adding a page
 
-1. Create the `.md` file under `docs/`, and its translation under `docs/fr/`.
-2. Add it to `docs/_sidebar.md` and `docs/fr/_sidebar.md`.
-3. Push.
+1. Create the `.md` file under `docs/`, and its translation under `docs/fr/` at
+   the same path.
+2. Add its path, without `.md`, to `nav` in `docs-site/lumy.config.json`. Give
+   it an `audience` if it is for one kind of reader only.
+3. Run `npm run docs:check`, then push.
 
-Two rules make links work:
+Links are ordinary Markdown links, **relative to the current file**, the way
+GitHub reads them: from `architecture/overview.md`, write `invariants.md` for its
+neighbour and `../deployment.md` for this page. A link that leaves `docs/` — to
+`src/` or `server/` — opens the file on GitHub.
 
-**Always write paths from the root of `docs/`**, never relative to the current
-page. From `architecture/overview.md`, write `architecture/invariants.md`, not
-`invariants.md`. Docsify resolves everything from `basePath`.
-
-**`docs/README.md` is Docsify's required homepage.** Without it the site shows a
-silent fetch error on first load. The same applies to `docs/fr/README.md` for the
-French tree.
+`docs/README.md` is the home page, and `docs/fr/README.md` the French one.

@@ -2,9 +2,9 @@
 /**
  * Writes docs/CHANGELOG.md and docs/fr/CHANGELOG.md from the git history.
  *
- * The documentation site has no build step — publishing means pushing a `.md`
- * file — so a changelog has to exist as committed Markdown rather than as
- * something assembled at request time. This generates it.
+ * The documentation site is built by Lumy from the Markdown in `docs/`, so a
+ * changelog has to exist as committed Markdown rather than as something
+ * assembled at request time. This generates it.
  *
  * ── What it does NOT do, and why ─────────────────────────────────────────────
  *
@@ -20,9 +20,9 @@
  * beginning with "# " would become a phantom heading in the rendered page.
  *
  * It groups by MONTH, not by release: there are no tags in this repository, so
- * there is no version axis to group on. Docsify lifts every `##` into the
- * sidebar table of contents (`subMaxLevel: 2`), which is exactly why one
- * heading per release across 170-odd commits would be unreadable.
+ * there is no version axis to group on. Lumy lists every `##` in the page's
+ * table of contents, which is exactly why one heading per release across
+ * 170-odd commits would be unreadable.
  *
  * Run: npm run changelog
  * Also run by .github/workflows/changelog.yml after a push to main.
@@ -127,8 +127,6 @@ function render(commits, lang) {
   const L = fr
     ? {
         h1: 'Journal des modifications',
-        switch: '[English](../CHANGELOG.md) · **Français**',
-        why: 'Pourquoi c’est ainsi',
         intro:
           'Cette page est produite à partir de l’historique Git par `npm run changelog`. Les messages de commit de ce dépôt sont écrits en français : ils sont reproduits **tels quels**, sans traduction, parce qu’un intitulé traduit posé à côté d’une empreinte renvoie vers un commit dont le texte dit autre chose — et le lecteur ne peut alors chercher ni l’un ni l’autre.',
         colScope: 'Portée',
@@ -138,8 +136,6 @@ function render(commits, lang) {
       }
     : {
         h1: 'Changelog',
-        switch: '**English** · [Français](fr/CHANGELOG.md)',
-        why: 'Why it works this way',
         intro:
           'This page is generated from the Git history by `npm run changelog`. Commit messages in this repository are written in French, and are reproduced **verbatim** rather than translated: a translated subject sitting beside a hash points at a commit whose text says something else, and the reader can then search for neither.',
         colScope: 'Scope',
@@ -148,7 +144,11 @@ function render(commits, lang) {
         empty: 'No entries.',
       }
 
-  const out = [`# ${L.h1}`, '', L.switch, '', `> **${L.why} —** ${L.intro}`, '']
+  // No language switch: the site draws one. The reason sits in a :::why block,
+  // which Lumy folds away under its "why it works this way" label.
+  // The French file is written together with the English one, from the same
+  // history: "generated" tells Lumy it cannot fall behind its source.
+  const out = [...(fr ? ['---', 'generated: true', '---', ''] : []), `# ${L.h1}`, '', ':::why', L.intro, ':::', '']
 
   const months = byMonth(commits)
   if (!months.length) {
@@ -174,9 +174,8 @@ function render(commits, lang) {
 }
 
 const commits = log()
-// Both files or neither: Docsify's `fallbackLanguages: ['fr']` silently serves
-// the English page when the French twin is missing, so a half-written pair
-// looks correct and is not.
+// Both files or neither: Lumy serves the English page when the French twin is
+// missing, so a half-written pair would look nearly correct and not be.
 fs.writeFileSync(path.join(root, 'docs', 'CHANGELOG.md'), render(commits, 'en'), 'utf8')
 fs.writeFileSync(path.join(root, 'docs', 'fr', 'CHANGELOG.md'), render(commits, 'fr'), 'utf8')
 

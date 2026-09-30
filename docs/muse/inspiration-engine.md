@@ -167,7 +167,7 @@ If nothing matches — an unusual request — it falls back to the general `land
 galleries, so there is always something to fetch.
 
 Each source carries a `parser` field, currently always `"generic"`.
-[The ADR](adr/001-muse.md) settled this: **generic parser only in v1**, using the
+[The ADR](../adr/001-muse.md) settled this: **generic parser only in v1**, using the
 Readability path. Awwwards markup churns, and a bespoke parser would be brittle.
 The field exists so more can be added later without changing the file shape.
 

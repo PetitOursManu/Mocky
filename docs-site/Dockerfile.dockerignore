@@ -1,0 +1,10 @@
+# Used instead of the root .dockerignore when building docs-site/Dockerfile:
+# the documentation image needs the prose, its site folder and the lockfile
+# that pins Lumy, and nothing else from the repository.
+*
+!docs
+!docs-site
+!package-lock.json
+docs-site/dist
+docs-site/.lumy
+docs-site/.dist.*

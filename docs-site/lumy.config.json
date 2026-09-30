@@ -1,0 +1,52 @@
+{
+  "title": "Mocky",
+  "description": "A self-hosted, conversation-driven screen generator: describe a screen and get a real React + Tailwind component on an infinite canvas.",
+  "url": "https://mocky-docs.emanuelvigreux.fr",
+  "docsDir": "../docs",
+  "outDir": "dist",
+  "logo": "assets/logo.png",
+  "favicon": "assets/favicon.ico",
+  "version": "v0.2",
+  "languages": ["en", "fr"],
+  "theme": { "brand": "#20796c", "brandDark": "#2dc7b0" },
+  "github": "https://github.com/PetitOursManu/Mocky",
+  "editUrl": "https://github.com/PetitOursManu/Mocky/edit/main/docs/{path}",
+  "issuesUrl": "https://github.com/PetitOursManu/Mocky/issues",
+  "outsideDocsUrl": "https://github.com/PetitOursManu/Mocky/blob/main/docs/",
+  "scripts": ["widgets.js"],
+  "styles": ["widgets.css"],
+  "public": ["data"],
+  "ui": {
+    "en": { "whyLabel": "Why it works this way" }
+  },
+  "links": [
+    { "label": { "en": "Changelog", "fr": "Journal des modifications" }, "href": "CHANGELOG" }
+  ],
+  "audiences": [
+    { "id": "user", "label": { "en": "User", "fr": "Utilisateur" } },
+    { "id": "admin", "label": "Admin" },
+    { "id": "dev", "label": { "en": "Dev", "fr": "Dév" } }
+  ],
+  "feedback": true,
+  "legacyHashRoutes": true,
+  "nav": [
+    {
+      "group": { "en": "Get started", "fr": "Démarrer" },
+      "pages": [
+        "index",
+        { "slug": "getting-started", "audience": ["user", "admin"] },
+        { "slug": "interface", "audience": ["user"] },
+        { "slug": "design-presets", "audience": ["user"] },
+        "glossary"
+      ]
+    },
+    {
+      "group": { "en": "Features", "fr": "Fonctionnalités" },
+      "audience": ["user"],
+      "pages": ["muse/overview", "muse/inspiration-engine", "muse/animations", "quality", "motion-ultra", "video-export", { "slug": "seo-accessibility", "audience": ["user", "dev"] }]
+    },
+    { "group": { "en": "Self-hosting", "fr": "Auto-hébergement" }, "audience": ["admin"], "pages": ["deployment", "migration", "admin-dashboard"] },
+    { "group": "Architecture", "audience": ["dev"], "pages": ["architecture/overview", "architecture/invariants", "adr/001-muse", "DESIGN-SYSTEM"] },
+    { "group": { "en": "Reference", "fr": "Référence" }, "pages": ["CHANGELOG", { "slug": "AUDIT-2026-07", "audience": ["dev"] }] }
+  ]
+}

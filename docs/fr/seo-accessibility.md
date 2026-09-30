@@ -1,3 +1,7 @@
+---
+source_hash: 228babf56968
+---
+
 # SEO et accessibilité
 
 La passe qualité, à côté, demande si un écran ressemble à du remplissage écrit

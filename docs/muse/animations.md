@@ -370,7 +370,7 @@ Before `<Animated>` there was a `motion` capability: twelve CSS-only components 
 
 It is marked `retired: true`: **injected** for screens carrying it in
 `Screen.caps`, **never documented** to the model. The full mechanism is in the
-[architecture overview](architecture/overview.md).
+[architecture overview](../architecture/overview.md).
 
 One UI action deliberately re-enables it: **"Add animations"**, in a screen's
 menu, which layers motion onto an already-generated screen at three intensities —

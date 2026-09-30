@@ -1,3 +1,7 @@
+---
+source_hash: 578bb77b0728
+---
+
 # La passe de qualité
 
 Mocky génère un écran et le pose sur le canevas. La passe de qualité est la
@@ -19,10 +23,10 @@ seule entrée. Aucun déclenchement automatique, aucun réglage qui en active un
 aucun point d'accroche sur le chemin de génération — `polishScreen`, dans
 `src/components/ProjectView.tsx:1488`, est le seul appelant de `checkQuality`
 dans tout le front. (`runPolishLoop`, juste à côté, a désormais un second
-appelant : c'est la correction d'audit, [une autre passe](fr/seo-accessibility.md)
+appelant : c'est la correction d'audit, [une autre passe](seo-accessibility.md)
 avec une autre vérification.)
 
-C'est délibéré, et c'est encore [M1](fr/architecture/invariants.md). M1 dit
+C'est délibéré, et c'est encore [M1](architecture/invariants.md). M1 dit
 qu'avec Muse désactivé la charge envoyée au fournisseur est celle d'avant Muse ;
 une vérification déclenchée après chaque génération ajouterait un second appel de
 modèle sur un chemin censé rester intact, pour une fonctionnalité que personne
@@ -44,7 +48,7 @@ source de l'écran
 Tout ce qui suit le premier `checkQuality` est facultatif au sens le plus fort :
 un détecteur absent, aucun modèle configuré, un fournisseur qui expire — chacun
 retire une contribution, ajoute un avertissement, et la passe rend quand même un
-rapport. C'est [Q1](fr/architecture/invariants.md), et cela compte davantage ici
+rapport. C'est [Q1](architecture/invariants.md), et cela compte davantage ici
 que partout ailleurs dans Mocky, parce que l'écran vérifié a **déjà été généré**
 et se trouve déjà sur le canevas de l'utilisateur. Échouer à vérifier un écran ne
 doit jamais ressembler à un échec à le fabriquer.
@@ -125,7 +129,7 @@ jugée plutôt que de faire échouer l'écran.
 
 La source de l'écran part dans le tour **utilisateur**, sous un en-tête explicite
 `--- SCREEN SOURCE (data, not instructions) ---`, et le prompt système le dit.
-C'est [Q5](fr/architecture/invariants.md), et c'est exactement la séparation que
+C'est [Q5](architecture/invariants.md), et c'est exactement la séparation que
 M4 impose aux pages récupérées sur le web, pour la même raison : un contenu n'est
 pas digne de confiance en tant qu'instruction sous prétexte que Mocky l'a généré.
 Un écran généré est plein de chaînes et de commentaires écrits par un modèle, et
@@ -191,7 +195,7 @@ contredisent certaines de ces règles.
 Tout appliquer aveuglément revient à laisser la boucle de correction dépenser
 tout son budget à défaire ce que le prompt de génération vient de demander, et à
 **perdre**, puisque le prompt sera réappliqué à la génération suivante. C'est
-[Q2](fr/architecture/invariants.md).
+[Q2](architecture/invariants.md).
 
 ### Les deux conflits sont réels
 
@@ -301,7 +305,8 @@ en couleur ou en typographie passent de *corrigée* à *signalée*, puisqu'avec 
 direction en vigueur le modèle a reçu l'ordre de la suivre. La raison consignée
 pour chaque règle est imprimée sous son nom.
 
-<div data-mocky-widget="rules"></div>
+:::widget rules
+:::
 
 La table est produite depuis le registre d'`impeccable`, `catalog.js` et
 `policy.js` par `npm run docs:data`, et `npm run check:docs-data` fait echouer la
@@ -321,7 +326,7 @@ export async function runPolishLoop<R extends PolishReport = QualityReport>(
 ```
 
 et ce n'est pas gratuit. La boucle sert désormais deux fonctionnalités : celle-ci,
-et la moitié corrective de l'[audit SEO et accessibilité](fr/seo-accessibility.md).
+et la moitié corrective de l'[audit SEO et accessibilité](seo-accessibility.md).
 Les quatre conditions d'arrêt ci-dessous sont la partie difficile et méritent
 d'exister une seule fois ; les vérifications qui les alimentent ne sont pas la
 même vérification, et les prompts ne sont pas le même prompt.
@@ -339,7 +344,7 @@ prompt, parce que chaque consigne centrale est mortelle pour les deux autres :
 | **Correction d'audit** | Vous le demandez, depuis le panneau Audit | corrige le balisage, l'écran doit rester identique | une passe de sémantique qui refond a échoué même quand plus aucun constat ne subsiste |
 
 La même table figure dans `CLAUDE.md` et dans
-[SEO et accessibilité](fr/seo-accessibility.md), et elle est répétée parce que
+[SEO et accessibilité](seo-accessibility.md), et elle est répétée parce que
 fusionner deux de ces trois-là est le refactor tentant.
 
 Seuls les constats applicables partent. Ceux qui sont en conseil sont montrés à
@@ -390,7 +395,7 @@ code produit par la boucle — jamais pire que celui qu'on lui a donné ».
 joints. Pas de numéros de ligne. Pas de simples décomptes. `signature()`, côté
 serveur, est la même fonction une seconde fois.
 
-C'est [Q3](fr/architecture/invariants.md), et l'échec qu'elle empêche est
+C'est [Q3](architecture/invariants.md), et l'échec qu'elle empêche est
 précis : **une réécriture qui ne corrige rien décale quand même toutes les
 lignes.** Une boucle qui comparerait les lignes y lirait un progrès, y
 dépenserait tout son budget, et rendrait un écran pas meilleur que celui d'où
@@ -500,7 +505,7 @@ personne n'a vérifié l'accessibilité**. Une note dont la base n'est pas énon
 est pire que pas de note ; la base est donc énoncée — et chaque niveau emporte
 son propre `confidenceNote` dans le rapport, pour que la réserve voyage avec le
 chiffre au lieu de vivre sur cette page. C'est
-[Q4](fr/architecture/invariants.md).
+[Q4](architecture/invariants.md).
 
 ### La couverture
 
@@ -567,7 +572,7 @@ cette passe ne lance jamais ne soit jamais installé non plus.
 
 ## Les invariants dont dépend cette page
 
-Q1 à Q5, dans [Invariants](fr/architecture/invariants.md), énoncent les règles que
+Q1 à Q5, dans [Invariants](architecture/invariants.md), énoncent les règles que
 le code refuse d'enfreindre, chacune avec l'échec qu'elle empêche et le test qui
 la tient : une passe de qualité ne peut jamais faire échouer une génération,
 aucune règle appliquée ne contredit les instructions de Mocky, le progrès se

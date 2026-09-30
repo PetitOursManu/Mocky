@@ -107,13 +107,12 @@ injected for the screens that use it.
 
 ## How this documentation is served
 
-The Markdown files are fetched live from `docs/` on the `main` branch. The page
-you are reading is the Markdown file itself, with no build step. Publishing a
-correction means pushing a commit.
-
-The viewer is seven static files in `docs-site/` — four written for the project,
-three vendored copies of Docsify. It has no npm dependencies and loads nothing
-from a CDN. See [Deployment](deployment.md), which lists them one by one.
+The pages are built by [Lumy](https://github.com/PetitOursManu/Lumy), a
+documentation tool written for Mocky and published on its own, open source. The
+Markdown in `docs/` stays the source; Lumy turns it into a site with search,
+both languages, a light and a dark theme, and blocks a reader can interact with.
+`docs-site/` holds its configuration and Mocky's own widgets. See
+[Deployment](deployment.md), which explains how the site is built and served.
 
 To read the site locally before publishing a change to it:
 
@@ -121,11 +120,9 @@ To read the site locally before publishing a change to it:
 npm run docs
 ```
 
-That serves `docs-site/` on `http://127.0.0.1:4173`. The prose still comes from
-GitHub, so what you preview is the real site at its real length — including a
-sidebar long enough to scroll, which is the condition under which its layout is
-worth checking. Having no local preview at all is how the theme switch came to
-spend a while sitting in the middle of the menu on every narrow screen.
+That serves it on `http://127.0.0.1:4173` and rebuilds it on every save.
+`npm run docs:check` looks for broken links and blocks Lumy does not know, and
+CI runs it on every push.
 
 **Ces pages existent aussi en français : [documentation française](fr/README.md).**
 
@@ -139,14 +136,13 @@ Each of the four now exists in both languages.
 | Document | Subject | English | Français |
 |---|---|---|---|
 | Repository README | The product overview: what Mocky does, and how to install it quickly | `README.md` | `README.fr.md` |
-| ADR 001 — Muse | The full architecture decision record, including the first written statement of the eight original invariants | [001-muse.md](adr/001-muse.md) | [001-muse.fr.md](adr/001-muse.fr.md) |
-| Design system | Mocky's own interface tokens, the Papier and Encre themes, the UI primitives. Not to be confused with the `DESIGN.md` a user supplies for generated screens | [DESIGN-SYSTEM.en.md](DESIGN-SYSTEM.en.md) | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
-| Audit 2026-07 | The multi-agent audit and its roadmap, most of which has since been applied | [AUDIT-2026-07.en.md](AUDIT-2026-07.en.md) | [AUDIT-2026-07.md](AUDIT-2026-07.md) |
+| ADR 001 — Muse | The full architecture decision record, including the first written statement of the eight original invariants | [adr/001-muse.md](adr/001-muse.md) | [fr/adr/001-muse.md](fr/adr/001-muse.md) |
+| Design system | Mocky's own interface tokens, the Papier and Encre themes, the UI primitives. Not to be confused with the `DESIGN.md` a user supplies for generated screens | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) | [fr/DESIGN-SYSTEM.md](fr/DESIGN-SYSTEM.md) |
+| Audit 2026-07 | The multi-agent audit and its roadmap, most of which has since been applied | [AUDIT-2026-07.md](AUDIT-2026-07.md) | [fr/AUDIT-2026-07.md](fr/AUDIT-2026-07.md) |
 
-Each of the eight files carries a language switch on its first useful line, and
-`tests/docs-parity.test.js` holds the pairs together: the same number of
-headings, the same levels in the same order, one "why" block under each of them,
-and never a block in the other language.
+`tests/docs-parity.test.js` holds each pair together: the same number of
+headings, the same levels in the same order, and, in the last three, a "why"
+block under every heading, which the site folds away until it is asked for.
 
 They used to exist in one language each, and that was defended as deliberate —
 an ADR is a dated record, so translating it invites two versions that disagree.
@@ -158,10 +154,7 @@ files, with no way to tell which reader each was written for. The fix is the one
 `src/i18n` had already found — a complete file per language, kept in step by a
 test.
 
-Which is why the filenames read backwards next to the rest of `docs/`, where the
-bare path is English and `fr/` holds the translation. Here each document kept the
-path and the language it already had and gained a twin suffixed with the other
-one, so `DESIGN-SYSTEM.md` is the **French** page and `DESIGN-SYSTEM.en.md` the
-English; the other way round, `adr/001-muse.md` is the **English** page and
-`adr/001-muse.fr.md` the French. Renaming them would break the `DOCS` array in
-the parity test and every inbound link, for a symmetry no reader ever asked for.
+They first gained twins suffixed with the other language, so `DESIGN-SYSTEM.md`
+was the French page and `DESIGN-SYSTEM.en.md` the English one. When the site moved
+to Lumy they joined the rest of `docs/`: the bare path is English, and `fr/`
+holds the translation, path for path.

@@ -34,3 +34,12 @@ server/data/
 # Local data backups produced by `npm run backup` — they contain password
 # hashes, session tokens and every project. Never commit them.
 backups/
+
+# The documentation site: Lumy keeps its sessions, settings and feedback in
+# docs-site/.lumy/, and builds beside dist/ before swapping the two.
+docs-site/.lumy/
+docs-site/.dist.*
+
+# Worktrees that Claude Code sessions create for parallel work: each is a
+# checkout of its own, never part of this one.
+.claude/worktrees/
