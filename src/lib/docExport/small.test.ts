@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { FIELD_ATTR, PAGE_ATTR, PAGE_FORMATS, getPageFormat } from '../pageFormats'
 import { fileBaseName, pageFileName, safeLinkHref } from './files'
-import { orderPages, transformTilts } from './measure'
-import { MAX_RASTER_PIXELS, clipTextInk, hideCss, rasterScale } from './raster'
+import { clipsByStyle, intersectClip, orderPages, transformTilts, visibleFraction, writingModeTilts } from './measure'
+import {
+  MAX_RASTER_PIXELS,
+  PIN_ATTR,
+  clipTextInk,
+  hideCss,
+  needsColorNormalising,
+  pseudoPinCss,
+  rasterScale,
+  replaceColorFunctions,
+  rgbaFromBytes,
+} from './raster'
 import { isWinAnsi, toWinAnsi } from './winAnsi'
 
 describe('toWinAnsi', () => {
@@ -126,5 +136,92 @@ describe('clipTextInk', () => {
   it('falls back to the inherited ink, then to black, never to nothing', () => {
     expect(clipTextInk('url(photo.jpg)', inherited)).toEqual(inherited)
     expect(clipTextInk('none', { r: 0, g: 0, b: 0, a: 0 })).toEqual({ r: 0, g: 0, b: 0, a: 1 })
+  })
+})
+
+describe('writingModeTilts', () => {
+  it('keeps vertical text in the picture and lets horizontal text through', () => {
+    expect(writingModeTilts('horizontal-tb')).toBe(false)
+    expect(writingModeTilts(undefined)).toBe(false)
+    expect(writingModeTilts('vertical-rl')).toBe(true)
+    expect(writingModeTilts('sideways-lr')).toBe(true)
+  })
+})
+
+describe('visible text', () => {
+  it('reads the two sr-only recipes and overflow per axis', () => {
+    expect(clipsByStyle({ position: 'absolute', clip: 'rect(0px, 0px, 0px, 0px)' }).empty).toBe(true)
+    // `clip` does nothing on a box that is not absolutely positioned.
+    expect(clipsByStyle({ position: 'static', clip: 'rect(0px, 0px, 0px, 0px)' }).empty).toBe(false)
+    expect(clipsByStyle({ clipPath: 'inset(50%)' }).empty).toBe(true)
+    expect(clipsByStyle({ clipPath: 'inset(10%)' }).empty).toBe(false)
+    expect(clipsByStyle({ overflowX: 'hidden', overflowY: 'visible' })).toEqual({ x: true, y: false, empty: false })
+  })
+
+  it('intersects clips, "no clip" giving way, and measures what is left of a word', () => {
+    const card = { x: 0, y: 0, w: 100, h: 40 }
+    expect(intersectClip(null, card)).toEqual(card)
+    expect(intersectClip(card, { x: 50, y: 20, w: 100, h: 100 })).toEqual({ x: 50, y: 20, w: 50, h: 20 })
+    expect(intersectClip(card, { x: 200, y: 0, w: 10, h: 10 })).toMatchObject({ w: 0 })
+    expect(visibleFraction({ x: 80, y: 0, w: 40, h: 20 }, card)).toBeCloseTo(0.5)
+    expect(visibleFraction({ x: 0, y: 0, w: 40, h: 20 }, null)).toBe(1)
+    expect(visibleFraction({ x: 0, y: 0, w: 40, h: 20 }, { x: 0, y: 0, w: 1, h: 1 })).toBeLessThan(0.01)
+  })
+})
+
+describe('pseudoPinCss', () => {
+  it('pins each pseudo-element by the id its element was tagged with', () => {
+    const css = pseudoPinCss([
+      { id: 3, pseudo: '::marker', props: [['color', 'rgb(236, 72, 153)']] },
+      { id: 4, pseudo: '::before', props: [['color', 'rgb(0, 0, 0)'], ['-webkit-text-fill-color', 'rgb(0, 0, 0)']] },
+      { id: 5, pseudo: '::after', props: [] },
+    ])
+    expect(css).toBe(
+      `[${PIN_ATTR}~="3"]::marker{color:rgb(236, 72, 153)!important}` +
+        `[${PIN_ATTR}~="4"]::before{color:rgb(0, 0, 0)!important;-webkit-text-fill-color:rgb(0, 0, 0)!important}`,
+    )
+  })
+
+  it('refuses a value that could break out of its rule', () => {
+    expect(pseudoPinCss([{ id: 1, pseudo: '::after', props: [['color', 'red}body{display:none']] }])).toBe('')
+  })
+})
+
+describe('colour normalising, for html2canvas', () => {
+  const resolve = (fn: string) => `R[${fn}]`
+  it('spots what html2canvas throws on, and nothing it reads', () => {
+    expect(needsColorNormalising('oklch(0.7 0.15 30)')).toBe(true)
+    expect(needsColorNormalising('linear-gradient(in oklab, rgb(0, 0, 0), rgb(255, 255, 255))')).toBe(true)
+    expect(needsColorNormalising('color-mix(in srgb, red 40%, white)')).toBe(true)
+    expect(needsColorNormalising('rgb(15, 23, 42)')).toBe(false)
+    expect(needsColorNormalising('0px 1px 2px rgba(0, 0, 0, 0.1)')).toBe(false)
+    expect(needsColorNormalising('none')).toBe(false)
+    // Twice in a row: a global regex must not keep its place between calls.
+    expect(needsColorNormalising('oklch(0.7 0.15 30)')).toBe(true)
+  })
+
+  it('replaces the OUTERMOST function, however nested, and drops the interpolation hint', () => {
+    expect(replaceColorFunctions('oklch(0.7 0.15 30)', resolve)).toBe('R[oklch(0.7 0.15 30)]')
+    expect(replaceColorFunctions('color-mix(in oklch, oklch(0.7 0.1 20) 40%, white)', resolve)).toBe(
+      'R[color-mix(in oklch, oklch(0.7 0.1 20) 40%, white)]',
+    )
+    expect(
+      replaceColorFunctions('linear-gradient(to right in oklab, oklch(0.8 0.1 10) 0%, rgb(0, 0, 0) 100%)', resolve),
+    ).toBe('linear-gradient(to right, R[oklch(0.8 0.1 10)] 0%, rgb(0, 0, 0) 100%)')
+    expect(replaceColorFunctions('linear-gradient(in oklab, rgb(1, 2, 3), rgb(4, 5, 6))', resolve)).toBe(
+      'linear-gradient(rgb(1, 2, 3), rgb(4, 5, 6))',
+    )
+    expect(replaceColorFunctions('linear-gradient(in oklch longer hue to top, red, blue)', resolve)).toBe(
+      'linear-gradient(to top, red, blue)',
+    )
+    expect(replaceColorFunctions('0 1px 2px oklab(0.5 0 0 / 0.2), 0 0 0 1px rgb(0, 0, 0)', resolve)).toBe(
+      '0 1px 2px R[oklab(0.5 0 0 / 0.2)], 0 0 0 1px rgb(0, 0, 0)',
+    )
+  })
+
+  it('writes canvas bytes in the one spelling every renderer reads', () => {
+    expect(rgbaFromBytes(255, 0, 102, 255)).toBe('rgb(255, 0, 102)')
+    expect(rgbaFromBytes(0, 0, 0, 0)).toBe('rgba(0, 0, 0, 0)')
+    expect(rgbaFromBytes(10, 20, 30, 128)).toBe('rgba(10, 20, 30, 0.502)')
   })
 })

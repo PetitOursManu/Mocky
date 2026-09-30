@@ -7,8 +7,9 @@ import type { MuseConfig, MuseResult, GeneratedSlotImage, MuseVideoAvailability 
 import type { PinnedImage } from '../lib/imageLibrary'
 import type { ProjectUltra } from '../lib/project'
 import UltraControl from './UltraControl'
-import ImageSourceControl from './ImageSourceControl'
+import ImageSourceControl, { DocumentImageControl } from './ImageSourceControl'
 import type { ImageSource } from '../lib/stockImages'
+import type { DocumentImageChoice } from '../lib/documentPictures'
 import type { MediaTab } from './Bibliotheque'
 import { useState } from 'react'
 import type { SiteRefMode, SiteShot } from '../lib/siteReference'
@@ -61,6 +62,11 @@ type Props = {
   onImageSource: (source: ImageSource) => void
   /** The account can use the free libraries AND a pass that makes pictures is on. */
   imageSourceAvailable: boolean
+  /**
+   * A DOCUMENT's own picture choice ("Sans image" first), drawn in place of the
+   * general one while a page format is active — see DocumentImageControl.
+   */
+  documentImage: { value: DocumentImageChoice; choices: DocumentImageChoice[]; onChange: (c: DocumentImageChoice) => void }
   /** What a running pass is doing, when it has more to say than "generating". */
   busyLabel: string | null
   /** Screenshots of an existing site — state and reader live in ProjectView. */
@@ -115,6 +121,7 @@ export default function Welcome({
   imageSource,
   onImageSource,
   imageSourceAvailable,
+  documentImage,
   busyLabel,
   siteShots,
   siteReading,
@@ -239,8 +246,20 @@ export default function Welcome({
                 size={15}
                 className="text-body-sm"
               />
-              {imageSourceAvailable && (
-                <ImageSourceControl value={imageSource} onChange={onImageSource} size={15} className="text-body-sm" />
+              {/* A document decides its picture here, and it is never hidden:
+                  it is the one choice that may cost a paid generation. */}
+              {pageFormat ? (
+                <DocumentImageControl
+                  value={documentImage.value}
+                  choices={documentImage.choices}
+                  onChange={documentImage.onChange}
+                  size={15}
+                  className="text-body-sm"
+                />
+              ) : (
+                imageSourceAvailable && (
+                  <ImageSourceControl value={imageSource} onChange={onImageSource} size={15} className="text-body-sm" />
+                )
               )}
             </div>
             <div className="flex items-center gap-3">

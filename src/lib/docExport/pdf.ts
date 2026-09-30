@@ -105,6 +105,22 @@ export function fieldFontSize(field: Pick<FieldBox, 'type' | 'fontSize'>, height
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
+/**
+ * A link's URI as the hex digits of its bytes, for a `<…>` PDF string.
+ *
+ * pdf-lib's `PDFString.of` writes `(…)` WITHOUT escaping, and a URL may carry
+ * parentheses — `https://fr.wikipedia.org/wiki/Nantes_(France)` — which closed
+ * the string early and left the rest of the annotation as garbage a reader
+ * either skipped or refused. A hex string has no delimiter to collide with. Not
+ * `PDFHexString.fromText`: that writes UTF-16 with a byte-order mark, and a URI
+ * is a byte string (safeLinkHref has already made it ASCII).
+ */
+export function asciiHex(s: string): string {
+  let out = ''
+  for (let i = 0; i < s.length; i++) out += (s.charCodeAt(i) & 0xff).toString(16).padStart(2, '0').toUpperCase()
+  return out
+}
+
 function inkOf(c: Rgba): { r: number; g: number; b: number } {
   // A field whose text was transparent (or faint) still needs an ink someone
   // can read what they typed in.
@@ -231,7 +247,7 @@ export async function buildPdf(pages: readonly PdfPageInput[], format: PageForma
         Subtype: 'Link',
         Rect: [r.x, r.y, r.x + r.width, r.y + r.height],
         Border: [0, 0, 0],
-        A: { Type: 'Action', S: 'URI', URI: PDFString.of(href) },
+        A: { Type: 'Action', S: 'URI', URI: PDFHexString.of(asciiHex(href)) },
       })
       page.node.addAnnot(doc.context.register(annot))
     }

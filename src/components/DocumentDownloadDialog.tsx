@@ -48,9 +48,10 @@ export default function DocumentDownloadDialog({ screen, onClose }: { screen: Sc
   const [lang] = useLang()
   const [state, setState] = useState<State>({ step: 'idle' })
   const abortRef = useRef<AbortController | null>(null)
-  // The run still unwinding after a cancel: html2canvas cannot be interrupted
-  // mid-page, so the next export waits for it rather than opening a second
-  // offscreen frame beside a first one that is still rasterising.
+  // The run still unwinding after a cancel. A cancel disposes the offscreen
+  // frame at once and the export races every step against the signal, so this
+  // is short — but a page's encode may still be finishing, and the next export
+  // waits for it rather than opening a second frame beside the first.
   const pendingRef = useRef<Promise<void> | null>(null)
   const buttonsRef = useRef<Partial<Record<ExportKind, HTMLButtonElement | null>>>({})
   const lastKindRef = useRef<ExportKind | null>(null)
@@ -115,9 +116,10 @@ export default function DocumentDownloadDialog({ screen, onClose }: { screen: Sc
   }
 
   /**
-   * Said at once, not when the page being rasterised finishes: html2canvas
-   * cannot be interrupted, and a Cancel that seems to do nothing for seconds
-   * gets clicked again, or the dialog closed.
+   * Said at once, and done at once: the abort disposes the offscreen frame (the
+   * model's code stops running with it) and every step of the export races the
+   * signal, so nothing arrives after it. A Cancel that seemed to do nothing for
+   * seconds got clicked again, or the dialog closed.
    */
   function cancel() {
     abortRef.current?.abort()
@@ -137,6 +139,12 @@ export default function DocumentDownloadDialog({ screen, onClose }: { screen: Sc
     const pages = n.pages.join(', ')
     if (n.code === 'overflow') return t('docExport.notice.overflow', { pages })
     if (n.code === 'tilted') return t('docExport.notice.tilted', { pages })
+    if (n.code === 'fallback') return t('docExport.notice.fallback', { pages })
+    if (n.code === 'assets') return t('docExport.notice.assets', { pages })
+    // What survives a page neither renderer could draw depends on the file:
+    // the .pptx keeps its editable text, the PDF only its fillable fields (its
+    // text layer is invisible by design), a PNG nothing at all.
+    if (n.code === 'raster') return t(`docExport.notice.raster.${lastKindRef.current ?? 'pdf'}`, { pages })
     return t('docExport.notice.measure', { pages })
   }
 

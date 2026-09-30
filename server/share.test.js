@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { createShareStore, isShareToken, MAX_SHARES_PER_USER, TTL_CHOICES } from './share.js'
+import { createShareStore, isShareToken, MAX_SHARES_PER_USER, SHARE_PAGE_FORMATS, TTL_CHOICES } from './share.js'
+// The client's list, which the server's is a hand-kept copy of.
+import { PAGE_FORMAT_IDS } from '../src/lib/pageFormats'
 
 /**
  * A share token IS the credential — the URL is the whole authority. So the
@@ -90,6 +92,26 @@ describe('what a share exposes', () => {
 
   it('refuses a screen too large to be a screen', () => {
     expect(() => store().create('u1', { ...SNAP, code: 'x'.repeat(600 * 1024) })).toThrow(/too large/i)
+  })
+
+  it('carries a document\'s page format, so a shared flyer opens as pages and not as a cut web page', () => {
+    const s = store()
+    const doc = s.get(s.create('u1', { ...SNAP, w: 794, h: 1123, page: 'a4' }).token)
+    expect(doc.page).toBe('a4')
+    expect(s.get(s.create('u1', { ...SNAP, page: 'slides' }).token).page).toBe('slides')
+    // An ordinary screen has none, and gains none.
+    expect(s.get(s.create('u1', SNAP).token)).not.toHaveProperty('page')
+  })
+
+  it('drops a page value that is not a format rather than storing it', () => {
+    const s = store()
+    for (const page of ['A4', 'a3', '<script>', 42, { id: 'a4' }, null]) {
+      expect(s.get(s.create('u1', { ...SNAP, page }).token)).not.toHaveProperty('page')
+    }
+  })
+
+  it('knows exactly the formats the client knows', () => {
+    expect([...SHARE_PAGE_FORMATS].sort()).toEqual([...PAGE_FORMAT_IDS].sort())
   })
 })
 

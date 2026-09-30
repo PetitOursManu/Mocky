@@ -161,6 +161,13 @@ export const project = {
     'project.imageSourceStock': 'Libres',
     'project.imageSourceStockTitle':
       'Les images de Muse et de Motion Ultra sont de vraies photos libres de droits (Pexels, Pixabay), trouvées d’après le sujet de chaque image — gratuites, rien n’est généré',
+    'project.docImage': 'Image',
+    'project.docImageNone': 'Sans image',
+    'project.docImageNoneTitle': 'Le document est composé de formes et de couleurs, sans photo — rien n’est cherché ni généré',
+    'project.docImageAi': 'Générée',
+    'project.docImageAiTitle': 'Une image est générée pour le document par le modèle d’image configuré (peut être payant)',
+    'project.docImageStock': 'Photo libre',
+    'project.docImageStockTitle': 'Une vraie photo libre de droits (Pexels, Pixabay) est trouvée d’après le sujet du document — gratuite, rien n’est généré',
     'project.museStageMedia': 'Lecture de votre média (palette, ambiance)…',
 
     // ---- Motion Ultra (réglage projet, pause dans le composer) ----
@@ -486,6 +493,13 @@ export const project = {
     'project.imageSourceStock': 'Free',
     'project.imageSourceStockTitle':
       'Muse and Motion Ultra pictures are real free stock photos (Pexels, Pixabay), found from each picture’s subject — free of charge, nothing is generated',
+    'project.docImage': 'Picture',
+    'project.docImageNone': 'No picture',
+    'project.docImageNoneTitle': 'The document is composed of shapes and colour, with no photo — nothing is searched for or generated',
+    'project.docImageAi': 'Generated',
+    'project.docImageAiTitle': 'One picture is generated for the document by the configured image model (may be paid)',
+    'project.docImageStock': 'Free photo',
+    'project.docImageStockTitle': 'One real free stock photo (Pexels, Pixabay) is found from the document’s subject — free of charge, nothing is generated',
     'project.museStageMedia': 'Reading your media (palette, mood)…',
 
     // ---- Motion Ultra (project setting, paused from the composer) ----

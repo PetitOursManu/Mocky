@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { PDFCheckBox, PDFDocument, PDFDropdown, PDFName, PDFTextField, PDFRawStream, decodePDFRawStream } from 'pdf-lib'
+import { PDFCheckBox, PDFDocument, PDFDropdown, PDFHexString, PDFName, PDFTextField, PDFRawStream, decodePDFRawStream } from 'pdf-lib'
 import { getPageFormat } from '../pageFormats'
-import { baselineY, buildPdf, fieldFontSize, horizontalScale, toPdfRect, uniqueFieldNames } from './pdf'
+import { asciiHex, baselineY, buildPdf, fieldFontSize, horizontalScale, toPdfRect, uniqueFieldNames } from './pdf'
 import { TINY_JPEG, field, flyerPage, line } from './fixtures'
 
 const a4 = getPageFormat('a4')
@@ -19,6 +19,13 @@ function contentOf(doc: PDFDocument, pageIndex: number): string {
   }
   return out
 }
+
+describe('asciiHex', () => {
+  it('writes each byte as two hex digits', () => {
+    expect(asciiHex('a(b)')).toBe('61286229')
+    expect(asciiHex('')).toBe('')
+  })
+})
 
 describe('geometry', () => {
   it('flips y and lands the page edge on the paper edge', () => {
@@ -155,6 +162,8 @@ describe('buildPdf', () => {
         { href: 'https://example.org/a', rect: { x: 0, y: 0, w: 10, h: 10 } },
         { href: 'javascript:alert(1)', rect: { x: 0, y: 20, w: 10, h: 10 } },
         { href: 'mailto:bonjour@example.org', rect: { x: 0, y: 40, w: 10, h: 10 } },
+        // A parenthesis closed an unescaped `(…)` string early and corrupted the annotation.
+        { href: 'https://fr.wikipedia.org/wiki/Nantes_(France)', rect: { x: 0, y: 60, w: 10, h: 10 } },
       ],
       fields: [],
     }
@@ -163,7 +172,13 @@ describe('buildPdf', () => {
     const uris = (annots?.asArray() ?? [])
       .map((ref) => doc.context.lookup(ref) as any)
       .filter((a) => String(a.get(PDFName.of('Subtype'))) === '/Link')
-      .map((a) => String(a.get(PDFName.of('A')).get(PDFName.of('URI'))))
-    expect(uris).toEqual(['(https://example.org/a)', '(mailto:bonjour@example.org)'])
+      .map((a) => a.get(PDFName.of('A')).get(PDFName.of('URI')))
+    // Hex strings: no delimiter a URL can collide with.
+    expect(uris.every((u) => u instanceof PDFHexString)).toBe(true)
+    expect(uris.map((u) => u.decodeText())).toEqual([
+      'https://example.org/a',
+      'mailto:bonjour@example.org',
+      'https://fr.wikipedia.org/wiki/Nantes_(France)',
+    ])
   })
 })

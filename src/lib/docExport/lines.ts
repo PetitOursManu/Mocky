@@ -181,6 +181,18 @@ export function sameStyle(a: RunStyle, b: RunStyle): boolean {
 }
 
 /**
+ * How far apart, in em, two words with no whitespace between them in the source
+ * must be drawn before they are read as two words.
+ *
+ * `space` comes from the text flow, and a flex row of `<span>`s has none:
+ * `<span>12</span><span>juin</span>` with a `gap-2` is drawn "12 juin" and was
+ * exported "12juin". Kerning and a bold word glued to its neighbour
+ * ("Hello<b>World</b>") sit well under a fifth of an em; a word space is about a
+ * quarter, and a gap a designer chose is more.
+ */
+export const GLUED_GAP_EM = 0.2
+
+/**
  * Words, in document order, into visual lines.
  *
  * A line ends when the block changes, when the next word is not on the same
@@ -216,7 +228,7 @@ export function groupLines(words: readonly Word[]): TextLine[] {
       cur = { words: [w], runs: [{ text: w.text, style: w.style }] }
       continue
     }
-    const sep = w.space ? ' ' : ''
+    const sep = w.space || w.rect.x - (last.rect.x + last.rect.w) > GLUED_GAP_EM * Math.max(w.style.fontSize, 1) ? ' ' : ''
     const run = cur.runs[cur.runs.length - 1]
     if (sameStyle(run.style, w.style)) run.text += sep + w.text
     else {

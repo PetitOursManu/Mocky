@@ -5,20 +5,26 @@
  * or a site's replacements, and a screen with none of them is a screen the
  * person chose to have without. A document skips Motion Ultra (paper does not
  * move), and Muse is OFF by default — so a flyer made with the default
- * settings came back as a page of shapes, while the composer's own "Images"
- * control was offering free photos or generated ones and nothing read it. A
- * flyer without a picture is a poster of blobs; this is the hero it was asked
- * to crop "boldly into a shape".
+ * settings had no way to get a picture at all. This is the hero it can be
+ * given, cropped "boldly into a shape".
  *
  * One picture, not a series: a flyer has one hero, and each extra picture is a
  * vision call or the price of a generation. Same two doors as the site's
  * pictures — the stock finder, whose vision judge may
  * refuse every candidate, and `generateImage` — and never fatal: nothing found
  * means the brief's own fallback, "a composition of shapes takes its place".
+ *
+ * And ASKED FOR, never assumed. The first version ran on every document with
+ * Muse off and read the composer's general "Images" choice, whose only answers
+ * were "AI" and "Free" — so with the default settings every flyer POSTed one
+ * paid generation nobody had asked for, from a control that was not even drawn
+ * where the choice was made. The person decides how many pictures (U3), so a
+ * document has a choice of its own (`DocumentImageChoice`) whose default is
+ * "no picture", and which offers only the doors this account can open.
  */
-import { generateImage } from './imageLibrary'
+import { generateImage, imageUrl } from './imageLibrary'
 import { absoluteUrl } from './muse'
-import type { PageFormat } from './pageFormats'
+import { getPageFormat, isPageFormat, type PageFormat, type PageFormatId } from './pageFormats'
 import type { ImageSource, StockFinder, StockOrientation } from './stockImages'
 
 /*
@@ -167,4 +173,127 @@ export async function findDocumentPicture(
     opts.onError?.(err instanceof Error ? err.message : String(err))
     return null
   }
+}
+
+// ---- the choice ------------------------------------------------------------------
+
+/**
+ * Where a document's picture comes from, as the composer offers it. 'none' is
+ * an answer and the default, not the absence of one: a flyer of shapes is a
+ * flyer, and its brief already says how to compose one.
+ */
+export type DocumentImageChoice = 'none' | ImageSource
+
+/** Which doors this account can open right now. */
+export interface DocumentImageDoors {
+  /** An image model other than the placeholder is configured. Null: not known yet. */
+  generation: boolean | null
+  /** At least one free library answers for this account (`stockUsable`). */
+  stock: boolean
+}
+
+/**
+ * The choices to draw, in order. A closed door is ABSENT rather than offered
+ * and then refused with a notice: an option that can only fail is a trap, and
+ * "not known yet" counts as closed until the server has answered.
+ */
+export function documentImageChoices(doors: DocumentImageDoors): DocumentImageChoice[] {
+  const out: DocumentImageChoice[] = ['none']
+  if (doors.generation) out.push('ai')
+  if (doors.stock) out.push('stock')
+  return out
+}
+
+/**
+ * The choice the control SHOWS: the remembered one while its door is open,
+ * "no picture" otherwise. The preference itself is left alone — an account
+ * that loses the libraries for a day gets its "free photo" back afterwards.
+ */
+export function shownDocumentImageChoice(choice: DocumentImageChoice, doors: DocumentImageDoors): DocumentImageChoice {
+  return documentImageChoices(doors).includes(choice) ? choice : 'none'
+}
+
+/**
+ * The source a document run looks for its picture with, or null for none.
+ *
+ * Never a fallback from one door to the other: a remembered "free photo" on an
+ * account that lost the libraries is NOT quietly turned into a generation, as
+ * the general control turns it into "AI" — that substitution is exactly the one
+ * that billed a picture nobody chose.
+ */
+export function documentPictureSource(choice: DocumentImageChoice, doors: DocumentImageDoors): ImageSource | null {
+  const shown = shownDocumentImageChoice(choice, doors)
+  return shown === 'none' ? null : shown
+}
+
+const CHOICE_KEY = 'mocky.docImageSource.v1'
+
+/**
+ * Remembered per browser, like the general images source, under a key of its
+ * own: "free photos" for a landing page is not a decision about flyers, and
+ * inheriting the general key would turn its historical "AI" default back into
+ * a paid picture on every document.
+ */
+export function loadDocumentImageChoice(): DocumentImageChoice {
+  try {
+    const v = localStorage.getItem(CHOICE_KEY)
+    return v === 'ai' || v === 'stock' ? v : 'none'
+  } catch {
+    return 'none'
+  }
+}
+
+export function saveDocumentImageChoice(choice: DocumentImageChoice): void {
+  try {
+    localStorage.setItem(CHOICE_KEY, choice)
+  } catch {
+    /* private mode — the choice lasts the session */
+  }
+}
+
+/**
+ * Whether this instance can GENERATE a picture: its content profile names a
+ * provider other than `none`, the placeholder that answers with nothing. An
+ * unreachable answer reads as no, so the composer offers only what it knows
+ * works.
+ */
+export async function imageGenerationAvailable(signal?: AbortSignal): Promise<boolean> {
+  try {
+    const res = await fetch('/api/images/providers?profile=content', { signal })
+    if (!res.ok) return false
+    const j = await res.json()
+    const list: unknown = j?.providers
+    return Array.isArray(list) && list.some((p) => !!p && typeof p.id === 'string' && p.id !== 'none')
+  } catch {
+    return false
+  }
+}
+
+// ---- Regenerate -------------------------------------------------------------------
+
+/**
+ * The picture section a REGENERATE hands the model, built from the picture the
+ * document already has.
+ *
+ * Regenerate is "the same request, another layout". It passed no picture at
+ * all, so the variant was written from a brief that promises a hero and no URL
+ * to put in it — the picture the person had chosen, and maybe paid for, fell
+ * out of the page. Finding a new one instead would pay again for a picture
+ * that is already there. The stored hash IS the picture; its subject and shape
+ * are re-derived from the same prompt and format they were derived from the
+ * first time.
+ *
+ * Only a picture PLACED in the page ('content'): an inspiration reference was
+ * never meant to be embedded. Empty for anything that is not a document.
+ */
+export function documentPictureSectionFor(screen: {
+  prompt: string
+  page?: PageFormatId
+  imageHash?: string
+  imageRole?: 'content' | 'inspiration' | 'both'
+}): string {
+  if (!screen.page || !isPageFormat(screen.page)) return ''
+  if (!screen.imageHash || screen.imageRole !== 'content') return ''
+  const want = documentPictureWant(screen.prompt, getPageFormat(screen.page))
+  return buildDocumentPictureSection({ ...want, url: absoluteUrl(imageUrl(screen.imageHash)) })
 }

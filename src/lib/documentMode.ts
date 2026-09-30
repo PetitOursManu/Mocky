@@ -234,10 +234,12 @@ export interface DocumentPipeline {
   planner: boolean
   modeGuidance: boolean
   /**
-   * Find one picture from the composer's images source when Muse made none.
+   * A document MAY find one picture of its own when Muse made none — whether it
+   * does is the composer's document picture choice, "Sans image" by default,
+   * because the picture may be a paid generation (`lib/documentPictures.ts`).
    * An ordinary screen with neither Muse nor Motion Ultra has no picture by the
-   * person's own choice; a document has lost Motion Ultra's series by OURS, and
-   * Muse is off by default (`lib/documentPictures.ts`).
+   * person's own choice; a document has lost Motion Ultra's series by OURS, so
+   * it is offered the choice back.
    */
   ownPicture: boolean
   /**
@@ -254,8 +256,8 @@ export interface DocumentPipeline {
  * Every stage decision for a screen made at `page` (none: an ordinary screen).
  *
  * What stays: Muse (a flyer wants a palette, a type pairing and a picture as
- * much as a landing page does), the images source (generated or free photos —
- * a flyer without a picture is a poster of shapes), the direction, the screen
+ * much as a landing page does), a picture of its own when one is asked for
+ * (generated or a free photo), the direction, the screen
  * type. What goes: whatever moves or scrolls or draws in WebGL, and the planner
  * and its mode guidance, whose vocabulary ("persuade / operate", "sidebar +
  * main grid") is about screens a visitor uses — the page hint and the type's

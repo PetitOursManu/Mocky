@@ -207,6 +207,34 @@ describe('snapshotPage', () => {
     expect(snap.fields[0]).toMatchObject({ name: 'nom', type: 'text', placeholder: 'Votre nom', rect: { x: 50, y: 650, w: 300, h: 40 } })
   })
 
+  it('leaves out visually hidden text: sr-only, and words past an overflow-hidden edge', () => {
+    const srOnly = new FakeEl(
+      'SPAN',
+      {},
+      { display: 'inline', position: 'absolute', overflowX: 'hidden', overflowY: 'hidden', clip: 'rect(0px, 0px, 0px, 0px)' },
+      { left: 200, top: 150, width: 1, height: 1 },
+    ).add(new FakeText('Menu', 200, 150))
+    // A 100 px card: "Visible" (70 px) is in, "coupé" (at 280) is past its edge.
+    const card = new FakeEl('DIV', {}, { overflowX: 'hidden', overflowY: 'hidden' }, { left: 200, top: 300, width: 100, height: 40 }).add(
+      new FakeText('Visible', 200, 300),
+      new FakeEl('SPAN', {}, { display: 'inline' }).add(new FakeText('coupé', 280, 300)),
+    )
+    // An absolute badge escapes a STATIC overflow-hidden wrapper: its containing
+    // block is further up, and that is how the browser draws it.
+    const wrap = new FakeEl('DIV', {}, { position: 'static', overflowX: 'hidden', overflowY: 'hidden' }, { left: 200, top: 500, width: 20, height: 20 }).add(
+      new FakeEl('SPAN', {}, { position: 'absolute' }).add(new FakeText('Nouveau', 200, 500)),
+    )
+    const snap = mount(pageEl().add(srOnly, card, wrap))
+    expect(snap.lines.map((l) => l.text)).toEqual(['Visible', 'Nouveau'])
+  })
+
+  it('leaves vertical text in the picture, like a rotation', () => {
+    const spine = new FakeEl('DIV', {}, { writingMode: 'vertical-rl' }).add(new FakeText('Édition 2026', 200, 150))
+    const snap = mount(pageEl().add(spine))
+    expect(snap.lines).toEqual([])
+    expect(snap.tilted).toBe(2)
+  })
+
   it('reads a real control inside a field: its type, value, options', () => {
     const wrap = new FakeEl('LABEL', { [FIELD_ATTR]: 'créneau' }, {}, { left: 100, top: 50, width: 200, height: 30 })
     const select = new FakeEl('SELECT', {}, { paddingLeft: '8px' })

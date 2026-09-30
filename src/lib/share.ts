@@ -7,6 +7,8 @@
  * whole point is that it works on a device that has never signed in.
  */
 
+import type { PageFormatId } from './pageFormats'
+
 export type ShareTtl = '1h' | '24h' | '7d'
 
 export interface ShareSnapshot {
@@ -18,6 +20,8 @@ export interface ShareSnapshot {
   h: number
   device: 'iphone' | 'none'
   animations: boolean
+  /** A DOCUMENT's page format; absent on an ordinary screen. Validated by the server. */
+  page?: PageFormatId
   expiresAt: number
 }
 
@@ -68,6 +72,7 @@ export async function createShare(
     h: number
     device: 'iphone' | 'none'
     animations?: boolean
+    page?: PageFormatId
   },
   ttl: ShareTtl = '24h',
 ): Promise<ShareLink> {

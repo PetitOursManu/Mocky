@@ -94,6 +94,15 @@ describe('groupLines', () => {
     expect(lines[0].runs.map((r) => r.text)).toEqual(['Hello', 'World'])
   })
 
+  it('reads a gap the layout drew as a space, even with no whitespace in the source', () => {
+    // A flex row of spans with `gap-2`: "12 juin", not "12juin".
+    const flex = groupLines([word('12', 0, 0, 20), word('juin', 28, 0, 40, 20, 0, style(), false)])
+    expect(flex[0].text).toBe('12 juin')
+    // Kerning-sized gaps stay glued: under a fifth of an em at 16 px.
+    const kern = groupLines([word('Hello', 0, 0, 40), word('World', 43, 0, 40, 20, 0, style(), false)])
+    expect(kern[0].text).toBe('HelloWorld')
+  })
+
   it('merges runs of one style and splits on a change', () => {
     const bold = style({ fontWeight: 700 })
     const lines = groupLines([word('Un', 0, 0, 20), word('seul', 25, 0, 30, 20, 0, bold), word('mot', 60, 0, 30), word('gras', 95, 0, 30)])

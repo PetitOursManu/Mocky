@@ -128,3 +128,116 @@ export function clipTextInk(backgroundImage: string | null | undefined, inherite
   }
   return inherited.a >= 0.5 ? { ...inherited, a: 1 } : { r: 0, g: 0, b: 0, a: 1 }
 }
+
+/**
+ * The attribute a raster pass tags an element with when one of its
+ * pseudo-elements needs its ink pinned back (`pseudoPinCss`). A pseudo-element
+ * has no inline style to pin on, so the pin is a rule, and the rule needs a
+ * selector that names exactly one element. Removed with the pass.
+ */
+export const PIN_ATTR = 'data-mocky-pin'
+
+/** The pseudo-elements that draw text or shapes of their own and inherit `color`. */
+export const PIN_PSEUDOS = ['::before', '::after', '::marker'] as const
+export type PinPseudo = (typeof PIN_PSEUDOS)[number]
+
+export interface PseudoPin {
+  /** The value written on `PIN_ATTR`. */
+  id: number
+  pseudo: PinPseudo
+  /** [property, value] pairs, the value as computed BEFORE the pass changed anything. */
+  props: ReadonlyArray<readonly [string, string]>
+}
+
+/**
+ * Rules that give pseudo-elements back what a pass took from them by
+ * inheritance, or resolve what they cannot be given inline.
+ *
+ * The .pptx pass makes every element's `color` transparent, and a list's bullet
+ * (`::marker`), a `before:content-['→']` arrow or a quotation mark drawn by
+ * `::after` inherit it — while none of them is a text node, so none comes back
+ * as a text box. The slide lost every bullet of every list. They stay in the
+ * PICTURE instead, beside the editable text they decorate, exactly like tilted
+ * text does. `!important` in a rule scoped to one attribute value: the hide
+ * rules never target a pseudo-element, so nothing has to be outranked but the
+ * inheritance.
+ */
+export function pseudoPinCss(pins: readonly PseudoPin[]): string {
+  return pins
+    .map((p) => {
+      const decl = p.props
+        .filter(([k, v]) => /^-?[a-z][a-z-]*$/.test(k) && !!v && !/[{};<]/.test(v))
+        .map(([k, v]) => `${k}:${v}!important`)
+        .join(';')
+      // `~=`: one element can be tagged by two passes at once (the hide pins and,
+      // on the fallback path, the colour normaliser), so the attribute is a list.
+      return decl ? `[${PIN_ATTR}~="${p.id}"]${p.pseudo}{${decl}}` : ''
+    })
+    .join('')
+}
+
+/**
+ * Colour syntaxes html2canvas 1.4.1 cannot parse. It THROWS on them ("Attempting
+ * to parse an unsupported color function"), and one `oklch()` anywhere on a page
+ * lost the whole export. Only the fallback renderer needs this: the native one
+ * is the browser, and the browser reads what it wrote.
+ */
+const UNSUPPORTED_COLOR_FN = /(?<![\w-])(oklch|oklab|lab|lch|hwb|color|color-mix|light-dark)\(/gi
+/** A gradient's colour-space hint (`linear-gradient(in oklab, …)` — Tailwind 4 writes it). */
+const HINT =
+  String.raw`in\s+(?:srgb-linear|srgb|display-p3|a98-rgb|prophoto-rgb|rec2020|oklab|oklch|lab|lch|xyz-d50|xyz-d65|xyz|hsl|hwb)(?:\s+(?:shorter|longer|increasing|decreasing)\s+hue)?`
+const INTERPOLATION_HINT = new RegExp(String.raw`\b${HINT}\b`, 'gi')
+/** The hint FIRST in a gradient — `(in oklab, red, blue)`, `(in oklab to right, …)` — takes its comma if it has one. */
+const LEADING_HINT = new RegExp(String.raw`\(\s*${HINT}\s*(?:,\s*)?`, 'gi')
+/** The hint after a direction — `(to right in oklab, …)` — leaves the direction's comma. */
+const TRAILING_HINT = new RegExp(String.raw`\s+${HINT}\b`, 'gi')
+
+/** Whether a computed value would make html2canvas throw. */
+export function needsColorNormalising(value: string | null | undefined): boolean {
+  if (!value) return false
+  UNSUPPORTED_COLOR_FN.lastIndex = 0
+  INTERPOLATION_HINT.lastIndex = 0
+  return UNSUPPORTED_COLOR_FN.test(value) || INTERPOLATION_HINT.test(value)
+}
+
+/**
+ * Every unsupported colour function in `value` replaced by what `resolve`
+ * makes of it (an `rgba()` read off a canvas, in the browser), and every
+ * gradient's interpolation hint dropped — html2canvas reads `in oklab` as a
+ * colour stop and fails on it. Parentheses are balanced by hand, because
+ * `color-mix(in oklch, oklch(…) 40%, white)` nests, and the outermost function
+ * is the colour.
+ */
+export function replaceColorFunctions(value: string, resolve: (fn: string) => string): string {
+  let out = ''
+  let i = 0
+  const re = new RegExp(UNSUPPORTED_COLOR_FN.source, 'gi')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(value))) {
+    let depth = 0
+    let end = -1
+    for (let k = m.index + m[1].length; k < value.length; k++) {
+      if (value[k] === '(') depth++
+      else if (value[k] === ')' && --depth === 0) {
+        end = k
+        break
+      }
+    }
+    if (end < 0) break
+    out += stripHints(value.slice(i, m.index)) + resolve(value.slice(m.index, end + 1))
+    i = end + 1
+    re.lastIndex = i
+  }
+  return out + stripHints(value.slice(i))
+}
+
+/** Hints are dropped between colours only: what `resolve` returned is not ours to edit. */
+function stripHints(segment: string): string {
+  return segment.replace(LEADING_HINT, '(').replace(TRAILING_HINT, '')
+}
+
+/** An `rgb()`/`rgba()` from canvas pixel bytes — the one spelling every renderer reads. */
+export function rgbaFromBytes(r: number, g: number, b: number, a: number): string {
+  const alpha = Math.round((a / 255) * 1000) / 1000
+  return alpha >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alpha})`
+}

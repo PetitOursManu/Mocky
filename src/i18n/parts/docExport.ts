@@ -40,6 +40,14 @@ export const docExport = {
     'docExport.notice.measure': 'Le texte n’a pas pu être relevé (page {pages}) : exportée en image seule.',
     'docExport.notice.tilted':
       'Le texte incliné ou agrandi (page {pages}) reste dans l’image de fond : il n’est pas modifiable.',
+    'docExport.notice.fallback':
+      'Page {pages} dessinée par le moteur de secours de ce navigateur : flous, masques et certains effets peuvent manquer.',
+    'docExport.notice.assets': 'Une image ou une police n’a pas pu être intégrée (page {pages}).',
+    'docExport.notice.raster.pdf':
+      'La page {pages} n’a pas pu être dessinée : elle est blanche dans le PDF, seuls ses champs à remplir y sont.',
+    'docExport.notice.raster.pptx':
+      'La page {pages} n’a pas pu être dessinée : son fond est blanc, mais ses textes restent modifiables.',
+    'docExport.notice.raster.png': 'La page {pages} n’a pas pu être dessinée : l’image est blanche.',
   },
   en: {
     'docExport.title': 'Download the document',
@@ -73,5 +81,11 @@ export const docExport = {
     'docExport.notice.overflow': 'Some content runs past the page and was cut off (page {pages}).',
     'docExport.notice.measure': 'The text could not be read (page {pages}): exported as an image only.',
     'docExport.notice.tilted': 'Rotated or scaled text (page {pages}) stays in the background picture: it cannot be edited.',
+    'docExport.notice.fallback':
+      'Page {pages} was drawn by this browser’s fallback renderer: blurs, masks and some effects may be missing.',
+    'docExport.notice.assets': 'A picture or a font could not be embedded (page {pages}).',
+    'docExport.notice.raster.pdf': 'Page {pages} could not be drawn: it is blank in the PDF, with only its fillable fields.',
+    'docExport.notice.raster.pptx': 'Page {pages} could not be drawn: its background is blank, but its text stays editable.',
+    'docExport.notice.raster.png': 'Page {pages} could not be drawn: the image is blank.',
   },
 }

@@ -71,7 +71,7 @@ import ScreenImagesDialog from './ScreenImagesDialog'
 import VideoExportDialog from './VideoExportDialog'
 import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
-import ImageSourceControl from './ImageSourceControl'
+import ImageSourceControl, { DocumentImageControl } from './ImageSourceControl'
 import {
   buildSiteReferenceSection,
   buildSitePicturesSection,
@@ -86,7 +86,19 @@ import {
 } from '../lib/siteReference'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
 import { findSitePictures, type SitePictureFound } from '../lib/sitePictures'
-import { buildDocumentPictureSection, documentPictureWant, findDocumentPicture } from '../lib/documentPictures'
+import {
+  buildDocumentPictureSection,
+  documentImageChoices,
+  documentPictureSectionFor,
+  documentPictureSource,
+  documentPictureWant,
+  findDocumentPicture,
+  imageGenerationAvailable,
+  loadDocumentImageChoice,
+  saveDocumentImageChoice,
+  shownDocumentImageChoice,
+  type DocumentImageChoice,
+} from '../lib/documentPictures'
 import {
   createStockFinder,
   loadImageSource,
@@ -321,6 +333,28 @@ export default function ProjectView({
    * makes when the model loses vision.
    */
   const effectiveImageSource: ImageSource = imageSource === 'stock' && stockImagesUsable ? 'stock' : 'ai'
+  /**
+   * A DOCUMENT's own picture: "Sans image" unless this browser chose a source
+   * for documents (lib/documentPictures.ts). Its own preference, not the one
+   * above — that one's "AI" default is what billed a picture per flyer.
+   */
+  const [docImageChoice, setDocImageChoiceState] = useState<DocumentImageChoice>(() => loadDocumentImageChoice())
+  const setDocImageChoice = useCallback((c: DocumentImageChoice) => {
+    setDocImageChoiceState(c)
+    saveDocumentImageChoice(c)
+  }, [])
+  /** Whether this instance can generate a picture at all; null until asked. */
+  const [imageGenOk, setImageGenOk] = useState<boolean | null>(null)
+  useEffect(() => {
+    const ac = new AbortController()
+    imageGenerationAvailable(ac.signal).then((ok) => !ac.signal.aborted && setImageGenOk(ok))
+    return () => ac.abort()
+  }, [])
+  const docImageDoors = { generation: imageGenOk, stock: stockImagesUsable }
+  const docImageChoicesNow = documentImageChoices(docImageDoors)
+  const docImageShown = shownDocumentImageChoice(docImageChoice, docImageDoors)
+  /** Null: this document gets no picture of its own. */
+  const docPictureSource = documentPictureSource(docImageChoice, docImageDoors)
   const [museAvail, setMuseAvail] = useState<boolean | null>(null)
   const [museResult, setMuseResult] = useState<MuseResult | null>(null)
   const [museImages, setMuseImages] = useState<GeneratedSlotImage[]>([])
@@ -1505,7 +1539,31 @@ export default function ProjectView({
          */
         const runPage = composerPageFormat(runTheme, pageFormatId)
         const pipe = documentPipeline(runPage)
-        const formHint = withScreenTheme(pipe.format ? documentHint(pipe.format) : preset.hint, runTheme)
+        /*
+         * The document's picture source for THIS run. A remembered "Générée"
+         * cannot be honoured until the server has said whether generation
+         * exists here, and a run started before that answer went ahead with no
+         * picture and no word about it. So a pending answer is awaited, once.
+         */
+        let runDocPicture = docPictureSource
+        if (pipe.document && docImageChoice === 'ai' && imageGenOk === null) {
+          const ok = await imageGenerationAvailable(ac.signal).catch(() => false)
+          setImageGenOk(ok)
+          runDocPicture = documentPictureSource(docImageChoice, { generation: ok, stock: stockImagesUsable })
+        }
+        /*
+         * Where a document's pictures come from: its OWN choice, for every path
+         * that makes one. On a document the composer shows that choice INSTEAD
+         * of the general Images control, so the general one is invisible there —
+         * and "Sans image" beside a Muse hero or redesigned-site pictures being
+         * generated from the hidden setting was a paid picture the screen said
+         * would not happen. Muse still writes its dossier (palette, type); only
+         * its pictures follow the document's choice.
+         */
+        const museImageSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
+        const picturesAllowed = !pipe.document || runDocPicture !== null
+        const pictureSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
+        const formHint =withScreenTheme(pipe.format ? documentHint(pipe.format) : preset.hint, runTheme)
         /** Motion Ultra for THIS run: the project's setting, unless the screen is a document. */
         const runUltra = ultraActive && pipe.motionUltra
         if (ultraActive && !runUltra) setNotice(t('project.docUltraSkipped'))
@@ -1655,7 +1713,7 @@ export default function ProjectView({
             // Motion Ultra generates its own series further down, planned as
             // one shoot. Muse's hero on top of it would be a seventh picture
             // nobody placed, paid for on every run.
-            if (remaining.length && pins.length === 0 && !runUltra) {
+            if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed) {
               // A mood/art-direction reference and a hero photo are different
               // jobs, so they run on different image models (Admin → profils).
               const profile = profileForMode(effectiveImageMode)
@@ -1687,7 +1745,7 @@ export default function ProjectView({
                * plate is something a model paints, not something a library has.
                */
               let gen: GeneratedSlotImage[]
-              if (effectiveImageSource === 'stock') {
+              if (museImageSource === 'stock') {
                 setMuseStage(t('project.museStageStock'))
                 const finder = await stockFinder()
                 gen = await pickStockSlotImages(remaining, finder, {
@@ -1981,13 +2039,13 @@ export default function ProjectView({
          */
         let sitePics: SitePictureFound[] = []
         let sitePicturesSection = ''
-        const sitePictures = siteNew && (reproducing || !museRan) ? parseSitePictures(siteContent) : []
+        const sitePictures = siteNew && (reproducing || !museRan) && picturesAllowed ? parseSitePictures(siteContent) : []
         if (sitePictures.length) {
           setPhase('sitePictures')
           const failures: string[] = []
-          const finder = effectiveImageSource === 'stock' ? await stockFinder() : undefined
+          const finder = pictureSource === 'stock' ? await stockFinder() : undefined
           const got = await findSitePictures(sitePictures, {
-            source: effectiveImageSource,
+            source: pictureSource,
             project: project.id,
             finder,
             signal: ac.signal,
@@ -2006,20 +2064,22 @@ export default function ProjectView({
           }
         }
         /*
-         * A document's own picture, when nothing above made one: Motion Ultra
-         * is skipped for paper, and Muse is off by default, so the composer's
-         * "Images" choice would otherwise be read by no one and the flyer come
-         * back as a page of shapes (lib/documentPictures.ts). Not on site
+         * A document's own picture, when nothing above made one and the person
+         * ASKED for one: Motion Ultra is skipped for paper and Muse is off by
+         * default, so this is the only way a flyer gets a hero — and it may be
+         * a paid generation, which is why "Sans image" is the default and the
+         * choice is drawn wherever a page format is (lib/documentPictures.ts).
+         * With none, the flyer's brief composes shapes instead. Not on site
          * captures, whose pictures were just replaced above.
          */
         let docPicture: { hash: string; url: string } | null = null
-        if (pipe.ownPicture && pipe.format && !museRan && !siteNew) {
+        if (pipe.ownPicture && pipe.format && !museRan && !siteNew && runDocPicture) {
           setPhase('docPicture')
           const want = documentPictureWant(text, pipe.format)
           let miss = ''
-          const finder = effectiveImageSource === 'stock' ? await stockFinder() : undefined
+          const finder = runDocPicture === 'stock' ? await stockFinder() : undefined
           docPicture = await findDocumentPicture(want, {
-            source: effectiveImageSource,
+            source: runDocPicture,
             project: project.id,
             finder,
             signal: ac.signal,
@@ -2326,7 +2386,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, siteShots, siteMode])
+  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2459,11 +2519,14 @@ export default function ProjectView({
         undefined,
         caps,
         // The pictures already found are reused: a variant of the page, not a new shopping trip.
+        // A document's own picture too — its section rebuilt from the stored
+        // hash, so the variant keeps the hero instead of paying for another
+        // or losing it (documentPictureSectionFor).
         siteRun
           ? [buildSiteReferenceSection(siteRun.mode, siteRun.groups, 1, siteRun.content), siteRun.pictures]
               .filter(Boolean)
               .join('\n\n')
-          : undefined,
+          : documentPictureSectionFor(screen) || undefined,
       )
       // Regenerating rebuilds the screen from the design system as it stands
       // now, so the recorded copy moves with it. Editing a screen does not: an
@@ -3340,6 +3403,7 @@ export default function ProjectView({
         imageSource={imageSource}
         onImageSource={setImageSource}
         imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0)}
+        documentImage={{ value: docImageShown, choices: docImageChoicesNow, onChange: setDocImageChoice }}
         busyLabel={
           phase === 'ultra'
             ? ultraStage
@@ -4203,14 +4267,27 @@ export default function ProjectView({
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
             )}
-            {/* A document type reads the choice too: it finds its own
-                picture when Muse makes none (lib/documentPictures.ts). */}
-            {!editing && stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0 || !!composerPage) && (
-              <ImageSourceControl
-                value={imageSource}
-                onChange={setImageSource}
+            {/* A document has a choice of its own, "Sans image" first, drawn
+                whenever a page format is active: it is where a paid picture is
+                decided, so no other condition may hide it
+                (lib/documentPictures.ts). */}
+            {!editing && composerPage ? (
+              <DocumentImageControl
+                value={docImageShown}
+                choices={docImageChoicesNow}
+                onChange={setDocImageChoice}
                 className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
               />
+            ) : (
+              !editing &&
+              stockImagesUsable &&
+              (museConfig.enabled || ultraActive || siteShots.length > 0) && (
+                <ImageSourceControl
+                  value={imageSource}
+                  onChange={setImageSource}
+                  className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
+                />
+              )
             )}
             {/* Screenshots of an existing site. The same files also arrive by
                 paste into the field and by a drop anywhere on the bar; the

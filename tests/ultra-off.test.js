@@ -67,7 +67,9 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
   })
 
   it("keeps Muse's own picture as it was, and makes no film on its own", () => {
-    expect(view).toContain('if (remaining.length && pins.length === 0 && !runUltra)')
+    expect(view).toContain('if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed)')
+    // True for every screen that is not a document — see site-reference.test.js.
+    expect(view).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
     expect(view).toContain('const runUltra = ultraActive && pipe.motionUltra')
     // The automatic film is gone for everyone: a film is only ever asked for.
     expect(view).not.toContain('decideFilm(')

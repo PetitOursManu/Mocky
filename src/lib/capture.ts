@@ -138,6 +138,38 @@ export function captureRegion(
   })
 }
 
+/**
+ * "Sans animation" as a stylesheet: every CSS animation and transition run to
+ * its end at once, never removed — `animation: none` on a fade-in whose resting
+ * state is `opacity: 0` leaves the content invisible for good.
+ *
+ * The same rule Preview writes when the switch is off (its `stillCss`; the two
+ * are held together by `capture.test.ts`, since Preview builds its copy inline).
+ * A document export wants it for a stronger reason than a mockup: a PDF is one
+ * instant of the page, and the instant html2canvas or the SVG image happened to
+ * catch was often the FIRST frame of an entrance — a flyer whose headline
+ * `animate-fade-in` exported at opacity 0.
+ */
+export const STILL_ANIMATIONS_CSS =
+  '*,*::before,*::after{animation-duration:0.01ms !important;animation-delay:0ms !important;' +
+  'animation-iteration-count:1 !important;animation-fill-mode:forwards !important;' +
+  'transition-duration:0.01ms !important;transition-delay:0ms !important;' +
+  'scroll-behavior:auto !important}'
+
+/**
+ * No transition at all in the EXPORT frame — not a short one.
+ *
+ * The still stylesheet gives every element a 0.01 ms transition, which is right
+ * for a preview (transitions end at once, and their events still fire) and
+ * wrong here: `transition-property` defaults to `all`, so every style the export
+ * pins — a gradient headline flattened to its ink before it is measured —
+ * started a transition, and a computed style read in the same task returns the
+ * transition's START value. The headline was measured transparent, dropped from
+ * the .pptx as invisible, and erased from its background: gone from the slide.
+ * Kept apart from STILL_ANIMATIONS_CSS, which must stay identical to Preview's.
+ */
+export const EXPORT_NO_TRANSITIONS_CSS = '*,*::before,*::after{transition:none !important}'
+
 function utf8ToBase64(str: string): string {
   return window.btoa(
     encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
@@ -310,6 +342,7 @@ ${capScripts}
 ${babelScript}
 <script src="/vendor/html2canvas.min.js"></script>
 <style>html,body{margin:0;padding:0}#root{min-height:100vh} *{scrollbar-width:none} *::-webkit-scrollbar{display:none}</style>
+${mode === 'document' ? `<style>${STILL_ANIMATIONS_CSS}${EXPORT_NO_TRANSITIONS_CSS}</style>` : ''}
 </head><body><div id="root"></div>
 <script type="text/plain" id="mocky-b64">${b64}</script>
 ${preludeTag}
@@ -317,7 +350,11 @@ ${preludeTag}
   /* One frame and the context back, for every <Scene3D> on this screen — see
      the note by capScripts. Set before the prelude runs, because the component
      reads it when its effect first fires. */
-  window.__mockyStill = true;
+  window.__mockyStill = true;${mode === 'document' ? `
+  /* A document is exported at rest: <Animated> reads this at mount and renders
+     its resting state instead of an entrance the export would catch at its
+     first frame (see STILL_ANIMATIONS_CSS for the CSS half). */
+  window.__mockyAnimations = false;` : ''}
   function post(m){ var o={__mockyCap:true,id:${JSON.stringify(id)}}; for(var k in m) o[k]=m[k]; parent.postMessage(o,'*'); }
   // createRoot().render() commits asynchronously, so a render error is thrown
   // AFTER the synchronous try/catch below has already returned. Without this the

@@ -85,6 +85,18 @@ export function transformTilts(transform?: string | null, rotate?: string | null
 }
 
 /**
+ * Text set vertically (`writing-mode: vertical-rl`, a spine label, a sideways
+ * date on a flyer's edge) is tilted as far as a text box is concerned: its
+ * Range rects are tall and narrow, a slide would set it horizontally across the
+ * page, and the ink erased under it would leave a hole where the design had a
+ * line. So it stays in the picture, like a rotation.
+ */
+export function writingModeTilts(writingMode?: string | null): boolean {
+  const v = (writingMode || '').trim()
+  return !!v && v !== 'horizontal-tb' && v !== 'lr' && v !== 'lr-tb' && v !== 'rl' && v !== 'rl-tb'
+}
+
+/**
  * `el` is drawn under a rotation or a scale — its own, or an ancestor's up to
  * the page. Memoised, because the walk asks it of every text node and the
  * raster pass of every element. Shared by both, so what is left out of the text
@@ -97,12 +109,72 @@ export function makeTiltTest(win: Window, page: Element): (el: Element | null) =
     const hit = memo.get(el)
     if (hit !== undefined) return hit
     const cs = win.getComputedStyle(el) as CSSStyleDeclaration & { rotate?: string; scale?: string }
-    const v = transformTilts(cs.transform, cs.rotate, cs.scale) || (el !== page && test(el.parentElement))
+    const v =
+      transformTilts(cs.transform, cs.rotate, cs.scale) ||
+      writingModeTilts(cs.writingMode) ||
+      (el !== page && test(el.parentElement))
     memo.set(el, v)
     return v
   }
   return test
 }
+
+/**
+ * The region an element's content is clipped to, in page px — `null` for no
+ * clip at all. One axis may be unbounded (`overflow-x: hidden` alone).
+ */
+export type Clip = Rect | null
+
+const UNBOUNDED = 1e7
+
+/**
+ * What one element's own style clips its content to, as flags: per axis for
+ * `overflow`, and everything for the two ways a stylesheet hides a thing while
+ * keeping it for a screen reader — `clip: rect(0 0 0 0)` (Tailwind 3's
+ * `sr-only`) and `clip-path: inset(50%)` (Tailwind 4's).
+ */
+export function clipsByStyle(cs: {
+  overflowX?: string | null
+  overflowY?: string | null
+  clip?: string | null
+  clipPath?: string | null
+  position?: string | null
+}): { x: boolean; y: boolean; empty: boolean } {
+  const clips = (v?: string | null) => !!v && v !== 'visible'
+  const clip = (cs.clip || '').replace(/\s+/g, '')
+  // `clip` only applies to an absolutely positioned box.
+  const zeroRect = /^(absolute|fixed)$/.test(cs.position || '') && /^rect\((0(px)?,?){4}\)$/.test(clip)
+  const inset = /^inset\((50%|[5-9]\d(\.\d+)?%|100%)/.test((cs.clipPath || '').trim())
+  return { x: clips(cs.overflowX), y: clips(cs.overflowY), empty: zeroRect || inset }
+}
+
+/** The overlap of two clips; `null` is "no clip", so it gives way to the other. */
+export function intersectClip(a: Clip, b: Clip): Clip {
+  if (!a) return b
+  if (!b) return a
+  const x1 = Math.max(a.x, b.x)
+  const y1 = Math.max(a.y, b.y)
+  const x2 = Math.min(a.x + a.w, b.x + b.w)
+  const y2 = Math.min(a.y + a.h, b.y + b.h)
+  return { x: x1, y: y1, w: Math.max(0, x2 - x1), h: Math.max(0, y2 - y1) }
+}
+
+/** The share of `r`'s area inside `clip`, 0–1. */
+export function visibleFraction(r: Rect, clip: Clip): number {
+  if (!clip) return 1
+  if (!(r.w > 0 && r.h > 0)) return 0
+  const i = intersectClip(r, clip)!
+  return (i.w * i.h) / (r.w * r.h)
+}
+
+/**
+ * A word must be at least this much visible to be exported as text. Half, so a
+ * `truncate`d line keeps the words a reader sees and loses the ones hidden
+ * past the ellipsis, and so a `sr-only` label — a 1 px box with a word laid
+ * out beyond it — is never a text box in a slide that nobody could see in the
+ * design.
+ */
+export const MIN_VISIBLE_FRACTION = 0.5
 
 /** Mirrors the kit's `MOCKY_DOC_TOLERANCE`: sub-pixel rounding is not overflow. */
 const OVERFLOW_TOLERANCE = 2
@@ -171,6 +243,52 @@ export function snapshotPage(
     return v
   }
 
+  // ── what each element's content is clipped to ───────────────────────────
+  // Visually hidden text (`sr-only`, a word past an `overflow-hidden` edge) is
+  // still in the DOM and still has rects; exported, it became a text box in a
+  // slide and a searchable line in a PDF that the design never showed. The
+  // clip follows the CONTAINING BLOCK for a positioned box: an absolute badge
+  // inside a static `overflow-hidden` wrapper escapes it, exactly as it is drawn.
+  const innerClip = new Map<Element, Clip>()
+  const containingBlock = (el: Element): Element | null => {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      if (p === page) return p
+      const cs = styleOf(p)
+      if (cs.position !== 'static' || (cs.transform && cs.transform !== 'none')) return p
+    }
+    return null
+  }
+  const outerOf = (el: Element): Clip => {
+    const pos = styleOf(el).position
+    if (pos === 'fixed') return null
+    const from = pos === 'absolute' ? containingBlock(el) : el.parentElement
+    return from ? contentClip(from) : null
+  }
+  const contentClip = (el: Element): Clip => {
+    // The page's own edge is `onPage`'s business: a word half off the paper is
+    // judged by its centre, as before. Every element asked about is inside the
+    // page: a host, its parents, or a containing block, which stops at the page.
+    if (el === page) return null
+    const hit = innerClip.get(el)
+    if (hit !== undefined) return hit
+    const cs = styleOf(el)
+    const flags = clipsByStyle(cs)
+    let own: Clip = null
+    if (flags.empty) own = { x: 0, y: 0, w: 0, h: 0 }
+    else if (flags.x || flags.y) {
+      const r = rel(el.getBoundingClientRect(), origin)
+      own = {
+        x: flags.x ? r.x : -UNBOUNDED,
+        y: flags.y ? r.y : -UNBOUNDED,
+        w: flags.x ? r.w : 2 * UNBOUNDED,
+        h: flags.y ? r.h : 2 * UNBOUNDED,
+      }
+    }
+    const v = intersectClip(outerOf(el), own)
+    innerClip.set(el, v)
+    return v
+  }
+
   // ── the block each run of text is laid out in ────────────────────────────
   const blockIndex = new Map<Element, number>()
   const infos: BlockInfo[] = []
@@ -235,7 +353,11 @@ export function snapshotPage(
       const space = m.index > 0 ? /\s/.test(data[m.index - 1]) : spaceBefore
       range.setStart(node, m.index)
       range.setEnd(node, m.index + m[0].length)
-      const rects = Array.from(range.getClientRects()).map((r) => rel(r, origin))
+      const clip = contentClip(host)
+      const rects = Array.from(range.getClientRects())
+        .map((r) => rel(r, origin))
+        .filter((r) => visibleFraction(r, clip) >= MIN_VISIBLE_FRACTION)
+      if (rects.length === 0) continue
       if (!overflow && !isDecorative(host) && rects.some(crosses)) overflow = true
       // Left in the picture (render.ts keeps its ink): a box could only draw it straight.
       if (tilted(host)) {
