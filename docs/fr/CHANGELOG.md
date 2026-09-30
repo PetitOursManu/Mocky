@@ -101,6 +101,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `lumy` | documents et posts réseaux sociaux, câbles, mode démo, types d'écran, Améliorer, carillon, fournisseurs | `9504f84` |
 | — | LUMY_SECRET est facultatif | `096a681` |
 | — | Lumy 0.1.1 — formulaires du tableau de bord visibles malgré les bloqueurs de publicité | `d406bd9` |
 | `readme` | types d'écran, documents, posts réseaux sociaux, cadres de démo, câbles, carillon, fournisseurs | `6357efa` |
