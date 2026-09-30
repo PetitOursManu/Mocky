@@ -43,7 +43,7 @@
     {
       "group": { "en": "Features", "fr": "Fonctionnalités" },
       "audience": ["user"],
-      "pages": ["muse/overview", "muse/inspiration-engine", "muse/animations", "quality", "motion-ultra", "video-export", { "slug": "seo-accessibility", "audience": ["user", "dev"] }]
+      "pages": ["muse/overview", "muse/inspiration-engine", "muse/animations", "documents", "quality", "motion-ultra", "video-export", { "slug": "seo-accessibility", "audience": ["user", "dev"] }]
     },
     { "group": { "en": "Self-hosting", "fr": "Auto-hébergement" }, "audience": ["admin"], "pages": ["deployment", "migration", "admin-dashboard"] },
     { "group": "Architecture", "audience": ["dev"], "pages": ["architecture/overview", "architecture/invariants", "adr/001-muse", "DESIGN-SYSTEM"] },

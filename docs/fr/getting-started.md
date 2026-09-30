@@ -1,5 +1,5 @@
 ---
-source_hash: d5ddc41942d9
+source_hash: d696b6e45794
 ---
 
 # Démarrage
@@ -147,9 +147,13 @@ mode navigateur.
 
 ### Mode A — par navigateur (le défaut)
 
-Allez dans **Réglages**, choisissez `Ollama Cloud`, mettez
-`https://ollama.com` comme URL de base, collez votre clé d'API, choisissez un
-modèle et cliquez sur **Tester la connexion**.
+Allez dans **Réglages**, choisissez un fournisseur, collez votre clé d'API,
+choisissez un modèle et cliquez sur **Tester la connexion**. La liste est groupée
+— les éditeurs de modèles (OpenAI, Anthropic, Google Gemini, Mistral, DeepSeek,
+xAI, Moonshot), les hébergeurs de modèles ouverts (Ollama Cloud, OpenRouter, Groq,
+Together, Fireworks, Cerebras, Hugging Face), et `Compatible OpenAI` pour tout le
+reste — et chacun remplit sa propre URL de base et un modèle par défaut. Ollama
+Cloud, sur `https://ollama.com`, est le défaut.
 
 La clé est conservée dans le `localStorage` de ce navigateur, sous
 `mocky.settings.v1`. Elle n'est jamais écrite côté serveur. Elle traverse
@@ -163,7 +167,9 @@ Ce mode proposait autrefois un seul fournisseur, Ollama Cloud — non pas parce
 que les autres ne pouvaient pas fonctionner, mais parce que le navigateur ne
 disait jamais au serveur quel dialecte parlait son endpoint. Il le dit
 maintenant (en-tête `x-provider-kind`), et `src/lib/settings.ts` offre la même
-liste que l'écran Admin.
+liste que l'écran Admin, moins fal, dont l'authentification `Key` ne peut pas
+passer par l'en-tête Bearer qu'envoie un navigateur. Les deux listes sont tenues
+égales par `tests/text-providers-mirror.test.js`.
 
 ### Mode B — pour toute l'instance (administrateur)
 
@@ -171,7 +177,7 @@ Allez dans **Admin → Modèles de texte**. La clé est stockée sur le serveur,
 `server/data/text-config.json`. Elle est utilisée par tous les comptes, et les
 Réglages personnels de chacun sont alors ignorés.
 
-`server/text/config.js` déclare six fournisseurs.
+`server/text/config.js` déclare seize fournisseurs.
 
 ![L'écran Admin : modèles de texte et d'images pour toute l'instance](../assets/07-admin.png)
 
@@ -182,12 +188,25 @@ Réglages personnels de chacun sont alors ignorés.
 | `ollama-cloud` | Ollama | `https://ollama.com` | `gpt-oss:120b` |
 | `openai` | OpenAI | `https://api.openai.com` | `gpt-4o-mini` |
 | `anthropic` | OpenAI | `https://api.anthropic.com` | `claude-sonnet-4-5` |
+| `gemini` | OpenAI | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-3.8-flash` |
+| `mistral` | OpenAI | `https://api.mistral.ai/v1` | `mistral-medium-latest` |
+| `deepseek` | OpenAI | `https://api.deepseek.com` | `deepseek-flash` |
+| `xai` | OpenAI | `https://api.x.ai/v1` | `grok-4.7` |
+| `moonshot` | OpenAI | `https://api.moonshot.ai/v1` | `kimi-k3` |
 | `openrouter` | OpenAI | `https://openrouter.ai/api` | `openai/gpt-4o-mini` |
+| `groq` | OpenAI | `https://api.groq.com/openai/v1` | `openai/gpt-oss-120b` |
+| `together` | OpenAI | `https://api.together.ai/v1` | `openai/gpt-oss-120b` |
+| `fireworks` | OpenAI | `https://api.fireworks.ai/inference/v1` | `accounts/fireworks/models/gpt-oss-120b` |
+| `cerebras` | OpenAI | `https://api.cerebras.ai/v1` | `gpt-oss-120b` |
+| `huggingface` | OpenAI | `https://router.huggingface.co/v1` | `openai/gpt-oss-120b` |
 | `fal` | OpenAI, auth `Key` | `https://fal.run/openrouter/router/openai` | `openai/gpt-4o-mini` |
 | `openai-compatible` | OpenAI | *(à vous de la saisir)* | *(à vous de le saisir)* |
 
-`openai-compatible` couvre Groq, Together, DeepSeek, Mistral, LM Studio et
-vLLM — tout ce qui expose `POST {baseUrl}/v1/chat/completions`.
+`openai-compatible` couvre le reste — Qwen, Cohere, LM Studio, vLLM — tout ce qui
+expose l'API de chat d'OpenAI. Une URL de base qui finit déjà par une version
+(`…/v1`, ou `…/v1beta/openai`) est utilisée telle quelle ; les autres reçoivent
+`/v1`. C'est pour cela que l'URL que la documentation d'un éditeur vous dit de
+coller fonctionne telle que collée.
 
 ### Le bloc Utilisation, sur le même écran
 

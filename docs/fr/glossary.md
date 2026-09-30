@@ -1,5 +1,5 @@
 ---
-source_hash: 15e276d3f7dd
+source_hash: 81ffb426a806
 ---
 
 # Glossaire
@@ -35,3 +35,19 @@ Du code que Mocky injecte dans l’aperçu pour qu’un composant généré puis
 ## Invariant {#invariant}
 
 Une règle que le code refuse d’enfreindre, chacune écrite après un bug précis. Cinq séries : I (cœur), M (Muse), Q (qualité), U (Motion Ultra), D (tableau de bord d’administration).
+
+## Type d’écran {#screen-type}
+
+Le genre de la prochaine génération — un tableau de bord, un planning, une page de tarifs — ou le genre de document. Choisi dans le composeur, il donne au modèle la structure qu’attend ce genre d’écran ; vos mots l’emportent toujours. Il reste armé pour les écrans suivants du projet.
+
+## Document {#document}
+
+Un écran fait de pages de taille fixe — un flyer, un rapport, un CV, un post pour les réseaux — plutôt qu’une page mise en page pour une fenêtre. Il se télécharge en PDF à champs remplissables, en `.pptx` aux textes modifiables, ou en images PNG. Voir [Documents et posts pour les réseaux sociaux](documents.md).
+
+## Format de page {#page-format}
+
+La taille des pages d’un document : A4, A3 ou US Letter en portrait ou en paysage, une diapositive 16:9, ou une taille des réseaux sociaux (1:1, 4:5, 9:16, 1,91:1). Il remplace les gabarits Mobile / Ordinateur / Tablette pour un document.
+
+## Câble {#cable}
+
+Un lien entre deux écrans tel que le canevas le dessine : une ligne de l’élément où il a été posé jusqu’à l’écran qu’il ouvre, à la manière d’une carte mentale. Pâle derrière les cadres hors du mode liens ; un contrôle qu’on peut supprimer ou rebrancher dedans.

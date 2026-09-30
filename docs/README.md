@@ -55,6 +55,7 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 | Follow Discover, Distill and Dossier in detail | [Inspiration engine](muse/inspiration-engine.md) |
 | Understand the animation system | [Animations](muse/animations.md) |
 | Check a generated screen, and correct what the check finds | [Quality pass](quality.md) |
+| Make a flyer, a report, a résumé or a social media post, and download it as a PDF, a deck or images | [Documents and social posts](documents.md) |
 | Compose an `.mp4` for a screen out of a catalogue of blocks — and know why its renderer ships separately | [Motion Ultra](video-export.md) |
 | Deploy Mocky | [Deployment](deployment.md) |
 | Put the instance in read-only mode, or move it to another server | [Maintenance and migration](migration.md) |
