@@ -18,6 +18,9 @@ export const canvas = {
     'canvas.docDownload': 'Télécharger',
     'canvas.docDownloadTitle': 'Télécharger ce document : PDF à remplir, PowerPoint / Google Slides ou images',
     'canvas.docPage': 'Page {n} / {total}',
+    'canvas.docPrevPage': 'Page précédente',
+    'canvas.docNextPage': 'Page suivante',
+    'canvas.demoFrameTitleDoc': 'Montrer le document tenu en main, dessiné au trait',
     // ---- animations, par écran ----
     'canvas.animOn': 'Cet écran s’anime — cliquez pour le figer',
     'canvas.animOff': 'Cet écran est figé — cliquez pour le réanimer',
@@ -127,6 +130,9 @@ export const canvas = {
     'canvas.docDownload': 'Download',
     'canvas.docDownloadTitle': 'Download this document: fillable PDF, PowerPoint / Google Slides or images',
     'canvas.docPage': 'Page {n} of {total}',
+    'canvas.docPrevPage': 'Previous page',
+    'canvas.docNextPage': 'Next page',
+    'canvas.demoFrameTitleDoc': 'Show the document held in a hand, drawn as a line sketch',
     // ---- per-screen animations ----
     'canvas.animOn': 'This screen animates — click to hold it still',
     'canvas.animOff': 'This screen is held still — click to animate it again',
