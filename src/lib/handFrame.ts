@@ -41,41 +41,61 @@ export const FOREARM_OVERSHOOT = 140
 
 /* ── the tracing, in hand units ─────────────────────────────────────────────── */
 
+/*
+ * Traced twice. The first tracing, off the small reference, had the thumb stop
+ * dead at the page's edge and a notch in the line between thumb and index; the
+ * user circled both. The second, off a 2.1× enlargement of the same picture,
+ * shows what the small one hid: the thumb's contour does not end at the edge —
+ * it runs down along it and curves out as the base of the thumb (`THENAR`),
+ * and the notch was the tip of the index finger showing between thumb and palm
+ * (`FINGER_TIP`), a shape of its own.
+ */
+
 /** The back of the hand, from where it leaves the page's edge to where the arm leaves the picture. */
 const OUTER: Pt[] = [
-  [1, -410], [60, -398], [72, -391], [100, -358], [135, -308], [160, -283], [175, -258],
-  [180, -218], [183, -188], [190, -118], [200, -68], [215, -28], [235, 2], [260, 32],
-  [308, 82], [370, 145], [436, 212],
+  [0, -413], [29, -408], [74, -399], [82, -391], [114, -352], [143, -317], [167, -293], [181, -276],
+  [188, -257], [190, -229], [195, -200], [202, -162], [210, -114], [215, -76], [224, -43], [238, -19],
+  [262, 10], [286, 40], [333, 100], [384, 160], [419, 200],
 ]
 /** The inside of the wrist, from the page's bottom-right corner down out of the picture. */
 const INNER: Pt[] = [
-  [0, 0], [25, 37], [60, 69], [75, 82], [105, 132], [135, 190], [160, 250], [176, 310],
+  [0, 0], [10, 26], [24, 48], [45, 64], [67, 73], [75, 80], [95, 107], [124, 152], [167, 229], [190, 271],
 ]
-/** The thumb on the front: from where it leaves the page's edge, up round the tip, back to the edge. */
+/** The thumb on the front: from where it meets the page's edge, up round the tip, back to the edge. */
 const THUMB: Pt[] = [
-  [-1, -183], [-5, -208], [-15, -238], [-27, -263], [-40, -293], [-50, -323], [-55, -348],
-  [-54, -368], [-45, -380], [-30, -386], [-15, -384], [1, -373],
+  [0, -210], [-4, -221], [-11, -238], [-23, -260], [-34, -281], [-44, -302], [-51, -323], [-55, -342],
+  [-55, -360], [-50, -373], [-40, -382], [-24, -386], [-10, -384], [0, -376],
 ]
-/** Between the thumb and the index finger, down to where the palm starts. */
+/** The base of the thumb: the thumb's contour carried down along the edge and out into the palm. */
+const THENAR: Pt[] = [
+  [0, -210], [4, -190], [6, -177], [3, -152], [0, -124], [0, -100], [3, -76], [10, -55], [21, -34],
+  [37, -16], [58, 2], [86, 14],
+]
+/** Between the thumb and the palm, from the thumb's tip down into the palm. */
 const THUMB_SIDE: Pt[] = [
-  [1, -373], [25, -333], [41, -298], [60, -281], [55, -258], [70, -228], [85, -213], [110, -188],
+  [0, -375], [14, -357], [25, -341], [32, -329], [42, -307], [51, -285], [64, -255], [80, -232],
+  [99, -213], [122, -194], [141, -174], [155, -155],
 ]
+/** The tip of the index finger, showing between the thumb and the palm. */
+const FINGER_TIP: Pt[] = [[47, -300], [60, -288], [74, -281], [68, -269], [64, -255]]
 /** The nail, a closed loop. */
 const NAIL: Pt[] = [
-  [-47, -361], [-43, -334], [-33, -326], [2, -337], [5, -348], [0, -370], [-15, -378], [-40, -376],
+  [-46, -366], [-37, -376], [-20, -379], [-4, -372], [4, -358], [7, -346], [-1, -338], [-18, -332],
+  [-32, -328], [-41, -331], [-46, -343], [-48, -356],
 ]
-/** Short lines: the thumb's knuckle wrinkles, the fingers' folds, the palm's creases. */
+/** Short lines: the thumb's knuckle wrinkles, the fingers' folds, the palm's and the wrist's creases. */
 const CREASES: Pt[][] = [
-  [[-10, -288], [5, -294], [20, -298]],
-  [[-3, -281], [11, -287], [25, -292]],
-  [[5, -274], [15, -277], [25, -279]],
-  [[24, -333], [34, -350], [44, -366]],
-  [[60, -281], [80, -294], [100, -304]],
-  [[70, -228], [94, -246], [117, -263]],
-  [[85, -218], [98, -221], [110, -223]],
-  [[-1, -178], [16, -158], [35, -140]],
-  [[1, -78], [34, -34], [70, 12]],
-  [[67, 42], [88, 68], [110, 97]],
+  [[-10, -291], [6, -298], [23, -303]],
+  [[-2, -283], [13, -290], [29, -295]],
+  [[6, -276], [18, -280], [30, -283]],
+  [[62, -378], [48, -355], [32, -330]],
+  [[74, -281], [97, -297], [120, -312]],
+  [[81, -229], [108, -249], [136, -268]],
+  [[95, -214], [116, -221], [136, -225]],
+  [[6, -177], [26, -150], [55, -133]],
+  [[215, -48], [206, -29], [193, -12]],
+  [[170, 9], [141, 32], [114, 61]],
+  [[79, 43], [121, 95], [162, 155]],
 ]
 
 /**
@@ -121,7 +141,11 @@ export interface HandFrame {
   outer: string
   inner: string
   thumb: string
+  /** The thumb as a closed shape, for its shadow on the sheet. */
+  thumbShadow: string
+  thenar: string
   thumbSide: string
+  fingerTip: string
   nail: string
   creases: string[]
 }
@@ -156,7 +180,10 @@ export function handFrame(pageW: number, pageH: number): HandFrame {
     outer: smoothPath(outer),
     inner: smoothPath(inner),
     thumb: smoothPath(thumb),
+    thumbShadow: smoothPath(thumb) + ' Z',
+    thenar: line(THENAR),
     thumbSide: line(THUMB_SIDE),
+    fingerTip: line(FINGER_TIP),
     nail: line(NAIL, true),
     creases: CREASES.map((c) => line(c)),
   }

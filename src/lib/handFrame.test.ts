@@ -7,7 +7,7 @@ const PRINT = PAGE_FORMATS.filter((f) => f.kind === 'print')
 describe('handFrame', () => {
   it.each(PRINT)('stays in its box, but for the arm leaving the picture ($id)', (f) => {
     const hand = handFrame(f.w, f.h)
-    const inside = [hand.thumb, hand.thumbSide, hand.nail, ...hand.creases].flatMap(pathPoints)
+    const inside = [hand.thumb, hand.thenar, hand.thumbSide, hand.fingerTip, hand.nail, ...hand.creases].flatMap(pathPoints)
     const arm = [hand.fill, hand.outer, hand.inner].flatMap(pathPoints)
     expect(inside.length).toBeGreaterThan(40)
     // Control points included: a curve never leaves the hull of its points.

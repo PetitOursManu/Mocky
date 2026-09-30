@@ -48,7 +48,9 @@ export default function DocumentInHand({
   height: number
 }) {
   const t = useT()
-  const clipId = 'hand-clip-' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const clipId = 'hand-clip-' + uid
+  const shadowId = 'hand-shadow-' + uid
   // The format the kit laid out wins, as in DocumentPages.
   const [laid, setLaid] = useState<PageFormatId | null>(null)
   const format = getPageFormat(laid ?? page)
@@ -120,14 +122,31 @@ export default function DocumentInHand({
             <clipPath id={clipId}>
               <rect x={0} y={0} width={hand.width} height={hand.height} />
             </clipPath>
+            {/* The one shading the reference has that a line drawing needs:
+                the thumb's shadow on the sheet, which is what says the thumb
+                is ON the paper rather than cut into it. Black at low opacity
+                in both themes — an ink-coloured "shadow" is a glow in the dark
+                one. */}
+            <filter id={shadowId} x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation={5 * hand.scale} />
+            </filter>
           </defs>
           <rect x={0} y={0} width={format.w} height={format.h} fill="none" stroke={INK} strokeWidth={1} {...hairline} />
+          <path
+            d={hand.thumbShadow}
+            fill="#000"
+            fillOpacity={0.14}
+            filter={`url(#${shadowId})`}
+            transform={`translate(${-7 * hand.scale} ${5 * hand.scale})`}
+          />
           <g clipPath={`url(#${clipId})`} fill="none" strokeLinecap="round" strokeLinejoin="round">
             <path d={hand.fill} fill={PAPER} stroke="none" />
             <path d={hand.outer} stroke={INK} strokeWidth={1.5} {...hairline} />
             <path d={hand.inner} stroke={INK} strokeWidth={1.5} {...hairline} />
             <path d={hand.thumb} stroke={INK} strokeWidth={1.5} {...hairline} />
+            <path d={hand.thenar} stroke={INK} strokeWidth={1.5} {...hairline} />
             <path d={hand.thumbSide} stroke={INK} strokeWidth={1.25} {...hairline} />
+            <path d={hand.fingerTip} stroke={INK} strokeWidth={1.25} {...hairline} />
             <path d={hand.nail} stroke={MUTED} strokeWidth={1} {...hairline} />
             {hand.creases.map((d, i) => (
               <path key={i} d={d} stroke={FAINT} strokeWidth={1} {...hairline} />
