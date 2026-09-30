@@ -15,7 +15,17 @@
  * sides follow; spell one by hand anywhere else and they drift apart silently.
  */
 
-export type PageFormatId = 'a4' | 'a4-landscape' | 'letter' | 'letter-landscape' | 'slides'
+export type PageFormatId =
+  | 'a4'
+  | 'a4-landscape'
+  | 'a3'
+  | 'letter'
+  | 'letter-landscape'
+  | 'slides'
+  | 'social-square'
+  | 'social-portrait'
+  | 'social-story'
+  | 'social-landscape'
 
 export interface PageFormat {
   id: PageFormatId
@@ -27,8 +37,12 @@ export interface PageFormat {
   heightPt: number
   /** `@page { size: … }`, for anything that prints the page. */
   cssSize: string
-  /** 'print' pages are paper; 'slides' is a 16:9 presentation page. */
-  kind: 'print' | 'slides'
+  /**
+   * 'print' pages are paper; 'slides' is a 16:9 presentation page; 'social' is
+   * an image made to be posted — sized in the pixels the platforms ask for,
+   * seen on a phone, never printed.
+   */
+  kind: 'print' | 'slides' | 'social'
 }
 
 /**
@@ -39,13 +53,26 @@ export interface PageFormat {
  * The presentation page is 1280 × 720 px, i.e. 13.333 × 7.5 in: the size
  * PowerPoint and Google Slides call "Widescreen 16:9", so a deck exported from
  * here opens there at its own size instead of being letterboxed.
+ *
+ * The social formats are the sizes the platforms publish, in their own pixels,
+ * so a PNG exported at 1× is the file they want as it is: 1080 × 1080 (a square
+ * post, everywhere), 1080 × 1350 (4:5, the tallest a feed shows whole),
+ * 1080 × 1920 (a 9:16 story or reel cover) and 1200 × 628 (1.91:1, the link and
+ * LinkedIn image). Their points are the pixels × 0.75 like every other page, so
+ * a carousel exported as a PDF — what LinkedIn calls a document post — keeps
+ * the same proportions.
  */
 export const PAGE_FORMATS: readonly PageFormat[] = [
   { id: 'a4', w: 794, h: 1123, widthPt: 595.28, heightPt: 841.89, cssSize: 'A4 portrait', kind: 'print' },
   { id: 'a4-landscape', w: 1123, h: 794, widthPt: 841.89, heightPt: 595.28, cssSize: 'A4 landscape', kind: 'print' },
+  { id: 'a3', w: 1123, h: 1587, widthPt: 841.89, heightPt: 1190.55, cssSize: 'A3 portrait', kind: 'print' },
   { id: 'letter', w: 816, h: 1056, widthPt: 612, heightPt: 792, cssSize: 'letter portrait', kind: 'print' },
   { id: 'letter-landscape', w: 1056, h: 816, widthPt: 792, heightPt: 612, cssSize: 'letter landscape', kind: 'print' },
   { id: 'slides', w: 1280, h: 720, widthPt: 960, heightPt: 540, cssSize: '1280px 720px', kind: 'slides' },
+  { id: 'social-square', w: 1080, h: 1080, widthPt: 810, heightPt: 810, cssSize: '1080px 1080px', kind: 'social' },
+  { id: 'social-portrait', w: 1080, h: 1350, widthPt: 810, heightPt: 1012.5, cssSize: '1080px 1350px', kind: 'social' },
+  { id: 'social-story', w: 1080, h: 1920, widthPt: 810, heightPt: 1440, cssSize: '1080px 1920px', kind: 'social' },
+  { id: 'social-landscape', w: 1200, h: 628, widthPt: 900, heightPt: 471, cssSize: '1200px 628px', kind: 'social' },
 ]
 
 export const PAGE_FORMAT_IDS = PAGE_FORMATS.map((f) => f.id)
@@ -58,6 +85,21 @@ export function isPageFormat(id: unknown): id is PageFormatId {
 
 export function getPageFormat(id: PageFormatId): PageFormat {
   return PAGE_FORMATS.find((f) => f.id === id) ?? PAGE_FORMATS[0]
+}
+
+/**
+ * The formats a document may move between: paper and slides on one side, the
+ * social sizes on the other. A report can become a deck and a flyer a poster,
+ * but a post laid out in 1080 px for a phone is not the same piece at A4, so
+ * the composer never offers the jump (`composerPageFormat`).
+ */
+export function formatFamily(id: PageFormatId): 'paper' | 'social' {
+  return getPageFormat(id).kind === 'social' ? 'social' : 'paper'
+}
+
+export function formatsLike(id: PageFormatId): PageFormat[] {
+  const family = formatFamily(id)
+  return PAGE_FORMATS.filter((f) => formatFamily(f.id) === family)
 }
 
 /**

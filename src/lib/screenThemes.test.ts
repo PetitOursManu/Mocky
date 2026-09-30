@@ -114,7 +114,19 @@ describe('the Flyer, the first DOCUMENT type', () => {
     expect(themeDocumentPage('flyer')).toBe('a4')
     expect(themeDocumentPage('landing')).toBeUndefined()
     expect(themeDocumentPage(null)).toBeUndefined()
-    expect(SCREEN_THEMES.filter((th) => th.document).map((th) => th.id)).toEqual(['flyer'])
+    expect(SCREEN_THEMES.filter((th) => th.document).map((th) => th.id)).toEqual([
+      'flyer',
+      'poster',
+      'report',
+      'documentation',
+      'resume',
+      'invoice',
+      'certificate',
+      'menu',
+      'instagram',
+      'facebook',
+      'linkedin',
+    ])
   })
 
   it('is introduced to the model as a printed piece, not a screen', () => {
@@ -217,5 +229,42 @@ describe('projectScreenType', () => {
   it('starts on nothing in an empty project, and ignores a type this build does not know', () => {
     expect(projectScreenType([])).toEqual({ theme: null, page: null })
     expect(projectScreenType([{ createdAt: 1, theme: 'brochure-3d' }])).toEqual({ theme: null, page: null })
+  })
+})
+
+describe('the other document types', () => {
+  it('start each on the format its piece is made in', () => {
+    expect(themeDocumentPage('poster')).toBe('a3')
+    expect(themeDocumentPage('certificate')).toBe('a4-landscape')
+    for (const id of ['report', 'documentation', 'resume', 'invoice', 'menu'] as const) expect(themeDocumentPage(id), id).toBe('a4')
+    expect(themeDocumentPage('instagram')).toBe('social-portrait')
+    expect(themeDocumentPage('facebook')).toBe('social-landscape')
+    expect(themeDocumentPage('linkedin')).toBe('social-square')
+  })
+
+  it('are introduced to the model as documents, never as screens', () => {
+    for (const th of SCREEN_THEMES.filter((t) => t.document)) expect(screenThemeSection(th.id), th.id).toMatch(/^DOCUMENT TYPE/)
+  })
+
+  it('say nothing about a size either: the page format says it', () => {
+    for (const th of SCREEN_THEMES.filter((t) => t.document)) {
+      expect(th.brief, th.id).not.toMatch(/\bA[34]\b|\bLetter\b|\b\d+\s?px\b|\bmm\b|\b\d{3,4}\s?[×x]\s?\d{3,4}\b/)
+    }
+  })
+
+  it('keep a social post free of form fields and web buttons, and make a carousel of several pages', () => {
+    for (const id of ['instagram', 'facebook', 'linkedin'] as const) {
+      const b = getScreenTheme(id)!.brief
+      expect(b, id).toMatch(/No fillable fields|no fillable fields/)
+      expect(b, id).toMatch(/never a web button/)
+      expect(b, id).toMatch(/carousel/i)
+    }
+    // LinkedIn's carousel IS a PDF: the brief says so, since the export offers one.
+    expect(getScreenTheme('linkedin')!.brief).toMatch(/document post, exported as a PDF/)
+  })
+
+  it('ask a business document for figures that add up', () => {
+    expect(getScreenTheme('invoice')!.brief).toMatch(/computed exactly/)
+    expect(getScreenTheme('report')!.brief).toMatch(/consistent from one page to the next/)
   })
 })

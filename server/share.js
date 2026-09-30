@@ -63,7 +63,18 @@ export const isShareToken = (t) => TOKEN_RE.test(String(t || ''))
  * width. The viewer needs the format to show them as pages; anything that is
  * not one of these names is dropped, never stored.
  */
-export const SHARE_PAGE_FORMATS = ['a4', 'a4-landscape', 'letter', 'letter-landscape', 'slides']
+export const SHARE_PAGE_FORMATS = [
+  'a4',
+  'a4-landscape',
+  'a3',
+  'letter',
+  'letter-landscape',
+  'slides',
+  'social-square',
+  'social-portrait',
+  'social-story',
+  'social-landscape',
+]
 const isPageFormat = (v) => typeof v === 'string' && SHARE_PAGE_FORMATS.includes(v)
 
 export function createShareStore(dataDir, { now = () => Date.now() } = {}) {

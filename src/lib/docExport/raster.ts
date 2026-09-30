@@ -37,6 +37,9 @@ export const MAX_RASTER_PIXELS = 12_000_000
  * a flyer that uploads to Drive in seconds rather than a minute.
  */
 export function rasterScale(format: Pick<PageFormat, 'w' | 'h' | 'kind'>, purpose: RasterPurpose): number {
+  // A social image is already in the platform's own pixels: 1× IS the file
+  // Instagram or LinkedIn asks for, and 2× would be downscaled by them anyway.
+  if (format.kind === 'social') return 1
   const wanted = format.kind === 'slides' ? SLIDES_SCALE : purpose === 'pptx' ? 2 : PRINT_DPI / 96
   const cap = Math.sqrt(MAX_RASTER_PIXELS / Math.max(1, format.w * format.h))
   return Math.max(0.25, Math.min(wanted, cap))

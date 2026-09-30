@@ -105,7 +105,7 @@ describe('what a share exposes', () => {
 
   it('drops a page value that is not a format rather than storing it', () => {
     const s = store()
-    for (const page of ['A4', 'a3', '<script>', 42, { id: 'a4' }, null]) {
+    for (const page of ['A4', 'a5', '<script>', 42, { id: 'a4' }, null]) {
       expect(s.get(s.create('u1', { ...SNAP, page }).token)).not.toHaveProperty('page')
     }
   })

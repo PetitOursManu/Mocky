@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { SCREEN_THEMES, getScreenTheme, type ScreenThemeId } from '../lib/screenThemes'
+import { formatFamily } from '../lib/pageFormats'
 import { Chip, Icon } from '../ui'
 import { useT } from '../i18n'
 
@@ -23,7 +24,8 @@ import { useT } from '../i18n'
  * the middle of a scrolling page (downwards).
  */
 const THEME_GROUPS = [
-  { key: 'composer.themeGroupDocuments', themes: SCREEN_THEMES.filter((th) => th.document) },
+  { key: 'composer.themeGroupDocuments', themes: SCREEN_THEMES.filter((th) => th.document && formatFamily(th.document.page) === 'paper') },
+  { key: 'composer.themeGroupSocial', themes: SCREEN_THEMES.filter((th) => th.document && formatFamily(th.document.page) === 'social') },
   { key: 'composer.themeGroupScreens', themes: SCREEN_THEMES.filter((th) => !th.document) },
 ].filter((g) => g.themes.length > 0)
 

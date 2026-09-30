@@ -11,14 +11,17 @@ import {
   DOCUMENT_CAP,
   DOCUMENT_EXCLUDED_CAPS,
   DOCUMENT_RULES,
-  PAGE_FORMAT_CHIPS,
   SAFE_MARGIN_PX,
+  SOCIAL_SAFE_MARGIN_PX,
+  STORY_SAFE_BOTTOM_PX,
+  STORY_SAFE_TOP_PX,
   composerPageFormat,
   demoDocLayout,
   docFrameUpdate,
   documentHint,
   documentPipeline,
   hintForScreen,
+  pageFormatChips,
   pageFormatName,
   pageInView,
   pagesInFrame,
@@ -40,10 +43,28 @@ describe('the composer’s format chips', () => {
     expect(composerPageFormat('flyer', 'tabloid' as never)).toBe('a4')
   })
 
-  it('offer every page format, named in both languages', () => {
-    expect(PAGE_FORMAT_CHIPS.map((c) => c.id)).toEqual(PAGE_FORMATS.map((f) => f.id))
+  it('never carry a format across families: A4 for a report is not A4 for a post', () => {
+    expect(composerPageFormat('instagram', 'a4')).toBe('social-portrait')
+    expect(composerPageFormat('instagram', 'social-story')).toBe('social-story')
+    expect(composerPageFormat('report', 'social-square')).toBe('a4')
+    expect(composerPageFormat('poster', null)).toBe('a3')
+  })
+
+  it('offer a document the formats of its own family only', () => {
+    expect(pageFormatChips('a4').map((c) => c.id)).toEqual(['a4', 'a4-landscape', 'a3', 'letter', 'letter-landscape', 'slides'])
+    expect(pageFormatChips('social-square').map((c) => c.id)).toEqual([
+      'social-square',
+      'social-portrait',
+      'social-story',
+      'social-landscape',
+    ])
+  })
+
+  it('offer every page format somewhere, named in both languages', () => {
+    const chips = [...pageFormatChips('a4'), ...pageFormatChips('social-square')]
+    expect(chips.map((c) => c.id).sort()).toEqual(PAGE_FORMATS.map((f) => f.id).sort())
     const missing: string[] = []
-    for (const c of PAGE_FORMAT_CHIPS) {
+    for (const c of chips) {
       for (const key of [c.short, c.full]) {
         for (const [lang, dict] of Object.entries(composer) as [string, Record<string, string>][]) {
           if (!dict[key]?.trim()) missing.push(`${lang}: ${key}`)
@@ -70,7 +91,7 @@ describe('documentHint', () => {
       expect(h, f.id).toContain(`${f.w}×${f.h}px`)
       expect(h, f.id).toContain(`<Doc format="${f.id}">`)
       expect(h, f.id).toContain('<Page')
-      expect(h, f.id).toContain(`${SAFE_MARGIN_PX}px`)
+      expect(h, f.id).toContain(`${f.kind === 'social' ? SOCIAL_SAFE_MARGIN_PX : SAFE_MARGIN_PX}px`)
       expect(h, f.id).toMatch(/^FORMAT: /)
       expect(h, f.id).toMatch(/no hover/i)
       expect(h, f.id).toMatch(/no animation/i)
@@ -85,6 +106,25 @@ describe('documentHint', () => {
     expect(documentHint(getPageFormat('slides'))).toMatch(/slide/)
     expect(documentHint(getPageFormat('a4'))).toMatch(/PRINTED DOCUMENT/)
     expect(pageFormatName('letter-landscape')).toMatch(/US Letter landscape/)
+  })
+
+  it('tells a social image it is seen on a phone, and a story where the app draws over it', () => {
+    const post = documentHint(getPageFormat('social-square'))
+    expect(post).toMatch(/SOCIAL MEDIA VISUAL/)
+    expect(post).toMatch(/CAROUSEL/)
+    expect(post).toMatch(/phone/)
+    expect(post).not.toMatch(/96 px per inch|arm's length/)
+    const story = documentHint(getPageFormat('social-story'))
+    expect(story).toContain(`top ${STORY_SAFE_TOP_PX}px`)
+    expect(story).toContain(`bottom ${STORY_SAFE_BOTTOM_PX}px`)
+    expect(post).not.toContain(`top ${STORY_SAFE_TOP_PX}px`)
+    expect(pageFormatName('social-portrait')).toMatch(/social media visual/)
+  })
+
+  it('says nothing new to a sheet of paper or a slide', () => {
+    for (const id of ['a4', 'letter', 'slides'] as const) {
+      expect(documentHint(getPageFormat(id)), id).not.toMatch(/CAROUSEL|phone|story/i)
+    }
   })
 })
 

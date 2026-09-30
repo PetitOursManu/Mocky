@@ -1,5 +1,5 @@
 import { PRESETS } from '../lib/presets'
-import { PAGE_FORMAT_CHIPS } from '../lib/documentMode'
+import { pageFormatChips } from '../lib/documentMode'
 import { getPageFormat, type PageFormatId } from '../lib/pageFormats'
 import { Chip } from '../ui'
 import { useT } from '../i18n'
@@ -70,7 +70,7 @@ export default function PresetPicker({
   if (pageFormat) {
     return (
       <div role="group" aria-label={t('composer.pageFormatsAria')} className={`flex flex-wrap items-center gap-1.5 ${className}`}>
-        {PAGE_FORMAT_CHIPS.map((c) => {
+        {pageFormatChips(pageFormat).map((c) => {
           const f = getPageFormat(c.id)
           return chip(c.id, c.id === pageFormat, t(c.short), `${t(c.full)} · ${f.w}×${f.h}`, () => onPageFormatChange?.(c.id))
         })}

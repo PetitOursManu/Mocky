@@ -46,6 +46,16 @@ export const SCREEN_THEME_IDS = [
   'article',
   'portfolio',
   'flyer',
+  'poster',
+  'report',
+  'documentation',
+  'resume',
+  'invoice',
+  'certificate',
+  'menu',
+  'instagram',
+  'facebook',
+  'linkedin',
 ] as const
 
 export type ScreenThemeId = (typeof SCREEN_THEME_IDS)[number]
@@ -265,6 +275,142 @@ export const SCREEN_THEMES: readonly ScreenTheme[] = [
 - Print contrast: text on a colour block is dark on light or light on dark, never mid on mid; nothing smaller than a caption.
 - Only when the request implies signing up, booking or ordering: a tear-off coupon at the foot, behind a dashed cut line with a scissors mark, made of <Field>s (name, email, phone, a choice or a checkbox).
 - Real copy for the event or offer described — names, dates, prices, an address — never placeholders.`,
+  },
+  {
+    id: 'poster',
+    icon: 'crop',
+    name: 'printed poster',
+    document: { page: 'a3' },
+    brief: `A POSTER: one page seen on a wall or in a window, understood in three seconds from three metres away. ONE <Page>.
+- ONE dominant element — a headline of a few words set enormous, or a striking picture with the headline over it — taking at least half of the page.
+- A short line under it saying what it is, and the essential facts (date, place, price or where to find out more) grouped in one block, readable from a distance.
+- A strong, simple composition: a clear grid, generous empty space, at most three levels of type and no paragraph of body text.
+- Colour blocks and bold graphic shapes in the spirit of a screen-printed or Swiss poster, several bleeding off the edges; shapes are CSS boxes or short inline SVG primitives, marked aria-hidden.
+- A call to action printed as words (a URL, a date, a place) and, when it helps, a square QR-code placeholder box labelled as such.
+- A logo slot or the organiser's name as a wordmark in a corner.
+- Real copy for what is announced, never placeholders.`,
+  },
+  {
+    id: 'report',
+    icon: 'pulse',
+    name: 'multi-page report',
+    document: { page: 'a4' },
+    brief: `A REPORT: a structured multi-page document that presents findings and supports a decision — an annual report, a study, an activity or project report.
+- A COVER page: the title, a subtitle, the organisation as a wordmark, the period or date, the author or department, and a strong visual block (a colour field, a picture when one is supplied, or a composition of shapes).
+- A CONTENTS block listing the numbered sections with their page numbers, then an EXECUTIVE SUMMARY: three to five key findings, each a large figure and one sentence.
+- Body pages with numbered section headings, well-set paragraphs of real prose at a comfortable measure (two columns on a wide page), pulled-out key figures, at least one chart with a title, labelled axes and a source line, and one table with a header row.
+- A running header or footer on every body page: the report's short title and the page number.
+- A conclusions or recommendations page as a numbered list, and an optional appendix or methodology note.
+- Figures consistent from one page to the next — the summary quotes what the charts show — and realistic for the subject; never placeholders.
+- Usually four to eight pages, each composed on its own and never overfilled.`,
+  },
+  {
+    id: 'documentation',
+    icon: 'code',
+    name: 'user guide / documentation',
+    document: { page: 'a4' },
+    brief: `DOCUMENTATION: a user guide, a technical manual or a procedure that someone follows step by step.
+- A title page: the product or process, the kind of document (guide, manual, procedure), a version number and a date.
+- A table of contents with numbered sections and page numbers.
+- Numbered sections and sub-sections (1, 1.1, 1.2…) with short, direct paragraphs; every procedure as NUMBERED STEPS, one action per step, each followed by the expected result.
+- Callout boxes for a note, a tip and a warning, told apart by a label and an icon.
+- Command or code samples in monospaced blocks with a caption when the subject is technical; otherwise a labelled diagram or a captioned screenshot frame.
+- A reference table (parameters, options, shortcuts or specifications) with a header row.
+- A running header with the document's title and a footer with the version and the page number on every page after the first.
+- Accurate, specific content for the subject requested; no lorem ipsum.`,
+  },
+  {
+    id: 'resume',
+    icon: 'user',
+    name: 'résumé / CV',
+    document: { page: 'a4' },
+    brief: `A RÉSUMÉ (CV): one page, two at most, that gets someone an interview in a thirty-second read.
+- A header with the person's name set large, the job title sought, and the contact details on one line (email, phone, city, a portfolio or profile link); a round photo placeholder only if the request mentions a photo.
+- A short profile: two or three sentences on who they are and what they bring.
+- EXPERIENCE in reverse chronological order: role, employer, place and dates, then three concise achievements each, with figures where it makes sense.
+- Education, then skills grouped by kind (as tags, or with a discreet level), languages with their level, and optionally certifications or interests.
+- A clear two-column layout: a narrow side column for contact, skills and languages, a wide main column for the profile and the experience.
+- Sober and highly legible: one accent colour for headings and markers, generous spacing, strict alignment, and no decorative shape competing with the text.
+- Realistic, consistent content for the profile described; never placeholders.`,
+  },
+  {
+    id: 'invoice',
+    icon: 'list',
+    name: 'invoice or quote',
+    document: { page: 'a4' },
+    brief: `An INVOICE or a QUOTE — whichever the request asks for, an invoice when it does not say: the business document a client pays or signs.
+- A header: the issuer as a wordmark with its address and its registration and VAT numbers; the kind of document set large, with its number, its issue date and its due date or validity.
+- The client block: name, company and billing address.
+- The line-item table: description, quantity, unit price, VAT rate and line total, with a header row, figures aligned on the right, and four to eight realistic lines.
+- A totals block on the right: subtotal, VAT per rate, and the total due set largest.
+- Payment terms: due date, bank details (IBAN, BIC), late-payment conditions. On a quote, a validity date and an acceptance block (the words for "good for agreement", a date and a signature) made of <Field>s.
+- A footer with the legal mentions and the page number.
+- Every figure computed exactly: the line totals, the VAT and the grand total add up.`,
+  },
+  {
+    id: 'certificate',
+    icon: 'star',
+    name: 'certificate or diploma',
+    document: { page: 'a4-landscape' },
+    brief: `A CERTIFICATE or a DIPLOMA: one formal page that is framed, printed or sent as a PDF. ONE <Page>.
+- A decorative border around the page, drawn with nested rules, corner ornaments or a guilloche-like pattern of CSS shapes, marked aria-hidden.
+- The issuing organisation as a wordmark or a seal at the top; the title (certificate of completion, diploma, award…) set large and centred.
+- A presentation line ("is awarded to", "certifies that"), the RECIPIENT'S NAME as the most prominent text, and one or two lines saying what for, with the date and the place.
+- One or two signature blocks at the foot — a line, the signatory's name and title — and a round seal or medal built from CSS shapes.
+- A certificate number and, if it helps, a verification URL in small print.
+- Centred, symmetric and ceremonial: a classical feel through proportions and ornaments.
+- When the request asks for a blank template, the recipient's name and the date are <Field>s.`,
+  },
+  {
+    id: 'menu',
+    icon: 'note',
+    name: 'restaurant menu',
+    document: { page: 'a4' },
+    brief: `A RESTAURANT MENU: the printed card a guest reads at the table.
+- The restaurant's name as a wordmark, a short tagline, and the service (lunch, dinner, brunch) or the season when it matters.
+- Sections in the order of a meal — starters, mains, desserts, drinks — each with a clear heading and a decorative divider.
+- Each dish: its name, one line on what is on the plate, and its price aligned on the right with dotted leaders or a clean column; dietary markers (vegetarian, vegan, gluten-free, spicy) as small icons explained in a legend.
+- One highlight: a set menu or the chef's special in a framed box with its price.
+- A footer with the allergen information, the address, the opening hours and a phone number or website.
+- Prices consistent with the kind of restaurant; real dish names and descriptions for the cuisine requested, never placeholders.`,
+  },
+  {
+    id: 'instagram',
+    icon: 'image',
+    name: 'Instagram post',
+    document: { page: 'social-portrait' },
+    brief: `An INSTAGRAM POST: an image made to stop the thumb in a feed. ONE <Page>, or a CAROUSEL of several when the request asks for one or has more to say than one image holds — then the first page is the hook, each middle page carries one idea, and the last one a call to action.
+- ONE big idea per image: a hook headline of a few words set very large, and at most one short supporting line.
+- A picture when pictures are supplied, cropped boldly and full bleed, with the text on a solid band or a shape for contrast; without one, a bold composition of colour blocks and shapes.
+- The brand's name or handle as a small wordmark in a corner, the same on every page, and a page counter ("1/5") on a carousel.
+- A call to action as words ("link in bio", "save this post", "swipe") — never a web button.
+- Bright, contrasted and graphic: nothing thin or pale that vanishes on a small screen; no fillable fields.
+- Real copy for the subject requested, never placeholders.`,
+  },
+  {
+    id: 'facebook',
+    icon: 'comment',
+    name: 'Facebook post',
+    document: { page: 'social-landscape' },
+    brief: `A FACEBOOK POST image: the visual of an announcement, an event or an offer, shown in a feed beside the post's own text. ONE <Page>, or several when the request asks for a carousel.
+- A headline of a few words set large, and the one fact that matters (a date, a price, an offer, a place) in a block of its own.
+- A picture when pictures are supplied, with the text on a solid area for contrast; otherwise a composition of colour blocks and shapes.
+- The organisation's name or a logo slot as a wordmark, and a call to action as words ("book now", "learn more", a date or a place) — never a web button.
+- Warm, legible and simple, with little text: the post's own text carries the detail. No fillable fields.
+- Real copy for the subject requested, never placeholders.`,
+  },
+  {
+    id: 'linkedin',
+    icon: 'link',
+    name: 'LinkedIn post',
+    document: { page: 'social-square' },
+    brief: `A LINKEDIN POST visual, professional in tone: an insight, a result, an announcement or a hiring post. ONE <Page>, or a CAROUSEL of several — LinkedIn's document post, exported as a PDF — when the request asks for one or teaches something in steps: then the first page is a strong promise, each middle page one numbered point, and the last one a summary and a call to action.
+- A clear headline stating the insight or the news; one key figure set very large when there is one, with what it measures.
+- A clean, structured layout on a grid: a title, a short supporting line, and at most three points per page.
+- The author's or the company's name as a wordmark with a round photo or logo placeholder in a corner, the same on every page, and a page counter on a carousel.
+- A call to action as words ("follow for more", "tell me in the comments", a URL) — never a web button.
+- Credible and uncluttered: data drawn as a simple chart or a large number rather than a paragraph. No fillable fields.
+- Real, specific content for the subject requested, never placeholders.`,
   },
 ]
 

@@ -1,7 +1,8 @@
 import {
-  PAGE_FORMATS,
   PAGE_GAP_PX,
   docFrameHeight,
+  formatFamily,
+  formatsLike,
   getPageFormat,
   isPageFormat,
   type PageFormat,
@@ -40,6 +41,10 @@ import { themeDocumentPage } from './screenThemes'
  * default stands until they pick one. Leaving the document type brings the app
  * presets back without touching the preset they had — the two choices live side
  * by side and neither overwrites the other.
+ *
+ * A remembered format of the OTHER family gives way to the type's own: A4
+ * picked for a report must not turn the Instagram post typed next into an A4
+ * sheet (`formatFamily`).
  */
 export function composerPageFormat(
   themeId: string | null | undefined,
@@ -47,15 +52,17 @@ export function composerPageFormat(
 ): PageFormatId | null {
   const byType = themeDocumentPage(themeId)
   if (!byType) return null
-  return isPageFormat(chosen) ? chosen : byType
+  return isPageFormat(chosen) && formatFamily(chosen) === formatFamily(byType) ? chosen : byType
 }
 
-/** The chips, in the order they are offered, with their dictionary keys. */
-export const PAGE_FORMAT_CHIPS: readonly { id: PageFormatId; short: string; full: string }[] = PAGE_FORMATS.map((f) => ({
-  id: f.id,
-  short: `composer.pageFormat.${f.id}`,
-  full: `composer.pageFormat.${f.id}.full`,
-}))
+/** The chips offered beside a format — its own family, in order — with their dictionary keys. */
+export function pageFormatChips(current: PageFormatId): { id: PageFormatId; short: string; full: string }[] {
+  return formatsLike(current).map((f) => ({
+    id: f.id,
+    short: `composer.pageFormat.${f.id}`,
+    full: `composer.pageFormat.${f.id}.full`,
+  }))
+}
 
 // ---- the prompt ---------------------------------------------------------------
 
@@ -63,9 +70,21 @@ export const PAGE_FORMAT_CHIPS: readonly { id: PageFormatId; short: string; full
 const FORMAT_NAMES: Record<PageFormatId, string> = {
   a4: 'A4 portrait (210 × 297 mm)',
   'a4-landscape': 'A4 landscape (297 × 210 mm)',
+  a3: 'A3 portrait poster (297 × 420 mm)',
   letter: 'US Letter portrait (8.5 × 11 in)',
   'letter-landscape': 'US Letter landscape (11 × 8.5 in)',
   slides: '16:9 presentation slide (13.33 × 7.5 in)',
+  'social-square': 'square social media post (1:1)',
+  'social-portrait': 'portrait social media post (4:5)',
+  'social-story': 'full-screen vertical story (9:16)',
+  'social-landscape': 'landscape social media image (1.91:1)',
+}
+
+/** What the model is told it is making, by kind. */
+const KIND_WORDS: Record<PageFormat['kind'], { what: string; page: string; name: string }> = {
+  print: { what: 'a PRINTED DOCUMENT', page: 'page', name: 'a printed document' },
+  slides: { what: 'a PRESENTATION', page: 'slide', name: 'a presentation' },
+  social: { what: 'a SOCIAL MEDIA VISUAL', page: 'image', name: 'a social media visual' },
 }
 
 /**
@@ -74,7 +93,7 @@ const FORMAT_NAMES: Record<PageFormatId, string> = {
  */
 export function pageFormatName(id: PageFormatId): string {
   const f = getPageFormat(id)
-  return `${FORMAT_NAMES[f.id]}, ${f.kind === 'slides' ? 'a presentation' : 'a printed document'} of fixed pages`
+  return `${FORMAT_NAMES[f.id]}, ${KIND_WORDS[f.kind].name} of fixed pages`
 }
 
 /**
@@ -87,6 +106,15 @@ export function pageFormatName(id: PageFormatId): string {
 export const SAFE_MARGIN_PX = 40
 
 /**
+ * The same margin for an image posted to a feed: 64 px of 1080 is 6%, what the
+ * platforms' own round corners, overlays and the profile grid's crop leave
+ * alone. A story loses far more — the app draws its progress bar and name over
+ * the top and its reply bar over the bottom — so it names those bands.
+ */
+export const SOCIAL_SAFE_MARGIN_PX = 64
+export const STORY_SAFE_TOP_PX = 250
+export const STORY_SAFE_BOTTOM_PX = 340
+/**
  * The form-factor hint for a document: the one string that travels wherever
  * `preset.hint` goes (the preamble, Muse's, the planner's, the storyboard's).
  *
@@ -95,23 +123,34 @@ export const SAFE_MARGIN_PX = 40
  * the word A4 in its title.
  */
 export function documentHint(format: PageFormat): string {
-  const slides = format.kind === 'slides'
-  const what = slides ? 'a PRESENTATION' : 'a PRINTED DOCUMENT'
-  const page = slides ? 'slide' : 'page'
+  const { what, page } = KIND_WORDS[format.kind]
+  const social = format.kind === 'social'
+  const story = format.id === 'social-story'
+  const margin = social ? SOCIAL_SAFE_MARGIN_PX : SAFE_MARGIN_PX
   return [
-    `FORMAT: ${what}, not a web page — ${FORMAT_NAMES[format.id]}. Every ${page} is a FIXED box of exactly ${format.w}×${format.h}px (96 px per inch).`,
-    `Write the root as <Doc format="${format.id}"> and put each ${page} in its own <Page className="…">, in order. The kit gives every <Page> its exact size, stacks them and lays them out for print and PDF: never set a ${page}'s width or height yourself, never make one scroll, and never let content run from one ${page} into the next — each ${page} is composed on its own, like a sheet in a layout program. If the content does not fit, cut copy or add a <Page>.`,
-    `Keep every word, logo, field and important element at least ${SAFE_MARGIN_PX}px inside the ${page} edges; only backgrounds, colour blocks and decorative shapes may bleed off the edge.`,
-    slides
-      ? `Type is read on a screen or a projector from across a room: body text at least 20px, nothing under 16px.`
-      : `Type is read on paper at arm's length: body text at least 14px, captions at least 11px.`,
+    `FORMAT: ${what}, not a web page — ${FORMAT_NAMES[format.id]}. Every ${page} is a FIXED box of exactly ${format.w}×${format.h}px${social ? '' : ' (96 px per inch)'}.`,
+    `Write the root as <Doc format="${format.id}"> and put each ${page} in its own <Page className="…">, in order. The kit gives every <Page> its exact size, stacks them and lays them out for ${social ? 'export as images' : 'print and PDF'}: never set a ${page}'s width or height yourself, never make one scroll, and never let content run from one ${page} into the next — each ${page} is composed on its own, like a sheet in a layout program. If the content does not fit, cut copy or add a <Page>.`,
+    social
+      ? `Several <Page>s make a CAROUSEL, swiped one ${page} at a time: each one must work on its own, and the first must stop the scroll.`
+      : '',
+    `Keep every word, logo, field and important element at least ${margin}px inside the ${page} edges; only backgrounds, colour blocks and decorative shapes may bleed off the edge.`,
+    story
+      ? `The app draws its own bars over the top ${STORY_SAFE_TOP_PX}px and the bottom ${STORY_SAFE_BOTTOM_PX}px of a story: nothing that must be read goes there.`
+      : '',
+    social
+      ? `It is seen on a phone, in a feed, at about a third of its size and for a second: few words, a headline at least 64px, every other line at least 28px, nothing under 24px.`
+      : format.kind === 'slides'
+        ? `Type is read on a screen or a projector from across a room: body text at least 20px, nothing under 16px.`
+        : `Type is read on paper at arm's length: body text at least 14px, captions at least 11px.`,
     `No navigation bar, no menu, no hover or focus states, no web buttons, no scrolling layout, no min-h-screen, no fixed or sticky positioning, no animation and no 3D scene.`,
     // The frame is exactly the page wide, so Tailwind's breakpoints resolve
     // against 794 px on A4: `md:` applies, `lg:` never does — and a model
     // trained on web pages writes `text-6xl lg:text-9xl` for a headline and
     // ships the small one, with three highlights stacked in one column.
     `The ${page} has ONE fixed size: write no responsive prefixes (sm:, md:, lg:, xl:, 2xl:) — size every element directly for this ${page}.`,
-  ].join(' ')
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /**
@@ -129,10 +168,10 @@ export function documentHint(format: PageFormat): string {
  */
 export const DOCUMENT_RULES = [
   'DOCUMENT MODE — THESE RULES OVERRIDE THE APP-ORIENTED RULES ABOVE:',
-  'This is a document of fixed pages (see FORMAT) that will be printed, exported to PDF and opened in slide software. It is NOT an app screen, and where the rules above speak of an app, a SaaS screenshot or interactive states, they do not apply.',
+  'This is a document of fixed pages (see FORMAT) that will be printed or posted, exported to PDF or PNG and opened in slide software. It is NOT an app screen, and where the rules above speak of an app, a SaaS screenshot or interactive states, they do not apply.',
   '- The component App returns exactly one <Doc format="…"> whose children are <Page> elements, one per page. Doc, Page and Field are predefined: never declare, import or redefine anything with those names, and never size a Page yourself.',
   '- Paper has one state: no hover, focus, active or disabled styles, no cursor classes, no onClick, no useState for interaction, no tabs, menus, modals or links styled as buttons. A call to action is printed words (a verb, a URL, a phone number) or a QR-code placeholder box.',
-  '- It must look like a finished printed piece laid out by a graphic designer — a flyer, a poster, a brochure page, a slide — never like an interface.',
+  '- It must look like a finished piece laid out by a graphic designer — a flyer, a poster, a report page, a slide, a social media visual — never like an interface.',
   '- A blank someone fills in (a name, a date, a box to tick, a choice) is a <Field>, never a hand-drawn line or a bare <input>: every Field becomes a real form field in the exported PDF. Give each a unique `name`.',
   '- No animation of any kind: no <Animated>, <Ticker> or <CountUp>, no animate-* classes, no transitions. Every element is at its final, fully visible state in a still capture.',
   '- Decorative shapes are CSS boxes (rounded-full, rotate-*, rings, clip-path polygons) or SHORT inline SVG primitives (<circle>, <ellipse>, <rect>, <polygon>, a <path> of a few curve commands), absolutely positioned inside their Page and marked aria-hidden="true". Never long path data.',
