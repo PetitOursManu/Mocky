@@ -1,5 +1,5 @@
 ---
-source_hash: 51cf24a45d89
+source_hash: e8898d4257c4
 ---
 
 # Déploiement
@@ -688,7 +688,8 @@ Variables à définir dans Coolify :
 LUMY_TRUST_PROXY=1               # le proxy de Coolify est devant
 LUMY_ADMIN_USER=…                # crée le compte du tableau de bord au premier démarrage
 LUMY_ADMIN_PASSWORD=…
-LUMY_SECRET=…                    # chiffre les clés d'API enregistrées dans le tableau de bord
+# LUMY_SECRET=…                  # facultatif : chiffre les clés d'API du tableau de
+                                 # bord ; sans elle, une clé est créée dans /data
 ```
 
 **Définissez les deux variables `LUMY_ADMIN_*` avant le premier déploiement.**

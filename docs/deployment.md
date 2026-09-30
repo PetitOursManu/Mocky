@@ -657,7 +657,8 @@ Variables to set in Coolify:
 LUMY_TRUST_PROXY=1               # Coolify's proxy sits in front
 LUMY_ADMIN_USER=…                # creates the dashboard account at first start
 LUMY_ADMIN_PASSWORD=…
-LUMY_SECRET=…                    # encrypts the API keys saved in the dashboard
+# LUMY_SECRET=…                  # optional: encrypts the API keys saved in the
+                                 # dashboard; without it, a key is created in /data
 ```
 
 **Set the two `LUMY_ADMIN_*` variables before the first deploy.** Like Mocky
