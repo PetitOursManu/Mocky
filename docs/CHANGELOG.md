@@ -97,6 +97,8 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | LUMY_SECRET est facultatif | `096a681` |
+| — | Lumy 0.1.1 — formulaires du tableau de bord visibles malgré les bloqueurs de publicité | `d406bd9` |
 | `readme` | types d'écran, documents, posts réseaux sociaux, cadres de démo, câbles, carillon, fournisseurs | `6357efa` |
 | — | Lumy installé depuis sa version publiée sur GitHub | `bb74aca` |
 | — | la documentation passe de Docsify à Lumy | `d14e752` |
