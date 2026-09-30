@@ -21,6 +21,7 @@ export const canvas = {
     'canvas.docPrevPage': 'Page précédente',
     'canvas.docNextPage': 'Page suivante',
     'canvas.demoFrameTitleDoc': 'Montrer le document tenu en main, dessiné au trait',
+    'canvas.demoFrameTitleSocial': 'Montrer le post sur un téléphone, dans son fil, dessiné au trait',
     // ---- animations, par écran ----
     'canvas.animOn': 'Cet écran s’anime — cliquez pour le figer',
     'canvas.animOff': 'Cet écran est figé — cliquez pour le réanimer',
@@ -133,6 +134,7 @@ export const canvas = {
     'canvas.docPrevPage': 'Previous page',
     'canvas.docNextPage': 'Next page',
     'canvas.demoFrameTitleDoc': 'Show the document held in a hand, drawn as a line sketch',
+    'canvas.demoFrameTitleSocial': 'Show the post on a phone, in its feed, drawn as a line sketch',
     // ---- per-screen animations ----
     'canvas.animOn': 'This screen animates — click to hold it still',
     'canvas.animOff': 'This screen is held still — click to animate it again',

@@ -17,6 +17,7 @@ import { Button, Icon, IconButton, Select } from '../ui'
 import { demoOrder, stepScreen } from '../lib/demoNav'
 import DocumentPages from './DocumentPages'
 import DocumentInHand from './DocumentInHand'
+import DocumentInPhone from './DocumentInPhone'
 import { getPageFormat } from '../lib/pageFormats'
 import { useT } from '../i18n'
 
@@ -114,11 +115,14 @@ export default function DemoPlayer({
   // The device only exists while the frame is on, and it is fitted as a whole
   // — screen, bezel, deck and caption — rather than by the screen alone.
   // A document is paper, not a device. With the frame on, a printed page is
-  // held in a hand (DocumentInHand); off — or for a presentation, which is
+  // held in a hand (DocumentInHand) and a social post is seen on a phone, in
+  // its feed (DocumentInPhone); off — or for a presentation, which is
   // projected rather than held — its pages are shown bare, fitted to the width
   // and scrolled.
   const isDoc = !!current.page
-  const heldInHand = framed && !!current.page && getPageFormat(current.page).kind === 'print'
+  const docKind = current.page ? getPageFormat(current.page).kind : null
+  const heldInHand = framed && docKind === 'print'
+  const inPhone = framed && docKind === 'social'
   const frame = framed && !isDoc ? deviceFrame(frameKindFor(current.device, bodyW, bodyH), bodyW, bodyH) : null
   const frameScale = frame && size.w > 0 ? fitFrameScale(size.w, size.h, frame) : 0
 
@@ -169,9 +173,9 @@ export default function DemoPlayer({
           // Explicit, because `active` only sets it when true: off, a screen
           // reader heard a plain button and never learnt it was a toggle.
           aria-pressed={framed}
-          disabled={isDoc && !!current.page && getPageFormat(current.page).kind !== 'print'}
+          disabled={docKind === 'slides'}
           onClick={toggleFramed}
-          title={t(isDoc ? 'canvas.demoFrameTitleDoc' : 'canvas.demoFrameTitle')}
+          title={t(docKind === 'social' ? 'canvas.demoFrameTitleSocial' : isDoc ? 'canvas.demoFrameTitleDoc' : 'canvas.demoFrameTitle')}
           aria-label={t('canvas.demoFrame')}
         >
           <Icon name="phone" size={15} />
@@ -243,7 +247,10 @@ export default function DemoPlayer({
         {heldInHand && current.page && size.w > 0 && (
           <DocumentInHand key={current.id} screen={current} page={current.page} width={size.w} height={size.h} />
         )}
-        {isDoc && !heldInHand && current.page && size.w > 0 && (
+        {inPhone && current.page && size.w > 0 && (
+          <DocumentInPhone key={current.id} screen={current} page={current.page} width={size.w} height={size.h} />
+        )}
+        {isDoc && !heldInHand && !inPhone && current.page && size.w > 0 && (
           <DocumentPages key={current.id} screen={current} page={current.page} width={size.w} height={size.h} />
         )}
         {!isDoc && !framed && scale > 0 && (
