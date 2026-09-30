@@ -98,6 +98,8 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 | Scope | Change | Commit |
 | --- | --- | --- |
 | `readme` | types d'écran, documents, posts réseaux sociaux, cadres de démo, câbles, carillon, fournisseurs | `6357efa` |
+| — | Lumy installé depuis sa version publiée sur GitHub | `bb74aca` |
+| — | la documentation passe de Docsify à Lumy | `d14e752` |
 | — | tableau de bord d'administration, invariants D1–D5 | `8d3ca06` |
 | — | maintenance et migration de serveur, README et architecture | `0fc16a7` |
 | `readme` | reproduire ou refondre un site existant | `ce5838d` |
