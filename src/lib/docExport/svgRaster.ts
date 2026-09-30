@@ -190,6 +190,31 @@ export function replaceCssUrls(css: string, inlined: ReadonlyMap<string, string>
  * the parent fetching a URL the MODEL wrote would hand that channel back; a
  * remote picture is also something the frame's img-src never let in.
  */
+/**
+ * A picture from Mocky's OWN library, addressed through another name of the
+ * same server, read back on the origin the page is served from.
+ *
+ * Generated screens embed library pictures with an absolute URL built on
+ * MOCKY_ORIGIN (`http://localhost:8787/api/images/<hash>`). Opened through any
+ * other name for the same instance — its LAN address, a reverse proxy — that
+ * URL is cross-origin to the export frame, cannot be inlined, and the
+ * photograph was missing from every PDF, slide and PNG while the canvas showed
+ * it. The route is content-addressed and public, so the same path on this
+ * origin is the same file. Only these routes: any other cross-origin picture
+ * stays someone else's, and is refused as before.
+ */
+export const MOCKY_MEDIA_PATH = /^\/api\/(?:images|video)\/[0-9a-f]{64}(?:\/[\w.-]+)?$/i
+
+export function relocateMockyMedia(url: string, origin: string): string {
+  try {
+    const u = new URL(url)
+    if (u.origin === origin || !/^https?:$/.test(u.protocol)) return url
+    return MOCKY_MEDIA_PATH.test(u.pathname) ? origin + u.pathname + u.search : url
+  } catch {
+    return url
+  }
+}
+
 export function inlinePolicy(url: string, origin: string): 'keep' | 'fetch' | 'refuse' {
   if (/^data:/i.test(url)) return 'keep'
   if (/^blob:/i.test(url)) return url.startsWith(`blob:${origin}/`) ? 'fetch' : 'refuse'

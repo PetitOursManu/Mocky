@@ -6,6 +6,7 @@ import {
   collectCss,
   cssUrls,
   inlinePolicy,
+  relocateMockyMedia,
   raceAbort,
   replaceCssUrls,
   svgDataUrl,
@@ -71,7 +72,8 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  */
 function makeInliner(origin: string, signal?: AbortSignal) {
   const cache = new Map<string, Promise<string | null>>()
-  return (url: string): Promise<string | null> => {
+  return (given: string): Promise<string | null> => {
+    const url = relocateMockyMedia(given, origin)
     const policy = inlinePolicy(url, origin)
     if (policy === 'keep') return Promise.resolve(url)
     if (policy === 'refuse') return Promise.resolve(null)

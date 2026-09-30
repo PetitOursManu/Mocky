@@ -8,6 +8,7 @@ import {
   cssUrls,
   inlinePolicy,
   raceAbort,
+  relocateMockyMedia,
   replaceCssUrls,
   svgDataUrl,
   svgDocument,
@@ -165,5 +166,20 @@ describe('raceAbort / withTimeout', () => {
   it('times out a picture that never decodes', async () => {
     await expect(withTimeout(new Promise(() => {}), 5)).rejects.toMatchObject({ name: 'TimeoutError' })
     await expect(withTimeout(Promise.resolve('ok'), 50)).resolves.toBe('ok')
+  })
+})
+
+describe('relocateMockyMedia', () => {
+  const here = 'http://192.168.1.20:8787'
+  const hash = 'a'.repeat(64)
+  it('reads a library picture addressed through another name of the server on this origin', () => {
+    expect(relocateMockyMedia(`http://localhost:8787/api/images/${hash}`, here)).toBe(`${here}/api/images/${hash}`)
+    expect(relocateMockyMedia(`https://mocky.example/api/video/${hash}`, here)).toBe(`${here}/api/video/${hash}`)
+  })
+  it('leaves every other picture alone', () => {
+    expect(relocateMockyMedia('https://images.pexels.com/photos/1/a.jpg', here)).toBe('https://images.pexels.com/photos/1/a.jpg')
+    expect(relocateMockyMedia(`http://localhost:8787/api/images/not-a-hash`, here)).toBe('http://localhost:8787/api/images/not-a-hash')
+    expect(relocateMockyMedia(`${here}/api/images/${hash}`, here)).toBe(`${here}/api/images/${hash}`)
+    expect(relocateMockyMedia('data:image/png;base64,AAA', here)).toBe('data:image/png;base64,AAA')
   })
 })

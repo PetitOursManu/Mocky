@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import Preview from './Preview'
 import { Icon, IconButton } from '../ui'
 import type { Screen } from '../lib/project'
@@ -18,7 +18,7 @@ import { useT } from '../i18n'
  * DocumentPages), and cropped to the page shown by moving the whole stack
  * behind a window the size of one sheet.
  *
- * Three layers: the hand's back and cuff UNDER the page (the palm is behind the
+ * Three layers: the hand UNDER the page (the palm and fingers are behind the
  * sheet), the page, then the thumb OVER it with the sheet's own edge — drawn
  * before the thumb so the thumb covers the edge where it grips it. The layers
  * above the page take no pointer events, so a field of the design stays
@@ -46,6 +46,7 @@ export default function DocumentInHand({
   height: number
 }) {
   const t = useT()
+  const clipId = 'hand-clip-' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
   // The format the kit laid out wins, as in DocumentPages.
   const [laid, setLaid] = useState<PageFormatId | null>(null)
   const format = getPageFormat(laid ?? page)
@@ -79,13 +80,20 @@ export default function DocumentInHand({
           viewBox={`0 0 ${hand.width} ${hand.height}`}
           preserveAspectRatio="none"
         >
+          <defs>
+            {/* The forearm leaves through the bottom of the picture: drawn past
+                it, cut at it. The ticks stay outside the clip. */}
+            <clipPath id={clipId}>
+              <rect x={0} y={0} width={hand.width} height={hand.height} />
+            </clipPath>
+          </defs>
           <path d={ticks} fill="none" stroke={FAINT} strokeWidth={1} {...hairline} />
-          <path d={hand.back} fill={PAPER} stroke={INK} strokeWidth={1.25} strokeLinejoin="round" {...hairline} />
-          {hand.knuckles.map((d, i) => (
-            <path key={i} d={d} fill="none" stroke={FAINT} strokeWidth={1} strokeLinecap="round" {...hairline} />
-          ))}
-          <path d={hand.cuff} fill={PAPER} stroke={INK} strokeWidth={1.25} strokeLinejoin="round" {...hairline} />
-          <path d={hand.cuffLine} fill="none" stroke={FAINT} strokeWidth={1} {...hairline} />
+          <g clipPath={`url(#${clipId})`}>
+            <path d={hand.back} fill={PAPER} stroke={INK} strokeWidth={1.25} strokeLinejoin="round" {...hairline} />
+            {hand.lines.map((d, i) => (
+              <path key={i} d={d} fill="none" stroke={FAINT} strokeWidth={1} strokeLinecap="round" {...hairline} />
+            ))}
+          </g>
         </svg>
 
         <div className="absolute left-0 top-0 overflow-hidden" style={{ width: format.w * scale, height: format.h * scale }}>
@@ -121,7 +129,9 @@ export default function DocumentInHand({
           <path d={hand.thumbFill} fill={PAPER} stroke="none" />
           <path d={hand.thumbStroke} fill="none" stroke={INK} strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" {...hairline} />
           <path d={hand.nail} fill="none" stroke={MUTED} strokeWidth={1} {...hairline} />
-          <path d={hand.crease} fill="none" stroke={FAINT} strokeWidth={1} strokeLinecap="round" {...hairline} />
+          {hand.thumbLines.map((d, i) => (
+            <path key={i} d={d} fill="none" stroke={FAINT} strokeWidth={1} strokeLinecap="round" {...hairline} />
+          ))}
         </svg>
       </div>
 

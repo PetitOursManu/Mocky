@@ -31,7 +31,9 @@ export const docExport = {
     'docExport.progress.label': 'Avancement de l’export',
     'docExport.cancel': 'Annuler',
     'docExport.cancelled': 'Export annulé.',
-    'docExport.done': '« {file} » est téléchargé.',
+    'docExport.done': '« {file} » est prêt.',
+    'docExport.saveAgain': 'Enregistrer « {file} »',
+    'docExport.saveAgainHint': 'Si le téléchargement n’a pas démarré tout seul.',
     'docExport.error': 'L’export n’a pas abouti. Réessayez ; si le problème persiste, régénérez le document.',
     'docExport.empty': 'Ce document est vide : il n’y a rien à exporter.',
     'docExport.notice.noPages':
@@ -73,7 +75,9 @@ export const docExport = {
     'docExport.progress.label': 'Export progress',
     'docExport.cancel': 'Cancel',
     'docExport.cancelled': 'Export cancelled.',
-    'docExport.done': '“{file}” has been downloaded.',
+    'docExport.done': '“{file}” is ready.',
+    'docExport.saveAgain': 'Save “{file}”',
+    'docExport.saveAgainHint': 'If the download did not start on its own.',
     'docExport.error': 'The export did not complete. Try again; if it keeps failing, regenerate the document.',
     'docExport.empty': 'This document is empty: there is nothing to export.',
     'docExport.notice.noPages':

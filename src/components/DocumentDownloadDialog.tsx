@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner, Button, Icon, Modal, type IconName } from '../ui'
+import { Banner, Button, ButtonLink, Icon, Modal, type IconName } from '../ui'
 import { useLang, useT } from '../i18n'
 import type { Screen } from '../lib/project'
 import { DEFAULT_PAGE_FORMAT, getPageFormat } from '../lib/pageFormats'
 import { exportDocument, type ExportKind, type ExportProgress, type RenderNotice } from '../lib/docExport'
-import { documentHasFields, downloadBlob } from '../lib/docExport/files'
+import { documentHasFields, startDownload } from '../lib/docExport/files'
 
 /**
  * Downloading a DOCUMENT screen (lib/pageFormats.ts): PDF with fillable
@@ -32,7 +32,7 @@ const KINDS: { kind: ExportKind; icon: IconName; title: string; help: string }[]
 type State =
   | { step: 'idle' }
   | { step: 'running'; kind: ExportKind; progress: ExportProgress }
-  | { step: 'done'; filename: string; notices: RenderNotice[] }
+  | { step: 'done'; filename: string; url: string; notices: RenderNotice[] }
   | { step: 'cancelled' }
   | { step: 'error' }
 
@@ -62,6 +62,13 @@ export default function DocumentDownloadDialog({ screen, onClose }: { screen: Sc
   // Closing the dialog mid-export stops the export: a file that arrives after
   // its dialog has gone is a download nobody asked for any more.
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  // The file behind the "Enregistrer" link lives as long as that link does.
+  const doneUrl = state.step === 'done' ? state.url : null
+  useEffect(() => {
+    if (!doneUrl) return
+    return () => URL.revokeObjectURL(doneUrl)
+  }, [doneUrl])
 
   /**
    * Focus back on the button that started the export, when it was lost. The
@@ -97,8 +104,10 @@ export default function DocumentDownloadDialog({ screen, onClose }: { screen: Sc
         },
       })
       if (ctrl.signal.aborted) return
-      downloadBlob(result.blob, result.filename)
-      setState({ step: 'done', filename: result.filename, notices: result.notices })
+      // Kept alive while the result is on screen, for the link below.
+      const url = URL.createObjectURL(result.blob)
+      startDownload(url, result.filename)
+      setState({ step: 'done', filename: result.filename, url, notices: result.notices })
       refocus()
     } catch (err) {
       // `cancel()` has already said so; and after an unmount there is nobody to tell.
@@ -229,6 +238,16 @@ export default function DocumentDownloadDialog({ screen, onClose }: { screen: Sc
         {state.step === 'done' && (
           <div className="flex flex-col gap-2">
             <Banner tone="ok">{t('docExport.done', { file: state.filename })}</Banner>
+            {/* A real link, clicked by the person: the automatic download above
+                can be blocked by the browser after the first one (see
+                startDownload); this one cannot. */}
+            <div className="flex flex-wrap items-center gap-2 text-body-sm text-ink-muted">
+              <ButtonLink href={state.url} download={state.filename} variant="primary" size="sm">
+                <Icon name="download" size={15} />
+                {t('docExport.saveAgain', { file: state.filename })}
+              </ButtonLink>
+              <span>{t('docExport.saveAgainHint')}</span>
+            </div>
             {state.notices.map((n, i) => (
               <Banner key={i} tone="warn">
                 {noticeText(n)}

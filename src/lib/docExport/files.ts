@@ -76,6 +76,21 @@ export const MIME = {
  */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
+  startDownload(url, filename)
+  setTimeout(() => URL.revokeObjectURL(url), 30_000)
+}
+
+/**
+ * Start a download from a URL the caller keeps alive (and revokes).
+ *
+ * The export takes seconds, so this click happens long after the person's own:
+ * to Chrome and Edge it is an AUTOMATIC download, and from the second one on a
+ * page the browser blocks it quietly (an icon in the address bar) until the
+ * site is allowed "multiple downloads". The first file of a session came
+ * through and the next ones did not — which is why the dialog also offers the
+ * same file as a real link, a click no browser blocks.
+ */
+export function startDownload(url: string, filename: string): void {
   const a = document.createElement('a')
   a.href = url
   a.download = filename
@@ -84,7 +99,6 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 30_000)
 }
 
 /**
