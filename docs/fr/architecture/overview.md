@@ -1,5 +1,5 @@
 ---
-source_hash: eb3a747ffc8f
+source_hash: d2f4848253ac
 ---
 
 # Vue d'ensemble de l'architecture
@@ -1161,6 +1161,39 @@ l'export le dit plutôt que de faire semblant.
 transforme des images de la médiathèque en `.mp4` sur un service Docker séparé et
 facultatif, et ne touche jamais à un écran — voir
 [Motion Ultra](../video-export.md).
+
+### Les documents : PDF, `.pptx` et PNG
+
+Un écran DOCUMENT (`Screen.page` renseigné) s’exporte par un chemin à part,
+`src/lib/docExport/`, entièrement dans le navigateur. Tout part d’un contrat,
+`src/lib/pageFormats.ts` : les tailles de page en px CSS **et** en points PDF, et
+les attributs DOM qu’écrit le kit de pages (`data-mocky-doc`, `data-mocky-page`,
+`data-mocky-field`). Le kit (`capabilities/snippets/Document.ts`, le pack
+`document`) donne à chaque `<Page>` sa taille exacte et signale le nombre de
+pages et tout dépassement ; l’export relit les mêmes attributs, donc un attribut
+renommé d’un côté l’est des deux.
+
+`render.ts` ouvre le document hors écran dans la coquille de capture
+(`openSettledDocument` : images chargées d’emblée, polices et images stabilisées,
+mise en page à la hauteur du canevas), puis le parcourt page par page.
+`measure.ts` lit les mots, les champs et les liens de chaque page avec leurs
+boîtes — en sautant ce qui est visuellement caché, et en signalant de combien le
+texte dépasse de chaque bord et quels mots. Chaque page est ensuite rastérisée
+par le moteur du navigateur lui-même à travers un `foreignObject` SVG
+(`nativeRaster.ts`), avec html2canvas en secours pour une page qu’il ne sait pas
+dessiner ou un navigateur qui refuse de la relire.
+
+| Sortie | Fabriquée par | Ce qu’elle garde |
+|---|---|---|
+| PDF | `pdf.ts`, avec pdf-lib | L’image de la page, une couche de texte invisible pour que le texte reste sélectionnable, et un vrai champ AcroForm pour chaque `<Field>` |
+| `.pptx` | `pptx.ts`, OOXML écrit à la main | L’image de la page, texte retiré, et chaque texte en zone de texte modifiable par-dessus |
+| PNG | `raster.ts` + `zip.ts` | La page telle que dessinée ; un format de réseau social exactement à ses pixels (échelle 1) |
+
+La même mesure pilote **Ajuster à la page** (`docExport/fit.ts`) : le
+dépassement est mesuré avant, transformé en liste de constats dans les pixels de
+la page pour `fitComponent`, et mesuré à nouveau sur la réponse, qui n’est écrite
+que si elle tient ou s’en approche sur le même nombre de pages (`fitVerdict`). Une
+passe qui ne s’affiche pas est traitée comme une passe qui ne tient pas.
 
 ---
 

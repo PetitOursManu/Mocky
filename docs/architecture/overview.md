@@ -1104,6 +1104,38 @@ rather than pretending otherwise.
 images from the media library into an `.mp4` on a separate, opt-in Docker service
 and never touches a screen — see [Motion Ultra](../video-export.md).
 
+### Documents: PDF, `.pptx` and PNG
+
+A DOCUMENT screen (`Screen.page` set) is exported through a separate path,
+`src/lib/docExport/`, entirely in the browser. It starts from one contract,
+`src/lib/pageFormats.ts`: the page sizes in CSS px **and** in PDF points, and the
+DOM attributes the page kit writes (`data-mocky-doc`, `data-mocky-page`,
+`data-mocky-field`). The kit (`capabilities/snippets/Document.ts`, the
+`document` pack) gives each `<Page>` its exact size and reports the page count
+and any overflow; the export reads the same attributes back, so an attribute
+renamed on one side is renamed on both.
+
+`render.ts` opens the document offscreen in the capture shell
+(`openSettledDocument`: pictures eager, fonts and images settled, laid out at the
+canvas's height), then walks it page by page. `measure.ts` reads each page's
+words, fields and links with their boxes — skipping what is visually hidden, and
+reporting how far text runs past each edge and which words. Each page is then
+rasterised by the browser's own engine through an SVG `foreignObject`
+(`nativeRaster.ts`), with html2canvas as the fallback for a page it cannot draw
+or a browser that will not read it back.
+
+| Output | Built by | What it keeps |
+|---|---|---|
+| PDF | `pdf.ts`, with pdf-lib | The page picture, an invisible text layer so the text stays selectable, and a real AcroForm field for every `<Field>` |
+| `.pptx` | `pptx.ts`, hand-written OOXML | The page picture with its text taken out, and every run of text as an editable text box over it |
+| PNG | `raster.ts` + `zip.ts` | The page as drawn; a social format at exactly its pixels (scale 1) |
+
+The same measurement drives **Fit to page** (`docExport/fit.ts`): the overflow
+is measured before, turned into a findings block in the page's own pixels for
+`fitComponent`, and measured again on the answer, which is written back only if
+it fits or comes closer on the same number of pages (`fitVerdict`). A pass that
+does not render is treated as one that does not fit.
+
 ---
 
 ## 11. Tests

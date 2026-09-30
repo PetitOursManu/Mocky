@@ -47,7 +47,7 @@ contents; it is all navigation, theme and account.
 | | `Home` | The project list. | free |
 | | `DESIGN.md` | The full-page art-direction editor. | free |
 | | `Media` | The image library as a page rather than as a modal. | free |
-| | `Settings` | Provider, key, model. | free |
+| | `Settings` | Provider, key, model — and `Notification`: `Sound when a generation finishes`, a short chime when a generation ends while Mocky is not the tab on screen (a lower one if it failed), with ✓ or ⚠ in the tab's title until you come back. Kept in this browser. | free |
 | | `Admin` | Only rendered when your account is an admin — and the route checks a second time, so a hand-typed URL lands on `Admins only.` rather than on the panel. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg> | `Docs` | The only entry that is a real link: it opens `https://mocky-docs.emanuelvigreux.fr` in a new tab. The small arrow is what says so. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg> | Theme | `Switch to the Paper theme` / `Switch to the Ink theme`. **The icon is the destination, not the current state**: a sun means "go light", and it is shown while you are in the dark theme. | free |
@@ -150,7 +150,7 @@ below `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `System` | `Live design system — your DESIGN.md tokens, and a way to recolor them`. Closes `Audit`, or `Link` mode, if one was open. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Evaluate SEO and accessibility`. Closes `System`, or `Link` mode, if one was open — all three want the same slot. **Opening the panel evaluates nothing.** | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion Ultra` | `Cut a video from the media library`. Opens the Motion Ultra panel — see below. | free to open |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Demo` | `Play the prototype — follows the links you placed`. Starts on the selected screen, or the first one if nothing is selected. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Demo` | `Play the prototype — follows the links you placed`. Starts on the selected screen, or the first one if nothing is selected. See [Demo mode](#demo-mode) below. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Export` | `Export a runnable Vite + React + Tailwind project`. Opens a menu of three stacks. | free |
 
 The rule falls before `Demo`. The last two are the two ways to get something
@@ -188,6 +188,7 @@ the product came to be invisible on a laptop.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> | `Fit all` | Frames every screen, and **keeps** doing so as screens are added, until you move the view yourself. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM12 2v3M12 19v3M2 12h3M19 12h3M13.4 12a1.4 1.4 0 1 0-2.8 0a1.4 1.4 0 1 0 2.8 0"/></svg> | `Zoom to the latest screen` | Frames the most recent screen. Disabled when there is none. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Arrange` | Repacks the board, respecting each screen's real size — a mobile screen does not get a desktop-sized cell — then fits the result. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Show the cables between screens` / `Hide the cables between screens` | The map of the prototype, outside link mode — see below. Remembered by the browser. In link mode the cables are always drawn. | free |
 
 ### What the mouse does
 
@@ -202,6 +203,26 @@ once:
   with an `Interactive — click outside to leave` badge. This is not the same
   thing as the `Interact` toolbar button, which does it to all of them.
 - **Right-click a screen** — the context menu.
+
+### Cables between screens
+
+Every link is drawn as a **cable**, like a mind map: it leaves the element it
+was placed on and lands on the edge of the screen it opens, with the element's
+text written along it.
+
+- **Outside link mode** the cables are a map: faint, behind the frames, deaf to
+  the pointer, so they never steal a click from a screen. The zoom bar's
+  `Show the cables between screens` / `Hide the cables between screens` turns
+  that map on and off.
+- **In link mode** they come to the front and become controls. Pick an element in
+  a screen and a cable follows the pointer; the screen under it lights up, and a
+  click — or letting go, if you dragged — plugs it in. `Choose from the list` is
+  the keyboard way to the same choice, and Esc or a click on empty space cancels.
+- **An existing cable** can be selected, removed (`Remove the link (Delete key)`)
+  or reconnected: drag the socket at its end onto another screen.
+
+The cables are routed around the frames rather than through them, and several
+leaving one screen fan out instead of piling up.
 
 ---
 
@@ -293,6 +314,8 @@ Right-click a screen, or use <svg width="20" height="20" viewBox="0 0 24 24" fil
 
 | | Item | What it does | Cost |
 |---|---|---|---|
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Download…` | A document only: opens `Download the document` — PDF with fillable fields, PowerPoint / Google Slides, PNG images. See [Documents](documents.md#downloading). | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> | `Fit to page` | A document only: measures what runs past the page, asks the model to win it back, measures the answer and keeps it only if it fits better, on the same number of pages. See [Documents](documents.md#when-content-runs-past-the-page). | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> | `Regenerate (new variant)` | Re-runs the screen's own original prompt for a different result. The previous code is kept, so `Revert to the previous version` undoes it. | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Polish (detect and correct)` | The quality pass: check, correct, check again. See [Quality pass](quality.md). | model |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4ZM14 6l4 4"/></svg> | `Rename` | A browser prompt. | free |
@@ -339,7 +362,9 @@ changes verb depending on what is selected.
 |---|---|---|---|
 | | `New direction` | This prompt writes the project's art direction, which every screen after it follows. **It unticks itself once the screen is generated.** Hidden while editing a screen — an edit reworks what a direction produced, and letting it rewrite that direction would reattribute every other screen in the project. | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, art direction and real copy. Turning it on changes what a generation costs — see [Muse](muse/overview.md). | free (arms the next generation) |
-| | `Format` | The viewport preset for the next screen. Only shown when creating, not when editing. | free |
+| | `Format` | The viewport preset for the next screen. Only shown when creating, not when editing. With a document type, the same chips become **page formats** (A4, A3, US Letter, 16:9, or the social sizes). | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Screen type` | What kind of screen the next one is — dashboard, planning, kanban, landing page, pricing… — or, under `Documents to print or export` and `Social media`, what kind of document. The type's structure guides the generation; your words still win. **It stays armed**, and a project opens on the type of its latest screen; the ✕ beside it removes it. Ignored in `Reproduce`. | free (arms the next generation) |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Picture` · `No picture` / `Generated` / `Free photo` | A document only: whether it carries one picture, and where it comes from. `No picture` composes with shapes and colour. Remembered by the browser. | Generated: the image model's price |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4"/></svg> | `Motion Ultra` | A **project** setting. Off: one quiet chip, and clicking it switches Motion Ultra on for the project. On: the chip pauses it for the next generations of this session, `×3` / `×6` picks how many pictures each new screen gets (`≈ +1 min` / `≈ +2–3 min` beside it), `Video background` gives one section a film rendered by your own machine (`+1–3 min`, off by default), and `✕` switches it off for the project. Hidden while editing. See [Motion Ultra](motion-ultra.md). | ×3 or ×6 pictures, one storyboard call, and one film render when the video background is on |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Images` · `AI` / `Free` | Where Muse's and Motion Ultra's pictures come from: generated by the image model, or real free photos from Pexels and Pixabay, found from each picture's subject. Shown only when Muse or Motion Ultra is on, the instance has a Pexels or Pixabay key, and the administrator opened free photos to your account. Remembered by the browser. | AI: the image model's price · Free: nothing |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | The brief | Folds and unfolds the Muse dossier. Shown only when Muse is on and you are creating. `Show the full brief` / `Collapse the brief`. | free |
@@ -358,6 +383,8 @@ with `Remove from selection`, plus `clear`.
 | `Generate` | Creates a new screen. | model |
 | `Update ({count})` | The same button, when screens are selected: edits those screens instead of creating one. | model |
 | `Stop` | Appears while working. Aborts the request. | free |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Improve` | `Improve the prompt` — rewrites what you typed into a complete brief (sections, realistic content, states), for the format and type chosen. The text streams into the field; `Stop` keeps what you had. Unavailable with site screenshots, which are the brief. | model |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5"/></svg> `Back to your text` | Appears after an improvement: puts your own words back. | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Attach screenshots of a site`: see below. Screenshots also arrive by **pasting** into the field or **dropping** them anywhere on the bar. | free |
 
 That one button doing two jobs is the single most common surprise in Mocky: if
@@ -587,6 +614,22 @@ find in the first place.
 
 ---
 
+## Demo mode
+
+`Demo` plays the prototype full screen: click the linked areas to follow a flow,
+`Back` and `Restart` walk the history. The bar also switches screens without the
+links — `Previous screen`, the `Go to a screen` list, `Next screen`, or ← → — and
+each step counts as a followed link, so `Back` still works.
+
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> `Device` puts the screen in a line drawing of where it will be seen,
+chosen from its size — a computer, a tablet or a smartphone, in the interface's
+own ink. A document gets its own frame: a printed page is held in a drawn hand,
+and a social post is shown on a phone, in its feed or as a full-screen story (see
+[Documents](documents.md#in-demo-mode)). A presentation has none, so the button
+is off there. The choice is remembered by the browser.
+
+---
+
 ## The modals
 
 Everything that opens over the canvas. The first is a dropdown rather than a
@@ -599,6 +642,7 @@ actually made.
 | `Link` → `which screen?` | Clicking an element in link mode | Picks the destination. `Cancel` leaves nothing behind. | free |
 | `Element` | Clicking an element in modify mode | See below — it holds three different costs in one card. | mixed |
 | `Code` | `Show code` | Read-only. | free |
+| `Download the document` | A document's `Download` pill, or `Download…` in its menu | Three buttons — PDF, `.pptx`, PNG — and a `Save “{file}”` link once the file is ready, because a browser may block a second automatic download. What could not be exported perfectly is listed under it. See [Documents](documents.md#downloading). | free |
 | `Share this screen` | `Share (QR code)` | A lifetime of `1 hour`, `24 hours` or `7 days`, a QR code, and `Revoke`. | server |
 | `Media in “{name}”` | `Change the media…` | **Two sections, never one list.** `Images in the screen’s code`: per image, `Replace`, or `Everywhere ({n})` when the same file appears several times, or one slot at a time — this **rewrites the source**, and `Revert` undoes it. `Media attached to the screen (not in the code)`: a cut or a sequence to hang on the canvas card, and `Detach` — this **leaves the code alone**. `Upload a file` is free; `Generate` calls the image provider. | free / image |
 
@@ -636,24 +680,25 @@ model, everything is revertable from the screen menu.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg> `Regenerate (new variant)` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` | The first throws the screen away and asks again from the same prompt: a different design. The second keeps the design and fixes named defects in it. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> `Audit` findings | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` findings | Two catalogues, two scores, two correction prompts. One is about markup, the other about taste. Neither one's score appears in the other's field. |
 | `Generate` | `Update ({count})` | The same button. If a screen is selected you are editing, not creating. |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> `Fit to page` | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> `Polish (detect and correct)` | Both rewrite a document and keep the design. The first answers one measured problem — content past the page — and only tightens; the second answers a list of design findings. |
 | `Tick all` | "select every project" | It ticks the **visible** projects. Under a search, that is the search result. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Suggest links` | Anything AI-shaped | Deterministic. It reads what is already in the rendered screen; it does not ask a model to imagine a flow. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Theme button | The current theme | The icon is where you are going, not where you are. |
 
-### The three correction loops
+### The four correction passes
 
-Mocky can rewrite a screen for three different reasons, and the three are not
-interchangeable. Merging them is the tempting refactor, and it breaks all three.
+Mocky can rewrite a screen for four different reasons, and the four are not
+interchangeable. Merging them is the tempting refactor, and it breaks all of them.
 
-| | Repair | `Polish (detect and correct)` | `Fix` / `Fix all` |
-|---|---|---|---|
-| **Where** | Nowhere — no button | Screen context menu | The `Audit` panel |
-| **Trigger** | The preview iframe reports a render or compile error | You ask for it | You ask for it |
-| **What it is told** | Fix *only* the error, do not restyle | Fix these named findings, change nothing else | Fix the markup; the screen must look identical afterwards |
-| **Budget** | 2 attempts | 2 iterations | 2 iterations |
-| **Cost** | model, automatic | model | model |
+| | Repair | `Polish (detect and correct)` | `Fix` / `Fix all` | `Fit to page` |
+|---|---|---|---|---|
+| **Where** | Nowhere — no button | Screen context menu | The `Audit` panel | A document's context menu |
+| **Trigger** | The preview iframe reports a render or compile error | You ask for it | You ask for it | You ask for it |
+| **What it is told** | Fix *only* the error, do not restyle | Fix these named findings, change nothing else | Fix the markup; the screen must look identical afterwards | Win back these measured pixels; same design, same pages |
+| **Budget** | 2 attempts | 2 iterations | 2 iterations | 1 call per click, measured before and after |
+| **Cost** | model, automatic | model | model | model |
 
-Read the middle row again: each instruction is fatal to the other two.
+Read the middle row again: each instruction is fatal to the others.
 
 - A slop finding **is** a styling problem. Hand it to a model told not to
   restyle and it returns the screen unchanged, having obeyed.
@@ -662,13 +707,14 @@ Read the middle row again: each instruction is fatal to the other two.
 - And a repair that felt free to restyle would answer a compile error with a new
   design, which is not what anyone asked for while looking at a broken screen.
 
-What they do share is the transport, the loop with its four stop conditions, and
-the write-back conventions — an abort controller, a snapshot of the code checked
-again before writing, and a previous version so `Revert to the previous version`
-works. That is
+What they do share is the transport and the write-back conventions — an abort
+controller, a snapshot of the code checked again before writing, and a previous
+version so `Revert to the previous version` works — and the first three share the
+loop with its four stop conditions. That loop is
 `runPolishLoop`, and it is generic over its report type for exactly this reason:
 the stopping rules are worth having once, and the checks that feed them are not
-the same check.
+the same check. `Fit to page` measures progress in pixels rather than in rule
+ids, so it keeps its own single step.
 
 ---
 
@@ -681,10 +727,12 @@ this is the complete list.
 |---|---|---|
 | `Generate` | Composer | With `Muse` on, the one click also runs the inspiration pass and may call the image provider. With `Motion Ultra` on, it also runs a storyboard call and generates ×3 or ×6 pictures — and, with `Video background`, composes one film (a text call) and renders it on the worker. |
 | `Update ({count})` | Composer | One call per selected screen. |
+| `Improve` | Composer | One call that rewrites your prompt; nothing is generated until you press `Generate`. |
 | Repair | Automatic, after a failed render | The only unprompted model call — and it only happens after a generation you asked for produced code that will not run. Capped at two attempts. |
 | `Regenerate (new variant)` | Screen context menu | |
 | `Polish (detect and correct)` | Screen context menu | The check itself calls a model for the rules a regex cannot settle, then up to two corrections. |
 | `Add animations` — `Subtle` / `Moderate` / `Rich` | Screen context menu | |
+| `Fit to page` | A document's context menu | One call, and two off-screen renders to measure before and after. |
 | `Make this screen my DESIGN.md` | Screen context menu | |
 | `Derive a DESIGN.md` | Design card beside a frame | |
 | `Text` → `Update` | Element card | **Only** when the text is not a unique verbatim match. Otherwise free and instant. |
@@ -693,11 +741,12 @@ this is the complete list.
 | `Deep analysis` | Audit panel | Changes what `Evaluate` costs. Off by default. |
 | `Fix` / `Fix all` | Audit panel | |
 | `Generate` (an image) | `Change the media…`, image library | Calls the image provider, not the text model. |
+| `Picture` · `Generated` | Composer, on a document | One picture from the image provider for the next document. |
 | `Propose a cut` | Motion Ultra panel | The only model call in Motion Ultra. It picks a composition and cuts the images you picked; it never picks one of the pictures. |
 | `Generate a model image`, `Produce {n} variants` | Motion Ultra panel | The image provider, once per picture. Six variants is six calls. |
 | `Start the render` | Motion Ultra panel | No model and no provider — but minutes of CPU on the render worker, which is the most expensive click in the product on a small box. |
 
 And the notable absences — things that look expensive and are not:
 `Evaluate` in the audit panel with `Deep analysis` off, `Suggest links`, `Use this design`, `Export`,
-`Download .tsx`, `Duplicate`, `Arrange`, the whole `System` panel, opening the
+`Download .tsx`, a document's `Download` (the PDF, the `.pptx` and the PNGs are all built in your browser), `Duplicate`, `Arrange`, the whole `System` panel, opening the
 `Motion Ultra` panel, and every format, frame and playback toggle in the product.
