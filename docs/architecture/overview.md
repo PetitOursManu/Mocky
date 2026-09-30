@@ -602,7 +602,19 @@ latest screen`. Their labels, their icons and what they cost are in
 
 ## 6. The sandbox
 
-![The mode toolbar of a project](../assets/08-toolbar.png)
+:::hotspots src=../assets/ui/toolbar.webp alt="The project toolbar"
+- 4.1,50 **Back**: Leaves the project — and aborts a generation in flight.
+- 12.7,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 20.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 29.7,50 **Interact**: Every preview becomes clickable at once.
+- 39.4,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 48.6,50 **Frame**: The iPhone frame around mobile screens. Greyed out when the project has none.
+- 57.2,50 **System**: The live design system: your tokens, and a way to recolour them.
+- 65.6,50 **Audit**: SEO and accessibility. Opening it evaluates nothing.
+- 75.7,50 **Motion Ultra**: Cut a film from the media library.
+- 87,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](../interface.md#demo-mode).
+- 95.3,50 **Export**: A runnable Vite + React + Tailwind project, as a `.zip`.
+:::
 
 *The ten verbs of a project, in bar order: Link, Modify, Interact, Annotate, Frame, System, Audit, Demo, Export, Video. The first four act through the sandboxed preview; the last six act around it. The screenshot predates two of them — Audit, which sits between System and Demo, and Video, which closes the row — so eight verbs are visible here, not ten.*
 

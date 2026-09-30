@@ -1,5 +1,5 @@
 ---
-source_hash: c7f7dc257def
+source_hash: 3fd08dbd309d
 ---
 
 # Mocky
@@ -18,9 +18,19 @@ TypeScript.
 > **La version anglaise est la version de référence : [English documentation](/).**
 > En cas de divergence entre les deux, c'est l'anglaise qui fait foi.
 
-![Le canevas d'un projet : deux écrans générés, la barre de modes, le composer](../assets/13-canvas-project.png)
+Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 
-*Un projet ouvert. Les écrans vivent côte à côte sur un canevas infini ; la barre du haut change de mode, et le composer en bas décrit le suivant. L'interface est montrée en anglais dans toute la documentation, quelle que soit la langue de la page.*
+:::hotspots src=../assets/ui/fr/canvas.webp alt="Un projet : la barre d’outils, quatre écrans reliés par des câbles, la barre de zoom et le composeur"
+- 73.3,2.9 **Navigation principale**: `Accueil` liste vos projets ; `DESIGN.md`, `Média`, `Réglages`, `Admin` et `Docs` s’ouvrent par-dessus le projet.
+- 37.4,9.7 **Barre d’outils du projet**: Lier, modifier, interagir, annoter, les panneaux latéraux, `Démo` et `Exporter`. Chacun est décrit dans [L’interface](interface.md#la-barre-doutils-du-projet).
+- 17.4,26 **Un écran généré**: Un vrai composant React + Tailwind, rendu en direct. Double-cliquez pour vous en servir, clic droit pour son menu.
+- 30.3,19.1 **Un câble**: Un lien d’un élément d’un écran vers l’écran qu’il ouvre — la carte du prototype que joue `Démo`.
+- 68.1,13.4 **Un document**: Un flyer, un rapport, un post : des pages fixes. Sa pastille `Télécharger` donne un PDF, un `.pptx` ou des images PNG.
+- 10.9,95.6 **Barre de zoom**: Zoom, `Tout afficher`, le dernier écran, `Réorganiser`, et le bouton qui montre ou masque les câbles.
+- 51.3,85.5 **Type d’écran**: Ce qu’est le prochain écran — un tableau de bord, une page de tarifs — ou quel document. Il reste armé pour le projet.
+- 45.5,94.6 **La demande**: Décrivez un écran avec vos mots. Avec un écran sélectionné, le même champ décrit un changement à lui apporter.
+- 69.9,94.9 **Générer**: Crée l’écran. Avec des écrans sélectionnés, il devient `Mettre à jour` et les modifie.
+:::
 
 ---
 
@@ -56,20 +66,21 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 
 ## Par où commencer
 
-| Si vous voulez… | Lisez |
-|---|---|
-| Installer Mocky et configurer un modèle | [Démarrage](getting-started.md) |
-| Comprendre le registre de capacités, le planificateur et l'isolation de l'aperçu | [Vue d'ensemble de l'architecture](architecture/overview.md) |
-| Savoir quelles règles le code refuse d'enfreindre, et pourquoi | [Invariants](architecture/invariants.md) |
-| Voir ce que Muse ajoute à une génération | [Vue d'ensemble de Muse](muse/overview.md) |
-| Suivre Discover, Distill et Dossier en détail | [Moteur d'inspiration](muse/inspiration-engine.md) |
-| Comprendre le système d'animations | [Animations](muse/animations.md) |
-| Contrôler un écran généré, et corriger ce que le contrôle trouve | [Passe de qualité](quality.md) |
-| Faire un flyer, un rapport, un CV ou un post pour les réseaux, et le télécharger en PDF, en présentation ou en images | [Documents et posts pour les réseaux sociaux](documents.md) |
-| Composer un `.mp4` pour un écran à partir d'un catalogue de blocs, et savoir pourquoi son moteur de rendu est livré à part | [Motion Ultra](video-export.md) |
-| Déployer Mocky | [Déploiement](deployment.md) |
-| Passer l'instance en lecture seule, ou la déplacer vers un autre serveur | [Maintenance et migration](migration.md) |
-| Voir qui est connecté, ce que fait la machine, et qui a changé quoi | [Tableau de bord d'administration](admin-dashboard.md) |
+:::cards cols=2
+- [Démarrage](getting-started.md) Installer Mocky et configurer un modèle.
+- [L’interface](interface.md) Ce que fait chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
+- [Documents et posts pour les réseaux sociaux](documents.md) Faire un flyer, un rapport, un CV ou un post, et le télécharger en PDF, en présentation ou en images.
+- [Vue d'ensemble de Muse](muse/overview.md) Voir ce que Muse ajoute à une génération.
+- [Moteur d'inspiration](muse/inspiration-engine.md) Suivre Discover, Distill et Dossier en détail.
+- [Animations](muse/animations.md) Comprendre le système d'animations.
+- [Passe de qualité](quality.md) Contrôler un écran généré, et corriger ce que le contrôle trouve.
+- [Motion Ultra](video-export.md) Composer un `.mp4` pour un écran à partir d'un catalogue de blocs, et savoir pourquoi son moteur de rendu est livré à part.
+- [Déploiement](deployment.md) Déployer Mocky.
+- [Maintenance et migration](migration.md) Passer l'instance en lecture seule, ou la déplacer vers un autre serveur.
+- [Tableau de bord d'administration](admin-dashboard.md) Voir qui est connecté, ce que fait la machine, et qui a changé quoi.
+- [Vue d'ensemble de l'architecture](architecture/overview.md) Comprendre le registre de capacités, le planificateur et l'isolation de l'aperçu.
+- [Invariants](architecture/invariants.md) Savoir quelles règles le code refuse d'enfreindre, et pourquoi.
+:::
 
 ---
 

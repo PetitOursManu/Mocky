@@ -1,5 +1,6 @@
 ---
-source_hash: 970997d6dfaa
+description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
+source_hash: ed08b5b0066a
 ---
 
 # L’interface
@@ -134,6 +135,20 @@ défenses la maintiennent à l’écran : les libellés disparaissent sous `md`,
 ce qui suit `Modifier` se replie dans `Plus`, et la rangée défile d’elle-même
 plutôt que de pousser la page de côté.
 
+:::hotspots src=../assets/ui/fr/toolbar.webp alt="La barre d’outils du projet"
+- 4.6,50 **Retour**: Quitte le projet — et interrompt une génération en cours.
+- 13.3,50 **Lier**: Choisissez un élément dans un écran et tirez un câble jusqu’à l’écran qu’il doit ouvrir.
+- 21.3,50 **Modifier**: Cliquez un élément et décrivez un changement, ou modifiez son texte directement.
+- 30.7,50 **Interagir**: Tous les aperçus deviennent cliquables d’un coup.
+- 40,50 **Annoter**: Découpez une zone d’un écran vers le composeur, en référence numérotée.
+- 48.5,50 **Cadre**: Le cadre d’iPhone autour des écrans mobiles. Grisé quand le projet n’en a pas.
+- 57.1,50 **Système**: Le système de design en direct : vos jetons, et de quoi les recolorer.
+- 65.6,50 **Audit**: SEO et accessibilité. L’ouvrir n’évalue rien.
+- 75.3,50 **Motion Ultra**: Monter un film à partir de la médiathèque.
+- 86.3,50 **Démo**: Joue le prototype, dans un cadre d’appareil. Voir [Le mode démo](interface.md#le-mode-demo).
+- 94.9,50 **Exporter**: Un projet Vite + React + Tailwind exécutable, en `.zip`.
+:::
+
 ### Les trois qui ne se replient jamais
 
 | | Contrôle | Ce qu’il fait | Coût |
@@ -190,6 +205,15 @@ fenêtre environ. Plus étroit, le coin inférieur gauche passe derrière le
 composeur, qui est opaque — et c’est ainsi que le seul contrôle de zoom du
 produit était devenu invisible sur un portable.
 
+:::hotspots src=../assets/ui/fr/zoombar.webp alt="La barre de zoom"
+- 7.7,50 **Dézoomer**: Autour du centre de la vue. `Ctrl/⌘ + molette` fait de même.
+- 37.2,50 **Zoomer**: Autour du centre de la vue.
+- 54.4,50 **Tout afficher**: Cadre tous les écrans, et continue tant que vous ne bougez pas la vue.
+- 67,50 **Dernier écran**: Cadre l’écran le plus récent.
+- 79.6,50 **Réorganiser**: Range le plateau selon la taille réelle de chaque écran.
+- 92.3,50 **Câbles**: Montre ou masque les câbles entre les écrans hors du mode liens.
+:::
+
 | | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3M8 11h6"/></svg> | `Dézoomer` | Recule autour du centre de la fenêtre. | libre |
@@ -217,7 +241,7 @@ pour toutes :
 
 ### Les câbles entre les écrans
 
-Chaque lien est dessiné comme un **câble**, à la manière d’une carte mentale : il
+Chaque lien est dessiné comme un **[[câble|cable]]**, à la manière d’une carte mentale : il
 part de l’élément sur lequel il a été posé et arrive sur le bord de l’écran qu’il
 ouvre, avec le texte de l’élément écrit le long du câble.
 
@@ -331,6 +355,18 @@ que sur huit carrés de couleur.
 
 Clic droit sur un écran, ou <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> dans sa barre de nom.
 
+Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
+
+:::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
+- 50,5.8 **Télécharger…**: Un document seulement : PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG.
+- 50,12.5 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
+- 50,19.2 **Régénérer**: La même demande à nouveau, pour un autre design.
+- 50,25.8 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
+- 50,39.1 **Notes**: Des notes privées sur cet écran, jamais envoyées à un modèle.
+- 50,52.5 **Partager**: Un lien public temporaire et un QR code.
+- 50,94.2 **Supprimer l’écran**: Une confirmation, et il disparaît.
+:::
+
 | | Entrée | Ce qu’elle fait | Coût |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Télécharger…` | Un document seulement : ouvre `Télécharger le document` — PDF à champs remplissables, PowerPoint / Google Slides, images PNG. Voir [Documents](documents.md#telecharger). | libre |
@@ -376,6 +412,27 @@ Celui du milieu consomme des jetons. Les deux qui l’encadrent, non.
 
 La barre flottante en bas. C’est le seul contrôle du produit qui change de verbe
 selon ce qui est sélectionné.
+
+:::hotspots src=../assets/ui/fr/composer.webp alt="Le composeur : formats, type d’écran, les trois interrupteurs, la demande, Améliorer et Générer"
+- 38.9,84.7 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 51.3,84.7 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 33.7,89.4 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 43.9,89.4 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 52.3,89.4 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 64.8,89.4 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 45.5,94.3 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 65.4,94.6 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 69.9,94.6 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+:::
+
+`Type d’écran` ouvre ce menu — un [[type d’écran|screen-type]] pour un écran, ou un [[document|document]] :
+
+:::hotspots src=../assets/ui/fr/types.webp alt="Le menu Type d’écran : documents, réseaux sociaux et écrans"
+- 50,5.2 **Ce que fait un type**: Il donne au modèle la structure de ce genre d’écran. Vos mots passent d’abord, et le style reste celui de votre direction.
+- 25.7,31.8 **Documents à imprimer ou exporter**: Flyer, affiche, rapport, documentation, CV, facture ou devis, certificat, menu — des pages fixes. Voir [Documents](documents.md).
+- 25.7,89.7 **Réseaux sociaux**: Des posts Instagram, Facebook et LinkedIn, aux tailles des plateformes.
+- 25.7,119.7 **Écrans**: Tableau de bord, planning, kanban, tableau, page d’accueil, tarifs, produit, paiement, connexion, onboarding, paramètres, messagerie, réservation, article, portfolio.
+:::
 
 ### Les puces au-dessus du champ
 
@@ -653,6 +710,16 @@ d’écran sans les liens — `Écran précédent`, la liste `Aller à un écran
 suivant`, ou ← → — et chaque pas compte comme un lien suivi, donc `Retour`
 fonctionne toujours.
 
+:::hotspots src=../assets/ui/fr/demo-device.webp alt="Le mode démo : un écran montré dans un ordinateur dessiné au trait"
+- 5.6,3.1 **Quitter la démo**: Retour au canevas. `Échap` fait de même.
+- 4.4,9.7 **Retour**: L’écran précédent du parcours suivi.
+- 21.5,3.1 **Recommencer**: Retour au premier écran.
+- 29.7,3.1 **Appareil**: Le cadre dessiné au trait : un ordinateur, une tablette ou un téléphone selon la taille de l’écran ; une main pour un document imprimé, un fil de téléphone pour un post.
+- 46.1,3.1 **Changer d’écran**: Précédent, la liste de tous les écrans, suivant — ou ← →. Chaque pas compte comme un lien suivi.
+- 17.4,26 **L’écran**: Vivant et cliquable : les éléments liés mènent à leurs écrans.
+- 50,95.3 **Légende**: La taille pour laquelle l’écran a été conçu, et l’appareil qui lui a été donné.
+:::
+
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> `Appareil` place l’écran dans un dessin au trait de l’endroit où il sera
 vu, choisi d’après sa taille — un ordinateur, une tablette ou un smartphone, dans
 l’encre de l’interface. Un document a son propre cadre : une page imprimée est
@@ -719,6 +786,14 @@ modèle, tout est réversible depuis le menu de l’écran.
 | `Tout cocher` | « sélectionner tous les projets » | Il coche les projets **visibles**. Sous une recherche, c’est le résultat de la recherche. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Proposer des liens` | Tout ce qui ressemble à de l’IA | C’est déterministe. Il lit ce qui est déjà dans l’écran rendu ; il ne demande pas à un modèle d’imaginer un parcours. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Le bouton de thème | Le thème courant | L’icône dit où vous allez, pas où vous êtes. |
+
+:::quiz
+Deux écrans sont sélectionnés, et vous appuyez sur le bouton principal du composeur. Que se passe-t-il ?
+- Un nouvel écran est créé à partir de votre demande
+- [x] Les deux écrans sélectionnés sont modifiés selon votre demande
+- Rien : le bouton est désactivé tant que des écrans sont sélectionnés
+> Avec une sélection, le bouton devient `Mettre à jour (2)` et modifie ces écrans. `tout désélectionner`, à côté des puces, vide la sélection pour que la demande suivante crée un écran.
+:::
 
 ### Les quatre passes de correction
 

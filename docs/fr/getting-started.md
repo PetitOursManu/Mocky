@@ -1,5 +1,6 @@
 ---
-source_hash: d696b6e45794
+description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
+source_hash: 5101db154d57
 ---
 
 # Démarrage
@@ -69,9 +70,20 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 
 ## Première utilisation
 
-![La manchette de Mocky : navigation, thème, compte](../assets/01-header.png)
+Le bandeau est le même sur tous les écrans :
 
-*La manchette est la même partout : les sections à droite, puis le thème et votre compte.*
+:::hotspots src=../assets/ui/fr/header.webp alt="Le bandeau : le produit, le projet, la navigation, le thème et le compte"
+- 12.5,46.4 **Mocky**: Retour à vos projets, de partout.
+- 28.9,46.4 **Le projet ouvert**: Le projet où vous êtes. Son nom est aussi le titre de sa carte à la une sur la page des projets.
+- 59.6,46.4 **Accueil**: Vos projets, leurs dossiers, et `Nouveau projet`.
+- 65.7,46.4 **DESIGN.md**: Le système de design dont part chaque génération, en Markdown que vous pouvez modifier ou charger.
+- 71.3,46.4 **Média**: Toutes les images, clips et films générés ou importés.
+- 76.7,46.4 **Réglages**: Votre fournisseur de modèle, votre clé et votre modèle, votre compte, et le carillon de fin de génération.
+- 82.2,46.4 **Admin**: Le tableau de bord de l’instance. Visible des seuls administrateurs.
+- 87.1,46.4 **Docs**: Cette documentation, dans un nouvel onglet.
+- 91.2,46.4 **Thème**: Papier ou Encre. L’icône montre où vous allez, pas où vous êtes.
+- 95.6,46.4 **Compte**: Votre image et votre nom ; le menu vous déconnecte.
+:::
 
 :::steps id=first-run
 1. **Ouvrez Mocky.** La boîte de connexion apparaît et **ne peut pas être fermée**.
@@ -83,9 +95,27 @@ serveur affiche un avertissement, et `/api/health` répond `503` avec
 4. **Décrivez un écran et générez-le.**
 :::
 
-![Le composer : format, design, Muse, animations, demande](../assets/09-composer.png)
+:::quiz
+Qui devient l’administrateur de l’instance ?
+- Le compte qui configure le premier modèle de texte
+- [x] Le premier compte créé
+- N’importe quel compte qui ouvre `Admin`
+> Le premier compte créé sur une instance vide en est l’administrateur. Il n’y a pas de mot de passe oublié : créez-le vous-même, juste après l’installation.
+:::
 
-*Le composer. Le format d’abord, puis les trois interrupteurs qui décident de ce que reçoit le modèle — la direction de design, Muse, et le mouvement.*
+Le [[composeur|composer]], où l’on décrit un écran :
+
+:::hotspots src=../assets/ui/fr/composer.webp alt="Le composeur : formats, type d’écran, les trois interrupteurs, la demande, Améliorer et Générer"
+- 38.9,84.7 **Format**: Mobile, Ordinateur ou Tablette pour un écran. Pour un document, les mêmes puces deviennent des formats de page.
+- 51.3,84.7 **Type d’écran**: Le genre d’écran ou de document ; sa structure guide la génération. Il reste armé tant que vous ne le retirez pas.
+- 33.7,89.4 **Nouvelle direction**: Cette demande réécrit la direction artistique du projet. La case se décoche après l’écran.
+- 43.9,89.4 **Muse**: Inspiration, direction artistique, vrais textes et images pour le prochain écran.
+- 52.3,89.4 **Motion Ultra**: Un réglage de projet : un storyboard et une série d’images pour chaque nouvel écran.
+- 64.8,89.4 **Captures d’un site**: Joignez des captures d’un site existant pour le reproduire ou le refondre. Elles ne sont jamais conservées.
+- 45.5,94.3 **La demande**: Décrivez l’écran. `Ctrl/⌘ + Entrée` l’envoie.
+- 65.4,94.6 **Améliorer**: Réécrit vos quelques mots en un brief complet pour le format et le type choisis. `Revenir à votre texte` l’annule.
+- 69.9,94.6 **Générer**: Crée l’écran — ou `Mettre à jour` quand des écrans sont sélectionnés.
+:::
 
 Un projet garde **une seule** [[direction de design|direction]], pour que ses écrans aient
 l’air d’un produit et non de cinq esquisses. Elle est fixée par le premier écran
@@ -111,9 +141,16 @@ saute vers celui que vous venez de générer, qui n’est pas forcément celui q
 vous avez sélectionné. Les deux sont dans
 [L’interface](interface.md#la-barre-de-zoom), avec le reste de la barre.
 
-![L'accueil : la liste des projets](../assets/02-home-projects.png)
+L’accueil après une première génération :
 
-*L'accueil après une première génération. Le projet le plus récent est « à la une », avec sa vignette ; les projets sans écran sont regroupés en bas.*
+:::hotspots src=../assets/ui/fr/home.webp alt="La page des projets : le projet à la une, les dossiers, Nouveau dossier et Nouveau projet"
+- 73.3,2.9 **Navigation**: La même sur toutes les pages.
+- 91.2,2.9 **Thème**: Papier ou Encre, retenu par le navigateur.
+- 95.6,2.9 **Compte**: Connecté : vos projets vous suivent d’un appareil à l’autre.
+- 93.2,15.9 **Nouveau projet**: Un canevas vide, nommé d’après sa première demande.
+- 82.1,15.9 **Nouveau dossier**: Les dossiers sont des noms posés sur les projets ; glissez ou classez un projet pour en remplir un.
+- 12.5,28.7 **Le projet à la une**: Le plus récent, avec ses écrans. `Ouvrir` y entre ; les autres sont listés dessous, par dossier.
+:::
 
 ### Les règles de compte
 
@@ -159,7 +196,13 @@ La clé est conservée dans le `localStorage` de ce navigateur, sous
 `mocky.settings.v1`. Elle n'est jamais écrite côté serveur. Elle traverse
 `/__provider` en en-tête `Authorization`, le temps de chaque requête.
 
-![L'écran Réglages : fournisseur, URL de base, clé, modèle](../assets/05-settings.png)
+:::hotspots src=../assets/ui/fr/settings.webp alt="Réglages : fournisseur, URL de base, clé d’API, modèle et Tester la connexion"
+- 25.6,33.5 **Fournisseur**: Seize, groupés : les éditeurs de modèles, les hébergeurs de modèles ouverts, et `Compatible OpenAI` pour le reste.
+- 25.6,42.4 **URL de base**: Remplie par le fournisseur. Ne la changez que pour votre propre serveur.
+- 22.5,53.8 **Clé d’API**: Gardée dans ce navigateur seulement, envoyée en jeton Bearer avec chaque requête.
+- 24.2,66.9 **Modèle**: Listé depuis le fournisseur une fois la clé saisie ; vous pouvez aussi taper un nom.
+- 56.3,50.5 **Tester la connexion**: Une petite requête qui dit si la clé et le modèle répondent.
+:::
 
 *Réglages. C’est le mode par navigateur : la clé ne quitte pas cette machine.*
 
@@ -171,15 +214,27 @@ liste que l'écran Admin, moins fal, dont l'authentification `Key` ne peut pas
 passer par l'en-tête Bearer qu'envoie un navigateur. Les deux listes sont tenues
 égales par `tests/text-providers-mirror.test.js`.
 
+Plus bas sur la même page, `Notification` décide si Mocky vous prévient quand une
+génération se termine pendant que vous êtes dans un autre onglet :
+
+:::hotspots src=../assets/ui/fr/chime.webp alt="Réglages → Notification : le carillon de fin de génération"
+- 43.3,62.3 **Son de fin de génération**: Un carillon bref quand une génération se termine alors que Mocky n’est pas l’onglet affiché, plus grave si elle a échoué, et ✓ ou ⚠ dans le titre de l’onglet.
+- 90.7,48 **Tester**: Le joue tout de suite, pour vérifier vos haut-parleurs.
+:::
+
 ### Mode B — pour toute l'instance (administrateur)
 
-Allez dans **Admin → Modèles de texte**. La clé est stockée sur le serveur, dans
+Allez dans **Admin → Fournisseurs**, section *Modèles de texte*. La clé est stockée sur le serveur, dans
 `server/data/text-config.json`. Elle est utilisée par tous les comptes, et les
 Réglages personnels de chacun sont alors ignorés.
 
 `server/text/config.js` déclare seize fournisseurs.
 
-![L'écran Admin : modèles de texte et d'images pour toute l'instance](../assets/07-admin.png)
+:::hotspots src=../assets/ui/fr/admin.webp alt="Admin → Fournisseurs : le menu du tableau de bord et les modèles de texte de l’instance"
+- 9.2,53 **Le tableau de bord**: Vue d’ensemble, activité en direct, utilisateurs, sessions, système, fournisseurs, journal d’audit, annonce, maintenance. Voir [Le tableau de bord d’administration](admin-dashboard.md).
+- 37.4,91.1 **Génération des écrans**: Un fournisseur choisi ici sert à tous les comptes, et les Réglages personnels sont ignorés. `Aucun` laisse chacun sur sa propre clé.
+- 76.5,97.1 **Muse — dossier de design**: Un second modèle facultatif, moins cher, pour Muse ; `Aucun` réutilise le modèle de génération.
+:::
 
 *Admin. Un modèle défini ici sert à tous les comptes, et les Réglages personnels de chacun sont alors ignorés.*
 

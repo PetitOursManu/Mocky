@@ -1,3 +1,7 @@
+---
+description: What every control actually does, which ones get confused, and which ones spend tokens.
+---
+
 # The interface
 
 Mocky puts a great many controls on screen, and hardly any of them are labelled
@@ -125,6 +129,20 @@ Top-left of the canvas, and the densest thing in the product. Three defences
 keep it on screen: labels fold away below `md`, everything past `Modify` folds
 into `More`, and the row scrolls itself rather than pushing the page sideways.
 
+:::hotspots src=assets/ui/toolbar.webp alt="The project toolbar"
+- 4.1,50 **Back**: Leaves the project — and aborts a generation in flight.
+- 12.7,50 **Link**: Pick an element in a screen and draw a cable to the screen it should open.
+- 20.7,50 **Modify**: Click an element and describe a change, or edit its text directly.
+- 29.7,50 **Interact**: Every preview becomes clickable at once.
+- 39.4,50 **Annotate**: Snip a region of a screen into the composer as a numbered reference.
+- 48.6,50 **Frame**: The iPhone frame around mobile screens. Greyed out when the project has none.
+- 57.2,50 **System**: The live design system: your tokens, and a way to recolour them.
+- 65.6,50 **Audit**: SEO and accessibility. Opening it evaluates nothing.
+- 75.7,50 **Motion Ultra**: Cut a film from the media library.
+- 87,50 **Demo**: Plays the prototype, in a device frame. See [Demo mode](interface.md#demo-mode).
+- 95.3,50 **Export**: A runnable Vite + React + Tailwind project, as a `.zip`.
+:::
+
 ### The three that never fold
 
 | | Control | What it does | Cost |
@@ -180,6 +198,15 @@ it past roughly 1200px of window. Any narrower and the bottom-left corner sits
 behind the composer, which is opaque — which is how the only zoom control in
 the product came to be invisible on a laptop.
 
+:::hotspots src=assets/ui/zoombar.webp alt="The zoom bar"
+- 7.7,50 **Zoom out**: Around the centre of the view. `Ctrl/⌘ + wheel` does the same.
+- 37.2,50 **Zoom in**: Around the centre of the view.
+- 54.4,50 **Fit all**: Frames every screen, and keeps doing so until you move the view.
+- 67,50 **Latest screen**: Frames the most recent screen.
+- 79.6,50 **Arrange**: Repacks the board by each screen’s real size.
+- 92.3,50 **Cables**: Shows or hides the cables between screens outside link mode.
+:::
+
 | | Control | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3M8 11h6"/></svg> | `Zoom out` | Steps out around the centre of the viewport. | free |
@@ -206,7 +233,7 @@ once:
 
 ### Cables between screens
 
-Every link is drawn as a **cable**, like a mind map: it leaves the element it
+Every link is drawn as a **[[cable|cable]]**, like a mind map: it leaves the element it
 was placed on and lands on the edge of the screen it opens, with the element's
 text written along it.
 
@@ -312,6 +339,18 @@ system is judged on its words rather than on eight squares of colour.
 
 Right-click a screen, or use <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> in its label bar.
 
+The menu of a document, which opens on its own two items:
+
+:::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
+- 50,5.8 **Download…**: A document only: PDF with fillable fields, PowerPoint / Google Slides, or PNG images.
+- 50,12.5 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,19.2 **Regenerate**: The same prompt again, for a different design.
+- 50,25.8 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,39.1 **Notes**: Private notes on this screen, never sent to a model.
+- 50,52.5 **Share**: A temporary public link and a QR code.
+- 50,94.2 **Delete screen**: One confirmation, and it is gone.
+:::
+
 | | Item | What it does | Cost |
 |---|---|---|---|
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg> | `Download…` | A document only: opens `Download the document` — PDF with fillable fields, PowerPoint / Google Slides, PNG images. See [Documents](documents.md#downloading). | free |
@@ -355,6 +394,27 @@ The middle one spends tokens. The two beside it do not.
 
 The floating bar at the bottom. It is the only control in the product that
 changes verb depending on what is selected.
+
+:::hotspots src=assets/ui/composer.webp alt="The composer: formats, screen type, the three switches, the prompt, Improve and Generate"
+- 38,84.7 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 49.4,84.7 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 32.2,89.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 40.9,89.4 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.3,89.4 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 61.3,89.4 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 45.3,94.3 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 65,94.6 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 69.7,94.6 **Generate**: Creates the screen — or `Update` when screens are selected.
+:::
+
+`Screen type` opens this menu — a [[screen type|screen-type]] for a screen, or a [[document|document]]:
+
+:::hotspots src=assets/ui/types.webp alt="The Screen type menu: documents, social media and screens"
+- 50,5.4 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
+- 25.7,29.4 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
+- 25.7,86.2 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
+- 25.7,115.8 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
+:::
 
 ### The chips above the field
 
@@ -621,6 +681,16 @@ find in the first place.
 links — `Previous screen`, the `Go to a screen` list, `Next screen`, or ← → — and
 each step counts as a followed link, so `Back` still works.
 
+:::hotspots src=assets/ui/demo-device.webp alt="Demo mode: a screen shown in a line-drawn laptop"
+- 4.4,3.1 **Exit demo**: Back to the canvas. `Esc` does the same.
+- 3.9,9.7 **Back**: The previous screen of the path you followed.
+- 16.9,3.1 **Restart**: Back to the first screen.
+- 23.2,3.1 **Device**: The line-drawn frame: a computer, a tablet or a phone by the screen’s size; a hand for a printed document, a phone feed for a post.
+- 38.8,3.1 **Screen switcher**: Previous, a list of every screen, next — or ← →. Each step counts as a followed link.
+- 17.4,26 **The screen**: Live and clickable: the linked elements take you to their screens.
+- 50,95.3 **Caption**: The size the screen was designed at, and the device it was given.
+:::
+
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> `Device` puts the screen in a line drawing of where it will be seen,
 chosen from its size — a computer, a tablet or a smartphone, in the interface's
 own ink. A document gets its own frame: a printed page is held in a drawn hand,
@@ -684,6 +754,14 @@ model, everything is revertable from the screen menu.
 | `Tick all` | "select every project" | It ticks the **visible** projects. Under a search, that is the search result. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> `Suggest links` | Anything AI-shaped | Deterministic. It reads what is already in the rendered screen; it does not ask a model to imagine a flow. |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Theme button | The current theme | The icon is where you are going, not where you are. |
+
+:::quiz
+Two screens are selected, and you press the composer's main button. What happens?
+- A new screen is created from your prompt
+- [x] Both selected screens are edited with your prompt
+- Nothing: the button is disabled while screens are selected
+> With a selection, the button reads `Update (2)` and edits those screens. `clear`, beside the chips, empties the selection so the next prompt creates a screen.
+:::
 
 ### The four correction passes
 

@@ -1,3 +1,7 @@
+---
+description: Install Mocky, create the first account, and connect a text model.
+---
+
 # Getting started
 
 ## Requirements
@@ -65,9 +69,20 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 
 ## First run
 
-![The Mocky masthead: navigation, theme switch, account](assets/01-header.png)
+The masthead is the same on every screen:
 
-*The masthead is the same on every screen: the sections on the right, then the theme switch and your account.*
+:::hotspots src=assets/ui/header.webp alt="The masthead: the product, the project, the navigation, the theme and the account"
+- 12.1,46.4 **Mocky**: Back to your projects from anywhere.
+- 28,46.4 **The open project**: The project you are in. Its name is also the title of its lead card on the projects page.
+- 60.3,46.4 **Home**: Your projects, their folders, and `New project`.
+- 65.9,46.4 **DESIGN.md**: The design system every generation starts from, as Markdown you can edit or load.
+- 71.5,46.4 **Media**: Every generated or uploaded picture, clip and film.
+- 76.8,46.4 **Settings**: Your model provider, key and model, your account, and the end-of-generation chime.
+- 82.2,46.4 **Admin**: The instance dashboard. Shown to administrators only.
+- 87.1,46.4 **Docs**: This documentation, in a new tab.
+- 91.2,46.4 **Theme**: Papier or Encre. The icon shows where you are going, not where you are.
+- 95.6,46.4 **Account**: Your picture and name; the menu signs you out.
+:::
 
 :::steps id=first-run
 1. **Open Mocky.** The sign-in box appears and **cannot be dismissed**. There is no
@@ -79,9 +94,27 @@ npm start              # Express serves dist/, the API and the proxy on :8787
 4. **Describe a screen and generate it.**
 :::
 
-![The composer: format, design, Muse, animations, prompt](assets/09-composer.png)
+:::quiz
+Who becomes the instance administrator?
+- The account that configures the first text model
+- [x] The first account created
+- Any account that opens `Admin`
+> The first account created on an empty instance is the administrator. There is no reset flow, so create it yourself, right after installing.
+:::
 
-*The composer. Format first, then the three switches that decide what the model is given — the design direction, Muse, and motion.*
+The [[composer|composer]], where a screen is described:
+
+:::hotspots src=assets/ui/composer.webp alt="The composer: formats, screen type, the three switches, the prompt, Improve and Generate"
+- 38,84.7 **Format**: Mobile, Desktop or Tablet for a screen. For a document, the same chips become page formats.
+- 49.4,84.7 **Screen type**: The kind of screen or document; its structure guides the generation. It stays armed until you remove it.
+- 32.2,89.4 **New direction**: This prompt rewrites the project’s art direction. It unticks itself after the screen.
+- 40.9,89.4 **Muse**: Inspiration, an art direction, real copy and pictures for the next screen.
+- 49.3,89.4 **Motion Ultra**: A project setting: a storyboard and a series of pictures for each new screen.
+- 61.3,89.4 **Screenshots of a site**: Attach screenshots of an existing site to reproduce it or redesign it. They are never stored.
+- 45.3,94.3 **The prompt**: Describe the screen. `Ctrl/⌘ + Enter` sends it.
+- 65,94.6 **Improve**: Rewrites your few words into a complete brief for the chosen format and type. `Back to your text` undoes it.
+- 69.7,94.6 **Generate**: Creates the screen — or `Update` when screens are selected.
+:::
 
 A project keeps **one** [[design direction|direction]], so its screens look like one product
 rather than five sketches. It is set by the first screen you generate and then
@@ -104,9 +137,16 @@ screen** jumps to the one you generated most recently, which is not necessarily
 the one you have selected. Both are in [The interface](interface.md#the-zoom-bar)
 with the rest of the bar.
 
-![The home page: your projects](assets/02-home-projects.png)
+The home page after a first generation:
 
-*The home page after a first generation. The most recent project leads, with its thumbnail; projects with no screens are grouped at the bottom.*
+:::hotspots src=assets/ui/home.webp alt="The projects page: the lead project, the folders, New folder and New project"
+- 73.9,2.9 **Navigation**: The same on every page.
+- 91.2,2.9 **Theme**: Papier or Encre, remembered by the browser.
+- 95.6,2.9 **Account**: Signed in: your projects follow you from one device to another.
+- 93.9,15.9 **New project**: An empty canvas, named after its first prompt.
+- 84.7,15.9 **New folder**: Folders are names on projects; drag or file a project to fill one.
+- 12.2,28.7 **The lead project**: The most recent, with its screens. `Open` goes in; the others are listed below, by folder.
+:::
 
 ### Account rules
 
@@ -149,7 +189,13 @@ The key is stored in that browser's `localStorage` under `mocky.settings.v1` and
 is never written server-side. It passes through `/__provider` as an
 `Authorization` header for the duration of each request.
 
-![The Settings screen: provider, base URL, key, model](assets/05-settings.png)
+:::hotspots src=assets/ui/settings.webp alt="Settings: provider, base URL, API key, model and Test connection"
+- 25.6,33.5 **Provider**: Sixteen, grouped: model makers, hosts of open models, and `Compatible OpenAI` for the rest.
+- 25.6,42.4 **Base URL**: Filled in by the provider. Change it only for your own server.
+- 23,53.8 **API key**: Kept in this browser only, sent as a Bearer token with each request.
+- 24.2,65.2 **Model**: Listed from the provider once the key is set; you can also type a name.
+- 55.5,48.4 **Test connection**: One small request that says whether the key and the model answer.
+:::
 
 *Settings. This is the per-browser mode: the key is stored in this browser only.*
 
@@ -160,15 +206,27 @@ endpoint spoke. It does now (the `x-provider-kind` header), and
 `Key` authentication cannot ride the Bearer header a browser sends. The two lists
 are held equal by `tests/text-providers-mirror.test.js`.
 
+Lower on the same page, `Notification` decides whether Mocky tells you when a
+generation finishes while you are in another tab:
+
+:::hotspots src=assets/ui/chime.webp alt="Settings → Notification: the end-of-generation chime"
+- 44.2,62.3 **Sound when a generation finishes**: A short chime when a generation ends while Mocky is not the tab on screen, a lower one if it failed, and ✓ or ⚠ in the tab’s title.
+- 91.6,48 **Test**: Plays it now, so you can check your speakers.
+:::
+
 ### Mode B — instance-wide (administrator)
 
-Go to **Admin → Text models**. The key is stored on the server in
+Go to **Admin → Providers**, section *Text models*. The key is stored on the server in
 `server/data/text-config.json`, used by every account, and each user's personal
 Settings are then ignored.
 
 `server/text/config.js` declares sixteen providers.
 
-![The Admin screen: instance-wide text and image models](assets/07-admin.png)
+:::hotspots src=assets/ui/admin.webp alt="Admin → Providers: the dashboard menu and the instance-wide text models"
+- 9.2,53 **The dashboard**: Overview, live activity, users, sessions, system, providers, audit log, announcement, maintenance. See [The admin dashboard](admin-dashboard.md).
+- 37.4,89.3 **Screen generation**: A provider set here is used by every account, and personal Settings are ignored. `None` keeps each user on their own key.
+- 76.5,93.3 **Muse — design dossier**: An optional second, cheaper model for Muse; `None` reuses the generation model.
+:::
 
 *Admin. A model set here is used by every account on the instance, and each user’s personal Settings are ignored.*
 

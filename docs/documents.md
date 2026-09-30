@@ -1,3 +1,8 @@
+---
+description: Flyers, reports, résumés and social media posts — fixed pages you download as a PDF, a deck or images.
+badge: New
+---
+
 # Documents and social posts
 
 Most of what Mocky makes is a **screen**: a page of an app or a site, laid out
@@ -34,6 +39,13 @@ the file contains, and where a fillable field lands in it.
    (one real photo from Pexels or Pixabay, when the instance has a key).
 4. **Describe it and generate.** An empty field is filled with an example for
    the type; your own words are never replaced.
+:::
+
+:::hotspots src=assets/ui/types.webp alt="The Screen type menu: documents, social media and screens"
+- 50,5.4 **What a type does**: It gives the model the structure of that kind of screen. Your words still come first, and the style stays your direction’s.
+- 25.7,29.4 **Documents to print or export**: Flyer, poster, report, documentation, résumé, invoice or quote, certificate, menu — fixed pages. See [Documents](documents.md).
+- 25.7,86.2 **Social media**: Instagram, Facebook and LinkedIn posts, in the platforms’ own sizes.
+- 25.7,115.8 **Screens**: Dashboard, planning, kanban, table, landing page, pricing, product, checkout, sign-in, onboarding, settings, messaging, booking, article, portfolio.
 :::
 
 The type stays armed after the generation, and a project opens on the type and
@@ -113,6 +125,13 @@ The social types ask for none: nobody fills in an Instagram post.
 A document's frame carries a `Download` pill, and the screen context menu a
 `Download…` item. Both open `Download the document`, with three buttons:
 
+:::hotspots src=assets/ui/download.webp alt="Download the document: PDF, PowerPoint / Google Slides, PNG images"
+- 50,22.4 **The format**: The page format the document was laid out in. The file downloads directly — no print dialog.
+- 50,36.9 **PDF**: To print or send. Text stays selectable; every field becomes a real form field.
+- 50,50 **PowerPoint / Google Slides**: To keep editing: the design as a picture, every text as an editable box. Open it in Google Slides from Drive.
+- 50,81.8 **PNG images**: To post: one image per page, in a `.zip` when there are several. A social post comes out at its exact pixels.
+:::
+
 | Button | What you get | For |
 |---|---|---|
 | `PDF` / `PDF — fillable fields` | The pages as drawn — at print resolution for paper, at its own pixels for a post — with the text still selectable and every field fillable. | Printing, sending. |
@@ -137,6 +156,16 @@ guess a height and guess it long. When text or a field ends up past a page's
 edge, Mocky says so — a notice names the document and the page — because on
 paper that content is simply cut.
 
+:::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
+- 50,5.8 **Download…**: A document only: PDF with fillable fields, PowerPoint / Google Slides, or PNG images.
+- 50,12.5 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
+- 50,19.2 **Regenerate**: The same prompt again, for a different design.
+- 50,25.8 **Polish**: Checks the design against named rules and corrects what it finds.
+- 50,39.1 **Notes**: Private notes on this screen, never sent to a model.
+- 50,52.5 **Share**: A temporary public link and a QR code.
+- 50,94.2 **Delete screen**: One confirmation, and it is gone.
+:::
+
 **Right-click the document → `Fit to page`** asks the model to win the space
 back. It is not an edit and not a polish:
 
@@ -155,6 +184,14 @@ back. It is not an edit and not a polish:
 
 One model call per click, never retried on its own. Adding a page is a different
 document, so it is left to you: ask for it in the composer.
+
+:::quiz
+You run `Fit to page`, and the model's answer only fits by adding a second page. What does Mocky do?
+- It keeps the two-page version, since everything now fits
+- [x] It keeps the original, and says the fit did not work
+- It asks you which one to keep
+> A different number of pages is a different document, so the answer is rejected however well it fits. Ask for a second page in the composer if that is what you want.
+:::
 
 ---
 
@@ -184,6 +221,25 @@ With `Device` on, the demo shows a document the way it will be seen:
 - **A story** fills the phone's screen, with its progress segments and the reply
   field.
 - **A presentation** has no frame: it is projected, not held.
+
+A flyer, held:
+
+:::hotspots src=assets/ui/demo-hand.webp alt="Demo mode: a flyer held in a hand"
+- 23.2,3.1 **Device**: On for a printed document: it is held in a hand, drawn in the same line as the devices.
+- 17.4,26 **The page**: The real document, one page at a time; a pager appears under it when there are several.
+- 66.1,82 **The hand**: Only the thumb lies on the sheet, along its edge; the rest of the page stays clickable.
+- 50,95.3 **Caption**: The page format.
+:::
+
+A carousel, in its feed:
+
+:::hotspots src=assets/ui/demo-phone.webp alt="Demo mode: an Instagram carousel on a phone, in its feed"
+- 10.7,12.4 **Author row**: The feed drawn around the post: generic, in the phone’s ink — no logo, no copied interface.
+- 17.4,24.9 **The post**: At the full width of the screen, where the platform puts it.
+- 27.1,16.2 **Carousel counter**: The page shown and the carousel’s length.
+- 8,38.4 **Actions and caption**: Under the picture on Instagram; above it on Facebook and LinkedIn.
+- 50,94.7 **Pages**: Turns the carousel’s pages. A story fills the screen instead.
+:::
 
 The drawn app is deliberately generic — no logo, no copied interface. It says
 where the picture will live and leaves the eye on the picture.

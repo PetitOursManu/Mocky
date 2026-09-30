@@ -1,5 +1,5 @@
 ---
-source_hash: e8898d4257c4
+source_hash: e5dedb643351
 ---
 
 # Déploiement
@@ -328,6 +328,11 @@ plus tard à la première écriture.
 
 ## Reverse proxy et HTTPS
 
+:::vars
+domain = mocky.example.com | Votre domaine
+dashy = dashy.example.com | Le domaine de Dashy (SSO seulement)
+:::
+
 Derrière Nginx, Caddy ou Traefik :
 
 1. **Définissez `TRUST_PROXY=1`.**
@@ -340,7 +345,7 @@ Derrière Nginx, Caddy ou Traefik :
 Caddy :
 
 ```
-mocky.example.com {
+{{domain}} {
     reverse_proxy localhost:8787
 }
 ```
@@ -350,7 +355,7 @@ Nginx :
 ```nginx
 server {
     listen 443 ssl;
-    server_name mocky.example.com;
+    server_name {{domain}};
 
     location / {
         proxy_pass http://localhost:8787;
@@ -480,8 +485,8 @@ Côté **Mocky** :
 
 ```bash
 SSO_SHARED_SECRET=<la valeur que vous venez de générer>
-SSO_DASHY_URL=https://dashy.example.com
-MOCKY_ORIGIN=https://mocky.example.com        # production
+SSO_DASHY_URL=https://{{dashy}}
+MOCKY_ORIGIN=https://{{domain}}        # production
 # MOCKY_ORIGIN=http://localhost:5173          # dev — l'origine du SPA Vite, PAS :8787
 ```
 
@@ -489,7 +494,7 @@ Côté **Dashy** : le même `SSO_SHARED_SECRET`, plus le rappel de Mocky dans la
 liste d'autorisation :
 
 ```bash
-SSO_ALLOWED_REDIRECTS=https://mocky.example.com/sso/dashy/callback,http://localhost:5173/sso/dashy/callback
+SSO_ALLOWED_REDIRECTS=https://{{domain}}/sso/dashy/callback,http://localhost:5173/sso/dashy/callback
 ```
 
 Le serveur annonce l'état au démarrage, donc une faute de frappe dans un nom de
@@ -575,9 +580,9 @@ Variables à définir dans Coolify :
 
 ```bash
 TRUST_PROXY=1                              # le proxy de Coolify est devant
-MOCKY_ORIGIN=https://mocky.example.com     # obligatoire dès que le SSO est activé
+MOCKY_ORIGIN=https://{{domain}}     # obligatoire dès que le SSO est activé
 # SSO_SHARED_SECRET=…
-# SSO_DASHY_URL=https://dashy.example.com
+# SSO_DASHY_URL=https://{{dashy}}
 ```
 
 `MOCKY_BIND` **ne sert pas ici**. C'est une variable de `docker-compose.yml` qui

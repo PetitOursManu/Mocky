@@ -10,9 +10,19 @@ were made. They assume you know React and TypeScript.
 > The repository `README.md` is the product overview: what Mocky does and how to
 > install it quickly. This documentation covers the internals.
 
-![A project canvas: two generated screens, the mode toolbar, the composer](assets/13-canvas-project.png)
+A project, open. Click the numbers to see what each part is:
 
-*A project open. Screens sit side by side on an infinite canvas; the bar at the top switches modes, and the composer at the bottom describes the next screen.*
+:::hotspots src=assets/ui/canvas.webp alt="A project: the toolbar, four screens linked by cables, the zoom bar and the composer"
+- 73.9,2.9 **Main navigation**: `Home` lists your projects; `DESIGN.md`, `Media`, `Settings`, `Admin` and `Docs` open over the project.
+- 36.3,9.7 **Project toolbar**: Link, modify, interact, annotate, the side panels, `Demo` and `Export`. Each is described in [The interface](interface.md#the-project-toolbar).
+- 17.4,26 **A generated screen**: A real React + Tailwind component, rendered live. Double-click to use it, right-click for its menu.
+- 30.3,19.1 **A cable**: A link from an element of one screen to the screen it opens — the map of the prototype `Demo` plays.
+- 67.4,13.4 **A document**: A flyer, a report, a post: fixed pages. Its `Download` pill gives a PDF, a `.pptx` or PNG images.
+- 10.9,95.6 **Zoom bar**: Zoom, `Fit all`, the latest screen, `Arrange`, and the switch that shows or hides the cables.
+- 49.4,85.5 **Screen type**: What the next screen is — a dashboard, a pricing page — or which document. It stays armed for the project.
+- 45.3,94.6 **The prompt**: Describe a screen in your own words. With a screen selected, the same field describes a change to it.
+- 69.7,94.9 **Generate**: Creates the screen. With screens selected, it reads `Update` and edits them instead.
+:::
 
 ---
 
@@ -46,20 +56,21 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 
 ## Where to start
 
-| If you want to… | Read |
-|---|---|
-| Install Mocky and configure a model | [Getting started](getting-started.md) |
-| Understand the capability registry, the planner and the sandbox | [Architecture overview](architecture/overview.md) |
-| Know which rules the code refuses to break, and why | [Invariants](architecture/invariants.md) |
-| See what Muse adds to a generation | [Muse overview](muse/overview.md) |
-| Follow Discover, Distill and Dossier in detail | [Inspiration engine](muse/inspiration-engine.md) |
-| Understand the animation system | [Animations](muse/animations.md) |
-| Check a generated screen, and correct what the check finds | [Quality pass](quality.md) |
-| Make a flyer, a report, a résumé or a social media post, and download it as a PDF, a deck or images | [Documents and social posts](documents.md) |
-| Compose an `.mp4` for a screen out of a catalogue of blocks — and know why its renderer ships separately | [Motion Ultra](video-export.md) |
-| Deploy Mocky | [Deployment](deployment.md) |
-| Put the instance in read-only mode, or move it to another server | [Maintenance and migration](migration.md) |
-| See who is connected, what the machine is doing, and who changed what | [Admin dashboard](admin-dashboard.md) |
+:::cards cols=2
+- [Getting started](getting-started.md) Install Mocky and configure a model.
+- [The interface](interface.md) What every control does, which ones get confused, and which ones spend tokens.
+- [Documents and social posts](documents.md) Make a flyer, a report, a résumé or a post, and download it as a PDF, a deck or images.
+- [Muse overview](muse/overview.md) See what Muse adds to a generation.
+- [Inspiration engine](muse/inspiration-engine.md) Follow Discover, Distill and Dossier in detail.
+- [Animations](muse/animations.md) Understand the animation system.
+- [Quality pass](quality.md) Check a generated screen, and correct what the check finds.
+- [Motion Ultra](video-export.md) Compose an `.mp4` for a screen out of a catalogue of blocks — and know why its renderer ships separately.
+- [Deployment](deployment.md) Deploy Mocky.
+- [Maintenance and migration](migration.md) Put the instance in read-only mode, or move it to another server.
+- [Admin dashboard](admin-dashboard.md) See who is connected, what the machine is doing, and who changed what.
+- [Architecture overview](architecture/overview.md) Understand the capability registry, the planner and the sandbox.
+- [Invariants](architecture/invariants.md) Know which rules the code refuses to break, and why.
+:::
 
 ---
 
