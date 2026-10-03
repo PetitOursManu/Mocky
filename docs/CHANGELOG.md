@@ -6,6 +6,12 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 ## October 2026
 
+**Documentation**
+
+| Scope | Change | Commit |
+| --- | --- | --- |
+| `licence` | exception de sortie et page Licence | `fa248bb` |
+
 **Maintenance**
 
 | Scope | Change | Commit |

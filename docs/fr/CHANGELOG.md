@@ -10,6 +10,12 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 ## octobre 2026
 
+**Documentation**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `licence` | exception de sortie et page Licence | `fa248bb` |
+
 **Maintenance**
 
 | Portée | Modification | Commit |
