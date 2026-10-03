@@ -725,6 +725,14 @@ Signé avec `SSO_SHARED_SECRET` (HS256), durée de vie de 60 s. Revendications :
 - Le stockage du backend vit dans `server/data/` (fichiers JSON, ignorés par git) — comptes et projets par utilisateur. Les écritures sont atomiques (fichier temporaire + renommage), de sorte qu'un plantage ne laisse jamais un fichier corrompu. C'est un stockage auto-hébergé léger ; pour un déploiement multi-utilisateur durci, on le remplacerait par une vraie base de données et on ajouterait HTTPS.
 - Les secrets du SSO vivent dans un fichier `.env` (ignoré par git). `server/index.js` le lit automatiquement au démarrage, pour vous éviter une dépendance de plus.
 
+## Licence
+
+> **Pourquoi c'est ainsi —** Mocky est un serveur qu'on utilise depuis un navigateur, et une licence copyleft ordinaire n'atteint jamais ce cas : on peut modifier le code, l'exploiter comme service pour d'autres et ne jamais distribuer un seul fichier. L'AGPL ferme précisément cette brèche, et c'est pour cela qu'elle a été préférée à la GPL.
+
+Mocky est un logiciel libre, publié sous la **[GNU Affero General Public License v3.0 ou ultérieure](LICENSE)** (`AGPL-3.0-or-later`). Vous pouvez l'utiliser, l'étudier, le modifier et le partager. Si vous exploitez une version **modifiée** comme service en réseau, vous devez proposer à ses utilisateurs le code source de cette version.
+
+Une permission additionnelle (section 7 de l'AGPL) autorise le worker vidéo facultatif de `worker/video/` à être combiné avec Remotion, dont la licence n'est pas compatible avec la GPL. Elle ne vous accorde aucune licence sur Remotion lui-même : construire ce worker reste soumis aux conditions propres de Remotion (voir [Motion Ultra](#motion-ultra)). L'avis de copyright, le texte exact de cette permission et les attributions tierces sont dans [`NOTICE`](NOTICE) (en anglais).
+
 ---
 
 <p align="center"><sub>Réalisé avec <a href="https://claude.com/claude-code">Claude Code</a>.</sub></p>

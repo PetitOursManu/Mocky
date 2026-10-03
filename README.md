@@ -737,6 +737,14 @@ Signed with `SSO_SHARED_SECRET` (HS256), 60 s lifetime. Claims: `sub` (stable Da
 - Backend storage lives in `server/data/` (JSON files, git-ignored) — accounts and per-user projects. Writes are atomic (temp + rename) so a crash never leaves a corrupted file. It's a lightweight self-hosted store; for a hardened multi-user deployment you'd swap it for a real DB and add HTTPS.
 - SSO secrets live in a `.env` file (git-ignored). `server/index.js` reads it automatically on startup so you don't need another dependency.
 
+## License
+
+> **Why it works this way —** Mocky is a server people use through a browser, and an ordinary copyleft licence never reaches that case: someone can modify the code, run it as a service for others, and never distribute a single file. The AGPL closes exactly that gap, which is why it was chosen over the GPL.
+
+Mocky is free software, released under the **[GNU Affero General Public License v3.0 or later](LICENSE)** (`AGPL-3.0-or-later`). You may use, study, modify and share it. If you run a **modified** version as a network service, you must offer its users the source code of that version.
+
+One additional permission (AGPL section 7) allows the optional video worker in `worker/video/` to be combined with Remotion, whose licence is not GPL-compatible. It does not license Remotion itself: building that worker remains subject to Remotion's own terms (see [Motion Ultra](#motion-ultra)). The copyright notice, the exact wording of that permission and the third-party attributions are in [`NOTICE`](NOTICE).
+
 ---
 
 <p align="center"><sub>Built with <a href="https://claude.com/claude-code">Claude Code</a>.</sub></p>
