@@ -1,0 +1,37 @@
+Mocky
+Copyright (C) 2026 PetitOursManu and the Mocky contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program, in the file LICENSE. If not, see
+<https://www.gnu.org/licenses/>.
+
+
+Additional permission under GNU AGPL version 3 section 7
+
+If you modify this Program, or any covered work, by linking or combining it
+with Remotion (the npm packages `remotion` and `@remotion/*`,
+https://www.remotion.dev), or a modified version of that library, containing
+parts covered by the terms of the Remotion License, the licensors of this
+Program grant you additional permission to convey the resulting work.
+
+This permission exists for the optional video render worker in `worker/video/`,
+the only part of this repository that uses Remotion. It does not license
+Remotion itself: whoever builds or runs that worker remains bound by Remotion's
+own licence terms, which `worker/video/README.md` explains.
+
+
+Third-party components
+
+Deterministic quality detection uses the `impeccable` npm package by Paul
+Bakaus, licensed under the Apache License 2.0
+(https://github.com/pbakaus/impeccable). Other dependencies are listed in
+`package.json` and `worker/video/package.json`, each under its own licence.

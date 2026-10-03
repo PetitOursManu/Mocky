@@ -1067,6 +1067,10 @@ toolkit.
   verifies it.
 - **Degrade, never fail.** The pattern is everywhere: catch, add a soft notice,
   continue without that contribution. M3 for Muse, Q1 for quality.
+- **Mocky is `AGPL-3.0-or-later`** (`LICENSE`, `NOTICE`). A new dependency must
+  be GPLv3-compatible; Remotion is the one exception, granted in `NOTICE` under
+  section 7 and confined to `worker/video/`. A second incompatible package needs
+  its own permission there, decided by the copyright holder — not added in code.
 
 ## Before you finish
 

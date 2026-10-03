@@ -23,6 +23,11 @@
 > d'autre ne peut y répondre à votre place, et Mocky ne fait délibérément pas
 > semblant du contraire.
 
+Mocky, ce worker compris, est sous licence `AGPL-3.0-or-later`. La licence de
+Remotion n'étant pas compatible avec la GPL, [`NOTICE`](../../NOTICE) ajoute une
+permission (section 7) de combiner ce worker avec lui. Cette permission ne règle
+que la part de Mocky : elle n'accorde rien du côté de Remotion.
+
 ---
 
 ## Pourquoi un service séparé

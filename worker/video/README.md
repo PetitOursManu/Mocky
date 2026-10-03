@@ -21,6 +21,11 @@
 > is over the threshold — before you run the build. Nobody else can answer it for
 > you, and Mocky deliberately does not pretend to.
 
+Mocky, this worker included, is licensed `AGPL-3.0-or-later`. Remotion's licence
+is not GPL-compatible, so [`NOTICE`](../../NOTICE) adds a section 7 permission to
+combine this worker with it. That permission is Mocky's side of the question
+only: it grants nothing on Remotion's.
+
 ---
 
 ## Why this is a separate service
