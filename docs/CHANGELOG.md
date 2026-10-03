@@ -4,6 +4,14 @@
 This page is generated from the Git history by `npm run changelog`. Commit messages in this repository are written in French, and are reproduced **verbatim** rather than translated: a translated subject sitting beside a hash points at a commit whose text says something else, and the reader can then search for neither.
 :::
 
+## October 2026
+
+**Maintenance**
+
+| Scope | Change | Commit |
+| --- | --- | --- |
+| `licence` | Mocky passe sous AGPL-3.0-or-later | `6857172` |
+
 ## September 2026
 
 **Features**

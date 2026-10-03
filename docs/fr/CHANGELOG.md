@@ -8,6 +8,14 @@ generated: true
 Cette page est produite à partir de l’historique Git par `npm run changelog`. Les messages de commit de ce dépôt sont écrits en français : ils sont reproduits **tels quels**, sans traduction, parce qu’un intitulé traduit posé à côté d’une empreinte renvoie vers un commit dont le texte dit autre chose — et le lecteur ne peut alors chercher ni l’un ni l’autre.
 :::
 
+## octobre 2026
+
+**Maintenance**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `licence` | Mocky passe sous AGPL-3.0-or-later | `6857172` |
+
 ## septembre 2026
 
 **Fonctionnalités**
