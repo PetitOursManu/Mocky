@@ -418,6 +418,22 @@ function readme(name: string, stack: StackTarget, screenCount: number): string {
     '  only where that server is. Copy the files and rewrite those paths before deploying elsewhere.',
     '',
   )
+  /*
+   * Mocky is AGPL, and an export carries Mocky's own components. Without this
+   * section a reader of the zip alone could not know that the NOTICE's output
+   * exception frees them, and would have to assume the site they publish with
+   * these files has to be AGPL too.
+   */
+  lines.push(
+    '## License',
+    '',
+    'This project is yours, under whatever terms you choose. Mocky is AGPL-3.0-or-later, and it grants an',
+    'explicit exception for the files it produces — the screens, `src/components/ui/*`, `src/lib/*` and the',
+    'scaffolding — so the AGPL does not follow them here. A file that carries its own notice (the MIT',
+    'header on `cn()`, for instance) stays under that notice. The exact wording is in Mocky\'s `NOTICE`:',
+    'https://github.com/PetitOursManu/Mocky/blob/main/NOTICE',
+    '',
+  )
   return lines.join('\n')
 }
 

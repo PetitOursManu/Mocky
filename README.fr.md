@@ -731,7 +731,12 @@ Signé avec `SSO_SHARED_SECRET` (HS256), durée de vie de 60 s. Revendications :
 
 Mocky est un logiciel libre, publié sous la **[GNU Affero General Public License v3.0 ou ultérieure](LICENSE)** (`AGPL-3.0-or-later`). Vous pouvez l'utiliser, l'étudier, le modifier et le partager. Si vous exploitez une version **modifiée** comme service en réseau, vous devez proposer à ses utilisateurs le code source de cette version.
 
-Une permission additionnelle (section 7 de l'AGPL) autorise le worker vidéo facultatif de `worker/video/` à être combiné avec Remotion, dont la licence n'est pas compatible avec la GPL. Elle ne vous accorde aucune licence sur Remotion lui-même : construire ce worker reste soumis aux conditions propres de Remotion (voir [Motion Ultra](#motion-ultra)). L'avis de copyright, le texte exact de cette permission et les attributions tierces sont dans [`NOTICE`](NOTICE) (en anglais).
+Deux permissions additionnelles (section 7 de l'AGPL) la complètent :
+
+- **Ce que Mocky produit est à vous.** Un projet exporté transporte les composants et l'échafaudage propres à Mocky ; les fichiers que Mocky produit pour que vous les téléchargiez ou les exportiez peuvent être utilisés aux conditions de votre choix, si bien qu'un site construit à partir d'un export ne devient pas AGPL. Mocky lui-même, modifié ou non, reste sous AGPL.
+- **Le worker vidéo peut être combiné avec Remotion**, dont la licence n'est pas compatible avec la GPL. Cela ne vous accorde aucune licence sur Remotion lui-même : construire ce worker reste soumis aux conditions propres de Remotion (voir [Motion Ultra](#motion-ultra)).
+
+L'avis de copyright, le texte exact des deux permissions et les attributions tierces sont dans [`NOTICE`](NOTICE) (en anglais) ; la page [Licence](docs/fr/license.md) les explique.
 
 ---
 

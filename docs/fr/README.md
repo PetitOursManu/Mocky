@@ -1,5 +1,5 @@
 ---
-source_hash: 3fd08dbd309d
+source_hash: bd7b886e5372
 ---
 
 # Mocky
@@ -44,6 +44,7 @@ Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 | Modèles | Mocky parle toujours le dialecte Ollama en interne. Un proxy traduit vers les API compatibles OpenAI |
 | Binaire externe | `ffmpeg`, uniquement pour la vidéo au défilement |
 | Service séparé facultatif | Le worker de rendu Remotion, dans `worker/video/`, derrière le profil Compose `video-export`. Absent de l'image par défaut, pour des [raisons de licence](video-export.md) |
+| Licence | `AGPL-3.0-or-later`, avec deux exceptions : l'usage de Remotion par le worker vidéo, et tout ce que Mocky produit pour vous. Voir [Licence](license.md) |
 
 ---
 
@@ -80,6 +81,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 - [Tableau de bord d'administration](admin-dashboard.md) Voir qui est connecté, ce que fait la machine, et qui a changé quoi.
 - [Vue d'ensemble de l'architecture](architecture/overview.md) Comprendre le registre de capacités, le planificateur et l'isolation de l'aperçu.
 - [Invariants](architecture/invariants.md) Savoir quelles règles le code refuse d'enfreindre, et pourquoi.
+- [Licence](license.md) Savoir ce que l'AGPL vous demande — en général rien — et pourquoi ce que Mocky exporte est à vous.
 :::
 
 ---

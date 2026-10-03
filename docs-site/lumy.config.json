@@ -47,6 +47,6 @@
     },
     { "group": { "en": "Self-hosting", "fr": "Auto-hébergement" }, "audience": ["admin"], "pages": ["deployment", "migration", "admin-dashboard"] },
     { "group": "Architecture", "audience": ["dev"], "pages": ["architecture/overview", "architecture/invariants", "adr/001-muse", "DESIGN-SYSTEM"] },
-    { "group": { "en": "Reference", "fr": "Référence" }, "pages": ["CHANGELOG", { "slug": "AUDIT-2026-07", "audience": ["dev"] }] }
+    { "group": { "en": "Reference", "fr": "Référence" }, "pages": ["CHANGELOG", "license", { "slug": "AUDIT-2026-07", "audience": ["dev"] }] }
   ]
 }

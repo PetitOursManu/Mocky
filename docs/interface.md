@@ -708,7 +708,7 @@ actually made.
 
 | Modal | Opened by | What is worth knowing | Cost |
 |---|---|---|---|
-| `Runnable project (.zip)` | `Export` | Three stacks: `shadcn-ready`, `Plain Tailwind`, `daisyUI`. The zip is built in the browser and the exported HTML carries the interface language, which is what makes an exported French page readable aloud. | free |
+| `Runnable project (.zip)` | `Export` | Three stacks: `shadcn-ready`, `Plain Tailwind`, `daisyUI`. The zip is built in the browser and the exported HTML carries the interface language, which is what makes an exported French page readable aloud. The files are yours under any licence: Mocky is AGPL, but its [output exception](license.md#output) frees what it writes into an export. | free |
 | `Link` → `which screen?` | Clicking an element in link mode | Picks the destination. `Cancel` leaves nothing behind. | free |
 | `Element` | Clicking an element in modify mode | See below — it holds three different costs in one card. | mixed |
 | `Code` | `Show code` | Read-only. | free |

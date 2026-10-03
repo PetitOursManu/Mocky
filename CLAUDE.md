@@ -1071,6 +1071,9 @@ toolkit.
   be GPLv3-compatible; Remotion is the one exception, granted in `NOTICE` under
   section 7 and confined to `worker/video/`. A second incompatible package needs
   its own permission there, decided by the copyright holder — not added in code.
+  `NOTICE` also frees everything Mocky PRODUCES (exports, downloads), because an
+  export copies the snippet packs into the user's project: a snippet must stay
+  Mocky's own code or carry its own permissive header. `docs/license.md`.
 
 ## Before you finish
 

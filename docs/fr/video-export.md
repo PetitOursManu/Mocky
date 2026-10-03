@@ -1,5 +1,5 @@
 ---
-source_hash: f58fed7f9980
+source_hash: 56e0f95ef4d6
 ---
 
 # Motion Ultra — films
@@ -2758,6 +2758,18 @@ est un export en échec plutôt qu’une panne générale.
 La séparation est tenue par `tests/video-worker-separation.test.js`, et c’est le
 point sur lequel il faut insister : quatre documents expliquent cette règle, et
 un document ne peut pas faire échouer une compilation.
+
+### La licence de Mocky, et la permission dont le worker a besoin
+
+Mocky est sous `AGPL-3.0-or-later`, et la licence de Remotion n’est pas
+compatible avec la GPL : sans rien de plus, personne ne pourrait redistribuer une
+image du worker construite depuis ce dépôt, puisque l’AGPL exigerait que toute la
+combinaison soit proposée sous ses conditions et que le code de Remotion ne peut
+pas l’être. `NOTICE` porte donc une permission additionnelle, au titre de la
+section 7 de l’AGPL, de combiner Mocky avec `remotion` et `@remotion/*`. Elle
+règle la part de Mocky et seulement elle : elle n’accorde rien du côté de
+Remotion, et le seuil ci-dessous s’applique toujours à qui construit l’image. Le
+tableau complet est sur la page [Licence](license.md).
 
 ### Le seuil des trois salariés compte des salariés, pas des comptes
 
