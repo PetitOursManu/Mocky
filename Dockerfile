@@ -84,6 +84,9 @@ COPY --from=builder /app/public ./public
 # web inspiration silently falls back to the offline pattern dossier — while the
 # Chromium layer above is still paid for at build time.
 COPY --from=builder /app/mocky.mcp.json ./mocky.mcp.json
+# The licence and its two exceptions travel with the image: an image passed on
+# without them would convey AGPL code with no copy of the AGPL.
+COPY --from=builder /app/LICENSE /app/NOTICE ./
 
 # Data directory for the JSON file store (accounts, sessions, projects).
 # Owned by `node` so the unprivileged runtime user can write to it — and so the

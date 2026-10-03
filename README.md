@@ -743,7 +743,12 @@ Signed with `SSO_SHARED_SECRET` (HS256), 60 s lifetime. Claims: `sub` (stable Da
 
 Mocky is free software, released under the **[GNU Affero General Public License v3.0 or later](LICENSE)** (`AGPL-3.0-or-later`). You may use, study, modify and share it. If you run a **modified** version as a network service, you must offer its users the source code of that version.
 
-One additional permission (AGPL section 7) allows the optional video worker in `worker/video/` to be combined with Remotion, whose licence is not GPL-compatible. It does not license Remotion itself: building that worker remains subject to Remotion's own terms (see [Motion Ultra](#motion-ultra)). The copyright notice, the exact wording of that permission and the third-party attributions are in [`NOTICE`](NOTICE).
+Two additional permissions (AGPL section 7) complete it:
+
+- **What Mocky produces is yours.** An exported project carries Mocky's own components and scaffolding; the files Mocky produces for you to download or export can be used under any terms you choose, so a site built from an export does not become AGPL. Mocky itself, modified or not, stays AGPL.
+- **The video worker may be combined with Remotion**, whose licence is not GPL-compatible. This does not license Remotion itself: building that worker remains subject to Remotion's own terms (see [Motion Ultra](#motion-ultra)).
+
+The copyright notice, the exact wording of both permissions and the third-party attributions are in [`NOTICE`](NOTICE); the [License](docs/license.md) page explains them.
 
 ---
 

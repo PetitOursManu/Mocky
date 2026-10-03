@@ -36,6 +36,7 @@ A project, open. Click the numbers to see what each part is:
 | Models | Mocky always speaks the Ollama dialect internally. A proxy translates to OpenAI-compatible APIs |
 | External binary | `ffmpeg`, used only for scroll-driven video |
 | Optional separate service | The Remotion render worker in `worker/video/`, behind the `video-export` compose profile. Absent from the default image, for [licensing reasons](video-export.md) |
+| Licence | `AGPL-3.0-or-later`, with two exceptions: the video worker's use of Remotion, and everything Mocky produces for you. See [License](license.md) |
 
 ---
 
@@ -70,6 +71,7 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 - [Admin dashboard](admin-dashboard.md) See who is connected, what the machine is doing, and who changed what.
 - [Architecture overview](architecture/overview.md) Understand the capability registry, the planner and the sandbox.
 - [Invariants](architecture/invariants.md) Know which rules the code refuses to break, and why.
+- [License](license.md) Know what the AGPL asks of you — usually nothing — and why what Mocky exports is yours.
 :::
 
 ---

@@ -29,6 +29,26 @@ Remotion itself: whoever builds or runs that worker remains bound by Remotion's
 own licence terms, which `worker/video/README.md` explains.
 
 
+Additional permission under GNU AGPL version 3 section 7: what Mocky produces
+
+Mocky writes some of its own code into the files it hands to its users: an
+exported project carries the generated screens, the components copied under
+`src/components/ui/` and `src/lib/`, and the scaffolding of a runnable project
+(package configuration, build configuration, styles, README); a downloaded
+screen, document, image or film is likewise produced by Mocky.
+
+As a special exception, the licensors of this Program grant you permission to
+use, modify and convey any file that Mocky produces for a user to download or
+export, and any work that contains such files, under terms of your choice,
+without the conditions of the GNU AGPL.
+
+This exception does not cover Mocky itself or a modified version of it, nor a
+program that, like Mocky, generates or exports user interfaces and uses those
+files for that purpose: such a work remains under the GNU AGPL. Parts of a
+produced file that carry their own copyright or licence notice (for example
+MIT-licensed code vendored from MagicUI or Feather) remain under that notice.
+
+
 Third-party components
 
 Deterministic quality detection uses the `impeccable` npm package by Paul

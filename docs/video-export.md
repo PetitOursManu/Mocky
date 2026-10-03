@@ -2593,6 +2593,18 @@ The separation is enforced by `tests/video-worker-separation.test.js`, and that
 is the part worth insisting on: four documents explain this rule, and a document
 cannot fail a build.
 
+### Mocky's own licence, and the permission the worker needs
+
+Mocky is `AGPL-3.0-or-later`, and Remotion's licence is not compatible with the
+GPL: without anything more, nobody could redistribute a worker image built from
+this repository, because the AGPL would require the whole combination to be
+offered under its terms and Remotion's code cannot be. So `NOTICE` carries an
+additional permission, under section 7 of the AGPL, to combine Mocky with
+`remotion` and `@remotion/*`. It settles Mocky's side of the question and only
+that side: it grants nothing on Remotion's, and the threshold below still
+applies to whoever builds the image. The whole picture is on the
+[License](license.md) page.
+
 ### The three-employee threshold counts employees, not accounts
 
 Mocky cannot know how many people your organisation employs. The number it *can*

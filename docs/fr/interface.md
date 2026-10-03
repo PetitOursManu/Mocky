@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: ed08b5b0066a
+source_hash: cdd72da3bf1a
 ---
 
 # L’interface
@@ -738,7 +738,7 @@ fait réellement.
 
 | Modale | Ouverte par | Ce qu’il faut savoir | Coût |
 |---|---|---|---|
-| `Projet exécutable (.zip)` | `Exporter` | Trois piles : `Prêt pour shadcn`, `Tailwind seul`, `daisyUI`. L’archive est fabriquée dans le navigateur, et le HTML exporté porte la langue de l’interface — c’est ce qui rend une page française exportée lisible à voix haute. | libre |
+| `Projet exécutable (.zip)` | `Exporter` | Trois piles : `Prêt pour shadcn`, `Tailwind seul`, `daisyUI`. L’archive est fabriquée dans le navigateur, et le HTML exporté porte la langue de l’interface — c’est ce qui rend une page française exportée lisible à voix haute. Les fichiers sont à vous, sous la licence de votre choix : Mocky est sous AGPL, mais son [exception de sortie](license.md#output) libère ce qu’il écrit dans un export. | libre |
 | `Lien` → `vers quel écran ?` | Un clic sur un élément en mode Lier | Choisit la destination. `Annuler` ne laisse rien derrière. | libre |
 | `Élément` | Un clic sur un élément en mode Modifier | Voir ci-dessous — elle réunit trois coûts dans une seule carte. | mixte |
 | `Code` | `Voir le code` | Lecture seule. | libre |
