@@ -14,6 +14,7 @@ const NOW = 1_800_000_000_000
 const DAY = 24 * 60 * 60 * 1000
 
 const p = (id, updatedAt, extra = {}) => ({ id, name: id, createdAt: 0, updatedAt, screens: [], ...extra })
+const s = (id, code = '') => ({ id, name: id, code })
 
 /** [label, local, server] */
 const corpus = [
@@ -32,6 +33,15 @@ const corpus = [
   ['records without an id are dropped', [{ name: 'no id' }, null, p('a', 1)], [{ id: 7 }, p('b', 2)]],
   ['equal stamps keep insertion order', [p('x', 5), p('y', 5)], [p('z', 5), p('x', 5)]],
   ['many projects, mixed', [p('a', 10), p('b', 30), p('c', 20, { deletedAt: NOW - DAY })], [p('b', 40), p('c', 10), p('d', 25)]],
+  // Screen-level union: the case that made it necessary — a tab editing one
+  // screen (newer) while the runner added another (older copy).
+  ['the older copy added a screen', [p('a', 200, { screens: [s('s1', 'edited')] })], [p('a', 100, { screens: [s('s1', 'old'), s('s2', 'mcp')] })]],
+  ['the newer copy added a screen', [p('a', 100, { screens: [s('s1')] })], [p('a', 200, { screens: [s('s1'), s('s3')] })]],
+  ['a deleted screen is not handed back', [p('a', 200, { screens: [], removedScreens: { s2: NOW - DAY } })], [p('a', 100, { screens: [s('s2')] })]],
+  ['the older copy deleted a screen the newer never had', [p('a', 200, { screens: [s('s1')] })], [p('a', 100, { screens: [s('s1')], removedScreens: { s9: NOW - DAY } })]],
+  ['an old screen tombstone is forgotten in the union', [p('a', 200, { screens: [s('s1')], removedScreens: { s8: NOW - 40 * DAY } })], [p('a', 100, { screens: [s('s4')] })]],
+  ['no union into a deleted project', [p('a', 200, { deletedAt: NOW - DAY })], [p('a', 100, { screens: [s('s5')] })]],
+  ['screens without ids are not carried over', [p('a', 200, { screens: [s('s1')] })], [p('a', 100, { screens: [{ name: 'x' }, null, s('s6')] })]],
 ]
 
 afterEach(() => vi.useRealTimers())
@@ -47,6 +57,18 @@ describe('server/merge.js mirrors src/lib/merge.ts', () => {
     for (const raw of [null, undefined, '', 'not json', '{"projects":[]}', '[]', JSON.stringify([p('a', 1)])]) {
       expect(server.parseProjects(raw)).toEqual(browser.parseProjects(raw))
     }
+  })
+
+  it('unites screens the way the corpus says', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    const merged = (local, srv) => server.mergeProjects(local, srv)[0].screens.map((x) => `${x.id}:${x.code}`)
+    expect(merged([p('a', 200, { screens: [s('s1', 'edited')] })], [p('a', 100, { screens: [s('s1', 'old'), s('s2', 'mcp')] })])).toEqual(['s1:edited', 's2:mcp'])
+    expect(merged([p('a', 200, { screens: [], removedScreens: { s2: NOW - DAY } })], [p('a', 100, { screens: [s('s2')] })])).toEqual([])
+    // Nothing to add: the very same object, so "nothing changed" holds by reference.
+    const same = p('a', 200, { screens: [s('s1')] })
+    expect(server.mergeProjects([same], [p('a', 100, { screens: [s('s1')] })])[0]).toBe(same)
+    expect(browser.mergeProjects([same], [p('a', 100, { screens: [s('s1')] })])[0]).toBe(same)
   })
 
   it('keeps tombstones for the same time', () => {

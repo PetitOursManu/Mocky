@@ -1635,14 +1635,19 @@ app.get('/api/data', (req, res) => {
 app.put('/api/data', (req, res) => {
   const user = currentUser(req)
   if (!user) return res.status(401).json({ error: 'Not signed in.' })
-  const { projects, design } = req.body || {}
+  const body = req.body || {}
   const file = userDataFile(user.id)
   const stored = readJson(file, { projects: null, design: null })
-  const next = mergeStoredProjects(typeof projects === 'string' ? projects : null, stored.projects ?? null)
-  writeJson(file, { projects: next.projects, design: design ?? null, updatedAt: Date.now() })
+  const next = mergeStoredProjects(typeof body.projects === 'string' ? body.projects : null, stored.projects ?? null)
+  // A writer that does not SEND the global DESIGN.md leaves it alone: the MCP
+  // runner writes one project and has never seen the person's DESIGN.md, and
+  // "absent" meaning "clear it" would wipe it on every generation. A browser
+  // always sends the field — null included, which still clears.
+  const design = 'design' in body ? (body.design ?? null) : (stored.design ?? null)
+  writeJson(file, { projects: next.projects, design, updatedAt: Date.now() })
   // Only a write that changed something is news: a tab re-pushing what the
   // server already holds would otherwise send every other tab to read it again.
-  if (next.projects !== (stored.projects ?? null) || (design ?? null) !== (stored.design ?? null)) {
+  if (next.projects !== (stored.projects ?? null) || design !== (stored.design ?? null)) {
     dataEvents.notify(user.id, req.get('x-mocky-tab'))
   }
   res.json({ ok: true, merged: next.merged })

@@ -41,12 +41,34 @@ function stamp(p) {
 }
 
 /**
+ * The newer copy of a project, plus the screens only the older copy has — and
+ * that neither copy lists as deleted (`removedScreens`). See `unite` in
+ * src/lib/merge.ts for why: two writers on one project used to lose the screen
+ * the older copy had added.
+ */
+function unite(winner, loser, now) {
+  if (winner.deletedAt || loser.deletedAt) return winner
+  const winnerScreens = Array.isArray(winner.screens) ? winner.screens : []
+  const loserScreens = Array.isArray(loser.screens) ? loser.screens : []
+  const has = new Set(winnerScreens.map((s) => s?.id))
+  const gone = { ...(loser.removedScreens || {}), ...(winner.removedScreens || {}) }
+  const extra = loserScreens.filter((s) => s && typeof s.id === 'string' && !has.has(s.id) && !(s.id in gone))
+  if (!extra.length) return winner
+  const removedScreens = {}
+  for (const [id, at] of Object.entries(gone)) {
+    if (typeof at === 'number' && now - at <= TOMBSTONE_TTL_MS) removedScreens[id] = at
+  }
+  return { ...winner, screens: [...winnerScreens, ...extra], removedScreens }
+}
+
+/**
  * Merge two sets of projects. Neither argument is mutated.
  *
  * `local` wins ties — on the server, `local` is what the request carries.
  */
 export function mergeProjects(local, server) {
   const byId = new Map()
+  const now = Date.now()
 
   for (const p of server) {
     if (p && typeof p.id === 'string') byId.set(p.id, p)
@@ -54,11 +76,14 @@ export function mergeProjects(local, server) {
   for (const p of local) {
     if (!p || typeof p.id !== 'string') continue
     const other = byId.get(p.id)
+    if (!other) {
+      byId.set(p.id, p)
+      continue
+    }
     // >= : ties go to local.
-    byId.set(p.id, !other || stamp(p) >= stamp(other) ? p : other)
+    byId.set(p.id, stamp(p) >= stamp(other) ? unite(p, other, now) : unite(other, p, now))
   }
 
-  const now = Date.now()
   return [...byId.values()]
     .filter((p) => !(p.deletedAt && now - p.deletedAt > TOMBSTONE_TTL_MS))
     .sort((a, b) => stamp(b) - stamp(a))

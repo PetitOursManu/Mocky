@@ -44,6 +44,39 @@ function stamp(p: Project): number {
 }
 
 /**
+ * The newer copy of a project, plus the screens only the older copy has.
+ *
+ * A project used to merge as a whole: the newer copy won and the other was
+ * dropped, screens included. Two writers on one project — a tab editing one
+ * screen while the MCP runner adds another, or two devices — then lost the
+ * screen the losing side had added. Now the winner keeps everything it had,
+ * and gains every screen of the other copy that it has never heard of, unless
+ * either copy says that screen was DELETED (`removedScreens`).
+ *
+ * Only screens are united: every other field — the name, the direction, a
+ * screen present on both sides — is still the winner's, so this changes nothing
+ * for the case the old rule handled. A deleted project is not united either:
+ * the newer copy decides whether it exists.
+ *
+ * Returns `winner` itself when nothing is added, so a merge that changed
+ * nothing still compares equal by reference (useProjects relies on it).
+ */
+function unite(winner: Project, loser: Project, now: number): Project {
+  if (winner.deletedAt || loser.deletedAt) return winner
+  const winnerScreens = Array.isArray(winner.screens) ? winner.screens : []
+  const loserScreens = Array.isArray(loser.screens) ? loser.screens : []
+  const has = new Set(winnerScreens.map((s) => s?.id))
+  const gone = { ...(loser.removedScreens || {}), ...(winner.removedScreens || {}) }
+  const extra = loserScreens.filter((s) => s && typeof s.id === 'string' && !has.has(s.id) && !(s.id in gone))
+  if (!extra.length) return winner
+  const removedScreens: Record<string, number> = {}
+  for (const [id, at] of Object.entries(gone)) {
+    if (typeof at === 'number' && now - at <= TOMBSTONE_TTL_MS) removedScreens[id] = at
+  }
+  return { ...winner, screens: [...winnerScreens, ...extra], removedScreens }
+}
+
+/**
  * Merge two sets of projects. Neither argument is mutated.
  *
  * `local` wins ties, so a device that is already up to date does not churn its
@@ -52,6 +85,7 @@ function stamp(p: Project): number {
  */
 export function mergeProjects(local: Project[], server: Project[]): Project[] {
   const byId = new Map<string, Project>()
+  const now = Date.now()
 
   for (const p of server) {
     if (p && typeof p.id === 'string') byId.set(p.id, p)
@@ -59,11 +93,14 @@ export function mergeProjects(local: Project[], server: Project[]): Project[] {
   for (const p of local) {
     if (!p || typeof p.id !== 'string') continue
     const other = byId.get(p.id)
+    if (!other) {
+      byId.set(p.id, p)
+      continue
+    }
     // >= : ties go to local.
-    byId.set(p.id, !other || stamp(p) >= stamp(other) ? p : other)
+    byId.set(p.id, stamp(p) >= stamp(other) ? unite(p, other, now) : unite(other, p, now))
   }
 
-  const now = Date.now()
   return [...byId.values()]
     // Drop tombstones once they are older than the TTL: by then every device has
     // had ample opportunity to learn about the deletion, and keeping them
