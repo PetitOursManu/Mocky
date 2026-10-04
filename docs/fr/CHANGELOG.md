@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | Mocky serveur MCP — OAuth 2.1, consentement, section admin | `5529611` |
 | `sync` | PUT /api/data fusionne, les autres onglets sont prévenus, lien /p/<projet> | `7b03b28` |
 
 **Documentation**
