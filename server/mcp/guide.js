@@ -88,7 +88,10 @@ language, except free-photo searches, which work best in English.
    they already told you. If they say "just do it", go with sensible choices.
 2. **Pick the screen type** (\`screen_type\`) from the table below whenever the
    request names one — a post, a flyer, a CV, a dashboard, a landing page… It
-   decides the format: a flyer is an A4 page, an Instagram post a square image.
+   decides the format: a flyer is an A4 page, an Instagram post a 4:5 image.
+   When the person names a size — "en 1:1", "carré", "une story", "A3" — pass
+   it in \`page_format\` (\`social-square\`, \`social-story\`, \`a3\`…): a square
+   drawn inside the default 4:5 page leaves a white band under it.
 3. **Pick the pictures yourself** whenever the screen shows a photo (posts,
    flyers, posters, landing pages, product pages, menus…), and ALWAYS when the
    person asks for an image:

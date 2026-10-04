@@ -447,6 +447,22 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     expect(screen.height).toBeGreaterThan(screen.width)
   }, 120_000)
 
+  it('makes a post the size the request names — "en 1:1" is a square page, not a square in a 4:5 one', async () => {
+    let out = await mcp.callTool({
+      name: 'create_design',
+      arguments: { brief: 'Un post Instagram en 1:1 pour la fête de la science', muse: false, picture_source: 'none' },
+    })
+    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+    }
+    expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
+    const saved = JSON.parse((await (await call('GET', '/api/data')).json()).projects)
+      .find((p) => p.id === out.structuredContent.projectId)
+      .screens.find((x) => x.id === out.structuredContent.screenId)
+    expect(saved.page).toBe('social-square')
+    expect(saved.theme).toBe('instagram')
+  }, 120_000)
+
   it('adds to an existing project only through add_screen, and says which one', async () => {
     const projects = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
     const target = projects.find((p) => p.name === 'Boulangerie')

@@ -64,6 +64,16 @@ export function buildViewHtml(origin) {
   function reportSize() {
     var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
     notify('ui/notifications/size-changed', { width: Math.ceil(document.documentElement.clientWidth), height: h });
+    // ChatGPT's own channel, beside the standard one: its first real test showed
+    // a frame a few pixels tall.
+    try { if (window.openai && window.openai.notifyIntrinsicHeight) window.openai.notifyIntrinsicHeight(h); } catch (e) {}
+  }
+
+  function openLink(url) {
+    try {
+      if (window.openai && window.openai.openExternal) { window.openai.openExternal({ href: url }); return; }
+    } catch (e) {}
+    request('ui/open-link', { url: url }).catch(function () {});
   }
 
   /** Only a frame on Mocky's own origin, and only its live-view path. */
@@ -90,22 +100,40 @@ export function buildViewHtml(origin) {
     reportSize();
   }
 
-  function render(result) {
-    var sc = (result && result.structuredContent) || {};
-    var v = sc.view;
+  function note(text) {
     root.textContent = '';
+    var p = document.createElement('p');
+    p.className = 'note';
+    p.textContent = text;
+    root.appendChild(p);
+    reportSize();
+  }
+
+  /**
+   * Draw what a tool result carries. Two hosts, two shapes: the standard
+   * notification hands the whole CallToolResult, ChatGPT's window.openai hands
+   * its structuredContent alone — both end here as the structured part.
+   *
+   * A result with no screen never replaces one already shown: a host may send
+   * the result again, or another one, and the first ChatGPT test showed the
+   * design for a second and then an empty frame.
+   */
+  function render(sc) {
+    sc = sc && typeof sc === 'object' ? sc : {};
+    var v = sc.view;
     var url = v && safeUrl(v.url);
     if (!url) {
-      var p = document.createElement('p');
-      p.className = 'note';
-      p.textContent = sc.status === 'running' || sc.status === 'awaiting_code'
+      if (view) return;
+      received = true;
+      note(sc.status === 'running' || sc.status === 'awaiting_code'
         ? 'Le design n’est pas encore prêt. · The design is not ready yet.'
-        : '';
-      root.appendChild(p);
-      reportSize();
+        : 'Pas d’aperçu pour cette réponse. · No preview for this answer.');
       return;
     }
-    view = { width: Math.max(200, Math.min(4000, Number(v.width) || 1440)), height: Math.max(200, Math.min(20000, Number(v.height) || 900)) };
+    if (view && view.url === url) return;
+    received = true;
+    view = { url: url, width: Math.max(200, Math.min(4000, Number(v.width) || 1440)), height: Math.max(200, Math.min(20000, Number(v.height) || 900)) };
+    root.textContent = '';
     var bar = document.createElement('div');
     bar.className = 'bar';
     var title = document.createElement('span');
@@ -118,7 +146,7 @@ export function buildViewHtml(origin) {
       btn.className = 'open';
       btn.type = 'button';
       btn.textContent = String(v.openLabel || 'Ouvrir dans Mocky');
-      btn.addEventListener('click', function () { request('ui/open-link', { url: link }).catch(function () {}); });
+      btn.addEventListener('click', function () { openLink(link); });
       bar.appendChild(btn);
     }
     root.appendChild(bar);
@@ -135,6 +163,8 @@ export function buildViewHtml(origin) {
     layout();
   }
 
+  var received = false;
+
   window.addEventListener('message', function (event) {
     if (event.source !== window.parent) return;
     var msg = event.data;
@@ -145,15 +175,43 @@ export function buildViewHtml(origin) {
       msg.error ? p.reject(msg.error) : p.resolve(msg.result);
       return;
     }
-    if (msg.method === 'ui/notifications/tool-result') render(msg.params);
+    if (msg.method === 'ui/notifications/tool-result') render(msg.params && msg.params.structuredContent);
   });
   window.addEventListener('resize', layout);
 
+  // ChatGPT's channel: the result may already be there, or arrive as a global.
+  function fromOpenAI() {
+    try { if (window.openai && window.openai.toolOutput) render(window.openai.toolOutput); } catch (e) {}
+  }
+  window.addEventListener('openai:set_globals', function (e) {
+    var g = e && e.detail && e.detail.globals;
+    if (g && g.toolOutput) render(g.toolOutput);
+  });
+  fromOpenAI();
+
+  // The handshake. A host that never answers it still gets "initialized" —
+  // the standard says a host waits for it before sending the result, and
+  // waiting on an answer that does not come would leave this frame empty.
+  var initialized = false;
+  function ready() {
+    if (initialized) return;
+    initialized = true;
+    notify('ui/notifications/initialized');
+    reportSize();
+    fromOpenAI();
+  }
   request('ui/initialize', {
     protocolVersion: '${APPS_PROTOCOL}',
     clientInfo: { name: 'mocky-view', version: '1.0.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
-  }).then(function () { notify('ui/notifications/initialized'); reportSize(); }, function () {});
+  }).then(ready, ready);
+  setTimeout(ready, 1500);
+
+  // Said, rather than an empty frame: what to report if a host sends nothing.
+  setTimeout(function () {
+    fromOpenAI();
+    if (!received) note('L’aperçu n’a reçu aucun résultat de l’assistant. · The preview received no result from the assistant.');
+  }, 8000);
 })();
 </script></body></html>`
 }

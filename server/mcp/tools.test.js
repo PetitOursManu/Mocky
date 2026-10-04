@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { briefLanguage, composeBrief, needsClarification, screenSummary, projectSummary, THIN_BRIEF_WORDS, SCREEN_TYPES, inferScreenType, inferDevice } from './tools.js'
 import { SCREEN_THEME_IDS } from '../../src/lib/screenThemes.ts'
+import { PAGE_FORMATS as FORMAT_LIST } from '../../src/lib/pageFormats.ts'
+import { PAGE_FORMATS, inferPageFormat } from './screen-types.js'
 import { buildGuide, GUIDED_TOOLS } from './guide.js'
 
 describe('the guide for the assistant', () => {
@@ -103,5 +105,20 @@ describe('what an assistant sees of a project (X4)', () => {
   it('a project: a count of screens, not the screens', () => {
     const p = projectSummary({ id: 'p1', name: 'Site', screens: [{ id: 's1', userNotes: [{ text: 'PRIVATE' }] }], design: '# secret direction' }, (id) => link(id))
     expect(p).toEqual({ id: 'p1', name: 'Site', screens: 1, folder: undefined, updatedAt: undefined, link: 'https://m.example/p/p1' })
+  })
+})
+
+describe('page sizes', () => {
+  it('offers exactly the composer\'s formats (a mirror of pageFormats.ts)', () => {
+    expect(Object.keys(PAGE_FORMATS).sort()).toEqual(FORMAT_LIST.map((f) => f.id).sort())
+  })
+
+  it('reads a social size from the request — the 1:1 post that came back 4:5', () => {
+    expect(inferPageFormat('Un post Instagram en 1:1 pour la fête de la science')).toBe('social-square')
+    expect(inferPageFormat('un visuel carré')).toBe('social-square')
+    expect(inferPageFormat('une story Instagram')).toBe('social-story')
+    expect(inferPageFormat('format 9:16')).toBe('social-story')
+    expect(inferPageFormat('un post 4:5')).toBe('social-portrait')
+    expect(inferPageFormat('Un post Instagram pour la fête de la science')).toBeNull()
   })
 })

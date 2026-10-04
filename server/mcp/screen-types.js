@@ -37,3 +37,38 @@ export const SCREEN_TYPES = {
   facebook: 'Facebook post (image)',
   linkedin: 'LinkedIn post (image)',
 }
+
+/**
+ * A document's page sizes — the composer's format chips. A MIRROR of
+ * PageFormatId in src/lib/pageFormats.ts, held equal by `tools.test.js`.
+ *
+ * A post asked for "en 1:1" came back as a square drawn inside the 4:5 page an
+ * Instagram post gets by default, with a white band under it: the size was a
+ * word in the brief, and nothing set the page.
+ */
+export const PAGE_FORMATS = {
+  a4: 'A4 portrait',
+  'a4-landscape': 'A4 landscape',
+  a3: 'A3 portrait',
+  letter: 'US Letter portrait',
+  'letter-landscape': 'US Letter landscape',
+  slides: '16:9 slides',
+  'social-square': 'square 1:1, 1080×1080',
+  'social-portrait': 'portrait 4:5, 1080×1350 (an Instagram post by default)',
+  'social-story': 'story 9:16, 1080×1920',
+  'social-landscape': 'landscape 1.91:1, 1200×628 (a Facebook or LinkedIn post by default)',
+}
+
+/**
+ * The size a request names in plain words, when the assistant did not pass
+ * one. Only the social sizes, whose words cannot mean anything else; a paper
+ * size is the type's own unless the assistant names one.
+ */
+export function inferPageFormat(text) {
+  const t = String(text || '').toLowerCase()
+  // No \b after "carré": é is not a word character, so that boundary never comes.
+  if (/\b1\s*[:x/]\s*1\b|carr[ée]e?(?![a-z])|\bsquare\b/.test(t)) return 'social-square'
+  if (/\b9\s*[:/]\s*16\b|\bstor(?:y|ies)\b/.test(t)) return 'social-story'
+  if (/\b4\s*[:/]\s*5\b/.test(t)) return 'social-portrait'
+  return null
+}

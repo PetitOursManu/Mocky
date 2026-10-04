@@ -40,6 +40,7 @@ import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { auditScreen, type AuditReport } from '../lib/audit'
 import { isScreenThemeId } from '../lib/screenThemes'
+import { isPageFormat } from '../lib/pageFormats'
 import { translate, type TranslationKey } from '../i18n'
 import Preview, { previewDocument } from '../components/Preview'
 
@@ -67,6 +68,8 @@ export interface RunnerJob {
   device?: 'desktop' | 'mobile' | 'tablet'
   /** The composer's "Type d'écran" (SCREEN_THEME_IDS): it sets a document's page and a post's frame. */
   screenType?: string
+  /** A document's page size (PageFormatId), when the request named one; else the type's own. */
+  pageFormat?: string
   /** Library hashes the server has checked belong to this account, with what each is for. */
   pictures?: Array<{ hash: string; use: string }>
   /** Where Mocky finds a picture itself when none was supplied: the composer's "Images" choice. */
@@ -235,7 +238,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       globalMd: globalDesignFrom(data.design),
       presetId,
       themeId: isScreenThemeId(job.screenType) ? job.screenType : null,
-      pageFormatId: null,
+      pageFormatId: isPageFormat(job.pageFormat) ? job.pageFormat : null,
       redesign: false,
       museConfig,
       museAvail: job.muse ? await museAvailable().catch(() => false) : false,

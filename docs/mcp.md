@@ -34,7 +34,7 @@ interview before designing.
   questions when the person has not said. If a request still arrives with almost
   nothing in it ("un site"), Mocky does not guess: it hands the assistant three
   questions, in the person's language, and generates once they are answered.
-- **The screen type.** The assistant chooses one of Mocky's types (the composer's "Type d'écran": dashboard, landing, flyer, CV, Instagram post…), which sets the format — a flyer is an A4 page, a post a square image. When it does not, Mocky reads the type, and the device, from the request's own words ("un flyer", "une appli mobile"); the answer says which type was used.
+- **The screen type.** The assistant chooses one of Mocky's types (the composer's "Type d'écran": dashboard, landing, flyer, CV, Instagram post…), which sets the format — a flyer is an A4 page, an Instagram post a 4:5 image. A size the request names ("en 1:1", "a story", "A3") goes in `page_format`, or is read from the words when the assistant does not pass it: a post asked for in 1:1 once came back as a square drawn inside a 4:5 page, with a white band under it. When it does not, Mocky reads the type, and the device, from the request's own words ("un flyer", "une appli mobile"); the answer says which type was used.
 - **Pictures: the assistant chooses.** Not Mocky's model: the assistant searches
   the free libraries and looks at the thumbnails itself, or brings a picture it
   has, adds it with `add_image`, and passes it to the design with what it is for
@@ -83,7 +83,10 @@ interview before designing.
   It is a small page (`ui://mocky/screen-v1.html`) framing one address on
   Mocky, `/mcp-view/…`, signed and valid for a day like the picture link — and
   served sandboxed, exactly as the composer's preview is (X7). A host without
-  MCP Apps shows the picture, as before.
+  MCP Apps shows the picture, as before. The view reads the result from the
+  standard notification and from ChatGPT's own channel (`window.openai`), and
+  declares its one framed domain in both vocabularies; when it receives nothing
+  it says so in the frame rather than staying empty.
 - **The picture** is a JPEG of the top of the page (2,000 px at most): the whole
   page is in Mocky, behind the link. For an assistant whose interface does not
   show a tool's picture, the answer also carries a **picture link** — that JPEG

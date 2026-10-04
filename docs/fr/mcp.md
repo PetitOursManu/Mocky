@@ -1,5 +1,5 @@
 ---
-source_hash: c2e2a23dd9b6
+source_hash: 1785ed5c974a
 ---
 
 # Connecter un assistant (MCP)
@@ -40,7 +40,7 @@ entretien avant de dessiner.
   presque vide (« un site »), Mocky ne devine pas : il rend à l'assistant trois
   questions, dans la langue de la personne, et génère une fois qu'elles ont une
   réponse.
-- **Le type d'écran.** L'assistant choisit l'un des types de Mocky (le « Type d'écran » du composer : tableau de bord, landing, flyer, CV, post Instagram…), qui décide du format — un flyer est une page A4, un post une image carrée. S'il ne le fait pas, Mocky lit le type, et l'appareil, dans les mots de la demande (« un flyer », « une appli mobile ») ; la réponse indique le type retenu.
+- **Le type d'écran.** L'assistant choisit l'un des types de Mocky (le « Type d'écran » du composer : tableau de bord, landing, flyer, CV, post Instagram…), qui décide du format — un flyer est une page A4, un post Instagram une image 4:5. Une taille nommée dans la demande (« en 1:1 », « une story », « A3 ») va dans `page_format`, ou est lue dans les mots quand l'assistant ne la passe pas : un post demandé en 1:1 est un jour revenu en carré dessiné dans une page 4:5, avec une bande blanche dessous. S'il ne le fait pas, Mocky lit le type, et l'appareil, dans les mots de la demande (« un flyer », « une appli mobile ») ; la réponse indique le type retenu.
 - **Les images : c'est l'assistant qui choisit.** Pas le modèle de Mocky :
   l'assistant cherche dans les banques libres et regarde lui-même les
   miniatures, ou apporte une image qu'il a, l'ajoute avec `add_image`, et la
@@ -94,7 +94,11 @@ entretien avant de dessiner.
   mène au projet. C'est une petite page (`ui://mocky/screen-v1.html`) qui
   encadre une adresse de Mocky, `/mcp-view/…`, signée et valable un jour comme
   le lien de l'image — et servie isolée, exactement comme l'aperçu de
-  l'interface (X7). Un hôte sans MCP Apps affiche l'image, comme avant.
+  l'interface (X7). Un hôte sans MCP Apps affiche l'image, comme avant. La vue
+  lit le résultat dans la notification standard et dans le canal propre à
+  ChatGPT (`window.openai`), et déclare son unique domaine encadré dans les deux
+  vocabulaires ; quand elle ne reçoit rien, elle le dit dans le cadre au lieu de
+  rester vide.
 - **L'image** est un JPEG du haut de la page (2 000 px au plus) : la page entière
   est dans Mocky, derrière le lien. Pour un assistant dont l'interface n'affiche
   pas l'image d'un outil, la réponse porte aussi un **lien d'image** — ce JPEG

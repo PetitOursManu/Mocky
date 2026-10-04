@@ -40,7 +40,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { parseProjects } from '../merge.js'
-import { SCREEN_TYPES } from './screen-types.js'
+import { SCREEN_TYPES, PAGE_FORMATS, inferPageFormat } from './screen-types.js'
 import { buildGuide } from './guide.js'
 import { buildViewHtml, VIEW_MIME, VIEW_URI } from './view.js'
 
@@ -249,6 +249,22 @@ export function buildMcpServer(deps) {
       title: (screen && typeof screen.name === 'string' && screen.name) || 'Mocky',
       link: linkFor(projectId, screenId),
       openLabel: lang === 'fr' ? 'Ouvrir dans Mocky' : 'Open in Mocky',
+    }
+  }
+  /**
+   * What the live view may reach: the one origin it frames, and nothing it
+   * fetches — the screen inside is served by Mocky under its own sandbox
+   * (routes.js, /mcp-view). Said twice, in the standard's words and in
+   * ChatGPT's own (`openai/widgetCSP`), and on both the listing and the
+   * contents: in its first real test ChatGPT marked the view "CSP disabled" and
+   * showed a frame a few pixels tall.
+   */
+  function viewResourceMeta() {
+    const mine = deps.origin ? [deps.origin] : []
+    return {
+      ui: { csp: { frameDomains: mine, connectDomains: [], resourceDomains: [] }, prefersBorder: false },
+      'openai/widgetCSP': { connect_domains: [], resource_domains: [], frame_domains: mine, redirect_domains: mine },
+      'openai/widgetPrefersBorder': false,
     }
   }
   /** On every tool whose answer is a screen: the view a host that shows MCP Apps renders it in. */
@@ -489,7 +505,7 @@ export function buildMcpServer(deps) {
   server.registerResource(
     'screen-view',
     VIEW_URI,
-    { title: 'Mocky screen', description: 'A design from Mocky, live: scroll it, click it.', mimeType: VIEW_MIME },
+    { title: 'Mocky screen', description: 'A design from Mocky, live: scroll it, click it.', mimeType: VIEW_MIME, _meta: viewResourceMeta() },
     async (uri) => ({
       contents: [
         {
@@ -498,7 +514,7 @@ export function buildMcpServer(deps) {
           text: buildViewHtml(deps.origin),
           // The one domain it frames, and nothing it fetches: the screen inside
           // is served by Mocky under its own sandbox (routes.js, /mcp-view).
-          _meta: { ui: { csp: { frameDomains: deps.origin ? [deps.origin] : [], connectDomains: [], resourceDomains: [] }, prefersBorder: false } },
+          _meta: viewResourceMeta(),
         },
       ],
     }),
@@ -616,6 +632,9 @@ export function buildMcpServer(deps) {
     const { job, existing } = runner.enqueue(user.id, {
       brief: composeBrief(args, lang),
       screenType: screenType || undefined,
+      // The size the assistant chose, else the one the request names. The page
+      // keeps its type's own when the two are not of one family (documentMode.ts).
+      pageFormat: PAGE_FORMATS[args.page_format] ? args.page_format : inferPageFormat(`${args.brief} ${args.kind || ''}`) || undefined,
       pictures: images.length ? images.map((p) => ({ hash: p.image_id, use: p.use })) : undefined,
       pictureSource: ['auto', 'free', 'generated', 'none'].includes(args.picture_source) ? args.picture_source : 'auto',
       pictureSubject: typeof args.picture_subject === 'string' && args.picture_subject.trim() ? args.picture_subject.trim() : undefined,
@@ -697,6 +716,14 @@ export function buildMcpServer(deps) {
         'Mocky\'s type for this screen — set it whenever the request names one; it decides the format (a flyer is an A4 page, a post a square image). ' +
           SCREEN_TYPE_IDS.map((id) => `${id} = ${SCREEN_TYPES[id]}`).join('; ') +
           '. Omit only for a screen that is none of these.',
+      ),
+    page_format: z
+      .enum(Object.keys(PAGE_FORMATS))
+      .optional()
+      .describe(
+        'For a document or a social post: its page size, when the request names one ("1:1", "story", "A3"). ' +
+          Object.entries(PAGE_FORMATS).map(([id, what]) => `${id} = ${what}`).join('; ') +
+          '. Omit it to use the screen type\'s own size.',
       ),
     device: z.enum(DEVICES).optional().describe('desktop (default), mobile or tablet.'),
     kind: z.string().max(200).optional().describe('The type of screen: home page, dashboard, sign-in, pricing…'),
