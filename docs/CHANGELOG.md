@@ -33,6 +33,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `mcp` | le serveur MCP dans le README, l'index, le glossaire et l'architecture | `846f800` |
 | `licence` | exception de sortie et page Licence | `fa248bb` |
 
 **Maintenance**
