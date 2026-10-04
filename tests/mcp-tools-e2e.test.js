@@ -128,7 +128,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
 
   it('offers the tools and the interview prompt', async () => {
     const tools = (await mcp.listTools()).tools.map((t) => t.name).sort()
-    expect(tools).toEqual(['create_design', 'get_design', 'get_project', 'get_screenshot', 'list_projects'])
+    expect(tools).toEqual(['add_screen', 'create_design', 'get_design', 'get_project', 'get_screenshot', 'list_projects'])
     const prompts = (await mcp.listPrompts()).prompts.map((p) => p.name)
     expect(prompts).toContain('new-design')
   })
@@ -176,9 +176,42 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
   it('answers someone else’s project like a missing one (X4)', async () => {
     const out = await mcp.callTool({ name: 'get_project', arguments: { project_id: 'not-mine-01' } })
     expect(out.isError).toBe(true)
-    const create = await mcp.callTool({ name: 'create_design', arguments: { brief: 'Un tableau de bord pour suivre les ventes du jour', project_id: 'not-mine-01' } })
-    expect(create.isError).toBe(true)
+    const add = await mcp.callTool({ name: 'add_screen', arguments: { brief: 'Un tableau de bord pour suivre les ventes du jour', project_id: 'not-mine-01' } })
+    expect(add.isError).toBe(true)
   })
+
+  it('never puts a new design into an old project on its own', async () => {
+    // What ChatGPT did on the first real test: list the projects, then pass one
+    // of them to create_design. The field no longer exists there; whatever a
+    // model sends, create_design makes a NEW project.
+    const before = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
+    const old = before[0]
+    let out = await mcp.callTool({
+      name: 'create_design',
+      arguments: { brief: 'Une page de connexion pour une appli de covoiturage', project_id: old.id },
+    })
+    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+    }
+    expect(out.structuredContent.status).toBe('done')
+    expect(out.structuredContent.projectId).not.toBe(old.id)
+    const after = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
+    expect(after.find((p) => p.id === old.id).screens).toBe(old.screens)
+  }, 120_000)
+
+  it('adds to an existing project only through add_screen, and says which one', async () => {
+    const projects = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
+    const target = projects.find((p) => p.name === 'Boulangerie')
+    let out = await mcp.callTool({
+      name: 'add_screen',
+      arguments: { project_id: target.id, brief: 'Une page de contact pour la boulangerie, avec horaires et plan' },
+    })
+    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+    }
+    expect(out.structuredContent.projectId).toBe(target.id)
+    expect(out.content[0].text).toContain('« Boulangerie »')
+  }, 120_000)
 
   it('marks the account "MCP" in the admin while it uses Mocky through an assistant', async () => {
     const overview = await (await call('GET', '/api/admin/dashboard/overview')).json()

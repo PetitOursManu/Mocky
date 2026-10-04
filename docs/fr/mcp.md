@@ -1,5 +1,5 @@
 ---
-source_hash: d5596a2104c4
+source_hash: c861f757773a
 ---
 
 # Connecter un assistant (MCP)
@@ -17,7 +17,8 @@ instance servie en HTTPS.
 
 | Outil | Ce qu'il fait |
 |---|---|
-| `create_design` | Génère un nouvel écran à partir d'une description — dans un projet existant ou un nouveau — et renvoie **une image du résultat et un lien** vers lui dans Mocky. |
+| `create_design` | Génère un nouvel écran à partir d'une description, toujours dans un **nouveau projet**, et renvoie **une image du résultat et un lien** vers lui dans Mocky. |
+| `add_screen` | La même chose, dans un **projet existant** — où l'écran suit la direction artistique de ce projet. Seulement quand la personne nomme ce projet : un assistant ne doit jamais en choisir un parce qu'il semble proche, et la réponse dit dans quel projet l'écran est allé. |
 | `get_design` | Attend un design encore en cours, puis renvoie la même chose. |
 | `list_projects` | Les projets du compte, chacun avec un lien. |
 | `get_project` | Les écrans d'un projet : nom, appareil, la demande qui l'a créé, un lien. |
