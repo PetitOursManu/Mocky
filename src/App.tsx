@@ -19,6 +19,7 @@ import AnnouncementBanner from './components/AnnouncementBanner'
 import { beatNow, startPresence } from './lib/presence'
 import SharedScreen from './components/SharedScreen'
 import { shareTokenFromLocation } from './lib/share'
+import { projectLinkFromLocation, rememberProjectLink, takeProjectLink } from './lib/projectLink'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Button, ButtonLink, Icon, IconButton, Modal } from './ui'
 import { useT, type TranslationKey } from './i18n'
@@ -44,7 +45,7 @@ const RECONCILE_RELOAD_KEY = 'mocky.reconcileReload.v1'
  * times a second, forever. A fresh origin hits it on the first visit: empty
  * localStorage on one side, every project the account owns on the other.
  */
-function reloadForMergedData(): void {
+function reloadForMergedData(): boolean {
   discardPendingSave()
   try {
     if (sessionStorage.getItem(RECONCILE_RELOAD_KEY)) {
@@ -52,13 +53,14 @@ function reloadForMergedData(): void {
       // again would spin; the merged data is in localStorage either way, and
       // the next navigation picks it up.
       console.warn('[mocky] reconcile still reports changes after a reload — not reloading again')
-      return
+      return false
     }
     sessionStorage.setItem(RECONCILE_RELOAD_KEY, '1')
   } catch {
     /* No sessionStorage (private mode). Reload anyway — the loop is the rarer risk. */
   }
   window.location.reload()
+  return true
 }
 
 /** Called once a load settles, so a genuine later merge can reload again. */
@@ -116,6 +118,27 @@ function MockyApp() {
   /** Bumped on close so the project below re-reads the file it may have edited. */
   const [designNonce, setDesignNonce] = useState(0)
   const [activeId, setActiveId] = useState<string | null>(null)
+  /*
+   * A `/p/<project>?screen=<screen>` link (lib/projectLink.ts), lifted out of
+   * the address bar on the first render and kept in this tab until the account
+   * is known: signing in — through SSO or the first-load reload — would lose
+   * the URL. The address goes back to `/` at once, so a later reload lands
+   * where any other reload does instead of following the link a second time.
+   */
+  useState(() => {
+    const link = projectLinkFromLocation()
+    if (link) {
+      rememberProjectLink(link)
+      window.history.replaceState(null, '', '/')
+    }
+    return null
+  })
+  /** The account's projects are the merged ones: a link can be checked against them. */
+  const [dataReady, setDataReady] = useState(false)
+  /** The screen a link pointed at, for the project it pointed into. */
+  const [linkFocus, setLinkFocus] = useState<{ projectId: string; screenId?: string } | null>(null)
+  /** A link to a project this account does not have. */
+  const [linkMissing, setLinkMissing] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [theme, setThemeState] = useState<Theme>(() => loadTheme())
@@ -152,8 +175,8 @@ function MockyApp() {
           // origin that means replacing every project the account owns with [].
           const changed = await reconcileOnLogin()
           enableSync(true)
-          if (changed) reloadForMergedData()
-          else clearReconcileReloadMark()
+          if (!changed) clearReconcileReloadMark()
+          if (!changed || !reloadForMergedData()) setDataReady(true)
         }
       })
       .catch(() => {
@@ -239,6 +262,22 @@ function MockyApp() {
     const id = createProject()
     openProject(id)
   }
+
+  // Follow a waiting project link once the projects are the merged ones —
+  // before that, a project that exists only on the server would read as absent.
+  // Same words for "someone else's" and "no such project" (lib/projectLink.ts).
+  useEffect(() => {
+    if (!dataReady) return
+    const link = takeProjectLink()
+    if (!link) return
+    if (projects.some((p) => p.id === link.projectId)) {
+      setLinkFocus(link)
+      openProject(link.projectId)
+    } else {
+      setLinkMissing(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataReady])
 
   /**
    * The one door every navigation goes through.
@@ -506,6 +545,17 @@ function MockyApp() {
       <MaintenanceBanner isAdmin={account?.role === 'admin'} />
       <AnnouncementBanner />
 
+      {route === 'home' && linkMissing && (
+        <div className="page pt-4" role="status">
+          <p className="text-body text-ink-faint">
+            {t('app.linkNotFound')}{' '}
+            <button type="button" className="text-accent-ink hover:underline" onClick={() => setLinkMissing(false)}>
+              {t('app.linkNotFoundDismiss')}
+            </button>
+          </p>
+        </div>
+      )}
+
       {route === 'home' && (
         <ProjectsHome
           projects={projects}
@@ -544,6 +594,7 @@ function MockyApp() {
             onRenameProject={(name) => renameProject(activeProject.id, name)}
             onSetDesign={(markdown) => setProjectDesign(activeProject.id, markdown)}
             onSetUltra={(ultra) => setProjectUltra(activeProject.id, ultra)}
+            initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}
           />
           </ErrorBoundary>
         ) : (
@@ -717,8 +768,8 @@ function MockyApp() {
             reconcileOnLogin()
               .then((changed) => {
                 enableSync(true)
-                if (changed) reloadForMergedData()
-                else clearReconcileReloadMark()
+                if (!changed) clearReconcileReloadMark()
+                if (!changed || !reloadForMergedData()) setDataReady(true)
               })
               .catch(() => {
                 // Sync stays off rather than risking a push of a copy that was

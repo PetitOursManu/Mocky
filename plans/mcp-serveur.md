@@ -329,10 +329,10 @@ boucle de correction visuelle qu'on n'a pas dans l'UI.
 | Phase | Contenu | Livrable vérifiable | Taille |
 |---|---|---|---|
 | **0** | Ce plan validé, questions §12 tranchées | — | — |
-| **1a** | Extraction de `runNewScreen` hors de `ProjectView` | comportement identique, tests verts, prompt byte-identique | **L** (le plus risqué) |
-| **1b** | `scopeAllows` partagé, fusion serveur `PUT /api/data` + miroir `merge`, SSE `data-changed`, route `/p/<id>` | deux onglets ne s'écrasent plus ; un lien ouvre un projet | M |
+| **1a** ✔ | Extraction de `runNewScreen` hors de `ProjectView` | comportement identique, tests verts, prompt byte-identique — **fait le 2026-10-04**, 8 requêtes identiques sur 4 scénarios | **L** (le plus risqué) |
+| **1b** ✔ | `scopeAllows` partagé, fusion serveur `PUT /api/data` + miroir `merge`, SSE `data-changed`, route `/p/<id>` | deux onglets ne s'écrasent plus ; un lien ouvre un projet — **fait le 2026-10-04** | M |
 | **2a** | Serveur OAuth (DCR, PKCE, refresh, audience, révocation, consentement), config + section admin, audit | connexion réussie depuis claude.ai et depuis ChatGPT, révocation effective | M |
-| **2b** | Exécuteur sans tête + `/runner` + jeton d'exécution + file d'attente | une génération et une capture sans aucun onglet ouvert | M/L |
+| **2b** | Exécuteur sans tête + `/runner` + jeton d'exécution + file d'attente. **Avant d'écrire** : la fusion est par projet (constat de 1b) — un écran ajouté par l'exécuteur dans un projet que quelqu'un modifie au même moment peut se perdre. À régler ici (marqueurs de suppression par écran, ou écriture différée tant que le projet est ouvert ailleurs) | une génération et une capture sans aucun onglet ouvert | M/L |
 | **2c** | Outils `list_projects`, `get_project`, `create_design`, `get_design`, `get_screenshot`, prompt `nouveau-design` | **le scénario §0 de bout en bout** | M |
 | **3** | `edit_design`, `polish_design`, `audit_design` | modifier un écran depuis Claude, Revert dans l'UI | S/M |
 | **4** | Moteur « client » : `prepare_design`, `submit_screen`, réglages admin et utilisateur | un écran écrit par le LLM de la conversation, Muse compris | M |

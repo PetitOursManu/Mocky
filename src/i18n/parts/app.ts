@@ -19,6 +19,10 @@ export const app = {
     'app.signInHint': 'Connectez-vous pour retrouver vos projets sur tous vos appareils',
     'app.noProjectSelected': 'Aucun projet sélectionné.',
     'app.adminsOnly': 'Réservé aux administrateurs.',
+    // Same words whether the project is someone else's or does not exist: a
+    // link must not tell which ids are taken (lib/projectLink.ts).
+    'app.linkNotFound': 'Ce lien mène à un projet qui n’est pas dans ce compte.',
+    'app.linkNotFoundDismiss': 'Fermer',
   } as Record<string, string>,
   en: {
     'app.backToProject': 'Back to the project',
@@ -26,5 +30,7 @@ export const app = {
     'app.signInHint': 'Sign in to keep your projects on every device',
     'app.noProjectSelected': 'No project selected.',
     'app.adminsOnly': 'Admins only.',
+    'app.linkNotFound': 'This link leads to a project that is not in this account.',
+    'app.linkNotFoundDismiss': 'Dismiss',
   } as Record<string, string>,
 }

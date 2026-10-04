@@ -211,6 +211,7 @@ export default function ProjectView({
   onRenameProject,
   onSetDesign,
   onSetUltra,
+  initialFocusScreenId,
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -227,6 +228,8 @@ export default function ProjectView({
   onSetDesign: (markdown: string | null) => void
   /** Switch Motion Ultra on for this project (with its picture count), or off with null. */
   onSetUltra: (ultra: ProjectUltra | null) => void
+  /** A screen to select and centre on when the project opens — a /p/ link named it. */
+  initialFocusScreenId?: string
 }) {
   const t = useT()
   const [prompt, setPrompt] = useState('')
@@ -627,6 +630,15 @@ export default function ProjectView({
   }, [project.id])
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
+  // A project link that named a screen opens on it: selected, so the composer
+  // edits it, and centred, so it is the one the person sees. A screen the
+  // project no longer has is simply not found — the project still opens.
+  useEffect(() => {
+    if (!initialFocusScreenId || !project.screens.some((s) => s.id === initialFocusScreenId)) return
+    setSelectedIds([initialFocusScreenId])
+    setFocus({ screenId: initialFocusScreenId, nonce: Date.now() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFocusScreenId])
   const [annotateMode, setAnnotateMode] = useState(false)
   const [captureReq, setCaptureReq] = useState<
     { screenId: string; id: string; clientRect: { left: number; top: number; width: number; height: number } } | null

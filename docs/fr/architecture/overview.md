@@ -1,5 +1,5 @@
 ---
-source_hash: 98f88a146e7c
+source_hash: a1e548780d0f
 ---
 
 # Vue d'ensemble de l'architecture
@@ -970,6 +970,27 @@ La réconciliation compare `updatedAt` des deux côtés au lieu de supposer que 
 serveur est plus récent, ce qui écrasait le travail local. La fusion dans
 `src/lib/merge.ts` utilise des marqueurs de suppression avec une durée de vie,
 pour qu'une suppression faite sur un appareil ne revienne pas depuis un autre.
+
+Le serveur applique la même fusion à chaque `PUT /api/data` au lieu de remplacer
+le fichier (`server/merge.js`, un miroir écrit à la main et tenu à celui du
+navigateur par un test de corpus). Il écrasait, ce qui était sans risque tant
+que le navigateur était le seul à écrire ; avec un deuxième appareil ouvert, ou
+l'exécuteur MCP qui écrit un écran, l'envoi d'un onglet qui n'avait jamais
+entendu parler d'un projet l'effaçait. La réponse porte `merged: true` quand le
+serveur a gardé quelque chose qui manquait à l'expéditeur, et l'onglet le relit.
+
+Les autres onglets du compte apprennent une écriture au moment où elle a lieu :
+`GET /api/data/events` est un flux Server-Sent Events par onglet
+(`server/data-events.js`) qui transporte le nom `data-changed` et jamais aucun
+contenu. L'onglet lit alors `GET /api/data` lui-même et fusionne le résultat
+dans son état, comme il fusionne l'événement `storage` d'un autre onglet : un
+écran en cours de génération survit à une copie qui ne le connaît pas encore.
+L'onglet qui écrit n'est pas prévenu de sa propre écriture (`x-mocky-tab`).
+
+La fusion se fait par PROJET : deux écrivains qui modifient le même projet au
+même moment aboutissent encore à l'une des deux versions. La phase 2 du plan MCP
+doit régler ce point avant que l'exécuteur écrive dans un projet que quelqu'un
+modifie.
 
 ### Le magasin serveur
 

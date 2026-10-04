@@ -383,8 +383,18 @@ export const api = {
   avatarUrl: (u: AuthUser | null) => (u?.avatar ? `/api/account/avatar?v=${u.avatarAt || 0}` : null),
 
   getData: () => req('/api/data') as Promise<ServerData>,
-  putData: (projects: string | null, design: string | null) =>
-    req('/api/data', { method: 'PUT', body: JSON.stringify({ projects, design }) }),
+  /**
+   * `merged` is true when the server held something this copy did not — a
+   * project another device or the MCP runner wrote — and kept it: the caller
+   * reads the data back (sync.ts). `tab` keeps the write's own tab from being
+   * told about it.
+   */
+  putData: (projects: string | null, design: string | null, tab?: string) =>
+    req('/api/data', {
+      method: 'PUT',
+      body: JSON.stringify({ projects, design }),
+      headers: tab ? { 'x-mocky-tab': tab } : undefined,
+    }) as Promise<{ ok: boolean; merged?: boolean }>,
 
   /** Public config for the sign-in screen. */
   config: () =>

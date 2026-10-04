@@ -99,6 +99,7 @@ const GUARDED = [
   ['POST', '/api/text/vision', 'server-side fetch of a caller-supplied base URL'],
   ['GET', '/api/data', ''],
   ['PUT', '/api/data', ''],
+  ['GET', '/api/data/events', 'a stream of when the account changed'],
   ['GET', '/api/admin/users', ''],
   ['GET', '/api/admin/usage', 'reads every account’s projects blob and walks the media libraries'],
   ['GET', '/api/admin/config', ''],
@@ -305,7 +306,9 @@ describe('admin usage report', () => {
     const projects = [
       { id: 'p1', name: 'One', screens: [{ id: 's1' }, { id: 's2' }] },
       { id: 'p2', name: 'Two', screens: [{ id: 's3' }] },
-      { id: 'p3', name: 'Gone', deletedAt: 1, screens: [{ id: 's4' }] },
+      // A tombstone still inside its month: an older one is forgotten by the
+      // merge on the way in, as the browser forgets it (server/merge.js).
+      { id: 'p3', name: 'Gone', deletedAt: Date.now(), screens: [{ id: 's4' }] },
     ]
     expect((await asAdmin('PUT', '/api/data', { projects: JSON.stringify(projects), design: null })).status).toBe(200)
 
