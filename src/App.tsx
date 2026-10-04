@@ -20,6 +20,7 @@ import { beatNow, startPresence } from './lib/presence'
 import SharedScreen from './components/SharedScreen'
 import { shareTokenFromLocation } from './lib/share'
 import { projectLinkFromLocation, rememberProjectLink, takeProjectLink } from './lib/projectLink'
+import ConnectConsent, { connectIdFromLocation, peekConnect, rememberConnect, takeConnect } from './components/ConnectConsent'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Button, ButtonLink, Icon, IconButton, Modal } from './ui'
 import { useT, type TranslationKey } from './i18n'
@@ -139,6 +140,20 @@ function MockyApp() {
   const [linkFocus, setLinkFocus] = useState<{ projectId: string; screenId?: string } | null>(null)
   /** A link to a project this account does not have. */
   const [linkMissing, setLinkMissing] = useState(false)
+  /*
+   * An assistant asking to connect (`/connect/<id>`, components/ConnectConsent).
+   * Lifted out of the address bar like a project link, and kept in this tab
+   * until the person is signed in: SSO comes back on `/`.
+   */
+  const [connectId, setConnectId] = useState<string | null>(() => {
+    const id = connectIdFromLocation()
+    if (id) {
+      rememberConnect(id)
+      window.history.replaceState(null, '', '/')
+      return id
+    }
+    return peekConnect()
+  })
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [theme, setThemeState] = useState<Theme>(() => loadTheme())
@@ -746,6 +761,16 @@ function MockyApp() {
             )}
           </nav>
         </Modal>
+      )}
+
+      {account && connectId && (
+        <ConnectConsent
+          id={connectId}
+          onDone={() => {
+            takeConnect()
+            setConnectId(null)
+          }}
+        />
       )}
 
       {authOpen && (

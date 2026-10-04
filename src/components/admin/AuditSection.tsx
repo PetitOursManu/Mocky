@@ -7,7 +7,7 @@ import { SectionHead } from './AdminDashboard'
 import { useFmt } from './format'
 
 /** The server's groups: the part of an action before the dot. */
-const GROUPS = ['auth', 'account', 'user', 'session', 'config', 'maintenance', 'announcement', 'migration'] as const
+const GROUPS = ['auth', 'account', 'user', 'session', 'config', 'maintenance', 'announcement', 'migration', 'mcp'] as const
 const PAGE = 100
 
 /**

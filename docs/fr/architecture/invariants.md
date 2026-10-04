@@ -1,5 +1,5 @@
 ---
-source_hash: c70ad9958847
+source_hash: 2e9125dbdc52
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a cinq séries :
+Il y a six séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -20,6 +20,7 @@ Il y a cinq séries :
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
 - **D1 à D5**, apportés par le tableau de bord d’administration.
+- **X1 à X4**, apportés par Mocky comme serveur MCP.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -889,6 +890,89 @@ serait sinon, par construction, l’utilisateur le plus actif de l’instance.
 **Comment c'est vérifié.** `server/admin/presence.test.js` (un battement n’est pas
 une requête ; un battement tardif d’un onglet fermé est ignoré),
 `migration.test.js` (le battement passe la maintenance).
+
+---
+
+## Série X — Mocky comme serveur MCP
+
+Elles sont arrivées avec le serveur MCP (`server/mcp/`, [sa page](../mcp.md)) :
+la première porte d'entrée dans Mocky qui n'est pas un navigateur, par laquelle
+un modèle de langage agit au nom d'un compte. Chaque règle sert à garder cette
+porte exactement aussi large que la personne et l'administrateur l'ont décidé.
+
+### X1. Désactivé, il n'existe pas
+
+**La règle.** Tant qu'un administrateur ne l'a pas activé ET que `MOCKY_ORIGIN`
+n'est pas une origine HTTPS, chaque chemin MCP répond `404` : `/mcp`,
+`/register`, `/authorize`, `/token`, `/revoke`, l'API de consentement et les deux
+documents `.well-known`. Le contrôle se fait à chaque requête : la désactivation
+prend effet tout de suite, sans redémarrage.
+
+**Ce qu'elle protège.** Toutes les instances qui ne l'ont jamais demandé — la
+plupart, sur un réseau local en HTTP simple. Un point d'accès qui existe mais
+refuse indique quand même à un scanner que la fonction est là, et un serveur
+OAuth en HTTP envoie codes et jetons en clair pour des clients qui ne peuvent de
+toute façon pas s'en servir.
+
+**Comment c'est vérifié.** `tests/mcp-oauth-e2e.test.js` : chaque chemin répond
+404 avant l'activation, et de nouveau après la désactivation.
+
+### X2. Un jeton agit pour un seul compte, et le droit est relu à chaque appel
+
+**La règle.** Un jeton porte une connexion, la connexion désigne un compte, et le
+droit de ce compte à connecter un assistant est redemandé à chaque appel de
+`/mcp` et à chaque échange de jeton — `scopeAllows` sur une portée qui ÉCHOUE
+FERMÉE (vide par défaut, un administrateur non autorisé par son rôle). Retirer un
+compte de la liste révoque ses connexions immédiatement ; le supprimer les
+supprime.
+
+**Ce qu'elle protège.** La décision de l'administrateur, au moment où il la
+prend. Un contrôle limité à l'émission laisserait l'assistant d'un compte retiré
+fonctionner aussi longtemps que vit son jeton de rafraîchissement — trente jours
+par défaut.
+
+**Comment c'est vérifié.** `tests/mcp-oauth-e2e.test.js` (« retirer quelqu'un de
+la liste coupe ses jetons tout de suite » ; un compte absent de la liste reçoit
+`access_denied`), `server/access.test.js` (la portée fermée).
+
+### X3. Un jeton est un identifiant, et il est gardé comme tel
+
+**La règle.** Les jetons d'accès et de rafraîchissement sont aléatoires, opaques,
+et stockés uniquement sous forme de hachage SHA-256 ; aucune réponse ne les
+liste, aucune ligne d'audit ne les contient, aucune URL ne les transporte. Les
+jetons de rafraîchissement tournent, et un jeton retiré présenté à nouveau
+révoque toute sa connexion. `mcp-oauth.json` ne voyage jamais avec une migration.
+
+**Ce qu'elle protège.** Ce que D2 protège pour les sessions : une copie du
+magasin, une capture de la page d'administration ou une ligne de journal ne
+doivent pas devenir un moyen d'agir à la place de quelqu'un. La règle de rejeu
+transforme un jeton de rafraîchissement volé en événement visible
+(`mcp.token-reuse` dans le journal d'audit) au lieu d'un second utilisateur
+silencieux.
+
+**Comment c'est vérifié.** `tests/mcp-oauth-e2e.test.js` (« les jetons ne sont
+stockés que hachés », « un jeton rejoué coupe la connexion »).
+
+### X4. Rien de privé n'atteint un assistant
+
+**La règle.** Ce qu'un outil renvoie est une liste blanche de ce que la personne
+pourrait lire sur sa propre page d'accueil : jamais les notes d'un écran (I9),
+jamais une clé, jamais les données d'un autre compte. L'identifiant d'un projet
+qui n'appartient pas à l'appelant répond exactement comme un projet inexistant,
+et de même pour l'identifiant d'une connexion dans la liste de la personne.
+
+**Ce qu'elle protège.** Le contenu d'un compte face au modèle qui le lit — un
+tiers, qui voit tout ce qu'un outil renvoie et peut le répéter — et l'existence
+des projets des autres comptes face à un appelant qui devinerait des
+identifiants.
+
+**Comment c'est vérifié.** `tests/mcp-oauth-e2e.test.js` (une note placée sur un
+écran est absente de `list_projects` ; la connexion d'une autre personne répond
+`404`), `tests/screen-notes-private.test.js` (aucun module hors de la liste
+blanche ne mentionne les notes, `server/mcp/` compris).
+
+Les étapes qui permettront à un assistant de générer ajouteront leurs propres
+règles à cette série.
 
 ---
 

@@ -10,6 +10,7 @@ import SystemSection from './SystemSection'
 import ProvidersSection from './ProvidersSection'
 import AuditSection from './AuditSection'
 import AnnouncementSection from './AnnouncementSection'
+import AssistantsSection from './AssistantsSection'
 import MigrationSettings from '../MigrationSettings'
 
 export type SectionId =
@@ -21,6 +22,7 @@ export type SectionId =
   | 'providers'
   | 'audit'
   | 'announcement'
+  | 'assistants'
   | 'maintenance'
 
 const SECTIONS: Array<{ id: SectionId; icon: IconName }> = [
@@ -32,6 +34,7 @@ const SECTIONS: Array<{ id: SectionId; icon: IconName }> = [
   { id: 'providers', icon: 'plug' },
   { id: 'audit', icon: 'list' },
   { id: 'announcement', icon: 'megaphone' },
+  { id: 'assistants', icon: 'link' },
   { id: 'maintenance', icon: 'settings' },
 ]
 
@@ -135,6 +138,8 @@ export default function AdminDashboard({ currentUsername }: { currentUsername: s
         return <AuditSection />
       case 'announcement':
         return <AnnouncementSection live={live} />
+      case 'assistants':
+        return <AssistantsSection />
       case 'maintenance':
         return <MigrationSettings />
     }

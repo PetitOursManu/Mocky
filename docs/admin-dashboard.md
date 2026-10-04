@@ -1,6 +1,6 @@
 # The admin dashboard
 
-Admin is one page with a menu on the left. Nine sections, one live stream:
+Admin is one page with a menu on the left. Ten sections, one live stream:
 everything that moves — who is connected, what is running, the processor, the
 memory, the graphics card — updates every two seconds without a reload, and
 moving between sections costs no request.
@@ -15,6 +15,7 @@ moving between sections costs no request.
 | **Providers** | How the text, image and video providers answered over the last hour, then their settings (the three blocks the old page had). |
 | **Audit log** | Who did what: sign-ins and their failures, accounts, sessions, settings, maintenance, announcements, migrations. |
 | **Announcement** | A message shown to everybody under the masthead, now or from a date you schedule, with an optional end — and dates in the text shown in each reader's time zone. |
+| **Assistants (MCP)** | Whether Claude, ChatGPT or another MCP client may act in Mocky on behalf of an account: the HTTPS checklist, the switch, who may connect, and every active connection with a way to cut it — see [Connecting an assistant](mcp.md). |
 | **Maintenance and migration** | Unchanged — see [Maintenance and migration](migration.md). |
 
 The code is in `server/admin/` (one file per store, each explaining itself in its

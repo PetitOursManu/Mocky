@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are five series:
+There are six series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -16,6 +16,7 @@ There are five series:
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
 - **D1 to D5**, introduced by the admin dashboard.
+- **X1 to X4**, introduced by Mocky as an MCP server.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -835,6 +836,79 @@ otherwise be the most active user of the instance by construction.
 **How it is checked.** `server/admin/presence.test.js` (a beat is not a request; a
 late beat from a closed tab is ignored), `migration.test.js` (the heartbeat passes
 maintenance).
+
+---
+
+## Series X — Mocky as an MCP server
+
+These came with the MCP server (`server/mcp/`, [its page](../mcp.md)): the first
+door into Mocky that is not a browser, through which a language model acts as an
+account. Each rule is about keeping that door exactly as wide as the person and
+the administrator decided.
+
+### X1. Switched off, it does not exist
+
+**The rule.** Unless an administrator switched it on AND `MOCKY_ORIGIN` is an
+HTTPS origin, every MCP path answers `404`: `/mcp`, `/register`, `/authorize`,
+`/token`, `/revoke`, the consent API and both `.well-known` documents. The check
+is per request, so switching off takes effect at once, without a restart.
+
+**What it protects.** Every instance that never asked for it — most of them, on
+a LAN over plain HTTP. An endpoint that exists but refuses still tells a scanner
+the feature is there, and an OAuth server over HTTP sends codes and bearer tokens
+in the clear for clients that cannot use it anyway.
+
+**How it is checked.** `tests/mcp-oauth-e2e.test.js`: every path is 404 before
+the switch, and again after it is turned back off.
+
+### X2. A token acts as one account, and the right is read on every call
+
+**The rule.** A token carries a connection, the connection names one account,
+and whether that account may connect an assistant is asked again on every
+`/mcp` call and every token exchange — `scopeAllows` on a scope that FAILS CLOSED
+(empty by default, an administrator not allowed by role). Removing an account
+from the list revokes its connections immediately; deleting it deletes them.
+
+**What it protects.** The administrator's decision, at the moment they make it.
+A check at issuance only would leave a removed account's assistant working for as
+long as its refresh token lives — thirty days by default.
+
+**How it is checked.** `tests/mcp-oauth-e2e.test.js` ("removing someone from the
+list cuts their tokens at once"; an account not on the list gets
+`access_denied`), `server/access.test.js` (the closed scope).
+
+### X3. A token is a credential, and is kept like one
+
+**The rule.** Access and refresh tokens are random, opaque, and stored only as a
+SHA-256 hash; no response lists them, no audit line holds them, no URL carries
+them. Refresh tokens rotate, and a retired one presented again revokes its whole
+connection. `mcp-oauth.json` never travels with a migration.
+
+**What it protects.** The same thing D2 protects for sessions: a copy of the
+store, a screenshot of the admin page or a log line must not become a way to act
+as somebody. The replay rule turns a stolen refresh token into a visible event
+(`mcp.token-reuse` in the audit log) instead of a silent second user.
+
+**How it is checked.** `tests/mcp-oauth-e2e.test.js` ("stores tokens by hash
+only", "a replayed one cuts the connection").
+
+### X4. Nothing private reaches an assistant
+
+**The rule.** What a tool returns is a whitelist of what the person could read on
+their own home page: never a screen's notes (I9), never a key, never another
+account's data. A project id that is not the caller's answers exactly like one
+that does not exist, and so does a connection id on the person's own list.
+
+**What it protects.** The content of an account from the model reading it —
+which is a third party, sees everything a tool returns, and may repeat it — and
+the existence of other accounts' projects from a caller guessing ids.
+
+**How it is checked.** `tests/mcp-oauth-e2e.test.js` (a note planted on a screen
+is absent from `list_projects`; another person's connection answers `404`),
+`tests/screen-notes-private.test.js` (no module outside the whitelist mentions
+notes, `server/mcp/` included).
+
+The stages that let an assistant generate add their own rules to this series.
 
 ---
 

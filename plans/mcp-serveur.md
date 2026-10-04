@@ -314,6 +314,8 @@ boucle de correction visuelle qu'on n'a pas dans l'UI.
 
 ## 10. Nouveaux invariants proposés (série X)
 
+> **Écrits le 2026-10-04 (phase 2a)** dans `docs/architecture/invariants.md`, renumérotés : X1 (coupé = absent), X2 (droit relu à chaque appel), X3 (jetons hachés, rotation, rejeu), X4 (rien de privé ne sort). Les règles ci-dessous sur le pipeline unique, la fusion et la dégradation y entreront avec l'exécuteur, sous les numéros suivants.
+
 À ajouter à `docs/architecture/invariants.md` et à son miroir FR, chacun avec son test.
 
 - **X1. MCP coupé = rien n'existe.** Pas de route `/mcp`, `/oauth/*` ni `/.well-known/oauth-*`. Le comportement de Mocky est inchangé. Il en va de même quand `MOCKY_ORIGIN` n'est pas en `https://`, quelle que soit la config. *Test : les routes répondent 404 quand `enabled: false`, et aussi avec `enabled: true` sur une origine `http://`.*
@@ -331,7 +333,7 @@ boucle de correction visuelle qu'on n'a pas dans l'UI.
 | **0** | Ce plan validé, questions §12 tranchées | — | — |
 | **1a** ✔ | Extraction de `runNewScreen` hors de `ProjectView` | comportement identique, tests verts, prompt byte-identique — **fait le 2026-10-04**, 8 requêtes identiques sur 4 scénarios | **L** (le plus risqué) |
 | **1b** ✔ | `scopeAllows` partagé, fusion serveur `PUT /api/data` + miroir `merge`, SSE `data-changed`, route `/p/<id>` | deux onglets ne s'écrasent plus ; un lien ouvre un projet — **fait le 2026-10-04** | M |
-| **2a** | Serveur OAuth (DCR, PKCE, refresh, audience, révocation, consentement), config + section admin, audit | connexion réussie depuis claude.ai et depuis ChatGPT, révocation effective | M |
+| **2a** ✔ | Serveur OAuth (DCR, PKCE, refresh, audience, révocation, consentement), config + section admin, audit — plus `/mcp` avec `list_projects` pour tester | connexion réussie depuis claude.ai et depuis ChatGPT, révocation effective — **code fait le 2026-10-04** (e2e 17 tests, parcours vérifié dans le navigateur) ; **reste l'essai réel depuis claude.ai et ChatGPT** sur l'instance HTTPS | M |
 | **2b** | Exécuteur sans tête + `/runner` + jeton d'exécution + file d'attente. **Avant d'écrire** : la fusion est par projet (constat de 1b) — un écran ajouté par l'exécuteur dans un projet que quelqu'un modifie au même moment peut se perdre. À régler ici (marqueurs de suppression par écran, ou écriture différée tant que le projet est ouvert ailleurs) | une génération et une capture sans aucun onglet ouvert | M/L |
 | **2c** | Outils `list_projects`, `get_project`, `create_design`, `get_design`, `get_screenshot`, prompt `nouveau-design` | **le scénario §0 de bout en bout** | M |
 | **3** | `edit_design`, `polish_design`, `audit_design` | modifier un écran depuis Claude, Revert dans l'UI | S/M |

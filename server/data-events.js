@@ -102,5 +102,10 @@ export function createDataEvents({ setInterval: every = setInterval, clearInterv
     return userId ? streams.get(userId)?.size || 0 : [...streams.values()].reduce((n, s) => n + s.size, 0)
   }
 
-  return { subscribe, notify, count }
+  /** On shutdown: an open stream is a request that never ends, and would hold `server.close()`. */
+  function closeAll() {
+    for (const set of streams.values()) for (const entry of [...set]) (entry.close(), entry.res.end())
+  }
+
+  return { subscribe, notify, count, closeAll }
 }

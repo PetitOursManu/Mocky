@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Five series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Six series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X4 (MCP server). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1055,6 +1055,36 @@ The heartbeat (`POST /api/presence`) is in maintenance's `ALWAYS_ALLOWED`: it
 writes nothing. `docker-compose.gpu.yml` is the NVIDIA override; it is its own
 file because a GPU reservation makes Compose refuse to start on a host without the
 toolkit.
+
+## Mocky as an MCP server
+
+Claude, ChatGPT or another MCP client acts in Mocky on behalf of one account.
+Plan: `plans/mcp-serveur.md` (phases; 1a, 1b, 2a done). User doc `docs/mcp.md`;
+invariants X1–X4.
+
+```
+server/mcp/routes.js       every route, and the per-request switch (X1)
+server/mcp/provider.js     the OAuth decisions: session, access (X2), resource
+server/mcp/oauth-store.js  clients, connections, tokens BY HASH (X3)
+server/mcp/https.js        when it may exist at all: an HTTPS origin
+server/mcp/tools.js        what an assistant may do — a whitelist (X4)
+src/components/ConnectConsent.tsx   /connect/<id>, the consent page
+```
+
+Four things that will bite you:
+
+1. **Off is absent.** Unless switched on AND `MOCKY_ORIGIN` is `https://`, every
+   MCP path is 404, discovery included. `MOCKY_MCP_INSECURE_LOOPBACK=1` accepts
+   `http://localhost` for tests and Claude Code, nothing else.
+2. **The SDK does the protocol, `provider.js` does Mocky.** Registration, PKCE,
+   the token grammar are `@modelcontextprotocol/sdk`'s (its own express 5, mounted
+   as middleware). Who the person is comes from `mocky_sess` on the consent page;
+   never ask for a password in an OAuth flow.
+3. **Access is read on every call**, through `scopeAllows` — the scope that fails
+   CLOSED (`server/access.js`). Not `onList` with an open mode: a garbage mode
+   must not open the door to a model.
+4. **`/mcp` is in maintenance's `ALWAYS_ALLOWED`** because JSON-RPC is POST for
+   reads too. Every tool that WRITES checks `maintenance()` itself.
 
 ## Conventions
 
