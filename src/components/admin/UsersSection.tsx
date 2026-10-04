@@ -228,7 +228,7 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
                       {u.role === 'admin' ? t('settings.roleAdminShort') : t('settings.roleUser')}
                     </span>
                     <span className="text-body-sm">
-                      <StateMark state={p?.state || 'offline'} />
+                      <StateMark state={p?.state || 'offline'} mcp={p?.mcp} />
                     </span>
                     <span className="font-mono text-caption text-ink-faint" title={t('dashboard.users.createdAt')}>
                       {new Date(u.createdAt).toLocaleDateString()}

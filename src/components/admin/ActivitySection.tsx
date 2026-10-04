@@ -182,7 +182,7 @@ export default function ActivitySection({ live }: { live: Live }) {
 }
 
 /** State as a mark AND a word — never colour alone. */
-export function StateMark({ state }: { state: Person['state'] }) {
+export function StateMark({ state, mcp }: { state: Person['state']; mcp?: boolean }) {
   const t = useT()
   const mark =
     state === 'active' ? 'bg-ok' : state === 'idle' ? 'border border-ink-muted bg-transparent' : 'border border-line-soft bg-transparent'
@@ -190,6 +190,12 @@ export function StateMark({ state }: { state: Person['state'] }) {
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
       <span aria-hidden className={`inline-block h-2 w-2 ${mark}`} />
       <span className={state === 'offline' ? 'text-ink-faint' : 'text-ink'}>{t(`dashboard.state.${state}`)}</span>
+      {/* Through Claude, ChatGPT… (server/admin/presence.js `touchMcp`). A word, not a colour: the dot already is one. */}
+      {mcp && (
+        <span title={t('dashboard.mcpChipTitle')} className="bg-accent/10 px-1.5 font-mono text-caption uppercase text-accent-ink">
+          {t('dashboard.mcpChip')}
+        </span>
+      )}
     </span>
   )
 }
@@ -205,7 +211,7 @@ function PersonRow({ p, now }: { p: Person; now: number }) {
         {p.role === 'admin' && <span className="ml-2 text-caption uppercase text-accent-ink">{t('settings.roleAdminShort')}</span>}
       </td>
       <td className="py-2 pr-3">
-        <StateMark state={p.state} />
+        <StateMark state={p.state} mcp={p.mcp} />
       </td>
       <td className="py-2 pr-3 text-ink-muted">
         {p.state === 'offline' || !p.area ? '—' : t(`dashboard.area.${p.area}`)}

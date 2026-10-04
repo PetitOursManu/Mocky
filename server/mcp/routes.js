@@ -14,6 +14,7 @@
  * takes effect on the next request, without a restart; the tokens stay on disk
  * and work again if it is switched back on, which is what "pause" should mean.
  */
+import crypto from 'node:crypto'
 import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js'
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
@@ -25,7 +26,10 @@ import { createMcpOAuthProvider } from './provider.js'
 import { buildMcpServer } from './tools.js'
 
 /** The paths that must not exist while the server is off (X1). */
-const MCP_PATHS = /^\/(?:mcp|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
+const MCP_PATHS = /^\/(?:mcp|mcp-shot|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
+
+/** How long a picture link handed to an assistant works. */
+export const SHOT_LINK_TTL_MS = 24 * 60 * 60 * 1000
 
 /**
  * @param {object} d
@@ -43,6 +47,7 @@ const MCP_PATHS = /^\/(?:mcp|register|authorize|token|revoke)(?:\/|$)|^\/\.well-
  * @param {(req) => string|null} d.clientIp
  * @param {ReturnType<import('./runner.js').createRunner>} d.runner
  * @param {() => boolean} d.hasTextProvider   whether the instance has a generation provider
+ * @param {(userId: string) => void} d.touchMcp     presence: this account is using Mocky through an assistant
  */
 export function createMcpServerRoutes(d) {
   const config = new McpConfigStore(d.dataDir)
@@ -93,6 +98,26 @@ export function createMcpServerRoutes(d) {
       })
     : null
 
+  /*
+   * Picture links for an assistant whose host does not show a tool's image
+   * inline: `/mcp-shot/<hash>.jpg?e=<expiry>&s=<signature>`. A capability URL,
+   * like a share link, but narrower: one JPEG of the top of one screen, for a
+   * day, signed with a key that lives in memory — a restart retires every link,
+   * which costs an assistant nothing (it can ask for the picture again).
+   */
+  const shotKey = crypto.randomBytes(32)
+  const sign = (hash, exp) => crypto.createHmac('sha256', shotKey).update(`${hash}.${exp}`).digest('base64url')
+  function shotLink(hash) {
+    const exp = Date.now() + SHOT_LINK_TTL_MS
+    return `${origin}/mcp-shot/${hash}.jpg?e=${exp}&s=${sign(hash, exp)}`
+  }
+  function shotLinkValid(hash, exp, sig) {
+    if (!/^[a-f0-9]{64}$/.test(hash) || !/^\d{10,16}$/.test(String(exp)) || Number(exp) < Date.now()) return false
+    const want = Buffer.from(sign(hash, exp))
+    const got = Buffer.from(String(sig || ''))
+    return want.length === got.length && crypto.timingSafeEqual(want, got)
+  }
+
   function protectedResourceMetadata() {
     return { resource: resource(), authorization_servers: [`${origin}/`], resource_name: 'Mocky' }
   }
@@ -131,10 +156,19 @@ export function createMcpServerRoutes(d) {
     app.post('/mcp', (req, res, next) => bearer(req, res, next), async (req, res) => {
       const { userId } = req.auth.extra
       const user = d.findUser(userId)
+      // Using Mocky through an assistant is being here: the admin sees the
+      // account connected, with an "MCP" mark (server/admin/presence.js).
+      d.touchMcp(userId)
       const server = buildMcpServer({
         user,
         readProjects: () => d.readProjects(userId),
-        linkFor: (projectId) => `${origin}/p/${encodeURIComponent(projectId)}`,
+        linkFor: (projectId, screenId) =>
+          `${origin}/p/${encodeURIComponent(projectId)}${screenId ? `?screen=${encodeURIComponent(screenId)}` : ''}`,
+        runner: d.runner,
+        maintenance: d.maintenance,
+        dailyQuota: () => config.get().dailyQuota,
+        hasTextProvider: d.hasTextProvider,
+        shotLink,
       })
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
       res.on('close', () => {
@@ -149,6 +183,17 @@ export function createMcpServerRoutes(d) {
         console.error(`mocky: mcp request failed — ${err?.message || err}`)
       }
     })
+    // Behind the switch (MCP_PATHS) like everything else here: off, it is 404.
+    app.get('/mcp-shot/:file', (req, res) => {
+      const m = /^([a-f0-9]{64})\.jpg$/.exec(req.params.file)
+      if (!m || !shotLinkValid(m[1], req.query.e, req.query.s)) return res.status(404).end()
+      const jpeg = d.runner.readShot(m[1], 'jpg')
+      if (!jpeg) return res.status(404).end()
+      res.setHeader('Content-Type', 'image/jpeg')
+      res.setHeader('Cache-Control', 'private, max-age=3600')
+      res.end(jpeg)
+    })
+
     for (const method of ['get', 'delete']) {
       app[method]('/mcp', (_req, res) => {
         res.setHeader('Allow', 'POST')

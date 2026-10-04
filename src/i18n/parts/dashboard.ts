@@ -25,6 +25,8 @@ export const dashboard = {
     'dashboard.nav.announcement': 'Annonce',
     'dashboard.nav.maintenance': 'Maintenance et migration',
     'dashboard.nav.assistants': 'Assistants (MCP)',
+    'dashboard.mcpChip': 'MCP',
+    'dashboard.mcpChipTitle': 'Utilise Mocky par un assistant (Claude, ChatGPT…)',
     'dashboard.nav.on': 'active',
     'dashboard.nav.scheduled': 'programmée',
 
@@ -406,6 +408,8 @@ export const dashboard = {
     'dashboard.nav.announcement': 'Announcement',
     'dashboard.nav.maintenance': 'Maintenance and migration',
     'dashboard.nav.assistants': 'Assistants (MCP)',
+    'dashboard.mcpChip': 'MCP',
+    'dashboard.mcpChipTitle': 'Using Mocky through an assistant (Claude, ChatGPT…)',
     'dashboard.nav.on': 'on',
     'dashboard.nav.scheduled': 'scheduled',
 

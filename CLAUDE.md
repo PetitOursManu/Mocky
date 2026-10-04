@@ -1059,7 +1059,7 @@ toolkit.
 ## Mocky as an MCP server
 
 Claude, ChatGPT or another MCP client acts in Mocky on behalf of one account.
-Plan: `plans/mcp-serveur.md` (phases; 1a, 1b, 2a, 2b done). User doc
+Plan: `plans/mcp-serveur.md` (phases; 1a to 2c done). User doc
 `docs/mcp.md`; invariants X1–X6.
 
 ```
@@ -1067,7 +1067,7 @@ server/mcp/routes.js       every route, and the per-request switch (X1)
 server/mcp/provider.js     the OAuth decisions: session, access (X2), resource
 server/mcp/oauth-store.js  clients, connections, tokens BY HASH (X3)
 server/mcp/https.js        when it may exist at all: an HTTPS origin
-server/mcp/tools.js        what an assistant may do — a whitelist (X4)
+server/mcp/tools.js        the tools (create_design…) and what leaves — a whitelist (X4)
 server/mcp/runner.js       the headless runner: queue, Chromium, network rule (X6)
 server/mcp/runner-auth.js  the per-job token, and the few routes it opens
 src/runner/main.tsx        runner.html: runNewScreen + the preview to photograph (X5)
