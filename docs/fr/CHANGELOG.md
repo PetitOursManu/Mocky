@@ -25,6 +25,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | Muse tourne vraiment, et autour des images fournies | `fa5564d` |
 | `mcp` | l'image d'un post parle de son sujet, pas de la consigne | `5ca941f` |
 | `mcp` | un post ou un document a son image même sans image fournie | `272773d` |
 | `mcp` | le type d'écran demandé est appliqué (flyer, post, tableau de bord…) | `1009f73` |
