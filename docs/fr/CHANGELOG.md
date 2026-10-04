@@ -14,8 +14,15 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | exécuteur sans interface — générer et photographier sans onglet ouvert | `fe529e9` |
 | `mcp` | Mocky serveur MCP — OAuth 2.1, consentement, section admin | `5529611` |
 | `sync` | PUT /api/data fusionne, les autres onglets sont prévenus, lien /p/<projet> | `7b03b28` |
+
+**Correctifs**
+
+| Portée | Modification | Commit |
+| --- | --- | --- |
+| `sync` | la fusion réunit les écrans des deux copies d'un projet | `d1eec8f` |
 
 **Documentation**
 
