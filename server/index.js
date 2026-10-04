@@ -29,6 +29,7 @@ import { createDataEvents } from './data-events.js'
 import { createMcpServerRoutes } from './mcp/routes.js'
 import { createRunnerAuth } from './mcp/runner-auth.js'
 import { createRunner } from './mcp/runner.js'
+import { createMcpPictures } from './mcp/images.js'
 import { originAllowsMcp } from './mcp/https.js'
 import { cleanMaintenanceMessage, maintenanceBlocks, maintenanceBody } from './maintenance.js'
 import { createMigrationSource } from './migration/source.js'
@@ -2186,6 +2187,14 @@ const mcpServer = createMcpServerRoutes({
   runner: mcpRunner,
   hasTextProvider: () => Boolean(textConfig.target('generation')),
   touchMcp: (userId) => presence.touchMcp(userId),
+  // Free photos and pictures an assistant brings, through the library's own doors.
+  pictures: createMcpPictures({
+    library: images.library,
+    stock: images.stock,
+    budget: diskBudget,
+    stockAccessFor: (user) => images.configStore.stockImagesAccessFor(user),
+    guard: assertSafeTargetResolved,
+  }),
   dataDir: DATA_DIR,
   origin: MOCKY_ORIGIN,
   findUser: (id) => loadUsers().find((u) => u.id === id),

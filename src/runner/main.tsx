@@ -28,7 +28,8 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import { parseProjects } from '../lib/merge'
 import { defaultSettings } from '../lib/settings'
-import { defaultMuseConfig, museAvailable } from '../lib/muse'
+import { absoluteUrl, defaultMuseConfig, museAvailable } from '../lib/muse'
+import { imageUrl } from '../lib/imageLibrary'
 import { extractProductName } from '../lib/design'
 import { DEFAULT_PROJECT_NAME, newId, placeScreen, type Project, type Screen } from '../lib/project'
 import { runNewScreen, type NewScreenPhase } from '../lib/pipeline/newScreen'
@@ -45,6 +46,8 @@ export interface RunnerJob {
   device?: 'desktop' | 'mobile' | 'tablet'
   /** The composer's "Type d'écran" (SCREEN_THEME_IDS): it sets a document's page and a post's frame. */
   screenType?: string
+  /** Library hashes the server has checked belong to this account, with what each is for. */
+  pictures?: Array<{ hash: string; use: string }>
   muse?: boolean
   lang?: 'fr' | 'en'
 }
@@ -137,6 +140,9 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       docImageChoice: 'none',
       imageGenOk: null,
       stockImagesUsable: false,
+      providedPictures: (job.pictures || [])
+        .filter((p) => /^[a-f0-9]{64}$/.test(String(p?.hash)))
+        .map((p) => ({ hash: p.hash, url: absoluteUrl(imageUrl(p.hash)), use: String(p.use || '') })),
     },
     {
       signal: controller.signal,

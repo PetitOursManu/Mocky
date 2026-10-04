@@ -1070,6 +1070,7 @@ server/mcp/https.js        when it may exist at all: an HTTPS origin
 server/mcp/tools.js        the tools (create_design…) and what leaves — a whitelist (X4)
 server/mcp/runner.js       the headless runner: queue, Chromium, network rule (X6)
 server/mcp/runner-auth.js  the per-job token, and the few routes it opens
+server/mcp/images.js       pictures an assistant brings: free photos, files, addresses (SSRF-guarded)
 src/runner/main.tsx        runner.html: runNewScreen + the preview to photograph (X5)
 src/components/ConnectConsent.tsx   /connect/<id>, the consent page
 ```

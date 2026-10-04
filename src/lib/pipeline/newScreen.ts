@@ -85,6 +85,7 @@ import { readPage3D } from '../video/pageScenes'
 import { directionBriefFrom } from '../video/directionBrief'
 import { withAnimations } from '../animations'
 import { lintSlop } from '../lint'
+import { buildProvidedPicturesSection, type ProvidedPicture } from '../providedPictures'
 import type { TranslationKey } from '../../i18n'
 
 /** What the run is busy with, for the composer's progress line. */
@@ -142,6 +143,12 @@ export interface NewScreenRequest {
   /** Whether picture generation exists here; null until the server has said. */
   imageGenOk: boolean | null
   stockImagesUsable: boolean
+  /**
+   * Pictures the requester supplied, already in the account's library — an
+   * assistant's choice through MCP (lib/providedPictures.ts). Absent from every
+   * composer run, which therefore builds the prompt it always built (X5).
+   */
+  providedPictures?: ProvidedPicture[]
 }
 
 /** A list updated either with a value or from the previous one, like a React setter. */
@@ -850,6 +857,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
         hooks.notice(line)
       }
     }
+    // Pictures the requester chose themselves: said by URL, like a document's
+    // own picture, and only when there are some.
+    const provided = req.providedPictures?.length ? req.providedPictures : null
+    if (provided) planSection = [planSection, buildProvidedPicturesSection(provided)].filter(Boolean).join('\n\n')
     // Last, so on a reproduction it is the final word over the base rules' taste.
     if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
     capIds = withAnimations(capIds)
@@ -892,12 +903,12 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
       // generated under an older direction must keep saying so — that is
       // what makes "reprendre ce DESIGN.md" meaningful.
       design: dir.markdown,
-      imageHash: museImageHash ?? ultraImageHash ?? sitePics[0]?.hash ?? docPicture?.hash,
+      imageHash: museImageHash ?? ultraImageHash ?? sitePics[0]?.hash ?? docPicture?.hash ?? provided?.[0]?.hash,
       // Recorded so the canvas can say what the image was for. Without it
       // the badge could only ever say "Image Muse", which is exactly the
       // ambiguity that made it impossible to tell whether inspiration mode
       // had done anything.
-      imageRole: museImageHash ? effectiveImageMode : ultraImageHash || sitePics.length || docPicture ? 'content' : undefined,
+      imageRole: museImageHash ? effectiveImageMode : ultraImageHash || sitePics.length || docPicture || provided ? 'content' : undefined,
       ultra: ultraRecord,
       // Persisted as a pair so a reload can rebuild the sequence without
       // asking the server what it cut.

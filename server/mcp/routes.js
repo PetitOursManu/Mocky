@@ -169,6 +169,7 @@ export function createMcpServerRoutes(d) {
         dailyQuota: () => config.get().dailyQuota,
         hasTextProvider: d.hasTextProvider,
         shotLink,
+        pictures: d.pictures,
       })
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
       res.on('close', () => {

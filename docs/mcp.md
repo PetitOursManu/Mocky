@@ -18,6 +18,8 @@ for the accounts they choose, and only on an instance served over HTTPS.
 | `list_projects` | The account's projects, each with a link. |
 | `get_project` | One project's screens: name, device, the request that made it, a link. |
 | `get_screenshot` | A picture of a screen that already exists. |
+| `search_free_images` | Free photos from the libraries this Mocky is connected to (Pexels, Pixabay), as thumbnails the assistant looks at. |
+| `add_image` | Puts one picture in the account's library for a design: a free photo chosen above, a picture from the conversation (one ChatGPT generated, or one the person attached), or a public address. |
 
 And one prompt, **new-design** (the "/" menu in Claude), which starts a short
 interview before designing.
@@ -28,6 +30,16 @@ interview before designing.
   nothing in it ("un site"), Mocky does not guess: it hands the assistant three
   questions, in the person's language, and generates once they are answered.
 - **The screen type.** The assistant chooses one of Mocky's types (the composer's "Type d'écran": dashboard, landing, flyer, CV, Instagram post…), which sets the format — a flyer is an A4 page, a post a square image. When it does not, Mocky reads the type, and the device, from the request's own words ("un flyer", "une appli mobile"); the answer says which type was used.
+- **Pictures: the assistant chooses.** Not Mocky's model: the assistant searches
+  the free libraries and looks at the thumbnails itself, or brings a picture it
+  has, adds it with `add_image`, and passes it to the design with what it is for
+  ("hero: the storefront"). The page is told to use each one, by its address on
+  Mocky, and to invent no other. A picture by address is the person's own upload,
+  with the same responsibility for its rights; downloading it goes through the
+  SSRF guard on every redirect, is capped at 15 MB, and keeps only a JPEG, PNG or
+  WebP — never an SVG. Free photos follow the account's access to them (Admin →
+  Providers). Claude does not generate pictures; ChatGPT can hand over one it
+  made, through the file links of its Apps SDK.
 - **The same Mocky.** The design is made by the headless runner (below), with
   the same pipeline as the interface, and saved in the account — in a tab already
   open on that project, the new screen appears on its own.

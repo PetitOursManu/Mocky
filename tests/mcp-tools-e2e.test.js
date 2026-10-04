@@ -34,6 +34,8 @@ const REDIRECT = 'http://127.0.0.1:9/callback'
 const CODE = '```jsx\nexport default function App() {\n  return <main className="p-8"><h1 className="text-3xl font-bold">Boulangerie</h1></main>\n}\n```'
 
 let proc, base, dataDir, fake, cookie, adminId, token, mcp
+/** What the fake model was sent, to check what reached the prompt. */
+const modelCalls = []
 
 async function freePort() {
   return new Promise((resolve) => {
@@ -78,6 +80,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       req.on('data', (c) => (raw += c))
       req.on('end', () => {
         const body = raw ? JSON.parse(raw) : null
+        modelCalls.push(body)
         const content = body?.format ? JSON.stringify({ capabilities: [], layout: 'hero', sections: ['Hero'], contentNotes: '' }) : CODE
         res.setHeader('content-type', body?.stream ? 'application/x-ndjson' : 'application/json')
         res.end(body?.stream ? JSON.stringify({ message: { content } }) + '\n' + JSON.stringify({ done: true }) + '\n' : JSON.stringify({ message: { content }, done: true }))
@@ -128,7 +131,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
 
   it('offers the tools and the interview prompt', async () => {
     const tools = (await mcp.listTools()).tools.map((t) => t.name).sort()
-    expect(tools).toEqual(['add_screen', 'create_design', 'get_design', 'get_project', 'get_screenshot', 'list_projects'])
+    expect(tools).toEqual(['add_image', 'add_screen', 'create_design', 'get_design', 'get_project', 'get_screenshot', 'list_projects', 'search_free_images'])
     const prompts = (await mcp.listPrompts()).prompts.map((p) => p.name)
     expect(prompts).toContain('new-design')
   })
@@ -178,6 +181,39 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     expect(out.isError).toBe(true)
     const add = await mcp.callTool({ name: 'add_screen', arguments: { brief: 'Un tableau de bord pour suivre les ventes du jour', project_id: 'not-mine-01' } })
     expect(add.isError).toBe(true)
+  })
+
+  it('uses the pictures the assistant chose, by URL, in the prompt', async () => {
+    // A picture already in this account's library (as add_image would leave it).
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+    const up = await fetch(`${base}/api/images/upload?name=storefront`, { method: 'POST', headers: { 'content-type': 'image/png', cookie }, body: png })
+    const { hash } = await up.json()
+    const before = modelCalls.length
+    let out = await mcp.callTool({
+      name: 'create_design',
+      arguments: { brief: 'La page d’accueil de la boulangerie Dupont, chaleureuse', images: [{ image_id: hash, use: 'hero: la devanture' }] },
+    })
+    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+    }
+    expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
+    const sent = modelCalls.slice(before).map((c) => JSON.stringify(c)).join('\n')
+    expect(sent).toContain('PICTURES — the person supplied one picture')
+    expect(sent).toContain(`hero: la devanture → ${base}/api/images/${hash}`)
+  }, 120_000)
+
+  it('refuses a picture that is not in this account’s library, and one at an internal address', async () => {
+    const foreign = await mcp.callTool({
+      name: 'create_design',
+      arguments: { brief: 'Une page de contact pour la boulangerie Dupont', images: [{ image_id: 'e'.repeat(64), use: 'hero' }] },
+    })
+    expect(foreign.isError).toBe(true)
+    const internal = await mcp.callTool({ name: 'add_image', arguments: { use: 'x', image_url: `${base}/api/images/x.png` } })
+    expect(internal.isError).toBe(true)
+    expect(internal.content[0].text).toMatch(/could not be added/)
+    const none = await mcp.callTool({ name: 'search_free_images', arguments: { query: 'bakery' } })
+    // No Pexels/Pixabay key in this test: said, not a crash.
+    expect(none.isError).toBe(true)
   })
 
   it('never puts a new design into an old project on its own', async () => {

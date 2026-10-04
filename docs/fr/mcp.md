@@ -1,5 +1,5 @@
 ---
-source_hash: b041ae47850c
+source_hash: 59894892a715
 ---
 
 # Connecter un assistant (MCP)
@@ -23,6 +23,8 @@ instance servie en HTTPS.
 | `list_projects` | Les projets du compte, chacun avec un lien. |
 | `get_project` | Les écrans d'un projet : nom, appareil, la demande qui l'a créé, un lien. |
 | `get_screenshot` | Une image d'un écran qui existe déjà. |
+| `search_free_images` | Des photos libres des banques auxquelles ce Mocky est relié (Pexels, Pixabay), en miniatures que l'assistant regarde. |
+| `add_image` | Met une image dans la bibliothèque du compte pour un design : une photo libre choisie ci-dessus, une image de la conversation (générée par ChatGPT, ou jointe par la personne), ou une adresse publique. |
 
 Et un prompt, **new-design** (le menu « / » de Claude), qui démarre un court
 entretien avant de dessiner.
@@ -34,6 +36,17 @@ entretien avant de dessiner.
   questions, dans la langue de la personne, et génère une fois qu'elles ont une
   réponse.
 - **Le type d'écran.** L'assistant choisit l'un des types de Mocky (le « Type d'écran » du composer : tableau de bord, landing, flyer, CV, post Instagram…), qui décide du format — un flyer est une page A4, un post une image carrée. S'il ne le fait pas, Mocky lit le type, et l'appareil, dans les mots de la demande (« un flyer », « une appli mobile ») ; la réponse indique le type retenu.
+- **Les images : c'est l'assistant qui choisit.** Pas le modèle de Mocky :
+  l'assistant cherche dans les banques libres et regarde lui-même les
+  miniatures, ou apporte une image qu'il a, l'ajoute avec `add_image`, et la
+  passe au design avec son usage (« hero : la devanture »). La page a pour
+  consigne d'utiliser chacune, par son adresse sur Mocky, et de n'en inventer
+  aucune autre. Une image donnée par adresse est l'envoi de la personne, avec la
+  même responsabilité sur ses droits ; son téléchargement passe le garde SSRF à
+  chaque redirection, est plafonné à 15 Mo et ne garde qu'un JPEG, PNG ou WebP —
+  jamais un SVG. Les photos libres suivent l'accès du compte (Admin →
+  Fournisseurs). Claude ne génère pas d'images ; ChatGPT peut transmettre une
+  image qu'il a faite, par les liens de fichiers de son Apps SDK.
 - **Le même Mocky.** Le design est fait par l'exécuteur sans interface
   (ci-dessous), avec le même pipeline que l'interface, et enregistré dans le
   compte — dans un onglet déjà ouvert sur ce projet, le nouvel écran apparaît

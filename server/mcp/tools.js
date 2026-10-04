@@ -8,6 +8,8 @@
  *   add_screen      a new screen in a project the person named    (write)
  *   get_design      a design being made: wait for it, get it      (read)
  *   get_screenshot  a picture of a screen that already exists     (read)
+ *   search_free_images  free photos, as thumbnails to look at      (read)
+ *   add_image       a picture into the library, for a design      (write)
  *   + the prompt `new-design`, which starts the short interview
  *
  * Rules every tool here keeps, and every later one must:
@@ -227,6 +229,7 @@ export function buildMcpServer(deps) {
       `You are connected as the Mocky account "${user.username}". ` +
       'A new design goes in a NEW project (create_design). Add to an existing project (add_screen) only when the person explicitly asks for that project — never because one looks related. ' +
       'Before designing, make sure you know what screen it is, who it is for and the tone wanted; when the person has not said, ask them at most three short questions — never questions they already answered. ' +
+      'For pictures, YOU choose: search_free_images shows you free photos to look at, add_image puts the chosen one (or a picture from this conversation) in the account\'s library, and its image_id goes in the images field with what it is for. ' +
       'A generation takes from thirty seconds to a few minutes: if create_design answers that it is still running, call get_design with the job id. ' +
       'Show the person the picture you get back, and give them the link: it opens the project in Mocky and requires them to be signed in to this account.',
   })
@@ -347,11 +350,23 @@ export function buildMcpServer(deps) {
     if (quota && !runner.isBusy(user.id) && runner.countToday(user.id) >= quota) {
       return refuse(lang === 'fr' ? `Limite atteinte : ${quota} designs par jour pour ce compte.` : `Limit reached: ${quota} designs a day for this account.`)
     }
+    // Only pictures of this account's: an id from someone else's library answers
+    // like one that does not exist (X4).
+    const images = Array.isArray(args.images) ? args.images : []
+    const stranger = images.find((p) => !deps.pictures?.owns(user, p.image_id))
+    if (stranger) {
+      return refuse(
+        lang === 'fr'
+          ? `L’image « ${stranger.image_id} » n’est pas dans la bibliothèque de ce compte : ajoute-la d’abord avec add_image.`
+          : `Image "${stranger.image_id}" is not in this account's library: add it first with add_image.`,
+      )
+    }
     // The type the assistant chose, else the one the request names in words.
     const screenType = SCREEN_TYPES[args.screen_type] ? args.screen_type : inferScreenType(`${args.brief} ${args.kind || ''}`)
     const { job, existing } = runner.enqueue(user.id, {
       brief: composeBrief(args, lang),
       screenType: screenType || undefined,
+      pictures: images.length ? images.map((p) => ({ hash: p.image_id, use: p.use })) : undefined,
       projectId: project ? project.id : undefined,
       projectName: project ? undefined : args.project_name || undefined,
       device: args.device || inferDevice(`${args.brief} ${args.kind || ''}`) || 'desktop',
@@ -381,6 +396,16 @@ export function buildMcpServer(deps) {
 
   const designFields = {
     brief: z.string().min(1).max(4000).describe('What the screen is and what it contains, in the person\'s own words.'),
+    images: z
+      .array(
+        z.object({
+          image_id: z.string().min(1).max(64).describe('An image_id returned by add_image.'),
+          use: z.string().max(200).describe('What this picture is for on the screen: "hero", "the storefront", "background of the pricing section"…'),
+        }),
+      )
+      .max(8)
+      .optional()
+      .describe('Pictures to use in the screen, added first with add_image (a free photo from search_free_images, or a picture you have). Omit for none.'),
     screen_type: z
       .enum(SCREEN_TYPE_IDS)
       .optional()
@@ -440,6 +465,93 @@ export function buildMcpServer(deps) {
       const project = findProject(args.project_id)
       if (!project) return refuse(briefLanguage(args.brief) === 'fr' ? 'Aucun projet de ce compte ne porte cet identifiant.' : 'No such project in this account.')
       return startDesign(args, project, 'add_screen')
+    },
+  )
+
+  /*
+   * Pictures. The assistant chooses — not Mocky's model: it searches the free
+   * libraries and LOOKS at the thumbnails itself, or brings a picture it has,
+   * and hands the chosen ones to create_design. See server/mcp/images.js.
+   */
+  server.registerTool(
+    'search_free_images',
+    {
+      title: 'Search free photos',
+      description:
+        'Searches the free photo libraries this Mocky is connected to (Pexels, Pixabay) and shows you thumbnails with their ids. ' +
+        'Look at them, choose, then call add_image with the chosen id to use it in a design. Search in English for better results. Read-only.',
+      inputSchema: {
+        query: z.string().min(1).max(200).describe('What the photo shows, in a few English words: "artisan bakery storefront".'),
+        orientation: z.enum(['landscape', 'portrait', 'square']).optional(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ query, orientation }) => {
+      if (!deps.pictures?.freeAvailable(user)) {
+        return refuse('Free photos are not available to this account (no library configured, or not allowed by the administrator).')
+      }
+      try {
+        const out = await deps.pictures.searchFree(query, { orientation })
+        if (!out.candidates.length) return { content: [text(`Nothing found for "${query}". Try other words.`)], structuredContent: { candidates: [] } }
+        const content = []
+        for (const c of out.candidates) {
+          const m = /^data:([^;]+);base64,(.+)$/.exec(c.thumb || '')
+          if (m) content.push({ type: 'image', data: m[2], mimeType: m[1] })
+          content.push(text(`${c.id} — ${c.title || 'untitled'}${c.author ? ` — by ${c.author}` : ''}`))
+        }
+        return {
+          content,
+          structuredContent: { query: out.query, candidates: out.candidates.map(({ thumb: _t, ...rest }) => rest) },
+        }
+      } catch (err) {
+        return refuse(`The search failed: ${String(err?.message || err).slice(0, 200)}`)
+      }
+    },
+  )
+
+  server.registerTool(
+    'add_image',
+    {
+      title: 'Add a picture to my Mocky library',
+      description:
+        'Puts one picture in the account\'s Mocky library so a design can use it, and returns its image_id for create_design / add_screen (the images field). ' +
+        'Give exactly one of: free_image_id (from search_free_images), image_file (a picture from this conversation — one you generated or one the person attached), or image_url (a public address of a JPEG, PNG or WebP). ' +
+        'Only add pictures the person may use.',
+      inputSchema: {
+        use: z.string().min(1).max(200).describe('What the picture shows or is for, in a few words.'),
+        free_image_id: z.string().max(40).optional().describe('An id from search_free_images, like "pexels:123".'),
+        image_file: z.any().optional().describe('A picture from this conversation.'),
+        image_url: z.string().url().max(2000).optional().describe('A public address of a JPEG, PNG or WebP picture.'),
+      },
+      // ChatGPT hands conversation files to a tool as { download_url, file_id, … }
+      // when the parameter is declared here (Apps SDK reference).
+      _meta: { 'openai/fileParams': ['image_file'] },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args) => {
+      if (!deps.pictures) return refuse('Pictures cannot be added on this Mocky.')
+      if (deps.maintenance()) return refuse('Mocky is in maintenance: try again later.')
+      const file = args.image_file && typeof args.image_file === 'object' ? args.image_file : null
+      const fileUrl = file && typeof file.download_url === 'string' ? file.download_url : null
+      const sources = [args.free_image_id, fileUrl || args.image_file, args.image_url].filter(Boolean)
+      if (sources.length !== 1) return refuse('Give exactly one of free_image_id, image_file or image_url.')
+      try {
+        let hash
+        if (args.free_image_id) {
+          if (!deps.pictures.freeAvailable(user)) return refuse('Free photos are not available to this account.')
+          hash = await deps.pictures.importFree(user, args.free_image_id, args.use)
+        } else {
+          const url = fileUrl || args.image_url
+          if (!url) return refuse('This picture file arrived without a download address; attach it again or give image_url.')
+          hash = await deps.pictures.importUrl(user, url, args.use)
+        }
+        return {
+          content: [text(`Added. image_id: ${hash} — pass it to create_design or add_screen in images, with what it is for.`)],
+          structuredContent: { image_id: hash },
+        }
+      } catch (err) {
+        return refuse(`The picture could not be added: ${String(err?.message || err).slice(0, 200)}`)
+      }
     },
   )
 
