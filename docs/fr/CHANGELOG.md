@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | phase 4 — le modèle de l'assistant peut écrire le code, Mocky reste l'arbitre | `d84221a` |
 | `mcp` | phase 3 — modifier, polir et auditer un écran depuis l'assistant | `090d63c` |
 | `mcp` | Muse par défaut pour un nouveau projet | `12cfc27` |
 | `mcp` | un guide pour l'assistant (mocky_guide, mocky://guide) | `bf9c2d2` |
