@@ -25,6 +25,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `mcp` | l'aperçu vivant lit aussi le canal de ChatGPT, et un post « en 1:1 » est carré | `e5b51d9` |
 | `mcp` | Muse tourne vraiment, et autour des images fournies | `fa5564d` |
 | `mcp` | l'image d'un post parle de son sujet, pas de la consigne | `5ca941f` |
 | `mcp` | un post ou un document a son image même sans image fournie | `272773d` |
