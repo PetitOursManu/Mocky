@@ -9,11 +9,10 @@ document, nothing a scanner could find. It is switched on by an administrator,
 for the accounts they choose, and only on an instance served over HTTPS.
 
 What an assistant can do today is **read the list of projects** — enough to check
-that a connection works and is the right account. Creating and editing designs
-from the conversation arrives with the next stages of the plan
-(`plans/mcp-serveur.md` in the repository): the headless runner that generates
-without a Mocky tab open, and returns a picture of the result with a link to the
-project.
+that a connection works and is the right account. The **headless runner** that
+will make designs for it is in place (below) and can be tried from the admin
+section; the tools that let an assistant call it arrive with the next stage of
+the plan (`plans/mcp-serveur.md` in the repository).
 
 ## For the administrator
 
@@ -64,9 +63,37 @@ The page shows the **address to give the assistant** — `${MOCKY_ORIGIN}/mcp` �
 and the list of **active connections**: account, assistant, since when, last
 used, and a button that cuts one.
 
+### The headless runner
+
+A design asked for from an assistant has to run the same pipeline the composer
+runs — direction, Muse, planner, generation — and that pipeline lives in the
+browser. So the server drives a **Chromium of its own**: it opens Mocky's
+`runner.html`, which runs the pipeline, writes the new screen into the account's
+project, and shows its preview; the server then photographs that preview with
+Chromium itself. Nobody needs a tab open.
+
+- **Requirements.** A Chromium — the Docker image installs one; elsewhere set
+  `MOCKY_RUNNER_CHROMIUM` — a built interface (`npm run build`), and an HTTPS
+  `MOCKY_ORIGIN`. A **generation provider configured by the administrator**: the
+  runner never uses a key kept in somebody's browser.
+- **Check the runner** (free): starts Chromium, loads the runner page,
+  photographs a fixed screen. No model is called.
+- **Full try** (paid like any generation): a real generation in *your own*
+  account, in a project called *Essai MCP*, with its picture and a link to it.
+- **One generation at a time per account**, and `concurrency` at once for the
+  instance (one by default).
+- **What its browser may reach.** Requests to Mocky's own address are answered
+  by the server itself, over loopback, carrying a token for that one job — which
+  opens only the routes a generation needs (model, Muse, images, the account's
+  projects) and dies with the job. Anything else the generated page asks for
+  goes through Mocky's SSRF guard first: a font or a picture from the Internet is
+  fine, an address inside your network is refused. WebSockets are refused.
+
 ### What is recorded
 
 - `mcp-config.json` — the settings above.
+- `mcp-jobs.json` and `mcp-shots/` — the runner's recent jobs and the pictures it
+  took (the last 200, a week at most). Neither travels with a migration.
 - `mcp-oauth.json` — registered clients and connections, with tokens stored
   **by hash** (SHA-256): a copy of the file does not let anyone call `/mcp`.
   Mode `0600`. It does **not** travel with a [migration](migration.md): like
@@ -111,7 +138,7 @@ To connect:
   so it adds nothing to the [SSRF guard's](architecture/invariants.md) surface.
 
 The rules are written down as [series X](architecture/invariants.md) of the
-invariants.
+invariants, X5 and X6 for the runner.
 
 ## Development
 

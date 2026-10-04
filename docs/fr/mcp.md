@@ -1,5 +1,5 @@
 ---
-source_hash: 88b6ed9bd930
+source_hash: 5200fc3c99b3
 ---
 
 # Connecter un assistant (MCP)
@@ -15,10 +15,10 @@ instance servie en HTTPS.
 
 Ce qu'un assistant peut faire aujourd'hui, c'est **lire la liste des projets** —
 assez pour vérifier qu'une connexion fonctionne et qu'il s'agit du bon compte.
-Créer et modifier des designs depuis la conversation arrive avec les étapes
-suivantes du plan (`plans/mcp-serveur.md` dans le dépôt) : l'exécuteur sans
-interface, qui génère sans onglet Mocky ouvert et renvoie une image du résultat
-avec un lien vers le projet.
+L'**exécuteur sans interface** qui fera les designs pour lui est en place
+(ci-dessous) et s'essaie depuis la section d'administration ; les outils qui
+permettront à un assistant de l'appeler arrivent avec l'étape suivante du plan
+(`plans/mcp-serveur.md` dans le dépôt).
 
 ## Pour l'administrateur
 
@@ -72,9 +72,41 @@ La page affiche l'**adresse à donner à l'assistant** — `${MOCKY_ORIGIN}/mcp`
 et la liste des **connexions actives** : compte, assistant, depuis quand,
 dernier usage, et un bouton pour en couper une.
 
+### L'exécuteur sans interface
+
+Un design demandé depuis un assistant doit passer par le même pipeline que
+l'interface — direction, Muse, planificateur, génération — et ce pipeline vit
+dans le navigateur. Le serveur pilote donc **son propre Chromium** : il ouvre la
+page `runner.html` de Mocky, qui exécute le pipeline, écrit le nouvel écran dans
+le projet du compte et affiche son aperçu ; le serveur photographie ensuite cet
+aperçu avec Chromium lui-même. Personne n'a besoin d'un onglet ouvert.
+
+- **Prérequis.** Un Chromium — l'image Docker en installe un ; ailleurs, réglez
+  `MOCKY_RUNNER_CHROMIUM` —, une interface construite (`npm run build`), et un
+  `MOCKY_ORIGIN` en HTTPS. Un **fournisseur de génération configuré par
+  l'administrateur** : l'exécuteur n'utilise jamais une clé gardée dans le
+  navigateur de quelqu'un.
+- **Vérifier l'exécuteur** (gratuit) : lance Chromium, charge la page de
+  l'exécuteur, photographie un écran fixe. Aucun modèle n'est appelé.
+- **Essai complet** (facturé comme toute génération) : une vraie génération dans
+  *votre propre* compte, dans un projet nommé *Essai MCP*, avec son image et un
+  lien vers lui.
+- **Une seule génération à la fois par compte**, et `concurrency` en même temps
+  pour l'instance (une par défaut).
+- **Ce que son navigateur peut joindre.** Les requêtes vers l'adresse de Mocky
+  sont servies par le serveur lui-même, en local, avec un jeton propre à ce
+  travail — qui n'ouvre que les routes dont une génération a besoin (modèle,
+  Muse, images, projets du compte) et meurt avec le travail. Tout le reste de ce
+  que la page générée demande passe d'abord par le garde SSRF de Mocky : une
+  police ou une image venue d'Internet passe, une adresse de votre réseau est
+  refusée. Les WebSockets sont refusés.
+
 ### Ce qui est enregistré
 
 - `mcp-config.json` — les réglages ci-dessus.
+- `mcp-jobs.json` et `mcp-shots/` — les derniers travaux de l'exécuteur et les
+  images qu'il a prises (les 200 dernières, une semaine au plus). Ni l'un ni
+  l'autre ne voyage avec une migration.
 - `mcp-oauth.json` — les clients enregistrés et les connexions, avec les jetons
   stockés **sous forme de hachage** (SHA-256) : une copie du fichier ne permet à
   personne d'appeler `/mcp`. Mode `0600`. Il ne **voyage pas** avec une
@@ -123,7 +155,7 @@ Pour se connecter :
   [garde SSRF](architecture/invariants.md).
 
 Les règles sont écrites dans la [série X](architecture/invariants.md) des
-invariants.
+invariants, X5 et X6 pour l'exécuteur.
 
 ## Développement
 

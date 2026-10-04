@@ -278,12 +278,43 @@ export interface McpConnection {
   username?: string | null
 }
 
+/** server/mcp/runner.js — whether this machine can generate headlessly. */
+export interface RunnerStatus {
+  available: boolean
+  /** 'no-origin' | 'no-chromium' | 'no-build' */
+  reason?: string
+  running: number
+  queued: number
+  browser: boolean
+}
+
+export interface RunnerJobView {
+  id: string
+  status: 'queued' | 'running' | 'done' | 'failed'
+  progress?: string
+  createdAt: number
+  startedAt?: number
+  endedAt?: number
+  error?: string
+  result?: {
+    projectId: string
+    screenId: string
+    w: number
+    h: number
+    notices: string[]
+    warning?: string
+    shot?: string
+    shotHeight?: number
+  }
+}
+
 export interface AdminMcpView {
   config: McpConfig
   readiness: McpReadiness
   active: boolean
   connections: McpConnection[]
   users: AdminUser[]
+  runner: RunnerStatus
 }
 
 export interface AccountMcpView {
@@ -495,6 +526,15 @@ export const api = {
           revoked: number
         }>,
       revoke: (id: string) => req(`/api/admin/mcp/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+      runnerCheck: () => req('/api/admin/mcp/runner/check', { method: 'POST' }) as Promise<{ ok: boolean; image?: string; error?: string }>,
+      runnerTry: (brief: string, device: 'desktop' | 'mobile' | 'tablet' = 'desktop') =>
+        req('/api/admin/mcp/runner/try', { method: 'POST', body: JSON.stringify({ brief, device }) }) as Promise<{
+          job: RunnerJobView
+          existing: boolean
+        }>,
+      runnerJob: (id: string) =>
+        req(`/api/admin/mcp/runner/jobs/${encodeURIComponent(id)}`) as Promise<{ job: RunnerJobView; link: string | null }>,
+      shotUrl: (hash: string) => `/api/admin/mcp/runner/shots/${encodeURIComponent(hash)}`,
     },
     getConfig: () => req('/api/admin/config') as Promise<{ allowRegistration: boolean }>,
     setAllowRegistration: (allowRegistration: boolean) =>

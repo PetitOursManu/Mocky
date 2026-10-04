@@ -16,7 +16,7 @@ There are six series:
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
 - **D1 to D5**, introduced by the admin dashboard.
-- **X1 to X4**, introduced by Mocky as an MCP server.
+- **X1 to X6**, introduced by Mocky as an MCP server.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -908,7 +908,44 @@ is absent from `list_projects`; another person's connection answers `404`),
 `tests/screen-notes-private.test.js` (no module outside the whitelist mentions
 notes, `server/mcp/` included).
 
-The stages that let an assistant generate add their own rules to this series.
+### X5. One pipeline
+
+**The rule.** A design made for an assistant runs `runNewScreen`
+(`src/lib/pipeline/newScreen.ts`) — the code the composer runs — inside a
+headless Chromium on the server (`runner.html`, `server/mcp/runner.js`). There is
+no second pipeline written for the server.
+
+**What it protects.** Every other invariant of the generation path. I1 to I9, M,
+Q and U hold for an MCP design because it is the same code; a server-side
+rewrite would have had to keep each of them twice, and this repository knows
+what its hand-kept mirrors cost.
+
+**How it is checked.** `tests/mcp-runner-e2e.test.js` records the requests the
+model receives: the planner, then the generation prompt the composer sends. The
+extraction itself was checked byte for byte against the composer's requests
+before and after (`CLAUDE.md`, "The generation pipeline").
+
+### X6. The runner's browser reaches what a generation needs, and nothing more
+
+**The rule.** The runner's Chromium runs model-written code on the server. Its
+requests to Mocky's own origin are answered over loopback with a token for ONE
+job, accepted only on the routes a generation calls and revoked when the job
+ends; every other request passes the SSRF guard (DNS included) or is refused;
+WebSockets are refused; `runner.html` carries its own CSP. A runner token is
+never a session: no presence, nothing on the Sessions screen.
+
+**What it protects.** The server's network from a page a prompt injection
+wrote. A browser on the server is a far better SSRF tool than any fetch, and the
+preview's `img-src *` alone would have let a generated screen make this machine
+call its own metadata endpoint or a neighbour on the LAN.
+
+**How it is checked.** `tests/mcp-runner-e2e.test.js` (a generated screen points
+an `<img>` at a loopback server, which must receive nothing — and does when the
+guard is removed), `server/mcp/runner-auth.test.js` (the routes the token opens
+and those it never does).
+
+The tools that let an assistant call the runner add their own rules to this
+series.
 
 ---
 

@@ -4,6 +4,7 @@ import { Banner, Button, Field, Icon, Input, Select } from '../../ui'
 import { useT } from '../../i18n'
 import { AccountScope } from '../VideoExportSettings'
 import { SectionHead } from './AdminDashboard'
+import RunnerPanel from './RunnerPanel'
 
 /**
  * Admin → Assistants (MCP): whether Claude, ChatGPT and other MCP clients may
@@ -156,6 +157,8 @@ export default function AssistantsSection() {
               <span className="measure mt-0.5 block text-body-sm text-ink-muted">{t('mcp.admin.enabledHelp')}</span>
             </span>
           </label>
+
+          <RunnerPanel status={view.runner} onChanged={() => void load()} />
 
           {r.mcpUrl && (
             <Field label={t('mcp.admin.url')}>

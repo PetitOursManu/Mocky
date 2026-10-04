@@ -240,6 +240,7 @@ the sign-in screen and the model provider is configured in the UI.
 | `SSO_DASHY_URL` | *(unset)* | The public origin of your Dashy instance |
 | `MOCKY_ORIGIN` | *(auto-detected)* | Mocky's own public origin. **Set it explicitly whenever SSO is on**, and to an `https://` origin for [assistants (MCP)](mcp.md) |
 | `MOCKY_MCP_INSECURE_LOOPBACK` | *(unset)* | `1` accepts an `http://localhost` origin for the MCP server — development and tests only ([MCP](mcp.md)) |
+| `MOCKY_RUNNER_CHROMIUM` | *(auto)* | Path to the Chromium the MCP runner drives. The Docker image installs one; set this elsewhere ([MCP](mcp.md)) |
 
 ### The built-in `.env` loader
 
