@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `mcp` | l'assistant choisit et fournit les images de l'écran | `800eb58` |
 | `mcp` | les outils — create_design, get_design, get_project, get_screenshot | `04e78c8` |
 | `mcp` | exécuteur sans interface — générer et photographier sans onglet ouvert | `fe529e9` |
 | `mcp` | Mocky serveur MCP — OAuth 2.1, consentement, section admin | `5529611` |
