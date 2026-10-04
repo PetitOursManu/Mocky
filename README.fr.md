@@ -690,11 +690,22 @@ depuis les sources définit `MOCKY_RUNNER_CHROMIUM`.
 **Tous les autres — Réglages → Assistants connectés** donne l'adresse à
 fournir à l'assistant, `https://<votre-mocky>/mcp` :
 
-1. **Claude** : ajoutez un connecteur personnalisé avec cette adresse.
-   **ChatGPT** : créez un connecteur en mode développeur avec elle,
-   authentification OAuth.
+1. **Claude** (claude.ai, bureau, mobile) : le bouton **Ouvrir les
+   connecteurs de Claude** de la page → **+** → *Ajouter un connecteur
+   personnalisé*, collez l'adresse. **ChatGPT** : Réglages → Applications →
+   Paramètres avancés → mode développeur → *Créer une application*, collez
+   l'adresse, authentification OAuth. **Claude Code**, en une ligne :
+
+   ```bash
+   claude mcp add --transport http --scope user mocky https://<votre-mocky>/mcp
+   ```
+
 2. Connectez-vous à Mocky si on vous le demande, puis **Autoriser**.
 3. Demandez : *« Fais-moi un post Instagram pour le menu d'automne »*.
+
+Seul Claude Code installe un connecteur en une ligne ; claude.ai, Claude
+Desktop et ChatGPT n'ont pas de lien d'installation pour un connecteur distant,
+la page vous donne donc chaque étape et l'adresse à copier.
 
 La même page liste les assistants que vous avez autorisés, avec
 **Déconnecter**. Les jetons sont conservés sous forme d'empreinte, l'accès est

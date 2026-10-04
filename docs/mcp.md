@@ -235,12 +235,31 @@ allows both engines, it also asks **who writes your designs' code**. If the sect
 the feature is off, or that the account is not allowed, that is an
 administrator's decision.
 
-To connect:
+To connect — the page gives each assistant its own steps, the address to copy,
+and the one line where there is one:
 
-1. **Claude** — add a custom connector with the address. **ChatGPT** — create a
-   connector in developer mode with the address.
-2. The assistant opens Mocky. Sign in if asked.
-3. Mocky shows which assistant is asking, which account it would act as, and
+| Assistant | How |
+|---|---|
+| **Claude** (claude.ai, desktop, mobile) | **Open Claude's connectors** (claude.ai/customize/connectors) → **+** → *Add custom connector*: name it "Mocky", paste the address. Added once, it is there in all three. |
+| **ChatGPT** | Settings → Apps → Advanced settings: turn on *developer mode*, then *Create app*: name it "Mocky", paste the address, authentication OAuth. |
+| **Claude Code** | One line, then `/mcp` in Claude Code to give your consent. |
+
+```bash
+claude mcp add --transport http --scope user mocky https://<your-mocky>/mcp
+```
+
+Claude Code is the only one that takes a connector in one line: claude.ai,
+Claude Desktop and ChatGPT have no install link and no file for a remote
+connector, by design — the person adds it in their own settings. (A Claude
+*skill* cannot do it either: a skill teaches Claude how to do something, it does
+not add a connector. How to use Mocky well is already served by the connector
+itself, as `mocky_guide`.) For Claude Desktop with a Mocky the assistants cannot
+reach, see [A Mocky the assistants cannot reach](#a-mocky-the-assistants-cannot-reach).
+
+Then, in every case:
+
+1. Ask for a design. The first time, the assistant opens Mocky. Sign in if asked.
+2. Mocky shows which assistant is asking, which account it would act as, and
    where you will be sent back. **Allow** or **Deny** — a refusal is handed back
    to the assistant, which stops waiting.
 

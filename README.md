@@ -699,10 +699,21 @@ Chromium; a source install sets `MOCKY_RUNNER_CHROMIUM`.
 **Everyone else — Settings → Connected assistants** shows the address to give
 the assistant, `https://<your-mocky>/mcp`:
 
-1. **Claude**: add a custom connector with that address. **ChatGPT**: create a
-   connector in developer mode with it, authentication OAuth.
+1. **Claude** (claude.ai, desktop, mobile): the page's **Open Claude's
+   connectors** button → **+** → *Add custom connector*, paste the address.
+   **ChatGPT**: Settings → Apps → Advanced settings → developer mode → *Create
+   app*, paste the address, authentication OAuth. **Claude Code**, in one line:
+
+   ```bash
+   claude mcp add --transport http --scope user mocky https://<your-mocky>/mcp
+   ```
+
 2. Sign in to Mocky if asked, and **Allow**.
 3. Ask: *"Make me an Instagram post for the autumn menu"*.
+
+Only Claude Code installs a connector in one line; claude.ai, Claude Desktop
+and ChatGPT have no install link for a remote connector, so the page hands you
+each step and the address to copy.
 
 The same page lists the assistants you let in, with **Disconnect**. Tokens are
 stored by hash, access is checked again on every call, and a screen's private

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type AccountMcpView, type McpEngine } from '../lib/api'
-import { Button, Input, Select } from '../ui'
+import { Button, ButtonLink, Input, Select } from '../ui'
 import { useT } from '../i18n'
 
 /**
@@ -12,6 +12,66 @@ import { useT } from '../i18n'
  * list. A section that vanished in those cases would read as "this Mocky cannot
  * do that", which is not always true.
  */
+/**
+ * How to add Mocky to each assistant, as close to one step as each allows.
+ *
+ * Only Claude Code takes a connector in one line. claude.ai, Claude Desktop and
+ * ChatGPT have no install link and no file for a REMOTE connector (checked
+ * 2026-10): the person adds it in their own settings, by design. So the best
+ * this page can do is take them to the right screen and hand them the exact
+ * words to paste — the address, and the one line where there is one.
+ */
+function InstallSteps({ url }: { url: string }) {
+  const t = useT()
+  const [copied, setCopied] = useState<string | null>(null)
+  const copy = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(key)
+      window.setTimeout(() => setCopied((k) => (k === key ? null : k)), 1500)
+    } catch {
+      /* the text is on screen to select by hand */
+    }
+  }
+  const command = `claude mcp add --transport http --scope user mocky ${url}`
+  return (
+    <div className="mt-3 grid gap-3">
+      <div className="border border-line-soft p-3">
+        <p className="text-body-sm font-medium text-ink">{t('mcp.install.claude')}</p>
+        <p className="measure mt-1 text-caption text-ink-muted">{t('mcp.install.claudeSteps')}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <ButtonLink size="sm" variant="primary" href="https://claude.ai/customize/connectors" target="_blank" rel="noopener noreferrer">
+            {t('mcp.install.claudeOpen')}
+          </ButtonLink>
+          <Button size="sm" onClick={() => void copy('claude', url)}>
+            {copied === 'claude' ? t('mcp.install.copied') : t('mcp.install.copyUrl')}
+          </Button>
+        </div>
+      </div>
+      <div className="border border-line-soft p-3">
+        <p className="text-body-sm font-medium text-ink">{t('mcp.install.chatgpt')}</p>
+        <p className="measure mt-1 text-caption text-ink-muted">{t('mcp.install.chatgptSteps')}</p>
+        <div className="mt-2">
+          <Button size="sm" onClick={() => void copy('chatgpt', url)}>
+            {copied === 'chatgpt' ? t('mcp.install.copied') : t('mcp.install.copyUrl')}
+          </Button>
+        </div>
+      </div>
+      <div className="border border-line-soft p-3">
+        <p className="text-body-sm font-medium text-ink">{t('mcp.install.code')}</p>
+        <p className="measure mt-1 text-caption text-ink-muted">{t('mcp.install.codeSteps')}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap bg-ink/5 px-2 py-1.5 font-mono text-caption text-ink">{command}</code>
+          <Button size="sm" onClick={() => void copy('code', command)}>
+            {copied === 'code' ? t('mcp.install.copied') : t('mcp.install.copyCommand')}
+          </Button>
+        </div>
+      </div>
+      <p className="measure text-caption text-ink-muted">{t('mcp.install.after')}</p>
+    </div>
+  )
+}
+
 export default function AssistantConnections() {
   const t = useT()
   const [view, setView] = useState<AccountMcpView | null>(null)
@@ -65,7 +125,7 @@ export default function AssistantConnections() {
         <div className="mb-4">
           <label className="mb-1.5 block text-body-sm font-medium text-ink">{t('mcp.account.url')}</label>
           <Input readOnly value={view.mcpUrl} onFocus={(e) => e.currentTarget.select()} />
-          <p className="measure mt-1.5 text-caption text-ink-muted">{t('mcp.account.howto')}</p>
+          <InstallSteps url={view.mcpUrl} />
           {canChoose && (
             <div className="mt-4">
               <label htmlFor="mcp-engine" className="mb-1.5 block text-body-sm font-medium text-ink">

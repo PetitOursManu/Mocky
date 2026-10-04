@@ -1,5 +1,5 @@
 ---
-source_hash: 1785ed5c974a
+source_hash: edbd9750ce24
 ---
 
 # Connecter un assistant (MCP)
@@ -265,12 +265,33 @@ code de vos designs**. Si la section
 indique que la fonction est désactivée, ou que le compte n'est pas autorisé,
 c'est une décision d'administrateur.
 
-Pour se connecter :
+Pour se connecter — la page donne à chaque assistant ses propres étapes,
+l'adresse à copier, et la ligne unique quand elle existe :
 
-1. **Claude** — ajoutez un connecteur personnalisé avec l'adresse. **ChatGPT** —
-   créez un connecteur en mode développeur avec l'adresse.
-2. L'assistant ouvre Mocky. Connectez-vous si on vous le demande.
-3. Mocky indique quel assistant demande l'accès, au nom de quel compte il
+| Assistant | Comment |
+|---|---|
+| **Claude** (claude.ai, bureau, mobile) | **Ouvrir les connecteurs de Claude** (claude.ai/customize/connectors) → **+** → *Ajouter un connecteur personnalisé* : nommez-le « Mocky », collez l'adresse. Ajouté une fois, il est disponible dans les trois. |
+| **ChatGPT** | Réglages → Applications → Paramètres avancés : activez le *mode développeur*, puis *Créer une application* : nommez-la « Mocky », collez l'adresse, authentification OAuth. |
+| **Claude Code** | Une ligne, puis `/mcp` dans Claude Code pour donner votre accord. |
+
+```bash
+claude mcp add --transport http --scope user mocky https://<votre-mocky>/mcp
+```
+
+Claude Code est le seul à accepter un connecteur en une ligne : claude.ai,
+Claude Desktop et ChatGPT n'ont ni lien d'installation ni fichier pour un
+connecteur distant, à dessein — la personne l'ajoute dans ses propres réglages.
+(Une *skill* Claude ne le peut pas non plus : une skill apprend à Claude à faire
+quelque chose, elle n'ajoute pas de connecteur. Bien utiliser Mocky, le
+connecteur l'enseigne déjà lui-même, avec `mocky_guide`.) Pour Claude Desktop
+avec un Mocky que les assistants ne peuvent pas joindre, voir
+[Un Mocky que les assistants ne peuvent pas joindre](#un-mocky-que-les-assistants-ne-peuvent-pas-joindre).
+
+Ensuite, dans tous les cas :
+
+1. Demandez un design. La première fois, l'assistant ouvre Mocky.
+   Connectez-vous si on vous le demande.
+2. Mocky indique quel assistant demande l'accès, au nom de quel compte il
    agirait, et vers où vous serez renvoyé. **Autoriser** ou **Refuser** — un
    refus est transmis à l'assistant, qui cesse d'attendre.
 
