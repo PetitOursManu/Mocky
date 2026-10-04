@@ -26,8 +26,13 @@ export const VIEW_URI = 'ui://mocky/screen-v1.html'
 export const VIEW_MIME = 'text/html;profile=mcp-app'
 /** The spec revision this view speaks. */
 export const APPS_PROTOCOL = '2026-01-26'
-/** Tallest the frame grows in a conversation; the page scrolls inside it. */
-export const VIEW_MAX_HEIGHT = 720
+/**
+ * Tallest the design is drawn in a conversation. The frame — a post, a page,
+ * the window of a site — is scaled to fit it WHOLE, width and height: the
+ * first ChatGPT test drew a square post wider than the view and cut its foot,
+ * with two scroll bars around it. A site still scrolls inside its own window.
+ */
+export const VIEW_MAX_HEIGHT = 560
 
 export function buildViewHtml(origin) {
   const o = JSON.stringify(String(origin || ''))
@@ -36,7 +41,7 @@ export function buildViewHtml(origin) {
 <style>
   :root { --ink:#1d1d1b; --muted:#6b6a64; --line:#d9d6cc; --bg:transparent; --accent:#20796c; }
   @media (prefers-color-scheme: dark) { :root { --ink:#ecebe6; --muted:#a3a19a; --line:#3a3a36; --accent:#2dc7b0; } }
-  html, body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  html, body { margin:0; overflow:hidden; background:var(--bg); color:var(--ink); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
   .bar { display:flex; align-items:center; gap:12px; padding:8px 2px; }
   .title { flex:1; min-width:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .open { border:1px solid var(--line); background:none; color:var(--accent); font:inherit; font-weight:600; padding:5px 10px; border-radius:6px; cursor:pointer; }
@@ -89,9 +94,11 @@ export function buildViewHtml(origin) {
     var stage = root.querySelector('.stage');
     var frame = stage && stage.querySelector('iframe');
     if (!frame) return;
-    var avail = Math.max(200, root.clientWidth || document.documentElement.clientWidth);
-    var scale = Math.min(1, avail / view.width);
-    var h = Math.min(view.height, Math.round(MAX_H / scale));
+    // The border is two pixels the scale must leave room for, or a scroll bar
+    // appears for them.
+    var avail = Math.max(200, (document.documentElement.clientWidth || root.clientWidth) - 2);
+    var scale = Math.min(1, avail / view.width, MAX_H / view.height);
+    var h = view.height;
     frame.style.width = view.width + 'px';
     frame.style.height = h + 'px';
     frame.style.transform = 'scale(' + scale + ')';
