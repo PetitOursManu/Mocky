@@ -673,7 +673,10 @@ corriger son accessibilité.
 Avant de concevoir, il demande ce qui lui manque (quel écran, pour qui, quel
 ton) ; il peut choisir les images lui-même — des photos libres qu'il regarde,
 ou une image qu'il a créée — et il reçoit une image du résultat et un lien qui
-ouvre le projet dans Mocky, pour vous une fois connecté.
+ouvre le projet dans Mocky, pour vous une fois connecté — et, dans Claude et
+ChatGPT, le design lui-même, vivant dans la conversation. Un Mocky qu'ils ne
+peuvent pas joindre depuis Internet (un réseau local) est servi à Claude Desktop
+par un pont local, `bridge/mocky-mcp.js`.
 
 **Administrateur — Admin → Assistants (MCP).** La section se déverrouille dès
 que `MOCKY_ORIGIN` est une origine `https://` et que la page elle-même vous est

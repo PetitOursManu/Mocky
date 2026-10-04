@@ -1,5 +1,5 @@
 ---
-source_hash: 87e824220cdd
+source_hash: d5bc579e1337
 ---
 
 # Invariants
@@ -20,7 +20,7 @@ Il y a six séries :
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
 - **D1 à D5**, apportés par le tableau de bord d’administration.
-- **X1 à X6**, apportés par Mocky comme serveur MCP.
+- **X1 à X7**, apportés par Mocky comme serveur MCP.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1016,6 +1016,30 @@ métadonnées ou un voisin du réseau local.
 pointe une `<img>` vers un serveur local, qui ne doit rien recevoir — et reçoit
 la requête quand le garde est retiré), `server/mcp/runner-auth.test.js` (les
 routes qu'ouvre le jeton, et celles qu'il n'ouvre jamais).
+
+### X7. Un écran que Mocky sert seul reste dans son bac à sable
+
+**La règle.** Partout où Mocky sert le document d'aperçu d'un écran à une
+adresse de sa propre origine — aujourd'hui seulement l'aperçu vivant,
+`/mcp-view/<empreinte>.html` — la réponse porte
+`Content-Security-Policy: sandbox allow-scripts`, le même bac à sable que lui
+donne l'attribut de l'iframe de l'interface, et le document garde sa propre
+politique (`Preview.tsx`). L'adresse est signée et expire ; sans la signature
+c'est une 404, et serveur MCP désactivé, elle n'existe pas (X1).
+
+**Ce qu'elle protège.** I2 et I3, un cran plus loin. Un aperçu est du code écrit
+par un modèle, et l'interface ne l'exécute sans risque que parce que le
+`sandbox` de l'iframe lui donne une origine opaque. Servi depuis l'origine de
+Mocky sans cela, le même code s'exécuterait EN TANT QUE Mocky pour quiconque
+ouvre le lien — lire les projets de la session, les écrire, agir au nom du
+compte. L'en-tête fait se comporter l'adresse comme l'iframe, qu'elle soit
+encadrée par l'hôte d'un assistant ou ouverte seule. Elle ne porte pas de
+`frame-ancestors` : la vue d'un hôte peut tourner dans une origine opaque, que
+`*` refuserait.
+
+**Comment c'est vérifié.** `tests/mcp-tools-e2e.test.js` : l'en-tête est
+présent, `X-Frame-Options` a disparu, une signature forgée répond 404, et un
+Chromium qui joue l'hôte encadre la vue, qui encadre l'écran, qui s'affiche.
 
 Les outils qui permettront à un assistant d'appeler l'exécuteur ajouteront leurs
 propres règles à cette série.

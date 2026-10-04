@@ -216,12 +216,15 @@ export function createRunner(d) {
 
   // ---- shots -------------------------------------------------------------------
   /** Both pictures under one name: `<hash>.png` (whole page) and `<hash>.jpg` (the assistant's). */
-  function saveShot(png, jpeg) {
+  function saveShot(png, jpeg, html) {
     const hash = crypto.createHash('sha256').update(png).digest('hex')
     fs.mkdirSync(shotsDir, { recursive: true })
     const file = path.join(shotsDir, `${hash}.png`)
     if (!fs.existsSync(file)) fs.writeFileSync(file, png, { mode: 0o600 })
     if (jpeg && !fs.existsSync(path.join(shotsDir, `${hash}.jpg`))) fs.writeFileSync(path.join(shotsDir, `${hash}.jpg`), jpeg, { mode: 0o600 })
+    // The live view's document (phase 5), kept beside the picture it moves in
+    // and pruned with it: one key for both, so a link to one is a link to both.
+    if (html && !fs.existsSync(path.join(shotsDir, `${hash}.html`))) fs.writeFileSync(path.join(shotsDir, `${hash}.html`), html, { mode: 0o600 })
     pruneShots()
     return hash
   }
@@ -238,6 +241,7 @@ export function createRunner(d) {
         if (i >= MAX_SHOTS || now - x.t > SHOT_TTL_MS) {
           fs.rmSync(path.join(shotsDir, x.f), { force: true })
           fs.rmSync(path.join(shotsDir, x.f.replace(/\.png$/, '.jpg')), { force: true })
+          fs.rmSync(path.join(shotsDir, x.f.replace(/\.png$/, '.html')), { force: true })
         }
       })
     } catch {
@@ -246,11 +250,11 @@ export function createRunner(d) {
   }
 
   /**
-   * A shot by its hash — the whole page (`png`) or the assistant's JPEG
-   * (`jpg`) — or null. The hash is the only key; ownership is the caller's check.
+   * A shot by its hash — the whole page (`png`), the assistant's JPEG (`jpg`)
+   * or the live view's document (`html`) — or null. The hash is the only key; ownership is the caller's check.
    */
   function readShot(hash, kind = 'png') {
-    if (!/^[a-f0-9]{64}$/.test(String(hash)) || (kind !== 'png' && kind !== 'jpg')) return null
+    if (!/^[a-f0-9]{64}$/.test(String(hash)) || !['png', 'jpg', 'html'].includes(kind)) return null
     try {
       return fs.readFileSync(path.join(shotsDir, `${hash}.${kind}`))
     } catch {
@@ -346,7 +350,10 @@ export function createRunner(d) {
       timeout: 30_000,
       clip: { x: box?.x ?? 0, y: box?.y ?? 0, width: spec.w, height: Math.min(shown.height, PREVIEW_MAX_HEIGHT) },
     })
-    return { png, jpeg, height: shown.height }
+    // The same screen, alive, for an assistant whose host shows MCP Apps. A
+    // failure costs the live view, never the picture.
+    const html = await page.evaluate((x) => window.__mockyRunner.document?.(x) ?? null, { code: spec.code, caps: spec.caps || [] }).catch(() => null)
+    return { png, jpeg, html: typeof html === 'string' ? html : null, height: shown.height }
   }
 
   // ---- one job -------------------------------------------------------------------
@@ -428,7 +435,8 @@ export function createRunner(d) {
         job.progress = 'picture'
         try {
           const shot = await photograph(page, { code: result.code, w: result.w, h: result.h, caps: result.caps })
-          job.result.shot = saveShot(shot.png, shot.jpeg)
+          job.result.shot = saveShot(shot.png, shot.jpeg, shot.html)
+          job.result.live = Boolean(shot.html)
           job.result.shotHeight = shot.height
         } catch (err) {
           // The screen exists and is saved; only its picture failed. Said, not fatal (X7-to-be).
@@ -586,7 +594,7 @@ export function createRunner(d) {
           context = opened.context
           await ready(opened.page)
           const shot = await photograph(opened.page, { code: spec.code, w: spec.w, h: spec.h, caps: spec.caps || [] })
-          const hash = saveShot(shot.png, shot.jpeg)
+          const hash = saveShot(shot.png, shot.jpeg, shot.html)
           codeShots.set(key, hash)
           if (codeShots.size > MAX_SHOTS) codeShots.delete(codeShots.keys().next().value)
           return hash

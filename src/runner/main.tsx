@@ -41,7 +41,7 @@ import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/sc
 import { auditScreen, type AuditReport } from '../lib/audit'
 import { isScreenThemeId } from '../lib/screenThemes'
 import { translate, type TranslationKey } from '../i18n'
-import Preview from '../components/Preview'
+import Preview, { previewDocument } from '../components/Preview'
 
 /**
  * What a job does. `new` (the default) makes a screen; the others work on one
@@ -118,6 +118,8 @@ declare global {
     __mockyRunner?: {
       run: (job: RunnerJob) => Promise<RunnerResult>
       show: (spec: { code: string; w: number; h: number; caps: string[] }) => Promise<{ height: number }>
+      /** The same screen as a live document, animations on, for the MCP live view (server/mcp/view.js). */
+      document: (spec: { code: string; caps: string[] }) => string
     }
     /** Exposed by the server (page.exposeFunction): where progress goes. */
     __mockyRunnerProgress?: (phase: string) => void
@@ -638,5 +640,11 @@ function show(spec: { code: string; w: number; h: number; caps: string[] }): Pro
   })
 }
 
-window.__mockyRunner = { run, show }
+window.__mockyRunner = {
+  run,
+  show,
+  // Built here, in a page at the public origin, so its addresses are the ones a
+  // browser elsewhere can load — the reason the runner lives at that origin.
+  document: (spec) => previewDocument(spec.code, spec.caps || [], { frameId: 'mcp-view', animations: true }),
+}
 document.documentElement.dataset.runner = 'ready'

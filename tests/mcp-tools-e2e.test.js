@@ -11,6 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { findChromium } from '../server/mcp/runner.js'
 import { GUIDED_TOOLS, CLIENT_TOOLS } from '../server/mcp/guide.js'
+import { VIEW_URI, VIEW_MIME } from '../server/mcp/view.js'
 
 /**
  * The whole promise of the MCP plan, from an assistant's side: connect through
@@ -222,6 +223,79 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // It is in the account, in the project it named.
     const projects = JSON.parse((await (await call('GET', '/api/data')).json()).projects)
     expect(projects.find((p) => p.id === projectId).name).toBe('Boulangerie')
+  }, 120_000)
+
+  it('shows the design alive in a host that speaks MCP Apps (phase 5)', async () => {
+    // The resource: the right type, and one domain it may frame — Mocky's.
+    const res = await mcp.readResource({ uri: VIEW_URI })
+    expect(res.contents[0].mimeType).toBe(VIEW_MIME)
+    expect(res.contents[0]._meta.ui.csp.frameDomains).toEqual([base])
+    const tools = (await mcp.listTools()).tools
+    for (const name of ['create_design', 'get_design', 'get_screenshot', 'edit_design']) {
+      expect(tools.find((t) => t.name === name)._meta?.ui?.resourceUri, name).toBe(VIEW_URI)
+    }
+    expect(tools.find((t) => t.name === 'audit_design')._meta?.ui).toBeUndefined()
+
+    // The screen of the first design, as get_screenshot hands it back.
+    const projects = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
+    const project = projects.find((p) => p.name === 'Boulangerie')
+    const screens = (await mcp.callTool({ name: 'get_project', arguments: { project_id: project.id } })).structuredContent.screens
+    const shot = await mcp.callTool({ name: 'get_screenshot', arguments: { project_id: project.id, screen_id: screens[0].id } })
+    const view = shot.structuredContent.view
+    expect(view.url).toMatch(new RegExp('^' + base + '/mcp-view/[a-f0-9]{64}\\.html\\?e='))
+
+    // Served sandboxed, framable, and only with its signature.
+    const page = await fetch(view.url)
+    expect(page.status).toBe(200)
+    expect(page.headers.get('content-security-policy')).toContain('sandbox allow-scripts')
+    expect(page.headers.get('x-frame-options')).toBeNull()
+    expect(await page.text()).toContain('Content-Security-Policy')
+    expect((await fetch(view.url.replace(/s=[^&]+/, 's=forged'))).status).toBe(404)
+
+    // A host, played by Chromium: frame the view, answer its handshake, hand it
+    // the tool result — and the screen must render inside, from Mocky's origin.
+    const { chromium: pw } = await import('playwright-core')
+    // Chromium refuses a loopback frame inside an about:blank page (Local Network
+    // Access); a real host is https framing https, where that rule never fires.
+    const browser = await pw.launch({
+      executablePath: chromium,
+      args: ['--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults'],
+    })
+    try {
+      const host = await browser.newPage()
+      const html = res.contents[0].text
+      await host.setContent('<iframe id="app" style="width:900px;height:800px;border:0"></iframe>')
+      await host.evaluate(
+        ({ html, result }) =>
+          new Promise((resolve) => {
+            const frame = document.getElementById('app')
+            window.__events = []
+            window.addEventListener('message', (e) => {
+              const m = e.data
+              if (!m || m.jsonrpc !== '2.0') return
+              window.__events.push(m.method || 'response')
+              if (m.method === 'ui/initialize') frame.contentWindow.postMessage({ jsonrpc: '2.0', id: m.id, result: { protocolVersion: '2026-01-26', hostCapabilities: {}, hostInfo: { name: 'test', version: '1' }, hostContext: {} } }, '*')
+              if (m.method === 'ui/notifications/initialized') {
+                frame.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: result }, '*')
+                resolve(true)
+              }
+            })
+            frame.srcdoc = html
+          }),
+        { html, result: { content: shot.content.filter((c) => c.type === 'text'), structuredContent: shot.structuredContent } },
+      )
+      const deadline = Date.now() + 30_000
+      let screen = null
+      while (!screen && Date.now() < deadline) {
+        screen = host.frames().find((fr) => fr.url().includes('/mcp-view/'))
+        if (!screen) await new Promise((r) => setTimeout(r, 200))
+      }
+      expect(screen, 'the view framed the screen').toBeTruthy()
+      await screen.waitForSelector('text=Boulangerie', { timeout: 30_000 })
+      expect(await host.evaluate(() => window.__events)).toContain('ui/notifications/size-changed')
+    } finally {
+      await browser.close()
+    }
   }, 120_000)
 
   it('shows a project and photographs an existing screen', async () => {

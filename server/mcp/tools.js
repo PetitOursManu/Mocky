@@ -18,6 +18,8 @@
  *   search_free_images  free photos, as thumbnails to look at      (read)
  *   add_image       a picture into the library, for a design      (write)
  *   + the prompt `new-design`, which starts the short interview
+ *   + the resource `ui://mocky/screen-v1.html`: the live view (view.js), which
+ *     every tool that returns a screen names in `_meta.ui.resourceUri`
  *
  * Rules every tool here keeps, and every later one must:
  *  - it acts as `user` and nobody else; a project, screen or job that is not
@@ -40,6 +42,7 @@ import { z } from 'zod'
 import { parseProjects } from '../merge.js'
 import { SCREEN_TYPES } from './screen-types.js'
 import { buildGuide } from './guide.js'
+import { buildViewHtml, VIEW_MIME, VIEW_URI } from './view.js'
 
 export { SCREEN_TYPES }
 
@@ -230,6 +233,27 @@ export function buildMcpServer(deps) {
   const projects = () => parseProjects(readProjects()).filter((p) => p && typeof p.id === 'string' && !p.deletedAt)
   const findProject = (id) => projects().find((p) => p.id === id)
 
+  /**
+   * The live view of a photographed screen (phase 5, view.js), for the hosts
+   * that show MCP Apps — or undefined, and the picture is the whole answer.
+   * Only when the runner kept the document beside the picture: a link to a page
+   * that is not there would be a frame with an error in it.
+   */
+  function liveView(shot, { projectId, screenId, w, h }, lang) {
+    if (!shot || !deps.viewLink || !runner.readShot(shot, 'html')) return undefined
+    const screen = findProject(projectId)?.screens?.find((x) => x?.id === screenId)
+    return {
+      url: deps.viewLink(shot),
+      width: typeof w === 'number' ? w : 1440,
+      height: typeof h === 'number' ? h : 900,
+      title: (screen && typeof screen.name === 'string' && screen.name) || 'Mocky',
+      link: linkFor(projectId, screenId),
+      openLabel: lang === 'fr' ? 'Ouvrir dans Mocky' : 'Open in Mocky',
+    }
+  }
+  /** On every tool whose answer is a screen: the view a host that shows MCP Apps renders it in. */
+  const VIEW_META = { ui: { resourceUri: VIEW_URI } }
+
   /** What a finished (or failed, or running) job becomes in a tool result. */
   function jobResult(job, lang) {
     if (!job) return refuse(lang === 'fr' ? 'Ce travail n’existe pas.' : 'No such job.')
@@ -283,6 +307,7 @@ export function buildMcpServer(deps) {
         picture: r.shot ? deps.shotLink(r.shot) : null,
         pictureSource: r.picture || 'none',
         notes,
+        view: liveView(r.shot, r, lang),
       },
     }
   }
@@ -369,6 +394,7 @@ export function buildMcpServer(deps) {
         ...(r.audit ? { audit: r.audit } : {}),
         ...(r.auditFix ? { auditFix: r.auditFix } : {}),
         notes,
+        view: liveView(r.shot, r, lang),
       },
     }
   }
@@ -459,6 +485,23 @@ export function buildMcpServer(deps) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => ({ content: [text(buildGuide({ client: Boolean(deps.engines?.().client) }))] }),
+  )
+  server.registerResource(
+    'screen-view',
+    VIEW_URI,
+    { title: 'Mocky screen', description: 'A design from Mocky, live: scroll it, click it.', mimeType: VIEW_MIME },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: VIEW_MIME,
+          text: buildViewHtml(deps.origin),
+          // The one domain it frames, and nothing it fetches: the screen inside
+          // is served by Mocky under its own sandbox (routes.js, /mcp-view).
+          _meta: { ui: { csp: { frameDomains: deps.origin ? [deps.origin] : [], connectDomains: [], resourceDomains: [] }, prefersBorder: false } },
+        },
+      ],
+    }),
   )
   server.registerResource(
     'guide',
@@ -701,6 +744,7 @@ export function buildMcpServer(deps) {
           .optional()
           .describe('Mocky\'s art direction (Muse) designs the look first — on by default for a new project. Pass false only when the person wants it fast or gave a complete visual direction.'),
       },
+      _meta: VIEW_META,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async (args) => startDesign(args, null, 'create_design'),
@@ -718,6 +762,7 @@ export function buildMcpServer(deps) {
         project_id: z.string().min(1).max(64).describe('The project the person asked for, from list_projects.'),
         ...designFields,
       },
+      _meta: VIEW_META,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async (args) => {
@@ -751,6 +796,7 @@ export function buildMcpServer(deps) {
         ...screenFields,
         instruction: z.string().min(1).max(4000).describe('What to change, in the person\'s words. Only the change: the screen\'s current content is kept.'),
       },
+      _meta: VIEW_META,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async (args) => startPass('edit', args),
@@ -764,6 +810,7 @@ export function buildMcpServer(deps) {
         'Checks a screen against Mocky\'s design-quality rules (generic machine-made patterns, weak hierarchy, filler copy…), corrects what it finds, and scores it out of 20. ' +
         'It may restyle details: that is its job. Returns what was fixed, what is left, the score, and a picture when the screen changed. Revertible in Mocky.',
       inputSchema: screenFields,
+      _meta: VIEW_META,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async (args) => startPass('polish', args),
@@ -793,6 +840,7 @@ export function buildMcpServer(deps) {
         'Audits a screen (as audit_design) and corrects the fixable SEO and accessibility findings in the markup — labels, headings, alt text, landmarks… — with the screen looking the same. ' +
         'Returns what was fixed and what could not be. Revertible in Mocky.',
       inputSchema: screenFields,
+      _meta: VIEW_META,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async (args) => startPass('auditFix', args),
@@ -810,6 +858,7 @@ export function buildMcpServer(deps) {
           job_id: z.string().min(1).max(64).describe('The job id from the answer that gave you the rules.'),
           code: z.string().min(1).max(300_000).describe('The complete component: one `export default function App()`, as the rules say.'),
         },
+        _meta: VIEW_META,
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
       },
       async ({ job_id, code }) => {
@@ -921,6 +970,7 @@ export function buildMcpServer(deps) {
       title: 'Get a design being made',
       description: 'Waits for work started by create_design, add_screen, edit_design, polish_design, audit_design or fix_accessibility, and returns its answer, or says it is still running. Read-only.',
       inputSchema: { job_id: z.string().min(1).max(64).describe('The job id create_design returned.') },
+      _meta: VIEW_META,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ job_id }) => {
@@ -938,6 +988,7 @@ export function buildMcpServer(deps) {
         project_id: z.string().min(1).max(64),
         screen_id: z.string().min(1).max(64),
       },
+      _meta: VIEW_META,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ project_id, screen_id }) => {
@@ -960,7 +1011,13 @@ export function buildMcpServer(deps) {
             ...(jpeg ? [{ type: 'image', data: jpeg.toString('base64'), mimeType: 'image/jpeg' }] : []),
             text(`${s.name || '(untitled)'} — ${link}\nPicture: ${deps.shotLink(hash)}`),
           ],
-          structuredContent: { projectId: p.id, screenId: s.id, link, picture: deps.shotLink(hash) },
+          structuredContent: {
+            projectId: p.id,
+            screenId: s.id,
+            link,
+            picture: deps.shotLink(hash),
+            view: liveView(hash, { projectId: p.id, screenId: s.id, w: s.w, h: s.h }, briefLanguage(s.prompt || '')),
+          },
         }
       } catch (err) {
         return refuse(`The picture could not be taken: ${String(err?.message || err).slice(0, 200)}`)

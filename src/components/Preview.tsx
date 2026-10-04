@@ -143,6 +143,26 @@ function utf8ToBase64(str: string): string {
   )
 }
 
+/**
+ * A screen's preview document on its own — the exact srcDoc this component
+ * builds, for a caller that serves it at a real URL instead: the MCP live view
+ * (server/mcp/view.js), where an assistant's conversation shows the screen
+ * moving and clickable. Served under `Content-Security-Policy: sandbox
+ * allow-scripts`, it gets the opaque origin the iframe's `sandbox` attribute
+ * gives it here, and its own policy below rather than an inherited one.
+ */
+export function previewDocument(code: string, caps: string[], opts: { frameId: string; animations?: boolean }): string {
+  return buildSrcDoc(
+    toPreviewModule(code),
+    detectComponentName(code),
+    opts.frameId,
+    false,
+    caps.length ? resolveCapabilities(caps) : [],
+    false,
+    opts.animations !== false,
+  )
+}
+
 function buildSrcDoc(
   sourceCode: string,
   componentName: string,

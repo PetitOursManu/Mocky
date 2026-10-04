@@ -27,7 +27,7 @@ import { createMcpOAuthProvider } from './provider.js'
 import { buildMcpServer } from './tools.js'
 
 /** The paths that must not exist while the server is off (X1). */
-const MCP_PATHS = /^\/(?:mcp|mcp-shot|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
+const MCP_PATHS = /^\/(?:mcp|mcp-shot|mcp-view|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
 
 /** How long a picture link handed to an assistant works. */
 export const SHOT_LINK_TTL_MS = 24 * 60 * 60 * 1000
@@ -113,6 +113,15 @@ export function createMcpServerRoutes(d) {
     const exp = Date.now() + SHOT_LINK_TTL_MS
     return `${origin}/mcp-shot/${hash}.jpg?e=${exp}&s=${sign(hash, exp)}`
   }
+  /**
+   * The live view's document (phase 5, server/mcp/view.js): the same signature,
+   * the same day — a link to the picture and a link to the moving screen are
+   * one capability, so they are one key.
+   */
+  function viewLink(hash) {
+    const exp = Date.now() + SHOT_LINK_TTL_MS
+    return `${origin}/mcp-view/${hash}.html?e=${exp}&s=${sign(hash, exp)}`
+  }
   function shotLinkValid(hash, exp, sig) {
     if (!/^[a-f0-9]{64}$/.test(hash) || !/^\d{10,16}$/.test(String(exp)) || Number(exp) < Date.now()) return false
     const want = Buffer.from(sign(hash, exp))
@@ -175,6 +184,8 @@ export function createMcpServerRoutes(d) {
         engines: () => config.get().engines,
         hasTextProvider: d.hasTextProvider,
         shotLink,
+        viewLink,
+        origin,
         pictures: d.pictures,
       })
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
@@ -199,6 +210,30 @@ export function createMcpServerRoutes(d) {
       res.setHeader('Content-Type', 'image/jpeg')
       res.setHeader('Cache-Control', 'private, max-age=3600')
       res.end(jpeg)
+    })
+
+    /*
+     * A screen, alive, for the live view. This is model-written code served
+     * from Mocky's origin, so the response makes it what the composer's iframe
+     * makes it: `sandbox allow-scripts`, an opaque origin with no cookie, no
+     * storage and no Mocky behind it — whoever opens the link, framed or not.
+     * Its own meta policy (Preview.tsx) still forbids every outbound verb.
+     * Framable from anywhere, which is the point: the host's view frames it,
+     * and the signature is what decides who may. By saying nothing rather than
+     * `frame-ancestors *`: a star matches network schemes only, and a host's
+     * view may well run in an opaque origin, which the star would refuse.
+     */
+    app.get('/mcp-view/:file', (req, res) => {
+      const m = /^([a-f0-9]{64})\.html$/.exec(req.params.file)
+      if (!m || !shotLinkValid(m[1], req.query.e, req.query.s)) return res.status(404).end()
+      const html = d.runner.readShot(m[1], 'html')
+      if (!html) return res.status(404).end()
+      res.removeHeader('X-Frame-Options')
+      res.setHeader('Content-Security-Policy', 'sandbox allow-scripts')
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.setHeader('Cache-Control', 'private, max-age=3600')
+      res.setHeader('Referrer-Policy', 'no-referrer')
+      res.end(html)
     })
 
     for (const method of ['get', 'delete']) {

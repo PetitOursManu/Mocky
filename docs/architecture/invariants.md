@@ -16,7 +16,7 @@ There are six series:
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
 - **D1 to D5**, introduced by the admin dashboard.
-- **X1 to X6**, introduced by Mocky as an MCP server.
+- **X1 to X7**, introduced by Mocky as an MCP server.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -950,6 +950,28 @@ call its own metadata endpoint or a neighbour on the LAN.
 an `<img>` at a loopback server, which must receive nothing — and does when the
 guard is removed), `server/mcp/runner-auth.test.js` (the routes the token opens
 and those it never does).
+
+### X7. A screen Mocky serves on its own is still in its sandbox
+
+**The rule.** Wherever Mocky serves a screen's preview document at a URL of its
+own origin — today only the live view, `/mcp-view/<hash>.html` — the response
+carries `Content-Security-Policy: sandbox allow-scripts`, the same sandbox the
+composer's iframe attribute gives it, and the document keeps its own policy
+(`Preview.tsx`). The URL is signed and expires; without the signature it is a
+404, and with the MCP server off it does not exist (X1).
+
+**What it protects.** I2 and I3, one step further out. A preview is
+model-written code, and the composer is safe running it only because the
+iframe's `sandbox` gives it an opaque origin. Served from Mocky's origin
+without that, the same code would run AS Mocky for whoever opened the link —
+read the session's projects, write them, act as the account. The header makes
+the URL behave like the iframe whether it is framed by an assistant's host or
+opened on its own. It carries no `frame-ancestors`: a host's view may run in an
+opaque origin, which `*` would refuse.
+
+**How it is checked.** `tests/mcp-tools-e2e.test.js`: the header is present,
+`X-Frame-Options` is gone, a forged signature answers 404, and a Chromium
+playing the host frames the view, which frames the screen, which renders.
 
 The tools that let an assistant call the runner add their own rules to this
 series.

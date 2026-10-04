@@ -684,7 +684,9 @@ run Mocky's quality pass on it, or audit and fix its accessibility. Before
 designing it asks what it needs (what the screen is, for whom, the tone);
 it can choose the pictures itself — free photos it looks at, or one it made —
 and it gets back a picture of the result and a link that opens the project in
-Mocky, for you once signed in.
+Mocky, for you once signed in — and, in Claude and ChatGPT, the design itself,
+alive in the conversation. A Mocky they cannot reach from the Internet (a LAN)
+is served to Claude Desktop through a local bridge, `bridge/mocky-mcp.js`.
 
 **Administrator — Admin → Assistants (MCP).** The section unlocks once
 `MOCKY_ORIGIN` is an `https://` origin and the page itself reached you over

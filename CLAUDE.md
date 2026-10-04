@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Six series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X6 (MCP server). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Six series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X7 (MCP server). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1061,8 +1061,8 @@ toolkit.
 ## Mocky as an MCP server
 
 Claude, ChatGPT or another MCP client acts in Mocky on behalf of one account.
-Plan: `plans/mcp-serveur.md` (phases; 1a to 4 done). User doc
-`docs/mcp.md`; invariants X1–X6.
+Plan: `plans/mcp-serveur.md` (phases 1a to 5, all done). User doc
+`docs/mcp.md`; invariants X1–X7.
 
 ```
 server/mcp/routes.js       every route, and the per-request switch (X1)
@@ -1078,6 +1078,9 @@ server/mcp/prefs.js        each person's engine: Mocky's model, or the assistant
 server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://guide): when a real
                            test shows a model doing the wrong thing, the fix goes here too
 src/runner/main.tsx        runner.html: runNewScreen, or one pass on an existing screen, + the preview (X5)
+server/mcp/view.js         the live view (MCP Apps): a frame around /mcp-view/<hash>.html, served
+                           under `sandbox allow-scripts` (X7) — never the screen inlined in the view
+bridge/mocky-mcp.js        the LAN bridge: stdio for a local client, HTTPS to /mcp; its own package
 src/lib/pipeline/screenPasses.ts  edit / polish / accessibility fix, shared with ProjectView: a
                            new tool that works on a screen calls one of these, never a copy
 src/components/ConnectConsent.tsx   /connect/<id>, the consent page

@@ -77,6 +77,13 @@ interview before designing.
 - **Waiting.** A generation takes from thirty seconds to a few minutes. A call
   waits about forty seconds; past that, the assistant gets a job id and asks
   `get_design`, which waits again.
+- **The live view.** In a host that shows MCP Apps (Claude, ChatGPT), the
+  answer is also the design itself, alive in the conversation: it scrolls, its
+  buttons and animations work, and **Open in Mocky** takes you to the project.
+  It is a small page (`ui://mocky/screen-v1.html`) framing one address on
+  Mocky, `/mcp-view/…`, signed and valid for a day like the picture link — and
+  served sandboxed, exactly as the composer's preview is (X7). A host without
+  MCP Apps shows the picture, as before.
 - **The picture** is a JPEG of the top of the page (2,000 px at most): the whole
   page is in Mocky, behind the link. For an assistant whose interface does not
   show a tool's picture, the answer also carries a **picture link** — that JPEG
@@ -250,8 +257,49 @@ To connect:
 - **No outbound request.** The MCP server never fetches anything a client names,
   so it adds nothing to the [SSRF guard's](architecture/invariants.md) surface.
 
+- **A screen served alone stays sandboxed.** The live view's address serves
+  model-written code from Mocky's own origin, so it answers with
+  `Content-Security-Policy: sandbox allow-scripts`: an opaque origin, no
+  cookie, no storage, whoever opens it.
+
 The rules are written down as [series X](architecture/invariants.md) of the
-invariants, X5 and X6 for the runner.
+invariants, X5 and X6 for the runner, X7 for the live view.
+
+## A Mocky the assistants cannot reach
+
+Claude and ChatGPT connect from their own servers: a Mocky on a LAN, behind a
+VPN, or with a certificate only your machines trust is out of their reach. A
+client that runs **on your machine** — Claude Desktop, Claude Code — can start a
+local program instead, and `bridge/mocky-mcp.js` is that program: it speaks
+stdio to the client and HTTPS to Mocky's `/mcp`, and relays every message
+unchanged. Mocky stays the server: same switch, same list, same consent page.
+
+- **Requirements.** The MCP server switched on, which still needs an
+  `https://` origin — a certificate from your own CA is fine: give it to Node
+  with `NODE_EXTRA_CA_CERTS`, never by switching checks off. Node 22.12+ on
+  the machine, and the bridge's files (the `bridge/` folder of this repository,
+  with `npm install` run in it).
+- **Claude Desktop** — in `claude_desktop_config.json`:
+
+  ```json
+  {
+    "mcpServers": {
+      "mocky": {
+        "command": "node",
+        "args": ["/path/to/mocky/bridge/mocky-mcp.js", "--url", "https://mocky.lan"],
+        "env": { "NODE_EXTRA_CA_CERTS": "/path/to/your-ca.pem" }
+      }
+    }
+  }
+  ```
+
+- **The first time**, your browser opens on Mocky's consent page: sign in,
+  **Allow**. The answer comes back to `127.0.0.1` only (port 33418, or
+  `--port`), and the connection is kept in `~/.mocky-mcp/`, readable by you
+  alone. Mocky lists it as *Mocky bridge* in Settings → Connected assistants,
+  where **Disconnect** cuts it; the next start then asks again.
+- **On a machine with no browser**, `MOCKY_MCP_BROWSER=none` prints the
+  address to open instead; `MOCKY_MCP_HOME` moves `~/.mocky-mcp`.
 
 ## Development
 

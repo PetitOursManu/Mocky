@@ -1,5 +1,5 @@
 ---
-source_hash: 528aa57b994f
+source_hash: c2e2a23dd9b6
 ---
 
 # Connecter un assistant (MCP)
@@ -88,6 +88,13 @@ entretien avant de dessiner.
 - **L'attente.** Une génération prend de trente secondes à quelques minutes. Un
   appel attend une quarantaine de secondes ; au-delà, l'assistant reçoit un
   identifiant de travail et appelle `get_design`, qui attend de nouveau.
+- **L'aperçu vivant.** Dans un hôte qui affiche les MCP Apps (Claude, ChatGPT),
+  la réponse est aussi le design lui-même, vivant dans la conversation : il
+  défile, ses boutons et ses animations fonctionnent, et **Ouvrir dans Mocky**
+  mène au projet. C'est une petite page (`ui://mocky/screen-v1.html`) qui
+  encadre une adresse de Mocky, `/mcp-view/…`, signée et valable un jour comme
+  le lien de l'image — et servie isolée, exactement comme l'aperçu de
+  l'interface (X7). Un hôte sans MCP Apps affiche l'image, comme avant.
 - **L'image** est un JPEG du haut de la page (2 000 px au plus) : la page entière
   est dans Mocky, derrière le lien. Pour un assistant dont l'interface n'affiche
   pas l'image d'un outil, la réponse porte aussi un **lien d'image** — ce JPEG
@@ -281,8 +288,51 @@ Pour se connecter :
   client désigne : il n'ajoute rien à la surface du
   [garde SSRF](architecture/invariants.md).
 
+- **Un écran servi seul reste isolé.** L'adresse de l'aperçu vivant sert du
+  code écrit par un modèle depuis l'origine même de Mocky ; elle répond donc
+  avec `Content-Security-Policy: sandbox allow-scripts` : une origine opaque,
+  ni cookie ni stockage, quel que soit celui qui l'ouvre.
+
 Les règles sont écrites dans la [série X](architecture/invariants.md) des
-invariants, X5 et X6 pour l'exécuteur.
+invariants, X5 et X6 pour l'exécuteur, X7 pour l'aperçu vivant.
+
+## Un Mocky que les assistants ne peuvent pas joindre
+
+Claude et ChatGPT se connectent depuis leurs propres serveurs : un Mocky sur un
+réseau local, derrière un VPN, ou avec un certificat que seules vos machines
+reconnaissent, leur est inaccessible. Un client qui tourne **sur votre
+machine** — Claude Desktop, Claude Code — peut en revanche lancer un programme
+local, et `bridge/mocky-mcp.js` est ce programme : il parle stdio au client et
+HTTPS au `/mcp` de Mocky, et relaie chaque message sans le modifier. Mocky
+reste le serveur : même interrupteur, même liste, même page de consentement.
+
+- **Prérequis.** Le serveur MCP activé, ce qui demande toujours une origine
+  `https://` — un certificat de votre propre autorité convient : donnez-le à
+  Node avec `NODE_EXTRA_CA_CERTS`, jamais en désactivant les vérifications.
+  Node 22.12+ sur la machine, et les fichiers du pont (le dossier `bridge/` de
+  ce dépôt, avec `npm install` lancé dedans).
+- **Claude Desktop** — dans `claude_desktop_config.json` :
+
+  ```json
+  {
+    "mcpServers": {
+      "mocky": {
+        "command": "node",
+        "args": ["/chemin/vers/mocky/bridge/mocky-mcp.js", "--url", "https://mocky.lan"],
+        "env": { "NODE_EXTRA_CA_CERTS": "/chemin/vers/votre-ca.pem" }
+      }
+    }
+  }
+  ```
+
+- **La première fois**, votre navigateur s'ouvre sur la page de consentement de
+  Mocky : connectez-vous, **Autoriser**. La réponse revient sur `127.0.0.1`
+  seulement (port 33418, ou `--port`), et la connexion est gardée dans
+  `~/.mocky-mcp/`, lisible par vous seul. Mocky la liste comme *Mocky bridge*
+  dans Réglages → Assistants connectés, où **Déconnecter** la coupe ; le
+  démarrage suivant redemande alors l'accord.
+- **Sur une machine sans navigateur**, `MOCKY_MCP_BROWSER=none` affiche
+  l'adresse à ouvrir ; `MOCKY_MCP_HOME` déplace `~/.mocky-mcp`.
 
 ## Développement
 
