@@ -45,7 +45,12 @@ interview before designing.
   picture, the way the composer's "Images" choice gives it one: `picture_source`
   `auto` (the default) takes a free photo when the account has them, a
   generated picture otherwise; `free`, `generated` or `none` say it outright.
-  The answer always says which picture the screen ended up with.
+  The answer always says which picture the screen ended up with. The assistant
+  is asked to say what that picture should show (`picture_subject`, in English):
+  a subject guessed from a request written as an instruction ("créer
+  directement dans Mocky le visuel…") once found a war grave for a food
+  festival. And in `auto`, a free photo is taken only when Mocky's model can
+  look at the candidates; otherwise the picture is generated.
 - **The same Mocky.** The design is made by the headless runner (below), with
   the same pipeline as the interface, and saved in the account — in a tab already
   open on that project, the new screen appears on its own.

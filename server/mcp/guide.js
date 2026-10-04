@@ -61,11 +61,31 @@ language, except free-photo searches, which work best in English.
    \`images\`, each with what it is for: \`[{ "image_id": "…", "use": "hero:
    the bakery's storefront" }]\`.
    If you pass none, Mocky finds one itself for a post or a document
-   (\`picture_source\`: \`auto\` by default — a free photo, else a generated one).
+   (\`picture_source\`: \`auto\` by default) — and then ALWAYS say what it should
+   show in \`picture_subject\`, in English ("fresh seasonal vegetables and
+   french cheese on a rustic table"). Without it, Mocky can only guess the
+   subject from the brief's words, and a guess can go very wrong.
 4. **Create the design** with \`create_design\`. It ALWAYS starts a NEW project;
-   give it a short \`project_name\`. Pass what you learnt in \`kind\`,
-   \`audience\` and \`style\`, and \`device\` (\`desktop\` by default, \`mobile\`,
-   \`tablet\`) when it matters.
+   give it a short \`project_name\` and a short \`screen_name\`. Write \`brief\` as
+   the CONTENT of the screen — its subject, its texts, its facts — never as an
+   instruction to Mocky: "Post Instagram pour la Semaine du goût, du 12 au 18
+   octobre, chez Elisa30", not "Créer dans Mocky le visuel final d'un post…".
+   Pass what you learnt in \`kind\`, \`audience\` and \`style\`, and \`device\`
+   (\`desktop\` by default, \`mobile\`, \`tablet\`) when it matters.
+
+   A complete call for "un post Instagram pour la semaine du goût, avec une
+   image", when you chose no picture yourself:
+
+   \`\`\`json
+   {
+     "brief": "Post Instagram pour la Semaine du goût, du 12 au 18 octobre : une semaine pour éveiller les papilles.",
+     "screen_type": "instagram",
+     "screen_name": "Post Semaine du goût",
+     "project_name": "Semaine du goût",
+     "style": "chaleureux, gourmand",
+     "picture_subject": "colorful fresh seasonal vegetables, fruits and french cheese on a rustic wooden table"
+   }
+   \`\`\`
 5. **Wait if needed.** A design takes from thirty seconds to a few minutes. If the
    answer says it is still running, call \`get_design\` with the \`job_id\`
    (again if needed). Do NOT call \`create_design\` a second time for the same
@@ -114,7 +134,10 @@ Mocky reads it from the request's words when it can, and says which it used.
   mood). Slower. Use it when the person wants something distinctive and has
   given no visual direction.
 - \`picture_source\` — when you pass no \`images\`: \`auto\`, \`free\`,
-  \`generated\` or \`none\`.
+  \`generated\` or \`none\`. In \`auto\`, a free photo is taken only when Mocky
+  can look at the candidates; otherwise the picture is generated.
+- \`picture_subject\` — what that picture should show, in English.
+- \`screen_name\`, \`project_name\` — short names shown in Mocky.
 
 ## When something goes wrong
 
@@ -134,6 +157,10 @@ Mocky reads it from the request's words when it can, and says which it used.
 ## Never
 
 - Never pick an existing project on your own.
+- Never write \`brief\` as an instruction to Mocky ("create in Mocky…"): it is the
+  screen's content.
+- Never leave a post or a document without a picture when one was asked for:
+  pass \`images\`, or at least \`picture_subject\`.
 - Never invent an id, a URL or a picture address.
 - Never call \`create_design\` again while a design is still running.
 - Never promise a picture you did not get: repeat what the answer says.

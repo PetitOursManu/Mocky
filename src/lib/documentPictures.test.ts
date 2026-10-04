@@ -32,6 +32,21 @@ describe('documentPictureWant', () => {
     expect(en.query).toBe('spring farmers market')
   })
 
+  it('searches for the subject of a request written as an instruction', () => {
+    // The two real briefs ChatGPT wrote for "un post Instagram sur la semaine du
+    // goût": searched as they stood, the first asked a library for "créer
+    // directement mocky visuel" and got a war grave.
+    const a = documentPictureWant(
+      'Créer directement dans Mocky le visuel final d’un post Instagram sur la semaine du goût, avec une image appétissante',
+      getPageFormat('a4'),
+    )
+    expect(a.query).toBe('semaine goût')
+    const b = documentPictureWant('Créer un visuel Instagram carré pour annoncer la Semaine du Goût du 12 au 18 octobre', getPageFormat('a4'))
+    // The month stays: the query ladder drops trailing words when it finds nothing.
+    expect(b.query).toBe('semaine goût octobre')
+    expect(documentPictureWant('Make an Instagram post about the autumn food festival', getPageFormat('a4')).query).toBe('autumn food festival')
+  })
+
   it('keeps the whole request when there is nothing but the piece to strip', () => {
     const w = documentPictureWant('Flyer', getPageFormat('a4'))
     expect(w.subject).toBe('Flyer')

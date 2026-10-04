@@ -1,5 +1,5 @@
 ---
-source_hash: 74e50ede4dc8
+source_hash: 9ea84e2a7520
 ---
 
 # Connecter un assistant (MCP)
@@ -53,6 +53,12 @@ entretien avant de dessiner.
   `picture_source` `auto` (par défaut) prend une photo libre quand le compte y a
   accès, une image générée sinon ; `free`, `generated` ou `none` le disent
   explicitement. La réponse dit toujours quelle image l'écran a reçue.
+  L'assistant est invité à dire ce que cette image doit montrer
+  (`picture_subject`, en anglais) : un sujet deviné à partir d'une demande
+  rédigée comme une consigne (« créer directement dans Mocky le visuel… ») a
+  donné un jour une tombe militaire pour une fête du goût. Et en `auto`, une
+  photo libre n'est prise que si le modèle de Mocky peut regarder les
+  candidates ; sinon l'image est générée.
 - **Le même Mocky.** Le design est fait par l'exécuteur sans interface
   (ci-dessous), avec le même pipeline que l'interface, et enregistré dans le
   compte — dans un onglet déjà ouvert sur ce projet, le nouvel écran apparaît

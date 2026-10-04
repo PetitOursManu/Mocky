@@ -58,7 +58,18 @@ const PIECE_WORDS = new Set(
   (
     'flyer flyers affiche affiches poster posters tract tracts brochure brochures dépliant depliant leaflet ' +
     'document documents page pages recto verso imprimé imprime imprimée printed print pdf a4 a5 letter ' +
-    'format paysage portrait landscape slide slides présentation presentation carte card invitation'
+    'format paysage portrait landscape slide slides présentation presentation carte card invitation ' +
+    // A social post names its piece the same way, and a request written as an
+    // instruction ("créer le visuel final d'un post Instagram carré pour
+    // annoncer…") wraps the piece in verbs. Searched as it stood, that request
+    // asked a photo library for "créer directement mocky visuel" — and a real
+    // post about a food festival came back with a war grave on it.
+    'post posts publication publications instagram facebook linkedin story stories réel reel reels ' +
+    'visuel visuels visual visuals image images illustration photo carré carrée square final finale ' +
+    'créer creer crée cree crées créez fais faire fait réalise réaliser realise design designer dessine ' +
+    'génère genere générer generer conçois concevoir create make generate build draw ' +
+    'annoncer annonce annonçant promouvoir présenter presenter parler announce announcing promote about ' +
+    'mocky directement directly peux peut pourrais tu moi me please stp svp nouveau nouvelle new using utilisant'
   ).split(/\s+/),
 )
 

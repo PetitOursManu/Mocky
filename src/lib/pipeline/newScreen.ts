@@ -149,6 +149,8 @@ export interface NewScreenRequest {
    * composer run, which therefore builds the prompt it always built (X5).
    */
   providedPictures?: ProvidedPicture[]
+  /** What a document's own picture should show, said by the requester; absent, it is read from the request. */
+  pictureSubject?: string
 }
 
 /** A list updated either with a value or from the previous one, like a React setter. */
@@ -837,7 +839,10 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     let docPicture: { hash: string; url: string } | null = null
     if (pipe.ownPicture && pipe.format && !museRan && !siteNew && runDocPicture) {
       hooks.setPhase('docPicture')
-      const want = documentPictureWant(text, pipe.format)
+      // What the picture should SHOW, when the requester said it apart from the
+      // request (an assistant through MCP, in English): far better for a photo
+      // library than words lifted from the front of a French sentence.
+      const want = documentPictureWant(req.pictureSubject?.trim() || text, pipe.format)
       let miss = ''
       const finder = runDocPicture === 'stock' ? await stockFinder() : undefined
       docPicture = await findDocumentPicture(want, {

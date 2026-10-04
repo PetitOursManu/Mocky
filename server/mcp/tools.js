@@ -373,6 +373,8 @@ export function buildMcpServer(deps) {
       screenType: screenType || undefined,
       pictures: images.length ? images.map((p) => ({ hash: p.image_id, use: p.use })) : undefined,
       pictureSource: ['auto', 'free', 'generated', 'none'].includes(args.picture_source) ? args.picture_source : 'auto',
+      pictureSubject: typeof args.picture_subject === 'string' && args.picture_subject.trim() ? args.picture_subject.trim() : undefined,
+      screenName: typeof args.screen_name === 'string' && args.screen_name.trim() ? args.screen_name.trim() : undefined,
       projectId: project ? project.id : undefined,
       projectName: project ? undefined : args.project_name || undefined,
       device: args.device || inferDevice(`${args.brief} ${args.kind || ''}`) || 'desktop',
@@ -401,7 +403,23 @@ export function buildMcpServer(deps) {
   }
 
   const designFields = {
-    brief: z.string().min(1).max(4000).describe('What the screen is and what it contains, in the person\'s own words.'),
+    brief: z
+      .string()
+      .min(1)
+      .max(4000)
+      .describe(
+        'The screen itself: its subject, what it contains, its wording — e.g. "Post Instagram pour la Semaine du goût, du 12 au 18 octobre, chez Elisa30". ' +
+          'Not instructions to Mocky ("create in Mocky the final visual of…"): Mocky reads this as the content of the screen.',
+      ),
+    screen_name: z.string().max(80).optional().describe('A short name for the screen on the canvas: "Post Semaine du goût".'),
+    picture_subject: z
+      .string()
+      .max(300)
+      .optional()
+      .describe(
+        'When you pass no images: what Mocky\'s own picture should SHOW, in English — "fresh seasonal vegetables and french cheese on a rustic wooden table". ' +
+          'Strongly recommended for a post or a document: it is what the photo search or the image generator works from.',
+      ),
     images: z
       .array(
         z.object({

@@ -39,6 +39,8 @@ let proc, base, dataDir, fake, cookie, adminId, token, mcp
 const modelCalls = []
 /** How many pictures the fake image server was asked for. */
 let imageCalls = 0
+/** The prompt the fake image server was last given. */
+let lastImagePrompt = ''
 const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 async function freePort() {
@@ -88,6 +90,11 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
         if (req.url.startsWith('/sdapi/v1/options')) return res.end('{}')
         if (req.url.startsWith('/sdapi/v1/txt2img')) {
           imageCalls++
+          try {
+            lastImagePrompt = JSON.parse(raw).prompt || ''
+          } catch {
+            /* not JSON */
+          }
           res.setHeader('content-type', 'application/json')
           return res.end(JSON.stringify({ images: [PNG_1PX] }))
         }
@@ -244,7 +251,22 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
 
     const none = await design({ brief: 'Un post Instagram pour la semaine du goût, sans image', picture_source: 'none' })
     expect(none.structuredContent.pictureSource).toBe('none')
-  }, 180_000)
+
+    // The fourth real test: the brief was written as an instruction, and the
+    // picture was searched for from its first words. picture_subject says what
+    // to show; screen_name replaces "Créer directement dans Mocky le…".
+    const told = await design({
+      brief: 'Créer directement dans Mocky le visuel final d’un post Instagram sur la semaine du goût',
+      screen_type: 'instagram',
+      screen_name: 'Post Semaine du goût',
+      picture_subject: 'colorful fresh seasonal vegetables and french cheese on a rustic wooden table',
+    })
+    expect(told.structuredContent.status).toBe('done')
+    expect(lastImagePrompt).toContain('colorful fresh seasonal vegetables and french cheese')
+    expect(lastImagePrompt).not.toMatch(/créer|mocky/i)
+    const project = await mcp.callTool({ name: 'get_project', arguments: { project_id: told.structuredContent.projectId } })
+    expect(project.structuredContent.screens[0].name).toBe('Post Semaine du goût')
+  }, 240_000)
 
   it('refuses a picture that is not in this account’s library, and one at an internal address', async () => {
     const foreign = await mcp.callTool({

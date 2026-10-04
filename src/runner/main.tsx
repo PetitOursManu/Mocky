@@ -28,7 +28,7 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import { parseProjects } from '../lib/merge'
 import { defaultSettings } from '../lib/settings'
-import { absoluteUrl, defaultMuseConfig, museAvailable } from '../lib/muse'
+import { absoluteUrl, checkVision, defaultMuseConfig, museAvailable } from '../lib/muse'
 import { documentPictureSource, imageGenerationAvailable, type DocumentImageChoice } from '../lib/documentPictures'
 import { stockImageStatus, stockUsable } from '../lib/stockImages'
 import { imageUrl } from '../lib/imageLibrary'
@@ -52,6 +52,10 @@ export interface RunnerJob {
   pictures?: Array<{ hash: string; use: string }>
   /** Where Mocky finds a picture itself when none was supplied: the composer's "Images" choice. */
   pictureSource?: 'auto' | 'free' | 'generated' | 'none'
+  /** What Mocky's own picture should show, in the assistant's words (English works best). */
+  pictureSubject?: string
+  /** The screen's name on the canvas, when the assistant gave one. */
+  screenName?: string
   muse?: boolean
   lang?: 'fr' | 'en'
 }
@@ -131,9 +135,27 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
   const stockOk = stockUsable(await stockImageStatus().catch(() => null))
   const generationOk = await imageGenerationAvailable().catch(() => false)
   const wanted = job.pictureSource || 'auto'
+  /*
+   * `auto` takes a free photo only when Mocky's model can LOOK at the
+   * candidates. Without eyes the finder takes the first result, and the first
+   * result for a badly worded search is anything at all — a real post about a
+   * food festival came back with a war grave. A generated picture of the right
+   * subject beats a lottery; the lottery stays only as the last resort.
+   */
+  const vision = wanted === 'auto' && stockOk && !provided.length ? (await checkVision().catch(() => ({ vision: null }))).vision : null
   const choice: DocumentImageChoice = provided.length || wanted === 'none'
     ? 'none'
-    : wanted === 'free' ? 'stock' : wanted === 'generated' ? 'ai' : stockOk ? 'stock' : generationOk ? 'ai' : 'none'
+    : wanted === 'free'
+      ? 'stock'
+      : wanted === 'generated'
+        ? 'ai'
+        : stockOk && vision === true
+          ? 'stock'
+          : generationOk
+            ? 'ai'
+            : stockOk
+              ? 'stock'
+              : 'none'
   const docPictureSource = documentPictureSource(choice, { generation: generationOk, stock: stockOk })
 
   const outcome = await runNewScreen(
@@ -152,7 +174,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       redesign: false,
       museConfig,
       museAvail: job.muse ? await museAvailable().catch(() => false) : false,
-      museVision: null,
+      museVision: vision,
       pinnedImages: [],
       pinnedVideo: null,
       videoAvail: null,
@@ -165,6 +187,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       imageGenOk: generationOk,
       stockImagesUsable: stockOk,
       providedPictures: provided,
+      pictureSubject: typeof job.pictureSubject === 'string' ? job.pictureSubject.slice(0, 300) : undefined,
     },
     {
       signal: controller.signal,
@@ -213,6 +236,11 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       motionStageDone: () => {},
     },
   )
+
+  // The name the assistant chose, rather than the first words of its brief —
+  // which, written as an instruction, read "Créer directement dans Mocky le…".
+  const name = typeof job.screenName === 'string' ? job.screenName.replace(/\s+/g, ' ').trim().slice(0, 80) : ''
+  if (name) working = { ...working, screens: working.screens.map((s) => (s.id === outcome.screenId ? { ...s, name } : s)) }
 
   progress('saving')
   working = { ...working, updatedAt: Date.now() }
