@@ -100,11 +100,15 @@ export function createDashboardRouter(d) {
     return [...names.values()]
       .map((u) => {
         const p = seen.get(u.id)
+        // A design being made for them by the MCP runner keeps them "here" even
+        // when the assistant has not called for a few minutes: the work is theirs.
+        const mcp = Boolean(p?.mcp) || Boolean(d.mcpBusy?.(u.id))
         return {
           id: u.id,
           username: u.username,
           role: u.role || 'user',
-          state: p?.state || 'offline',
+          state: mcp && (!p || p.state === 'offline') ? 'active' : p?.state || 'offline',
+          mcp,
           area: p?.area || null,
           tabs: p?.tabs || 0,
           lastSeen: p?.lastSeen || null,

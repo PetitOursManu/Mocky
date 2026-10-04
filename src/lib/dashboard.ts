@@ -70,6 +70,8 @@ export interface Person {
   area: string | null
   tabs: number
   lastSeen: number | null
+  /** Using Mocky through an assistant (MCP) right now, or having a design made by the runner. */
+  mcp?: boolean
   working: Array<{ kind: WorkKind; action: string; startedAt: number }>
   lastHour: Record<WorkKind, number>
 }

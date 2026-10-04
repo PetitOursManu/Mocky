@@ -64,6 +64,17 @@ export function createPresence({ now = Date.now } = {}) {
     },
 
     /**
+     * A call from an assistant (/mcp). It is a request like any other — the
+     * account is here, working — and it is remembered apart, so the admin can
+     * tell "in a tab" from "through Claude or ChatGPT": the `mcp` flag below.
+     */
+    touchMcp(userId) {
+      if (!userId) return
+      const e = entry(userId)
+      e.lastRequest = e.lastSeen = e.lastMcp = now()
+    },
+
+    /**
      * A tab says it is open. Returns false for a malformed beat, which the route
      * still answers 204 — a heartbeat that fails loudly would only fill a console.
      */
@@ -146,7 +157,9 @@ export function createPresence({ now = Date.now } = {}) {
         const left = open === 0 && e.leftAt >= lastSeen
         const state =
           visibleOpen || recentRequest ? 'active' : !left && (open > 0 || t - lastSeen <= ONLINE_MS) ? 'idle' : 'offline'
-        rows.push({ userId, state, area, tabs: open, lastSeen })
+        // Through an assistant within the same window a tab counts as open for.
+        const mcp = Boolean(e.lastMcp) && t - e.lastMcp <= ONLINE_MS
+        rows.push({ userId, state, area, tabs: open, lastSeen, mcp })
       }
       return rows.sort((a, b) => b.lastSeen - a.lastSeen)
     },

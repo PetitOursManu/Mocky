@@ -1,5 +1,5 @@
 ---
-source_hash: 5200fc3c99b3
+source_hash: d5596a2104c4
 ---
 
 # Connecter un assistant (MCP)
@@ -13,12 +13,44 @@ d'accès, aucun document de découverte, rien qu'un scanner puisse trouver. Un
 administrateur l'active, pour les comptes qu'il choisit, et seulement sur une
 instance servie en HTTPS.
 
-Ce qu'un assistant peut faire aujourd'hui, c'est **lire la liste des projets** —
-assez pour vérifier qu'une connexion fonctionne et qu'il s'agit du bon compte.
-L'**exécuteur sans interface** qui fera les designs pour lui est en place
-(ci-dessous) et s'essaie depuis la section d'administration ; les outils qui
-permettront à un assistant de l'appeler arrivent avec l'étape suivante du plan
-(`plans/mcp-serveur.md` dans le dépôt).
+## Ce qu'un assistant peut faire
+
+| Outil | Ce qu'il fait |
+|---|---|
+| `create_design` | Génère un nouvel écran à partir d'une description — dans un projet existant ou un nouveau — et renvoie **une image du résultat et un lien** vers lui dans Mocky. |
+| `get_design` | Attend un design encore en cours, puis renvoie la même chose. |
+| `list_projects` | Les projets du compte, chacun avec un lien. |
+| `get_project` | Les écrans d'un projet : nom, appareil, la demande qui l'a créé, un lien. |
+| `get_screenshot` | Une image d'un écran qui existe déjà. |
+
+Et un prompt, **new-design** (le menu « / » de Claude), qui démarre un court
+entretien avant de dessiner.
+
+- **D'abord les questions.** L'assistant a pour consigne de savoir de quel écran
+  il s'agit, pour qui et dans quel ton, et de poser au plus trois questions
+  courtes quand la personne ne l'a pas dit. Si une demande arrive malgré tout
+  presque vide (« un site »), Mocky ne devine pas : il rend à l'assistant trois
+  questions, dans la langue de la personne, et génère une fois qu'elles ont une
+  réponse.
+- **Le même Mocky.** Le design est fait par l'exécuteur sans interface
+  (ci-dessous), avec le même pipeline que l'interface, et enregistré dans le
+  compte — dans un onglet déjà ouvert sur ce projet, le nouvel écran apparaît
+  tout seul.
+- **L'attente.** Une génération prend de trente secondes à quelques minutes. Un
+  appel attend une quarantaine de secondes ; au-delà, l'assistant reçoit un
+  identifiant de travail et appelle `get_design`, qui attend de nouveau.
+- **L'image** est un JPEG du haut de la page (2 000 px au plus) : la page entière
+  est dans Mocky, derrière le lien. Pour un assistant dont l'interface n'affiche
+  pas l'image d'un outil, la réponse porte aussi un **lien d'image** — ce JPEG
+  seul, signé, valable un jour, et caduc après un redémarrage.
+- **Le lien** ouvre le projet dans Mocky, centré sur le nouvel écran, pour une
+  personne connectée à ce compte et personne d'autre.
+- **Un seul design à la fois par compte** ; la maintenance refuse les nouveaux
+  designs (les lectures restent possibles) ; le quota journalier facultatif les
+  compte.
+- **Dans Admin → Activité en direct et Utilisateurs**, un compte qui utilise
+  Mocky par un assistant apparaît connecté, avec une marque **MCP** — y compris
+  pendant qu'un design est fait pour lui.
 
 ## Pour l'administrateur
 

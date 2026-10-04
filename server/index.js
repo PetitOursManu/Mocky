@@ -2116,6 +2116,8 @@ const gpu = createGpuProbe()
 const system = createSystemMonitor({ dataDir: DATA_DIR, gpu, watched: () => dashboard.watched() })
 const dashboard = createDashboardRouter({
   presence,
+  // The admin's "MCP" mark stays on while the runner makes a design for someone.
+  mcpBusy: (userId) => mcpRunner.isBusy(userId),
   activity,
   system,
   audit,
@@ -2183,6 +2185,7 @@ const mcpRunner = createRunner({
 const mcpServer = createMcpServerRoutes({
   runner: mcpRunner,
   hasTextProvider: () => Boolean(textConfig.target('generation')),
+  touchMcp: (userId) => presence.touchMcp(userId),
   dataDir: DATA_DIR,
   origin: MOCKY_ORIGIN,
   findUser: (id) => loadUsers().find((u) => u.id === id),

@@ -292,6 +292,7 @@ export interface RunnerJobView {
   id: string
   status: 'queued' | 'running' | 'done' | 'failed'
   progress?: string
+  lang?: 'fr' | 'en'
   createdAt: number
   startedAt?: number
   endedAt?: number

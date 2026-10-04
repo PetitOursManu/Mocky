@@ -8,11 +8,41 @@ It is **off by default**, and off means absent: no endpoint, no discovery
 document, nothing a scanner could find. It is switched on by an administrator,
 for the accounts they choose, and only on an instance served over HTTPS.
 
-What an assistant can do today is **read the list of projects** — enough to check
-that a connection works and is the right account. The **headless runner** that
-will make designs for it is in place (below) and can be tried from the admin
-section; the tools that let an assistant call it arrive with the next stage of
-the plan (`plans/mcp-serveur.md` in the repository).
+## What an assistant can do
+
+| Tool | What it does |
+|---|---|
+| `create_design` | Generates a new screen from a description — in an existing project or a new one — and returns **a picture of it and a link** to it in Mocky. |
+| `get_design` | Waits for a design that is still being made, then returns the same. |
+| `list_projects` | The account's projects, each with a link. |
+| `get_project` | One project's screens: name, device, the request that made it, a link. |
+| `get_screenshot` | A picture of a screen that already exists. |
+
+And one prompt, **new-design** (the "/" menu in Claude), which starts a short
+interview before designing.
+
+- **Questions first.** The assistant is told to make sure it knows what the
+  screen is, who it is for and the tone wanted, and to ask at most three short
+  questions when the person has not said. If a request still arrives with almost
+  nothing in it ("un site"), Mocky does not guess: it hands the assistant three
+  questions, in the person's language, and generates once they are answered.
+- **The same Mocky.** The design is made by the headless runner (below), with
+  the same pipeline as the interface, and saved in the account — in a tab already
+  open on that project, the new screen appears on its own.
+- **Waiting.** A generation takes from thirty seconds to a few minutes. A call
+  waits about forty seconds; past that, the assistant gets a job id and asks
+  `get_design`, which waits again.
+- **The picture** is a JPEG of the top of the page (2,000 px at most): the whole
+  page is in Mocky, behind the link. For an assistant whose interface does not
+  show a tool's picture, the answer also carries a **picture link** — that JPEG
+  alone, signed, valid for a day, and invalid after a restart.
+- **The link** opens the project in Mocky, centred on the new screen, for
+  someone signed in to that account and nobody else.
+- **One design at a time per account**; maintenance refuses new designs (reads
+  still work); the optional daily quota counts them.
+- **In Admin → Live activity and Users**, an account using Mocky through an
+  assistant shows as connected, with an **MCP** mark — also while a design is
+  being made for it.
 
 ## For the administrator
 

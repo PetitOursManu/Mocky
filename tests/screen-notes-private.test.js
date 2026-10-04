@@ -35,6 +35,7 @@ const ALLOWED = new Set([
   'src/components/ScreenNotesDialog.tsx', // the editor
   'src/components/Canvas.tsx', // the badge and the label-bar button
   'src/components/ProjectView.tsx', // the menu item, the dialog, the duplicate that drops them
+  'server/mcp/tools.test.js', // plants notes on a screen to prove an assistant never sees them (X4)
 ])
 
 const MENTION = /\buserNotes\b|\bScreenNote\b|screenNotes['"]/

@@ -48,6 +48,8 @@ export const MAX_JOURNAL_JOBS = 100
 /** Shots kept on disk for `get_screenshot` (2c) — bounded by count and age. */
 export const MAX_SHOTS = 200
 export const SHOT_TTL_MS = 7 * 24 * 60 * 60 * 1000
+/** How much of a page the assistant's picture shows, from the top. */
+export const PREVIEW_MAX_HEIGHT = 2000
 
 /** The screen `check()` photographs: no capability, no picture, no network. */
 export const CHECK_SCREEN = `export default function App() {
@@ -201,11 +203,13 @@ export function createRunner(d) {
   }
 
   // ---- shots -------------------------------------------------------------------
-  function saveShot(png) {
+  /** Both pictures under one name: `<hash>.png` (whole page) and `<hash>.jpg` (the assistant's). */
+  function saveShot(png, jpeg) {
     const hash = crypto.createHash('sha256').update(png).digest('hex')
     fs.mkdirSync(shotsDir, { recursive: true })
     const file = path.join(shotsDir, `${hash}.png`)
     if (!fs.existsSync(file)) fs.writeFileSync(file, png, { mode: 0o600 })
+    if (jpeg && !fs.existsSync(path.join(shotsDir, `${hash}.jpg`))) fs.writeFileSync(path.join(shotsDir, `${hash}.jpg`), jpeg, { mode: 0o600 })
     pruneShots()
     return hash
   }
@@ -219,22 +223,33 @@ export function createRunner(d) {
         .sort((a, b) => b.t - a.t)
       const now = Date.now()
       files.forEach((x, i) => {
-        if (i >= MAX_SHOTS || now - x.t > SHOT_TTL_MS) fs.rmSync(path.join(shotsDir, x.f), { force: true })
+        if (i >= MAX_SHOTS || now - x.t > SHOT_TTL_MS) {
+          fs.rmSync(path.join(shotsDir, x.f), { force: true })
+          fs.rmSync(path.join(shotsDir, x.f.replace(/\.png$/, '.jpg')), { force: true })
+        }
       })
     } catch {
       /* nothing to prune */
     }
   }
 
-  /** A shot by its hash, or null. The hash is the only key; ownership is the caller's check. */
-  function readShot(hash) {
-    if (!/^[a-f0-9]{64}$/.test(String(hash))) return null
+  /**
+   * A shot by its hash — the whole page (`png`) or the assistant's JPEG
+   * (`jpg`) — or null. The hash is the only key; ownership is the caller's check.
+   */
+  function readShot(hash, kind = 'png') {
+    if (!/^[a-f0-9]{64}$/.test(String(hash)) || (kind !== 'png' && kind !== 'jpg')) return null
     try {
-      return fs.readFileSync(path.join(shotsDir, `${hash}.png`))
+      return fs.readFileSync(path.join(shotsDir, `${hash}.${kind}`))
     } catch {
       return null
     }
   }
+
+  /** What existing screens were last photographed as, so asking twice costs nothing. */
+  const codeShots = new Map()
+  /** One photograph of an existing screen at a time: they share the warm browser. */
+  let photoQueue = Promise.resolve()
 
   // ---- a page at the public origin --------------------------------------------------
   /**
@@ -305,8 +320,21 @@ export function createRunner(d) {
     await page.setViewportSize({ width: spec.w, height: Math.max(600, spec.h) })
     const shown = await page.evaluate((x) => window.__mockyRunner.show(x), spec)
     await page.setViewportSize({ width: spec.w, height: Math.max(600, shown.height) })
-    const png = await page.locator('#shot iframe').screenshot({ type: 'png', animations: 'disabled', timeout: 30_000 })
-    return { png, height: shown.height }
+    const frame = page.locator('#shot iframe')
+    const png = await frame.screenshot({ type: 'png', animations: 'disabled', timeout: 30_000 })
+    // The picture an ASSISTANT gets: a JPEG of the top of the page. A full
+    // 1440×6000 PNG is megabytes of base64 in a conversation, and a vision model
+    // shrinks it to a strip anyway; the top 2,000 px is what it can read, and the
+    // link has the rest.
+    const box = await frame.boundingBox()
+    const jpeg = await page.screenshot({
+      type: 'jpeg',
+      quality: 72,
+      animations: 'disabled',
+      timeout: 30_000,
+      clip: { x: box?.x ?? 0, y: box?.y ?? 0, width: spec.w, height: Math.min(shown.height, PREVIEW_MAX_HEIGHT) },
+    })
+    return { png, jpeg, height: shown.height }
   }
 
   // ---- one job -------------------------------------------------------------------
@@ -342,7 +370,7 @@ export function createRunner(d) {
       job.progress = 'picture'
       try {
         const shot = await photograph(page, { code: result.code, w: result.w, h: result.h, caps: result.caps })
-        job.result.shot = saveShot(shot.png)
+        job.result.shot = saveShot(shot.png, shot.jpeg)
         job.result.shotHeight = shot.height
       } catch (err) {
         // The screen exists and is saved; only its picture failed. Said, not fatal (X7-to-be).
@@ -450,6 +478,48 @@ export function createRunner(d) {
       }
     },
 
+    /**
+     * Photograph a screen that already exists (`get_screenshot`). The caller
+     * has read the code from the account's own data; nothing here needs a
+     * token — the preview loads /vendor and the image library's public bytes,
+     * and the network rule still applies to everything else. Returns the shot's
+     * hash; a screen photographed before, unchanged, costs nothing.
+     */
+    async photographCode(spec) {
+      const why = availability()
+      if (!why.available) throw Object.assign(new Error(why.reason), { code: why.reason })
+      const key = crypto
+        .createHash('sha256')
+        .update(JSON.stringify([spec.code, spec.w, spec.h, spec.caps || []]))
+        .digest('hex')
+      const known = codeShots.get(key)
+      if (known && readShot(known, 'jpg')) return known
+      const run = photoQueue.then(async () => {
+        let context = null
+        try {
+          const opened = await openPage(null)
+          context = opened.context
+          await ready(opened.page)
+          const shot = await photograph(opened.page, { code: spec.code, w: spec.w, h: spec.h, caps: spec.caps || [] })
+          const hash = saveShot(shot.png, shot.jpeg)
+          codeShots.set(key, hash)
+          if (codeShots.size > MAX_SHOTS) codeShots.delete(codeShots.keys().next().value)
+          return hash
+        } finally {
+          await context?.close().catch(() => {})
+          armIdle()
+        }
+      })
+      photoQueue = run.catch(() => {})
+      return run
+    },
+
+    /** Whether this account has a design being made right now — the admin's "MCP" chip. */
+    isBusy(userId) {
+      for (const j of jobs.values()) if (j.userId === userId && (j.status === 'queued' || j.status === 'running')) return true
+      return false
+    },
+
     status: () => ({ ...availability(), running, queued: queue.length, browser: Boolean(browser?.isConnected()) }),
     async shutdown() {
       if (idleTimer) clearTimeout(idleTimer)
@@ -464,6 +534,8 @@ function view(j) {
     id: j.id,
     status: j.status,
     progress: j.progress,
+    // The language the request was written in, so a later get_design answers in it.
+    lang: j.request?.lang === 'en' ? 'en' : 'fr',
     createdAt: j.createdAt,
     startedAt: j.startedAt,
     endedAt: j.endedAt,
