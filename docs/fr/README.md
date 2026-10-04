@@ -1,5 +1,5 @@
 ---
-source_hash: bd7b886e5372
+source_hash: 83071b8336c9
 ---
 
 # Mocky
@@ -79,6 +79,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 - [Déploiement](deployment.md) Déployer Mocky.
 - [Maintenance et migration](migration.md) Passer l'instance en lecture seule, ou la déplacer vers un autre serveur.
 - [Tableau de bord d'administration](admin-dashboard.md) Voir qui est connecté, ce que fait la machine, et qui a changé quoi.
+- [Connecter un assistant (MCP)](mcp.md) Laisser Claude ou ChatGPT concevoir dans Mocky pour un compte, et rendre une image et un lien.
 - [Vue d'ensemble de l'architecture](architecture/overview.md) Comprendre le registre de capacités, le planificateur et l'isolation de l'aperçu.
 - [Invariants](architecture/invariants.md) Savoir quelles règles le code refuse d'enfreindre, et pourquoi.
 - [Licence](license.md) Savoir ce que l'AGPL vous demande — en général rien — et pourquoi ce que Mocky exporte est à vous.

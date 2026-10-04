@@ -508,6 +508,9 @@ so you can swap servers without touching code. Health is reported at
 A missing or invalid file is never fatal. It produces an empty server list, and
 Muse falls back to its offline pattern library.
 
+These are the servers Mocky **uses**. Letting Claude or ChatGPT use Mocky is
+the other direction, and another page: [Connecting an assistant](mcp.md).
+
 ---
 
 ## Maintenance commands

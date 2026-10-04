@@ -62,6 +62,7 @@ Mocky est une alternative auto-hébergée à des outils comme Google Stitch / op
 - 👤 **Comptes et SSO en option** — connectez-vous à une instance Mocky et vos projets ainsi que votre DESIGN.md se synchronisent d'un appareil à l'autre (backend auto-hébergé, aucun cloud). Avec une instance [Dashy](https://github.com/PetitOursManu/Dashy), les utilisateurs peuvent aussi **« Se connecter avec Dashy »** et retrouver leurs projets. Sans compte, tout reste dans le `localStorage` de votre navigateur.
 - 🚚 **Mode maintenance et migration de serveur** — un administrateur peut passer l'instance en lecture seule pour tous les autres, et déplacer toute l'instance — comptes, projets, clés, images, séquences, films — vers un autre serveur morceau par morceau : le nouveau serveur tire les données, chiffrées de bout en bout avec un code à usage unique, se vérifie d'abord (Node, version, disque, ffmpeg, worker de rendu, SSO…) et ne remplace rien avant votre confirmation. Les sessions ne sont jamais transférées. Voir [Maintenance et migration](docs/fr/migration.md).
 - 📊 **Tableau de bord d'administration** — l'administration tient sur une page avec un menu à gauche : qui est connecté et ce que chacun fait en ce moment (le type d'action, jamais le prompt), le processeur, la mémoire et la carte graphique de la machine en direct, comment chaque fournisseur a répondu, chaque appareil connecté avec de quoi le déconnecter, un journal d'audit des connexions et des actions d'administration, et une annonce affichée à tout le monde. Voir [Le tableau de bord d'administration](docs/fr/admin-dashboard.md).
+- 🤖 **Créer depuis Claude ou ChatGPT (MCP)** — un administrateur peut autoriser des comptes choisis à connecter un assistant. Vous demandez un écran à Claude ou à ChatGPT, il vous pose les questions utiles, Mocky fait le design avec son propre pipeline — types d'écran, Muse, images — dans votre compte, et l'assistant vous rend une image du résultat et un lien vers le projet. Désactivé par défaut, HTTPS uniquement, OAuth avec un consentement donné dans Mocky. Voir [Connecter Claude ou ChatGPT](#connecter-claude-ou-chatgpt-mcp).
 - 🌗 **Deux thèmes** — Papier et Encre, tous deux de plein droit : mêmes jetons, aucun des deux plaqué sur l'autre. Chaque association est vérifiée face au WCAG AA par un test qui lit le vrai fichier de jetons.
 
 ## Pile technique
@@ -181,7 +182,9 @@ Toutes les variables d'environnement sont **optionnelles**. Mocky tourne tel que
 | `NODE_ENV` | `production` | Active un service optimisé. La sécurité des cookies est déduite de la connexion réelle, pas de cette variable |
 | `SSO_SHARED_SECRET` | _(non défini)_ | Secret HS256 partagé avec Dashy pour le SSO. Doit correspondre au `SSO_SHARED_SECRET` de Dashy. Avec `SSO_DASHY_URL`, active « Se connecter avec Dashy » |
 | `SSO_DASHY_URL` | _(non défini)_ | Origine publique de votre instance Dashy (par exemple `https://dashy.example.com`) |
-| `MOCKY_ORIGIN` | _(détectée automatiquement)_ | L'origine publique de Mocky elle-même, utilisée comme revendication `aud` du jeton SSO et pour construire l'URL de rappel. **Définissez-la explicitement dès que le SSO est actif** — le repli fait confiance à l'en-tête `Host` de la requête |
+| `MOCKY_ORIGIN` | _(détectée automatiquement)_ | L'origine publique de Mocky elle-même, utilisée comme revendication `aud` du jeton SSO et pour construire l'URL de rappel. **Définissez-la explicitement dès que le SSO est actif** — le repli fait confiance à l'en-tête `Host` de la requête. **Requise aussi pour les [assistants (MCP)](#connecter-claude-ou-chatgpt-mcp), en `https://`** |
+| `MOCKY_RUNNER_CHROMIUM` | _(automatique)_ | Le Chromium que pilote l'exécuteur MCP. L'image Docker en installe un ; à définir sur une installation depuis les sources qui doit servir des assistants |
+| `MOCKY_MCP_INSECURE_LOOPBACK` | _(non défini)_ | `1` accepte une origine `http://localhost` pour le serveur MCP — développement et tests uniquement, jamais sur un serveur |
 
 **Définir les variables d'environnement dans Docker.** `docker-compose.yml` lit un fichier `.env` local :
 
@@ -535,6 +538,9 @@ un outil correspondant). L'état de santé se trouve sur `GET /api/mcp/status`. 
 embarque `fetcher-mcp` + Chromium pour que l'inspiration en direct fonctionne d'emblée ;
 si cette couche est écartée, Muse se rabat sur la bibliothèque hors ligne de motifs de prompt.
 
+Ce sont les serveurs que Mocky *utilise*. Mocky peut aussi *en être* un, pour
+Claude ou ChatGPT : voir [Connecter Claude ou ChatGPT](#connecter-claude-ou-chatgpt-mcp).
+
 ### Higgsfield (procédure manuelle)
 
 > **Pourquoi c'est ainsi —** Chaque étape automatisée de Mocky passe par une interface qu'une instance auto-hébergée peut appeler d'elle-même, sans intervention humaine ; là où aucune interface de ce genre n'est offerte à des conditions gratuites, un bouton serait une promesse que le logiciel ne peut pas tenir. Prendre en charge la voie manuelle ne coûte rien de plus, parce que la bibliothèque de médias ne fait aucune différence entre un fichier produit par Mocky et un fichier que vous y avez apporté.
@@ -654,6 +660,42 @@ qui les lit attend des images qu'un film n'a pas.
 Le raisonnement complet : [`docs/fr/video-export.md`](docs/fr/video-export.md),
 et [`worker/video/README.fr.md`](worker/video/README.fr.md) pour le worker
 lui-même.
+
+## Connecter Claude ou ChatGPT (MCP)
+
+> **Pourquoi c'est ainsi —** Un assistant qui se contente de décrire un écran vous laisse recopier la description dans Mocky, et un assistant qui écrit le code lui-même saute tout ce que Mocky ajoute à un modèle — la direction, Muse, les types d'écran, les images, les vérifications. L'assistant reçoit donc une porte et non le pipeline : il demande, et Mocky conçoit, dans votre propre compte, avec le même code que le compositeur. Et comme cette porte permet à un modèle de dépenser les crédits d'une instance, elle reste fermée tant qu'un administrateur ne l'a pas ouverte, sur une instance dont le HTTPS est prouvé, pour les comptes qu'il désigne.
+
+Mocky est un serveur [MCP](https://modelcontextprotocol.io). Une fois connecté,
+Claude ou ChatGPT peut créer un design dans un nouveau projet, ajouter un écran
+à un projet que vous nommez, afficher vos projets et photographier un écran.
+Avant de concevoir, il demande ce qui lui manque (quel écran, pour qui, quel
+ton) ; il peut choisir les images lui-même — des photos libres qu'il regarde,
+ou une image qu'il a créée — et il reçoit une image du résultat et un lien qui
+ouvre le projet dans Mocky, pour vous une fois connecté.
+
+**Administrateur — Admin → Assistants (MCP).** La section se déverrouille dès
+que `MOCKY_ORIGIN` est une origine `https://` et que la page elle-même vous est
+parvenue en HTTPS sur cet hôte. Activez-la, ajoutez les comptes autorisés à se
+connecter (la liste commence vide, administrateurs compris), et cliquez sur
+**Vérifier l’exécuteur** : un design demandé depuis un assistant tourne dans un
+Chromium piloté par le serveur, avec le fournisseur de génération configuré
+dans l'administration. L'image Docker fournit ce Chromium ; une installation
+depuis les sources définit `MOCKY_RUNNER_CHROMIUM`.
+
+**Tous les autres — Réglages → Assistants connectés** donne l'adresse à
+fournir à l'assistant, `https://<votre-mocky>/mcp` :
+
+1. **Claude** : ajoutez un connecteur personnalisé avec cette adresse.
+   **ChatGPT** : créez un connecteur en mode développeur avec elle,
+   authentification OAuth.
+2. Connectez-vous à Mocky si on vous le demande, puis **Autoriser**.
+3. Demandez : *« Fais-moi un post Instagram pour le menu d'automne »*.
+
+La même page liste les assistants que vous avez autorisés, avec
+**Déconnecter**. Les jetons sont conservés sous forme d'empreinte, l'accès est
+revérifié à chaque appel, et les notes privées d'un écran ne parviennent jamais
+à un assistant. Tout le reste — les outils, les images, les quotas, la règle
+réseau de l'exécuteur — se trouve dans [docs/fr/mcp.md](docs/fr/mcp.md).
 
 ## SSO — « Se connecter avec Dashy »
 

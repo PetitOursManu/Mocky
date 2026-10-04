@@ -1,5 +1,5 @@
 ---
-source_hash: a1e548780d0f
+source_hash: c50d96fd7aaa
 ---
 
 # Vue d'ensemble de l'architecture
@@ -29,14 +29,17 @@ Le fait le plus structurant du projet :
 | Trouver et remplacer les images d'un écran (AST, sans modèle) | Navigateur | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
 | Trouver et remplacer les séquences de défilement d'un écran (AST, sans modèle) | Navigateur | `src/lib/screenSequences.ts` — un couple, `base` **et** `frames`, réécrits ensemble |
 | Muse : MCP, récupération de pages, distillation, dossier | Serveur | `server/muse/` |
+| Mocky comme serveur MCP : OAuth, outils, ce qui sort | Serveur | `server/mcp/` |
+| Un design demandé par un assistant | Un Chromium piloté par le serveur, qui exécute le pipeline du navigateur | `server/mcp/runner.js`, `src/runner/main.tsx` (`runner.html`) |
 | Images, vidéos, bibliothèques | Serveur | `server/images/`, `server/videos/` |
 | Export vidéo : schéma, l'unique appel de modèle, file, magasin | Serveur | `server/video/` — au **singulier** ; `server/videos/` est la bibliothèque de clips |
 | Export vidéo : le rendu proprement dit | Un service Docker séparé et facultatif | `worker/video/` — Remotion, plus `three` pour les blocs 3D et le monde continu, `lottie-web` pour les icônes animées et soixante typographies livrées. Absent tant que `--profile video-export` n'a pas été construit |
 
 Le back-end est volontairement petit : des fichiers JSON dans `server/data/`,
 aucune base de données, aucune dépendance native. Les dépendances d'exécution
-sont `express`, `cookie-parser`, `@modelcontextprotocol/sdk` et `zod` pour Muse,
-et `impeccable` pour la passe de qualité.
+sont `express`, `cookie-parser`, `@modelcontextprotocol/sdk` et `zod` pour Muse
+et le serveur MCP, `impeccable` pour la passe de qualité, et `playwright-core` —
+un pilote, sans navigateur dedans — pour l'exécuteur MCP.
 
 Les écritures sont atomiques : on écrit dans un fichier temporaire, puis on le
 renomme. Un plantage en cours d'écriture ne laisse donc jamais de fichier à
@@ -48,6 +51,25 @@ l'affaiblit pas : ses six dépendances d'exécution sont toutes en JavaScript pu
 et le Puppeteer qu'il déclare est **optionnel**, pour un moteur d'analyse d'URL
 que Mocky n'appelle jamais. Voir les [invariants](invariants.md) pour savoir
 pourquoi ce drapeau vit dans le Dockerfile et pas dans un `.npmrc`.
+
+### L'exception sans onglet : l'exécuteur MCP
+
+Quand Claude ou ChatGPT demande un design ([Connecter un assistant](../mcp.md)),
+personne n'a Mocky ouvert, et le pipeline ci-dessus vit toujours dans le
+navigateur. Un second pipeline côté serveur divergerait du premier à la
+prochaine modification ; le serveur apporte donc le navigateur :
+`server/mcp/runner.js` pilote un Chromium (`playwright-core`) vers
+`runner.html`, qui appelle le même `runNewScreen` que le compositeur, enregistre
+l'écran par `PUT /api/data` comme un onglet, et affiche son aperçu ; Chromium
+photographie ensuite cet aperçu lui-même.
+
+La page vit à l'origine PUBLIQUE et chaque requête vers elle reçoit sa réponse
+de `context.route` par la boucle locale, avec un jeton propre à ce travail qui
+n'ouvre que les routes dont une génération a besoin
+(`server/mcp/runner-auth.js`). L'origine publique est ce qui garde les adresses
+des images d'un écran chargeables par le navigateur d'une personne (M6). Tout
+ce que la page générée demande d'autre passe par la garde SSRF : c'est du code
+écrit par un modèle qui s'exécute sur le serveur (X6).
 
 ---
 
@@ -987,10 +1009,13 @@ dans son état, comme il fusionne l'événement `storage` d'un autre onglet : un
 écran en cours de génération survit à une copie qui ne le connaît pas encore.
 L'onglet qui écrit n'est pas prévenu de sa propre écriture (`x-mocky-tab`).
 
-La fusion se fait par PROJET : deux écrivains qui modifient le même projet au
-même moment aboutissent encore à l'une des deux versions. La phase 2 du plan MCP
-doit régler ce point avant que l'exécuteur écrive dans un projet que quelqu'un
-modifie.
+Les écrans sont réunis, pas seulement les projets : la copie la plus récente
+d'un projet l'emporte, et garde chaque écran de l'autre copie dont elle n'a
+jamais entendu parler — sauf si l'une des deux dit que cet écran a été supprimé
+(`removedScreens`, des pierres tombales de même durée de vie). Avant, la fusion
+se faisait par projet, et l'exécuteur qui ajoutait un écran à un projet qu'un
+onglet modifiait perdait l'un des deux écrans. Tous les autres champs restent
+ceux de la copie la plus récente.
 
 ### Le magasin serveur
 
@@ -1013,6 +1038,9 @@ modifie.
 | `video-exports.json` | Les films exportés : octets, conteneur, nombre de scènes, durée — et `owners` sous la même borne. Jamais le montage, qui porte le texte incrusté écrit par quelqu'un |
 | `video-exports/<hash>.mp4\|.webm` | Le film terminé, entier. Un répertoire distinct de `video-library/` à dessein : celui-là contient des *séquences de défilement*, découpées en images par ffmpeg, et tout ce qui lit son `list()` attend des images qu'un film n'a pas |
 | `video-jobs.json` | Le journal de la file de rendu : les 50 derniers jobs terminés, plus ceux en cours. Un job trouvé en cours au démarrage passe en erreur, jamais repris |
+| `mcp-config.json` | Admin → Assistants (MCP) : l'interrupteur, qui peut se connecter, les clients acceptés, la durée des jetons, le quota quotidien |
+| `mcp-oauth.json` | Clients enregistrés et connexions, jetons conservés **sous forme d'empreinte** (X3), mode `0600`. Ne voyage jamais avec une migration |
+| `mcp-jobs.json`, `mcp-shots/` | Les travaux récents de l'exécuteur et les images qu'il a prises : les 200 derniers, une semaine au plus |
 | `.migration/` | L'état d'une migration sur le NOUVEAU serveur : `staging/` (les fichiers déjà récupérés), `staged.json` (leurs empreintes, pour qu'un passage reprenne), `report.json` (le dernier import, pour *Vérifier l'intégrité*) et `previous-<heure>/` (ce que contenait le dossier avant le remplacement — déplacé, jamais supprimé). Jamais listé lui-même dans un manifeste |
 
 Les fichiers contenant des secrets sont écrits en mode `0600`. Le `0644` par
@@ -1044,6 +1072,12 @@ plafond.
 | `GET`/`PUT` `/api/data` | session | Les projets et le design de l'utilisateur |
 | `GET /api/mcp/status` | session | L'état de chaque serveur MCP déclaré |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
+| `POST /mcp` | bearer | Le serveur MCP : JSON-RPC, sans état. **404 tant qu'il est désactivé**, comme les routes OAuth et `/mcp-shot` (X1) |
+| `/.well-known/oauth-*`, `/register`, `/authorize`, `/token`, `/revoke` | — | OAuth 2.1 pour les assistants, fourni par `@modelcontextprotocol/sdk` |
+| `GET`/`POST /api/connect/:id` | session | La question de la page de consentement et sa réponse |
+| `GET`/`DELETE /api/account/mcp-connections` | session | Réglages → Assistants connectés |
+| `GET /mcp-shot/:file` | lien signé | Une image de l'exécuteur, pour un assistant qui n'affiche pas l'image d'un outil. Valable un jour, et plus après un redémarrage |
+| `/api/admin/mcp/*` | admin | Réglages, connexions, *Vérifier l’exécuteur*, *Lancer l’essai* |
 | `POST /api/muse/audit` | session | La moitié jugée du rapport SEO / accessibilité. `400` uniquement si `code` manque ; **`200` avec une liste vide et une notice quand il n'y a pas de modèle** |
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` en entrée, un rapport en sortie. `400` uniquement si `code` manque ; **`200` même sans modèle configuré** — voir plus bas |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Générer est le verbe coûteux |

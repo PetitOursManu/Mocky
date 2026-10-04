@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: 5101db154d57
+source_hash: bc934e134114
 ---
 
 # Démarrage
@@ -528,6 +528,9 @@ rapportée par `GET /api/mcp/status`. Les détails sont dans la page
 
 Un fichier absent ou invalide n'est jamais fatal. Il donne une liste de serveurs
 vide, et Muse retombe sur sa bibliothèque de patterns hors ligne.
+
+Ce sont les serveurs que Mocky **utilise**. Laisser Claude ou ChatGPT utiliser
+Mocky est l’autre sens, et une autre page : [Connecter un assistant](mcp.md).
 
 ---
 

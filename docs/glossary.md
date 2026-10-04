@@ -47,3 +47,7 @@ The size of a document's pages: A4, A3 or US Letter in portrait or landscape, a 
 ## Cable {#cable}
 
 A link between two screens as the canvas draws it: a line from the element it was placed on to the screen it opens, like a mind map. Faint behind the frames outside link mode; a control you can remove or reconnect inside it.
+
+## MCP {#mcp}
+
+The Model Context Protocol, which lets a model call tools. Mocky meets it twice, in opposite directions: Muse **uses** local MCP servers to read reference sites, and Mocky **is** one when an administrator lets assistants connect — Claude or ChatGPT then designs in Mocky for an account. See [Connecting an assistant](mcp.md).

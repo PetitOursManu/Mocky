@@ -69,6 +69,7 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 - [Deployment](deployment.md) Deploy Mocky.
 - [Maintenance and migration](migration.md) Put the instance in read-only mode, or move it to another server.
 - [Admin dashboard](admin-dashboard.md) See who is connected, what the machine is doing, and who changed what.
+- [Connecting an assistant (MCP)](mcp.md) Let Claude or ChatGPT design in Mocky for an account, and hand back a picture and a link.
 - [Architecture overview](architecture/overview.md) Understand the capability registry, the planner and the sandbox.
 - [Invariants](architecture/invariants.md) Know which rules the code refuses to break, and why.
 - [License](license.md) Know what the AGPL asks of you — usually nothing — and why what Mocky exports is yours.

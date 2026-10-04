@@ -25,14 +25,17 @@ The single most structural fact about the project:
 | Finding and swapping the images inside a screen (AST, no model) | Browser | `src/lib/screenImages.ts`, `src/components/ScreenImagesDialog.tsx` |
 | Finding and swapping the scroll sequences inside a screen (AST, no model) | Browser | `src/lib/screenSequences.ts` — a pair, `base` **and** `frames`, rewritten together |
 | Muse: MCP, fetching, distillation, dossier | Server | `server/muse/` |
+| Mocky as an MCP server: OAuth, tools, what leaves | Server | `server/mcp/` |
+| A design an assistant asked for | A Chromium the server drives, running the browser pipeline | `server/mcp/runner.js`, `src/runner/main.tsx` (`runner.html`) |
 | Images, videos, libraries | Server | `server/images/`, `server/videos/` |
 | Video export: schema, the one model call, queue, store | Server | `server/video/` — note the **singular**; `server/videos/` is the clip library |
 | Video export: the actual render | A separate, opt-in Docker service | `worker/video/` — Remotion, plus `three` for the 3D blocks and the continuous world, `lottie-web` for the animated icons and sixty bundled typefaces. Absent unless `--profile video-export` was built |
 
 The back end is deliberately small: JSON files under `server/data/`, no database,
 no native dependencies. The runtime dependencies are `express`, `cookie-parser`,
-`@modelcontextprotocol/sdk` and `zod` for Muse, and `impeccable` for the quality
-pass.
+`@modelcontextprotocol/sdk` and `zod` for Muse and the MCP server, `impeccable`
+for the quality pass, and `playwright-core` — a driver, with no browser inside —
+for the MCP runner.
 
 Writes are atomic — write to a temporary file, then rename. A crash mid-write
 never leaves a half-written file.
@@ -43,6 +46,23 @@ its six runtime dependencies are all pure JavaScript, and the Puppeteer it
 declares is **optional**, for a URL-scanning engine Mocky never calls. See
 [invariants](invariants.md) for why that flag lives in the Dockerfile and not in
 an `.npmrc`.
+
+### The exception with no tab: the MCP runner
+
+When Claude or ChatGPT asks for a design ([Connecting an assistant](../mcp.md)),
+nobody has Mocky open, and the pipeline above still lives in the browser. A
+second pipeline on the server would drift from the first on the next change,
+so the server brings the browser instead: `server/mcp/runner.js` drives a
+Chromium (`playwright-core`) to `runner.html`, which calls the same
+`runNewScreen` the composer calls, saves the screen through `PUT /api/data` like
+a tab, and shows its preview; Chromium then photographs that preview itself.
+
+The page lives at the PUBLIC origin and every request to it is answered by
+`context.route` over loopback, carrying a token for that one job that opens only
+the routes a generation needs (`server/mcp/runner-auth.js`). The public origin
+is what keeps a screen's picture addresses loadable by a person's browser (M6).
+Everything else the generated page asks for goes through the SSRF guard: this
+is model-written code running on the server (X6).
 
 ---
 
@@ -938,9 +958,12 @@ itself and merges the result into its state, the way it merges another tab's
 `storage` event, so a screen it is generating survives a copy that has not heard
 of it yet. The writing tab is not told about its own write (`x-mocky-tab`).
 
-The merge is per PROJECT: two writers changing the same project at the same time
-still resolve to one of the two versions. Phase 2 of the MCP plan has to deal
-with that before the runner writes into a project somebody is editing.
+Screens are united, not only projects: the newer copy of a project wins, and
+keeps every screen of the other copy it has never heard of — unless either copy
+says that screen was deleted (`removedScreens`, tombstones with the same TTL).
+Before, the merge was per project, and the runner adding a screen to a project
+a tab was editing lost one of the two screens. Every other field is still the
+newer copy's.
 
 ### The server store
 
@@ -963,6 +986,9 @@ with that before the runner writes into a project somebody is editing.
 | `video-exports.json` | Exported films: bytes, container, scene count, duration — and `owners` under the same cap. Never the timeline, which carries somebody's overlay text |
 | `video-exports/<hash>.mp4\|.webm` | The finished film, whole. A different directory from `video-library/` on purpose: that one holds *scroll sequences*, cut into stills by ffmpeg, and every consumer of its `list()` expects frames a film does not have |
 | `video-jobs.json` | The render queue's journal: the newest 50 finished jobs, plus whatever is live. A job found mid-flight at boot is marked failed, never resumed |
+| `mcp-config.json` | Admin → Assistants (MCP): the switch, who may connect, accepted clients, token lifetimes, the daily quota |
+| `mcp-oauth.json` | Registered clients and connections, tokens stored **by hash** (X3), mode `0600`. Never travels with a migration |
+| `mcp-jobs.json`, `mcp-shots/` | The runner's recent jobs and the pictures it took: the last 200, a week at most |
 | `.migration/` | A migration's own state on the NEW server: `staging/` (the files pulled so far), `staged.json` (their hashes, so a pass resumes), `report.json` (the last import, for *Check integrity*) and `previous-<time>/` (what the data directory held before the swap — moved, never deleted). Never listed by a manifest itself |
 
 Files holding secrets are written with mode `0600`. The default `0644` left them
@@ -993,6 +1019,12 @@ nothing inside them may grow without a ceiling.
 | `GET`/`PUT` `/api/data` | session | The user's projects and design |
 | `GET /api/mcp/status` | session | State of every declared MCP server |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
+| `POST /mcp` | bearer | The MCP server: JSON-RPC, stateless. **404 while it is off**, like the OAuth routes and `/mcp-shot` (X1) |
+| `/.well-known/oauth-*`, `/register`, `/authorize`, `/token`, `/revoke` | — | OAuth 2.1 for assistants, from `@modelcontextprotocol/sdk` |
+| `GET`/`POST /api/connect/:id` | session | The consent page's question and its answer |
+| `GET`/`DELETE /api/account/mcp-connections` | session | Settings → Connected assistants |
+| `GET /mcp-shot/:file` | signed link | A runner picture, for an assistant that shows no tool image. Valid a day, and not after a restart |
+| `/api/admin/mcp/*` | admin | Settings, connections, *Check the runner*, *Run the try* |
 | `POST /api/muse/audit` | session | The judged half of the SEO/accessibility report. `400` only when `code` is missing; **`200` with an empty list and a notice when there is no model** |
 | `POST /api/muse/quality` | session | `{ code, hasDirection, critique }` in, one report out. `400` only when `code` is missing; **`200` even with no model configured** — see below |
 | `POST /api/images/generate`, `/upload` | session, 30/min | Generation is the expensive verb |

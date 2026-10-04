@@ -1,5 +1,5 @@
 ---
-source_hash: 81ffb426a806
+source_hash: c6f986d8ec1b
 ---
 
 # Glossaire
@@ -51,3 +51,7 @@ La taille des pages d’un document : A4, A3 ou US Letter en portrait ou en pays
 ## Câble {#cable}
 
 Un lien entre deux écrans tel que le canevas le dessine : une ligne de l’élément où il a été posé jusqu’à l’écran qu’il ouvre, à la manière d’une carte mentale. Pâle derrière les cadres hors du mode liens ; un contrôle qu’on peut supprimer ou rebrancher dedans.
+
+## MCP {#mcp}
+
+Le Model Context Protocol, qui permet à un modèle d’appeler des outils. Mocky le rencontre deux fois, en sens inverse : Muse **utilise** des serveurs MCP locaux pour lire des sites de référence, et Mocky **en est** un quand un administrateur autorise les assistants à se connecter — Claude ou ChatGPT conçoit alors dans Mocky pour un compte. Voir [Connecter un assistant](mcp.md).
