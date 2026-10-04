@@ -366,16 +366,28 @@ export function createRunner(d) {
         notices: result.notices || [],
         picture: result.picture || 'none',
         ...(result.error ? { warning: result.error } : {}),
+        // A pass on an existing screen (edit, polish, audit): what it did, as
+        // the page summarised it — names and scores, never source.
+        ...(result.kind && result.kind !== 'new' ? { kind: result.kind, changed: result.changed === true } : {}),
+        ...(result.polish ? { polish: result.polish } : {}),
+        ...(result.audit ? { audit: result.audit } : {}),
+        ...(result.auditFix ? { auditFix: result.auditFix } : {}),
       }
 
-      job.progress = 'picture'
-      try {
-        const shot = await photograph(page, { code: result.code, w: result.w, h: result.h, caps: result.caps })
-        job.result.shot = saveShot(shot.png, shot.jpeg)
-        job.result.shotHeight = shot.height
-      } catch (err) {
-        // The screen exists and is saved; only its picture failed. Said, not fatal (X7-to-be).
-        job.result.notices.push(`No picture of the result: ${String(err?.message || err).slice(0, 160)}`)
+      // A pass that changed nothing has nothing new to show: the screen's picture
+      // is get_screenshot's, and photographing it here would cost seconds for a
+      // report that is about rule names.
+      const unchanged = job.result.kind && !job.result.changed
+      if (!unchanged) {
+        job.progress = 'picture'
+        try {
+          const shot = await photograph(page, { code: result.code, w: result.w, h: result.h, caps: result.caps })
+          job.result.shot = saveShot(shot.png, shot.jpeg)
+          job.result.shotHeight = shot.height
+        } catch (err) {
+          // The screen exists and is saved; only its picture failed. Said, not fatal (X7-to-be).
+          job.result.notices.push(`No picture of the result: ${String(err?.message || err).slice(0, 160)}`)
+        }
       }
       job.status = 'done'
     } catch (err) {
@@ -453,7 +465,8 @@ export function createRunner(d) {
     countToday(userId) {
       const start = new Date()
       start.setHours(0, 0, 0, 0)
-      return [...jobs.values()].filter((j) => j.userId === userId && j.createdAt >= start.getTime()).length
+      // An audit changes nothing and its rule half costs nothing: it is not a design.
+      return [...jobs.values()].filter((j) => j.userId === userId && j.createdAt >= start.getTime() && j.request?.kind !== 'audit').length
     },
 
     readShot,
@@ -538,6 +551,8 @@ function view(j) {
     // The language the request was written in, so a later get_design answers in it.
     lang: j.request?.lang === 'en' ? 'en' : 'fr',
     screenType: j.request?.screenType || null,
+    // What the job does, so get_design answers an edit or an audit as one.
+    kind: j.request?.kind || 'new',
     createdAt: j.createdAt,
     startedAt: j.startedAt,
     endedAt: j.endedAt,

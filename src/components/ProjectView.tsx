@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
 import { usePhone } from '../lib/usePhone'
@@ -23,10 +23,8 @@ import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autoli
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
 import UltraControl from './UltraControl'
 import { isEnvironmentError } from '../lib/previewErrors'
-import { ultraLoss } from '../lib/ultra/check'
-import { checkQuality, type QualityFinding } from '../lib/quality'
-import { auditScreen } from '../lib/audit'
-import { runPolishLoop, type PolishReport } from '../lib/polish'
+import { type QualityFinding } from '../lib/quality'
+import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
 import { downloadZip, downloadTsx } from '../lib/export'
 import type { StackTarget } from '../lib/export/project'
@@ -1401,7 +1399,6 @@ export default function ProjectView({
       const globalDesign = loadDesign()
       const globalMd = isDesignActive(globalDesign) ? globalDesign.markdown : undefined
       const designMd = designForProject(project, globalMd)
-      const designPreamble = designMd ? buildDesignPreamble(designMd) : undefined
 
       if (targets.length > 0) {
         // Edit mode: apply the instruction to each selected screen in place,
@@ -1412,14 +1409,6 @@ export default function ProjectView({
         const ids = new Set(targets.map((sc) => sc.id))
         setGeneratingIds(ids)
         for (const sc of targets) {
-          // `hintForScreen`: a document keeps its page hint on every edit.
-          const extraSystem = joinSystem([designPreamble, hintForScreen(sc)])
-          // A document is offered only what can live on paper; what its code
-          // already uses comes back through capabilitiesFor below.
-          const capIds = documentPipeline(sc.page).caps(
-            sc.caps && sc.caps.length > 0 ? sc.caps : selectCapabilities(text, designMd),
-          )
-          const caps = resolveCapabilities(capIds)
           // Snapshot the old code before overwriting.
           const oldCode = sc.code
           // And the revert target it already had, so cancelling can put the
@@ -1435,15 +1424,21 @@ export default function ProjectView({
           // design was gone with no way back.
           onUpdateScreen(sc.id, { previousCode: oldCode })
           try {
-            const res = await editComponent(
-              settings, text, sc.code, extraSystem, images, ac.signal,
-              (partial) => onUpdateScreen(sc.id, { code: partial }),
-              caps,
-            )
-            onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: capabilitiesFor(capIds, res.code) })
+            // The edit itself is lib/pipeline/screenPasses.ts, shared with the
+            // MCP runner; the streaming and the write-back are this view's.
+            const res = await editScreen({
+              settings,
+              instruction: text,
+              screen: sc,
+              designMd,
+              images,
+              signal: ac.signal,
+              onPartial: (partial) => onUpdateScreen(sc.id, { code: partial }),
+            })
+            onUpdateScreen(sc.id, { code: res.code, componentName: res.componentName, previousCode: oldCode, caps: res.caps })
             // A Motion Ultra screen can lose its pictures or its kit to an edit
             // about one line. Said, not undone: Revert is one click away.
-            const loss = sc.ultra ? ultraLoss(oldCode, res.code, sc.ultra) : null
+            const loss = res.loss
             if (loss) {
               const what = [
                 loss.images.length ? t('project.ultraLossImages', { count: loss.images.length }) : '',
@@ -1842,66 +1837,31 @@ export default function ProjectView({
     setRegeneratingIds(new Set([screenId]))
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
-      const designMd = activeDirection()
-      // Identity off a document; on one, only what paper can hold is offered.
-      const capIds = documentPipeline(screen.page).caps(
-        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
-      )
-      const caps = resolveCapabilities(capIds)
       const codeAtStart = screen.code
-
-      const outcome = await runPolishLoop(
-        codeAtStart,
-        {
-          check: (code) =>
-            checkQuality(code, {
-              // An established direction owns the palette and the typography,
-              // so the rules about them become advice rather than corrections.
-              hasDirection: Boolean(designMd && designMd.trim()),
-              // Motion Ultra's glass, gradients and halos are what the user
-              // switched it on for — reported, never "corrected" away.
-              ultra: Boolean(screen.ultra) || capIds.includes('ultra'),
-              settings,
-              signal: ac.signal,
-            }),
-          polish: async (code, findingsBlock) => {
-            const res = await polishComponent(settings, code, findingsBlock, ac.signal, caps)
-            return res.code
-          },
-          onPass: (iteration, remaining) =>
-            setRegenLabel(t('project.polishingPass', { i: iteration, n: remaining })),
-        },
-        { signal: ac.signal },
-      )
+      // The pass itself is lib/pipeline/screenPasses.ts, shared with the MCP
+      // runner; the progress label and the write-back are this view's.
+      const { outcome, record, caps } = await polishScreenCode({
+        settings,
+        screen,
+        designMd: activeDirection(),
+        signal: ac.signal,
+        onPass: (iteration, remaining) => setRegenLabel(t('project.polishingPass', { i: iteration, n: remaining })),
+      })
 
       // Someone else may have rewritten this screen while the loop ran — the
       // same race fixComponent guards against, and the same answer: drop ours.
       const now = screensRef.current.find((s) => s.id === screenId)
       if (!now || now.code !== codeAtStart) return
 
-      // Only a run that actually produced a report leaves a record. Writing one
-      // from a run whose check never completed would store a 20/20 for a screen
-      // nobody looked at, and `quality: undefined` — "never checked" — is the
-      // honest state for that.
-      const record = outcome.report
-        ? {
-            score: outcome.report.audit.score,
-            band: outcome.report.audit.band,
-            open: outcome.residual.map((f) => f.rule),
-            fixed: outcome.fixed.map((f) => f.rule),
-            iterations: outcome.iterations,
-            judged: outcome.report.audit.coverage.judged === true,
-            checkedAt: Date.now(),
-          }
-        : undefined
-
+      // `record` is undefined when the check never completed: `quality:
+      // undefined` — "never checked" — is the honest state for that.
       if (outcome.code !== codeAtStart) {
         onUpdateScreen(screenId, {
           code: outcome.code,
           componentName: detectComponentName(outcome.code),
           // "Revert to previous" undoes a polish, exactly as it undoes an edit.
           previousCode: codeAtStart,
-          caps: capabilitiesFor(capIds, outcome.code),
+          caps,
           ...(record ? { quality: record } : {}),
         })
       } else if (record) {
@@ -2265,39 +2225,12 @@ export default function ProjectView({
     // came back broken, which is the moment it is most likely to.
     retryRefs.current[screenId] = { count: 0, lastError: '' }
     try {
-      const designMd = activeDirection()
-      // Identity off a document; on one, only what paper can hold is offered.
-      const capIds = documentPipeline(screen.page).caps(
-        screen.caps && screen.caps.length > 0 ? screen.caps : selectCapabilities(screen.prompt, designMd),
-      )
-      const caps = resolveCapabilities(capIds)
       const codeAtStart = screen.code
-
-      // Explicitly a PolishReport, not an AuditReport: `initialReport` below is
-      // the findings the user pressed the button about, and nothing else of an
-      // audit report is needed to steer the loop.
-      const outcome = await runPolishLoop<PolishReport>(
-        codeAtStart,
-        {
-          check: (code) => auditScreen(code, { settings, signal: ac.signal }),
-          polish: async (code, findingsBlock) => {
-            const res = await auditFixComponent(settings, code, findingsBlock, ac.signal, caps)
-            return res.code
-          },
-        },
-        {
-          signal: ac.signal,
-          // The report the user is looking at, so the first pass corrects what
-          // they actually pressed the button about rather than re-deriving a
-          // possibly different list a second later.
-          initialReport: { findings },
-          // And the same list as the yardstick. `check` re-audits the WHOLE
-          // screen, so without this the loop compared the one finding the user
-          // clicked against every finding the screen still had, decided things
-          // had got worse, and threw away a correction that had worked.
-          scope: findings.map((f) => f.rule),
-        },
-      )
+      // The report the user is looking at, so the first pass corrects what
+      // they actually pressed the button about rather than re-deriving a
+      // possibly different list a second later — and the same list as the
+      // yardstick (lib/pipeline/screenPasses.ts, shared with the MCP runner).
+      const outcome = await fixScreenAudit({ settings, screen, designMd: activeDirection(), findings, signal: ac.signal })
 
       // Someone else may have rewritten this screen while the loop ran — the
       // same race polishScreen guards against, and the same answer: drop ours.

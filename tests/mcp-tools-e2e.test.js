@@ -41,6 +41,11 @@ const modelCalls = []
 let imageCalls = 0
 /** The prompt the fake image server was last given. */
 let lastImagePrompt = ''
+/** A screen with two accessibility faults, and the same screen with them fixed. */
+const CODE_BAD = 'export default function App() {\n  return <div className="p-8"><div className="text-3xl font-bold">Boulangerie</div><img src="https://x.test/a.jpg" /><button><svg /></button></div>\n}'
+const CODE_FIXED = 'export default function App() {\n  return <div className="p-8"><div className="text-3xl font-bold">Boulangerie</div><img src="https://x.test/a.jpg" alt="La vitrine" /><button aria-label="Menu"><svg /></button></div>\n}'
+const CODE_EDITED = CODE_FIXED.replace('text-3xl font-bold', 'text-3xl font-bold text-emerald-700')
+const fence = (code) => '```jsx\n' + code + '\n```'
 const DOSSIER = {
   productName: 'Elisa30',
   concept: 'Halloween chaleureux',
@@ -111,8 +116,14 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
         }
         const body = raw ? JSON.parse(raw) : null
         modelCalls.push(body)
-        // Muse's dossier is asked for by its schema; everything else JSON is the planner.
-        const content = JSON.stringify(body).includes('imageryPlan')
+        // Muse's dossier is asked for by its schema; everything else JSON is the
+        // planner. A pass on an existing screen is told apart by its prompt.
+        const said = JSON.stringify(body)
+        const content = said.includes('correcting named accessibility and SEO problems')
+          ? fence(CODE_FIXED)
+          : said.includes('You are EDITING an existing screen')
+            ? fence(CODE_EDITED)
+            : said.includes('imageryPlan')
           ? JSON.stringify(DOSSIER)
           : body?.format
             ? JSON.stringify({ capabilities: [], layout: 'hero', sections: ['Hero'], contentNotes: '' })
@@ -378,6 +389,60 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // An existing project keeps its direction: no Muse unless asked for.
     expect(dossiers()).toBe(dossiersBefore)
   }, 120_000)
+
+  it('reports, fixes, edits and polishes a screen that exists — each with its own pass', async () => {
+    const now = Date.now()
+    const seeded = {
+      id: 'p-passes',
+      name: 'Passes',
+      createdAt: now,
+      updatedAt: now,
+      screens: [{ id: 's-bad', name: 'Accueil', code: CODE_BAD, w: 1440, h: 900, x: 0, y: 0, device: 'desktop', prompt: 'La page d’accueil de la boulangerie Dupont', createdAt: now }],
+    }
+    expect((await call('PUT', '/api/data', { projects: JSON.stringify([seeded]) })).ok).toBe(true)
+    const stored = async () => JSON.parse((await (await call('GET', '/api/data')).json()).projects).find((p) => p.id === 'p-passes').screens[0]
+    const pass = async (name, args) => {
+      let out = await mcp.callTool({ name, arguments: { project_id: 'p-passes', screen_id: 's-bad', ...args } })
+      for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+        out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+      }
+      expect(out.structuredContent?.status, JSON.stringify(out.content)).toBe('done')
+      return out
+    }
+
+    // The report changes nothing, names what it found, and points at the fix.
+    const audit = await pass('audit_design', {})
+    expect(audit.structuredContent.changed).toBe(false)
+    expect(audit.structuredContent.audit.findings.filter((x) => x.fixable).map((x) => x.rule).sort()).toEqual(['control-no-name', 'img-alt'])
+    expect(audit.content.find((c) => c.type === 'text').text).toContain('fix_accessibility')
+    expect((await stored()).code).toBe(CODE_BAD)
+
+    // The correction runs AUDIT_FIX_PROMPT and nothing else, and is revertible.
+    let before = modelCalls.length
+    const fixed = await pass('fix_accessibility', {})
+    expect(fixed.structuredContent.changed).toBe(true)
+    expect(fixed.structuredContent.auditFix.fixed).toHaveLength(2)
+    const fixCalls = modelCalls.slice(before).map((c) => JSON.stringify(c))
+    expect(fixCalls.some((c) => c.includes('correcting named accessibility and SEO problems'))).toBe(true)
+    expect(fixCalls.some((c) => c.includes('You are EDITING') || c.includes('correcting specific, named design problems'))).toBe(false)
+    expect(await stored()).toMatchObject({ code: CODE_FIXED, previousCode: CODE_BAD })
+
+    // The edit carries the person's words, comes back photographed, and is revertible.
+    before = modelCalls.length
+    const edited = await pass('edit_design', { instruction: 'Mets le titre en vert émeraude' })
+    expect(edited.structuredContent.changed).toBe(true)
+    expect(edited.content.some((c) => c.type === 'image')).toBe(true)
+    expect(JSON.stringify(modelCalls.slice(before))).toContain('Mets le titre en vert émeraude')
+    expect(await stored()).toMatchObject({ code: CODE_EDITED, previousCode: CODE_FIXED })
+
+    // The quality pass answers with a score whatever it found.
+    const polished = await pass('polish_design', {})
+    expect(typeof polished.structuredContent.polish.score).toBe('number')
+
+    // Someone else's screen, or no screen, reads as missing (X4).
+    const missing = await mcp.callTool({ name: 'edit_design', arguments: { project_id: 'p-passes', screen_id: 'nope', instruction: 'x' } })
+    expect(missing.isError).toBe(true)
+  }, 240_000)
 
   it('marks the account "MCP" in the admin while it uses Mocky through an assistant', async () => {
     const overview = await (await call('GET', '/api/admin/dashboard/overview')).json()

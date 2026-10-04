@@ -9,6 +9,10 @@
  *   add_screen      a new screen in a project the person named    (write)
  *   get_design      a design being made: wait for it, get it      (read)
  *   get_screenshot  a picture of a screen that already exists     (read)
+ *   edit_design     change a screen as the person asks           (write)
+ *   polish_design   the quality pass on a screen                  (write)
+ *   audit_design    the SEO / accessibility report of a screen    (read)
+ *   fix_accessibility  that report's own correction              (write)
  *   search_free_images  free photos, as thumbnails to look at      (read)
  *   add_image       a picture into the library, for a design      (write)
  *   + the prompt `new-design`, which starts the short interview
@@ -213,6 +217,7 @@ export function buildMcpServer(deps) {
       'A new design goes in a NEW project (create_design). Add to an existing project (add_screen) only when the person explicitly asks for that project — never because one looks related. ' +
       'Before designing, make sure you know what screen it is, who it is for and the tone wanted; when the person has not said, ask them at most three short questions — never questions they already answered. ' +
       'For pictures, YOU choose: search_free_images shows you free photos to look at, add_image puts the chosen one (or a picture from this conversation) in the account\'s library, and its image_id goes in the images field with what it is for. ' +
+      'For a screen that already exists, one tool per request: edit_design to change it as asked, polish_design for Mocky\'s quality pass, audit_design for its SEO and accessibility report, fix_accessibility to correct that report. ' +
       'A generation takes from thirty seconds to a few minutes: if create_design answers that it is still running, call get_design with the job id. ' +
       'Show the person the picture you get back, and give them the link: it opens the project in Mocky and requires them to be signed in to this account.',
   })
@@ -243,6 +248,7 @@ export function buildMcpServer(deps) {
       }
     }
     const r = job.result
+    if (r.kind) return passResult(job, r, lang)
     const link = linkFor(r.projectId, r.screenId)
     const jpeg = r.shot ? runner.readShot(r.shot, 'jpg') : null
     const notes = [...(r.warning ? [r.warning] : []), ...(r.notices || [])]
@@ -266,6 +272,126 @@ export function buildMcpServer(deps) {
         notes,
       },
     }
+  }
+
+  /**
+   * What an edit, a polish or an audit becomes in a tool result. Each says what
+   * it CHANGED as well as what is left — a pass that rewrote six things and a
+   * pass that found nothing both leave nothing open, and only the first is a
+   * change the person should go and look at (CLAUDE.md, the quality pass, 4).
+   */
+  function passResult(job, r, lang) {
+    const fr = lang === 'fr'
+    const link = linkFor(r.projectId, r.screenId)
+    const jpeg = r.shot ? runner.readShot(r.shot, 'jpg') : null
+    const list = (names) => names.join(', ')
+    const lines = []
+    if (r.kind === 'edit') {
+      lines.push(fr ? `Écran modifié. Ouvrir dans Mocky : ${link}` : `Screen edited. Open it in Mocky: ${link}`)
+    } else if (r.kind === 'polish') {
+      const p = r.polish || { score: null, fixed: [], residual: [], stopped: 'error' }
+      if (p.score === null) {
+        lines.push(fr ? 'La vérification de qualité n’a pas pu tourner : rien n’a été changé.' : 'The quality check could not run: nothing was changed.')
+      } else {
+        if (p.fixed.length) lines.push(fr ? `Corrigé : ${list(p.fixed)}.` : `Fixed: ${list(p.fixed)}.`)
+        if (p.residual.length) lines.push(fr ? `Reste à revoir : ${list(p.residual)}.` : `Still open: ${list(p.residual)}.`)
+        if (!p.fixed.length && !p.residual.length) lines.push(fr ? 'Rien à corriger.' : 'Nothing to fix.')
+        lines.push(fr ? `Note de qualité : ${p.score}/20. ${link}` : `Quality score: ${p.score}/20. ${link}`)
+      }
+    } else {
+      const a = r.audit
+      if (a && !a.parsed) {
+        lines.push(fr ? 'Le code de cet écran n’a pas pu être lu : aucun rapport.' : 'This screen’s code could not be read: no report.')
+      } else if (a) {
+        lines.push(fr ? `SEO : ${a.seo}/100 — accessibilité : ${a.a11y}/100.` : `SEO: ${a.seo}/100 — accessibility: ${a.a11y}/100.`)
+        if (!a.judged) {
+          lines.push(
+            fr
+              ? 'Contrôle des règles seulement (le jugement par le modèle n’a pas tourné) ; le contraste et la taille des cibles rendus ne sont pas mesurés.'
+              : 'Rule checks only (the model-judged half did not run); rendered contrast and target sizes are not measured.',
+          )
+        }
+        const shown = a.findings.slice(0, 25)
+        for (const f of shown) {
+          lines.push(`- ${f.name}${f.priority ? ` (${f.priority})` : ''}${f.fixable ? '' : fr ? ' — conseil' : ' — advice'}`)
+        }
+        if (a.findings.length > shown.length) lines.push(fr ? `… et ${a.findings.length - shown.length} de plus.` : `… and ${a.findings.length - shown.length} more.`)
+        if (!a.findings.length) lines.push(fr ? 'Aucun problème trouvé.' : 'No problem found.')
+      }
+      if (r.kind === 'auditFix') {
+        const x = r.auditFix
+        if (!x) lines.push(fr ? 'Rien à corriger.' : 'Nothing to fix.')
+        else {
+          if (x.fixed.length) lines.push(fr ? `Corrigé, à l’identique à l’écran : ${list(x.fixed)}.` : `Fixed, with the screen looking the same: ${list(x.fixed)}.`)
+          if (x.residual.length) lines.push(fr ? `Pas pu corriger : ${list(x.residual)}.` : `Could not fix: ${list(x.residual)}.`)
+          if (!x.fixed.length && !x.residual.length) lines.push(fr ? 'Rien n’a changé.' : 'Nothing changed.')
+        }
+      } else if (a?.findings.some((f) => f.fixable)) {
+        lines.push(fr ? 'Pour corriger ce qui peut l’être, appelle fix_accessibility.' : 'To fix what can be fixed, call fix_accessibility.')
+      }
+      lines.push(link)
+    }
+    if (r.changed) {
+      lines.push(
+        fr
+          ? 'Dans Mocky, « Revenir à la version précédente », dans le menu de l’écran (clic droit), annule ce changement.'
+          : 'In Mocky, "Revert to the previous version", in the screen’s menu (right-click), undoes this change.',
+      )
+    }
+    if (r.shot) lines.push(fr ? `Image : ${deps.shotLink(r.shot)}` : `Picture: ${deps.shotLink(r.shot)}`)
+    const notes = [...(r.warning ? [r.warning] : []), ...(r.notices || []), ...(r.audit?.notices || [])]
+    if (notes.length) lines.push((fr ? 'Remarques : ' : 'Notes: ') + notes.join(' '))
+    return {
+      content: [...(jpeg ? [{ type: 'image', data: jpeg.toString('base64'), mimeType: 'image/jpeg' }] : []), text(lines.join('\n'))],
+      structuredContent: {
+        status: 'done',
+        jobId: job.id,
+        kind: r.kind,
+        projectId: r.projectId,
+        screenId: r.screenId,
+        link,
+        changed: r.changed === true,
+        picture: r.shot ? deps.shotLink(r.shot) : null,
+        ...(r.polish ? { polish: r.polish } : {}),
+        ...(r.audit ? { audit: r.audit } : {}),
+        ...(r.auditFix ? { auditFix: r.auditFix } : {}),
+        notes,
+      },
+    }
+  }
+
+  /**
+   * Hand a pass on an existing screen to the runner and wait for it, like a
+   * design. A screen that is not this account's answers like a missing one (X4).
+   */
+  async function startPass(kind, { project_id, screen_id, instruction, deep }) {
+    const p = findProject(project_id)
+    const s = p?.screens?.find((x) => x?.id === screen_id)
+    const lang = briefLanguage(instruction || s?.prompt || '')
+    if (!s || typeof s.code !== 'string' || !s.code.trim()) return refuse(lang === 'fr' ? 'Aucun écran de ce compte ne porte cet identifiant.' : 'No such screen in this account.')
+    const blocked = cannotRun(lang, { writes: kind !== 'audit' })
+    if (blocked) return blocked
+    const { job, existing } = runner.enqueue(user.id, {
+      kind,
+      brief: '',
+      projectId: p.id,
+      screenId: s.id,
+      ...(instruction ? { instruction: String(instruction).slice(0, 4000) } : {}),
+      ...(deep ? { deep: true } : {}),
+      lang,
+    })
+    const out = jobResult(await runner.wait(job.id, user.id, WAIT_MS), lang)
+    if (existing) {
+      // The job handed back is not the one asked for: say so before its answer.
+      out.content.unshift(
+        text(
+          lang === 'fr'
+            ? 'Un travail est déjà en cours pour ce compte : voici celui-là. Un seul à la fois — rappelle ensuite cet outil.'
+            : 'Work is already running for this account: here is that one. One at a time — call this tool again afterwards.',
+        ),
+      )
+    }
+    return out
   }
 
   // The guide for the assistant (guide.js): a tool, because every client calls
@@ -326,6 +452,26 @@ export function buildMcpServer(deps) {
   )
 
   /**
+   * Why a job cannot start, as a refusal — or null. Shared by every tool that
+   * hands work to the runner. `writes: false` is the audit: it changes nothing,
+   * so maintenance (read-only, not closed) lets it through, and it costs no
+   * "design" from the daily quota.
+   */
+  function cannotRun(lang, { writes = true } = {}) {
+    if (writes && deps.maintenance()) return refuse(lang === 'fr' ? 'Mocky est en maintenance : réessaie plus tard.' : 'Mocky is in maintenance: try again later.')
+    if (!deps.hasTextProvider()) {
+      return refuse(lang === 'fr' ? 'Ce Mocky n’a pas de fournisseur de génération configuré par son administrateur.' : 'This Mocky has no generation provider configured by its administrator.')
+    }
+    const why = runner.availability()
+    if (!why.available) return refuse(lang === 'fr' ? `La génération à distance n’est pas disponible sur ce Mocky (${why.reason}).` : `Remote generation is not available on this Mocky (${why.reason}).`)
+    const quota = deps.dailyQuota()
+    if (writes && quota && !runner.isBusy(user.id) && runner.countToday(user.id) >= quota) {
+      return refuse(lang === 'fr' ? `Limite atteinte : ${quota} designs par jour pour ce compte.` : `Limit reached: ${quota} designs a day for this account.`)
+    }
+    return null
+  }
+
+  /**
    * The design itself, for both doors below. `project` is the existing project
    * a screen is added to, or null for a new project — decided by WHICH tool the
    * assistant called, never by an optional field it may fill on a hunch.
@@ -345,16 +491,8 @@ export function buildMcpServer(deps) {
         structuredContent: { status: 'needs_clarification', questions: QUESTIONS[lang] },
       }
     }
-    if (deps.maintenance()) return refuse(lang === 'fr' ? 'Mocky est en maintenance : réessaie plus tard.' : 'Mocky is in maintenance: try again later.')
-    if (!deps.hasTextProvider()) {
-      return refuse(lang === 'fr' ? 'Ce Mocky n’a pas de fournisseur de génération configuré par son administrateur.' : 'This Mocky has no generation provider configured by its administrator.')
-    }
-    const why = runner.availability()
-    if (!why.available) return refuse(lang === 'fr' ? `La génération à distance n’est pas disponible sur ce Mocky (${why.reason}).` : `Remote generation is not available on this Mocky (${why.reason}).`)
-    const quota = deps.dailyQuota()
-    if (quota && !runner.isBusy(user.id) && runner.countToday(user.id) >= quota) {
-      return refuse(lang === 'fr' ? `Limite atteinte : ${quota} designs par jour pour ce compte.` : `Limit reached: ${quota} designs a day for this account.`)
-    }
+    const blocked = cannotRun(lang)
+    if (blocked) return blocked
     // Only pictures of this account's: an id from someone else's library answers
     // like one that does not exist (X4).
     const images = Array.isArray(args.images) ? args.images : []
@@ -512,6 +650,77 @@ export function buildMcpServer(deps) {
   )
 
   /*
+   * Work on a screen that exists. Four tools, not one with a mode: each runs ONE
+   * of Mocky's correction passes (CLAUDE.md), and their instructions break one
+   * another — a polish restyles on purpose, an accessibility fix must leave the
+   * screen looking identical, an edit does what it is told. A tool per pass is
+   * what keeps an assistant from asking for one and getting another.
+   */
+  const screenFields = {
+    project_id: z.string().min(1).max(64).describe('The project, from list_projects or a previous answer.'),
+    screen_id: z.string().min(1).max(64).describe('The screen, from get_project or a previous answer.'),
+  }
+
+  server.registerTool(
+    'edit_design',
+    {
+      title: 'Change a screen in Mocky',
+      description:
+        'Changes an existing screen as the person asks — "make the header dark", "add a pricing section", "translate it into English" — keeping everything else. ' +
+        'Returns a picture of the result and a link. The previous version is kept: "Revert to the previous version" in Mocky undoes it. ' +
+        'Only for a screen the person pointed at (by name or link); for a new screen use create_design or add_screen.',
+      inputSchema: {
+        ...screenFields,
+        instruction: z.string().min(1).max(4000).describe('What to change, in the person\'s words. Only the change: the screen\'s current content is kept.'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async (args) => startPass('edit', args),
+  )
+
+  server.registerTool(
+    'polish_design',
+    {
+      title: 'Run Mocky\'s quality pass on a screen',
+      description:
+        'Checks a screen against Mocky\'s design-quality rules (generic machine-made patterns, weak hierarchy, filler copy…), corrects what it finds, and scores it out of 20. ' +
+        'It may restyle details: that is its job. Returns what was fixed, what is left, the score, and a picture when the screen changed. Revertible in Mocky.',
+      inputSchema: screenFields,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async (args) => startPass('polish', args),
+  )
+
+  server.registerTool(
+    'audit_design',
+    {
+      title: 'SEO and accessibility report of a screen',
+      description:
+        'Reports a screen\'s SEO and accessibility: two scores out of 100 and the named findings, each marked fixable or advice. Changes nothing. ' +
+        'deep: true also asks Mocky\'s model the questions a rule cannot settle (one model call). To correct the findings, call fix_accessibility.',
+      inputSchema: {
+        ...screenFields,
+        deep: z.boolean().optional().describe('Also run the model-judged questions. Slower; off by default.'),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => startPass('audit', args),
+  )
+
+  server.registerTool(
+    'fix_accessibility',
+    {
+      title: 'Fix a screen\'s SEO and accessibility findings',
+      description:
+        'Audits a screen (as audit_design) and corrects the fixable SEO and accessibility findings in the markup — labels, headings, alt text, landmarks… — with the screen looking the same. ' +
+        'Returns what was fixed and what could not be. Revertible in Mocky.',
+      inputSchema: screenFields,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async (args) => startPass('auditFix', args),
+  )
+
+  /*
    * Pictures. The assistant chooses — not Mocky's model: it searches the free
    * libraries and LOOKS at the thumbnails itself, or brings a picture it has,
    * and hands the chosen ones to create_design. See server/mcp/images.js.
@@ -602,7 +811,7 @@ export function buildMcpServer(deps) {
     'get_design',
     {
       title: 'Get a design being made',
-      description: 'Waits for a design started with create_design and returns its picture and link, or says it is still running. Read-only.',
+      description: 'Waits for work started by create_design, add_screen, edit_design, polish_design, audit_design or fix_accessibility, and returns its answer, or says it is still running. Read-only.',
       inputSchema: { job_id: z.string().min(1).max(64).describe('The job id create_design returned.') },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },

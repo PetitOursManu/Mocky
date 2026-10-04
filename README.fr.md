@@ -667,7 +667,9 @@ lui-même.
 
 Mocky est un serveur [MCP](https://modelcontextprotocol.io). Une fois connecté,
 Claude ou ChatGPT peut créer un design dans un nouveau projet, ajouter un écran
-à un projet que vous nommez, afficher vos projets et photographier un écran.
+à un projet que vous nommez, afficher vos projets et photographier un écran —
+puis le modifier, lui appliquer la passe de qualité de Mocky, ou auditer et
+corriger son accessibilité.
 Avant de concevoir, il demande ce qui lui manque (quel écran, pour qui, quel
 ton) ; il peut choisir les images lui-même — des photos libres qu'il regarde,
 ou une image qu'il a créée — et il reçoit une image du résultat et un lien qui

@@ -679,7 +679,8 @@ change nothing anybody sees.
 
 Mocky is an [MCP](https://modelcontextprotocol.io) server. Connected to it,
 Claude or ChatGPT can create a design in a new project, add a screen to a
-project you name, show your projects and photograph a screen. Before
+project you name, show your projects and photograph a screen — and change one,
+run Mocky's quality pass on it, or audit and fix its accessibility. Before
 designing it asks what it needs (what the screen is, for whom, the tone);
 it can choose the pictures itself — free photos it looks at, or one it made —
 and it gets back a picture of the result and a link that opens the project in

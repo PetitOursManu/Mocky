@@ -21,6 +21,10 @@ for the accounts they choose, and only on an instance served over HTTPS.
 | `get_screenshot` | A picture of a screen that already exists. |
 | `search_free_images` | Free photos from the libraries this Mocky is connected to (Pexels, Pixabay), as thumbnails the assistant looks at. |
 | `add_image` | Puts one picture in the account's library for a design: a free photo chosen above, a picture from the conversation (one ChatGPT generated, or one the person attached), or a public address. |
+| `edit_design` | Changes an existing screen as the person asks — "make the header dark" — keeping the rest. Returns a picture and the link. |
+| `polish_design` | Mocky's [quality pass](quality.md) on a screen: corrects what it finds and scores it out of 20. Says what it fixed and what is left. |
+| `audit_design` | The [SEO and accessibility report](seo-accessibility.md) of a screen: two scores and the named findings. Changes nothing; `deep` adds the model-judged questions. |
+| `fix_accessibility` | That report's own correction: fixes the markup, the screen looking the same. |
 
 And one prompt, **new-design** (the "/" menu in Claude), which starts a short
 interview before designing.
@@ -59,6 +63,14 @@ interview before designing.
   Muse looks at the first one before writing its dossier and uses them in its
   slots instead of making its own — so the palette is chosen with the photo,
   not beside it.
+- **One pass per tool.** `edit_design`, `polish_design` and `fix_accessibility`
+  each run ONE of Mocky's passes, with its own instruction — an edit does what
+  it is told, a polish may restyle, an accessibility fix must leave the screen
+  looking the same — so asking for one never runs another. Each keeps the
+  screen's previous version: **Revert to the previous version**, in the screen's
+  menu, undoes what the assistant did. A screen changed in a tab while the pass
+  ran is left alone, and the answer says so. An audit changes nothing, works
+  during maintenance, and is not counted in the daily quota.
 - **The same Mocky.** The design is made by the headless runner (below), with
   the same pipeline as the interface, and saved in the account — in a tab already
   open on that project, the new screen appears on its own.

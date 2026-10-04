@@ -1,5 +1,5 @@
 ---
-source_hash: 9da0f4425fc8
+source_hash: 175e4c1016a2
 ---
 
 # Connecter un assistant (MCP)
@@ -26,6 +26,10 @@ instance servie en HTTPS.
 | `get_screenshot` | Une image d'un écran qui existe déjà. |
 | `search_free_images` | Des photos libres des banques auxquelles ce Mocky est relié (Pexels, Pixabay), en miniatures que l'assistant regarde. |
 | `add_image` | Met une image dans la bibliothèque du compte pour un design : une photo libre choisie ci-dessus, une image de la conversation (générée par ChatGPT, ou jointe par la personne), ou une adresse publique. |
+| `edit_design` | Modifie un écran existant comme la personne le demande — « mets l'en-tête en sombre » — en gardant le reste. Rend une image et le lien. |
+| `polish_design` | La [passe de qualité](quality.md) de Mocky sur un écran : corrige ce qu'elle trouve et note l'écran sur 20. Dit ce qu'elle a corrigé et ce qui reste. |
+| `audit_design` | Le [rapport SEO et accessibilité](seo-accessibility.md) d'un écran : deux notes et les constats nommés. Ne change rien ; `deep` ajoute les questions jugées par le modèle. |
+| `fix_accessibility` | La correction propre à ce rapport : corrige le balisage, l'écran restant identique à l'œil. |
 
 Et un prompt, **new-design** (le menu « / » de Claude), qui démarre un court
 entretien avant de dessiner.
@@ -67,6 +71,16 @@ entretien avant de dessiner.
   images fournies, Muse regarde la première avant d'écrire son dossier et les
   place dans ses emplacements au lieu d'en créer — la palette est donc choisie
   avec la photo, pas à côté.
+- **Une passe par outil.** `edit_design`, `polish_design` et
+  `fix_accessibility` exécutent chacun UNE des passes de Mocky, avec sa propre
+  consigne — une modification fait ce qu'on lui dit, un polissage peut
+  retoucher le style, une correction d'accessibilité doit laisser l'écran
+  identique à l'œil — si bien qu'en demander une n'en lance jamais une autre.
+  Chacune garde la version précédente de l'écran : **Revenir à la version
+  précédente**, dans le menu de l'écran, annule ce qu'a fait l'assistant. Un
+  écran modifié dans un onglet pendant la passe est laissé tel quel, et la
+  réponse le dit. Un audit ne change rien, fonctionne pendant la maintenance et
+  n'est pas compté dans le quota quotidien.
 - **Le même Mocky.** Le design est fait par l'exécuteur sans interface
   (ci-dessous), avec le même pipeline que l'interface, et enregistré dans le
   compte — dans un onglet déjà ouvert sur ce projet, le nouvel écran apparaît

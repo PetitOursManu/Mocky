@@ -32,15 +32,33 @@ import { absoluteUrl, checkVision, defaultMuseConfig, museAvailable } from '../l
 import { documentPictureSource, imageGenerationAvailable, type DocumentImageChoice } from '../lib/documentPictures'
 import { stockImageStatus, stockUsable } from '../lib/stockImages'
 import { imageUrl } from '../lib/imageLibrary'
-import { extractProductName } from '../lib/design'
-import { DEFAULT_PROJECT_NAME, newId, placeScreen, type Project, type Screen } from '../lib/project'
+import { defaultDesign, extractProductName, isDesignActive } from '../lib/design'
+import { DEFAULT_PROJECT_NAME, designForProject, newId, placeScreen, type Project, type Screen } from '../lib/project'
 import { runNewScreen, type NewScreenPhase } from '../lib/pipeline/newScreen'
+import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
+import { auditScreen, type AuditReport } from '../lib/audit'
+import { detectComponentName } from '../lib/generate'
 import { isScreenThemeId } from '../lib/screenThemes'
 import { translate, type TranslationKey } from '../i18n'
 import Preview from '../components/Preview'
 
+/**
+ * What a job does. `new` (the default) makes a screen; the others work on one
+ * that exists — each calls ONE of the correction passes, never a mix (CLAUDE.md,
+ * "four independent correction passes"): an edit, the quality pass, the
+ * SEO/accessibility report, or that report followed by its own correction.
+ */
+export type RunnerKind = 'new' | 'edit' | 'polish' | 'audit' | 'auditFix'
+
 /** What the server asks for. Validated there; read defensively here anyway. */
 export interface RunnerJob {
+  kind?: RunnerKind
+  /** The screen an edit, a polish or an audit works on (with `projectId`). */
+  screenId?: string
+  /** An edit's instruction — the person's words, as the composer passes them. */
+  instruction?: string
+  /** An audit's model-judged half (a model call), as the panel's "deep" switch. */
+  deep?: boolean
   brief: string
   /** An existing project of the account, or absent for a new one. */
   projectId?: string
@@ -70,6 +88,23 @@ export interface RunnerResult {
   notices: string[]
   picture: 'provided' | 'free' | 'generated' | 'none'
   error?: string
+  kind?: RunnerKind
+  /** Whether the pass rewrote the screen — a polish that found nothing does not. */
+  changed?: boolean
+  polish?: { score: number | null; stopped: string; fixed: string[]; residual: string[]; iterations: number }
+  audit?: RunnerAudit
+  /** What the accessibility correction resolved and left. */
+  auditFix?: { fixed: string[]; residual: string[]; stopped: string }
+}
+
+/** The SEO / accessibility report as it leaves the page: scores and named findings, no source. */
+export interface RunnerAudit {
+  seo: number
+  a11y: number
+  parsed: boolean
+  judged: boolean
+  findings: Array<{ rule: string; name: string; dimension?: string; priority?: string; fixable: boolean }>
+  notices: string[]
 }
 
 declare global {
@@ -91,7 +126,24 @@ const progress = (phase: string) => {
   }
 }
 
+/**
+ * The account's own DESIGN.md, when it is switched on — the composer's
+ * `loadDesign()`, read from the copy the account syncs instead of from a
+ * browser's storage. A project without a direction of its own follows it there,
+ * so it follows it here.
+ */
+function globalDesignFrom(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined
+  try {
+    const d = { ...defaultDesign(), ...(JSON.parse(raw) as object) }
+    return isDesignActive(d) ? d.markdown : undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function run(job: RunnerJob): Promise<RunnerResult> {
+  if (job.kind && job.kind !== 'new') return runOnScreen(job)
   const lang = job.lang === 'en' ? 'en' : 'fr'
   const t = (key: TranslationKey, vars?: Record<string, string | number>) => translate(lang, key, vars)
   const brief = String(job.brief || '').trim()
@@ -167,7 +219,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       images: [],
       annotationCount: 0,
       site: null,
-      globalMd: undefined,
+      globalMd: globalDesignFrom(data.design),
       presetId,
       themeId: isScreenThemeId(job.screenType) ? job.screenType : null,
       pageFormatId: null,
@@ -274,6 +326,157 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     // post without one is a fact it can repeat rather than a surprise.
     picture: provided.length ? 'provided' : screen.imageHash ? (docPictureSource === 'stock' ? 'free' : 'generated') : 'none',
     ...(outcome.error ? { error: outcome.error } : {}),
+  }
+}
+
+/** What leaves the page of an audit report: scores, rule ids and names — never a snippet of source. */
+function auditSummary(r: AuditReport): RunnerAudit {
+  return {
+    seo: r.seo.score,
+    a11y: r.a11y.score,
+    parsed: r.parsed,
+    judged: r.coverage.judged,
+    findings: r.findings.map((f) => ({
+      rule: f.rule,
+      name: f.name,
+      ...(f.dimension ? { dimension: f.dimension } : {}),
+      ...(f.priority ? { priority: f.priority } : {}),
+      // Only enforceable findings may be spent a correction pass on (Q2).
+      fixable: f.disposition !== 'advise',
+    })),
+    notices: r.notices,
+  }
+}
+
+/**
+ * An edit, a polish or an audit of a screen that exists — through
+ * lib/pipeline/screenPasses.ts, the functions the composer's own buttons call.
+ *
+ * The write-back keeps the composer's conventions: `previousCode` so "Revert"
+ * in Mocky undoes what the assistant did, and a `codeAtStart` check against the
+ * account's data as it stands when the pass ENDS — a person may have changed
+ * that screen in a tab meanwhile, and their change wins, as it does against a
+ * polish they started themselves.
+ */
+async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
+  const kind = job.kind as Exclude<RunnerKind, 'new'>
+  const lang = job.lang === 'en' ? 'en' : 'fr'
+  const t = (key: TranslationKey, vars?: Record<string, string | number>) => translate(lang, key, vars)
+
+  progress('reading')
+  const data = await api.getData()
+  const find = (raw: string | null) => {
+    const project = parseProjects(raw).find((p) => p.id === job.projectId && !p.deletedAt)
+    return { project, screen: project?.screens.find((s) => s.id === job.screenId) }
+  }
+  const { project, screen } = find(data.projects)
+  // Not this account's reads as missing (X4); the server already checked.
+  if (!project || !screen || !screen.code.trim()) throw new Error('screen not found')
+  const designMd = designForProject(project, globalDesignFrom(data.design))
+  const settings = defaultSettings()
+  const signal = new AbortController().signal
+  const codeAtStart = screen.code
+  const notices: string[] = []
+  let patch: Partial<Screen> | null = null
+  const result: Partial<RunnerResult> = { kind }
+
+  if (kind === 'edit') {
+    const instruction = String(job.instruction || '').trim()
+    if (!instruction) throw new Error('empty instruction')
+    progress('editing')
+    const res = await editScreen({ settings, instruction, screen, designMd, signal })
+    patch = { code: res.code, componentName: res.componentName, previousCode: codeAtStart, caps: res.caps }
+    // A Motion Ultra screen can lose its pictures or its kit to an edit about
+    // one line (U5). Said, not undone: Revert is one click away in Mocky.
+    if (res.loss) {
+      const what = [
+        res.loss.images.length ? t('project.ultraLossImages', { count: res.loss.images.length }) : '',
+        res.loss.kit ? t('project.ultraLossKit') : '',
+      ].filter(Boolean).join(t('project.ultraLossAnd'))
+      notices.push(t('project.ultraEditLoss', { what, name: screen.name }))
+    }
+  } else if (kind === 'polish') {
+    progress('polishing')
+    const { outcome, record, caps } = await polishScreenCode({
+      settings,
+      screen,
+      designMd,
+      signal,
+      onPass: (i, n) => progress(`polishing ${i} (${n} open)`),
+    })
+    if (outcome.code !== codeAtStart) {
+      patch = {
+        code: outcome.code,
+        componentName: detectComponentName(outcome.code),
+        previousCode: codeAtStart,
+        caps,
+        ...(record ? { quality: record } : {}),
+      }
+    } else if (record) {
+      patch = { quality: record }
+    }
+    result.polish = {
+      score: record ? record.score : null,
+      stopped: outcome.stopped,
+      fixed: outcome.fixed.map((f) => f.name),
+      residual: outcome.residual.map((f) => f.name),
+      iterations: outcome.iterations,
+    }
+  } else {
+    progress('auditing')
+    const report = await auditScreen(codeAtStart, { deep: job.deep === true, settings, signal })
+    result.audit = auditSummary(report)
+    const correctable = report.findings.filter((f) => f.disposition !== 'advise')
+    if (kind === 'auditFix' && correctable.length) {
+      progress('fixing')
+      const outcome = await fixScreenAudit({ settings, screen, designMd, findings: correctable, signal })
+      // Deliberately no `quality`: that field is the /20 design audit, and an
+      // accessibility number in it would make two measurements share one.
+      if (outcome.code !== codeAtStart) {
+        patch = { code: outcome.code, componentName: detectComponentName(outcome.code), previousCode: codeAtStart }
+      }
+      result.auditFix = { fixed: outcome.fixed.map((f) => f.name), residual: outcome.residual.map((f) => f.name), stopped: outcome.stopped }
+    }
+  }
+
+  let saved = screen
+  if (patch) {
+    progress('saving')
+    // Applied to the project as it is NOW, so a screen added or renamed meanwhile
+    // is kept; and dropped when this very screen moved under the pass.
+    const fresh = find((await api.getData()).projects)
+    if (!fresh.project || !fresh.screen || fresh.screen.code !== codeAtStart) {
+      throw new Error(
+        lang === 'fr'
+          ? 'Cet écran a été modifié pendant le travail : rien n’a été remplacé.'
+          : 'This screen was changed while the work ran: nothing was replaced.',
+      )
+    }
+    saved = { ...fresh.screen, ...patch }
+    const working: Project = {
+      ...fresh.project,
+      screens: fresh.project.screens.map((s) => (s.id === saved.id ? saved : s)),
+      updatedAt: Date.now(),
+    }
+    const res = await fetch('/api/data', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projects: JSON.stringify([working]) }),
+    })
+    if (!res.ok) throw new Error(`could not save the project (HTTP ${res.status})`)
+  }
+
+  return {
+    ...result,
+    projectId: project.id,
+    screenId: saved.id,
+    code: saved.code,
+    w: saved.w,
+    h: saved.h,
+    caps: saved.caps || [],
+    notices,
+    picture: 'none',
+    changed: saved.code !== codeAtStart,
   }
 }
 

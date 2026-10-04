@@ -1059,7 +1059,7 @@ toolkit.
 ## Mocky as an MCP server
 
 Claude, ChatGPT or another MCP client acts in Mocky on behalf of one account.
-Plan: `plans/mcp-serveur.md` (phases; 1a to 2c done). User doc
+Plan: `plans/mcp-serveur.md` (phases; 1a to 3 done). User doc
 `docs/mcp.md`; invariants X1–X6.
 
 ```
@@ -1073,7 +1073,9 @@ server/mcp/runner-auth.js  the per-job token, and the few routes it opens
 server/mcp/images.js       pictures an assistant brings: free photos, files, addresses (SSRF-guarded)
 server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://guide): when a real
                            test shows a model doing the wrong thing, the fix goes here too
-src/runner/main.tsx        runner.html: runNewScreen + the preview to photograph (X5)
+src/runner/main.tsx        runner.html: runNewScreen, or one pass on an existing screen, + the preview (X5)
+src/lib/pipeline/screenPasses.ts  edit / polish / accessibility fix, shared with ProjectView: a
+                           new tool that works on a screen calls one of these, never a copy
 src/components/ConnectConsent.tsx   /connect/<id>, the consent page
 ```
 

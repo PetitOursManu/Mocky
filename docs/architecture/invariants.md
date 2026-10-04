@@ -913,7 +913,9 @@ notes, `server/mcp/` included).
 **The rule.** A design made for an assistant runs `runNewScreen`
 (`src/lib/pipeline/newScreen.ts`) — the code the composer runs — inside a
 headless Chromium on the server (`runner.html`, `server/mcp/runner.js`). There is
-no second pipeline written for the server.
+no second pipeline written for the server. The same holds for a screen that
+exists: an edit, a polish and an accessibility correction run
+`src/lib/pipeline/screenPasses.ts`, which the composer's own buttons call.
 
 **What it protects.** Every other invariant of the generation path. I1 to I9, M,
 Q and U hold for an MCP design because it is the same code; a server-side
@@ -924,6 +926,8 @@ what its hand-kept mirrors cost.
 model receives: the planner, then the generation prompt the composer sends. The
 extraction itself was checked byte for byte against the composer's requests
 before and after (`CLAUDE.md`, "The generation pipeline").
+`tests/mcp-tools-e2e.test.js` runs each pass on a stored screen and checks that
+it sent its own prompt and no other.
 
 ### X6. The runner's browser reaches what a generation needs, and nothing more
 

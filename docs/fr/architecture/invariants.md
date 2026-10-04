@@ -1,5 +1,5 @@
 ---
-source_hash: e3f4c6d5e0a3
+source_hash: 80c8b235e5a8
 ---
 
 # Invariants
@@ -976,7 +976,10 @@ blanche ne mentionne les notes, `server/mcp/` compris).
 **La règle.** Un design fait pour un assistant passe par `runNewScreen`
 (`src/lib/pipeline/newScreen.ts`) — le code qu'exécute l'interface — dans un
 Chromium sans interface sur le serveur (`runner.html`, `server/mcp/runner.js`).
-Il n'existe pas de second pipeline écrit pour le serveur.
+Il n'existe pas de second pipeline écrit pour le serveur. Il en va de même pour
+un écran qui existe : une modification, un polissage et une correction
+d'accessibilité passent par `src/lib/pipeline/screenPasses.ts`, qu'appellent
+les boutons mêmes de l'interface.
 
 **Ce qu'elle protège.** Tous les autres invariants du chemin de génération. I1 à
 I9, M, Q et U tiennent pour un design MCP parce que c'est le même code ; une
@@ -987,7 +990,8 @@ sait ce que coûtent ses miroirs écrits à la main.
 que reçoit le modèle : le planificateur, puis le prompt de génération
 qu'envoie l'interface. L'extraction elle-même a été comparée octet par octet aux
 requêtes de l'interface, avant et après (`CLAUDE.md`, « The generation
-pipeline »).
+pipeline »). `tests/mcp-tools-e2e.test.js` exécute chaque passe sur un écran
+enregistré et vérifie qu'elle a envoyé son propre prompt, et aucun autre.
 
 ### X6. Le navigateur de l'exécuteur joint ce dont une génération a besoin, rien de plus
 

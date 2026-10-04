@@ -27,6 +27,10 @@ export const GUIDED_TOOLS = [
   'get_screenshot',
   'search_free_images',
   'add_image',
+  'edit_design',
+  'polish_design',
+  'audit_design',
+  'fix_accessibility',
 ]
 
 export function buildGuide() {
@@ -105,6 +109,27 @@ choose a project yourself because it looks related**: a new design in an
 unrelated project inherits its look, and that is a mistake the person has to
 clean up. When in doubt, \`create_design\`.
 
+## Working on a screen that exists
+
+When the person talks about a screen already made — the one you just designed,
+or one they name — use its \`project_id\` and \`screen_id\` (from the answer that
+made it, or \`get_project\`), and pick the ONE tool that matches what they ask:
+
+- **"Change this…"** → \`edit_design\` with the change in \`instruction\`, in their
+  words: "make the header dark green", "add a testimonials section", "put it in
+  English". Only the change — the rest of the screen is kept.
+- **"Make it better", "clean it up", "is it any good?"** → \`polish_design\`:
+  Mocky's quality pass, which corrects generic, machine-made patterns and scores
+  the screen out of 20. It may restyle details; that is its job.
+- **"Is it accessible?", "check the SEO"** → \`audit_design\`: a report, changes
+  nothing. Then, if they want it corrected, \`fix_accessibility\`: it fixes the
+  markup and the screen looks the same.
+
+Never use \`edit_design\` to polish or to fix accessibility: each tool runs a
+pass with its own instruction, and a correction made with the wrong one comes
+back as a redesign. Every change can be undone in Mocky ("Revert to the previous
+version", in the screen's menu); say so when you report one.
+
 ## The tools
 
 | Tool | When |
@@ -118,6 +143,10 @@ clean up. When in doubt, \`create_design\`.
 | \`get_screenshot\` | A picture of a screen that already exists. |
 | \`search_free_images\` | Free photos (Pexels, Pixabay) as thumbnails to look at. |
 | \`add_image\` | Put one picture in the account's library, to pass to a design. |
+| \`edit_design\` | Change an existing screen as the person asks. |
+| \`polish_design\` | Mocky's quality pass on a screen: corrections and a score out of 20. |
+| \`audit_design\` | The SEO and accessibility report of a screen. Changes nothing. |
+| \`fix_accessibility\` | Correct that report's fixable findings, the screen looking the same. |
 
 ## Screen types
 
