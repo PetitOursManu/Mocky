@@ -40,6 +40,11 @@ interview before designing.
   WebP — never an SVG. Free photos follow the account's access to them (Admin →
   Providers). Claude does not generate pictures; ChatGPT can hand over one it
   made, through the file links of its Apps SDK.
+- **When the assistant brings none.** A post or a document still gets its
+  picture, the way the composer's "Images" choice gives it one: `picture_source`
+  `auto` (the default) takes a free photo when the account has them, a
+  generated picture otherwise; `free`, `generated` or `none` say it outright.
+  The answer always says which picture the screen ended up with.
 - **The same Mocky.** The design is made by the headless runner (below), with
   the same pipeline as the interface, and saved in the account — in a tab already
   open on that project, the new screen appears on its own.

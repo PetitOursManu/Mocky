@@ -1,5 +1,5 @@
 ---
-source_hash: 59894892a715
+source_hash: 721cd8ef8867
 ---
 
 # Connecter un assistant (MCP)
@@ -47,6 +47,11 @@ entretien avant de dessiner.
   jamais un SVG. Les photos libres suivent l'accès du compte (Admin →
   Fournisseurs). Claude ne génère pas d'images ; ChatGPT peut transmettre une
   image qu'il a faite, par les liens de fichiers de son Apps SDK.
+- **Quand l'assistant n'en apporte pas.** Un post ou un document a quand même
+  son image, comme le choix « Images » du composer lui en donne une :
+  `picture_source` `auto` (par défaut) prend une photo libre quand le compte y a
+  accès, une image générée sinon ; `free`, `generated` ou `none` le disent
+  explicitement. La réponse dit toujours quelle image l'écran a reçue.
 - **Le même Mocky.** Le design est fait par l'exécuteur sans interface
   (ci-dessous), avec le même pipeline que l'interface, et enregistré dans le
   compte — dans un onglet déjà ouvert sur ce projet, le nouvel écran apparaît

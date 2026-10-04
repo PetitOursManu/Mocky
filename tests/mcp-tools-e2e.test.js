@@ -36,6 +36,9 @@ const CODE = '```jsx\nexport default function App() {\n  return <main className=
 let proc, base, dataDir, fake, cookie, adminId, token, mcp
 /** What the fake model was sent, to check what reached the prompt. */
 const modelCalls = []
+/** How many pictures the fake image server was asked for. */
+let imageCalls = 0
+const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 async function freePort() {
   return new Promise((resolve) => {
@@ -79,6 +82,14 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       let raw = ''
       req.on('data', (c) => (raw += c))
       req.on('end', () => {
+        // The same fake also plays an sd-webui image server, so "a generated
+        // picture" can be tested without calling anyone.
+        if (req.url.startsWith('/sdapi/v1/options')) return res.end('{}')
+        if (req.url.startsWith('/sdapi/v1/txt2img')) {
+          imageCalls++
+          res.setHeader('content-type', 'application/json')
+          return res.end(JSON.stringify({ images: [PNG_1PX] }))
+        }
         const body = raw ? JSON.parse(raw) : null
         modelCalls.push(body)
         const content = body?.format ? JSON.stringify({ capabilities: [], layout: 'hero', sections: ['Hero'], contentNotes: '' }) : CODE
@@ -92,7 +103,10 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       path.join(dataDir, 'text-config.json'),
       JSON.stringify({ generation: { provider: 'ollama-cloud', 'ollama-cloud': { baseUrl: `http://127.0.0.1:${fakePort}`, model: 'fake', apiKey: '' } } }),
     )
-    fs.writeFileSync(path.join(dataDir, 'images-config.json'), JSON.stringify({ content: { provider: 'none' } }))
+    fs.writeFileSync(
+      path.join(dataDir, 'images-config.json'),
+      JSON.stringify({ content: { provider: 'sd-webui', sdWebui: { baseUrl: `http://127.0.0.1:${fakePort}`, steps: 1 } } }),
+    )
     const port = await freePort()
     base = `http://127.0.0.1:${port}`
     proc = spawn(process.execPath, [path.join(root, 'server/index.js')], {
@@ -201,6 +215,27 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     expect(sent).toContain('PICTURES — the person supplied one picture')
     expect(sent).toContain(`hero: la devanture → ${base}/api/images/${hash}`)
   }, 120_000)
+
+  it('gives a post a picture of its own when the assistant brought none', async () => {
+    // The third real test: "un post Instagram … utilise une image" came back
+    // with no picture, because the runner hard-wired the "Images" choice off.
+    const design = async (args) => {
+      let out = await mcp.callTool({ name: 'create_design', arguments: args })
+      for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+        out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+      }
+      return out
+    }
+    const before = imageCalls
+    const auto = await design({ brief: 'Un post Instagram pour la semaine du goût, avec une image' })
+    expect(auto.structuredContent.status, JSON.stringify(auto.content)).toBe('done')
+    expect(auto.structuredContent.pictureSource).toBe('generated')
+    expect(imageCalls).toBeGreaterThan(before)
+    expect(auto.content.find((c) => c.type === 'text').text).toContain('Image : générée par Mocky')
+
+    const none = await design({ brief: 'Un post Instagram pour la semaine du goût, sans image', picture_source: 'none' })
+    expect(none.structuredContent.pictureSource).toBe('none')
+  }, 180_000)
 
   it('refuses a picture that is not in this account’s library, and one at an internal address', async () => {
     const foreign = await mcp.callTool({

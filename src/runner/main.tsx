@@ -29,6 +29,8 @@ import { api } from '../lib/api'
 import { parseProjects } from '../lib/merge'
 import { defaultSettings } from '../lib/settings'
 import { absoluteUrl, defaultMuseConfig, museAvailable } from '../lib/muse'
+import { documentPictureSource, imageGenerationAvailable, type DocumentImageChoice } from '../lib/documentPictures'
+import { stockImageStatus, stockUsable } from '../lib/stockImages'
 import { imageUrl } from '../lib/imageLibrary'
 import { extractProductName } from '../lib/design'
 import { DEFAULT_PROJECT_NAME, newId, placeScreen, type Project, type Screen } from '../lib/project'
@@ -48,6 +50,8 @@ export interface RunnerJob {
   screenType?: string
   /** Library hashes the server has checked belong to this account, with what each is for. */
   pictures?: Array<{ hash: string; use: string }>
+  /** Where Mocky finds a picture itself when none was supplied: the composer's "Images" choice. */
+  pictureSource?: 'auto' | 'free' | 'generated' | 'none'
   muse?: boolean
   lang?: 'fr' | 'en'
 }
@@ -60,6 +64,7 @@ export interface RunnerResult {
   h: number
   caps: string[]
   notices: string[]
+  picture: 'provided' | 'free' | 'generated' | 'none'
   error?: string
 }
 
@@ -112,6 +117,25 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
   const presetId = job.device === 'mobile' || job.device === 'tablet' ? job.device : 'desktop'
   const controller = new AbortController()
 
+  /*
+   * Where pictures come from when the assistant brought none — the composer's
+   * "Images" choice, which the runner used to hard-wire to "none": a post or a
+   * flyer asked for from ChatGPT came back with no picture, even when asked
+   * for one. Pictures the assistant supplied always win; then `auto` takes free
+   * photos when this account has them, a generated picture otherwise, and says
+   * nothing could be had when neither door is open.
+   */
+  const provided = (job.pictures || [])
+    .filter((p) => /^[a-f0-9]{64}$/.test(String(p?.hash)))
+    .map((p) => ({ hash: p.hash, url: absoluteUrl(imageUrl(p.hash)), use: String(p.use || '') }))
+  const stockOk = stockUsable(await stockImageStatus().catch(() => null))
+  const generationOk = await imageGenerationAvailable().catch(() => false)
+  const wanted = job.pictureSource || 'auto'
+  const choice: DocumentImageChoice = provided.length || wanted === 'none'
+    ? 'none'
+    : wanted === 'free' ? 'stock' : wanted === 'generated' ? 'ai' : stockOk ? 'stock' : generationOk ? 'ai' : 'none'
+  const docPictureSource = documentPictureSource(choice, { generation: generationOk, stock: stockOk })
+
   const outcome = await runNewScreen(
     {
       text: brief,
@@ -135,14 +159,12 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       motionAvail: null,
       ultraActive: false,
       ultraCount: 3,
-      effectiveImageSource: 'ai',
-      docPictureSource: null,
-      docImageChoice: 'none',
-      imageGenOk: null,
-      stockImagesUsable: false,
-      providedPictures: (job.pictures || [])
-        .filter((p) => /^[a-f0-9]{64}$/.test(String(p?.hash)))
-        .map((p) => ({ hash: p.hash, url: absoluteUrl(imageUrl(p.hash)), use: String(p.use || '') })),
+      effectiveImageSource: docPictureSource ?? (stockOk ? 'stock' : 'ai'),
+      docPictureSource,
+      docImageChoice: choice,
+      imageGenOk: generationOk,
+      stockImagesUsable: stockOk,
+      providedPictures: provided,
     },
     {
       signal: controller.signal,
@@ -213,6 +235,9 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     h: screen.h,
     caps: screen.caps || [],
     notices,
+    // Which picture the screen ended up with — said back to the assistant, so a
+    // post without one is a fact it can repeat rather than a surprise.
+    picture: provided.length ? 'provided' : screen.imageHash ? (docPictureSource === 'stock' ? 'free' : 'generated') : 'none',
     ...(outcome.error ? { error: outcome.error } : {}),
   }
 }

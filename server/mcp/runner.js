@@ -364,6 +364,7 @@ export function createRunner(d) {
         w: result.w,
         h: result.h,
         notices: result.notices || [],
+        picture: result.picture || 'none',
         ...(result.error ? { warning: result.error } : {}),
       }
 
