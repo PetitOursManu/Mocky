@@ -19,6 +19,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `mcp` | un nouveau design va toujours dans un nouveau projet | `dec6ca3` |
 | `sync` | la fusion réunit les écrans des deux copies d'un projet | `d1eec8f` |
 
 **Documentation**

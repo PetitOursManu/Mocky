@@ -23,6 +23,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | un nouveau design va toujours dans un nouveau projet | `dec6ca3` |
 | `sync` | la fusion réunit les écrans des deux copies d'un projet | `d1eec8f` |
 
 **Documentation**
