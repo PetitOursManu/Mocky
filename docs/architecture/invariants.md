@@ -681,7 +681,7 @@ keyword-triggered, precisely so a prompt containing "landing" does not start
 getting display type and an aurora.
 
 **How it is done.** The whole pass sits behind `ultraActive` in
-`ProjectView.tsx`, and the `ultra` capability has empty `triggers`.
+`lib/pipeline/newScreen.ts`, and the `ultra` capability has empty `triggers`.
 
 One deliberate exception, and only for a project that HAS Motion Ultra pictures:
 a screen generated without Motion Ultra is offered them (`lib/ultra/reuse.ts`).

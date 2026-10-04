@@ -79,9 +79,17 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
   **and** Muse did not run. Also decides the screen's *mode*.
 - `src/components/Preview.tsx` — builds the sandboxed `srcDoc`. Invariant-dense;
   read I2, I3 and I5 before touching it.
-- `src/components/ProjectView.tsx` — the orchestrator. Large. Every screen
-  mutation follows the same conventions: an `AbortController`, a `codeAtStart`
-  snapshot re-checked before writing back, and `previousCode` so "Revert" works.
+- `src/lib/pipeline/newScreen.ts` — every stage of a NEW screen (site reading,
+  Muse, direction, Motion Ultra, planner, pictures, generation, checks, film),
+  as `runNewScreen(request, hooks)`. Moved out of ProjectView so a caller with
+  no composer — the MCP runner (`plans/mcp-serveur.md`) — runs the same stages
+  instead of a second pipeline. The move was checked by recording the provider
+  requests of the same scenarios before and after: byte-identical. Keep it
+  that way: a stage reaches the screen through `hooks`, never through React.
+- `src/components/ProjectView.tsx` — the orchestrator for everything else, and
+  the hooks behind `runNewScreen`. Large. Every screen mutation follows the
+  same conventions: an `AbortController`, a `codeAtStart` snapshot re-checked
+  before writing back, and `previousCode` so "Revert" works.
 
 **Screenshots of an existing site** (`src/lib/siteReference.ts`, composer's
 image button, paste or drop) come with an intent, and the intent decides which

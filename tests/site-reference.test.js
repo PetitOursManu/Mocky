@@ -5,8 +5,10 @@ import { fileURLToPath } from 'node:url'
 
 /**
  * Screenshots of an existing site (lib/siteReference.ts), held where a unit
- * test cannot reach: inside ProjectView's `generate`, a closure over React
- * state. Read from the source, like tests/ultra-off.test.js.
+ * test cannot reach: ProjectView's `generate`, a closure over React state, and
+ * the pipeline it hands a new screen to (lib/pipeline/newScreen.ts), which
+ * needs a dozen network stages to run. Read from the source, like
+ * tests/ultra-off.test.js.
  *
  * Two promises. With no screenshot attached, the generation path is the one it
  * was — every new branch is behind `siteNew`, `reproducing` or `siteSection`,
@@ -16,6 +18,7 @@ import { fileURLToPath } from 'node:url'
  */
 const root = fileURLToPath(new URL('..', import.meta.url))
 const view = readFileSync(join(root, 'src/components/ProjectView.tsx'), 'utf8').replace(/\r\n/g, '\n')
+const pipeline = readFileSync(join(root, 'src/lib/pipeline/newScreen.ts'), 'utf8').replace(/\r\n/g, '\n')
 
 function files(dir) {
   const out = []
@@ -30,41 +33,46 @@ function files(dir) {
 
 describe('site screenshots in the generation path', () => {
   it('derive every branch from the attached shots, so none runs without them', () => {
+    // The composer hands the shots over only for a new screen…
     expect(view).toContain('const siteNew = !!site && targets.length === 0')
     expect(view).toContain("const reproducing = siteNew && site.mode === 'reproduce'")
-    expect(view).toContain('let siteSection = siteNew ? buildSiteReferenceSection(')
-    expect(view).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
+    // …and the pipeline, which only ever makes new screens, reads them from there.
+    expect(pipeline).toContain('const siteNew = !!site')
+    expect(pipeline).toContain("const reproducing = siteNew && site.mode === 'reproduce'")
+    expect(pipeline).toContain('let siteSection = siteNew ? buildSiteReferenceSection(')
+    expect(pipeline).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
   })
 
   it('keep the annotations first, so their visible numbers stay the model’s', () => {
     expect(view).toContain('const images = [...annotations.map((a) => a.dataUrl), ...(site ? site.parts : [])]')
-    expect(view).toContain('buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1)')
+    expect(view).toContain('annotationCount: annotations.length')
+    expect(pipeline).toContain('buildSiteReferenceSection(site.mode, site.groups, req.annotationCount + 1)')
   })
 
   it('skip Muse, Motion Ultra and the planner where the screenshot is the authority', () => {
-    expect(view).toContain('if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {')
+    expect(pipeline).toContain('if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {')
   })
 
   it('read the site before Muse on a redesign, and keep Muse out when the reading failed', () => {
     // Written from "Refonte graphique de ce site" alone, the dossier invented a
     // product and its preamble made the invention authoritative.
-    const reading = view.indexOf('siteContent = await readSiteContent(settings, site.parts, ac.signal)')
-    const dossier = view.indexOf('const res = await runMuseDossier(museBrief, {')
+    const reading = pipeline.indexOf('siteContent = await readSiteContent(settings, site.parts, signal)')
+    const dossier = pipeline.indexOf('const res = await runMuseDossier(museBrief, {')
     expect(reading).toBeGreaterThan(0)
     expect(dossier).toBeGreaterThan(reading)
-    expect(view).toContain('const museBlind = siteNew && !reproducing && !siteContent')
-    expect(view).toContain('if (runUltra && project.ultra && !siteNew) {')
-    expect(view).toContain('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew) {')
+    expect(pipeline).toContain('const museBlind = siteNew && !reproducing && !siteContent')
+    expect(pipeline).toContain('if (runUltra && project.ultra && !siteNew) {')
+    expect(pipeline).toContain('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew) {')
   })
 
   it('replace the site pictures only where no dossier already made them', () => {
     // A redesign Muse ran for has its pictures; a second set would compete.
-    expect(view).toContain('const sitePictures = siteNew && (reproducing || !museRan) && picturesAllowed ? parseSitePictures(siteContent) : []')
+    expect(pipeline).toContain('const sitePictures = siteNew && (reproducing || !museRan) && picturesAllowed ? parseSitePictures(siteContent) : []')
     // `picturesAllowed` only ever says no for a DOCUMENT whose own Images choice
     // is "Sans image": for every other screen it is true, and the rule above is
     // the one it always was.
-    expect(view).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
-    expect(view).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
+    expect(pipeline).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
+    expect(pipeline).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
   })
 
   it('refuse to regenerate a screen whose screenshots are gone, instead of inventing one', () => {
@@ -76,6 +84,9 @@ describe('site screenshots stay in the browser', () => {
   it('are named only by the two composers, the Screen type and their own module', () => {
     const allowed = new Set([
       'src/components/ProjectView.tsx',
+      // The composer's generation path, moved out of ProjectView: it passes the
+      // shots to the model and records the intent, and nothing else.
+      'src/lib/pipeline/newScreen.ts',
       'src/components/SiteReferencePicker.tsx',
       'src/lib/sitePictures.ts',
       'src/components/Welcome.tsx',
@@ -93,7 +104,7 @@ describe('site screenshots stay in the browser', () => {
   it('persist only the intent on a screen, never a picture', () => {
     const project = readFileSync(join(root, 'src/lib/project.ts'), 'utf8')
     expect(project).toContain('siteRef?: { mode: SiteRefMode; shots: number }')
-    expect(view).toContain('siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined')
+    expect(pipeline).toContain('siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined')
   })
 
   it('are never fetched, posted or uploaded by their module', () => {

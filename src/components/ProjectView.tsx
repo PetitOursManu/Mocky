@@ -1,18 +1,15 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadSettings } from '../lib/settings'
 import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, extractProductName } from '../lib/design'
-import { editComponent, fixComponent, generateComponent, readSiteContent, polishComponent, auditFixComponent, fitComponent, detectComponentName, buildLayoutReference, buildIdentityReference, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
-import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, type ScreenUltra, headline } from '../lib/project'
+import { editComponent, fixComponent, generateComponent, polishComponent, auditFixComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
+import { designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
-import { resolveDirection } from '../lib/direction'
 import { usePhone } from '../lib/usePhone'
 import { useWorkChime } from '../lib/useWorkChime'
 import { DEFAULT_PRESET_ID, getPreset } from '../lib/presets'
 import {
   composerPageFormat,
   docFrameUpdate,
-  pickReference,
-  documentHint,
   documentPipeline,
   hintForScreen,
   pageFormatName,
@@ -20,19 +17,13 @@ import {
 import { getPageFormat, type PageFormatId } from '../lib/pageFormats'
 import { fitFindings, fitVerdict, measureFit, pageExcessPx, type FitReport, type FitVerdict } from '../lib/docExport/fit'
 import DocumentDownloadDialog from './DocumentDownloadDialog'
-import { captureRegion, checkLegibility } from '../lib/capture'
+import { captureRegion } from '../lib/capture'
 import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
-import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from '../lib/plan'
-import { runStoryboard, type UltraImageCount } from '../lib/ultra/storyboard'
-import { generateUltraImages } from '../lib/ultra/images'
-import { buildUltraPreamble } from '../lib/ultra/preamble'
 import UltraControl from './UltraControl'
 import { isEnvironmentError } from '../lib/previewErrors'
-import { missingUltraImages, ultraLoss, ultraMotionCount, ULTRA_BUDGET } from '../lib/ultra/check'
-import { filmSectionOf, plugFilmIntoSlot } from '../lib/ultra/filmSlot'
-import { buildReuseSection, projectUltraPictures } from '../lib/ultra/reuse'
+import { ultraLoss } from '../lib/ultra/check'
 import { checkQuality, type QualityFinding } from '../lib/quality'
 import { auditScreen } from '../lib/audit'
 import { runPolishLoop, type PolishReport } from '../lib/polish'
@@ -52,7 +43,6 @@ import { usePromptEnhancer } from '../lib/usePromptEnhancer'
 import {
   getScreenTheme,
   promptForThemeChange,
-  screenThemeBriefLine,
   projectScreenType,
   withScreenTheme,
   type ScreenThemeId,
@@ -76,25 +66,18 @@ import AuditPanel from './AuditPanel'
 import ImageSourceControl, { DocumentImageControl } from './ImageSourceControl'
 import {
   buildSiteReferenceSection,
-  buildSitePicturesSection,
-  parseSitePictures,
   partsUsed,
   prepareSiteShot,
-  siteLanguage,
   refuseSiteFile,
   SITE_PARTS_MAX,
   type SiteRefMode,
   type SiteShot,
 } from '../lib/siteReference'
 import { SiteAttachButton, SiteShotsRow, siteDropHandlers } from './SiteReferencePicker'
-import { findSitePictures, type SitePictureFound } from '../lib/sitePictures'
 import {
-  buildDocumentPictureSection,
   documentImageChoices,
   documentPictureSectionFor,
   documentPictureSource,
-  documentPictureWant,
-  findDocumentPicture,
   imageGenerationAvailable,
   loadDocumentImageChoice,
   saveDocumentImageChoice,
@@ -102,11 +85,7 @@ import {
   type DocumentImageChoice,
 } from '../lib/documentPictures'
 import {
-  createStockFinder,
   loadImageSource,
-  photoReferenceNote,
-  pickStockSlotImages,
-  PHOTO_REFERENCES_MAX,
   saveImageSource,
   stockImageStatus,
   stockUsable,
@@ -117,49 +96,32 @@ import {
   loadMuseConfig,
   saveMuseConfig,
   museAvailable,
-  runMuseDossier,
-  generateSlotImages,
-  buildMusePreamble,
-  parseUrls,
-  absoluteUrl,
   checkVision,
   checkVideoAvailability,
-  generateScrollVideo,
-  buildVideoPrompt,
-  describeUserMedia,
-  imageAsDataUrl,
-  profileForMode,
-  buildInspirationPrompt,
-  INSPIRATION_NEGATIVE,
   type MuseConfig,
-  type MuseDossier,
   type MuseResult,
-  type MuseImageMode,
   type GeneratedSlotImage,
-  type GeneratedVideo,
   type MuseVideoAvailability,
 } from '../lib/muse'
 import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../lib/imageLibrary'
-import { videoBase, videoPosterUrl, type PinnedVideo } from '../lib/videoLibrary'
+import { videoPosterUrl, type PinnedVideo } from '../lib/videoLibrary'
 import {
   fetchVideoAccess,
-  fetchVideoJob,
+  awaitVideoJob,
+  motionNotices,
   proposeVideoTimeline,
   startVideoRender,
   videoStreamUrl,
-  POLL_INTERVAL_MS,
   BRIEF_MAX_LENGTH,
   type MotionKindOffer,
 } from '../lib/video/client'
 import { toRenderInputFrom } from '../lib/video/draft'
 import { holdNavigation, navigationHold, releaseNavigation } from '../lib/navigationHold'
-import { themeFromDesign } from '../lib/video/theme'
-import { pageScenesIn, readPage3D } from '../lib/video/pageScenes'
+import { pageScenesIn } from '../lib/video/pageScenes'
 import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { matchImagesToScreens } from '../lib/imageBackfill'
-import { withAnimations } from '../lib/animations'
-import { lintSlop } from '../lib/lint'
+import { identityOrLayoutReference as referenceFor, joinSystem, runNewScreen } from '../lib/pipeline/newScreen'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
@@ -200,11 +162,6 @@ function recolorChange(hex: string): string {
 }
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
-
-function joinSystem(parts: Array<string | undefined>): string | undefined {
-  const joined = parts.filter(Boolean).join('\n\n')
-  return joined || undefined
-}
 
 /** Max automatic fix attempts per screen before leaving the error visible. */
 const MAX_FIX_ATTEMPTS = 2
@@ -1015,9 +972,7 @@ export default function ProjectView({
    * canvas order is position on a board, not chronology.
    */
   function identityOrLayoutReference(excludeId: string | undefined, forDocument: boolean): string | undefined {
-    const ref = pickReference(screens, { pinnedId: project.referenceScreenId, excludeId, document: forDocument })
-    if (!ref) return undefined
-    return ref.kind === 'layout' ? buildLayoutReference(ref.screen.code) : buildIdentityReference(ref.screen.code)
+    return referenceFor(screens, project.referenceScreenId, excludeId, forDocument)
   }
 
   /**
@@ -1397,15 +1352,12 @@ export default function ProjectView({
     // Annotations first: their numbers in the composer are the numbers the
     // model reads, and the site section counts its own from after them.
     const images = [...annotations.map((a) => a.dataUrl), ...(site ? site.parts : [])]
-    let siteSection = siteNew ? buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1) : undefined
     const ac = new AbortController()
     abortRef.current = ac
     setBusy(true)
     setError(null)
     setNotice(null) // a verdict about the previous screen does not survive a new one
     retryRefs.current = {} // reset retry counters for new generation
-    /** The screen this run created, if any — so a failure can clean it up. */
-    let newScreenId: string | null = null
     /**
      * A redesign only means anything when creating a screen.
      *
@@ -1415,25 +1367,6 @@ export default function ProjectView({
      * mode for the same reason — see the composer.
      */
     const redesigning = redesign && targets.length === 0
-    /**
-     * The free-photo finder for this run, when the composer says "Images: free".
-     *
-     * Vision is what makes it choose well (the judge looks at the thumbnails),
-     * so it is asked for here if Muse did not already probe it: Motion Ultra
-     * can run without Muse, and then nobody had. The answer is cached server
-     * side, so asking again costs a round trip at most.
-     */
-    const stockFinder = async (ultra?: number) => {
-      const vision = museVision ?? (await checkVision(ac.signal)).vision
-      return createStockFinder({
-        project: project.id,
-        settings,
-        vision: vision === true,
-        brief: text,
-        ultra,
-        signal: ac.signal,
-      })
-    }
     try {
       /*
        * Screenshots to a model that cannot see them would be dropped in silence
@@ -1524,852 +1457,74 @@ export default function ProjectView({
         setAnnotations([])
         setSiteShots([])
       } else {
-        // Create a new screen using the selected format preset.
-        const preset = getPreset(presetId)
-        /*
-         * The screen type rides on the form-factor hint, so it reaches every
-         * stage the hint does — the preamble (and Muse's), the planner, the
-         * storyboard. Not on a reproduction: the screenshot is the brief, and a
-         * type's structure would argue with the structure it shows. No type,
-         * and this IS `preset.hint`, byte for byte.
-         */
-        const runTheme = reproducing ? null : themeId
-        /*
-         * A DOCUMENT type makes a document: its page format, its page hint in
-         * place of the preset's, and every stage decision in one place
-         * (`documentPipeline`). No document type, and `pipe` changes nothing —
-         * `formHint` is the line it always was.
-         */
-        const runPage = composerPageFormat(runTheme, pageFormatId)
-        const pipe = documentPipeline(runPage)
-        /*
-         * The document's picture source for THIS run. A remembered "Générée"
-         * cannot be honoured until the server has said whether generation
-         * exists here, and a run started before that answer went ahead with no
-         * picture and no word about it. So a pending answer is awaited, once.
-         */
-        let runDocPicture = docPictureSource
-        if (pipe.document && docImageChoice === 'ai' && imageGenOk === null) {
-          const ok = await imageGenerationAvailable(ac.signal).catch(() => false)
-          setImageGenOk(ok)
-          runDocPicture = documentPictureSource(docImageChoice, { generation: ok, stock: stockImagesUsable })
-        }
-        /*
-         * Where a document's pictures come from: its OWN choice, for every path
-         * that makes one. On a document the composer shows that choice INSTEAD
-         * of the general Images control, so the general one is invisible there —
-         * and "Sans image" beside a Muse hero or redesigned-site pictures being
-         * generated from the hidden setting was a paid picture the screen said
-         * would not happen. Muse still writes its dossier (palette, type); only
-         * its pictures follow the document's choice.
-         */
-        const museImageSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
-        const picturesAllowed = !pipe.document || runDocPicture !== null
-        const pictureSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
-        const formHint =withScreenTheme(pipe.format ? documentHint(pipe.format) : preset.hint, runTheme)
-        /** Motion Ultra for THIS run: the project's setting, unless the screen is a document. */
-        const runUltra = ultraActive && pipe.motionUltra
-        if (ultraActive && !runUltra) setNotice(t('project.docUltraSkipped'))
-        const frameW = pipe.frame?.w ?? preset.w
-        const frameH = pipe.frame?.h ?? preset.h
-        // With site screenshots, the site's own brand is the identity to carry,
-        // not the one an earlier screen invented. A PINNED layout still holds on
-        // a redesign — pinning is the user's own statement — and never on a
-        // reproduction, whose chrome is the screenshot's.
-        const referencePreamble = !siteNew
-          ? identityOrLayoutReference(undefined, pipe.document)
-          : !reproducing && project.referenceScreenId
-            ? identityOrLayoutReference(undefined, pipe.document)
-            : undefined
-
-        // --- Muse: build a Design Dossier + hero image. The dossier is a
-        // CANDIDATE direction, not the authority it once was — see the
-        // resolveDirection call below. Muse must never block generation (M3),
-        // and when OFF the path below is byte-identical to pre-Muse Mocky (M1).
-        /** The Motion kinds this account can render right now — empty when it cannot. */
-        const motionKindIds = motionAvail?.available ? motionAvail.kinds.map((k) => k.id) : []
-        let musePreamble: string | undefined
-        let museMarkdown: string | undefined
-        /** Whether Muse got far enough to have something to say. */
-        let museRan = false
-        /** This run's dossier — kept for its palette and its imagery plan. */
-        let museDossier: MuseDossier | undefined
-        /** The images this run ended up with, pinned or generated. */
-        let museImgs: GeneratedSlotImage[] = []
-        /** Art-direction reference sent to a vision model ("inspiration" mode). */
-        let museVisionRef: string | undefined
-        /**
-         * Thumbnails of the free photos this run FOUND, shown to the model that
-         * writes the page so it designs around them (`photoReferenceNote`).
-         * Only filled when a vision model chose them — the thumbnails exist
-         * because it looked.
-         */
-        let photoRefs: string[] = []
-        /** Library hash of the image backing this screen, shown on the canvas. */
-        let museImageHash: string | undefined
-        /** The scroll sequence, when one was asked for and produced. */
-        let museVideo: GeneratedVideo | null = null
-        // A clip pinned before the administrator closed video to this account
-        // is not used: the pin lives in the browser, the permission on the
-        // server, and the server's answer is the one that holds. Nor on a
-        // document: a scroll sequence scrubs on a scroll a page does not have.
-        const runPin =
-          pipe.scrollVideo &&
-          pinnedVideo &&
-          (!videoAvail?.access || videoAvail.access.generate || videoAvail.access.stock)
-            ? pinnedVideo
-            : null
-        // The saved preference is kept as-is; a model without vision can only
-        // honour "content", so THIS RUN degrades without touching the setting.
-        const effectiveImageMode: MuseImageMode =
-          museVision === false && museConfig.imageMode !== 'content' ? 'content' : museConfig.imageMode
-        /*
-         * A redesign reads the site's CONTENT first — brand, navigation, sections,
-         * copy — as words. Without it Muse wrote its dossier from "Refonte
-         * graphique de ce site" alone, invented a product to go with it, and its
-         * preamble made that invention authoritative: the first real test came
-         * back as an unrelated site. With it, the dossier is about the site that
-         * exists, and the page gets the copy in words as well as in pixels.
-         *
-         * A reproduction reads too, for the list of the site's PICTURES the
-         * reading also returns: each gets a replacement below.
-         */
-        let siteContent: string | null = null
-        if (siteNew) {
-          setPhase('site')
-          siteContent = await readSiteContent(settings, site.parts, ac.signal)
-          siteSection = buildSiteReferenceSection(site.mode, site.groups, annotations.length + 1, siteContent)
-        }
-        /** Muse would write about a product it cannot see: not without the reading. */
-        const museBlind = siteNew && !reproducing && !siteContent
-        if (museBlind && museConfig.enabled && museAvail !== false) setNotice(t('project.siteMuseSkipped'))
-        const siteLang = siteLanguage(siteContent)
-        const museBriefBase = siteContent
-          ? `${text}\n\nThe existing site to REDESIGN, as read from the user's screenshots. Its brand, content and copy are to be KEPT; only its visual design is to be reinvented.${siteLang ? ` All copy stays in ${siteLang}.` : ''}\n\n${siteContent}`
-          : text
-        // The dossier is told WHAT it is dressing — a dashboard wants no hero
-        // photograph — and nothing more: the layout is the page's business.
-        const museThemeLine = screenThemeBriefLine(runTheme)
-        const museBrief = museThemeLine ? `${museBriefBase}\n\n${museThemeLine}` : museBriefBase
-        // A reproduction's direction is the screenshot: a dossier would be a
-        // second, contradicting one, and a paid call to write it.
-        if (museConfig.enabled && museAvail !== false && !reproducing && !museBlind) {
-          try {
-            setMuseResult(null)
-            setMuseImages([])
-            setMuseImageError(null)
-            setPhase('muse')
-
-            /*
-             * The user's own media, described BEFORE the dossier is written.
-             *
-             * This is the difference between a screen that merely contains the
-             * user's picture and one that was designed around it: the dossier
-             * writes the palette, and until now it wrote it blind. A chosen
-             * sequence wins over a pinned image — it is the hero, and the whole
-             * page is built on top of it.
-             *
-             * Best-effort throughout. No media, an unreadable file, a model
-             * without vision: Muse runs exactly as it did before.
-             */
-            let userMedia = null
-            const mediaSource = runPin
-              ? { url: absoluteUrl(runPin.poster), kind: 'video' as const }
-              : pinnedImages[0]
-                ? { url: absoluteUrl(pinnedImages[0].url), kind: 'image' as const }
-                : null
-            if (mediaSource) {
-              setMuseStage(t('project.museStageMedia'))
-              userMedia = await describeUserMedia(mediaSource.url, mediaSource.kind, {
-                vision: museVision,
-                signal: ac.signal,
-              })
-              if (userMedia && runPin?.drive === 'pointer') userMedia = { ...userMedia, drive: 'pointer' as const }
-            }
-
-            setMuseStage(t('project.museStageDossier'))
-            const res = await runMuseDossier(museBrief, {
-              language: siteLang,
-              urls: parseUrls(museConfig.urls),
-              useFetch: museConfig.useFetch,
-              projectName: project.name,
-              userMedia,
-              // No question about films: none is made on its own any more (see
-              // the note where the screen's 3D is read, after generation).
-              signal: ac.signal,
-            })
-            setMuseResult(res)
-            const plan = res.dossier.imageryPlan || []
-            // Pinned library images (possibly from other projects) fill the
-            // first slots BEFORE any new generation (§4.3). URLs must be absolute
-            // for the null-origin preview iframe (M6).
-            const pins: GeneratedSlotImage[] = pinnedImages.map((p, i) => ({
-              slot: plan[i]?.slot || plan[i]?.id || `image-${i + 1}`,
-              id: plan[i]?.id || `pin-${i + 1}`,
-              url: absoluteUrl(p.url),
-            }))
-            let imgs: GeneratedSlotImage[] = [...pins]
-            if (pins.length) setMuseImages(pins)
-            // Generate a new hero only when no pin already covers a slot (capped
-            // to keep the run fast; multi-image is a later increment).
-            const remaining = plan.slice(pins.length)
-            // Motion Ultra generates its own series further down, planned as
-            // one shoot. Muse's hero on top of it would be a seventh picture
-            // nobody placed, paid for on every run.
-            if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed) {
-              // A mood/art-direction reference and a hero photo are different
-              // jobs, so they run on different image models (Admin → profils).
-              const profile = profileForMode(effectiveImageMode)
-              setMuseStage(
-                t(profile === 'inspiration' ? 'project.museStageInspiration' : 'project.museStageHero'),
-              )
-              // In 'inspiration' the image is never embedded — it exists only to
-              // be looked at. So it is not the hero photo routed to another
-              // model (which is what it used to be, and why the mode so often
-              // changed nothing): it is an abstract art-direction plate built
-              // from the dossier's own palette and mood.
-              const slotsToRun =
-                profile === 'inspiration'
-                  ? [
-                      {
-                        id: 'art-direction',
-                        slot: 'inspiration',
-                        prompt: buildInspirationPrompt(res.dossier),
-                        negative: INSPIRATION_NEGATIVE,
-                      },
-                    ]
-                  : remaining
-              /*
-               * Free photos instead of a model. Up to three slots rather than
-               * one: the cap on generation is Pollinations' pace and a price per
-               * picture, and a search has neither — a page with its real
-               * product shots is worth three quick requests. In 'inspiration'
-               * the found photo of the HERO is the reference; an abstract mood
-               * plate is something a model paints, not something a library has.
-               */
-              let gen: GeneratedSlotImage[]
-              if (museImageSource === 'stock') {
-                setMuseStage(t('project.museStageStock'))
-                const finder = await stockFinder()
-                gen = await pickStockSlotImages(remaining, finder, {
-                  max: profile === 'inspiration' ? 1 : 3,
-                  signal: ac.signal,
-                  onImage: (im) => setMuseImages((a) => [...a, im]),
-                  onError: (msg) => setMuseImageError(msg),
-                })
-                // Only where nothing else shows them: 'inspiration' and 'both'
-                // already attach the hero at full size, with their own words.
-                if (effectiveImageMode === 'content') photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
-              } else {
-                gen = await generateSlotImages(slotsToRun, project.id, {
-                  max: 1,
-                  profile,
-                  signal: ac.signal,
-                  onImage: (im) => setMuseImages((a) => [...a, im]),
-                  onError: (msg) => setMuseImageError(msg),
-                })
-              }
-              imgs = [...imgs, ...gen]
-            } else if (!remaining.length && !pins.length && !runUltra) {
-              // No imagery slot at all. The dossier now guarantees a hero, so
-              // this means something upstream produced nothing — say so rather
-              // than finishing silently with an image-less screen.
-              setMuseImageError(t('project.museNoImage'))
-            }
-            // "inspiration" and "both" show the image to the model. In "both"
-            // it is the same image it will embed, so it can design around it.
-            if (effectiveImageMode !== 'content' && imgs.length) {
-              const dataUrl = await imageAsDataUrl(imgs[0].url, ac.signal)
-              if (dataUrl) museVisionRef = dataUrl
-            }
-            // Remember which image backs this screen so the canvas can show it.
-            if (imgs.length) museImageHash = imgs[0].url.split('/').pop() || undefined
-
-            /*
-             * The scroll sequence, when it was asked for.
-             *
-             * Runs LAST and on the hero's own prompt, so the clip and the still
-             * describe the same subject — the still is what the screen falls
-             * back to if this fails, and two unrelated pictures would be worse
-             * than one.
-             *
-             * A failure here does not sink the generation: the screen is built
-             * without the sequence, which is exactly the screen the user would
-             * have got with the box unticked. But it is reported, unlike an
-             * image failure, because this one cost minutes and money.
-             */
-            if (runPin) {
-              // A sequence chosen from the library wins over generating one.
-              // Same rule the pinned IMAGES follow, and for the same reason:
-              // the user has already answered the question this step exists to
-              // ask, and answering it again costs minutes and money.
-              museVideo = {
-                hash: runPin.hash,
-                base: absoluteUrl(videoBase(runPin.hash)),
-                poster: absoluteUrl(runPin.poster),
-                frames: runPin.frames,
-                fromCache: true,
-                drive: runPin.drive,
-              }
-            } else if (museConfig.video && videoAvail?.available && pipe.scrollVideo) {
-              const heroSlot = plan[0]
-              const heroPrompt = heroSlot?.prompt || heroSlot?.subject || text
-              setMuseStage(t('project.museStageVideo'))
-              try {
-                museVideo = await generateScrollVideo(buildVideoPrompt(heroPrompt), project.id, {
-                  negative: heroSlot?.negative,
-                  slot: 'hero',
-                  signal: ac.signal,
-                })
-              } catch (err) {
-                if (err instanceof Error && err.name === 'AbortError') throw err
-                setMuseImageError(
-                  t('project.museVideoFailed', { detail: err instanceof Error ? err.message : String(err) }),
-                )
-              }
-            }
-
-            /*
-             * Muse's results are published only once it has finished.
-             *
-             * All of it or none of it, which is the M3 contract read strictly: a
-             * run that threw halfway used to leave the preamble unbuilt — Muse
-             * contributed nothing — while still labelling the screen with the
-             * dossier it had written. Now that a dossier can become the whole
-             * project's direction, that discrepancy stops being cosmetic.
-             */
-            museMarkdown = res.markdown
-            museDossier = res.dossier
-            museImgs = imgs
-            museRan = true
-          } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') throw err
-            // Degrade: continue without Muse rather than fail the generation.
-            setMuseStage(null)
-          }
-        }
-
-        /*
-         * One direction per project — decided here, once, for this run.
-         *
-         * Muse used to be the authority by construction: whatever dossier it had
-         * just written superseded everything, on every generation, so a project
-         * accumulated one visual language per screen. It is now a candidate like
-         * any other, and it only wins when there is nothing to protect (the
-         * project's first screen) or when the user asked for a redesign.
-         */
-        const dir: { markdown?: string; establish?: string } = reproducing
-          ? {}
-          : resolveDirection({
-              established: project.design,
-              fresh: museMarkdown,
-              global: globalMd,
-              redesign: redesigning,
-            })
-
-        /*
-         * Muse's preamble, carrying whichever direction won.
-         *
-         * The palette is restated as Tailwind classes because the dossier's own
-         * hex list, buried in a long markdown block, lost every time to the base
-         * rules naming concrete Tailwind families — see buildMusePreamble. So the
-         * restatement has to describe the direction ACTUALLY in force: handing
-         * over the fresh dossier's tokens while the text above them is last
-         * week's direction is worse than not restating anything.
-         *
-         * Radius is dropped along with them. It is still stated inside the
-         * document itself; only the emphatic repetition goes.
-         */
-        if (museRan && dir.markdown) {
-          const tokens = dir.establish
-            ? museDossier?.tokens
-            : { colors: extractDesignColors(dir.markdown).slice(0, 12) }
-          musePreamble = buildMusePreamble(
-            dir.markdown,
-            museImgs,
-            effectiveImageMode,
-            museDossier ? { ...museDossier, tokens } : undefined,
-            museVideo,
-          )
-        }
-
-        // Muse's preamble supersedes DESIGN.md's when present; otherwise the
-        // exact pre-Muse composition (M1). Both now carry the same direction.
-        const dirPreamble = dir.markdown ? buildDesignPreamble(dir.markdown) : undefined
-        const extraSystem = musePreamble
-          ? joinSystem([musePreamble, referencePreamble, formHint])
-          : joinSystem([dirPreamble, referencePreamble, formHint])
-
-        // Deterministic shortlist first — this is the guaranteed fallback.
-        const shortlist = selectCapabilities(text, dir.markdown)
-        // Optional planner pass. It runs first (so its capability choice and
-        // structure guide generation), but can NEVER block: on failure/timeout
-        // it returns null and we use the shortlist unchanged. Skipped when Muse
-        // ran — the dossier already provides the structure.
-        let capIds = shortlist
-        let planSection: string | undefined
-        // What the visitor of this screen is here to do. The planner decides it
-        // when it runs; otherwise a keyword guess, because the planner is
-        // skipped on every Muse run and whenever the setting is off, and a mode
-        // that only existed on the planner path would almost never exist.
-        let mode = inferMode(text)
-
-        /*
-         * Motion Ultra: storyboard → a series of pictures → a section that
-         * replaces the planner's (the storyboard IS the plan, in recipes).
-         *
-         * Off, this block does not run and the path below is exactly the one
-         * every non-Ultra project has always taken. On, it degrades rather than
-         * fails: the storyboard falls back on its own, a picture that could not
-         * be made leaves its recipe to <Backdrop>, and anything that throws here
-         * short of a cancel leaves an ordinary generation.
-         */
-        let ultraRecord: ScreenUltra | undefined
-        let ultraImageHash: string | undefined
-        /** The one section whose background becomes a rendered film (v2), if any. */
-        let ultraFilmSection: string | null = null
-        /** Video background asked for, and a film can be rendered right now. */
-        const ultraVideo = !!project.ultra?.video && motionKindIds.includes('background')
-        /*
-         * Not on site screenshots. A storyboard invents the page's sections, and
-         * the site already has its sections — the page would be asked to follow
-         * two structures at once. Said, because the project setting is on.
-         */
-        if (runUltra && siteNew) setNotice(t('project.siteUltraSkipped'))
-        if (runUltra && project.ultra && !siteNew) {
-          try {
-            setPhase('ultra')
-            setUltraStage(t('project.ultraStageStoryboard'))
-            const board = await runStoryboard(settings, text, ultraCount as UltraImageCount, mode, {
-              design: dir.markdown,
-              presetHint: formHint,
-              signal: ac.signal,
-              stockQueries: effectiveImageSource === 'stock',
-            })
-            // The storyboard read the whole request; its mode beats the keyword guess.
-            mode = board.mode
-            const total = board.images.length
-            setUltraStage(t('project.ultraStageImages', { done: 0, total }))
-            const failures: string[] = []
-            const finder = effectiveImageSource === 'stock' ? await stockFinder(ultraCount) : undefined
-            const made = await generateUltraImages(board, project.id, {
-              signal: ac.signal,
-              onImage: (_im, done) => setUltraStage(t('project.ultraStageImages', { done, total })),
-              onError: (msg) => failures.push(msg),
-              series: ultraCount,
-              source: effectiveImageSource,
-              finder,
-            })
-            // In storyboard order, since the finder runs one picture at a time.
-            if (finder) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
-            if (made.length < total) {
-              setMuseImageError(
-                t('project.ultraImagesMissing', { made: made.length, total, reason: failures[0] || '—' }),
-              )
-            }
-            ultraFilmSection = ultraVideo ? filmSectionOf(board.sections, board.mode) : null
-            planSection = [
-              buildUltraPreamble(board, made, { filmSection: ultraFilmSection }),
-              modeToPromptSection(mode),
-            ].join('\n\n')
-            ultraRecord = {
-              recipes: board.sections.map((s) => s.recipe),
-              images: made.map((im) => im.hash),
-              planned: ultraCount,
-            }
-            ultraImageHash = made[0]?.hash
-          } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') throw err
-            if (ac.signal.aborted) throw err
-          } finally {
-            setUltraStage(null)
-          }
-        }
-
-        // Nor the planner, for the same reason: the screenshots are the plan.
-        // Nor on a document: its vocabulary is screens a visitor uses, and the
-        // page hint and the type's brief already say what a page holds.
-        if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew) {
-          setPhase('planning')
-          const plan = await planScreen(
-            settings, text, shortlist,
-            { design: dir.markdown, presetHint: formHint },
-            ac.signal,
-          )
-          if (plan) {
-            capIds = plan.capabilities
-            planSection = planToPromptSection(plan)
-            if (plan.mode) mode = plan.mode
-          }
-        }
-        // Appended to the plan section rather than folded into it, so the mode
-        // still reaches generation on the paths where no plan was produced.
-        // A reproduction's mode is whatever the site is; the generic advice for
-        // a mode would only argue with the screenshot.
-        if (!planSection && !reproducing && pipe.modeGuidance) planSection = modeToPromptSection(mode)
-        /*
-         * No series for THIS screen, but the project has pictures a Motion Ultra
-         * run already paid for: offer them (lib/ultra/reuse.ts). Only a project
-         * that has such pictures is touched, so one that never used Motion
-         * Ultra takes exactly the path it always took (U1). Best-effort: a
-         * library that does not answer offers nothing.
-         */
-        if (!ultraRecord && !reproducing) {
-          const owned = projectUltraPictures(screensRef.current)
-          if (owned.length) {
-            try {
-              const lib = await listLibrary({ project: project.id }, ac.signal)
-              const pictures = owned.map((hash) => {
-                const meta = lib.find((m) => m.hash === hash)
-                return { url: absoluteUrl(imageUrl(hash)), about: (meta?.prompt || '').split('.')[0].slice(0, 140) || 'a picture of this project' }
-              })
-              const reuse = buildReuseSection(pictures)
-              if (reuse) planSection = [planSection, reuse].filter(Boolean).join('\n\n')
-            } catch (err) {
-              if (err instanceof Error && err.name === 'AbortError') throw err
-            }
-          }
-        }
-        // Page animations are always offered: the vocabulary costs nothing and
-        // a screen that does not need motion simply does not use it. Holding a
-        // screen still is its own setting, in its menu.
-        /*
-         * The site's pictures, replaced: a free photo of the same subject, or a
-         * generated one, following the composer's "Images" choice. A reproduction
-         * with every photograph turned into a flat block was faithful and
-         * unshowable. Not on a redesign Muse ran for — its dossier already
-         * planned and made the pictures, and a second set would compete.
-         */
-        let sitePics: SitePictureFound[] = []
-        let sitePicturesSection = ''
-        const sitePictures = siteNew && (reproducing || !museRan) && picturesAllowed ? parseSitePictures(siteContent) : []
-        if (sitePictures.length) {
-          setPhase('sitePictures')
-          const failures: string[] = []
-          const finder = pictureSource === 'stock' ? await stockFinder() : undefined
-          const got = await findSitePictures(sitePictures, {
-            source: pictureSource,
-            project: project.id,
-            finder,
+        // A new screen: the whole pipeline is lib/pipeline/newScreen.ts, so a
+        // caller with no composer (the MCP runner) runs the same stages.
+        const outcome = await runNewScreen(
+          {
+            text,
+            settings,
+            project,
+            screens,
+            images,
+            annotationCount: annotations.length,
+            site,
+            globalMd,
+            presetId,
+            themeId,
+            pageFormatId,
+            redesign: redesigning,
+            museConfig,
+            museAvail,
+            museVision,
+            pinnedImages,
+            pinnedVideo,
+            videoAvail,
+            motionAvail,
+            ultraActive,
+            ultraCount,
+            effectiveImageSource,
+            docPictureSource,
+            docImageChoice,
+            imageGenOk,
+            stockImagesUsable,
+          },
+          {
             signal: ac.signal,
-            onError: (m) => failures.push(m),
-          })
-          sitePics = got.found
-          sitePicturesSection = buildSitePicturesSection(got.found, got.missing)
-          if (got.missing) {
-            const line = t('project.sitePicturesMissing', {
-              missing: got.missing,
-              total: sitePictures.length,
-              // The finder's sentences end with a full stop; this one is in brackets.
-              reason: failures.find(Boolean)?.replace(/[.\s]+$/, '') || '—',
-            })
-            setNotice((prev) => (prev ? `${prev} ${line}` : line))
-          }
-        }
-        /*
-         * A document's own picture, when nothing above made one and the person
-         * ASKED for one: Motion Ultra is skipped for paper and Muse is off by
-         * default, so this is the only way a flyer gets a hero — and it may be
-         * a paid generation, which is why "Sans image" is the default and the
-         * choice is drawn wherever a page format is (lib/documentPictures.ts).
-         * With none, the flyer's brief composes shapes instead. Not on site
-         * captures, whose pictures were just replaced above.
-         */
-        let docPicture: { hash: string; url: string } | null = null
-        if (pipe.ownPicture && pipe.format && !museRan && !siteNew && runDocPicture) {
-          setPhase('docPicture')
-          const want = documentPictureWant(text, pipe.format)
-          let miss = ''
-          const finder = runDocPicture === 'stock' ? await stockFinder() : undefined
-          docPicture = await findDocumentPicture(want, {
-            source: runDocPicture,
-            project: project.id,
-            finder,
-            signal: ac.signal,
-            onError: (m) => {
-              miss = m
+            t,
+            setPhase,
+            setMuseStage,
+            setUltraStage,
+            replaceNotice: (line) => setNotice(line),
+            notice: (line) => setNotice((prev) => (prev ? `${prev} ${line}` : line)),
+            setMuseResult,
+            setMuseImages,
+            setMuseImageError,
+            setImageGenOk,
+            addScreen: onAddScreen,
+            updateScreen: onUpdateScreen,
+            removeScreen: onRemoveScreen,
+            currentScreens: () => screensRef.current,
+            renameProject: onRenameProject,
+            setDesign: onSetDesign,
+            rememberSiteRef: (screenId, ref) => siteRefsByScreen.current.set(screenId, ref),
+            screenStarted: (screenId) => {
+              setGeneratingIds(new Set([screenId]))
+              setSelectedIds([screenId])
+              setPrompt('')
+              setAnnotations([])
+              setSiteShots([])
             },
-          })
-          if (docPicture) {
-            planSection = [planSection, buildDocumentPictureSection({ ...want, url: docPicture.url })].filter(Boolean).join('\n\n')
-            if (finder) photoRefs = finder.chosen().slice(0, PHOTO_REFERENCES_MAX)
-          } else {
-            const line = t('project.docPictureMissing', { reason: miss.replace(/[.\s]+$/, '') || '—' })
-            setNotice((prev) => (prev ? `${prev} ${line}` : line))
-          }
-        }
-        // Last, so on a reproduction it is the final word over the base rules' taste.
-        if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
-        capIds = withAnimations(capIds)
-
-        // A sequence exists → the component that plays it must be in scope,
-        // whatever the shortlist or the planner decided. 'scrollvideo' has no
-        // keyword triggers precisely because it is never a guess: it is added
-        // here, and only here, when there is something for it to draw.
-        if (museVideo) capIds = capIds.includes('scrollvideo') ? capIds : [...capIds, 'scrollvideo']
-        // Same rule for the Ultra kit: force-added when a storyboard exists, and
-        // then persisted on the screen, so every later edit of it sees the kit.
-        if (ultraRecord && !capIds.includes('ultra')) capIds = [...capIds, 'ultra']
-        // A document: what cannot live on paper out, the page kit in. Identity
-        // for every other screen.
-        capIds = pipe.caps(capIds)
-
-        setPhase('generating')
-        const caps = resolveCapabilities(capIds)
-        const screenId = newId()
-        newScreenId = screenId
-        onAddScreen({
-          id: screenId,
-          name: deriveName(text),
-          prompt: text,
-          code: '',
-          componentName: 'App',
-          createdAt: Date.now(),
-          w: frameW,
-          h: frameH,
-          device: pipe.document ? 'none' : preset.device,
-          links: [],
-          caps: capIds,
-          // Whatever was ACTUALLY authoritative for this screen — which, now
-          // that a project has one direction, is the same document for every
-          // screen in it. That is the point: the field is a record of what
-          // produced the screen, and it used to record a different answer each
-          // time because a different answer was being invented each time.
-          //
-          // Kept per-screen rather than read off the project, because a screen
-          // generated under an older direction must keep saying so — that is
-          // what makes "reprendre ce DESIGN.md" meaningful.
-          design: dir.markdown,
-          imageHash: museImageHash ?? ultraImageHash ?? sitePics[0]?.hash ?? docPicture?.hash,
-          // Recorded so the canvas can say what the image was for. Without it
-          // the badge could only ever say "Image Muse", which is exactly the
-          // ambiguity that made it impossible to tell whether inspiration mode
-          // had done anything.
-          imageRole: museImageHash ? effectiveImageMode : ultraImageHash || sitePics.length || docPicture ? 'content' : undefined,
-          ultra: ultraRecord,
-          // Persisted as a pair so a reload can rebuild the sequence without
-          // asking the server what it cut.
-          videoHash: museVideo?.hash,
-          videoFrames: museVideo?.frames,
-          siteRef: siteNew ? { mode: site.mode, shots: site.groups.length } : undefined,
-          theme: runTheme ?? undefined,
-          page: runPage ?? undefined,
-          // A document holds still: an entrance whose resting state is
-          // opacity 0 prints blank. Undefined — the default — otherwise.
-          animations: pipe.animations,
-        })
-        if (siteNew) siteRefsByScreen.current.set(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
-        // Name the project after its FIRST prompt, so it stops being called
-        // "Untitled project". A name the user already chose is never touched.
-        if (screens.length === 0 && project.name.trim() === DEFAULT_PROJECT_NAME) {
-          onRenameProject(deriveProjectName(text))
-        }
-        setGeneratingIds(new Set([screenId]))
-        setSelectedIds([screenId])
-        setPrompt('')
-        setAnnotations([])
-        setSiteShots([])
-        // The found photos go LAST, after the user's annotations and any
-        // inspiration reference: the note that explains them counts from the end.
-        const result = await generateComponent(
-          settings, text, extraSystem,
-          [...images, ...(museVisionRef ? [museVisionRef] : []), ...photoRefs],
-          ac.signal,
-          (partial) => onUpdateScreen(screenId, { code: partial }),
-          caps,
-          [planSection, photoReferenceNote(photoRefs.length)].filter(Boolean).join('\n\n') || undefined,
+            screenWritten: () => setGeneratingIds(new Set()),
+            motionStage,
+            motionStageDone,
+          },
         )
-        onUpdateScreen(screenId, {
-          code: result.code,
-          componentName: result.componentName,
-          // A document was OFFERED no animation and no 3D, and may have used
-          // one anyway: load what the code names, or it renders undefined.
-          ...(pipe.document ? { caps: capabilitiesFor(capIds, result.code) } : {}),
-        })
-        setGeneratingIds(new Set())
-        // Every picture of the series was paid for; one the page left out is
-        // worth a sentence (see lib/ultra/check.ts).
-        if (ultraRecord) {
-          const said: string[] = []
-          const unused = missingUltraImages(result.code, ultraRecord)
-          if (unused.length) {
-            said.push(t('project.ultraUnusedImages', { count: unused.length, total: ultraRecord.images.length }))
-          }
-          // The budget the prompt states, checked on what came back.
-          const moving = ultraMotionCount(result.code)
-          if (moving.over) {
-            said.push(
-              t('project.ultraTooMuchMotion', {
-                backdrops: moving.backdrops,
-                loops: moving.loops,
-                maxBackdrops: ULTRA_BUDGET.backdrops,
-                maxLoops: ULTRA_BUDGET.loops,
-              }),
-            )
-          }
-          if (said.length) setNotice(said.join(' '))
-          /*
-           * Text laid over a picture, read on the rendered pixels (see
-           * lib/legibility.ts) — the one thing the class-based contrast audit
-           * cannot see. In the background, after the screen is on the canvas:
-           * about a second of rendering, no model call, and a failure to check
-           * is not a finding (Q1).
-           */
-        }
-        /*
-         * Text laid over a picture, read on the rendered pixels (lib/legibility.ts)
-         * — for EVERY screen that lays text over one, not only Motion Ultra's: a
-         * Muse hero photo or a pinned image has the same blind spot in the
-         * class-based audit. A screen with no picture is never rendered for it.
-         * Local, about a second, in the background; a failure to check is not a
-         * finding (Q1).
-         */
-        if (ultraRecord || ['/api/images/', '<Backdrop', '<MotionFilm', '<ScrollSequence', '<PointerSequence'].some((k) => result.code.includes(k))) {
-          checkLegibility(result.code, frameW, pipe.format?.h ?? preset.h, caps)
-            .then((hard) => {
-              if (!hard.length) return
-              const list = hard.slice(0, 3).map((f) => `« ${f.text.length > 40 ? f.text.slice(0, 40) + '…' : f.text} »`).join(', ')
-              const line = t(ultraRecord ? 'project.ultraLegibility' : 'project.legibility', { count: hard.length, list })
-              setNotice((prev) => (prev ? `${prev} ${line}` : line))
-            })
-            .catch(() => {})
-        }
-
-        /*
-         * No film is made on its own any more. The composer's animation switch
-         * used to decide one — "forced" rendered a film for EVERY screen, a
-         * text call and minutes of the worker each time — and it is gone: page
-         * animations are always on and free, and a film is made only when asked
-         * for, by Motion Ultra's video background below or the Motion panel.
-         *
-         * What the page drew in 3D is still read: the video background is told
-         * about it, so it does not draw a second world on the same screen.
-         */
-        const page3d = await readPage3D(result.code)
-
-
-        /*
-         * Motion Ultra's video background (v2).
-         *
-         * The page already has the place for it — `<Backdrop slot="film">` in
-         * the section the storyboard pass chose — and is already alive there in
-         * CSS. What runs here is the film: composed from the series' pictures
-         * as a `background` kind, rendered by the LOCAL worker (no video is
-         * billed), then plugged into that slot by one attribute at a parsed
-         * offset, with no call and no rewrite. Every failure leaves the section
-         * exactly as designed and says so (U4).
-         */
-        if (project.ultra?.video && ultraRecord && !ultraFilmSection) {
-          setNotice((prev) => [prev, t(ultraVideo ? 'project.ultraFilmNoSection' : 'project.ultraFilmUnavailable')].filter(Boolean).join(' '))
-        }
-        if (ultraFilmSection && ultraRecord) {
-          try {
-            motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmCompose') }))
-            const theme = themeFromDesign(dir.markdown)
-            const proposal = await proposeVideoTimeline(text, ultraRecord.images, {
-              settings,
-              theme,
-              motionKind: 'background',
-              placement: {
-                section: ultraFilmSection,
-                why: 'The moving ground of this section, behind its own copy: it carries no words of its own.',
-              },
-              scenery: page3d.scenes,
-              direction: directionBriefFrom(dir.markdown),
-              signal: ac.signal,
-            })
-            if (!proposal.timeline) {
-              setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: motionNotices(proposal.notices) })].filter(Boolean).join(' '))
-            } else {
-              motionStage(screenId, t('project.ultraFilmStage', { step: t('project.ultraFilmRender') }))
-              const renderable = toRenderInputFrom(proposal.timeline, proposal.timeline.outputFormat, proposal.timeline.aspectRatio)
-              const job = await startVideoRender(renderable, { project: project.id, theme, brief: text, signal: ac.signal })
-              const finished = await awaitVideoJob(job.id, ac.signal)
-              if (finished.status === 'done' && finished.videoHash) {
-                const now = screensRef.current.find((s) => s.id === screenId)
-                const plugged = now ? await plugFilmIntoSlot(now.code, absoluteUrl(`/api/video/${finished.videoHash}`)) : null
-                if (now && plugged) {
-                  onUpdateScreen(screenId, {
-                    code: plugged,
-                    componentName: detectComponentName(plugged),
-                    previousCode: now.code,
-                    attachedMedia: filmMedia(finished.videoHash),
-                  })
-                } else {
-                  onUpdateScreen(screenId, { attachedMedia: filmMedia(finished.videoHash) })
-                  setNotice((prev) => [prev, t('project.ultraFilmNoSlot')].filter(Boolean).join(' '))
-                }
-              } else {
-                setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: finished.error || '—' })].filter(Boolean).join(' '))
-              }
-            }
-          } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') throw err
-            setNotice((prev) => [prev, t('project.ultraFilmFailed', { detail: err instanceof Error ? err.message : String(err) })].filter(Boolean).join(' '))
-          } finally {
-            motionStageDone()
-          }
-        }
-
-        /*
-         * The direction is kept only once the screen exists.
-         *
-         * Doing it at onAddScreen time would have changed what the whole project
-         * looks like on the strength of a run the user then cancelled — and a
-         * cancelled run deletes its screen, so there would be nothing left to
-         * explain why every subsequent screen had changed.
-         */
-        if (dir.establish) {
-          onSetDesign(dir.establish)
-        } else if ((redesigning || (reproducing && !project.design?.trim())) && result.code.trim()) {
-          /*
-           * A redesign with Muse off.
-           *
-           * There is no dossier to keep, so the direction is read back off the
-           * screen the prompt just produced — the same derivation as "Faire de
-           * cet écran mon DESIGN.md", run automatically because the user already
-           * said that is what they wanted by ticking the box.
-           *
-           * Best-effort: the screen is finished and correct either way, and a
-           * failure here only means the next screen falls back to the direction
-           * that was in force before.
-           *
-           * A reproduction takes the same road when the project has no direction
-           * yet: the site it copied becomes the project's look, so the next page
-           * asked for is a page of that site and not of the global DESIGN.md.
-           */
-          setPhase('design')
-          try {
-            const derived = await deriveDesignSystem(settings, result.code, ac.signal)
-            if (derived.trim()) onSetDesign(derived)
-          } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') throw err
-          }
-        }
-
-        if (result.truncated) {
-          // The code is cut mid-token; the preview would only show a cryptic
-          // "Unterminated string constant". Say what actually happened.
-          setError(t('project.truncated'))
-        } else {
-          // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
-          const lint = lintSlop(result.code)
-          if (!lint.ok) {
-            const advisory = t('project.slop', { list: lint.violations.join(', ') })
-            setSlopAdvisory(advisory)
-            setError(advisory)
-          }
-        }
+        if (outcome.slop) setSlopAdvisory(outcome.slop)
+        if (outcome.error) setError(outcome.error)
       }
     } catch (err) {
-      // A screen that was added but never received a single character is not a
-      // draft, it is debris: pressing "Stop" one second in used to leave a blank
-      // frame on the canvas that the user then had to find and delete by hand.
-      // Anything with code in it is kept — that is work, however partial.
-      if (newScreenId) {
-        const added = screensRef.current.find((s) => s.id === newScreenId)
-        if (added && !added.code.trim()) onRemoveScreen(newScreenId)
-      }
+      // A new screen that never received a character has already been removed
+      // by runNewScreen, before it threw.
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -2844,15 +1999,6 @@ export default function ProjectView({
   }
 
   /**
-   * Every reason the composer gave, not the first. A refused document can carry
-   * several issues and the first is not always the one that explains the rest;
-   * the server bounds the list, so nothing here needs to.
-   */
-  function motionNotices(notices: readonly string[]): string {
-    return notices.filter(Boolean).join('\n') || '—'
-  }
-
-  /**
    * Where Motion says what it is doing — on the SCREEN, not only in the panel.
    *
    * The three stages went to `setMuseStage` alone, which draws a spinner inside
@@ -2883,23 +2029,6 @@ export default function ProjectView({
     setRegeneratingIds(new Set())
     setRegenLabel(t('canvas.regenerating'))
     releaseNavigation()
-  }
-
-  /**
-   * A render, followed until it stops being queued or rendering.
-   *
-   * Bounded by the job itself rather than by a number invented here: the queue
-   * kills a render that overruns its deadline and reports it as failed, so this
-   * loop simply ends when the job does. One copy, for the two flows that wait.
-   */
-  async function awaitVideoJob(jobId: string, signal: AbortSignal) {
-    let job = await fetchVideoJob(jobId, signal)
-    while (job.status === 'queued' || job.status === 'rendering') {
-      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
-      if (signal.aborted) throw new DOMException('aborted', 'AbortError')
-      job = await fetchVideoJob(jobId, signal)
-    }
-    return job
   }
 
   /**

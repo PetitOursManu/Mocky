@@ -766,6 +766,33 @@ export async function fetchVideoJob(id: string, signal?: AbortSignal): Promise<V
 export const POLL_INTERVAL_MS = 2000
 
 /**
+ * A render, followed until it stops being queued or rendering.
+ *
+ * Bounded by the job itself rather than by a number invented here: the queue
+ * kills a render that overruns its deadline and reports it as failed, so this
+ * loop simply ends when the job does. One copy, for every flow that waits —
+ * the composer's film, a revised film, and lib/pipeline/newScreen.ts.
+ */
+export async function awaitVideoJob(jobId: string, signal: AbortSignal): Promise<VideoJob> {
+  let job = await fetchVideoJob(jobId, signal)
+  while (job.status === 'queued' || job.status === 'rendering') {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
+    if (signal.aborted) throw new DOMException('aborted', 'AbortError')
+    job = await fetchVideoJob(jobId, signal)
+  }
+  return job
+}
+
+/**
+ * Every reason the composer gave, not the first. A refused document can carry
+ * several issues and the first is not always the one that explains the rest;
+ * the server bounds the list, so nothing here needs to.
+ */
+export function motionNotices(notices: readonly string[]): string {
+  return notices.filter(Boolean).join('\n') || '—'
+}
+
+/**
  * How long past the render ceiling the browser keeps asking before it says so.
  *
  * The server bounds a render at `JOB_TIMEOUT_MS` and then marks the job failed,
