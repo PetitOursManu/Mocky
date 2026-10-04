@@ -42,6 +42,17 @@ import crypto from 'node:crypto'
 
 /** A generation (Muse included) plus its picture. Past this the page is closed. */
 export const JOB_TIMEOUT_MS = 10 * 60 * 1000
+/**
+ * How long a "client" job — the assistant's model writes the code (phase 4) —
+ * waits for that code, per round, before giving up. An assistant writing a
+ * whole component takes a minute or two; ten is the page's patience, not a
+ * target.
+ */
+export const AWAIT_CODE_MS = 10 * 60 * 1000
+/** Resubmissions after a render error: the composer's own MAX_FIX_ATTEMPTS. */
+export const CLIENT_FIX_ROUNDS = 2
+/** A job that is still a job: in the queue, running, or waiting for an assistant's code. */
+const LIVE = new Set(['queued', 'running', 'awaiting_code'])
 /** The browser is kept warm between jobs, then let go. */
 export const BROWSER_IDLE_MS = 5 * 60 * 1000
 export const MAX_JOURNAL_JOBS = 100
@@ -130,7 +141,7 @@ export function createRunner(d) {
   try {
     const saved = JSON.parse(fs.readFileSync(journalFile, 'utf8'))
     for (const j of Array.isArray(saved) ? saved : []) {
-      if (j.status === 'queued' || j.status === 'running') Object.assign(j, { status: 'failed', error: RESTART_ERROR, endedAt: Date.now() })
+      if (LIVE.has(j.status)) Object.assign(j, { status: 'failed', error: RESTART_ERROR, endedAt: Date.now() })
       jobs.set(j.id, j)
     }
   } catch {
@@ -143,7 +154,8 @@ export function createRunner(d) {
     try {
       fs.mkdirSync(d.dataDir, { recursive: true })
       const tmp = `${journalFile}.${crypto.randomBytes(6).toString('hex')}.tmp`
-      fs.writeFileSync(tmp, JSON.stringify(list), { mode: 0o600 })
+      // Never the contract: tens of kilobytes of prompt, and a restart fails the job anyway.
+      fs.writeFileSync(tmp, JSON.stringify(list, (k, v) => (k === 'contract' ? undefined : v)), { mode: 0o600 })
       fs.renameSync(tmp, journalFile)
     } catch (err) {
       console.error(`mocky: could not write the runner journal — ${err?.message || err}`)
@@ -338,13 +350,46 @@ export function createRunner(d) {
   }
 
   // ---- one job -------------------------------------------------------------------
+  /** Jobs whose page is waiting for an assistant's code: id → how to hand it over. */
+  const pendingCode = new Map()
+
+  /**
+   * Called BY THE PAGE (exposeFunction) when the pipeline reaches the point where
+   * a model writes the code and the writer is the assistant's: publish the two
+   * turns it must answer, and resolve with its code when submit_screen brings it.
+   */
+  function awaitCode(job, contract) {
+    const c = contract && typeof contract === 'object' ? contract : {}
+    return new Promise((resolve, reject) => {
+      job.contract = {
+        system: String(c.system || '').slice(0, 300_000),
+        user: String(c.user || '').slice(0, 20_000),
+        round: Math.max(0, Math.floor(Number(c.round) || 0)),
+        ...(c.renderError ? { renderError: String(c.renderError).slice(0, 2000) } : {}),
+      }
+      job.status = 'awaiting_code'
+      job.progress = 'awaiting_code'
+      const timer = setTimeout(() => {
+        pendingCode.delete(job.id)
+        delete job.contract
+        reject(new Error('No code was submitted in time.'))
+      }, AWAIT_CODE_MS)
+      timer.unref?.()
+      pendingCode.set(job.id, { resolve, timer })
+      persist()
+    })
+  }
+
   async function execute(job) {
-    const token = d.auth.issue(job.userId, job.id)
+    const client = job.request.engine === 'client'
+    // A client job spends most of its life waiting for somebody else's model.
+    const budget = client ? JOB_TIMEOUT_MS + (CLIENT_FIX_ROUNDS + 1) * AWAIT_CODE_MS : JOB_TIMEOUT_MS
+    const token = d.auth.issue(job.userId, job.id, budget + 60_000)
     let context = null
     const timeout = setTimeout(() => {
       job.error = 'This design took too long and was stopped.'
       void context?.close().catch(() => {})
-    }, JOB_TIMEOUT_MS)
+    }, budget)
     timeout.unref?.()
     try {
       const opened = await openPage(token, job.request.lang === 'en' ? 'en-US' : 'fr-FR')
@@ -353,6 +398,7 @@ export function createRunner(d) {
       await page.exposeFunction('__mockyRunnerProgress', (phase) => {
         job.progress = String(phase || '').slice(0, 80)
       })
+      if (client) await page.exposeFunction('__mockyRunnerAwaitCode', (contract) => awaitCode(job, contract))
       await ready(page)
       job.status = 'running'
       job.progress = 'starting'
@@ -395,6 +441,10 @@ export function createRunner(d) {
       job.error = job.error || String(err?.message || err).slice(0, 300)
     } finally {
       clearTimeout(timeout)
+      const pending = pendingCode.get(job.id)
+      if (pending) clearTimeout(pending.timer)
+      pendingCode.delete(job.id)
+      delete job.contract
       d.auth.revokeJob(job.id)
       job.endedAt = Date.now()
       await context?.close().catch(() => {})
@@ -427,7 +477,7 @@ export function createRunner(d) {
      * for this account when there is one, which is the "one at a time" rule.
      */
     enqueue(userId, request) {
-      const mine = [...jobs.values()].find((j) => j.userId === userId && (j.status === 'queued' || j.status === 'running'))
+      const mine = [...jobs.values()].find((j) => j.userId === userId && LIVE.has(j.status))
       if (mine) return { job: view(mine), existing: true }
       const job = {
         id: crypto.randomBytes(12).toString('hex'),
@@ -444,6 +494,26 @@ export function createRunner(d) {
       return { job: view(job), existing: false }
     },
 
+    /**
+     * The assistant's code for a job waiting for it (submit_screen). The page
+     * takes it from here: the same extraction, sanitising and motion guard as a
+     * screen Mocky's model wrote, then a render, then the rest of the pipeline.
+     */
+    submit(id, userId, code) {
+      const j = jobs.get(id)
+      if (!j || j.userId !== userId) return { ok: false, reason: 'not-found' }
+      const pending = pendingCode.get(id)
+      if (j.status !== 'awaiting_code' || !pending) return { ok: false, reason: 'not-awaiting' }
+      pendingCode.delete(id)
+      clearTimeout(pending.timer)
+      delete j.contract
+      j.status = 'running'
+      j.progress = 'checking'
+      pending.resolve(String(code).slice(0, 300_000))
+      persist()
+      return { ok: true }
+    },
+
     /** A job of `userId`'s, or null — someone else's answers like a missing one. */
     get(id, userId) {
       const j = jobs.get(id)
@@ -456,7 +526,8 @@ export function createRunner(d) {
       for (;;) {
         const j = jobs.get(id)
         if (!j || j.userId !== userId) return null
-        if (j.status === 'done' || j.status === 'failed' || Date.now() >= deadline) return view(j)
+        // Waiting for the assistant's code is an answer too: the contract it must write to.
+        if (j.status === 'done' || j.status === 'failed' || j.status === 'awaiting_code' || Date.now() >= deadline) return view(j)
         await new Promise((r) => setTimeout(r, 400))
       }
     },
@@ -530,7 +601,7 @@ export function createRunner(d) {
 
     /** Whether this account has a design being made right now — the admin's "MCP" chip. */
     isBusy(userId) {
-      for (const j of jobs.values()) if (j.userId === userId && (j.status === 'queued' || j.status === 'running')) return true
+      for (const j of jobs.values()) if (j.userId === userId && LIVE.has(j.status)) return true
       return false
     },
 
@@ -553,6 +624,9 @@ function view(j) {
     screenType: j.request?.screenType || null,
     // What the job does, so get_design answers an edit or an audit as one.
     kind: j.request?.kind || 'new',
+    engine: j.request?.engine === 'client' ? 'client' : 'mocky',
+    // What the assistant must answer, while the page waits for it.
+    ...(j.status === 'awaiting_code' && j.contract ? { contract: j.contract } : {}),
     createdAt: j.createdAt,
     startedAt: j.startedAt,
     endedAt: j.endedAt,

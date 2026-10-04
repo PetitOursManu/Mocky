@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api, type AccountMcpView } from '../lib/api'
-import { Button, Input } from '../ui'
+import { api, type AccountMcpView, type McpEngine } from '../lib/api'
+import { Button, Input, Select } from '../ui'
 import { useT } from '../i18n'
 
 /**
@@ -38,7 +38,19 @@ export default function AssistantConnections() {
     }
   }
 
+  async function chooseEngine(engine: McpEngine) {
+    try {
+      const out = await api.mcpConnections.setEngine(engine)
+      setView((v) => (v ? { ...v, engine: out.engine } : v))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   const date = (ms: number) => new Date(ms).toLocaleString()
+  // A choice only when there are two: with one engine allowed, the question
+  // has an answer the person cannot change, and asking it would say otherwise.
+  const canChoose = Boolean(view?.engines?.mocky && view.engines.client)
 
   return (
     <section>
@@ -54,6 +66,21 @@ export default function AssistantConnections() {
           <label className="mb-1.5 block text-body-sm font-medium text-ink">{t('mcp.account.url')}</label>
           <Input readOnly value={view.mcpUrl} onFocus={(e) => e.currentTarget.select()} />
           <p className="measure mt-1.5 text-caption text-ink-muted">{t('mcp.account.howto')}</p>
+          {canChoose && (
+            <div className="mt-4">
+              <label htmlFor="mcp-engine" className="mb-1.5 block text-body-sm font-medium text-ink">
+                {t('mcp.account.engine')}
+              </label>
+              <Select id="mcp-engine" value={view.engine ?? 'mocky'} onChange={(e) => void chooseEngine(e.currentTarget.value as McpEngine)}>
+                <option value="mocky">{t('mcp.account.engine.mocky')}</option>
+                <option value="client">{t('mcp.account.engine.client')}</option>
+              </Select>
+              <p className="measure mt-1.5 text-caption text-ink-muted">{t('mcp.account.engineHelp')}</p>
+            </div>
+          )}
+          {!canChoose && view.engine === 'client' && (
+            <p className="measure mt-3 text-caption text-ink-muted">{t('mcp.account.engineClientOnly')}</p>
+          )}
         </div>
       )}
       {view && view.connections.length > 0 ? (

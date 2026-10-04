@@ -235,6 +235,26 @@ export default function AssistantsSection() {
             </Field>
           </div>
 
+          {/* Who writes the code. One choice of three rather than two boxes:
+              "neither" is not a state an MCP server that makes designs can be in,
+              and the server refuses it anyway (config.js). */}
+          <Field label={t('mcp.admin.engines')} hint={t('mcp.admin.enginesHelp')}>
+            {(p) => (
+              <Select
+                {...p}
+                value={draft.engines?.client ? (draft.engines.mocky ? 'both' : 'client') : 'mocky'}
+                onChange={(e) => {
+                  const v = e.currentTarget.value
+                  setDraft({ ...draft, engines: { mocky: v !== 'client', client: v !== 'mocky' } })
+                }}
+              >
+                <option value="mocky">{t('mcp.admin.engines.mocky')}</option>
+                <option value="both">{t('mcp.admin.engines.both')}</option>
+                <option value="client">{t('mcp.admin.engines.client')}</option>
+              </Select>
+            )}
+          </Field>
+
           <Field label={t('mcp.admin.quota')} hint={t('mcp.admin.quotaHelp')}>
             {(p) => (
               <Input
@@ -251,7 +271,7 @@ export default function AssistantsSection() {
             variant="primary"
             disabled={busy}
             onClick={() =>
-              void save({ access: draft.access, clients: draft.clients, tokenTtl: draft.tokenTtl, dailyQuota: draft.dailyQuota })
+              void save({ access: draft.access, clients: draft.clients, tokenTtl: draft.tokenTtl, dailyQuota: draft.dailyQuota, engines: draft.engines })
             }
           >
             {t('mcp.admin.save')}

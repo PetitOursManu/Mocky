@@ -71,7 +71,9 @@ prompt → [direction] → [Muse dossier] → [planner] → generateComponent()
   **six** places: `generateComponent`, `editComponent`, `fixComponent`,
   `polishComponent`, `auditFixComponent`, `fitComponent`. A post-generation
   check that only hooks the first one misses edits, repairs, polishes,
-  accessibility corrections and page fits. This note said "three" for an hour
+  accessibility corrections and page fits. In `generateComponent` it is now
+  `finishGeneratedCode`, which the MCP "client" engine also calls on code an
+  assistant's model wrote — a seventh entry, through the first. This note said "three" for an hour
   after `polishComponent` was added — by the person who had just written the
   note — "four" until `auditFixComponent` arrived and "five" until
   `fitComponent`. Count them with grep before trusting the number.
@@ -1059,7 +1061,7 @@ toolkit.
 ## Mocky as an MCP server
 
 Claude, ChatGPT or another MCP client acts in Mocky on behalf of one account.
-Plan: `plans/mcp-serveur.md` (phases; 1a to 3 done). User doc
+Plan: `plans/mcp-serveur.md` (phases; 1a to 4 done). User doc
 `docs/mcp.md`; invariants X1–X6.
 
 ```
@@ -1071,6 +1073,8 @@ server/mcp/tools.js        the tools (create_design…) and what leaves — a wh
 server/mcp/runner.js       the headless runner: queue, Chromium, network rule (X6)
 server/mcp/runner-auth.js  the per-job token, and the few routes it opens
 server/mcp/images.js       pictures an assistant brings: free photos, files, addresses (SSRF-guarded)
+server/mcp/prefs.js        each person's engine: Mocky's model, or the assistant's ("client", phase 4 —
+                           the page waits on __mockyRunnerAwaitCode, submit_screen resolves it)
 server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://guide): when a real
                            test shows a model doing the wrong thing, the fix goes here too
 src/runner/main.tsx        runner.html: runNewScreen, or one pass on an existing screen, + the preview (X5)

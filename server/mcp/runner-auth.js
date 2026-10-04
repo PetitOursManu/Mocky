@@ -69,10 +69,11 @@ export function createRunnerAuth({ now = () => Date.now() } = {}) {
 
   return {
     /** A token for one job. Returns the token itself; only its hash is kept. */
-    issue(userId, jobId) {
+    /** `ttlMs`: longer for a job that waits for an assistant to write its code (runner.js). */
+    issue(userId, jobId, ttlMs = RUNNER_TOKEN_TTL_MS) {
       prune()
       const token = crypto.randomBytes(32).toString('base64url')
-      tokens.set(hash(token), { userId, jobId, expiresAt: now() + RUNNER_TOKEN_TTL_MS })
+      tokens.set(hash(token), { userId, jobId, expiresAt: now() + ttlMs })
       return token
     },
 

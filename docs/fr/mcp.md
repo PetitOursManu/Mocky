@@ -1,5 +1,5 @@
 ---
-source_hash: 175e4c1016a2
+source_hash: 528aa57b994f
 ---
 
 # Connecter un assistant (MCP)
@@ -145,6 +145,9 @@ réglages et connexions conservés.
   `chatgpt.com`, ou une adresse locale.
 - **Durées des jetons** — un jeton d'accès dure une heure par défaut ; une
   connexion inutilisée pendant trente jours expire.
+- **Qui écrit le code d'un design** — le modèle de Mocky seulement (par
+  défaut), au choix, ou le modèle de l'assistant seulement. Voir [Qui écrit le
+  code](#qui-écrit-le-code).
 - **Générations par compte et par jour** — vide veut dire illimité, comme dans
   l'interface. Quel que soit le réglage, une seule génération MCP à la fois par
   compte (à partir de l'exécuteur).
@@ -185,6 +188,7 @@ aperçu avec Chromium lui-même. Personne n'a besoin d'un onglet ouvert.
 ### Ce qui est enregistré
 
 - `mcp-config.json` — les réglages ci-dessus.
+- `mcp-prefs.json` — le moteur par défaut de chaque personne, rien d'autre.
 - `mcp-jobs.json` et `mcp-shots/` — les derniers travaux de l'exécuteur et les
   images qu'il a prises (les 200 dernières, une semaine au plus). Ni l'un ni
   l'autre ne voyage avec une migration.
@@ -201,10 +205,52 @@ aperçu avec Chromium lui-même. Personne n'a besoin d'un onglet ouvert.
 Retirer un compte de la liste coupe ses connexions immédiatement ; supprimer un
 compte les supprime.
 
+## Qui écrit le code
+
+Par défaut, c'est le modèle de Mocky qui écrit un design, avec le fournisseur de
+l'instance. Un administrateur peut aussi laisser **le modèle de l'assistant**
+l'écrire — celui de la conversation, sur l'abonnement de la personne — ou
+n'autoriser que lui.
+
+- **Ce que Mocky fait encore.** Tout ce qui n'est pas écrire le code : la
+  direction, Muse, les images, le plan. Puis `create_design` (ou
+  `add_screen`) répond **awaiting_code** avec les deux messages qu'aurait reçus
+  le modèle de Mocky, mot pour mot — ses règles et la demande — et un
+  identifiant de travail. L'assistant écrit le composant et l'envoie avec
+  `submit_screen`.
+- **Ce que Mocky vérifie.** Le code passe par la même extraction, le même
+  nettoyage et la même garde des animations qu'un écran écrit par le modèle de
+  Mocky, puis il est rendu. Une erreur de rendu — cette erreur seule — revient à
+  l'assistant pour qu'il la corrige, deux fois au plus, comme la réparation de
+  l'interface ; ensuite l'écran est gardé et la réponse dit qu'il ne s'affiche
+  pas. Puis il est enregistré, photographié et lié comme n'importe quel design,
+  et la réponse propose `polish_design`.
+- **Qui paie quoi.** Les jetons du code sont pris sur l'abonnement de la
+  personne ; Muse et les images restent à la charge de l'instance. Un modèle
+  faible écrit un écran faible : c'est à cela que sert la passe de qualité
+  proposée ensuite.
+- **Qui choisit.** L'administrateur fixe les moteurs qui existent (**Qui écrit
+  le code d'un design**). Quand les deux existent, chaque personne choisit le
+  sien par défaut dans **Réglages → Assistants connectés**, et l'assistant peut
+  demander l'autre pour une seule demande (`engine`). Un moteur non autorisé
+  est refusé en le nommant, jamais remplacé par l'autre.
+- **Les règles sont remises comme celles de Mocky**, et le dossier qu'elles
+  contiennent est signalé comme un brief rédigé en partie à partir de sites web
+  — de la matière, pas des consignes adressées à l'assistant. Les donner n'est
+  pas une question de licence : Mocky est sous AGPL et elles sont dans ses
+  sources.
+- **Pendant que l'assistant écrit**, le travail occupe une place de l'exécuteur
+  et l'unique travail du compte ; dix minutes sans code et il s'arrête.
+
+Les modifications, le polissage et les audits utilisent toujours le modèle de
+Mocky.
+
 ## Pour la personne qui l'utilise
 
 **Réglages → Assistants connectés** donne l'adresse du connecteur et liste les
-assistants que ce compte a autorisés, chacun avec **Déconnecter**. Si la section
+assistants que ce compte a autorisés, chacun avec **Déconnecter**. Quand
+l'administrateur autorise les deux moteurs, elle demande aussi **qui écrit le
+code de vos designs**. Si la section
 indique que la fonction est désactivée, ou que le compte n'est pas autorisé,
 c'est une décision d'administrateur.
 

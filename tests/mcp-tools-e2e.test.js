@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { findChromium } from '../server/mcp/runner.js'
-import { GUIDED_TOOLS } from '../server/mcp/guide.js'
+import { GUIDED_TOOLS, CLIENT_TOOLS } from '../server/mcp/guide.js'
 
 /**
  * The whole promise of the MCP plan, from an assistant's side: connect through
@@ -442,6 +442,66 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // Someone else's screen, or no screen, reads as missing (X4).
     const missing = await mcp.callTool({ name: 'edit_design', arguments: { project_id: 'p-passes', screen_id: 'nope', instruction: 'x' } })
     expect(missing.isError).toBe(true)
+  }, 240_000)
+
+  it('lets the assistant write the code itself, and holds it to what Mocky’s would be held to (phase 4)', async () => {
+    // Off by default: no submit_screen, and no engine field to fill on a hunch.
+    const offered = (await mcp.listTools()).tools
+    expect(offered.map((t) => t.name)).not.toContain('submit_screen')
+    expect(Object.keys(offered.find((t) => t.name === 'create_design').inputSchema.properties)).not.toContain('engine')
+    expect((await call('PUT', '/api/admin/mcp/config', { engines: { mocky: true, client: true } })).ok).toBe(true)
+    expect((await mcp.listTools()).tools.map((t) => t.name).sort()).toEqual([...GUIDED_TOOLS, ...CLIENT_TOOLS].sort())
+
+    const generations = () => modelCalls.filter((c) => JSON.stringify(c).includes('You are an expert React + Tailwind CSS UI engineer')).length
+    const before = generations()
+    let out = await mcp.callTool({
+      name: 'create_design',
+      arguments: { brief: 'Une page de contact pour la boulangerie Dupont, avec ses horaires et un plan', engine: 'client', muse: false },
+    })
+    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+    }
+    // The assistant gets the rules Mocky's own model gets, and the request — and
+    // Mocky's model was never asked to write this screen.
+    expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('awaiting_code')
+    const contract = out.content[0].text
+    expect(contract).toContain('## RÈGLES')
+    expect(contract).toContain('You are an expert React + Tailwind CSS UI engineer')
+    expect(contract).toContain('boulangerie Dupont, avec ses horaires et un plan')
+    expect(contract).toContain('submit_screen')
+    expect(generations()).toBe(before)
+    const jobId = out.structuredContent.jobId
+
+    // Code that does not render comes back with its render error, to fix.
+    const broken = await mcp.callTool({ name: 'submit_screen', arguments: { job_id: jobId, code: 'export default function App() {\n  return <div>{missingThing.name}</div>\n}' } })
+    expect(broken.structuredContent.status, JSON.stringify(broken.content)).toBe('awaiting_code')
+    expect(broken.structuredContent.renderError).toMatch(/missingThing/)
+
+    // Code that renders is finished like any screen: through the same extraction,
+    // saved, photographed, and the quality pass offered.
+    let done = await mcp.callTool({ name: 'submit_screen', arguments: { job_id: jobId, code: fence(CODE_FIXED) } })
+    for (let i = 0; i < 5 && done.structuredContent?.status === 'running'; i++) {
+      done = await mcp.callTool({ name: 'get_design', arguments: { job_id: jobId } })
+    }
+    expect(done.structuredContent.status, JSON.stringify(done.content)).toBe('done')
+    expect(done.content.some((c) => c.type === 'image')).toBe(true)
+    expect(done.content.find((c) => c.type === 'text').text).toContain('polish_design')
+    const saved = JSON.parse((await (await call('GET', '/api/data')).json()).projects)
+      .find((p) => p.id === done.structuredContent.projectId)
+      .screens.find((x) => x.id === done.structuredContent.screenId)
+    expect(saved.code).toBe(CODE_FIXED)
+    expect(generations()).toBe(before)
+
+    // A job that is not waiting answers with its own state, never a second write.
+    const again = await mcp.callTool({ name: 'submit_screen', arguments: { job_id: jobId, code: 'x' } })
+    expect(again.structuredContent.status).toBe('done')
+
+    // The person's own default, within what the administrator allows.
+    expect((await (await call('PUT', '/api/account/mcp-prefs', { engine: 'client' })).json()).engine).toBe('client')
+    expect((await (await call('GET', '/api/account/mcp-connections')).json()).engine).toBe('client')
+    expect((await call('PUT', '/api/account/mcp-prefs', { engine: 'mocky' })).ok).toBe(true)
+    expect((await call('PUT', '/api/admin/mcp/config', { engines: { mocky: true, client: false } })).ok).toBe(true)
+    expect((await call('PUT', '/api/account/mcp-prefs', { engine: 'client' })).status).toBe(409)
   }, 240_000)
 
   it('marks the account "MCP" in the admin while it uses Mocky through an assistant', async () => {

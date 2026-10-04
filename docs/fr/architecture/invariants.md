@@ -1,5 +1,5 @@
 ---
-source_hash: 80c8b235e5a8
+source_hash: 87e824220cdd
 ---
 
 # Invariants
@@ -979,7 +979,10 @@ Chromium sans interface sur le serveur (`runner.html`, `server/mcp/runner.js`).
 Il n'existe pas de second pipeline écrit pour le serveur. Il en va de même pour
 un écran qui existe : une modification, un polissage et une correction
 d'accessibilité passent par `src/lib/pipeline/screenPasses.ts`, qu'appellent
-les boutons mêmes de l'interface.
+les boutons mêmes de l'interface. Et quand c'est le modèle de l'assistant qui
+écrit le code (phase 4), il reçoit les messages que construit
+`buildGenerationMessages` et sa réponse passe par `finishGeneratedCode` — les
+deux moitiés mêmes dont `generateComponent` est fait.
 
 **Ce qu'elle protège.** Tous les autres invariants du chemin de génération. I1 à
 I9, M, Q et U tiennent pour un design MCP parce que c'est le même code ; une

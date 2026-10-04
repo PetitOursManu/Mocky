@@ -22,7 +22,7 @@ import { queueThumbs } from '../lib/thumbnails'
 import { proposeLinks, withoutExisting, type LinkCandidate } from '../lib/autolink'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../lib/capabilities/select'
 import UltraControl from './UltraControl'
-import { isEnvironmentError } from '../lib/previewErrors'
+import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { type QualityFinding } from '../lib/quality'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { closeSlot, toggleSlot, type RightSlot } from '../lib/rightSlot'
@@ -161,8 +161,6 @@ function recolorChange(hex: string): string {
 
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
-/** Max automatic fix attempts per screen before leaving the error visible. */
-const MAX_FIX_ATTEMPTS = 2
 
 const EXAMPLE_KEYS = ['project.example1', 'project.example2', 'project.example3']
 

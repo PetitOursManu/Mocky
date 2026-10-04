@@ -1,4 +1,12 @@
 /**
+ * Repair attempts per screen before an error is left visible. Shared by the
+ * composer's repair loop and the MCP "client" engine, where the assistant's
+ * model gets the render error back to fix (src/runner/main.tsx); the server's
+ * job budget counts the same number (server/mcp/runner.js `CLIENT_FIX_ROUNDS`).
+ */
+export const MAX_FIX_ATTEMPTS = 2
+
+/**
  * Is this preview error about the ENVIRONMENT rather than the screen's code?
  *
  * The preview frame reports two kinds of failure through the same channel: the

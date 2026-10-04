@@ -1,5 +1,5 @@
 ---
-source_hash: c50d96fd7aaa
+source_hash: 206c56dc374b
 ---
 
 # Vue d'ensemble de l'architecture
@@ -1039,6 +1039,7 @@ ceux de la copie la plus récente.
 | `video-exports/<hash>.mp4\|.webm` | Le film terminé, entier. Un répertoire distinct de `video-library/` à dessein : celui-là contient des *séquences de défilement*, découpées en images par ffmpeg, et tout ce qui lit son `list()` attend des images qu'un film n'a pas |
 | `video-jobs.json` | Le journal de la file de rendu : les 50 derniers jobs terminés, plus ceux en cours. Un job trouvé en cours au démarrage passe en erreur, jamais repris |
 | `mcp-config.json` | Admin → Assistants (MCP) : l'interrupteur, qui peut se connecter, les clients acceptés, la durée des jetons, le quota quotidien |
+| `mcp-prefs.json` | Le moteur par défaut de chaque personne pour les designs demandés par un assistant (phase 4) |
 | `mcp-oauth.json` | Clients enregistrés et connexions, jetons conservés **sous forme d'empreinte** (X3), mode `0600`. Ne voyage jamais avec une migration |
 | `mcp-jobs.json`, `mcp-shots/` | Les travaux récents de l'exécuteur et les images qu'il a prises : les 200 derniers, une semaine au plus |
 | `.migration/` | L'état d'une migration sur le NOUVEAU serveur : `staging/` (les fichiers déjà récupérés), `staged.json` (leurs empreintes, pour qu'un passage reprenne), `report.json` (le dernier import, pour *Vérifier l'intégrité*) et `previous-<heure>/` (ce que contenait le dossier avant le remplacement — déplacé, jamais supprimé). Jamais listé lui-même dans un manifeste |
@@ -1076,6 +1077,7 @@ plafond.
 | `/.well-known/oauth-*`, `/register`, `/authorize`, `/token`, `/revoke` | — | OAuth 2.1 pour les assistants, fourni par `@modelcontextprotocol/sdk` |
 | `GET`/`POST /api/connect/:id` | session | La question de la page de consentement et sa réponse |
 | `GET`/`DELETE /api/account/mcp-connections` | session | Réglages → Assistants connectés |
+| `PUT /api/account/mcp-prefs` | session | Qui écrit les designs de ce compte : `409` pour un moteur que l'administrateur n'a pas autorisé |
 | `GET /mcp-shot/:file` | lien signé | Une image de l'exécuteur, pour un assistant qui n'affiche pas l'image d'un outil. Valable un jour, et plus après un redémarrage |
 | `/api/admin/mcp/*` | admin | Réglages, connexions, *Vérifier l’exécuteur*, *Lancer l’essai* |
 | `POST /api/muse/audit` | session | La moitié jugée du rapport SEO / accessibilité. `400` uniquement si `code` manque ; **`200` avec une liste vide et une notice quand il n'y a pas de modèle** |

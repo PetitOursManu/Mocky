@@ -29,6 +29,15 @@ export const CLIENT_POLICIES = ['known', 'any']
  */
 export const KNOWN_REDIRECT_HOSTS = ['claude.ai', 'claude.com', 'chatgpt.com']
 
+/**
+ * Who writes a design's code (phase 4). `mocky`: Mocky's own model, on the
+ * instance's key. `client`: the assistant's model — the conversation's — given
+ * the same rules Mocky's model gets, while Mocky prepares everything else and
+ * checks what comes back. The instance still pays for Muse and the pictures;
+ * the code's tokens are the person's subscription.
+ */
+export const ENGINES = ['mocky', 'client']
+
 export const TOKEN_BOUNDS = {
   accessMin: { min: 5, max: 24 * 60, default: 60 },
   refreshDays: { min: 1, max: 365, default: 30 },
@@ -44,6 +53,12 @@ export function defaultMcpConfig() {
     concurrency: 1,
     /** Optional cap on MCP generations per account per day; null = none (the UI has none either). */
     dailyQuota: null,
+    /**
+     * Which engines are allowed. The assistant's own model is opt-in: it hands
+     * Mocky's generation rules to another vendor's model, which is the
+     * administrator's call to make, not a default.
+     */
+    engines: { mocky: true, client: false },
   }
 }
 
@@ -61,6 +76,15 @@ export function mergeMcpConfig(current, patch) {
   const p = patch && typeof patch === 'object' ? patch : {}
   const access = p.access && typeof p.access === 'object' ? p.access : {}
   const ttl = p.tokenTtl && typeof p.tokenTtl === 'object' ? p.tokenTtl : {}
+  const eng = p.engines && typeof p.engines === 'object' ? p.engines : {}
+  const baseEng = base.engines && typeof base.engines === 'object' ? base.engines : defaultMcpConfig().engines
+  const engines = {
+    mocky: typeof eng.mocky === 'boolean' ? eng.mocky : baseEng.mocky !== false,
+    client: typeof eng.client === 'boolean' ? eng.client : baseEng.client === true,
+  }
+  // Never neither: an MCP server that can make no design is the switch being off
+  // with extra steps. A patch that would leave none keeps Mocky's.
+  if (!engines.mocky && !engines.client) engines.mocky = true
   return {
     enabled: typeof p.enabled === 'boolean' ? p.enabled : Boolean(base.enabled),
     access: {
@@ -77,6 +101,7 @@ export function mergeMcpConfig(current, patch) {
       'dailyQuota' in p
         ? p.dailyQuota === null || p.dailyQuota === '' ? null : int(p.dailyQuota, { min: 1, max: 10_000, default: null })
         : base.dailyQuota ?? null,
+    engines,
   }
 }
 
@@ -88,6 +113,7 @@ export function changedMcpFields(before, after) {
   if (JSON.stringify(before.access.userIds) !== JSON.stringify(after.access.userIds)) out.push('access.userIds')
   if (before.tokenTtl.accessMin !== after.tokenTtl.accessMin) out.push('tokenTtl.accessMin')
   if (before.tokenTtl.refreshDays !== after.tokenTtl.refreshDays) out.push('tokenTtl.refreshDays')
+  for (const e of ENGINES) if (before.engines?.[e] !== after.engines?.[e]) out.push(`engines.${e}`)
   return out
 }
 
@@ -119,4 +145,17 @@ export class McpConfigStore {
     this.config = next
     return next
   }
+}
+
+/**
+ * The engine a design runs on: what the assistant asked for, else what the
+ * person chose in their settings, else Mocky's — and only ever one the
+ * administrator allows. Null when the one asked for explicitly is not allowed,
+ * so the caller can say so instead of silently using the other.
+ */
+export function resolveEngine(config, { requested, preferred } = {}) {
+  const allowed = { ...defaultMcpConfig().engines, ...(config?.engines || {}) }
+  if (requested) return ENGINES.includes(requested) && allowed[requested] ? requested : null
+  if (ENGINES.includes(preferred) && allowed[preferred]) return preferred
+  return allowed.mocky ? 'mocky' : 'client'
 }

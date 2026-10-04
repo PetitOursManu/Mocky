@@ -25,7 +25,7 @@
  * scenarios before and after the move: identical.
  */
 import type { Settings } from '../settings'
-import { buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent } from '../generate'
+import { buildIdentityReference, buildLayoutReference, deriveDesignSystem, detectComponentName, generateComponent, readSiteContent, type GeneratedComponent } from '../generate'
 import { deriveName, deriveProjectName, DEFAULT_PROJECT_NAME, newId, type Project, type Screen, type ScreenUltra } from '../project'
 import { filmMedia } from '../screenMedia'
 import { resolveDirection } from '../direction'
@@ -34,6 +34,7 @@ import { composerPageFormat, documentHint, documentPipeline, pickReference } fro
 import type { PageFormatId } from '../pageFormats'
 import { checkLegibility } from '../capture'
 import { selectCapabilities, resolveCapabilities, capabilitiesFor } from '../capabilities/select'
+import type { Capability } from '../capabilities/types'
 import { planScreen, planToPromptSection, inferMode, modeToPromptSection } from '../plan'
 import { runStoryboard, type UltraImageCount } from '../ultra/storyboard'
 import { generateUltraImages } from '../ultra/images'
@@ -151,7 +152,27 @@ export interface NewScreenRequest {
   providedPictures?: ProvidedPicture[]
   /** What a document's own picture should show, said by the requester; absent, it is read from the request. */
   pictureSubject?: string
+  /**
+   * Who writes the code. Absent — every composer run — Mocky's own model, by
+   * `generateComponent`. The MCP "client" engine passes one that hands the
+   * same two turns to the assistant's model and waits for its answer: every
+   * stage before and after stays this function's, so the screen it writes is
+   * prepared, checked and kept exactly as Mocky's would be (X5).
+   */
+  writer?: ScreenWriter
 }
+
+/** Everything `generateComponent` would have been given, for a writer that is not Mocky's model. */
+export interface ScreenWriterInput {
+  text: string
+  extraSystem: string | undefined
+  caps: Capability[]
+  capIds: string[]
+  planSection: string | undefined
+  /** The frame the screen is drawn in, for a writer that renders to check its work. */
+  frame: { w: number; h: number }
+}
+export type ScreenWriter = (input: ScreenWriterInput) => Promise<GeneratedComponent>
 
 /** A list updated either with a value or from the previous one, like a React setter. */
 type ListUpdate<T> = T[] | ((prev: T[]) => T[])
@@ -938,14 +959,26 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     hooks.screenStarted(screenId)
     // The found photos go LAST, after the user's annotations and any
     // inspiration reference: the note that explains them counts from the end.
-    const result = await generateComponent(
-      settings, text, extraSystem,
-      [...images, ...(museVisionRef ? [museVisionRef] : []), ...photoRefs],
-      signal,
-      (partial) => hooks.updateScreen(screenId, { code: partial }),
-      caps,
-      [planSection, photoReferenceNote(photoRefs.length)].filter(Boolean).join('\n\n') || undefined,
-    )
+    const result = req.writer
+      ? // The assistant's model writes it (MCP "client" engine). It sees no
+        // picture — the references are for a model Mocky calls — so the note
+        // that counts them is not sent either.
+        await req.writer({
+          text,
+          extraSystem,
+          caps,
+          capIds,
+          planSection: planSection || undefined,
+          frame: { w: frameW, h: frameH },
+        })
+      : await generateComponent(
+          settings, text, extraSystem,
+          [...images, ...(museVisionRef ? [museVisionRef] : []), ...photoRefs],
+          signal,
+          (partial) => hooks.updateScreen(screenId, { code: partial }),
+          caps,
+          [planSection, photoReferenceNote(photoRefs.length)].filter(Boolean).join('\n\n') || undefined,
+        )
     hooks.updateScreen(screenId, {
       code: result.code,
       componentName: result.componentName,

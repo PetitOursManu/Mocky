@@ -34,10 +34,11 @@ import { stockImageStatus, stockUsable } from '../lib/stockImages'
 import { imageUrl } from '../lib/imageLibrary'
 import { defaultDesign, extractProductName, isDesignActive } from '../lib/design'
 import { DEFAULT_PROJECT_NAME, designForProject, newId, placeScreen, type Project, type Screen } from '../lib/project'
-import { runNewScreen, type NewScreenPhase } from '../lib/pipeline/newScreen'
+import { runNewScreen, type NewScreenPhase, type ScreenWriter } from '../lib/pipeline/newScreen'
+import { buildGenerationMessages, detectComponentName, finishGeneratedCode } from '../lib/generate'
+import { isEnvironmentError, MAX_FIX_ATTEMPTS } from '../lib/previewErrors'
 import { editScreen, fixScreenAudit, polishScreenCode } from '../lib/pipeline/screenPasses'
 import { auditScreen, type AuditReport } from '../lib/audit'
-import { detectComponentName } from '../lib/generate'
 import { isScreenThemeId } from '../lib/screenThemes'
 import { translate, type TranslationKey } from '../i18n'
 import Preview from '../components/Preview'
@@ -76,6 +77,11 @@ export interface RunnerJob {
   screenName?: string
   muse?: boolean
   lang?: 'fr' | 'en'
+  /**
+   * Who writes the code: Mocky's model (absent, `mocky`) or the assistant's
+   * (`client`, phase 4) — then the page waits for it (`__mockyRunnerAwaitCode`).
+   */
+  engine?: 'mocky' | 'client'
 }
 
 export interface RunnerResult {
@@ -115,6 +121,11 @@ declare global {
     }
     /** Exposed by the server (page.exposeFunction): where progress goes. */
     __mockyRunnerProgress?: (phase: string) => void
+    /**
+     * Exposed by the server for a "client" job: publish what the assistant must
+     * answer, and resolve with the code it sends through submit_screen.
+     */
+    __mockyRunnerAwaitCode?: (contract: { system: string; user: string; round: number; renderError?: string }) => Promise<string>
   }
 }
 
@@ -247,6 +258,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       stockImagesUsable: stockOk,
       providedPictures: provided,
       pictureSubject: typeof job.pictureSubject === 'string' ? job.pictureSubject.slice(0, 300) : undefined,
+      ...(job.engine === 'client' ? { writer: assistantWriter(say) } : {}),
     },
     {
       signal: controller.signal,
@@ -326,6 +338,89 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
     // post without one is a fact it can repeat rather than a surprise.
     picture: provided.length ? 'provided' : screen.imageHash ? (docPictureSource === 'stock' ? 'free' : 'generated') : 'none',
     ...(outcome.error ? { error: outcome.error } : {}),
+  }
+}
+
+/** How long a written screen may take to show itself before it is taken as rendering. */
+const RENDER_CHECK_MS = 15_000
+/** After the first size report, how long an error still counts as this render's. */
+const RENDER_QUIET_MS = 1500
+
+/**
+ * Render `code` off screen and say whether it failed — the same signal the
+ * composer's repair loop listens to. An error about the ENVIRONMENT (a runtime
+ * that did not load) is not the code's, and is never sent back as one.
+ */
+function renderError(code: string, frame: { w: number; h: number }, caps: string[]): Promise<string | null> {
+  const host = document.createElement('div')
+  host.style.cssText = `position:absolute;left:-20000px;top:0;width:${frame.w}px;height:${frame.h}px`
+  document.body.appendChild(host)
+  const root = createRoot(host)
+  return new Promise((resolve) => {
+    let settled = false
+    let quiet: number | null = null
+    const finish = (value: string | null) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      if (quiet) window.clearTimeout(quiet)
+      window.setTimeout(() => {
+        root.unmount()
+        host.remove()
+      }, 0)
+      resolve(value)
+    }
+    // Silence is not an error: a screen that never reports is photographed
+    // later anyway, and its picture is the evidence.
+    const timer = window.setTimeout(() => finish(null), RENDER_CHECK_MS)
+    root.render(
+      <div style={{ width: frame.w, height: frame.h }}>
+        <Preview
+          code={code}
+          caps={caps}
+          hideScrollbars
+          animations={false}
+          onContentHeight={() => {
+            if (!quiet) quiet = window.setTimeout(() => finish(null), RENDER_QUIET_MS)
+          }}
+          onError={(e) => finish(isEnvironmentError(e) ? null : e)}
+        />
+      </div>,
+    )
+  })
+}
+
+/**
+ * The "client" engine's writer (phase 4): the assistant's model writes the code.
+ *
+ * It is handed the two turns Mocky's own model would have been sent
+ * (`buildGenerationMessages`), and what it sends back goes through the one
+ * finish every generated screen goes through (`finishGeneratedCode`: I4, I1,
+ * I6). Then it is rendered, and a render error — that error alone (I5) — goes
+ * back to the assistant to fix, as many times as the composer's own repair
+ * loop tries. After that the screen is kept as it is and the error is said.
+ */
+function assistantWriter(say: (line: string) => void): ScreenWriter {
+  return async (input) => {
+    const awaitCode = window.__mockyRunnerAwaitCode
+    if (!awaitCode) throw new Error('no assistant is waiting to write this code')
+    const { system, user } = buildGenerationMessages(input.text, input.extraSystem, undefined, input.caps, input.planSection)
+    let problem: string | undefined
+    for (let round = 0; ; round++) {
+      progress('awaiting_code')
+      const raw = await awaitCode({ system, user, round, ...(problem ? { renderError: problem } : {}) })
+      progress('checking')
+      const done = await finishGeneratedCode(String(raw || ''))
+      const error = done.code.trim()
+        ? await renderError(done.code, input.frame, input.capIds)
+        : 'No component was found in what was sent: send one complete `export default function App()`.'
+      if (!error) return { ...done, truncated: false }
+      if (round >= MAX_FIX_ATTEMPTS) {
+        say(`The screen does not render: ${error.slice(0, 300)}`)
+        return { ...done, truncated: false }
+      }
+      problem = error
+    }
   }
 }
 

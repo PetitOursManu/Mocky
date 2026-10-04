@@ -365,23 +365,52 @@ export async function generateComponent(
   caps?: Capability[],
   planSection?: string,
 ): Promise<GeneratedComponent> {
-  const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
-  const baseSystem = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
-  const system = [baseSystem, capsPrompt, planSection].filter(Boolean).join('\n')
+  const { system, user } = buildGenerationMessages(userPrompt, extraSystem, images, caps, planSection)
   const meta: ChatMeta = {}
   const content = await chat(
     s,
     [
       { role: 'system', content: system },
-      { role: 'user', content: withImageNote(userPrompt, images), images: images?.map(stripDataUrl) },
+      { role: 'user', content: user, images: images?.map(stripDataUrl) },
     ],
     signal,
     onChunk ? (full) => onChunk(extractCode(full, { streaming: true })) : undefined,
     meta,
   )
+  return { ...(await finishGeneratedCode(content)), truncated: meta.truncated }
+}
+
+/**
+ * The two turns a new screen's generation sends — the system rules and the
+ * request — without sending them. Split out of `generateComponent` for the MCP
+ * "client" engine, where the conversation's own model writes the code: it is
+ * handed these exact words, so a screen it writes was asked for the way Mocky's
+ * model would have been asked.
+ */
+export function buildGenerationMessages(
+  userPrompt: string,
+  extraSystem?: string,
+  images?: string[],
+  caps?: Capability[],
+  planSection?: string,
+): { system: string; user: string } {
+  const capsPrompt = caps ? buildCapabilitiesPrompt(caps) : ''
+  const baseSystem = extraSystem ? `${extraSystem}\n\n${SYSTEM_PROMPT}` : SYSTEM_PROMPT
+  return {
+    system: [baseSystem, capsPrompt, planSection].filter(Boolean).join('\n'),
+    user: withImageNote(userPrompt, images),
+  }
+}
+
+/**
+ * What a model's answer becomes before it is a screen: the code extracted and
+ * sanitised (I4), the motion guarded (I1), the component named (I6). Whoever
+ * wrote the answer — Mocky's model, or an assistant's through MCP — it goes
+ * through here and nowhere else.
+ */
+export async function finishGeneratedCode(content: string): Promise<{ raw: string; code: string; componentName: string }> {
   const code = await guardMotion(extractCode(content))
-  const componentName = detectComponentName(code)
-  return { raw: content, code, componentName, truncated: meta.truncated }
+  return { raw: content, code, componentName: detectComponentName(code) }
 }
 
 const SITE_READING_PROMPT = `You read screenshots of an existing website and write down its CONTENT — never its design. Output markdown only, no preamble, in exactly these sections:

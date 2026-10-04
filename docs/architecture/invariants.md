@@ -915,7 +915,10 @@ notes, `server/mcp/` included).
 headless Chromium on the server (`runner.html`, `server/mcp/runner.js`). There is
 no second pipeline written for the server. The same holds for a screen that
 exists: an edit, a polish and an accessibility correction run
-`src/lib/pipeline/screenPasses.ts`, which the composer's own buttons call.
+`src/lib/pipeline/screenPasses.ts`, which the composer's own buttons call. And
+when the assistant's model writes the code (phase 4), it is handed the turns
+`buildGenerationMessages` builds and its answer goes through
+`finishGeneratedCode` — the same two halves `generateComponent` is made of.
 
 **What it protects.** Every other invariant of the generation path. I1 to I9, M,
 Q and U hold for an MCP design because it is the same code; a server-side

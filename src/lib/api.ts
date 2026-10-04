@@ -253,6 +253,14 @@ export interface McpConfig {
   tokenTtl: { accessMin: number; refreshDays: number }
   concurrency: number
   dailyQuota: number | null
+  /** Who may write a design's code: Mocky's model, the assistant's, or both (phase 4). */
+  engines: McpEngines
+}
+
+export type McpEngine = 'mocky' | 'client'
+export interface McpEngines {
+  mocky: boolean
+  client: boolean
 }
 
 /** server/mcp/https.js — what has to hold before the section unlocks. */
@@ -322,6 +330,9 @@ export interface AccountMcpView {
   active: boolean
   allowed: boolean
   mcpUrl: string | null
+  /** What the administrator allows, and this account's default within it. */
+  engines?: McpEngines
+  engine?: McpEngine
   connections: McpConnection[]
 }
 
@@ -515,6 +526,8 @@ export const api = {
   mcpConnections: {
     list: () => req('/api/account/mcp-connections') as Promise<AccountMcpView>,
     revoke: (id: string) => req(`/api/account/mcp-connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    setEngine: (engine: McpEngine) =>
+      req('/api/account/mcp-prefs', { method: 'PUT', body: JSON.stringify({ engine }) }) as Promise<{ engine: McpEngine }>,
   },
 
   admin: {

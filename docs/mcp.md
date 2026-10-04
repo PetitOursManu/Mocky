@@ -130,6 +130,8 @@ and connections kept.
   `chatgpt.com`, or a loopback address.
 - **Token lifetimes** — an access token lasts an hour by default; a connection
   that is not used for thirty days expires.
+- **Who writes a design's code** — Mocky's model only (the default), either,
+  or the assistant's model only. See [Who writes the code](#who-writes-the-code).
 - **Generations per account per day** — empty means unlimited, as in the
   interface. Whatever the setting, one MCP generation at a time per account
   (from the runner onwards).
@@ -167,6 +169,7 @@ Chromium itself. Nobody needs a tab open.
 ### What is recorded
 
 - `mcp-config.json` — the settings above.
+- `mcp-prefs.json` — each person's default engine, nothing else.
 - `mcp-jobs.json` and `mcp-shots/` — the runner's recent jobs and the pictures it
   took (the last 200, a week at most). Neither travels with a migration.
 - `mcp-oauth.json` — registered clients and connections, with tokens stored
@@ -180,10 +183,45 @@ Chromium itself. Nobody needs a tab open.
 Removing an account from the list cuts its connections at once; deleting an
 account deletes them.
 
+## Who writes the code
+
+By default Mocky's own model writes a design, on the instance's provider. An
+administrator can also let **the assistant's model** write it — the model of
+the conversation, on the person's own subscription — or allow only that.
+
+- **What Mocky still does.** Everything that is not writing the code: the
+  direction, Muse, the pictures, the plan. Then `create_design` (or
+  `add_screen`) answers **awaiting_code** with the two turns Mocky's own model
+  would have been sent, word for word — its rules and the request — and a job
+  id. The assistant writes the component and sends it with `submit_screen`.
+- **What Mocky checks.** The code goes through the same extraction, sanitising
+  and motion guard as a screen Mocky's model wrote, then it is rendered. A
+  render error — that error alone — goes back to the assistant to fix, twice at
+  most, like the composer's own repair; after that the screen is kept and the
+  answer says it does not render. Then it is saved, photographed and linked like
+  any design, and the answer offers `polish_design`.
+- **Who pays what.** The code's tokens are the person's subscription; Muse and
+  the pictures stay on the instance. A weak model writes a weak screen: that is
+  what the quality pass offered afterwards is for.
+- **Who chooses.** The administrator sets which engines exist (**Who writes a
+  design's code**). When both do, each person picks a default in **Settings →
+  Connected assistants**, and the assistant may ask for the other one for a
+  single request (`engine`). An engine that is not allowed is refused by name,
+  never swapped for the other.
+- **The rules are handed over as Mocky's**, with the dossier inside them marked
+  as a brief written partly from web pages — material, not instructions to the
+  assistant. Giving the rules away is not a licensing question: Mocky is AGPL
+  and they are in its source.
+- **While the assistant writes**, the job holds a runner slot and the account's
+  one job at a time; ten minutes without code and it stops.
+
+Edits, polishing and audits always use Mocky's model.
+
 ## For a person using it
 
 **Settings → Connected assistants** gives the connector's address and lists the
-assistants this account let in, each with **Disconnect**. If the section says
+assistants this account let in, each with **Disconnect**. When the administrator
+allows both engines, it also asks **who writes your designs' code**. If the section says
 the feature is off, or that the account is not allowed, that is an
 administrator's decision.
 

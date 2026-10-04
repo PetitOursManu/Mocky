@@ -19,7 +19,8 @@ import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js'
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { scopeAllows } from '../access.js'
-import { McpConfigStore, changedMcpFields } from './config.js'
+import { McpConfigStore, changedMcpFields, resolveEngine, ENGINES } from './config.js'
+import { McpPrefsStore } from './prefs.js'
 import { originAllowsMcp, mcpReadiness } from './https.js'
 import { createOAuthStore } from './oauth-store.js'
 import { createMcpOAuthProvider } from './provider.js'
@@ -51,6 +52,7 @@ export const SHOT_LINK_TTL_MS = 24 * 60 * 60 * 1000
  */
 export function createMcpServerRoutes(d) {
   const config = new McpConfigStore(d.dataDir)
+  const prefs = new McpPrefsStore(d.dataDir)
   const store = createOAuthStore(d.dataDir)
   const originOk = originAllowsMcp(d.origin)
   const origin = originOk ? new URL(d.origin).origin : null
@@ -167,6 +169,10 @@ export function createMcpServerRoutes(d) {
         runner: d.runner,
         maintenance: d.maintenance,
         dailyQuota: () => config.get().dailyQuota,
+        // Which engine writes the code: the assistant's request, else this
+        // person's choice, within what the administrator allows (phase 4).
+        engine: (requested) => resolveEngine(config.get(), { requested, preferred: prefs.get(userId).engine }),
+        engines: () => config.get().engines,
         hasTextProvider: d.hasTextProvider,
         shotLink,
         pictures: d.pictures,
@@ -228,7 +234,23 @@ export function createMcpServerRoutes(d) {
         allowed: scopeAllows(config.get().access, req.user),
         mcpUrl: originOk ? resource() : null,
         connections: store.listConnections(req.user.id),
+        // Who writes the code: what the administrator allows, and this
+        // person's default within it.
+        engines: config.get().engines,
+        engine: resolveEngine(config.get(), { preferred: prefs.get(req.user.id).engine }),
       })
+    })
+
+    app.put('/api/account/mcp-prefs', d.requireUser, (req, res) => {
+      const engine = req.body?.engine
+      if (!ENGINES.includes(engine)) return res.status(400).json({ error: 'Unknown engine.' })
+      if (!config.get().engines?.[engine]) return res.status(409).json({ error: 'This engine is not allowed on this Mocky.' })
+      try {
+        prefs.set(req.user.id, { engine })
+      } catch {
+        return res.status(500).json({ error: 'Could not save.' })
+      }
+      res.json({ engine: resolveEngine(config.get(), { preferred: engine }) })
     })
 
     app.delete('/api/account/mcp-connections/:id', d.requireUser, (req, res) => {
@@ -337,7 +359,10 @@ export function createMcpServerRoutes(d) {
     mount,
     active,
     /** An account deleted: whatever it granted goes with it. */
-    onUserDeleted: (userId) => store.revokeUser(userId),
+    onUserDeleted: (userId) => {
+      store.revokeUser(userId)
+      prefs.forget(userId)
+    },
     flush: () => store.flush(),
   }
 }
