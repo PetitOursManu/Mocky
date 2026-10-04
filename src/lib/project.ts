@@ -328,6 +328,19 @@ export interface Project {
    * from a whitelist, the projects blob travels as an opaque string.
    */
   ultra?: ProjectUltra
+  /**
+   * Screens deleted from this project, by id, with when — the screen-level
+   * tombstones `mergeProjects` needs to take the UNION of two copies' screens.
+   *
+   * The merge used to keep the newer copy of a project whole, which dropped a
+   * screen another writer had just added: the MCP runner writes a screen into
+   * a project while the person, in a tab, edits another one — the tab's copy is
+   * newer, and the runner's screen was gone on both sides. Now the screens only
+   * one copy has are kept, and this map is how a screen DELETED here is told
+   * apart from a screen the other side added. Forgotten after TOMBSTONE_TTL_MS,
+   * like a project's own tombstone.
+   */
+  removedScreens?: Record<string, number>
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -1092,6 +1105,8 @@ export function useProjects() {
               screens: p.screens.filter((s) => s.id !== screenId),
               // If the pinned reference screen is deleted, un-pin it.
               referenceScreenId: p.referenceScreenId === screenId ? undefined : p.referenceScreenId,
+              // So a copy that still has it does not hand it back (see `removedScreens`).
+              removedScreens: { ...(p.removedScreens || {}), [screenId]: Date.now() },
               updatedAt: Date.now(),
             }
           : p,

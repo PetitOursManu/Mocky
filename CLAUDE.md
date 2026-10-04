@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Six series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X4 (MCP server). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Six series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X6 (MCP server). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1059,8 +1059,8 @@ toolkit.
 ## Mocky as an MCP server
 
 Claude, ChatGPT or another MCP client acts in Mocky on behalf of one account.
-Plan: `plans/mcp-serveur.md` (phases; 1a, 1b, 2a done). User doc `docs/mcp.md`;
-invariants X1–X4.
+Plan: `plans/mcp-serveur.md` (phases; 1a, 1b, 2a, 2b done). User doc
+`docs/mcp.md`; invariants X1–X6.
 
 ```
 server/mcp/routes.js       every route, and the per-request switch (X1)
@@ -1068,8 +1068,20 @@ server/mcp/provider.js     the OAuth decisions: session, access (X2), resource
 server/mcp/oauth-store.js  clients, connections, tokens BY HASH (X3)
 server/mcp/https.js        when it may exist at all: an HTTPS origin
 server/mcp/tools.js        what an assistant may do — a whitelist (X4)
+server/mcp/runner.js       the headless runner: queue, Chromium, network rule (X6)
+server/mcp/runner-auth.js  the per-job token, and the few routes it opens
+src/runner/main.tsx        runner.html: runNewScreen + the preview to photograph (X5)
 src/components/ConnectConsent.tsx   /connect/<id>, the consent page
 ```
+
+The runner's page lives at the PUBLIC origin and every request to it is
+answered over loopback by `context.route` — so the screen's image URLs are the
+ones a person's browser can load (M6). Do not "simplify" it to open
+`http://127.0.0.1`: the screens would carry addresses nobody else can reach.
+Its browser runs model-written code ON THE SERVER: every non-Mocky request goes
+through `assertSafeTargetResolved`, and that rule replaces Chromium's own Local
+Network Access checks (switched off at launch, because they refused the
+preview's `/vendor` scripts on loopback origins).
 
 Four things that will bite you:
 

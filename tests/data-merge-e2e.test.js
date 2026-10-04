@@ -129,6 +129,27 @@ describe('PUT /api/data merges', () => {
     expect(projects.find((p) => p.id === 'race').name).toBe('newer')
   })
 
+  it('leaves the global DESIGN.md alone when a writer does not send it', async () => {
+    await call('PUT', '/api/data', { projects: JSON.stringify([]), design: '# Kept' })
+    await call('PUT', '/api/data', { projects: JSON.stringify([project('runner-wrote', Date.now() + 9000)]) })
+    expect((await (await call('GET', '/api/data')).json()).design).toBe('# Kept')
+    // An explicit null still clears, as a browser's push always could.
+    await call('PUT', '/api/data', { projects: '[]', design: null })
+    expect((await (await call('GET', '/api/data')).json()).design).toBeNull()
+  })
+
+  it('keeps a screen another writer added to a project this tab is editing', async () => {
+    const t0 = Date.now() + 20_000
+    const shared = (updatedAt, screens) => project('shared', updatedAt, { screens })
+    // The runner wrote a second screen…
+    await call('PUT', '/api/data', { projects: JSON.stringify([shared(t0, [{ id: 'a' }, { id: 'mcp' }])]) })
+    // …while the tab, newer, edited the first one without having heard of it.
+    await call('PUT', '/api/data', { projects: JSON.stringify([shared(t0 + 5, [{ id: 'a', code: 'edited' }])]) })
+    const got = JSON.parse((await (await call('GET', '/api/data')).json()).projects).find((p) => p.id === 'shared')
+    expect(got.screens.map((s) => s.id)).toEqual(['a', 'mcp'])
+    expect(got.screens[0].code).toBe('edited')
+  })
+
   it('never empties an account because a request sent nothing', async () => {
     await call('PUT', '/api/data', { projects: '[]', design: null })
     await call('PUT', '/api/data', { projects: null, design: null })

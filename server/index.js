@@ -27,6 +27,9 @@ import { createShareStore } from './share.js'
 import { mergeStoredProjects } from './merge.js'
 import { createDataEvents } from './data-events.js'
 import { createMcpServerRoutes } from './mcp/routes.js'
+import { createRunnerAuth } from './mcp/runner-auth.js'
+import { createRunner } from './mcp/runner.js'
+import { originAllowsMcp } from './mcp/https.js'
 import { cleanMaintenanceMessage, maintenanceBlocks, maintenanceBody } from './maintenance.js'
 import { createMigrationSource } from './migration/source.js'
 import { createMigrationDestination, MigrationError } from './migration/destination.js'
@@ -197,6 +200,7 @@ const textConfig = new TextConfigStore(DATA_DIR)
 // Kept next to the other stores: same directory, same atomic-write discipline.
 const shares = createShareStore(DATA_DIR)
 const dataEvents = createDataEvents()
+const runnerAuth = createRunnerAuth()
 
 // ---- SSO ("Sign in with Dashy") config ----
 // Mocky acts as a client app; Dashy is the identity provider. Disabled unless
@@ -677,7 +681,7 @@ const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000
  */
 function currentUser(req) {
   const user = sessionUser(req)
-  if (user) {
+  if (user && !req.mockyRunner) {
     presence.touch(user.id)
     sessionLastUse.set(sessionId(req.cookies.mocky_sess), Date.now())
   }
@@ -686,7 +690,15 @@ function currentUser(req) {
 
 function sessionUser(req) {
   const token = req.cookies?.mocky_sess
-  if (!token) return null
+  // The MCP runner's headless page has no session; its job token stands in for
+  // the account on the few routes a generation calls (server/mcp/runner-auth.js).
+  // Not a session: no presence, no "last used", nothing the Sessions screen lists.
+  if (!token) {
+    const run = runnerAuth.resolve(req.headers?.['x-mocky-runner'], req.originalUrl || req.url)
+    if (!run) return null
+    req.mockyRunner = run
+    return loadUsers().find((u) => u.id === run.userId) || null
+  }
   const sessions = loadSessions()
   const sess = sessions[token]
   if (!sess) return null
@@ -1635,14 +1647,19 @@ app.get('/api/data', (req, res) => {
 app.put('/api/data', (req, res) => {
   const user = currentUser(req)
   if (!user) return res.status(401).json({ error: 'Not signed in.' })
-  const { projects, design } = req.body || {}
+  const body = req.body || {}
   const file = userDataFile(user.id)
   const stored = readJson(file, { projects: null, design: null })
-  const next = mergeStoredProjects(typeof projects === 'string' ? projects : null, stored.projects ?? null)
-  writeJson(file, { projects: next.projects, design: design ?? null, updatedAt: Date.now() })
+  const next = mergeStoredProjects(typeof body.projects === 'string' ? body.projects : null, stored.projects ?? null)
+  // A writer that does not SEND the global DESIGN.md leaves it alone: the MCP
+  // runner writes one project and has never seen the person's DESIGN.md, and
+  // "absent" meaning "clear it" would wipe it on every generation. A browser
+  // always sends the field — null included, which still clears.
+  const design = 'design' in body ? (body.design ?? null) : (stored.design ?? null)
+  writeJson(file, { projects: next.projects, design, updatedAt: Date.now() })
   // Only a write that changed something is news: a tab re-pushing what the
   // server already holds would otherwise send every other tab to read it again.
-  if (next.projects !== (stored.projects ?? null) || (design ?? null) !== (stored.design ?? null)) {
+  if (next.projects !== (stored.projects ?? null) || design !== (stored.design ?? null)) {
     dataEvents.notify(user.id, req.get('x-mocky-tab'))
   }
   res.json({ ok: true, merged: next.merged })
@@ -2146,7 +2163,26 @@ app.use('/api/admin/dashboard', requireAdmin, dashboard.router)
 // Mounted before the frontend so its paths are never answered by the SPA, and
 // after `express.json` on /api so the consent page's POST has a body. Off — and
 // absent — until an administrator switches it on over HTTPS (server/mcp/routes.js).
+// The headless runner (server/mcp/runner.js): Chromium opens this build's
+// runner.html at the public origin, and every request it makes there is
+// answered by this process over loopback.
+const mcpRunner = createRunner({
+  dataDir: DATA_DIR,
+  distDir: dist,
+  appDir: ROOT_DIR,
+  publicOrigin: originAllowsMcp(MOCKY_ORIGIN) ? new URL(MOCKY_ORIGIN).origin : null,
+  localBase: () => {
+    const h = ['0.0.0.0', '::', ''].includes(HOST) ? '127.0.0.1' : HOST.includes(':') ? `[${HOST}]` : HOST
+    return `http://${h}:${PORT}`
+  },
+  auth: runnerAuth,
+  // Anything the page asks for beyond Mocky itself goes through the SSRF guard.
+  guard: assertSafeTargetResolved,
+  config: () => ({ concurrency: 1 }),
+})
 const mcpServer = createMcpServerRoutes({
+  runner: mcpRunner,
+  hasTextProvider: () => Boolean(textConfig.target('generation')),
   dataDir: DATA_DIR,
   origin: MOCKY_ORIGIN,
   findUser: (id) => loadUsers().find((u) => u.id === id),
@@ -2284,6 +2320,7 @@ async function gracefulShutdown(signal) {
   dashboard.closeAll()
   dataEvents.closeAll()
   mcpServer.flush()
+  void mcpRunner.shutdown()
   console.log(`\n${signal} received — shutting down Muse MCP servers…`)
   try {
     await muse.host.shutdown()

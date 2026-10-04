@@ -1,5 +1,5 @@
 ---
-source_hash: 326acaf0b876
+source_hash: da5b1aaeb7b7
 ---
 
 # Déploiement
@@ -250,6 +250,7 @@ l'interface.
 | `SSO_DASHY_URL` | *(non définie)* | L'origine publique de votre instance Dashy |
 | `MOCKY_ORIGIN` | *(détectée)* | L'origine publique de Mocky. **À définir explicitement dès que le SSO est activé**, et en `https://` pour les [assistants (MCP)](mcp.md) |
 | `MOCKY_MCP_INSECURE_LOOPBACK` | *(non définie)* | `1` accepte une origine `http://localhost` pour le serveur MCP — développement et tests uniquement ([MCP](mcp.md)) |
+| `MOCKY_RUNNER_CHROMIUM` | *(auto)* | Chemin du Chromium que pilote l’exécuteur MCP. L’image Docker en installe un ; à définir ailleurs ([MCP](mcp.md)) |
 
 ### Le lecteur de `.env` intégré
 

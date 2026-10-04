@@ -41,6 +41,8 @@ const MCP_PATHS = /^\/(?:mcp|register|authorize|token|revoke)(?:\/|$)|^\/\.well-
  * @param {{ record: Function }} d.audit
  * @param {(user) => object} d.auditActor
  * @param {(req) => string|null} d.clientIp
+ * @param {ReturnType<import('./runner.js').createRunner>} d.runner
+ * @param {() => boolean} d.hasTextProvider   whether the instance has a generation provider
  */
 export function createMcpServerRoutes(d) {
   const config = new McpConfigStore(d.dataDir)
@@ -201,6 +203,7 @@ export function createMcpServerRoutes(d) {
         active: active(),
         connections: connectionsWithNames(store.listConnections()),
         users: d.listUsers().map((u) => ({ id: u.id, username: u.username, role: u.role })),
+        runner: d.runner.status(),
       })
     })
 
@@ -223,6 +226,50 @@ export function createMcpServerRoutes(d) {
         d.audit.record({ action: 'mcp.config', actor: d.auditActor(req.user), detail: { fields, connectionsRevoked: revoked }, ip: d.clientIp(req) })
       }
       res.json({ config: after, active: active(), revoked })
+    })
+
+    // ---- the runner, from the admin section ------------------------------------
+    // Usable before the MCP server is switched on: it is how an administrator
+    // learns whether this machine can generate headlessly at all.
+
+    /** Free: Chromium, this build's runner page, one fixed screen photographed. */
+    app.post('/api/admin/mcp/runner/check', d.requireAdmin, async (_req, res) => {
+      try {
+        const png = await d.runner.check()
+        res.json({ ok: true, image: `data:image/png;base64,${png.toString('base64')}` })
+      } catch (err) {
+        res.status(503).json({ ok: false, error: err?.code || String(err?.message || err).slice(0, 300) })
+      }
+    })
+
+    /**
+     * Paid: a real generation, in the administrator's OWN account, through the
+     * runner — the whole path an assistant will take, minus the assistant.
+     */
+    app.post('/api/admin/mcp/runner/try', d.requireAdmin, (req, res) => {
+      const why = d.runner.availability()
+      if (!why.available) return res.status(503).json({ error: why.reason })
+      if (!d.hasTextProvider()) return res.status(409).json({ error: 'no-provider' })
+      const brief = String(req.body?.brief || '').trim().slice(0, 4000)
+      if (!brief) return res.status(400).json({ error: 'empty' })
+      const device = ['desktop', 'mobile', 'tablet'].includes(req.body?.device) ? req.body.device : 'desktop'
+      const { job, existing } = d.runner.enqueue(req.user.id, { brief, device, projectName: 'Essai MCP', lang: 'fr' })
+      res.json({ job, existing })
+    })
+
+    app.get('/api/admin/mcp/runner/jobs/:id', d.requireAdmin, (req, res) => {
+      const job = d.runner.get(req.params.id, req.user.id)
+      if (!job) return res.status(404).json({ error: 'Not found.' })
+      res.setHeader('Cache-Control', 'no-store')
+      res.json({ job, link: job.result ? `${origin || ''}/p/${job.result.projectId}?screen=${job.result.screenId}` : null })
+    })
+
+    app.get('/api/admin/mcp/runner/shots/:hash', d.requireAdmin, (req, res) => {
+      const png = d.runner.readShot(req.params.hash)
+      if (!png) return res.status(404).end()
+      res.setHeader('Content-Type', 'image/png')
+      res.setHeader('Cache-Control', 'private, max-age=3600')
+      res.end(png)
     })
 
     app.delete('/api/admin/mcp/connections/:id', d.requireAdmin, (req, res) => {

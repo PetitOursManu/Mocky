@@ -1,5 +1,5 @@
 ---
-source_hash: 2e9125dbdc52
+source_hash: e3f4c6d5e0a3
 ---
 
 # Invariants
@@ -20,7 +20,7 @@ Il y a six séries :
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
 - **D1 à D5**, apportés par le tableau de bord d’administration.
-- **X1 à X4**, apportés par Mocky comme serveur MCP.
+- **X1 à X6**, apportés par Mocky comme serveur MCP.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -971,8 +971,47 @@ identifiants.
 `404`), `tests/screen-notes-private.test.js` (aucun module hors de la liste
 blanche ne mentionne les notes, `server/mcp/` compris).
 
-Les étapes qui permettront à un assistant de générer ajouteront leurs propres
-règles à cette série.
+### X5. Un seul pipeline
+
+**La règle.** Un design fait pour un assistant passe par `runNewScreen`
+(`src/lib/pipeline/newScreen.ts`) — le code qu'exécute l'interface — dans un
+Chromium sans interface sur le serveur (`runner.html`, `server/mcp/runner.js`).
+Il n'existe pas de second pipeline écrit pour le serveur.
+
+**Ce qu'elle protège.** Tous les autres invariants du chemin de génération. I1 à
+I9, M, Q et U tiennent pour un design MCP parce que c'est le même code ; une
+réécriture côté serveur aurait dû garder chacun d'eux deux fois, et ce dépôt
+sait ce que coûtent ses miroirs écrits à la main.
+
+**Comment c'est vérifié.** `tests/mcp-runner-e2e.test.js` enregistre les requêtes
+que reçoit le modèle : le planificateur, puis le prompt de génération
+qu'envoie l'interface. L'extraction elle-même a été comparée octet par octet aux
+requêtes de l'interface, avant et après (`CLAUDE.md`, « The generation
+pipeline »).
+
+### X6. Le navigateur de l'exécuteur joint ce dont une génération a besoin, rien de plus
+
+**La règle.** Le Chromium de l'exécuteur exécute du code écrit par le modèle,
+sur le serveur. Ses requêtes vers l'origine de Mocky sont servies en local avec
+un jeton propre à UN travail, accepté seulement sur les routes qu'appelle une
+génération et révoqué à la fin du travail ; toute autre requête passe le garde
+SSRF (résolution DNS comprise) ou est refusée ; les WebSockets sont refusés ;
+`runner.html` porte sa propre CSP. Un jeton d'exécuteur n'est jamais une
+session : pas de présence, rien dans l'écran Sessions.
+
+**Ce qu'elle protège.** Le réseau du serveur face à une page écrite par une
+injection de prompt. Un navigateur sur le serveur est un bien meilleur outil de
+SSRF que n'importe quel fetch, et le seul `img-src *` de l'aperçu aurait permis
+à un écran généré de faire appeler à cette machine son propre point de
+métadonnées ou un voisin du réseau local.
+
+**Comment c'est vérifié.** `tests/mcp-runner-e2e.test.js` (un écran généré
+pointe une `<img>` vers un serveur local, qui ne doit rien recevoir — et reçoit
+la requête quand le garde est retiré), `server/mcp/runner-auth.test.js` (les
+routes qu'ouvre le jeton, et celles qu'il n'ouvre jamais).
+
+Les outils qui permettront à un assistant d'appeler l'exécuteur ajouteront leurs
+propres règles à cette série.
 
 ---
 

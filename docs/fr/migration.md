@@ -1,5 +1,5 @@
 ---
-source_hash: 93f091623d0d
+source_hash: 6f85c7c51203
 ---
 
 # Maintenance et migration de serveur
@@ -135,6 +135,9 @@ Tout le dossier de données part, **sauf** :
 - `mcp-oauth.json` — les jetons des assistants connectés ([MCP](mcp.md)), pour
   la raison qui fait rester les sessions : chaque assistant redemande l’accord
   une fois ;
+- `mcp-jobs.json` et `mcp-shots/` — la file de l’exécuteur sans interface et
+  ses images : les travaux du serveur qu’on quitte, et des captures qui se
+  reprennent ;
 - les fichiers temporaires et les liens symboliques.
 
 La liste est « tout, moins ceux-là » plutôt qu'une énumération des stockages,

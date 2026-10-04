@@ -37,6 +37,17 @@ function providerProxy(): Plugin {
 
 export default defineConfig({
   plugins: [react(), providerProxy()],
+  build: {
+    rollupOptions: {
+      // Two pages: the app, and the page the MCP runner's headless Chromium
+      // opens (server/mcp/runner.js). The second shares the pipeline's modules
+      // with the first — that is its whole point — so the bundler splits them.
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        runner: path.resolve(__dirname, 'runner.html'),
+      },
+    },
+  },
   server: {
     // In dev, forward account/data API calls and SSO callbacks to the backend
     // (npm run server). SSO needs same-origin so the session cookie set by the
