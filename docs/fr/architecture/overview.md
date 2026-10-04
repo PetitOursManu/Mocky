@@ -1,5 +1,5 @@
 ---
-source_hash: ce6cc82e3e3b
+source_hash: 98f88a146e7c
 ---
 
 # Vue d'ensemble de l'architecture
@@ -17,7 +17,7 @@ Le fait le plus structurant du projet :
 | Génération, édition, réparation | Navigateur | `src/lib/generate.ts` |
 | Passe de qualité : vérifier un écran, puis le corriger | Navigateur ; détection sur le serveur | `src/lib/quality.ts`, `polish.ts`, `server/muse/quality/` |
 | Audit SEO / accessibilité : règles de balisage, puis correction | Navigateur ; la moitié jugée sur le serveur | `src/lib/audit/`, `server/muse/quality/audit-judge.js` |
-| Orchestration du pipeline | Navigateur (React) | `src/components/ProjectView.tsx` |
+| Orchestration du pipeline | Navigateur | `src/lib/pipeline/newScreen.ts` pour un nouvel écran ; modifications et réparations dans `src/components/ProjectView.tsx` |
 | Pont `DESIGN.md` (préambule, jetons, fiche, export) | Navigateur | `src/lib/design.ts`, `designTokens.ts`, `designSpec.ts`, `export/` |
 | Une direction lue comme une fiche de spécification, et modifiée comme telle | Navigateur | `src/lib/designSpec.ts`, `src/components/DesignSpecSheet.tsx` |
 | Quelle direction gouverne une génération | Navigateur | `src/lib/direction.ts` |
@@ -403,8 +403,8 @@ inventé devient `undefined` au lieu de couler tout le plan pour une étiquette.
 
 Reste à savoir d'où vient le mode sur les tours où il n'y a pas de plan — et
 c'est presque tous, puisque le planificateur est sauté à chaque passage de Muse
-et désactivé entièrement par un réglage. D'où l'ordre suivi dans la fonction de
-génération de `ProjectView.tsx`, entre la liste courte déterministe et l'appel de
+et désactivé entièrement par un réglage. D'où l'ordre suivi dans le pipeline de
+`lib/pipeline/newScreen.ts`, entre la liste courte déterministe et l'appel de
 génération :
 
 1. `inferMode(text)` — une devinette par mots-clés, volontairement grossière et

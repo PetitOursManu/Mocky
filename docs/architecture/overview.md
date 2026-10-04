@@ -13,7 +13,7 @@ The single most structural fact about the project:
 | Generation, editing, repair (streamed) | Browser | `src/lib/generate.ts` |
 | Quality pass: check a screen, then correct it | Browser; detection on the server | `src/lib/quality.ts`, `polish.ts`, `server/muse/quality/` |
 | SEO / accessibility audit: markup rules, then correct it | Browser; the judged half on the server | `src/lib/audit/`, `server/muse/quality/audit-judge.js` |
-| Pipeline orchestration and phases | Browser (React) | `src/components/ProjectView.tsx` |
+| Pipeline orchestration and phases | Browser | `src/lib/pipeline/newScreen.ts` for a new screen; edits and repairs in `src/components/ProjectView.tsx` |
 | `DESIGN.md` bridge (preamble, tokens, spec, export) | Browser | `src/lib/design.ts`, `designTokens.ts`, `designSpec.ts`, `export/` |
 | A direction read as a specification sheet, and edited as one | Browser | `src/lib/designSpec.ts`, `src/components/DesignSpecSheet.tsx` |
 | Which direction governs a generation | Browser | `src/lib/direction.ts` |
@@ -383,7 +383,7 @@ sinking the whole plan over a label.
 Which leaves the question of where the mode comes from on the runs that have no
 plan — and that is nearly all of them, since the planner is skipped on every Muse
 run and switched off entirely by a setting. Hence the order in the generate
-callback of `ProjectView.tsx`, between the deterministic shortlist and the
+pipeline of `lib/pipeline/newScreen.ts`, between the deterministic shortlist and the
 generation call:
 
 1. `inferMode(text)` — a keyword guess, deliberately crude and deliberately

@@ -7,8 +7,9 @@ import { CAPABILITY_MAP } from '../src/lib/capabilities/registry'
  * Invariant U1: with Motion Ultra off, the generation path is the one it was
  * before Motion Ultra existed.
  *
- * The path lives inside ProjectView's `generate`, a closure over a dozen pieces
- * of React state that no test can call on its own. So this reads the source,
+ * The path lives in lib/pipeline/newScreen.ts, which ProjectView's `generate`
+ * calls for every new screen: a dozen network stages that no test can run on
+ * their own. So this reads the source,
  * like the other cross-cutting tests here, and pins the few places Motion Ultra
  * touches that path to the guards that switch them off — then checks the pure
  * pieces by behaviour. A new call added outside the guard fails here.
@@ -18,7 +19,9 @@ import { CAPABILITY_MAP } from '../src/lib/capabilities/registry'
  * for a screen that is not a DOCUMENT (`documentMode.test.ts` holds that). So
  * the guards below are the old conditions, with a document switched off too.
  */
-const view = readFileSync(new URL('../src/components/ProjectView.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+const view = readFileSync(new URL('../src/lib/pipeline/newScreen.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+// The composer itself: none of Motion Ultra's generation may have stayed behind there.
+const composer = readFileSync(new URL('../src/components/ProjectView.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const generate = readFileSync(new URL('../src/lib/generate.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
 const indexesOf = (src, needle) => {
@@ -34,6 +37,7 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     expect(start).toBeGreaterThan(0)
     expect(end).toBeGreaterThan(start)
     for (const call of ['runStoryboard(', 'generateUltraImages(', 'buildUltraPreamble(']) {
+      expect(indexesOf(composer, call), call).toEqual([])
       const at = indexesOf(view, call)
       expect(at.length, call).toBeGreaterThan(0)
       for (const i of at) expect(i > start && i < end, call).toBe(true)
@@ -62,7 +66,7 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
   it('offers earlier pictures only to a project that has Motion Ultra pictures', () => {
     // projectUltraPictures() is empty for a project that never used Motion Ultra,
     // so the section is never built and the path is the old one.
-    expect(view).toContain('const owned = projectUltraPictures(screensRef.current)')
+    expect(view).toContain('const owned = projectUltraPictures(hooks.currentScreens())')
     expect(view).toContain('if (owned.length) {')
   })
 
@@ -72,9 +76,11 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     expect(view).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
     expect(view).toContain('const runUltra = ultraActive && pipe.motionUltra')
     // The automatic film is gone for everyone: a film is only ever asked for.
-    expect(view).not.toContain('decideFilm(')
-    expect(view).not.toContain('placeFilmInScreen(')
-    expect(view).not.toContain('dossierMotionRequest(')
+    for (const src of [view, composer]) {
+      expect(src).not.toContain('decideFilm(')
+      expect(src).not.toContain('placeFilmInScreen(')
+      expect(src).not.toContain('dossierMotionRequest(')
+    }
   })
 
   it('never offers the kit on a guess, and never documents it unless it is in scope', () => {

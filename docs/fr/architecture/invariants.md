@@ -1,5 +1,5 @@
 ---
-source_hash: 61789c1a35f7
+source_hash: c70ad9958847
 ---
 
 # Invariants
@@ -730,7 +730,7 @@ déclenché par mot-clé, justement pour qu'un prompt contenant « landing » ne
 mette pas à recevoir une typographie géante et une aurore.
 
 **Comment c'est fait.** Toute la passe est derrière `ultraActive` dans
-`ProjectView.tsx`, et la capacité `ultra` a des `triggers` vides.
+`lib/pipeline/newScreen.ts`, et la capacité `ultra` a des `triggers` vides.
 
 Une exception voulue, et seulement pour un projet qui A des images Motion Ultra :
 un écran généré sans Motion Ultra se les voit proposer (`lib/ultra/reuse.ts`).
