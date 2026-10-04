@@ -25,7 +25,9 @@ creation.
 
 So the rule is a default-deny on the HTTP method (`server/maintenance.js`):
 every `POST`, `PUT`, `PATCH` and `DELETE` is refused with `503` and
-`code: "maintenance"`, except sign-in and sign-out. A route added next year is
+`code: "maintenance"`, except sign-in and sign-out — and two POSTs that write
+nothing: the presence heartbeat, and `/mcp`, whose writing tools check
+maintenance themselves ([MCP](mcp.md)). A route added next year is
 covered without anybody remembering to list it. The one `GET` that writes — the
 Dashy SSO callback creating an account on first sign-in — refuses to create one.
 
@@ -113,6 +115,8 @@ Everything in the data directory moves, **except**:
 - `sessions.json` — a session token is a bearer credential, and one in transit
   is one more place it can leak from. Everyone signs in again once;
 - `sso-jti.json` — a replay cache for 60-second tokens;
+- `mcp-oauth.json` — the tokens of connected assistants ([MCP](mcp.md)), for
+  the reason sessions stay behind: each assistant asks for consent again once;
 - temporary files and symbolic links.
 
 The list is "everything minus these" rather than an enumeration of stores, so

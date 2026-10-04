@@ -19,8 +19,10 @@ export const MIGRATION_DIR = '.migration'
  * credential, and one in transit is one more place it can leak from. Everyone
  * signs in again once on the new server. `sso-jti.json` is a replay cache for
  * 60-second tokens, worthless an hour later and harmful if stale.
+ * `mcp-oauth.json` holds the assistants' tokens (by hash) and is a session store
+ * by another name: each connected assistant asks for consent again once.
  */
-export const EXCLUDED_FILES = new Set(['sessions.json', 'sso-jti.json'])
+export const EXCLUDED_FILES = new Set(['sessions.json', 'sso-jti.json', 'mcp-oauth.json'])
 
 /**
  * One path segment. Deliberately narrow: whatever the source SAYS a file is

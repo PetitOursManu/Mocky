@@ -24,6 +24,7 @@ export const dashboard = {
     'dashboard.nav.audit': 'Journal d’audit',
     'dashboard.nav.announcement': 'Annonce',
     'dashboard.nav.maintenance': 'Maintenance et migration',
+    'dashboard.nav.assistants': 'Assistants (MCP)',
     'dashboard.nav.on': 'active',
     'dashboard.nav.scheduled': 'programmée',
 
@@ -286,6 +287,7 @@ export const dashboard = {
     'dashboard.audit.group.maintenance': 'Maintenance',
     'dashboard.audit.group.announcement': 'Annonces',
     'dashboard.audit.group.migration': 'Migration',
+    'dashboard.audit.group.mcp': 'Assistants (MCP)',
     'dashboard.audit.empty': 'Rien d’enregistré pour l’instant.',
     'dashboard.audit.more': 'Plus ancien',
     'dashboard.audit.someone': 'quelqu’un',
@@ -302,6 +304,8 @@ export const dashboard = {
     'dashboard.audit.detail.expires': 'date de fin',
     'dashboard.audit.detail.scheduled': 'programmée',
     'dashboard.audit.detail.revoked': 'sessions fermées',
+    'dashboard.audit.detail.client': 'assistant',
+    'dashboard.audit.detail.connectionsRevoked': 'connexions coupées',
     'dashboard.audit.action.auth.login': '{actor} s’est connecté',
     'dashboard.audit.action.auth.login-failed': 'Connexion refusée pour « {target} »',
     'dashboard.audit.action.auth.locked': 'Compte « {target} » verrouillé après trop d’échecs',
@@ -325,6 +329,10 @@ export const dashboard = {
     'dashboard.audit.action.migration.code': '{actor} a créé un code de migration',
     'dashboard.audit.action.migration.revoke': '{actor} a révoqué le code de migration',
     'dashboard.audit.action.migration.finalize': '{actor} a finalisé l’import de migration',
+    'dashboard.audit.action.mcp.config': '{actor} a modifié la connexion des assistants (MCP)',
+    'dashboard.audit.action.mcp.connect': '{actor} a connecté un assistant à son compte',
+    'dashboard.audit.action.mcp.revoke': '{actor} a déconnecté un assistant',
+    'dashboard.audit.action.mcp.token-reuse': 'Jeton d’assistant réutilisé pour {target} : la connexion a été coupée',
 
     // ---- announcement ----
     'dashboard.announce.kicker': 'Annonce',
@@ -397,6 +405,7 @@ export const dashboard = {
     'dashboard.nav.audit': 'Audit log',
     'dashboard.nav.announcement': 'Announcement',
     'dashboard.nav.maintenance': 'Maintenance and migration',
+    'dashboard.nav.assistants': 'Assistants (MCP)',
     'dashboard.nav.on': 'on',
     'dashboard.nav.scheduled': 'scheduled',
 
@@ -657,6 +666,7 @@ export const dashboard = {
     'dashboard.audit.group.maintenance': 'Maintenance',
     'dashboard.audit.group.announcement': 'Announcements',
     'dashboard.audit.group.migration': 'Migration',
+    'dashboard.audit.group.mcp': 'Assistants (MCP)',
     'dashboard.audit.empty': 'Nothing recorded yet.',
     'dashboard.audit.more': 'Older',
     'dashboard.audit.someone': 'someone',
@@ -673,6 +683,8 @@ export const dashboard = {
     'dashboard.audit.detail.expires': 'end date',
     'dashboard.audit.detail.scheduled': 'scheduled',
     'dashboard.audit.detail.revoked': 'sessions closed',
+    'dashboard.audit.detail.client': 'assistant',
+    'dashboard.audit.detail.connectionsRevoked': 'connections cut',
     'dashboard.audit.action.auth.login': '{actor} signed in',
     'dashboard.audit.action.auth.login-failed': 'Sign-in refused for "{target}"',
     'dashboard.audit.action.auth.locked': 'Account "{target}" locked after too many failures',
@@ -696,6 +708,10 @@ export const dashboard = {
     'dashboard.audit.action.migration.code': '{actor} created a migration code',
     'dashboard.audit.action.migration.revoke': '{actor} revoked the migration code',
     'dashboard.audit.action.migration.finalize': '{actor} finalised the migration import',
+    'dashboard.audit.action.mcp.config': '{actor} changed the assistant connection settings (MCP)',
+    'dashboard.audit.action.mcp.connect': '{actor} connected an assistant to their account',
+    'dashboard.audit.action.mcp.revoke': '{actor} disconnected an assistant',
+    'dashboard.audit.action.mcp.token-reuse': 'An assistant token was reused for {target}: the connection was cut',
 
     // ---- announcement ----
     'dashboard.announce.kicker': 'Announcement',

@@ -1,5 +1,5 @@
 ---
-source_hash: 53b47b017791
+source_hash: 93f091623d0d
 ---
 
 # Maintenance et migration de serveur
@@ -32,7 +32,9 @@ maintenance, c'est le passage final d'une migration — après lequel une
 
 La règle est donc un refus par défaut sur la méthode HTTP (`server/maintenance.js`) :
 tout `POST`, `PUT`, `PATCH` et `DELETE` reçoit un `503` avec
-`code: "maintenance"`, sauf la connexion et la déconnexion. Une route ajoutée
+`code: "maintenance"`, sauf la connexion et la déconnexion — et deux POST qui
+n’écrivent rien : le battement de présence, et `/mcp`, dont les outils qui
+écrivent vérifient eux-mêmes la maintenance ([MCP](mcp.md)). Une route ajoutée
 l'an prochain est couverte sans que personne ne pense à l'ajouter. Le seul `GET`
 qui écrit — le retour SSO Dashy qui crée un compte à la première connexion —
 refuse d'en créer.
@@ -130,6 +132,9 @@ Tout le dossier de données part, **sauf** :
   transit est un endroit de plus d'où il peut fuiter. Chacun se reconnecte une
   fois ;
 - `sso-jti.json` — un cache anti-rejeu pour des jetons de 60 secondes ;
+- `mcp-oauth.json` — les jetons des assistants connectés ([MCP](mcp.md)), pour
+  la raison qui fait rester les sessions : chaque assistant redemande l’accord
+  une fois ;
 - les fichiers temporaires et les liens symboliques.
 
 La liste est « tout, moins ceux-là » plutôt qu'une énumération des stockages,

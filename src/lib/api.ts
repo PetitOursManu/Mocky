@@ -245,6 +245,61 @@ export interface ImagesTestResult {
 /** Who the video export is open to. Mirrors ACCESS_MODES in server/video/config.js. */
 export type VideoAccessMode = 'all' | 'allowlist'
 
+/** server/mcp/config.js — Mocky as an MCP server. */
+export interface McpConfig {
+  enabled: boolean
+  access: { mode: 'all' | 'allowlist'; userIds: string[] }
+  clients: 'known' | 'any'
+  tokenTtl: { accessMin: number; refreshDays: number }
+  concurrency: number
+  dailyQuota: number | null
+}
+
+/** server/mcp/https.js — what has to hold before the section unlocks. */
+export interface McpReadiness {
+  origin: string | null
+  mcpUrl: string | null
+  originHttps: boolean
+  requestHttps: boolean
+  hostMatches: boolean
+  insecureLoopback: boolean
+  reachableFromInternet: 'unknown'
+  ok: boolean
+}
+
+/** One assistant one person let in. Never a token. */
+export interface McpConnection {
+  id: string
+  userId: string
+  clientId: string
+  clientName: string
+  createdAt: number
+  lastUsedAt: number
+  username?: string | null
+}
+
+export interface AdminMcpView {
+  config: McpConfig
+  readiness: McpReadiness
+  active: boolean
+  connections: McpConnection[]
+  users: AdminUser[]
+}
+
+export interface AccountMcpView {
+  active: boolean
+  allowed: boolean
+  mcpUrl: string | null
+  connections: McpConnection[]
+}
+
+export interface ConnectRequest {
+  clientName: string
+  redirectHost: string
+  allowed: boolean
+  username: string
+}
+
 /**
  * Admin view of the video-export settings.
  *
@@ -414,7 +469,33 @@ export const api = {
       }
     }>,
 
+  /** The consent page of an assistant asking to connect (server/mcp/provider.js). */
+  connect: {
+    get: (id: string) => req(`/api/connect/${encodeURIComponent(id)}`) as Promise<ConnectRequest>,
+    decide: (id: string, approve: boolean) =>
+      req(`/api/connect/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ approve }) }) as Promise<{
+        redirect: string
+        notAllowed?: boolean
+      }>,
+  },
+
+  /** The assistants this account let in. */
+  mcpConnections: {
+    list: () => req('/api/account/mcp-connections') as Promise<AccountMcpView>,
+    revoke: (id: string) => req(`/api/account/mcp-connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  },
+
   admin: {
+    mcp: {
+      get: () => req('/api/admin/mcp') as Promise<AdminMcpView>,
+      setConfig: (patch: Partial<McpConfig>) =>
+        req('/api/admin/mcp/config', { method: 'PUT', body: JSON.stringify(patch) }) as Promise<{
+          config: McpConfig
+          active: boolean
+          revoked: number
+        }>,
+      revoke: (id: string) => req(`/api/admin/mcp/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    },
     getConfig: () => req('/api/admin/config') as Promise<{ allowRegistration: boolean }>,
     setAllowRegistration: (allowRegistration: boolean) =>
       req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ allowRegistration }) }) as Promise<{

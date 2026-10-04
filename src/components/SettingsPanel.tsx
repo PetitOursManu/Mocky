@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import AssistantConnections from './AssistantConnections'
 import {
   PROVIDERS,
   type Settings,
@@ -361,6 +362,7 @@ export default function SettingsPanel() {
       <div className="mt-8 grid gap-x-12 gap-y-8 border-t border-line pt-8 lg:grid-cols-2">
         <AvatarSection account={account} onChanged={setAccount} />
         <PasswordSection account={account} onChanged={setAccount} />
+        {account && <AssistantConnections />}
 
         <section>
           <div className="section-head">

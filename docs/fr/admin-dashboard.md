@@ -1,10 +1,10 @@
 ---
-source_hash: f53b06bb1847
+source_hash: eaab2cfba244
 ---
 
 # Le tableau de bord d’administration
 
-L’administration tient sur une seule page, avec un menu à gauche. Neuf sections,
+L’administration tient sur une seule page, avec un menu à gauche. Dix sections,
 un seul flux en direct : tout ce qui bouge — qui est connecté, ce qui tourne, le
 processeur, la mémoire, la carte graphique — se met à jour toutes les deux
 secondes sans recharger, et passer d’une section à l’autre ne coûte aucune requête.
@@ -19,6 +19,7 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 | **Fournisseurs** | Comment les fournisseurs de texte, d’images et de vidéo ont répondu sur la dernière heure, puis leurs réglages (les trois blocs de l’ancienne page). |
 | **Journal d’audit** | Qui a fait quoi : connexions et échecs, comptes, sessions, réglages, maintenance, annonces, migrations. |
 | **Annonce** | Un message affiché à tout le monde sous l’en-tête, tout de suite ou à partir d’une date programmée, avec une fin facultative — et des dates dans le texte affichées dans le fuseau de chaque lecteur. |
+| **Assistants (MCP)** | Si Claude, ChatGPT ou un autre client MCP peut agir dans Mocky au nom d’un compte : les prérequis HTTPS, l’interrupteur, qui peut se connecter, et chaque connexion active avec de quoi la couper — voir [Connecter un assistant](mcp.md). |
 | **Maintenance et migration** | Inchangée — voir [Maintenance et migration](migration.md). |
 
 Le code est dans `server/admin/` (un fichier par magasin, chacun s’explique en

@@ -20,8 +20,12 @@
  * dashboard's heartbeat, which is a POST but writes nothing anywhere (presence
  * lives in memory). Refusing it would show every user offline to the admin
  * during exactly the window in which they want to see who is still around.
+ *
+ * And `/mcp`, which is POST for every call because JSON-RPC is: refused here,
+ * an assistant could not even LIST projects during maintenance. Each MCP tool
+ * that writes checks maintenance itself (server/mcp/), the way a route would.
  */
-const ALWAYS_ALLOWED = new Set(['/api/login', '/api/logout', '/api/presence'])
+const ALWAYS_ALLOWED = new Set(['/api/login', '/api/logout', '/api/presence', '/mcp'])
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 

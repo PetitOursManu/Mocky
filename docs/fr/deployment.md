@@ -1,5 +1,5 @@
 ---
-source_hash: e5dedb643351
+source_hash: 326acaf0b876
 ---
 
 # Déploiement
@@ -248,7 +248,8 @@ l'interface.
 | `NODE_ENV` | `production` | Influence le mode de service. La sécurité du cookie n'en dépend **pas** |
 | `SSO_SHARED_SECRET` | *(non définie)* | Le secret HS256 partagé avec Dashy |
 | `SSO_DASHY_URL` | *(non définie)* | L'origine publique de votre instance Dashy |
-| `MOCKY_ORIGIN` | *(détectée)* | L'origine publique de Mocky. **À définir explicitement dès que le SSO est activé** |
+| `MOCKY_ORIGIN` | *(détectée)* | L'origine publique de Mocky. **À définir explicitement dès que le SSO est activé**, et en `https://` pour les [assistants (MCP)](mcp.md) |
+| `MOCKY_MCP_INSECURE_LOOPBACK` | *(non définie)* | `1` accepte une origine `http://localhost` pour le serveur MCP — développement et tests uniquement ([MCP](mcp.md)) |
 
 ### Le lecteur de `.env` intégré
 

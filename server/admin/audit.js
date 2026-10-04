@@ -46,6 +46,10 @@ export const AUDIT_ACTIONS = [
   'migration.code',
   'migration.revoke',
   'migration.finalize',
+  'mcp.config',
+  'mcp.connect',
+  'mcp.revoke',
+  'mcp.token-reuse',
 ]
 
 const ACTIONS = new Set(AUDIT_ACTIONS)

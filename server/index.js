@@ -26,6 +26,7 @@ import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
 import { mergeStoredProjects } from './merge.js'
 import { createDataEvents } from './data-events.js'
+import { createMcpServerRoutes } from './mcp/routes.js'
 import { cleanMaintenanceMessage, maintenanceBlocks, maintenanceBody } from './maintenance.js'
 import { createMigrationSource } from './migration/source.js'
 import { createMigrationDestination, MigrationError } from './migration/destination.js'
@@ -1568,6 +1569,8 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   // it otherwise — a deleted user's screens would stay readable by anyone
   // holding a link, which is not what "delete this account" means to anybody.
   shares.revokeAllFor(id)
+  // And the assistants it let in: a token must not outlive its account.
+  mcpServer.onUserDeleted(id)
   res.json({ ok: true })
 })
 
@@ -2139,6 +2142,26 @@ const dashboard = createDashboardRouter({
 })
 app.use('/api/admin/dashboard', requireAdmin, dashboard.router)
 
+// ---- Mocky as an MCP server (plans/mcp-serveur.md) ----
+// Mounted before the frontend so its paths are never answered by the SPA, and
+// after `express.json` on /api so the consent page's POST has a body. Off — and
+// absent — until an administrator switches it on over HTTPS (server/mcp/routes.js).
+const mcpServer = createMcpServerRoutes({
+  dataDir: DATA_DIR,
+  origin: MOCKY_ORIGIN,
+  findUser: (id) => loadUsers().find((u) => u.id === id),
+  listUsers: () => loadUsers(),
+  sessionUser,
+  requireUser,
+  requireAdmin,
+  readProjects: (userId) => readJson(userDataFile(userId), { projects: null }).projects ?? null,
+  maintenance: () => maintenance.on,
+  audit,
+  auditActor,
+  clientIp,
+})
+mcpServer.mount(app)
+
 // ---- serve the built frontend (production) ----
 if (fs.existsSync(dist)) {
   app.use(
@@ -2259,6 +2282,8 @@ async function gracefulShutdown(signal) {
   // `server.close()` until the three-second fallback below.
   system.stop()
   dashboard.closeAll()
+  dataEvents.closeAll()
+  mcpServer.flush()
   console.log(`\n${signal} received — shutting down Muse MCP servers…`)
   try {
     await muse.host.shutdown()

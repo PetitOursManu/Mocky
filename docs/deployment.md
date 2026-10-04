@@ -238,7 +238,8 @@ the sign-in screen and the model provider is configured in the UI.
 | `NODE_ENV` | `production` | Affects serving mode. Cookie security does **not** depend on it |
 | `SSO_SHARED_SECRET` | *(unset)* | The HS256 secret shared with Dashy |
 | `SSO_DASHY_URL` | *(unset)* | The public origin of your Dashy instance |
-| `MOCKY_ORIGIN` | *(auto-detected)* | Mocky's own public origin. **Set it explicitly whenever SSO is on** |
+| `MOCKY_ORIGIN` | *(auto-detected)* | Mocky's own public origin. **Set it explicitly whenever SSO is on**, and to an `https://` origin for [assistants (MCP)](mcp.md) |
+| `MOCKY_MCP_INSECURE_LOOPBACK` | *(unset)* | `1` accepts an `http://localhost` origin for the MCP server — development and tests only ([MCP](mcp.md)) |
 
 ### The built-in `.env` loader
 

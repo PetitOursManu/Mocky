@@ -45,7 +45,7 @@
       "audience": ["user"],
       "pages": ["muse/overview", "muse/inspiration-engine", "muse/animations", "documents", "quality", "motion-ultra", "video-export", { "slug": "seo-accessibility", "audience": ["user", "dev"] }]
     },
-    { "group": { "en": "Self-hosting", "fr": "Auto-hébergement" }, "audience": ["admin"], "pages": ["deployment", "migration", "admin-dashboard"] },
+    { "group": { "en": "Self-hosting", "fr": "Auto-hébergement" }, "audience": ["admin"], "pages": ["deployment", "migration", "admin-dashboard", { "slug": "mcp", "audience": ["admin", "user"] }] },
     { "group": "Architecture", "audience": ["dev"], "pages": ["architecture/overview", "architecture/invariants", "adr/001-muse", "DESIGN-SYSTEM"] },
     { "group": { "en": "Reference", "fr": "Référence" }, "pages": ["CHANGELOG", "license", { "slug": "AUDIT-2026-07", "audience": ["dev"] }] }
   ]
