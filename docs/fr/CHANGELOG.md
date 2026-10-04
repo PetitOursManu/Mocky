@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `mcp` | phase 3 — modifier, polir et auditer un écran depuis l'assistant | `090d63c` |
 | `mcp` | Muse par défaut pour un nouveau projet | `12cfc27` |
 | `mcp` | un guide pour l'assistant (mocky_guide, mocky://guide) | `bf9c2d2` |
 | `mcp` | l'assistant choisit et fournit les images de l'écran | `800eb58` |
