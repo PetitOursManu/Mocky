@@ -6,6 +6,12 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 ## October 2026
 
+**Features**
+
+| Scope | Change | Commit |
+| --- | --- | --- |
+| `sync` | PUT /api/data fusionne, les autres onglets sont prévenus, lien /p/<projet> | `7b03b28` |
+
 **Documentation**
 
 | Scope | Change | Commit |
@@ -16,6 +22,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `acces` | une seule vérification de liste pour les cinq accès par compte | `8fcd906` |
 | `pipeline` | runNewScreen sort la génération d'un nouvel écran de ProjectView | `ce471e8` |
 | `licence` | Mocky passe sous AGPL-3.0-or-later | `6857172` |
 
