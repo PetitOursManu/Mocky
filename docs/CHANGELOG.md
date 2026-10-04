@@ -6,10 +6,17 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 ## October 2026
 
+**Documentation**
+
+| Scope | Change | Commit |
+| --- | --- | --- |
+| `licence` | exception de sortie et page Licence | `fa248bb` |
+
 **Maintenance**
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `pipeline` | runNewScreen sort la génération d'un nouvel écran de ProjectView | `ce471e8` |
 | `licence` | Mocky passe sous AGPL-3.0-or-later | `6857172` |
 
 ## September 2026
