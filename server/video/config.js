@@ -15,6 +15,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { onList } from '../access.js'
 
 /** Who may export. 'allowlist' is the default; see `enabledFor`. */
 export const ACCESS_MODES = ['all', 'allowlist']
@@ -250,9 +251,7 @@ export function videoEnabledFor(cfg, user) {
   const c = { ...defaultVideoConfig(), ...(cfg || {}) }
   if (!c.enabled) return false
   if (c.access === 'all') return true
-  const id = typeof user?.id === 'string' ? user.id.trim() : ''
-  if (!id) return false
-  return Array.isArray(c.allowedUserIds) && c.allowedUserIds.includes(id)
+  return onList(c.allowedUserIds, user)
 }
 
 /**
@@ -280,9 +279,7 @@ export function videoThreeDEnabledFor(cfg, user) {
   // The machine first: a server set to render flat renders flat for everyone.
   if (c.renderTier === 'flat') return false
   if (c.threeDAccess === 'all') return true
-  const id = typeof user?.id === 'string' ? user.id.trim() : ''
-  if (!id) return false
-  return Array.isArray(c.threeDAllowedUserIds) && c.threeDAllowedUserIds.includes(id)
+  return onList(c.threeDAllowedUserIds, user)
 }
 
 /**
@@ -296,8 +293,7 @@ export function videoThreeDEnabledFor(cfg, user) {
  */
 export function ultraCountsFor(cfg, user) {
   const c = { ...defaultVideoConfig(), ...(cfg || {}) }
-  const id = typeof user?.id === 'string' ? user.id.trim() : ''
-  const may = (mode, ids) => mode !== 'allowlist' || (Boolean(id) && Array.isArray(ids) && ids.includes(id))
+  const may = (mode, ids) => mode !== 'allowlist' || onList(ids, user)
   const counts = []
   if (may(c.ultraX3Access, c.ultraX3AllowedUserIds)) counts.push(3)
   if (may(c.ultraX6Access, c.ultraX6AllowedUserIds)) counts.push(6)

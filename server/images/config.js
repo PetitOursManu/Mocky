@@ -10,6 +10,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { DEFAULT_CF_MODEL, DEFAULT_CF_EDIT_MODEL } from './providers/cloudflare.js'
 import { DEFAULT_FAL_MODEL, DEFAULT_FAL_EDIT_MODEL, DEFAULT_FAL_VIDEO_MODEL } from './providers/fal.js'
+import { onList } from '../access.js'
 import { createProvider } from './providers/index.js'
 import { DEFAULT_FPS, DEFAULT_FRAME_WIDTH, MAX_FRAMES } from '../videos/frames.js'
 
@@ -124,9 +125,7 @@ export const VIDEO_ACCESS_MODES = ['all', 'allowlist']
  */
 export function videoAccessFor(cfg, user) {
   const access = { ...defaultVideoProfile().access, ...(cfg?.video?.access || {}) }
-  const id = typeof user?.id === 'string' ? user.id.trim() : ''
-  const may = (scope) =>
-    scope?.mode !== 'allowlist' || (Boolean(id) && Array.isArray(scope.userIds) && scope.userIds.includes(id))
+  const may = (scope) => scope?.mode !== 'allowlist' || onList(scope.userIds, user)
   return { generate: may(access.generated), stock: may(access.stock) }
 }
 
@@ -146,8 +145,7 @@ export function defaultStockImages() {
 /** Whether this account may use free stock photos. Same rule as `videoAccessFor`. */
 export function stockImagesAccessFor(cfg, user) {
   const scope = { ...defaultStockImages().access, ...(cfg?.stockImages?.access || {}) }
-  const id = typeof user?.id === 'string' ? user.id.trim() : ''
-  return scope.mode !== 'allowlist' || (Boolean(id) && Array.isArray(scope.userIds) && scope.userIds.includes(id))
+  return scope.mode !== 'allowlist' || onList(scope.userIds, user)
 }
 
 export function defaultImagesConfig() {
