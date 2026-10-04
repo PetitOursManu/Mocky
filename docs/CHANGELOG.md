@@ -20,6 +20,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `mcp` | un post ou un document a son image même sans image fournie | `272773d` |
 | `mcp` | le type d'écran demandé est appliqué (flyer, post, tableau de bord…) | `1009f73` |
 | `mcp` | un nouveau design va toujours dans un nouveau projet | `dec6ca3` |
 | `sync` | la fusion réunit les écrans des deux copies d'un projet | `d1eec8f` |
