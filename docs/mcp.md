@@ -51,8 +51,11 @@ interview before designing.
   directement dans Mocky le visuel…") once found a war grave for a food
   festival. And in `auto`, a free photo is taken only when Mocky's model can
   look at the candidates; otherwise the picture is generated.
-- **Muse.** Off unless the assistant passes `muse: true`: it is slower, and
-  worth it when the person wants something distinctive. With pictures supplied,
+- **Muse.** On by default in `create_design`: a new project's first screen sets
+  the direction every later one follows, and left to the assistant, Muse almost
+  never ran. Off in `add_screen`, where the project already has its direction;
+  `muse` turns it on or off either way. The `picture_subject` reaches its
+  dossier, which plans the picture. With pictures supplied,
   Muse looks at the first one before writing its dossier and uses them in its
   slots instead of making its own — so the palette is chosen with the photo,
   not beside it.

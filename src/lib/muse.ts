@@ -423,6 +423,12 @@ export async function runMuseDossier(
      * language, which is the one caller that sets it.
      */
     language?: string
+    /**
+     * What the main picture must show, said apart from the request — by an
+     * assistant through MCP, whose request is often an instruction ("créer
+     * dans Mocky le visuel…") that a picture prompt anchored on it would paint.
+     */
+    pictureSubject?: string
     signal?: AbortSignal
   } = {},
 ): Promise<MuseResult> {
@@ -442,6 +448,7 @@ export async function runMuseDossier(
       userMedia: opts.userMedia,
       motion: opts.motion ?? undefined,
       language: opts.language,
+      pictureSubject: opts.pictureSubject,
     }),
     signal: opts.signal,
   })

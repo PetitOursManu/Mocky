@@ -130,9 +130,10 @@ Mocky reads it from the request's words when it can, and says which it used.
 
 ## Other options
 
-- \`muse: true\` — Mocky's art direction designs the look first (palette, type,
-  mood). Slower. Use it when the person wants something distinctive and has
-  given no visual direction. With \`images\`, Muse designs around them (its
+- \`muse\` — Mocky's art direction designs the look first (palette, type,
+  mood). On by default in \`create_design\`, off in \`add_screen\` (the project
+  already has its direction). Pass \`false\` only when the person wants it fast
+  or gave a complete visual direction. With \`images\`, Muse designs around them (its
   palette is chosen with your photo) and adds no picture of its own.
 - \`picture_source\` — when you pass no \`images\`: \`auto\`, \`free\`,
   \`generated\` or \`none\`. In \`auto\`, a free photo is taken only when Mocky

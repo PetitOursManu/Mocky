@@ -455,6 +455,9 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           useFetch: museConfig.useFetch,
           projectName: project.name,
           userMedia,
+          // With Muse on, the dossier plans the picture and the document's own
+          // search never runs: the requester's subject has to reach it.
+          pictureSubject: req.pictureSubject?.trim() || undefined,
           // No question about films: none is made on its own any more (see
           // the note where the screen's 3D is read, after generation).
           signal: signal,

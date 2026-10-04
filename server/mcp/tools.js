@@ -378,7 +378,11 @@ export function buildMcpServer(deps) {
       projectId: project ? project.id : undefined,
       projectName: project ? undefined : args.project_name || undefined,
       device: args.device || inferDevice(`${args.brief} ${args.kind || ''}`) || 'desktop',
-      muse: args.muse === true,
+      // On by default for a new project, whose first screen sets the direction
+      // every later one follows; off in an existing one, which has its own.
+      // Left to the assistant, Muse almost never ran: ChatGPT does not ask for
+      // what is described as slower.
+      muse: project ? args.muse === true : args.muse !== false,
       lang,
     })
     const waited = await runner.wait(job.id, user.id, WAIT_MS)
@@ -476,6 +480,10 @@ export function buildMcpServer(deps) {
       inputSchema: {
         ...designFields,
         project_name: z.string().max(120).optional().describe('A short name for the new project.'),
+        muse: z
+          .boolean()
+          .optional()
+          .describe('Mocky\'s art direction (Muse) designs the look first — on by default for a new project. Pass false only when the person wants it fast or gave a complete visual direction.'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },

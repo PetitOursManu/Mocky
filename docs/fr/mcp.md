@@ -1,5 +1,5 @@
 ---
-source_hash: 8c65a6046d52
+source_hash: 9da0f4425fc8
 ---
 
 # Connecter un assistant (MCP)
@@ -59,8 +59,11 @@ entretien avant de dessiner.
   donné un jour une tombe militaire pour une fête du goût. Et en `auto`, une
   photo libre n'est prise que si le modèle de Mocky peut regarder les
   candidates ; sinon l'image est générée.
-- **Muse.** Désactivée sauf si l'assistant passe `muse: true` : c'est plus
-  lent, et utile quand la personne veut quelque chose de singulier. Avec des
+- **Muse.** Activée par défaut dans `create_design` : le premier écran d'un
+  nouveau projet fixe la direction que suivront les autres, et laissée au choix
+  de l'assistant, Muse ne tournait presque jamais. Désactivée dans `add_screen`,
+  où le projet a déjà sa direction ; `muse` l'active ou la coupe dans les deux
+  cas. Le `picture_subject` arrive dans son dossier, qui prévoit l'image. Avec des
   images fournies, Muse regarde la première avant d'écrire son dossier et les
   place dans ses emplacements au lieu d'en créer — la palette est donc choisie
   avec la photo, pas à côté.

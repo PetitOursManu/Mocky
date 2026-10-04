@@ -48,6 +48,7 @@ export async function runInspiration(args, deps) {
       // The user's own picture or clip, when one is selected — its measured
       // palette, and the bytes themselves if the model has vision.
       userMedia: args.userMedia,
+      pictureSubject: args.pictureSubject,
       // Whether this screen gets a Motion film is decided in the same answer —
       // see ./film.js. Null when the composer did not ask.
       motion: args.motion ?? null,

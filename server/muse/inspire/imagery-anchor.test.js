@@ -102,3 +102,29 @@ describe('ensureHeroImagery', () => {
     expect(d.imageryPlan[0].driftCorrected).toBe(true)
   })
 })
+
+describe('a picture subject said apart from the request', () => {
+  // Through MCP the request is often an instruction: anchored on it, the hero
+  // prompt became "Créer directement dans Mocky le visuel final…".
+  const INSTRUCTION = 'Créer directement dans Mocky le visuel final d’un post Instagram sur la semaine du goût'
+  const SUBJECT = 'colorful fresh seasonal vegetables and french cheese on a rustic wooden table'
+
+  it('is what a drifting prompt is anchored on, not the request', () => {
+    const d = { imageryPlan: [{ id: 'hero', style: 'warm photography', prompt: 'a haunted house at night' }] }
+    anchorImageryToRequest(d, { prompt: INSTRUCTION, pictureSubject: SUBJECT })
+    expect(d.imageryPlan[0].prompt).toBe(`${SUBJECT}, warm photography, high quality, no text, no watermark`)
+    expect(d.imageryPlan[0].prompt).not.toMatch(/créer|mocky/i)
+  })
+
+  it('keeps a prompt that already shows it', () => {
+    const d = { imageryPlan: [{ id: 'hero', prompt: 'seasonal vegetables on a market stall, golden light' }] }
+    anchorImageryToRequest(d, { prompt: INSTRUCTION, pictureSubject: SUBJECT })
+    expect(d.imageryPlan[0].driftCorrected).toBeUndefined()
+  })
+
+  it('is the hero of a dossier that planned none', () => {
+    const d = { imageryPlan: [] }
+    ensureHeroImagery(d, { prompt: INSTRUCTION, pictureSubject: SUBJECT })
+    expect(d.imageryPlan[0].subject).toBe(SUBJECT)
+  })
+})

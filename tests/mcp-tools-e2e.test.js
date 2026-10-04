@@ -50,6 +50,8 @@ const DOSSIER = {
   imageryPlan: [{ id: 'hero', prompt: 'a haunted house, high quality, no text, no watermark' }],
   forbidden: [],
 }
+/** How many Muse dossiers the fake model was asked for. */
+const dossiers = () => modelCalls.filter((c) => JSON.stringify(c).includes('imageryPlan')).length
 const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 async function freePort() {
@@ -296,6 +298,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // The fourth real test: the brief was written as an instruction, and the
     // picture was searched for from its first words. picture_subject says what
     // to show; screen_name replaces "Créer directement dans Mocky le…".
+    const dossiersBefore = dossiers()
     const told = await design({
       brief: 'Créer directement dans Mocky le visuel final d’un post Instagram sur la semaine du goût',
       screen_type: 'instagram',
@@ -303,6 +306,9 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       picture_subject: 'colorful fresh seasonal vegetables and french cheese on a rustic wooden table',
     })
     expect(told.structuredContent.status).toBe('done')
+    // Muse is on by default in a new project, and the subject reached its
+    // dossier: the fake's "haunted house" was anchored back on it.
+    expect(dossiers()).toBe(dossiersBefore + 1)
     expect(lastImagePrompt).toContain('colorful fresh seasonal vegetables and french cheese')
     expect(lastImagePrompt).not.toMatch(/créer|mocky/i)
     const project = await mcp.callTool({ name: 'get_project', arguments: { project_id: told.structuredContent.projectId } })
@@ -359,6 +365,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
   it('adds to an existing project only through add_screen, and says which one', async () => {
     const projects = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
     const target = projects.find((p) => p.name === 'Boulangerie')
+    const dossiersBefore = dossiers()
     let out = await mcp.callTool({
       name: 'add_screen',
       arguments: { project_id: target.id, brief: 'Une page de contact pour la boulangerie, avec horaires et plan' },
@@ -368,6 +375,8 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     }
     expect(out.structuredContent.projectId).toBe(target.id)
     expect(out.content[0].text).toContain('« Boulangerie »')
+    // An existing project keeps its direction: no Muse unless asked for.
+    expect(dossiers()).toBe(dossiersBefore)
   }, 120_000)
 
   it('marks the account "MCP" in the admin while it uses Mocky through an assistant', async () => {

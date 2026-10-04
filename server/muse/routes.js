@@ -108,6 +108,12 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
               : undefined,
           projectName: body.projectName,
           userMedia: sanitizeUserMedia(body.userMedia),
+          // What the main picture must show, when said apart from the request
+          // (an assistant through MCP). One line of prose, bounded.
+          pictureSubject:
+            typeof body.pictureSubject === 'string'
+              ? body.pictureSubject.replace(/[\r\n]+/g, ' ').trim().slice(0, 300) || undefined
+              : undefined,
           // Read strictly: two modes and the server's own kinds, or nothing.
           motion: readMotionRequest(body.motion),
         },

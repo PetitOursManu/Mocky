@@ -242,6 +242,7 @@ function buildUser(ctx) {
   const media = buildMediaSection(ctx.userMedia)
   return [
     `USER REQUEST: ${ctx.prompt}`,
+    ...(ctx.pictureSubject ? [`MAIN PICTURE: the hero image shows ${ctx.pictureSubject}`] : []),
     ctx.language ? `Write all copy in this language: ${ctx.language}` : 'Write all copy in the same language as the user request above.',
     // Placed FIRST among the inputs, before the borrowed vocabulary: it is the
     // only one of them that is already a decision.
@@ -373,7 +374,7 @@ export function normalizeDossierRaw(raw) {
 
 /** The imagery slot every dossier must have, derived from the request. */
 export function defaultHeroSlot(ctx, pattern = null) {
-  const subject = String(ctx?.prompt || 'this product').trim()
+  const subject = String(ctx?.pictureSubject || ctx?.prompt || 'this product').trim()
   return {
     id: 'hero',
     slot: 'hero',
@@ -422,7 +423,10 @@ function contentWords(text) {
  * request, it is re-anchored on the subject rather than trusted.
  */
 export function anchorImageryToRequest(dossier, ctx) {
-  const subject = String(ctx?.prompt || '').trim()
+  // A subject said apart wins over the request: through MCP the request is
+  // often an instruction, and a prompt anchored on "créer directement dans
+  // Mocky le visuel…" paints those words.
+  const subject = String(ctx?.pictureSubject || ctx?.prompt || '').trim()
   const wanted = contentWords(subject)
   if (!subject || wanted.length === 0 || !Array.isArray(dossier.imageryPlan)) return dossier
 
