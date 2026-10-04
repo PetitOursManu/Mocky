@@ -1061,6 +1061,11 @@ toolkit.
 - **Comments explain why, not what.** The house style is unusually discursive:
   a comment names the bug that made the rule necessary. Match it. A comment that
   restates the code is worse than no comment.
+- **`PUT /api/data` merges, it does not overwrite.** `server/merge.js` mirrors
+  `src/lib/merge.ts` by hand (`server/merge.test.js` runs one corpus through
+  both), and `GET /api/data/events` tells an account's other tabs that it
+  changed — a name, never content. A new writer of projects (the MCP runner)
+  goes through the same merge, or it erases what a tab did not know about.
 - **Tests are co-located** (`foo.ts` + `foo.test.ts`), except the cross-cutting
   ones in `tests/`. `npm test` runs everything; `npx tsc --noEmit` typechecks.
 - **No native dependencies.** The entire server store is JSON files written

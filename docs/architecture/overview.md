@@ -923,6 +923,25 @@ is fresher, which used to overwrite local work. The merge in `src/lib/merge.ts`
 uses tombstones with a TTL, so a deletion on one device does not come back from
 another.
 
+The server applies the same merge on every `PUT /api/data` instead of replacing
+the file (`server/merge.js`, a hand-kept mirror held to the browser's by a
+corpus test). It used to overwrite, which was safe while the browser was the
+only writer; with a second device open, or the MCP runner writing a screen, a
+push from a tab that had never heard of a project erased it. The answer carries
+`merged: true` when the server kept something the sender lacked, and the tab
+reads it back.
+
+The account's other tabs hear about a write as it happens: `GET /api/data/events`
+is a Server-Sent Events stream per tab (`server/data-events.js`) that carries
+the name `data-changed` and never any content. A tab then reads `GET /api/data`
+itself and merges the result into its state, the way it merges another tab's
+`storage` event, so a screen it is generating survives a copy that has not heard
+of it yet. The writing tab is not told about its own write (`x-mocky-tab`).
+
+The merge is per PROJECT: two writers changing the same project at the same time
+still resolve to one of the two versions. Phase 2 of the MCP plan has to deal
+with that before the runner writes into a project somebody is editing.
+
 ### The server store
 
 | Path under `server/data/` | Contents |

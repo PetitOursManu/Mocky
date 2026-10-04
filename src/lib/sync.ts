@@ -8,9 +8,27 @@ const DESIGN_KEY = 'mocky.design.v1'
 let enabled = false
 let timer: number | null = null
 
-/** Turn server-sync on/off (on when signed in). */
+/**
+ * This tab, as the server knows it: its writes carry it, and the events stream
+ * it opens carries it, so the server does not tell a tab about its own write.
+ * Random per load — it names a tab, not a person.
+ */
+export const TAB_ID = (() => {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return `tab-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+  }
+})()
+
+/**
+ * Turn server-sync on/off (on when signed in). On also opens the stream that
+ * says when another writer changed the account (see `startDataEvents`).
+ */
 export function enableSync(on: boolean) {
   enabled = on
+  if (on) startDataEvents()
+  else stopDataEvents()
 }
 
 // ---- observable status -------------------------------------------------
@@ -137,7 +155,10 @@ async function doPushWithRetry(): Promise<void> {
     const projects = localStorage.getItem(PROJECTS_KEY)
     const design = localStorage.getItem(DESIGN_KEY)
     try {
-      await api.putData(projects, design)
+      const answer = await api.putData(projects, design, TAB_ID)
+      // The server kept something this copy did not have — a project another
+      // device or the MCP runner wrote. Read it back so it appears here.
+      if (answer?.merged) void pullNow()
       return
     } catch (err) {
       // Retrying a refusal the server will repeat until an admin lifts it only
@@ -218,7 +239,7 @@ export async function reconcileOnLogin(): Promise<boolean> {
     mergedRaw !== (server.projects ?? '') || (nextDesign ?? '') !== (server.design ?? '')
   if (serverIsStale) {
     try {
-      await api.putData(mergedRaw, nextDesign ?? null)
+      await api.putData(mergedRaw, nextDesign ?? null, TAB_ID)
     } catch (err) {
       // During maintenance the merge still stands locally — throwing here would
       // read as "not signed in" to the caller — and it goes up on resume.
@@ -229,6 +250,93 @@ export async function reconcileOnLogin(): Promise<boolean> {
   }
 
   return projectsChanged || designChanged
+}
+
+// ---- reading back what another writer did --------------------------------
+
+/**
+ * Fired on `window` with the server's projects as `detail`. `useProjects`
+ * merges them into its state the way it merges another tab's `storage` event —
+ * per project, newest wins, nothing only one side knows is dropped — so a screen
+ * being generated here survives a read-back that does not have it yet.
+ */
+export const SERVER_PROJECTS_EVENT = 'mocky:server-projects'
+
+let pulling: Promise<void> | null = null
+let pullAgain = false
+
+/**
+ * Read the account's projects from the server and hand them to the store.
+ *
+ * Not `reconcileOnLogin`: that one writes localStorage and asks for a reload,
+ * which is right once at sign-in and wrong in a tab somebody is working in. A
+ * read-back here goes through React state, and the store's own save writes
+ * localStorage and pushes whatever this tab contributed.
+ */
+export async function pullNow(): Promise<void> {
+  if (!enabled) return
+  if (pulling) {
+    // A second "changed" while the first read is in flight may describe a
+    // write the first read missed.
+    pullAgain = true
+    return pulling
+  }
+  pulling = (async () => {
+    try {
+      const server = await api.getData()
+      window.dispatchEvent(new CustomEvent(SERVER_PROJECTS_EVENT, { detail: parseProjects(server.projects) }))
+    } catch {
+      // The next event or the next push asks again; a failed read loses nothing.
+    }
+  })()
+  try {
+    await pulling
+  } finally {
+    pulling = null
+  }
+  if (pullAgain) {
+    pullAgain = false
+    await pullNow()
+  }
+}
+
+let source: EventSource | null = null
+let pullTimer: number | null = null
+
+/** Several writes in a burst are one read. */
+function schedulePull() {
+  if (pullTimer) clearTimeout(pullTimer)
+  pullTimer = window.setTimeout(() => {
+    pullTimer = null
+    void pullNow()
+  }, 300)
+}
+
+/**
+ * Listen for "your projects changed somewhere else" (server/data-events.js).
+ *
+ * The stream carries a name and nothing else; the data comes from
+ * `GET /api/data` with this tab's own session. EventSource reconnects by itself
+ * after a network cut or a server restart, and a reconnect reads once: whatever
+ * was written while the stream was down was announced to nobody.
+ */
+function startDataEvents() {
+  if (source || typeof EventSource === 'undefined') return
+  let opened = false
+  const es = new EventSource(`/api/data/events?tab=${encodeURIComponent(TAB_ID)}`)
+  source = es
+  es.addEventListener('data-changed', schedulePull)
+  es.onopen = () => {
+    if (opened) schedulePull()
+    opened = true
+  }
+}
+
+function stopDataEvents() {
+  source?.close()
+  source = null
+  if (pullTimer) clearTimeout(pullTimer)
+  pullTimer = null
 }
 
 // ---- resuming after maintenance -----------------------------------------

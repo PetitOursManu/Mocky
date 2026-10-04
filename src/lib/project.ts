@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { scheduleSync, reportStorageFailure } from './sync'
+import { scheduleSync, reportStorageFailure, SERVER_PROJECTS_EVENT } from './sync'
 import { visibleProjects, mergeProjects, TOMBSTONE_TTL_MS } from './merge'
 import { extractProductName } from './design'
 import { normalizeNotes, type ScreenNote } from './screenNotes'
@@ -924,6 +924,31 @@ export function useProjects() {
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // The same merge for a write that reached the SERVER but not this browser —
+  // another device, or a screen made from Claude through the MCP runner
+  // (sync.ts reads it back when told). Merged for the same reason as above: a
+  // screen this tab is generating must not vanish because the server's copy
+  // has not heard of it yet.
+  useEffect(() => {
+    const onServer = (e: Event) => {
+      const incoming = (e as CustomEvent<unknown>).detail
+      if (!Array.isArray(incoming)) return
+      const normalized = (incoming as Project[])
+        .filter((p) => p && typeof p.id === 'string')
+        .map((p) => ({ ...p, screens: (p.screens || []).map((s, i) => normalizeScreen(s, i)) }))
+      setProjects((prev) => {
+        const merged = mergeProjects(prev, normalized)
+        // Nothing newer arrived: keep the same array, so no save and no push
+        // follow a read that changed nothing. Ties go to `prev`, so "nothing
+        // newer" is exactly "every record is one this tab already had".
+        const had = new Set(prev)
+        return merged.length === prev.length && merged.every((p) => had.has(p)) ? prev : merged
+      })
+    }
+    window.addEventListener(SERVER_PROJECTS_EVENT, onServer)
+    return () => window.removeEventListener(SERVER_PROJECTS_EVENT, onServer)
   }, [])
 
   const createProject = useCallback((name?: string): string => {

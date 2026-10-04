@@ -24,6 +24,8 @@ import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
+import { mergeStoredProjects } from './merge.js'
+import { createDataEvents } from './data-events.js'
 import { cleanMaintenanceMessage, maintenanceBlocks, maintenanceBody } from './maintenance.js'
 import { createMigrationSource } from './migration/source.js'
 import { createMigrationDestination, MigrationError } from './migration/destination.js'
@@ -193,6 +195,7 @@ const textConfig = new TextConfigStore(DATA_DIR)
 // ---- share links ----
 // Kept next to the other stores: same directory, same atomic-write discipline.
 const shares = createShareStore(DATA_DIR)
+const dataEvents = createDataEvents()
 
 // ---- SSO ("Sign in with Dashy") config ----
 // Mocky acts as a client app; Dashy is the identity provider. Disabled unless
@@ -1616,12 +1619,41 @@ app.get('/api/data', (req, res) => {
   res.json(readJson(userDataFile(user.id), { projects: null, design: null }))
 })
 
+/*
+ * Merged, not overwritten. The browser used to be the only writer, so its copy
+ * could replace the file; with a second device open — and the MCP runner writing
+ * screens — a push from a tab that had not heard of a project erased it. The
+ * rule is the one the browser applies at sign-in (server/merge.js), and the
+ * answer says when the sender is missing something, so it reads it back.
+ *
+ * DESIGN.md is still replaced: it has no per-record date to merge on, and its
+ * reconciliation rides on the blob's `updatedAt` at sign-in as before.
+ */
 app.put('/api/data', (req, res) => {
   const user = currentUser(req)
   if (!user) return res.status(401).json({ error: 'Not signed in.' })
   const { projects, design } = req.body || {}
-  writeJson(userDataFile(user.id), { projects: projects ?? null, design: design ?? null, updatedAt: Date.now() })
-  res.json({ ok: true })
+  const file = userDataFile(user.id)
+  const stored = readJson(file, { projects: null, design: null })
+  const next = mergeStoredProjects(typeof projects === 'string' ? projects : null, stored.projects ?? null)
+  writeJson(file, { projects: next.projects, design: design ?? null, updatedAt: Date.now() })
+  // Only a write that changed something is news: a tab re-pushing what the
+  // server already holds would otherwise send every other tab to read it again.
+  if (next.projects !== (stored.projects ?? null) || (design ?? null) !== (stored.design ?? null)) {
+    dataEvents.notify(user.id, req.get('x-mocky-tab'))
+  }
+  res.json({ ok: true, merged: next.merged })
+})
+
+/*
+ * The account's other writers, as they happen (server/data-events.js). Watching
+ * is not working: `sessionUser`, so an open tab does not keep its owner
+ * "active" in Admin → Activity (D5).
+ */
+app.get('/api/data/events', (req, res) => {
+  const user = sessionUser(req)
+  if (!user) return res.status(401).json({ error: 'Not signed in.' })
+  dataEvents.subscribe(user.id, req.query.tab, res, { stillValid: () => sessionUser(req)?.id === user.id })
 })
 
 // ---- Muse routes (MCP status + inspiration engine) ----
