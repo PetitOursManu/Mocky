@@ -175,7 +175,14 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       museConfig,
       museAvail: job.muse ? await museAvailable().catch(() => false) : false,
       museVision: vision,
-      pinnedImages: [],
+      /*
+       * With Muse on, the assistant's pictures are PINS: Muse looks at the
+       * first one before writing its dossier and fills its slots with them
+       * instead of painting its own. Passed only as a page section, they met a
+       * dossier written blind and a hero Muse had generated anyway — a cosy
+       * pumpkin photo under a palette and a picture chosen for another mood.
+       */
+      pinnedImages: job.muse ? provided.map((p) => ({ hash: p.hash, url: p.url, label: p.use })) : [],
       pinnedVideo: null,
       videoAvail: null,
       motionAvail: null,

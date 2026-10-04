@@ -132,7 +132,8 @@ Mocky reads it from the request's words when it can, and says which it used.
 
 - \`muse: true\` — Mocky's art direction designs the look first (palette, type,
   mood). Slower. Use it when the person wants something distinctive and has
-  given no visual direction.
+  given no visual direction. With \`images\`, Muse designs around them (its
+  palette is chosen with your photo) and adds no picture of its own.
 - \`picture_source\` — when you pass no \`images\`: \`auto\`, \`free\`,
   \`generated\` or \`none\`. In \`auto\`, a free photo is taken only when Mocky
   can look at the candidates; otherwise the picture is generated.

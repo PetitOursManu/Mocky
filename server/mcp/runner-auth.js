@@ -37,6 +37,10 @@ export const RUNNER_ROUTES = [
   '/api/text/vision',
   '/api/videos/',
   '/api/config',
+  // Not the MCP server: the status of Muse's own scraper servers, the call
+  // `museAvailable()` answers with. Closed, every `muse: true` an assistant
+  // sent ran without Muse and said nothing about it.
+  '/api/mcp/status',
 ]
 
 /** Paths the token must never open, even under an allowed prefix. */

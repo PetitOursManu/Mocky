@@ -1,5 +1,5 @@
 ---
-source_hash: 9ea84e2a7520
+source_hash: 8c65a6046d52
 ---
 
 # Connecter un assistant (MCP)
@@ -59,6 +59,11 @@ entretien avant de dessiner.
   donné un jour une tombe militaire pour une fête du goût. Et en `auto`, une
   photo libre n'est prise que si le modèle de Mocky peut regarder les
   candidates ; sinon l'image est générée.
+- **Muse.** Désactivée sauf si l'assistant passe `muse: true` : c'est plus
+  lent, et utile quand la personne veut quelque chose de singulier. Avec des
+  images fournies, Muse regarde la première avant d'écrire son dossier et les
+  place dans ses emplacements au lieu d'en créer — la palette est donc choisie
+  avec la photo, pas à côté.
 - **Le même Mocky.** Le design est fait par l'exécuteur sans interface
   (ci-dessous), avec le même pipeline que l'interface, et enregistré dans le
   compte — dans un onglet déjà ouvert sur ce projet, le nouvel écran apparaît

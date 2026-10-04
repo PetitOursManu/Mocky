@@ -5,7 +5,7 @@ import { findChromium } from './runner.js'
 
 describe('the runner token opens the routes a generation needs, and nothing else', () => {
   it('opens the pipeline routes', () => {
-    for (const p of ['/__provider/api/chat', '/api/data', '/api/muse/dossier', '/api/images/generate', '/api/images/abc', '/api/text/vision', '/api/videos/generate', '/api/config']) {
+    for (const p of ['/__provider/api/chat', '/api/data', '/api/muse/dossier', '/api/images/generate', '/api/images/abc', '/api/text/vision', '/api/videos/generate', '/api/config', '/api/mcp/status']) {
       expect(runnerRouteAllowed(p), p).toBe(true)
     }
   })
@@ -15,6 +15,7 @@ describe('the runner token opens the routes a generation needs, and nothing else
       '/api/account/password',
       '/api/admin/users',
       '/api/admin/mcp',
+      '/api/mcp/connections',
       '/api/share',
       '/api/logout',
       '/api/data/events',

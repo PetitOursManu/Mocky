@@ -41,6 +41,15 @@ const modelCalls = []
 let imageCalls = 0
 /** The prompt the fake image server was last given. */
 let lastImagePrompt = ''
+const DOSSIER = {
+  productName: 'Elisa30',
+  concept: 'Halloween chaleureux',
+  tokens: { colors: [{ label: 'Accent', hex: '#d97706' }], radius: 'rounded-md' },
+  layoutGrammar: ['photo plein cadre'],
+  voice: { headline: 'Halloween', valueProps: ['a', 'b', 'c'], ctaLabels: ['Venir'] },
+  imageryPlan: [{ id: 'hero', prompt: 'a haunted house, high quality, no text, no watermark' }],
+  forbidden: [],
+}
 const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 async function freePort() {
@@ -100,7 +109,12 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
         }
         const body = raw ? JSON.parse(raw) : null
         modelCalls.push(body)
-        const content = body?.format ? JSON.stringify({ capabilities: [], layout: 'hero', sections: ['Hero'], contentNotes: '' }) : CODE
+        // Muse's dossier is asked for by its schema; everything else JSON is the planner.
+        const content = JSON.stringify(body).includes('imageryPlan')
+          ? JSON.stringify(DOSSIER)
+          : body?.format
+            ? JSON.stringify({ capabilities: [], layout: 'hero', sections: ['Hero'], contentNotes: '' })
+            : CODE
         res.setHeader('content-type', body?.stream ? 'application/x-ndjson' : 'application/json')
         res.end(body?.stream ? JSON.stringify({ message: { content } }) + '\n' + JSON.stringify({ done: true }) + '\n' : JSON.stringify({ message: { content }, done: true }))
       })
@@ -230,6 +244,33 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     const sent = modelCalls.slice(before).map((c) => JSON.stringify(c)).join('\n')
     expect(sent).toContain('PICTURES — the person supplied one picture')
     expect(sent).toContain(`hero: la devanture → ${base}/api/images/${hash}`)
+  }, 120_000)
+
+  it('with Muse, designs AROUND the assistant’s picture instead of painting another', async () => {
+    // A real run: the pumpkin photo ChatGPT chose went into the page while
+    // Muse, which never saw it, wrote its dossier blind and generated a hero
+    // of its own for it.
+    const png = Buffer.from(PNG_1PX, 'base64')
+    const up = await fetch(`${base}/api/images/upload?name=pumpkins`, { method: 'POST', headers: { 'content-type': 'image/png', cookie }, body: png })
+    const { hash } = await up.json()
+    const before = modelCalls.length
+    const pictures = imageCalls
+    let out = await mcp.callTool({
+      name: 'create_design',
+      arguments: { brief: 'La page d’accueil de la soirée Halloween du restaurant Elisa30, le 31 octobre', muse: true, images: [{ image_id: hash, use: 'hero: citrouilles et bougies' }] },
+    })
+    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+    }
+    expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
+    const sent = modelCalls.slice(before).map((c) => JSON.stringify(c))
+    // Muse ran: its dossier was asked for, and its direction reached the page.
+    expect(sent.some((c) => c.includes('imageryPlan'))).toBe(true)
+    expect(sent.at(-1)).toContain('Halloween chaleureux')
+    // ...with the assistant's picture in its slot, and nothing painted beside it.
+    expect(imageCalls).toBe(pictures)
+    expect(sent.at(-1)).toContain(`${base}/api/images/${hash}`)
+    expect(sent.at(-1)).not.toContain('haunted house')
   }, 120_000)
 
   it('gives a post a picture of its own when the assistant brought none', async () => {
