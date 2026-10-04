@@ -12,6 +12,7 @@ for the accounts they choose, and only on an instance served over HTTPS.
 
 | Tool | What it does |
 |---|---|
+| `mocky_guide` | The guide written for the assistant itself: the steps from a request to a design, which tool when, the screen types, the pictures, what never to do. It is told to read it before its first design; also served as the resource `mocky://guide`. |
 | `create_design` | Generates a new screen from a description, always in a **new project**, and returns **a picture of it and a link** to it in Mocky. |
 | `add_screen` | The same, into an **existing project** — where the screen follows that project's art direction. Only when the person names that project: an assistant must never pick one because it looks related, and the answer says which project the screen went into. |
 | `get_design` | Waits for a design that is still being made, then returns the same. |

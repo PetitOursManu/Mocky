@@ -1,5 +1,5 @@
 ---
-source_hash: 721cd8ef8867
+source_hash: 74e50ede4dc8
 ---
 
 # Connecter un assistant (MCP)
@@ -17,6 +17,7 @@ instance servie en HTTPS.
 
 | Outil | Ce qu'il fait |
 |---|---|
+| `mocky_guide` | Le guide écrit pour l'assistant lui-même : les étapes d'une demande à un design, quel outil quand, les types d'écran, les images, ce qu'il ne doit jamais faire. Il a pour consigne de le lire avant son premier design ; aussi servi comme ressource `mocky://guide`. |
 | `create_design` | Génère un nouvel écran à partir d'une description, toujours dans un **nouveau projet**, et renvoie **une image du résultat et un lien** vers lui dans Mocky. |
 | `add_screen` | La même chose, dans un **projet existant** — où l'écran suit la direction artistique de ce projet. Seulement quand la personne nomme ce projet : un assistant ne doit jamais en choisir un parce qu'il semble proche, et la réponse dit dans quel projet l'écran est allé. |
 | `get_design` | Attend un design encore en cours, puis renvoie la même chose. |

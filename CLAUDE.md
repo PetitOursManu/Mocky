@@ -1071,6 +1071,8 @@ server/mcp/tools.js        the tools (create_design…) and what leaves — a wh
 server/mcp/runner.js       the headless runner: queue, Chromium, network rule (X6)
 server/mcp/runner-auth.js  the per-job token, and the few routes it opens
 server/mcp/images.js       pictures an assistant brings: free photos, files, addresses (SSRF-guarded)
+server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://guide): when a real
+                           test shows a model doing the wrong thing, the fix goes here too
 src/runner/main.tsx        runner.html: runNewScreen + the preview to photograph (X5)
 src/components/ConnectConsent.tsx   /connect/<id>, the consent page
 ```

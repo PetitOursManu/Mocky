@@ -1,6 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import { briefLanguage, composeBrief, needsClarification, screenSummary, projectSummary, THIN_BRIEF_WORDS, SCREEN_TYPES, inferScreenType, inferDevice } from './tools.js'
 import { SCREEN_THEME_IDS } from '../../src/lib/screenThemes.ts'
+import { buildGuide, GUIDED_TOOLS } from './guide.js'
+
+describe('the guide for the assistant', () => {
+  const guide = buildGuide()
+
+  it('explains every tool and every screen type it may use', () => {
+    for (const name of GUIDED_TOOLS) expect(guide, name).toContain(`\`${name}\``)
+    for (const id of Object.keys(SCREEN_TYPES)) expect(guide, id).toContain(`\`${id}\``)
+  })
+
+  it('says the two things real tests got wrong', () => {
+    // A new design went into an unrelated project; a post came back without the
+    // picture that was asked for.
+    expect(guide).toMatch(/Never\s+choose a project yourself/)
+    expect(guide).toMatch(/ALWAYS when the\s+person asks for an image/)
+  })
+})
 
 describe('the screen type an assistant picks', () => {
   it('offers exactly the composer\'s types (a mirror of SCREEN_THEME_IDS)', () => {

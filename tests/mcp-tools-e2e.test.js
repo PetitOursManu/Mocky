@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { findChromium } from '../server/mcp/runner.js'
+import { GUIDED_TOOLS } from '../server/mcp/guide.js'
 
 /**
  * The whole promise of the MCP plan, from an assistant's side: connect through
@@ -145,9 +146,17 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
 
   it('offers the tools and the interview prompt', async () => {
     const tools = (await mcp.listTools()).tools.map((t) => t.name).sort()
-    expect(tools).toEqual(['add_image', 'add_screen', 'create_design', 'get_design', 'get_project', 'get_screenshot', 'list_projects', 'search_free_images'])
+    // The guide explains exactly the tools the server offers — no more, no fewer.
+    expect(tools).toEqual([...GUIDED_TOOLS].sort())
     const prompts = (await mcp.listPrompts()).prompts.map((p) => p.name)
     expect(prompts).toContain('new-design')
+  })
+
+  it('hands the assistant its guide, as a tool and as a resource', async () => {
+    const asTool = await mcp.callTool({ name: 'mocky_guide', arguments: {} })
+    expect(asTool.content[0].text).toMatch(/^# Using Mocky/)
+    const asResource = await mcp.readResource({ uri: 'mocky://guide' })
+    expect(asResource.contents[0].text).toBe(asTool.content[0].text)
   })
 
   it('asks before generating from a brief that says nothing', async () => {
