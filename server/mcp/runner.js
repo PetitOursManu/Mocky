@@ -536,6 +536,7 @@ function view(j) {
     progress: j.progress,
     // The language the request was written in, so a later get_design answers in it.
     lang: j.request?.lang === 'en' ? 'en' : 'fr',
+    screenType: j.request?.screenType || null,
     createdAt: j.createdAt,
     startedAt: j.startedAt,
     endedAt: j.endedAt,

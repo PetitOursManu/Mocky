@@ -32,6 +32,7 @@ import { defaultMuseConfig, museAvailable } from '../lib/muse'
 import { extractProductName } from '../lib/design'
 import { DEFAULT_PROJECT_NAME, newId, placeScreen, type Project, type Screen } from '../lib/project'
 import { runNewScreen, type NewScreenPhase } from '../lib/pipeline/newScreen'
+import { isScreenThemeId } from '../lib/screenThemes'
 import { translate, type TranslationKey } from '../i18n'
 import Preview from '../components/Preview'
 
@@ -42,6 +43,8 @@ export interface RunnerJob {
   projectId?: string
   projectName?: string
   device?: 'desktop' | 'mobile' | 'tablet'
+  /** The composer's "Type d'écran" (SCREEN_THEME_IDS): it sets a document's page and a post's frame. */
+  screenType?: string
   muse?: boolean
   lang?: 'fr' | 'en'
 }
@@ -117,7 +120,7 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
       site: null,
       globalMd: undefined,
       presetId,
-      themeId: null,
+      themeId: isScreenThemeId(job.screenType) ? job.screenType : null,
       pageFormatId: null,
       redesign: false,
       museConfig,

@@ -1,5 +1,35 @@
 import { describe, it, expect } from 'vitest'
-import { briefLanguage, composeBrief, needsClarification, screenSummary, projectSummary, THIN_BRIEF_WORDS } from './tools.js'
+import { briefLanguage, composeBrief, needsClarification, screenSummary, projectSummary, THIN_BRIEF_WORDS, SCREEN_TYPES, inferScreenType, inferDevice } from './tools.js'
+import { SCREEN_THEME_IDS } from '../../src/lib/screenThemes.ts'
+
+describe('the screen type an assistant picks', () => {
+  it('offers exactly the composer\'s types (a mirror of SCREEN_THEME_IDS)', () => {
+    expect(Object.keys(SCREEN_TYPES).sort()).toEqual([...SCREEN_THEME_IDS].sort())
+  })
+
+  it('is read from the request when the assistant did not pass one', () => {
+    expect(inferScreenType('Un flyer pour la fête du quartier samedi')).toBe('flyer')
+    expect(inferScreenType('Un post Instagram pour annoncer les soldes')).toBe('instagram')
+    expect(inferScreenType('Mon CV de développeur')).toBe('resume')
+    expect(inferScreenType('Un tableau de bord des ventes')).toBe('dashboard')
+    expect(inferScreenType('La page de connexion de mon appli')).toBe('auth')
+    expect(inferScreenType('La page d’accueil d’une boulangerie')).toBe('landing')
+    // The most specific wins: a flyer for a restaurant is a flyer.
+    expect(inferScreenType('Un flyer pour mon restaurant avec le menu du jour')).toBe('flyer')
+  })
+
+  it('does not guess from words that mean two things', () => {
+    expect(inferScreenType('Un site avec un menu en haut')).toBeNull()
+    expect(inferScreenType('Un écran pour signaler un bug (report)')).toBeNull()
+  })
+
+  it('reads the device the same way', () => {
+    expect(inferDevice('Une appli mobile de covoiturage')).toBe('mobile')
+    expect(inferDevice('L’écran d’accueil sur iPhone')).toBe('mobile')
+    expect(inferDevice('Une version tablette du catalogue')).toBe('tablet')
+    expect(inferDevice('Une landing page')).toBeNull()
+  })
+})
 
 describe('the questions before a design', () => {
   it('asks when a brief says too little and nothing else says more', () => {

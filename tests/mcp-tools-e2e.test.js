@@ -199,6 +199,20 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     expect(after.find((p) => p.id === old.id).screens).toBe(old.screens)
   }, 120_000)
 
+  it('gives a screen the type the request names — a flyer is an A4 page', async () => {
+    // The second real test: the type was asked for in words and the result was
+    // a generic web page, because the pipeline's own type was never set.
+    let out = await mcp.callTool({ name: 'create_design', arguments: { brief: 'Un flyer pour la fête du quartier samedi soir' } })
+    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
+    }
+    expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
+    expect(out.content.find((c) => c.type === 'text').text).toContain('Type d’écran : flyer')
+    const project = await mcp.callTool({ name: 'get_project', arguments: { project_id: out.structuredContent.projectId } })
+    const screen = project.structuredContent.screens[0]
+    expect(screen.height).toBeGreaterThan(screen.width)
+  }, 120_000)
+
   it('adds to an existing project only through add_screen, and says which one', async () => {
     const projects = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
     const target = projects.find((p) => p.name === 'Boulangerie')

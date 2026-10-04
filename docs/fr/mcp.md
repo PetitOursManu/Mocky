@@ -1,5 +1,5 @@
 ---
-source_hash: c861f757773a
+source_hash: b041ae47850c
 ---
 
 # Connecter un assistant (MCP)
@@ -33,6 +33,7 @@ entretien avant de dessiner.
   presque vide (« un site »), Mocky ne devine pas : il rend à l'assistant trois
   questions, dans la langue de la personne, et génère une fois qu'elles ont une
   réponse.
+- **Le type d'écran.** L'assistant choisit l'un des types de Mocky (le « Type d'écran » du composer : tableau de bord, landing, flyer, CV, post Instagram…), qui décide du format — un flyer est une page A4, un post une image carrée. S'il ne le fait pas, Mocky lit le type, et l'appareil, dans les mots de la demande (« un flyer », « une appli mobile ») ; la réponse indique le type retenu.
 - **Le même Mocky.** Le design est fait par l'exécuteur sans interface
   (ci-dessous), avec le même pipeline que l'interface, et enregistré dans le
   compte — dans un onglet déjà ouvert sur ce projet, le nouvel écran apparaît

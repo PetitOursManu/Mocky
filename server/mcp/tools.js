@@ -44,6 +44,95 @@ export const THIN_BRIEF_WORDS = 6
 
 const DEVICES = ['desktop', 'mobile', 'tablet']
 
+/**
+ * Mocky's screen types — the composer's "Type d'écran" — with what each one is,
+ * for the model choosing among them. A MIRROR of SCREEN_THEME_IDS in
+ * src/lib/screenThemes.ts (the server cannot import TypeScript at the 22.12
+ * floor); `tools.test.js` holds the two lists equal.
+ *
+ * It exists because the first real test asked for a type in plain words and
+ * got a generic web page: the type was only a line of text appended to the
+ * brief, and the pipeline's own type — the one that sets a flyer's A4 page or a
+ * post's square frame — was never set.
+ */
+export const SCREEN_TYPES = {
+  dashboard: 'dashboard with KPIs and charts',
+  planning: 'planning, calendar, schedule',
+  kanban: 'kanban board',
+  table: 'data table, admin list',
+  landing: 'landing page / home page of a site',
+  pricing: 'pricing page, plans',
+  product: 'product page (e-commerce)',
+  checkout: 'cart / checkout / payment',
+  auth: 'sign-in or sign-up page',
+  onboarding: 'onboarding steps',
+  settings: 'settings / account page',
+  messaging: 'messaging, inbox, chat',
+  booking: 'booking / reservation',
+  article: 'article, blog post',
+  portfolio: 'portfolio, gallery',
+  flyer: 'printable flyer (A4 document)',
+  poster: 'poster (A3 document)',
+  report: 'multi-page report document',
+  documentation: 'documentation / user guide document',
+  resume: 'CV / résumé document',
+  invoice: 'invoice or quote document',
+  certificate: 'certificate / diploma document',
+  menu: 'restaurant menu document',
+  instagram: 'Instagram post (image)',
+  facebook: 'Facebook post (image)',
+  linkedin: 'LinkedIn post (image)',
+}
+const SCREEN_TYPE_IDS = Object.keys(SCREEN_TYPES)
+
+/**
+ * The type a request names in plain words, when the assistant did not pass one.
+ * Only words that cannot mean anything else — "menu" alone is a navigation bar
+ * as often as a restaurant's, "report" a bug as often as a document — and the
+ * most specific first: a "flyer pour un restaurant" is a flyer.
+ */
+const TYPE_WORDS = [
+  ['instagram', /instagram/],
+  ['facebook', /facebook/],
+  ['linkedin', /linkedin/],
+  ['flyer', /\bflyers?\b|\bprospectus\b|\btracts?\b/],
+  ['poster', /\baffiches?\b|\bposters?\b/],
+  ['resume', /\bcv\b|curriculum vitae/],
+  ['invoice', /\bfactures?\b|\binvoices?\b|\bdevis\b/],
+  ['certificate', /\bcertificats?\b|\bcertificates?\b|\bdipl[ôo]mes?\b|\bdiplomas?\b/],
+  ['menu', /menu (?:de|du|d['’]un) restaurant|carte (?:de|du|d['’]un) restaurant|restaurant menu/],
+  ['report', /\brapports?\b|annual report/],
+  ['documentation', /\bdocumentation\b|guide utilisateur|user guide/],
+  ['dashboard', /tableau de bord|dashboard/],
+  ['kanban', /kanban/],
+  ['pricing', /\btarifs?\b|\bpricing\b|page de prix/],
+  ['checkout', /\bcheckout\b|\bpanier\b|tunnel de paiement|page de paiement/],
+  ['auth', /page de connexion|\blogin\b|sign[ -]?in\b|sign[ -]?up\b|inscription/],
+  ['onboarding', /onboarding/],
+  ['booking', /r[ée]servation|\bbooking\b/],
+  ['messaging', /messagerie|\bmessaging\b|\binbox\b/],
+  ['settings', /page de param[èe]tres|settings page|page de r[ée]glages/],
+  ['portfolio', /portfolio/],
+  ['article', /\barticle\b|\bblog\b/],
+  ['product', /fiche produit|product page|page produit/],
+  ['planning', /\bplanning\b|\bcalendrier\b|\bcalendar\b/],
+  ['landing', /landing|page d['’]accueil|homepage|home page|site vitrine/],
+]
+
+export function inferScreenType(textValue) {
+  const t = String(textValue || '').toLowerCase()
+  for (const [id, re] of TYPE_WORDS) if (re.test(t)) return id
+  return null
+}
+
+/** The device a request names in plain words, when the assistant did not pass one. */
+export function inferDevice(textValue) {
+  const t = String(textValue || '').toLowerCase()
+  if (/tablette|\btablet\b|\bipad\b/.test(t)) return 'tablet'
+  if (/\bmobile\b|smartphone|\biphone\b|\bandroid\b|appli(?:cation)? (?:mobile|ios)|\bios app\b/.test(t)) return 'mobile'
+  return null
+}
+
 /** One project as an assistant sees it. A whitelist. */
 export function projectSummary(p, linkFor) {
   return {
@@ -97,9 +186,9 @@ const QUESTIONS = {
 }
 
 /** Whether a request says too little to design from. */
-export function needsClarification({ brief, kind, audience, style }) {
+export function needsClarification({ brief, kind, audience, style, screen_type }) {
   const words = String(brief || '').trim().split(/\s+/).filter(Boolean).length
-  return words < THIN_BRIEF_WORDS && !kind && !audience && !style
+  return words < THIN_BRIEF_WORDS && !kind && !audience && !style && !screen_type
 }
 
 /** The brief the pipeline receives: the person's words, then what the assistant learnt. */
@@ -173,6 +262,7 @@ export function buildMcpServer(deps) {
     const notes = [...(r.warning ? [r.warning] : []), ...(r.notices || [])]
     const lines = [
       lang === 'fr' ? `Design prêt. Ouvrir dans Mocky : ${link}` : `Design ready. Open it in Mocky: ${link}`,
+      job.screenType ? (lang === 'fr' ? `Type d’écran : ${job.screenType}` : `Screen type: ${job.screenType}`) : '',
       r.shot ? (lang === 'fr' ? `Image : ${deps.shotLink(r.shot)}` : `Picture: ${deps.shotLink(r.shot)}`) : '',
       notes.length ? (lang === 'fr' ? 'Remarques : ' : 'Notes: ') + notes.join(' ') : '',
     ].filter(Boolean)
@@ -257,11 +347,14 @@ export function buildMcpServer(deps) {
     if (quota && !runner.isBusy(user.id) && runner.countToday(user.id) >= quota) {
       return refuse(lang === 'fr' ? `Limite atteinte : ${quota} designs par jour pour ce compte.` : `Limit reached: ${quota} designs a day for this account.`)
     }
+    // The type the assistant chose, else the one the request names in words.
+    const screenType = SCREEN_TYPES[args.screen_type] ? args.screen_type : inferScreenType(`${args.brief} ${args.kind || ''}`)
     const { job, existing } = runner.enqueue(user.id, {
       brief: composeBrief(args, lang),
+      screenType: screenType || undefined,
       projectId: project ? project.id : undefined,
       projectName: project ? undefined : args.project_name || undefined,
-      device: args.device || 'desktop',
+      device: args.device || inferDevice(`${args.brief} ${args.kind || ''}`) || 'desktop',
       muse: args.muse === true,
       lang,
     })
@@ -288,6 +381,14 @@ export function buildMcpServer(deps) {
 
   const designFields = {
     brief: z.string().min(1).max(4000).describe('What the screen is and what it contains, in the person\'s own words.'),
+    screen_type: z
+      .enum(SCREEN_TYPE_IDS)
+      .optional()
+      .describe(
+        'Mocky\'s type for this screen — set it whenever the request names one; it decides the format (a flyer is an A4 page, a post a square image). ' +
+          SCREEN_TYPE_IDS.map((id) => `${id} = ${SCREEN_TYPES[id]}`).join('; ') +
+          '. Omit only for a screen that is none of these.',
+      ),
     device: z.enum(DEVICES).optional().describe('desktop (default), mobile or tablet.'),
     kind: z.string().max(200).optional().describe('The type of screen: home page, dashboard, sign-in, pricing…'),
     audience: z.string().max(300).optional().describe('Who it is for, and for which product or service.'),

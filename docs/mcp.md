@@ -27,6 +27,7 @@ interview before designing.
   questions when the person has not said. If a request still arrives with almost
   nothing in it ("un site"), Mocky does not guess: it hands the assistant three
   questions, in the person's language, and generates once they are answered.
+- **The screen type.** The assistant chooses one of Mocky's types (the composer's "Type d'écran": dashboard, landing, flyer, CV, Instagram post…), which sets the format — a flyer is an A4 page, a post a square image. When it does not, Mocky reads the type, and the device, from the request's own words ("un flyer", "une appli mobile"); the answer says which type was used.
 - **The same Mocky.** The design is made by the headless runner (below), with
   the same pipeline as the interface, and saved in the account — in a tab already
   open on that project, the new screen appears on its own.
