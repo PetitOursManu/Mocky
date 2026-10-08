@@ -59,6 +59,13 @@ const DOSSIER = {
 }
 /** How many Muse dossiers the fake model was asked for. */
 const dossiers = () => modelCalls.filter((c) => JSON.stringify(c).includes('imageryPlan')).length
+/**
+ * Statuses worth asking again about. `queued` lasts until Chromium has started
+ * and the runner page is ready, which on a loaded CI machine outlasted one 40 s
+ * wait: polling on `running` alone gave up on the first design of the file.
+ * Not `awaiting_code` — that one waits on the test itself.
+ */
+const LIVE = new Set(['queued', 'running'])
 const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 async function freePort() {
@@ -207,7 +214,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       arguments: { brief: 'Une page d’accueil pour une boulangerie de quartier', style: 'chaleureux', project_name: 'Boulangerie' },
     })
     // The fake model is instant, but a slow machine may still need a second call.
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
@@ -325,7 +332,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       name: 'create_design',
       arguments: { brief: 'La page d’accueil de la boulangerie Dupont, chaleureuse', images: [{ image_id: hash, use: 'hero: la devanture' }] },
     })
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
@@ -347,7 +354,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       name: 'create_design',
       arguments: { brief: 'La page d’accueil de la soirée Halloween du restaurant Elisa30, le 31 octobre', muse: true, images: [{ image_id: hash, use: 'hero: citrouilles et bougies' }] },
     })
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
@@ -366,7 +373,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // with no picture, because the runner hard-wired the "Images" choice off.
     const design = async (args) => {
       let out = await mcp.callTool({ name: 'create_design', arguments: args })
-      for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
         out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
       }
       return out
@@ -425,7 +432,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       name: 'create_design',
       arguments: { brief: 'Une page de connexion pour une appli de covoiturage', project_id: old.id },
     })
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     expect(out.structuredContent.status).toBe('done')
@@ -438,7 +445,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // The second real test: the type was asked for in words and the result was
     // a generic web page, because the pipeline's own type was never set.
     let out = await mcp.callTool({ name: 'create_design', arguments: { brief: 'Un flyer pour la fête du quartier samedi soir' } })
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
@@ -453,7 +460,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       name: 'create_design',
       arguments: { brief: 'Un post Instagram en 1:1 pour la fête de la science', muse: false, picture_source: 'none' },
     })
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     expect(out.structuredContent.status, JSON.stringify(out.content)).toBe('done')
@@ -472,7 +479,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       name: 'add_screen',
       arguments: { project_id: target.id, brief: 'Une page de contact pour la boulangerie, avec horaires et plan' },
     })
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     expect(out.structuredContent.projectId).toBe(target.id)
@@ -494,7 +501,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     const stored = async () => JSON.parse((await (await call('GET', '/api/data')).json()).projects).find((p) => p.id === 'p-passes').screens[0]
     const pass = async (name, args) => {
       let out = await mcp.callTool({ name, arguments: { project_id: 'p-passes', screen_id: 's-bad', ...args } })
-      for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+      for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
         out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
       }
       expect(out.structuredContent?.status, JSON.stringify(out.content)).toBe('done')
@@ -549,7 +556,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
       name: 'create_design',
       arguments: { brief: 'Une page de contact pour la boulangerie Dupont, avec ses horaires et un plan', engine: 'client', muse: false },
     })
-    for (let i = 0; i < 5 && out.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(out.structuredContent?.status); i++) {
       out = await mcp.callTool({ name: 'get_design', arguments: { job_id: out.structuredContent.jobId } })
     }
     // The assistant gets the rules Mocky's own model gets, and the request — and
@@ -571,7 +578,7 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // Code that renders is finished like any screen: through the same extraction,
     // saved, photographed, and the quality pass offered.
     let done = await mcp.callTool({ name: 'submit_screen', arguments: { job_id: jobId, code: fence(CODE_FIXED) } })
-    for (let i = 0; i < 5 && done.structuredContent?.status === 'running'; i++) {
+    for (let i = 0; i < 5 && LIVE.has(done.structuredContent?.status); i++) {
       done = await mcp.callTool({ name: 'get_design', arguments: { job_id: jobId } })
     }
     expect(done.structuredContent.status, JSON.stringify(done.content)).toBe('done')
