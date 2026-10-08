@@ -7,6 +7,7 @@ import path from 'node:path'
 import net from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { findChromium } from '../server/mcp/runner.js'
+import { stopProcess, removeDir } from './support/stop.js'
 
 /**
  * The headless runner, end to end: a real server, a real Chromium, this
@@ -130,10 +131,10 @@ describe.skipIf(!can)('the headless runner', () => {
   }, 30_000)
 
   afterAll(async () => {
-    proc?.kill()
+    await stopProcess(proc)
     await new Promise((r) => fake?.close(r))
     await new Promise((r) => canary?.close(r))
-    fs.rmSync(dataDir, { recursive: true, force: true })
+    removeDir(dataDir)
   })
 
   it('photographs a fixed screen for free, with no model and no account', async () => {

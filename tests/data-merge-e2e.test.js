@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
 import { fileURLToPath } from 'node:url'
+import { stopProcess, removeDir } from './support/stop.js'
 
 /**
  * PUT /api/data merges instead of overwriting, and the account's other tabs
@@ -98,9 +99,9 @@ beforeAll(async () => {
   cookie = (res.headers.get('set-cookie') || '').split(';')[0]
 }, 30_000)
 
-afterAll(() => {
-  proc?.kill()
-  fs.rmSync(dataDir, { recursive: true, force: true })
+afterAll(async () => {
+  await stopProcess(proc)
+  removeDir(dataDir)
 })
 
 describe('PUT /api/data merges', () => {

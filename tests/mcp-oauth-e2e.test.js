@@ -8,6 +8,7 @@ import net from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { stopProcess, removeDir } from './support/stop.js'
 
 /**
  * Mocky as an MCP server, end to end: the switch (X1), discovery, client
@@ -159,9 +160,9 @@ beforeAll(async () => {
   await json('PUT', '/api/data', { projects: JSON.stringify([{ id: 'proj00001', name: 'Mon site', updatedAt: Date.now(), screens: [{ id: 's1', userNotes: [{ text: 'PRIVATE NOTE' }] }] }]), design: null })
 }, 30_000)
 
-afterAll(() => {
-  proc?.kill()
-  fs.rmSync(dataDir, { recursive: true, force: true })
+afterAll(async () => {
+  await stopProcess(proc)
+  removeDir(dataDir)
 })
 
 describe('switched off, it does not exist (X1)', () => {

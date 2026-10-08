@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
 import { fileURLToPath } from 'node:url'
+import { stopProcess, removeDir } from '../../tests/support/stop.js'
 
 /**
  * The dashboard against a real server: real sessions, real cookies, a real
@@ -49,10 +50,10 @@ beforeAll(async () => {
   }
 }, 30_000)
 
-afterAll(() => {
-  proc?.kill()
+afterAll(async () => {
+  await stopProcess(proc)
   try {
-    fs.rmSync(dataDir, { recursive: true, force: true })
+    removeDir(dataDir)
   } catch {
     /* best effort */
   }

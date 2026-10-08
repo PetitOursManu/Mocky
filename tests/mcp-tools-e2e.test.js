@@ -12,6 +12,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { findChromium } from '../server/mcp/runner.js'
 import { GUIDED_TOOLS, CLIENT_TOOLS } from '../server/mcp/guide.js'
 import { VIEW_URI, VIEW_MIME } from '../server/mcp/view.js'
+import { stopProcess, removeDir } from './support/stop.js'
 
 /**
  * The whole promise of the MCP plan, from an assistant's side: connect through
@@ -174,9 +175,9 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
 
   afterAll(async () => {
     await mcp?.close().catch(() => {})
-    proc?.kill()
+    await stopProcess(proc)
     await new Promise((r) => fake?.close(r))
-    fs.rmSync(dataDir, { recursive: true, force: true })
+    removeDir(dataDir)
   })
 
   it('offers the tools and the interview prompt', async () => {

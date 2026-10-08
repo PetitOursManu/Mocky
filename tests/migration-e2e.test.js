@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
 import { fileURLToPath } from 'node:url'
+import { stopProcess, removeDir } from './support/stop.js'
 
 /**
  * A whole migration between two real Mocky processes, over real HTTP.
@@ -63,9 +64,9 @@ function client(base) {
   }
 }
 
-afterAll(() => {
-  for (const p of procs) p.kill()
-  for (const d of dirs) fs.rmSync(d, { recursive: true, force: true })
+afterAll(async () => {
+  await Promise.all(procs.map((p) => stopProcess(p)))
+  for (const d of dirs) removeDir(d)
 })
 
 describe('migration between two servers', () => {

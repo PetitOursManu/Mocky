@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
 import { fileURLToPath } from 'node:url'
+import { stopProcess, removeDir } from '../tests/support/stop.js'
 
 /**
  * Which routes an anonymous caller may reach.
@@ -65,10 +66,10 @@ beforeAll(async () => {
   }
 }, 30_000)
 
-afterAll(() => {
-  proc?.kill()
+afterAll(async () => {
+  await stopProcess(proc)
   try {
-    fs.rmSync(dataDir, { recursive: true, force: true })
+    removeDir(dataDir)
   } catch {
     /* best effort */
   }

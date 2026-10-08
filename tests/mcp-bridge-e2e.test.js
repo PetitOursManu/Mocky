@@ -7,6 +7,7 @@ import net from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { stopProcess, removeDir } from './support/stop.js'
 
 /**
  * The LAN bridge (phase 5, bridge/mocky-mcp.js), as Claude Desktop uses it: a
@@ -94,9 +95,9 @@ describe('the LAN bridge relays a local client to Mocky', () => {
     await call('PUT', '/api/admin/mcp/config', { enabled: true, access: { mode: 'allowlist', userIds: [adminId] } })
   }, 30_000)
 
-  afterAll(() => {
-    proc?.kill()
-    for (const d of [dataDir, home]) if (d) fs.rmSync(d, { recursive: true, force: true })
+  afterAll(async () => {
+    await stopProcess(proc)
+    for (const d of [dataDir, home]) removeDir(d)
   })
 
   it('asks once in the browser, then relays both ways — and remembers', async () => {
