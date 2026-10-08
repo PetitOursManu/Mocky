@@ -8,9 +8,11 @@ on:
 
 # The documentation site is built from the Markdown on this branch, so the file
 # has to be COMMITTED to be published — generating it in the runner and throwing
-# it away would publish nothing.
+# it away would publish nothing. The push is made with the deploy key below,
+# not with GITHUB_TOKEN, because main is protected and only the key is allowed
+# through — so the token itself needs nothing more than to read.
 permissions:
-  contents: write
+  contents: read
 
 # Two pushes in quick succession would otherwise race to commit the same file.
 concurrency:
@@ -21,12 +23,17 @@ jobs:
   changelog:
     name: regenerate docs/CHANGELOG.md
     runs-on: ubuntu-latest
+    # The key lives in this environment, whose deployments are limited to main:
+    # a workflow on any other branch cannot read it.
+    environment: changelog
     steps:
       - uses: actions/checkout@v4
         with:
           # The generator reads the WHOLE history. The default checkout is
           # shallow and would produce a changelog with one entry in it.
           fetch-depth: 0
+          # A write deploy key, so the push at the end gets past branch protection.
+          ssh-key: ${{ secrets.CHANGELOG_DEPLOY_KEY }}
 
       - uses: actions/setup-node@v4
         with:
@@ -36,14 +43,13 @@ jobs:
 
       # Commit only when something actually changed.
       #
-      # On the loop: a push made with the default GITHUB_TOKEN does not trigger
-      # further workflow runs — that is a platform guarantee, and it is what
-      # stops this job from re-arming itself. The diff check is the second belt:
-      # it keeps the history clean, and it keeps the guarantee from being the
-      # only thing standing between here and an infinite loop. If anyone ever
-      # swaps in a PAT or an App token to satisfy branch protection, the
-      # platform guarantee disappears and this check becomes the only guard —
-      # so do not remove it, and think twice before changing the token.
+      # On the loop: a push made with GITHUB_TOKEN would not trigger further
+      # runs, but a push made with a deploy key DOES — this one included. So the
+      # commit says [skip ci], which is what stops this job from re-arming itself
+      # (and stops CI rebuilding for a changelog line). The diff check is the
+      # second belt: it keeps the history clean, and it keeps [skip ci] from being
+      # the only thing standing between here and an infinite loop — do not remove
+      # either of them.
       - name: commit if changed
         run: |
           if git diff --quiet -- docs/CHANGELOG.md docs/fr/CHANGELOG.md; then
@@ -53,5 +59,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/CHANGELOG.md docs/fr/CHANGELOG.md
-          git commit -m "docs(changelog): régénéré depuis l'historique"
+          git commit -m "docs(changelog): régénéré depuis l'historique [skip ci]"
           git push
