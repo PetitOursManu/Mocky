@@ -46,6 +46,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `mcp` | rappeler get_design tant que le travail est queued, pas seulement running | `8513c97` |
 | — | attendre la fin du serveur avant de supprimer son dossier (ENOTEMPTY sous Node 24) | `3a8c305` |
 | `deps` | npm audit fix | `d2024c9` |
 | `acces` | une seule vérification de liste pour les cinq accès par compte | `8fcd906` |
