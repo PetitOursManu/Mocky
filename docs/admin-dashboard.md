@@ -13,6 +13,7 @@ moving between sections costs no request.
 | **Sessions** | Every signed-in browser: account, device, address, opened, last used. Close any one of them. |
 | **System** | Processor, memory, event-loop delay, graphics card, disk, the film render worker. |
 | **Providers** | How the text, image and video providers answered over the last hour, then their settings (the three blocks the old page had), and the [inspiration sources](muse/inspiration-engine.md#the-registry) Muse reads. |
+| **Spending** | What the text models cost, by day, month, account, project, model or provider; which models each project used; the price table. See [Spending](#spending). |
 | **Audit log** | Who did what: sign-ins and their failures, accounts, sessions, settings, maintenance, announcements, migrations. |
 | **Announcement** | A message shown to everybody under the masthead, now or from a date you schedule, with an optional end — and dates in the text shown in each reader's time zone. |
 | **Assistants (MCP)** | Whether Claude, ChatGPT or another MCP client may act in Mocky on behalf of an account: the HTTPS checklist, the switch, who may connect, and every active connection with a way to cut it — see [Connecting an assistant](mcp.md). |
@@ -189,6 +190,50 @@ Anyone can hide it. A new text gets a new id and comes back for everyone; changi
 only the start or the end keeps the id, so fixing a typo in a date does not bring
 back a banner everybody closed.
 
+## Spending
+
+**Admin → Spending** answers the two questions an administrator who pays for a
+key asks: *which model did this project use*, and *where did the money go this
+month*. It reads a ledger the server keeps of every call to a text model
+(`server/admin/spend.js`): the day, the account, the project the browser was
+working in, the provider, the model, whether the instance's key or the person's
+own was used, the tokens sent and received, and the price. **No content** — not a
+prompt, not an answer (D1).
+
+- **Period** — 7 days, 30 days, 12 months, everything.
+- **Group by** — day, month, account, project, model or provider. Every column
+  sorts: calls, input tokens, output tokens, cost.
+- **Models per project** — for each account, each project and the models it
+  used, the person's own key marked **API perso**.
+- **Model prices** — dollars per million tokens, for the models whose provider
+  does not say what it charged.
+
+Where the price comes from:
+
+- **The provider, when it reports one.** OpenRouter returns what it charged with
+  each answer; that figure is believed as is — no table knows a discount, a
+  cached prompt or a routing choice.
+- **The table otherwise**, applied when the page is read: correcting a price
+  corrects the past. A model with no price makes the total say *incomplete*
+  instead of counting as free.
+- **Tokens** are the provider's count. OpenAI and OpenRouter are asked for it on a
+  stream (`stream_options`); a provider that does not send one is estimated at four
+  characters per token, and the total says how many calls were estimated.
+
+A call on **a person's own key** is counted by model and project only — its
+tokens and its price are theirs, and "API perso + the model" is what an
+administrator was promised to see (F4). The page shows those calls apart, never
+in a total.
+
+The project is the one open in the browser (`x-mocky-project`, also sent by the
+MCP runner for its job). It attributes and does not authorise: the panel shows
+the project's current name, "deleted project" when it no longer exists, and
+"outside a project" for a call made from no project.
+
+On disk: `spend.jsonl`, one line per call, rewritten as one line per day ×
+account × project × model once it reaches 20,000 lines — so it grows with what
+happened, not with how often. The price table is `spend-prices.json`.
+
 ## What it costs
 
 - **One open response per open dashboard**, a tick every 2 seconds (Server-Sent
@@ -198,4 +243,4 @@ back a banner everybody closed.
 - **A sample every 5 seconds**, a handful of system calls. The GPU spawns a process
   only while the dashboard is open, once a minute otherwise, and never at start-up.
 - **Memory**: an hour of samples (720) and at most 5,000 activity events.
-- **Disk**: the audit log only.
+- **Disk**: the audit log, and the spending ledger (one line per call, folded).

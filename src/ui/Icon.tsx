@@ -65,6 +65,7 @@ export type IconName =
   | 'megaphone'
   | 'list'
   | 'plug'
+  | 'coins'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
 const PATHS: Record<IconName, string> = {
@@ -140,6 +141,8 @@ const PATHS: Record<IconName, string> = {
   megaphone: 'M3 10v4h3l7 5V5l-7 5H3ZM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11',
   list: 'M10 6h10M10 12h10M10 18h10M4 5h2v2H4zM4 11h2v2H4zM4 17h2v2H4z',
   plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v4',
+  // A stack of coins: what the models cost (Admin → Spending).
+  coins: 'M4 7c0 1.7 3.6 3 8 3s8-1.3 8-3-3.6-3-8-3-8 1.3-8 3ZM4 7v5c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5',
 }
 
 /** Icons whose shape reads better filled than stroked. */

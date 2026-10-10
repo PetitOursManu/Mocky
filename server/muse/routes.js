@@ -70,7 +70,7 @@ export function sanitizeUserMedia(raw) {
  *   because the answer depends on the ACCOUNT: one on the free plan gets the
  *   free model (server/plan.js).
  */
-export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget, sources }) {
+export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget, sources, meter }) {
   const router = express.Router()
 
   // GET /api/mcp/status — per-server lifecycle state for the Advanced drawer.
@@ -96,6 +96,8 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
       admin = null
     }
     const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    // Every call these credentials make is counted against the account (spend.js).
+    if (creds && meter) creds.onUsage = meter(req, 'inspiration')
     const llm = creds ? makeLlm(creds) : null
     try {
       const result = await runInspiration(
@@ -156,6 +158,8 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
       admin = null
     }
     const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    // Every call these credentials make is counted against the account (spend.js).
+    if (creds && meter) creds.onUsage = meter(req, 'inspiration')
     const llm = creds ? makeLlm(creds) : null
 
     try {
@@ -204,6 +208,8 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
       admin = null
     }
     const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    // Every call these credentials make is counted against the account (spend.js).
+    if (creds && meter) creds.onUsage = meter(req, 'inspiration')
     const llm = creds ? makeLlm(creds) : null
 
     try {

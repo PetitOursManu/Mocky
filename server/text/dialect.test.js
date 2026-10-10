@@ -14,6 +14,8 @@ import {
   PROVIDER_QUIRKS,
   KIND_OLLAMA,
   KIND_OPENAI,
+  usageOf,
+  createNdjsonMeter,
 } from './dialect.js'
 import { TEXT_PROVIDERS } from './config.js'
 
@@ -367,9 +369,22 @@ describe('provider quirks', () => {
   it('changes nothing for a host no row names — byte-identical to before', () => {
     for (const base of ['https://api.openai.com', 'https://fal.run/openrouter/router/openai', 'https://api.groq.com/openai/v1']) {
       const plan = buildUpstream({ kind: KIND_OPENAI, baseUrl: base }, '/api/chat', Buffer.from(JSON.stringify(GEN)))
-      expect(plan.body, base).toBe(JSON.stringify(toOpenAiRequest(GEN)))
+      // OpenAI's streamed answer is asked for its token count (asksStreamUsage),
+      // which is not a quirk row: everything else is the body as it was.
+      const sent = JSON.parse(plan.body)
+      delete sent.stream_options
+      expect(JSON.stringify(sent), base).toBe(JSON.stringify(toOpenAiRequest(GEN)))
       expect(plan.quirks).toBeNull()
     }
+  })
+
+  it('asks a stream for its token count only where the key is known to be accepted', () => {
+    expect(bodyAt('https://api.openai.com').stream_options).toEqual({ include_usage: true })
+    expect(bodyAt('https://openrouter.ai/api').stream_options).toEqual({ include_usage: true })
+    expect(bodyAt('https://api.groq.com/openai/v1').stream_options).toBeUndefined()
+    expect(bodyAt('https://api.mistral.ai/v1').stream_options).toBeUndefined()
+    const still = buildUpstream({ kind: KIND_OPENAI, baseUrl: 'https://api.openai.com' }, '/api/chat', Buffer.from(JSON.stringify({ ...GEN, stream: false })))
+    expect(JSON.parse(still.body).stream_options).toBeUndefined()
   })
 
   it('bounds Gemini’s thinking, on Gemini models only', () => {
@@ -498,5 +513,36 @@ describe('model listings', () => {
 
   it('reads a listing that is a bare array (Together)', () => {
     expect(fromOpenAiModels([{ id: 'openai/gpt-oss-120b' }, { id: '' }]).models).toEqual([{ name: 'openai/gpt-oss-120b' }])
+  })
+})
+
+describe('what an answer cost', () => {
+  it('reads the counts each dialect reports, and OpenRouter’s price', () => {
+    expect(usageOf({ usage: { prompt_tokens: 120, completion_tokens: 30 } })).toEqual({ input: 120, output: 30, cost: null })
+    expect(usageOf({ usage: { prompt_tokens: 120, completion_tokens: 30, cost: 0.0042 } })).toEqual({ input: 120, output: 30, cost: 0.0042 })
+    expect(usageOf({ x_groq: { usage: { prompt_tokens: 5, completion_tokens: 6 } } })).toEqual({ input: 5, output: 6, cost: null })
+    expect(usageOf({ done: true, prompt_eval_count: 11, eval_count: 22 })).toEqual({ input: 11, output: 22, cost: null })
+    expect(usageOf({ choices: [] })).toBeNull()
+    expect(usageOf(null)).toBeNull()
+  })
+
+  it('catches the usage frame of an OpenAI stream, which carries no choice', () => {
+    const t = createSseTranslator()
+    const out =
+      t('data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n') +
+      t('data: {"choices":[{"delta":{"content":"lo"},"finish_reason":"stop"}]}\n\n') +
+      t('data: {"choices":[],"usage":{"prompt_tokens":9,"completion_tokens":2,"cost":0.001}}\n\ndata: [DONE]\n\n')
+    expect(out).not.toContain('usage')
+    expect(t.state.usage).toEqual({ input: 9, output: 2, cost: 0.001 })
+    expect(t.state.content).toBe(5)
+  })
+
+  it('reads an Ollama stream without changing it, across chunk boundaries', () => {
+    const look = createNdjsonMeter()
+    const text = '{"message":{"content":"ab"},"done":false}\n{"message":{"content":"cd"},"done":false}\n{"done":true,"prompt_eval_count":7,"eval_count":3}'
+    look(new TextEncoder().encode(text.slice(0, 30)))
+    look(new TextEncoder().encode(text.slice(30)))
+    look.end()
+    expect(look.state).toEqual({ content: 4, usage: { input: 7, output: 3, cost: null } })
   })
 })

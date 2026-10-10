@@ -47,6 +47,34 @@ export interface FreePlanSettings {
   /** Whether Admin → Text model has a free model. Without one, free accounts use their own key. */
   modelConfigured: boolean
 }
+/** One folded line of the spending ledger (server/admin/spend.js), with names put back. */
+export interface SpendEntry {
+  day: string
+  userId: string
+  /** Null once the account was deleted. */
+  username: string | null
+  projectId: string | null
+  /** The project's name now; null when it no longer exists (or never did). */
+  project: string | null
+  projectDeleted: boolean
+  provider: string
+  /** `browser`: the person's own key — counted by model and project only. */
+  source: 'instance' | 'browser'
+  model: string
+  calls: number
+  input: number
+  output: number
+  /** Dollars; null when nothing could price it, or on a person's own key. */
+  cost: number | null
+  /** Calls whose provider reported its own price. */
+  reported: number
+  /** Some tokens of this line have no price in the table. */
+  unpriced: boolean
+  /** Calls whose tokens were estimated from characters (no count reported). */
+  estimated: number
+}
+export type SpendPrices = Record<string, { in: number; out: number }>
+
 /** A gallery Muse reads for inspiration (Admin → Fournisseurs). */
 export interface MuseSource {
   id: string
@@ -655,6 +683,12 @@ export const api = {
         body: JSON.stringify({ password, mustChange }),
       }),
     deleteUser: (id: string) => req(`/api/admin/users/${id}`, { method: 'DELETE' }),
+
+    /** What the models cost, over the last `days` (0 = everything). */
+    spend: (days: number) =>
+      req(`/api/admin/spend?days=${encodeURIComponent(days)}`) as Promise<{ since: string; entries: SpendEntry[]; prices: SpendPrices }>,
+    setPrices: (prices: SpendPrices) =>
+      req('/api/admin/spend/prices', { method: 'PUT', body: JSON.stringify({ prices }) }) as Promise<{ prices: SpendPrices }>,
 
     /** The galleries Muse reads for inspiration. */
     museSources: () => req('/api/admin/muse/sources') as Promise<MuseSourcesView>,

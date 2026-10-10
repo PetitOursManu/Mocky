@@ -31,6 +31,7 @@ import {
   paidRefusal,
 } from './plan.js'
 import { cleanOwnText, ownKeysAllowed, ownTextView, usesOwnText } from './own-text.js'
+import { cleanProjectId, costOf, createSpendLedger, dayOf } from './admin/spend.js'
 import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
@@ -642,6 +643,21 @@ function textProviderFor(req, profile) {
   // the panel translates rather than inventing a name.
   return { provider: hostOf(req.headers['x-provider-base']) || 'unknown', source: 'browser' }
 }
+/**
+ * What the models cost, per account, project and model (server/admin/spend.js).
+ * `meterFor` is the hook a model call reports its tokens to; the project is the
+ * one the browser is working in (`x-mocky-project`), which attributes and never
+ * authorises — a wrong id files a call under the wrong name, nothing more.
+ */
+const spend = createSpendLedger(DATA_DIR)
+function meterFor(req, profile) {
+  const user = req.user || sessionUser(req)
+  if (!user) return undefined
+  const { provider, source } = textProviderFor(req, profile)
+  const projectId = cleanProjectId(req.headers['x-mocky-project'])
+  return (u) => spend.record({ userId: user.id, projectId, provider, source, ...u })
+}
+
 function providerFor({ kind, action }, req) {
   switch (kind) {
     case 'mocky':
@@ -707,7 +723,10 @@ app.use('/__provider', (req, res) => {
   }
   // Never hand the promise to Express 4: it does not observe rejections, so one
   // provider cutting a stream mid-answer terminated the process.
-  handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textTargetFor(user, profile) }).catch(
+  handleProviderProxy(req, res, fetch, {
+    resolveTarget: (profile) => textTargetFor(user, profile),
+    onUsage: meterFor(req, profileFromRequest(req)),
+  }).catch(
     (err) => {
       console.error('mocky: provider proxy failed —', err?.message || err)
       if (!res.headersSent) res.status(502).json({ error: 'Proxy request failed' })
@@ -1502,6 +1521,71 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
  * for why deduplicated media is split between its owners and why anything
  * generated before ownership was recorded gets its own line instead of a guess.
  */
+/**
+ * What the models cost (server/admin/spend.js), as folded lines with names put
+ * back on them: the account's, and the project's as it is called NOW — read
+ * from the account's own data, so a renamed project shows its new name and a
+ * deleted one says so. `days` = 0 is everything. Grouping and sorting are the
+ * panel's: the lines are few (one per day × account × project × model).
+ */
+app.get('/api/admin/spend', requireAdmin, (req, res) => {
+  const days = Math.max(0, Math.min(3660, Math.floor(Number(req.query.days ?? 30)) || 0))
+  const since = days ? dayOf(new Date(Date.now() - (days - 1) * 86_400_000)) : ''
+  const prices = spend.prices()
+  const usernames = new Map(loadUsers().map((u) => [u.id, u.username]))
+  const projectsOf = new Map()
+  const projectOf = (userId, projectId) => {
+    if (!projectsOf.has(userId)) {
+      let list = []
+      try {
+        const raw = readJson(userDataFile(userId), { projects: null }).projects
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (Array.isArray(parsed)) list = parsed
+      } catch {
+        /* unreadable: names unknown */
+      }
+      projectsOf.set(userId, new Map(list.map((p) => [p?.id, p])))
+    }
+    const p = projectsOf.get(userId).get(projectId)
+    return p ? { name: String(p.name || ''), deleted: Boolean(p.deletedAt) } : null
+  }
+  const entries = spend.entries(since).map((e) => {
+    const priced = costOf(e, prices)
+    const project = e.p ? projectOf(e.u, e.p) : null
+    return {
+      day: e.d,
+      userId: e.u,
+      username: usernames.get(e.u) ?? null,
+      projectId: e.p || null,
+      project: project ? project.name : null,
+      projectDeleted: project ? project.deleted : Boolean(e.p),
+      provider: e.prov,
+      source: e.src,
+      model: e.m,
+      calls: e.n || 0,
+      input: e.in || 0,
+      output: e.out || 0,
+      cost: priced.cost,
+      reported: e.costN || 0,
+      unpriced: priced.unpriced,
+      estimated: e.estN || 0,
+    }
+  })
+  res.json({ since, entries, prices })
+})
+
+/** The price table: dollars per million tokens, per model, for calls whose provider reported none. */
+app.put('/api/admin/spend/prices', requireAdmin, (req, res) => {
+  if (!req.body?.prices || typeof req.body.prices !== 'object') return res.status(400).json({ error: 'Expected prices.' })
+  try {
+    const prices = spend.setPrices(req.body.prices)
+    audit.record({ action: 'config.prices', actor: auditActor(req.user), detail: { models: Object.keys(prices).length }, ip: clientIp(req) })
+    res.json({ prices })
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
 app.get('/api/admin/usage', requireAdmin, (req, res) => {
   try {
     res.json(
@@ -1979,6 +2063,7 @@ app.use(
     blacklist: muse.blacklist,
     resolveTarget: (profile, req) => textTargetFor(req?.user, profile),
     sources: muse.sources,
+    meter: meterFor,
   }),
 )
 
@@ -2120,6 +2205,7 @@ app.use(
     // `registries.edit` here instead would pin whatever was configured at boot,
     // and reload() would appear to do nothing.
     imageRegistryFor: images.registryFor,
+    meter: meterFor,
   }),
 )
 
