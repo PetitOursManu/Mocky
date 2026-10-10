@@ -47,7 +47,7 @@ export const SHOT_LINK_TTL_MS = 24 * 60 * 60 * 1000
  * @param {(user) => object} d.auditActor
  * @param {(req) => string|null} d.clientIp
  * @param {ReturnType<import('./runner.js').createRunner>} d.runner
- * @param {() => boolean} d.hasTextProvider   whether the instance has a generation provider
+ * @param {(user:object) => boolean} d.hasTextProvider   whether this account has a generation provider
  * @param {(userId: string) => void} d.touchMcp     presence: this account is using Mocky through an assistant
  */
 export function createMcpServerRoutes(d) {
@@ -352,7 +352,7 @@ export function createMcpServerRoutes(d) {
     app.post('/api/admin/mcp/runner/try', d.requireAdmin, (req, res) => {
       const why = d.runner.availability()
       if (!why.available) return res.status(503).json({ error: why.reason })
-      if (!d.hasTextProvider()) return res.status(409).json({ error: 'no-provider' })
+      if (!d.hasTextProvider(req.user)) return res.status(409).json({ error: 'no-provider' })
       const brief = String(req.body?.brief || '').trim().slice(0, 4000)
       if (!brief) return res.status(400).json({ error: 'empty' })
       const device = ['desktop', 'mobile', 'tablet'].includes(req.body?.device) ? req.body.device : 'desktop'

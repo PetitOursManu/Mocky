@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are six series:
+There are seven series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -17,6 +17,7 @@ There are six series:
 - **U1 to U5**, introduced by Motion Ultra.
 - **D1 to D5**, introduced by the admin dashboard.
 - **X1 to X7**, introduced by Mocky as an MCP server.
+- **F1 to F3**, introduced by the free plan.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -975,6 +976,72 @@ playing the host frames the view, which frames the screen, which renders.
 
 The tools that let an assistant call the runner add their own rules to this
 series.
+
+---
+
+## Series F — the free plan
+
+These came with the free plan (`server/plan.js`, [its page](../free-plan.md)),
+which lets an instance open its sign-ups without paying for strangers'
+generations. Each rule is about one way an account on that plan could end up
+spending money anyway.
+
+### F1. A free account never reaches a paid provider
+
+**The rule.** The plan is read off the stored ACCOUNT, on the server — never off
+a header, a body or a profile name the browser sends. Every route that resolves a
+text model for somebody goes through `textTargetFor`, which answers the `free`
+profile for a free account, and that profile falls back on NOTHING
+(`resolveTextTarget`): empty, it leaves the account on its own browser Settings.
+The paid generators — `/api/images/generate`, `/api/videos/generate`,
+`/api/video/variants` — refuse a free account at the door with
+`code: "free-plan"`, mounted before their routers so a new route under the same
+path cannot forget the check.
+
+**What it protects.** The promise the plan is named after. `inspiration` borrows
+`generation` when it is empty, and copying that habit would have billed every
+free account to the paid model the day the free one was left unconfigured — with
+nothing failing and nothing logged.
+
+**How it is checked.** `server/plan-routes.test.js`: a real server, two fake
+providers on loopback standing for the paid and the free model, and a count of
+what each one received — including with the free model unconfigured.
+`server/text/config.test.js` ("free borrows nothing").
+
+### F2. A plan changes only when somebody changes it
+
+**The rule.** An account with no `plan` field is standard, and the newcomers'
+default is applied once, at creation (public sign-up, Dashy SSO, Admin → Users).
+Changing that default never moves an existing account. An administrator is
+always standard, and asking to make one free is a `400`.
+
+**What it protects.** Every account that existed before the free plan, and the
+administrator's own access to the models they configure. Waking up on a new
+version to find the family's accounts on a free model would be a downgrade
+nobody asked for.
+
+**How it is checked.** `server/plan.test.js` (`planOf`),
+`server/plan-routes.test.js` (newcomers, the creation form, the default, the
+administrator refused).
+
+### F3. The limit guards the shared key, and stops before it is spent
+
+**The rule.** The daily limit counts only calls that reach the instance's free
+model — a free account on its own key spends nobody's quota. A generation is a
+call whose purpose is something a person asked for (`COUNTED_PURPOSES`); every
+other call rides along under a ceiling of `CALLS_PER_GENERATION` times the limit,
+because the purpose is the browser's word. Once the generations are spent, EVERY
+call is refused, and the count is on disk (`free-quota.json`), so a restart does
+not reset the day.
+
+**What it protects.** The free key's own daily allowance, which every free
+account shares: one runaway tab, or one account labelling every call as a
+planner call, must not spend it for everybody else — and a new screen must not
+spend a planner call on the shared key only to be refused at its generation.
+
+**How it is checked.** `server/plan.test.js` (the ceiling, the refusal after
+exhaustion, a restart, midnight), `server/plan-routes.test.js` (`429` with
+`code: "free-quota"`, the administrator unaffected, `0` for unlimited).
 
 ---
 

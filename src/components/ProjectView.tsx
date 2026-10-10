@@ -4,6 +4,7 @@ import { buildDesignPreamble, isDesignActive, loadDesign, extractDesignColors, e
 import { editComponent, fixComponent, generateComponent, fitComponent, detectComponentName, buildAnimationInstruction, ANIMATION_LEVELS, buildElementEditInstruction, tryDirectTextReplace, deriveDesignSystem, type AnimationLevel } from '../lib/generate'
 import { designForProject, newId, type AttachedMedia, type Hotspot, type Project, type ProjectUltra, type Screen, headline } from '../lib/project'
 import { filmMedia } from '../lib/screenMedia'
+import type { Plan } from '../lib/api'
 import { usePhone } from '../lib/usePhone'
 import { useWorkChime } from '../lib/useWorkChime'
 import { DEFAULT_PRESET_ID, getPreset } from '../lib/presets'
@@ -208,6 +209,7 @@ export default function ProjectView({
   onSetDesign,
   onSetUltra,
   initialFocusScreenId,
+  plan = 'standard',
 }: {
   project: Project
   onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
@@ -226,6 +228,8 @@ export default function ProjectView({
   onSetUltra: (ultra: ProjectUltra | null) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
+  /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
+  plan?: Plan
 }) {
   const t = useT()
   const [prompt, setPrompt] = useState('')
@@ -290,7 +294,13 @@ export default function ProjectView({
    * without touching the preference — the same degradation Muse's image mode
    * makes when the model loses vision.
    */
-  const effectiveImageSource: ImageSource = imageSource === 'stock' && stockImagesUsable ? 'stock' : 'ai'
+  //
+  // On the free plan the choice is not offered at all: the image generator
+  // refuses a free account (server/plan.js), so its pictures come from the free
+  // libraries whatever this browser once chose — and the preference is left
+  // alone, for the day the account moves to the standard plan.
+  const freePlan = plan === 'free'
+  const effectiveImageSource: ImageSource = (imageSource === 'stock' || freePlan) && stockImagesUsable ? 'stock' : 'ai'
   /**
    * A DOCUMENT's own picture: "Sans image" unless this browser chose a source
    * for documents (lib/documentPictures.ts). Its own preference, not the one
@@ -2572,7 +2582,7 @@ export default function ProjectView({
         ultraCounts={ultraCounts}
         imageSource={imageSource}
         onImageSource={setImageSource}
-        imageSourceAvailable={stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0)}
+        imageSourceAvailable={!freePlan && stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0)}
         documentImage={{ value: docImageShown, choices: docImageChoicesNow, onChange: setDocImageChoice }}
         busyLabel={
           phase === 'ultra'
@@ -3450,6 +3460,7 @@ export default function ProjectView({
               />
             ) : (
               !editing &&
+              !freePlan &&
               stockImagesUsable &&
               (museConfig.enabled || ultraActive || siteShots.length > 0) && (
                 <ImageSourceControl

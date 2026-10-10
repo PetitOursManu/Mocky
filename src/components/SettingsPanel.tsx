@@ -8,7 +8,7 @@ import {
 } from '../lib/settings'
 import { listModels, testConnection, type TestResult } from '../lib/provider'
 import { groupProviders, providerGroupKey } from '../lib/providerGroups'
-import { api, type AuthUser } from '../lib/api'
+import { api, type AccountPlan, type AuthUser } from '../lib/api'
 import { Banner, Button, Field, Icon, IconButton, Input, Segmented, Select } from '../ui'
 import { LANGS, useLang, useT } from '../i18n'
 import ChimeSetting from './ChimeSetting'
@@ -43,6 +43,15 @@ export default function SettingsPanel() {
       .me()
       .then(setAccount)
       .catch(() => setAccount(null))
+  }, [])
+  // The free plan, as this account sees it: which model answers, and how much
+  // of the day is left. Null for a standard account, which has nothing to show.
+  const [plan, setPlan] = useState<Extract<AccountPlan, { plan: 'free' }> | null>(null)
+  useEffect(() => {
+    api
+      .plan()
+      .then((p) => setPlan(p.plan === 'free' ? p : null))
+      .catch(() => setPlan(null))
   }, [])
   // When an admin set an instance-wide model, there is nothing to fill in here.
   const [managed, setManaged] = useState<{
@@ -136,6 +145,24 @@ export default function SettingsPanel() {
       {account?.mustChangePassword && (
         <Banner tone="warn" title={t('settings.pwChangeRequested')} className="mt-4">
           {t('settings.pwChangeRequestedHelp')}
+        </Banner>
+      )}
+
+      {plan && (
+        <Banner tone="info" title={t('plan.cardTitle')} className="mt-4">
+          <span className="block">{t('plan.cardBody')}</span>
+          <span className="mt-1 block">
+            {plan.model ? t('plan.model', { model: plan.model }) : t('plan.ownKey')}
+            {plan.model && (
+              <>
+                {' '}
+                {plan.dailyLimit
+                  ? t('plan.usage', { used: plan.used, limit: plan.dailyLimit })
+                  : t('plan.unlimited')}
+              </>
+            )}
+          </span>
+          <span className="mt-1 block text-ink-faint">{t('plan.askAdmin')}</span>
         </Banner>
       )}
 

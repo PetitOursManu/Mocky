@@ -1,5 +1,5 @@
 ---
-source_hash: 4c372a946c98
+source_hash: 12c13754e59a
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a six séries :
+Il y a sept séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -21,6 +21,7 @@ Il y a six séries :
 - **U1 à U5**, apportés par Motion Ultra.
 - **D1 à D5**, apportés par le tableau de bord d’administration.
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
+- **F1 à F3**, apportés par le forfait gratuit.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1043,6 +1044,76 @@ Chromium qui joue l'hôte encadre la vue, qui encadre l'écran, qui s'affiche.
 
 Les outils qui permettront à un assistant d'appeler l'exécuteur ajouteront leurs
 propres règles à cette série.
+
+---
+
+## Série F — le forfait gratuit
+
+Elles sont arrivées avec le forfait gratuit (`server/plan.js`,
+[sa page](../free-plan.md)), qui permet à une instance d'ouvrir ses inscriptions
+sans payer les générations d'inconnus. Chaque règle porte sur une façon dont un
+compte de ce forfait pourrait finir par dépenser de l'argent quand même.
+
+### F1. Un compte gratuit n'atteint jamais un fournisseur payant
+
+**La règle.** Le forfait se lit sur le COMPTE enregistré, côté serveur — jamais
+dans un en-tête, un corps de requête ou un nom de profil envoyé par le
+navigateur. Chaque route qui choisit un modèle de texte pour quelqu'un passe par
+`textTargetFor`, qui répond le profil `free` pour un compte gratuit, et ce profil
+ne se rabat sur RIEN (`resolveTextTarget`) : vide, il laisse le compte sur ses
+propres Réglages. Les générateurs payants — `/api/images/generate`,
+`/api/videos/generate`, `/api/video/variants` — refusent un compte gratuit dès
+l'entrée avec `code: "free-plan"`, montés avant leurs routeurs pour qu'une
+nouvelle route sous le même chemin ne puisse pas oublier la vérification.
+
+**Ce qu'elle protège.** La promesse qui donne son nom au forfait. `inspiration`
+emprunte `generation` quand il est vide, et recopier cette habitude aurait facturé
+chaque compte gratuit au modèle payant le jour où le modèle gratuit serait resté
+non configuré — sans rien qui échoue ni qui s'inscrive dans un journal.
+
+**Comment c'est vérifié.** `server/plan-routes.test.js` : un vrai serveur, deux
+faux fournisseurs en boucle locale qui tiennent lieu de modèle payant et de
+modèle gratuit, et le compte de ce que chacun a reçu — y compris quand le modèle
+gratuit n'est pas configuré. `server/text/config.test.js` (« free borrows
+nothing »).
+
+### F2. Un forfait ne change que quand quelqu'un le change
+
+**La règle.** Un compte sans champ `plan` est standard, et le forfait des
+nouveaux comptes s'applique une seule fois, à la création (inscription publique,
+SSO Dashy, Admin → Utilisateurs). Changer ce réglage ne déplace jamais un compte
+existant. Un administrateur est toujours standard, et demander à le passer en
+gratuit répond `400`.
+
+**Ce qu'elle protège.** Chaque compte qui existait avant le forfait gratuit, et
+l'accès de l'administrateur aux modèles qu'il configure. Découvrir après une mise
+à jour que les comptes de la famille sont passés sur un modèle gratuit serait un
+déclassement que personne n'a demandé.
+
+**Comment c'est vérifié.** `server/plan.test.js` (`planOf`),
+`server/plan-routes.test.js` (nouveaux comptes, formulaire de création, réglage
+par défaut, administrateur refusé).
+
+### F3. Le plafond protège la clé partagée, et s'arrête avant qu'elle soit dépensée
+
+**La règle.** Le plafond quotidien ne compte que les appels qui atteignent le
+modèle gratuit de l'instance — un compte gratuit sur sa propre clé ne dépense le
+quota de personne. Une génération est un appel dont le but est quelque chose
+qu'une personne a demandé (`COUNTED_PURPOSES`) ; les autres appels suivent sous un
+plafond de `CALLS_PER_GENERATION` fois la limite, parce que le but est la parole
+du navigateur. Une fois les générations épuisées, TOUS les appels sont refusés,
+et le compteur est sur disque (`free-quota.json`), pour qu'un redémarrage ne
+remette pas la journée à zéro.
+
+**Ce qu'elle protège.** L'allocation quotidienne de la clé gratuite, que tous les
+comptes gratuits partagent : un onglet emballé, ou un compte qui étiquette chaque
+appel comme un appel au planificateur, ne doit pas la dépenser pour tous les
+autres — et un nouvel écran ne doit pas dépenser un appel au planificateur sur la
+clé partagée pour être refusé à sa génération.
+
+**Comment c'est vérifié.** `server/plan.test.js` (le plafond des appels, le refus
+après épuisement, un redémarrage, minuit), `server/plan-routes.test.js` (`429`
+avec `code: "free-quota"`, l'administrateur non concerné, `0` pour illimité).
 
 ---
 

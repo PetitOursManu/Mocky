@@ -9,7 +9,7 @@ moving between sections costs no request.
 |---|---|
 | **Overview** | Who is here, what is running, whether the machine and the providers are well — and, as sentences, the few things that need a decision. |
 | **Live activity** | Every account, connected or not: state, where they are, what they are doing right now, what they did in the last hour. A per-kind chart and a feed of finished work. |
-| **Users** | Public sign-ups, creating an account, resetting a password, deleting an account, the usage report — as before — plus each account's presence and **Sign out** (every device, password unchanged). |
+| **Users** | Public sign-ups, creating an account, resetting a password, deleting an account, the usage report — as before — plus each account's presence and **Sign out** (every device, password unchanged), and the [free plan](free-plan.md): which plan newcomers start on, the daily limit, and **Move to free / standard** on each account. |
 | **Sessions** | Every signed-in browser: account, device, address, opened, last used. Close any one of them. |
 | **System** | Processor, memory, event-loop delay, graphics card, disk, the film render worker. |
 | **Providers** | How the text, image and video providers answered over the last hour, then their settings (the three blocks the old page had). |

@@ -209,7 +209,7 @@ const refuse = (message) => ({ content: [text(message)], isError: true })
  * @param {ReturnType<import('./runner.js').createRunner>} deps.runner
  * @param {() => boolean} deps.maintenance
  * @param {() => number|null} deps.dailyQuota
- * @param {() => boolean} deps.hasTextProvider
+ * @param {(user:object) => boolean} deps.hasTextProvider
  * @param {(hash: string) => string} deps.shotLink        a signed, expiring URL to the JPEG
  */
 export function buildMcpServer(deps) {
@@ -571,7 +571,7 @@ export function buildMcpServer(deps) {
    */
   function cannotRun(lang, { writes = true } = {}) {
     if (writes && deps.maintenance()) return refuse(lang === 'fr' ? 'Mocky est en maintenance : réessaie plus tard.' : 'Mocky is in maintenance: try again later.')
-    if (!deps.hasTextProvider()) {
+    if (!deps.hasTextProvider(user)) {
       return refuse(lang === 'fr' ? 'Ce Mocky n’a pas de fournisseur de génération configuré par son administrateur.' : 'This Mocky has no generation provider configured by its administrator.')
     }
     const why = runner.availability()

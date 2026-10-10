@@ -64,9 +64,11 @@ export function sanitizeUserMedia(raw) {
  * @param {import('./fetch/fetcher.js').InspirationFetcher} [deps.fetcher]
  * @param {object} [deps.patterns]  PromptPatternLibrary
  * @param {string[]} [deps.blacklist]
- * @param {(profile:string)=>object|null} [deps.resolveTarget]  Admin-configured
+ * @param {(profile:string, req:object)=>object|null} [deps.resolveTarget]  Admin-configured
  *   text provider. Muse runs on the 'inspiration' profile so art direction can
- *   use a different model than screen generation.
+ *   use a different model than screen generation. The request rides along
+ *   because the answer depends on the ACCOUNT: one on the free plan gets the
+ *   free model (server/plan.js).
  */
 export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget }) {
   const router = express.Router()
@@ -89,7 +91,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
     // empty key while the rest of the app talks to OpenRouter.
     let admin = null
     try {
-      admin = resolveTarget ? resolveTarget('inspiration') : null
+      admin = resolveTarget ? resolveTarget('inspiration', req) : null
     } catch {
       admin = null
     }
@@ -149,7 +151,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
 
     let admin = null
     try {
-      admin = resolveTarget ? resolveTarget('inspiration') : null
+      admin = resolveTarget ? resolveTarget('inspiration', req) : null
     } catch {
       admin = null
     }
@@ -197,7 +199,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
 
     let admin = null
     try {
-      admin = resolveTarget ? resolveTarget('inspiration') : null
+      admin = resolveTarget ? resolveTarget('inspiration', req) : null
     } catch {
       admin = null
     }

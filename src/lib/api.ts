@@ -2,9 +2,17 @@ import { MaintenanceError, noteMaintenance, type MaintenanceState } from './main
 import type { Announcement, AuditEntry, Overview, SessionRow } from './dashboard'
 import { getLang, translate } from '../i18n'
 
+/**
+ * Who pays for an account's generations (server/plan.js). `free` reaches only
+ * the administrator's free model and the free picture libraries.
+ */
+export type Plan = 'free' | 'standard'
+
 export interface AuthUser {
   username: string
   role: 'admin' | 'user'
+  /** Absent from a server older than the free plan: read it as standard. */
+  plan?: Plan
   /**
    * An admin created (or reset) this account and asked for a new password at
    * the first sign-in. The server only raises the flag — refusing to serve the
@@ -21,12 +29,31 @@ export interface AdminUser {
   id: string
   username: string
   role: 'admin' | 'user'
+  plan?: Plan
   createdAt: number
   /** Still owes a password change (see AuthUser). */
   mustChangePassword?: boolean
   /** Signs in through Dashy and has no local password to reset. */
   sso?: boolean
 }
+
+/** Admin → Accounts: sign-ups, and the plan newcomers start on. */
+export interface FreePlanSettings {
+  newAccounts: Plan
+  /** Generations a day for each free account; 0 is unlimited. */
+  dailyLimit: number
+  /** Whether Admin → Text model has a free model. Without one, free accounts use their own key. */
+  modelConfigured: boolean
+}
+export interface AdminConfig {
+  allowRegistration: boolean
+  freePlan: FreePlanSettings
+}
+
+/** GET /api/account/plan. A standard account gets the plan and nothing else. */
+export type AccountPlan =
+  | { plan: 'standard' }
+  | { plan: 'free'; model: string | null; dailyLimit: number; used: number }
 
 /** One row of the usage report — see server/usage.js for how it is computed. */
 export interface UsageRow {
@@ -196,7 +223,7 @@ export interface TextProviderEntry {
  * powers Muse (dossier + vision). Leaving 'inspiration' empty makes it reuse the
  * generation model — the previous single-model behaviour.
  */
-export type TextProfile = 'generation' | 'inspiration'
+export type TextProfile = 'generation' | 'inspiration' | 'free'
 export interface TextProfileConfig {
   /** '' = not configured → each browser uses its own Settings. */
   provider: string
@@ -207,6 +234,7 @@ export interface TextConfig {
   profiles: TextProfile[]
   generation: TextProfileConfig
   inspiration: TextProfileConfig
+  free: TextProfileConfig
 }
 export interface TextProfilePatch {
   provider?: string
@@ -215,6 +243,7 @@ export interface TextProfilePatch {
 export interface TextConfigPatch {
   generation?: TextProfilePatch
   inspiration?: TextProfilePatch
+  free?: TextProfilePatch
 }
 export interface TextTestResult {
   ok: boolean
@@ -439,6 +468,8 @@ export interface VideoWorkerHealth {
 
 export const api = {
   me: () => req('/api/me').then((d) => (d.user ? (d.user as AuthUser) : null)),
+  /** The free plan as the account sees it: its model and what is left of the day. */
+  plan: () => req('/api/account/plan') as Promise<AccountPlan>,
   register: (username: string, password: string) =>
     req('/api/register', { method: 'POST', body: JSON.stringify({ username, password }) }).then((d) => d.user as AuthUser),
   login: (username: string, password: string) =>
@@ -509,6 +540,8 @@ export const api = {
         provider: string | null
         /** Set only when Muse runs on a different model than generation. */
         inspirationModel?: string | null
+        /** The plan of the account asking: on `free`, the model above is the free one. */
+        plan?: Plan
       }
     }>,
 
@@ -550,10 +583,14 @@ export const api = {
         req(`/api/admin/mcp/runner/jobs/${encodeURIComponent(id)}`) as Promise<{ job: RunnerJobView; link: string | null }>,
       shotUrl: (hash: string) => `/api/admin/mcp/runner/shots/${encodeURIComponent(hash)}`,
     },
-    getConfig: () => req('/api/admin/config') as Promise<{ allowRegistration: boolean }>,
+    getConfig: () => req('/api/admin/config') as Promise<AdminConfig>,
     setAllowRegistration: (allowRegistration: boolean) =>
-      req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ allowRegistration }) }) as Promise<{
-        allowRegistration: boolean
+      req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ allowRegistration }) }) as Promise<AdminConfig>,
+    setFreePlan: (patch: Partial<Pick<FreePlanSettings, 'newAccounts' | 'dailyLimit'>>) =>
+      req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ freePlan: patch }) }) as Promise<AdminConfig>,
+    setUserPlan: (id: string, plan: Plan) =>
+      req(`/api/admin/users/${id}/plan`, { method: 'PUT', body: JSON.stringify({ plan }) }) as Promise<{
+        user: { id: string; username: string; plan: Plan }
       }>,
     listUsers: () => req('/api/admin/users').then((d) => d.users as AdminUser[]),
     usage: () => req('/api/admin/usage') as Promise<UsageReport>,
@@ -562,10 +599,11 @@ export const api = {
       password: string,
       role: 'admin' | 'user',
       mustChangePassword = false,
+      plan?: Plan,
     ) =>
       req('/api/admin/users', {
         method: 'POST',
-        body: JSON.stringify({ username, password, role, mustChangePassword }),
+        body: JSON.stringify({ username, password, role, mustChangePassword, plan }),
       }),
     /**
      * Reset someone's password. No admin re-authentication — an admin can

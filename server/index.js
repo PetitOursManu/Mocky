@@ -19,7 +19,17 @@ import { createVideoWorker, collectImages } from './video/worker.js'
 import { VideoExportStore } from './video/store.js'
 import { totalDurationMs } from './video/timeline.js'
 import { createVideoRouter, createVideoAdminRouter } from './video/routes.js'
-import { TextConfigStore, looksLikeImageModel } from './text/config.js'
+import { TextConfigStore, TEXT_PROFILES, looksLikeImageModel } from './text/config.js'
+import {
+  PLANS,
+  planOf,
+  freePlanSettings,
+  mergeFreePlanSettings,
+  FreeQuota,
+  COUNTED_PURPOSES,
+  quotaRefusal,
+  paidRefusal,
+} from './plan.js'
 import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
@@ -197,6 +207,20 @@ const videoQueue = new VideoQueue({
 // When unset, the proxy keeps using the credentials the browser sends.
 const textConfig = new TextConfigStore(DATA_DIR)
 
+// ---- the free plan (server/plan.js) ----
+const freeQuota = new FreeQuota(DATA_DIR)
+
+/**
+ * The model `user` reaches for `profile`. Every route that resolves a text model
+ * for somebody goes through here, because the plan is a property of the account
+ * and not of the route: an account on the free plan gets the free profile for
+ * generation and inspiration alike, or null — its own browser Settings — and
+ * never the paid profile it would otherwise have borrowed.
+ */
+function textTargetFor(user, profile = 'generation') {
+  return planOf(user) === 'free' ? textConfig.target('free') : textConfig.target(profile)
+}
+
 // ---- share links ----
 // Kept next to the other stores: same directory, same atomic-write discipline.
 const shares = createShareStore(DATA_DIR)
@@ -370,6 +394,7 @@ function findOrCreateSsoUser(claims) {
     hash: null,
     createdAt: Date.now(),
   }
+  assignNewcomerPlan(user)
   users.push(user)
   saveUsers(users)
   return user
@@ -405,6 +430,17 @@ function makeUser(username, password, role = 'user', mustChangePassword = false)
     createdAt: Date.now(),
   }
 }
+/**
+ * Put a NEW account on the plan this instance gives newcomers (Admin →
+ * Accounts). Set only on creation: changing the default later must not move
+ * accounts that already exist, which is also why a missing field reads as
+ * standard (server/plan.js). An administrator is never free.
+ */
+function assignNewcomerPlan(user, plan = freePlanSettings(loadConfig()).newAccounts) {
+  if ((user.role || 'user') !== 'admin' && plan === 'free') user.plan = 'free'
+  return user
+}
+
 /** Replace a user's credentials in place. Clears any pending forced change. */
 function setPassword(user, password) {
   user.salt = crypto.randomBytes(16).toString('hex')
@@ -415,6 +451,9 @@ function setPassword(user, password) {
 const publicUser = (u) => ({
   username: u.username,
   role: u.role || 'user',
+  // Which plan the account is on, so the composer can offer only what the
+  // server will serve. Presentation: every gate reads the account itself.
+  plan: planOf(u),
   mustChangePassword: Boolean(u.mustChangePassword),
   /**
    * Whether this account has a picture, and when it last changed.
@@ -579,7 +618,10 @@ function hostOf(raw) {
   }
 }
 function textProviderFor(req, profile) {
-  const t = textConfig.target(profile)
+  // `req.user` once a route has run; at the start of the request only the
+  // session says who it is, and the panel must name the FREE provider for a
+  // free account, not the paid one it never reached.
+  const t = textTargetFor(req.user || sessionUser(req), profile)
   if (t) return { provider: t.id, source: 'instance' }
   // No base header either: nothing says which provider, and 'unknown' is what
   // the panel translates rather than inventing a name.
@@ -633,12 +675,24 @@ app.use(createTracker({ activity, userOf: currentUser, providerOf: providerFor }
 // Mocky requires an account to do anything anyway, so nothing legitimate loses
 // access.
 app.use('/__provider', (req, res) => {
-  if (!currentUser(req)) {
+  const user = currentUser(req)
+  if (!user) {
     return res.status(401).json({ error: 'Sign in to use this instance’s model.' })
+  }
+  // The free plan's daily limit is spent here, on the calls that reach the
+  // shared free model — and only those: a free account using its own key from
+  // Settings (no free model configured) spends nobody's quota but its own.
+  // `/api/tags` lists models and costs nothing.
+  if (planOf(user) === 'free' && textConfig.target('free') && req.url.split('?')[0] === '/api/chat') {
+    const purpose = String(req.headers['x-mocky-purpose'] || '')
+    const verdict = freeQuota.take(user.id, freePlanSettings(loadConfig()).dailyLimit, {
+      generation: COUNTED_PURPOSES.has(purpose),
+    })
+    if (!verdict.ok) return res.status(429).json(quotaRefusal(req, verdict.limit))
   }
   // Never hand the promise to Express 4: it does not observe rejections, so one
   // provider cutting a stream mid-answer terminated the process.
-  handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textConfig.target(profile) }).catch(
+  handleProviderProxy(req, res, fetch, { resolveTarget: (profile) => textTargetFor(user, profile) }).catch(
     (err) => {
       console.error('mocky: provider proxy failed —', err?.message || err)
       if (!res.headersSent) res.status(502).json({ error: 'Proxy request failed' })
@@ -648,6 +702,47 @@ app.use('/__provider', (req, res) => {
 })
 
 app.use('/api', express.json({ limit: '25mb' }))
+
+/*
+ * The free plan, in front of everything that costs money (server/plan.js).
+ *
+ * Image generation, generated clips and film variants are paid providers with no
+ * free counterpart a profile could point at, so a free account is refused at the
+ * door — with a code the client keys on and words a person can act on. The free
+ * libraries (`/api/images/stock/*`, `/api/videos/stock/*`) and an upload stay
+ * open: they are what the free plan's pictures ARE.
+ *
+ * Mounted here, before the routers, for the reason the Ultra gate below gives:
+ * one place, so a new route under the same path cannot forget it.
+ */
+app.post(['/api/images/generate', '/api/videos/generate', '/api/video/variants'], requireUser, (req, res, next) => {
+  if (planOf(req.user) !== 'free') return next()
+  res.status(403).json(paidRefusal(req))
+})
+
+/*
+ * What the client reads to decide whether "AI pictures" exist at all. A free
+ * account is told the truth — none, for it — so every caller that already
+ * draws "no image model on this instance" draws it here too, instead of
+ * offering a button whose only outcome is the refusal above.
+ */
+app.get('/api/images/providers', requireUser, (req, res, next) => {
+  if (planOf(req.user) !== 'free') return next()
+  res.json({ providers: [] })
+})
+
+/*
+ * The server-side model routes spend the free model too — a Muse dossier is
+ * several calls, a film composition one. They count against the same day as the
+ * proxy, as calls rather than generations: they serve a screen, they are not one.
+ * Only when the free model is configured, for the reason the proxy gives.
+ */
+app.post(['/api/muse/dossier', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
+  if (planOf(req.user) !== 'free' || !textConfig.target('free')) return next()
+  const verdict = freeQuota.take(req.user.id, freePlanSettings(loadConfig()).dailyLimit)
+  if (verdict.ok) return next()
+  res.status(429).json(quotaRefusal(req, verdict.limit))
+})
 
 /*
  * Motion Ultra's series sizes are a per-account permission (Admin → Motion
@@ -882,15 +977,19 @@ app.get('/api/config', (req, res) => {
     },
     // Whether an admin configured an instance-wide model (no secret exposed) —
     // lets Settings tell users their own provider fields are being overridden.
+    // Per ACCOUNT, not per instance: on the free plan the model that answers is
+    // the free one, and with none configured it is the person's own Settings.
     textProvider: (() => {
-      const t = textConfig.target()
-      const insp = textConfig.target('inspiration')
+      const user = sessionUser(req)
+      const t = textTargetFor(user)
+      const insp = textTargetFor(user, 'inspiration')
       return {
         configured: Boolean(t),
         model: t ? t.model : null,
         provider: t ? t.id : null,
         // Only advertise a distinct inspiration model when it really differs.
         inspirationModel: insp && (!t || insp.model !== t.model) ? insp.model : null,
+        plan: planOf(user),
       }
     })(),
   })
@@ -915,7 +1014,7 @@ app.post('/api/register', authRateLimit(8, 60_000, 'register'), (req, res) => {
   }
   if (users.some((u) => u.username === username)) return res.status(409).json({ error: 'Username already taken.' })
   // The very first account becomes the admin.
-  const user = makeUser(username, password, isFirst ? 'admin' : 'user')
+  const user = assignNewcomerPlan(makeUser(username, password, isFirst ? 'admin' : 'user'))
   users.push(user)
   saveUsers(users)
   audit.record({ action: 'auth.register', actor: auditActor(user), detail: { first: isFirst }, ip: clientIp(req) })
@@ -1178,8 +1277,14 @@ app.get('/sso/dashy/callback', (req, res, next) => {
 })
 
 // ---- admin routes ----
+/** What Admin → Accounts edits: sign-ups, and the plan newcomers start on. */
+const adminConfigView = (cfg) => ({
+  allowRegistration: cfg.allowRegistration !== false,
+  freePlan: { ...freePlanSettings(cfg), modelConfigured: Boolean(textConfig.target('free')) },
+})
+
 app.get('/api/admin/config', requireAdmin, (req, res) => {
-  res.json({ allowRegistration: loadConfig().allowRegistration !== false })
+  res.json(adminConfigView(loadConfig()))
 })
 
 app.put('/api/admin/config', requireAdmin, (req, res) => {
@@ -1193,8 +1298,57 @@ app.put('/api/admin/config', requireAdmin, (req, res) => {
       ip: clientIp(req),
     })
   }
+  if (req.body?.freePlan && typeof req.body.freePlan === 'object') {
+    cfg.freePlan = mergeFreePlanSettings(cfg.freePlan, req.body.freePlan)
+    audit.record({
+      action: 'config.freePlan',
+      actor: auditActor(req.user),
+      detail: { newAccounts: cfg.freePlan.newAccounts, dailyLimit: cfg.freePlan.dailyLimit },
+      ip: clientIp(req),
+    })
+  }
   saveConfig(cfg)
-  res.json({ allowRegistration: cfg.allowRegistration !== false })
+  res.json(adminConfigView(cfg))
+})
+
+/*
+ * Move one account between plans. An administrator cannot be put on the free
+ * plan (server/plan.js says why), so asking is a 400 rather than a write that
+ * `planOf` would silently ignore. Takes effect on the account's next request:
+ * every gate reads the stored account, nothing is cached in a session.
+ */
+app.put('/api/admin/users/:id/plan', requireAdmin, (req, res) => {
+  const plan = req.body?.plan
+  if (!PLANS.includes(plan)) return res.status(400).json({ error: 'Unknown plan.' })
+  const users = loadUsers()
+  const user = users.find((u) => u.id === req.params.id)
+  if (!user) return res.status(404).json({ error: 'No such account.' })
+  if ((user.role || 'user') === 'admin' && plan === 'free') {
+    return res.status(400).json({ error: 'An administrator is always on the standard plan.' })
+  }
+  if (plan === 'free') user.plan = 'free'
+  else delete user.plan
+  saveUsers(users)
+  audit.record({ action: 'user.plan', actor: auditActor(req.user), target: auditActor(user), detail: { plan }, ip: clientIp(req) })
+  res.json({ user: { id: user.id, username: user.username, plan: planOf(user) } })
+})
+
+/**
+ * The free plan as its account sees it: which model answers, and how much of
+ * the day is left. A standard account gets `{ plan: 'standard' }` and nothing
+ * else — it has no limit to show.
+ */
+app.get('/api/account/plan', requireUser, (req, res) => {
+  const plan = planOf(req.user)
+  if (plan !== 'free') return res.json({ plan })
+  const target = textConfig.target('free')
+  const { dailyLimit } = freePlanSettings(loadConfig())
+  res.json({
+    plan,
+    model: target ? target.model : null,
+    dailyLimit,
+    used: freeQuota.usage(req.user.id).generations,
+  })
 })
 
 app.get('/api/admin/users', requireAdmin, (req, res) => {
@@ -1203,6 +1357,7 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
       id: u.id,
       username: u.username,
       role: u.role || 'user',
+      plan: planOf(u),
       createdAt: u.createdAt,
       // Lets the admin list show which accounts still owe a password change.
       mustChangePassword: Boolean(u.mustChangePassword),
@@ -1268,7 +1423,9 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
   if (users.some((u) => u.username === username)) {
     return res.status(409).json({ error: 'Ce nom d’utilisateur est déjà pris.' })
   }
-  const user = makeUser(username, password, role, mustChangePassword)
+  // The form says which plan; without one, the newcomers' default applies.
+  const plan = PLANS.includes(req.body?.plan) ? req.body.plan : undefined
+  const user = assignNewcomerPlan(makeUser(username, password, role, mustChangePassword), plan)
   users.push(user)
   saveUsers(users)
   audit.record({
@@ -1277,7 +1434,7 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
     target: auditActor(user),
     // `mustChange`, not `mustChangePassword`: the audit log drops any key that
     // contains "pass", and this one is a yes/no, not a secret.
-    detail: { role, mustChange: mustChangePassword },
+    detail: { role, mustChange: mustChangePassword, plan: planOf(user) },
     ip: clientIp(req),
   })
   res.json({
@@ -1285,6 +1442,7 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
       id: user.id,
       username: user.username,
       role: user.role,
+      plan: planOf(user),
       mustChangePassword: Boolean(user.mustChangePassword),
     },
   })
@@ -1402,7 +1560,7 @@ app.post('/api/text/vision', requireUser, authRateLimit(20, 60_000, 'vision'), a
   // that must "see" it), so 'generation' is the profile that matters here. The
   // inspiration profile can be probed explicitly.
   const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'generation'
-  let target = textConfig.target(profile)
+  let target = textTargetFor(req.user, profile)
   if (!target) {
     const browser = browserVisionTarget(req)
     if (!browser) return res.json({ vision: false, error: 'Aucun modèle configuré.' })
@@ -1439,7 +1597,7 @@ app.put('/api/admin/text/config', requireAdmin, (req, res) => {
 // Sends a tiny real prompt through the configured provider (via the same
 // dialect translation the app uses) so an admin knows it truly works.
 app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
-  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'generation'
+  const profile = TEXT_PROFILES.includes(req.body?.profile) ? req.body.profile : 'generation'
   const target = textConfig.target(profile)
   if (!target) return res.json({ ok: false, error: 'Aucun fournisseur configuré.' })
   try {
@@ -1508,7 +1666,7 @@ app.post('/api/admin/text/test', requireAdmin, async (req, res) => {
  * one an admin wired up by hand through "OpenAI compatible".
  */
 app.post('/api/admin/text/models', requireAdmin, authRateLimit(20, 60_000, 'text-models'), async (req, res) => {
-  const profile = req.body?.profile === 'inspiration' ? 'inspiration' : 'generation'
+  const profile = TEXT_PROFILES.includes(req.body?.profile) ? req.body.profile : 'generation'
   const target = textConfig.target(profile)
   // The listing runs against the SAVED configuration — the key never travels in
   // this request. Say so, or "no provider configured" reads as a bug when the
@@ -1697,7 +1855,7 @@ app.use(
     fetcher: muse.fetcher,
     patterns: muse.patterns,
     blacklist: muse.blacklist,
-    resolveTarget: (profile) => textConfig.target(profile),
+    resolveTarget: (profile, req) => textTargetFor(req?.user, profile),
   }),
 )
 
@@ -1833,7 +1991,7 @@ app.use(
     imageLibrary: images.library,
     store: videoExports,
     budget: diskBudget,
-    resolveTarget: (profile) => textConfig.target(profile),
+    resolveTarget: (profile, req) => textTargetFor(req?.user, profile),
     // `registryFor` is a live closure over the registries, so an admin switching
     // the edit provider takes effect on the next request; capturing
     // `registries.edit` here instead would pin whatever was configured at boot,
@@ -2185,7 +2343,8 @@ const mcpRunner = createRunner({
 })
 const mcpServer = createMcpServerRoutes({
   runner: mcpRunner,
-  hasTextProvider: () => Boolean(textConfig.target('generation')),
+  // Per account: on the free plan, Mocky's own engine is the free model.
+  hasTextProvider: (user) => Boolean(textTargetFor(user, 'generation')),
   touchMcp: (userId) => presence.touchMcp(userId),
   // Free photos and pictures an assistant brings, through the library's own doors.
   pictures: createMcpPictures({

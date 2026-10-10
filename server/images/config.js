@@ -11,6 +11,7 @@ import crypto from 'node:crypto'
 import { DEFAULT_CF_MODEL, DEFAULT_CF_EDIT_MODEL } from './providers/cloudflare.js'
 import { DEFAULT_FAL_MODEL, DEFAULT_FAL_EDIT_MODEL, DEFAULT_FAL_VIDEO_MODEL } from './providers/fal.js'
 import { onList } from '../access.js'
+import { planOf } from '../plan.js'
 import { createProvider } from './providers/index.js'
 import { DEFAULT_FPS, DEFAULT_FRAME_WIDTH, MAX_FRAMES } from '../videos/frames.js'
 
@@ -122,11 +123,15 @@ export const VIDEO_ACCESS_MODES = ['all', 'allowlist']
  * What one account may do with clips: generate them, fetch free ones, both or
  * neither. An administrator is not allowed on their role alone — same rule, and
  * same reason, as `videoEnabledFor`: the list is what names who used what.
+ *
+ * A generated clip is a paid provider's minutes, so an account on the free plan
+ * never generates one, whatever the list says (server/plan.js); free footage
+ * is the free plan's video.
  */
 export function videoAccessFor(cfg, user) {
   const access = { ...defaultVideoProfile().access, ...(cfg?.video?.access || {}) }
   const may = (scope) => scope?.mode !== 'allowlist' || onList(scope.userIds, user)
-  return { generate: may(access.generated), stock: may(access.stock) }
+  return { generate: planOf(user) !== 'free' && may(access.generated), stock: may(access.stock) }
 }
 
 /**

@@ -186,12 +186,17 @@ export async function chat(
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     let detail = text
+    let code = ''
     try {
       const parsed = JSON.parse(text)
       if (parsed && typeof parsed.error === 'string') detail = parsed.error
+      if (parsed && typeof parsed.code === 'string') code = parsed.code
     } catch {
       // not JSON — use raw text
     }
+    // The free plan's daily limit (server/plan.js). The server's sentence is the
+    // whole message: "from provider" would blame a provider nobody called.
+    if (code === 'free-quota') throw new Error(detail)
     throw new Error(`HTTP ${res.status} from provider. ${truncate(detail, 300)}`)
   }
 

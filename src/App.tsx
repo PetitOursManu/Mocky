@@ -598,6 +598,7 @@ function MockyApp() {
           <ProjectView
             key={activeProject.id}
             project={activeProject}
+            plan={account?.plan === 'free' ? 'free' : 'standard'}
             onAddScreen={(screen) => addScreen(activeProject.id, screen)}
             onUpdateScreen={(sid, patch) => updateScreen(activeProject.id, sid, patch)}
             onRemoveScreen={(sid) => removeScreen(activeProject.id, sid)}
