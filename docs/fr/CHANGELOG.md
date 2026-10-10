@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `plan` | forfait gratuit — modèle gratuit, banques libres, plafond quotidien (#31) | `a3bcd2f` |
 | `mcp` | installer le connecteur depuis Réglages, en une ligne pour Claude Code | `5e1d3c5` |
 | `mcp` | phase 5 — l'aperçu vivant dans la conversation, et le pont pour un Mocky en réseau local | `edd1ab3` |
 | `mcp` | phase 4 — le modèle de l'assistant peut écrire le code, Mocky reste l'arbitre | `d84221a` |
