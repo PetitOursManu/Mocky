@@ -423,8 +423,8 @@ describe('provider quirks', () => {
     for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-fable-5-1', 'claude-mythos-5-1']) {
       const body = bodyAt(base, model)
       expect(body.temperature, model).toBeUndefined()
-      // Nothing else about the request changes.
-      expect(body, model).toMatchObject({ model, max_tokens: 16384, stream: true })
+      // Nothing else about the request changes but the room for thinking (below).
+      expect(body, model).toMatchObject({ model, max_tokens: 16384 + 48_000, stream: true })
     }
     for (const model of [
       'claude-sonnet-4-6',
@@ -442,6 +442,27 @@ describe('provider quirks', () => {
     }
     // "Compatible OpenAI" pointed at the same host gets the same correction.
     expect(bodyAt('https://api.anthropic.com/v1/', 'claude-opus-5-5').temperature).toBeUndefined()
+  })
+
+  // "Le modèle a atteint sa limite de tokens" on a Muse + Motion Ultra page with
+  // Sonnet 5.5: its default thinking was spending the 16 384 sized for the code.
+  it('gives a Claude model that thinks by default room to think on top of the reply', () => {
+    const base = 'https://api.anthropic.com/v1'
+    for (const model of ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-fable-5-1', 'claude-opus-4-8']) {
+      expect(bodyAt(base, model).max_tokens, model).toBe(64_384)
+    }
+    // A short call keeps its own reply budget and gets the same room.
+    const plan = { model: 'claude-sonnet-5-5', messages: [], stream: false, options: { num_predict: 1024 } }
+    expect(JSON.parse(buildUpstream({ kind: KIND_OPENAI, baseUrl: base }, '/api/chat', Buffer.from(JSON.stringify(plan))).body).max_tokens).toBe(49_024)
+    // Never past what every current Claude model accepts.
+    const huge = { ...plan, options: { num_predict: 100_000 } }
+    expect(JSON.parse(buildUpstream({ kind: KIND_OPENAI, baseUrl: base }, '/api/chat', Buffer.from(JSON.stringify(huge))).body).max_tokens).toBe(128_000)
+    // The older models do not think unless asked, and some cap at 8K or 64K.
+    for (const model of ['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-3-5-haiku-20241022']) {
+      expect(bodyAt(base, model).max_tokens, model).toBe(16384)
+    }
+    // And no other host is touched.
+    expect(bodyAt('https://api.openai.com/v1', 'claude-sonnet-5-5').max_tokens).toBe(16384)
   })
 
   it('a scoped drop removes the key for the models it does not name, and only those', () => {
@@ -490,7 +511,7 @@ describe('provider quirks', () => {
   })
 
   it('every row names its hosts in lower case and uses only known fields', () => {
-    const KNOWN = new Set(['hosts', 'root', 'drop', 'maxTokens', 'maxTokensField', 'jsonSchema', 'effort', 'stripModelPrefix', 'closedSchema'])
+    const KNOWN = new Set(['hosts', 'root', 'drop', 'maxTokens', 'maxTokensField', 'jsonSchema', 'effort', 'stripModelPrefix', 'closedSchema', 'thinkingRoom'])
     for (const row of PROVIDER_QUIRKS) {
       expect(row.hosts.length).toBeGreaterThan(0)
       for (const h of row.hosts) expect(h).toBe(h.toLowerCase())

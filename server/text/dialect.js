@@ -210,6 +210,9 @@ function hostOf(baseUrl) {
  *    reason THINKING_EFFORT gives: a default of "think as much as you like"
  *    spends the whole output budget before the first line of code.
  *  - `stripModelPrefix` — removed from the ids a model listing returns.
+ *  - `thinkingRoom` — `{ value, ceiling, unless }`: tokens ADDED to `max_tokens`
+ *    for a model that thinks by default and counts that thinking against it, so
+ *    the budget a call asked for stays the REPLY's. See CLAUDE_THINKING_ROOM.
  */
 /**
  * The Claude models that still take a `temperature` below 1: everything up to
@@ -222,6 +225,26 @@ function hostOf(baseUrl) {
  */
 export const CLAUDE_TEMPERATURE_MODELS = /^claude-(?:3[-.]|(?:opus|sonnet|haiku)-4(?:-[0-6])?(?:-\d{8})?$)/i
 
+/**
+ * Room for THINKING on a Claude model that thinks by default.
+ *
+ * From the Claude 5 generation on, adaptive thinking is on unless a request says
+ * otherwise (Sonnet 5.5 at effort `high`), the OpenAI-compatible layer documents
+ * `reasoning_effort` as ignored, and thinking "counts toward `max_tokens` even
+ * when its text isn't returned". So the 16 384 a generation asks for — sized for
+ * CODE — was shared with the thinking before it, and a page with Muse and Motion
+ * Ultra came back cut: "the model reached its token limit". Anthropic's own
+ * guidance for long coding turns is 64 000 in all, which is what this adds up
+ * to; a planner's 1 024 gets the same room, or its JSON is the part that is cut.
+ *
+ * Added rather than imposed, so every call keeps its own reply budget, and
+ * bounded by the 128K every current Claude model accepts. A larger ceiling costs
+ * nothing a call does not use: the effort decides how long the model thinks, the
+ * ceiling only decides where it is stopped. The models up to 4.6 are left alone —
+ * they do not think unless asked, and several of them refuse more than 64K or 8K.
+ */
+const CLAUDE_THINKING_ROOM = { value: 48_000, ceiling: 128_000, unless: CLAUDE_TEMPERATURE_MODELS }
+
 export const PROVIDER_QUIRKS = [
   {
     // See CLAUDE_TEMPERATURE_MODELS: the older models keep the temperature each
@@ -230,8 +253,12 @@ export const PROVIDER_QUIRKS = [
     drop: [{ key: 'temperature', unless: CLAUDE_TEMPERATURE_MODELS }],
     // A schema Claude's structured outputs accept: every object closed
     // (`additionalProperties: false`, which they require) and no numeric,
-    // length or array-size constraint (which they refuse). See `closedSchema`.
+    // length or array-size constraint (which they refuse). The compatible layer
+    // documents `response_format` as ignored, yet a real instance answered 400
+    // to exactly the calls that carry one — so it is sent in a shape Claude
+    // accepts, and the proxy asks again without it if that is refused too.
     closedSchema: true,
+    thinkingRoom: CLAUDE_THINKING_ROOM,
   },
   {
     // https://ai.google.dev/gemini-api/docs/openai — reasoning_effort maps to
@@ -308,6 +335,10 @@ export function applyQuirks(body, quirk) {
   for (const entry of quirk.drop || []) {
     if (typeof entry === 'string') delete out[entry]
     else if (!entry.unless.test(String(out.model || ''))) delete out[entry.key]
+  }
+  const room = quirk.thinkingRoom
+  if (room && Number(out.max_tokens) > 0 && !room.unless.test(String(out.model || ''))) {
+    out.max_tokens = Math.min(Number(out.max_tokens) + room.value, room.ceiling)
   }
   const ceiling = ceilingFor(quirk, out.model)
   if (ceiling && Number(out.max_tokens) > ceiling) out.max_tokens = ceiling
