@@ -1132,6 +1132,12 @@ Four things that will bite you:
 - **Nothing in `public/vendor/` is fetched from a CDN**, and every file there is
   pinned by SHA-256 in `public/vendor/VENDOR.md`. `npm run check:vendor`
   verifies it.
+- **Two Tailwinds, on purpose.** The shell is built with Tailwind 4
+  (`@tailwindcss/vite`, `tailwind.config.js` through `@config`); generated
+  screens run the vendored Tailwind 3 runtime, and the prompts, quality rules
+  and exports speak v3. Do not "finish" the upgrade on the preview side. The
+  top of `src/index.css` restores what v4 changed in silence — the focus ring
+  of `.input` among them — so read it before deleting a line there.
 - **Degrade, never fail.** The pattern is everywhere: catch, add a soft notice,
   continue without that contribution. M3 for Muse, Q1 for quality.
 - **Mocky is `AGPL-3.0-or-later`** (`LICENSE`, `NOTICE`). A new dependency must

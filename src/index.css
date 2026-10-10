@@ -1,8 +1,86 @@
 @import './styles/tokens.css';
+/*
+ * Tailwind 4 builds THIS stylesheet — Mocky's own shell — and nothing else.
+ * Generated screens are compiled inside their iframe by the vendored Tailwind
+ * 3 runtime (public/vendor/VENDOR.md), and the generation prompts teach its
+ * class names; a v3 → v4 change there would rewrite every screen already made.
+ *
+ * `source(none)` and the two `@source` lines keep the scan where v3's `content`
+ * had it. Automatic detection would also read server/, docs/ and the prompts,
+ * and emit their example classes into the app's CSS.
+ */
+@import 'tailwindcss' source(none);
+@config '../tailwind.config.js';
+@source '../index.html';
+@source './**/*.{ts,tsx}';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/*
+ * v3's `hover:` matched whenever the element was hovered; v4's only on a device
+ * that CAN hover. Five controls are revealed by `group-hover:opacity-100` alone
+ * (Muse's unpin and download buttons, the design panel's "preview larger", the
+ * library's play overlays), and under v4 a finger would never see them. Keeping
+ * the old meaning is the upgrade guide's own opt-out.
+ */
+@custom-variant hover (&:hover);
+
+@theme {
+  /*
+   * `transitionDuration.DEFAULT` in the JS config does not reach v4's
+   * `--default-transition-duration`, and with the variable undefined every
+   * `transition` utility compiled to a duration of 0 — no transition at all.
+   */
+  --default-transition-duration: 120ms;
+}
+
+/*
+ * What v3's preflight did and v4's no longer does, put back. Each line was found
+ * by comparing the computed style of every element of every page, v3 build
+ * against v4 build. One difference was left on purpose: v4 evens out the height
+ * of date inputs, which makes the one in Admin → Announcement 2px shorter.
+ */
+@layer base {
+  /* v4 draws an undeclared border in currentColor; v3 in gray-200. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: #e5e7eb;
+  }
+
+  /* v4: the text colour at 50%. v3: gray-400. */
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af;
+  }
+
+  /* v4 leaves buttons on the default arrow. */
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+
+  /* v4 zeroes every padding; v3 left these to the browser. Table cells kept
+     their 1px, and options in an <optgroup> — the provider list in Settings —
+     kept their indent. `revert-layer` and not `revert`: a cell's 1px is the
+     table's presentational hint, which `revert` skips on its way to the
+     browser's own sheet. */
+  td,
+  th,
+  option {
+    padding: revert-layer;
+  }
+
+  /* The sessions filter: v3 flattened Safari's rounded search field. */
+  [type='search'] {
+    -webkit-appearance: textfield;
+    outline-offset: -2px;
+  }
+}
 
 @layer base {
   html,
@@ -65,7 +143,11 @@
 
   /** The masthead: the paper's name, set large in the serif. */
   .masthead {
-    @apply font-serif font-semibold tracking-tight text-ink;
+    @apply font-serif font-semibold text-ink;
+    /* `tracking-tight`, written out. Since Tailwind 4 the utility also sets
+       `--tw-tracking`, which a `text-h2` beside it then reads in preference to
+       its own -0.02em: every masthead came out tighter than it was drawn. */
+    letter-spacing: -0.025em;
     font-variant-ligatures: common-ligatures;
   }
 
@@ -148,7 +230,7 @@
    * both render exactly these treatments.
    */
   /*
-   * `outline-ring` is load-bearing, not decoration. Tailwind compiles
+   * `outline-ring` is load-bearing, not decoration. Tailwind 3 compiled
    * `outline-none` to `outline: 2px solid transparent` — an outline that is
    * there and invisible — and the focus-visible utilities below only restore
    * the STYLE and WIDTH, never a colour. Nothing declared one, so the ring
@@ -156,11 +238,16 @@
    * is written in `:where()` at specificity zero, so a class beats it.
    * Rule 4 of the design system says the focus ring is visible everywhere.
    * On the 28 fields carrying `.input`, it was not.
+   *
+   * `outline-solid` is load-bearing too, since Tailwind 4. `outline-hidden`
+   * (v3's `outline-none`, renamed) sets `--tw-outline-style: none`, and v4's
+   * `outline` / `outline-2` draw in `var(--tw-outline-style)` — so the ring came
+   * back at the right width and colour, in style `none`. Same bug, new door.
    */
   .input {
     @apply w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink
-      placeholder:text-ink-faint outline-none transition
-      focus:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring
+      placeholder:text-ink-faint outline-hidden transition
+      focus:border-line focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-ring
       focus-visible:outline-offset-2;
   }
 

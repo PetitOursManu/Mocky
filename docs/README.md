@@ -30,9 +30,9 @@ A project, open. Click the numbers to see what each part is:
 
 | Layer | What it is |
 |---|---|
-| Front end | React 18, TypeScript, Vite, Tailwind CSS |
+| Front end | React 18, TypeScript, Vite, Tailwind CSS 4 |
 | Back end | Node ≥ 22.12 with Express. JSON files on disk. No database, no native dependencies |
-| Preview | An iframe sandboxed to an opaque origin. React, ReactDOM, Babel and Tailwind are vendored locally. JSX is compiled inside the iframe |
+| Preview | An iframe sandboxed to an opaque origin. React, ReactDOM, Babel and Tailwind 3 are vendored locally. JSX is compiled inside the iframe |
 | Models | Mocky always speaks the Ollama dialect internally. A proxy translates to OpenAI-compatible APIs |
 | External binary | `ffmpeg`, used only for scroll-driven video |
 | Optional separate service | The Remotion render worker in `worker/video/`, behind the `video-export` compose profile. Absent from the default image, for [licensing reasons](video-export.md) |

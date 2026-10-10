@@ -109,9 +109,14 @@ It was the one capability still loaded from a CDN (`cdn.jsdelivr.net`). Vendorin
 it means the preview and capture shells now fetch **nothing** from the network:
 they work offline, and their CSP no longer needs to name any external host.
 
-Keep `tailwind.min.js` on the same major/minor as the `tailwindcss` devDependency
-in `package.json`: it is what compiles the utility classes inside every preview,
-so a mismatch means previews render differently from the app.
+`tailwind.min.js` stays on Tailwind **3** while the `tailwindcss` devDependency
+in `package.json` is on 4, and that split is deliberate. The devDependency builds
+Mocky's own shell (`src/index.css`) and nothing else; this file compiles the
+utility classes inside every preview, and the generation prompts, the quality
+rules and the export chain all speak its v3 vocabulary — moving it to v4 would
+change how screens that already exist render. Update it within 3.x only. (The
+two were kept on the same version until 2026-10, when a security alert on a
+dependency only v3 pulled in moved the shell alone.)
 
 ## Verifying
 

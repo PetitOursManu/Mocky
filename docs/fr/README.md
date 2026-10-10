@@ -1,5 +1,5 @@
 ---
-source_hash: 83071b8336c9
+source_hash: c1abf5904bfd
 ---
 
 # Mocky
@@ -38,9 +38,9 @@ Un projet, ouvert. Cliquez les numéros pour voir ce qu’est chaque partie :
 
 | Couche | Ce que c'est |
 |---|---|
-| Front | React 18, TypeScript, Vite, Tailwind CSS |
+| Front | React 18, TypeScript, Vite, Tailwind CSS 4 |
 | Back | Node ≥ 22.12 avec Express. Des fichiers JSON sur disque. Pas de base de données, pas de dépendance native |
-| Aperçu | Une iframe isolée, sans origine propre. React, ReactDOM, Babel et Tailwind sont copiés localement. Le JSX est compilé à l'intérieur de l'iframe |
+| Aperçu | Une iframe isolée, sans origine propre. React, ReactDOM, Babel et Tailwind 3 sont copiés localement. Le JSX est compilé à l'intérieur de l'iframe |
 | Modèles | Mocky parle toujours le dialecte Ollama en interne. Un proxy traduit vers les API compatibles OpenAI |
 | Binaire externe | `ffmpeg`, uniquement pour la vidéo au défilement |
 | Service séparé facultatif | Le worker de rendu Remotion, dans `worker/video/`, derrière le profil Compose `video-export`. Absent de l'image par défaut, pour des [raisons de licence](video-export.md) |

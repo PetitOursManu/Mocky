@@ -1,12 +1,17 @@
 /** @type {import('tailwindcss').Config} */
 
+// Loaded by `@config` in src/index.css: Tailwind 4 still reads a JS config, and
+// keeping it means the scales below stay where the design system says they
+// are. The files it scans are the `@source` lines next to that `@config`, and
+// the default transition duration is in the `@theme` block there — v4 ignores
+// both keys here.
+
 // Semantic colours, wired to the CSS variables in src/styles/tokens.css.
 // The `<alpha-value>` placeholder is what keeps `bg-surface/60` working — which
 // is why the variables hold bare RGB channels rather than finished colours.
 const token = (name) => `rgb(var(--${name}) / <alpha-value>)`
 
 export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     // ---- overridden wholesale, not extended -------------------------------
     // The direction is editorial: 1px rules, no radius, no shadow. Replacing
@@ -134,10 +139,6 @@ export default {
       borderWidth: {
         // The editorial rule. There is no 2px.
         DEFAULT: '1px',
-      },
-
-      transitionDuration: {
-        DEFAULT: '120ms',
       },
     },
   },

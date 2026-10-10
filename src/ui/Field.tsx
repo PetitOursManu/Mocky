@@ -10,9 +10,10 @@ import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttri
  */
 
 // The focus ring is spelled out for the same reason as in `.input`:
-// `outline-none` compiles to a transparent 2px outline at class specificity,
-// which silently beats the zero-specificity `:where()` rule in @layer base. A
-// control that opts out of the default ring has to bring its own back.
+// `outline-hidden` beats the zero-specificity `:where()` rule in @layer base at
+// class specificity, so a control that opts out of the default ring has to
+// bring its own back — and since Tailwind 4 that includes `outline-solid`, or
+// the ring is drawn in the `none` style `outline-hidden` left behind.
 // `tap-target` for the same reason as on Button: a field is something you tap
 // before you type into it, and 14px of text between 8px of padding is a 39px
 // box. The floor only applies under a coarse pointer, so the desktop form
@@ -20,8 +21,8 @@ import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttri
 // not paying for height with legibility.
 const CONTROL =
   'tap-target w-full border border-line-soft bg-surface px-3 py-2 text-body text-ink ' +
-  'placeholder:text-ink-faint outline-none transition hover:border-line focus:border-accent ' +
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ' +
+  'placeholder:text-ink-faint outline-hidden transition hover:border-line focus:border-accent ' +
+  'focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ' +
   'disabled:cursor-not-allowed disabled:opacity-50'
 
 export function Field({

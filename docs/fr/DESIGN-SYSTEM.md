@@ -1,5 +1,5 @@
 ---
-source_hash: dda7ebf46ca4
+source_hash: 6cd47c900131
 ---
 
 # Le système de design de Mocky
@@ -235,4 +235,6 @@ Un système centralisé ne tient que si la manière de le modifier est écrite q
 Une option écartée sans laisser de trace revient tous les six mois et se réévalue de zéro ; consignée avec sa raison, elle ne se rediscute que si la raison a changé. Celle-ci est particulière à un générateur : le vocabulaire de classes que Mocky écrit dans les maquettes est déjà parti chez les utilisateurs, dans des écrans qu'ils ont produits et exportés, et qu'aucune mise à jour de l'outil ne peut aller corriger.
 :::
 
-**Pas de migration vers Tailwind 4.** Le gain principal (variables natives) est déjà obtenu en v3 par `rgb(var(--x) / <alpha-value>)`. La v4 impose `shadow-sm`→`shadow-xs`, `outline-none`→`outline-hidden`, change l'anneau par défaut, supprime la config JS au profit de `@theme`, déplace le CDN Play vers `@tailwindcss/browser` — et surtout **invaliderait les classes v3 des écrans déjà générés** ainsi que toute la chaîne d'export (`src/lib/export/`). Coût réel, bénéfice utilisateur nul.
+**Pas de migration des écrans générés vers Tailwind 4.** La v4 impose `shadow-sm`→`shadow-xs`, `outline-none`→`outline-hidden`, change l'anneau par défaut et déplace le CDN Play vers `@tailwindcss/browser` — elle **invaliderait donc les classes v3 des écrans déjà générés**, ainsi que toute la chaîne d'export (`src/lib/export/`). Coût réel, bénéfice utilisateur nul. Les aperçus gardent le runtime v3 copié localement (`public/vendor/VENDOR.md`) et les prompts continuent d'enseigner ses classes.
+
+**La coquille de Mocky, elle, a migré en octobre 2026**, pour une raison qui n'existait pas quand la ligne ci-dessus a été écrite : une alerte de sécurité sur `postcss-selector-parser`, que seul Tailwind 3 tirait. Ce build est le seul endroit où l'argument ne s'applique pas — aucun écran généré n'y passe. `tailwind.config.js` reste, chargé par `@config` ; ce que la v4 changeait en silence (la couleur de bordure par défaut, l'anneau de focus des champs, la durée des transitions, `hover:` sur écran tactile) est rétabli dans `src/index.css`, chaque ligne avec la raison de sa présence.

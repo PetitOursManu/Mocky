@@ -154,7 +154,7 @@ export function TimeChart({
   return (
     <div>
       <div
-        className="relative cursor-crosshair outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="relative cursor-crosshair outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
         style={{ height }}
         tabIndex={0}
         role="img"
@@ -287,7 +287,7 @@ export function MinuteColumns({
 
   return (
     <div
-      className="relative outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="relative outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
       style={{ height }}
       tabIndex={0}
       role="img"
