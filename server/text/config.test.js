@@ -120,7 +120,7 @@ describe('publicTextConfig', () => {
     expect(view.generation.provider).toBe('openai')
     expect(view.inspiration.provider).toBe('openrouter')
     expect(view.providers.map((p) => p.id)).toContain('openrouter')
-    expect(view.profiles).toEqual(['generation', 'inspiration'])
+    expect(view.profiles).toEqual(['generation', 'inspiration', 'free'])
   })
 })
 
@@ -174,6 +174,26 @@ describe('resolveTextTarget', () => {
     const both = mergeTextConfig(onlyGen, { inspiration: { provider: 'openrouter', openrouter: { model: 'qwen/vl' } } })
     expect(resolveTextTarget(both, 'inspiration')).toMatchObject({ model: 'qwen/vl' })
     expect(resolveTextTarget(both, 'generation')).toMatchObject({ model: 'gpt-4o' }) // unchanged
+  })
+
+  // The free plan's whole promise: a free account never reaches the paid model,
+  // and an empty free profile is what would have made it.
+  it('free borrows nothing: an empty free profile resolves to null, not to generation', () => {
+    const onlyGen = mergeTextConfig(null, gen({ provider: 'openai', openai: { model: 'gpt-4o' } }))
+    expect(resolveTextTarget(onlyGen, 'free')).toBeNull()
+
+    const both = mergeTextConfig(onlyGen, { free: { provider: 'openrouter', openrouter: { model: 'qwen/qwen3-coder:free' } } })
+    expect(resolveTextTarget(both, 'free')).toMatchObject({ id: 'openrouter', model: 'qwen/qwen3-coder:free' })
+    expect(resolveTextTarget(both, 'generation')).toMatchObject({ model: 'gpt-4o' }) // unchanged
+    expect(resolveTextTarget(both, 'inspiration')).toMatchObject({ model: 'gpt-4o' }) // still borrows generation, never free
+  })
+
+  it('a pre-free config file gains an empty free profile', () => {
+    const legacy = { provider: 'openai', openai: { model: 'gpt-4o', apiKey: 'sk-x' } }
+    const c = mergeTextConfig(legacy, {})
+    expect(c.free.provider).toBe('')
+    expect(resolveTextTarget(c, 'free')).toBeNull()
+    expect(publicTextConfig(c).free.provider).toBe('')
   })
 
   it('an unknown profile name resolves as generation', () => {

@@ -124,7 +124,7 @@ export const settings = {
 
     // ---- admin: text providers ----
     'settings.textModelsTitle': 'Modèles de texte (LLM)',
-    'settings.textModelsBlurb1': 'Deux modèles',
+    'settings.textModelsBlurb1': 'Trois modèles',
     'settings.textModelsBlurbStrong1': 'qui écrivent du texte',
     'settings.textModelsBlurb2': '. Défini ici, un modèle s’applique à',
     'settings.textModelsBlurbStrong2': 'toute l’instance',
@@ -471,7 +471,7 @@ export const settings = {
 
     // ---- admin: text providers ----
     'settings.textModelsTitle': 'Text models (LLM)',
-    'settings.textModelsBlurb1': 'Two models',
+    'settings.textModelsBlurb1': 'Three models',
     'settings.textModelsBlurbStrong1': 'that write text',
     'settings.textModelsBlurb2': '. Set here, a model applies to',
     'settings.textModelsBlurbStrong2': 'the whole instance',

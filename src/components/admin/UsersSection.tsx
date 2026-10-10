@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type AdminUser } from '../../lib/api'
+import { api, type AdminUser, type FreePlanSettings, type Plan } from '../../lib/api'
 import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../../ui'
 import { useT } from '../../i18n'
 import UsageReport from '../UsageReport'
@@ -25,6 +25,8 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
   const t = useT()
   const f = useFmt()
   const [allowReg, setAllowReg] = useState(true)
+  /** The free plan's settings as saved; null until the server answered. */
+  const [freePlan, setFreePlan] = useState<FreePlanSettings | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -37,6 +39,8 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
   // On by default: a password an admin typed for someone else is a shared
   // secret from the moment it is written down or dictated.
   const [newMustChange, setNewMustChange] = useState(true)
+  /** Null = follow the newcomers' default, which is what the select shows. */
+  const [newPlan, setNewPlan] = useState<Plan | null>(null)
   const [adding, setAdding] = useState(false)
 
   // Password reset dialog — null when closed.
@@ -46,6 +50,7 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
     try {
       const [cfg, list] = await Promise.all([api.admin.getConfig(), api.admin.listUsers()])
       setAllowReg(cfg.allowRegistration)
+      setFreePlan(cfg.freePlan ?? null)
       setUsers(list)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -76,12 +81,14 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
     setError(null)
     setNotice(null)
     try {
-      await api.admin.addUser(newName.trim(), newPass, newRole, newMustChange)
+      // An administrator is always standard (server/plan.js): no plan to send.
+      await api.admin.addUser(newName.trim(), newPass, newRole, newMustChange, newRole === 'admin' ? undefined : (newPlan ?? undefined))
       setNotice(t('settings.accountCreated', { name: newName.trim() }))
       setNewName('')
       setNewPass('')
       setNewRole('user')
       setNewMustChange(true)
+      setNewPlan(null)
       await refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -98,6 +105,18 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
       await api.admin.deleteUser(u.id)
       setNotice(t('settings.accountDeleted', { name: u.username }))
       await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function changePlan(u: AdminUser, plan: Plan) {
+    setError(null)
+    setNotice(null)
+    try {
+      await api.admin.setUserPlan(u.id, plan)
+      setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, plan } : x)))
+      setNotice(t('plan.changed', { name: u.username, plan: t(`plan.${plan}`) }))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -145,6 +164,21 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
             <input type="checkbox" className="h-5 w-5 accent-accent" checked={allowReg} onChange={toggleReg} />
           </label>
 
+          {freePlan && (
+            <FreePlanForm
+              settings={freePlan}
+              onSaved={(next) => {
+                setFreePlan(next)
+                setError(null)
+                setNotice(t('plan.saved'))
+              }}
+              onError={(msg) => {
+                setNotice(null)
+                setError(msg)
+              }}
+            />
+          )}
+
           <form onSubmit={addUser} className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
             <div className="kicker">{t('admin.addUser')}</div>
 
@@ -185,6 +219,21 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
                   </Select>
                 )}
               </Field>
+
+              {newRole === 'user' && freePlan && (
+                <Field label={t('plan.label')}>
+                  {(p) => (
+                    <Select
+                      {...p}
+                      value={newPlan ?? freePlan.newAccounts}
+                      onChange={(e) => setNewPlan(e.currentTarget.value as Plan)}
+                    >
+                      <option value="free">{t('plan.free')}</option>
+                      <option value="standard">{t('plan.standard')}</option>
+                    </Select>
+                  )}
+                </Field>
+              )}
             </div>
 
             <label className="flex cursor-pointer items-start gap-3 border border-line-soft bg-surface p-3">
@@ -227,6 +276,9 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
                     >
                       {u.role === 'admin' ? t('settings.roleAdminShort') : t('settings.roleUser')}
                     </span>
+                    {u.role !== 'admin' && u.plan === 'free' && (
+                      <span className="bg-ok/10 px-2 py-0.5 text-caption font-semibold uppercase text-ok">{t('plan.free')}</span>
+                    )}
                     <span className="text-body-sm">
                       <StateMark state={p?.state || 'offline'} mcp={p?.mcp} />
                     </span>
@@ -242,6 +294,16 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
                     )}
                     <div className="ml-auto flex items-center gap-2">
                       {u.username === currentUsername && <span className="text-body-sm text-ink-faint">{t('settings.you')}</span>}
+                      {u.role !== 'admin' && (
+                        <Button
+                          size="sm"
+                          variant="quiet"
+                          onClick={() => changePlan(u, u.plan === 'free' ? 'standard' : 'free')}
+                          title={t(u.plan === 'free' ? 'plan.setStandardOf' : 'plan.setFreeOf', { name: u.username })}
+                        >
+                          {t(u.plan === 'free' ? 'plan.setStandard' : 'plan.setFree')}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="quiet"
@@ -294,6 +356,88 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
         />
       )}
     </section>
+  )
+}
+
+/**
+ * The free plan's two settings: which plan a newcomer starts on, and how many
+ * generations a free account gets a day (server/plan.js).
+ *
+ * Saved with a button rather than on every keystroke: typing "15" through "1"
+ * would otherwise set a limit of one for as long as the second digit took.
+ */
+function FreePlanForm({
+  settings,
+  onSaved,
+  onError,
+}: {
+  settings: FreePlanSettings
+  onSaved: (next: FreePlanSettings) => void
+  onError: (message: string) => void
+}) {
+  const t = useT()
+  const [newAccounts, setNewAccounts] = useState<Plan>(settings.newAccounts)
+  const [limit, setLimit] = useState(String(settings.dailyLimit))
+  const [busy, setBusy] = useState(false)
+
+  const parsed = Number(limit)
+  const valid = limit.trim() !== '' && Number.isInteger(parsed) && parsed >= 0
+  const dirty = newAccounts !== settings.newAccounts || (valid && parsed !== settings.dailyLimit)
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    if (!valid) return
+    setBusy(true)
+    try {
+      const cfg = await api.admin.setFreePlan({ newAccounts, dailyLimit: parsed })
+      onSaved(cfg.freePlan)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
+      <div className="kicker">{t('plan.adminHeading')}</div>
+      <p className="measure text-body-sm text-ink-muted">{t('plan.adminBlurb')}</p>
+
+      {!settings.modelConfigured && (
+        <Banner tone="warn" className="text-body-sm">
+          {t('plan.noModel')}
+        </Banner>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t('plan.newAccounts')} hint={t('plan.newAccountsHelp')}>
+          {(p) => (
+            <Select {...p} value={newAccounts} onChange={(e) => setNewAccounts(e.currentTarget.value as Plan)}>
+              <option value="free">{t('plan.free')}</option>
+              <option value="standard">{t('plan.standard')}</option>
+            </Select>
+          )}
+        </Field>
+
+        <Field label={t('plan.dailyLimit')} hint={t('plan.dailyLimitHelp')}>
+          {(p) => (
+            <Input
+              {...p}
+              type="number"
+              min={0}
+              step={1}
+              inputMode="numeric"
+              value={limit}
+              onChange={(e) => setLimit(e.currentTarget.value)}
+            />
+          )}
+        </Field>
+      </div>
+
+      <Button type="submit" variant="primary" disabled={busy || !valid || !dirty}>
+        {t('plan.save')}
+      </Button>
+    </form>
   )
 }
 

@@ -163,7 +163,10 @@ characters — and it is the one path an attacker can reach without a session,
 where on a fresh instance the account they create is the administrator.
 
 Public sign-ups also **close themselves** once the first account exists. An
-administrator reopens them from the Admin screen to invite someone.
+administrator reopens them from the Admin screen to invite someone. The accounts
+that sign up then start on the [free plan](free-plan.md) unless the administrator
+chose otherwise: they generate with a model that costs nothing, never with the
+instance's paid one.
 
 Passwords are hashed with `scrypt` from `node:crypto` and compared in constant
 time. Changing a password **revokes every session**, including the current one,

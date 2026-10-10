@@ -72,8 +72,9 @@ function looksLikeImageModel(id: string): boolean {
 const EMPTY_ENTRY: TextProviderEntry = { baseUrl: '', model: '', hasApiKey: false }
 
 /**
- * One profile's form. Two of these are rendered: the model that WRITES the
- * screens, and the (optional) model that powers Muse's art direction.
+ * One profile's form. Three of these are rendered: the model that WRITES the
+ * screens, the (optional) model that powers Muse's art direction, and the
+ * (optional) free model the free plan runs on.
  */
 function ProfileForm({
   profile,
@@ -361,11 +362,14 @@ function ProfileForm({
 }
 
 /**
- * Admin settings for the TEXT (LLM) providers. Two profiles:
+ * Admin settings for the TEXT (LLM) providers. Three profiles:
  *  • génération — writes the screens and runs the planner.
  *  • inspiration — Muse's Design Dossier and the vision probe. Optional: left
  *    empty, Muse reuses the generation model (the historical behaviour).
- * Configuring a profile here makes it instance-wide; leaving both empty keeps the
+ *  • gratuit — everything an account on the free plan asks for (server/plan.js).
+ *    Optional too, and left empty it borrows NOTHING: free accounts then use
+ *    their own Settings, never the paid model above.
+ * Configuring a profile here makes it instance-wide; leaving them empty keeps the
  * per-browser Settings behaviour.
  */
 export default function TextProviderSettings() {
@@ -445,6 +449,19 @@ export default function TextProviderSettings() {
             </>
           }
           emptyLabel={t('settings.textEmptyInspiration')}
+          cfg={cfg}
+          onConfig={setCfg}
+        />
+        <ProfileForm
+          profile="free"
+          title={t('plan.textProfile')}
+          blurb={
+            <>
+              {t('plan.textProfileBlurb1')} <strong>{t('plan.textProfileBlurbAnd')}</strong> {t('plan.textProfileBlurb2')}{' '}
+              <span className="text-ink-faint">{t('plan.textProfileNoFallback')}</span>
+            </>
+          }
+          emptyLabel={t('plan.textEmpty')}
           cfg={cfg}
           onConfig={setCfg}
         />

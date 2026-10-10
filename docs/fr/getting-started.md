@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: bc934e134114
+source_hash: 485603dc5a90
 ---
 
 # Démarrage
@@ -169,7 +169,10 @@ l'administrateur.
 
 Les inscriptions publiques **se ferment d'elles-mêmes** une fois le premier
 compte créé. Un administrateur les rouvre depuis l'écran Admin s'il veut inviter
-quelqu'un.
+quelqu'un. Les comptes qui s'inscrivent alors démarrent au
+[forfait gratuit](free-plan.md), sauf si l'administrateur en a décidé autrement :
+ils génèrent avec un modèle qui ne coûte rien, jamais avec le modèle payant de
+l'instance.
 
 Les mots de passe sont hachés avec `scrypt` (`node:crypto`) et comparés en temps
 constant. Changer un mot de passe **révoque toutes les sessions**, y compris

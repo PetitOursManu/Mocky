@@ -145,11 +145,13 @@ function Detail({ detail }: { detail: AuditEntry['detail'] }) {
         ? t(v ? 'dashboard.audit.yes' : 'dashboard.audit.no')
         : k === 'role'
           ? t(v === 'admin' ? 'settings.roleAdmin' : 'settings.roleUser')
-          : k === 'tone'
-            ? t(v === 'warn' ? 'dashboard.announce.toneWarn' : 'dashboard.announce.toneInfo')
-            : Array.isArray(v)
-              ? v.join(', ')
-              : String(v)
+          : (k === 'plan' || k === 'newAccounts') && (v === 'free' || v === 'standard')
+            ? t(`plan.${v}`)
+            : k === 'tone'
+              ? t(v === 'warn' ? 'dashboard.announce.toneWarn' : 'dashboard.announce.toneInfo')
+              : Array.isArray(v)
+                ? v.join(', ')
+                : String(v)
     parts.push(t('dashboard.audit.pair', { label, value }))
   }
   return <span className="mt-0.5 block text-caption text-ink-muted">{parts.join(' · ')}</span>

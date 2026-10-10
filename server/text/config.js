@@ -138,14 +138,19 @@ export function looksLikeImageModel(id) {
 }
 
 /**
- * Two independent profiles:
+ * Three independent profiles:
  *  - 'generation'  — writes the screens (the classic path).
  *  - 'inspiration' — Muse's dossier/vision work. Often deserves a different
  *    model: vision-capable, or simply cheaper since it writes no code.
+ *  - 'free'        — EVERYTHING an account on the free plan asks of a model,
+ *    generation and inspiration alike (server/plan.js). A model that costs
+ *    nothing: a free tier, or one running on the server itself.
  * The inspiration profile is OPTIONAL: leaving its provider empty makes Muse
  * reuse the generation model, which is the previous single-model behaviour.
+ * The free profile is optional too, and it borrows NOTHING when empty — see
+ * `resolveTextTarget`.
  */
-export const TEXT_PROFILES = ['generation', 'inspiration']
+export const TEXT_PROFILES = ['generation', 'inspiration', 'free']
 
 function emptyProfile() {
   const p = { provider: '' } // '' = not configured
@@ -156,7 +161,7 @@ function emptyProfile() {
 }
 
 export function defaultTextConfig() {
-  return { generation: emptyProfile(), inspiration: emptyProfile() }
+  return { generation: emptyProfile(), inspiration: emptyProfile(), free: emptyProfile() }
 }
 
 /**
@@ -165,9 +170,9 @@ export function defaultTextConfig() {
  */
 function liftLegacy(raw) {
   if (!raw || typeof raw !== 'object') return null
-  if (raw.generation || raw.inspiration) return raw // already the new shape
+  if (raw.generation || raw.inspiration || raw.free) return raw // already the new shape
   if (typeof raw.provider !== 'string') return null
-  return { generation: raw, inspiration: emptyProfile() }
+  return { generation: raw, inspiration: emptyProfile(), free: emptyProfile() }
 }
 
 const str = (v, fallback = '') => (typeof v === 'string' ? v.trim() : fallback)
@@ -203,6 +208,7 @@ export function mergeTextConfig(current, patch) {
   return {
     generation: mergeProfile(base.generation, p.generation),
     inspiration: mergeProfile(base.inspiration, p.inspiration),
+    free: mergeProfile(base.free, p.free),
   }
 }
 
@@ -224,6 +230,7 @@ export function publicTextConfig(cfg) {
     profiles: TEXT_PROFILES,
     generation: publicProfile(c.generation),
     inspiration: publicProfile(c.inspiration),
+    free: publicProfile(c.free),
   }
 }
 
@@ -245,10 +252,16 @@ function resolveProfile(prof) {
  * 'inspiration' falls back to 'generation' when left unconfigured, so a single
  * model keeps working exactly as before — the second profile is opt-in.
  *
+ * 'free' falls back to NOTHING. Borrowing 'generation' the way 'inspiration'
+ * does would send every account on the free plan to the paid model the moment
+ * the free one was left empty — the one outcome the free plan exists to rule
+ * out (server/plan.js).
+ *
  * @returns {{kind:string, baseUrl:string, apiKey:string, model:string}|null}
  */
 export function resolveTextTarget(cfg, profile = 'generation') {
   const c = liftLegacy(cfg) || cfg || {}
+  if (profile === 'free') return resolveProfile(c.free)
   if (profile === 'inspiration') {
     return resolveProfile(c.inspiration) || resolveProfile(c.generation)
   }

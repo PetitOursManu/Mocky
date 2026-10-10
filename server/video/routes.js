@@ -186,9 +186,10 @@ const TYPICAL_IMAGE_BYTES = 2 * 1024 * 1024
  * @param {import('../images/library.js').ImageLibrary} deps.imageLibrary
  * @param {import('./store.js').VideoExportStore} [deps.store] where a finished render lands
  * @param {{wouldExceed:(n:number)=>boolean, usage:()=>object}} [deps.budget] the instance disk ceiling
- * @param {(profile:string)=>object|null} [deps.resolveTarget] Admin-configured text
+ * @param {(profile:string, req:object)=>object|null} [deps.resolveTarget] Admin-configured text
  *   provider, resolved on the 'inspiration' profile like every other structured
- *   server-side call. Absent, /compose falls back to the browser's own credentials.
+ *   server-side call, for the account making the request (the free plan has a
+ *   model of its own). Absent, /compose falls back to the browser's own credentials.
  * @param {(profile:string)=>object|null} [deps.imageRegistryFor] the image providers
  *   for a profile. `'edit'` answers null on an instance where no image-to-image
  *   provider is configured, and /variants reads that null as "fall back to
@@ -452,7 +453,7 @@ export function createVideoRouter({
     // left the SEO deep pass permanently "unconfigured". See credsFromReq.
     let admin = null
     try {
-      admin = resolveTarget ? resolveTarget('inspiration') : null
+      admin = resolveTarget ? resolveTarget('inspiration', req) : null
     } catch {
       admin = null
     }
