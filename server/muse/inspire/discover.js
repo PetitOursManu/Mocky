@@ -9,13 +9,14 @@ import { selectSources } from './sources.js'
  * @param {string} args.prompt
  * @param {string[]} [args.urls]  user-pasted inspiration URLs
  * @param {number} [args.maxSources]  registry sources to add (default 3)
+ * @param {Array} [args.sources]  the administrator's list (source-store.js); the shipped one otherwise
  * @param {object} deps  { fetcher, onNotice? }
  * @returns {Promise<{fetched: Array<{url,markdown,fromCache}>, sources: Array}>}
  */
 export async function discover(args, deps) {
   const onNotice = deps.onNotice || (() => {})
   const userUrls = (args.urls || []).map((u) => String(u).trim()).filter(Boolean)
-  const sources = selectSources(args.prompt, { max: args.maxSources ?? 3 })
+  const sources = selectSources(args.prompt, { max: args.maxSources ?? 3, sources: args.sources })
 
   // User URLs first, then registry sources — the fetcher caps the total at 6.
   const urls = [...userUrls, ...sources.map((s) => s.url)]

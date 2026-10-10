@@ -3,6 +3,7 @@ import type { HealthRow, Outcome } from '../../lib/dashboard'
 import ImageProviderSettings from '../ImageProviderSettings'
 import TextProviderSettings from '../TextProviderSettings'
 import VideoExportSettings from '../VideoExportSettings'
+import MuseSourcesSettings from './MuseSourcesSettings'
 import { SectionHead } from './AdminDashboard'
 import { ProviderName } from './ActivitySection'
 import { useFmt } from './format'
@@ -15,7 +16,7 @@ type Live = ReturnType<typeof useDashboard>
  *
  * The health table comes first because it is what an admin opens this screen
  * about when something is wrong; the three settings blocks below are the ones
- * the old Admin page had, mounted unchanged.
+ * the old Admin page had, mounted unchanged, and the galleries Muse reads.
  */
 export default function ProvidersSection({ live }: { live: Live }) {
   const t = useT()
@@ -58,6 +59,9 @@ export default function ProvidersSection({ live }: { live: Live }) {
       <div className="mt-10 space-y-10 border-t border-line pt-8">
         <TextProviderSettings />
         <ImageProviderSettings />
+      </div>
+      <div className="mt-10 border-t border-line pt-8">
+        <MuseSourcesSettings />
       </div>
       <div className="mt-10 border-t border-line pt-8">
         <VideoExportSettings />

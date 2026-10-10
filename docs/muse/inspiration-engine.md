@@ -149,7 +149,16 @@ Matching is substring-based, on the lowercased text.
 
 ### The registry
 
-`sources.json` lists six stable, fetch-friendly index pages.
+`sources.json` lists six stable, fetch-friendly index pages. It is the
+**default**: an administrator can replace the list in **Admin → Providers →
+Inspiration sources** — add a gallery by its address, switch one off, choose its
+tags from the vocabulary below (a tag no request can produce would make a source
+that is never chosen, so none other is offered), or go back to the shipped list.
+The edited list is `muse-sources.json` in the data directory; without that file,
+the shipped one is used, so an update that improves the defaults still reaches
+every instance that never edited them. An address added there is fetched like
+every other one — behind the SSRF guard, honouring `robots.txt` — so it is a web
+page and never a bypass.
 
 | id | URL | Tags |
 |---|---|---|
@@ -164,7 +173,9 @@ Matching is substring-based, on the lowercased text.
 request's, sorts, and keeps the top three with a non-zero score.
 
 If nothing matches — an unusual request — it falls back to the general `landing`
-galleries, so there is always something to fetch.
+galleries, or to the first ones on a list with no `landing` source, so there is
+always something to fetch. A list where every source is switched off fetches no
+gallery at all: only the addresses pasted into a request are read.
 
 Each source carries a `parser` field, currently always `"generic"`.
 [The ADR](../adr/001-muse.md) settled this: **generic parser only in v1**, using the

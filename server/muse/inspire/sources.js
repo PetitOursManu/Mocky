@@ -27,6 +27,12 @@ const KEYWORD_TAGS = {
   brand: 'brand', animation: 'animation', motion: 'animation',
 }
 
+/**
+ * Every tag a request can produce — what a source's tags are matched against,
+ * so the only ones worth giving a source (server/muse/inspire/source-store.js).
+ */
+export const TAG_VOCABULARY = Array.from(new Set(Object.values(KEYWORD_TAGS))).sort()
+
 /** Extract a tag set from the request text. */
 export function classifyTags(prompt) {
   const text = String(prompt || '').toLowerCase()
@@ -64,9 +70,11 @@ export function selectSources(prompt, opts = {}) {
   scored.sort((a, b) => b.score - a.score)
   const matched = scored.filter((s) => s.score > 0).slice(0, max).map((s) => s.source)
   // If nothing matched (unusual request), fall back to the broad "landing"
-  // galleries so there's still something to fetch.
+  // galleries so there's still something to fetch — or, on a list an
+  // administrator wrote without that tag, to the first ones, rather than to none.
   if (matched.length === 0) {
-    return sources.filter((s) => (s.tags || []).includes('landing')).slice(0, max)
+    const broad = sources.filter((s) => (s.tags || []).includes('landing'))
+    return (broad.length ? broad : sources).slice(0, max)
   }
   return matched
 }

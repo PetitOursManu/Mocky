@@ -44,7 +44,8 @@ The request is classified into tags — `landing`, `saas`, `restaurant`, `fintec
 and so on — by plain keyword matching. **No model call**, so it is testable and
 works offline.
 
-Those tags select galleries from a curated registry (`sources.json`), and any
+Those tags select galleries from a curated registry (`sources.json`, which an
+administrator can edit in Admin → Providers), and any
 URLs the user pasted are added. **The user's URLs come first**: their own
 references always get a slot in the quota.
 

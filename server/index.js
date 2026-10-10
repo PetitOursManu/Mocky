@@ -1362,6 +1362,33 @@ app.put('/api/admin/users/:id/plan', requireAdmin, (req, res) => {
   res.json({ user: { id: user.id, username: user.username, plan: planOf(user) } })
 })
 
+/*
+ * The galleries Muse reads for inspiration (server/muse/inspire/source-store.js).
+ * Shipped as a file in the repository until an administrator edits them; Reset
+ * goes back to that file, so improved defaults still reach an instance that
+ * never touched the list.
+ */
+app.get('/api/admin/muse/sources', requireAdmin, (req, res) => {
+  res.json(muse.sources.view())
+})
+
+app.put('/api/admin/muse/sources', requireAdmin, (req, res) => {
+  if (!Array.isArray(req.body?.sources)) return res.status(400).json({ error: 'Expected a list of sources.' })
+  try {
+    const view = muse.sources.save(req.body.sources)
+    audit.record({ action: 'config.museSources', actor: auditActor(req.user), detail: { sources: view.sources.length }, ip: clientIp(req) })
+    res.json(view)
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.delete('/api/admin/muse/sources', requireAdmin, (req, res) => {
+  const view = muse.sources.reset()
+  audit.record({ action: 'config.museSources', actor: auditActor(req.user), detail: { reset: true }, ip: clientIp(req) })
+  res.json(view)
+})
+
 /**
  * The free plan as its account sees it: which model answers, and how much of
  * the day is left. A standard account gets `{ plan: 'standard' }` and nothing
@@ -1885,6 +1912,7 @@ app.use(
     patterns: muse.patterns,
     blacklist: muse.blacklist,
     resolveTarget: (profile, req) => textTargetFor(req?.user, profile),
+    sources: muse.sources,
   }),
 )
 

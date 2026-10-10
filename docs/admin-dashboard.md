@@ -12,7 +12,7 @@ moving between sections costs no request.
 | **Users** | Public sign-ups, creating an account, resetting a password, deleting an account, the usage report — as before — plus each account's presence and **Sign out** (every device, password unchanged), and the [free plan](free-plan.md): which plan newcomers start on, the daily limit, **Move to free / standard** on each account, and **Test with my account** to try the free plan yourself. |
 | **Sessions** | Every signed-in browser: account, device, address, opened, last used. Close any one of them. |
 | **System** | Processor, memory, event-loop delay, graphics card, disk, the film render worker. |
-| **Providers** | How the text, image and video providers answered over the last hour, then their settings (the three blocks the old page had). |
+| **Providers** | How the text, image and video providers answered over the last hour, then their settings (the three blocks the old page had), and the [inspiration sources](muse/inspiration-engine.md#the-registry) Muse reads. |
 | **Audit log** | Who did what: sign-ins and their failures, accounts, sessions, settings, maintenance, announcements, migrations. |
 | **Announcement** | A message shown to everybody under the masthead, now or from a date you schedule, with an optional end — and dates in the text shown in each reader's time zone. |
 | **Assistants (MCP)** | Whether Claude, ChatGPT or another MCP client may act in Mocky on behalf of an account: the HTTPS checklist, the switch, who may connect, and every active connection with a way to cut it — see [Connecting an assistant](mcp.md). |

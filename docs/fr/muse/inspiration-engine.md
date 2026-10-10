@@ -1,5 +1,5 @@
 ---
-source_hash: e2174572a9e3
+source_hash: dc9a44fd6b86
 ---
 
 # Le moteur d'inspiration
@@ -160,7 +160,17 @@ La correspondance se fait par sous-chaîne, sur le texte en minuscules.
 
 ### Le registre
 
-`sources.json` liste six pages d'index stables et faciles à récupérer.
+`sources.json` liste six pages d'index stables et faciles à récupérer. C'est la
+liste **par défaut** : un administrateur peut la remplacer dans **Admin →
+Fournisseurs → Sources d'inspiration** — ajouter une galerie par son adresse, en
+désactiver une, choisir ses étiquettes dans le vocabulaire ci-dessous (une
+étiquette qu'aucune demande ne produit ferait une source jamais choisie, donc
+aucune autre n'est proposée), ou revenir à la liste fournie. La liste modifiée
+est `muse-sources.json`, dans le dossier de données ; sans ce fichier, c'est la
+liste fournie qui sert, si bien qu'une mise à jour qui améliore les sources par
+défaut atteint toutes les instances qui ne les ont jamais modifiées. Une adresse
+ajoutée là est récupérée comme toutes les autres — derrière la protection SSRF,
+en respectant `robots.txt` — : c'est une page web, jamais un contournement.
 
 | id | URL | Étiquettes |
 |---|---|---|
@@ -176,7 +186,10 @@ La correspondance se fait par sous-chaîne, sur le texte en minuscules.
 score non nul.
 
 Si rien ne correspond — une demande inhabituelle — il retombe sur les galeries
-`landing` générales, pour qu'il y ait toujours quelque chose à récupérer.
+`landing` générales, ou sur les premières d'une liste sans source `landing`,
+pour qu'il y ait toujours quelque chose à récupérer. Une liste dont toutes les
+sources sont désactivées ne récupère aucune galerie : seules les adresses collées
+dans une demande sont lues.
 
 Chaque source porte un champ `parser`, aujourd'hui toujours `"generic"`.
 [L'ADR](../../adr/001-muse.md) a tranché : **analyseur générique uniquement en v1**,

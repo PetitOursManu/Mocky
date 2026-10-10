@@ -1,5 +1,5 @@
 ---
-source_hash: 534283bbc7a4
+source_hash: ac786545a0a5
 ---
 
 # Le tableau de bord d’administration
@@ -16,7 +16,7 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 | **Utilisateurs** | Inscriptions publiques, création de compte, réinitialisation de mot de passe, suppression, rapport d’utilisation — comme avant — plus la présence de chaque compte et **Déconnecter** (tous les appareils, mot de passe inchangé), et le [forfait gratuit](free-plan.md) : le forfait des nouveaux comptes, le plafond quotidien, **Passer en gratuit / standard** sur chaque compte, et **Tester avec mon compte** pour essayer le forfait gratuit vous-même. |
 | **Sessions** | Chaque navigateur connecté : compte, appareil, adresse, ouverture, dernière utilisation. Chacun peut être fermé. |
 | **Système** | Processeur, mémoire, retard de la boucle d’événements, carte graphique, disque, worker de rendu des films. |
-| **Fournisseurs** | Comment les fournisseurs de texte, d’images et de vidéo ont répondu sur la dernière heure, puis leurs réglages (les trois blocs de l’ancienne page). |
+| **Fournisseurs** | Comment les fournisseurs de texte, d’images et de vidéo ont répondu sur la dernière heure, puis leurs réglages (les trois blocs de l’ancienne page), et les [sources d’inspiration](muse/inspiration-engine.md#le-registre) que Muse lit. |
 | **Journal d’audit** | Qui a fait quoi : connexions et échecs, comptes, sessions, réglages, maintenance, annonces, migrations. |
 | **Annonce** | Un message affiché à tout le monde sous l’en-tête, tout de suite ou à partir d’une date programmée, avec une fin facultative — et des dates dans le texte affichées dans le fuseau de chaque lecteur. |
 | **Assistants (MCP)** | Si Claude, ChatGPT ou un autre client MCP peut agir dans Mocky au nom d’un compte : les prérequis HTTPS, l’interrupteur, qui peut se connecter, et chaque connexion active avec de quoi la couper — voir [Connecter un assistant](mcp.md). |

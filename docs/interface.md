@@ -335,8 +335,18 @@ is what the same corner of the screen shows on a different screen.
 
 When something was recorded, the little rendering above the swatches is itself a
 button: it opens the document full size, where the same `Use this design` sits
-beside `Save as…`. At canvas zoom that card is a postage stamp, and a design
-system is judged on its words rather than on eight squares of colour.
+beside `Save as…`. At canvas zoom that card is a postage stamp.
+
+The window opens on **Web preview**: a mock web page — a browser frame, a header,
+a hero, three cards, a form, a footer — painted with the colours the document
+resolves and set in the typefaces it declares. The headline is the document's
+concept when it has one, the cards are its first layout rules, and under the page
+a legend lists each colour role with its hex, marked *inferred* when the
+document did not state it and Mocky filled it in. A typeface renders only if it
+is installed on your machine (Mocky loads no webfont); the legend names the face
+the document asks for. **Specification** switches to the numbered sheet, which
+is where the document is edited and saved — a design system is judged on its
+words too, not only on what a page looks like.
 
 ---
 

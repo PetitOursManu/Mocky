@@ -226,7 +226,10 @@ function ScreenDesignCard({
         <button
           type="button"
           className="block w-full overflow-hidden border border-line-soft transition hover:border-accent"
-          style={{ marginTop: 8, cursor: 'zoom-in' }}
+          // `pointer`, not `zoom-in`: Chrome on Windows draws `zoom-in` from a
+          // cursor file of its own, and a user saw an old busy spinner there —
+          // a card that looked like it was loading forever.
+          style={{ marginTop: 8, cursor: 'pointer' }}
           title={t('design.openLarger')}
           onClick={(e) => {
             e.stopPropagation()
