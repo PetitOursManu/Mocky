@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `canvas` | la caméra rejoint chaque nouvel écran, le composeur grandit, « Aucune » réutilise les images (#35) | `759458b` |
 | `images` | choix « Aucune » et réutilisation des images du projet (#34) | `7bcb09d` |
 | `plan` | un administrateur peut tester le forfait gratuit avec son compte (#32) | `a600d70` |
 | `plan` | forfait gratuit — modèle gratuit, banques libres, plafond quotidien (#31) | `a3bcd2f` |
