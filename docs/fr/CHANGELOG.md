@@ -39,6 +39,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `provider` | générations qui retombaient dans le composer (400 sur les appels structurés, 524 Cloudflare) (#42) | `4555b3b` |
 | `mcp,admin` | l'aperçu dans Claude, et les prix récupérés chez les fournisseurs (#41) | `f2be1be` |
 | `text` | ne plus envoyer de température aux modèles Claude récents (#33) | `446b6d5` |
 | `mcp` | l'aperçu vivant montre le design entier, sans barres de défilement | `272fc1b` |
