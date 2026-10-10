@@ -231,6 +231,11 @@ once:
   thing as the `Interact` toolbar button, which does it to all of them.
 - **Right-click a screen** — the context menu.
 
+When a screen is added — a generation, or **Duplicate** — the view glides to
+it in about a third of a second, so the new frame is in sight while it is
+written. A press, the wheel or a zoom button stops the move where it is; with
+reduced motion the view cuts straight to it.
+
 ### Cables between screens
 
 Every link is drawn as a **[[cable|cable]]**, like a mind map: it leaves the element it
@@ -439,7 +444,7 @@ with `Remove from selection`, plus `clear`.
 
 | Control | What it does | Cost |
 |---|---|---|
-| The text field | `Describe another screen to add to this project…` when nothing is selected; `Describe a change to apply to the selected screen…` when something is. **Ctrl/⌘ + Enter** submits. | — |
+| The text field | `Describe another screen to add to this project…` when nothing is selected; `Describe a change to apply to the selected screen…` when something is. Two lines when empty, it grows with what you write up to about nine, then scrolls. **Ctrl/⌘ + Enter** submits. | — |
 | `Generate` | Creates a new screen. | model |
 | `Update ({count})` | The same button, when screens are selected: edits those screens instead of creating one. | model |
 | `Stop` | Appears while working. Aborts the request. | free |

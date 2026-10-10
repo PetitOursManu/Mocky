@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 383cbe22e4dc
+source_hash: 3a50cfa019a0
 ---
 
 # L’interface
@@ -239,6 +239,12 @@ pour toutes :
   chose que le bouton `Interagir` de la barre d’outils, qui le fait pour tous.
 - **Clic droit sur un écran** — le menu contextuel.
 
+Quand un écran est ajouté — une génération, ou **Dupliquer** — la vue glisse
+jusqu’à lui en un tiers de seconde environ, pour que le nouveau cadre soit
+visible pendant qu’il s’écrit. Un clic, la molette ou un bouton de zoom arrête
+le mouvement là où il est ; avec les animations réduites, la vue y saute
+directement.
+
 ### Les câbles entre les écrans
 
 Chaque lien est dessiné comme un **[[câble|cable]]**, à la manière d’une carte mentale : il
@@ -458,7 +464,7 @@ plus `tout désélectionner`.
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
-| Le champ de saisie | `Décrivez un écran à ajouter à ce projet…` quand rien n’est sélectionné ; `Décrivez le changement à appliquer à l’écran sélectionné…` quand quelque chose l’est. **Ctrl/⌘ + Entrée** envoie. | — |
+| Le champ de saisie | `Décrivez un écran à ajouter à ce projet…` quand rien n’est sélectionné ; `Décrivez le changement à appliquer à l’écran sélectionné…` quand quelque chose l’est. Deux lignes à vide, il grandit avec ce que vous écrivez jusqu’à neuf environ, puis défile. **Ctrl/⌘ + Entrée** envoie. | — |
 | `Générer` | Crée un nouvel écran. | modèle |
 | `Mettre à jour ({count})` | Le même bouton, quand des écrans sont sélectionnés : il modifie ces écrans au lieu d’en créer un. | modèle |
 | `Arrêter` | Apparaît pendant le travail. Interrompt la requête. | libre |

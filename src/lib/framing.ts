@@ -132,3 +132,38 @@ export function contentBox(screens: Pick<Screen, 'x' | 'y' | 'w' | 'h' | 'imageH
 export function latestScreenOf<T extends Pick<Screen, 'createdAt'>>(screens: T[]): T | null {
   return screens.reduce<T | null>((best, s) => (!best || s.createdAt > best.createdAt ? s : best), null)
 }
+
+/**
+ * How long the camera takes to reach a screen it was asked to show — a new
+ * screen, or one picked from a list. Short on purpose: the move says WHERE the
+ * screen is on the board, which a cut cannot, and anything longer is a wait.
+ */
+export const FOCUS_ANIM_MS = 320
+
+/** Fast at first, settling at the end — a camera arriving, not one departing. */
+export const easeOutCubic = (t: number) => 1 - (1 - clamp(t, 0, 1)) ** 3
+
+/**
+ * The view a fraction `t` of the way from `from` to `to`.
+ *
+ * Interpolating x, y and scale separately bends the path: the offsets are in
+ * screen pixels at two different scales, so the board swings sideways while it
+ * zooms and the target arrives from an angle. Instead the world point at the
+ * CENTRE of the viewport travels in a straight line, and the scale changes by a
+ * constant ratio per step — a zoom from 0.1 to 0.8 then feels as even as one
+ * from 0.4 to 0.8. `t` is already eased; 1 returns `to` exactly.
+ */
+export function viewBetween(from: ViewState, to: ViewState, t: number, viewport: Viewport): ViewState {
+  if (t >= 1) return to
+  if (t <= 0) return from
+  const cx = viewport.width / 2
+  const cy = viewport.height / 2
+  const fromX = (cx - from.x) / from.scale
+  const fromY = (cy - from.y) / from.scale
+  const toX = (cx - to.x) / to.scale
+  const toY = (cy - to.y) / to.scale
+  const scale = from.scale * (to.scale / from.scale) ** t
+  const wx = fromX + (toX - fromX) * t
+  const wy = fromY + (toY - fromY) * t
+  return { x: cx - wx * scale, y: cy - wy * scale, scale }
+}
