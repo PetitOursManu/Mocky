@@ -1,5 +1,5 @@
 ---
-source_hash: ed807f044492
+source_hash: d6cc2f20c534
 ---
 
 # Connecter un assistant (MCP)
@@ -31,8 +31,13 @@ instance servie en HTTPS.
 | `audit_design` | Le [rapport SEO et accessibilité](seo-accessibility.md) d'un écran : deux notes et les constats nommés. Ne change rien ; `deep` ajoute les questions jugées par le modèle. |
 | `fix_accessibility` | La correction propre à ce rapport : corrige le balisage, l'écran restant identique à l'œil. |
 
-Et un prompt, **new-design** (le menu « / » de Claude), qui démarre un court
-entretien avant de dessiner.
+Et sept prompts (le menu « / » de Claude), chacun un message de départ qui nomme
+déjà les bons outils dans le bon ordre (`server/mcp/prompts.js`) : **new-design**
+(un court entretien, puis le design), **social-post**, **printed-document**
+(flyer, affiche, menu, CV…), **landing-page**, **add-to-project**,
+**change-screen** et **review-screen** (la passe qualité, ou l'audit
+d'accessibilité). Tous les arguments sont facultatifs — choisi dans un menu sans
+rien remplir, un prompt démarre quand même une conversation sensée.
 
 - **D'abord les questions.** L'assistant a pour consigne de savoir de quel écran
   il s'agit, pour qui et dans quel ton, et de poser au plus trois questions
@@ -285,10 +290,22 @@ Claude Code est le seul à accepter un connecteur en une ligne : claude.ai,
 Claude Desktop et ChatGPT n'ont ni lien d'installation ni fichier pour un
 connecteur distant, à dessein — la personne l'ajoute dans ses propres réglages.
 (Une *skill* Claude ne le peut pas non plus : une skill apprend à Claude à faire
-quelque chose, elle n'ajoute pas de connecteur. Bien utiliser Mocky, le
-connecteur l'enseigne déjà lui-même, avec `mocky_guide`.) Pour Claude Desktop
-avec un Mocky que les assistants ne peuvent pas joindre, voir
+quelque chose, elle n'ajoute pas de connecteur.) Pour Claude Desktop avec un
+Mocky que les assistants ne peuvent pas joindre, voir
 [Un Mocky que les assistants ne peuvent pas joindre](#un-mocky-que-les-assistants-ne-peuvent-pas-joindre).
+
+**Le skill, facultatif et gratuit.** Sous l'adresse, **Télécharger le skill
+(.zip)** donne un skill Claude construit pour cette instance
+(`server/mcp/skill.js`) : le guide du connecteur et ses prompts, dans un seul
+`mocky/SKILL.md`. Le connecteur fonctionne sans ; ce que le skill ajoute, c'est
+d'être dans Claude *avant* tout appel d'outil — Claude pense à Mocky quand on lui
+demande un flyer sans le nommer, se passe de l'appel à `mocky_guide` au premier
+design, et, quand le connecteur manque, donne l'adresse de cette instance au lieu
+de faire semblant de dessiner. Importez-le dans Claude sous *Personnaliser →
+Skills*, ou décompressez-le dans `~/.claude/skills/` pour Claude Code. Il est
+généré à partir du même guide que celui du connecteur, si bien que les deux ne
+peuvent pas enseigner des choses différentes ; retéléchargez-le après une mise à
+jour pour avoir le plus récent.
 
 Ensuite, dans tous les cas :
 

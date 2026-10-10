@@ -11,6 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { findChromium } from '../server/mcp/runner.js'
 import { GUIDED_TOOLS, CLIENT_TOOLS } from '../server/mcp/guide.js'
+import { PROMPTS } from '../server/mcp/prompts.js'
 import { VIEW_URI, VIEW_MIME } from '../server/mcp/view.js'
 import { stopProcess, removeDir } from './support/stop.js'
 
@@ -192,7 +193,19 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     // The guide explains exactly the tools the server offers — no more, no fewer.
     expect(tools).toEqual([...GUIDED_TOOLS].sort())
     const prompts = (await mcp.listPrompts()).prompts.map((p) => p.name)
-    expect(prompts).toContain('new-design')
+    expect(prompts.sort()).toEqual(Object.keys(PROMPTS).sort())
+    const post = await mcp.getPrompt({ name: 'social-post', arguments: { subject: 'Semaine du goût' } })
+    expect(post.messages[0].content.text).toContain('Semaine du goût')
+  })
+
+  it('hands this person a skill that names this instance’s connector, and nobody else', async () => {
+    const r = await fetch(`${base}/api/account/mcp-skill.zip`, { headers: { cookie } })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type')).toBe('application/zip')
+    const zip = Buffer.from(await r.arrayBuffer())
+    expect(zip.includes(Buffer.from('mocky/SKILL.md'))).toBe(true)
+    expect(zip.includes(Buffer.from(`${base}/mcp`))).toBe(true)
+    expect((await fetch(`${base}/api/account/mcp-skill.zip`)).status).toBe(401)
   })
 
   it('hands the assistant its guide, as a tool and as a resource', async () => {

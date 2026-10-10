@@ -1127,6 +1127,9 @@ server/mcp/prefs.js        each person's engine: Mocky's model, or the assistant
                            the page waits on __mockyRunnerAwaitCode, submit_screen resolves it)
 server/mcp/guide.js        the guide FOR THE ASSISTANT (mocky_guide, mocky://guide): when a real
                            test shows a model doing the wrong thing, the fix goes here too
+server/mcp/prompts.js      the prompts a person picks in their client's menu — starting messages
+                           that name tools; `prompts.test.js` holds them to the real tool list
+server/mcp/skill.js        the downloadable Claude skill: the guide + the prompts as one SKILL.md
 src/runner/main.tsx        runner.html: runNewScreen, or one pass on an existing screen, + the preview (X5)
 server/mcp/view.js         the live view (MCP Apps): a frame around /mcp-view/<hash>.html, served
                            under `sandbox allow-scripts` (X7) — never the screen inlined in the view

@@ -39,6 +39,7 @@
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { registerPrompts } from './prompts.js'
 import { parseProjects } from '../merge.js'
 import { SCREEN_TYPES, PAGE_FORMATS, inferPageFormat } from './screen-types.js'
 import { buildGuide } from './guide.js'
@@ -1062,27 +1063,8 @@ export function buildMcpServer(deps) {
     },
   )
 
-  server.registerPrompt(
-    'new-design',
-    {
-      title: 'Design a screen with Mocky',
-      description: 'Starts a short interview, then has Mocky generate the screen.',
-      argsSchema: { subject: z.string().max(500).optional().describe('What you want to design, if you already know.') },
-    },
-    ({ subject }) => ({
-      messages: [
-        {
-          role: 'user',
-          content: {
-            type: 'text',
-            text:
-              (subject ? `I want to design this with Mocky: ${subject}\n\n` : 'I want to design a screen with Mocky.\n\n') +
-              'Ask me at most three short questions about what you do not know yet — the kind of screen, who it is for, the tone and colours — then call create_design with my answers. Reply in my language.',
-          },
-        },
-      ],
-    }),
-  )
+  // The doors a person meets in their client's menu (prompts.js).
+  registerPrompts(server)
 
   return server
 }
