@@ -68,10 +68,11 @@ describe('site screenshots in the generation path', () => {
   it('replace the site pictures only where no dossier already made them', () => {
     // A redesign Muse ran for has its pictures; a second set would compete.
     expect(pipeline).toContain('const sitePictures = siteNew && (reproducing || !museRan) && picturesAllowed ? parseSitePictures(siteContent) : []')
-    // `picturesAllowed` only ever says no for a DOCUMENT whose own Images choice
-    // is "Sans image": for every other screen it is true, and the rule above is
-    // the one it always was.
-    expect(pipeline).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
+    // `picturesAllowed` says no for a DOCUMENT whose own Images choice is "Sans
+    // image", and for any other screen only when the composer said "Aucune"
+    // (`picturesOff`, absent for every caller but the composer): otherwise it
+    // is true, and the rule above is the one it always was.
+    expect(pipeline).toContain('const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff')
     expect(pipeline).toContain('if (siteSection) planSection = [planSection, siteSection, sitePicturesSection]')
   })
 

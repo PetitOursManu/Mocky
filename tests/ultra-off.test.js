@@ -63,17 +63,19 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     expect(view).toContain('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew)')
   })
 
-  it('offers earlier pictures only to a project that has Motion Ultra pictures', () => {
-    // projectUltraPictures() is empty for a project that never used Motion Ultra,
-    // so the section is never built and the path is the old one.
-    expect(view).toContain('const owned = projectUltraPictures(hooks.currentScreens())')
+  it('offers earlier pictures only to a project whose screens show some', () => {
+    // projectPictures() is empty for a project with no Motion Ultra series and
+    // no library picture in any screen's code, so the section is never built
+    // and the path is the old one.
+    expect(view).toContain('const owned = projectPictures(hooks.currentScreens())')
     expect(view).toContain('if (owned.length) {')
   })
 
   it("keeps Muse's own picture as it was, and makes no film on its own", () => {
     expect(view).toContain('if (remaining.length && pins.length === 0 && !runUltra && picturesAllowed)')
-    // True for every screen that is not a document — see site-reference.test.js.
-    expect(view).toContain('const picturesAllowed = !pipe.document || runDocPicture !== null')
+    // True for every screen that is not a document, unless the composer said
+    // "Aucune" — see site-reference.test.js.
+    expect(view).toContain('const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff')
     expect(view).toContain('const runUltra = ultraActive && pipe.motionUltra')
     // The automatic film is gone for everyone: a film is only ever asked for.
     for (const src of [view, composer]) {

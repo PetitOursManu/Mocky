@@ -462,7 +462,10 @@ défilement avec ses propres images.
 
 Les clés Pexels et Pixabay collées pour les vidéos libres (**Admin → Vidéos et
 photos libres de droits**) servent aussi aux photos. Avec l'une d'elles, le
-composeur propose **Images · IA / Libres** dès que Muse ou Motion Ultra est actif :
+composeur propose **Images · IA / Libres / Aucune** dès que Muse ou Motion Ultra est
+actif (**Aucune** ne crée aucune nouvelle image ; un nouvel écran réutilise
+toujours les images que les écrans du projet montrent déjà, sauf si sa demande
+dit le contraire) :
 
 - le dossier ou le storyboard écrit une courte recherche en anglais pour chaque
   image ;

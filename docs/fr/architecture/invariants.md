@@ -1,5 +1,5 @@
 ---
-source_hash: d94e465da4b4
+source_hash: 2ebba9ffaed6
 ---
 
 # Invariants
@@ -734,10 +734,12 @@ mette pas à recevoir une typographie géante et une aurore.
 **Comment c'est fait.** Toute la passe est derrière `ultraActive` dans
 `lib/pipeline/newScreen.ts`, et la capacité `ultra` a des `triggers` vides.
 
-Une exception voulue, et seulement pour un projet qui A des images Motion Ultra :
-un écran généré sans Motion Ultra se les voit proposer (`lib/ultra/reuse.ts`).
-Un projet qui n'a jamais utilisé Motion Ultra n'a rien à proposer et suit
-l'ancien chemin.
+Une exception voulue, et seulement pour un projet dont les écrans MONTRENT déjà
+des images — une série Motion Ultra, ou n'importe quelle image de la médiathèque
+dans le code d'un écran : un écran généré sans Motion Ultra se les voit
+proposer, avec la consigne de les réutiliser sauf si sa demande dit le contraire
+(`lib/projectPictures.ts`). Un projet sans image n'a rien à proposer et suit
+l'ancien chemin, ce qui garde M1 et cette règle vraies pour lui.
 
 **Comment c'est vérifié.** `tests/ultra-off.test.js` attache chaque appel Motion Ultra
 Ultra du chemin de génération à la garde qui l'éteint, et vérifie qu'aucun

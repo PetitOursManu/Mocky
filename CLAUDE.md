@@ -217,6 +217,13 @@ has rendered a `background` film — an AST offset, no model call. Do not route 
 through `placeFilmInScreen`: that is the model-driven placement for films
 nobody planned.
 
+**A project's pictures are offered to its next screen** (`lib/projectPictures.ts`):
+every library picture a screen's code embeds, plus a Motion Ultra series, and the
+model is asked to REUSE them unless the request says otherwise. Read off the
+code, not off `imageHash` — that names an art-direction plate in "inspiration"
+mode. The composer's `Images · None` (`picturesOff`) stops every NEW picture
+outside Motion Ultra and keeps that offer.
+
 **Free stock photos** (`Images · Free` in the composer) replace Muse's and
 Ultra's generated pictures with Pexels/Pixabay photos — `server/images/stock.js`,
 `src/lib/stockImages.ts`. The planner writes the search (`query`,

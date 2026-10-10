@@ -312,7 +312,9 @@ whatever the panel shows — the panel only hides what would be refused.
 two places. By hand: Media's Images tab gains the same search, and an imported
 photo is stored like an upload, with its author's credit shown on its card — pin
 it and Muse uses it like any picture of yours. Automatically: the composer's
-`Images · AI / Free` choice. On *Free*, the imagery plan's slots are FOUND
+`Images · AI / Free / None` choice (*None* makes no new picture: the dossier
+still writes the direction and the copy, and the page is offered the pictures
+the project's screens already show). On *Free*, the imagery plan's slots are FOUND
 instead of generated — up to three of them, since a search costs neither a
 provider's pace nor a price. The dossier writes a `searchQuery` for each slot
 (two to four English words), the server returns eight thumbnails, and the model

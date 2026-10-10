@@ -480,7 +480,9 @@ feature with its own footage.
 
 The Pexels and Pixabay keys pasted for free footage (**Admin → Free stock videos
 and photos**) serve photos too. With one, the composer offers **Images · AI /
-Free** whenever Muse or Motion Ultra is on:
+Free / None** whenever Muse or Motion Ultra is on (**None** makes no new picture;
+a new screen always reuses the pictures the project's screens already show,
+unless its request says otherwise):
 
 - the dossier or the storyboard writes a short English search for each picture;
 - the server returns eight thumbnails for it — nothing is stored yet;
