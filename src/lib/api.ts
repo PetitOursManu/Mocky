@@ -35,6 +35,8 @@ export interface AdminUser {
   mustChangePassword?: boolean
   /** Signs in through Dashy and has no local password to reset. */
   sso?: boolean
+  /** "API perso": the provider and model this account declared for its own key. Never the key. */
+  ownText?: { provider: string; model: string | null } | null
 }
 
 /** Admin → Accounts: sign-ups, and the plan newcomers start on. */
@@ -66,6 +68,8 @@ export interface AdminConfig {
   freePlan: FreePlanSettings
   /** The plan the reading administrator's OWN account behaves as — their test switch. */
   testPlan: Plan
+  /** Whether an account may use its own provider and key over the instance's model. */
+  ownKeys: boolean
 }
 
 /** GET /api/account/plan. A standard account gets the plan and nothing else. */
@@ -488,6 +492,13 @@ export const api = {
   me: () => req('/api/me').then((d) => (d.user ? (d.user as AuthUser) : null)),
   /** The free plan as the account sees it: its model and what is left of the day. */
   plan: () => req('/api/account/plan') as Promise<AccountPlan>,
+  /**
+   * Use this account's own provider and key over the instance's model, or go
+   * back. Only the provider's id and the model's name are sent — the key stays
+   * in this browser's Settings.
+   */
+  setTextSource: (choice: { own: true; provider: string; model: string } | { own: false }) =>
+    req('/api/account/text-source', { method: 'PUT', body: JSON.stringify(choice) }) as Promise<{ own: boolean }>,
   register: (username: string, password: string) =>
     req('/api/register', { method: 'POST', body: JSON.stringify({ username, password }) }).then((d) => d.user as AuthUser),
   login: (username: string, password: string) =>
@@ -560,6 +571,12 @@ export const api = {
         inspirationModel?: string | null
         /** The plan of the account asking: on `free`, the model above is the free one. */
         plan?: Plan
+        /** This account answers with its own key, over the instance's model. */
+        own?: boolean
+        /** Whether the administrator allows that. */
+        ownAllowed?: boolean
+        /** What the instance would answer this account with — the way back from `own`. */
+        instance?: { model: string; provider: string } | null
       }
     }>,
 
@@ -604,6 +621,8 @@ export const api = {
     getConfig: () => req('/api/admin/config') as Promise<AdminConfig>,
     setAllowRegistration: (allowRegistration: boolean) =>
       req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ allowRegistration }) }) as Promise<AdminConfig>,
+    setOwnKeys: (ownKeys: boolean) =>
+      req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ ownKeys }) }) as Promise<AdminConfig>,
     setFreePlan: (patch: Partial<Pick<FreePlanSettings, 'newAccounts' | 'dailyLimit'>>) =>
       req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ freePlan: patch }) }) as Promise<AdminConfig>,
     /** Make the administrator's own account behave as `plan` — to try the free plan as it serves. */

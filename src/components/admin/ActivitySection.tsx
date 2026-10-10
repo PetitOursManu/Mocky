@@ -263,11 +263,24 @@ export function ProviderName({ provider, source }: { provider: string; source: '
   return (
     <span className="font-mono text-caption text-ink-muted">
       {provider === 'unknown' ? <span className="font-sans">{t('dashboard.providers.unknown')}</span> : provider}
-      {source === 'browser' && (
-        <span className="ml-1 font-sans text-ink-faint" title={t('dashboard.providers.browserHelp')}>
-          ({t('dashboard.providers.browser')})
-        </span>
-      )}
+      {source === 'browser' && <OwnApiBadge className="ml-1.5" />}
+    </span>
+  )
+}
+
+/**
+ * "API perso": the call went out with the person's own key. A badge rather than
+ * a parenthesis, because it is the one fact about a provider an administrator
+ * scans a list for — it is the line their own bill does not cover.
+ */
+export function OwnApiBadge({ className = '' }: { className?: string }) {
+  const t = useT()
+  return (
+    <span
+      className={`inline-block border border-muse/60 px-1 py-px align-middle font-sans text-[11px] font-medium uppercase tracking-wide text-muse-ink ${className}`}
+      title={t('dashboard.providers.browserHelp')}
+    >
+      {t('dashboard.providers.browser')}
     </span>
   )
 }

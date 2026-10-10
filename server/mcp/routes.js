@@ -48,6 +48,7 @@ export const SHOT_LINK_TTL_MS = 24 * 60 * 60 * 1000
  * @param {(req) => string|null} d.clientIp
  * @param {ReturnType<import('./runner.js').createRunner>} d.runner
  * @param {(user:object) => boolean} d.hasTextProvider   whether this account has a generation provider
+ * @param {(user:object) => boolean} [d.usesOwnText]     whether it chose its own key, kept in its browser
  * @param {(userId: string) => void} d.touchMcp     presence: this account is using Mocky through an assistant
  */
 export function createMcpServerRoutes(d) {
@@ -183,6 +184,7 @@ export function createMcpServerRoutes(d) {
         engine: (requested) => resolveEngine(config.get(), { requested, preferred: prefs.get(userId).engine }),
         engines: () => config.get().engines,
         hasTextProvider: d.hasTextProvider,
+        usesOwnText: d.usesOwnText,
         shotLink,
         viewLink,
         origin,

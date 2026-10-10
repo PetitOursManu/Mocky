@@ -4,7 +4,7 @@ import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '.
 import { useT } from '../../i18n'
 import UsageReport from '../UsageReport'
 import { SectionHead } from './AdminDashboard'
-import { StateMark } from './ActivitySection'
+import { OwnApiBadge, StateMark } from './ActivitySection'
 import { useFmt } from './format'
 import type { useDashboard } from './useDashboard'
 
@@ -34,6 +34,7 @@ export default function UsersSection({
   const t = useT()
   const f = useFmt()
   const [allowReg, setAllowReg] = useState(true)
+  const [ownKeys, setOwnKeys] = useState(true)
   /** The free plan's settings as saved; null until the server answered. */
   const [freePlan, setFreePlan] = useState<FreePlanSettings | null>(null)
   /** The plan this administrator's own account behaves as; null until the server answered. */
@@ -61,6 +62,7 @@ export default function UsersSection({
     try {
       const [cfg, list] = await Promise.all([api.admin.getConfig(), api.admin.listUsers()])
       setAllowReg(cfg.allowRegistration)
+      setOwnKeys(cfg.ownKeys !== false)
       setFreePlan(cfg.freePlan ?? null)
       setTestPlan(cfg.testPlan ?? 'standard')
       setUsers(list)
@@ -83,6 +85,19 @@ export default function UsersSection({
       await api.admin.setAllowRegistration(next)
     } catch (e) {
       setAllowReg(!next)
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function toggleOwnKeys() {
+    const next = !ownKeys
+    setOwnKeys(next)
+    try {
+      await api.admin.setOwnKeys(next)
+      // The badges below follow the switch: closed, nobody answers with their own key.
+      setUsers(await api.admin.listUsers())
+    } catch (e) {
+      setOwnKeys(!next)
       setError(e instanceof Error ? e.message : String(e))
     }
   }
@@ -174,6 +189,14 @@ export default function UsersSection({
               <span className="measure block text-body-sm text-ink-muted">{t('settings.allowSignupsHelp')}</span>
             </span>
             <input type="checkbox" className="h-5 w-5 accent-accent" checked={allowReg} onChange={toggleReg} />
+          </label>
+
+          <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 border border-line-soft bg-ink/5 p-3">
+            <span>
+              <span className="block text-body font-medium text-ink">{t('settings.ownKeysAllow')}</span>
+              <span className="measure block text-body-sm text-ink-muted">{t('settings.ownKeysAllowHelp')}</span>
+            </span>
+            <input type="checkbox" className="h-5 w-5 accent-accent" checked={ownKeys} onChange={toggleOwnKeys} />
           </label>
 
           {freePlan && (
@@ -311,6 +334,14 @@ export default function UsersSection({
                     )}
                     {u.role === 'admin' && u.plan === 'free' && (
                       <span className="bg-ok/10 px-2 py-0.5 text-caption font-semibold uppercase text-ok">{t('plan.testBadge')}</span>
+                    )}
+                    {u.ownText && (
+                      <span className="flex items-center gap-1.5 text-caption text-ink-muted">
+                        <OwnApiBadge />
+                        <span className="font-mono">
+                          {u.ownText.model ? `${u.ownText.provider} · ${u.ownText.model}` : u.ownText.provider}
+                        </span>
+                      </span>
                     )}
                     <span className="text-body-sm">
                       <StateMark state={p?.state || 'offline'} mcp={p?.mcp} />

@@ -9,7 +9,7 @@ moving between sections costs no request.
 |---|---|
 | **Overview** | Who is here, what is running, whether the machine and the providers are well — and, as sentences, the few things that need a decision. |
 | **Live activity** | Every account, connected or not: state, where they are, what they are doing right now, what they did in the last hour. A per-kind chart and a feed of finished work. |
-| **Users** | Public sign-ups, creating an account, resetting a password, deleting an account, the usage report — as before — plus each account's presence and **Sign out** (every device, password unchanged), and the [free plan](free-plan.md): which plan newcomers start on, the daily limit, **Move to free / standard** on each account, and **Test with my account** to try the free plan yourself. |
+| **Users** | Public sign-ups, creating an account, resetting a password, deleting an account, the usage report — as before — plus each account's presence and **Sign out** (every device, password unchanged), and the [free plan](free-plan.md): which plan newcomers start on, the daily limit, **Move to free / standard** on each account, and **Test with my account** to try the free plan yourself. An account on its own key carries the **API perso** badge with the provider and model it declared (never the key), and **Personal API keys** allows or forbids that choice for everybody. |
 | **Sessions** | Every signed-in browser: account, device, address, opened, last used. Close any one of them. |
 | **System** | Processor, memory, event-loop delay, graphics card, disk, the film render worker. |
 | **Providers** | How the text, image and video providers answered over the last hour, then their settings (the three blocks the old page had), and the [inspiration sources](muse/inspiration-engine.md#the-registry) Muse reads. |
@@ -131,8 +131,9 @@ and 95th-percentile duration, and the last event.
   prompt answered in 2 ms). They are shown beside the failures.
 - **Durations cover successful calls only.** A refusal answered in 40 ms would
   make a failing provider look fast.
-- **A browser's own key** is named by the host it points at and marked so, which
-  tells "our OpenRouter account is failing" from "Alice's Ollama is down".
+- **A browser's own key** is named by the host it points at and marked
+  **API perso**, which tells "our OpenRouter account is failing" from "Alice's
+  Ollama is down".
 
 A provider failing at least 20 % of its calls, twice or more, turns its menu entry
 red and gets a line on the overview.

@@ -1,5 +1,5 @@
 ---
-source_hash: ac786545a0a5
+source_hash: 8059ac424f37
 ---
 
 # Le tableau de bord d’administration
@@ -13,7 +13,7 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 |---|---|
 | **Vue d’ensemble** | Qui est là, ce qui tourne, si la machine et les fournisseurs vont bien — et, en phrases, les quelques points qui demandent une décision. |
 | **Activité en direct** | Chaque compte, connecté ou non : état, où il se trouve, ce qu’il fait maintenant, ce qu’il a fait dans l’heure. Un graphique par type et un fil des travaux terminés. |
-| **Utilisateurs** | Inscriptions publiques, création de compte, réinitialisation de mot de passe, suppression, rapport d’utilisation — comme avant — plus la présence de chaque compte et **Déconnecter** (tous les appareils, mot de passe inchangé), et le [forfait gratuit](free-plan.md) : le forfait des nouveaux comptes, le plafond quotidien, **Passer en gratuit / standard** sur chaque compte, et **Tester avec mon compte** pour essayer le forfait gratuit vous-même. |
+| **Utilisateurs** | Inscriptions publiques, création de compte, réinitialisation de mot de passe, suppression, rapport d’utilisation — comme avant — plus la présence de chaque compte et **Déconnecter** (tous les appareils, mot de passe inchangé), et le [forfait gratuit](free-plan.md) : le forfait des nouveaux comptes, le plafond quotidien, **Passer en gratuit / standard** sur chaque compte, et **Tester avec mon compte** pour essayer le forfait gratuit vous-même. Un compte sur sa propre clé porte le badge **API perso** avec le fournisseur et le modèle qu’il a déclarés (jamais la clé), et **Clés API personnelles** autorise ou interdit ce choix pour tout le monde. |
 | **Sessions** | Chaque navigateur connecté : compte, appareil, adresse, ouverture, dernière utilisation. Chacun peut être fermé. |
 | **Système** | Processeur, mémoire, retard de la boucle d’événements, carte graphique, disque, worker de rendu des films. |
 | **Fournisseurs** | Comment les fournisseurs de texte, d’images et de vidéo ont répondu sur la dernière heure, puis leurs réglages (les trois blocs de l’ancienne page), et les [sources d’inspiration](muse/inspiration-engine.md#le-registre) que Muse lit. |
@@ -144,8 +144,8 @@ jusqu’au premier octet, durée médiane et au 95e centile, dernier événement
   échecs.
 - **Les durées ne portent que sur les appels réussis.** Un refus renvoyé en 40 ms
   ferait paraître rapide un fournisseur en panne.
-- **La clé du navigateur** d’un utilisateur est nommée par l’hôte visé et signalée
-  comme telle : cela distingue « notre compte OpenRouter échoue » de « l’Ollama
+- **La clé du navigateur** d’un utilisateur est nommée par l’hôte visé et marquée
+  **API perso** : cela distingue « notre compte OpenRouter échoue » de « l’Ollama
   d’Alice est tombé ».
 
 Un fournisseur qui échoue sur au moins 20 % de ses appels, au moins deux fois, met

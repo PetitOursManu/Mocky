@@ -1,5 +1,5 @@
 ---
-source_hash: 2ebba9ffaed6
+source_hash: 2c2061927dd6
 ---
 
 # Invariants
@@ -21,7 +21,7 @@ Il y a sept séries :
 - **U1 à U5**, apportés par Motion Ultra.
 - **D1 à D5**, apportés par le tableau de bord d’administration.
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
-- **F1 à F3**, apportés par le forfait gratuit.
+- **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1054,7 +1054,8 @@ propres règles à cette série.
 Elles sont arrivées avec le forfait gratuit (`server/plan.js`,
 [sa page](../free-plan.md)), qui permet à une instance d'ouvrir ses inscriptions
 sans payer les générations d'inconnus. Chaque règle porte sur une façon dont un
-compte de ce forfait pourrait finir par dépenser de l'argent quand même.
+compte de ce forfait pourrait finir par dépenser de l'argent quand même — F4, le
+compte qui paie avec sa propre clé, compris.
 
 ### F1. Un compte gratuit n'atteint jamais un fournisseur payant
 
@@ -1120,6 +1121,30 @@ clé partagée pour être refusé à sa génération.
 **Comment c'est vérifié.** `server/plan.test.js` (le plafond des appels, le refus
 après épuisement, un redémarrage, minuit), `server/plan-routes.test.js` (`429`
 avec `code: "free-quota"`, l'administrateur non concerné, `0` pour illimité).
+
+### F4. Une clé personnelle appartient à la personne : le serveur garde son nom, jamais elle
+
+**La règle.** Un compte peut répondre avec son propre fournisseur et sa propre clé
+plutôt qu'avec le modèle de l'instance (`ownText` sur le compte,
+server/own-text.js), sauf si l'administrateur a fermé l'option
+(`ownKeys: false`). `textTargetFor` répond null pour lui — si bien que chaque
+route qui résout un modèle suit, et que les portes du quota, qui interrogent
+aussi `textTargetFor`, ne comptent rien. Le serveur enregistre l'identifiant du
+fournisseur et le nom du modèle déclarés par les Réglages de la personne, et rien
+d'autre : la clé reste dans le navigateur et voyage comme elle l'a toujours fait,
+derrière la protection SSRF. Fermer l'option n'efface pas le choix ; elle cesse
+de l'honorer.
+
+**Ce qu'elle protège.** Deux promesses à la fois : qu'un administrateur voie quels
+comptes ne sont pas sur sa facture (le badge **API perso**, le fournisseur, le
+modèle), et que le voir ne revienne jamais à détenir l'identifiant de quelqu'un
+d'autre.
+
+**Comment c'est vérifié.** `server/own-text.test.js` (ce qui est gardé, fal
+refusé, l'interrupteur), `server/own-text-routes.test.js` (l'appel part là où le
+navigateur le dit et aucun fournisseur de l'instance ne l'entend, aucun quota
+dépensé, la clé absente de la liste d'administration et de `users.json`, l'option
+fermée puis rouverte).
 
 ---
 

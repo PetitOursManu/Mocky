@@ -30,6 +30,7 @@ import {
   quotaRefusal,
   paidRefusal,
 } from './plan.js'
+import { cleanOwnText, ownKeysAllowed, ownTextView, usesOwnText } from './own-text.js'
 import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
@@ -218,6 +219,17 @@ const freeQuota = new FreeQuota(DATA_DIR)
  * never the paid profile it would otherwise have borrowed.
  */
 function textTargetFor(user, profile = 'generation') {
+  if (usesOwnText(user, loadConfig())) return null
+  return instanceTextTarget(user, profile)
+}
+
+/**
+ * What the instance would answer `user` with, whatever the account chose —
+ * what Settings offers to go back to, and what an account on its own key
+ * (server/own-text.js) is NOT using. Never a route's answer: those go through
+ * `textTargetFor`, which honours the choice.
+ */
+function instanceTextTarget(user, profile = 'generation') {
   return planOf(user) === 'free' ? textConfig.target('free') : textConfig.target(profile)
 }
 
@@ -684,9 +696,9 @@ app.use('/__provider', (req, res) => {
   }
   // The free plan's daily limit is spent here, on the calls that reach the
   // shared free model — and only those: a free account using its own key from
-  // Settings (no free model configured) spends nobody's quota but its own.
-  // `/api/tags` lists models and costs nothing.
-  if (planOf(user) === 'free' && textConfig.target('free') && req.url.split('?')[0] === '/api/chat') {
+  // Settings (no free model configured, or its own chosen over it) spends
+  // nobody's quota but its own. `/api/tags` lists models and costs nothing.
+  if (planOf(user) === 'free' && textTargetFor(user) && req.url.split('?')[0] === '/api/chat') {
     const purpose = String(req.headers['x-mocky-purpose'] || '')
     const verdict = freeQuota.take(user.id, freePlanSettings(loadConfig()).dailyLimit, {
       generation: COUNTED_PURPOSES.has(purpose),
@@ -741,7 +753,7 @@ app.get('/api/images/providers', requireUser, (req, res, next) => {
  * Only when the free model is configured, for the reason the proxy gives.
  */
 app.post(['/api/muse/dossier', '/api/muse/quality', '/api/muse/audit', '/api/video/compose'], requireUser, (req, res, next) => {
-  if (planOf(req.user) !== 'free' || !textConfig.target('free')) return next()
+  if (planOf(req.user) !== 'free' || !textTargetFor(req.user)) return next()
   const verdict = freeQuota.take(req.user.id, freePlanSettings(loadConfig()).dailyLimit)
   if (verdict.ok) return next()
   res.status(429).json(quotaRefusal(req, verdict.limit))
@@ -986,6 +998,8 @@ app.get('/api/config', (req, res) => {
       const user = sessionUser(req)
       const t = textTargetFor(user)
       const insp = textTargetFor(user, 'inspiration')
+      const instance = instanceTextTarget(user)
+      const cfg = loadConfig()
       return {
         configured: Boolean(t),
         model: t ? t.model : null,
@@ -993,6 +1007,12 @@ app.get('/api/config', (req, res) => {
         // Only advertise a distinct inspiration model when it really differs.
         inspirationModel: insp && (!t || insp.model !== t.model) ? insp.model : null,
         plan: planOf(user),
+        // The account's own key over the instance's model (server/own-text.js):
+        // whether it is on, whether the administrator allows it, and what the
+        // instance would answer instead — so Settings can offer the way back.
+        own: usesOwnText(user, cfg),
+        ownAllowed: ownKeysAllowed(cfg),
+        instance: instance ? { model: instance.model, provider: instance.id } : null,
       }
     })(),
   })
@@ -1288,6 +1308,7 @@ const adminConfigView = (cfg, admin) => ({
   allowRegistration: cfg.allowRegistration !== false,
   freePlan: { ...freePlanSettings(cfg), modelConfigured: Boolean(textConfig.target('free')) },
   testPlan: planOf(admin),
+  ownKeys: ownKeysAllowed(cfg),
 })
 
 app.get('/api/admin/config', requireAdmin, (req, res) => {
@@ -1302,6 +1323,15 @@ app.put('/api/admin/config', requireAdmin, (req, res) => {
       action: 'config.registration',
       actor: auditActor(req.user),
       detail: { allowRegistration: cfg.allowRegistration },
+      ip: clientIp(req),
+    })
+  }
+  if (typeof req.body?.ownKeys === 'boolean') {
+    cfg.ownKeys = req.body.ownKeys
+    audit.record({
+      action: 'config.ownKeys',
+      actor: auditActor(req.user),
+      detail: { ownKeys: cfg.ownKeys },
       ip: clientIp(req),
     })
   }
@@ -1397,7 +1427,7 @@ app.delete('/api/admin/muse/sources', requireAdmin, (req, res) => {
 app.get('/api/account/plan', requireUser, (req, res) => {
   const plan = planOf(req.user)
   if (plan !== 'free') return res.json({ plan })
-  const target = textConfig.target('free')
+  const target = textTargetFor(req.user)
   const { dailyLimit } = freePlanSettings(loadConfig())
   res.json({
     plan,
@@ -1407,7 +1437,40 @@ app.get('/api/account/plan', requireUser, (req, res) => {
   })
 })
 
+/**
+ * The account's text provider: the instance's model, or its own key
+ * (server/own-text.js). `{ own: true, provider, model }` opts in and keeps the
+ * declared provider and model current — Settings sends it again whenever they
+ * change; `{ own: false }` goes back. The key is never part of it.
+ *
+ * Not audited: it is a person's own setting, like the MCP engine
+ * (server/mcp/prefs.js), and an administrator sees its effect in the accounts
+ * list and in the activity rather than in the log of what was administered.
+ */
+app.put('/api/account/text-source', requireUser, (req, res) => {
+  const users = loadUsers()
+  const me = users.find((u) => u.id === req.user.id)
+  if (!me) return res.status(404).json({ error: 'No such account.' })
+  if (req.body?.own === true) {
+    if (!ownKeysAllowed(loadConfig())) {
+      return res
+        .status(403)
+        .json({ code: 'own-keys-closed', error: 'The administrator does not allow personal API keys on this instance.' })
+    }
+    const own = cleanOwnText(req.body)
+    if (!own) return res.status(400).json({ error: 'Unknown provider.' })
+    me.ownText = own
+  } else if (req.body?.own === false) {
+    delete me.ownText
+  } else {
+    return res.status(400).json({ error: 'Expected own: true or false.' })
+  }
+  saveUsers(users)
+  res.json({ own: Boolean(me.ownText) })
+})
+
 app.get('/api/admin/users', requireAdmin, (req, res) => {
+  const cfg = loadConfig()
   res.json({
     users: loadUsers().map((u) => ({
       id: u.id,
@@ -1419,6 +1482,9 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
       mustChangePassword: Boolean(u.mustChangePassword),
       // SSO-only accounts have no local password to reset.
       sso: Boolean(u.dashySub) && !u.salt && !u.hash,
+      // "API perso": the provider and model this account declared for its own
+      // key — never the key, which the server does not have.
+      ownText: ownTextView(u, cfg),
     })),
   })
 })
@@ -2402,6 +2468,9 @@ const mcpServer = createMcpServerRoutes({
   runner: mcpRunner,
   // Per account: on the free plan, Mocky's own engine is the free model.
   hasTextProvider: (user) => Boolean(textTargetFor(user, 'generation')),
+  // An account on its own key has a provider — in its browser, which the
+  // headless runner is not: the refusal says that rather than blaming the admin.
+  usesOwnText: (user) => usesOwnText(user, loadConfig()),
   touchMcp: (userId) => presence.touchMcp(userId),
   // Free photos and pictures an assistant brings, through the library's own doors.
   pictures: createMcpPictures({

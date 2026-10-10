@@ -53,28 +53,72 @@ export default function SettingsPanel() {
       .then((p) => setPlan(p.plan === 'free' ? p : null))
       .catch(() => setPlan(null))
   }, [])
-  // When an admin set an instance-wide model, there is nothing to fill in here.
+  // When an admin set an instance-wide model, there is nothing to fill in here
+  // — unless this account chose its own key over it (server/own-text.js).
   const [managed, setManaged] = useState<{
     model: string | null
     provider: string | null
     inspirationModel?: string | null
   } | null>(null)
-  useEffect(() => {
-    api
+  /**
+   * The choice between the instance's model and this account's own key. Null
+   * when the instance has no model for this account: then the form below is
+   * the only way to generate, and there is nothing to choose.
+   */
+  const [source, setSource] = useState<{
+    own: boolean
+    allowed: boolean
+    instance: { model: string; provider: string }
+  } | null>(null)
+  const [sourceBusy, setSourceBusy] = useState(false)
+  const [sourceError, setSourceError] = useState<string | null>(null)
+  function loadSource() {
+    return api
       .config()
-      .then((c) =>
+      .then((c) => {
+        const tp = c.textProvider
         setManaged(
-          c.textProvider?.configured
-            ? {
-                model: c.textProvider.model,
-                provider: c.textProvider.provider,
-                inspirationModel: c.textProvider.inspirationModel ?? null,
-              }
+          tp?.configured
+            ? { model: tp.model, provider: tp.provider, inspirationModel: tp.inspirationModel ?? null }
             : null,
-        ),
-      )
-      .catch(() => setManaged(null))
+        )
+        setSource(tp?.instance ? { own: Boolean(tp.own), allowed: tp.ownAllowed !== false, instance: tp.instance } : null)
+      })
+      .catch(() => {
+        setManaged(null)
+        setSource(null)
+      })
+  }
+  useEffect(() => {
+    loadSource()
   }, [])
+
+  async function chooseSource(own: boolean) {
+    setSourceBusy(true)
+    setSourceError(null)
+    try {
+      const s = settingsRef.current
+      await api.setTextSource(own ? { own: true, provider: s.provider, model: s.model } : { own: false })
+      await loadSource()
+      setTest({ status: 'idle' })
+    } catch (e) {
+      setSourceError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSourceBusy(false)
+    }
+  }
+
+  // On its own key, the account keeps the administrator told WHICH provider and
+  // model it uses (the badge in Admin → Users) — never the key. Debounced: the
+  // model field is typed into.
+  const own = source?.own === true
+  useEffect(() => {
+    if (!own) return
+    const timer = setTimeout(() => {
+      api.setTextSource({ own: true, provider: settings.provider, model: settings.model }).catch(() => {})
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [own, settings.provider, settings.model])
 
   // Persist on every change so the form is the source of truth in localStorage.
   useEffect(() => {
@@ -152,7 +196,7 @@ export default function SettingsPanel() {
         <Banner tone="info" title={t('plan.cardTitle')} className="mt-4">
           <span className="block">{t('plan.cardBody')}</span>
           <span className="mt-1 block">
-            {plan.model ? t('plan.model', { model: plan.model }) : t('plan.ownKey')}
+            {plan.model ? t('plan.model', { model: plan.model }) : source?.own ? t('plan.ownChosen') : t('plan.ownKey')}
             {plan.model && (
               <>
                 {' '}
@@ -166,6 +210,37 @@ export default function SettingsPanel() {
             {account?.role === 'admin' ? t('plan.testBadgeTitle') : t('plan.askAdmin')}
           </span>
         </Banner>
+      )}
+
+      {source && (
+        <section className="mt-6">
+          <div className="section-head">
+            <span className="kicker text-accent-ink">{t('settings.textSource')}</span>
+          </div>
+          <div role="radiogroup" aria-label={t('settings.textSource')} className="grid gap-3 md:grid-cols-2">
+            <SourceChoice
+              checked={!source.own}
+              disabled={sourceBusy}
+              onChoose={() => chooseSource(false)}
+              title={t('settings.textSourceInstance')}
+              detail={`${source.instance.model} · ${source.instance.provider}`}
+            />
+            <SourceChoice
+              checked={source.own}
+              disabled={sourceBusy || (!source.allowed && !source.own)}
+              onChoose={() => chooseSource(true)}
+              title={t('settings.textSourceOwn')}
+              detail={source.allowed ? t('settings.textSourceOwnDetail') : t('settings.textSourceOwnClosed')}
+            />
+          </div>
+          {source.own && (
+            <p className="measure mt-3 flex items-start gap-2 text-body-sm text-ink-muted">
+              <Icon name="key" size={16} />
+              <span>{t('settings.textSourceOwnNote')}</span>
+            </p>
+          )}
+          {sourceError && <p className="mt-2 text-body-sm text-danger">{sourceError}</p>}
+        </section>
       )}
 
       <div className="mt-6 grid gap-x-12 gap-y-8 lg:grid-cols-2">
@@ -681,5 +756,42 @@ function AvatarSection({
         onChange={pick}
       />
     </section>
+  )
+}
+
+/** One of the two answers to "which model generates for me", as a selectable card. */
+function SourceChoice({
+  checked,
+  disabled,
+  onChoose,
+  title,
+  detail,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onChoose: () => void
+  title: string
+  detail: string
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      disabled={disabled && !checked}
+      onClick={() => !checked && onChoose()}
+      className={`flex items-start gap-3 border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+        checked ? 'border-accent bg-accent/5' : 'border-line-soft hover:border-line'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`mt-1 block h-3.5 w-3.5 shrink-0 rounded-full border-2 ${checked ? 'border-accent bg-accent' : 'border-line'}`}
+      />
+      <span className="min-w-0">
+        <span className="block text-body font-medium text-ink">{title}</span>
+        <span className="mt-0.5 block break-words text-body-sm text-ink-muted">{detail}</span>
+      </span>
+    </button>
   )
 }

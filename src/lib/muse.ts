@@ -433,9 +433,10 @@ export async function runMuseDossier(
   } = {},
 ): Promise<MuseResult> {
   const s = loadSettings()
-  const headers: Record<string, string> = { 'content-type': 'application/json' }
-  if (s.baseUrl) headers['x-provider-base'] = s.baseUrl
-  if (s.apiKey.trim()) headers['authorization'] = `Bearer ${s.apiKey.trim()}`
+  // The proxy's own headers, kind included: built by hand here, they left out
+  // `x-provider-kind`, and an OpenAI-dialect key of the person's own (OpenRouter,
+  // OpenAI, Anthropic…) was addressed as Ollama by the dossier alone.
+  const headers = proxyHeaders(s)
   const res = await fetch('/api/muse/dossier', {
     method: 'POST',
     headers,

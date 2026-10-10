@@ -1,6 +1,6 @@
 ---
 description: Installer Mocky, créer le premier compte, et brancher un modèle de texte.
-source_hash: 485603dc5a90
+source_hash: 20a7e9836930
 ---
 
 # Démarrage
@@ -240,6 +240,20 @@ Réglages personnels de chacun sont alors ignorés.
 :::
 
 *Admin. Un modèle défini ici sert à tous les comptes, et les Réglages personnels de chacun sont alors ignorés.*
+
+**Sauf si un compte choisit sa propre clé.** Quand un modèle d'instance est
+défini, Réglages s'ouvre sur **Modèle de génération**, un choix entre *Modèle de
+l’instance* et *Mon propre fournisseur et ma clé*. Le second fait revenir le
+formulaire du mode A : la clé reste dans ce navigateur, les appels ne sont pas
+facturés à l'instance et ne comptent pas dans le plafond quotidien du
+[forfait gratuit](free-plan.md), et l'administrateur voit le fournisseur et le
+modèle déclarés par le compte — le badge **API perso** dans Admin → Utilisateurs et
+dans l'activité — jamais la clé. **Admin → Utilisateurs → Clés API personnelles**
+ferme l'option pour tout le monde ; un compte qui l'avait choisie revient au
+modèle de l'instance à son appel suivant, et retrouve son choix si l'option
+rouvre. Un compte sur sa propre clé ne peut pas utiliser Mocky depuis un
+assistant (MCP) : l'exécuteur sans interface du serveur n'a pas de navigateur,
+donc pas de clé pour appeler le modèle.
 
 | id | Dialecte | URL de base par défaut | Modèle par défaut |
 |---|---|---|---|

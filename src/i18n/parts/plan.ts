@@ -62,6 +62,7 @@ export const plan = {
       'le Design Dossier des comptes au forfait gratuit. Choisissez un modèle qui ne coûte rien : un modèle « :free » d’OpenRouter avec une clé sans crédit, une clé Groq, Gemini ou Cerebras sans moyen de paiement, ou un modèle qui tourne sur ce serveur (Ollama, LM Studio).',
     'plan.textProfileNoFallback': 'Laissé vide, il n’emprunte jamais le modèle de génération.',
     'plan.textEmpty': 'Aucun — les comptes gratuits utilisent leur propre clé',
+    'plan.ownChosen': 'Vous utilisez votre propre fournisseur et votre clé : sans plafond.',
   },
   en: {
     'plan.label': 'Plan',
@@ -114,5 +115,6 @@ export const plan = {
       'the Design Dossier of accounts on the free plan. Pick a model that costs nothing: an OpenRouter ":free" model with a key that holds no credit, a Groq, Gemini or Cerebras key with no payment method, or a model running on this server (Ollama, LM Studio).',
     'plan.textProfileNoFallback': 'Left empty, it never borrows the generation model.',
     'plan.textEmpty': 'None — free accounts use their own key',
+    'plan.ownChosen': 'You use your own provider and key: no limit.',
   },
 }

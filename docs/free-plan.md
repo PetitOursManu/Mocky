@@ -92,8 +92,8 @@ Three details:
   (`free-quota.json`), so a restart does not hand everyone a fresh day.
 
 The limit only applies to calls that reach the instance's free model. A free
-account using its own key (no free model configured) spends nobody's quota but
-its own.
+account using its own key (no free model configured, or its own chosen in
+Settings over the free one) spends nobody's quota but its own.
 
 ### 4. Testing it with your own account
 
