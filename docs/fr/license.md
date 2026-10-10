@@ -1,6 +1,6 @@
 ---
 description: Mocky est sous AGPL-3.0-or-later, avec deux exceptions — l’usage de Remotion par le worker vidéo, et tout ce que Mocky produit pour vous.
-source_hash: 3ff1d9df3ed9
+source_hash: c01a327fec2d
 ---
 
 # Licence
@@ -118,7 +118,7 @@ supposée compatible.
 
 | Où | Licences | Compatible avec l’AGPL v3 |
 |---|---|---|
-| Dépendances npm de Mocky (444 paquets dans `package-lock.json`) | MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, CC0-1.0, MIT AND Zlib ; CC-BY-4.0 pour un paquet de données ; MPL-2.0 pour `lightningcss`, un outil de compilation | Oui |
+| Dépendances npm de Mocky (382 paquets dans `package-lock.json`) | MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, CC0-1.0, MIT AND Zlib ; CC-BY-4.0 pour un paquet de données ; MPL-2.0 pour `lightningcss`, un outil de compilation | Oui |
 | Bundles navigateur de `public/vendor/` | React, ReactDOM, Babel standalone, html2canvas, Tailwind, daisyUI, Motion, three.js — tous MIT | Oui |
 | Détection de qualité | `impeccable`, Apache-2.0 | Oui : du code Apache-2.0 peut entrer dans une œuvre GPLv3 |
 | Worker vidéo | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations` : MIT. Polices de `@fontsource` : OFL-1.1, livrées comme fichiers de police séparés | Oui |

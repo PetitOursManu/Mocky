@@ -69,7 +69,7 @@ Mocky is a self-hosted alternative to tools like Google Stitch / openStitch, bui
 
 > **Why it works this way —** Anything a self-hoster must install separately — a database, a native module, a background worker — is one more thing that can be missing, mismatched or left unpatched on their machine, and Mocky is meant to start with a single command. So its state is plain files on disk, its backend is a small process, and the only program it expects to find outside itself is the one that handles video; when that is absent, a single feature reports itself unavailable and nothing else notices.
 
-React 18 · TypeScript · Vite · Tailwind CSS on the front, and a tiny **Node + Express** backend (JSON file store, no database) for accounts, project sync, the media library, Muse, scroll sequences and the model proxy. [Motion](https://motion.dev) is vendored for the previews, and `ffmpeg` is the one external binary — it cuts a video into the frames a scroll sequence scrubs through, and everything else works without it.
+React 18 · TypeScript · Vite · Tailwind CSS 4 on the front, and a tiny **Node + Express** backend (JSON file store, no database) for accounts, project sync, the media library, Muse, scroll sequences and the model proxy. The previews compile each generated screen with a vendored Tailwind CSS 3 — kept on purpose, so screens already made keep rendering the same — and [Motion](https://motion.dev) is vendored for them too; `ffmpeg` is the one external binary — it cuts a video into the frames a scroll sequence scrubs through, and everything else works without it.
 
 ## Quick start
 

@@ -109,7 +109,7 @@ so the next dependency is checked against it rather than assumed.
 
 | Where | Licences | Compatible with the AGPL v3 |
 |---|---|---|
-| Mocky's npm dependencies (444 packages in `package-lock.json`) | MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, CC0-1.0, MIT AND Zlib; CC-BY-4.0 for one data package; MPL-2.0 for `lightningcss`, a build-time tool | Yes |
+| Mocky's npm dependencies (382 packages in `package-lock.json`) | MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, CC0-1.0, MIT AND Zlib; CC-BY-4.0 for one data package; MPL-2.0 for `lightningcss`, a build-time tool | Yes |
 | Browser bundles in `public/vendor/` | React, ReactDOM, Babel standalone, html2canvas, Tailwind, daisyUI, Motion, three.js — all MIT | Yes |
 | Quality detection | `impeccable`, Apache-2.0 | Yes: Apache-2.0 code may be included in a GPLv3 work |
 | Video worker | `three`, `@react-three/fiber`, `express`, `lottie-web`, `react-useanimations`: MIT. Typefaces from `@fontsource`: OFL-1.1, shipped as separate font files | Yes |
