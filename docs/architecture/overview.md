@@ -932,6 +932,29 @@ The request spends the host's credits, so it must belong to someone. With no
 instance provider, the caller supplies its own key and the "your key never leaves
 your browser" mode is preserved.
 
+### A schema refused, an answer too slow
+
+Two failures sent a generation back to the composer with nothing on the canvas,
+on a provider nobody had changed.
+
+**A structured call refused.** The planner, the photo judge, Muse and the Motion
+Ultra storyboard ask for JSON with a schema (`format`, translated to
+`response_format`). Claude enforces that schema and requires every object to be
+closed (`additionalProperties: false`) with no numeric, length or array-size
+bound — so `closedSchema` rewrites it for `api.anthropic.com`, and only there.
+And for any OpenAI-dialect provider that still answers 400 to a body carrying a
+schema, the proxy (and `museChat`) asks **once** more without it: the answer
+then comes in prose or a fence, which every reader of those calls already
+salvages by its outermost braces.
+
+**A call longer than the reverse proxy waits.** Cloudflare closes a request whose
+origin has sent nothing for 100 s (a 524), and a long generation behind it was
+cut while the provider was still working. After `LATE_COMMIT_MS` (45 s) with no
+answer, the proxy commits a 200 and writes a filler — a blank line for NDJSON,
+a space for JSON, both of which the readers skip — every `KEEPALIVE_MS` of
+silence. An error that arrives after that commit can no longer be a status, so
+it travels in the body as `{error, done: true}`, which `chat()` already reads.
+
 ---
 
 ## 8. Persistence

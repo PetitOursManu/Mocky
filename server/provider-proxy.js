@@ -209,6 +209,14 @@ export function readRawBody(req, limit = MAX_PROXY_BODY) {
  */
 export const ALLOWED_SUBPATHS = new Set(['/api/chat', '/api/tags'])
 
+/**
+ * A chat unanswered this long is answered 200 by the proxy, and kept alive
+ * every KEEPALIVE_MS after — well inside the 100 s a Cloudflare tunnel allows
+ * between two bytes (see `handleProviderProxy`).
+ */
+export const LATE_COMMIT_MS = 45_000
+export const KEEPALIVE_MS = 20_000
+
 export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}) {
   // An admin-configured provider (Admin → Modèle de texte) wins over whatever
   // the browser sends. When none is set, we use the browser's own Settings —
@@ -378,135 +386,237 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       if (!res.writableEnded) abort.abort()
     })
 
-    const upstream = await fetchImpl(plan.url, {
-      method: plan.isModels ? 'GET' : method,
-      headers: plan.headers,
-      body: plan.body && plan.body.length ? plan.body : undefined,
-      // undici follows redirects by default, which walked straight around the
-      // SSRF guard: the target passed the check, then answered 302 to
-      // http://169.254.169.254/… and we happily returned the body. Redirects are
-      // surfaced instead of followed.
-      redirect: 'manual',
-      signal: abort.signal,
-    })
+    const isChat = !plan.isModels && subpath.split('?')[0] === '/api/chat'
+    const wantsStream = (() => {
+      if (!isChat) return false
+      try {
+        return JSON.parse((plan.body || body || '').toString()).stream === true
+      } catch {
+        return false
+      }
+    })()
 
-    if (!configured && upstream.status >= 300 && upstream.status < 400) {
-      res.statusCode = 502
-      res.setHeader('content-type', 'application/json')
-      res.end(
-        JSON.stringify({
-          error: 'Provider answered with a redirect, which is not followed',
-          detail: `The endpoint redirected to ${upstream.headers.get('location') || 'an unspecified location'}. Point x-provider-base at the final URL.`,
-        }),
-      )
-      return
+    /*
+     * Keeping a slow answer alive through a reverse proxy.
+     *
+     * Cloudflare (and most proxies in front of a self-hosted Mocky) cut a
+     * request that has produced no byte for 100 seconds — a 524, and the
+     * generation is lost. A current model asked for a whole screen can think
+     * that long before it writes anything, and the first real test with
+     * Motion Ultra lost its page exactly so. So a chat that has not been
+     * answered after LATE_COMMIT_MS is answered 200 by us, and filler a client
+     * ignores goes out every KEEPALIVE_MS until the provider speaks: blank
+     * lines in an NDJSON stream (the reader skips them), spaces before a JSON
+     * body (JSON.parse skips them). A provider error after that point can no
+     * longer be a status, so it arrives as the `error` field both shapes
+     * already carry — the browser reports it the same way.
+     */
+    const lateMs = opts.lateCommitMs ?? LATE_COMMIT_MS
+    const aliveMs = opts.keepAliveMs ?? KEEPALIVE_MS
+    let committed = false
+    let lastWrite = Date.now()
+    let keepAlive = null
+    // A raw Ollama stream is forwarded in the chunks it arrives in, and a chunk
+    // can end in the middle of a line: a blank line written there would cut a
+    // JSON object in two. The filler waits for a line boundary.
+    let midLine = false
+    const filler = wantsStream ? '\n' : ' '
+    const write = (chunk) => {
+      lastWrite = Date.now()
+      res.write(chunk)
+    }
+    const commit = () => {
+      if (committed || res.headersSent) return
+      committed = true
+      res.statusCode = 200
+      res.setHeader('content-type', wantsStream ? 'application/x-ndjson' : 'application/json')
+      if (typeof res.flushHeaders === 'function') res.flushHeaders()
+    }
+    const startKeepAlive = () => {
+      if (keepAlive || !isChat) return
+      keepAlive = setInterval(() => {
+        if (res.writableEnded || res.destroyed) return
+        if (!midLine && Date.now() - lastWrite >= aliveMs) {
+          commit()
+          write(filler)
+        }
+      }, aliveMs / 2)
+    }
+    const early = isChat
+      ? setTimeout(() => {
+          if (res.writableEnded || res.destroyed) return
+          if (!res.headersSent) {
+            commit()
+            write(filler)
+          }
+          startKeepAlive()
+        }, lateMs)
+      : null
+    /** An error once the status is gone: the field the answer's own shape carries. */
+    const failLate = (message) => {
+      const text = String(message || 'The provider failed').slice(0, 600)
+      res.end(wantsStream ? JSON.stringify({ error: text, done: true }) + '\n' : JSON.stringify({ message: { role: 'assistant', content: '' }, error: text, done: true }))
     }
 
-    res.statusCode = upstream.status
+    const send = (planBody) =>
+      fetchImpl(plan.url, {
+        method: plan.isModels ? 'GET' : method,
+        headers: plan.headers,
+        body: planBody && planBody.length ? planBody : undefined,
+        // undici follows redirects by default, which walked straight around the
+        // SSRF guard: the target passed the check, then answered 302 to
+        // http://169.254.169.254/… and we happily returned the body. Redirects are
+        // surfaced instead of followed.
+        redirect: 'manual',
+        signal: abort.signal,
+      })
 
-    // --- OpenAI-compatible: translate the answer back to the Ollama dialect ---
-    if (plan.translate && upstream.ok) {
-      const wantsStream = (() => {
-        if (plan.isModels) return false
+    try {
+      let upstream = await send(plan.body)
+
+      /*
+       * A provider that refuses the structured-output request itself. Mocky asks
+       * for JSON with a schema (`format` → `response_format`) on its planner,
+       * Muse, the picture judge and Motion Ultra's storyboard; a provider whose
+       * compatibility layer rejects that schema answered 400 to every one of
+       * them, and each degraded in silence — Motion Ultra's all the way back to
+       * the composer. The same request without the schema is asked once: the
+       * prompts already say what JSON they want, and every reader of these
+       * answers takes a JSON object out of a fenced reply.
+       */
+      if (plan.translate && isChat && upstream.status === 400 && typeof plan.body === 'string' && plan.body.includes('"response_format"')) {
+        const detail = await upstream.text().catch(() => '')
         try {
-          return JSON.parse(plan.body.toString()).stream === true
+          const without = JSON.parse(plan.body)
+          delete without.response_format
+          console.warn(`mocky: the provider refused a structured-output request (${detail.slice(0, 160)}); asking again without the schema`)
+          upstream = await send(JSON.stringify(without))
         } catch {
-          return false
+          upstream = new Response(detail, { status: 400, headers: { 'content-type': 'application/json' } })
         }
-      })()
+      }
 
-      if (!wantsStream) {
-        const json = await upstream.json().catch(() => ({}))
+      if (!configured && upstream.status >= 300 && upstream.status < 400) {
+        const message = `Provider answered with a redirect, which is not followed. The endpoint redirected to ${upstream.headers.get('location') || 'an unspecified location'}. Point x-provider-base at the final URL.`
+        if (committed) return failLate(message)
+        res.statusCode = 502
         res.setHeader('content-type', 'application/json')
-        const answer = plan.isModels ? fromOpenAiModels(json, plan.quirks) : fromOpenAiResponse(json)
-        res.end(JSON.stringify(answer))
-        if (!plan.isModels) meter?.(usageOf(json), String(answer.message?.content || '').length)
+        res.end(JSON.stringify({ error: 'Provider answered with a redirect, which is not followed', detail: message }))
         return
       }
 
-      res.setHeader('content-type', 'application/x-ndjson')
-      if (typeof res.flushHeaders === 'function') res.flushHeaders()
-      const reader = upstream.body.getReader()
-      const decoder = new TextDecoder()
-      const translate = createSseTranslator()
-      try {
-        for (;;) {
-          if (res.destroyed) break
-          const { done, value } = await reader.read()
-          if (done) break
-          const ndjson = translate(decoder.decode(value, { stream: true }))
-          if (ndjson) res.write(ndjson)
+      if (committed && !upstream.ok) {
+        const text = await upstream.text().catch(() => '')
+        return failLate(`HTTP ${upstream.status} from provider. ${text.slice(0, 400)}`)
+      }
+
+      if (!committed) res.statusCode = upstream.status
+
+      // --- OpenAI-compatible: translate the answer back to the Ollama dialect ---
+      if (plan.translate && upstream.ok) {
+        if (!wantsStream) {
+          const json = await upstream.json().catch(() => ({}))
+          if (!committed) res.setHeader('content-type', 'application/json')
+          const answer = plan.isModels ? fromOpenAiModels(json, plan.quirks) : fromOpenAiResponse(json)
+          res.end(JSON.stringify(answer))
+          if (!plan.isModels) meter?.(usageOf(json), String(answer.message?.content || '').length)
+          return
         }
-      } finally {
-        reader.releaseLock?.()
-      }
-      // Stopped by the person: what was produced until then was still paid for.
-      if (res.destroyed) return meter?.(translate.state.usage, translate.state.content + translate.state.reasoned)
-      /*
-       * The last line says what the stream was made of.
-       *
-       * A model that spends its whole output budget reasoning sends no content
-       * at all, and so does a provider that refused inside a 200. Both used to
-       * end here with a bare `{done:true}`, and the browser could only say "the
-       * model returned an empty response" — the one sentence that is true of
-       * every cause and useful for none.
-       */
-      const seen = translate.state
-      const tail = { done: true }
-      if (!seen.content && seen.reasoned) tail.reasoned = seen.reasoned
-      if (!seen.content && seen.error) tail.error = seen.error
-      res.write(JSON.stringify(tail) + '\n')
-      res.end()
-      meter?.(seen.usage, seen.content + seen.reasoned)
-      return
-    }
 
-    const ct = upstream.headers.get('content-type')
-    if (ct) res.setHeader('content-type', ct)
-
-    // Determine if this is a streaming response (NDJSON) or a regular JSON
-    // response. For streaming we pipe chunks through immediately; for regular
-    // responses we buffer and send in one shot so the client can parse JSON.
-    // We check two things: the request body (did the client ask for stream:true?)
-    // and the response content-type (Ollama sends x-ndline for streams).
-    let requestedStream = false
-    if (body && body.length) {
-      try { requestedStream = JSON.parse(body.toString()).stream === true } catch {}
-    }
-    const isStreaming = requestedStream || (ct && ct.includes('x-ndline'))
-
-    if (isStreaming && upstream.body && typeof upstream.body.getReader === 'function') {
-      const reader = upstream.body.getReader()
-      if (typeof res.flushHeaders === 'function') res.flushHeaders()
-      const look = meter && upstream.ok ? createNdjsonMeter() : null
-      try {
-        for (;;) {
-          if (res.destroyed) break
-          const { done, value } = await reader.read()
-          if (done) break
-          res.write(Buffer.from(value))
-          look?.(value)
+        if (!committed) {
+          res.setHeader('content-type', 'application/x-ndjson')
+          if (typeof res.flushHeaders === 'function') res.flushHeaders()
         }
-      } finally {
-        reader.releaseLock?.()
-      }
-      if (!res.destroyed) res.end()
-      if (look) {
-        look.end()
-        meter(look.state.usage, look.state.content)
-      }
-    } else {
-      // Regular JSON response: buffer and send in one piece.
-      const buf = Buffer.from(await upstream.arrayBuffer())
-      res.end(buf)
-      if (meter && upstream.ok) {
+        // A model that thinks before it writes sends nothing we forward for a
+        // while: the same keep-alive covers that silence too.
+        startKeepAlive()
+        const reader = upstream.body.getReader()
+        const decoder = new TextDecoder()
+        const translate = createSseTranslator()
         try {
-          const json = JSON.parse(buf.toString())
-          meter(usageOf(json), String(json?.message?.content || '').length)
-        } catch {
-          /* not an answer */
+          for (;;) {
+            if (res.destroyed) break
+            const { done, value } = await reader.read()
+            if (done) break
+            const ndjson = translate(decoder.decode(value, { stream: true }))
+            if (ndjson) write(ndjson)
+          }
+        } finally {
+          reader.releaseLock?.()
+        }
+        // Stopped by the person: what was produced until then was still paid for.
+        if (res.destroyed) return meter?.(translate.state.usage, translate.state.content + translate.state.reasoned)
+        /*
+         * The last line says what the stream was made of.
+         *
+         * A model that spends its whole output budget reasoning sends no content
+         * at all, and so does a provider that refused inside a 200. Both used to
+         * end here with a bare `{done:true}`, and the browser could only say "the
+         * model returned an empty response" — the one sentence that is true of
+         * every cause and useful for none.
+         */
+        const seen = translate.state
+        const tail = { done: true }
+        if (!seen.content && seen.reasoned) tail.reasoned = seen.reasoned
+        if (!seen.content && seen.error) tail.error = seen.error
+        res.write(JSON.stringify(tail) + '\n')
+        res.end()
+        meter?.(seen.usage, seen.content + seen.reasoned)
+        return
+      }
+
+      const ct = upstream.headers.get('content-type')
+      if (ct && !committed) res.setHeader('content-type', ct)
+
+      // Determine if this is a streaming response (NDJSON) or a regular JSON
+      // response. For streaming we pipe chunks through immediately; for regular
+      // responses we buffer and send in one shot so the client can parse JSON.
+      // We check two things: the request body (did the client ask for stream:true?)
+      // and the response content-type (Ollama sends x-ndline for streams).
+      let requestedStream = false
+      if (body && body.length) {
+        try { requestedStream = JSON.parse(body.toString()).stream === true } catch {}
+      }
+      const isStreaming = requestedStream || (ct && ct.includes('x-ndline'))
+
+      if (isStreaming && upstream.body && typeof upstream.body.getReader === 'function') {
+        const reader = upstream.body.getReader()
+        if (!committed && typeof res.flushHeaders === 'function') res.flushHeaders()
+        startKeepAlive()
+        const look = meter && upstream.ok ? createNdjsonMeter() : null
+        try {
+          for (;;) {
+            if (res.destroyed) break
+            const { done, value } = await reader.read()
+            if (done) break
+            write(Buffer.from(value))
+            if (value.length) midLine = value[value.length - 1] !== 0x0a
+            look?.(value)
+          }
+        } finally {
+          reader.releaseLock?.()
+        }
+        if (!res.destroyed) res.end()
+        if (look) {
+          look.end()
+          meter(look.state.usage, look.state.content)
+        }
+      } else {
+        // Regular JSON response: buffer and send in one piece.
+        const buf = Buffer.from(await upstream.arrayBuffer())
+        res.end(buf)
+        if (meter && upstream.ok) {
+          try {
+            const json = JSON.parse(buf.toString())
+            meter(usageOf(json), String(json?.message?.content || '').length)
+          } catch {
+            /* not an answer */
+          }
         }
       }
+    } finally {
+      clearTimeout(early)
+      clearInterval(keepAlive)
     }
   } catch (err) {
     // Once a stream has started, the headers are already gone. Writing one here

@@ -205,11 +205,22 @@ export async function planScreen(
     const data = (await res.json()) as { message?: { content?: string }; choices?: Array<{ message?: { content?: string } }> }
     const content = data.message?.content ?? data.choices?.[0]?.message?.content ?? ''
     if (!content.trim()) return null
+    // The proxy asks again WITHOUT the schema when a provider refuses it
+    // (provider-proxy.js), and that answer usually comes in a ```json fence:
+    // the outermost braces recover it — `parseJsonObject`'s rule, written out
+    // here because storyboard.ts imports this file.
     let parsed: unknown
     try {
       parsed = JSON.parse(content)
     } catch {
-      return null // model didn't honor structured output
+      const a = content.indexOf('{')
+      const b = content.lastIndexOf('}')
+      try {
+        if (a < 0 || b <= a) return null
+        parsed = JSON.parse(content.slice(a, b + 1))
+      } catch {
+        return null // model didn't honor structured output
+      }
     }
     return validatePlan(parsed, shortlist)
   } catch {

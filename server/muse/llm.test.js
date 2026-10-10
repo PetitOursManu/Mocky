@@ -33,6 +33,32 @@ describe('museChat', () => {
     expect(body.format).toEqual({ type: 'object' })
   })
 
+  // Every Muse stage is a structured call: a provider refusing the translated
+  // schema with a 400 used to fail them all. Asked once more without it.
+  it('asks again without the schema when an OpenAI-dialect provider refuses it', async () => {
+    const bodies = []
+    stubFetch(async (url, init) => {
+      const body = JSON.parse(init.body)
+      bodies.push(body)
+      if (body.response_format) return { ok: false, status: 400, body: null, text: async () => 'bad schema' }
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '```json\n{"a":1}\n```' } }] }) }
+    })
+    const out = await museJson(
+      { kind: 'openai', baseUrl: 'https://api.anthropic.com', apiKey: 'k', model: 'claude-x' },
+      { system: 's', user: 'u', schema: { type: 'object', properties: { a: { type: 'number' } } } },
+    )
+    expect(out).toEqual({ a: 1 })
+    expect(bodies).toHaveLength(2)
+    expect(bodies[1].response_format).toBeUndefined()
+  })
+
+  it('does not ask twice when there was no schema to drop', async () => {
+    const calls = vi.fn(async () => ({ ok: false, status: 400, body: null, text: async () => 'bad' }))
+    vi.stubGlobal('fetch', calls)
+    await expect(museChat({ kind: 'openai', baseUrl: 'https://api.openai.com', apiKey: 'k', model: 'm' }, { system: 's', user: 'u' })).rejects.toThrow(/400/)
+    expect(calls).toHaveBeenCalledTimes(1)
+  })
+
   it('throws a clear error on auth failure', async () => {
     stubFetch(async () => ({ ok: false, status: 401, text: async () => 'nope' }))
     await expect(museChat(creds, { system: 's', user: 'u' })).rejects.toThrow(/auth failed/i)
