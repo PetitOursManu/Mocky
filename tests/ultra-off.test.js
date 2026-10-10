@@ -63,6 +63,16 @@ describe('Motion Ultra off leaves the generation path unchanged (U1)', () => {
     expect(view).toContain('if (settings.usePlanner && pipe.planner && !musePreamble && !ultraRecord && !siteNew)')
   })
 
+  // Offered only in the plan section, the project's pictures lost to Muse's
+  // dossier, which is authoritative and describes the pictures IT planned: with
+  // "Aucune" they now fill its slots like a pin, never with a pin or a series.
+  it('puts the project pictures in Muse\'s slots when no new picture may be made', () => {
+    expect(view).toContain('pins.length === 0 && req.picturesOff && !pipe.document && !runUltra')
+    expect(view).toContain('let imgs: GeneratedSlotImage[] = [...pins, ...reused]')
+    // And does not offer them a second time below.
+    expect(view).toContain('const owned = projectPictures(hooks.currentScreens()).filter((hash) => !placed.has(hash))')
+  })
+
   it('offers earlier pictures only to a project whose screens show some', () => {
     // projectPictures() is empty for a project with no Motion Ultra series and
     // no library picture in any screen's code, so the section is never built
