@@ -42,6 +42,8 @@ export const TEXT_PROVIDERS = [
   // Anthropic publishes an OpenAI-compatible surface at /v1/chat/completions
   // with Bearer auth, so the existing translation covers it and no new dialect
   // code is needed — the entry is purely declarative, like every other preset.
+  // Its models from 4.7 on refuse a temperature below 1: that is a row of
+  // PROVIDER_QUIRKS (CLAUDE_TEMPERATURE_MODELS), not code here.
   {
     id: 'anthropic',
     label: 'Anthropic (Claude)',
