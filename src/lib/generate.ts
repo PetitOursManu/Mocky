@@ -58,7 +58,14 @@ VISUAL QUALITY REQUIREMENTS:
 - Cards, buttons, inputs, badges, and nav should look professional and on-brand. Use gradients or accent colors sparingly but deliberately.
 - Include realistic initial data: names, prices, stats, notifications, avatars (initials or emoji), chart bars, list items, etc.
 - Prefer inline SVG icons over emoji when they make the UI cleaner; keep emoji style consistent if used.
-- The result must look like a screenshot from a real SaaS/mobile/desktop app, ready to be dropped into a prototype or product demo.`
+- The result must look like a screenshot from a real SaaS/mobile/desktop app, ready to be dropped into a prototype or product demo.
+
+WORKING PROTOTYPE — the screen must BEHAVE, not only look right:
+- Keep the screen's data in React state (useState), seeded with the realistic initial data above, and render every list, table, card and chart FROM that state.
+- Every number that summarises that data — a count badge, a tab counter, a total, a progress bar, a chart, an empty state — is DERIVED from the state (computed in render or with useMemo), never typed by hand. When a control adds, removes, edits, completes, filters or moves an item, every place that shows it changes at once: adding a test ticket appends it to the list AND increments the "open tickets" badge; ticking a task moves the progress; adding to the cart updates the cart count and the total.
+- Wire the controls the screen already shows to that state: an add/create button opens a small modal or inline form whose submit appends a plausible item (with sensible defaults for empty fields), delete removes, a status toggle toggles, tabs/filters/search actually filter, sorting sorts. Confirm an action with a short inline message or toast.
+- Simulate in memory only: no fetch, no localStorage or sessionStorage (they throw in this sandbox), no interval left running. A fake loading state, if any, lasts under a second and its setTimeout is cleared on unmount.
+- Do not invent controls the request does not imply just to have something to wire, and leave read-only surfaces (an article, a marketing hero) static.`
 
 export interface GeneratedComponent {
   /** Raw assistant message content. */
@@ -553,6 +560,7 @@ PRESERVE EVERYTHING THAT THE USER DID NOT EXPLICITLY ASK TO CHANGE.
 - Keep every other detail byte-for-byte identical: all text/content, colors, Tailwind classes, spacing, sizes, layout, structure, order of elements, state, hooks, and behaviour.
 - Do NOT redesign, refactor, rename, reformat, reorder, restyle, "clean up", "improve", or modernise anything that was not requested.
 - Do NOT add, remove, or rename features, sections, props, or imports beyond the requested change.
+- One thing is PART of a change, not beyond it: when the requested change adds or alters something that changes the screen's data (an add form, a delete button, a status toggle), every count, badge, total or list on the screen that shows that data must follow it — derive them from the same state, even where they were written by hand before. A new "add ticket" button whose ticket never reaches the "open tickets" badge is an unfinished change.
 - If the instruction is ambiguous, make the smallest possible change that satisfies it and leave the rest untouched.
 - Return the COMPLETE updated component (the whole file, not a diff), keeping the same component name and export.
 - Use the same sentinel format: <<<MOCKY>>> ... <<<END>>>. No prose, no fences.`
