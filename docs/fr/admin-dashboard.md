@@ -1,5 +1,5 @@
 ---
-source_hash: 8059ac424f37
+source_hash: 9c1a8320e574
 ---
 
 # Le tableau de bord d’administration
@@ -17,6 +17,7 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 | **Sessions** | Chaque navigateur connecté : compte, appareil, adresse, ouverture, dernière utilisation. Chacun peut être fermé. |
 | **Système** | Processeur, mémoire, retard de la boucle d’événements, carte graphique, disque, worker de rendu des films. |
 | **Fournisseurs** | Comment les fournisseurs de texte, d’images et de vidéo ont répondu sur la dernière heure, puis leurs réglages (les trois blocs de l’ancienne page), et les [sources d’inspiration](muse/inspiration-engine.md#le-registre) que Muse lit. |
+| **Dépenses** | Ce que coûtent les modèles de texte, par jour, mois, compte, projet, modèle ou fournisseur ; les modèles de chaque projet ; le tableau des prix. Voir [Dépenses](#dépenses). |
 | **Journal d’audit** | Qui a fait quoi : connexions et échecs, comptes, sessions, réglages, maintenance, annonces, migrations. |
 | **Annonce** | Un message affiché à tout le monde sous l’en-tête, tout de suite ou à partir d’une date programmée, avec une fin facultative — et des dates dans le texte affichées dans le fuseau de chaque lecteur. |
 | **Assistants (MCP)** | Si Claude, ChatGPT ou un autre client MCP peut agir dans Mocky au nom d’un compte : les prérequis HTTPS, l’interrupteur, qui peut se connecter, et chaque connexion active avec de quoi la couper — voir [Connecter un assistant](mcp.md). |
@@ -206,6 +207,51 @@ chez tous ; changer seulement le début ou la fin garde l’identifiant, pour qu
 coquille corrigée dans une date ne fasse pas revenir un bandeau que tout le monde a
 fermé.
 
+## Dépenses
+
+**Admin → Dépenses** répond aux deux questions d’un administrateur qui paie une
+clé : *quel modèle ce projet a-t-il utilisé*, et *où est passé l’argent ce
+mois-ci*. Elle lit un registre que le serveur tient de chaque appel à un modèle de
+texte (`server/admin/spend.js`) : le jour, le compte, le projet ouvert dans le
+navigateur, le fournisseur, le modèle, la clé utilisée (celle de l’instance ou
+celle de la personne), les jetons envoyés et reçus, et le prix. **Aucun
+contenu** — ni prompt, ni réponse (D1).
+
+- **Période** — 7 jours, 30 jours, 12 mois, tout.
+- **Regrouper par** — jour, mois, compte, projet, modèle ou fournisseur. Chaque
+  colonne se trie : appels, jetons en entrée, jetons en sortie, coût.
+- **Modèles par projet** — pour chaque compte, chaque projet et les modèles qu’il
+  a utilisés, la clé personnelle marquée **API perso**.
+- **Prix des modèles** — en dollars par million de jetons, pour les modèles dont
+  le fournisseur ne dit pas ce qu’il a facturé.
+
+D’où vient le prix :
+
+- **Du fournisseur, quand il l’annonce.** OpenRouter renvoie ce qu’il a facturé
+  avec chaque réponse ; ce chiffre est cru tel quel — aucun tableau ne connaît une
+  remise, un prompt en cache ou un choix de routage.
+- **Du tableau sinon**, appliqué à la lecture de la page : corriger un prix
+  corrige le passé. Un modèle sans prix fait dire au total *incomplet* au lieu de
+  compter comme gratuit.
+- **Les jetons** sont le décompte du fournisseur. OpenAI et OpenRouter le donnent
+  en flux sur demande (`stream_options`) ; un fournisseur qui n’en envoie pas est
+  estimé à quatre caractères par jeton, et le total dit combien d’appels l’ont été.
+
+Un appel sur **la clé personnelle** de quelqu’un n’est compté que par modèle et par
+projet — ses jetons et son prix le regardent, et « API perso + le modèle » est ce
+qu’on a promis de montrer à l’administrateur (F4). La page montre ces appels à
+part, jamais dans un total.
+
+Le projet est celui qui est ouvert dans le navigateur (`x-mocky-project`, envoyé
+aussi par l’exécuteur MCP pour sa tâche). Il range et n’autorise rien : la page
+affiche le nom actuel du projet, « projet supprimé » quand il n’existe plus, et
+« hors projet » pour un appel fait hors de tout projet.
+
+Sur disque : `spend.jsonl`, une ligne par appel, réécrit en une ligne par jour ×
+compte × projet × modèle dès qu’il atteint 20 000 lignes — il grandit avec ce qui
+s’est passé, pas avec le nombre de fois. Le tableau des prix est
+`spend-prices.json`.
+
 ## Ce que cela coûte
 
 - **Une réponse ouverte par tableau de bord ouvert**, un envoi toutes les
@@ -216,4 +262,4 @@ fermé.
   un processus seulement quand le tableau de bord est ouvert, une fois par minute
   sinon, et jamais au démarrage.
 - **Mémoire** : une heure de mesures (720) et 5 000 événements d’activité au plus.
-- **Disque** : le journal d’audit seulement.
+- **Disque** : le journal d’audit, et le registre des dépenses (une ligne par appel, regroupées).

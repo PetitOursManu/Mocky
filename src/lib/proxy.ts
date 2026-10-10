@@ -7,6 +7,23 @@ import { providerKind, type Settings } from './settings'
  */
 export const PROXY_PREFIX = '/__provider'
 
+/**
+ * The project the model calls of this page are made for — read by the
+ * spending ledger (server/admin/spend.js) to file each call under it.
+ *
+ * Module state rather than an argument, because a call reaches the provider
+ * from thirty places (generation, edits, the planner, Muse, polish, a film…)
+ * and every one of them is made while ONE project is open: threading an id
+ * through all of them would be thirty chances to forget it. It names, and
+ * never authorises — the server checks a charset and nothing else.
+ */
+let usageProject: string | null = null
+
+/** Set by the project view while it is open, and by the MCP runner for its job. */
+export function setUsageProject(id: string | null): void {
+  usageProject = id && /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : null
+}
+
 export function proxyHeaders(s: Settings): Record<string, string> {
   const headers: Record<string, string> = {
     'x-provider-base': s.baseUrl,
@@ -18,6 +35,7 @@ export function proxyHeaders(s: Settings): Record<string, string> {
     'content-type': 'application/json',
   }
   if (s.apiKey.trim()) headers['authorization'] = `Bearer ${s.apiKey.trim()}`
+  if (usageProject) headers['x-mocky-project'] = usageProject
   return headers
 }
 

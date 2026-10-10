@@ -40,6 +40,7 @@ export const AUDIT_ACTIONS = [
   'config.freePlan',
   'config.museSources',
   'config.ownKeys',
+  'config.prices',
   'config.text',
   'config.images',
   'config.video',

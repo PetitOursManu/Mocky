@@ -54,6 +54,7 @@ import ShareDialog from './ShareDialog'
 import ScreenNotesDialog from './ScreenNotesDialog'
 import { SaveDesignDialog } from './DesignLibrary'
 import DesignSpecSheet from './DesignSpecSheet'
+import { setUsageProject } from '../lib/proxy'
 import { DesignViews } from './DesignWebPreview'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
@@ -299,6 +300,12 @@ export default function ProjectView({
   const [picturesOff, setPicturesOffState] = useState<boolean>(() => loadPicturesOff())
   /** Which free libraries this ACCOUNT may use; null until the server answered. */
   const [stockImages, setStockImages] = useState<StockImageStatus | null>(null)
+  // Every model call made from this view is filed under this project in the
+  // administrator's spending (lib/proxy.ts → server/admin/spend.js).
+  useEffect(() => {
+    setUsageProject(project.id)
+    return () => setUsageProject(null)
+  }, [project.id])
   useEffect(() => {
     const ac = new AbortController()
     stockImageStatus(ac.signal).then((s) => !ac.signal.aborted && setStockImages(s))

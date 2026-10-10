@@ -26,6 +26,7 @@ import { createRoot } from 'react-dom/client'
 import '../index.css'
 import { useState } from 'react'
 import { api } from '../lib/api'
+import { setUsageProject } from '../lib/proxy'
 import { parseProjects } from '../lib/merge'
 import { defaultSettings } from '../lib/settings'
 import { absoluteUrl, checkVision, defaultMuseConfig, museAvailable } from '../lib/muse'
@@ -181,6 +182,8 @@ async function run(job: RunnerJob): Promise<RunnerResult> {
   // server, which merges it (server/merge.js): the account's other projects are
   // never rewritten by a generation.
   let working: Project = { ...project, screens: [...project.screens] }
+  // The job's model calls are this project's, in the administrator's spending.
+  setUsageProject(project.id)
   const notices: string[] = []
   const say = (line: string) => line && notices.push(line)
 
@@ -472,6 +475,7 @@ async function runOnScreen(job: RunnerJob): Promise<RunnerResult> {
   const { project, screen } = find(data.projects)
   // Not this account's reads as missing (X4); the server already checked.
   if (!project || !screen || !screen.code.trim()) throw new Error('screen not found')
+  setUsageProject(project.id)
   const designMd = designForProject(project, globalDesignFrom(data.design))
   const settings = defaultSettings()
   const signal = new AbortController().signal

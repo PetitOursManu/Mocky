@@ -6,7 +6,15 @@
 // shape, and this proxy translates it to/from OpenAI-compatible providers
 // (OpenAI, OpenRouter, Groq, LM Studio…) when an admin has configured one. The
 // generation, planner and Muse code paths are therefore vendor-agnostic.
-import { buildUpstream, createSseTranslator, fromOpenAiModels, fromOpenAiResponse, KIND_OPENAI } from './text/dialect.js'
+import {
+  buildUpstream,
+  createNdjsonMeter,
+  createSseTranslator,
+  fromOpenAiModels,
+  fromOpenAiResponse,
+  KIND_OPENAI,
+  usageOf,
+} from './text/dialect.js'
 
 import dns from 'node:dns/promises'
 
@@ -298,6 +306,43 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
     // fact, and it is a hint about FORMAT only: the target host still comes from
     // x-provider-base and is still SSRF-checked above, so this widens no trust.
     const browserKind = String(req.headers['x-provider-kind'] || '').toLowerCase()
+
+    /*
+     * One answer's tokens, handed to `opts.onUsage` once it is complete — what
+     * the provider reported, or an estimate from the characters that went in
+     * and came out when it reported nothing (a stream from a vendor that only
+     * counts when asked). Only for a chat that succeeded: a listing costs
+     * nothing, and a refusal is the activity tracker's business. Never throws
+     * into the response — counting is not worth a failed generation.
+     */
+    const meter = (() => {
+      if (!opts.onUsage || subpath.split('?')[0] !== '/api/chat') return null
+      let sent = { model: '', chars: 0 }
+      try {
+        const parsed = JSON.parse(body.toString())
+        sent = {
+          model: String(configured ? configured.model : parsed.model || ''),
+          chars: (parsed.messages || []).reduce((n, m) => n + String(m?.content || '').length, 0),
+        }
+      } catch {
+        /* not JSON: counted with nothing known */
+      }
+      let done = false
+      return (usage, outChars) => {
+        if (done) return
+        done = true
+        try {
+          opts.onUsage(
+            usage
+              ? { model: sent.model, input: usage.input, output: usage.output, cost: usage.cost ?? null, estimated: false }
+              : { model: sent.model, input: Math.ceil(sent.chars / 4), output: Math.ceil((outChars || 0) / 4), cost: null, estimated: true },
+          )
+        } catch {
+          /* the ledger's problem, not the answer's */
+        }
+      }
+    })()
+
     const plan = configured
       ? buildUpstream(configured, subpath, body)
       : browserKind === KIND_OPENAI
@@ -373,7 +418,9 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       if (!wantsStream) {
         const json = await upstream.json().catch(() => ({}))
         res.setHeader('content-type', 'application/json')
-        res.end(JSON.stringify(plan.isModels ? fromOpenAiModels(json, plan.quirks) : fromOpenAiResponse(json)))
+        const answer = plan.isModels ? fromOpenAiModels(json, plan.quirks) : fromOpenAiResponse(json)
+        res.end(JSON.stringify(answer))
+        if (!plan.isModels) meter?.(usageOf(json), String(answer.message?.content || '').length)
         return
       }
 
@@ -393,7 +440,8 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       } finally {
         reader.releaseLock?.()
       }
-      if (res.destroyed) return
+      // Stopped by the person: what was produced until then was still paid for.
+      if (res.destroyed) return meter?.(translate.state.usage, translate.state.content + translate.state.reasoned)
       /*
        * The last line says what the stream was made of.
        *
@@ -409,6 +457,7 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
       if (!seen.content && seen.error) tail.error = seen.error
       res.write(JSON.stringify(tail) + '\n')
       res.end()
+      meter?.(seen.usage, seen.content + seen.reasoned)
       return
     }
 
@@ -429,21 +478,35 @@ export async function handleProviderProxy(req, res, fetchImpl = fetch, opts = {}
     if (isStreaming && upstream.body && typeof upstream.body.getReader === 'function') {
       const reader = upstream.body.getReader()
       if (typeof res.flushHeaders === 'function') res.flushHeaders()
+      const look = meter && upstream.ok ? createNdjsonMeter() : null
       try {
         for (;;) {
           if (res.destroyed) break
           const { done, value } = await reader.read()
           if (done) break
           res.write(Buffer.from(value))
+          look?.(value)
         }
       } finally {
         reader.releaseLock?.()
       }
       if (!res.destroyed) res.end()
+      if (look) {
+        look.end()
+        meter(look.state.usage, look.state.content)
+      }
     } else {
       // Regular JSON response: buffer and send in one piece.
       const buf = Buffer.from(await upstream.arrayBuffer())
       res.end(buf)
+      if (meter && upstream.ok) {
+        try {
+          const json = JSON.parse(buf.toString())
+          meter(usageOf(json), String(json?.message?.content || '').length)
+        } catch {
+          /* not an answer */
+        }
+      }
     }
   } catch (err) {
     // Once a stream has started, the headers are already gone. Writing one here

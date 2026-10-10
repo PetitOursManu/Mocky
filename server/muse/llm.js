@@ -9,7 +9,7 @@
 // Non-streamed + Ollama structured output (`format`), mirroring src/lib/plan.ts.
 // Never uses the <<<MOCKY>>> sentinel path (that's for streamed code gen only).
 import { assertSafeTarget } from '../provider-proxy.js'
-import { buildUpstream, fromOpenAiResponse, KIND_OPENAI } from '../text/dialect.js'
+import { buildUpstream, fromOpenAiResponse, KIND_OPENAI, usageOf } from '../text/dialect.js'
 
 /**
  * @typedef {object} ProviderCreds
@@ -87,6 +87,27 @@ export async function museChat(creds, req) {
     const raw = await res.json()
     const data = plan.translate ? fromOpenAiResponse(raw) : raw
     const content = data?.message?.content ?? raw?.choices?.[0]?.message?.content ?? ''
+    // The ledger (server/admin/spend.js), when the route gave one: what the
+    // provider reported, or the characters' estimate. Paid for even when the
+    // answer turns out empty, so counted before that check.
+    if (typeof creds.onUsage === 'function') {
+      try {
+        const u = usageOf(raw)
+        creds.onUsage(
+          u
+            ? { model: creds.model, ...u, estimated: false }
+            : {
+                model: creds.model,
+                input: Math.ceil((String(req.system || '').length + String(req.user || '').length) / 4),
+                output: Math.ceil(String(content).length / 4),
+                cost: null,
+                estimated: true,
+              },
+        )
+      } catch {
+        /* counting never fails a call */
+      }
+    }
     if (!content || !content.trim()) throw new Error('Empty model response')
     return content
   } finally {

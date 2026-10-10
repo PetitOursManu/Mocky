@@ -70,6 +70,81 @@ function toOpenAiMessage(m) {
  */
 const THINKING_EFFORT = 'low'
 
+/**
+ * Hosts whose streamed answer carries its token count only when asked
+ * (`stream_options.include_usage`, a final frame with `usage` and no choice).
+ * A list rather than every OpenAI-compatible endpoint, for `reasoning`'s reason
+ * above: a key a vendor does not know is a 400 on some of them, and losing a
+ * generation to count it would be the wrong trade. Others are counted when they
+ * send usage unasked, and estimated when they do not (server/admin/spend.js).
+ */
+const STREAM_USAGE_HOSTS = ['api.openai.com', 'openrouter.ai']
+
+export function asksStreamUsage(baseUrl) {
+  try {
+    const host = new URL(String(baseUrl)).hostname.toLowerCase()
+    return STREAM_USAGE_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The tokens and price of one answer, as the provider reported them — or null.
+ * OpenAI's `usage.prompt_tokens/completion_tokens`; Groq's copy of it under
+ * `x_groq`; OpenRouter's `usage.cost`, which is the price it CHARGED, in its
+ * credits (US dollars) — the one figure no price table can be wrong about;
+ * Ollama's `prompt_eval_count/eval_count` on its last line.
+ */
+export function usageOf(obj) {
+  if (!obj || typeof obj !== 'object') return null
+  const u = obj.usage || obj.x_groq?.usage
+  const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null)
+  if (u && typeof u === 'object') {
+    const input = num(u.prompt_tokens ?? u.input_tokens)
+    const output = num(u.completion_tokens ?? u.output_tokens)
+    if (input == null && output == null) return null
+    return { input: input ?? 0, output: output ?? 0, cost: num(u.cost) }
+  }
+  if (obj.prompt_eval_count != null || obj.eval_count != null) {
+    return { input: num(obj.prompt_eval_count) ?? 0, output: num(obj.eval_count) ?? 0, cost: null }
+  }
+  return null
+}
+
+/**
+ * Reads an Ollama NDJSON stream as it is piped through untouched: the length
+ * of the answer, and the counts its last line carries. Never alters a byte —
+ * the proxy writes what it received, this only looks.
+ */
+export function createNdjsonMeter() {
+  let buffer = ''
+  const state = { content: 0, usage: null }
+  const decoder = new TextDecoder()
+  function look(chunk) {
+    buffer += typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) read(line)
+  }
+  function read(line) {
+    if (!line.trim()) return
+    try {
+      const obj = JSON.parse(line)
+      state.content += String(obj?.message?.content || '').length
+      if (obj?.done) state.usage = usageOf(obj) || state.usage
+    } catch {
+      /* not a line of JSON */
+    }
+  }
+  look.end = () => {
+    read(buffer)
+    buffer = ''
+  }
+  look.state = state
+  return look
+}
+
 /** The one vendor whose API defines `reasoning` — see THINKING_EFFORT. */
 export function boundsThinking(baseUrl) {
   try {
@@ -390,7 +465,7 @@ export function createSseTranslator() {
    * refused: insufficient credits" are two different problems, and both used to
    * arrive as "the model returned an empty response".
    */
-  const state = { reasoned: 0, content: 0, error: '' }
+  const state = { reasoned: 0, content: 0, error: '', usage: null }
   function translate(chunkText) {
     buffer += chunkText
     const frames = buffer.split('\n')
@@ -403,6 +478,9 @@ export function createSseTranslator() {
       if (!payload || payload === '[DONE]') continue
       try {
         const obj = JSON.parse(payload)
+        // The token count, when the provider sends one: OpenAI and OpenRouter on
+        // a final frame with no choice in it, which is otherwise skipped below.
+        state.usage = usageOf(obj) || state.usage
         // A refusal inside a 200: stated, not swallowed. The stream stops being
         // interesting after it, but the caller is the one that decides.
         const failure = errorText(obj)
@@ -494,6 +572,8 @@ export function buildUpstream(target, subpath, rawBody) {
   const out = toOpenAiRequest(parsed)
   // Only where the parameter exists — see `boundsThinking`.
   if (boundsThinking(base)) out.reasoning = { effort: THINKING_EFFORT }
+  // Only where it is known to be accepted — see `asksStreamUsage`.
+  if (out.stream && asksStreamUsage(base)) out.stream_options = { include_usage: true }
   return {
     url: `${root}/chat/completions`,
     headers: { accept: 'application/json', 'content-type': 'application/json', ...auth },

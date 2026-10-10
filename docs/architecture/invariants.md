@@ -15,7 +15,7 @@ There are seven series:
 - **M1 to M8**, introduced by Muse.
 - **Q1 to Q5**, introduced by the quality pass.
 - **U1 to U5**, introduced by Motion Ultra.
-- **D1 to D5**, introduced by the admin dashboard.
+- **D1 to D6**, introduced by the admin dashboard.
 - **X1 to X7**, introduced by Mocky as an MCP server.
 - **F1 to F4**, introduced by the free plan and personal keys.
 
@@ -840,6 +840,27 @@ otherwise be the most active user of the instance by construction.
 **How it is checked.** `server/admin/presence.test.js` (a beat is not a request; a
 late beat from a closed tab is ignored), `migration.test.js` (the heartbeat passes
 maintenance).
+
+### D6. A price is counted, never guessed, and a personal key is not counted at all
+
+**The rule.** The spending ledger (`server/admin/spend.js`) keeps counts and
+names, never content. A price the provider reported is kept as it was reported; a
+price from the table is applied when the page is read, never stored; a model with
+neither makes its total say so (`unpriced`) instead of counting as zero. A call
+on a person's own key keeps its model, provider and project, and nothing else.
+Counting never fails a call: the ledger and the proxy's meter swallow their own
+errors.
+
+**What it protects.** The one number on the dashboard that is money. A total that
+silently left out a model with no price is the total an administrator would trust;
+a token count of someone's own key is a view into a bill that is not the
+instance's.
+
+**How it is checked.** `server/admin/spend.test.js` (what a line keeps, a reported
+price, an own key, `costOf`, folding, a torn line, a full disk),
+`server/spend-routes.test.js` (a real server, a provider reporting usage in an
+answer and in the last frame of a stream, the project, the price table, nothing
+said recorded), `src/lib/spend.test.ts` (grouping, totals, sorting).
 
 ---
 

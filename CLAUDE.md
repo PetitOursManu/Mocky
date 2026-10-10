@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Seven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Seven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1028,7 +1028,7 @@ Four things that will bite you:
 ## The admin dashboard
 
 Admin is one page with a left menu, fed by one live stream. User doc:
-`docs/admin-dashboard.md`; invariants D1–D5.
+`docs/admin-dashboard.md`; invariants D1–D6.
 
 ```
 server/admin/presence.js   who is here: heartbeats + requests, in memory, 150 s window
@@ -1037,11 +1037,12 @@ server/admin/system.js     CPU/RAM/event loop every 5 s, cgroup-aware, one hour 
 server/admin/gpu.js        nvidia-smi → sysfs → ioreg → registry+typeperf; "absent" ≠ "unmeasurable"
 server/admin/audit.js      the one store on disk: audit.jsonl, 2,000 entries, no secret values
 server/admin/sessions.js   sessions by HASH of their token, device as a UA summary
+server/admin/spend.js      the spending ledger: tokens and price per day × account × project × model (D6)
 server/admin/routes.js     /api/admin/dashboard/*, Server-Sent Events every 2 s
 src/components/admin/      the page; charts.tsx is hand-drawn SVG, one series each
 ```
 
-Five things that will bite you:
+Six things that will bite you:
 
 1. **Never record content.** An event is who/kind/provider/duration/outcome.
    A provider's error text is reduced to `outcomeOf`'s word because it can quote
@@ -1061,6 +1062,13 @@ Five things that will bite you:
 5. **In `npm run dev`, Vite serves `/__provider` itself**, so generations never
    reach Express and are not tracked; the Activity screen says so under
    `import.meta.env.DEV`. Check the dashboard against a production build.
+6. **A model call the server makes reports its tokens, or Spending under-counts.**
+   The proxy meters `/__provider` itself (`opts.onUsage`); a route that builds
+   credentials for `museChat` sets `creds.onUsage = meter(req, profile)`, as the
+   Muse and video routes do. The project comes from `x-mocky-project`, which
+   `proxyHeaders` adds while a project is open (`setUsageProject`): a new client
+   call that builds its own headers instead of using it is filed "outside a
+   project" — `museDossier` was one such hand-built call, for a different bug.
 
 The heartbeat (`POST /api/presence`) is in maintenance's `ALWAYS_ALLOWED`: it
 writes nothing. `docker-compose.gpu.yml` is the NVIDIA override; it is its own

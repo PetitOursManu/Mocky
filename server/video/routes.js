@@ -205,6 +205,7 @@ export function createVideoRouter({
   budget,
   resolveTarget,
   imageRegistryFor,
+  meter,
 }) {
   const router = express.Router()
 
@@ -458,6 +459,8 @@ export function createVideoRouter({
       admin = null
     }
     const creds = admin ? { ...admin, trusted: true } : credsFromReq(req)
+    // The composition call is counted against the account (server/admin/spend.js).
+    if (creds && meter) creds.onUsage = meter(req, 'inspiration')
     const llm = creds ? makeLlm(creds) : null
 
     /*

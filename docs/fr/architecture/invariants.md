@@ -1,5 +1,5 @@
 ---
-source_hash: 2c2061927dd6
+source_hash: 2e581aed39a2
 ---
 
 # Invariants
@@ -19,7 +19,7 @@ Il y a sept séries :
 - **M1 à M8**, apportés par Muse.
 - **Q1 à Q5**, apportés par la passe de qualité.
 - **U1 à U5**, apportés par Motion Ultra.
-- **D1 à D5**, apportés par le tableau de bord d’administration.
+- **D1 à D6**, apportés par le tableau de bord d’administration.
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
 
@@ -894,6 +894,29 @@ serait sinon, par construction, l’utilisateur le plus actif de l’instance.
 une requête ; un battement tardif d’un onglet fermé est ignoré),
 `migration.test.js` (le battement passe la maintenance).
 
+
+### D6. Un prix se compte, ne se devine pas, et une clé personnelle ne se compte pas du tout
+
+**La règle.** Le registre des dépenses (`server/admin/spend.js`) garde des
+décomptes et des noms, jamais de contenu. Un prix annoncé par le fournisseur est
+gardé tel qu’annoncé ; un prix du tableau s’applique à la lecture de la page,
+jamais enregistré ; un modèle sans l’un ni l’autre fait dire à son total qu’il est
+incomplet (`unpriced`) au lieu de compter zéro. Un appel sur la clé personnelle de
+quelqu’un garde son modèle, son fournisseur et son projet, et rien d’autre.
+Compter ne fait jamais échouer un appel : le registre et le compteur du proxy
+avalent leurs propres erreurs.
+
+**Ce qu’elle protège.** Le seul chiffre du tableau de bord qui soit de l’argent. Un
+total qui laisse de côté sans le dire un modèle sans prix est le total auquel un
+administrateur se fierait ; le nombre de jetons de la clé de quelqu’un est une vue
+sur une facture qui n’est pas celle de l’instance.
+
+**Comment c’est vérifié.** `server/admin/spend.test.js` (ce que garde une ligne, un
+prix annoncé, une clé personnelle, `costOf`, le regroupement, une ligne tronquée,
+un disque plein), `server/spend-routes.test.js` (un vrai serveur, un fournisseur
+qui annonce son décompte dans une réponse et dans la dernière trame d’un flux, le
+projet, le tableau des prix, rien de ce qui est dit enregistré),
+`src/lib/spend.test.ts` (regroupement, totaux, tri).
 ---
 
 ## Série X — Mocky comme serveur MCP
