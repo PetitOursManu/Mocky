@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { cleanPrices, cleanProjectId, costOf, createSpendLedger, lineFor } from './spend.js'
+import { cleanPrices, cleanProjectId, costOf, createSpendLedger, lineFor, priceKey } from './spend.js'
 
 const at = new Date(2026, 9, 10, 15, 0, 0)
 const call = (over = {}) => ({
@@ -57,6 +57,18 @@ describe('the price of a folded line', () => {
   })
   it('is nobody’s business on a person’s own key', () => {
     expect(costOf({ src: 'browser', m: 'x', n: 4 }, prices)).toEqual({ cost: null, unpriced: false })
+  })
+  it('takes the provider’s own price first, then a price set for the name alone', () => {
+    const e = { src: 'instance', prov: 'together', m: 'gpt-oss', uin: 1e6, uout: 0 }
+    expect(costOf(e, { 'gpt-oss': { in: 1, out: 1 } }).cost).toBe(1)
+    expect(costOf(e, { 'gpt-oss': { in: 1, out: 1 }, [priceKey('together', 'gpt-oss')]: { in: 0.15, out: 0.6 } }).cost).toBe(0.15)
+    expect(costOf({ ...e, prov: 'openrouter' }, { [priceKey('together', 'gpt-oss')]: { in: 0.15, out: 0.6 } }).unpriced).toBe(true)
+  })
+  it('remembers where a fetched price came from, and nothing else', () => {
+    expect(cleanPrices({ 'together::x': { in: 1, out: 2, source: 'together', at: 1700000000000, junk: 1 } })).toEqual({
+      'together::x': { in: 1, out: 2, source: 'together', at: 1700000000000 },
+    })
+    expect(cleanPrices({ x: { in: 1, out: 2, source: '<script>' } })).toEqual({ x: { in: 1, out: 2 } })
   })
   it('keeps only what a price table can hold', () => {
     expect(cleanPrices({ 'a/b': { in: '0.2', out: 1 }, '<x>': { in: 1 }, c: { in: -3, out: 'nope' } })).toEqual({

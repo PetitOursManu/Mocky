@@ -73,7 +73,14 @@ export interface SpendEntry {
   /** Calls whose tokens were estimated from characters (no count reported). */
   estimated: number
 }
-export type SpendPrices = Record<string, { in: number; out: number }>
+/** Dollars per million tokens, keyed `provider::model`; `source` and `at` when fetched from a provider. */
+export type SpendPrices = Record<string, { in: number; out: number; source?: string; at?: number }>
+/** What one model's price import came to (server/admin/prices.js). */
+export interface PriceImportLine {
+  provider: string
+  model: string
+  status: 'imported' | 'kept-manual' | 'not-listed' | 'no-api' | 'no-key' | 'error'
+}
 
 /** A gallery Muse reads for inspiration (Admin → Fournisseurs). */
 export interface MuseSource {
@@ -689,6 +696,9 @@ export const api = {
       req(`/api/admin/spend?days=${encodeURIComponent(days)}`) as Promise<{ since: string; entries: SpendEntry[]; prices: SpendPrices }>,
     setPrices: (prices: SpendPrices) =>
       req('/api/admin/spend/prices', { method: 'PUT', body: JSON.stringify({ prices }) }) as Promise<{ prices: SpendPrices }>,
+    /** Fill the table from the providers that publish their prices. */
+    importPrices: () =>
+      req('/api/admin/spend/prices/import', { method: 'POST' }) as Promise<{ prices: SpendPrices; report: PriceImportLine[] }>,
 
     /** The galleries Muse reads for inspiration. */
     museSources: () => req('/api/admin/muse/sources') as Promise<MuseSourcesView>,

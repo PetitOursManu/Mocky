@@ -93,7 +93,8 @@ export function asksStreamUsage(baseUrl) {
  * The tokens and price of one answer, as the provider reported them — or null.
  * OpenAI's `usage.prompt_tokens/completion_tokens`; Groq's copy of it under
  * `x_groq`; OpenRouter's `usage.cost`, which is the price it CHARGED, in its
- * credits (US dollars) — the one figure no price table can be wrong about;
+ * credits (US dollars) — the one figure no price table can be wrong about —
+ * and xAI's `cost_in_usd_ticks` / `cost_in_nano_usd`, the same fact in its units;
  * Ollama's `prompt_eval_count/eval_count` on its last line.
  */
 export function usageOf(obj) {
@@ -104,7 +105,12 @@ export function usageOf(obj) {
     const input = num(u.prompt_tokens ?? u.input_tokens)
     const output = num(u.completion_tokens ?? u.output_tokens)
     if (input == null && output == null) return null
-    return { input: input ?? 0, output: output ?? 0, cost: num(u.cost) }
+    // xAI reports what it charged too, in its own units: ticks (10^10 to the
+    // dollar) or nano-dollars.
+    const ticks = num(u.cost_in_usd_ticks)
+    const nano = num(u.cost_in_nano_usd)
+    const cost = num(u.cost) ?? (ticks != null ? ticks / 1e10 : nano != null ? nano / 1e9 : null)
+    return { input: input ?? 0, output: output ?? 0, cost }
   }
   if (obj.prompt_eval_count != null || obj.eval_count != null) {
     return { input: num(obj.prompt_eval_count) ?? 0, output: num(obj.eval_count) ?? 0, cost: null }

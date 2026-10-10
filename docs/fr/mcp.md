@@ -1,5 +1,5 @@
 ---
-source_hash: d6cc2f20c534
+source_hash: d85a97b40507
 ---
 
 # Connecter un assistant (MCP)
@@ -104,6 +104,16 @@ rien remplir, un prompt démarre quand même une conversation sensée.
   ChatGPT (`window.openai`), et déclare son unique domaine encadré dans les deux
   vocabulaires ; quand elle ne reçoit rien, elle le dit dans le cadre au lieu de
   rester vide.
+
+  **Claude refuse le cadre pour l'instant** — il « restreint `frameDomains` en
+  attendant une revue de sécurité », et le premier essai a dessiné à sa place la
+  page d'erreur `ERR_BLOCKED_BY_CSP` du navigateur. Là, la vue montre l'image de
+  l'écran, défilable dans le même cadre, avec une ligne qui dit qu'elle est figée
+  et **Ouvrir dans Mocky** à côté. Elle bascule sur le refus de l'hôte lui-même
+  (l'événement `securitypolicyviolation`) et, pour épargner la page d'erreur,
+  d'emblée pour un hôte qui se nomme Claude (`FRAMELESS_HOSTS` dans
+  `server/mcp/view.js`) ; l'origine de l'image est déclarée dans
+  `resourceDomains` pour cela.
 - **L'image** est un JPEG du haut de la page (2 000 px au plus) : la page entière
   est dans Mocky, derrière le lien. Pour un assistant dont l'interface n'affiche
   pas l'image d'un outil, la réponse porte aussi un **lien d'image** — ce JPEG

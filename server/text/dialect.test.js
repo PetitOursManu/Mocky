@@ -522,6 +522,9 @@ describe('what an answer cost', () => {
     expect(usageOf({ usage: { prompt_tokens: 120, completion_tokens: 30, cost: 0.0042 } })).toEqual({ input: 120, output: 30, cost: 0.0042 })
     expect(usageOf({ x_groq: { usage: { prompt_tokens: 5, completion_tokens: 6 } } })).toEqual({ input: 5, output: 6, cost: null })
     expect(usageOf({ done: true, prompt_eval_count: 11, eval_count: 22 })).toEqual({ input: 11, output: 22, cost: null })
+    // xAI's own units for what it charged: 10^10 ticks to the dollar, or nano-dollars.
+    expect(usageOf({ usage: { prompt_tokens: 1, completion_tokens: 1, cost_in_usd_ticks: 25_000_000 } }).cost).toBeCloseTo(0.0025, 12)
+    expect(usageOf({ usage: { prompt_tokens: 1, completion_tokens: 1, cost_in_nano_usd: 2_500_000 } }).cost).toBeCloseTo(0.0025, 12)
     expect(usageOf({ choices: [] })).toBeNull()
     expect(usageOf(null)).toBeNull()
   })

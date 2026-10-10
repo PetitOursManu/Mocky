@@ -246,6 +246,9 @@ export function buildMcpServer(deps) {
     const screen = findProject(projectId)?.screens?.find((x) => x?.id === screenId)
     return {
       url: deps.viewLink(shot),
+      // The same screen as a picture, for a host that refuses the frame
+      // (view.js — Claude does, for now).
+      picture: deps.shotLink(shot),
       width: typeof w === 'number' ? w : 1440,
       height: typeof h === 'number' ? h : 900,
       title: (screen && typeof screen.name === 'string' && screen.name) || 'Mocky',
@@ -254,18 +257,23 @@ export function buildMcpServer(deps) {
     }
   }
   /**
-   * What the live view may reach: the one origin it frames, and nothing it
-   * fetches — the screen inside is served by Mocky under its own sandbox
-   * (routes.js, /mcp-view). Said twice, in the standard's words and in
+   * What the live view may reach: the one origin it frames, its pictures, and
+   * nothing it fetches — the screen inside is served by Mocky under its own
+   * sandbox (routes.js, /mcp-view). Said twice, in the standard's words and in
    * ChatGPT's own (`openai/widgetCSP`), and on both the listing and the
    * contents: in its first real test ChatGPT marked the view "CSP disabled" and
    * showed a frame a few pixels tall.
+   *
+   * `resourceDomains` is the picture: Claude "restricts frameDomains pending
+   * security review", so there the frame is refused (ERR_BLOCKED_BY_CSP, in the
+   * first real test) and the view shows the screen's JPEG instead — an `<img>`
+   * from this origin, which only `img-src` lets through.
    */
   function viewResourceMeta() {
     const mine = deps.origin ? [deps.origin] : []
     return {
-      ui: { csp: { frameDomains: mine, connectDomains: [], resourceDomains: [] }, prefersBorder: false },
-      'openai/widgetCSP': { connect_domains: [], resource_domains: [], frame_domains: mine, redirect_domains: mine },
+      ui: { csp: { frameDomains: mine, connectDomains: [], resourceDomains: mine }, prefersBorder: false },
+      'openai/widgetCSP': { connect_domains: [], resource_domains: mine, frame_domains: mine, redirect_domains: mine },
       'openai/widgetPrefersBorder': false,
     }
   }

@@ -19,7 +19,7 @@ import { createVideoWorker, collectImages } from './video/worker.js'
 import { VideoExportStore } from './video/store.js'
 import { totalDurationMs } from './video/timeline.js'
 import { createVideoRouter, createVideoAdminRouter } from './video/routes.js'
-import { TextConfigStore, TEXT_PROFILES, looksLikeImageModel } from './text/config.js'
+import { TextConfigStore, TEXT_PROFILES, looksLikeImageModel, configuredProviders } from './text/config.js'
 import {
   PLANS,
   planOf,
@@ -31,7 +31,8 @@ import {
   paidRefusal,
 } from './plan.js'
 import { cleanOwnText, ownKeysAllowed, ownTextView, usesOwnText } from './own-text.js'
-import { cleanProjectId, costOf, createSpendLedger, dayOf } from './admin/spend.js'
+import { cleanProjectId, costOf, createSpendLedger, dayOf, priceKey } from './admin/spend.js'
+import { fetchPrices } from './admin/prices.js'
 import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
@@ -1581,6 +1582,43 @@ app.put('/api/admin/spend/prices', requireAdmin, (req, res) => {
     const prices = spend.setPrices(req.body.prices)
     audit.record({ action: 'config.prices', actor: auditActor(req.user), detail: { models: Object.keys(prices).length }, ip: clientIp(req) })
     res.json({ prices })
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+/**
+ * Fill the price table from the providers that publish their prices
+ * (server/admin/prices.js): every model the instance has called, and every
+ * model a profile names, so a price can be in place before the first call. A
+ * price someone TYPED is never overwritten — a negotiated rate is exactly what a
+ * public catalogue does not know; a price fetched before is refreshed.
+ */
+app.post('/api/admin/spend/prices/import', requireAdmin, async (req, res) => {
+  try {
+    const { credentials, models } = configuredProviders(textConfig.get())
+    const wanted = new Map()
+    const want = (provider, model) => {
+      if (provider && model && provider !== 'unknown' && model !== 'unknown') wanted.set(priceKey(provider, model), { provider, model })
+    }
+    for (const e of spend.entries('')) if (e.src === 'instance') want(e.prov, e.m)
+    for (const m of models) want(m.provider, m.model)
+    const { found, report } = await fetchPrices({ wanted: [...wanted.values()], credentials })
+    const prices = spend.prices()
+    const at = Date.now()
+    let imported = 0
+    for (const [key, price] of Object.entries(found)) {
+      if (prices[key] && !prices[key].source) {
+        const line = report.find((r) => priceKey(r.provider, r.model) === key)
+        if (line) line.status = 'kept-manual'
+        continue
+      }
+      prices[key] = { ...price, at }
+      imported++
+    }
+    const saved = spend.setPrices(prices)
+    audit.record({ action: 'config.prices', actor: auditActor(req.user), detail: { models: Object.keys(saved).length, imported }, ip: clientIp(req) })
+    res.json({ prices: saved, report })
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
   }

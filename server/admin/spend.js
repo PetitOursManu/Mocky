@@ -112,12 +112,25 @@ export function costOf(e, prices = {}) {
   const reported = e.cost || 0
   const left = (e.uin || 0) + (e.uout || 0)
   if (!left) return { cost: e.costN ? reported : 0, unpriced: false }
-  const price = prices[e.m]
+  // One model sold by two providers has two prices (gpt-oss on OpenRouter and on
+  // Together): the provider's own line first, then a price set for the name alone.
+  const price = prices[priceKey(e.prov, e.m)] || prices[e.m]
   if (!price) return { cost: e.costN ? reported : null, unpriced: true }
   return { cost: reported + ((e.uin || 0) * (price.in || 0) + (e.uout || 0) * (price.out || 0)) / 1e6, unpriced: false }
 }
 
-/** Prices as an administrator typed them: per model, two non-negative numbers. */
+/** The key a price is stored under: the provider's id and the model's name. */
+export const priceKey = (provider, model) => `${provider}::${model}`
+
+/** Where a fetched price came from — `server/admin/prices.js`'s sources, and nothing else. */
+const PRICE_SOURCE = /^[a-z][a-z0-9-]{1,40}$/
+
+/**
+ * Prices as the table holds them: per `provider::model` (or a bare model name,
+ * as the first version saved them), two non-negative numbers in dollars per
+ * million tokens — and, for a fetched one, which catalogue and when, so the
+ * panel can tell a price read from a provider from a price someone typed.
+ */
 export function cleanPrices(raw) {
   const out = {}
   if (!raw || typeof raw !== 'object') return out
@@ -126,6 +139,10 @@ export function cleanPrices(raw) {
     if (!m || !p || typeof p !== 'object') continue
     const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.min(Number(v), 1e6) : 0)
     out[m] = { in: num(p.in), out: num(p.out) }
+    if (typeof p.source === 'string' && PRICE_SOURCE.test(p.source)) {
+      out[m].source = p.source
+      if (Number.isFinite(Number(p.at)) && Number(p.at) > 0) out[m].at = Math.round(Number(p.at))
+    }
   }
   return out
 }
