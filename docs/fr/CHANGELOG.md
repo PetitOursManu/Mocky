@@ -50,6 +50,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `deps` | Tailwind CSS 3 → 4 pour l'interface de Mocky | `2eda4bc` |
 | — | Clarifie la formulation sur l'emplacement sans photo retenue | `14ba6ed` |
 | `changelog` | pousser avec une deploy key dédiée, environnement changelog, [skip ci] | `927b314` |
 | `mcp` | rappeler get_design tant que le travail est queued, pas seulement running | `8513c97` |
