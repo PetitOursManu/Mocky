@@ -1,5 +1,5 @@
 ---
-source_hash: da5b1aaeb7b7
+source_hash: d408cebb3c84
 ---
 
 # Déploiement
@@ -31,7 +31,8 @@ les dépendances d'exécution et ne construit rien, donc il ne veut ni Puppeteer
 dépendance facultative d'`impeccable`, dont Mocky n'appelle jamais le moteur par
 URL — ni le moindre binaire natif propre à une plateforme, alors que le même
 drapeau posé dans un `.npmrc` s'appliquerait aussi à l'étage de construction, où
-il retire `@rolldown/binding-*` et casse `npm run build`.
+il retire les versions par plateforme de Rollup, d'esbuild, de
+`@tailwindcss/oxide` et de `lightningcss`, et casse `npm run build`.
 
 Puis trois couches qui demandent chacune une explication.
 

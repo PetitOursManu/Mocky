@@ -11,7 +11,8 @@ WORKDIR /app
 # copying it afterwards is the same as not having it: this stage would download
 # a full Chrome build (~700 MB) that nothing here uses and that the runtime
 # stage discards anyway. It cannot be dropped from this stage either, because
-# `--omit=optional` would strip @rolldown/binding-* and break `npm run build`.
+# `--omit=optional` would strip the platform builds of Rollup, esbuild,
+# @tailwindcss/oxide and lightningcss, and break `npm run build`.
 COPY package.json package-lock.json .puppeteerrc.cjs ./
 RUN npm ci
 
@@ -30,8 +31,9 @@ WORKDIR /app
 # dependencies and builds nothing, so it wants neither Puppeteer (pulled in as
 # an optional dependency of `impeccable`, whose URL engine Mocky never calls)
 # nor any per-platform native binding. In the builder stage the same flag would
-# strip @rolldown/binding-* and break `npm run build`, which is why it is not
-# in an .npmrc — see .puppeteerrc.cjs for the rest of that story.
+# strip the platform builds of Rollup, esbuild, @tailwindcss/oxide and
+# lightningcss and break `npm run build`, which is why it is not in an .npmrc
+# — see .puppeteerrc.cjs for the rest of that story.
 COPY package.json package-lock.json .puppeteerrc.cjs ./
 RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 

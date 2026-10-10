@@ -1128,7 +1128,8 @@ Four things that will bite you:
   `impeccable`; `.puppeteerrc.cjs` stops the Chrome download and the Docker
   runtime stage passes `--omit=optional`. Do **not** put `omit=optional` in an
   `.npmrc`: optional dependencies are how npm ships per-platform native
-  binaries, so it also strips `@rolldown/binding-*` and breaks the build.
+  binaries, so it also strips the platform builds of Rollup, esbuild,
+  `@tailwindcss/oxide` and `lightningcss`, and breaks the build.
 - **Nothing in `public/vendor/` is fetched from a CDN**, and every file there is
   pinned by SHA-256 in `public/vendor/VENDOR.md`. `npm run check:vendor`
   verifies it.

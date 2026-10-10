@@ -26,8 +26,8 @@ RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 dependencies and builds nothing, so it wants neither Puppeteer — an optional
 dependency of `impeccable`, whose URL engine Mocky never calls — nor any
 per-platform native binding, whereas the same flag in an `.npmrc` would also
-apply to the builder stage, where it strips `@rolldown/binding-*` and breaks
-`npm run build`.
+apply to the builder stage, where it strips the platform builds of Rollup,
+esbuild, `@tailwindcss/oxide` and `lightningcss` and breaks `npm run build`.
 
 Then three layers that each need explaining.
 

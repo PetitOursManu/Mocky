@@ -1,5 +1,5 @@
 ---
-source_hash: d5bc579e1337
+source_hash: 4c372a946c98
 ---
 
 # Invariants
@@ -1164,9 +1164,9 @@ téléchargé, et l'étage d'exécution du Dockerfile installe avec
 **Pourquoi un `omit=optional` général dans un `.npmrc` a été rejeté.** C'est
 l'endroit qui semble propre pour ce drapeau, et c'est faux. Les dépendances
 optionnelles sont la façon dont npm livre les **binaires natifs par
-plateforme** : le drapeau retire donc aussi `@rolldown/binding-*` et le paquet de
-plateforme d'esbuild, ce qui casse à la fois le lanceur de tests et la
-construction. On l'a découvert en le faisant, et en regardant vitest échouer. Le
+plateforme** : le drapeau retire donc aussi les paquets de plateforme de Rollup
+et d'esbuild — et, depuis Tailwind 4, ceux de `@tailwindcss/oxide` et de
+`lightningcss` —, ce qui casse à la fois le lanceur de tests et la construction. On l'a découvert en le faisant, et en regardant vitest échouer. Le
 drapeau vit donc dans le seul étage où il est correct : l'étage d'exécution du
 Dockerfile, qui installe des dépendances d'exécution et ne construit rien.
 

@@ -14,8 +14,8 @@
  *
  *   - `omit=optional` in .npmrc removes far too much. Optional dependencies are
  *     how npm ships per-platform native binaries, so that flag also strips
- *     @rolldown/binding-* and esbuild's platform package, breaking the test
- *     runner and the build.
+ *     the platform packages of Rollup, esbuild, @tailwindcss/oxide and
+ *     lightningcss, breaking the test runner and the build.
  *   - `puppeteer_skip_download` in .npmrc no longer does anything. Puppeteer
  *     stopped reading npm_config_* in v23; it reads this file, or the
  *     PUPPETEER_SKIP_DOWNLOAD environment variable.

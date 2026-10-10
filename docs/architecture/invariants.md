@@ -1089,9 +1089,9 @@ no Chrome is ever fetched, and the Docker runtime stage installs with
 
 **Why a blanket `omit=optional` in an `.npmrc` was rejected.** It looks like the
 tidy place for that flag, and it is wrong. Optional dependencies are how npm
-ships **per-platform native binaries**, so the flag also strips
-`@rolldown/binding-*` and esbuild's platform package: the test runner and the
-build both stop working. That was found by doing it and watching vitest fail. The
+ships **per-platform native binaries**, so the flag also strips the platform
+packages of Rollup and esbuild — and, since Tailwind 4, of `@tailwindcss/oxide`
+and `lightningcss`: the test runner and the build both stop working. That was found by doing it and watching vitest fail. The
 flag therefore lives in the one stage where it is correct — the Docker runtime
 stage, which installs runtime dependencies and builds nothing.
 
