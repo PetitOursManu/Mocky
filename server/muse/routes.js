@@ -70,7 +70,7 @@ export function sanitizeUserMedia(raw) {
  *   because the answer depends on the ACCOUNT: one on the free plan gets the
  *   free model (server/plan.js).
  */
-export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget }) {
+export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTarget, sources }) {
   const router = express.Router()
 
   // GET /api/mcp/status — per-server lifecycle state for the Advanced drawer.
@@ -119,7 +119,7 @@ export function createMuseRouter({ host, fetcher, patterns, blacklist, resolveTa
           // Read strictly: two modes and the server's own kinds, or nothing.
           motion: readMotionRequest(body.motion),
         },
-        { fetcher, llm, patterns, blacklist },
+        { fetcher, llm, patterns, blacklist, sources: sources ? () => sources.active() : undefined },
       )
       res.json(result)
     } catch (err) {

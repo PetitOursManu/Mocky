@@ -54,6 +54,7 @@ import ShareDialog from './ShareDialog'
 import ScreenNotesDialog from './ScreenNotesDialog'
 import { SaveDesignDialog } from './DesignLibrary'
 import DesignSpecSheet from './DesignSpecSheet'
+import { DesignViews } from './DesignWebPreview'
 import { type PickInfo } from './Preview'
 import MusePanel from './MusePanel'
 import Bibliotheque, { type MediaTab } from './Bibliotheque'
@@ -4079,6 +4080,8 @@ export default function ProjectView({
           const sc = screens.find((x) => x.id === inspectDesignId)
           const md = sc?.design?.trim()
           if (!sc || !md) return null
+          const designTitle =
+            extractProductName(md) || project.productName || (/^#\s*Design Dossier/im.test(md) ? t('muse.dossier') : 'DESIGN.md')
           // Wide, because this window is a document rather than a dialog. At
           // `lg` (768px) six sections in two columns produced ribbons of text
           // four words across and a page that scrolled forever; the Forbidden
@@ -4096,30 +4099,32 @@ export default function ProjectView({
                   inside the sheet is a different claim — what the product is
                   called — so it must not be the sentence someone typed to get
                   one screen of it. */}
-              <DesignSpecSheet
+              <DesignViews
                 markdown={md}
-                title={
-                  extractProductName(md) ||
-                  project.productName ||
-                  (/^#\s*Design Dossier/im.test(md) ? t('muse.dossier') : 'DESIGN.md')
+                title={designTitle}
+                spec={
+                  <DesignSpecSheet
+                    markdown={md}
+                    title={designTitle}
+                    density="full"
+                    columns={3}
+                    saveLabel={t('design.spec.saveAndApply')}
+                    // Saving does BOTH, and the label says so.
+                    //
+                    // Writing only to `screen.design` would be the tidy answer —
+                    // that field is the record of what this screen was generated
+                    // from — but it would also be a button that appears to do
+                    // nothing: the next generation reads the project's direction,
+                    // not a screen's record, so an edit saved there would sit
+                    // unused until someone found "Reprendre ce design". Editing a
+                    // design system is something you do in order to use it.
+                    onSave={(next: string) => {
+                      onUpdateScreen(sc.id, { design: next })
+                      onSetDesign(next)
+                      setInspectDesignId(null)
+                    }}
+                  />
                 }
-                density="full"
-                columns={3}
-                saveLabel={t('design.spec.saveAndApply')}
-                // Saving does BOTH, and the label says so.
-                //
-                // Writing only to `screen.design` would be the tidy answer —
-                // that field is the record of what this screen was generated
-                // from — but it would also be a button that appears to do
-                // nothing: the next generation reads the project's direction,
-                // not a screen's record, so an edit saved there would sit
-                // unused until someone found "Reprendre ce design". Editing a
-                // design system is something you do in order to use it.
-                onSave={(next: string) => {
-                  onUpdateScreen(sc.id, { design: next })
-                  onSetDesign(next)
-                  setInspectDesignId(null)
-                }}
               />
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="primary" onClick={() => { applyScreenDesign(sc.id); setInspectDesignId(null) }}>

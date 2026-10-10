@@ -1,5 +1,5 @@
 ---
-source_hash: cd9d8f74154e
+source_hash: d2f6ae36928b
 ---
 
 # Vue d'ensemble de Muse
@@ -50,7 +50,8 @@ La demande est classée en étiquettes — `landing`, `saas`, `restaurant`,
 modèle**, donc c'est testable et ça marche hors ligne.
 
 Ces étiquettes sélectionnent des galeries dans un registre choisi à la main
-(`sources.json`), et les URL collées par l'utilisateur s'y ajoutent. **Les URL de
+(`sources.json`, qu'un administrateur peut modifier dans Admin → Fournisseurs),
+et les URL collées par l'utilisateur s'y ajoutent. **Les URL de
 l'utilisateur passent en premier** : ses propres références obtiennent toujours
 une place dans le quota.
 

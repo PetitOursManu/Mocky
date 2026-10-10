@@ -12,6 +12,7 @@ import { McpToolRouter } from './mcp/router.js'
 import { MuseCache } from './fetch/cache.js'
 import { InspirationFetcher, USER_AGENT } from './fetch/fetcher.js'
 import { createPatternLibrary } from './prompt-patterns/index.js'
+import { createSourceStore } from './inspire/source-store.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -39,5 +40,7 @@ export function createMuse({ rootDir, dataDir, factory } = {}) {
   const fetcher = new InspirationFetcher(router, cache, { userAgent: USER_AGENT })
   const patterns = createPatternLibrary()
   const blacklist = loadBlacklist()
-  return { config, host, router, cache, fetcher, patterns, blacklist }
+  // The galleries Muse reads, as the administrator set them (Admin → Fournisseurs).
+  const sources = createSourceStore(dataDir)
+  return { config, host, router, cache, fetcher, patterns, blacklist, sources }
 }

@@ -38,6 +38,7 @@ export const AUDIT_ACTIONS = [
   'session.revoke',
   'config.registration',
   'config.freePlan',
+  'config.museSources',
   'config.text',
   'config.images',
   'config.video',

@@ -26,7 +26,10 @@ export async function runInspiration(args, deps) {
 
   if (args.useFetch !== false && deps.fetcher) {
     onProgress('discovering')
-    const disc = await discover({ prompt: args.prompt, urls: args.urls }, { fetcher: deps.fetcher, onNotice })
+    const disc = await discover(
+      { prompt: args.prompt, urls: args.urls, sources: deps.sources?.() },
+      { fetcher: deps.fetcher, onNotice },
+    )
     sources = disc.sources
     if (disc.fetched.length && deps.llm) {
       onProgress('distilling')

@@ -357,6 +357,25 @@ export const settings = {
       'Désactivé. Contrairement à l’image d’inspiration, ce profil ne réutilise pas le modèle de contenu : un modèle de texte-vers-image ignorerait votre image et rendrait une création issue du seul texte, présentée comme une dérivée. Mocky préfère ne rien proposer.',
     'settings.imgEditRestriction':
       'Seuls les fournisseurs capables d’accepter une image en entrée sont proposés. Pollinations en est absent : son API ne prend qu’une URL publiquement joignable, or les images de Mocky ne sont servies que par ce serveur. Côté Cloudflare, indiquez un modèle « img2img » — celui du profil de contenu ne sait faire que du texte-vers-image.',
+    'settings.museSources.title': 'Sources d’inspiration',
+    'settings.museSources.blurb':
+      'Les galeries que Muse lit pour s’inspirer avant de rédiger sa direction artistique. Pour chaque demande, il choisit les trois dont les étiquettes correspondent le mieux à ce qui est demandé ; une page est lue derrière la même protection que toute autre adresse, en respectant son robots.txt.',
+    'settings.museSources.shipped': 'Liste fournie avec Mocky',
+    'settings.museSources.custom': 'Liste modifiée sur cette instance',
+    'settings.museSources.count': '{n} active(s) sur {total}',
+    'settings.museSources.enabled': 'Utiliser {url}',
+    'settings.museSources.remove': 'Retirer {url}',
+    'settings.museSources.tagsFor': 'Étiquettes de {url}',
+    'settings.museSources.noTags': 'aucune étiquette',
+    'settings.museSources.empty': 'Aucune source : Muse ne lira que les adresses collées dans une demande.',
+    'settings.museSources.newUrl': 'Adresse d’une nouvelle source',
+    'settings.museSources.add': 'Ajouter',
+    'settings.museSources.tagsHint':
+      'Cliquez sur les étiquettes d’une source pour choisir quand elle sert. Seules les étiquettes que Mocky sait reconnaître dans une demande sont proposées.',
+    'settings.museSources.reset': 'Revenir à la liste fournie',
+    'settings.museSources.saved': 'Enregistré.',
+    'settings.museSources.badUrl': 'Cette adresse n’est pas valide.',
+    'settings.museSources.duplicate': 'Cette adresse est déjà dans la liste.',
   } as Record<string, string>,
 
   en: {
@@ -702,5 +721,24 @@ export const settings = {
       'Off. Unlike the inspiration image, this profile does not reuse the content model: a text-to-image model would ignore your picture and return one made from the prompt alone, presented as a derivative. Mocky would rather offer nothing.',
     'settings.imgEditRestriction':
       'Only providers that can accept an input image are listed. Pollinations is absent: its API takes a publicly reachable URL, and Mocky’s images are served by this server alone. On Cloudflare, name an “img2img” model — the one in the content profile only does text-to-image.',
+    'settings.museSources.title': 'Inspiration sources',
+    'settings.museSources.blurb':
+      'The galleries Muse reads for inspiration before writing its art direction. For each request it picks the three whose tags best match what is asked; a page is read behind the same protection as any other address, and its robots.txt is respected.',
+    'settings.museSources.shipped': 'List shipped with Mocky',
+    'settings.museSources.custom': 'List changed on this instance',
+    'settings.museSources.count': '{n} active out of {total}',
+    'settings.museSources.enabled': 'Use {url}',
+    'settings.museSources.remove': 'Remove {url}',
+    'settings.museSources.tagsFor': 'Tags of {url}',
+    'settings.museSources.noTags': 'no tags',
+    'settings.museSources.empty': 'No sources: Muse will read only the addresses pasted into a request.',
+    'settings.museSources.newUrl': 'Address of a new source',
+    'settings.museSources.add': 'Add',
+    'settings.museSources.tagsHint':
+      'Click a source’s tags to choose when it is used. Only the tags Mocky can recognise in a request are offered.',
+    'settings.museSources.reset': 'Back to the shipped list',
+    'settings.museSources.saved': 'Saved.',
+    'settings.museSources.badUrl': 'This address is not valid.',
+    'settings.museSources.duplicate': 'This address is already in the list.',
   } as Record<string, string>,
 }

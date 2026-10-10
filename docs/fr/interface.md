@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: ca7ff6bcd97b
+source_hash: 76067c14b336
 ---
 
 # L’interface
@@ -352,8 +352,19 @@ ce que le même coin de l’écran affiche sur un autre écran.
 Quand quelque chose a été enregistré, le petit rendu au-dessus des pastilles est
 lui-même un bouton : il ouvre le document en grand, où le même
 `Reprendre ce design` voisine avec `Enregistrer sous…`. Au zoom du canevas cette
-carte est un timbre-poste, et un système de design se juge sur ses mots plutôt
-que sur huit carrés de couleur.
+carte est un timbre-poste.
+
+La fenêtre s’ouvre sur **Aperçu web** : une fausse page web — un cadre de
+navigateur, un en-tête, une accroche, trois cartes, un formulaire, un pied de
+page — peinte avec les couleurs que le document résout et composée dans les
+polices qu’il déclare. Le titre est le concept du document quand il en a un, les
+cartes sont ses premières règles de mise en page, et sous la page une légende
+liste chaque rôle de couleur avec son hexadécimal, marqué *déduite* quand le
+document ne l’indiquait pas et que Mocky l’a complété. Une police ne s’affiche
+que si elle est installée sur votre machine (Mocky ne charge aucune police web) ;
+la légende nomme celle que le document demande. **Fiche technique** bascule sur
+la fiche numérotée, où le document se modifie et s’enregistre — un système de
+design se juge aussi sur ses mots, pas seulement sur l’allure d’une page.
 
 ---
 

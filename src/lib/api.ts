@@ -45,6 +45,22 @@ export interface FreePlanSettings {
   /** Whether Admin → Text model has a free model. Without one, free accounts use their own key. */
   modelConfigured: boolean
 }
+/** A gallery Muse reads for inspiration (Admin → Fournisseurs). */
+export interface MuseSource {
+  id: string
+  url: string
+  tags: string[]
+  enabled: boolean
+}
+/** The list as the panel shows it: the administrator's own, or the shipped one. */
+export interface MuseSourcesView {
+  sources: MuseSource[]
+  /** False while the instance uses the shipped list — "Reset" goes back to it. */
+  custom: boolean
+  /** The tags a request can produce, so the only ones worth giving a source. */
+  tags: string[]
+}
+
 export interface AdminConfig {
   allowRegistration: boolean
   freePlan: FreePlanSettings
@@ -620,6 +636,12 @@ export const api = {
         body: JSON.stringify({ password, mustChange }),
       }),
     deleteUser: (id: string) => req(`/api/admin/users/${id}`, { method: 'DELETE' }),
+
+    /** The galleries Muse reads for inspiration. */
+    museSources: () => req('/api/admin/muse/sources') as Promise<MuseSourcesView>,
+    saveMuseSources: (sources: Array<Pick<MuseSource, 'url' | 'tags' | 'enabled'>>) =>
+      req('/api/admin/muse/sources', { method: 'PUT', body: JSON.stringify({ sources }) }) as Promise<MuseSourcesView>,
+    resetMuseSources: () => req('/api/admin/muse/sources', { method: 'DELETE' }) as Promise<MuseSourcesView>,
 
     /** Image-generation provider (Muse). */
     getImagesConfig: () => req('/api/admin/images/config') as Promise<ImagesConfig>,
