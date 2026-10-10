@@ -20,6 +20,16 @@
  * Nothing here may trust the result: it is rendered with textContent, and the
  * only URL it frames must be on Mocky's origin, which is also the one domain
  * the resource declares (`frameDomains`).
+ *
+ * A host may refuse the frame all the same: Claude "restricts frameDomains
+ * pending security review", and its first real test drew the browser's
+ * ERR_BLOCKED_BY_CSP page where the design should have been. So the view knows
+ * a second way to show a screen — its picture, the JPEG every result already
+ * links, scrolled inside the same box — and takes it when the host's policy
+ * says no (the `securitypolicyviolation` the refusal raises in THIS document),
+ * or up front for a host known to say no (`FRAMELESS_HOSTS`), so nobody sees
+ * the error page first. The picture is still, and the box says so beside
+ * "Open in Mocky", where the screen is alive.
  */
 
 export const VIEW_URI = 'ui://mocky/screen-v1.html'
@@ -33,6 +43,14 @@ export const APPS_PROTOCOL = '2026-01-26'
  * with two scroll bars around it. A site still scrolls inside its own window.
  */
 export const VIEW_MAX_HEIGHT = 560
+
+/**
+ * Hosts that refuse a nested frame today, read off `hostInfo.name` at the
+ * handshake. A hint and not the rule: the violation event is what decides, and
+ * a host that lifts its restriction only costs the picture until this list is
+ * updated.
+ */
+export const FRAMELESS_HOSTS = /claude/i
 
 export function buildViewHtml(origin) {
   const o = JSON.stringify(String(origin || ''))
@@ -48,12 +66,18 @@ export function buildViewHtml(origin) {
   .stage { position:relative; overflow:hidden; border:1px solid var(--line); border-radius:8px; }
   .stage iframe { position:absolute; top:0; left:0; border:0; transform-origin:0 0; background:#fff; }
   .note { color:var(--muted); padding:6px 2px; }
+  .stage.still { overflow-y:auto; overflow-x:hidden; background:#fff; }
+  .stage.still img { display:block; width:100%; height:auto; }
+  .still-note { color:var(--muted); font-size:12px; padding:4px 2px 0; }
 </style></head>
 <body><div id="root"><p class="note">…</p></div>
 <script>
 (function () {
   var ORIGIN = ${o};
   var MAX_H = ${VIEW_MAX_HEIGHT};
+  var FRAMELESS = ${FRAMELESS_HOSTS.toString()};
+  /** Set once the host has refused a frame, or is known to. */
+  var framesRefused = false;
   var root = document.getElementById('root');
   var nextId = 1, pending = {};
   var view = null;
@@ -82,16 +106,17 @@ export function buildViewHtml(origin) {
   }
 
   /** Only a frame on Mocky's own origin, and only its live-view path. */
-  function safeUrl(u) {
+  function safeUrl(u, path) {
     try {
       var url = new URL(String(u));
-      return url.origin === ORIGIN && url.pathname.indexOf('/mcp-view/') === 0 ? url.href : null;
+      return url.origin === ORIGIN && url.pathname.indexOf(path || '/mcp-view/') === 0 ? url.href : null;
     } catch (e) { return null; }
   }
 
   function layout() {
     if (!view) return;
     var stage = root.querySelector('.stage');
+    if (stage && stage.classList.contains('still')) return layoutStill(stage);
     var frame = stage && stage.querySelector('iframe');
     if (!frame) return;
     // The border is two pixels the scale must leave room for, or a scroll bar
@@ -106,6 +131,47 @@ export function buildViewHtml(origin) {
     stage.style.height = Math.round(h * scale) + 'px';
     reportSize();
   }
+
+  /** The picture fills the width and scrolls inside the same height a frame would take. */
+  function layoutStill(stage) {
+    var img = stage.querySelector('img');
+    var avail = Math.max(200, (document.documentElement.clientWidth || root.clientWidth) - 2);
+    stage.style.width = avail + 'px';
+    var natural = img && img.naturalWidth ? (img.naturalHeight * avail) / img.naturalWidth : (view.height * avail) / view.width;
+    stage.style.height = Math.round(Math.min(MAX_H, natural)) + 'px';
+    reportSize();
+  }
+
+  /**
+   * The screen as its picture, in place of a frame the host refused. Only a
+   * picture on Mocky's own origin, and only its picture path — the same rule
+   * as the frame's.
+   */
+  function showStill() {
+    var stage = root.querySelector('.stage');
+    var src = view && view.picture;
+    if (!stage || !src || stage.classList.contains('still')) return;
+    stage.textContent = '';
+    stage.className = 'stage still';
+    var img = document.createElement('img');
+    img.alt = view.title;
+    img.addEventListener('load', layout);
+    img.src = src;
+    stage.appendChild(img);
+    var p = document.createElement('p');
+    p.className = 'still-note';
+    p.textContent = 'Aperçu figé : cet assistant n’affiche pas la page en direct — ouvrez-la dans Mocky pour l’essayer. · A still preview: this assistant does not show the live page — open it in Mocky to try it.';
+    root.appendChild(p);
+    layout();
+  }
+
+  // The host's own refusal, raised in this document when it blocks the frame.
+  document.addEventListener('securitypolicyviolation', function (e) {
+    var directive = String(e.effectiveDirective || e.violatedDirective || '');
+    if (directive.indexOf('frame-src') !== 0 && directive.indexOf('child-src') !== 0) return;
+    framesRefused = true;
+    showStill();
+  });
 
   function note(text) {
     root.textContent = '';
@@ -139,7 +205,13 @@ export function buildViewHtml(origin) {
     }
     if (view && view.url === url) return;
     received = true;
-    view = { url: url, width: Math.max(200, Math.min(4000, Number(v.width) || 1440)), height: Math.max(200, Math.min(20000, Number(v.height) || 900)) };
+    view = {
+      url: url,
+      picture: safeUrl(v.picture, '/mcp-shot/'),
+      title: String(v.title || 'Mocky'),
+      width: Math.max(200, Math.min(4000, Number(v.width) || 1440)),
+      height: Math.max(200, Math.min(20000, Number(v.height) || 900)),
+    };
     root.textContent = '';
     var bar = document.createElement('div');
     bar.className = 'bar';
@@ -159,6 +231,8 @@ export function buildViewHtml(origin) {
     root.appendChild(bar);
     var stage = document.createElement('div');
     stage.className = 'stage';
+    root.appendChild(stage);
+    if (framesRefused && view.picture) return showStill();
     var frame = document.createElement('iframe');
     // The served page already carries this sandbox as a header; the attribute
     // says it a second time, from the side that embeds it.
@@ -166,7 +240,6 @@ export function buildViewHtml(origin) {
     frame.setAttribute('title', String(v.title || 'Mocky'));
     frame.src = url;
     stage.appendChild(frame);
-    root.appendChild(stage);
     layout();
   }
 
@@ -211,7 +284,14 @@ export function buildViewHtml(origin) {
     protocolVersion: '${APPS_PROTOCOL}',
     clientInfo: { name: 'mocky-view', version: '1.0.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
-  }).then(ready, ready);
+  }).then(function (result) {
+    var host = result && result.hostInfo && result.hostInfo.name;
+    if (host && FRAMELESS.test(String(host))) {
+      framesRefused = true;
+      showStill();
+    }
+    ready();
+  }, ready);
   setTimeout(ready, 1500);
 
   // Said, rather than an empty frame: what to report if a host sends nothing.

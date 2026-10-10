@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SpendEntry } from './api'
-import { groupSpend, modelsByProject, pricedModels, sortSpend, totalOf } from './spend'
+import { groupSpend, modelsByProject, pricedModels, sortSpend, splitPriceKey, totalOf } from './spend'
 
 const e = (over: Partial<SpendEntry>): SpendEntry => ({
   day: '2026-10-10',
@@ -80,8 +80,12 @@ describe('the spending panel', () => {
 
   it('offers a price only for the models the instance paid for', () => {
     expect(pricedModels(LINES)).toEqual([
-      { model: 'gpt-oss', reported: 0, calls: 2 },
-      { model: 'opus', reported: 1, calls: 1 },
+      { key: 'openrouter::gpt-oss', provider: 'openrouter', model: 'gpt-oss', reported: 0, calls: 2 },
+      { key: 'openrouter::opus', provider: 'openrouter', model: 'opus', reported: 1, calls: 1 },
     ])
+    // The same model from another provider is another price.
+    expect(pricedModels([...LINES, e({ provider: 'together', model: 'gpt-oss' })]).map((m) => m.key)).toContain('together::gpt-oss')
+    expect(splitPriceKey('together::openai/gpt-oss')).toEqual({ provider: 'together', model: 'openai/gpt-oss' })
+    expect(splitPriceKey('opus')).toEqual({ provider: null, model: 'opus' })
   })
 })

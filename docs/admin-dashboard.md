@@ -215,7 +215,18 @@ Where the price comes from:
   cached prompt or a routing choice.
 - **The table otherwise**, applied when the page is read: correcting a price
   corrects the past. A model with no price makes the total say *incomplete*
-  instead of counting as free.
+  instead of counting as free. Prices are per provider **and** model — one
+  model sold by two providers has two prices.
+- **Fetch the providers' prices** fills the table from the four providers that
+  publish a catalogue (`server/admin/prices.js`): OpenRouter and Hugging Face
+  (public; for Hugging Face, the inference provider the model id names, or the
+  router's `:cheapest` / `:fastest` choice), Together and xAI (with the key saved
+  in Providers). OpenAI, Anthropic, Gemini, Mistral, DeepSeek, Groq, Fireworks,
+  Cerebras, Moonshot and Ollama Cloud publish no price through their API: the
+  import names them, and their prices are typed by hand. A typed price is never
+  replaced by a fetch; the table says where each price came from and when.
+- **xAI** reports what it charged with each answer too (`cost_in_usd_ticks`),
+  and is believed like OpenRouter.
 - **Tokens** are the provider's count. OpenAI and OpenRouter are asked for it on a
   stream (`stream_options`); a provider that does not send one is estimated at four
   characters per token, and the total says how many calls were estimated.

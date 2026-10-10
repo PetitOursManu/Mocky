@@ -193,6 +193,18 @@ describe('the spending ledger, through the real server', () => {
     expect((await newcomer('GET', '/api/admin/spend')).status).toBe(403)
   })
 
+  it('fetches what can be fetched, keeps a typed price, and names a provider with no catalogue', async () => {
+    // The instance's provider here is "compatible OpenAI" on loopback: it has no
+    // price catalogue, so the import touches no network and says so.
+    const r = await admin('POST', '/api/admin/spend/prices/import')
+    expect(r.status).toBe(200)
+    expect(r.json.report).toContainEqual({ provider: 'openai-compatible', model: 'paid-model', status: 'no-api' })
+    // The price typed above survives the import untouched.
+    expect(r.json.prices['paid-model']).toEqual({ in: 1, out: 2 })
+    const log = await admin('GET', '/api/admin/dashboard/audit?group=config')
+    expect(log.json.entries.find((e) => e.action === 'config.prices')?.detail).toEqual({ models: 1, imported: 0 })
+  })
+
   it('records nothing of what was said', () => {
     const ledger = fs.readFileSync(path.join(dataDir, 'spend.jsonl'), 'utf8')
     expect(ledger).not.toContain('hi')

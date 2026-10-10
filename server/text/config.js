@@ -270,6 +270,33 @@ export function resolveTextTarget(cfg, profile = 'generation') {
   return resolveProfile(c.generation)
 }
 
+/**
+ * Every provider an administrator gave settings for, in any profile, with the
+ * model each profile names — what the spending panel's price import asks
+ * (server/admin/prices.js). A key typed for a provider stays in its profile's
+ * record after the profile moved to another provider, so it is still found.
+ * @returns {{credentials: Map<string,{baseUrl:string, apiKey:string}>, models: Array<{provider:string, model:string}>}}
+ */
+export function configuredProviders(cfg) {
+  const c = liftLegacy(cfg) || cfg || {}
+  const credentials = new Map()
+  const models = []
+  for (const profile of TEXT_PROFILES) {
+    const prof = c[profile] || {}
+    for (const def of TEXT_PROVIDERS) {
+      const v = prof[def.id]
+      if (!v || typeof v !== 'object') continue
+      const apiKey = typeof v.apiKey === 'string' ? v.apiKey : ''
+      if (!credentials.has(def.id) || (!credentials.get(def.id).apiKey && apiKey)) {
+        credentials.set(def.id, { baseUrl: str(v.baseUrl, def.baseUrl) || def.baseUrl, apiKey })
+      }
+    }
+    const active = resolveProfile(prof)
+    if (active) models.push({ provider: active.id, model: active.model })
+  }
+  return { credentials, models }
+}
+
 export class TextConfigStore {
   constructor(dataDir) {
     this.file = path.join(dataDir, 'text-config.json')

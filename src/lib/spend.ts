@@ -159,15 +159,37 @@ export function modelsByProject(entries: SpendEntry[]): ProjectModels[] {
     }))
 }
 
-/** The models the instance paid for in these lines — the ones a price can apply to. */
-export function pricedModels(entries: SpendEntry[]): Array<{ model: string; reported: number; calls: number }> {
-  const out = new Map<string, { model: string; reported: number; calls: number }>()
+/** The key a price is stored under — server/admin/spend.js `priceKey`, the same two halves. */
+export const priceKey = (provider: string, model: string) => `${provider}::${model}`
+
+export interface PricedModel {
+  key: string
+  provider: string
+  model: string
+  reported: number
+  calls: number
+}
+
+/**
+ * The models the instance paid for in these lines — the ones a price can apply
+ * to — one row per PROVIDER and model: the same model sold by two providers has
+ * two prices.
+ */
+export function pricedModels(entries: SpendEntry[]): PricedModel[] {
+  const out = new Map<string, PricedModel>()
   for (const e of entries) {
     if (e.source === 'browser') continue
-    const m = out.get(e.model) ?? { model: e.model, reported: 0, calls: 0 }
+    const key = priceKey(e.provider, e.model)
+    const m = out.get(key) ?? { key, provider: e.provider, model: e.model, reported: 0, calls: 0 }
     m.reported += e.reported
     m.calls += e.calls
-    out.set(e.model, m)
+    out.set(key, m)
   }
   return [...out.values()].sort((a, b) => b.calls - a.calls)
+}
+
+/** A stored price's key, split back: `provider::model`, or a bare model name from the first version. */
+export function splitPriceKey(key: string): { provider: string | null; model: string } {
+  const i = key.indexOf('::')
+  return i < 0 ? { provider: null, model: key } : { provider: key.slice(0, i), model: key.slice(i + 2) }
 }

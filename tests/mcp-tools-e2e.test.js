@@ -319,6 +319,62 @@ describe.skipIf(!can)('an assistant designs a screen through Mocky', () => {
     }
   }, 120_000)
 
+  it('shows the picture where the host refuses the frame, as Claude does for now', async () => {
+    const res = await mcp.readResource({ uri: VIEW_URI })
+    // The picture's origin is declared, or img-src would refuse it as well.
+    expect(res.contents[0]._meta.ui.csp.resourceDomains).toEqual([base])
+    const projects = (await mcp.callTool({ name: 'list_projects', arguments: {} })).structuredContent.projects
+    const project = projects.find((p) => p.name === 'Boulangerie')
+    const screens = (await mcp.callTool({ name: 'get_project', arguments: { project_id: project.id } })).structuredContent.screens
+    const shot = await mcp.callTool({ name: 'get_screenshot', arguments: { project_id: project.id, screen_id: screens[0].id } })
+    expect(shot.structuredContent.view.picture).toMatch(new RegExp('^' + base + '/mcp-shot/[a-f0-9]{64}\\.jpg\\?e='))
+
+    const { chromium: pw } = await import('playwright-core')
+    const browser = await pw.launch({
+      executablePath: chromium,
+      args: ['--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults'],
+    })
+    try {
+      // Two hosts: one whose POLICY refuses the frame (the event decides), and
+      // one that names itself Claude and sets no policy (the hint decides).
+      for (const { policy, hostName } of [
+        { policy: `frame-src 'none'; img-src ${base}`, hostName: 'test' },
+        { policy: null, hostName: 'Claude' },
+      ]) {
+        const host = await browser.newPage()
+        const view = policy
+          ? res.contents[0].text.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${policy}">`)
+          : res.contents[0].text
+        await host.setContent('<iframe id="app" style="width:900px;height:800px;border:0"></iframe>')
+        await host.evaluate(
+          ({ html, result, hostName }) =>
+            new Promise((resolve) => {
+              const frame = document.getElementById('app')
+              window.addEventListener('message', (e) => {
+                const m = e.data
+                if (!m || m.jsonrpc !== '2.0') return
+                if (m.method === 'ui/initialize') frame.contentWindow.postMessage({ jsonrpc: '2.0', id: m.id, result: { protocolVersion: '2026-01-26', hostCapabilities: {}, hostInfo: { name: hostName, version: '1' }, hostContext: {} } }, '*')
+                if (m.method === 'ui/notifications/initialized') {
+                  frame.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: result }, '*')
+                  resolve(true)
+                }
+              })
+              frame.srcdoc = html
+            }),
+          { html: view, result: { content: [], structuredContent: shot.structuredContent }, hostName },
+        )
+        const app = host.frames().find((fr) => fr.parentFrame() === host.mainFrame())
+        const img = await app.waitForSelector('.stage.still img', { timeout: 30_000 })
+        await app.waitForFunction((el) => el.complete && el.naturalWidth > 0, img, { timeout: 30_000 })
+        expect(await app.locator('.still-note').count(), hostName).toBe(1)
+        expect(await app.locator('.stage iframe').count(), hostName).toBe(0)
+        await host.close()
+      }
+    } finally {
+      await browser.close()
+    }
+  }, 120_000)
+
   it('shows a project and photographs an existing screen', async () => {
     const list = await mcp.callTool({ name: 'list_projects', arguments: {} })
     const projectId = list.structuredContent.projects[0].id

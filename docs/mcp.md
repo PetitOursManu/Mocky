@@ -92,6 +92,16 @@ a prompt still starts a sensible conversation.
   standard notification and from ChatGPT's own channel (`window.openai`), and
   declares its one framed domain in both vocabularies; when it receives nothing
   it says so in the frame rather than staying empty.
+
+  **Claude refuses the frame for now** — it "restricts `frameDomains` pending
+  security review", and the first test drew the browser's `ERR_BLOCKED_BY_CSP`
+  page in its place. There the view shows the screen's picture instead,
+  scrollable in the same box, with a line saying it is still and **Open in
+  Mocky** beside it. It switches on the host's own refusal (the
+  `securitypolicyviolation` event) and, to spare the error page, straight away
+  for a host that names itself Claude (`FRAMELESS_HOSTS` in
+  `server/mcp/view.js`); the picture's origin is declared in `resourceDomains`
+  for that.
 - **The picture** is a JPEG of the top of the page (2,000 px at most): the whole
   page is in Mocky, behind the link. For an assistant whose interface does not
   show a tool's picture, the answer also carries a **picture link** — that JPEG

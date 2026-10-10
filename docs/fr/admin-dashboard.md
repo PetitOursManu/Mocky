@@ -1,5 +1,5 @@
 ---
-source_hash: 9c1a8320e574
+source_hash: 219d52e4cbe2
 ---
 
 # Le tableau de bord d’administration
@@ -232,7 +232,19 @@ D’où vient le prix :
   remise, un prompt en cache ou un choix de routage.
 - **Du tableau sinon**, appliqué à la lecture de la page : corriger un prix
   corrige le passé. Un modèle sans prix fait dire au total *incomplet* au lieu de
-  compter comme gratuit.
+  compter comme gratuit. Les prix sont par fournisseur **et** par modèle — un même
+  modèle vendu par deux fournisseurs a deux prix.
+- **Récupérer les prix des fournisseurs** remplit le tableau à partir des quatre
+  fournisseurs qui publient un catalogue (`server/admin/prices.js`) : OpenRouter
+  et Hugging Face (publics ; pour Hugging Face, le fournisseur d’inférence que nomme
+  l’identifiant du modèle, ou le choix `:cheapest` / `:fastest` du routeur),
+  Together et xAI (avec la clé enregistrée dans Fournisseurs). OpenAI, Anthropic,
+  Gemini, Mistral, DeepSeek, Groq, Fireworks, Cerebras, Moonshot et Ollama Cloud
+  ne publient aucun prix par leur API : l’import les nomme, et leurs prix se
+  saisissent à la main. Un prix saisi n’est jamais remplacé par un import ; le
+  tableau dit d’où vient chaque prix et de quand.
+- **xAI** annonce aussi ce qu’il a facturé avec chaque réponse
+  (`cost_in_usd_ticks`), et il est cru comme OpenRouter.
 - **Les jetons** sont le décompte du fournisseur. OpenAI et OpenRouter le donnent
   en flux sur demande (`stream_options`) ; un fournisseur qui n’en envoie pas est
   estimé à quatre caractères par jeton, et le total dit combien d’appels l’ont été.
