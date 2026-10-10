@@ -1212,7 +1212,7 @@ export default function Canvas({
                       }
                       if (e.key === 'Escape') setEditingLabelId(null)
                     }}
-                    className="rounded border border-line bg-raised text-ink outline-none"
+                    className="rounded border border-line bg-raised text-ink outline-hidden"
                     style={{ fontSize: 12 * inv, padding: `${1 * inv}px ${4 * inv}px`, width: b.w * 0.7 }}
                   />
                 ) : (

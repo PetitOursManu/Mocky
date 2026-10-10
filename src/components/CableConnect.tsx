@@ -275,7 +275,7 @@ export default function CableConnect({
         aria-label={title}
         tabIndex={-1}
         data-canvas-keys=""
-        className="absolute left-1/2 top-28 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg border border-accent bg-raised px-3 py-1.5 text-body-sm text-ink shadow-lg outline-none xl:top-14"
+        className="absolute left-1/2 top-28 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg border border-accent bg-raised px-3 py-1.5 text-body-sm text-ink shadow-lg outline-hidden xl:top-14"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <Icon name="link" size={15} className="shrink-0 text-accent-ink" />

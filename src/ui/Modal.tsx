@@ -109,7 +109,7 @@ export function Modal({
         aria-label={title}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[90vh] w-full ${width} flex-col border border-line bg-raised outline-none`}
+        className={`flex max-h-[90vh] w-full ${width} flex-col border border-line bg-raised outline-hidden`}
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-line px-5 py-3">
           <h2 className="min-w-0 flex-1 truncate text-h3 text-ink">{title}</h2>

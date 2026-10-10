@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
 import { handleProviderProxy } from './server/provider-proxy.js'
@@ -36,7 +37,7 @@ function providerProxy(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), providerProxy()],
+  plugins: [react(), tailwindcss(), providerProxy()],
   build: {
     rollupOptions: {
       // Two pages: the app, and the page the MCP runner's headless Chromium
