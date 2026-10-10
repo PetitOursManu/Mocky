@@ -109,7 +109,12 @@ function hostOf(baseUrl) {
  * Fields, all optional:
  *  - `root: 'bare'` — the vendor documents its paths at the host root, with no
  *    version segment at all (see `openAiRoot`).
- *  - `drop` — body keys the vendor refuses.
+ *  - `drop` — body keys the vendor refuses: a name, or `{ key, unless }` when
+ *    only some of its models refuse it. `unless` names the models that still
+ *    ACCEPT the key rather than the ones that refuse it, because the refusal is
+ *    the vendor's direction of travel: a model released after the row was
+ *    written is then sent nothing it may refuse, instead of a 400 on every call
+ *    until somebody adds its name.
  *  - `maxTokens` — a ceiling on `max_tokens`: a number, or a list of
  *    `{ models, value }` when the ceiling belongs to the MODEL rather than the
  *    vendor. No preset needs one — every default model was checked to accept
@@ -125,7 +130,24 @@ function hostOf(baseUrl) {
  *    spends the whole output budget before the first line of code.
  *  - `stripModelPrefix` — removed from the ids a model listing returns.
  */
+/**
+ * The Claude models that still take a `temperature` below 1: everything up to
+ * and including the 4.6 generation, by alias or by dated id
+ * (claude-sonnet-4-5, claude-opus-4-1-20250805, claude-sonnet-4-20250514,
+ * claude-3-5-haiku-latest). From 4.7 on, "any value below 1 returns a 400
+ * error, so omit it" — https://platform.claude.com/docs/en/api/openai-sdk,
+ * `temperature` row. Mocky asks for 0.1 to 0.85 depending on the call, so on a
+ * current model every screen, every dossier and every vision probe was refused.
+ */
+export const CLAUDE_TEMPERATURE_MODELS = /^claude-(?:3[-.]|(?:opus|sonnet|haiku)-4(?:-[0-6])?(?:-\d{8})?$)/i
+
 export const PROVIDER_QUIRKS = [
+  {
+    // See CLAUDE_TEMPERATURE_MODELS: the older models keep the temperature each
+    // call chose; the rest get the model's own default instead of a 400.
+    hosts: ['api.anthropic.com'],
+    drop: [{ key: 'temperature', unless: CLAUDE_TEMPERATURE_MODELS }],
+  },
   {
     // https://ai.google.dev/gemini-api/docs/openai — reasoning_effort maps to
     // Gemini's thinking level, and it "cannot be turned off for Gemini 2.5 Pro
@@ -198,7 +220,10 @@ export function quirksFor(baseUrl) {
 export function applyQuirks(body, quirk) {
   if (!quirk) return body
   const out = { ...body }
-  for (const key of quirk.drop || []) delete out[key]
+  for (const entry of quirk.drop || []) {
+    if (typeof entry === 'string') delete out[entry]
+    else if (!entry.unless.test(String(out.model || ''))) delete out[entry.key]
+  }
   const ceiling = ceilingFor(quirk, out.model)
   if (ceiling && Number(out.max_tokens) > ceiling) out.max_tokens = ceiling
   if (quirk.maxTokensField && out.max_tokens != null) {

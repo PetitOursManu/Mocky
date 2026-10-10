@@ -167,7 +167,7 @@ export const settings = {
       'Ollama Cloud (ou une instance Ollama locale — indiquez son URL). Dialecte natif.',
     'settings.textHintOpenai': 'API OpenAI officielle. Modèles : gpt-4o-mini, gpt-4o, o4-mini…',
     'settings.textHintAnthropic':
-      'API Claude officielle, via sa couche compatible OpenAI. Modèles : claude-sonnet-4-5, claude-opus-4-1, claude-haiku-4-5… Utilisez « Lister les modèles » pour voir ce que votre clé ouvre.',
+      'API Claude officielle, via sa couche compatible OpenAI. Modèles : claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, claude-sonnet-4-5… Utilisez « Lister les modèles » pour voir ce que votre clé ouvre. Depuis Claude 4.7, les modèles fixent leur température : Mocky ne leur en envoie pas.',
     'settings.textHintOpenrouter':
       'Une clé, des centaines de modèles. Le modèle s’écrit « éditeur/modèle », ex. openai/gpt-4o-mini.',
     'settings.textHintFal':
@@ -514,7 +514,7 @@ export const settings = {
       'Ollama Cloud (or a local Ollama instance — give its URL). Native dialect.',
     'settings.textHintOpenai': 'The official OpenAI API. Models: gpt-4o-mini, gpt-4o, o4-mini…',
     'settings.textHintAnthropic':
-      'The official Claude API, through its OpenAI-compatible surface. Models: claude-sonnet-4-5, claude-opus-4-1, claude-haiku-4-5… Use “List models” to see what your key opens.',
+      'The official Claude API, through its OpenAI-compatible surface. Models: claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, claude-sonnet-4-5… Use “List models” to see what your key opens. Since Claude 4.7 the models fix their own temperature, so Mocky does not send them one.',
     'settings.textHintOpenrouter':
       'One key, hundreds of models. Model ids read “vendor/model”, e.g. openai/gpt-4o-mini.',
     'settings.textHintFal':

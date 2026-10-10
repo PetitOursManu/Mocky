@@ -365,7 +365,7 @@ describe('provider quirks', () => {
     JSON.parse(buildUpstream({ kind: KIND_OPENAI, baseUrl, apiKey: 'k' }, '/api/chat', Buffer.from(JSON.stringify({ ...GEN, model }))).body)
 
   it('changes nothing for a host no row names — byte-identical to before', () => {
-    for (const base of ['https://api.openai.com', 'https://api.anthropic.com', 'https://fal.run/openrouter/router/openai', 'https://api.groq.com/openai/v1']) {
+    for (const base of ['https://api.openai.com', 'https://fal.run/openrouter/router/openai', 'https://api.groq.com/openai/v1']) {
       const plan = buildUpstream({ kind: KIND_OPENAI, baseUrl: base }, '/api/chat', Buffer.from(JSON.stringify(GEN)))
       expect(plan.body, base).toBe(JSON.stringify(toOpenAiRequest(GEN)))
       expect(plan.quirks).toBeNull()
@@ -399,6 +399,41 @@ describe('provider quirks', () => {
     expect(body.max_completion_tokens).toBe(16384)
     expect(body.reasoning_effort).toBe('low')
     expect(bodyAt('https://api.moonshot.ai/v1', 'kimi-k2.7-code').reasoning_effort).toBeUndefined()
+  })
+
+  // The 400 a current Claude model answered every screen with: "`temperature` is
+  // deprecated for this model". The older models keep the value each call chose.
+  it('sends a Claude model a temperature only if it still takes one', () => {
+    const base = 'https://api.anthropic.com'
+    for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-fable-5-1', 'claude-mythos-5-1']) {
+      const body = bodyAt(base, model)
+      expect(body.temperature, model).toBeUndefined()
+      // Nothing else about the request changes.
+      expect(body, model).toMatchObject({ model, max_tokens: 16384, stream: true })
+    }
+    for (const model of [
+      'claude-sonnet-4-6',
+      'claude-opus-4-6',
+      'claude-sonnet-4-5',
+      'claude-haiku-4-5',
+      'claude-opus-4-5-20251101',
+      'claude-opus-4-1-20250805',
+      'claude-sonnet-4-20250514',
+      'claude-opus-4-0',
+      'claude-3-7-sonnet-latest',
+      'claude-3-5-haiku-20241022',
+    ]) {
+      expect(bodyAt(base, model).temperature, model).toBe(0.4)
+    }
+    // "Compatible OpenAI" pointed at the same host gets the same correction.
+    expect(bodyAt('https://api.anthropic.com/v1/', 'claude-opus-5-5').temperature).toBeUndefined()
+  })
+
+  it('a scoped drop removes the key for the models it does not name, and only those', () => {
+    const quirk = { hosts: [], drop: [{ key: 'temperature', unless: /^old-/ }] }
+    expect(applyQuirks({ model: 'old-1', temperature: 0.2 }, quirk)).toEqual({ model: 'old-1', temperature: 0.2 })
+    expect(applyQuirks({ model: 'new-1', temperature: 0.2 }, quirk)).toEqual({ model: 'new-1' })
+    expect(applyQuirks({ temperature: 0.2 }, quirk)).toEqual({})
   })
 
   it('uses xAI’s current token field', () => {
