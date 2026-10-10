@@ -370,6 +370,9 @@ function findOrCreateSsoUser(claims) {
     // Dashy admins map to Mocky admins.
     const role = claims.role === 'admin' ? 'admin' : 'user'
     if (user.role !== role) user.role = role
+    // The free-plan test switch belongs to an administrator; promoted again
+    // later, they should not find themselves testing something they forgot.
+    if (role !== 'admin') delete user.testPlan
     saveUsers(users)
     return user
   }
@@ -1277,14 +1280,18 @@ app.get('/sso/dashy/callback', (req, res, next) => {
 })
 
 // ---- admin routes ----
-/** What Admin → Accounts edits: sign-ups, and the plan newcomers start on. */
-const adminConfigView = (cfg) => ({
+/**
+ * What Admin → Accounts edits: sign-ups, the plan newcomers start on, and the
+ * reading administrator's own test switch (`testPlan`, server/plan.js).
+ */
+const adminConfigView = (cfg, admin) => ({
   allowRegistration: cfg.allowRegistration !== false,
   freePlan: { ...freePlanSettings(cfg), modelConfigured: Boolean(textConfig.target('free')) },
+  testPlan: planOf(admin),
 })
 
 app.get('/api/admin/config', requireAdmin, (req, res) => {
-  res.json(adminConfigView(loadConfig()))
+  res.json(adminConfigView(loadConfig(), req.user))
 })
 
 app.put('/api/admin/config', requireAdmin, (req, res) => {
@@ -1308,7 +1315,29 @@ app.put('/api/admin/config', requireAdmin, (req, res) => {
     })
   }
   saveConfig(cfg)
-  res.json(adminConfigView(cfg))
+  res.json(adminConfigView(cfg, req.user))
+})
+
+/*
+ * An administrator tries the free plan on THEIR OWN account: the free model,
+ * the daily limit, the closed generators and the composer a free account gets,
+ * so a free model can be judged in the conditions it will serve in. Only the
+ * caller's own record, never someone else's — moving another account between
+ * plans is `/api/admin/users/:id/plan`, and an administrator stays out of it.
+ * Admin rights are untouched: the switch is reached from Admin, and Admin is
+ * where it is turned back off.
+ */
+app.put('/api/admin/test-plan', requireAdmin, (req, res) => {
+  const plan = req.body?.plan
+  if (!PLANS.includes(plan)) return res.status(400).json({ error: 'Unknown plan.' })
+  const users = loadUsers()
+  const me = users.find((u) => u.id === req.user.id)
+  if (!me) return res.status(404).json({ error: 'No such account.' })
+  if (plan === 'free') me.testPlan = 'free'
+  else delete me.testPlan
+  saveUsers(users)
+  audit.record({ action: 'account.testPlan', actor: auditActor(me), detail: { plan }, ip: clientIp(req) })
+  res.json({ user: publicUser(me) })
 })
 
 /*

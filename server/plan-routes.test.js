@@ -180,6 +180,36 @@ describe('the free plan, through the real server', () => {
     expect((await chat(newcomer)).status).toBe(200)
   })
 
+  it('an administrator tries the free plan on their own account, and keeps Admin', async () => {
+    const on = await admin('PUT', '/api/admin/test-plan', { plan: 'free' })
+    expect(on.status).toBe(200)
+    expect(on.json.user.plan).toBe('free')
+    expect((await admin('GET', '/api/me')).json.user.plan).toBe('free')
+    expect((await admin('GET', '/api/admin/config')).json.testPlan).toBe('free')
+    // The conditions of a free account: its model, its closed generators, its card.
+    const before = fakes.paid.calls
+    expect((await chat(admin)).json.message.content).toBe('answer from free')
+    expect(fakes.paid.calls).toBe(before)
+    expect((await admin('POST', '/api/images/generate', { prompt: 'a cat' })).json.code).toBe('free-plan')
+    expect((await admin('GET', '/api/account/plan')).json).toMatchObject({ plan: 'free', model: 'free-model:free' })
+    // Still an administrator: Admin answers, and the switch is in the log.
+    expect((await admin('GET', '/api/admin/users')).status).toBe(200)
+    const log = await admin('GET', '/api/admin/dashboard/audit?group=account')
+    expect(log.json.entries.find((e) => e.action === 'account.testPlan')?.detail).toEqual({ plan: 'free' })
+
+    expect((await admin('PUT', '/api/admin/test-plan', { plan: 'standard' })).json.user.plan).toBe('standard')
+    expect((await chat(admin)).json.message.content).toBe('answer from paid')
+    expect((await admin('PUT', '/api/admin/test-plan', { plan: 'gold' })).status).toBe(400)
+    // Someone who is not an administrator has no such switch.
+    expect((await newcomer('PUT', '/api/admin/test-plan', { plan: 'standard' })).status).toBe(403)
+  })
+
+  it('moving an account between plans is now in the audit log', async () => {
+    await admin('PUT', `/api/admin/users/${newcomerId}/plan`, { plan: 'free' })
+    const log = await admin('GET', '/api/admin/dashboard/audit?group=user')
+    expect(log.json.entries.some((e) => e.action === 'user.plan')).toBe(true)
+  })
+
   // The failure the free plan exists to rule out: an empty free profile must not
   // quietly become the paid one.
   it('with the free model unconfigured, a free account still never reaches the paid one', async () => {

@@ -162,7 +162,9 @@ export default function SettingsPanel() {
               </>
             )}
           </span>
-          <span className="mt-1 block text-ink-faint">{t('plan.askAdmin')}</span>
+          <span className="mt-1 block text-ink-faint">
+            {account?.role === 'admin' ? t('plan.testBadgeTitle') : t('plan.askAdmin')}
+          </span>
         </Banner>
       )}
 

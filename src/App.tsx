@@ -472,6 +472,18 @@ function MockyApp() {
                 {t('nav.admin')}
               </HeaderTab>
             )}
+            {/* An administrator testing the free plan is told so on every page:
+                a forgotten switch reads as a broken instance — a weaker model, a
+                daily limit, no AI pictures — on the account that is meant to
+                notice when something is broken. */}
+            {account?.role === 'admin' && account.plan === 'free' && (
+              <span
+                title={t('plan.testBadgeTitle')}
+                className="ml-1 bg-ok/10 px-2 py-0.5 text-caption font-semibold uppercase text-ok"
+              >
+                {t('plan.testBadge')}
+              </span>
+            )}
             <HeaderLink href={DOCS_URL} title={t('nav.docsHint')}>
               {t('nav.docs')}
             </HeaderLink>
@@ -677,7 +689,7 @@ function MockyApp() {
       {route === 'admin' &&
         (account?.role === 'admin' ? (
           <main className="page py-6">
-            <AdminDashboard currentUsername={account.username} />
+            <AdminDashboard currentUsername={account.username} onAccountChange={setAccount} />
           </main>
         ) : (
           <div className="page py-16 text-center text-body text-ink-faint">{t('app.adminsOnly')}</div>
@@ -708,6 +720,14 @@ function MockyApp() {
             {account?.role === 'admin' && (
               <MenuRow active={route === 'admin'} onClick={() => goRoute('admin')}>
                 {t('nav.admin')}
+                {account.plan === 'free' && (
+                  <span
+                    title={t('plan.testBadgeTitle')}
+                    className="ml-auto shrink-0 bg-ok/10 px-2 py-0.5 text-caption font-semibold uppercase text-ok"
+                  >
+                    {t('plan.testBadge')}
+                  </span>
+                )}
               </MenuRow>
             )}
             {/* Still a real link, for the same reason HeaderLink is one: it
