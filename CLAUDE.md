@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Seven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X7 (MCP server), F1–F3 (free plan). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Seven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D5 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1070,7 +1070,7 @@ toolkit.
 ## The free plan
 
 An account is `free` or `standard` (`server/plan.js`, user doc
-`docs/free-plan.md`, invariants F1–F3). Free accounts reach the `free` text
+`docs/free-plan.md`, invariants F1–F4). Free accounts reach the `free` text
 profile, the free picture libraries, and nothing that bills.
 
 ```
@@ -1084,7 +1084,10 @@ Four things that will bite you:
 1. **Resolve a text model through `textTargetFor(user, profile)`, never
    `textConfig.target(profile)`**, in any route that serves an account. The
    second one is the paid model for everybody, which is exactly the leak F1 is
-   about. A router that needs it takes `resolveTarget(profile, req)`.
+   about. A router that needs it takes `resolveTarget(profile, req)`. It also
+   answers null for an account on its own key (`server/own-text.js`, F4) — the
+   quota gates ask it for that reason; `instanceTextTarget` is what the instance
+   WOULD answer, for Settings' way back and nothing else.
 2. **A new route that spends money is gated in `server/index.js`**, next to
    `/api/images/generate`, before its router: one list, so it cannot be forgotten
    per route. A new model call that should count as a generation goes in

@@ -376,6 +376,16 @@ export const settings = {
     'settings.museSources.saved': 'Enregistré.',
     'settings.museSources.badUrl': 'Cette adresse n’est pas valide.',
     'settings.museSources.duplicate': 'Cette adresse est déjà dans la liste.',
+    'settings.textSource': 'Modèle de génération',
+    'settings.textSourceInstance': 'Modèle de l’instance',
+    'settings.textSourceOwn': 'Mon propre fournisseur et ma clé',
+    'settings.textSourceOwnDetail': 'Renseignés ci-dessous, gardés dans ce navigateur.',
+    'settings.textSourceOwnClosed': 'L’administrateur n’autorise pas les clés personnelles sur cette instance.',
+    'settings.textSourceOwnNote':
+      'Vos générations partent avec votre clé, qui reste dans ce navigateur et n’est jamais enregistrée sur le serveur. L’administrateur voit que vous utilisez votre propre clé, avec le fournisseur et le modèle choisis — pas la clé. Depuis un assistant (MCP), Mocky ne peut pas s’en servir : il faut alors revenir au modèle de l’instance.',
+    'settings.ownKeysAllow': 'Clés API personnelles',
+    'settings.ownKeysAllowHelp':
+      'Chaque compte peut choisir, dans ses réglages, son propre fournisseur et sa propre clé plutôt que le modèle de l’instance. Ses appels ne vous sont pas facturés et ne comptent pas dans le quota gratuit ; vous voyez le fournisseur et le modèle, jamais la clé.',
   } as Record<string, string>,
 
   en: {
@@ -740,5 +750,15 @@ export const settings = {
     'settings.museSources.saved': 'Saved.',
     'settings.museSources.badUrl': 'This address is not valid.',
     'settings.museSources.duplicate': 'This address is already in the list.',
+    'settings.textSource': 'Generation model',
+    'settings.textSourceInstance': 'The instance’s model',
+    'settings.textSourceOwn': 'My own provider and key',
+    'settings.textSourceOwnDetail': 'Filled in below, kept in this browser.',
+    'settings.textSourceOwnClosed': 'The administrator does not allow personal keys on this instance.',
+    'settings.textSourceOwnNote':
+      'Your generations go out with your key, which stays in this browser and is never stored on the server. The administrator sees that you use your own key, with the provider and model you chose — not the key. From an assistant (MCP), Mocky cannot use it: switch back to the instance’s model for that.',
+    'settings.ownKeysAllow': 'Personal API keys',
+    'settings.ownKeysAllowHelp':
+      'Each account can choose, in its settings, its own provider and key over the instance’s model. Its calls are not billed to you and do not count against the free quota; you see the provider and model, never the key.',
   } as Record<string, string>,
 }

@@ -210,6 +210,7 @@ const refuse = (message) => ({ content: [text(message)], isError: true })
  * @param {() => boolean} deps.maintenance
  * @param {() => number|null} deps.dailyQuota
  * @param {(user:object) => boolean} deps.hasTextProvider
+ * @param {(user:object) => boolean} [deps.usesOwnText]
  * @param {(hash: string) => string} deps.shotLink        a signed, expiring URL to the JPEG
  */
 export function buildMcpServer(deps) {
@@ -571,6 +572,15 @@ export function buildMcpServer(deps) {
    */
   function cannotRun(lang, { writes = true } = {}) {
     if (writes && deps.maintenance()) return refuse(lang === 'fr' ? 'Mocky est en maintenance : réessaie plus tard.' : 'Mocky is in maintenance: try again later.')
+    if (!deps.hasTextProvider(user) && deps.usesOwnText?.(user)) {
+      // The account chose its own key (Settings), and that key lives in its
+      // browser: the runner on the server has nothing to call the model with.
+      return refuse(
+        lang === 'fr'
+          ? 'Ce compte utilise sa propre clé API, qui reste dans son navigateur : Mocky ne peut pas générer à sa place depuis le serveur. Dans Réglages, choisis « Modèle de l’instance » pour utiliser Mocky depuis un assistant.'
+          : 'This account uses its own API key, which stays in its browser: Mocky cannot generate for it from the server. In Settings, choose “Instance model” to use Mocky from an assistant.',
+      )
+    }
     if (!deps.hasTextProvider(user)) {
       return refuse(lang === 'fr' ? 'Ce Mocky n’a pas de fournisseur de génération configuré par son administrateur.' : 'This Mocky has no generation provider configured by its administrator.')
     }

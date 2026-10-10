@@ -39,6 +39,7 @@ export const AUDIT_ACTIONS = [
   'config.registration',
   'config.freePlan',
   'config.museSources',
+  'config.ownKeys',
   'config.text',
   'config.images',
   'config.video',

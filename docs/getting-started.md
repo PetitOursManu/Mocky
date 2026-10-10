@@ -233,6 +233,18 @@ Settings are then ignored.
 
 *Admin. A model set here is used by every account on the instance, and each user’s personal Settings are ignored.*
 
+**Unless an account chooses its own key.** With an instance model set, Settings
+opens on **Generation model**, a choice between *The instance’s model* and *My own
+provider and key*. The second brings back the form of Mode A: the key stays in that
+browser, the calls are not billed to the instance and do not count against the
+[free plan](free-plan.md)'s daily limit, and the administrator sees the provider
+and the model the account declared — the **API perso** badge in Admin → Users and
+in the activity — never the key. **Admin → Users → Personal API keys** closes the
+option for everybody; an account that had chosen it is back on the instance's
+model at its next call, and finds its choice again if the option reopens. An
+account on its own key cannot use Mocky from an assistant (MCP): the server's
+headless runner has no browser, so no key to call the model with.
+
 | id | Dialect | Default base URL | Default model |
 |---|---|---|---|
 | `ollama-cloud` | Ollama | `https://ollama.com` | `gpt-oss:120b` |

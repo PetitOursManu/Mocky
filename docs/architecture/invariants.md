@@ -17,7 +17,7 @@ There are seven series:
 - **U1 to U5**, introduced by Motion Ultra.
 - **D1 to D5**, introduced by the admin dashboard.
 - **X1 to X7**, introduced by Mocky as an MCP server.
-- **F1 to F3**, introduced by the free plan.
+- **F1 to F4**, introduced by the free plan and personal keys.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -987,7 +987,7 @@ series.
 These came with the free plan (`server/plan.js`, [its page](../free-plan.md)),
 which lets an instance open its sign-ups without paying for strangers'
 generations. Each rule is about one way an account on that plan could end up
-spending money anyway.
+spending money anyway — F4, the account that pays with its own key, included.
 
 ### F1. A free account never reaches a paid provider
 
@@ -1048,6 +1048,26 @@ spend a planner call on the shared key only to be refused at its generation.
 **How it is checked.** `server/plan.test.js` (the ceiling, the refusal after
 exhaustion, a restart, midnight), `server/plan-routes.test.js` (`429` with
 `code: "free-quota"`, the administrator unaffected, `0` for unlimited).
+
+### F4. A personal key is the person's: the server keeps its name, never it
+
+**The rule.** An account may answer with its own provider and key over the
+instance's model (`ownText` on the account, server/own-text.js) unless the
+administrator closed the option (`ownKeys: false`). `textTargetFor` answers null
+for it — so every route that resolves a model follows, and the quota gates, which
+ask `textTargetFor` too, count nothing. The server stores the provider's id and
+the model's name the person's Settings declared, and nothing else: the key stays
+in the browser and travels as it always did, behind the SSRF guard. Closing the
+option does not erase the choice; it stops honouring it.
+
+**What it protects.** Two promises at once: that an administrator sees which
+accounts are not on their bill (the **API perso** badge, the provider, the
+model), and that seeing it never means holding someone else's credential.
+
+**How it is checked.** `server/own-text.test.js` (what is kept, fal refused, the
+switch), `server/own-text-routes.test.js` (the call goes where the browser says
+and neither instance provider hears it, no quota spent, the key absent from the
+admin list and from `users.json`, the option closed and reopened).
 
 ---
 

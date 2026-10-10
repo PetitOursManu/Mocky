@@ -1,5 +1,5 @@
 ---
-source_hash: edbd9750ce24
+source_hash: ed807f044492
 ---
 
 # Connecter un assistant (MCP)
@@ -263,7 +263,10 @@ assistants que ce compte a autorisés, chacun avec **Déconnecter**. Quand
 l'administrateur autorise les deux moteurs, elle demande aussi **qui écrit le
 code de vos designs**. Si la section
 indique que la fonction est désactivée, ou que le compte n'est pas autorisé,
-c'est une décision d'administrateur.
+c'est une décision d'administrateur. Un compte qui a choisi **sa propre clé** dans
+Réglages ne peut pas générer depuis un assistant : cette clé vit dans son
+navigateur, et l'exécuteur du serveur n'en a aucune — l'assistant le dit, et
+revenir au *Modèle de l’instance* rouvre la porte.
 
 Pour se connecter — la page donne à chaque assistant ses propres étapes,
 l'adresse à copier, et la ligne unique quand elle existe :

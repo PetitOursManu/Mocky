@@ -1,5 +1,5 @@
 ---
-source_hash: e04144d59a80
+source_hash: 3ff249ea56e0
 ---
 
 # Le forfait gratuit
@@ -102,7 +102,8 @@ Trois détails :
 
 Le plafond ne s'applique qu'aux appels qui atteignent le modèle gratuit de
 l'instance. Un compte gratuit qui utilise sa propre clé (aucun modèle gratuit
-configuré) ne dépense le quota de personne d'autre que le sien.
+configuré, ou la sienne choisie dans Réglages plutôt que le modèle gratuit) ne
+dépense le quota de personne d'autre que le sien.
 
 ### 4. Le tester avec son propre compte
 

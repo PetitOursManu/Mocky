@@ -233,7 +233,10 @@ Edits, polishing and audits always use Mocky's model.
 assistants this account let in, each with **Disconnect**. When the administrator
 allows both engines, it also asks **who writes your designs' code**. If the section says
 the feature is off, or that the account is not allowed, that is an
-administrator's decision.
+administrator's decision. An account that chose **its own key** in Settings
+cannot generate from an assistant: that key lives in its browser, and the
+runner on the server has none — the assistant is told so, and choosing *The
+instance’s model* again opens the door.
 
 To connect — the page gives each assistant its own steps, the address to copy,
 and the one line where there is one:
