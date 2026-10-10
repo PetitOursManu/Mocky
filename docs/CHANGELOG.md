@@ -28,6 +28,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `text` | ne plus envoyer de température aux modèles Claude récents (#33) | `446b6d5` |
 | `mcp` | l'aperçu vivant montre le design entier, sans barres de défilement | `272fc1b` |
 | `mcp` | l'aperçu vivant lit aussi le canal de ChatGPT, et un post « en 1:1 » est carré | `e5b51d9` |
 | `mcp` | Muse tourne vraiment, et autour des images fournies | `fa5564d` |
