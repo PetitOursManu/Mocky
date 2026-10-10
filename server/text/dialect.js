@@ -228,6 +228,10 @@ export const PROVIDER_QUIRKS = [
     // call chose; the rest get the model's own default instead of a 400.
     hosts: ['api.anthropic.com'],
     drop: [{ key: 'temperature', unless: CLAUDE_TEMPERATURE_MODELS }],
+    // A schema Claude's structured outputs accept: every object closed
+    // (`additionalProperties: false`, which they require) and no numeric,
+    // length or array-size constraint (which they refuse). See `closedSchema`.
+    closedSchema: true,
   },
   {
     // https://ai.google.dev/gemini-api/docs/openai — reasoning_effort maps to
@@ -314,9 +318,67 @@ export function applyQuirks(body, quirk) {
   if (quirk.jsonSchema === 'json_object' && out.response_format?.type === 'json_schema') {
     out.response_format = { type: 'json_object' }
   }
+  if (quirk.closedSchema && out.response_format?.type === 'json_schema' && out.response_format.json_schema?.schema) {
+    out.response_format = {
+      ...out.response_format,
+      json_schema: { ...out.response_format.json_schema, schema: closedSchema(out.response_format.json_schema.schema) },
+    }
+  }
   if (quirk.effort && quirk.effort.models.test(String(out.model || ''))) {
     out.reasoning_effort = quirk.effort.value
   }
+  return out
+}
+
+/** Constraints Claude's structured outputs refuse — dropped, the reader validates what it needs. */
+const UNSUPPORTED_SCHEMA_KEYS = [
+  'minimum',
+  'maximum',
+  'exclusiveMinimum',
+  'exclusiveMaximum',
+  'multipleOf',
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'uniqueItems',
+  'minProperties',
+  'maxProperties',
+]
+
+/**
+ * A JSON schema as Claude's structured outputs take it.
+ *
+ * Every Mocky schema leaves its objects open and some carry bounds (`maxItems`
+ * on a list of sections, `maxLength` on a line), and the Claude API refuses
+ * both: an object must say `additionalProperties: false`, and numeric, length
+ * and array-size constraints are not supported. Sent as written, the planner,
+ * Muse, the picture judge and Motion Ultra's storyboard all came back 400 on
+ * claude-sonnet-5-5 and degraded in silence. Closing the objects and dropping
+ * the bounds keeps what the schema guarantees that matters here — the shape —
+ * and the readers already check the rest. An object with no `properties` is a
+ * free-form map and is left open: closing it would allow only `{}`; if the
+ * provider refuses it, the proxy asks again without a schema.
+ */
+export function closedSchema(node) {
+  if (Array.isArray(node)) return node.map(closedSchema)
+  if (!node || typeof node !== 'object') return node
+  const out = {}
+  for (const [key, value] of Object.entries(node)) {
+    if (UNSUPPORTED_SCHEMA_KEYS.includes(key)) continue
+    if (key === 'properties' && value && typeof value === 'object') {
+      out.properties = Object.fromEntries(Object.entries(value).map(([k, v]) => [k, closedSchema(v)]))
+    } else if (key === 'oneOf') {
+      out.anyOf = closedSchema(value)
+    } else if (['items', 'anyOf', 'allOf', 'prefixItems', 'not'].includes(key)) {
+      out[key] = closedSchema(value)
+    } else if ((key === '$defs' || key === 'definitions') && value && typeof value === 'object') {
+      out[key] = Object.fromEntries(Object.entries(value).map(([k, v]) => [k, closedSchema(v)]))
+    } else {
+      out[key] = value
+    }
+  }
+  if (out.properties && typeof out.properties === 'object') out.additionalProperties = false
   return out
 }
 

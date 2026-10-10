@@ -1,5 +1,5 @@
 ---
-source_hash: 63083895b55c
+source_hash: c0dcfc4d469d
 ---
 
 # Vue d'ensemble de l'architecture
@@ -983,6 +983,30 @@ Quand un fournisseur d'instance est configuré, `/__provider` **exige une
 session**. La requête dépense les crédits de l'hébergeur, donc elle doit
 appartenir à quelqu'un. Sans fournisseur d'instance, l'appelant fournit sa propre
 clé, et le mode « votre clé ne quitte pas votre navigateur » est préservé.
+
+### Un schéma refusé, une réponse trop lente
+
+Deux pannes renvoyaient une génération au composer sans rien sur le canevas, chez
+un fournisseur que personne n'avait changé.
+
+**Un appel structuré refusé.** Le planificateur, le juge des photos, Muse et le
+storyboard de Motion Ultra demandent du JSON avec un schéma (`format`, traduit en
+`response_format`). Claude applique ce schéma et exige que chaque objet soit
+fermé (`additionalProperties: false`), sans borne numérique, de longueur ni de
+taille de tableau — donc `closedSchema` le réécrit pour `api.anthropic.com`, et
+seulement là. Et pour tout fournisseur au dialecte OpenAI qui répond encore 400 à
+un corps portant un schéma, le proxy (et `museChat`) redemande **une fois** sans
+lui : la réponse arrive alors en prose ou dans un bloc de code, que chaque lecteur
+de ces appels récupère déjà par ses accolades extérieures.
+
+**Un appel plus long que l'attente du proxy inverse.** Cloudflare ferme une
+requête dont l'origine n'a rien envoyé pendant 100 s (une 524), et une longue
+génération derrière lui était coupée alors que le fournisseur travaillait encore.
+Après `LATE_COMMIT_MS` (45 s) sans réponse, le proxy engage un 200 et écrit un
+bourrage — une ligne vide en NDJSON, une espace en JSON, que les lecteurs ignorent
+tous deux — à chaque `KEEPALIVE_MS` de silence. Une erreur qui arrive après cet
+engagement ne peut plus être un statut : elle voyage dans le corps sous la forme
+`{error, done: true}`, que `chat()` lit déjà.
 
 ---
 

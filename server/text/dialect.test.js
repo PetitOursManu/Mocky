@@ -490,7 +490,7 @@ describe('provider quirks', () => {
   })
 
   it('every row names its hosts in lower case and uses only known fields', () => {
-    const KNOWN = new Set(['hosts', 'root', 'drop', 'maxTokens', 'maxTokensField', 'jsonSchema', 'effort', 'stripModelPrefix'])
+    const KNOWN = new Set(['hosts', 'root', 'drop', 'maxTokens', 'maxTokensField', 'jsonSchema', 'effort', 'stripModelPrefix', 'closedSchema'])
     for (const row of PROVIDER_QUIRKS) {
       expect(row.hosts.length).toBeGreaterThan(0)
       for (const h of row.hosts) expect(h).toBe(h.toLowerCase())

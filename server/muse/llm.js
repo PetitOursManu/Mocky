@@ -55,28 +55,42 @@ export async function museChat(creds, req) {
   }
   if (req.schema) body.format = req.schema // Ollama structured output
 
-  const plan = buildUpstream(
-    {
-      kind: creds.kind === KIND_OPENAI ? KIND_OPENAI : 'ollama',
-      auth: creds.auth, // fal.ai wants "Key", not "Bearer"
-      baseUrl: base,
-      apiKey: creds.apiKey,
-    },
-    '/api/chat',
-    Buffer.from(JSON.stringify(body)),
-  )
+  const upstreamFor = (b) =>
+    buildUpstream(
+      {
+        kind: creds.kind === KIND_OPENAI ? KIND_OPENAI : 'ollama',
+        auth: creds.auth, // fal.ai wants "Key", not "Bearer"
+        baseUrl: base,
+        apiKey: creds.apiKey,
+      },
+      '/api/chat',
+      Buffer.from(JSON.stringify(b)),
+    )
+  let plan = upstreamFor(body)
 
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), req.timeoutMs ?? 40000)
   const onExternalAbort = () => ctrl.abort()
   req.signal?.addEventListener('abort', onExternalAbort)
   try {
-    const res = await fetch(plan.url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', ...plan.headers },
-      body: plan.body,
-      signal: ctrl.signal,
-    })
+    const send = () =>
+      fetch(plan.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...plan.headers },
+        body: plan.body,
+        signal: ctrl.signal,
+      })
+    let res = await send()
+    // A provider that refuses the translated schema (`response_format`) answers
+    // 400 to every structured call, which is every Muse stage. Asked once more
+    // without it — the same rule as /__provider (provider-proxy.js); museJson
+    // already salvages an object answered in prose.
+    if (res.status === 400 && plan.translate && body.format) {
+      await res.body?.cancel().catch(() => {})
+      const { format: _format, ...plain } = body
+      plan = upstreamFor(plain)
+      res = await send()
+    }
     if (res.status === 401 || res.status === 403) {
       throw new Error(`Provider auth failed (HTTP ${res.status}) — check the API key`)
     }
