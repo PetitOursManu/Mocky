@@ -43,6 +43,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | Tailwind 4 pour l'interface, Tailwind 3 pour les aperçus | `6a68e4f` |
 | `mcp` | le serveur MCP dans le README, l'index, le glossaire et l'architecture | `846f800` |
 | `licence` | exception de sortie et page Licence | `fa248bb` |
 
