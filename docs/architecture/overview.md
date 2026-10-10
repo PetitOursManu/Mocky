@@ -521,6 +521,25 @@ trusting: it read "three" until `polishComponent` arrived, "four" until
 check hooked onto `generateComponent` alone sees neither an edit, nor a repair,
 nor a polish, nor an accessibility correction, nor a fit.
 
+### A screen that behaves
+
+The base prompt's **WORKING PROTOTYPE** section asks for a screen that works
+in memory, not only one that looks right: the data lives in React state, every
+list and chart is rendered from it, and every number that summarises it — a
+count badge, a tab counter, a total, a progress bar — is derived from it rather
+than typed. Adding a test ticket therefore appends it to the list *and* moves
+the "open tickets" badge; ticking a task moves the progress. The controls the
+screen already shows are wired to that state (add, delete, toggle, filter,
+sort), and nothing touches the network or browser storage — the preview's
+sandbox has an opaque origin, where `localStorage` throws.
+
+Two limits keep it honest. It invents no control the request did not imply, and
+read-only surfaces (an article, a marketing hero) stay static; a document's own
+rules say paper has one state and win over this one. And an edit that adds
+something which changes the data counts wiring the counters to it as part of
+the change (`EDIT_RULES`), where "keep everything else identical" would
+otherwise have left a hand-written badge behind.
+
 ### Editing without a model call
 
 `tryDirectTextReplace()` handles the common case. If the clicked element's

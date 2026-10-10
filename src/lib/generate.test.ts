@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference, buildIdentityReference, tryDirectTextReplace, generateComponent } from './generate'
+import { extractCode, toPreviewModule, sanitizeSource, buildLayoutReference, buildIdentityReference, tryDirectTextReplace, generateComponent, SYSTEM_PROMPT, EDIT_RULES } from './generate'
 
 describe('buildLayoutReference', () => {
   it('includes the reference code and a reproduce-the-nav instruction', () => {
@@ -377,5 +377,26 @@ describe('a run that came back with nothing', () => {
   it('keeps the plain sentence when the answer really was empty', async () => {
     const err = await withFetch(streamOf({ done: true }))
     expect(err?.message).toContain('empty response')
+  })
+})
+
+// A screen of "3 open tickets" with an "Add ticket" button that adds nothing
+// anywhere — or adds a row while the badge stays at 3 — demos as broken. The
+// base prompt asks for state the summaries are derived from, and an edit that
+// adds such a control counts wiring them as part of itself.
+describe('a screen that behaves', () => {
+  it('asks for one state, with every count and total derived from it', () => {
+    expect(SYSTEM_PROMPT).toContain('WORKING PROTOTYPE')
+    expect(SYSTEM_PROMPT).toContain('is DERIVED from the state')
+    expect(SYSTEM_PROMPT).toContain('increments the "open tickets" badge')
+  })
+
+  it('keeps it in memory: the sandbox has no storage and no network', () => {
+    expect(SYSTEM_PROMPT).toContain('no localStorage or sessionStorage')
+    expect(SYSTEM_PROMPT).toContain('Do not invent controls the request does not imply')
+  })
+
+  it('lets an edit that adds such a control wire the counters too', () => {
+    expect(EDIT_RULES).toContain('One thing is PART of a change, not beyond it')
   })
 })

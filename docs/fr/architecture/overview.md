@@ -1,5 +1,5 @@
 ---
-source_hash: 206c56dc374b
+source_hash: 63083895b55c
 ---
 
 # Vue d'ensemble de l'architecture
@@ -551,6 +551,28 @@ d'`auditFixComponent`, et « cinq » jusqu'à `fitComponent`. Une vérification
 post-génération branchée sur le seul `generateComponent` ne voit ni une
 modification, ni une réparation, ni un polissage, ni une correction
 d'accessibilité, ni un ajustement.
+
+### Un écran qui se comporte
+
+La section **WORKING PROTOTYPE** du prompt de base demande un écran qui
+fonctionne en mémoire, pas seulement un écran qui en a l'air : les données
+vivent dans l'état React, chaque liste et chaque graphique est rendu à partir
+de lui, et chaque nombre qui les résume — un badge de compte, un compteur
+d'onglet, un total, une barre de progression — en est dérivé au lieu d'être
+écrit à la main. Ajouter un ticket de test l'ajoute donc à la liste *et* fait
+monter le badge « tickets ouverts » ; cocher une tâche fait avancer la
+progression. Les contrôles que l'écran montre déjà sont reliés à cet état
+(ajouter, supprimer, basculer, filtrer, trier), et rien ne touche au réseau ni
+au stockage du navigateur — le bac à sable de l'aperçu a une origine opaque, où
+`localStorage` lève une erreur.
+
+Deux limites le gardent honnête. Il n'invente aucun contrôle que la demande ne
+suggère pas, et les surfaces en lecture seule (un article, un hero marketing)
+restent statiques ; les règles propres d'un document disent que le papier n'a
+qu'un état et l'emportent sur celle-ci. Et une modification qui ajoute quelque
+chose qui change les données compte le branchement des compteurs comme faisant
+partie du changement (`EDIT_RULES`), là où « garde tout le reste identique »
+aurait sinon laissé un badge écrit à la main.
 
 ### Modifier sans appeler le modèle
 
