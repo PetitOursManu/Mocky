@@ -1,5 +1,5 @@
 ---
-source_hash: c0dcfc4d469d
+source_hash: 350e9cf60507
 ---
 
 # Vue d'ensemble de l'architecture
@@ -991,11 +991,13 @@ un fournisseur que personne n'avait changé.
 
 **Un appel structuré refusé.** Le planificateur, le juge des photos, Muse et le
 storyboard de Motion Ultra demandent du JSON avec un schéma (`format`, traduit en
-`response_format`). Claude applique ce schéma et exige que chaque objet soit
-fermé (`additionalProperties: false`), sans borne numérique, de longueur ni de
-taille de tableau — donc `closedSchema` le réécrit pour `api.anthropic.com`, et
-seulement là. Et pour tout fournisseur au dialecte OpenAI qui répond encore 400 à
-un corps portant un schéma, le proxy (et `museChat`) redemande **une fois** sans
+`response_format`). La couche compatible OpenAI d'Anthropic documente
+`response_format` comme ignoré, et pourtant, sur une vraie instance, ces appels,
+et eux seuls, répondaient 400. Donc `closedSchema` envoie à `api.anthropic.com`
+la forme qu'acceptent les sorties structurées de Claude (chaque objet fermé par
+`additionalProperties: false`, sans borne numérique, de longueur ni de taille de
+tableau), et pour tout fournisseur au dialecte OpenAI qui répond encore 400 à un
+corps portant un schéma, le proxy (et `museChat`) redemande **une fois** sans
 lui : la réponse arrive alors en prose ou dans un bloc de code, que chaque lecteur
 de ces appels récupère déjà par ses accolades extérieures.
 
@@ -1007,6 +1009,19 @@ bourrage — une ligne vide en NDJSON, une espace en JSON, que les lecteurs igno
 tous deux — à chaque `KEEPALIVE_MS` de silence. Une erreur qui arrive après cet
 engagement ne peut plus être un statut : elle voyage dans le corps sous la forme
 `{error, done: true}`, que `chat()` lit déjà.
+
+**Un écran coupé par sa propre réflexion.** À partir de la génération Claude 5,
+un modèle Claude réfléchit par défaut (Sonnet 5.5 à l'effort `high`), la couche
+compatible ignore `reasoning_effort`, et la réflexion compte dans `max_tokens`.
+Les 16 384 tokens qu'une génération demande étaient prévus pour le code, donc une
+page avec Muse et Motion Ultra revenait « incomplète : le modèle a atteint sa
+limite de tokens ». La ligne d'Anthropic AJOUTE désormais 48 000 tokens de place
+pour la réflexion au budget propre de chaque appel (`thinkingRoom`), dans la
+limite des 128K qu'accepte tout modèle Claude actuel. Un plafond plus haut ne
+coûte rien de ce qui n'est pas utilisé : l'effort décide combien de temps le
+modèle réfléchit, le plafond seulement où il est arrêté. Les modèles jusqu'à 4.6
+ne sont pas touchés : ils ne réfléchissent pas sans qu'on le demande, et certains
+refusent plus de 64K.
 
 ---
 
