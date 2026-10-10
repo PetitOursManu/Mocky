@@ -50,6 +50,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | Clarifie la formulation sur l'emplacement sans photo retenue | `14ba6ed` |
 | `changelog` | pousser avec une deploy key dédiée, environnement changelog, [skip ci] | `927b314` |
 | `mcp` | rappeler get_design tant que le travail est queued, pas seulement running | `8513c97` |
 | — | attendre la fin du serveur avant de supprimer son dossier (ENOTEMPTY sous Node 24) | `3a8c305` |
