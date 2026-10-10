@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `plan` | un administrateur peut tester le forfait gratuit avec son compte (#32) | `a600d70` |
 | `plan` | forfait gratuit — modèle gratuit, banques libres, plafond quotidien (#31) | `a3bcd2f` |
 | `mcp` | installer le connecteur depuis Réglages, en une ligne pour Claude Code | `5e1d3c5` |
 | `mcp` | phase 5 — l'aperçu vivant dans la conversation, et le pont pour un Mocky en réseau local | `edd1ab3` |
