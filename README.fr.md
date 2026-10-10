@@ -467,8 +467,8 @@ composeur propose **Images · IA / Libres** dès que Muse ou Motion Ultra est ac
   image ;
 - le serveur renvoie huit vignettes — rien n'est encore stocké ;
 - un modèle à vision les regarde avec le sujet, le rôle de l'image et les photos
-  déjà choisies pour la page, et en retient une ou aucune. Aucune laisse
-  l'emplacement à la page (un fond CSS dans Motion Ultra) avec un message —
+  déjà choisies pour la page, et en retient une ou aucune. Si aucune n'est retenue, l'emplacement est laissé
+  à la page (un fond CSS dans Motion Ultra) avec un message —
   jamais un repli silencieux sur une génération payante. Un modèle sans vision
   prend le premier résultat de la recherche ;
 - la photo retenue est rangée dans la médiathèque avec le crédit de son auteur,
