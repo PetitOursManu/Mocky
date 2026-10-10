@@ -25,6 +25,7 @@ import { originAllowsMcp, mcpReadiness } from './https.js'
 import { createOAuthStore } from './oauth-store.js'
 import { createMcpOAuthProvider } from './provider.js'
 import { buildMcpServer } from './tools.js'
+import { buildSkillZip } from './skill.js'
 
 /** The paths that must not exist while the server is off (X1). */
 const MCP_PATHS = /^\/(?:mcp|mcp-shot|mcp-view|register|authorize|token|revoke)(?:\/|$)|^\/\.well-known\/oauth-(?:authorization-server|protected-resource)(?:\/|$)/
@@ -276,6 +277,17 @@ export function createMcpServerRoutes(d) {
         engines: config.get().engines,
         engine: resolveEngine(config.get(), { preferred: prefs.get(req.user.id).engine }),
       })
+    })
+
+    // The Claude skill (skill.js): this instance's guide as a SKILL.md, zipped
+    // for import. Only where the connector it teaches exists for this person.
+    app.get('/api/account/mcp-skill.zip', d.requireUser, (req, res) => {
+      if (!active() || !scopeAllows(config.get().access, req.user)) return res.status(404).json({ error: 'Not found.' })
+      const zip = buildSkillZip({ mcpUrl: originOk ? resource() : null, client: Boolean(config.get().engines?.client) })
+      res.setHeader('content-type', 'application/zip')
+      res.setHeader('content-disposition', 'attachment; filename="mocky-skill.zip"')
+      res.setHeader('cache-control', 'no-store')
+      res.end(zip)
     })
 
     app.put('/api/account/mcp-prefs', d.requireUser, (req, res) => {

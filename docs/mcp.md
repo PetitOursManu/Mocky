@@ -26,8 +26,13 @@ for the accounts they choose, and only on an instance served over HTTPS.
 | `audit_design` | The [SEO and accessibility report](seo-accessibility.md) of a screen: two scores and the named findings. Changes nothing; `deep` adds the model-judged questions. |
 | `fix_accessibility` | That report's own correction: fixes the markup, the screen looking the same. |
 
-And one prompt, **new-design** (the "/" menu in Claude), which starts a short
-interview before designing.
+And seven prompts (the "/" menu in Claude), each a starting message that already
+names the right tools in the right order (`server/mcp/prompts.js`): **new-design**
+(a short interview, then the design), **social-post**, **printed-document**
+(flyer, poster, menu, CV…), **landing-page**, **add-to-project**,
+**change-screen** and **review-screen** (the quality pass, or the accessibility
+audit). Every argument is optional — picked from a menu with nothing filled in,
+a prompt still starts a sensible conversation.
 
 - **Questions first.** The assistant is told to make sure it knows what the
   screen is, who it is for and the tone wanted, and to ask at most three short
@@ -255,9 +260,20 @@ Claude Code is the only one that takes a connector in one line: claude.ai,
 Claude Desktop and ChatGPT have no install link and no file for a remote
 connector, by design — the person adds it in their own settings. (A Claude
 *skill* cannot do it either: a skill teaches Claude how to do something, it does
-not add a connector. How to use Mocky well is already served by the connector
-itself, as `mocky_guide`.) For Claude Desktop with a Mocky the assistants cannot
+not add a connector.) For Claude Desktop with a Mocky the assistants cannot
 reach, see [A Mocky the assistants cannot reach](#a-mocky-the-assistants-cannot-reach).
+
+**The skill, optional and free.** Under the address, **Download the skill
+(.zip)** gives a Claude skill built for this instance (`server/mcp/skill.js`):
+the connector's own guide and its prompts, in one `mocky/SKILL.md`. The
+connector works without it; what it adds is being in Claude *before* any tool is
+called — Claude reaches for Mocky when someone asks for a flyer without naming
+it, skips the call to `mocky_guide` on the first design, and, when the connector
+is missing, gives this instance's address instead of pretending to design.
+Import it in Claude under *Customize → Skills*, or unzip it into
+`~/.claude/skills/` for Claude Code. It is generated from the same guide the
+connector serves, so the two cannot teach different things; download it again
+after an update to get the newer one.
 
 Then, in every case:
 

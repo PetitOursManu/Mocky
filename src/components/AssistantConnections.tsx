@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type AccountMcpView, type McpEngine } from '../lib/api'
-import { Button, ButtonLink, Input, Select } from '../ui'
+import { Button, ButtonLink, Icon, Input, Select } from '../ui'
 import { useT } from '../i18n'
 
 /**
@@ -141,6 +141,21 @@ export default function AssistantConnections() {
           {!canChoose && view.engine === 'client' && (
             <p className="measure mt-3 text-caption text-ink-muted">{t('mcp.account.engineClientOnly')}</p>
           )}
+          {/* The skill (server/mcp/skill.js): the connector's guide, inside the
+              assistant before any tool is called. Optional — the connector
+              works without it — and free. */}
+          <div className="mt-4 border-t border-line-soft pt-3">
+            <span className="block text-body-sm font-medium text-ink">{t('mcp.account.skill')}</span>
+            <p className="measure mt-0.5 text-caption text-ink-muted">{t('mcp.account.skillHelp')}</p>
+            <ButtonLink href="/api/account/mcp-skill.zip" download="mocky-skill.zip" size="sm" className="mt-2">
+              <Icon name="download" size={16} />
+              {t('mcp.account.skillDownload')}
+            </ButtonLink>
+            <ol className="measure mt-2 list-decimal space-y-0.5 pl-5 text-caption text-ink-muted">
+              <li>{t('mcp.account.skillStepClaude')}</li>
+              <li>{t('mcp.account.skillStepCode')}</li>
+            </ol>
+          </div>
         </div>
       )}
       {view && view.connections.length > 0 ? (

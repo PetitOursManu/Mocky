@@ -120,6 +120,12 @@ export const mcp = {
     'mcp.account.since': 'connecté le {date}',
     'mcp.account.lastUsed': 'dernier usage {date}',
     'mcp.account.revoke': 'Déconnecter',
+    'mcp.account.skill': 'Skill pour Claude (facultatif)',
+    'mcp.account.skillHelp':
+      'Le guide d’utilisation de Mocky, à installer dans Claude : il pense à Mocky dès que vous demandez un visuel, sans que vous ayez à le nommer, et sait vous indiquer l’adresse du connecteur s’il manque. Gratuit ; le connecteur reste nécessaire.',
+    'mcp.account.skillDownload': 'Télécharger le skill (.zip)',
+    'mcp.account.skillStepClaude': 'Claude (web, bureau) : Personnaliser → Skills → importer le fichier .zip.',
+    'mcp.account.skillStepCode': 'Claude Code : décompressez-le dans ~/.claude/skills/ (dossier mocky).',
   } as Record<string, string>,
   en: {
     'mcp.connect.kicker': 'Connecting an assistant',
@@ -230,5 +236,11 @@ export const mcp = {
     'mcp.account.since': 'connected on {date}',
     'mcp.account.lastUsed': 'last used {date}',
     'mcp.account.revoke': 'Disconnect',
+    'mcp.account.skill': 'Skill for Claude (optional)',
+    'mcp.account.skillHelp':
+      'Mocky’s user guide, to install in Claude: it thinks of Mocky as soon as you ask for a visual, without your naming it, and can tell you the connector’s address if it is missing. Free; the connector is still needed.',
+    'mcp.account.skillDownload': 'Download the skill (.zip)',
+    'mcp.account.skillStepClaude': 'Claude (web, desktop): Customize → Skills → upload the .zip file.',
+    'mcp.account.skillStepCode': 'Claude Code: unzip it into ~/.claude/skills/ (folder mocky).',
   } as Record<string, string>,
 }
