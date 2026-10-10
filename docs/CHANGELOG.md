@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `admin` | les dépenses — jetons et prix par compte, projet et modèle (#39) | `d8b3ecf` |
 | `account` | chaque compte peut choisir son propre fournisseur et sa clé (#38) | `eeca171` |
 | `design,muse` | aperçu web du DESIGN.md, sources d'inspiration éditables, curseur (#37) | `6e7c87f` |
 | `generate` | des écrans qui se comportent — compteurs dérivés de l'état (#36) | `48b39b1` |
