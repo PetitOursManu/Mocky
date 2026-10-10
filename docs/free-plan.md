@@ -62,8 +62,9 @@ to accounts an administrator creates (the creation form has a **Plan** field
 that starts on this value).
 
 Changing it never moves an account that already exists, and every account
-created before the free plan existed is standard. **An administrator is always
-on the standard plan**: they are the one configuring and testing the paid models.
+created before the free plan existed is standard. **An administrator stays on
+the standard plan** — they are the one configuring the paid models — unless they
+try the free plan on their own account ([step 4](#4-testing-it-with-your-own-account)).
 
 To move one account, use **Move to free** / **Move to standard** on its row in
 the account list. It takes effect on its next request.
@@ -93,6 +94,22 @@ Three details:
 The limit only applies to calls that reach the instance's free model. A free
 account using its own key (no free model configured) spends nobody's quota but
 its own.
+
+### 4. Testing it with your own account
+
+**Admin → Users → Test with my account → My account behaves as: Free.** Your
+administrator account then gets exactly what a free account gets: the free model
+writes your screens, the daily limit counts your generations, pictures come from
+the free libraries, and the paid generators refuse you. It is how you judge a
+free model before opening sign-ups, without a second account to sign in with.
+
+- You keep administration. A **Testing free** badge sits in the masthead on every
+  page, and Settings says it too: a forgotten switch must not pass for a broken
+  instance.
+- It is your account's switch only — nobody can turn it on for someone else, and
+  **Move to free** still refuses an administrator. Set it back to **Standard** in
+  the same place.
+- Each change is written to the audit log.
 
 ## What a free account sees
 

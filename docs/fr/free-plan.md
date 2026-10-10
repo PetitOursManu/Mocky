@@ -1,5 +1,5 @@
 ---
-source_hash: 5a409b094cc0
+source_hash: 19831c4f62d0
 ---
 
 # Le forfait gratuit
@@ -69,8 +69,9 @@ par défaut. Il s'applique aux inscriptions publiques, aux comptes créés par
 formulaire de création a un champ **Forfait** qui démarre sur cette valeur).
 
 Le changer ne déplace jamais un compte qui existe déjà, et chaque compte créé
-avant le forfait gratuit est standard. **Un administrateur est toujours au forfait
-standard** : c'est lui qui configure et teste les modèles payants.
+avant le forfait gratuit est standard. **Un administrateur reste au forfait
+standard** — c'est lui qui configure les modèles payants — sauf s'il essaie le
+forfait gratuit avec son propre compte ([étape 4](#4-le-tester-avec-son-propre-compte)).
 
 Pour déplacer un compte, utilisez **Passer en gratuit** / **Passer en standard**
 sur sa ligne dans la liste des comptes. Cela prend effet à sa requête suivante.
@@ -102,6 +103,23 @@ Trois détails :
 Le plafond ne s'applique qu'aux appels qui atteignent le modèle gratuit de
 l'instance. Un compte gratuit qui utilise sa propre clé (aucun modèle gratuit
 configuré) ne dépense le quota de personne d'autre que le sien.
+
+### 4. Le tester avec son propre compte
+
+**Admin → Utilisateurs → Tester avec mon compte → Mon compte se comporte comme :
+Gratuit.** Votre compte administrateur reçoit alors exactement ce que reçoit un
+compte gratuit : le modèle gratuit écrit vos écrans, le plafond du jour compte vos
+générations, les images viennent des banques libres, et les générateurs payants
+vous refusent. C'est le moyen de juger un modèle gratuit avant d'ouvrir les
+inscriptions, sans second compte avec lequel se connecter.
+
+- Vous gardez l'administration. Un badge **Test gratuit** reste dans l'en-tête sur
+  chaque page, et Réglages le dit aussi : un réglage oublié ne doit pas passer pour
+  une instance en panne.
+- C'est le réglage de votre compte seulement — personne ne peut l'activer pour
+  quelqu'un d'autre, et **Passer en gratuit** refuse toujours un administrateur.
+  Remettez **Standard** au même endroit.
+- Chaque changement est inscrit au journal d'audit.
 
 ## Ce que voit un compte gratuit
 

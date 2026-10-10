@@ -27,7 +27,7 @@ export const plan = {
     // Admin → Accounts
     'plan.adminHeading': 'Forfait gratuit',
     'plan.adminBlurb':
-      'Un compte gratuit ne coûte rien à l’instance : son texte passe par le modèle gratuit (Modèle de texte → ③), ses images et vidéos viennent des banques libres, et les générateurs payants lui sont fermés. Un administrateur est toujours au forfait standard.',
+      'Un compte gratuit ne coûte rien à l’instance : son texte passe par le modèle gratuit (Modèle de texte → ③), ses images et vidéos viennent des banques libres, et les générateurs payants lui sont fermés. Un administrateur reste au forfait standard, sauf pour le tester (ci-dessous).',
     'plan.newAccounts': 'Forfait des nouveaux comptes',
     'plan.newAccountsHelp':
       'Pour les inscriptions publiques, les comptes Dashy et, par défaut, les comptes créés ici. Les comptes existants ne changent pas.',
@@ -43,6 +43,16 @@ export const plan = {
     'plan.setFreeOf': 'Passer {name} au forfait gratuit',
     'plan.setStandardOf': 'Passer {name} au forfait standard',
     'plan.changed': '{name} est maintenant au forfait {plan}.',
+    'plan.testHeading': 'Tester avec mon compte',
+    'plan.testBlurb':
+      'Votre compte se comporte comme un compte de ce forfait : même modèle de texte, même plafond du jour, images libres, générateurs payants fermés. Vous gardez l’administration, et c’est ici que vous revenez au forfait standard.',
+    'plan.testLabel': 'Mon compte se comporte comme',
+    'plan.testOn':
+      'Test en cours : votre compte suit les règles d’un compte gratuit. Revenez au forfait standard une fois le test fini.',
+    'plan.testSaved': 'Votre compte suit maintenant le forfait {plan}.',
+    'plan.testBadge': 'Test gratuit',
+    'plan.testBadgeTitle':
+      'Votre compte administrateur se comporte comme un compte gratuit. Revenez au forfait standard dans Admin → Utilisateurs.',
 
     // Admin → Text model, third profile
     'plan.textProfile': '③ Forfait gratuit — tout ce que demandent les comptes gratuits',
@@ -70,7 +80,7 @@ export const plan = {
 
     'plan.adminHeading': 'Free plan',
     'plan.adminBlurb':
-      'A free account costs the instance nothing: its text goes to the free model (Text model → ③), its pictures and footage come from the free libraries, and the paid generators are closed to it. An administrator is always on the standard plan.',
+      'A free account costs the instance nothing: its text goes to the free model (Text model → ③), its pictures and footage come from the free libraries, and the paid generators are closed to it. An administrator stays on the standard plan, except to test it (below).',
     'plan.newAccounts': 'Plan for new accounts',
     'plan.newAccountsHelp':
       'For public sign-ups, Dashy accounts and, by default, accounts created here. Existing accounts do not change.',
@@ -86,6 +96,16 @@ export const plan = {
     'plan.setFreeOf': 'Move {name} to the free plan',
     'plan.setStandardOf': 'Move {name} to the standard plan',
     'plan.changed': '{name} is now on the {plan} plan.',
+    'plan.testHeading': 'Test with my account',
+    'plan.testBlurb':
+      'Your account behaves like an account on this plan: same text model, same daily limit, free pictures, paid generators closed. You keep administration, and this is where you come back to the standard plan.',
+    'plan.testLabel': 'My account behaves as',
+    'plan.testOn':
+      'Test running: your account follows the rules of a free account. Come back to the standard plan when you are done.',
+    'plan.testSaved': 'Your account now follows the {plan} plan.',
+    'plan.testBadge': 'Testing free',
+    'plan.testBadgeTitle':
+      'Your administrator account behaves like a free account. Come back to the standard plan in Admin → Users.',
 
     'plan.textProfile': '③ Free plan — everything free accounts ask for',
     'plan.textProfileBlurb1': 'Writes the screens',

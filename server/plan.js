@@ -23,9 +23,13 @@
  *  - An account with no `plan` field is standard. Every account created before
  *    the free plan existed has none, and waking up on a new version to find the
  *    family's accounts downgraded is not an upgrade.
- *  - An administrator is never free: they are the one configuring and testing
- *    the paid models, and a plan that locks them out of their own instance's
- *    keys protects nothing.
+ *  - An administrator is never free unless they ask to be, for themselves:
+ *    they are the one configuring and testing the paid models, and a plan that
+ *    locks them out of their own instance's keys protects nothing. What they
+ *    may want is to SEE the free plan — the model, the limit, the refusals —
+ *    without making a second account, so `testPlan` is their own switch
+ *    (Admin → Accounts). It is not `plan`: no route sets it on someone else,
+ *    and an account that stops being an administrator stops reading it.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -48,9 +52,13 @@ export const DEFAULT_FREE_PLAN = Object.freeze({ newAccounts: 'free', dailyLimit
 /** Upper bound on the daily limit an admin can type; a typo of 2000000 is not a setting. */
 export const MAX_DAILY_LIMIT = 10_000
 
-/** The plan an account is on. Unknown, missing or an admin → standard. */
+/**
+ * The plan an account is on. Unknown or missing → standard; an administrator →
+ * standard, unless they switched on the free plan for themselves (`testPlan`).
+ */
 export function planOf(user) {
-  if (!user || (user.role || 'user') === 'admin') return 'standard'
+  if (!user) return 'standard'
+  if ((user.role || 'user') === 'admin') return user.testPlan === 'free' ? 'free' : 'standard'
   return user.plan === 'free' ? 'free' : 'standard'
 }
 

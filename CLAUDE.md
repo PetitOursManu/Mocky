@@ -1070,7 +1070,7 @@ server/text/config.js the third profile, 'free' — it falls back on NOTHING
 server/index.js       textTargetFor(user, profile), and the gates in front of the paid routes
 ```
 
-Three things that will bite you:
+Four things that will bite you:
 
 1. **Resolve a text model through `textTargetFor(user, profile)`, never
    `textConfig.target(profile)`**, in any route that serves an account. The
@@ -1082,6 +1082,11 @@ Three things that will bite you:
    `COUNTED_PURPOSES` as well as in `PURPOSES`.
 3. **`npm run dev` does not apply the plan** — Vite serves `/__provider` itself,
    with no account. Check the free plan against a production build.
+4. **An administrator is free only through their own `testPlan`**, never through
+   `plan` (Admin → Users → Test with my account). `planOf` reads it, so every
+   gate follows without knowing. A route that acts on SOMEONE ELSE's plan never
+   touches it, and a new audited action goes in `AUDIT_ACTIONS` —
+   `tests/audit-actions.test.js` — or `record()` drops it in silence.
 
 ## Mocky as an MCP server
 

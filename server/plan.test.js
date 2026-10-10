@@ -35,8 +35,16 @@ describe('planOf', () => {
     expect(planOf(null)).toBe('standard')
   })
 
-  it('an administrator is never free, whatever the field says', () => {
+  it('an administrator is free only by their own test switch, never by `plan`', () => {
     expect(planOf({ role: 'admin', plan: 'free' })).toBe('standard')
+    expect(planOf({ role: 'admin', testPlan: 'free' })).toBe('free')
+    expect(planOf({ role: 'admin', testPlan: 'gold' })).toBe('standard')
+  })
+
+  // A test switch left on by someone who is no longer an administrator must not
+  // make them a free user — `plan` is what decides that, and it was never set.
+  it('a demoted administrator stops reading the test switch', () => {
+    expect(planOf({ role: 'user', testPlan: 'free' })).toBe('standard')
   })
 })
 

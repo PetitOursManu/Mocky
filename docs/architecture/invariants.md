@@ -1013,16 +1013,19 @@ what each one received — including with the free model unconfigured.
 **The rule.** An account with no `plan` field is standard, and the newcomers'
 default is applied once, at creation (public sign-up, Dashy SSO, Admin → Users).
 Changing that default never moves an existing account. An administrator is
-always standard, and asking to make one free is a `400`.
+standard unless they switch the free plan on for THEMSELVES (`testPlan`, Admin →
+Users → Test with my account): no route sets it on another account, asking
+`/api/admin/users/:id/plan` to make an administrator free is a `400`, and an
+account that stops being an administrator stops reading it.
 
 **What it protects.** Every account that existed before the free plan, and the
 administrator's own access to the models they configure. Waking up on a new
 version to find the family's accounts on a free model would be a downgrade
 nobody asked for.
 
-**How it is checked.** `server/plan.test.js` (`planOf`),
-`server/plan-routes.test.js` (newcomers, the creation form, the default, the
-administrator refused).
+**How it is checked.** `server/plan.test.js` (`planOf`, the test switch, a
+demoted administrator), `server/plan-routes.test.js` (newcomers, the creation
+form, the default, the administrator refused, the administrator's own test).
 
 ### F3. The limit guards the shared key, and stops before it is spent
 

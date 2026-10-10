@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Banner, Button, Icon, type IconName } from '../../ui'
 import { useT } from '../../i18n'
+import type { AuthUser } from '../../lib/api'
 import { useDashboard, type LiveStatus } from './useDashboard'
 import OverviewSection from './OverviewSection'
 import ActivitySection from './ActivitySection'
@@ -65,7 +66,14 @@ function loadSection(): SectionId {
  * history. The settings blocks (providers, Motion Ultra, maintenance) are the
  * components that were already there, mounted unchanged.
  */
-export default function AdminDashboard({ currentUsername }: { currentUsername: string }) {
+export default function AdminDashboard({
+  currentUsername,
+  onAccountChange,
+}: {
+  currentUsername: string
+  /** The signed-in administrator's own account changed (Users → test plan). */
+  onAccountChange?: (user: AuthUser) => void
+}) {
   const t = useT()
   const [section, setSection] = useState<SectionId>(loadSection)
   const live = useDashboard()
@@ -127,7 +135,7 @@ export default function AdminDashboard({ currentUsername }: { currentUsername: s
       case 'activity':
         return <ActivitySection live={live} />
       case 'users':
-        return <UsersSection live={live} currentUsername={currentUsername} />
+        return <UsersSection live={live} currentUsername={currentUsername} onAccountChange={onAccountChange} />
       case 'sessions':
         return <SessionsSection />
       case 'system':

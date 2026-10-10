@@ -1,5 +1,5 @@
 ---
-source_hash: 12c13754e59a
+source_hash: d94e465da4b4
 ---
 
 # Invariants
@@ -1082,17 +1082,21 @@ nothing »).
 **La règle.** Un compte sans champ `plan` est standard, et le forfait des
 nouveaux comptes s'applique une seule fois, à la création (inscription publique,
 SSO Dashy, Admin → Utilisateurs). Changer ce réglage ne déplace jamais un compte
-existant. Un administrateur est toujours standard, et demander à le passer en
-gratuit répond `400`.
+existant. Un administrateur est standard, sauf s'il active le forfait gratuit
+POUR LUI-MÊME (`testPlan`, Admin → Utilisateurs → Tester avec mon compte) : aucune
+route ne le pose sur un autre compte, demander à `/api/admin/users/:id/plan` de
+passer un administrateur en gratuit répond `400`, et un compte qui cesse d'être
+administrateur cesse de le lire.
 
 **Ce qu'elle protège.** Chaque compte qui existait avant le forfait gratuit, et
 l'accès de l'administrateur aux modèles qu'il configure. Découvrir après une mise
 à jour que les comptes de la famille sont passés sur un modèle gratuit serait un
 déclassement que personne n'a demandé.
 
-**Comment c'est vérifié.** `server/plan.test.js` (`planOf`),
-`server/plan-routes.test.js` (nouveaux comptes, formulaire de création, réglage
-par défaut, administrateur refusé).
+**Comment c'est vérifié.** `server/plan.test.js` (`planOf`, le réglage de test,
+un administrateur rétrogradé), `server/plan-routes.test.js` (nouveaux comptes,
+formulaire de création, réglage par défaut, administrateur refusé, test de
+l'administrateur sur son propre compte).
 
 ### F3. Le plafond protège la clé partagée, et s'arrête avant qu'elle soit dépensée
 

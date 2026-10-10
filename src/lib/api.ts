@@ -48,6 +48,8 @@ export interface FreePlanSettings {
 export interface AdminConfig {
   allowRegistration: boolean
   freePlan: FreePlanSettings
+  /** The plan the reading administrator's OWN account behaves as — their test switch. */
+  testPlan: Plan
 }
 
 /** GET /api/account/plan. A standard account gets the plan and nothing else. */
@@ -588,6 +590,9 @@ export const api = {
       req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ allowRegistration }) }) as Promise<AdminConfig>,
     setFreePlan: (patch: Partial<Pick<FreePlanSettings, 'newAccounts' | 'dailyLimit'>>) =>
       req('/api/admin/config', { method: 'PUT', body: JSON.stringify({ freePlan: patch }) }) as Promise<AdminConfig>,
+    /** Make the administrator's own account behave as `plan` — to try the free plan as it serves. */
+    setTestPlan: (plan: Plan) =>
+      req('/api/admin/test-plan', { method: 'PUT', body: JSON.stringify({ plan }) }) as Promise<{ user: AuthUser }>,
     setUserPlan: (id: string, plan: Plan) =>
       req(`/api/admin/users/${id}/plan`, { method: 'PUT', body: JSON.stringify({ plan }) }) as Promise<{
         user: { id: string; username: string; plan: Plan }

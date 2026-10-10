@@ -1,5 +1,5 @@
 ---
-source_hash: 388d791b80a1
+source_hash: 534283bbc7a4
 ---
 
 # Le tableau de bord d’administration
@@ -13,7 +13,7 @@ secondes sans recharger, et passer d’une section à l’autre ne coûte aucune
 |---|---|
 | **Vue d’ensemble** | Qui est là, ce qui tourne, si la machine et les fournisseurs vont bien — et, en phrases, les quelques points qui demandent une décision. |
 | **Activité en direct** | Chaque compte, connecté ou non : état, où il se trouve, ce qu’il fait maintenant, ce qu’il a fait dans l’heure. Un graphique par type et un fil des travaux terminés. |
-| **Utilisateurs** | Inscriptions publiques, création de compte, réinitialisation de mot de passe, suppression, rapport d’utilisation — comme avant — plus la présence de chaque compte et **Déconnecter** (tous les appareils, mot de passe inchangé), et le [forfait gratuit](free-plan.md) : le forfait des nouveaux comptes, le plafond quotidien, et **Passer en gratuit / standard** sur chaque compte. |
+| **Utilisateurs** | Inscriptions publiques, création de compte, réinitialisation de mot de passe, suppression, rapport d’utilisation — comme avant — plus la présence de chaque compte et **Déconnecter** (tous les appareils, mot de passe inchangé), et le [forfait gratuit](free-plan.md) : le forfait des nouveaux comptes, le plafond quotidien, **Passer en gratuit / standard** sur chaque compte, et **Tester avec mon compte** pour essayer le forfait gratuit vous-même. |
 | **Sessions** | Chaque navigateur connecté : compte, appareil, adresse, ouverture, dernière utilisation. Chacun peut être fermé. |
 | **Système** | Processeur, mémoire, retard de la boucle d’événements, carte graphique, disque, worker de rendu des films. |
 | **Fournisseurs** | Comment les fournisseurs de texte, d’images et de vidéo ont répondu sur la dernière heure, puis leurs réglages (les trois blocs de l’ancienne page). |

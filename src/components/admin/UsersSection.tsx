@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type AdminUser, type FreePlanSettings, type Plan } from '../../lib/api'
+import { api, type AdminUser, type AuthUser, type FreePlanSettings, type Plan } from '../../lib/api'
 import { Banner, Button, Field, Icon, IconButton, Input, Modal, Select } from '../../ui'
 import { useT } from '../../i18n'
 import UsageReport from '../UsageReport'
@@ -21,12 +21,23 @@ const MIN_PASSWORD = 8
  * and a way to sign an account out of every device at once without changing
  * its password.
  */
-export default function UsersSection({ live, currentUsername }: { live: Live; currentUsername: string }) {
+export default function UsersSection({
+  live,
+  currentUsername,
+  onAccountChange,
+}: {
+  live: Live
+  currentUsername: string
+  /** The signed-in account changed (its test plan): the composer and Settings follow it. */
+  onAccountChange?: (user: AuthUser) => void
+}) {
   const t = useT()
   const f = useFmt()
   const [allowReg, setAllowReg] = useState(true)
   /** The free plan's settings as saved; null until the server answered. */
   const [freePlan, setFreePlan] = useState<FreePlanSettings | null>(null)
+  /** The plan this administrator's own account behaves as; null until the server answered. */
+  const [testPlan, setTestPlan] = useState<Plan | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -51,6 +62,7 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
       const [cfg, list] = await Promise.all([api.admin.getConfig(), api.admin.listUsers()])
       setAllowReg(cfg.allowRegistration)
       setFreePlan(cfg.freePlan ?? null)
+      setTestPlan(cfg.testPlan ?? 'standard')
       setUsers(list)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -179,6 +191,24 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
             />
           )}
 
+          {testPlan && (
+            <TestPlanSwitch
+              plan={testPlan}
+              onChanged={(user) => {
+                const plan: Plan = user.plan === 'free' ? 'free' : 'standard'
+                setTestPlan(plan)
+                setUsers((list) => list.map((x) => (x.username === user.username ? { ...x, plan } : x)))
+                setError(null)
+                setNotice(t('plan.testSaved', { plan: t(`plan.${plan}`) }))
+                onAccountChange?.(user)
+              }}
+              onError={(msg) => {
+                setNotice(null)
+                setError(msg)
+              }}
+            />
+          )}
+
           <form onSubmit={addUser} className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
             <div className="kicker">{t('admin.addUser')}</div>
 
@@ -278,6 +308,9 @@ export default function UsersSection({ live, currentUsername }: { live: Live; cu
                     </span>
                     {u.role !== 'admin' && u.plan === 'free' && (
                       <span className="bg-ok/10 px-2 py-0.5 text-caption font-semibold uppercase text-ok">{t('plan.free')}</span>
+                    )}
+                    {u.role === 'admin' && u.plan === 'free' && (
+                      <span className="bg-ok/10 px-2 py-0.5 text-caption font-semibold uppercase text-ok">{t('plan.testBadge')}</span>
                     )}
                     <span className="text-body-sm">
                       <StateMark state={p?.state || 'offline'} mcp={p?.mcp} />
@@ -438,6 +471,59 @@ function FreePlanForm({
         {t('plan.save')}
       </Button>
     </form>
+  )
+}
+
+/**
+ * The administrator's own account, on the free plan or not — to judge a free
+ * model in the conditions it will serve in (its limit, its pictures, its closed
+ * generators) without a second account to sign in with.
+ *
+ * Saved on change, unlike the form above: a choice of two is not typed, and the
+ * point of the switch is to go and try it.
+ */
+function TestPlanSwitch({
+  plan,
+  onChanged,
+  onError,
+}: {
+  plan: Plan
+  onChanged: (user: AuthUser) => void
+  onError: (message: string) => void
+}) {
+  const t = useT()
+  const [busy, setBusy] = useState(false)
+
+  async function change(next: Plan) {
+    setBusy(true)
+    try {
+      const { user } = await api.admin.setTestPlan(next)
+      onChanged(user)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 space-y-3 border border-line-soft bg-ink/5 p-3">
+      <div className="kicker">{t('plan.testHeading')}</div>
+      <p className="measure text-body-sm text-ink-muted">{t('plan.testBlurb')}</p>
+      <Field label={t('plan.testLabel')}>
+        {(p) => (
+          <Select {...p} value={plan} disabled={busy} onChange={(e) => change(e.currentTarget.value as Plan)}>
+            <option value="standard">{t('plan.standard')}</option>
+            <option value="free">{t('plan.free')}</option>
+          </Select>
+        )}
+      </Field>
+      {plan === 'free' && (
+        <Banner tone="warn" className="text-body-sm">
+          {t('plan.testOn')}
+        </Banner>
+      )}
+    </div>
   )
 }
 
