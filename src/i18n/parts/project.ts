@@ -171,6 +171,9 @@ export const project = {
     'project.imageSourceStock': 'Libres',
     'project.imageSourceStockTitle':
       'Les images de Muse et de Motion Ultra sont de vraies photos libres de droits (Pexels, Pixabay), trouvées d’après le sujet de chaque image — gratuites, rien n’est généré',
+    'project.imageSourceNone': 'Aucune',
+    'project.imageSourceNoneTitle':
+      'Aucune nouvelle image : rien n’est généré ni pris dans les banques libres. Les images déjà utilisées dans le projet restent proposées à l’écran.',
     'project.docImage': 'Image',
     'project.docImageNone': 'Sans image',
     'project.docImageNoneTitle': 'Le document est composé de formes et de couleurs, sans photo — rien n’est cherché ni généré',
@@ -513,6 +516,9 @@ export const project = {
     'project.imageSourceStock': 'Free',
     'project.imageSourceStockTitle':
       'Muse and Motion Ultra pictures are real free stock photos (Pexels, Pixabay), found from each picture’s subject — free of charge, nothing is generated',
+    'project.imageSourceNone': 'None',
+    'project.imageSourceNoneTitle':
+      'No new picture: nothing is generated or taken from the free libraries. The pictures this project already uses are still offered to the screen.',
     'project.docImage': 'Picture',
     'project.docImageNone': 'No picture',
     'project.docImageNoneTitle': 'The document is composed of shapes and colour, with no photo — nothing is searched for or generated',

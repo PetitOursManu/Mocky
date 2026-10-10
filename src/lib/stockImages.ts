@@ -46,6 +46,8 @@ export type { StockProvider }
 
 /** Where the pictures of a generation come from. */
 export type ImageSource = 'ai' | 'stock'
+/** The composer's "Images" choice: a source, or no new picture at all ("Aucune"). */
+export type ImageChoice = ImageSource | 'none'
 
 export type StockOrientation = 'landscape' | 'portrait' | 'square'
 
@@ -549,6 +551,32 @@ export function loadImageSource(): ImageSource {
 export function saveImageSource(source: ImageSource): void {
   try {
     localStorage.setItem(SOURCE_KEY, source)
+  } catch {
+    /* private mode — the choice lasts the session */
+  }
+}
+
+/*
+ * "Aucune" is remembered apart from the source, so the source survives it:
+ * Motion Ultra makes its series whatever this says, and needs to know where
+ * from, and switching pictures back on should land on the source this browser
+ * last chose rather than on the default.
+ */
+const NONE_KEY = 'mocky.imageSource.none.v1'
+
+/** Whether this browser switched new pictures off ("Aucune"). */
+export function loadPicturesOff(): boolean {
+  try {
+    return localStorage.getItem(NONE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function savePicturesOff(off: boolean): void {
+  try {
+    if (off) localStorage.setItem(NONE_KEY, '1')
+    else localStorage.removeItem(NONE_KEY)
   } catch {
     /* private mode — the choice lasts the session */
   }

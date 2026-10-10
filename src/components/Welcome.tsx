@@ -8,7 +8,7 @@ import type { PinnedImage } from '../lib/imageLibrary'
 import type { ProjectUltra } from '../lib/project'
 import UltraControl from './UltraControl'
 import ImageSourceControl, { DocumentImageControl } from './ImageSourceControl'
-import type { ImageSource } from '../lib/stockImages'
+import type { ImageChoice } from '../lib/stockImages'
 import type { DocumentImageChoice } from '../lib/documentPictures'
 import type { MediaTab } from './Bibliotheque'
 import { useState } from 'react'
@@ -57,11 +57,13 @@ type Props = {
   ultraVideoAvailable?: boolean
   /** The Motion Ultra series sizes this account may use. */
   ultraCounts?: readonly number[]
-  /** Where the pictures come from — generated, or found in the free libraries. */
-  imageSource: ImageSource
-  onImageSource: (source: ImageSource) => void
-  /** The account can use the free libraries AND a pass that makes pictures is on. */
-  imageSourceAvailable: boolean
+  /** Where new pictures come from — generated, found in the free libraries, or none. */
+  imageChoice: ImageChoice
+  /** The choices this account can open (see ImageSourceControl). */
+  imageChoices: ImageChoice[]
+  onImageChoice: (choice: ImageChoice) => void
+  /** A real choice exists AND a pass that makes pictures is on. */
+  imageChoiceAvailable: boolean
   /**
    * A DOCUMENT's own picture choice ("Sans image" first), drawn in place of the
    * general one while a page format is active — see DocumentImageControl.
@@ -118,9 +120,10 @@ export default function Welcome({
   onToggleUltraPause,
   ultraVideoAvailable = false,
   ultraCounts,
-  imageSource,
-  onImageSource,
-  imageSourceAvailable,
+  imageChoice,
+  imageChoices,
+  onImageChoice,
+  imageChoiceAvailable,
   documentImage,
   busyLabel,
   siteShots,
@@ -257,8 +260,14 @@ export default function Welcome({
                   className="text-body-sm"
                 />
               ) : (
-                imageSourceAvailable && (
-                  <ImageSourceControl value={imageSource} onChange={onImageSource} size={15} className="text-body-sm" />
+                imageChoiceAvailable && (
+                  <ImageSourceControl
+                    value={imageChoice}
+                    choices={imageChoices}
+                    onChange={onImageChoice}
+                    size={15}
+                    className="text-body-sm"
+                  />
                 )
               )}
             </div>

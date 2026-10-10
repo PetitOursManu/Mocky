@@ -279,29 +279,6 @@ describe('the video background (v2)', () => {
   })
 })
 
-describe('pictures a project already paid for', () => {
-  it('offers the project series, most recent screen first, without duplicates and within bounds', async () => {
-    const { projectUltraPictures, REUSE_MAX } = await import('./reuse')
-    const h = (c: string) => c.repeat(64)
-    const screens = [
-      { createdAt: 1, ultra: { recipes: [], images: [h('a'), h('b')], planned: 3 as const } },
-      { createdAt: 2, ultra: { recipes: [], images: [h('c'), h('a')], planned: 3 as const } },
-      { createdAt: 3 },
-    ]
-    expect(projectUltraPictures(screens)).toEqual([h('c'), h('a'), h('b')])
-    expect(projectUltraPictures([{ createdAt: 1 }])).toEqual([])
-    const many = [{ createdAt: 1, ultra: { recipes: [], images: 'abcdefghijk'.split('').map(h), planned: 6 as const } }]
-    expect(projectUltraPictures(many)).toHaveLength(REUSE_MAX)
-  })
-
-  it('lets the model reuse them, never forces it, and says nothing when there are none', async () => {
-    const { buildReuseSection } = await import('./reuse')
-    const text = buildReuseSection([{ url: 'http://x/api/images/abc', about: 'the speaker' }])
-    expect(text).toContain('MAY reuse')
-    expect(text).toContain('http://x/api/images/abc — shows: the speaker')
-    expect(buildReuseSection([])).toBe('')
-  })
-})
 
 describe('a film slot next to a full-bleed picture', () => {
   /** A real run: the hero's photograph, written after the backdrop, covered the film. */

@@ -1,5 +1,5 @@
 ---
-source_hash: 7af7fd342a98
+source_hash: f339aa1aa009
 ---
 
 # Motion Ultra — pages
@@ -131,10 +131,10 @@ Fond vidéo actif, aucun autre film Motion Ultra n'est fabriqué pour le même �
 - Sur le canevas, la carte d'image d'un écran Motion Ultra affiche des **cadres
   empilés** quand elle contient plusieurs images ; un clic ouvre la visionneuse
   sur **toute la série** — flèches, ← →, vignettes, « 2 / 3 ».
-- Un écran généré **sans** Motion Ultra (en pause, ou désactivé) dans un projet
-  qui a des images Motion Ultra **se les voit proposer** : le modèle peut en
-  réutiliser une là où une image aide, sans jamais y être obligé. Rien n'est
-  généré pour ça.
+- Un écran généré **sans** Motion Ultra (en pause, ou désactivé) **se voit
+  proposer les images que les écrans du projet montrent déjà** — la série en
+  premier — avec la consigne de les réutiliser partout où une image a sa place,
+  sauf si sa demande dit le contraire. Rien n'est généré pour ça.
 - Le contrôle de lisibilité (texte posé sur une image) tourne après **chaque**
   nouvel écran qui contient une image, celles de Muse et les images épinglées
   comprises — pas seulement Motion Ultra.

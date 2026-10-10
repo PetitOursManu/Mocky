@@ -85,9 +85,12 @@ import {
 } from '../lib/documentPictures'
 import {
   loadImageSource,
+  loadPicturesOff,
   saveImageSource,
+  savePicturesOff,
   stockImageStatus,
   stockUsable,
+  type ImageChoice,
   type ImageSource,
   type StockImageStatus,
 } from '../lib/stockImages'
@@ -280,6 +283,8 @@ export default function ProjectView({
     setImageSourceState(s)
     saveImageSource(s)
   }, [])
+  /** "Aucune": no new picture outside Motion Ultra. Kept apart from the source (lib/stockImages.ts). */
+  const [picturesOff, setPicturesOffState] = useState<boolean>(() => loadPicturesOff())
   /** Which free libraries this ACCOUNT may use; null until the server answered. */
   const [stockImages, setStockImages] = useState<StockImageStatus | null>(null)
   useEffect(() => {
@@ -295,12 +300,39 @@ export default function ProjectView({
    * makes when the model loses vision.
    */
   //
-  // On the free plan the choice is not offered at all: the image generator
-  // refuses a free account (server/plan.js), so its pictures come from the free
-  // libraries whatever this browser once chose — and the preference is left
-  // alone, for the day the account moves to the standard plan.
+  // On the free plan "IA" is not offered: the image generator refuses a free
+  // account (server/plan.js), so its pictures come from the free libraries
+  // whatever this browser once chose — and the preference is left alone, for
+  // the day the account moves to the standard plan.
   const freePlan = plan === 'free'
   const effectiveImageSource: ImageSource = (imageSource === 'stock' || freePlan) && stockImagesUsable ? 'stock' : 'ai'
+  /*
+   * The composer's "Images" choice as drawn: the doors this account can open,
+   * and "Aucune" except while Motion Ultra is on — its series IS the pictures,
+   * and it is paused from its own control right beside this one. So "Aucune"
+   * also yields to Motion Ultra in what a run does, or the choice drawn
+   * ("IA") and the run (no picture on a site capture) would disagree.
+   *
+   * A free account with no library has no source at all: its pictures are off
+   * rather than a generation the server refuses on every screen.
+   */
+  const imageChoices: ImageChoice[] = [
+    ...(freePlan ? [] : (['ai'] as const)),
+    ...(stockImagesUsable ? (['stock'] as const) : []),
+    ...(ultraActive ? [] : (['none'] as const)),
+  ]
+  const noPictureSource = freePlan && !stockImagesUsable
+  const runPicturesOff = (picturesOff || noPictureSource) && !ultraActive
+  const imageChoiceShown: ImageChoice = runPicturesOff ? 'none' : effectiveImageSource
+  const onImageChoice = useCallback(
+    (c: ImageChoice) => {
+      const off = c === 'none'
+      setPicturesOffState(off)
+      savePicturesOff(off)
+      if (!off) setImageSource(c)
+    },
+    [setImageSource],
+  )
   /**
    * A DOCUMENT's own picture: "Sans image" unless this browser chose a source
    * for documents (lib/documentPictures.ts). Its own preference, not the one
@@ -705,6 +737,8 @@ export default function ProjectView({
   const [siteDragOver, setSiteDragOver] = useState(false)
   /** Mirrors `siteShots` for the async reader, which outlives the render that started it. */
   const siteShotsRef = useRef<SiteShot[]>([])
+  /** Whether the choice is drawn: a real choice, and a pass that puts pictures in a screen is on. */
+  const imageChoiceAvailable = imageChoices.length > 1 && (museConfig.enabled || ultraActive || siteShots.length > 0)
   siteShotsRef.current = siteShots
   /**
    * The screenshots each screen was built from, for THIS session only.
@@ -1498,6 +1532,7 @@ export default function ProjectView({
             ultraActive,
             ultraCount,
             effectiveImageSource,
+            picturesOff: runPicturesOff,
             docPictureSource,
             docImageChoice,
             imageGenOk,
@@ -1558,7 +1593,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
+  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2580,9 +2615,10 @@ export default function ProjectView({
         onToggleUltraPause={() => setUltraPaused((v) => !v)}
         ultraVideoAvailable={ultraVideoAvailable}
         ultraCounts={ultraCounts}
-        imageSource={imageSource}
-        onImageSource={setImageSource}
-        imageSourceAvailable={!freePlan && stockImagesUsable && (museConfig.enabled || ultraActive || siteShots.length > 0)}
+        imageChoice={imageChoiceShown}
+        imageChoices={imageChoices}
+        onImageChoice={onImageChoice}
+        imageChoiceAvailable={imageChoiceAvailable}
         documentImage={{ value: docImageShown, choices: docImageChoicesNow, onChange: setDocImageChoice }}
         busyLabel={
           phase === 'ultra'
@@ -3460,12 +3496,11 @@ export default function ProjectView({
               />
             ) : (
               !editing &&
-              !freePlan &&
-              stockImagesUsable &&
-              (museConfig.enabled || ultraActive || siteShots.length > 0) && (
+              imageChoiceAvailable && (
                 <ImageSourceControl
-                  value={imageSource}
-                  onChange={setImageSource}
+                  value={imageChoiceShown}
+                  choices={imageChoices}
+                  onChange={onImageChoice}
                   className="kicker tap-target min-h-8 shrink-0 px-2 py-1.5 text-body-sm"
                 />
               )

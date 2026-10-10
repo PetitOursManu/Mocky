@@ -685,9 +685,12 @@ getting display type and an aurora.
 **How it is done.** The whole pass sits behind `ultraActive` in
 `lib/pipeline/newScreen.ts`, and the `ultra` capability has empty `triggers`.
 
-One deliberate exception, and only for a project that HAS Motion Ultra pictures:
-a screen generated without Motion Ultra is offered them (`lib/ultra/reuse.ts`).
-A project that never used Motion Ultra has none to offer and takes the old path.
+One deliberate exception, and only for a project whose screens already SHOW
+pictures — a Motion Ultra series, or any picture of the library in a screen's
+code: a screen generated without Motion Ultra is offered them, and asked to
+reuse them unless its request says otherwise (`lib/projectPictures.ts`). A
+project with no picture has none to offer and takes the old path, which is what
+keeps M1 and this rule true for it.
 
 **How it is checked.** `tests/ultra-off.test.js` pins every Motion Ultra call
 in the generation path to the guard that switches it off, and checks that no

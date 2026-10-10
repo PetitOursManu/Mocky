@@ -116,8 +116,9 @@ free model before opening sign-ups, without a second account to sign in with.
 - **Settings** opens on a **Free plan** card: what the plan includes, which
   model answers, and how many generations are left today — or, with no free
   model on the instance, a note asking for their own provider below.
-- The composer offers no **Images · AI / Free** choice: pictures come from the
-  free libraries, and the AI door of a document's picture is closed.
+- The composer's **Images** choice offers **Free** and **None** only: pictures
+  come from the free libraries or not at all, and the AI door of a document's
+  picture is closed.
 - When the day is spent, a generation fails with: *"Daily limit reached: the
   free plan allows N generations a day. It resets at midnight."*
 - A paid generator reached anyway (the image picker, a film's variants) answers

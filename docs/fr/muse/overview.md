@@ -1,5 +1,5 @@
 ---
-source_hash: 3dd279074f9f
+source_hash: dd9101eeabf3
 ---
 
 # Vue d'ensemble de Muse
@@ -344,8 +344,11 @@ fait que cacher ce qui serait refusé.
 Pexels et Pixabay, à deux endroits. À la main : l'onglet Images de Média gagne la
 même recherche, et une photo importée est rangée comme un import, avec le crédit
 de son auteur sur sa carte — épinglez-la et Muse l'utilise comme n'importe
-laquelle de vos images. Automatiquement : le choix `Images · IA / Libres` du
-composeur. Sur *Libres*, les emplacements du plan d'images sont TROUVÉS au lieu
+laquelle de vos images. Automatiquement : le choix `Images · IA / Libres /
+Aucune` du composeur (*Aucune* ne crée aucune nouvelle image : le dossier écrit
+toujours la direction et les textes, et la page se voit proposer les images que
+les écrans du projet montrent déjà). Sur *Libres*, les emplacements du plan
+d'images sont TROUVÉS au lieu
 d'être générés — jusqu'à trois, puisqu'une recherche ne coûte ni le rythme d'un
 fournisseur ni un prix. Le dossier écrit une `searchQuery` pour chaque
 emplacement (deux à quatre mots anglais), le serveur renvoie huit vignettes, et

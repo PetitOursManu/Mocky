@@ -41,7 +41,7 @@ import { generateUltraImages } from '../ultra/images'
 import { buildUltraPreamble } from '../ultra/preamble'
 import { missingUltraImages, ultraMotionCount, ULTRA_BUDGET } from '../ultra/check'
 import { filmSectionOf, plugFilmIntoSlot } from '../ultra/filmSlot'
-import { buildReuseSection, projectUltraPictures } from '../ultra/reuse'
+import { buildReuseSection, projectPictures } from '../projectPictures'
 import { screenThemeBriefLine, withScreenTheme, type ScreenThemeId } from '../screenThemes'
 import { buildSiteReferenceSection, buildSitePicturesSection, parseSitePictures, siteLanguage, type SiteRefMode } from '../siteReference'
 import { findSitePictures, type SitePictureFound } from '../sitePictures'
@@ -138,6 +138,12 @@ export interface NewScreenRequest {
   ultraCount: number
   /** The composer's "Images" choice, after what the server allows. */
   effectiveImageSource: ImageSource
+  /**
+   * The composer's "Aucune": no new picture, generated or found, outside Motion
+   * Ultra (which makes its own series). Absent means pictures are on, which is
+   * what every caller but the composer wants.
+   */
+  picturesOff?: boolean
   /** A document's own picture choice, after what the server allows. */
   docPictureSource: ImageSource | null
   docImageChoice: DocumentImageChoice
@@ -346,7 +352,13 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      * its pictures follow the document's choice.
      */
     const museImageSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
-    const picturesAllowed = !pipe.document || runDocPicture !== null
+    /*
+     * And whether this run may add a picture at all. A document answers with
+     * its own choice; anything else with the composer's "Aucune", which
+     * switches off every NEW picture outside Motion Ultra — Muse's, a site's
+     * replaced ones — and leaves the project's existing pictures on offer.
+     */
+    const picturesAllowed = pipe.document ? runDocPicture !== null : !req.picturesOff
     const pictureSource: ImageSource = pipe.document && runDocPicture ? runDocPicture : effectiveImageSource
     const formHint =withScreenTheme(pipe.format ? documentHint(pipe.format) : preset.hint, runTheme)
     /** Motion Ultra for THIS run: the project's setting, unless the screen is a document. */
@@ -793,14 +805,14 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // a mode would only argue with the screenshot.
     if (!planSection && !reproducing && pipe.modeGuidance) planSection = modeToPromptSection(mode)
     /*
-     * No series for THIS screen, but the project has pictures a Motion Ultra
-     * run already paid for: offer them (lib/ultra/reuse.ts). Only a project
-     * that has such pictures is touched, so one that never used Motion
-     * Ultra takes exactly the path it always took (U1). Best-effort: a
-     * library that does not answer offers nothing.
+     * No series for THIS screen, but the project's other screens already show
+     * pictures: offer them, and ask for them to be reused (lib/projectPictures.ts).
+     * Only a project whose screens show a library picture is touched, so one
+     * that never had any takes exactly the path it always took (U1, M1).
+     * Best-effort: a library that does not answer offers nothing.
      */
     if (!ultraRecord && !reproducing) {
-      const owned = projectUltraPictures(hooks.currentScreens())
+      const owned = projectPictures(hooks.currentScreens())
       if (owned.length) {
         try {
           const lib = await listLibrary({ project: project.id }, signal)

@@ -1,5 +1,5 @@
 ---
-source_hash: 19831c4f62d0
+source_hash: e04144d59a80
 ---
 
 # Le forfait gratuit
@@ -127,8 +127,9 @@ inscriptions, sans second compte avec lequel se connecter.
   comprend, quel modèle répond, et combien de générations il reste aujourd'hui —
   ou, sans modèle gratuit sur l'instance, une note qui demande son propre
   fournisseur plus bas.
-- L'interface ne propose pas le choix **Images · IA / Libres** : les images
-  viennent des banques libres, et la porte IA de l'image d'un document est fermée.
+- Le choix **Images** du composeur ne propose que **Libres** et **Aucune** : les
+  images viennent des banques libres ou de nulle part, et la porte IA de l'image
+  d'un document est fermée.
 - Quand la journée est épuisée, une génération échoue avec : *« Limite du jour
   atteinte : le forfait gratuit permet N générations par jour. Le compteur repart
   à minuit. »*

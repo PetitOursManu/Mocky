@@ -1,39 +1,49 @@
 import { useT } from '../i18n'
 import { Icon } from '../ui'
-import type { ImageSource } from '../lib/stockImages'
+import type { ImageChoice } from '../lib/stockImages'
 import type { DocumentImageChoice } from '../lib/documentPictures'
 
+const SOURCE_OPTIONS: Record<ImageChoice, [string, string]> = {
+  ai: ['project.imageSourceAi', 'project.imageSourceAiTitle'],
+  stock: ['project.imageSourceStock', 'project.imageSourceStockTitle'],
+  none: ['project.imageSourceNone', 'project.imageSourceNoneTitle'],
+}
+
 /**
- * Where a generation's pictures come from: made by the image model, or found
- * in the free libraries (Pexels, Pixabay). One control for both composers, like
- * UltraControl beside it, so the first screen and the next cannot disagree.
+ * Where a generation's new pictures come from: made by the image model, found
+ * in the free libraries (Pexels, Pixabay), or nowhere ("Aucune"). One control
+ * for both composers, like UltraControl beside it, so the first screen and the
+ * next cannot disagree.
  *
- * Two visible choices rather than a checkbox: "free photos: off" does not say
- * what happens instead, and the answer — a generated picture, maybe paid — is
- * the thing worth seeing before pressing Generate.
+ * Visible choices rather than a checkbox: "free photos: off" does not say what
+ * happens instead, and the answer — a generated picture, maybe paid — is the
+ * thing worth seeing before pressing Generate. "Aucune" stops NEW pictures
+ * only: the ones the project's screens already show are still offered.
  *
- * The caller decides whether to draw it at all. It is absent when the account
- * cannot use the libraries (no key on the instance, or the administrator did
- * not open them to it), and absent when neither Muse nor Motion Ultra is on —
- * those are the only two passes that put pictures in a screen, and a switch
- * that changes nothing is furniture.
+ * The caller decides what to draw. `choices` holds the doors this account can
+ * open — no "IA" on the free plan, no "Libres" without a library — and no
+ * "Aucune" while Motion Ultra is on, whose series is the pictures. It draws
+ * nothing for fewer than two, and the caller leaves it out when no pass that
+ * puts pictures in a screen is on: a switch that changes nothing is furniture.
  */
 export default function ImageSourceControl({
   value,
+  choices,
   onChange,
   size = 14,
   className = '',
 }: {
-  value: ImageSource
-  onChange: (source: ImageSource) => void
+  value: ImageChoice
+  choices: ImageChoice[]
+  onChange: (choice: ImageChoice) => void
   size?: number
   className?: string
 }) {
-  const options: [ImageSource, string, string][] = [
-    ['ai', 'project.imageSourceAi', 'project.imageSourceAiTitle'],
-    ['stock', 'project.imageSourceStock', 'project.imageSourceStockTitle'],
-  ]
-  return <SourceChoices value={value} onChange={onChange} options={options} size={size} className={className} />
+  if (choices.length < 2) return null
+  const options = choices.map((id) => [id, ...SOURCE_OPTIONS[id]] as [ImageChoice, string, string])
+  return (
+    <SourceChoices value={value} onChange={onChange} options={options} size={size} className={className} lit={value !== 'ai'} />
+  )
 }
 
 const DOCUMENT_OPTIONS: Record<DocumentImageChoice, [string, string]> = {

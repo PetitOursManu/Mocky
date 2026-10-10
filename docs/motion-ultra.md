@@ -118,9 +118,10 @@ With the video background on, no other Motion Ultra film is made for the same sc
 - On the canvas, the picture card of a Motion Ultra screen shows **stacked
   frames** when it holds several pictures; clicking it opens the viewer on the
   **whole series** — arrows, ← →, thumbnails, "2 / 3".
-- A screen generated **without** Motion Ultra (paused, or switched off) in a
-  project that has Motion Ultra pictures is **offered them**: the model may reuse
-  one where a picture helps, and is never made to. Nothing is generated for it.
+- A screen generated **without** Motion Ultra (paused, or switched off) is
+  **offered the pictures the project's screens already show** — the series first
+  among them — and asked to reuse them wherever a picture fits, unless its
+  request says otherwise. Nothing is generated for it.
 - The legibility check (text laid over a picture) runs after **every** new
   screen that has a picture, Muse's and pinned ones included — not only Motion Ultra
   Ultra's.
