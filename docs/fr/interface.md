@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 383cbe22e4dc
+source_hash: ca7ff6bcd97b
 ---
 
 # L’interface
@@ -239,6 +239,12 @@ pour toutes :
   chose que le bouton `Interagir` de la barre d’outils, qui le fait pour tous.
 - **Clic droit sur un écran** — le menu contextuel.
 
+Quand un écran est ajouté — une génération, ou **Dupliquer** — la vue glisse
+jusqu’à lui en un tiers de seconde environ, pour que le nouveau cadre soit
+visible pendant qu’il s’écrit. Un clic, la molette ou un bouton de zoom arrête
+le mouvement là où il est ; avec les animations réduites, la vue y saute
+directement.
+
 ### Les câbles entre les écrans
 
 Chaque lien est dessiné comme un **[[câble|cable]]**, à la manière d’une carte mentale : il
@@ -444,7 +450,7 @@ selon ce qui est sélectionné.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Type d’écran` | Le genre du prochain écran — tableau de bord, planning, kanban, page d’accueil, tarifs… — ou, sous `Documents à imprimer ou exporter` et `Réseaux sociaux`, le genre de document. La structure du type guide la génération ; vos mots l’emportent toujours. **Il reste armé**, et un projet s’ouvre sur le type de son dernier écran ; la croix à côté le retire. Ignoré en `Reproduire`. | libre (arme la prochaine génération) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Image` · `Sans image` / `Générée` / `Photo libre` | Un document seulement : s’il porte une image, et d’où elle vient. `Sans image` compose avec des formes et des couleurs. Retenu par le navigateur. | Générée : le prix du modèle d’image |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4"/></svg> | `Motion Ultra` | Un réglage de **projet**. Éteint : une pastille discrète, et un clic active Motion Ultra pour le projet. Actif : la pastille le met en pause pour les prochaines générations de la session, `×3` / `×6` choisit le nombre d'images de chaque nouvel écran (`≈ +1 min` / `≈ +2–3 min` à côté), `Fond vidéo` donne à une section un film rendu par votre propre machine (`+1–3 min`, éteint par défaut), et `✕` le désactive pour le projet. Caché pendant une édition. Voir [Motion Ultra](motion-ultra.md). | ×3 ou ×6 images, un appel de storyboard, et un rendu de film quand le fond vidéo est actif |
-| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Images` · `IA` / `Libres` / `Aucune` | D'où viennent les nouvelles images d'un nouvel écran : générées par le modèle d'image, vraies photos libres de droits de Pexels et Pixabay trouvées d'après le sujet de chaque image, ou nulle part. **Aucune** ne crée aucune nouvelle image en dehors de Motion Ultra (elle n'est pas proposée quand Motion Ultra est actif, dont la série est les images). Quel que soit le choix, un nouvel écran se voit proposer les images que les autres écrans du projet montrent déjà, avec la consigne de les réutiliser sauf si votre demande dit le contraire. Affiché quand Muse ou Motion Ultra est actif ou que des captures sont jointes, avec seulement les choix que votre compte a : pas d'**IA** au forfait gratuit, pas de **Libres** sans clé Pexels ou Pixabay ouverte à votre compte. Mémorisé par le navigateur. | IA : le prix du modèle d'image · Libres et Aucune : rien |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Images` · `IA` / `Libres` / `Aucune` | D'où viennent les nouvelles images d'un nouvel écran : générées par le modèle d'image, vraies photos libres de droits de Pexels et Pixabay trouvées d'après le sujet de chaque image, ou nulle part. **Aucune** ne crée aucune nouvelle image en dehors de Motion Ultra (elle n'est pas proposée quand Motion Ultra est actif, dont la série est les images) ; avec Muse, les images déjà présentes dans le projet prennent alors les places que son dossier prévoyait pour des images. Quel que soit le choix, un nouvel écran se voit proposer les images que les autres écrans du projet montrent déjà, avec la consigne de les réutiliser sauf si votre demande dit le contraire. Affiché quand Muse ou Motion Ultra est actif ou que des captures sont jointes, avec seulement les choix que votre compte a : pas d'**IA** au forfait gratuit, pas de **Libres** sans clé Pexels ou Pixabay ouverte à votre compte. Mémorisé par le navigateur. | IA : le prix du modèle d'image · Libres et Aucune : rien |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg> | Le brief | Plie et déplie le dossier Muse. Affiché seulement quand Muse est actif et que vous créez. `Afficher le détail du brief` / `Replier le brief`. | libre |
 
 Au-dessus se posent les rangées passagères : les vignettes d’annotation
@@ -458,7 +464,7 @@ plus `tout désélectionner`.
 
 | Contrôle | Ce qu’il fait | Coût |
 |---|---|---|
-| Le champ de saisie | `Décrivez un écran à ajouter à ce projet…` quand rien n’est sélectionné ; `Décrivez le changement à appliquer à l’écran sélectionné…` quand quelque chose l’est. **Ctrl/⌘ + Entrée** envoie. | — |
+| Le champ de saisie | `Décrivez un écran à ajouter à ce projet…` quand rien n’est sélectionné ; `Décrivez le changement à appliquer à l’écran sélectionné…` quand quelque chose l’est. Deux lignes à vide, il grandit avec ce que vous écrivez jusqu’à neuf environ, puis défile. **Ctrl/⌘ + Entrée** envoie. | — |
 | `Générer` | Crée un nouvel écran. | modèle |
 | `Mettre à jour ({count})` | Le même bouton, quand des écrans sont sélectionnés : il modifie ces écrans au lieu d’en créer un. | modèle |
 | `Arrêter` | Apparaît pendant le travail. Interrompt la requête. | libre |

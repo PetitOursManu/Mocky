@@ -222,7 +222,9 @@ every library picture a screen's code embeds, plus a Motion Ultra series, and th
 model is asked to REUSE them unless the request says otherwise. Read off the
 code, not off `imageHash` — that names an art-direction plate in "inspiration"
 mode. The composer's `Images · None` (`picturesOff`) stops every NEW picture
-outside Motion Ultra and keeps that offer.
+outside Motion Ultra and keeps that offer — and with Muse on, puts them in the
+dossier's slots like a pin: merely offered, they lost to the dossier, which is
+authoritative and describes the pictures it planned.
 
 **Free stock photos** (`Images · Free` in the composer) replace Muse's and
 Ultra's generated pictures with Pexels/Pixabay photos — `server/images/stock.js`,

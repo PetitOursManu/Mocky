@@ -77,7 +77,7 @@ import {
   type MuseVideoAvailability,
 } from '../muse'
 import { buildDesignPreamble, extractDesignColors } from '../design'
-import { imageUrl, listLibrary, type PinnedImage } from '../imageLibrary'
+import { imageUrl, listLibrary, type LibraryImage, type PinnedImage } from '../imageLibrary'
 import { videoBase, type PinnedVideo } from '../videoLibrary'
 import { awaitVideoJob, motionNotices, proposeVideoTimeline, startVideoRender, type MotionKindOffer } from '../video/client'
 import { toRenderInputFrom } from '../video/draft'
@@ -505,8 +505,26 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
           id: plan[i]?.id || `pin-${i + 1}`,
           url: absoluteUrl(p.url),
         }))
-        let imgs: GeneratedSlotImage[] = [...pins]
-        if (pins.length) hooks.setMuseImages(pins)
+        /*
+         * "Aucune" in a project whose screens already show pictures: those fill
+         * the dossier's slots, the way a pin does. Offered only further down, in
+         * the plan section, they lost every time to the dossier — AUTHORITATIVE,
+         * and describing the pictures it planned — so the screen came back with
+         * gradients where the project's own photographs were waiting. In a slot,
+         * the preamble names them as the pictures this screen MUST use.
+         */
+        const reused: GeneratedSlotImage[] =
+          pins.length === 0 && req.picturesOff && !pipe.document && !runUltra
+            ? projectPictures(hooks.currentScreens())
+                .slice(0, Math.max(1, plan.length))
+                .map((hash, i) => ({
+                  slot: plan[i]?.slot || plan[i]?.id || `image-${i + 1}`,
+                  id: plan[i]?.id || `reuse-${i + 1}`,
+                  url: absoluteUrl(imageUrl(hash)),
+                }))
+            : []
+        let imgs: GeneratedSlotImage[] = [...pins, ...reused]
+        if (imgs.length) hooks.setMuseImages(imgs)
         // Generate a new hero only when no pin already covers a slot (capped
         // to keep the run fast; multi-image is a later increment).
         const remaining = plan.slice(pins.length)
@@ -567,7 +585,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
             })
           }
           imgs = [...imgs, ...gen]
-        } else if (!remaining.length && !pins.length && !runUltra) {
+        } else if (!remaining.length && !imgs.length && !runUltra) {
           // No imagery slot at all. The dossier now guarantees a hero, so
           // this means something upstream produced nothing — say so rather
           // than finishing silently with an image-less screen.
@@ -809,22 +827,26 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
      * pictures: offer them, and ask for them to be reused (lib/projectPictures.ts).
      * Only a project whose screens show a library picture is touched, so one
      * that never had any takes exactly the path it always took (U1, M1).
-     * Best-effort: a library that does not answer offers nothing.
+     * The ones Muse already placed in its slots above are not offered twice. A
+     * library that does not answer costs the descriptions, not the pictures:
+     * the URLs are in the screens' own code, and they are what the model needs.
      */
     if (!ultraRecord && !reproducing) {
-      const owned = projectPictures(hooks.currentScreens())
+      const placed = new Set(museImgs.map((im) => im.url.split('/').pop()))
+      const owned = projectPictures(hooks.currentScreens()).filter((hash) => !placed.has(hash))
       if (owned.length) {
+        let lib: LibraryImage[] = []
         try {
-          const lib = await listLibrary({ project: project.id }, signal)
-          const pictures = owned.map((hash) => {
-            const meta = lib.find((m) => m.hash === hash)
-            return { url: absoluteUrl(imageUrl(hash)), about: (meta?.prompt || '').split('.')[0].slice(0, 140) || 'a picture of this project' }
-          })
-          const reuse = buildReuseSection(pictures)
-          if (reuse) planSection = [planSection, reuse].filter(Boolean).join('\n\n')
+          lib = await listLibrary({ project: project.id }, signal)
         } catch (err) {
           if (err instanceof Error && err.name === 'AbortError') throw err
         }
+        const pictures = owned.map((hash) => {
+          const meta = lib.find((m) => m.hash === hash)
+          return { url: absoluteUrl(imageUrl(hash)), about: (meta?.prompt || '').split('.')[0].slice(0, 140) || 'a picture of this project' }
+        })
+        const reuse = buildReuseSection(pictures)
+        if (reuse) planSection = [planSection, reuse].filter(Boolean).join('\n\n')
       }
     }
     // Page animations are always offered: the vocabulary costs nothing and

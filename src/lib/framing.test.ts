@@ -3,12 +3,15 @@ import {
   CARD_GUTTER,
   CARD_W,
   FIT_MAX_SCALE,
+  FOCUS_ANIM_MS,
   FOCUS_MAX_SCALE,
   FRAME_PAD,
   MIN_SCALE,
   contentBox,
+  easeOutCubic,
   frameBox,
   latestScreenOf,
+  viewBetween,
 } from './framing'
 
 /** Just enough of a Screen for the geometry — the rest of the record is irrelevant here. */
@@ -135,5 +138,47 @@ describe('latestScreenOf', () => {
       { id: 'b', createdAt: 5 },
     ]
     expect(latestScreenOf(screens)?.id).toBe('a')
+  })
+})
+
+describe('the camera on its way to a screen', () => {
+  const viewport = { width: 1000, height: 600 }
+  const from = { x: 80, y: 80, scale: 0.4 }
+  const to = { x: -900, y: -300, scale: 0.8 }
+  const centre = (v: { x: number; y: number; scale: number }) => ({
+    x: (viewport.width / 2 - v.x) / v.scale,
+    y: (viewport.height / 2 - v.y) / v.scale,
+  })
+
+  it('starts where it was and lands exactly on the target', () => {
+    expect(viewBetween(from, to, 0, viewport)).toEqual(from)
+    expect(viewBetween(from, to, 1, viewport)).toEqual(to)
+    expect(viewBetween(from, to, 1.2, viewport)).toEqual(to)
+  })
+
+  // Interpolating x, y and scale apart bends the path: the board swings
+  // sideways while it zooms. The point at the centre must go straight.
+  it('moves the point at the centre of the view in a straight line', () => {
+    const a = centre(from)
+    const b = centre(to)
+    for (const t of [0.25, 0.5, 0.75]) {
+      const c = centre(viewBetween(from, to, t, viewport))
+      expect(c.x).toBeCloseTo(a.x + (b.x - a.x) * t, 6)
+      expect(c.y).toBeCloseTo(a.y + (b.y - a.y) * t, 6)
+    }
+  })
+
+  it('zooms by a constant ratio, so a long zoom is as even as a short one', () => {
+    const half = viewBetween(from, to, 0.5, viewport).scale
+    expect(half).toBeCloseTo(Math.sqrt(from.scale * to.scale), 9)
+  })
+
+  it('arrives fast and settles, within [0, 1]', () => {
+    expect(easeOutCubic(0)).toBe(0)
+    expect(easeOutCubic(1)).toBe(1)
+    expect(easeOutCubic(0.5)).toBeGreaterThan(0.5)
+    expect(easeOutCubic(-1)).toBe(0)
+    expect(easeOutCubic(2)).toBe(1)
+    expect(FOCUS_ANIM_MS).toBeLessThanOrEqual(400)
   })
 })

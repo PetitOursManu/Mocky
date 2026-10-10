@@ -5,14 +5,17 @@ import {
   CARD_GUTTER,
   CARD_W,
   FIT_MAX_SCALE,
+  FOCUS_ANIM_MS,
   FOCUS_MAX_SCALE,
   FRAME_PAD,
   MAX_SCALE,
   MIN_SCALE,
   clamp,
   contentBox,
+  easeOutCubic,
   frameBox,
   latestScreenOf,
+  viewBetween,
   type Framing,
   type ViewState,
 } from '../lib/framing'
@@ -585,6 +588,47 @@ export default function Canvas({
    */
   const sizeSig = useRef(new Map<string, string>())
   const animUntil = useRef(new Map<string, number>())
+
+  /*
+   * The camera's move to a screen, one frame at a time.
+   *
+   * A cut to a new screen left the reader on a board they no longer recognised,
+   * with no idea where the screen sat among the others; the move is what says
+   * so. It is a requestAnimationFrame loop on the view rather than a CSS
+   * transition on the transform, because everything else here reads `view` —
+   * the pan origin, the WebGL grant, the marquee — and must read where the
+   * board IS, not where it is going. Any hand on the board (a press, a wheel, a
+   * zoom button) stops it where it is: the user's move always wins.
+   */
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const viewAnim = useRef<number | null>(null)
+  const stopViewAnim = useCallback(() => {
+    if (viewAnim.current === null) return
+    cancelAnimationFrame(viewAnim.current)
+    viewAnim.current = null
+  }, [])
+  useEffect(() => stopViewAnim, [stopViewAnim])
+  const moveViewTo = useCallback(
+    (target: ViewState) => {
+      stopViewAnim()
+      const el = containerRef.current
+      if (reducedMotion || !el) {
+        setView(target)
+        return
+      }
+      const from = viewRef.current
+      const viewport = { width: el.clientWidth, height: el.clientHeight }
+      const start = performance.now()
+      const step = (now: number) => {
+        const p = Math.min(1, (now - start) / FOCUS_ANIM_MS)
+        setView(viewBetween(from, target, easeOutCubic(p), viewport))
+        viewAnim.current = p < 1 ? requestAnimationFrame(step) : null
+      }
+      viewAnim.current = requestAnimationFrame(step)
+    },
+    [reducedMotion, stopViewAnim],
+  )
   /** Ids whose next incoming size change is the result of the user's own drag. */
   const skipSizeAnim = useRef(new Set<string>())
 
@@ -594,9 +638,10 @@ export default function Canvas({
   }
 
   const applyFraming = useCallback(
-    (f: Framing) => {
+    (f: Framing, opts: { animate?: boolean } = {}) => {
       const el = containerRef.current
       if (!f || !el) return
+      stopViewAnim()
       const viewport = { width: el.clientWidth, height: el.clientHeight }
       if (f.kind === 'all') {
         const box = contentBox(screens)
@@ -613,9 +658,11 @@ export default function Canvas({
       const s = screens.find((x) => x.id === f.id)
       if (!s) return
       const v = frameBox({ x: s.x, y: s.y, w: s.w, h: s.h }, viewport, FRAME_PAD, FOCUS_MAX_SCALE)
-      if (v) setView(v)
+      if (!v) return
+      if (opts.animate) moveViewTo(v)
+      else setView(v)
     },
-    [screens],
+    [screens, stopViewAnim, moveViewTo],
   )
 
   /**
@@ -635,9 +682,9 @@ export default function Canvas({
   }, [applyFraming])
 
   const frameScreen = useCallback(
-    (id: string) => {
+    (id: string, animate = false) => {
       setFraming({ kind: 'screen', id })
-      applyFraming({ kind: 'screen', id })
+      applyFraming({ kind: 'screen', id }, { animate })
     },
     [applyFraming],
   )
@@ -681,12 +728,29 @@ export default function Canvas({
     return () => ro.disconnect()
   }, [])
 
-  // Center the canvas on a screen when the links panel requests focus.
+  /*
+   * Fly to a screen when the project asks: a screen just added, or one picked
+   * from the links panel. A screen just added may not have reached `screens`
+   * yet — the project store and this request can land in different renders —
+   * so the request waits for it rather than being dropped.
+   */
+  const pendingFocus = useRef<string | null>(null)
   useEffect(() => {
     if (!focusScreenId) return
-    frameScreen(focusScreenId)
+    if (screens.some((s) => s.id === focusScreenId)) {
+      pendingFocus.current = null
+      frameScreen(focusScreenId, true)
+    } else {
+      pendingFocus.current = focusScreenId
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusScreenId, focusNonce])
+  useEffect(() => {
+    const id = pendingFocus.current
+    if (!id || !screens.some((s) => s.id === id)) return
+    pendingFocus.current = null
+    frameScreen(id, true)
+  }, [screens, frameScreen])
 
   // Space = temporary pan mode.
   //
@@ -922,6 +986,7 @@ export default function Canvas({
     function onWheelNative(e: WheelEvent) {
       const box = el!.getBoundingClientRect()
       e.preventDefault()
+      stopViewAnim()
       // Both branches below move the view by hand, so both surrender the
       // automatic framing — see the note on Framing.
       setFraming(null)
@@ -951,6 +1016,7 @@ export default function Canvas({
   function zoomBy(factor: number) {
     const el = containerRef.current
     if (!el) return
+    stopViewAnim()
     setFraming(null)
     const lx = el.clientWidth / 2
     const ly = el.clientHeight / 2
@@ -1116,6 +1182,8 @@ export default function Canvas({
       ref={containerRef}
       className="relative h-full w-full select-none overflow-hidden bg-sunken"
       style={bgStyle}
+      // Capture, so a press on a frame or a handle stops the camera too.
+      onPointerDownCapture={stopViewAnim}
       onPointerDown={onBackgroundDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

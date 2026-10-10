@@ -6,6 +6,7 @@ import { designForProject, newId, type AttachedMedia, type Hotspot, type Project
 import { filmMedia } from '../lib/screenMedia'
 import type { Plan } from '../lib/api'
 import { usePhone } from '../lib/usePhone'
+import { useAutoGrow } from '../lib/useAutoGrow'
 import { useWorkChime } from '../lib/useWorkChime'
 import { DEFAULT_PRESET_ID, getPreset } from '../lib/presets'
 import {
@@ -137,6 +138,13 @@ const VIEWPORTS: Record<Exclude<ViewportFormat, 'full'>, { w: number; h: number;
 }
 
 const FRAME_PREF_KEY = 'mocky.showFrame'
+/*
+ * The composer field, in px: two lines of body text when empty (py-2, a 24 px
+ * line, the border), and about nine before it scrolls — a long brief stays
+ * readable without the bar covering the board it describes.
+ */
+const COMPOSER_MIN_H = 66
+const COMPOSER_MAX_H = 240
 const BRIEF_PREF_KEY = 'mocky.brief.open'
 
 /** One-tap recolor swatches offered in the no-code Modify panel (Lot C.2). */
@@ -236,6 +244,9 @@ export default function ProjectView({
 }) {
   const t = useT()
   const [prompt, setPrompt] = useState('')
+  /** The composer's field grows with the request (lib/useAutoGrow.ts): two lines empty, a scroll past the ceiling. */
+  const composerField = useRef<HTMLTextAreaElement>(null)
+  useAutoGrow(composerField, prompt, COMPOSER_MIN_H, COMPOSER_MAX_H)
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<'planning' | 'generating' | 'muse' | 'design' | 'ultra' | 'site' | 'sitePictures' | 'docPicture' | null>(null)
   /**
@@ -668,6 +679,21 @@ export default function ProjectView({
   }, [project.id])
   const [highlightHotspot, setHighlightHotspot] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ screenId: string; nonce: number } | null>(null)
+  /*
+   * A screen added to the board, and the camera brought over it.
+   *
+   * A new screen lands wherever the board has room, often outside the view, so
+   * the person pressed Generate and saw nothing happen until they went looking.
+   * The canvas flies to it instead (Canvas.tsx, FOCUS_ANIM_MS), straight away —
+   * the frame shows its progress while it is written.
+   */
+  const addScreenAndShow = useCallback(
+    (screen: Parameters<typeof onAddScreen>[0]) => {
+      onAddScreen(screen)
+      setFocus({ screenId: screen.id, nonce: Date.now() })
+    },
+    [onAddScreen],
+  )
   // A project link that named a screen opens on it: selected, so the composer
   // edits it, and centred, so it is the one the person sees. A screen the
   // project no longer has is simply not found — the project still opens.
@@ -1043,7 +1069,7 @@ export default function ProjectView({
     // Notes stay behind, like links: they were written about the original, and
     // a copy that arrives already annotated reads as if someone had reviewed it.
     const { id: _id, x: _x, y: _y, links: _links, userNotes: _notes, ...rest } = s
-    onAddScreen({
+    addScreenAndShow({
       ...rest,
       id: newId(),
       name: t('project.copyOf', { name: s.name }),
@@ -1550,7 +1576,7 @@ export default function ProjectView({
             setMuseImages,
             setMuseImageError,
             setImageGenOk,
-            addScreen: onAddScreen,
+            addScreen: addScreenAndShow,
             updateScreen: onUpdateScreen,
             removeScreen: onRemoveScreen,
             currentScreens: () => screensRef.current,
@@ -1593,7 +1619,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, onAddScreen, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
+  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, addScreenAndShow, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -3527,8 +3553,9 @@ export default function ProjectView({
                 two buttons at 390px — so without this the row overflowed the
                 composer instead of the field giving way. */}
             <textarea
-              rows={1}
-              className="input min-h-[40px] min-w-0 resize-none"
+              ref={composerField}
+              rows={2}
+              className="input min-w-0 resize-none"
               placeholder={
                 editing
                   ? t(

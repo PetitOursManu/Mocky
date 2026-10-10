@@ -1,5 +1,5 @@
 ---
-source_hash: dd9101eeabf3
+source_hash: cd9d8f74154e
 ---
 
 # Vue d'ensemble de Muse
@@ -346,8 +346,8 @@ même recherche, et une photo importée est rangée comme un import, avec le cr�
 de son auteur sur sa carte — épinglez-la et Muse l'utilise comme n'importe
 laquelle de vos images. Automatiquement : le choix `Images · IA / Libres /
 Aucune` du composeur (*Aucune* ne crée aucune nouvelle image : le dossier écrit
-toujours la direction et les textes, et la page se voit proposer les images que
-les écrans du projet montrent déjà). Sur *Libres*, les emplacements du plan
+toujours la direction et les textes, et les images que les écrans du projet
+montrent déjà prennent les places qu'il prévoyait pour des images). Sur *Libres*, les emplacements du plan
 d'images sont TROUVÉS au lieu
 d'être générés — jusqu'à trois, puisqu'une recherche ne coûte ni le rythme d'un
 fournisseur ni un prix. Le dossier écrit une `searchQuery` pour chaque
