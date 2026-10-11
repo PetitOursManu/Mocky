@@ -44,3 +44,14 @@
 .mk-pill--advise { background: color-mix(in srgb, var(--lm-warn) 15%, transparent); color: var(--lm-warn); }
 .mk-pill--ignore { background: var(--lm-muted); color: var(--lm-muted-fg); }
 .mk-failed { color: var(--lm-bad); font-size: 13.5px; }
+
+/* The side columns scroll on their own, and the browser's default bar drew a
+   thick grey rail beside the menu. Thin, transparent until the column is
+   pointed at: the menu still scrolls with the wheel, by touch and with the
+   keyboard, it only stops showing a track nobody was using. */
+.lm-side, .lm-toc { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.lm-side:hover, .lm-side:focus-within, .lm-toc:hover, .lm-toc:focus-within { scrollbar-color: color-mix(in srgb, var(--lm-fg) 22%, transparent) transparent; }
+.lm-side::-webkit-scrollbar, .lm-toc::-webkit-scrollbar { width: 6px; }
+.lm-side::-webkit-scrollbar-track, .lm-toc::-webkit-scrollbar-track { background: transparent; }
+.lm-side::-webkit-scrollbar-thumb, .lm-toc::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+.lm-side:hover::-webkit-scrollbar-thumb, .lm-toc:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--lm-fg) 22%, transparent); }
