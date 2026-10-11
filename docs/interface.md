@@ -441,6 +441,7 @@ changes verb depending on what is selected.
 |---|---|---|---|
 | | `New direction` | This prompt writes the project's art direction, which every screen after it follows. **It unticks itself once the screen is generated.** Hidden while editing a screen — an edit reworks what a direction produced, and letting it rewrite that direction would reattribute every other screen in the project. | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, art direction and real copy. Turning it on changes what a generation costs — see [Muse](muse/overview.md). | free (arms the next generation) |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Flows` | On by default. New screens are pages of a **working prototype**: forms, a simulated sign-in, filters and a shared cart work in the demo, and the screens a flow leads to (`account`, `cart`, `confirmation`…) are **created automatically** after the screen, three at most. Off, a screen is generated on its own, as before. Hidden while editing. See [Working prototypes](flows.md). | each created screen is one generation |
 | | `Format` | The viewport preset for the next screen. Only shown when creating, not when editing. With a document type, the same chips become **page formats** (A4, A3, US Letter, 16:9, or the social sizes). | free |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Screen type` | What kind of screen the next one is — dashboard, planning, kanban, landing page, pricing… — or, under `Documents to print or export` and `Social media`, what kind of document. The type's structure guides the generation; your words still win. **It stays armed**, and a project opens on the type of its latest screen; the ✕ beside it removes it. Ignored in `Reproduce`. | free (arms the next generation) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Picture` · `No picture` / `Generated` / `Free photo` | A document only: whether it carries one picture, and where it comes from. `No picture` composes with shapes and colour. Remembered by the browser. | Generated: the image model's price |
@@ -699,6 +700,11 @@ find in the first place.
 `Back` and `Restart` walk the history. The bar also switches screens without the
 links — `Previous screen`, the `Go to a screen` list, `Next screen`, or ← → — and
 each step counts as a followed link, so `Back` still works.
+
+On a [working prototype](flows.md), the screens also share their **data** — the
+signed-in user, the cart, the forms sent — while you move between them:
+`Data (N)` shows it, `Restart` resets it, and the `Scenario` list starts the demo
+on a recorded screen with recorded data (`+` records the current state).
 
 :::hotspots src=assets/ui/demo-device.webp alt="Demo mode: a screen shown in a line-drawn laptop"
 - 4.4,3.1 **Exit demo**: Back to the canvas. `Esc` does the same.

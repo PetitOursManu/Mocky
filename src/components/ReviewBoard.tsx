@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Banner, Button, Icon, Input, Segmented, Textarea } from '../ui'
 import { useLang, useT } from '../i18n'
 import ScreenFit from './ScreenFit'
+import { resolveRoute } from '../lib/flows'
 import {
   asScreen,
   openCountByScreen,
@@ -59,6 +60,13 @@ export default function ReviewBoard({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
+  /*
+   * A working prototype's shared data, as in the demo (DemoPlayer): the client
+   * signs in on one screen and is signed in on the next. Kept for the visit,
+   * never sent anywhere — it is the client trying the prototype, not data.
+   */
+  const [flowState, setFlowState] = useState<Record<string, unknown>>({})
+  const [flowNonce, setFlowNonce] = useState(0)
 
   const screen = view.screens.find((s) => s.id === target) ?? null
   const threads = useMemo(() => threadsOf(view.comments, target), [view.comments, target])
@@ -107,6 +115,25 @@ export default function ReviewBoard({
       setReplyDraft('')
       setReplyTo(null)
     })
+  }
+
+  const flow = {
+    state: flowState,
+    onSet: (key: string, value: unknown) =>
+      setFlowState((prev) => {
+        const next = { ...prev }
+        if (value === null || value === undefined) delete next[key]
+        else next[key] = value
+        return next
+      }),
+    onGo: (route: string) => {
+      const id = resolveRoute(view.screens.map(asScreen), route)
+      if (id) setTarget(id)
+    },
+    onReset: () => {
+      setFlowState({})
+      setFlowNonce((n) => n + 1)
+    },
   }
 
   const demoLinks = (screen?.links ?? [])
@@ -175,7 +202,9 @@ export default function ReviewBoard({
         <div className="relative h-[60vh] min-h-0 bg-sunken p-2 lg:h-auto lg:flex-1">
           {screen ? (
             <ScreenFit
+              key={flowNonce}
               screen={asScreen(screen)}
+              flow={tool === 'navigate' ? flow : undefined}
               animations={screen.animations}
               demoLinks={tool === 'navigate' ? demoLinks : undefined}
               onNavigate={(id) => setTarget(id)}

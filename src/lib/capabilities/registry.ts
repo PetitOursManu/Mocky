@@ -9,6 +9,7 @@ import { Scene3DSource, SCENE3D_EXPORTS, SCENE3D_PRESETS } from './snippets/Scen
 import { UltraSource, ULTRA_EXPORTS, ULTRA_CLASSES, BACKDROP_PRESETS } from './snippets/Ultra'
 import { DocumentSource, DOCUMENT_EXPORTS } from './snippets/Document'
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from './snippets/ShapeFrame'
+import { FlowSource, FLOW_EXPORTS } from './snippets/Flow'
 import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
 import { FIELD_TYPES, PAGE_FORMAT_IDS } from '../pageFormats'
 
@@ -312,6 +313,42 @@ export const CAPABILITIES: Capability[] = [
         description:
           'A rendered Motion film, playing muted and looping. `src` is provided — never invent one. It fills whatever box you put it in, so it is a hero background at full width AND a product card, a banner strip or a section background at any smaller size; give the parent a height. `fit` is "cover" (default, fills and crops) or "contain" (whole frame, letterboxed). Pass children to lay content OVER the film — use that for a hero rather than positioning your own overlay. They are a THIN layer: type, buttons, a badge. Never pass a picture of your own — no `<img>`, no `<Scene3D>`, no `bg-[url(…)]` — and never wrap a section, a column or a grid of the page in it: it is not a container, and two pictures in one box hide one another. There is no sound and no controls.',
         tags: ['video', 'film', 'motion', 'hero', 'background', 'banner', 'loop', 'showreel'],
+      },
+    ],
+  },
+  {
+    /**
+     * Working prototypes: shared state between screens and navigation by route
+     * (snippets/Flow.ts, lib/flows.ts). Never chosen by keywords — force-added
+     * when the composer's "Parcours" switch is on, then persisted on the
+     * screen, so every later edit of it keeps the vocabulary. Its names are
+     * distinctive enough to be inferred from code, which is what lets an edit
+     * that adds a cart to a screen load the kit with no switch at all.
+     */
+    id: 'flow',
+    kind: 'snippet-pack',
+    triggers: { keywords: [], intents: [] },
+    snippets: [{ source: FlowSource, exports: [...FLOW_EXPORTS] }],
+    components: [
+      {
+        name: 'useFlowState',
+        signature: 'const [cart, setCart] = useFlowState("cart", [])',
+        description:
+          'Like useState, but SHARED by every screen of the prototype and kept while the visitor moves from one screen to another in the demo. Use it for what another screen must see: the signed-in user, the cart, favourites, a submitted form, the chosen filters. Plain JSON values only.',
+        tags: ['state', 'cart', 'login', 'form', 'flow'],
+      },
+      {
+        name: 'MockyFlow',
+        signature: 'MockyFlow.go("cart")',
+        description:
+          'Opens another screen of the prototype by its ROUTE — a short lowercase name of the page. Call it after the action that leads there: a successful sign-in, "View cart", a submitted form. MockyFlow.reset() empties the shared data (a "Sign out" that starts over).',
+        tags: ['navigation', 'route', 'flow', 'link'],
+      },
+      {
+        name: 'FlowLink',
+        signature: '<FlowLink to="cart" className="…">Panier</FlowLink>',
+        description: 'A link to another screen of the prototype, by route — an <a> that calls MockyFlow.go(to). Accepts className and the usual attributes.',
+        tags: ['link', 'navigation', 'flow'],
       },
     ],
   },

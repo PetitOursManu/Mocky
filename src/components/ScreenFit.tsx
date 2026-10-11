@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import Preview from './Preview'
 import DocumentPages from './DocumentPages'
 import type { Screen } from '../lib/project'
@@ -23,6 +23,7 @@ export default function ScreenFit({
   animations = true,
   demoLinks,
   onNavigate,
+  flow,
 }: {
   screen: Pick<Screen, 'id' | 'name' | 'code' | 'caps' | 'w' | 'h' | 'page' | 'componentName'> & Partial<Screen>
   overlay?: ReactNode
@@ -32,6 +33,8 @@ export default function ScreenFit({
   /** The screen's links, followed as in the demo (see `Preview`). */
   demoLinks?: { selector: string; target: string }[]
   onNavigate?: (target: string) => void
+  /** A page of a working prototype — see `Preview`'s prop of the same name. */
+  flow?: ComponentProps<typeof Preview>['flow']
 }) {
   const areaRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -82,6 +85,7 @@ export default function ScreenFit({
               animations={animations}
               demoLinks={demoLinks}
               onNavigate={onNavigate}
+              flow={flow}
             />
           </div>
           {onOverlayClick && (

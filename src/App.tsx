@@ -121,6 +121,7 @@ function MockyApp() {
     setReferenceScreen,
     setProjectBranch,
     restoreProjectVersion,
+    setProjectScenarios,
   } = useProjects()
   const [route, setRoute] = useState<Route>('home')
   /** DESIGN.md shown over the current project, without leaving it. */
@@ -649,6 +650,7 @@ function MockyApp() {
             onSetBranch={(branch) => setProjectBranch(activeProject.id, branch)}
             reviewState={reviewStates.states[activeProject.id]}
             onReviewChanged={() => void reviewStates.refresh()}
+            onSetScenarios={(scenarios) => setProjectScenarios(activeProject.id, scenarios)}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}
           />
           </ErrorBoundary>

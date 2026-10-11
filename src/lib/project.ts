@@ -6,6 +6,7 @@ import { normalizeNotes, type ScreenNote } from './screenNotes'
 import type { SiteRefMode } from './siteReference'
 import { normalizePageFormat, type PageFormatId } from './pageFormats'
 import { normalizeBranch, restoreProject, MAIN_BRANCH, type VersionFull } from './versions'
+import { normalizeScenarios, slugRoute, type DemoScenario } from './flows'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -163,6 +164,13 @@ export interface Screen {
   device: 'iphone' | 'none'
   /** Interaction links to other screens (used by demo mode). */
   links: Hotspot[]
+  /**
+   * The name other screens open this one by in a working prototype —
+   * `MockyFlow.go("cart")` (lib/flows.ts). Set on the screens Mocky creates for
+   * a flow and on the screen that led to them; absent on every other screen,
+   * which the demo then finds by its slugged name instead.
+   */
+  route?: string
 }
 
 /**
@@ -352,6 +360,13 @@ export interface Project {
    * opaque string and `loadProjects` spreads `...p`.
    */
   branch?: string
+  /**
+   * Ways to start the demo (lib/flows.ts): a screen, and the shared data as it
+   * should be — "a visitor", "signed in with two items in the cart". Recorded
+   * from a demo in progress. Small by construction (`SCENARIO_STATE_MAX_BYTES`)
+   * and on Project for the reason `folder` is.
+   */
+  scenarios?: DemoScenario[]
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -796,6 +811,7 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     quality: normalizeQuality(s.quality),
     ultra: normalizeUltra(s.ultra),
     userNotes: normalizeNotes(s.userNotes),
+    route: typeof s.route === 'string' && slugRoute(s.route) ? slugRoute(s.route) : undefined,
   }
 }
 
@@ -1177,6 +1193,20 @@ export function useProjects() {
     setProjects((prev) => prev.map((p) => (p.id === projectId ? restoreProject(p, version) : p)))
   }, [])
 
+  /** Replace a project's demo scenarios (an empty list clears them). */
+  const setProjectScenarios = useCallback((projectId: string, scenarios: DemoScenario[]) => {
+    const clean = normalizeScenarios(scenarios)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (clean) next.scenarios = clean
+        else delete next.scenarios
+        return next
+      }),
+    )
+  }, [])
+
   return {
     projects,
     createProject,
@@ -1192,5 +1222,6 @@ export function useProjects() {
     setReferenceScreen,
     setProjectBranch,
     restoreProjectVersion,
+    setProjectScenarios,
   }
 }

@@ -285,17 +285,37 @@ function appTsx(named: NamedScreen[]): string {
     .map((n, i) => `import Screen${i} from './screens/${n.base}'`)
     .join('\n')
   const list = named
-    .map((n, i) => `  { name: ${JSON.stringify(n.screen.name || n.base)}, Component: Screen${i} }`)
+    .map(
+      (n, i) =>
+        `  { name: ${JSON.stringify(n.screen.name || n.base)}, route: ${JSON.stringify(n.screen.route || '')}, Component: Screen${i} }`,
+    )
     .join(',\n')
-  return `import React, { useState } from 'react'
+  return `import React, { useEffect, useState } from 'react'
 ${imports}
 
 const SCREENS = [
 ${list},
 ]
 
+// A working prototype's MockyFlow.go("cart") (components/ui/flow.jsx): the
+// screen that declares the route, else the one whose name is the route.
+const slug = (s) => String(s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+function screenFor(route) {
+  const r = slug(route)
+  const i = SCREENS.findIndex((s) => s.route === r)
+  return i >= 0 ? i : SCREENS.findIndex((s) => slug(s.name) === r)
+}
+
 export default function App() {
   const [active, setActive] = useState(0)
+  useEffect(() => {
+    const onGo = (e) => {
+      const i = screenFor(e.detail && e.detail.route)
+      if (i >= 0) setActive(i)
+    }
+    window.addEventListener('mocky:flow-go', onGo)
+    return () => window.removeEventListener('mocky:flow-go', onGo)
+  }, [])
   const Current = SCREENS[active]?.Component ?? (() => null)
   return (
     <div className="flex min-h-screen bg-background text-foreground">

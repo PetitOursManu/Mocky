@@ -179,9 +179,10 @@ describe('what the reviewer\'s page receives of a screen', () => {
       design: '# Direction',
       userNotes: [{ id: 'n', text: 'Paul hates this', createdAt: 1 }],
       quality: { score: 12 },
+      route: 'home',
       links: [{ id: 'h', target: 's2', x: 0, y: 0, w: 1, h: 1, selector: '#buy', label: 'Acheter' }],
     })
-    expect(Object.keys(out).sort()).toEqual(['animations', 'caps', 'code', 'componentName', 'device', 'h', 'id', 'links', 'name', 'w'])
+    expect(Object.keys(out).sort()).toEqual(['animations', 'caps', 'code', 'componentName', 'device', 'h', 'id', 'links', 'name', 'route', 'w'])
     expect(JSON.stringify(out)).not.toMatch(/confidential|Paul hates|Direction/)
     expect(out.links[0]).toEqual({ id: 'h', target: 's2', x: 0, y: 0, w: 1, h: 1, selector: '#buy' })
   })

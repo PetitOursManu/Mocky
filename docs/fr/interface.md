@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: c3e1e433d853
+source_hash: 3af57635d5a3
 ---
 
 # L’interface
@@ -461,6 +461,7 @@ selon ce qui est sélectionné.
 |---|---|---|---|
 | | `Nouvelle direction` | Ce prompt-ci écrira la direction artistique du projet, que tous les écrans suivants suivront. **La case se décoche toute seule après la génération.** Cachée pendant une édition — une édition retravaille ce qu’une direction a produit, et la laisser réécrire cette direction reviendrait à réattribuer tous les autres écrans du projet. | libre (arme la génération suivante) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg> | `Muse` | Inspiration, direction artistique et vraie copie. L’activer change ce que coûte une génération — voir [Muse](muse/overview.md). | libre (arme la génération suivante) |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 18c6 0 4-12 10-12"/></svg> | `Parcours` | Activé par défaut. Les nouveaux écrans sont des pages d’un **prototype qui fonctionne** : formulaires, connexion simulée, filtres et panier partagé marchent en démo, et les écrans vers lesquels mène un parcours (`account`, `cart`, `confirmation`…) sont **créés automatiquement** après l’écran, trois au plus. Désactivé, un écran est généré seul, comme avant. Masqué pendant une modification. Voir [Des prototypes qui fonctionnent](flows.md). | une génération par écran créé |
 | | `Format` | Le gabarit du prochain écran. Affiché seulement en création, pas en édition. Avec un type de document, les mêmes puces deviennent des **formats de page** (A4, A3, US Letter, 16:9, ou les tailles des réseaux). | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> | `Type d’écran` | Le genre du prochain écran — tableau de bord, planning, kanban, page d’accueil, tarifs… — ou, sous `Documents à imprimer ou exporter` et `Réseaux sociaux`, le genre de document. La structure du type guide la génération ; vos mots l’emportent toujours. **Il reste armé**, et un projet s’ouvre sur le type de son dernier écran ; la croix à côté le retire. Ignoré en `Reproduire`. | libre (arme la prochaine génération) |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Image` · `Sans image` / `Générée` / `Photo libre` | Un document seulement : s’il porte une image, et d’où elle vient. `Sans image` compose avec des formes et des couleurs. Retenu par le navigateur. | Générée : le prix du modèle d’image |
@@ -730,6 +731,12 @@ parcours, `Retour` et `Recommencer` parcourent l’historique. La barre change a
 d’écran sans les liens — `Écran précédent`, la liste `Aller à un écran`, `Écran
 suivant`, ou ← → — et chaque pas compte comme un lien suivi, donc `Retour`
 fonctionne toujours.
+
+Sur un [prototype qui fonctionne](flows.md), les écrans partagent aussi leurs
+**données** — l’utilisateur connecté, le panier, les formulaires envoyés —
+pendant que vous passez de l’un à l’autre : `Données (N)` les montre,
+`Recommencer` les remet à zéro, et la liste `Scénario` commence la démo sur un
+écran et des données enregistrés (`+` enregistre l’état actuel).
 
 :::hotspots src=../assets/ui/fr/demo-device.webp alt="Le mode démo : un écran montré dans un ordinateur dessiné au trait"
 - 5.6,3.1 **Quitter la démo**: Retour au canevas. `Échap` fait de même.

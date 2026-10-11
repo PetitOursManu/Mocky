@@ -6,6 +6,7 @@ import { resolveCapabilities } from '../lib/capabilities/select'
 import { buildPrelude } from '../lib/capabilities/prelude'
 import type { Capability } from '../lib/capabilities/types'
 import { DOC_PAGES_MESSAGE } from '../lib/pageFormats'
+import { flowStateScript } from '../lib/flows'
 
 export interface PickInfo {
   selector: string
@@ -181,6 +182,13 @@ function buildSrcDoc(
    * like it already reads prefers-reduced-motion.
    */
   animations: boolean = true,
+  /**
+   * A working prototype's shared data, as an escaped JSON literal
+   * (`flowStateScript`), for the frame to start with (snippets/Flow.ts).
+   * Absent on every preview that is not part of a demo, which therefore gets
+   * the document it always got.
+   */
+  flowInit?: string,
 ): string {
   const b64 = utf8ToBase64(sourceCode)
   const hideCss = hideScrollbars
@@ -281,6 +289,7 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     hooks.forEach(function (k) { if (React[k]) window[k] = React[k]; });
     // Read by <Animated> — see the note on buildSrcDoc's animations argument.
     window.__mockyAnimations = ${animations ? 'true' : 'false'};
+    ${flowInit !== undefined ? `window.__mockyFlowInit = ${flowInit};` : ''}
     ${globalHoists.join('\n    ')}
     // A mockup must never leave its own document. The click guard further down
     // stops <a href> navigations, but a generated component can also call
@@ -488,6 +497,42 @@ ${preludeB64 ? `<script type="text/plain" id="mocky-prelude">${preludeB64}</scri
     // for the same base-URL reason, is Mocky's own page. Same navigation, same
     // console flood, from a control nobody thinks of as a link.
     document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
+    // And with no allow-forms in the sandbox — which this frame does not have,
+    // on purpose — the browser refuses a submission BEFORE it fires the submit
+    // event: a generated <form onSubmit> never ran, so a sign-in form was a
+    // picture of one and a working prototype could not exist. The two gestures
+    // that submit a form, a submit button and Enter in a field, fire the event
+    // by hand instead. Nothing is ever sent: the listener above still prevents
+    // the default, and the sandbox would refuse it anyway. In the bubble phase,
+    // after React's own handlers, so a button whose onClick prevents the
+    // default keeps its own meaning.
+    function fireSubmit(f, by) {
+      var ev;
+      try { ev = new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: by || null }); }
+      catch (_) { ev = new Event('submit', { bubbles: true, cancelable: true }); }
+      f.dispatchEvent(ev);
+    }
+    function validates(f, by) {
+      if (f.noValidate || (by && by.formNoValidate)) return true;
+      try { return f.reportValidity ? f.reportValidity() : true; } catch (_) { return true; }
+    }
+    document.addEventListener('click', function (e) {
+      if (mode === 'pick' || e.defaultPrevented) return;
+      var b = e.target && e.target.closest ? e.target.closest('button, input[type="submit"], input[type="image"]') : null;
+      if (!b || !b.form || b.disabled) return;
+      var type = (b.getAttribute('type') || (b.tagName === 'BUTTON' ? 'submit' : '')).toLowerCase();
+      if (type !== 'submit' && type !== 'image') return;
+      e.preventDefault();
+      if (validates(b.form, b)) fireSubmit(b.form, b);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (mode === 'pick' || e.key !== 'Enter' || e.defaultPrevented || e.isComposing) return;
+      var t = e.target;
+      if (!t || t.tagName !== 'INPUT' || !t.form) return;
+      if (/^(checkbox|radio|button|submit|reset|file|image|range|color)$/.test((t.type || 'text').toLowerCase())) return;
+      e.preventDefault();
+      if (validates(t.form)) fireSubmit(t.form);
+    });
     function markLinks() { for (var i = 0; i < links.length; i++) { var el = null; try { el = document.querySelector(links[i].selector); } catch (_) {} if (el) el.style.cursor = 'pointer'; } }
     window.addEventListener('message', function (e) {
       // Only Mocky itself may command this frame. parent.frames[i] is reachable
@@ -544,6 +589,7 @@ export default function Preview({
   animations,
   onContentHeight,
   onDocPages,
+  flow,
 }: {
   code: string
   pickMode?: boolean
@@ -591,6 +637,20 @@ export default function Preview({
    * the page format the kit actually laid out (the code's `<Doc format>`).
    */
   onDocPages?: (count: unknown, overflow: unknown, format: unknown) => void
+  /**
+   * This frame is a page of a working prototype (snippets/Flow.ts): it starts
+   * with `state`, and reports what its code writes and where it asks to go.
+   * Read once per document — the state is baked into the srcDoc when it is
+   * built, so a page opened later starts with what the earlier ones wrote.
+   * The holder remounts the frame (a `key`) to start it over. Without this
+   * prop the frame's requests are ignored, like a `navigate` without links.
+   */
+  flow?: {
+    state: Record<string, unknown>
+    onSet: (key: string, value: unknown) => void
+    onGo: (route: string) => void
+    onReset: () => void
+  }
 }) {
   const t = useT()
   const [error, setError] = useState<string | null>(null)
@@ -609,6 +669,7 @@ export default function Preview({
   const onContentHeightRef = useRef(onContentHeight)
   const onSweptRef = useRef(onSwept)
   const onDocPagesRef = useRef(onDocPages)
+  const flowRef = useRef(flow)
   const lastDocPagesRef = useRef<{ count: unknown; overflow: unknown; format: unknown } | null>(null)
   // Same reasoning applied to a value rather than a callback: the listener needs
   // to KNOW whether generation is running, but must not re-subscribe when that
@@ -641,6 +702,7 @@ export default function Preview({
   onContentHeightRef.current = onContentHeight
   onSweptRef.current = onSwept
   onDocPagesRef.current = onDocPages
+  flowRef.current = flow
   generatingRef.current = generating
   pickModeRef.current = pickMode
   demoLinksRef.current = demoLinks
@@ -672,7 +734,16 @@ export default function Preview({
       const name = detectComponentName(code)
       srcCodeRef.current = code
       setSrcDoc(
-        buildSrcDoc(previewCode, name, frameId, !!hideScrollbars, resolvedCaps, !!generating, animations !== false),
+        buildSrcDoc(
+          previewCode,
+          name,
+          frameId,
+          !!hideScrollbars,
+          resolvedCaps,
+          !!generating,
+          animations !== false,
+          flowRef.current ? flowStateScript(flowRef.current.state) : undefined,
+        ),
       )
     }, 500)
     return () => clearTimeout(timer)
@@ -775,6 +846,14 @@ export default function Preview({
         onPickRef.current?.({ selector: d.selector, label: d.label, rect: d.rect, tag: d.tag, className: d.className })
       if (d.type === 'navigate' && demoLinksRef.current && demoLinksRef.current.length > 0) onNavRef.current?.(d.target)
       if (d.type === 'swept' && Array.isArray(d.elements)) onSweptRef.current?.(d.elements)
+      // A working prototype's requests, honoured only by a holder that asked
+      // for them (the demo, the review page) — on the canvas a screen's code
+      // must not be able to steer anything outside its frame.
+      if (flowRef.current) {
+        if (d.type === 'flow-set' && typeof d.key === 'string' && d.key) flowRef.current.onSet(d.key.slice(0, 80), d.value)
+        if (d.type === 'flow-go' && typeof d.route === 'string') flowRef.current.onGo(d.route.slice(0, 80))
+        if (d.type === 'flow-reset') flowRef.current.onReset()
+      }
       // Kept always, forwarded only once the model has stopped writing: a
       // half-streamed document has half its pages, and the frame would shrink
       // and grow with every chunk. The kit posts only when its answer changes,

@@ -108,6 +108,8 @@ export function publicScreen(s) {
     device: src.device === 'iphone' ? 'iphone' : 'none',
     animations: src.animations === false ? false : true,
     ...(typeof src.page === 'string' && /^[a-z0-9-]{1,40}$/.test(src.page) ? { page: src.page } : {}),
+    // The name a working prototype opens this screen by (src/lib/flows.ts).
+    ...(typeof src.route === 'string' && /^[a-z0-9-]{1,40}$/.test(src.route) ? { route: src.route } : {}),
     // The links between screens, so the client can click through the flow as
     // in a demo. Ids and selectors only — they say where a button leads.
     links: Array.isArray(src.links)

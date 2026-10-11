@@ -18,7 +18,7 @@ There are eight series:
 - **D1 to D6**, introduced by the admin dashboard.
 - **X1 to X7**, introduced by Mocky as an MCP server.
 - **F1 to F4**, introduced by the free plan and personal keys.
-- **V1 to V6**, introduced by versions, branches and approval links.
+- **V1 to V8**, introduced by versions, branches, approval links and working prototypes.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1096,7 +1096,8 @@ admin list and from `users.json`, the option closed and reopened).
 ## Series V — versions, review and prototypes
 
 These came with saved versions and branches ([their page](../versions.md)) and
-with approval links ([theirs](../review.md)).
+with approval links ([theirs](../review.md)), then working prototypes
+([theirs](../flows.md)).
 Each one is about the moment a copy of somebody's project is made, kept or put
 back.
 
@@ -1189,6 +1190,38 @@ screen. A copy in the blob would disagree with the server the first time a
 browser was offline when the client answered.
 
 **How it is checked.** `server/reviews.test.js` ("a round"), `src/lib/review.test.ts`.
+
+### V7. "Flows" off, a generation is the one it was
+
+**The rule.** The flow kit (`snippets/Flow.ts`) is never chosen from a prompt:
+it is added by `runNewScreen` only when the request says `flows`, which the
+composer sends only with its switch on; a companion's context is appended only
+when there is one; the companion screens are made only under that switch. A
+preview is given flow state only by a holder that passed `flow` (the demo, the
+review board) — on the canvas, a screen's `MockyFlow.go` asks nobody.
+
+**What it protects.** The cost and the shape of every generation for someone who
+switched the feature off, and the canvas from a screen's code steering anything
+outside its frame.
+
+**How it is checked.** `tests/flows-off.test.js`.
+
+### V8. A preview's form submits, and sends nothing
+
+**The rule.** The preview's sandbox has no `allow-forms`, and the browser
+refuses a submission BEFORE firing the `submit` event — so no generated
+`<form onSubmit>` ever ran. The frame re-fires the event by hand for the two
+gestures that submit a form (a submit button, Enter in a field), after the
+browser's own validation, in the bubble phase so a button whose handler
+prevents the default keeps its meaning. The default stays prevented and the
+sandbox stays as it is: nothing is ever sent.
+
+**What it protects.** Every working prototype — a sign-in that cannot submit is
+a picture of one — without opening the frame to a navigation (I2).
+
+**How it is checked.** The sign-in round trip of a working prototype, in a
+browser; `tests/preview-sandbox.test.js` still pins the sandbox to
+`allow-scripts`.
 
 ---
 

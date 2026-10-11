@@ -57,6 +57,7 @@ import ScreenHistoryDialog from './ScreenHistoryDialog'
 import { useVersions } from '../lib/useVersions'
 import ReviewPanel from './ReviewPanel'
 import type { ProjectReviewState } from '../lib/review'
+import type { DemoScenario } from '../lib/flows'
 import { currentBranch, type VersionFull } from '../lib/versions'
 import ScreenNotesDialog from './ScreenNotesDialog'
 import { SaveDesignDialog } from './DesignLibrary'
@@ -134,7 +135,15 @@ import { pageScenesIn } from '../lib/video/pageScenes'
 import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { matchImagesToScreens } from '../lib/imageBackfill'
-import { identityOrLayoutReference as referenceFor, joinSystem, runNewScreen } from '../lib/pipeline/newScreen'
+import {
+  identityOrLayoutReference as referenceFor,
+  joinSystem,
+  runNewScreen,
+  type NewScreenHooks,
+  type NewScreenRequest,
+} from '../lib/pipeline/newScreen'
+import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
+import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
@@ -233,6 +242,7 @@ export default function ProjectView({
   onSetBranch,
   reviewState,
   onReviewChanged,
+  onSetScenarios,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -259,6 +269,8 @@ export default function ProjectView({
   reviewState?: ProjectReviewState
   /** A round was sent, closed or read: the status badges should ask again. */
   onReviewChanged?: () => void
+  /** Replace the project's demo scenarios (lib/flows.ts). */
+  onSetScenarios?: (scenarios: DemoScenario[]) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -307,6 +319,14 @@ export default function ProjectView({
   const [error, setError] = useState<string | null>(null)
   // --- Muse — optional design-intelligence pass before generation ---
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
+  /** The composer's "Parcours": new screens are pages of a working prototype (lib/flows.ts). */
+  const [flowsOn, setFlowsOnState] = useState<boolean>(() => loadFlowsOn())
+  const toggleFlows = useCallback(() => {
+    setFlowsOnState((on) => {
+      saveFlowsOn(!on)
+      return !on
+    })
+  }, [])
   /**
    * Where this browser wants a generation's pictures from — made by the image
    * model, or found in the free libraries. Remembered like Muse's own choices.
@@ -1583,8 +1603,7 @@ export default function ProjectView({
       } else {
         // A new screen: the whole pipeline is lib/pipeline/newScreen.ts, so a
         // caller with no composer (the MCP runner) runs the same stages.
-        const outcome = await runNewScreen(
-          {
+        const request: NewScreenRequest = {
             text,
             settings,
             project,
@@ -1612,8 +1631,11 @@ export default function ProjectView({
             docImageChoice,
             imageGenOk,
             stockImagesUsable,
-          },
-          {
+            // Absent rather than false when off, so the request is the one it
+            // always was (snippets/Flow.ts).
+            ...(flowsOn ? { flows: true } : {}),
+          }
+        const hooks: NewScreenHooks = {
             signal: ac.signal,
             t,
             setPhase,
@@ -1642,10 +1664,32 @@ export default function ProjectView({
             screenWritten: () => setGeneratingIds(new Set()),
             motionStage,
             motionStageDone,
-          },
-        )
+          }
+        const outcome = await runNewScreen(request, hooks)
         if (outcome.slop) setSlopAdvisory(outcome.slop)
         if (outcome.error) setError(outcome.error)
+        /*
+         * The pages the new screen leads to and nobody asked for by name — a
+         * sign-in's account page, a shop's cart (lib/pipeline/flowCompanions.ts).
+         * Not for a document, and not when the run left an error to read: a
+         * screen that came back broken has no flow worth following yet.
+         */
+        if (flowsOn && !outcome.error && !pageFormatId) {
+          try {
+            const made = await runFlowCompanions(request, hooks, outcome.screenId, outcome.code ?? '', {
+              getProject: () => projectRef.current,
+              nameFor: (route) => flowScreenName(route, t),
+            })
+            if (made.length) {
+              setNotice(t('flows.created', { count: made.length, names: made.map((m) => flowScreenName(m.route, t)).join(', ') }))
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            // The screen asked for is made and stays; the pages it leads to are
+            // a bonus, and their failure is said rather than raised (Q1's rule).
+            setNotice(t('flows.failed', { error: err instanceof Error ? err.message : String(err) }))
+          }
+        }
       }
     } catch (err) {
       // A new screen that never received a character has already been removed
@@ -1668,7 +1712,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, addScreenAndShow, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
+  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, addScreenAndShow, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode, flowsOn])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2694,6 +2738,8 @@ export default function ProjectView({
         onApplyStyle={applyStyleMarkdown}
         museConfig={museConfig}
         onMuseChange={updateMuse}
+        flowsOn={flowsOn}
+        onToggleFlows={toggleFlows}
         museAvail={museAvail}
         museResult={museResult}
         museImages={museImages}
@@ -3611,6 +3657,21 @@ export default function ProjectView({
               <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
               <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
             </button>
+            {/* New screens only: an edit keeps the flow its screen already has. */}
+            {!editing && (
+              <button
+                type="button"
+                onClick={toggleFlows}
+                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
+                  flowsOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
+                }`}
+                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                aria-pressed={flowsOn}
+              >
+                <Icon name="cable" size={14} />
+                {t('flows.toggle')}
+              </button>
+            )}
             {/* New screens only: an edit reworks a screen that already is, or
                 is not, Motion Ultra — the pass that builds one is a storyboard
                 and a series of pictures, not an instruction to an edit. */}
@@ -3979,7 +4040,13 @@ export default function ProjectView({
       )}
 
       {demoStartId && (
-        <DemoPlayer screens={screens} startId={demoStartId} onExit={() => setDemoStartId(null)} />
+        <DemoPlayer
+          screens={screens}
+          startId={demoStartId}
+          onExit={() => setDemoStartId(null)}
+          scenarios={project.scenarios}
+          onSaveScenarios={onSetScenarios}
+        />
       )}
 
       {/* A document's download: PDF with fillable fields, slides, pictures. */}

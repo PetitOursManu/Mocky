@@ -55,6 +55,8 @@ export interface ReviewScreen {
   animations: boolean
   page?: PageFormatId
   links: Hotspot[]
+  /** The name a working prototype opens it by (lib/flows.ts). */
+  route?: string
 }
 
 export interface ReviewView {
@@ -160,6 +162,7 @@ export function asScreen(s: ReviewScreen): Screen {
     caps: s.caps,
     animations: s.animations,
     ...(s.page ? { page: s.page } : {}),
+    ...(s.route ? { route: s.route } : {}),
   }
 }
 

@@ -1,5 +1,5 @@
 ---
-source_hash: fc84407f8ba8
+source_hash: af0dec128bf3
 ---
 
 # Invariants
@@ -22,7 +22,7 @@ Il y a huit séries :
 - **D1 à D6**, apportés par le tableau de bord d’administration.
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
-- **V1 à V6**, apportés par les versions, les branches et les liens de validation.
+- **V1 à V8**, apportés par les versions, les branches, les liens de validation et les prototypes qui fonctionnent.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1175,7 +1175,8 @@ fermée puis rouverte).
 ## Série V — versions, validation et prototypes
 
 Elles sont venues avec les versions et les branches ([leur page](../versions.md))
-et avec les liens de validation ([la leur](../review.md)).
+et avec les liens de validation ([la leur](../review.md)), puis les
+prototypes qui fonctionnent ([la leur](../flows.md)).
 Chacune porte sur le moment où une copie du projet de quelqu'un est faite,
 gardée ou remise en place.
 
@@ -1277,6 +1278,41 @@ première fois qu'un navigateur serait hors ligne au moment où le client répon
 
 **Comment c'est vérifié.** `server/reviews.test.js` (« a round »),
 `src/lib/review.test.ts`.
+
+### V7. « Parcours » désactivé, une génération est celle d'avant
+
+**La règle.** Le kit de parcours (`snippets/Flow.ts`) n'est jamais choisi à
+partir d'une demande : `runNewScreen` ne l'ajoute que si la requête dit `flows`,
+ce que le composeur n'envoie qu'avec son interrupteur activé ; le contexte d'un
+écran de suite n'est ajouté que s'il existe ; les écrans de suite ne sont créés
+que sous cet interrupteur. Un aperçu ne reçoit d'état de parcours que d'un
+conteneur qui a passé `flow` (la démo, le plateau de validation) — sur le
+canevas, le `MockyFlow.go` d'un écran ne s'adresse à personne.
+
+**Ce que ça protège.** Le coût et la forme de chaque génération pour qui a
+désactivé la fonctionnalité, et le canevas contre un code d'écran qui piloterait
+quoi que ce soit hors de son cadre.
+
+**Comment c'est vérifié.** `tests/flows-off.test.js`.
+
+### V8. Le formulaire d'un aperçu se soumet, et n'envoie rien
+
+**La règle.** Le bac à sable de l'aperçu n'a pas `allow-forms`, et le navigateur
+refuse une soumission AVANT de déclencher l'événement `submit` — aucun
+`<form onSubmit>` généré ne s'exécutait donc jamais. Le cadre redéclenche
+l'événement à la main pour les deux gestes qui soumettent un formulaire (un
+bouton d'envoi, Entrée dans un champ), après la validation du navigateur, en
+phase de remontée pour qu'un bouton dont le gestionnaire empêche l'action par
+défaut garde son sens. L'action par défaut reste empêchée et le bac à sable
+reste tel quel : rien n'est jamais envoyé.
+
+**Ce que ça protège.** Tout prototype qui fonctionne — une connexion qui ne peut
+pas se soumettre n'en est que l'image — sans ouvrir le cadre à une navigation
+(I2).
+
+**Comment c'est vérifié.** L'aller-retour de connexion d'un prototype, dans un
+navigateur ; `tests/preview-sandbox.test.js` épingle toujours le bac à sable à
+`allow-scripts`.
 
 ---
 

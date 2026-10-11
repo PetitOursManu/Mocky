@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Eight series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V6 (versions, review, prototypes). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Eight series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1264,6 +1264,34 @@ Three things that will bite you:
    reach a client unless it is added there, on purpose.
 3. **The status is read, not stored** (V6): `Project` has no status field, and
    must not grow one.
+
+## Working prototypes ("Parcours")
+
+Forms, a simulated sign-in, filters and a cart that work in the demo, and the
+screens a flow leads to created automatically. User doc `docs/flows.md`;
+invariants V7–V8.
+
+```
+src/lib/capabilities/snippets/Flow.ts   useFlowState, MockyFlow.go(route), <FlowLink>; FLOW_RULES
+src/lib/flows.ts                         readFlow (Babel, I1), resolveRoute, companionSection, scenarios
+src/lib/pipeline/flowCompanions.ts       the screens a new screen's routes need, through runNewScreen
+src/components/DemoPlayer.tsx            the store between screens, routes, scenarios, Data panel
+```
+
+Four things that will bite you:
+
+1. **The store lives in the HOLDER, not the frame.** Each screen is its own
+   sandboxed document; a page opened next is born with the state in its srcDoc
+   (`window.__mockyFlowInit`), and writes are posted up (`flow-set`). Restarting
+   remounts the frame (`key`) — there is no push into a live frame.
+2. **Read the new screen's code from `NewScreenOutcome.code`**, never from the
+   caller's screens: those are a render behind when `runNewScreen` returns, and
+   the first version of the companions read an empty screen there.
+3. **Companions are bounded** (`MAX_COMPANIONS`, two levels) and run with Muse
+   and Motion Ultra off; each is a full generation.
+4. **Forms submit in the preview because the frame fires `submit` by hand**
+   (V8): the sandbox refuses a submission before the event. Do not "fix" it by
+   adding `allow-forms`.
 
 ## Conventions
 
