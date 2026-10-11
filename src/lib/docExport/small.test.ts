@@ -9,8 +9,11 @@ import {
   hideCss,
   needsColorNormalising,
   pseudoPinCss,
+  rasterCeiling,
   rasterScale,
   SOCIAL_EDIT_SCALE,
+  PDF_SCALE_FACTOR,
+  MAX_RASTER_PIXELS_DESKTOP,
   replaceColorFunctions,
   rgbaFromBytes,
 } from './raster'
@@ -42,29 +45,49 @@ describe('toWinAnsi', () => {
 })
 
 describe('rasterScale', () => {
-  it('rasterises paper at ~250 dpi and slides for a 1080p screen', () => {
-    expect(rasterScale(getPageFormat('a4'), 'pdf')).toBeCloseTo(250 / 96, 5)
-    expect(rasterScale(getPageFormat('slides'), 'pdf')).toBe(1.5)
-    expect(rasterScale(getPageFormat('a4'), 'pptx')).toBe(2)
+  it('rasterises paper for the PDF at ~500 dpi, slides at 3×, where the browser allows it', () => {
+    expect(rasterScale(getPageFormat('a4'), 'pdf', MAX_RASTER_PIXELS_DESKTOP)).toBeCloseTo((250 / 96) * PDF_SCALE_FACTOR, 5)
+    expect(rasterScale(getPageFormat('a3'), 'pdf', MAX_RASTER_PIXELS_DESKTOP)).toBeCloseTo((250 / 96) * PDF_SCALE_FACTOR, 5)
+    expect(rasterScale(getPageFormat('slides'), 'pdf', MAX_RASTER_PIXELS_DESKTOP)).toBe(3)
+    expect(rasterScale(getPageFormat('slides'), 'pdf')).toBe(3)
   })
 
-  it('draws a post at its own pixels to post, and at twice them to edit', () => {
+  it('leaves the files that are not the PDF at their own scale', () => {
+    expect(rasterScale(getPageFormat('a4'), 'pptx', MAX_RASTER_PIXELS_DESKTOP)).toBe(2)
+    expect(rasterScale(getPageFormat('slides'), 'pptx', MAX_RASTER_PIXELS_DESKTOP)).toBe(1.5)
+    expect(rasterScale(getPageFormat('a4'), 'png', MAX_RASTER_PIXELS_DESKTOP)).toBeCloseTo(250 / 96, 5)
+  })
+
+  it('draws a post at its own pixels to post, twice them to edit, four times in the PDF', () => {
     for (const id of ['social-square', 'social-portrait', 'social-story', 'social-landscape'] as const) {
-      expect(rasterScale(getPageFormat(id), 'png'), id).toBe(1)
-      for (const p of ['pdf', 'pptx', 'layers'] as const) expect(rasterScale(getPageFormat(id), p), `${id} ${p}`).toBe(SOCIAL_EDIT_SCALE)
+      expect(rasterScale(getPageFormat(id), 'png', MAX_RASTER_PIXELS_DESKTOP), id).toBe(1)
+      for (const p of ['pptx', 'layers'] as const) {
+        expect(rasterScale(getPageFormat(id), p, MAX_RASTER_PIXELS_DESKTOP), `${id} ${p}`).toBe(SOCIAL_EDIT_SCALE)
+      }
+      expect(rasterScale(getPageFormat(id), 'pdf', MAX_RASTER_PIXELS_DESKTOP), id).toBe(SOCIAL_EDIT_SCALE * PDF_SCALE_FACTOR)
     }
   })
 
-  it('never asks for a canvas above the ceiling', () => {
-    for (const f of PAGE_FORMATS) {
-      for (const p of ['pdf', 'pptx', 'png', 'layers'] as const) {
-        const s = rasterScale(f, p)
-        expect(f.w * s * f.h * s).toBeLessThanOrEqual(MAX_RASTER_PIXELS)
+  it('never asks for a canvas above the ceiling it is given', () => {
+    for (const ceiling of [MAX_RASTER_PIXELS, MAX_RASTER_PIXELS_DESKTOP]) {
+      for (const f of PAGE_FORMATS) {
+        for (const p of ['pdf', 'pptx', 'png', 'layers'] as const) {
+          const s = rasterScale(f, p, ceiling)
+          expect(f.w * s * f.h * s, `${f.id} ${p} ${ceiling}`).toBeLessThanOrEqual(ceiling + 1)
+        }
       }
+      const poster = { w: 4000, h: 6000, kind: 'print' as const }
+      const s = rasterScale(poster, 'pdf', ceiling)
+      expect(poster.w * s * poster.h * s).toBeLessThanOrEqual(ceiling + 1)
     }
-    const poster = { w: 4000, h: 6000, kind: 'print' as const }
-    const s = rasterScale(poster, 'pdf')
-    expect(poster.w * s * poster.h * s).toBeLessThanOrEqual(MAX_RASTER_PIXELS + 1)
+  })
+
+  it('keeps the low ceiling on iPhone and iPad, a Mac that reports touch included', () => {
+    expect(rasterCeiling({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' })).toBe(MAX_RASTER_PIXELS)
+    expect(rasterCeiling({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 5 })).toBe(MAX_RASTER_PIXELS)
+    expect(rasterCeiling({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 0 })).toBe(MAX_RASTER_PIXELS_DESKTOP)
+    expect(rasterCeiling({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140' })).toBe(MAX_RASTER_PIXELS_DESKTOP)
+    expect(rasterCeiling(null)).toBe(MAX_RASTER_PIXELS)
   })
 })
 

@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 33ca7c95b1dc
+source_hash: 25952576843d
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -148,7 +148,7 @@ cinq boutons :
 
 | Bouton | Ce que vous obtenez | Pour |
 |---|---|---|
-| `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — en résolution d’impression pour le papier, au double de ses pixels pour un post afin qu’il reste net dans un logiciel — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
+| `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — à 500 dpi pour le papier, au triple pour une diapositive et au quadruple de ses pixels pour un post, pour rester nettes zoomées comme imprimées (sur iPhone ou iPad, aussi haut que Safari le permet, environ 350 dpi en A4) — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
 | `PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables` | Une diapositive par page : le dessin en image d’arrière-plan, et chaque texte en zone de texte modifiable par-dessus. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
 | `Images PNG` | Une image par page, dans un `.zip` quand il y en a plusieurs. Un post sort exactement aux pixels de son format. | Publier. |
 | `PSD — Photoshop, Photopea` | Un calque pour la page, puis un par image dans une forme, avec son contour, son ruban et son ombre en calques à part. Le texte fait partie de la page. | Terminer dans Photoshop. |

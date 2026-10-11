@@ -15,6 +15,7 @@ import {
   hideCss,
   needsColorNormalising,
   pseudoPinCss,
+  rasterCeiling,
   rasterScale,
   replaceColorFunctions,
   rgbaFromBytes,
@@ -485,7 +486,7 @@ export async function renderDocument(
   try {
 
     const h2c = (frame.win as Window & { html2canvas?: Html2Canvas }).html2canvas
-    const scale = rasterScale(format, purpose)
+    const scale = rasterScale(format, purpose, rasterCeiling(typeof navigator === 'undefined' ? null : navigator))
     const hideMode = HIDE_MODE[purpose]
     const hide = hideCss(hideMode)
     const textMode = hideMode === 'text'
