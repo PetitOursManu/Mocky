@@ -39,7 +39,8 @@ The link opens a page with the project's screens and nothing else of Mocky:
   after. A comment written without a pin is about the whole screen;
   `General remarks` takes comments about the whole project.
 - `Approve` or `Ask for changes`, at the top. Asking for changes requires
-  saying what should change.
+  saying what should change. Once the project is approved, `Approve`
+  turns grey and reads `Approved`; asking for changes stays possible.
 
 The client signs with a name they type. Nothing checks that name: the link is
 the authority, so send it only to the people who should answer.

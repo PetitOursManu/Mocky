@@ -1,7 +1,7 @@
 ---
 description: Envoyer un projet à un client avec un lien sans compte ; il épingle des commentaires sur les écrans, puis l’approuve ou demande des modifications.
 badge: Nouveau
-source_hash: 999a5840072e
+source_hash: fab798f45640
 ---
 
 # Envoyer un projet en validation
@@ -42,7 +42,9 @@ Le lien ouvre une page avec les écrans du projet et rien d’autre de Mocky :
   juste après. Un commentaire écrit sans épingle porte sur tout l’écran ;
   `Remarques générales` reçoit les commentaires sur l’ensemble du projet.
 - `Approuver` ou `Demander des modifications`, en haut. Demander des
-  modifications oblige à dire ce qui doit changer.
+  modifications oblige à dire ce qui doit changer. Une fois le projet approuvé,
+  `Approuver` se grise et affiche `Approuvé` ; demander des modifications reste
+  possible.
 
 Le client signe avec un nom qu’il tape. Rien ne vérifie ce nom : le lien fait
 autorité, envoyez-le donc seulement aux personnes qui doivent répondre.

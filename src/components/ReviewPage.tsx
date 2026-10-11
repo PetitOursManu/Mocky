@@ -94,9 +94,19 @@ export default function ReviewPage({ token }: { token: string }) {
                 <Icon name="pencil" size={15} />
                 {t('review.requestChanges')}
               </Button>
-              <Button size="sm" variant="primary" onClick={() => setDeciding('approved')}>
+              {/* Approving an approved round again changed nothing and looked
+                  like it was still to be done. Greyed, it says the decision is
+                  made; asking for changes stays open, because a client may
+                  change their mind while the round is. */}
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={view.status === 'approved'}
+                title={view.status === 'approved' ? t('review.alreadyApproved') : undefined}
+                onClick={() => setDeciding('approved')}
+              >
                 <Icon name="check" size={15} />
-                {t('review.approve')}
+                {t(view.status === 'approved' ? 'review.approvedButton' : 'review.approve')}
               </Button>
             </>
           )}
