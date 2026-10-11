@@ -39,6 +39,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `docexport` | rien sur le cadre dans le PowerPoint, pour que Canva y dépose une photo (#50) | `6903e47` |
 | `docexport` | l'interlignage hérité reste un multiplicateur dans le rendu image (#48) | `147be99` |
 | `docexport` | des posts nets dans Canva — PDF, PowerPoint et gabarits en double résolution (#47) | `2f691bb` |
 | `provider` | de la place pour la réflexion des modèles Claude (écran coupé à la limite de tokens) (#43) | `dbc0d15` |
