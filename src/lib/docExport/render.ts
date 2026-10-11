@@ -76,7 +76,7 @@ export interface RenderOptions {
   template?: boolean
 }
 
-const HIDE_MODE = { pdf: 'fields', pptx: 'text', png: 'none' } as const
+const HIDE_MODE = { pdf: 'fields', pptx: 'text', png: 'none', template: 'none' } as const
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
