@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: a53e43464795
+source_hash: d1dbfcb43687
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -212,6 +212,35 @@ téléchargement PDF est un post document tout prêt.
 
 Une story fait 9:16, et le modèle garde le texte hors des bandes que l’application
 couvre en haut (progression, nom) et en bas (champ de réponse).
+
+### Des images dans une forme
+
+:::why
+Un post, c'est surtout une image, et une image découpée en blob, en arche ou en
+polaroid fait la moitié du style d'un post. Le modèle ne dessine aucune de ces
+formes lui-même : un long tracé SVG écrit par un modèle se fait couper et casse
+le rendu.
+:::
+
+Une image peut se placer dans un **cadre**, une forme qui la découpe comme un
+masque d'écrêtage dans un logiciel de retouche. Demandez-le dans la consigne
+(« la photo dans un blob », « un polaroid », « un collage de trois photos en
+arches »). Les formats réseaux sociaux le proposent toujours au modèle ; sur les
+autres pages, ce sont ces mots qui le proposent.
+
+Il y a 42 cadres, en quatre familles :
+
+| Famille | Cadres |
+|---|---|
+| Géométriques | cercle, rectangle arrondi, squircle, triangle, losange, pentagone, hexagone, octogone, étoile, éclat, cœur, arche, dôme, pilule, goutte, bouclier, croix, parallélogramme, fleur, feuille |
+| Organiques | six blobs, tache, galet |
+| Vagues et bords | vague en bas, vague en haut, vagues des deux côtés, festonné, zigzag, déchiré |
+| Cadres photo | polaroid, timbre, pellicule, ticket, bulle, photo scotchée, tirage à bords déchirés, passe-partout ovale |
+
+Un cadre garde en vue la partie importante de l'image (un visage en haut, par
+exemple), et peut recevoir un contour, une ombre douce qui suit la forme et une
+légère inclinaison. Sans image, la forme est dessinée en gris pour réserver la
+place.
 
 ---
 

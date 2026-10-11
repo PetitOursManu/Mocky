@@ -31,6 +31,7 @@ import { ScrollVideoSource, SCROLLVIDEO_EXPORTS } from '../capabilities/snippets
 import { MotionFilmSource, MOTIONFILM_EXPORTS } from '../capabilities/snippets/MotionFilm'
 import { UltraSource, ULTRA_EXPORTS } from '../capabilities/snippets/Ultra'
 import { DocumentSource, DOCUMENT_EXPORTS } from '../capabilities/snippets/Document'
+import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from '../capabilities/snippets/ShapeFrame'
 import { cnSource } from '../capabilities/snippets/cn'
 
 const MOCKY_HEADER = '/* Vendored by Mocky export — inline, dependency-free. */'
@@ -178,6 +179,15 @@ export function documentJsx(): string {
   return packJsx(DocumentSource, DOCUMENT_EXPORTS)
 }
 
+/**
+ * src/components/ui/frames.jsx — `<ShapeFrame shape>`, a picture cut into one
+ * of the catalogue's shapes. Plain React and an inline CSS mask: nothing to
+ * install, and it draws the same outside Mocky as inside.
+ */
+export function framesJsx(): string {
+  return packJsx(ShapeFrameSource, SHAPEFRAME_EXPORTS)
+}
+
 export interface UiFile {
   /** path relative to project root */
   path: string
@@ -211,5 +221,6 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('motionfilm', motionFilmJsx(), MOTIONFILM_EXPORTS),
     ...pack('ultra', ultraJsx(), ULTRA_EXPORTS),
     ...pack('document', documentJsx(), DOCUMENT_EXPORTS),
+    ...pack('frames', framesJsx(), SHAPEFRAME_EXPORTS),
   ]
 }

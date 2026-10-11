@@ -8,6 +8,8 @@ import { AnimateSource, ANIMATE_EXPORTS } from './snippets/Animate'
 import { Scene3DSource, SCENE3D_EXPORTS, SCENE3D_PRESETS } from './snippets/Scene3D'
 import { UltraSource, ULTRA_EXPORTS, ULTRA_CLASSES, BACKDROP_PRESETS } from './snippets/Ultra'
 import { DocumentSource, DOCUMENT_EXPORTS } from './snippets/Document'
+import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from './snippets/ShapeFrame'
+import { FRAME_FAMILIES, FRAME_SHAPES } from '../frameShapes'
 import { FIELD_TYPES, PAGE_FORMAT_IDS } from '../pageFormats'
 
 // --- Validate at module load: every component name must be in its snippet's exports ---
@@ -197,6 +199,40 @@ export const CAPABILITIES: Capability[] = [
         description:
           `A real 3D object, drawn with WebGL, as a decoration inside a section. \`preset\` is REQUIRED and must be EXACTLY one of these ten: ${SCENE3D_PRESETS.map((p) => `"${p}"`).join(', ')} — "orb" is a lit sphere, "solid" a turning knot, "crystal" a faceted rock, "ring" a torus, "globe" a sphere of dots with an orbit ring, "stack" three cards floating in depth, "bubbles" a cluster of spheres, "particles" a slow field of points, "grid" a tunnel of points travelling towards the viewer, "wave" a rippling surface. \`color\` is a hex from your own palette; anything else falls back to the house ink. \`accent\` is an OPTIONAL second hex, used by the scenes made of several parts — the globe's ring, one card in two, half the bubbles, the tunnel's ceiling. Give it your palette's second colour when you have one; leave it out and the scene is painted in \`color\` alone. \`speed\` is "slow" (the default and almost always right), "medium" or "fast". Give it a SIZE with Tailwind — it fills the box you put it in. Two shapes work: a sized box beside your text (\`h-72 w-full\`), or a full-bleed backdrop — \`className="absolute inset-0"\` as the FIRST child of a \`relative\` section, with the text after it in a \`relative\` wrapper of its own so it sits above. As a backdrop it draws itself quieter on its own, because nothing in a page measures the contrast of a moving pixel — so you do not need a veil, and a dark \`color\` is still the safer choice under pale text. It turns towards the cursor and with the scroll by itself; do not try to animate it. At most ONE per screen, and it is ENFORCED rather than requested: only one \`<Scene3D>\` on a screen MOVES at a time — the one the visitor is looking at — and any other is shown as a still picture of itself, because a browser grants about sixteen WebGL contexts for the whole canvas and one screen may hold one. A second scene is therefore never worth writing for its motion. For depth elsewhere on the page use \`<Animated preset="tilt-3d">\`, which costs no context at all. It is decorative, so it carries no text and no meaning a reader needs.`,
         tags: ['3d', 'webgl', 'three', 'volume', 'sphere', 'particles', 'hero', 'immersive'],
+      },
+    ],
+  },
+  {
+    /**
+     * A picture cut into a shape — see snippets/ShapeFrame.ts and the closed
+     * catalogue in lib/frameShapes.ts. Offered on the words that ask for it, and
+     * force-offered on a SOCIAL page format (lib/documentMode.ts), the posts it
+     * was made for. Offered is not imposed: the card says when it is worth it.
+     */
+    id: 'frames',
+    kind: 'snippet-pack',
+    triggers: {
+      // Phrases, not words: the text searched includes the DESIGN.md, and "forme",
+      // "shape" or "frame" alone are in half of them ("plateforme", "framework").
+      keywords: [
+        'cadre photo', 'cadres photo', 'dans un cadre', 'en forme de', 'image dans une forme', 'photo dans une forme',
+        'masque d', 'écrêtage', 'ecretage', 'clipping mask', 'photo frame', 'picture frame', 'shaped photo', 'shaped image',
+        'photo découpée', 'image découpée', 'blob', 'polaroid', 'collage', 'scrapbook', 'moodboard',
+        'post instagram', 'publication instagram', 'carrousel instagram', 'réseaux sociaux', 'social media post',
+      ],
+      intents: [],
+    },
+    snippets: [{ source: ShapeFrameSource, exports: [...SHAPEFRAME_EXPORTS] }],
+    components: [
+      {
+        name: 'ShapeFrame',
+        signature: '<ShapeFrame shape="blob-3" src="…" alt="…" focus="center" className="w-[420px]" />',
+        description: `A picture cut into a SHAPE, like a clipping mask in an image editor — for social posts, flyers, collages and editorial layouts where a plain rectangle would be dull. \`shape\` is REQUIRED and must be EXACTLY one of: ${FRAME_FAMILIES.map(
+          (f) => `${{ geometric: 'geometric', organic: 'organic', wave: 'waves and edges', photo: 'photo frames' }[f]} — ${FRAME_SHAPES.filter((s) => s.family === f)
+            .map((s) => `"${s.id}"`)
+            .join(', ')}`,
+        ).join('; ')}. The photo frames carry their own paper: "polaroid" a white card with a deep caption margin, "stamp" a perforated stamp, "film" a strip of film, "ticket" notched corners, "bubble" a speech bubble, "tape" two strips of tape on the corners, "deckle" a torn-edged print, "mat" an oval window in a mount. \`src\` is a picture you were GIVEN (the same address you would put in an <img>), never an invented one; without \`src\` the shape is drawn in quiet grey as a placeholder. \`alt\` describes the picture, in the page's language. Give it a WIDTH with Tailwind (\`w-full\`, \`w-[420px]\`): it keeps the proportions the shape was drawn for — unless you also give it a height or an aspect class, and then it is stretched to your box, a circle becoming an oval. Optional: \`focus\` keeps a part of the picture in view ("center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right" — "top" for a face), \`zoom\` 1 to 2, \`rotate\` −30 to 30 degrees for a hand-placed look, \`stroke\` a hex outline with \`strokeWidth\` in px, \`paper\` a hex for a photo frame's card, \`shadow\` for a soft drop shadow that follows the shape. It is a box like an image: place it with your own layout classes, overlap two for a collage, put type beside or over it. Use it where the shape MEANS something — one or two per page, not on every picture — and never draw a shape of your own with an inline <svg> path.`,
+        tags: ['image', 'photo', 'frame', 'mask', 'clip', 'shape', 'blob', 'polaroid', 'collage', 'social'],
       },
     ],
   },

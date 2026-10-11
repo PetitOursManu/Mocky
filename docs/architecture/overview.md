@@ -100,6 +100,7 @@ about the shape of the tag.
 | `three-lib` | cdn-script | none — pulled in by `requires` | `window.THREE`, from `/vendor/three.js` |
 | `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — ten procedural scenes. Declares `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | none — added explicitly | `ScrollSequence`, `PointerSequence` |
+| `frames` | snippet-pack | `cadre photo`, `blob`, `polaroid`, `collage`, `post instagram`…, and every social page format | `ShapeFrame` — a picture cut into one of the 42 shapes of `lib/frameShapes.ts`, by a CSS mask |
 
 
 ### 3D in a page, and the budget that governs it

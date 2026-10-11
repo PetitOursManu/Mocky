@@ -996,6 +996,25 @@ here:
    the picture) and waits on `__mockyStillPending`, because a scene has no real
    box until Tailwind's runtime has applied its classes.
 
+## Pictures in a shape
+
+`<ShapeFrame shape="…" src="…">` cuts a picture into one of 42 shapes, like a
+clipping mask: `src/lib/frameShapes.ts` is the closed catalogue (paths in a
+0–100 box, stretched to the frame, each with the `ratio` it was drawn for), and
+`snippets/ShapeFrame.ts` draws one with a CSS `mask-image` whose image is a
+data: URL of the path. Three things:
+
+1. **The catalogue is the one source.** The preview gets it as JSON inside the
+   snippet, the model's card lists it, and the template export reads the same
+   paths off `data-mocky-frame`. A shape added elsewhere is a shape the export
+   cannot draw.
+2. **The component is not called `Frame`.** `capabilitiesUsedBy` loads a pack
+   when the code names one of its components, and `Frame` is what a model calls
+   its own phone mock-up — the pack's `var` would collide with the screen's
+   `const`.
+3. **A mask, not `clip-path: url(#id)`.** It needs no `<defs>` and no unique id,
+   and the native document rasteriser keeps data: URLs as they are.
+
 ## Maintenance mode and server migration
 
 Admin → Maintenance et migration. User doc: `docs/migration.md`.
