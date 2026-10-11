@@ -21,28 +21,26 @@ const screen = {
 } as unknown as Screen
 
 describe('DocumentDownloadDialog', () => {
-  it('offers the three downloads as buttons, each explained', () => {
+  it('offers the five downloads as buttons, each explained', () => {
     const html = renderToStaticMarkup(<DocumentDownloadDialog screen={screen} onClose={() => {}} />)
     expect(html).toContain('role="dialog"')
-    expect(html).toContain(partsFr['docExport.pdf.title'])
-    expect(html).toContain(partsFr['docExport.pptx.title'])
-    expect(html).toContain(partsFr['docExport.png.title'])
-    expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(3)
+    for (const kind of ['pdf', 'pptx', 'png', 'psd', 'svg']) {
+      expect(html).toContain(partsFr[`docExport.${kind}.title`])
+      expect(html).toContain(`aria-describedby="doc-export-${kind}-help"`)
+    }
+    expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(5)
     // The format the document was made in is named, in words.
     expect(html).toContain(partsFr['docExport.format.a4-landscape'])
   })
 
-  it('offers the template with empty frames only to a document that has a frame', () => {
-    const plain = renderToStaticMarkup(<DocumentDownloadDialog screen={screen} onClose={() => {}} />)
-    expect(plain).not.toContain(partsFr['docExport.frames.heading'])
+  it('says the PowerPoint is the one for Canva, and offers no empty template any more', () => {
     const post = { ...screen, code: 'export default () => <Doc><Page><ShapeFrame shape="arch" src="/x" /></Page></Doc>' }
     const html = renderToStaticMarkup(<DocumentDownloadDialog screen={post} onClose={() => {}} />)
-    expect(html).toContain(partsFr['docExport.frames.heading'])
-    for (const kind of ['frames-png', 'frames-svg', 'frames-pdf', 'frames-psd']) {
-      expect(html).toContain(partsFr[`docExport.${kind}.title`])
-      expect(html).toContain(`aria-describedby="doc-export-${kind}-help"`)
-    }
-    expect(partsEn['docExport.frames-psd.title']).toBeTruthy()
+    expect(partsFr['docExport.pptx.title']).toContain('Canva')
+    expect(partsEn['docExport.pptx.title']).toContain('Canva')
+    // A frame you can refill left the empty one nothing to offer.
+    expect(html).not.toContain('doc-export-frames')
+    expect(html.match(/aria-describedby="doc-export-/g)).toHaveLength(5)
   })
 
   it('promises fillable fields only when the document has some', () => {

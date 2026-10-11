@@ -4,14 +4,16 @@ import { useLang, useT } from '../i18n'
 import type { Screen } from '../lib/project'
 import { DEFAULT_PAGE_FORMAT, getPageFormat } from '../lib/pageFormats'
 import { exportDocument, type ExportKind, type ExportProgress, type RenderNotice } from '../lib/docExport'
-import { documentHasFields, documentHasFrames, startDownload } from '../lib/docExport/files'
+import { documentHasFields, startDownload } from '../lib/docExport/files'
 
 /**
  * Downloading a DOCUMENT screen (lib/pageFormats.ts): PDF with fillable
- * fields, PowerPoint / Google Slides, PNG per page.
+ * fields, PowerPoint / Google Slides / Canva, PNG per page, and the page in
+ * layers for Photoshop and for Figma.
  *
- * Three buttons and nothing to configure, because each output answers a
- * different next step — print it, keep editing it, post it — and the page
+ * Five buttons and nothing to configure, because each output answers a
+ * different next step — print it, keep editing it, post it, finish it in a
+ * layered editor — and the page
  * format was chosen when the document was made. The file is handed to the
  * browser as a download the moment it exists: the print dialog was the other
  * way to get a PDF out of a page, and it is the one the user asked NOT to have
@@ -27,19 +29,8 @@ const KINDS: { kind: ExportKind; icon: IconName; title: string; help: string }[]
   { kind: 'pdf', icon: 'download', title: 'docExport.pdf.title', help: 'docExport.pdf.help' },
   { kind: 'pptx', icon: 'pencil', title: 'docExport.pptx.title', help: 'docExport.pptx.help' },
   { kind: 'png', icon: 'image', title: 'docExport.png.title', help: 'docExport.png.help' },
-]
-
-/**
- * The template: the same document with its `<ShapeFrame>`s left empty, in the
- * formats the editors people finish a post in take (lib/docExport/template.ts).
- * Offered only to a document that HAS a frame — on any other it would be the
- * PNG again under another name.
- */
-const TEMPLATE_KINDS: { kind: ExportKind; icon: IconName; title: string; help: string }[] = [
-  { kind: 'frames-png', icon: 'image', title: 'docExport.frames-png.title', help: 'docExport.frames-png.help' },
-  { kind: 'frames-svg', icon: 'pencil', title: 'docExport.frames-svg.title', help: 'docExport.frames-svg.help' },
-  { kind: 'frames-pdf', icon: 'download', title: 'docExport.frames-pdf.title', help: 'docExport.frames-pdf.help' },
-  { kind: 'frames-psd', icon: 'crop', title: 'docExport.frames-psd.title', help: 'docExport.frames-psd.help' },
+  { kind: 'psd', icon: 'grid', title: 'docExport.psd.title', help: 'docExport.psd.help' },
+  { kind: 'svg', icon: 'crop', title: 'docExport.svg.title', help: 'docExport.svg.help' },
 ]
 
 type State =
@@ -80,7 +71,6 @@ export default function DocumentDownloadDialog({
   const format = getPageFormat(screen.page ?? DEFAULT_PAGE_FORMAT)
   const empty = !screen.code.trim()
   const fields = documentHasFields(screen.code)
-  const frames = documentHasFrames(screen.code)
 
   // Closing the dialog mid-export stops the export: a file that arrives after
   // its dialog has gone is a download nobody asked for any more.
@@ -175,11 +165,11 @@ export default function DocumentDownloadDialog({
     if (n.code === 'assets') return t('docExport.notice.assets', { pages })
     // What survives a page neither renderer could draw depends on the file:
     // the .pptx keeps its editable text, the PDF only its fillable fields (its
-    // text layer is invisible by design), a PNG nothing at all — and a
-    // template, drawn as the PNG is, what the PNG would.
+    // text layer is invisible by design), a PNG nothing at all — and the
+    // layered files, drawn as the PNG is, what the PNG would.
     if (n.code === 'raster') {
       const kind = lastKindRef.current ?? 'pdf'
-      return t(`docExport.notice.raster.${kind.startsWith('frames-') ? 'png' : kind}`, { pages })
+      return t(`docExport.notice.raster.${kind === 'psd' || kind === 'svg' ? 'png' : kind}`, { pages })
     }
     return t('docExport.notice.measure', { pages })
   }
@@ -240,16 +230,6 @@ export default function DocumentDownloadDialog({
       <ul className="mt-4 flex flex-col gap-2">
         {KINDS.map((k) => kindButton(k))}
       </ul>
-
-      {frames && (
-        <section className="mt-5" aria-labelledby="doc-export-frames">
-          <h3 id="doc-export-frames" className="kicker text-accent-ink">
-            {t('docExport.frames.heading')}
-          </h3>
-          <p className="measure mt-1 text-body-sm text-ink-muted">{t('docExport.frames.intro')}</p>
-          <ul className="mt-2 flex flex-col gap-2">{TEMPLATE_KINDS.map((k) => kindButton(k))}</ul>
-        </section>
-      )}
 
       {/* One live region for every outcome, so a screen reader hears the progress and the result. */}
       <div className="mt-4" aria-live="polite">

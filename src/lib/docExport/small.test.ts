@@ -51,13 +51,13 @@ describe('rasterScale', () => {
   it('draws a post at its own pixels to post, and at twice them to edit', () => {
     for (const id of ['social-square', 'social-portrait', 'social-story', 'social-landscape'] as const) {
       expect(rasterScale(getPageFormat(id), 'png'), id).toBe(1)
-      for (const p of ['pdf', 'pptx', 'template'] as const) expect(rasterScale(getPageFormat(id), p), `${id} ${p}`).toBe(SOCIAL_EDIT_SCALE)
+      for (const p of ['pdf', 'pptx', 'layers'] as const) expect(rasterScale(getPageFormat(id), p), `${id} ${p}`).toBe(SOCIAL_EDIT_SCALE)
     }
   })
 
   it('never asks for a canvas above the ceiling', () => {
     for (const f of PAGE_FORMATS) {
-      for (const p of ['pdf', 'pptx', 'png', 'template'] as const) {
+      for (const p of ['pdf', 'pptx', 'png', 'layers'] as const) {
         const s = rasterScale(f, p)
         expect(f.w * s * f.h * s).toBeLessThanOrEqual(MAX_RASTER_PIXELS)
       }

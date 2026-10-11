@@ -1005,9 +1005,9 @@ clipping mask: `src/lib/frameShapes.ts` is the closed catalogue (paths in a
 data: URL of the path. Three things:
 
 1. **The catalogue is the one source.** The preview gets it as JSON inside the
-   snippet, the model's card lists it, and the template export reads the same
-   paths off `data-mocky-frame`. A shape added elsewhere is a shape the export
-   cannot draw.
+   snippet, the model's card lists it, and the exports read the same paths off
+   `data-mocky-frame`. A shape added elsewhere is a shape the exports cannot
+   draw.
 2. **The component is not called `Frame`.** `capabilitiesUsedBy` loads a pack
    when the code names one of its components, and `Frame` is what a model calls
    its own phone mock-up — the pack's `var` would collide with the screen's
@@ -1019,14 +1019,19 @@ data: URL of the path. Three things:
    `<img>` to frame it, and re-reads `caps` because that may be the screen's
    first `<ShapeFrame>`. It never writes a literal over a computed `src`: inside
    a `.map()` that would put one picture on every card.
-5. **The template export draws the page WITHOUT the pictures and puts the
-   frames back as vectors** (`docExport/template.ts`, `render.ts` with
-   `template: true`): the photo layers hidden, each frame measured (centre off
-   the bounding box, size off `offsetWidth`, turn off the computed transform),
-   and its hole cut out of the PNG. Shapes are placed through
-   `frameGeometry.ts`, which rewrites arcs as cubics first — an arc does not
-   survive a stretch followed by a turn. PSD is `ag-psd` (MIT), imported only
-   when that button is clicked, like `pdf-lib`.
+5. **The PSD and the SVG are the page in LAYERS** (`docExport/layers.ts`,
+   render purpose `layers`): the page drawn without what each frame draws, then
+   every frame back above it from the same `carryFrames` reading as the .pptx —
+   its picture in its shape (a layer, a mask group), its outline, tape and
+   shadow. Each frame is measured with its centre off the bounding box, its size
+   off `offsetWidth` and its turn off the computed transform; shapes are placed
+   through `frameGeometry.ts`, which rewrites arcs as cubics first — an arc does
+   not survive a stretch followed by a turn. PSD is `ag-psd` (MIT), imported
+   only when that button is clicked, like `pdf-lib`. They replaced a "template
+   with empty frames" (a PNG with holes, an SVG, a PDF for Canva, a PSD), at the
+   user's request: once the .pptx carried frames Canva refills, an empty frame
+   had nothing to offer that a full one does not. The text stays in the page's
+   picture in both — the .pptx is the file that edits words.
 6. **The .pptx carries each frame as a SHAPE FILLED WITH ITS PICTURE**
    (`carryFrames` in `docExport/frames.ts`), never as a picture cropped to a
    shape: Canva's import kept the picture and dropped the crop — square frames —

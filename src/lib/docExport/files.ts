@@ -113,8 +113,3 @@ export function startDownload(url: string, filename: string): void {
 export function documentHasFields(code: string): boolean {
   return /<Field\b/.test(code) || code.includes(FIELD_ATTR)
 }
-
-/** Whether the document has a picture in a shape — what the template export is for. */
-export function documentHasFrames(code: string): boolean {
-  return /<ShapeFrame\b/.test(code)
-}
