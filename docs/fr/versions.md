@@ -1,7 +1,7 @@
 ---
 description: Enregistrer un projet ou un écran, comparer deux états côte à côte, revenir à n’importe lequel, et essayer une autre direction artistique sur une branche.
 badge: Nouveau
-source_hash: ddb264bb17fc
+source_hash: 5ac0e9bbc219
 ---
 
 # Versions et branches
@@ -67,6 +67,19 @@ cet écran-là et rien d’autre. Il garde sa place sur le canevas et les notes
 écrites dessus depuis. Le `Revenir à la version précédente` ordinaire de l’écran
 l’annule, comme il annule une modification. Un écran supprimé entre-temps revient
 comme un nouvel écran.
+
+## Garder les deux
+
+`Garder à côté`, depuis la comparaison ou l’historique d’un écran, ne restaure
+rien : il ajoute cette version de l’écran sur le canevas, **à droite de l’écran
+actuel**, nommée d’après la version (`Accueil — Claire`). Les deux restent, les
+deux fonctionnent, et vous les comparez quand vous voulez — la façon habituelle
+de peser deux directions artistiques, ou une branche contre la principale, avant
+de choisir.
+
+La copie est faite comme `Dupliquer` : sans les liens, les notes ni la route de
+l’original, pour que la démo n’ait jamais deux écrans qui répondent à la même
+page.
 
 ## Les branches
 

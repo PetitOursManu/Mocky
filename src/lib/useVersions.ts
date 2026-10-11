@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { newId, normalizeScreen, type Project, type Screen } from './project'
+import { newId, normalizeScreen, type AddScreenOptions, type Project, type Screen } from './project'
 import {
   currentBranch,
   deleteBranch,
@@ -51,7 +51,7 @@ export function useVersions({
   onRestoreProject: (version: VersionFull) => void
   onSetBranch: (branch: string | null) => void
   onUpdateScreen: (screenId: string, patch: Partial<Screen>) => void
-  onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
+  onAddScreen: (screen: Omit<Screen, 'x' | 'y'>, opts?: AddScreenOptions) => void
   /**
    * The interface's translator: the automatic labels are written in the
    * person's language at the time, like a note, and so are the refusals.
@@ -151,6 +151,48 @@ export function useVersions({
         return true
       }),
     [getProject, load, onAddScreen, onUpdateScreen, run],
+  )
+
+  /**
+   * Keep a past state of a screen BESIDE the present one: a new screen on the
+   * canvas, right of the current one, holding the version's code — so the two
+   * stay side by side, both live, long after the comparison is closed. Asked
+   * for after a branch comparison: restoring replaces, and the person wanted
+   * both.
+   *
+   * A copy, made the way "Duplicate" makes one: its links and its notes stay
+   * behind (a link pointing where the original pointed is a flow nobody drew),
+   * and so does its route — two screens answering to "cart" would leave the
+   * demo choosing between them.
+   */
+  const keepBeside = useCallback(
+    (versionId: string, screenId: string) =>
+      run(async () => {
+        const v = await load(versionId)
+        const saved = v.screens.find((s) => s.id === screenId)
+        if (!saved) throw new Error(tRef.current('versions.errNoScreen'))
+        const now = getProject().screens.find((s) => s.id === screenId)
+        const {
+          x: _x,
+          y: _y,
+          links: _links,
+          userNotes: _notes,
+          route: _route,
+          ...rest
+        } = normalizeScreen({ ...saved, id: newId() }, 0)
+        const which = v.label || new Date(v.createdAt).toLocaleString()
+        onAddScreen(
+          {
+            ...rest,
+            links: [],
+            name: tRef.current('versions.keptName', { name: now?.name ?? rest.name, version: which }),
+            createdAt: Date.now(),
+          },
+          now ? { beside: now.id } : undefined,
+        )
+        return true
+      }),
+    [getProject, load, onAddScreen, run],
   )
 
   /** Restore a whole version: a screen version restores its screen, a project version the project. */
@@ -260,6 +302,7 @@ export function useVersions({
     saveScreen,
     restore,
     restoreScreen,
+    keepBeside,
     createBranch,
     switchBranch,
     removeBranch,

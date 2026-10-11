@@ -30,7 +30,8 @@ const CURRENT = 'current'
  * Restoring from here restores ONE screen: the comparison is how someone finds
  * the screen they want back, and taking the whole project with it would undo
  * the screens they were happy with. The whole version is restored from the
- * panel, where the list says which one it is.
+ * panel, where the list says which one it is. And "Keep beside" restores
+ * nothing: it adds the past screen next to the present one, so both stay.
  */
 export default function VersionCompare({
   api,
@@ -172,18 +173,38 @@ export default function VersionCompare({
           )}
         </div>
         {s?.version && screen && (
-          <Button
-            size="sm"
-            disabled={busy || api.working}
-            onClick={() => {
-              if (confirm(t('versions.restoreScreenConfirm', { name: screen.name ?? '' }))) {
-                void api.restoreScreen(s.version!.id, screen.id)
-              }
-            }}
-          >
-            <Icon name="undo" size={14} />
-            {t('versions.restoreThisScreen')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {/* Both screens on the canvas, the past one right of the present:
+                what a comparison is for when neither should win yet. */}
+            <Button
+              size="sm"
+              variant="primary"
+              className="flex-1"
+              disabled={busy || api.working}
+              title={t('versions.keepBesideTitle')}
+              onClick={() => {
+                void api.keepBeside(s.version!.id, screen.id).then((ok) => {
+                  if (ok) onClose()
+                })
+              }}
+            >
+              <Icon name="copy" size={14} />
+              {t('versions.keepBeside')}
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={busy || api.working}
+              onClick={() => {
+                if (confirm(t('versions.restoreScreenConfirm', { name: screen.name ?? '' }))) {
+                  void api.restoreScreen(s.version!.id, screen.id)
+                }
+              }}
+            >
+              <Icon name="undo" size={14} />
+              {t('versions.restoreThisScreen')}
+            </Button>
+          </div>
         )}
       </div>
     )

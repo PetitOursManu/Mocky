@@ -56,6 +56,10 @@ export const versions = {
       'Revenir à « {label} » ? L’état actuel est enregistré automatiquement avant, vous pourrez y revenir.',
     'versions.restoreScreenConfirm': 'Remettre l’écran « {name} » dans cet état ? « Annuler » sur l’écran le défait.',
     'versions.restoreThisScreen': 'Restaurer cet écran',
+    'versions.keepBeside': 'Garder à côté',
+    'versions.keepBesideTitle':
+      'Ajoute cette version de l’écran sur le canevas, à droite de l’écran actuel : les deux restent, et vous les comparez quand vous voulez.',
+    'versions.keptName': '{name} — {version}',
     'versions.rename': 'Renommer la version',
     'versions.renamePrompt': 'Nom de la version :',
     'versions.delete': 'Supprimer la version',
@@ -132,6 +136,10 @@ export const versions = {
       'Go back to “{label}”? The current state is saved automatically first, so you can return to it.',
     'versions.restoreScreenConfirm': 'Put the “{name}” screen back in this state? “Revert” on the screen undoes it.',
     'versions.restoreThisScreen': 'Restore this screen',
+    'versions.keepBeside': 'Keep beside',
+    'versions.keepBesideTitle':
+      'Adds this version of the screen to the canvas, right of the current screen: both stay, and you compare them whenever you like.',
+    'versions.keptName': '{name} — {version}',
     'versions.rename': 'Rename the version',
     'versions.renamePrompt': 'Version name:',
     'versions.delete': 'Delete the version',

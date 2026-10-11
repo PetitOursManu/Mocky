@@ -55,6 +55,7 @@ import VersionsPanel from './VersionsPanel'
 import VersionCompare, { type CompareSource } from './VersionCompare'
 import ScreenHistoryDialog from './ScreenHistoryDialog'
 import { useVersions } from '../lib/useVersions'
+import type { AddScreenOptions } from '../lib/project'
 import ReviewPanel from './ReviewPanel'
 import type { ProjectReviewState } from '../lib/review'
 import type { DemoScenario } from '../lib/flows'
@@ -247,7 +248,7 @@ export default function ProjectView({
   plan = 'standard',
 }: {
   project: Project
-  onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
+  onAddScreen: (screen: Omit<Screen, 'x' | 'y'>, opts?: AddScreenOptions) => void
   onUpdateScreen: (screenId: string, patch: Partial<Screen>) => void
   onRemoveScreen: (screenId: string) => void
   onOpenSettings: () => void
@@ -725,7 +726,13 @@ export default function ProjectView({
     onRestoreProject: onRestoreVersion,
     onSetBranch,
     onUpdateScreen,
-    onAddScreen,
+    // Shown once added, like any new screen: a version kept beside its present
+    // is the thing the person wants to look at next. `setFocus` is read when it
+    // is called, after this render has declared it.
+    onAddScreen: (screen, opts) => {
+      onAddScreen(screen, opts)
+      setFocus({ screenId: screen.id, nonce: Date.now() })
+    },
     t,
     enabled: rightSlot === 'versions' || historyScreenId !== null || compare !== null,
   })
@@ -756,8 +763,8 @@ export default function ProjectView({
    * the frame shows its progress while it is written.
    */
   const addScreenAndShow = useCallback(
-    (screen: Parameters<typeof onAddScreen>[0]) => {
-      onAddScreen(screen)
+    (screen: Parameters<typeof onAddScreen>[0], opts?: AddScreenOptions) => {
+      onAddScreen(screen, opts)
       setFocus({ screenId: screen.id, nonce: Date.now() })
     },
     [onAddScreen],

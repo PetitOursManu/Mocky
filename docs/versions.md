@@ -61,6 +61,17 @@ that one screen and nothing else. It keeps where the screen sits on the canvas
 and the notes written on it since. The ordinary `Revert` on the screen undoes
 it, like it undoes an edit. A screen deleted since comes back as a new screen.
 
+## Keeping both
+
+`Keep beside`, from the comparison or a screen's history, restores nothing: it
+adds that version of the screen to the canvas, **right of the current one**,
+named after the version (`Home — Light`). Both stay, both work, and you compare
+them whenever you like — the usual way to weigh two art directions, or a branch
+against the main one, before choosing.
+
+The copy is made like `Duplicate`: without the links, the notes or the route of
+the original, so the demo never has two screens answering to the same page.
+
 ## Branches
 
 A branch is another line of versions of the same project. The usual case:

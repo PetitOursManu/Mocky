@@ -79,6 +79,19 @@ export default function ScreenHistoryDialog({
               <Button
                 size="sm"
                 disabled={busy || api.working}
+                title={t('versions.keepBesideTitle')}
+                onClick={() => {
+                  void api.keepBeside(v.id, screen.id).then((ok) => {
+                    if (ok) onClose()
+                  })
+                }}
+              >
+                <Icon name="copy" size={14} />
+                {t('versions.keepBeside')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={busy || api.working}
                 onClick={() => {
                   if (confirm(t('versions.restoreScreenConfirm', { name: screen.name }))) void api.restoreScreen(v.id, screen.id)
                 }}

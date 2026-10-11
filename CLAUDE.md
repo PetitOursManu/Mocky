@@ -1241,6 +1241,8 @@ Three things that will bite you:
    sync merges by union, and a screen merely dropped comes back from the
    server's copy. The project's NAME is not restored; a screen restore keeps the
    screen's place and its notes, and sets `previousCode` so Revert undoes it.
+   "Keep beside" (`keepBeside`) restores nothing: it adds the version as a COPY
+   right of the screen (`placeBeside`), without links, notes or route.
 
 ## Sending a project for approval
 

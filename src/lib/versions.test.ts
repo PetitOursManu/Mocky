@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { Project, Screen } from './project'
+import { placeBeside, type Project, type Screen } from './project'
 import {
   branchesOf,
   currentBranch,
@@ -171,5 +171,26 @@ describe('comparing', () => {
       { designHash: 'd2', screens: [{ id: 'a', name: '', codeHash: '1' }, { id: 'b', name: '', codeHash: 'X' }, { id: 'd', name: '', codeHash: '4' }] },
     )
     expect(d).toEqual({ added: ['d'], removed: ['c'], changed: ['b'], same: ['a'], designChanged: true })
+  })
+})
+
+describe('a version kept beside its screen', () => {
+  const box = (x: number, y: number, w = 1000, h = 700) => ({ x, y, w, h })
+
+  it('goes right of the screen when that spot is free', () => {
+    const anchor = box(0, 0)
+    expect(placeBeside([anchor], anchor, 1000, 700)).toEqual({ x: 1400, y: 0 })
+  })
+
+  it('goes below when the right is taken, and somewhere free when both are', () => {
+    const anchor = box(0, 0)
+    const right = box(1400, 0)
+    expect(placeBeside([anchor, right], anchor, 1000, 700)).toEqual({ x: 0, y: 780 })
+    const below = box(0, 780)
+    const at = placeBeside([anchor, right, below], anchor, 1000, 700)
+    for (const b of [anchor, right, below]) {
+      const overlaps = at.x < b.x + b.w && at.x + 1000 > b.x && at.y < b.y + b.h && at.y + 700 > b.y
+      expect(overlaps).toBe(false)
+    }
   })
 })

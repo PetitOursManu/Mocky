@@ -32,10 +32,12 @@ later — the version is in the [Versions](versions.md) panel like any other.
 
 The link opens a page with the project's screens and nothing else of Mocky:
 
-- `Navigate` — the screens work like a site; the links you drew between screens
-  are followed.
-- `Comment` — a click on a screen drops a **numbered pin**, and the comment is
-  attached to it. `General remarks` takes comments about the whole project.
+- The screens **work like a site**: buttons, the links you drew between
+  screens, forms.
+- `Pin a remark`, then a click on the screen, drops a **numbered pin** there,
+  and the comment written next is attached to it. The screen works again right
+  after. A comment written without a pin is about the whole screen;
+  `General remarks` takes comments about the whole project.
 - `Approve` or `Ask for changes`, at the top. Asking for changes requires
   saying what should change.
 

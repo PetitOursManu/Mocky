@@ -1,7 +1,7 @@
 ---
 description: Envoyer un projet à un client avec un lien sans compte ; il épingle des commentaires sur les écrans, puis l’approuve ou demande des modifications.
 badge: Nouveau
-source_hash: 9dabb9f252a0
+source_hash: 999a5840072e
 ---
 
 # Envoyer un projet en validation
@@ -35,11 +35,12 @@ tard — la version est dans le panneau [Versions](versions.md) comme les autres
 
 Le lien ouvre une page avec les écrans du projet et rien d’autre de Mocky :
 
-- `Naviguer` — les écrans fonctionnent comme un site ; les liens que vous avez
-  tracés entre les écrans sont suivis.
-- `Commenter` — un clic sur un écran pose une **épingle numérotée**, et le
-  commentaire y est attaché. `Remarques générales` reçoit les commentaires sur
-  l’ensemble du projet.
+- Les écrans **fonctionnent comme un site** : boutons, liens que vous avez
+  tracés entre les écrans, formulaires.
+- `Épingler une remarque`, puis un clic sur l’écran, y pose une **épingle
+  numérotée**, et le commentaire écrit ensuite y est attaché. L’écran refonctionne
+  juste après. Un commentaire écrit sans épingle porte sur tout l’écran ;
+  `Remarques générales` reçoit les commentaires sur l’ensemble du projet.
 - `Approuver` ou `Demander des modifications`, en haut. Demander des
   modifications oblige à dire ce qui doit changer.
 

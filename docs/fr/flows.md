@@ -1,7 +1,7 @@
 ---
 description: Des prototypes qui marchent — formulaires qui modifient les données, connexion simulée, vrais filtres, panier partagé entre les écrans — avec les écrans suivants créés pour vous, et des scénarios de démonstration.
 badge: Nouveau
-source_hash: d5be9367b768
+source_hash: 744d4b97878b
 ---
 
 # Des prototypes qui fonctionnent
@@ -90,6 +90,6 @@ Les écrans s’ouvrent les uns les autres par **route** — un nom court comme
 ## Dans le lien de validation et l’export
 
 Le client qui ouvre un [lien de validation](review.md) peut essayer le parcours
-lui aussi : en `Naviguer`, la connexion et le panier fonctionnent comme en démo.
+lui aussi : la connexion et le panier fonctionnent comme en démo.
 Dans un [projet exporté](interface.md#la-barre-doutils-du-projet), les écrans
 partagent les mêmes données et s’ouvrent par route.

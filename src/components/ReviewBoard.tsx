@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Banner, Button, Icon, Input, Segmented, Textarea } from '../ui'
+import { Banner, Button, Icon, Input, Textarea } from '../ui'
 import { useLang, useT } from '../i18n'
 import ScreenFit from './ScreenFit'
 import { resolveRoute } from '../lib/flows'
@@ -27,9 +27,12 @@ type Target = string | null
  * resolved (the owner's call), and whether a closed round takes anything (the
  * owner may still answer on it).
  *
- * Two ways to use the screen, one at a time: NAVIGATE, where the preview is
- * live and the links between screens are followed as in the demo; and COMMENT,
- * where a click drops a pin instead. A click cannot mean both.
+ * The screen is LIVE by default: its buttons, its links, its forms work, as in
+ * the demo. Pinning is one gesture, not a mode: "Pin a remark" arms the NEXT
+ * click on the screen, which drops the pin, and the screen is live again. It
+ * was a "Navigate / Comment" switch first, and the person who tried it could
+ * not tell what the two words were for — a mode is a state somebody has to
+ * know they are in, and a click that pins is something they asked for just now.
  */
 export default function ReviewBoard({
   view,
@@ -52,7 +55,8 @@ export default function ReviewBoard({
   const t = useT()
   const [lang] = useLang()
   const [target, setTarget] = useState<Target>(view.screens[0]?.id ?? null)
-  const [tool, setTool] = useState<'navigate' | 'comment'>('navigate')
+  /** "Pin a remark" was pressed: the next click on the screen drops the pin. */
+  const [placing, setPlacing] = useState(false)
   const [pin, setPin] = useState<{ x: number; y: number } | null>(null)
   const [draft, setDraft] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
@@ -81,7 +85,18 @@ export default function ReviewBoard({
   useEffect(() => {
     setPin(null)
     setReplyTo(null)
+    setPlacing(false)
   }, [target])
+
+  // Escape puts the screen back to work without a pin.
+  useEffect(() => {
+    if (!placing) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPlacing(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [placing])
 
   async function send(input: Parameters<typeof onComment>[0], after: () => void) {
     setSending(true)
@@ -178,40 +193,42 @@ export default function ReviewBoard({
       {/* The screen */}
       <section className="flex min-h-[50vh] min-w-0 flex-1 flex-col gap-2 lg:min-h-0">
         {screen && (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Segmented
-              label={t('review.toolLabel')}
-              value={tool}
-              onChange={(v) => {
-                if (!v) return
-                setTool(v)
-                if (v === 'navigate') setPin(null)
-              }}
-              options={[
-                { value: 'navigate', label: t('review.toolNavigate'), title: t('review.toolNavigateTitle') },
-                { value: 'comment', label: t('review.toolComment'), title: t('review.toolCommentTitle') },
-              ]}
-            />
-            {tool === 'comment' && !screen.page && (
-              <span className="text-caption text-ink-faint">{t('review.clickToPin')}</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {canWrite && !screen.page && (
+              <Button
+                size="sm"
+                variant={placing ? 'ghost' : 'primary'}
+                aria-pressed={placing}
+                title={t('review.pinButtonTitle')}
+                onClick={() => setPlacing((v) => !v)}
+              >
+                <Icon name={placing ? 'close' : 'pin'} size={15} />
+                {t(placing ? 'review.pinCancel' : 'review.pinButton')}
+              </Button>
             )}
+            <span className="min-w-0 flex-1 text-caption text-ink-muted">
+              {t(placing ? 'review.placingHint' : canWrite && !screen.page ? 'review.howTo' : 'review.howToReadOnly')}
+            </span>
           </div>
         )}
         {/* A fixed height below lg: the column has only a minimum there, and a
             box whose height is a percentage of a minimum measures zero. */}
-        <div className="relative h-[60vh] min-h-0 bg-sunken p-2 lg:h-auto lg:flex-1">
+        <div
+          className={`relative h-[60vh] min-h-0 bg-sunken p-2 lg:h-auto lg:flex-1 ${placing ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
+        >
           {screen ? (
             <ScreenFit
               key={flowNonce}
               screen={asScreen(screen)}
-              flow={tool === 'navigate' ? flow : undefined}
+              flow={flow}
               animations={screen.animations}
-              demoLinks={tool === 'navigate' ? demoLinks : undefined}
+              demoLinks={demoLinks}
               onNavigate={(id) => setTarget(id)}
               onOverlayClick={
-                tool === 'comment' && canWrite && !screen.page
+                placing && canWrite && !screen.page
                   ? (at) => {
                       setPin(at)
+                      setPlacing(false)
                       // The field the pin's comment is written in. `Textarea` passes no ref.
                       document.getElementById('review-draft')?.focus()
                     }

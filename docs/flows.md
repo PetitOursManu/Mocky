@@ -83,7 +83,7 @@ name (a screen called "Cart" answers to `cart`).
 
 ## In the approval link and the export
 
-The client who opens an [approval link](review.md) can try the flow too: in
-`Navigate`, signing in and filling the cart work as in the demo. In an
+The client who opens an [approval link](review.md) can try the flow too:
+signing in and filling the cart work as in the demo. In an
 [exported project](interface.md#the-project-toolbar), the screens share the same
 data and open each other by route.

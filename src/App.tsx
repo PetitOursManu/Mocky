@@ -635,7 +635,7 @@ function MockyApp() {
             key={activeProject.id}
             project={activeProject}
             plan={account?.plan === 'free' ? 'free' : 'standard'}
-            onAddScreen={(screen) => addScreen(activeProject.id, screen)}
+            onAddScreen={(screen, opts) => addScreen(activeProject.id, screen, opts)}
             onUpdateScreen={(sid, patch) => updateScreen(activeProject.id, sid, patch)}
             onRemoveScreen={(sid) => removeScreen(activeProject.id, sid)}
             onOpenSettings={() => navigate('settings')}
