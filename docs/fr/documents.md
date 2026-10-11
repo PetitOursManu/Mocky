@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 1aa47b5cb539
+source_hash: 9d425aaa32cf
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -142,7 +142,7 @@ trois boutons :
 
 | Bouton | Ce que vous obtenez | Pour |
 |---|---|---|
-| `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — en résolution d’impression pour le papier, à ses propres pixels pour un post — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
+| `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — en résolution d’impression pour le papier, au double de ses pixels pour un post afin qu’il reste net dans un logiciel — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
 | `PowerPoint / Google Slides (.pptx) — textes modifiables` | Une diapositive par page : le dessin en image, et chaque texte en zone de texte modifiable par-dessus. Déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
 | `Images PNG` | Une image par page, dans un `.zip` quand il y en a plusieurs. Un post sort exactement aux pixels de son format. | Publier. |
 
@@ -176,7 +176,9 @@ qu'elle est dessinée, avec chaque cadre vide et nommé d'après sa forme
 | `PSD — Photoshop` | Un calque pour la page, un par cadre, à la forme du cadre. Placez une photo au-dessus d'un cadre, puis Alt + clic entre les deux calques : un masque d'écrêtage. | Photoshop, Photopea. |
 
 Un document de plusieurs pages donne un fichier par page, dans un `.zip`, sauf
-le PDF, qui les garde ensemble. Dans un gabarit, le texte fait partie de l'image
+le PDF, qui les garde ensemble. Le gabarit d'un post est dessiné au double de ses
+pixels, pour rester net quand le logiciel l'affiche en grand ou que vous zoomez
+pour placer une photo. Dans un gabarit, le texte fait partie de l'image
 de la page ; pour modifier les mots, prenez le téléchargement PowerPoint.
 
 ---

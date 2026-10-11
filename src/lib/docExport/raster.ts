@@ -7,7 +7,16 @@ import type { Rgba } from './types'
  */
 
 /** What the picture is for. Each wants a different trade between weight and sharpness. */
-export type RasterPurpose = 'pdf' | 'pptx' | 'png'
+export type RasterPurpose = 'pdf' | 'pptx' | 'png' | 'template'
+
+/**
+ * A social page drawn to be WORKED ON rather than posted — the PDF, the .pptx
+ * and the template with empty frames — is drawn at twice the platform's pixels.
+ * At 1× a 1080-px post imported into Canva was "un peu flou" on the first
+ * screen that showed it larger than 1080 px, and zooming in to place a photo in
+ * a frame showed it worse. The PNG stays at 1×: that one IS the post.
+ */
+export const SOCIAL_EDIT_SCALE = 2
 
 /**
  * ~250 dpi for paper. A CSS pixel is 1/96 in, so that is a scale of 2.6: an A4
@@ -39,9 +48,11 @@ export const MAX_RASTER_PIXELS = 12_000_000
 export function rasterScale(format: Pick<PageFormat, 'w' | 'h' | 'kind'>, purpose: RasterPurpose): number {
   // A social image is already in the platform's own pixels: 1× IS the file
   // Instagram or LinkedIn asks for, and 2× would be downscaled by them anyway.
-  if (format.kind === 'social') return 1
-  const wanted = format.kind === 'slides' ? SLIDES_SCALE : purpose === 'pptx' ? 2 : PRINT_DPI / 96
+  // Every OTHER file of a post is opened in an editor (SOCIAL_EDIT_SCALE).
+  if (format.kind === 'social' && purpose === 'png') return 1
   const cap = Math.sqrt(MAX_RASTER_PIXELS / Math.max(1, format.w * format.h))
+  if (format.kind === 'social') return Math.min(SOCIAL_EDIT_SCALE, cap)
+  const wanted = format.kind === 'slides' ? SLIDES_SCALE : purpose === 'pptx' ? 2 : PRINT_DPI / 96
   return Math.max(0.25, Math.min(wanted, cap))
 }
 

@@ -59,9 +59,10 @@ export async function exportDocument(screen: Screen, kind: ExportKind, opts: Exp
   opts.onProgress?.({ phase: 'render' })
   const template = isTemplate(kind)
   const { pages, notices } = await renderDocument(screen.code, capsForScreen(screen), format, {
-    // The template's page is drawn as the PNG is — at the platform's pixels for
-    // a post — and every format of it is built from that picture.
-    purpose: template ? 'png' : kind,
+    // The template's page is drawn as the PNG is, nothing left out, but at the
+    // resolution of a file someone will edit (raster.ts, SOCIAL_EDIT_SCALE);
+    // every format of it is built from that one picture.
+    purpose: template ? 'template' : kind,
     template,
     signal: opts.signal,
     onPage: (page, total) => opts.onProgress?.({ phase: 'page', page, total }),
