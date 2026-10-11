@@ -48,6 +48,22 @@ The size of a document's pages: A4, A3 or US Letter in portrait or landscape, a 
 
 A link between two screens as the canvas draws it: a line from the element it was placed on to the screen it opens, like a mind map. Faint behind the frames outside link mode; a control you can remove or reconnect inside it.
 
+## Version {#version}
+
+A state of a project, or of one screen, saved on purpose or automatically before it is replaced. Versions are kept on the server, compared side by side, restored, or kept beside the current screen. See [Versions and branches](versions.md).
+
+## Branch {#branch}
+
+Another line of versions of the same project, to try a different art direction without risking the one you had. The main branch always exists. See [Versions and branches](versions.md).
+
+## Approval round {#review}
+
+One sending of a project for approval: a frozen version, an account-free link, the comments pinned on it and the client's decision. The project's status — Draft, In review, Changes requested, Approved — is read from its rounds. See [Sending a project for approval](review.md).
+
+## Flow {#flow}
+
+A path through a working prototype: a form that signs in and leads to an account page, a cart shared between screens. A demo **scenario** starts the demo in a given state, such as a signed-in customer with two items in the cart. See [Working prototypes](flows.md).
+
 ## MCP {#mcp}
 
 The Model Context Protocol, which lets a model call tools. Mocky meets it twice, in opposite directions: Muse **uses** local MCP servers to read reference sites, and Mocky **is** one when an administrator lets assistants connect — Claude or ChatGPT then designs in Mocky for an account. See [Connecting an assistant](mcp.md).

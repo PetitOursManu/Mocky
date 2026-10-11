@@ -65,6 +65,9 @@ real server-side pipeline, and [ADR 001](adr/001-muse.md) explains the reasoning
 - [Inspiration engine](muse/inspiration-engine.md) Follow Discover, Distill and Dossier in detail.
 - [Animations](muse/animations.md) Understand the animation system.
 - [Quality pass](quality.md) Check a generated screen, and correct what the check finds.
+- [Versions and branches](versions.md) Save a state, compare two side by side, go back, try another direction on a branch.
+- [Sending a project for approval](review.md) Send a link that needs no account; the client comments, then approves or asks for changes.
+- [Working prototypes](flows.md) Forms, sign-in, filters and a cart that work in the demo, and the screens a flow leads to.
 - [Motion Ultra](video-export.md) Compose an `.mp4` for a screen out of a catalogue of blocks — and know why its renderer ships separately.
 - [Deployment](deployment.md) Deploy Mocky.
 - [Maintenance and migration](migration.md) Put the instance in read-only mode, or move it to another server.
