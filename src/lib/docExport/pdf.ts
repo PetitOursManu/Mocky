@@ -11,7 +11,7 @@ import { toWinAnsi } from './winAnsi'
  * Why a picture and not vector text: the page is a React + Tailwind design with
  * gradients, blend modes, clipped photographs and web fonts, and the only engine
  * in the browser that draws all of that correctly is the one that drew it. The
- * picture is taken at ~250 dpi (raster.ts), which prints clean. What a picture
+ * picture is taken at ~500 dpi (raster.ts), sharp printed and zoomed in. What a picture
  * loses — selecting, searching, copying, a screen reader — is given back by the
  * invisible layer: each measured line, in Helvetica, stretched to the measured
  * width with the text-rendering mode that draws nothing (`3 Tr`). It is the same

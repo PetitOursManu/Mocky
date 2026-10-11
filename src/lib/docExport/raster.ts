@@ -19,10 +19,9 @@ export type RasterPurpose = 'pdf' | 'pptx' | 'png' | 'layers'
 export const SOCIAL_EDIT_SCALE = 2
 
 /**
- * ~250 dpi for paper. A CSS pixel is 1/96 in, so that is a scale of 2.6: an A4
- * page becomes 2067 × 2924, enough for a flyer printed at home or at a copy shop
- * without the type going soft, and about 6 MP — well inside what a browser will
- * allocate for one canvas.
+ * ~250 dpi for paper, before the PDF doubles it (`PDF_SCALE_FACTOR`). A CSS
+ * pixel is 1/96 in, so that is a scale of 2.6: an A4 page becomes 2067 × 2924,
+ * enough for a flyer printed at home or at a copy shop, and about 6 MP.
  */
 export const PRINT_DPI = 250
 /**
@@ -31,12 +30,43 @@ export const PRINT_DPI = 250
  */
 export const SLIDES_SCALE = 1.5
 /**
- * The ceiling on one canvas, in pixels. iOS Safari refuses a canvas above
- * 16.7 MP and returns a blank one rather than an error, so the ceiling sits well
- * under it. A page larger than any format here would be scaled down to fit it,
- * never refused.
+ * The PDF is drawn at TWICE the scales above — 500 dpi for paper, 3× for a
+ * slide, 4× for a post. At 250 dpi a page was fine on paper and soft on a
+ * screen: a PDF is read zoomed in as often as it is printed, and the type,
+ * which is in the picture, went fuzzy first ("la résolution n'est pas toujours
+ * super", from the user). The .pptx, the PNG and the layered files keep theirs:
+ * each of them already has the scale its destination asks for.
+ */
+export const PDF_SCALE_FACTOR = 2
+
+/**
+ * The ceiling on one canvas, in pixels, where the browser is iOS Safari. It
+ * refuses a canvas above 16.7 MP and returns a blank one rather than an error,
+ * so the ceiling sits well under it. A page larger than the ceiling is scaled
+ * down to fit it, never refused. It is also the default of `rasterScale`, so a
+ * caller that does not say where it runs gets the safe answer.
  */
 export const MAX_RASTER_PIXELS = 12_000_000
+
+/**
+ * The ceiling everywhere else. Desktop Chrome, Firefox and Safari allow canvases
+ * of 268 MP; an A3 page at the PDF's 500 dpi is 48 MP — 190 MB while it is
+ * drawn, released before the next page. The ceiling keeps a format larger than
+ * any here from asking for more.
+ */
+export const MAX_RASTER_PIXELS_DESKTOP = 50_000_000
+
+/**
+ * The ceiling for the browser this runs in: iPhone and iPad keep the low one.
+ * An iPad asking for the desktop site says "Macintosh", so a Mac that reports
+ * touch points is read as one.
+ */
+export function rasterCeiling(nav?: { userAgent?: string; maxTouchPoints?: number } | null): number {
+  if (!nav) return MAX_RASTER_PIXELS
+  const ua = nav.userAgent || ''
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (nav.maxTouchPoints ?? 0) > 1)
+  return ios ? MAX_RASTER_PIXELS : MAX_RASTER_PIXELS_DESKTOP
+}
 
 /**
  * The html2canvas scale for one page of `format`.
@@ -45,14 +75,19 @@ export const MAX_RASTER_PIXELS = 12_000_000
  * Slides recompresses anything large, so it gets 2× on paper rather than 2.6×:
  * a flyer that uploads to Drive in seconds rather than a minute.
  */
-export function rasterScale(format: Pick<PageFormat, 'w' | 'h' | 'kind'>, purpose: RasterPurpose): number {
+export function rasterScale(
+  format: Pick<PageFormat, 'w' | 'h' | 'kind'>,
+  purpose: RasterPurpose,
+  ceiling: number = MAX_RASTER_PIXELS,
+): number {
   // A social image is already in the platform's own pixels: 1× IS the file
   // Instagram or LinkedIn asks for, and 2× would be downscaled by them anyway.
   // Every OTHER file of a post is opened in an editor (SOCIAL_EDIT_SCALE).
   if (format.kind === 'social' && purpose === 'png') return 1
-  const cap = Math.sqrt(MAX_RASTER_PIXELS / Math.max(1, format.w * format.h))
-  if (format.kind === 'social') return Math.min(SOCIAL_EDIT_SCALE, cap)
-  const wanted = format.kind === 'slides' ? SLIDES_SCALE : purpose === 'pptx' ? 2 : PRINT_DPI / 96
+  const cap = Math.sqrt(ceiling / Math.max(1, format.w * format.h))
+  const pdf = purpose === 'pdf' ? PDF_SCALE_FACTOR : 1
+  if (format.kind === 'social') return Math.min(SOCIAL_EDIT_SCALE * pdf, cap)
+  const wanted = format.kind === 'slides' ? SLIDES_SCALE * pdf : purpose === 'pptx' ? 2 : (PRINT_DPI / 96) * pdf
   return Math.max(0.25, Math.min(wanted, cap))
 }
 
