@@ -6,6 +6,7 @@ import {
   classifyNativeFailure,
   collectCss,
   cssUrls,
+  inheritedLineHeight,
   inlinePolicy,
   raceAbort,
   relocateMockyMedia,
@@ -111,6 +112,23 @@ describe('urls', () => {
     expect(inlinePolicy('https://tracker.example/pixel.gif', origin)).toBe('refuse')
     expect(inlinePolicy('blob:https://elsewhere.example/4f1c', origin)).toBe('refuse')
     expect(inlinePolicy('not a url', origin)).toBe('refuse')
+  })
+})
+
+describe('inheritedLineHeight', () => {
+  it('pins Tailwind’s unitless 1.5 as a number, so a larger item gets a taller line', () => {
+    // The parent computes 24px at 16px; a probe at 32px reads 48px: a number is inherited.
+    expect(inheritedLineHeight('24px', '16px', '48px')).toBe('1.5')
+    expect(inheritedLineHeight('22.5px', '15px', '45px')).toBe('1.5')
+    expect(inheritedLineHeight('24px', '16px', '1.5')).toBe('1.5')
+  })
+
+  it('keeps a length inherited as a length, and what it cannot tell', () => {
+    expect(inheritedLineHeight('24px', '16px', '24px')).toBe('24px')
+    expect(inheritedLineHeight('normal', '16px', 'normal')).toBe('normal')
+    expect(inheritedLineHeight('24px', '16px', null)).toBe('24px')
+    expect(inheritedLineHeight('24px', '16px', '31px')).toBe('24px')
+    expect(inheritedLineHeight('24px', '0px', '48px')).toBe('24px')
   })
 })
 
