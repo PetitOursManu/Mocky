@@ -231,6 +231,11 @@ A frame keeps the picture's important part in view (a face at the top, for
 instance), and can take an outline, a soft shadow that follows the shape and a
 slight tilt. Without a picture, the shape is drawn in grey as a placeholder.
 
+To change a frame afterwards, right-click the screen, then `Frames…`: a
+frame's shape, picture, framing and shadow, and `Put in a frame` for the
+screen's plain pictures. It edits the screen's code directly, with no call to
+the model, and `Revert` undoes it.
+
 ---
 
 ## In demo mode

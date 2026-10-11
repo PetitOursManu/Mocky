@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 76067c14b336
+source_hash: 5b5afede86c5
 ---
 
 # L’interface
@@ -401,6 +401,7 @@ Le menu d’un document, qui s’ouvre sur ses deux entrées propres :
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg> | `Faire de cet écran mon DESIGN.md` | Lit l’écran et en écrit la direction du projet. Demande confirmation quand une direction existe déjà. | modèle |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Modifier DESIGN.md` | L’éditeur pleine page. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM17.5 4.6l3.3 15.1"/></svg> | `Changer les médias…` | Liste les images réellement présentes dans le code et les remplace, à un endroit ou partout. Sources : la bibliothèque, un import, ou une génération. | libre / image |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/></svg> | `Cadres…` | Change la forme, l’image, le cadrage ou l’ombre de chaque image en forme de l’écran, ou met l’une de ses images dans un cadre. Réécrit la source sans appel au modèle ; `Revenir à la version précédente` l’annule. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg> | `Supprimer l’écran` | Une confirmation. | libre |
 
 ### Les trois groupes de petits boutons
@@ -762,6 +763,7 @@ fait réellement.
 | `Télécharger le document` | La pastille `Télécharger` d’un document, ou `Télécharger…` dans son menu | Trois boutons — PDF, `.pptx`, PNG — et un lien `Enregistrer « {file} »` une fois le fichier prêt, parce qu’un navigateur peut bloquer un deuxième téléchargement automatique. Ce qui n’a pas pu être exporté parfaitement est listé dessous. Voir [Documents](documents.md#telecharger). | libre |
 | `Partager cet écran` | `Partager (QR code)` | Une durée de `1 heure`, `24 heures` ou `7 jours`, un QR code, et `Révoquer`. | serveur |
 | `Médias de « {name} »` | `Changer les médias…` | **Deux sections, jamais une liste.** `Images dans le code de l’écran` : par image, `Remplacer`, ou `Partout ({n})` quand le même fichier apparaît plusieurs fois, ou un emplacement à la fois — cela **réécrit la source**, et `Revenir à la version précédente` l’annule. `Média attaché à l’écran (hors du code)` : un montage ou une séquence à poser sur la carte du canevas, et `Détacher` — cela **ne touche pas au code**. `Importer un fichier` est libre ; `Générer` appelle le fournisseur d’images. | libre / image |
+| `Cadres — {name}` | `Cadres…` | `Les cadres de l’écran` : par cadre, `Forme` ouvre les 42 formes par famille et la grille 3 × 3 du `Cadrage`, `Image` le sélecteur d’images, `Ombre` une case à cocher. `Les images à mettre dans un cadre` : chaque `<img>` à l’adresse écrite, et `Mettre dans un cadre`. Un cadre répété dans une liste change pour tous les éléments, et son image, que le code calcule, reste l’affaire du modèle. | libre |
 
 La carte `Élément`, ouverte en cliquant quelque chose en mode `Modifier`, est le
 seul endroit où trois coûts cohabitent dans un même dialogue :
