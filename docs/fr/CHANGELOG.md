@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `campaign` | un brief décliné en affiche, flyer, post, story (#54) | `7f6c4a6` |
 | — | versions et branches, envoi en validation, prototypes qui fonctionnent (#53) | `659c24e` |
 | `docexport` | PSD et SVG en téléchargement classique, plus de gabarit vide (#52) | `9506663` |
 | `docexport` | les cadres restent des cadres dans le PowerPoint (#49) | `860820a` |
