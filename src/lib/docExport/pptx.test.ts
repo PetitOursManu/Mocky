@@ -8,6 +8,8 @@ import {
   escapeXml,
   fieldBoxXml,
   frameXfrm,
+  custGeomXml,
+  ownBox,
   pptxEntries,
   presentationXml,
   pxToCentipoints,
@@ -19,6 +21,7 @@ import { TINY_JPEG, field, flyerPage, line, style } from './fixtures'
 import type { TextBlock } from './types'
 import type { PptxFrame } from './pptx'
 import { frameShape } from '../frameShapes'
+import { toCubics } from '../frameGeometry'
 
 /**
  * There is no XML parser in the test environment, and a .pptx with one
@@ -209,11 +212,13 @@ describe('a slide', () => {
     expect(fieldBoxXml(field({ type: 'checkbox' }), 9, 'fr-FR')).toBeNull()
   })
 
-  it('gives every shape on a slide its own id, the picture first', () => {
+  it('puts the page in the slide’s background, not on it, and gives every shape its own id', () => {
     const xml = slideXml(flyerPage(0), 'fr-FR')
+    // A full-slide picture is an element: Canva replaced it with a photo dropped a little off its frame.
+    expect(xml).toContain('<p:cSld><p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/>')
+    expect(xml).not.toContain('<p:pic>')
     const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
-    expect(ids).toEqual([1, 2, 3, 4, 5, 6])
-    expect(xml.indexOf('<p:pic>')).toBeLessThan(xml.indexOf('<p:sp>'))
+    expect(ids).toEqual([1, 2, 3, 4, 5])
     expect(wellFormed(xml)).toBeNull()
   })
 })
@@ -254,19 +259,19 @@ describe('a frame on a slide', () => {
 
   it('is a SHAPE filled with its picture — what Canva imports as a frame of that shape', () => {
     const xml = slideXml(flyerPage(0), 'fr-FR', [frame()])
-    const sp = xml.match(/<p:sp><p:nvSpPr><p:cNvPr id="3" name="Cadre 1 — Blob 3"\/>.*?<\/p:sp>/)?.[0] ?? ''
+    const sp = xml.match(/<p:sp><p:nvSpPr><p:cNvPr id="2" name="Cadre 1 — Blob 3"\/>.*?<\/p:sp>/)?.[0] ?? ''
     expect(sp).toContain('<a:custGeom>')
     expect(sp).toContain('<a:path w="10000" h="10000"><a:moveTo>')
     expect(sp).toContain('<a:cubicBezTo>')
     expect(sp).toContain('<a:blipFill rotWithShape="1"><a:blip r:embed="rId3"/><a:stretch><a:fillRect/></a:stretch></a:blipFill>')
     // Not a picture cropped to a shape: Canva kept those square.
-    expect(xml.match(/<p:pic>/g)).toHaveLength(1)
+    expect(xml).not.toContain('<p:pic>')
     expect(wellFormed(xml)).toBeNull()
   })
 
   it('sits over the page and under the words, and the ids stay unique', () => {
     const xml = slideXml(flyerPage(0), 'fr-FR', [frame(), frame({ name: 'Cadre 2' })])
-    expect(xml.indexOf('<p:pic>')).toBeLessThan(xml.indexOf('name="Cadre 1'))
+    expect(xml.indexOf('<p:bg>')).toBeLessThan(xml.indexOf('name="Cadre 1'))
     expect(xml.indexOf('name="Cadre 2"')).toBeLessThan(xml.indexOf('name="Text: '))
     expect(xml).toContain('r:embed="rId4"')
     const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
@@ -298,15 +303,20 @@ describe('a frame on a slide', () => {
     // The outline UNDER the frame, twice as wide: nothing lies over it where a photo is dropped.
     const outline = xml.slice(xml.indexOf('name="Cadre 1 · contour"'))
     expect(outline).toMatch(new RegExp(`^[^]*?<a:noFill/><a:ln w="${pxToEmu(12)}"><a:solidFill><a:srgbClr val="111827">`))
-    expect(xml.indexOf('contour')).toBeLessThan(xml.indexOf('<a:blipFill'))
+    const picture = xml.indexOf('<a:blip r:embed="rId3"/>')
+    expect(xml.indexOf('contour')).toBeLessThan(picture)
     // The tape over it, one shape per strip.
     expect(xml).not.toContain('name="Cadre 1 · ruban"')
     for (const strip of ['Cadre 1 · ruban 1', 'Cadre 1 · ruban 2']) {
       const at = xml.indexOf(`name="${strip}"`)
-      expect(at, strip).toBeGreaterThan(xml.indexOf('<a:blipFill'))
+      expect(at, strip).toBeGreaterThan(picture)
       const one = xml.slice(at, xml.indexOf('</p:sp>', at))
       expect(one).toMatch(/<a:srgbClr val="EFE6CF"><a:alpha val="85000"\/>/)
       expect(one.match(/<a:moveTo>/g)).toHaveLength(1)
+      // In a box of its own, a corner of the frame's: as an element, a strip covers only itself.
+      const [, cx, cy] = one.match(/<a:ext cx="(\d+)" cy="(\d+)"\/>/)!.map(Number)
+      expect(cx).toBeLessThan(pxToEmu(300) / 2)
+      expect(cy).toBeLessThan(pxToEmu(300) / 2)
     }
     const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
     expect(new Set(ids).size).toBe(ids.length)
@@ -327,5 +337,32 @@ describe('a frame on a slide', () => {
     expect(rels).toContain('Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page1-frame1.jpeg"')
     expect(rels).toContain('Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page1-frame2.png"')
     expect(contentTypesXml(1)).toContain('Extension="png" ContentType="image/png"')
+  })
+})
+
+describe('a part of a frame in a box of its own', () => {
+  const tri = toCubics('M60 10L90 10L90 30Z')
+
+  it('takes the part’s bounds in the frame and moves its path to that corner', () => {
+    const own = ownBox(tri, { shape: 'tape', cx: 100, cy: 100, w: 200, h: 100, angle: 0 })!
+    expect(own.w).toBe(30)
+    expect(own.h).toBe(20)
+    expect(own.subs[0].start).toEqual([0, 0])
+    // 60–90 % of 200 px from x = 0, 10–30 % of 100 px from y = 50.
+    expect(own.box).toMatchObject({ cx: 150, cy: 70, w: 60, h: 20, angle: 0 })
+  })
+
+  it('goes where the frame’s turn takes it, and turns with it', () => {
+    const own = ownBox(tri, { shape: 'tape', cx: 100, cy: 100, w: 200, h: 100, angle: 90 })!
+    // Unturned, the centre is 50 px right of the frame's and 30 px above; a quarter turn clockwise puts it 50 px below and 30 px right.
+    expect(own.box.cx).toBeCloseTo(130, 6)
+    expect(own.box.cy).toBeCloseTo(150, 6)
+    expect(own.box.angle).toBe(90)
+  })
+
+  it('writes the path in that box’s own units', () => {
+    expect(custGeomXml(ownBox(tri, { shape: 'tape', cx: 0, cy: 0, w: 100, h: 100, angle: 0 })!.subs, 30, 20)).toContain(
+      '<a:path w="3000" h="2000"><a:moveTo><a:pt x="0" y="0"/></a:moveTo><a:lnTo><a:pt x="3000" y="0"/></a:lnTo>',
+    )
   })
 })
