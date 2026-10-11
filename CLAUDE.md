@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Seven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Eight series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V3 (versions, review, prototypes). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1214,6 +1214,33 @@ Four things that will bite you:
    must not open the door to a model.
 4. **`/mcp` is in maintenance's `ALWAYS_ALLOWED`** because JSON-RPC is POST for
    reads too. Every tool that WRITES checks `maintenance()` itself.
+
+## Versions and branches
+
+Save a project or a screen, compare two states side by side, restore one, and
+try another art direction on a branch. User doc `docs/versions.md`; invariants
+V1–V3.
+
+```
+server/versions.js            the store: per account, code and designs content-addressed
+src/lib/versions.ts           the calls, and restoreProject / restoreScreenPatch (pure, tested)
+src/lib/useVersions.ts        save, restore, branch, switch — each replacement saved first
+src/components/VersionsPanel.tsx / VersionCompare.tsx / ScreenHistoryDialog.tsx
+```
+
+Three things that will bite you:
+
+1. **A version never goes in the projects blob** (V3). The blob lives in a
+   localStorage budget the working copy already fills; versions are on the
+   server, counted by the disk budget. The working copy only knows its branch
+   (`Project.branch`, absent = main).
+2. **Restore and switch save first, and stop if that save fails** (V1) — the
+   one place where Mocky does not degrade. Do not add a replacement path that
+   skips `safetyCopy`.
+3. **A restore tombstones the screens it leaves out** (`removedScreens`): the
+   sync merges by union, and a screen merely dropped comes back from the
+   server's copy. The project's NAME is not restored; a screen restore keeps the
+   screen's place and its notes, and sets `previousCode` so Revert undoes it.
 
 ## Conventions
 

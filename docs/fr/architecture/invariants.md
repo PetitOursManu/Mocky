@@ -1,5 +1,5 @@
 ---
-source_hash: 2e581aed39a2
+source_hash: 1ca6baca4977
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a sept séries :
+Il y a huit séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -22,6 +22,7 @@ Il y a sept séries :
 - **D1 à D6**, apportés par le tableau de bord d’administration.
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
+- **V1 à V3**, apportés par les versions et les branches.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1168,6 +1169,66 @@ refusé, l'interrupteur), `server/own-text-routes.test.js` (l'appel part là où
 navigateur le dit et aucun fournisseur de l'instance ne l'entend, aucun quota
 dépensé, la clé absente de la liste d'administration et de `users.json`, l'option
 fermée puis rouverte).
+
+---
+
+## Série V — versions, validation et prototypes
+
+Elles sont venues avec les versions et les branches ([leur page](../versions.md)).
+Chacune porte sur le moment où une copie du projet de quelqu'un est faite,
+gardée ou remise en place.
+
+### V1. Rien ne remplace la copie de travail avant qu'elle soit enregistrée
+
+**La règle.** Une restauration et un changement de branche écrasent tous deux le
+projet du canevas. Chacun enregistre d'abord cette copie de travail comme version
+automatique sur sa branche (`useVersions`, `safetyCopy`), et si cet
+enregistrement échoue, la restauration n'a pas lieu. Le magasin répond
+`unchanged` au lieu d'écrire un double quand l'état est déjà la version la plus
+récente de la branche.
+
+**Ce que ça protège.** L'état dans lequel la personne était. C'est le seul
+endroit de Mocky où un échec ARRÊTE l'action au lieu d'être signalé à côté :
+dégrader ici voudrait dire « remplacer le projet sans la copie », la perte même
+que la fonctionnalité existe pour empêcher.
+
+**Comment c'est vérifié.** `server/versions.test.js` (la réponse `unchanged`, la
+branche à laquelle elle se limite), et les règles de restauration dans
+`src/lib/versions.test.ts`.
+
+### V2. Une version appartient à son propriétaire, et ne se trouve que dans son index
+
+**La règle.** Toutes les routes de versions exigent une session, et le magasin
+cherche une version dans l'index de l'APPELANT (`versions/<compte>/index.json`) :
+l'identifiant d'un autre compte répond 404 exactement comme un identifiant
+inconnu. Les blobs sont par compte, jamais partagés dans l'instance ; supprimer
+un compte supprime son répertoire.
+
+**Ce que ça protège.** Une version est une copie du projet entier de quelqu'un.
+L'identifiant est aléatoire, mais un identifiant n'est pas un secret, et rien
+dans une version ne doit reposer sur le fait que personne n'en devine un.
+
+**Comment c'est vérifié.** `server/versions.test.js` (« whose versions they
+are »).
+
+### V3. Les versions ne voyagent jamais dans le blob des projets
+
+**La règle.** Les versions vivent dans `server/versions.js`, adressées par leur
+contenu, par compte, et comptées dans le budget disque. La copie de travail
+n'en porte qu'un nom — la branche sur laquelle elle est (`Project.branch`) — et
+rien d'autre. Une restauration qui laisse des écrans de côté les MARQUE comme
+supprimés (`removedScreens`), parce que la synchronisation fusionne par union et
+les rendrait.
+
+**Ce que ça protège.** Le budget localStorage que la copie de travail sollicite
+déjà (`reportStorageFailure`) : des versions à l'intérieur feraient de
+l'enregistrement d'une version la première chose à casser tout enregistrement.
+Et la restauration elle-même, qu'une fusion déferait sinon quelques secondes
+plus tard.
+
+**Comment c'est vérifié.** `src/lib/versions.test.ts` (un projet restauré,
+fusionné avec la copie plus ancienne du serveur, garde exactement les écrans
+restaurés).
 
 ---
 

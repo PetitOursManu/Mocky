@@ -5,6 +5,7 @@ import { extractProductName } from './design'
 import { normalizeNotes, type ScreenNote } from './screenNotes'
 import type { SiteRefMode } from './siteReference'
 import { normalizePageFormat, type PageFormatId } from './pageFormats'
+import { normalizeBranch, restoreProject, MAIN_BRANCH, type VersionFull } from './versions'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -341,6 +342,16 @@ export interface Project {
    * like a project's own tombstone.
    */
   removedScreens?: Record<string, number>
+  /**
+   * The branch this working copy is on (`lib/versions.ts`). Absent means the
+   * main one — what every project made before branches says, and what most
+   * projects keep saying. A NAME, like `folder`: a branch is the versions that
+   * carry it on the server, and nothing here keeps a registry of them.
+   *
+   * On Project for the reason `folder` is: the projects blob travels as an
+   * opaque string and `loadProjects` spreads `...p`.
+   */
+  branch?: string
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -1139,6 +1150,33 @@ export function useProjects() {
     )
   }, [])
 
+  /**
+   * Put a project on another branch without touching its screens — what
+   * "New branch" does: the working copy IS the new branch's starting point.
+   */
+  const setProjectBranch = useCallback((projectId: string, branch: string | null) => {
+    const wanted = normalizeBranch(branch)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        if ((normalizeBranch(p.branch) || MAIN_BRANCH) === (wanted || MAIN_BRANCH)) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (wanted && wanted !== MAIN_BRANCH) next.branch = wanted
+        else delete next.branch
+        return next
+      }),
+    )
+  }, [])
+
+  /**
+   * Turn the working copy into a saved version — a restore, or the head of the
+   * branch being switched to. The rules are `restoreProject`'s; the caller has
+   * already saved what was there (`lib/versions.ts`).
+   */
+  const restoreProjectVersion = useCallback((projectId: string, version: VersionFull) => {
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? restoreProject(p, version) : p)))
+  }, [])
+
   return {
     projects,
     createProject,
@@ -1152,5 +1190,7 @@ export function useProjects() {
     updateScreen,
     removeScreen,
     setReferenceScreen,
+    setProjectBranch,
+    restoreProjectVersion,
   }
 }

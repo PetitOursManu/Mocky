@@ -37,6 +37,7 @@ import { createLockout } from './auth-lockout.js'
 import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
+import { createVersionStore } from './versions.js'
 import { mergeStoredProjects } from './merge.js'
 import { createDataEvents } from './data-events.js'
 import { createMcpServerRoutes } from './mcp/routes.js'
@@ -131,6 +132,9 @@ const diskBudget = createDiskBudget({
     path.join(DATA_DIR, 'image-library'),
     path.join(DATA_DIR, 'video-library'),
     path.join(DATA_DIR, 'video-exports'),
+    // Saved versions of projects (server/versions.js): each one is a copy of
+    // screens' code, so a person saving versions in a loop fills the same disk.
+    path.join(DATA_DIR, 'versions'),
   ],
 })
 
@@ -238,6 +242,7 @@ function instanceTextTarget(user, profile = 'generation') {
 // ---- share links ----
 // Kept next to the other stores: same directory, same atomic-write discipline.
 const shares = createShareStore(DATA_DIR)
+const versions = createVersionStore(DATA_DIR, { budget: diskBudget })
 const dataEvents = createDataEvents()
 const runnerAuth = createRunnerAuth()
 
@@ -1984,6 +1989,8 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   // it otherwise — a deleted user's screens would stay readable by anyone
   // holding a link, which is not what "delete this account" means to anybody.
   shares.revokeAllFor(id)
+  // And their saved versions: a copy of every project they versioned.
+  versions.removeAllFor(id)
   // And the assistants it let in: a token must not outlive its account.
   mcpServer.onUserDeleted(id)
   res.json({ ok: true })
@@ -2028,6 +2035,46 @@ app.get('/api/share/:token', (req, res) => {
   // Never cached: the whole point is that it stops working on time.
   res.setHeader('Cache-Control', 'no-store')
   res.json(snap)
+})
+
+// ---- versions and branches (server/versions.js) ----
+//
+// All of it behind a session and all of it scoped to the caller: a version is
+// a copy of someone's project, and the id alone must never be enough to read
+// another account's. The store looks versions up in the caller's own index, so
+// a guessed id answers 404 exactly like an unknown one.
+app.get('/api/versions', requireUser, (req, res) => {
+  res.json({ versions: versions.list(req.user.id, String(req.query.projectId || '')) })
+})
+
+app.post('/api/versions', requireUser, authRateLimit(60, 60_000, 'versions'), (req, res) => {
+  try {
+    res.json(versions.create(req.user.id, req.body || {}))
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.get('/api/versions/:id', requireUser, (req, res) => {
+  const v = versions.get(req.user.id, req.params.id)
+  if (!v) return res.status(404).json({ error: 'Version not found.' })
+  res.json(v)
+})
+
+app.patch('/api/versions/:id', requireUser, (req, res) => {
+  const v = versions.rename(req.user.id, req.params.id, req.body?.label)
+  if (!v) return res.status(404).json({ error: 'Version not found.' })
+  res.json({ version: v })
+})
+
+app.delete('/api/versions/:id', requireUser, (req, res) => {
+  res.json({ removed: versions.remove(req.user.id, req.params.id) })
+})
+
+/** A whole branch: every version of it, which is what makes it stop existing. */
+app.delete('/api/versions', requireUser, (req, res) => {
+  const projectId = String(req.query.projectId || '')
+  res.json({ removed: versions.removeBranch(req.user.id, projectId, String(req.query.branch || '')) })
 })
 
 // ---- per-user data (projects + design) ----

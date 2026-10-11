@@ -51,6 +51,11 @@ import DemoPlayer from './DemoPlayer'
 import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
 import ShareDialog from './ShareDialog'
+import VersionsPanel from './VersionsPanel'
+import VersionCompare, { type CompareSource } from './VersionCompare'
+import ScreenHistoryDialog from './ScreenHistoryDialog'
+import { useVersions } from '../lib/useVersions'
+import { currentBranch, type VersionFull } from '../lib/versions'
 import ScreenNotesDialog from './ScreenNotesDialog'
 import { SaveDesignDialog } from './DesignLibrary'
 import DesignSpecSheet from './DesignSpecSheet'
@@ -222,6 +227,8 @@ export default function ProjectView({
   onRenameProject,
   onSetDesign,
   onSetUltra,
+  onRestoreVersion,
+  onSetBranch,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -240,6 +247,10 @@ export default function ProjectView({
   onSetDesign: (markdown: string | null) => void
   /** Switch Motion Ultra on for this project (with its picture count), or off with null. */
   onSetUltra: (ultra: ProjectUltra | null) => void
+  /** Replace the working copy with a saved version (lib/versions.ts — it was saved first). */
+  onRestoreVersion: (version: VersionFull) => void
+  /** Put the working copy on another branch, keeping its screens (null = the main one). */
+  onSetBranch: (branch: string | null) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -517,6 +528,7 @@ export default function ProjectView({
   const linkMode = rightSlot === 'links'
   const showSystem = rightSlot === 'system'
   const showAudit = rightSlot === 'audit'
+  const showVersions = rightSlot === 'versions'
   const [modifyMode, setModifyMode] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
@@ -671,6 +683,23 @@ export default function ProjectView({
   screensRef.current = project.screens
   const updateScreenRef = useRef(onUpdateScreen)
   updateScreenRef.current = onUpdateScreen
+  // Versions read the project through a ref, for the reason screensRef exists:
+  // a restore must save the working copy as it is NOW (lib/useVersions.ts).
+  const projectRef = useRef(project)
+  projectRef.current = project
+  /** The screen whose history is open, and the comparison on screen. */
+  const [historyScreenId, setHistoryScreenId] = useState<string | null>(null)
+  const [compare, setCompare] = useState<{ left: CompareSource; right: CompareSource; screenId?: string } | null>(null)
+  const versions = useVersions({
+    projectId: project.id,
+    getProject: () => projectRef.current,
+    onRestoreProject: onRestoreVersion,
+    onSetBranch,
+    onUpdateScreen,
+    onAddScreen,
+    t,
+    enabled: rightSlot === 'versions' || historyScreenId !== null || compare !== null,
+  })
   useEffect(() => {
     if (backfilledRef.current === project.id) return
     backfilledRef.current = project.id
@@ -2779,6 +2808,14 @@ export default function ProjectView({
       // cleared the one whose name was in the same paragraph. See lib/rightSlot.
       onClick: () => setRightSlot((s) => toggleSlot(s, 'audit')),
     },
+    {
+      id: 'versions',
+      icon: 'history',
+      label: t('versions.toolbar'),
+      title: t('versions.toolbarTitle'),
+      active: showVersions,
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'versions')),
+    },
     /*
      * Last of the first group — the panels and modes — and not with Démo and
      * Export past the rule.
@@ -2948,6 +2985,19 @@ export default function ProjectView({
           onRecolor={recolorToken}
           onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
           onEdit={onOpenDesign}
+        />
+      )}
+
+      {showVersions && (
+        <VersionsPanel
+          api={versions}
+          branch={currentBranch(project)}
+          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+          screenName={(id) => screens.find((x) => x.id === id)?.name ?? null}
+          onCompare={(a, b) =>
+            setCompare(b ? { left: { kind: 'version', id: b }, right: { kind: 'version', id: a } } : { left: { kind: 'current' }, right: { kind: 'version', id: a } })
+          }
+          onClose={() => setRightSlot((s) => closeSlot(s, 'versions'))}
         />
       )}
 
@@ -3981,6 +4031,7 @@ export default function ProjectView({
                   label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.menu')}
                   onClick={() => { close(); setNotesScreenId(s.id) }}
                 />
+                <MenuItem icon="history" label={t('versions.screenMenu')} onClick={() => { close(); setHistoryScreenId(s.id) }} />
                 <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
                 <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
                 <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
@@ -4209,6 +4260,36 @@ export default function ProjectView({
             />
           )
         })()}
+
+      {historyScreenId &&
+        (() => {
+          const sc = screens.find((x) => x.id === historyScreenId)
+          if (!sc) return null
+          return (
+            <ScreenHistoryDialog
+              api={versions}
+              screen={sc}
+              busy={busy || generatingIds.has(sc.id) || regeneratingIds.has(sc.id) || fixingIds.has(sc.id)}
+              onCompare={(versionId) => {
+                setHistoryScreenId(null)
+                setCompare({ left: { kind: 'current' }, right: { kind: 'version', id: versionId }, screenId: sc.id })
+              }}
+              onClose={() => setHistoryScreenId(null)}
+            />
+          )
+        })()}
+
+      {compare && (
+        <VersionCompare
+          api={versions}
+          project={project}
+          left={compare.left}
+          right={compare.right}
+          initialScreenId={compare.screenId}
+          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+          onClose={() => setCompare(null)}
+        />
+      )}
 
       {shareScreenId &&
         (() => {

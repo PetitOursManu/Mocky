@@ -112,6 +112,8 @@ function MockyApp() {
     updateScreen,
     removeScreen,
     setReferenceScreen,
+    setProjectBranch,
+    restoreProjectVersion,
   } = useProjects()
   const [route, setRoute] = useState<Route>('home')
   /** DESIGN.md shown over the current project, without leaving it. */
@@ -622,6 +624,8 @@ function MockyApp() {
             onRenameProject={(name) => renameProject(activeProject.id, name)}
             onSetDesign={(markdown) => setProjectDesign(activeProject.id, markdown)}
             onSetUltra={(ultra) => setProjectUltra(activeProject.id, ultra)}
+            onRestoreVersion={(version) => restoreProjectVersion(activeProject.id, version)}
+            onSetBranch={(branch) => setProjectBranch(activeProject.id, branch)}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}
           />
           </ErrorBoundary>

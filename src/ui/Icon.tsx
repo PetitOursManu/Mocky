@@ -66,6 +66,8 @@ export type IconName =
   | 'list'
   | 'plug'
   | 'coins'
+  | 'history'
+  | 'branch'
 
 /** Path data only — every icon shares the same 24×24 box and stroke settings. */
 const PATHS: Record<IconName, string> = {
@@ -143,6 +145,11 @@ const PATHS: Record<IconName, string> = {
   plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v4',
   // A stack of coins: what the models cost (Admin → Spending).
   coins: 'M4 7c0 1.7 3.6 3 8 3s8-1.3 8-3-3.6-3-8-3-8 1.3-8 3ZM4 7v5c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5',
+  // A clock with the arrow of `undo` round it: saved states, as opposed to the
+  // single step back that `undo` already means.
+  history: 'M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2',
+  // Two lines leaving one: a branch, as in "try another direction from here".
+  branch: 'M6 3v12M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM18 9c0 6-12 3-12 9',
 }
 
 /** Icons whose shape reads better filled than stroked. */

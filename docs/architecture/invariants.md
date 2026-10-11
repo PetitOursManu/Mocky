@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are seven series:
+There are eight series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -18,6 +18,7 @@ There are seven series:
 - **D1 to D6**, introduced by the admin dashboard.
 - **X1 to X7**, introduced by Mocky as an MCP server.
 - **F1 to F4**, introduced by the free plan and personal keys.
+- **V1 to V3**, introduced by versions and branches.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1089,6 +1090,60 @@ model), and that seeing it never means holding someone else's credential.
 switch), `server/own-text-routes.test.js` (the call goes where the browser says
 and neither instance provider hears it, no quota spent, the key absent from the
 admin list and from `users.json`, the option closed and reopened).
+
+---
+
+## Series V — versions, review and prototypes
+
+These came with saved versions and branches ([their page](../versions.md)).
+Each one is about the moment a copy of somebody's project is made, kept or put
+back.
+
+### V1. Nothing replaces the working copy before it is saved
+
+**The rule.** A restore and a branch switch both overwrite the project on the
+canvas. Each first saves that working copy as an automatic version on the branch
+it is on (`useVersions`, `safetyCopy`), and if that save fails the restore does
+not happen. The store answers `unchanged` instead of writing a twin when the
+state is already the branch's newest version.
+
+**What it protects.** The state someone was in. This is the one place in Mocky
+where a failure STOPS the action instead of being noted beside it: degrading
+here would mean "replace the project without the copy", which is the loss the
+feature exists to prevent.
+
+**How it is checked.** `server/versions.test.js` (the `unchanged` answer, the
+branch it is scoped to), and the restore rules in `src/lib/versions.test.ts`.
+
+### V2. A version is its owner's, and found only in its owner's index
+
+**The rule.** Every version route is behind a session, and the store looks a
+version up in the CALLER's own index (`versions/<account>/index.json`), so an id
+from another account answers 404 exactly like an unknown one. Blobs are per
+account, never shared across the instance; deleting an account removes its
+directory.
+
+**What it protects.** A version is a copy of someone's whole project. The id is
+random, but an id is not a credential, and nothing about a version should depend
+on nobody guessing one.
+
+**How it is checked.** `server/versions.test.js` ("whose versions they are").
+
+### V3. Versions never ride in the projects blob
+
+**The rule.** Versions live in `server/versions.js`, content-addressed per
+account and counted by the disk budget. The working copy carries one name — the
+branch it is on (`Project.branch`) — and nothing else about them. A restore that
+leaves screens out TOMBSTONES them (`removedScreens`), because the sync merges by
+union and would hand them back.
+
+**What it protects.** The localStorage budget the working copy already strains
+(`reportStorageFailure`): versions inside it would make saving a version the
+first thing to break saving at all. And the restore itself, which a merge would
+otherwise undo a few seconds later.
+
+**How it is checked.** `src/lib/versions.test.ts` (a restored project merged with
+the server's older copy keeps exactly the restored screens).
 
 ---
 
