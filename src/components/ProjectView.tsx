@@ -144,6 +144,10 @@ import {
   type NewScreenRequest,
 } from '../lib/pipeline/newScreen'
 import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
+import { readCampaignFacts, runCampaign } from '../lib/pipeline/campaign'
+import { updateCampaignPiece } from '../lib/pipeline/campaignUpdate'
+import type { Campaign, CampaignFormatId } from '../lib/campaign'
+import CampaignPanel, { type PieceResult } from './CampaignPanel'
 import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
@@ -244,6 +248,7 @@ export default function ProjectView({
   reviewState,
   onReviewChanged,
   onSetScenarios,
+  onSetCampaign,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -272,6 +277,8 @@ export default function ProjectView({
   onReviewChanged?: () => void
   /** Replace the project's demo scenarios (lib/flows.ts). */
   onSetScenarios?: (scenarios: DemoScenario[]) => void
+  /** Replace the project's campaign brief (lib/campaign.ts); undefined clears it. */
+  onSetCampaign?: (campaign: Campaign | undefined) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -559,6 +566,18 @@ export default function ProjectView({
   const showAudit = rightSlot === 'audit'
   const showVersions = rightSlot === 'versions'
   const showReview = rightSlot === 'review'
+  const showCampaign = rightSlot === 'campaign'
+  /** What the campaign panel says while one of its runs is going. */
+  const [campaignProgress, setCampaignProgress] = useState<string | null>(null)
+  /** How each piece came out of the last campaign update, for the panel. */
+  const [campaignResults, setCampaignResults] = useState<Record<string, PieceResult>>({})
+  /*
+   * Stable, so the panel's save-after-typing timer is not reset by every render
+   * of this view: App hands a new arrow each time.
+   */
+  const onSetCampaignRef = useRef(onSetCampaign)
+  onSetCampaignRef.current = onSetCampaign
+  const saveCampaign = useCallback((c: Campaign) => onSetCampaignRef.current?.(c), [])
   const [modifyMode, setModifyMode] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
@@ -1887,6 +1906,207 @@ export default function ProjectView({
     }
   }
 
+  /** Read the brief's key facts: one small model call (lib/pipeline/campaign.ts). */
+  async function readFactsForCampaign(brief: string) {
+    const settings = loadSettings()
+    if (!settings.model.trim()) throw new Error(t('project.noModel'))
+    return readCampaignFacts(settings, brief)
+  }
+
+  /**
+   * Make the campaign's missing pieces (lib/pipeline/campaign.ts): one
+   * generation each, through the same pipeline as any new screen. One run, one
+   * abort — "Stop" ends the campaign where it is, and what is made stays.
+   *
+   * The request is the composer's settings (Muse, the document's picture
+   * choice, which the panel shows and sets), with no typed request of its own:
+   * the brief is the words, each format brings its type.
+   */
+  async function createCampaign(campaign: Campaign, formats: CampaignFormatId[]) {
+    if (busy || !formats.length || !campaign.brief.trim()) return
+    const settings = loadSettings()
+    if (!settings.model.trim()) {
+      setError(t('project.noModel'))
+      return
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    setCampaignResults({})
+    const globalDesign = loadDesign()
+    const base: NewScreenRequest = {
+      text: campaign.brief,
+      settings,
+      project: projectRef.current,
+      screens: screensRef.current,
+      images: [],
+      annotationCount: 0,
+      site: null,
+      globalMd: isDesignActive(globalDesign) ? globalDesign.markdown : undefined,
+      presetId,
+      themeId: null,
+      pageFormatId: null,
+      redesign: false,
+      museConfig,
+      museAvail,
+      museVision,
+      pinnedImages,
+      pinnedVideo,
+      videoAvail,
+      motionAvail,
+      ultraActive: false,
+      ultraCount,
+      effectiveImageSource,
+      picturesOff: runPicturesOff,
+      docPictureSource,
+      docImageChoice,
+      imageGenOk,
+      stockImagesUsable,
+    }
+    const hooks: NewScreenHooks = {
+      signal: ac.signal,
+      t,
+      setPhase,
+      setMuseStage,
+      setUltraStage,
+      replaceNotice: (line) => setNotice(line),
+      notice: (line) => setNotice((prev) => (prev ? `${prev} ${line}` : line)),
+      setMuseResult,
+      setMuseImages,
+      setMuseImageError,
+      setImageGenOk,
+      addScreen: addScreenAndShow,
+      updateScreen: onUpdateScreen,
+      removeScreen: onRemoveScreen,
+      currentScreens: () => screensRef.current,
+      renameProject: onRenameProject,
+      setDesign: onSetDesign,
+      rememberSiteRef: () => {},
+      // The composer's own request is not this run's: it stays as typed.
+      screenStarted: (screenId) => {
+        setGeneratingIds(new Set([screenId]))
+        setSelectedIds([screenId])
+      },
+      screenWritten: () => setGeneratingIds(new Set()),
+      motionStage,
+      motionStageDone,
+    }
+    let started = 0
+    try {
+      const made = await runCampaign(base, hooks, campaign, formats, {
+        getProject: () => projectRef.current,
+        nameFor: (f) => t(`campaign.format.${f}`),
+        all: campaign.formats,
+        onPiece: (f, n, total) => {
+          started = n
+          setCampaignProgress(t('campaign.making', { n, total, name: t(`campaign.format.${f}`) }))
+        },
+      })
+      setNotice(t('campaign.madeNotice', { count: made.length }))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(t('campaign.failed', { count: Math.max(0, started - 1), error: err instanceof Error ? err.message : String(err) }))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setPhase(null)
+      motionStageDone()
+      setGeneratingIds(new Set())
+      setCampaignProgress(null)
+    }
+  }
+
+  /**
+   * Bring the chosen pieces up to the brief's facts (lib/pipeline/campaignUpdate.ts):
+   * a direct write where the piece says the old value plainly, one targeted
+   * edit otherwise. Each piece follows the write-back conventions — its code at
+   * the start re-checked before writing, `previousCode` set so Revert undoes
+   * it — and a document is measured afterwards, because a longer date can push
+   * a line past the trim, and "Fit to page" is the answer to that.
+   */
+  async function updateCampaign(campaign: Campaign, ids: string[]) {
+    if (busy || !ids.length) return
+    const settings = loadSettings()
+    const ac = new AbortController()
+    abortRef.current = ac
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    const designMd = activeDirection()
+    const results: Record<string, PieceResult> = {}
+    setCampaignResults({})
+    try {
+      for (const [i, id] of ids.entries()) {
+        const screen = screensRef.current.find((s) => s.id === id)
+        if (!screen?.campaign) continue
+        setCampaignProgress(t('campaign.updating', { n: i + 1, total: ids.length, name: screen.name }))
+        setRegenLabel(t('campaign.updatingLabel'))
+        setRegeneratingIds(new Set([id]))
+        const codeAtStart = screen.code
+        try {
+          const res = await updateCampaignPiece({ settings, screen, facts: campaign.facts, designMd, signal: ac.signal })
+          if (!res) continue
+          const now = screensRef.current.find((s) => s.id === id)
+          // Someone else rewrote this piece meanwhile: theirs stands.
+          if (!now || now.code !== codeAtStart) {
+            results[id] = { how: 'failed', error: t('campaign.changedMeanwhile') }
+            continue
+          }
+          let overflow: number[] | undefined
+          if (screen.page) {
+            try {
+              const capIds = documentPipeline(screen.page).caps(res.caps ?? screen.caps ?? [])
+              const report = await measureFit(res.code, resolveCapabilities(capIds), getPageFormat(screen.page), ac.signal)
+              if (report.over.length) overflow = report.over.map((p) => p.page)
+              // Said here, beside the piece, with its button: not a second time
+              // by the page kit once the new code renders.
+              docOverflowSaid.current[id] = report.over.map((p) => p.page).join(',')
+            } catch (err) {
+              if (err instanceof Error && err.name === 'AbortError') throw err
+              // A measure that failed is not a page that overflows (Q1).
+            }
+          }
+          onUpdateScreen(id, {
+            code: res.code,
+            componentName: res.componentName,
+            previousCode: codeAtStart,
+            campaign: res.campaign,
+            ...(res.caps ? { caps: res.caps } : {}),
+          })
+          results[id] = { how: res.how, ...(overflow ? { overflow } : {}) }
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') throw err
+          results[id] = { how: 'failed', error: err instanceof Error ? err.message : String(err) }
+        } finally {
+          setCampaignResults({ ...results })
+          setRegeneratingIds(new Set())
+        }
+      }
+      // Only what happened is said: "0 failed" is a word nobody needed.
+      const all = Object.values(results)
+      const counts = {
+        direct: all.filter((r) => r.how === 'direct').length,
+        model: all.filter((r) => r.how === 'model').length,
+        failed: all.filter((r) => r.how === 'failed').length,
+        overflow: all.filter((r) => r.overflow?.length).length,
+      }
+      const parts = (Object.keys(counts) as (keyof typeof counts)[])
+        .filter((k) => counts[k] > 0)
+        .map((k) => t(`campaign.part.${k}`, { count: counts[k] }))
+      if (parts.length) setNotice(t('campaign.updatedNotice', { parts: parts.join(', ') }))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+      setRegeneratingIds(new Set())
+      setCampaignProgress(null)
+    }
+  }
+
   /** Resize a screen to a fixed viewport format, or to fit its content ('full'). */
   function setFormat(screenId: string, fmt: ViewportFormat) {
     if (fmt === 'full') {
@@ -2725,6 +2945,35 @@ export default function ProjectView({
     </>
   )
 
+  /*
+   * The campaign panel, drawn over the canvas — or, on an empty project, over
+   * the welcome screen, which has no toolbar to open it from (Welcome's own
+   * "Campaign" button does). Its draft is saved before the first piece is made,
+   * so the remount when the canvas appears loses nothing.
+   */
+  const campaignPanel = showCampaign ? (
+    <CampaignPanel
+      key={project.id}
+      project={project}
+      busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+      progress={campaignProgress}
+      results={campaignResults}
+      pictureChoice={docImageShown}
+      pictureChoices={docImageChoicesNow}
+      onPictureChoice={setDocImageChoice}
+      onSave={saveCampaign}
+      onReadFacts={readFactsForCampaign}
+      onCreate={(c, formats) => void createCampaign(c, formats)}
+      onUpdate={(c, ids) => void updateCampaign(c, ids)}
+      onFocus={(id) => {
+        setSelectedIds([id])
+        setFocus({ screenId: id, nonce: Date.now() })
+      }}
+      onFit={(id) => void fitDocument(id)}
+      onClose={() => setRightSlot((sl) => closeSlot(sl, 'campaign'))}
+    />
+  ) : null
+
   if (screens.length === 0) {
     return (
       <>
@@ -2747,6 +2996,7 @@ export default function ProjectView({
         onMuseChange={updateMuse}
         flowsOn={flowsOn}
         onToggleFlows={toggleFlows}
+        onOpenCampaign={() => setRightSlot('campaign')}
         museAvail={museAvail}
         museResult={museResult}
         museImages={museImages}
@@ -2798,6 +3048,7 @@ export default function ProjectView({
         enhancer={enhancer}
         onEnhance={startEnhance}
       />
+      {campaignPanel && <div className="fixed inset-0 z-30 bg-ink/10">{campaignPanel}</div>}
       {libraryModal}
       </>
     )
@@ -2879,6 +3130,14 @@ export default function ProjectView({
       title: t('review.toolbarTitle'),
       active: showReview,
       onClick: () => setRightSlot((s) => toggleSlot(s, 'review')),
+    },
+    {
+      id: 'campaign',
+      icon: 'megaphone',
+      label: t('campaign.toolbar'),
+      title: t('campaign.toolbarTitle'),
+      active: showCampaign,
+      onClick: () => setRightSlot((sl) => toggleSlot(sl, 'campaign')),
     },
     {
       id: 'versions',
@@ -3068,6 +3327,8 @@ export default function ProjectView({
           onClose={() => setRightSlot((s) => closeSlot(s, 'review'))}
         />
       )}
+
+      {campaignPanel}
 
       {showVersions && (
         <VersionsPanel

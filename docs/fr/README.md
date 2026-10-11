@@ -1,5 +1,5 @@
 ---
-source_hash: c4132dfefb70
+source_hash: 649186bc24d2
 ---
 
 # Mocky
@@ -71,6 +71,7 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 - [Démarrage](getting-started.md) Installer Mocky et configurer un modèle.
 - [L’interface](interface.md) Ce que fait chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
 - [Documents et posts pour les réseaux sociaux](documents.md) Faire un flyer, un rapport, un CV ou un post, et le télécharger en PDF, en présentation ou en images.
+- [Campagne](campaign.md) Décliner un brief en affiche, flyer, post et story ; changer une date et mettre à jour les créations qui la disent.
 - [Vue d'ensemble de Muse](muse/overview.md) Voir ce que Muse ajoute à une génération.
 - [Moteur d'inspiration](muse/inspiration-engine.md) Suivre Discover, Distill et Dossier en détail.
 - [Animations](muse/animations.md) Comprendre le système d'animations.

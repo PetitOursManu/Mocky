@@ -41,6 +41,7 @@ import { generateUltraImages } from '../ultra/images'
 import { buildUltraPreamble } from '../ultra/preamble'
 import { missingUltraImages, ultraMotionCount, ULTRA_BUDGET } from '../ultra/check'
 import { filmSectionOf, plugFilmIntoSlot } from '../ultra/filmSlot'
+import type { ScreenCampaign } from '../campaign'
 import { buildReuseSection, projectPictures } from '../projectPictures'
 import { screenThemeBriefLine, withScreenTheme, type ScreenThemeId } from '../screenThemes'
 import { buildSiteReferenceSection, buildSitePicturesSection, parseSitePictures, siteLanguage, type SiteRefMode } from '../siteReference'
@@ -179,6 +180,14 @@ export interface NewScreenRequest {
   route?: string
   /** The screen's name, when the caller knows a better one than the request cut short. */
   name?: string
+  /**
+   * A campaign piece's place in the campaign (`campaignSection` in
+   * lib/campaign.ts), appended to the plan like `flowContext`. Absent on every
+   * other run, which builds the prompt it always built.
+   */
+  campaignContext?: string
+  /** What a campaign piece records about itself: its format and the facts it is written with. */
+  campaign?: ScreenCampaign
 }
 
 /** Everything `generateComponent` would have been given, for a writer that is not Mocky's model. */
@@ -947,6 +956,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // Last, so on a reproduction it is the final word over the base rules' taste.
     if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
     if (req.flowContext) planSection = [planSection, req.flowContext].filter(Boolean).join('\n\n')
+    if (req.campaignContext) planSection = [planSection, req.campaignContext].filter(Boolean).join('\n\n')
     capIds = withAnimations(capIds)
 
     // A sequence exists → the component that plays it must be in scope,
@@ -1008,6 +1018,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
       // opacity 0 prints blank. Undefined — the default — otherwise.
       animations: pipe.animations,
       ...(req.route ? { route: req.route } : {}),
+      ...(req.campaign ? { campaign: req.campaign } : {}),
     })
     if (siteNew) hooks.rememberSiteRef(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
     // Name the project after its FIRST prompt, so it stops being called

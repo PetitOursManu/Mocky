@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Eight series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Nine series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes), C1–C3 (campaigns). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1294,6 +1294,33 @@ Four things that will bite you:
 4. **Forms submit in the preview because the frame fires `submit` by hand**
    (V8): the sandbox refuses a submission before the event. Do not "fix" it by
    adding `allow-forms`.
+
+## Campaign Studio
+
+One brief made into several documents — A3 poster, A4 flyer, Instagram post and
+story, LinkedIn and Facebook visuals — each composed for its own format, sharing
+the facts, the direction and the pictures. User doc `docs/campaign.md`;
+invariants C1–C3. Decided with the user: a project IS a campaign.
+
+```
+src/lib/campaign.ts                the formats, the brief's record, campaignSection, factChanges
+src/lib/campaignFacts.ts           replaceFacts: a changed fact written at parser offsets (I1)
+src/lib/pipeline/campaign.ts       readCampaignFacts ('campaign-facts'), runCampaign → runNewScreen
+src/lib/pipeline/campaignUpdate.ts direct first, then ONE edit for what is left
+src/components/CampaignPanel.tsx   the right-slot panel; ProjectView owns the runs
+```
+
+Three things that will bite you:
+
+1. **Out of date is read, never stored.** `Screen.campaign` holds the values a
+   piece was WRITTEN with; a piece is behind when a fact's value moved. On the
+   screen, so a revert or a restored version carries its own answer.
+2. **Only the first piece makes a picture** (C2): later pieces run with Muse off
+   and no picture source, and get the project's pictures through the reuse
+   section. A new stage that makes pictures must respect `first` in `runCampaign`.
+3. **The facts are asked for verbatim, in one run of text, case left to CSS** —
+   that is what lets `replaceFacts` work. Loosen that sentence in
+   `campaignSection` and every update becomes a model call.
 
 ## Conventions
 

@@ -1,5 +1,5 @@
 ---
-source_hash: 61c3946daa9f
+source_hash: 414501f05efd
 ---
 
 # Glossaire
@@ -43,6 +43,10 @@ Le genre de la prochaine génération — un tableau de bord, un planning, une p
 ## Document {#document}
 
 Un écran fait de pages de taille fixe — un flyer, un rapport, un CV, un post pour les réseaux — plutôt qu’une page mise en page pour une fenêtre. Il se télécharge en PDF à champs remplissables, en `.pptx` aux textes modifiables, ou en images PNG. Voir [Documents et posts pour les réseaux sociaux](documents.md).
+
+## Campagne {#campaign}
+
+Un brief décliné en plusieurs documents à la fois — une affiche, un flyer, un post, une story — chacun composé pour son format, avec les mêmes infos clés, la même direction artistique et les mêmes images. Un projet est une campagne ; changez une info et vous choisissez les créations à mettre à jour. Voir [Campagne](campaign.md).
 
 ## Format de page {#page-format}
 

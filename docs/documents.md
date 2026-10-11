@@ -57,6 +57,10 @@ A document skips what only makes sense for a screen: the planner, Motion Ultra,
 the scroll video and every animation — a page is printed at rest. Muse and the
 project's direction still apply, so a flyer looks like the rest of the project.
 
+The same announcement in several formats at once — a poster, a flyer, a post, a
+story — is a **campaign**: one brief, each format composed for itself, the facts
+and the pictures shared. See [Campaign Studio](campaign.md).
+
 ---
 
 ## The types

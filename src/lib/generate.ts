@@ -159,7 +159,7 @@ export function stripDataUrl(dataUrl: string): string {
  * polishing a screen" rather than "Alice called the model"; nothing else changes
  * with it, and the header is never forwarded to the provider.
  */
-export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance'
+export type ChatPurpose = 'generate' | 'read-site' | 'edit' | 'fix' | 'polish' | 'audit-fix' | 'fit' | 'design-system' | 'enhance' | 'campaign-facts'
 
 export async function chat(
   s: Settings,
