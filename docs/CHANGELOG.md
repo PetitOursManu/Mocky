@@ -64,6 +64,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| — | architecture à jour — versions, validation, parcours, campagnes, PDF à 500 dpi (#56) | `32fec28` |
 | — | Tailwind 4 pour l'interface, Tailwind 3 pour les aperçus | `6a68e4f` |
 | `mcp` | le serveur MCP dans le README, l'index, le glossaire et l'architecture | `846f800` |
 | `licence` | exception de sortie et page Licence | `fa248bb` |
