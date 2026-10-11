@@ -38,6 +38,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `docexport` | des posts nets dans Canva — PDF, PowerPoint et gabarits en double résolution (#47) | `2f691bb` |
 | `provider` | de la place pour la réflexion des modèles Claude (écran coupé à la limite de tokens) (#43) | `dbc0d15` |
 | `provider` | générations qui retombaient dans le composer (400 sur les appels structurés, 524 Cloudflare) (#42) | `4555b3b` |
 | `mcp,admin` | l'aperçu dans Claude, et les prix récupérés chez les fournisseurs (#41) | `f2be1be` |
