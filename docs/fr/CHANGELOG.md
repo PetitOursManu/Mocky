@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `frames` | le panneau « Cadres… » — changer un cadre sans le modèle (2/3) (#45) | `1219959` |
 | `frames` | des images découpées dans une forme — <ShapeFrame> et 42 cadres (1/3) (#44) | `141b0d9` |
 | `mcp` | sept prompts et un skill Claude téléchargeable (#40) | `962540d` |
 | `admin` | les dépenses — jetons et prix par compte, projet et modèle (#39) | `d8b3ecf` |
