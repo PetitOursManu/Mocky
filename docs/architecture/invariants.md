@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are eight series:
+There are nine series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -19,6 +19,7 @@ There are eight series:
 - **X1 to X7**, introduced by Mocky as an MCP server.
 - **F1 to F4**, introduced by the free plan and personal keys.
 - **V1 to V8**, introduced by versions, branches, approval links and working prototypes.
+- **C1 to C3**, introduced by Campaign Studio.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1222,6 +1223,56 @@ a picture of one — without opening the frame to a navigation (I2).
 **How it is checked.** The sign-in round trip of a working prototype, in a
 browser; `tests/preview-sandbox.test.js` still pins the sandbox to
 `allow-scripts`.
+
+## Series C — campaigns
+
+These came with Campaign Studio ([its page](../campaign.md)): one brief made
+into several documents. Each is about what a campaign may share between its
+pieces, and what an update may touch.
+
+### C1. A piece is a generation, never a resize
+
+**The rule.** Each format is one run of `runNewScreen` (`runCampaign`), with its
+own document type and page format (`CAMPAIGN_FORMATS`) and the campaign section
+appended to its plan (`campaignSection`). No piece is derived from another's
+code, and what belonged to a typed request — screenshots, a working prototype,
+one-shot switches — does not follow a campaign.
+
+**What it protects.** The reason the feature exists: a story is not a cropped
+poster. And the pipeline's own guarantees, which a second path for "a document,
+but for a campaign" would have to copy and would drift from.
+
+**How it is checked.** `src/lib/pipeline/campaign.test.ts` ("making a campaign").
+
+### C2. One campaign makes at most one picture
+
+**The rule.** Only the first piece of a campaign may make a picture or run Muse;
+every later piece — in the same run or added afterwards — runs with Muse off and
+no picture source of its own, and is offered the project's pictures to reuse
+(`lib/projectPictures.ts`).
+
+**What it protects.** The bill, and the look: six pieces each making a picture
+cost six and show six subjects.
+
+**How it is checked.** `src/lib/pipeline/campaign.test.ts` ("lets only the first
+piece make a picture", "reuses the pictures when pieces already exist").
+
+### C3. An update changes the facts and nothing else
+
+**The rule.** A changed fact is written directly where the piece writes the old
+value as a plain run of text — found with the parser (I1), never inside a class
+name, a key or an import, never inside a longer word — and the source must still
+parse. Anything left goes to ONE edit whose instruction names only those facts.
+The write-back keeps the conventions: the code at the start re-checked,
+`previousCode` set. Out of date is READ off `Screen.campaign`, the values a piece
+was written with, never stored as a flag.
+
+**What it protects.** "Change the date" means nothing else moves. And the answer
+to "which pieces are behind", which a stored flag would get wrong after a revert
+or a restored version.
+
+**How it is checked.** `src/lib/campaignFacts.test.ts`, and "updating a piece" in
+`src/lib/pipeline/campaign.test.ts`.
 
 ---
 

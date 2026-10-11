@@ -22,7 +22,7 @@
  * the Design System inspector silently leave Modify mode — exclusivity where
  * none was asked for is its own defect.
  */
-export type RightSlot = 'system' | 'audit' | 'links' | 'versions' | 'review' | null
+export type RightSlot = 'system' | 'audit' | 'links' | 'versions' | 'review' | 'campaign' | null
 
 /** What a toolbar button does: open this one, or close it if it is already open. */
 export function toggleSlot(current: RightSlot, want: NonNullable<RightSlot>): RightSlot {

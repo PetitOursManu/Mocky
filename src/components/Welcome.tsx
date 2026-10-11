@@ -41,6 +41,8 @@ type Props = {
   /** The composer's "Parcours" (lib/flows.ts), shown here too: the first screen is often the one a flow starts from. */
   flowsOn?: boolean
   onToggleFlows?: () => void
+  /** Open Campaign Studio: a brief made into several formats at once (lib/campaign.ts). */
+  onOpenCampaign?: () => void
   museAvail: boolean | null
   museResult: MuseResult | null
   museImages: GeneratedSlotImage[]
@@ -109,6 +111,7 @@ export default function Welcome({
   onMuseChange,
   flowsOn,
   onToggleFlows,
+  onOpenCampaign,
   museAvail,
   museResult,
   museImages,
@@ -254,6 +257,19 @@ export default function Welcome({
                 >
                   <Icon name="cable" size={15} />
                   {t('flows.toggle')}
+                </button>
+              )}
+              {/* A campaign starts from a brief, not from this composer: on an
+                  empty project there is no toolbar to reach its panel from. */}
+              {onOpenCampaign && (
+                <button
+                  type="button"
+                  onClick={onOpenCampaign}
+                  className="inline-flex items-center gap-1.5 text-body-sm text-ink-faint transition hover:text-ink"
+                  title={t('campaign.toolbarTitle')}
+                >
+                  <Icon name="megaphone" size={15} />
+                  {t('campaign.toolbar')}
                 </button>
               )}
               {/* The first screen is the one Motion Ultra matters most for: it

@@ -1,5 +1,5 @@
 ---
-source_hash: af0dec128bf3
+source_hash: c497f615493d
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a huit séries :
+Il y a neuf séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -23,6 +23,7 @@ Il y a huit séries :
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
 - **V1 à V8**, apportés par les versions, les branches, les liens de validation et les prototypes qui fonctionnent.
+- **C1 à C3**, apportés par la Campagne.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1313,6 +1314,60 @@ pas se soumettre n'en est que l'image — sans ouvrir le cadre à une navigation
 **Comment c'est vérifié.** L'aller-retour de connexion d'un prototype, dans un
 navigateur ; `tests/preview-sandbox.test.js` épingle toujours le bac à sable à
 `allow-scripts`.
+
+## Série C — campagnes
+
+Elles sont venues avec la Campagne ([sa page](../campaign.md)) : un brief décliné
+en plusieurs documents. Chacune porte sur ce qu'une campagne peut partager entre
+ses créations, et sur ce qu'une mise à jour peut toucher.
+
+### C1. Une création est une génération, jamais un redimensionnement
+
+**La règle.** Chaque format est un passage de `runNewScreen` (`runCampaign`),
+avec son propre type de document et son propre format de page
+(`CAMPAIGN_FORMATS`), et la section de campagne ajoutée à son plan
+(`campaignSection`). Aucune création n'est dérivée du code d'une autre, et ce qui
+appartenait à une demande tapée — captures, prototype qui fonctionne,
+interrupteurs ponctuels — ne suit pas une campagne.
+
+**Ce que ça protège.** La raison d'être de la fonctionnalité : une story n'est pas
+une affiche recadrée. Et les garanties du pipeline lui-même, qu'un second chemin
+« un document, mais pour une campagne » devrait recopier et dont il dériverait.
+
+**Comment c'est vérifié.** `src/lib/pipeline/campaign.test.ts` (« making a
+campaign »).
+
+### C2. Une campagne fait une image au plus
+
+**La règle.** Seule la première création d'une campagne peut faire une image ou
+lancer Muse ; chacune des suivantes — dans le même passage ou ajoutée plus tard —
+tourne sans Muse et sans source d'image à elle, et se voit proposer les images du
+projet à réutiliser (`lib/projectPictures.ts`).
+
+**Ce que ça protège.** La facture, et le style : six créations qui font chacune
+leur image en coûtent six et montrent six sujets.
+
+**Comment c'est vérifié.** `src/lib/pipeline/campaign.test.ts` (« lets only the
+first piece make a picture », « reuses the pictures when pieces already
+exist »).
+
+### C3. Une mise à jour change les infos et rien d'autre
+
+**La règle.** Une info changée est écrite directement là où la création écrit
+l'ancienne valeur comme un simple texte — trouvé avec l'analyseur (I1), jamais
+dans un nom de classe, une clé ou un import, jamais au milieu d'un mot plus
+long — et le source doit toujours s'analyser. Le reste va à UNE modification dont
+l'instruction ne nomme que ces infos. L'écriture garde les conventions : le code
+de départ revérifié, `previousCode` posé. « À mettre à jour » se LIT dans
+`Screen.campaign`, les valeurs avec lesquelles une création a été écrite, jamais
+stocké comme un drapeau.
+
+**Ce que ça protège.** « Changer la date » veut dire que rien d'autre ne bouge. Et
+la réponse à « quelles créations sont en retard », qu'un drapeau stocké
+donnerait fausse après une annulation ou une version restaurée.
+
+**Comment c'est vérifié.** `src/lib/campaignFacts.test.ts`, et « updating a
+piece » dans `src/lib/pipeline/campaign.test.ts`.
 
 ---
 

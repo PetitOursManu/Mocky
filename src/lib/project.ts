@@ -7,6 +7,7 @@ import type { SiteRefMode } from './siteReference'
 import { normalizePageFormat, type PageFormatId } from './pageFormats'
 import { normalizeBranch, restoreProject, MAIN_BRANCH, type VersionFull } from './versions'
 import { normalizeScenarios, slugRoute, type DemoScenario } from './flows'
+import { normalizeCampaign, normalizeScreenCampaign, type Campaign, type ScreenCampaign } from './campaign'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -171,6 +172,14 @@ export interface Screen {
    * which the demo then finds by its slugged name instead.
    */
   route?: string
+  /**
+   * A campaign piece's own record (lib/campaign.ts): its format, and the value
+   * of each fact it was written with — which is how the campaign panel knows
+   * which pieces a changed date leaves out of date, without asking a model.
+   * On the screen rather than the project so a restored version or a revert
+   * carries its own answer. Absent on every screen that is not a piece.
+   */
+  campaign?: ScreenCampaign
 }
 
 /**
@@ -367,6 +376,13 @@ export interface Project {
    * and on Project for the reason `folder` is.
    */
   scenarios?: DemoScenario[]
+  /**
+   * The campaign this project is (lib/campaign.ts): the brief, its key facts
+   * and the formats ticked. Decided with the user: a project IS a campaign, so
+   * its direction and pictures — already the project's — are the campaign's.
+   * On Project for the reason `folder` is.
+   */
+  campaign?: Campaign
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -836,6 +852,7 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     ultra: normalizeUltra(s.ultra),
     userNotes: normalizeNotes(s.userNotes),
     route: typeof s.route === 'string' && slugRoute(s.route) ? slugRoute(s.route) : undefined,
+    campaign: normalizeScreenCampaign(s.campaign),
   }
 }
 
@@ -1233,6 +1250,20 @@ export function useProjects() {
     )
   }, [])
 
+  /** Replace a project's campaign brief (undefined, or nothing worth keeping, clears it). */
+  const setProjectCampaign = useCallback((projectId: string, campaign: Campaign | undefined) => {
+    const clean = normalizeCampaign(campaign)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (clean) next.campaign = clean
+        else delete next.campaign
+        return next
+      }),
+    )
+  }, [])
+
   return {
     projects,
     createProject,
@@ -1249,5 +1280,6 @@ export function useProjects() {
     setProjectBranch,
     restoreProjectVersion,
     setProjectScenarios,
+    setProjectCampaign,
   }
 }

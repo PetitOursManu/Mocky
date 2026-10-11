@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 9da2de120656
+source_hash: 33ca7c95b1dc
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -60,6 +60,10 @@ Un document saute ce qui n’a de sens que pour un écran : le planificateur, Mo
 Ultra, la vidéo au défilement et toute animation — une page s’imprime au repos.
 Muse et la direction du projet s’appliquent toujours, pour qu’un flyer ressemble
 au reste du projet.
+
+La même annonce dans plusieurs formats à la fois — une affiche, un flyer, un
+post, une story — est une **campagne** : un seul brief, chaque format composé pour
+lui-même, les infos et les images partagées. Voir [Campagne](campaign.md).
 
 ---
 
