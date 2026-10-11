@@ -18,6 +18,10 @@ import MaintenanceBanner from './components/MaintenanceBanner'
 import AnnouncementBanner from './components/AnnouncementBanner'
 import { beatNow, startPresence } from './lib/presence'
 import SharedScreen from './components/SharedScreen'
+import ReviewPage from './components/ReviewPage'
+import ReviewStatusPill from './components/ReviewStatusPill'
+import { reviewTokenFromLocation } from './lib/review'
+import { useReviewState } from './lib/useReviewState'
 import { shareTokenFromLocation } from './lib/share'
 import { projectLinkFromLocation, rememberProjectLink, takeProjectLink } from './lib/projectLink'
 import ConnectConsent, { connectIdFromLocation, peekConnect, rememberConnect, takeConnect } from './components/ConnectConsent'
@@ -94,6 +98,9 @@ export default function App() {
    */
   const shareToken = shareTokenFromLocation()
   if (shareToken) return <SharedScreen token={shareToken} />
+  // A review link, for the same reasons: the client has no account (server/reviews.js).
+  const reviewToken = reviewTokenFromLocation()
+  if (reviewToken) return <ReviewPage token={reviewToken} />
   return <MockyApp />
 }
 
@@ -160,6 +167,8 @@ function MockyApp() {
   const [draftName, setDraftName] = useState('')
   const [theme, setThemeState] = useState<Theme>(() => loadTheme())
   const [account, setAccount] = useState<AuthUser | null>(null)
+  /** Every project's approval status, for the cards and the project's badge. */
+  const reviewStates = useReviewState(Boolean(account))
   const [authOpen, setAuthOpen] = useState(false)
   /** The folded masthead, below md. See the `md:hidden` nav further down. */
   const [menuOpen, setMenuOpen] = useState(false)
@@ -445,6 +454,17 @@ function MockyApp() {
                   {activeProject.name}
                 </button>
               )}
+              {/* Shown once the project has been sent: a draft shows nothing,
+                  like on the project cards. Hidden on a phone, where the
+                  masthead has no room for it. */}
+              {reviewStates.states[activeProject.id] && reviewStates.states[activeProject.id].status !== 'draft' && (
+                <span className="hidden sm:inline-flex">
+                  <ReviewStatusPill
+                    status={reviewStates.states[activeProject.id].status}
+                    unread={reviewStates.states[activeProject.id].unread}
+                  />
+                </span>
+              )}
             </div>
           )}
 
@@ -596,6 +616,7 @@ function MockyApp() {
           }}
           onSetFolder={setProjectsFolder}
           onRenameFolder={renameFolder}
+          reviewStates={reviewStates.states}
         />
       )}
 
@@ -626,6 +647,8 @@ function MockyApp() {
             onSetUltra={(ultra) => setProjectUltra(activeProject.id, ultra)}
             onRestoreVersion={(version) => restoreProjectVersion(activeProject.id, version)}
             onSetBranch={(branch) => setProjectBranch(activeProject.id, branch)}
+            reviewState={reviewStates.states[activeProject.id]}
+            onReviewChanged={() => void reviewStates.refresh()}
             initialFocusScreenId={linkFocus?.projectId === activeProject.id ? linkFocus.screenId : undefined}
           />
           </ErrorBoundary>

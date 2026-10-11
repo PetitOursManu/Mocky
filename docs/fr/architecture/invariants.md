@@ -1,5 +1,5 @@
 ---
-source_hash: 1ca6baca4977
+source_hash: fc84407f8ba8
 ---
 
 # Invariants
@@ -22,7 +22,7 @@ Il y a huit séries :
 - **D1 à D6**, apportés par le tableau de bord d’administration.
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
-- **V1 à V3**, apportés par les versions et les branches.
+- **V1 à V6**, apportés par les versions, les branches et les liens de validation.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1174,7 +1174,8 @@ fermée puis rouverte).
 
 ## Série V — versions, validation et prototypes
 
-Elles sont venues avec les versions et les branches ([leur page](../versions.md)).
+Elles sont venues avec les versions et les branches ([leur page](../versions.md))
+et avec les liens de validation ([la leur](../review.md)).
 Chacune porte sur le moment où une copie du projet de quelqu'un est faite,
 gardée ou remise en place.
 
@@ -1229,6 +1230,53 @@ plus tard.
 **Comment c'est vérifié.** `src/lib/versions.test.ts` (un projet restauré,
 fusionné avec la copie plus ancienne du serveur, garde exactement les écrans
 restaurés).
+
+### V4. Un lien de validation lit une version figée et écrit dans un seul envoi
+
+**La règle.** Un lien de validation (`server/reviews.js`) est une capacité, comme
+un lien de partage : 256 bits aléatoires, stocké, révocable, avec une
+expiration. Les trois routes publiques sous `/api/review/:token` lisent la
+VERSION de l'envoi — enregistrée au moment de l'envoi, jamais le projet vivant —
+et n'écrivent commentaires et décision que dans cet envoi. Un nouvel envoi
+remplace le précédent, qui reste lisible et ne prend plus rien ; une version
+montrée par un lien actif ne peut pas être supprimée (`409`).
+
+**Ce que ça protège.** Le sens d'une approbation. Un client qui a approuvé un
+écran ne doit pas le voir changer sous ses yeux, et sa page ne doit pas casser
+parce que la version derrière a été rangée.
+
+**Comment c'est vérifié.** `server/reviews.test.js`,
+`server/review-routes.test.js` (un identifiant de version volé ne crée rien, la
+version est verrouillée, un lien révoqué répond 404).
+
+### V5. La page du client reçoit une liste blanche de chaque écran
+
+**La règle.** `publicScreen` construit ce que reçoit la page du relecteur, champ
+par champ : identifiant, nom, code, nom du composant, capacités, taille,
+appareil, animations, format de page, liens. Jamais la demande, la direction
+enregistrée, le relevé de qualité ni les notes du propriétaire (I9).
+
+**Ce que ça protège.** Le brief, souvent la partie confidentielle d'un projet,
+et les notes que seul leur auteur lit. Une copie « moins quelques champs »
+laisserait fuir le prochain champ ajouté à `Screen`.
+
+**Comment c'est vérifié.** `server/reviews.test.js` (l'ensemble exact des clés),
+`server/review-routes.test.js` (le brief et une note plantée sont absents de la
+réponse HTTP).
+
+### V6. Le statut d'un projet se lit sur son envoi le plus récent, il n'est jamais stocké
+
+**La règle.** `Brouillon`, `À valider`, `Modifications demandées`, `Approuvé` :
+le statut est celui de l'envoi le plus récent (`statusFor`, `projectStatusOf`),
+et un envoi clos ou l'absence d'envoi donne un brouillon. Rien n'écrit de statut
+dans le blob des projets.
+
+**Ce que ça protège.** Une seule source de vérité pour un fait décidé sur
+l'écran de quelqu'un d'autre. Une copie dans le blob contredirait le serveur la
+première fois qu'un navigateur serait hors ligne au moment où le client répond.
+
+**Comment c'est vérifié.** `server/reviews.test.js` (« a round »),
+`src/lib/review.test.ts`.
 
 ---
 

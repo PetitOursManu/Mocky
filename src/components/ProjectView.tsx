@@ -55,6 +55,8 @@ import VersionsPanel from './VersionsPanel'
 import VersionCompare, { type CompareSource } from './VersionCompare'
 import ScreenHistoryDialog from './ScreenHistoryDialog'
 import { useVersions } from '../lib/useVersions'
+import ReviewPanel from './ReviewPanel'
+import type { ProjectReviewState } from '../lib/review'
 import { currentBranch, type VersionFull } from '../lib/versions'
 import ScreenNotesDialog from './ScreenNotesDialog'
 import { SaveDesignDialog } from './DesignLibrary'
@@ -229,6 +231,8 @@ export default function ProjectView({
   onSetUltra,
   onRestoreVersion,
   onSetBranch,
+  reviewState,
+  onReviewChanged,
   initialFocusScreenId,
   plan = 'standard',
 }: {
@@ -251,6 +255,10 @@ export default function ProjectView({
   onRestoreVersion: (version: VersionFull) => void
   /** Put the working copy on another branch, keeping its screens (null = the main one). */
   onSetBranch: (branch: string | null) => void
+  /** This project's approval status, read off its newest review round (lib/review.ts). */
+  reviewState?: ProjectReviewState
+  /** A round was sent, closed or read: the status badges should ask again. */
+  onReviewChanged?: () => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -529,6 +537,7 @@ export default function ProjectView({
   const showSystem = rightSlot === 'system'
   const showAudit = rightSlot === 'audit'
   const showVersions = rightSlot === 'versions'
+  const showReview = rightSlot === 'review'
   const [modifyMode, setModifyMode] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
@@ -2809,6 +2818,16 @@ export default function ProjectView({
       onClick: () => setRightSlot((s) => toggleSlot(s, 'audit')),
     },
     {
+      id: 'review',
+      icon: 'comment',
+      // The count of what the client wrote since the owner last looked: the one
+      // number on the toolbar that comes from someone else.
+      label: reviewState?.unread ? `${t('review.toolbar')} (${reviewState.unread})` : t('review.toolbar'),
+      title: t('review.toolbarTitle'),
+      active: showReview,
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'review')),
+    },
+    {
       id: 'versions',
       icon: 'history',
       label: t('versions.toolbar'),
@@ -2985,6 +3004,15 @@ export default function ProjectView({
           onRecolor={recolorToken}
           onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
           onEdit={onOpenDesign}
+        />
+      )}
+
+      {showReview && (
+        <ReviewPanel
+          getProject={() => projectRef.current}
+          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+          onChanged={() => onReviewChanged?.()}
+          onClose={() => setRightSlot((s) => closeSlot(s, 'review'))}
         />
       )}
 

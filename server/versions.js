@@ -399,12 +399,16 @@ export function createVersionStore(dataDir, { now = () => Date.now(), budget = n
       return true
     },
 
-    /** Every version of one branch of one project. The branch is gone afterwards. */
-    removeBranch(userId, projectId, branch) {
+    /**
+     * Every version of one branch of one project — except those in `keep`, the
+     * versions a live review link still shows (server/reviews.js). The branch
+     * is gone afterwards unless one of those holds it.
+     */
+    removeBranch(userId, projectId, branch, keep = new Set()) {
       const name = normalizeBranch(branch)
       if (!name) return 0
       const versions = loadIndex(userId)
-      const next = versions.filter((v) => !(v.projectId === projectId && v.branch === name))
+      const next = versions.filter((v) => !(v.projectId === projectId && v.branch === name && !keep.has(v.id)))
       const removed = versions.length - next.length
       if (removed) {
         saveIndex(userId, next)

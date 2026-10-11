@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Eight series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V3 (versions, review, prototypes). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Eight series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V6 (versions, review, prototypes). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1241,6 +1241,29 @@ Three things that will bite you:
    sync merges by union, and a screen merely dropped comes back from the
    server's copy. The project's NAME is not restored; a screen restore keeps the
    screen's place and its notes, and sets `previousCode` so Revert undoes it.
+
+## Sending a project for approval
+
+An account-free link (`/r/<token>`) where a client pins comments on the screens
+and approves or asks for changes. User doc `docs/review.md`; invariants V4–V6.
+
+```
+server/reviews.js              rounds, comments, decisions; publicScreen — the whitelist
+src/lib/review.ts              both sides' calls, projectStatusOf, threads and pins (pure)
+src/components/ReviewBoard.tsx the board BOTH sides use: screens, pins, threads
+src/components/ReviewPage.tsx  the client's page, mounted before the account gate
+src/components/ReviewPanel.tsx the owner's panel: send, link, decisions, rounds
+```
+
+Three things that will bite you:
+
+1. **A round shows a VERSION, never the live project** (V4): "Send for approval"
+   saves a `review` version first. A version a live link shows cannot be
+   deleted; `removeBranch` is handed the locked set.
+2. **`publicScreen` is a whitelist** (V5). A field added to `Screen` does not
+   reach a client unless it is added there, on purpose.
+3. **The status is read, not stored** (V6): `Project` has no status field, and
+   must not grow one.
 
 ## Conventions
 

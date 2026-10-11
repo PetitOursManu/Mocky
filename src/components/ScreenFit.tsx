@@ -21,12 +21,17 @@ export default function ScreenFit({
   overlay,
   onOverlayClick,
   animations = true,
+  demoLinks,
+  onNavigate,
 }: {
   screen: Pick<Screen, 'id' | 'name' | 'code' | 'caps' | 'w' | 'h' | 'page' | 'componentName'> & Partial<Screen>
   overlay?: ReactNode
   /** A click on the screen's box, as fractions of it (0..1). */
   onOverlayClick?: (at: { x: number; y: number }) => void
   animations?: boolean
+  /** The screen's links, followed as in the demo (see `Preview`). */
+  demoLinks?: { selector: string; target: string }[]
+  onNavigate?: (target: string) => void
 }) {
   const areaRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -61,14 +66,23 @@ export default function ScreenFit({
 
   const w = Math.max(1, screen.w || 1440)
   const h = Math.max(1, screen.h || 900)
-  const scale = size.w > 0 ? Math.min(size.w / w, size.h / h, 1) : 0
+  // A box with no height yet (a parent with only a minimum) fits on the width
+  // alone rather than drawing nothing.
+  const scale = size.w > 0 ? Math.min(size.w / w, size.h > 0 ? size.h / h : Infinity, 1) : 0
 
   return (
     <div ref={areaRef} className="relative flex h-full w-full items-start justify-center overflow-hidden">
       {scale > 0 && (
         <div className="relative border border-line-soft" style={{ width: w * scale, height: h * scale }}>
           <div className="absolute left-0 top-0" style={{ width: w, height: h, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
-            <Preview key={screen.id} code={screen.code} caps={screen.caps} animations={animations} />
+            <Preview
+              key={screen.id}
+              code={screen.code}
+              caps={screen.caps}
+              animations={animations}
+              demoLinks={demoLinks}
+              onNavigate={onNavigate}
+            />
           </div>
           {onOverlayClick && (
             <button

@@ -18,7 +18,7 @@ There are eight series:
 - **D1 to D6**, introduced by the admin dashboard.
 - **X1 to X7**, introduced by Mocky as an MCP server.
 - **F1 to F4**, introduced by the free plan and personal keys.
-- **V1 to V3**, introduced by versions and branches.
+- **V1 to V6**, introduced by versions, branches and approval links.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1095,7 +1095,8 @@ admin list and from `users.json`, the option closed and reopened).
 
 ## Series V — versions, review and prototypes
 
-These came with saved versions and branches ([their page](../versions.md)).
+These came with saved versions and branches ([their page](../versions.md)) and
+with approval links ([theirs](../review.md)).
 Each one is about the moment a copy of somebody's project is made, kept or put
 back.
 
@@ -1144,6 +1145,50 @@ otherwise undo a few seconds later.
 
 **How it is checked.** `src/lib/versions.test.ts` (a restored project merged with
 the server's older copy keeps exactly the restored screens).
+
+### V4. A review link reads one frozen version and writes to one round
+
+**The rule.** A review link (`server/reviews.js`) is a capability like a share
+link: 256 random bits, stored, revocable, expiring. The three public routes under
+`/api/review/:token` read the round's VERSION — saved when it was sent, never the
+live project — and write comments and a decision to that round only. A new
+round supersedes the previous one, which stays readable and takes nothing more;
+a version a live link shows cannot be deleted (`409`).
+
+**What it protects.** What an approval means. A client who approved a screen
+must not see it change under them, and their page must not break because the
+version behind it was tidied away.
+
+**How it is checked.** `server/reviews.test.js`, `server/review-routes.test.js`
+(a stolen version id mints nothing, the version is locked, a revoked link is
+404).
+
+### V5. The client's page receives a whitelist of each screen
+
+**The rule.** `publicScreen` builds what the reviewer's page gets, field by
+field: id, name, code, component name, capabilities, size, device, animations,
+page format, links. Never the prompt, the design record, the quality record or
+the owner's notes (I9).
+
+**What it protects.** The brief, often the confidential part of a project, and
+the notes nobody but their author reads. A copy-minus-some-fields would leak the
+next field somebody adds to `Screen`.
+
+**How it is checked.** `server/reviews.test.js` (the exact key set),
+`server/review-routes.test.js` (the brief and a planted note are absent from the
+HTTP answer).
+
+### V6. A project's status is read off its newest round, never stored
+
+**The rule.** `Draft`, `In review`, `Changes requested`, `Approved`: the status
+is the newest round's (`statusFor`, `projectStatusOf`), and a closed round or no
+round is a draft. Nothing writes a status into the projects blob.
+
+**What it protects.** One source of truth for a fact decided on another person's
+screen. A copy in the blob would disagree with the server the first time a
+browser was offline when the client answered.
+
+**How it is checked.** `server/reviews.test.js` ("a round"), `src/lib/review.test.ts`.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 description: Ce que fait vraiment chaque contrôle, lesquels se confondent, et lesquels consomment des jetons.
-source_hash: 9abc03426826
+source_hash: c3e1e433d853
 ---
 
 # L’interface
@@ -160,7 +160,7 @@ plutôt que de pousser la page de côté.
 L’exclusivité est le fond du sujet : ces trois modes donnent trois sens
 différents au même clic dans un écran, et deux à la fois n’en donneraient aucun.
 
-### Les neuf derrière « Plus »
+### Les dix derrière « Plus »
 
 Rendus en boutons à partir de `md`, en lignes de menu en dessous — depuis une
 seule liste, pour que les deux ne puissent jamais diverger. <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M17.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"/></svg> `Plus`
@@ -173,6 +173,7 @@ lui-même n’existe que sous `md`.
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM10 18h4"/></svg> | `Cadre` | `Afficher ou masquer le cadre iPhone sur les écrans mobiles`. **Désactivé quand le projet n’a aucun écran mobile** — et la préférence n’est pas effacée pour autant, car elle vit dans une clé unique partagée par tous les projets. Désactiver le contrôle plutôt que remettre le réglage à zéro, c’est ce qui garde vos autres projets encadrés. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6"/></svg> | `Système` | `Système de design en direct — vos tokens DESIGN.md, et de quoi les recolorer`. Ferme `Audit`, ou le mode `Lier`, si l’un des deux était ouvert. | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3Z"/></svg> | `Audit` | `Évaluer le SEO et l’accessibilité`. Ferme `Système`, ou le mode `Lier`, si l’un des deux était ouvert — les trois veulent la même place. **Ouvrir le panneau n’évalue rien.** | libre |
+| <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z"/></svg> | `Validation` | `Envoyer le projet à un client pour qu’il commente, approuve ou demande des modifications`. Ouvre le panneau Validation, à la même place ; le libellé porte le nombre de nouveaux retours, `Validation (2)`. Voir [Envoyer un projet en validation](review.md). | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 8v4.5l3 2"/></svg> | `Versions` | `Enregistrer, comparer et restaurer des versions du projet ; essayer une autre direction sur une branche`. Ouvre le panneau Versions, à la même place que `Système` et `Audit`. Voir [Versions et branches](versions.md). | libre |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12v12H3zM15 10l6-4v12l-6-4z"/></svg> | `Motion Ultra` | `Monter une vidéo à partir des images de la médiathèque`. Ouvre le panneau Motion Ultra — voir plus bas. | libre à l’ouverture |
 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></svg> | `Démo` | `Lancer le prototype — suit les liens que vous avez posés`. Démarre sur l’écran sélectionné, ou sur le premier si rien ne l’est. Voir [Le mode démo](#le-mode-demo) plus bas. | libre |

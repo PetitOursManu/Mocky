@@ -38,6 +38,7 @@ import { createDiskBudget } from './storage-quota.js'
 import { collectUsage } from './usage.js'
 import { createShareStore } from './share.js'
 import { createVersionStore } from './versions.js'
+import { createReviewStore, publicScreen } from './reviews.js'
 import { mergeStoredProjects } from './merge.js'
 import { createDataEvents } from './data-events.js'
 import { createMcpServerRoutes } from './mcp/routes.js'
@@ -243,6 +244,7 @@ function instanceTextTarget(user, profile = 'generation') {
 // Kept next to the other stores: same directory, same atomic-write discipline.
 const shares = createShareStore(DATA_DIR)
 const versions = createVersionStore(DATA_DIR, { budget: diskBudget })
+const reviews = createReviewStore(DATA_DIR)
 const dataEvents = createDataEvents()
 const runnerAuth = createRunnerAuth()
 
@@ -1991,6 +1993,8 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   shares.revokeAllFor(id)
   // And their saved versions: a copy of every project they versioned.
   versions.removeAllFor(id)
+  // And their review links: a client's page must not outlive the account either.
+  reviews.revokeAllFor(id)
   // And the assistants it let in: a token must not outlive its account.
   mcpServer.onUserDeleted(id)
   res.json({ ok: true })
@@ -2068,13 +2072,142 @@ app.patch('/api/versions/:id', requireUser, (req, res) => {
 })
 
 app.delete('/api/versions/:id', requireUser, (req, res) => {
+  // A version a live review link shows is what a client is reading right now.
+  if (reviews.lockedVersions(req.user.id).has(req.params.id)) {
+    return res.status(409).json({ error: 'A review link shows this version. Revoke the link first.', code: 'review-locked' })
+  }
   res.json({ removed: versions.remove(req.user.id, req.params.id) })
 })
 
 /** A whole branch: every version of it, which is what makes it stop existing. */
 app.delete('/api/versions', requireUser, (req, res) => {
   const projectId = String(req.query.projectId || '')
-  res.json({ removed: versions.removeBranch(req.user.id, projectId, String(req.query.branch || '')) })
+  const keep = reviews.lockedVersions(req.user.id)
+  res.json({ removed: versions.removeBranch(req.user.id, projectId, String(req.query.branch || ''), keep) })
+})
+
+// ---- review links: a project sent for approval (server/reviews.js) ----
+//
+// The three routes under /api/review/:token are deliberately public: the token
+// IS the authority, as for a share link. They read ONE frozen version and write
+// comments and a decision to ONE round. Everything under /api/reviews is the
+// owner's, behind a session.
+function reviewOrigin(req) {
+  return MOCKY_ORIGIN || `${req.protocol}://${req.get('host')}`
+}
+
+/** The round and its frozen screens, or an answer already sent. */
+function reviewWithScreens(req, res) {
+  const r = reviews.get(req.params.token)
+  // Same answer for unknown, expired and revoked — see the share routes.
+  if (!r) {
+    res.status(404).json({ error: 'This link has expired or was revoked.' })
+    return null
+  }
+  const v = versions.get(r.userId, r.versionId)
+  if (!v) {
+    res.status(410).json({ error: 'The version sent for review no longer exists.' })
+    return null
+  }
+  return { r, v }
+}
+
+app.get('/api/review/:token', (req, res) => {
+  const found = reviewWithScreens(req, res)
+  if (!found) return
+  res.setHeader('Cache-Control', 'no-store')
+  res.json({ ...reviews.publicView(found.r), screens: found.v.screens.map(publicScreen) })
+})
+
+/** A comment needs a screen of THIS version, or none (a remark on the whole project). */
+function screenIn(v, screenId) {
+  return !screenId || v.screens.some((s) => s.id === screenId)
+}
+
+app.post('/api/review/:token/comments', authRateLimit(30, 60_000, 'review-comment'), (req, res) => {
+  const found = reviewWithScreens(req, res)
+  if (!found) return
+  if (!screenIn(found.v, req.body?.screenId)) return res.status(400).json({ error: 'Unknown screen.' })
+  try {
+    res.json({ comment: reviews.addComment(req.params.token, req.body || {}, { from: 'reviewer' }) })
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.post('/api/review/:token/decision', authRateLimit(10, 60_000, 'review-decision'), (req, res) => {
+  if (!reviewWithScreens(req, res)) return
+  try {
+    res.json(reviews.decide(req.params.token, req.body || {}))
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.post('/api/reviews', requireUser, authRateLimit(20, 60_000, 'review-create'), (req, res) => {
+  const projectId = String(req.body?.projectId || '')
+  const v = versions.get(req.user.id, String(req.body?.versionId || ''))
+  // The version must be the caller's AND of this project: a link minted on
+  // somebody else's version id would publish it.
+  if (!v || v.projectId !== projectId || v.scope !== 'project') {
+    return res.status(404).json({ error: 'Version not found.' })
+  }
+  try {
+    const out = reviews.create(req.user.id, {
+      projectId,
+      projectName: req.body?.projectName || v.projectName,
+      versionId: v.id,
+      ttl: req.body?.ttl,
+    })
+    res.json({ ...out, url: `${reviewOrigin(req)}/r/${out.token}` })
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.get('/api/reviews/status', requireUser, (req, res) => {
+  res.json({ projects: reviews.statusFor(req.user.id) })
+})
+
+app.get('/api/reviews', requireUser, (req, res) => {
+  const origin = reviewOrigin(req)
+  const rounds = reviews.list(req.user.id, String(req.query.projectId || ''))
+  res.json({ rounds: rounds.map((r) => ({ ...r, url: `${origin}/r/${r.token}` })) })
+})
+
+app.post('/api/reviews/:token/comments', requireUser, (req, res) => {
+  const r = reviews.get(req.params.token)
+  if (!r || r.userId !== req.user.id) return res.status(404).json({ error: 'Review not found.' })
+  const v = versions.get(r.userId, r.versionId)
+  if (v && !screenIn(v, req.body?.screenId)) return res.status(400).json({ error: 'Unknown screen.' })
+  try {
+    const comment = reviews.addComment(
+      req.params.token,
+      { ...(req.body || {}), author: req.user.username },
+      { from: 'owner', userId: req.user.id },
+    )
+    res.json({ comment })
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
+
+app.patch('/api/reviews/:token/comments/:id', requireUser, (req, res) => {
+  const c = reviews.setResolved(req.user.id, req.params.token, req.params.id, Boolean(req.body?.resolved))
+  if (!c) return res.status(404).json({ error: 'Comment not found.' })
+  res.json({ comment: c })
+})
+
+app.post('/api/reviews/:token/seen', requireUser, (req, res) => {
+  res.json({ ok: reviews.markSeen(req.user.id, req.params.token) })
+})
+
+app.post('/api/reviews/:token/close', requireUser, (req, res) => {
+  res.json({ ok: reviews.close(req.user.id, req.params.token) })
+})
+
+app.delete('/api/reviews/:token', requireUser, (req, res) => {
+  res.json({ revoked: reviews.revoke(req.user.id, req.params.token) })
 })
 
 // ---- per-user data (projects + design) ----
