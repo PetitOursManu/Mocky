@@ -295,11 +295,21 @@ describe('a frame on a slide', () => {
       }),
     ])
     expect(xml).toContain('<a:outerShdw')
+    // The outline UNDER the frame, twice as wide: nothing lies over it where a photo is dropped.
     const outline = xml.slice(xml.indexOf('name="Cadre 1 · contour"'))
-    expect(outline).toMatch(new RegExp(`^[^]*?<a:noFill/><a:ln w="${pxToEmu(6)}"><a:solidFill><a:srgbClr val="111827">`))
-    const tapeXml = xml.slice(xml.indexOf('name="Cadre 1 · ruban"'))
-    expect(tapeXml).toMatch(/^[^]*?<a:srgbClr val="EFE6CF"><a:alpha val="85000"\/>/)
-    expect(xml.indexOf('contour')).toBeGreaterThan(xml.indexOf('<a:blipFill'))
+    expect(outline).toMatch(new RegExp(`^[^]*?<a:noFill/><a:ln w="${pxToEmu(12)}"><a:solidFill><a:srgbClr val="111827">`))
+    expect(xml.indexOf('contour')).toBeLessThan(xml.indexOf('<a:blipFill'))
+    // The tape over it, one shape per strip.
+    expect(xml).not.toContain('name="Cadre 1 · ruban"')
+    for (const strip of ['Cadre 1 · ruban 1', 'Cadre 1 · ruban 2']) {
+      const at = xml.indexOf(`name="${strip}"`)
+      expect(at, strip).toBeGreaterThan(xml.indexOf('<a:blipFill'))
+      const one = xml.slice(at, xml.indexOf('</p:sp>', at))
+      expect(one).toMatch(/<a:srgbClr val="EFE6CF"><a:alpha val="85000"\/>/)
+      expect(one.match(/<a:moveTo>/g)).toHaveLength(1)
+    }
+    const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
+    expect(new Set(ids).size).toBe(ids.length)
     expect(wellFormed(xml)).toBeNull()
   })
 
