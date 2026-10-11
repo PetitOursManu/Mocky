@@ -27,12 +27,12 @@ export const docExport = {
       'Pour imprimer ou envoyer. Les champs du document se remplissent dans n’importe quel lecteur PDF, et le texte reste sélectionnable.',
     'docExport.pptx.title': 'PowerPoint / Google Slides (.pptx) — textes modifiables',
     'docExport.pptx.help':
-      'Pour continuer à modifier : déposez le fichier sur Google Drive, puis « Ouvrir avec Google Slides » — chaque texte reste modifiable. S’ouvre aussi dans PowerPoint et Keynote.',
+      'Pour continuer à modifier : déposez le fichier sur Google Drive, puis « Ouvrir avec Google Slides » — chaque texte reste modifiable, et chaque image dans une forme reste remplaçable (un cadre dans Canva). S’ouvre aussi dans PowerPoint et Keynote.',
     'docExport.png.title': 'Images PNG',
     'docExport.png.help': 'Pour publier : une image par page, réunies dans un .zip s’il y en a plusieurs.',
     'docExport.frames.heading': 'Gabarit — cadres vides',
     'docExport.frames.intro':
-      'Le document tel qu’il est dessiné, avec ses cadres vides, pour y mettre vos propres images dans un autre logiciel. Le texte y est une image : pour modifier les mots, prenez PowerPoint.',
+      'Le document tel qu’il est dessiné, avec ses cadres vides, pour y mettre vos propres images dans un autre logiciel. Le texte y est une image : pour modifier les mots, prenez PowerPoint, qui garde aussi les cadres.',
     'docExport.frames-png.title': 'PNG transparent',
     'docExport.frames-png.help': 'Les cadres sont des trous transparents : glissez une photo dessous, dans n’importe quel logiciel.',
     'docExport.frames-svg.title': 'SVG — Figma, Illustrator, Inkscape',
@@ -89,12 +89,12 @@ export const docExport = {
       'To print or send. The document’s fields can be filled in any PDF reader, and the text stays selectable.',
     'docExport.pptx.title': 'PowerPoint / Google Slides (.pptx) — editable text',
     'docExport.pptx.help':
-      'To keep editing: upload the file to Google Drive, then “Open with Google Slides” — every text stays editable. Also opens in PowerPoint and Keynote.',
+      'To keep editing: upload the file to Google Drive, then “Open with Google Slides” — every text stays editable, and every picture in a shape stays replaceable (a frame in Canva). Also opens in PowerPoint and Keynote.',
     'docExport.png.title': 'PNG images',
     'docExport.png.help': 'To post: one image per page, bundled in a .zip when there are several.',
     'docExport.frames.heading': 'Template — empty frames',
     'docExport.frames.intro':
-      'The document as designed, with its frames left empty, to put your own pictures in with another tool. Its text is part of the picture: to edit words, take PowerPoint.',
+      'The document as designed, with its frames left empty, to put your own pictures in with another tool. Its text is part of the picture: to edit words, take PowerPoint, which keeps the frames too.',
     'docExport.frames-png.title': 'Transparent PNG',
     'docExport.frames-png.help': 'The frames are transparent holes: slide a photo under the page, in any tool.',
     'docExport.frames-svg.title': 'SVG — Figma, Illustrator, Inkscape',

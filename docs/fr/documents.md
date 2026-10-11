@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: 9d425aaa32cf
+source_hash: aee0eef1362b
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -143,7 +143,7 @@ trois boutons :
 | Bouton | Ce que vous obtenez | Pour |
 |---|---|---|
 | `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — en résolution d’impression pour le papier, au double de ses pixels pour un post afin qu’il reste net dans un logiciel — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
-| `PowerPoint / Google Slides (.pptx) — textes modifiables` | Une diapositive par page : le dessin en image, et chaque texte en zone de texte modifiable par-dessus. Déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
+| `PowerPoint / Google Slides (.pptx) — textes modifiables` | Une diapositive par page : le dessin en image, et chaque texte en zone de texte modifiable par-dessus. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
 | `Images PNG` | Une image par page, dans un `.zip` quand il y en a plusieurs. Un post sort exactement aux pixels de son format. | Publier. |
 
 Le fichier est fabriqué dans votre navigateur, page par page, et se télécharge
@@ -179,7 +179,8 @@ Un document de plusieurs pages donne un fichier par page, dans un `.zip`, sauf
 le PDF, qui les garde ensemble. Le gabarit d'un post est dessiné au double de ses
 pixels, pour rester net quand le logiciel l'affiche en grand ou que vous zoomez
 pour placer une photo. Dans un gabarit, le texte fait partie de l'image
-de la page ; pour modifier les mots, prenez le téléchargement PowerPoint.
+de la page ; pour modifier les mots, prenez le téléchargement PowerPoint, qui
+garde aussi les cadres en cadres.
 
 ---
 

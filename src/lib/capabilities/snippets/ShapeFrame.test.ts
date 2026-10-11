@@ -63,6 +63,13 @@ describe('ShapeFrame', () => {
     expect(tape.indexOf(frameShape('tape').over!)).toBeGreaterThan(tape.indexOf('data-mocky-frame-photo'))
   })
 
+  it('names the layers it draws, so the .pptx can redraw the ones over the picture', () => {
+    const out = html({ shape: 'tape', src: '/x', stroke: '#111827' })
+    expect(out).toContain('data-mocky-frame-layer="stroke"')
+    expect(out).toContain('data-mocky-frame-layer="over"')
+    expect(html({ shape: 'polaroid', src: '/x' })).toContain('data-mocky-frame-layer="paper"')
+  })
+
   it('takes only a colour where a colour goes, and bounds every number', () => {
     expect(html({ shape: 'circle', stroke: '#ff0000', strokeWidth: 6 })).toContain('stroke="#ff0000"')
     expect(html({ shape: 'circle', stroke: 'white' })).toContain('stroke-width="3"')

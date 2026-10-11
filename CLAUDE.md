@@ -1027,6 +1027,14 @@ data: URL of the path. Three things:
    `frameGeometry.ts`, which rewrites arcs as cubics first — an arc does not
    survive a stretch followed by a turn. PSD is `ag-psd` (MIT), imported only
    when that button is clicked, like `pdf-lib`.
+6. **The .pptx carries each frame as a SHAPE FILLED WITH ITS PICTURE**
+   (`carryFrames` in `docExport/frames.ts`), never as a picture cropped to a
+   shape: Canva's import kept the picture and dropped the crop — square frames —
+   on both a free-form and a preset oval, and turned the filled shape into a
+   frame of that shape. The picture is cut to what the frame shows before it is
+   written (`coverCrop`), so the slide needs no crop of its own; the outline and
+   the tape are redrawn as shapes above it (`data-mocky-frame-layer`), because
+   left in the page they would sit UNDER the photograph.
 
 ## Maintenance mode and server migration
 

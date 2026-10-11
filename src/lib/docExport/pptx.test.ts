@@ -7,6 +7,7 @@ import {
   contentTypesXml,
   escapeXml,
   fieldBoxXml,
+  frameXfrm,
   pptxEntries,
   presentationXml,
   pxToCentipoints,
@@ -16,6 +17,8 @@ import {
 } from './pptx'
 import { TINY_JPEG, field, flyerPage, line, style } from './fixtures'
 import type { TextBlock } from './types'
+import type { PptxFrame } from './pptx'
+import { frameShape } from '../frameShapes'
 
 /**
  * There is no XML parser in the test environment, and a .pptx with one
@@ -235,5 +238,84 @@ describe('blockBox', () => {
     expect(blockBox(block('center'), 800)).toMatchObject({ x: 92, w: 216 })
     // At the page's right edge there is no room to grow.
     expect(blockBox(block('left', 600), 800).w).toBe(200)
+  })
+})
+
+describe('a frame on a slide', () => {
+  const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47)
+  const frame = (over: Partial<PptxFrame> = {}): PptxFrame => ({
+    box: { shape: 'blob-3', cx: 300, cy: 400, w: 420, h: 430, angle: 0 },
+    name: 'Cadre 1 — Blob 3',
+    picture: { bytes: TINY_JPEG, type: 'jpeg' },
+    overlays: [],
+    shadow: false,
+    ...over,
+  })
+
+  it('is a SHAPE filled with its picture — what Canva imports as a frame of that shape', () => {
+    const xml = slideXml(flyerPage(0), 'fr-FR', [frame()])
+    const sp = xml.match(/<p:sp><p:nvSpPr><p:cNvPr id="3" name="Cadre 1 — Blob 3"\/>.*?<\/p:sp>/)?.[0] ?? ''
+    expect(sp).toContain('<a:custGeom>')
+    expect(sp).toContain('<a:path w="10000" h="10000"><a:moveTo>')
+    expect(sp).toContain('<a:cubicBezTo>')
+    expect(sp).toContain('<a:blipFill rotWithShape="1"><a:blip r:embed="rId3"/><a:stretch><a:fillRect/></a:stretch></a:blipFill>')
+    // Not a picture cropped to a shape: Canva kept those square.
+    expect(xml.match(/<p:pic>/g)).toHaveLength(1)
+    expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('sits over the page and under the words, and the ids stay unique', () => {
+    const xml = slideXml(flyerPage(0), 'fr-FR', [frame(), frame({ name: 'Cadre 2' })])
+    expect(xml.indexOf('<p:pic>')).toBeLessThan(xml.indexOf('name="Cadre 1'))
+    expect(xml.indexOf('name="Cadre 2"')).toBeLessThan(xml.indexOf('name="Text: '))
+    expect(xml).toContain('r:embed="rId4"')
+    const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('is placed by its centre and turned clockwise about it', () => {
+    const xml = frameXfrm({ shape: 'circle', cx: 300, cy: 400, w: 200, h: 100, angle: -6 })
+    expect(xml).toContain(`<a:off x="${pxToEmu(200)}" y="${pxToEmu(350)}"/>`)
+    expect(xml).toContain(`<a:ext cx="${pxToEmu(200)}" cy="${pxToEmu(100)}"/>`)
+    expect(xml).toContain(`rot="${354 * 60000}"`)
+    expect(frameXfrm({ shape: 'circle', cx: 0, cy: 0, w: 1, h: 1, angle: 0 })).not.toContain('rot=')
+  })
+
+  it('redraws its outline and its tape above it, and its shadow when the page lost it', () => {
+    const tape = frameShape('tape')
+    const xml = slideXml(flyerPage(0), 'fr-FR', [
+      frame({
+        box: { shape: 'tape', cx: 300, cy: 400, w: 300, h: 300, angle: 4 },
+        shadow: true,
+        overlays: [
+          { role: 'stroke', d: tape.clip, fill: null, stroke: { r: 17, g: 24, b: 39, a: 1 }, strokeWidth: 6, opacity: 1 },
+          { role: 'over', d: tape.over!, fill: { r: 239, g: 230, b: 207, a: 1 }, stroke: null, strokeWidth: 0, opacity: 0.85 },
+        ],
+        overlayNames: { stroke: 'Cadre 1 · contour', over: 'Cadre 1 · ruban' },
+      }),
+    ])
+    expect(xml).toContain('<a:outerShdw')
+    const outline = xml.slice(xml.indexOf('name="Cadre 1 · contour"'))
+    expect(outline).toMatch(new RegExp(`^[^]*?<a:noFill/><a:ln w="${pxToEmu(6)}"><a:solidFill><a:srgbClr val="111827">`))
+    const tapeXml = xml.slice(xml.indexOf('name="Cadre 1 · ruban"'))
+    expect(tapeXml).toMatch(/^[^]*?<a:srgbClr val="EFE6CF"><a:alpha val="85000"\/>/)
+    expect(xml.indexOf('contour')).toBeGreaterThan(xml.indexOf('<a:blipFill'))
+    expect(wellFormed(xml)).toBeNull()
+  })
+
+  it('travels in the package with its own picture, PNG declared', () => {
+    const entries = pptxEntries(
+      [{ snapshot: flyerPage(0), background: TINY_JPEG, frames: [frame(), frame({ picture: { bytes: PNG, type: 'png' } })] }],
+      a4,
+      { title: 'x', created },
+    )
+    const names = entries.map((e) => e.name)
+    expect(names).toContain('ppt/media/page1-frame1.jpeg')
+    expect(names).toContain('ppt/media/page1-frame2.png')
+    expect(entries.find((e) => e.name === 'ppt/media/page1-frame2.png')!.content).toBe(PNG)
+    const rels = entries.find((e) => e.name === 'ppt/slides/_rels/slide1.xml.rels')!.content as string
+    expect(rels).toContain('Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page1-frame1.jpeg"')
+    expect(rels).toContain('Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page1-frame2.png"')
+    expect(contentTypesXml(1)).toContain('Extension="png" ContentType="image/png"')
   })
 })

@@ -1,7 +1,8 @@
+import { shapeCubics, toCubics, type FrameBox, type Pt, type Subpath } from '../frameGeometry'
 import type { PageFormat } from '../pageFormats'
 import { makeZipBytes, type ZipInput } from '../zip'
 import { primaryFontFamily, toHex6 } from './lines'
-import type { FieldBox, PageSnapshot, Rgba, RunStyle, TextAlign, TextBlock } from './types'
+import type { FieldBox, FrameOverlay, PageSnapshot, Rgba, RunStyle, TextAlign, TextBlock } from './types'
 
 /**
  * A document as a .pptx — the way a DESIGNED page stays editable in Google.
@@ -13,7 +14,10 @@ import type { FieldBox, PageSnapshot, Rgba, RunStyle, TextAlign, TextBlock } fro
  * becomes one slide of the page's own size: the page, with its text taken out,
  * as a full-bleed picture (shapes, colours, photographs), and each block of text
  * as an editable box at the place it was measured, in its size, weight, colour
- * and face. PowerPoint and Keynote read the same file.
+ * and face. PowerPoint and Keynote read the same file. A picture in a shape
+ * (`<ShapeFrame>`) is a shape of its own over the page, filled with the
+ * picture: one Canva imports as a frame to drop another photo into (frames.ts,
+ * `carryFrames`, says how that was found).
  *
  * Hand-written OOXML, stored in Mocky's own zip writer: the whole format needed
  * here is a dozen small parts, and a dependency would have been a megabyte for
@@ -58,6 +62,20 @@ export interface PptxPageInput {
   snapshot: PageSnapshot
   /** The page with its text removed, as a JPEG. */
   background: Uint8Array
+  /** Its frames, drawn over the page and under the text; the background no longer has them. */
+  frames?: PptxFrame[]
+}
+
+export interface PptxFrame {
+  box: FrameBox
+  /** The frame's name in the editor's layers ("Cadre 1 — Blob 3"). */
+  name: string
+  /** The picture, cut to the box (a placeholder when the frame waits for one). */
+  picture: { bytes: Uint8Array; type: 'png' | 'jpeg' }
+  overlays: FrameOverlay[]
+  /** Names for the overlays, by role ("Cadre 1 — Blob 3 · contour"). */
+  overlayNames?: Partial<Record<FrameOverlay['role'], string>>
+  shadow: boolean
 }
 
 export interface PptxMeta {
@@ -207,7 +225,67 @@ export function fieldBoxXml(f: FieldBox, id: number, lang: string): string | nul
   return spXml(id, `Field: ${f.name}`, box, paras, multiline ? 't' : 'ctr', inset)
 }
 
-export function slideXml(page: PageSnapshot, lang: string): string {
+/**
+ * A path as DrawingML geometry, in the shape's own 0–100 box (×100, since a
+ * path's coordinates are integers): stretched to the shape's size by the
+ * reader, like the CSS mask it came from.
+ */
+export function custGeomXml(subs: readonly Subpath[]): string {
+  const pt = ([x, y]: Pt) => `<a:pt x="${Math.round(x * 100)}" y="${Math.round(y * 100)}"/>`
+  const path = subs
+    .map(
+      (sp) =>
+        `<a:moveTo>${pt(sp.start)}</a:moveTo>` +
+        sp.segs.map((g) => (g.type === 'L' ? `<a:lnTo>${pt(g.p)}</a:lnTo>` : `<a:cubicBezTo>${pt(g.c1)}${pt(g.c2)}${pt(g.p)}</a:cubicBezTo>`)).join('') +
+        '<a:close/>',
+    )
+    .join('')
+  return (
+    '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/>' +
+    `<a:pathLst><a:path w="10000" h="10000">${path}</a:path></a:pathLst></a:custGeom>`
+  )
+}
+
+/** A frame's box: placed by its centre, turned clockwise about it (60 000ths of a degree). */
+export function frameXfrm(box: FrameBox): string {
+  // To the hundredth of a degree: a turn read back off a matrix is -5.9999996°.
+  const turn = (Math.round((((box.angle % 360) + 360) % 360) * 100) * 600) % 21600000
+  return (
+    `<a:xfrm${turn ? ` rot="${turn}"` : ''}><a:off x="${pxToEmu(box.cx - box.w / 2)}" y="${pxToEmu(box.cy - box.h / 2)}"/>` +
+    `<a:ext cx="${Math.max(1, pxToEmu(box.w))}" cy="${Math.max(1, pxToEmu(box.h))}"/></a:xfrm>`
+  )
+}
+
+/** The component's shadow (`drop-shadow(0 10px 18px rgba(0,0,0,.18))`), in a slide's terms. */
+const FRAME_SHADOW =
+  `<a:effectLst><a:outerShdw blurRad="${pxToEmu(18)}" dist="${pxToEmu(10)}" dir="5400000" algn="t" rotWithShape="0">` +
+  '<a:srgbClr val="000000"><a:alpha val="18000"/></a:srgbClr></a:outerShdw></a:effectLst>'
+
+/** The frame itself: its shape, filled with its picture. */
+export function frameShapeXml(f: PptxFrame, id: number, rel: string): string {
+  return (
+    `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${escapeXml(f.name)}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+    `<p:spPr>${frameXfrm(f.box)}${custGeomXml(shapeCubics(f.box.shape))}` +
+    `<a:blipFill rotWithShape="1"><a:blip r:embed="${rel}"/><a:stretch><a:fillRect/></a:stretch></a:blipFill>` +
+    `<a:ln><a:noFill/></a:ln>${f.shadow ? FRAME_SHADOW : ''}</p:spPr></p:sp>`
+  )
+}
+
+/** An outline or a strip of tape, over the frame, in the frame's box. */
+export function frameOverlayXml(o: FrameOverlay, box: FrameBox, id: number, name: string): string {
+  const ink = (c: Rgba) => fillXml({ ...c, a: c.a * o.opacity })
+  const fill = o.fill ? ink(o.fill) : '<a:noFill/>'
+  const line = o.stroke && o.strokeWidth > 0 ? `<a:ln w="${pxToEmu(o.strokeWidth)}">${ink(o.stroke)}<a:round/></a:ln>` : '<a:ln><a:noFill/></a:ln>'
+  return (
+    `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${escapeXml(name)}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+    `<p:spPr>${frameXfrm(box)}${custGeomXml(toCubics(o.d))}${fill}${line}</p:spPr></p:sp>`
+  )
+}
+
+/** The relationship id of a page's `j`-th frame picture: rId1 is the layout, rId2 the background. */
+const frameRel = (j: number) => `rId${j + 3}`
+
+export function slideXml(page: PageSnapshot, lang: string, frames: readonly PptxFrame[] = []): string {
   // Shape ids are unique per slide; 1 is the tree, 2 the background picture.
   let next = 3
   const shapes: string[] = []
@@ -216,6 +294,11 @@ export function slideXml(page: PageSnapshot, lang: string): string {
     shapes.push(xml)
     next++
   }
+  // Over the page and under its words, in the page's order.
+  frames.forEach((f, j) => {
+    add(frameShapeXml(f, next, frameRel(j)))
+    for (const o of f.overlays) add(frameOverlayXml(o, f.box, next, f.overlayNames?.[o.role] ?? f.name))
+  })
   for (const b of page.blocks) add(textBoxXml(b, next, page.width, lang))
   for (const f of page.fields) add(fieldBoxXml(f, next, lang))
   const pic =
@@ -250,6 +333,7 @@ export function contentTypesXml(slides: number): string {
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
     '<Default Extension="xml" ContentType="application/xml"/>' +
     '<Default Extension="jpeg" ContentType="image/jpeg"/>' +
+    '<Default Extension="png" ContentType="image/png"/>' +
     ov('/ppt/presentation.xml', 'officedocument.presentationml.presentation.main+xml') +
     ov('/ppt/slideMasters/slideMaster1.xml', 'officedocument.presentationml.slideMaster+xml') +
     ov('/ppt/slideLayouts/slideLayout1.xml', 'officedocument.presentationml.slideLayout+xml') +
@@ -380,16 +464,20 @@ export function pptxEntries(pages: readonly PptxPageInput[], format: Pick<PageFo
     },
   ]
   pages.forEach((p, i) => {
+    const frames = p.frames ?? []
+    const media = frames.map((f, j) => `page${i + 1}-frame${j + 1}.${f.picture.type}`)
     entries.push(
-      { name: `ppt/slides/slide${i + 1}.xml`, content: slideXml(p.snapshot, lang) },
+      { name: `ppt/slides/slide${i + 1}.xml`, content: slideXml(p.snapshot, lang, frames) },
       {
         name: `ppt/slides/_rels/slide${i + 1}.xml.rels`,
         content: rels([
           { id: 'rId1', type: `${REL}/slideLayout`, target: '../slideLayouts/slideLayout1.xml' },
           { id: 'rId2', type: `${REL}/image`, target: `../media/page${i + 1}.jpeg` },
+          ...media.map((m, j) => ({ id: frameRel(j), type: `${REL}/image`, target: `../media/${m}` })),
         ]),
       },
       { name: `ppt/media/page${i + 1}.jpeg`, content: p.background },
+      ...frames.map((f, j) => ({ name: `ppt/media/${media[j]}`, content: f.picture.bytes })),
     )
   })
   return entries

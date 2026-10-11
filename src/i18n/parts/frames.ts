@@ -33,6 +33,8 @@ export const frames = {
     'frames.cannotWrite': 'Ce changement n’a pas pu être écrit dans le code de l’écran.',
     // The name of a frame's layer in an exported template (PSD layer, SVG title).
     'frames.layer': 'Cadre {n} — {shape}',
+    'frames.part.stroke': 'contour',
+    'frames.part.over': 'ruban',
     'frames.family.geometric': 'Géométriques',
     'frames.family.organic': 'Organiques',
     'frames.family.wave': 'Vagues et bords',
@@ -113,6 +115,8 @@ export const frames = {
     'frames.shadow': 'Shadow',
     'frames.cannotWrite': 'This change could not be written into the screen’s code.',
     'frames.layer': 'Frame {n} — {shape}',
+    'frames.part.stroke': 'outline',
+    'frames.part.over': 'tape',
     'frames.family.geometric': 'Geometric',
     'frames.family.organic': 'Organic',
     'frames.family.wave': 'Waves and edges',
