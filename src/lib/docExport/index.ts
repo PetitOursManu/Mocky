@@ -15,7 +15,14 @@ import { renderDocument, type RenderNotice } from './render'
  *  - `png`  — to post: one picture per page, zipped when there are several.
  */
 
-export type ExportKind = 'pdf' | 'pptx' | 'png'
+export type ExportKind = 'pdf' | 'pptx' | 'png' | TemplateExportKind
+
+/** The template — the document with its frames left empty (template.ts). */
+export type TemplateExportKind = 'frames-png' | 'frames-svg' | 'frames-pdf' | 'frames-psd'
+
+export const TEMPLATE_KINDS: readonly TemplateExportKind[] = ['frames-png', 'frames-svg', 'frames-pdf', 'frames-psd']
+
+const isTemplate = (kind: ExportKind): kind is TemplateExportKind => (TEMPLATE_KINDS as readonly string[]).includes(kind)
 
 export type ExportProgress =
   | { phase: 'render' }
@@ -50,8 +57,12 @@ export async function exportDocument(screen: Screen, kind: ExportKind, opts: Exp
   const format = getPageFormat(screen.page ?? DEFAULT_PAGE_FORMAT)
   const base = fileBaseName(screen.name)
   opts.onProgress?.({ phase: 'render' })
+  const template = isTemplate(kind)
   const { pages, notices } = await renderDocument(screen.code, capsForScreen(screen), format, {
-    purpose: kind,
+    // The template's page is drawn as the PNG is — at the platform's pixels for
+    // a post — and every format of it is built from that picture.
+    purpose: template ? 'png' : kind,
+    template,
     signal: opts.signal,
     onPage: (page, total) => opts.onProgress?.({ phase: 'page', page, total }),
   })
@@ -59,8 +70,33 @@ export async function exportDocument(screen: Screen, kind: ExportKind, opts: Exp
   opts.onProgress?.({ phase: 'build' })
 
   const title = screen.name.trim() || base
+  const lang = opts.lang === 'en' ? 'en' : 'fr'
   let blob: Blob
   let filename: string
+  /** One file per page, zipped when there are several. */
+  const perPage = (ext: string, mime: string, files: Uint8Array[]) => {
+    if (files.length === 1) return { blob: new Blob([files[0] as BlobPart], { type: mime }), filename: `${base}${ext}` }
+    return { blob: makeZip(files.map((content, i) => ({ name: pageFileName(i, files.length).replace(/\.png$/, ext), content }))), filename: `${base}.zip` }
+  }
+  if (template) {
+    const tpl = await import('./template')
+    const sheets = pages.map((p) => ({ png: p.image, snapshot: p.snapshot }))
+    let out: { blob: Blob; filename: string }
+    if (kind === 'frames-pdf') {
+      const bytes = await tpl.buildTemplatePdf(sheets, format, { title, placeholder: await tpl.placeholderPng(), lang })
+      out = { blob: new Blob([bytes as BlobPart], { type: MIME.pdf }), filename: `${base}.pdf` }
+    } else if (kind === 'frames-svg') {
+      const enc = new TextEncoder()
+      out = perPage('.svg', MIME.svg, sheets.map((s) => enc.encode(tpl.buildTemplateSvg(s, lang))))
+    } else if (kind === 'frames-psd') {
+      const files: Uint8Array[] = []
+      for (const s of sheets) files.push(await tpl.templatePsdForPage(s, lang))
+      out = perPage('.psd', MIME.psd, files)
+    } else {
+      out = perPage('.png', MIME.png, sheets.map((s) => s.png))
+    }
+    return { ...out, pages: pages.length, notices }
+  }
   if (kind === 'pdf') {
     const { buildPdf } = await import('./pdf')
     const bytes = await buildPdf(

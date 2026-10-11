@@ -4,7 +4,7 @@ import { useLang, useT } from '../i18n'
 import type { Screen } from '../lib/project'
 import { DEFAULT_PAGE_FORMAT, getPageFormat } from '../lib/pageFormats'
 import { exportDocument, type ExportKind, type ExportProgress, type RenderNotice } from '../lib/docExport'
-import { documentHasFields, startDownload } from '../lib/docExport/files'
+import { documentHasFields, documentHasFrames, startDownload } from '../lib/docExport/files'
 
 /**
  * Downloading a DOCUMENT screen (lib/pageFormats.ts): PDF with fillable
@@ -27,6 +27,19 @@ const KINDS: { kind: ExportKind; icon: IconName; title: string; help: string }[]
   { kind: 'pdf', icon: 'download', title: 'docExport.pdf.title', help: 'docExport.pdf.help' },
   { kind: 'pptx', icon: 'pencil', title: 'docExport.pptx.title', help: 'docExport.pptx.help' },
   { kind: 'png', icon: 'image', title: 'docExport.png.title', help: 'docExport.png.help' },
+]
+
+/**
+ * The template: the same document with its `<ShapeFrame>`s left empty, in the
+ * formats the editors people finish a post in take (lib/docExport/template.ts).
+ * Offered only to a document that HAS a frame — on any other it would be the
+ * PNG again under another name.
+ */
+const TEMPLATE_KINDS: { kind: ExportKind; icon: IconName; title: string; help: string }[] = [
+  { kind: 'frames-png', icon: 'image', title: 'docExport.frames-png.title', help: 'docExport.frames-png.help' },
+  { kind: 'frames-svg', icon: 'pencil', title: 'docExport.frames-svg.title', help: 'docExport.frames-svg.help' },
+  { kind: 'frames-pdf', icon: 'download', title: 'docExport.frames-pdf.title', help: 'docExport.frames-pdf.help' },
+  { kind: 'frames-psd', icon: 'crop', title: 'docExport.frames-psd.title', help: 'docExport.frames-psd.help' },
 ]
 
 type State =
@@ -67,6 +80,7 @@ export default function DocumentDownloadDialog({
   const format = getPageFormat(screen.page ?? DEFAULT_PAGE_FORMAT)
   const empty = !screen.code.trim()
   const fields = documentHasFields(screen.code)
+  const frames = documentHasFrames(screen.code)
 
   // Closing the dialog mid-export stops the export: a file that arrives after
   // its dialog has gone is a download nobody asked for any more.
@@ -161,12 +175,55 @@ export default function DocumentDownloadDialog({
     if (n.code === 'assets') return t('docExport.notice.assets', { pages })
     // What survives a page neither renderer could draw depends on the file:
     // the .pptx keeps its editable text, the PDF only its fillable fields (its
-    // text layer is invisible by design), a PNG nothing at all.
-    if (n.code === 'raster') return t(`docExport.notice.raster.${lastKindRef.current ?? 'pdf'}`, { pages })
+    // text layer is invisible by design), a PNG nothing at all — and a
+    // template, drawn as the PNG is, what the PNG would.
+    if (n.code === 'raster') {
+      const kind = lastKindRef.current ?? 'pdf'
+      return t(`docExport.notice.raster.${kind.startsWith('frames-') ? 'png' : kind}`, { pages })
+    }
     return t('docExport.notice.measure', { pages })
   }
 
   const running = state.step === 'running'
+
+  /** One download, as a button whose help says what the file is for. */
+  function kindButton({ kind, icon, title: plainTitle, help: plainHelp }: { kind: ExportKind; icon: IconName; title: string; help: string }) {
+    const active = running && state.kind === kind
+    const title = kind === 'pdf' && fields ? 'docExport.pdf.titleFields' : plainTitle
+    const help = kind === 'pdf' && fields ? 'docExport.pdf.helpFields' : plainHelp
+    return (
+      <li key={kind}>
+        {/* `aria-disabled`, not `disabled`, while an export runs:
+            disabling the button that has the focus drops it to <body>,
+            outside the modal, and the next Tab lands in the canvas behind
+            it. `run` ignores the click instead. */}
+        <button
+          ref={(el) => {
+            buttonsRef.current[kind] = el
+          }}
+          type="button"
+          onClick={() => run(kind)}
+          disabled={empty}
+          aria-disabled={running || undefined}
+          aria-describedby={`doc-export-${kind}-help`}
+          className={`tap-target flex w-full items-start gap-3 border px-4 py-3 text-left transition motion-reduce:transition-none disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
+            active
+              ? 'border-accent bg-surface'
+              : 'border-line-soft hover:border-line disabled:opacity-50 aria-disabled:opacity-50 aria-disabled:hover:border-line-soft'
+          }`}
+        >
+          <Icon name={icon} size={18} className="mt-0.5 shrink-0 text-ink-muted" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-body font-medium text-ink">{t(title)}</span>
+            <span id={`doc-export-${kind}-help`} className="mt-0.5 block text-body-sm text-ink-muted">
+              {t(help)}
+            </span>
+          </span>
+        </button>
+      </li>
+    )
+  }
+
 
   return (
     <Modal title={t('docExport.title')} onClose={onClose} size="md">
@@ -181,43 +238,18 @@ export default function DocumentDownloadDialog({
       )}
 
       <ul className="mt-4 flex flex-col gap-2">
-        {KINDS.map(({ kind, icon, title: plainTitle, help: plainHelp }) => {
-          const active = running && state.kind === kind
-          const title = kind === 'pdf' && fields ? 'docExport.pdf.titleFields' : plainTitle
-          const help = kind === 'pdf' && fields ? 'docExport.pdf.helpFields' : plainHelp
-          return (
-            <li key={kind}>
-              {/* `aria-disabled`, not `disabled`, while an export runs:
-                  disabling the button that has the focus drops it to <body>,
-                  outside the modal, and the next Tab lands in the canvas behind
-                  it. `run` ignores the click instead. */}
-              <button
-                ref={(el) => {
-                  buttonsRef.current[kind] = el
-                }}
-                type="button"
-                onClick={() => run(kind)}
-                disabled={empty}
-                aria-disabled={running || undefined}
-                aria-describedby={`doc-export-${kind}-help`}
-                className={`tap-target flex w-full items-start gap-3 border px-4 py-3 text-left transition motion-reduce:transition-none disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
-                  active
-                    ? 'border-accent bg-surface'
-                    : 'border-line-soft hover:border-line disabled:opacity-50 aria-disabled:opacity-50 aria-disabled:hover:border-line-soft'
-                }`}
-              >
-                <Icon name={icon} size={18} className="mt-0.5 shrink-0 text-ink-muted" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-body font-medium text-ink">{t(title)}</span>
-                  <span id={`doc-export-${kind}-help`} className="mt-0.5 block text-body-sm text-ink-muted">
-                    {t(help)}
-                  </span>
-                </span>
-              </button>
-            </li>
-          )
-        })}
+        {KINDS.map((k) => kindButton(k))}
       </ul>
+
+      {frames && (
+        <section className="mt-5" aria-labelledby="doc-export-frames">
+          <h3 id="doc-export-frames" className="kicker text-accent-ink">
+            {t('docExport.frames.heading')}
+          </h3>
+          <p className="measure mt-1 text-body-sm text-ink-muted">{t('docExport.frames.intro')}</p>
+          <ul className="mt-2 flex flex-col gap-2">{TEMPLATE_KINDS.map((k) => kindButton(k))}</ul>
+        </section>
+      )}
 
       {/* One live region for every outcome, so a screen reader hears the progress and the result. */}
       <div className="mt-4" aria-live="polite">

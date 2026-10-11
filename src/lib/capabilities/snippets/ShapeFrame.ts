@@ -73,6 +73,10 @@ var ShapeFrame = function (props) {
   // The shape keeps the proportions it was drawn for unless the page sizes the
   // box itself — an aspect class or a height says the page has decided.
   var sized = /(^|\\s)(aspect-|h-|min-h-|size-)/.test(className);
+  // Its layers are placed inside it, so it needs a position — but only when the
+  // page gave it none: an inline \`relative\` beats a class, and a collage's
+  // \`absolute right-[70px]\` frame fell back into the flow and off the page.
+  var placed = /(^|\\s)(?:[\\w-]+:)*(absolute|fixed|sticky|relative)(\\s|$)/.test(className);
   var src = typeof props.src === 'string' ? props.src : '';
   var focus = MOCKY_FRAME_FOCUS[props.focus] || '50% 50%';
   var zoom = mockyFrameNum(props.zoom, 1, 2, 1);
@@ -111,7 +115,8 @@ var ShapeFrame = function (props) {
       'data-mocky-frame': id,
       className: className,
       style: Object.assign(
-        { position: 'relative' },
+        {},
+        placed ? null : { position: 'relative' },
         sized ? null : { aspectRatio: String(s.r) },
         rotate ? { transform: 'rotate(' + rotate + 'deg)' } : null,
         // A drop shadow follows what is drawn, so it takes the shape's outline.

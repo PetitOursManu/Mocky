@@ -147,6 +147,29 @@ link rather than hiding it: content cut at the page edge, rotated text left in
 the picture of a slide, a page drawn by the fallback renderer, a picture or font
 that could not be embedded.
 
+### The template, with empty frames
+
+:::why
+A post made in Mocky is often finished elsewhere, with the real photographs,
+in the editor the person already uses. Re-drawing the frames there is the work
+the template saves.
+:::
+
+When the document has pictures in a shape (see [Pictures in a shape](#pictures-in-a-shape)), the dialog adds
+a `Template — empty frames` section. The page comes out as designed, with every
+frame left empty and named after its shape ("Frame 2 — Polaroid"):
+
+| Button | What you get | Where |
+|---|---|---|
+| `Transparent PNG` | The page with each frame cut out as a transparent hole: slide a photo under it. | Any tool. |
+| `SVG — Figma, Illustrator, Inkscape` | The page, and above it each frame as a named vector mask filled with grey: replace the grey with a picture. | Figma, Illustrator, Inkscape. |
+| `PDF — Canva, Illustrator, Affinity` | Each frame is a vector path clipping a placeholder picture. Canva turns a clipped picture in an imported PDF into one of its frames, which a photo is dropped into. | Canva, Illustrator, Affinity. |
+| `PSD — Photoshop` | One layer for the page, one per frame, in the frame's shape. Place a photo above a frame and Alt + click between the two layers: a clipping mask. | Photoshop, Photopea. |
+
+A document of several pages gives one file per page, in a `.zip`, except the
+PDF, which keeps them together. The text is part of the page's picture in a
+template; to edit the words, take the PowerPoint download.
+
 ---
 
 ## When content runs past the page
