@@ -10,6 +10,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `docexport` | PDF en double résolution — 500 dpi pour le papier, ×4 pour un post (#55) | `40a2991` |
 | `campaign` | un brief décliné en affiche, flyer, post, story (#54) | `7f6c4a6` |
 | — | versions et branches, envoi en validation, prototypes qui fonctionnent (#53) | `659c24e` |
 | `docexport` | PSD et SVG en téléchargement classique, plus de gabarit vide (#52) | `9506663` |
