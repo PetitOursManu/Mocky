@@ -261,6 +261,13 @@ export const DOCUMENT_EXCLUDED_CAPS: readonly string[] = [
 /** The page kit's capability id — force-added, like `ultra` on its screens. */
 export const DOCUMENT_CAP = 'document'
 
+/**
+ * `<ShapeFrame>`, offered to every page in a SOCIAL format: a picture cut into a
+ * blob, an arch or a polaroid is the vocabulary of a post, and it was made for
+ * them. Offered, not imposed — the component's card says when it is worth it.
+ */
+export const FRAMES_CAP = 'frames'
+
 export interface DocumentPipeline {
   /** A document, or an ordinary screen with every stage as it always was. */
   document: boolean
@@ -327,7 +334,8 @@ export function documentPipeline(page: PageFormatId | null | undefined): Documen
     animations: false,
     caps: (ids) => {
       const out = ids.filter((id) => !DOCUMENT_EXCLUDED_CAPS.includes(id))
-      return out.includes(DOCUMENT_CAP) ? out : [...out, DOCUMENT_CAP]
+      for (const id of format.kind === 'social' ? [DOCUMENT_CAP, FRAMES_CAP] : [DOCUMENT_CAP]) if (!out.includes(id)) out.push(id)
+      return out
     },
   }
 }

@@ -1,5 +1,5 @@
 ---
-source_hash: 350e9cf60507
+source_hash: 39a81a14a8d3
 ---
 
 # Vue d'ensemble de l'architecture
@@ -107,6 +107,7 @@ C'est [l'invariant I3](invariants.md), et il porte sur la
 | `three-lib` | cdn-script | aucun — tirée par `requires` | `window.THREE`, depuis `/vendor/three.js` |
 | `scene3d` | snippet-pack | `3d`, `webgl`, `particules`, `immersif`, `profondeur`… | `Scene3D` — dix scènes procédurales. Déclare `requires: ['three-lib']` |
 | `scrollvideo` | snippet-pack | aucun — ajoutée explicitement | `ScrollSequence`, `PointerSequence` |
+| `frames` | snippet-pack | `cadre photo`, `blob`, `polaroid`, `collage`, `post instagram`…, et tout format de page réseaux sociaux | `ShapeFrame` — une image découpée dans l'une des 42 formes de `lib/frameShapes.ts`, par un masque CSS |
 
 
 ### La 3D dans une page, et le budget qui la gouverne

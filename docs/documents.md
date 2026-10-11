@@ -205,6 +205,32 @@ ready-made document post.
 A story is sized 9:16, and the model keeps text out of the bands the app covers
 at the top (progress, name) and at the bottom (reply field).
 
+### Pictures in a shape
+
+:::why
+A post is mostly one picture, and a picture cut into a blob, an arch or a
+polaroid is half the look of a post. The model draws none of these shapes
+itself: a long SVG path written by a model gets cut off and breaks the render.
+:::
+
+A picture can sit in a **frame**, a shape that cuts it the way a clipping mask
+does in an image editor. Ask for it in the brief ("the photo in a blob", "a
+polaroid", "a collage of three photos in arches"). The social formats always
+offer it to the model; on other pages, those words do.
+
+There are 42 frames in four families:
+
+| Family | Frames |
+|---|---|
+| Geometric | circle, rounded, squircle, triangle, diamond, pentagon, hexagon, octagon, star, burst, heart, arch, dome, pill, drop, shield, cross, parallelogram, flower, leaf |
+| Organic | six blobs, splash, pebble |
+| Waves and edges | wavy bottom, wavy top, wavy both, scalloped, zigzag, torn |
+| Photo frames | polaroid, stamp, film strip, ticket, speech bubble, taped photo, torn-edged print, oval mount |
+
+A frame keeps the picture's important part in view (a face at the top, for
+instance), and can take an outline, a soft shadow that follows the shape and a
+slight tilt. Without a picture, the shape is drawn in grey as a placeholder.
+
 ---
 
 ## In demo mode
