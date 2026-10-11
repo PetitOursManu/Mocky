@@ -1033,8 +1033,11 @@ data: URL of the path. Three things:
    on both a free-form and a preset oval, and turned the filled shape into a
    frame of that shape. The picture is cut to what the frame shows before it is
    written (`coverCrop`), so the slide needs no crop of its own; the outline and
-   the tape are redrawn as shapes above it (`data-mocky-frame-layer`), because
-   left in the page they would sit UNDER the photograph.
+   the tape are redrawn as shapes of their own (`data-mocky-frame-layer`),
+   because left in the page they would sit UNDER the photograph. Nothing goes
+   OVER the frame's middle (`frameStackXml`): Canva drops a photo on what is on
+   top, and a frame with its outline over it took none. The outline goes under,
+   twice as wide; the tape stays over, one shape per strip.
 
 ## Maintenance mode and server migration
 

@@ -271,15 +271,42 @@ export function frameShapeXml(f: PptxFrame, id: number, rel: string): string {
   )
 }
 
-/** An outline or a strip of tape, over the frame, in the frame's box. */
-export function frameOverlayXml(o: FrameOverlay, box: FrameBox, id: number, name: string): string {
+/** An outline or a strip of tape, in the frame's box: `subs` is the part of its path this shape draws. */
+export function frameOverlayXml(o: FrameOverlay, box: FrameBox, id: number, name: string, subs: readonly Subpath[] = toCubics(o.d)): string {
   const ink = (c: Rgba) => fillXml({ ...c, a: c.a * o.opacity })
   const fill = o.fill ? ink(o.fill) : '<a:noFill/>'
   const line = o.stroke && o.strokeWidth > 0 ? `<a:ln w="${pxToEmu(o.strokeWidth)}">${ink(o.stroke)}<a:round/></a:ln>` : '<a:ln><a:noFill/></a:ln>'
   return (
     `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${escapeXml(name)}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
-    `<p:spPr>${frameXfrm(box)}${custGeomXml(toCubics(o.d))}${fill}${line}</p:spPr></p:sp>`
+    `<p:spPr>${frameXfrm(box)}${custGeomXml(subs)}${fill}${line}</p:spPr></p:sp>`
   )
+}
+
+/**
+ * A frame and what it draws, in the order Canva can use them. Imported with its
+ * outline drawn OVER it, a frame took no photo — Canva drops a photo on what is
+ * on top, and an outline's box is the frame's — and its tape, two strips in one
+ * path, did not show at all. So:
+ *
+ *  - the outline goes UNDER the frame, twice as wide: the half outside the
+ *    shape shows, as wide as the whole line was, half a line further out;
+ *  - the tape stays on top, where tape is, one shape per strip, which leaves
+ *    the middle of the frame free for the photo.
+ */
+export function frameStackXml(f: PptxFrame, firstId: number, rel: string): string[] {
+  const out: string[] = []
+  const id = () => firstId + out.length
+  for (const o of f.overlays) {
+    if (o.role === 'stroke') out.push(frameOverlayXml({ ...o, strokeWidth: o.strokeWidth * 2 }, f.box, id(), f.overlayNames?.stroke ?? f.name))
+  }
+  out.push(frameShapeXml(f, id(), rel))
+  for (const o of f.overlays) {
+    if (o.role !== 'over') continue
+    const strips = toCubics(o.d)
+    const name = f.overlayNames?.over ?? f.name
+    strips.forEach((sp, k) => out.push(frameOverlayXml(o, f.box, id(), strips.length > 1 ? `${name} ${k + 1}` : name, [sp])))
+  }
+  return out
 }
 
 /** The relationship id of a page's `j`-th frame picture: rId1 is the layout, rId2 the background. */
@@ -295,10 +322,7 @@ export function slideXml(page: PageSnapshot, lang: string, frames: readonly Pptx
     next++
   }
   // Over the page and under its words, in the page's order.
-  frames.forEach((f, j) => {
-    add(frameShapeXml(f, next, frameRel(j)))
-    for (const o of f.overlays) add(frameOverlayXml(o, f.box, next, f.overlayNames?.[o.role] ?? f.name))
-  })
+  frames.forEach((f, j) => frameStackXml(f, next, frameRel(j)).forEach(add))
   for (const b of page.blocks) add(textBoxXml(b, next, page.width, lang))
   for (const f of page.fields) add(fieldBoxXml(f, next, lang))
   const pic =
