@@ -43,6 +43,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| `docexport` | le ruban dans sa propre boîte, la page en arrière-plan de la diapositive (#51) | `7961774` |
 | `docexport` | rien sur le cadre dans le PowerPoint, pour que Canva y dépose une photo (#50) | `6903e47` |
 | `docexport` | l'interlignage hérité reste un multiplicateur dans le rendu image (#48) | `147be99` |
 | `docexport` | des posts nets dans Canva — PDF, PowerPoint et gabarits en double résolution (#47) | `2f691bb` |
