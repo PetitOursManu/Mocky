@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: c5101ff3deec
+source_hash: 1aa47b5cb539
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -154,6 +154,30 @@ Quand quelque chose n’a pas pu être exporté parfaitement, la fenêtre le dit
 le lien plutôt que de le cacher : du contenu coupé au bord de la page, un texte
 tourné laissé dans l’image d’une diapositive, une page dessinée par le moteur de
 secours, une image ou une police qui n’a pas pu être intégrée.
+
+### Le gabarit, avec les cadres vides
+
+:::why
+Un post fait dans Mocky se termine souvent ailleurs, avec les vraies photos,
+dans le logiciel qu'on utilise déjà. Redessiner les cadres là-bas, c'est le
+travail que le gabarit évite.
+:::
+
+Quand le document contient des images en forme (voir [Des images dans une forme](#des-images-dans-une-forme)),
+la fenêtre ajoute une section `Gabarit — cadres vides`. La page sort telle
+qu'elle est dessinée, avec chaque cadre vide et nommé d'après sa forme
+(« Cadre 2 — Polaroid ») :
+
+| Bouton | Ce que vous obtenez | Où |
+|---|---|---|
+| `PNG transparent` | La page avec chaque cadre découpé en trou transparent : glissez une photo dessous. | N'importe quel logiciel. |
+| `SVG — Figma, Illustrator, Inkscape` | La page, et au-dessus chaque cadre comme un masque vectoriel nommé, rempli de gris : remplacez le gris par une image. | Figma, Illustrator, Inkscape. |
+| `PDF — Canva, Illustrator, Affinity` | Chaque cadre est un tracé vectoriel qui découpe une image d'attente. Canva transforme une image découpée dans un PDF importé en l'un de ses cadres, où l'on dépose une photo. | Canva, Illustrator, Affinity. |
+| `PSD — Photoshop` | Un calque pour la page, un par cadre, à la forme du cadre. Placez une photo au-dessus d'un cadre, puis Alt + clic entre les deux calques : un masque d'écrêtage. | Photoshop, Photopea. |
+
+Un document de plusieurs pages donne un fichier par page, dans un `.zip`, sauf
+le PDF, qui les garde ensemble. Dans un gabarit, le texte fait partie de l'image
+de la page ; pour modifier les mots, prenez le téléchargement PowerPoint.
 
 ---
 

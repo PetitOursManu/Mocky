@@ -32,6 +32,19 @@ describe('DocumentDownloadDialog', () => {
     expect(html).toContain(partsFr['docExport.format.a4-landscape'])
   })
 
+  it('offers the template with empty frames only to a document that has a frame', () => {
+    const plain = renderToStaticMarkup(<DocumentDownloadDialog screen={screen} onClose={() => {}} />)
+    expect(plain).not.toContain(partsFr['docExport.frames.heading'])
+    const post = { ...screen, code: 'export default () => <Doc><Page><ShapeFrame shape="arch" src="/x" /></Page></Doc>' }
+    const html = renderToStaticMarkup(<DocumentDownloadDialog screen={post} onClose={() => {}} />)
+    expect(html).toContain(partsFr['docExport.frames.heading'])
+    for (const kind of ['frames-png', 'frames-svg', 'frames-pdf', 'frames-psd']) {
+      expect(html).toContain(partsFr[`docExport.${kind}.title`])
+      expect(html).toContain(`aria-describedby="doc-export-${kind}-help"`)
+    }
+    expect(partsEn['docExport.frames-psd.title']).toBeTruthy()
+  })
+
   it('promises fillable fields only when the document has some', () => {
     const plain = renderToStaticMarkup(<DocumentDownloadDialog screen={screen} onClose={() => {}} />)
     expect(plain).not.toContain(partsFr['docExport.pdf.titleFields'])

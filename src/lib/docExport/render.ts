@@ -1,3 +1,4 @@
+import { hideFramePhotos, measureFrames, punchFrames } from './frames'
 import { openDocumentFrame, type DocumentFrame } from '../capture'
 import type { Capability } from '../capabilities/types'
 import { DOC_ATTR, FIELD_ATTR, PAGE_ATTR, docFrameHeight, type PageFormat } from '../pageFormats'
@@ -67,6 +68,12 @@ export interface RenderOptions {
   signal?: AbortSignal
   /** Called before each page is rasterised, 1-based. */
   onPage?: (page: number, total: number) => void
+  /**
+   * The template: every `<ShapeFrame>` measured, drawn WITHOUT its picture and
+   * cut out of the page's PNG (frames.ts). The page itself is drawn as for
+   * `png` — nothing else of it is left out.
+   */
+  template?: boolean
 }
 
 const HIDE_MODE = { pdf: 'fields', pptx: 'text', png: 'none' } as const
@@ -485,7 +492,9 @@ export async function renderDocument(
     const hideMode = HIDE_MODE[purpose]
     const hide = hideCss(hideMode)
     const textMode = hideMode === 'text'
-    const type = purpose === 'png' ? 'image/png' : 'image/jpeg'
+    const template = opts.template === true
+    // A template is PNG whatever the purpose: the frames are cut out of it.
+    const type = purpose === 'png' || template ? 'image/png' : 'image/jpeg'
     const unmeasured: number[] = []
     const overflow: number[] = []
     const tiltedPages: number[] = []
@@ -508,6 +517,7 @@ export async function renderDocument(
       const unflatten = treatClippedText(frame.win, el, () => 'flatten')
       try {
         snapshot = snapshotPage(frame.win, el, i, format.w, format.h, tilted)
+        if (template) snapshot.frames = measureFrames(frame.win, el)
         if (snapshot.overflow) overflow.push(i + 1)
         if (snapshot.tilted) tiltedPages.push(i + 1)
       } catch (err) {
@@ -528,7 +538,13 @@ export async function renderDocument(
         const undo: Array<() => void> = []
         if (hide) undo.push(applyHide(frame.win, frame.doc, el, hide, keepInk, textMode))
         if (purpose === 'pdf') undo.push(uncheckFields(el))
+        if (template) undo.push(hideFramePhotos(el))
         return undoAll(undo)
+      }
+      // The frames cut out of the picture, before it is encoded: the hole is
+      // what lets a photograph be slid under the page in any editor.
+      const finish = (canvas: HTMLCanvasElement) => {
+        if (template && snapshot.frames?.length) punchFrames(canvas, snapshot.frames, canvas.width / format.w)
       }
 
       let rendered: { image: Uint8Array; w: number; h: number } | null = null
@@ -540,6 +556,7 @@ export async function renderDocument(
         try {
           const res = await rasterizeNative(frame.win, el, { width: format.w, height: format.h, scale, signal })
           canvas = res.canvas
+          finish(canvas)
           // Inside the try: Safari's refusal to read the canvas back is a
           // SecurityError thrown HERE, not when drawing.
           rendered = { image: await raceAbort(encode(canvas, type), signal), w: canvas.width, h: canvas.height }
@@ -576,6 +593,7 @@ export async function renderDocument(
             signal,
           )
           throwIfAborted(signal)
+          finish(canvas)
           rendered = { image: await raceAbort(encode(canvas, type), signal), w: canvas.width, h: canvas.height }
         } catch (err) {
           if (signal?.aborted || (err as { name?: string } | null)?.name === 'AbortError') throw err

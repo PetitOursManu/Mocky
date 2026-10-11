@@ -1,3 +1,4 @@
+import type { FrameBox } from '../frameGeometry'
 import type { FieldType } from '../pageFormats'
 
 /**
@@ -146,6 +147,8 @@ export interface PageSnapshot {
    * turned into text (see `makeTiltTest`). Optional for the same reason.
    */
   tilted?: number
+  /** The page's `<ShapeFrame>`s, measured for the template export only (frames.ts). */
+  frames?: FrameBox[]
 }
 
 /** One page, rasterised and measured. */

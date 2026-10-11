@@ -40,6 +40,14 @@ describe('ShapeFrame', () => {
     expect(html({ shape: 'arch', className: 'w-full aspect-square' })).not.toContain('aspect-ratio')
   })
 
+  it('keeps a position the page gave it, and takes one only when it has none', () => {
+    expect(html({ shape: 'arch', className: 'w-80' })).toContain('position:relative')
+    // A collage places its frames with classes; an inline `relative` would beat them.
+    expect(html({ shape: 'arch', className: 'absolute right-[70px] top-[120px] w-[420px]' })).not.toContain('position:relative')
+    expect(html({ shape: 'arch', className: 'w-80 md:absolute' })).not.toContain('position:relative')
+    expect(html({ shape: 'arch', className: 'w-80 absolutely-not' })).toContain('position:relative')
+  })
+
   it('draws a grey placeholder in the shape when it has no picture', () => {
     const out = html({ shape: 'blob-2' })
     expect(out).not.toContain('<img')

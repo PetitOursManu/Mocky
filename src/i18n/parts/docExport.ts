@@ -30,6 +30,19 @@ export const docExport = {
       'Pour continuer à modifier : déposez le fichier sur Google Drive, puis « Ouvrir avec Google Slides » — chaque texte reste modifiable. S’ouvre aussi dans PowerPoint et Keynote.',
     'docExport.png.title': 'Images PNG',
     'docExport.png.help': 'Pour publier : une image par page, réunies dans un .zip s’il y en a plusieurs.',
+    'docExport.frames.heading': 'Gabarit — cadres vides',
+    'docExport.frames.intro':
+      'Le document tel qu’il est dessiné, avec ses cadres vides, pour y mettre vos propres images dans un autre logiciel. Le texte y est une image : pour modifier les mots, prenez PowerPoint.',
+    'docExport.frames-png.title': 'PNG transparent',
+    'docExport.frames-png.help': 'Les cadres sont des trous transparents : glissez une photo dessous, dans n’importe quel logiciel.',
+    'docExport.frames-svg.title': 'SVG — Figma, Illustrator, Inkscape',
+    'docExport.frames-svg.help': 'Chaque cadre est un masque vectoriel nommé, rempli de gris : remplacez le gris par une image.',
+    'docExport.frames-pdf.title': 'PDF — Canva, Illustrator, Affinity',
+    'docExport.frames-pdf.help':
+      'Chaque cadre est un tracé vectoriel qui découpe une image d’attente. Importé dans Canva, il devient un cadre où glisser une photo.',
+    'docExport.frames-psd.title': 'PSD — Photoshop',
+    'docExport.frames-psd.help':
+      'Un calque pour la page, un calque par cadre. Placez une photo au-dessus d’un cadre, puis Alt + clic entre les deux : c’est un masque d’écrêtage.',
     'docExport.progress.render': 'Mise en page du document…',
     'docExport.progress.page': 'Page {page} sur {total}…',
     'docExport.progress.build': 'Assemblage du fichier…',
@@ -79,6 +92,18 @@ export const docExport = {
       'To keep editing: upload the file to Google Drive, then “Open with Google Slides” — every text stays editable. Also opens in PowerPoint and Keynote.',
     'docExport.png.title': 'PNG images',
     'docExport.png.help': 'To post: one image per page, bundled in a .zip when there are several.',
+    'docExport.frames.heading': 'Template — empty frames',
+    'docExport.frames.intro':
+      'The document as designed, with its frames left empty, to put your own pictures in with another tool. Its text is part of the picture: to edit words, take PowerPoint.',
+    'docExport.frames-png.title': 'Transparent PNG',
+    'docExport.frames-png.help': 'The frames are transparent holes: slide a photo under the page, in any tool.',
+    'docExport.frames-svg.title': 'SVG — Figma, Illustrator, Inkscape',
+    'docExport.frames-svg.help': 'Each frame is a named vector mask filled with grey: replace the grey with a picture.',
+    'docExport.frames-pdf.title': 'PDF — Canva, Illustrator, Affinity',
+    'docExport.frames-pdf.help': 'Each frame is a vector path clipping a placeholder picture. Imported into Canva, it becomes a frame to drop a photo into.',
+    'docExport.frames-psd.title': 'PSD — Photoshop',
+    'docExport.frames-psd.help':
+      'One layer for the page, one per frame. Place a photo above a frame, then Alt + click between the two: that is a clipping mask.',
     'docExport.progress.render': 'Laying out the document…',
     'docExport.progress.page': 'Page {page} of {total}…',
     'docExport.progress.build': 'Putting the file together…',

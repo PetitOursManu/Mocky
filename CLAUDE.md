@@ -1019,6 +1019,14 @@ data: URL of the path. Three things:
    `<img>` to frame it, and re-reads `caps` because that may be the screen's
    first `<ShapeFrame>`. It never writes a literal over a computed `src`: inside
    a `.map()` that would put one picture on every card.
+5. **The template export draws the page WITHOUT the pictures and puts the
+   frames back as vectors** (`docExport/template.ts`, `render.ts` with
+   `template: true`): the photo layers hidden, each frame measured (centre off
+   the bounding box, size off `offsetWidth`, turn off the computed transform),
+   and its hole cut out of the PNG. Shapes are placed through
+   `frameGeometry.ts`, which rewrites arcs as cubics first — an arc does not
+   survive a stretch followed by a turn. PSD is `ag-psd` (MIT), imported only
+   when that button is clicked, like `pdf-lib`.
 
 ## Maintenance mode and server migration
 

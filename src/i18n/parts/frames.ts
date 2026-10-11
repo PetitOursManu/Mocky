@@ -31,6 +31,8 @@ export const frames = {
     'frames.focusOf': 'Garder en vue : {name}',
     'frames.shadow': 'Ombre',
     'frames.cannotWrite': 'Ce changement n’a pas pu être écrit dans le code de l’écran.',
+    // The name of a frame's layer in an exported template (PSD layer, SVG title).
+    'frames.layer': 'Cadre {n} — {shape}',
     'frames.family.geometric': 'Géométriques',
     'frames.family.organic': 'Organiques',
     'frames.family.wave': 'Vagues et bords',
@@ -110,6 +112,7 @@ export const frames = {
     'frames.focusOf': 'Keep in view: {name}',
     'frames.shadow': 'Shadow',
     'frames.cannotWrite': 'This change could not be written into the screen’s code.',
+    'frames.layer': 'Frame {n} — {shape}',
     'frames.family.geometric': 'Geometric',
     'frames.family.organic': 'Organic',
     'frames.family.wave': 'Waves and edges',
