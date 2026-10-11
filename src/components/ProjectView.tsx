@@ -62,6 +62,7 @@ import Bibliotheque, { type MediaTab } from './Bibliotheque'
 import ImageLightbox from './ImageLightbox'
 import FilmLightbox from './FilmLightbox'
 import ScreenImagesDialog from './ScreenImagesDialog'
+import ScreenFramesDialog from './ScreenFramesDialog'
 import VideoExportDialog from './VideoExportDialog'
 import MotionReviseDialog from './MotionReviseDialog'
 import AuditPanel from './AuditPanel'
@@ -425,6 +426,7 @@ export default function ProjectView({
   /** The screen whose images are being swapped, if any. Id, not the screen: the
    *  dialog must follow the record as it is rewritten, not a stale copy. */
   const [imagesForScreen, setImagesForScreen] = useState<string | null>(null)
+  const [framesForScreen, setFramesForScreen] = useState<string | null>(null)
   const [showVideoExport, setShowVideoExport] = useState(false)
   /**
    * The render this session last started, kept here rather than in the dialog.
@@ -1219,6 +1221,7 @@ export default function ProjectView({
   // source after each swap — and closes on its own if the screen is deleted
   // from under it.
   const imageSwapScreen = imagesForScreen ? screens.find((s) => s.id === imagesForScreen) ?? null : null
+  const framesScreen = framesForScreen ? screens.find((s) => s.id === framesForScreen) ?? null : null
 
   // Revert a screen to its previousCode (saved before the last edit).
   function onRevertScreen(screenId: string) {
@@ -2380,6 +2383,24 @@ export default function ProjectView({
   }
 
   /**
+   * A frame changed in the frames dialog: the source rewritten at parser-vouched
+   * offsets, never by a model. Like `swapScreenImages` it keeps `previousCode`
+   * for Revert — and unlike it, it re-reads the capabilities, because putting a
+   * picture in a frame is the first `<ShapeFrame>` a screen may ever name, and a
+   * screen that names a component its prelude does not define crashes.
+   */
+  function writeScreenFrames(screenId: string, nextCode: string) {
+    const screen = screensRef.current.find((s) => s.id === screenId)
+    if (!screen || screen.code === nextCode) return
+    onUpdateScreen(screenId, {
+      code: nextCode,
+      componentName: detectComponentName(nextCode),
+      previousCode: screen.code,
+      caps: capabilitiesFor(screen.caps ?? [], nextCode),
+    })
+  }
+
+  /**
    * Attach a film or a sequence to a screen, or detach it with null.
    *
    * The other relation between a screen and a media, and it is deliberately not
@@ -2553,6 +2574,15 @@ export default function ProjectView({
           onReplace={(code, sequence, swap) => swapScreenImages(imageSwapScreen.id, code, sequence, swap)}
           onAttach={(media) => attachScreenMedia(imageSwapScreen.id, media)}
           onClose={() => setImagesForScreen(null)}
+        />
+      )}
+      {framesScreen && (
+        <ScreenFramesDialog
+          screenName={framesScreen.name}
+          code={framesScreen.code}
+          projectId={project.id}
+          onChange={(code) => writeScreenFrames(framesScreen.id, code)}
+          onClose={() => setFramesForScreen(null)}
         />
       )}
       {reviseFilmScreenId && (
@@ -3979,6 +4009,7 @@ export default function ProjectView({
                   label={t('project.changeImages')}
                   onClick={() => { close(); setImagesForScreen(s.id) }}
                 />
+                <MenuItem icon="crop" label={t('frames.menu')} onClick={() => { close(); setFramesForScreen(s.id) }} />
 
                 {/* A document's size is its page format, and a page does not
                     move: neither the viewport formats nor the animation

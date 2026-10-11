@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: d1dbfcb43687
+source_hash: c5101ff3deec
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -241,6 +241,11 @@ Un cadre garde en vue la partie importante de l'image (un visage en haut, par
 exemple), et peut recevoir un contour, une ombre douce qui suit la forme et une
 légère inclinaison. Sans image, la forme est dessinée en gris pour réserver la
 place.
+
+Pour changer un cadre ensuite, clic droit sur l'écran, puis `Cadres…` : la
+forme, l'image, le cadrage et l'ombre d'un cadre, et `Mettre dans un cadre` pour
+les images simples de l'écran. Le code de l'écran est modifié directement, sans
+appel au modèle, et `Revenir à la version précédente` l'annule.
 
 ---
 

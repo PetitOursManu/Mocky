@@ -1014,6 +1014,11 @@ data: URL of the path. Three things:
    `const`.
 3. **A mask, not `clip-path: url(#id)`.** It needs no `<defs>` and no unique id,
    and the native document rasteriser keeps data: URLs as they are.
+4. **Changing a frame is a write, not a generation.** The `Frames…` dialog
+   (`lib/screenFrames.ts`) rewrites attributes at parser offsets, renames an
+   `<img>` to frame it, and re-reads `caps` because that may be the screen's
+   first `<ShapeFrame>`. It never writes a literal over a computed `src`: inside
+   a `.map()` that would put one picture on every card.
 
 ## Maintenance mode and server migration
 
