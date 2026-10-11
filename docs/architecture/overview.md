@@ -556,6 +556,27 @@ When a model call is needed, anchoring is **text-first**. The rendered DOM path
 exact class string appears verbatim in the JSX and is the strongest anchor. The
 selector is passed only as a last-resort hint.
 
+A campaign update is the same idea at the scale of a project
+(`src/lib/campaignFacts.ts`): a changed fact is written wherever a piece states
+the old value as a plain run of text — found with Babel, never inside a class
+name, a key or an import — and only what that cannot reach goes to one targeted
+edit (C3).
+
+### Screens the pipeline makes on its own
+
+Two features make screens nobody typed a request for, and both go through
+`runNewScreen` rather than a pipeline of their own, so every stage — direction,
+pictures, checks — is the one a typed screen gets:
+
+- **Working prototypes** (`pipeline/flowCompanions.ts`): after a generation, the
+  new screen's code is read (`readFlow`, Babel) and each route it opens that no
+  screen answers becomes a screen, two levels deep at most, Muse and Motion Ultra
+  off (V7).
+- **Campaigns** (`pipeline/campaign.ts`): one brief, one generation per format,
+  each with its own document type and page, told its place in the campaign
+  (`campaignSection`). Only the first piece may make a picture; the others reuse
+  the project's (C1, C2).
+
 ### The Motion guard
 
 `guardMotion()` runs every output through `stripForbiddenMotion()`, a real Babel
@@ -1030,7 +1051,9 @@ newer copy's.
 | `config.json` | `{ allowRegistration, maintenance, announcement }` — the second is `{ on, message, since }`, and it travels with a migration, which is why an imported instance boots read-only; the third is the administrator's banner, `{ id, message, tone, createdAt, startsAt, expiresAt }` — its dates in the text are `{{datetime:ISO}}` instants, written out by each browser in its own zone |
 | `audit.jsonl` | Admin → Audit log: one JSON object per line, the last 2,000. Sign-ins, accounts, sessions, settings (field NAMES only), maintenance, announcements, migrations. The one dashboard store on disk (D4) |
 | `sso-jti.json` | Consumed SSO token ids, pruned after 10 minutes |
-| `data-<uuid>.json` | One user's projects and design |
+| `data-<uuid>.json` | One user's projects and design — a campaign's brief and facts included (`Project.campaign`) |
+| `versions/<account>/index.json`, `…/blobs/<hash>` | Saved versions of projects and screens: the index per account, code and designs content-addressed so a version that changed one screen costs one screen. Counted by the disk budget, never in the projects blob (V3) |
+| `reviews.json` | Approval rounds: the link's token, the version it shows, the client's comments and decisions. A round reads a VERSION, never the live project (V4) |
 | `avatars/<userId>` | One file per account that uploaded a picture. Counted as `bytes.avatar` in the usage report |
 | `text-config.json` | Administrator-configured text providers, including secrets |
 | `images-config.json` | Image providers and scroll-sequence video settings, including secrets |
@@ -1074,6 +1097,9 @@ nothing inside them may grow without a ceiling.
 | `GET`/`PUT` `/api/admin/images/config`, `POST /api/admin/images/test` | admin | The test generates a real image, not stored |
 | `POST /api/text/vision` | session | Probes the model's vision support. **Goes through the SSRF guard** |
 | `GET`/`PUT` `/api/data` | session | The user's projects and design |
+| `GET`/`POST` `/api/versions`, `GET`/`PATCH`/`DELETE` `/api/versions/:id`, `DELETE /api/versions?projectId&branch` | session | Versions and branches. An id from another account is `404` like an unknown one (V2); a version a live approval link shows cannot be deleted (`409`) |
+| `POST /api/reviews`, `GET /api/reviews`, `/status`, `POST …/:token/comments`, `/seen`, `/close`, `PATCH …/comments/:id`, `DELETE …/:token` | session | The owner's side of an approval round |
+| `GET /api/review/:token`, `POST …/comments` (30/min), `…/decision` (10/min) | **the link**, no account | The client's side: one round, its version's screens through the `publicScreen` whitelist (V5) |
 | `GET /api/mcp/status` | session | State of every declared MCP server |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
 | `POST /mcp` | bearer | The MCP server: JSON-RPC, stateless. **404 while it is off**, like the OAuth routes and `/mcp-shot` (X1) |
@@ -1247,7 +1273,7 @@ or a browser that will not read it back.
 
 | Output | Built by | What it keeps |
 |---|---|---|
-| PDF | `pdf.ts`, with pdf-lib | The page picture, an invisible text layer so the text stays selectable, and a real AcroForm field for every `<Field>` |
+| PDF | `pdf.ts`, with pdf-lib | The page picture — at 500 dpi on paper, twice what the other files use (`PDF_SCALE_FACTOR`), under a per-browser canvas ceiling (`rasterCeiling`: 50 MP, 12 MP on iPhone and iPad) — an invisible text layer so the text stays selectable, and a real AcroForm field for every `<Field>` |
 | `.pptx` | `pptx.ts`, hand-written OOXML | The page picture with its text taken out, and every run of text as an editable text box over it |
 | PNG | `raster.ts` + `zip.ts` | The page as drawn; a social format at exactly its pixels (scale 1) |
 

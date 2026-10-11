@@ -1,5 +1,5 @@
 ---
-source_hash: 39a81a14a8d3
+source_hash: 9069f9b64f77
 ---
 
 # Vue d'ensemble de l'architecture
@@ -591,6 +591,27 @@ DOM (`nth-of-type`) ne se retrouve pas de façon fiable dans le JSX, alors que l
 chaîne de classes exacte de l'élément apparaît telle quelle dans le JSX : c'est
 le repère le plus solide. Le sélecteur n'est transmis qu'en dernier recours.
 
+La mise à jour d'une campagne applique la même idée à l'échelle d'un projet
+(`src/lib/campaignFacts.ts`) : une info changée est écrite partout où une
+création dit l'ancienne valeur comme un simple texte — trouvé avec Babel, jamais
+dans un nom de classe, une clé ou un import — et seul ce que cela ne peut pas
+atteindre part dans une modification ciblée (C3).
+
+### Les écrans que le pipeline fait de lui-même
+
+Deux fonctionnalités font des écrans que personne n'a demandés en tapant, et
+toutes deux passent par `runNewScreen` plutôt que par un pipeline à elles, pour
+que chaque étape — direction, images, contrôles — soit celle d'un écran demandé :
+
+- **Les prototypes qui fonctionnent** (`pipeline/flowCompanions.ts`) : après une
+  génération, le code du nouvel écran est lu (`readFlow`, Babel) et chaque route
+  qu'il ouvre sans écran pour y répondre devient un écran, sur deux niveaux au
+  plus, Muse et Motion Ultra coupés (V7).
+- **Les campagnes** (`pipeline/campaign.ts`) : un brief, une génération par
+  format, chacune avec son type de document et sa page, informée de sa place dans
+  la campagne (`campaignSection`). Seule la première création peut faire une
+  image ; les autres reprennent celles du projet (C1, C2).
+
 ### Le garde-fou Motion
 
 `guardMotion()` fait passer chaque sortie par `stripForbiddenMotion()`, un vrai
@@ -1088,7 +1109,9 @@ ceux de la copie la plus récente.
 | `config.json` | `{ allowRegistration, maintenance, announcement }` — le deuxième vaut `{ on, message, since }` et voyage avec une migration, ce qui explique qu'une instance importée démarre en lecture seule ; le troisième est le bandeau de l'administrateur, `{ id, message, tone, createdAt, startsAt, expiresAt }` — ses dates dans le texte sont des instants `{{datetime:ISO}}`, que chaque navigateur écrit dans son propre fuseau |
 | `audit.jsonl` | Administration → Journal d'audit : un objet JSON par ligne, les 2 000 derniers. Connexions, comptes, sessions, réglages (NOMS des champs seulement), maintenance, annonces, migrations. Le seul magasin du tableau de bord sur disque (D4) |
 | `sso-jti.json` | Les identifiants de jeton SSO déjà consommés, purgés après 10 minutes |
-| `data-<uuid>.json` | Les projets et le design d'un utilisateur |
+| `data-<uuid>.json` | Les projets et le design d'un utilisateur — le brief et les infos d'une campagne compris (`Project.campaign`) |
+| `versions/<compte>/index.json`, `…/blobs/<empreinte>` | Les versions enregistrées des projets et des écrans : l'index par compte, le code et les designs adressés par contenu pour qu'une version qui change un écran coûte un écran. Comptées dans le budget disque, jamais dans le blob des projets (V3) |
+| `reviews.json` | Les tours de validation : le jeton du lien, la version montrée, les commentaires et décisions du client. Un tour lit une VERSION, jamais le projet vivant (V4) |
 | `avatars/<userId>` | Un fichier par compte ayant envoyé une photo. Compté en `bytes.avatar` dans le rapport d'utilisation |
 | `text-config.json` | Les fournisseurs de texte configurés par l'administrateur, secrets compris |
 | `images-config.json` | Les fournisseurs d'images et les réglages de la vidéo au défilement, secrets compris |
@@ -1133,6 +1156,9 @@ plafond.
 | `GET`/`PUT` `/api/admin/images/config`, `POST /api/admin/images/test` | admin | Le test génère une vraie image, non conservée |
 | `POST /api/text/vision` | session | Sonde la vision du modèle. **Passe par la protection SSRF** |
 | `GET`/`PUT` `/api/data` | session | Les projets et le design de l'utilisateur |
+| `GET`/`POST` `/api/versions`, `GET`/`PATCH`/`DELETE` `/api/versions/:id`, `DELETE /api/versions?projectId&branch` | session | Versions et branches. Un id d'un autre compte répond `404` comme un id inconnu (V2) ; une version montrée par un lien de validation actif ne se supprime pas (`409`) |
+| `POST /api/reviews`, `GET /api/reviews`, `/status`, `POST …/:token/comments`, `/seen`, `/close`, `PATCH …/comments/:id`, `DELETE …/:token` | session | Le côté propriétaire d'un tour de validation |
+| `GET /api/review/:token`, `POST …/comments` (30/min), `…/decision` (10/min) | **le lien**, sans compte | Le côté client : un tour, les écrans de sa version à travers la liste blanche `publicScreen` (V5) |
 | `GET /api/mcp/status` | session | L'état de chaque serveur MCP déclaré |
 | `POST /api/muse/dossier` | session | Discover → Distill → Dossier |
 | `POST /mcp` | bearer | Le serveur MCP : JSON-RPC, sans état. **404 tant qu'il est désactivé**, comme les routes OAuth et `/mcp-shot` (X1) |
@@ -1316,7 +1342,7 @@ dessiner ou un navigateur qui refuse de la relire.
 
 | Sortie | Fabriquée par | Ce qu’elle garde |
 |---|---|---|
-| PDF | `pdf.ts`, avec pdf-lib | L’image de la page, une couche de texte invisible pour que le texte reste sélectionnable, et un vrai champ AcroForm pour chaque `<Field>` |
+| PDF | `pdf.ts`, avec pdf-lib | L’image de la page — à 500 dpi sur papier, le double des autres fichiers (`PDF_SCALE_FACTOR`), sous un plafond de canevas propre au navigateur (`rasterCeiling` : 50 Mpx, 12 Mpx sur iPhone et iPad) —, une couche de texte invisible pour que le texte reste sélectionnable, et un vrai champ AcroForm pour chaque `<Field>` |
 | `.pptx` | `pptx.ts`, OOXML écrit à la main | L’image de la page, texte retiré, et chaque texte en zone de texte modifiable par-dessus |
 | PNG | `raster.ts` + `zip.ts` | La page telle que dessinée ; un format de réseau social exactement à ses pixels (échelle 1) |
 

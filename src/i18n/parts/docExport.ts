@@ -22,7 +22,7 @@ export const docExport = {
     'docExport.format.social-story': 'story 9:16',
     'docExport.format.social-landscape': 'image paysage 1,91:1',
     'docExport.pdf.title': 'PDF',
-    'docExport.pdf.help': 'Pour imprimer ou envoyer, tel qu’il est dessiné. Le texte reste sélectionnable.',
+    'docExport.pdf.help': 'Pour imprimer ou envoyer, tel qu’il est dessiné, en haute définition. Le texte reste sélectionnable.',
     'docExport.pdf.titleFields': 'PDF — champs à remplir',
     'docExport.pdf.helpFields':
       'Pour imprimer ou envoyer. Les champs du document se remplissent dans n’importe quel lecteur PDF, et le texte reste sélectionnable.',
@@ -76,7 +76,7 @@ export const docExport = {
     'docExport.format.social-story': '9:16 story',
     'docExport.format.social-landscape': '1.91:1 landscape image',
     'docExport.pdf.title': 'PDF',
-    'docExport.pdf.help': 'To print or send, exactly as designed. The text stays selectable.',
+    'docExport.pdf.help': 'To print or send, exactly as designed, in high definition. The text stays selectable.',
     'docExport.pdf.titleFields': 'PDF — fillable fields',
     'docExport.pdf.helpFields':
       'To print or send. The document’s fields can be filled in any PDF reader, and the text stays selectable.',
