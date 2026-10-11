@@ -1,4 +1,4 @@
-import { hideFramePhotos, measureFrames, punchFrames } from './frames'
+import { carryFrames, hideElements, hideFramePhotos, measureFrames, punchFrames } from './frames'
 import { openDocumentFrame, type DocumentFrame } from '../capture'
 import type { Capability } from '../capabilities/types'
 import { DOC_ATTR, FIELD_ATTR, PAGE_ATTR, docFrameHeight, type PageFormat } from '../pageFormats'
@@ -23,7 +23,7 @@ import {
   type RasterPurpose,
 } from './raster'
 import { classifyNativeFailure, raceAbort } from './svgRaster'
-import type { PageSnapshot, RenderedPage } from './types'
+import type { CarriedFrame, PageSnapshot, RenderedPage } from './types'
 
 /**
  * A document screen, rendered offscreen and read back one page at a time.
@@ -528,6 +528,18 @@ export async function renderDocument(
         unflatten()
       }
 
+      // The .pptx carries each frame as a shape of its own, holding the picture
+      // as the frame shows it: read now, before anything is hidden.
+      let carried: { frames: CarriedFrame[]; hide: Element[] } = { frames: [], hide: [] }
+      if (purpose === 'pptx') {
+        try {
+          carried = await raceAbort(carryFrames(frame.win, el, scale), signal)
+        } catch (err) {
+          if (signal?.aborted || (err as { name?: string } | null)?.name === 'AbortError') throw err
+          console.warn('mocky: the frames stay in the page —', err)
+        }
+      }
+
       // Only the .pptx hides every glyph, so only there does tilted text need
       // its ink back; an SVG needs it in any mode that hides something.
       const keepInk =
@@ -539,6 +551,7 @@ export async function renderDocument(
         if (hide) undo.push(applyHide(frame.win, frame.doc, el, hide, keepInk, textMode))
         if (purpose === 'pdf') undo.push(uncheckFields(el))
         if (template) undo.push(hideFramePhotos(el))
+        if (carried.hide.length) undo.push(hideElements(carried.hide))
         return undoAll(undo)
       }
       // The frames cut out of the picture, before it is encoded: the hole is
@@ -608,7 +621,13 @@ export async function renderDocument(
         blank.push(i + 1)
         rendered = await blankImage(format.w * scale, format.h * scale, type)
       }
-      out.push({ snapshot, image: rendered.image, pixelWidth: rendered.w, pixelHeight: rendered.h })
+      out.push({
+        snapshot,
+        image: rendered.image,
+        pixelWidth: rendered.w,
+        pixelHeight: rendered.h,
+        ...(carried.frames.length ? { frames: carried.frames } : {}),
+      })
     }
     if (overflow.length) notices.push({ code: 'overflow', pages: overflow })
     if (unmeasured.length) notices.push({ code: 'measure', pages: unmeasured })

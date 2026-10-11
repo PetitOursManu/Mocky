@@ -152,8 +152,37 @@ export interface PageSnapshot {
 }
 
 /** One page, rasterised and measured. */
+/**
+ * A layer a frame draws OVER its picture — its outline, a scrapbook frame's
+ * tape — as the .pptx redraws it: a path in the shape's 0–100 box, resolved
+ * colours, the outline's width in page px.
+ */
+export interface FrameOverlay {
+  role: 'stroke' | 'over'
+  d: string
+  fill: Rgba | null
+  stroke: Rgba | null
+  strokeWidth: number
+  opacity: number
+}
+
+/**
+ * A `<ShapeFrame>` as the .pptx carries it: a shape filled with its picture,
+ * which Canva imports as one of its frames (frames.ts says how that was found).
+ */
+export interface CarriedFrame {
+  box: FrameBox
+  /** The picture already cut to the box; null for a frame waiting for one (the placeholder goes in). */
+  picture: { bytes: Uint8Array; type: 'png' | 'jpeg' } | null
+  overlays: FrameOverlay[]
+  /** The frame casts a shadow that went with its picture. */
+  shadow: boolean
+}
+
 export interface RenderedPage {
   snapshot: PageSnapshot
+  /** The frames the .pptx draws as shapes of their own; the picture no longer has them. */
+  frames?: CarriedFrame[]
   /** Encoded picture (JPEG or PNG, per the request). */
   image: Uint8Array
   /** Size of the picture in pixels. */

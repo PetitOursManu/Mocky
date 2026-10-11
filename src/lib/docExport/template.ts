@@ -22,7 +22,8 @@
  *          person asked for in those words.
  *
  * What a template does not keep is the page's TEXT as text: it is in the
- * picture. The .pptx export is the one that edits words, and it says so.
+ * picture. The .pptx export is the one that edits words — and it carries the
+ * frames too, each a shape filled with its picture (pptx.ts).
  */
 import { boundsOf, pathData, placeFrame, type FrameBox, type Subpath } from '../frameGeometry'
 import { partsEn, partsFr } from '../../i18n/parts'
@@ -39,6 +40,12 @@ export function frameName(index: number, shape: string, lang: 'fr' | 'en' = 'fr'
   const dict = lang === 'en' ? partsEn : partsFr
   const shapeName = dict[`frames.shape.${shape}`] || shape
   return (dict['frames.layer'] || 'Frame {n} — {shape}').replace('{n}', String(index + 1)).replace('{shape}', shapeName)
+}
+
+/** "Cadre 2 — Polaroid · contour": the .pptx's names for what a frame draws over its picture. */
+export function frameOverlayNames(frame: string, lang: 'fr' | 'en' = 'fr'): Record<'stroke' | 'over', string> {
+  const dict = lang === 'en' ? partsEn : partsFr
+  return { stroke: `${frame} · ${dict['frames.part.stroke'] || 'outline'}`, over: `${frame} · ${dict['frames.part.over'] || 'tape'}` }
 }
 
 /** An id an SVG editor shows as the layer's name: ASCII, no space. */

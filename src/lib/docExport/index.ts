@@ -109,8 +109,24 @@ export async function exportDocument(screen: Screen, kind: ExportKind, opts: Exp
     filename = `${base}.pdf`
   } else if (kind === 'pptx') {
     const { buildPptx } = await import('./pptx')
+    // Frames carried as shapes of their own: named like the template's, and a
+    // frame still waiting for its picture holds the template's placeholder.
+    const tpl = pages.some((p) => p.frames?.length) ? await import('./template') : null
+    const placeholder =
+      tpl && pages.some((p) => p.frames?.some((f) => !f.picture)) ? { bytes: await tpl.placeholderPng(), type: 'png' as const } : null
     const bytes = buildPptx(
-      pages.map((p) => ({ snapshot: p.snapshot, background: p.image })),
+      pages.map((p) => ({
+        snapshot: p.snapshot,
+        background: p.image,
+        frames: tpl
+          ? (p.frames ?? []).flatMap((f, j) => {
+              const picture = f.picture ?? placeholder
+              if (!picture) return []
+              const name = tpl.frameName(j, f.box.shape, lang)
+              return [{ ...f, picture, name, overlayNames: tpl.frameOverlayNames(name, lang) }]
+            })
+          : [],
+      })),
       format,
       { title, lang: opts.lang === 'en' ? 'en-US' : 'fr-FR' },
     )

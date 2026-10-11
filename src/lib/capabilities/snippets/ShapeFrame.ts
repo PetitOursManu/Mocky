@@ -59,10 +59,12 @@ var mockyFrameNum = function (v, lo, hi, fallback) {
   var n = typeof v === 'number' ? v : parseFloat(v);
   return isFinite(n) ? Math.max(lo, Math.min(hi, n)) : fallback;
 };
-var mockyFrameLayer = function (d, fill, extra) {
+// \`role\` names the layer for the .pptx export, which draws the outline and the
+// tape as shapes of their own over the picture instead of leaving them in the page.
+var mockyFrameLayer = function (role, d, fill, extra) {
   return React.createElement(
     'svg',
-    Object.assign({ viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': true, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' } }, extra && extra.svg),
+    Object.assign({ 'data-mocky-frame-layer': role, viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': true, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' } }, extra && extra.svg),
     React.createElement('path', Object.assign({ d: d, fill: fill, fillRule: 'evenodd' }, extra && extra.path))
   );
 };
@@ -124,10 +126,10 @@ var ShapeFrame = function (props) {
         props.style && typeof props.style === 'object' ? props.style : null
       ),
     },
-    s.p ? mockyFrameLayer(s.p, paper) : null,
+    s.p ? mockyFrameLayer('paper', s.p, paper) : null,
     photo,
-    strokeWidth > 0 ? mockyFrameLayer(s.c, 'none', { path: { stroke: stroke, strokeWidth: strokeWidth, vectorEffect: 'non-scaling-stroke', strokeLinejoin: 'round' } }) : null,
-    s.o ? mockyFrameLayer(s.o, mockyFrameHex(props.tape, s.oc || '#efe6cf'), { svg: { style: { position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none', opacity: s.oa || 1 } } }) : null
+    strokeWidth > 0 ? mockyFrameLayer('stroke', s.c, 'none', { path: { stroke: stroke, strokeWidth: strokeWidth, vectorEffect: 'non-scaling-stroke', strokeLinejoin: 'round' } }) : null,
+    s.o ? mockyFrameLayer('over', s.o, mockyFrameHex(props.tape, s.oc || '#efe6cf'), { svg: { style: { position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none', opacity: s.oa || 1 } } }) : null
   );
 };`
 

@@ -135,7 +135,7 @@ A document's frame carries a `Download` pill, and the screen context menu a
 | Button | What you get | For |
 |---|---|---|
 | `PDF` / `PDF — fillable fields` | The pages as drawn — at print resolution for paper, at twice its pixels for a post so it stays sharp in an editor — with the text still selectable and every field fillable. | Printing, sending. |
-| `PowerPoint / Google Slides (.pptx) — editable text` | One slide per page: the design as a picture, and every run of text as an editable text box over it. Upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
+| `PowerPoint / Google Slides (.pptx) — editable text` | One slide per page: the design as a picture, and every run of text as an editable text box over it. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
 | `PNG images` | One image per page, in a `.zip` when there are several. A social post comes out at exactly its format's pixels. | Posting. |
 
 The file is built in your browser, page by page, and downloads by itself. A
@@ -170,7 +170,8 @@ A document of several pages gives one file per page, in a `.zip`, except the
 PDF, which keeps them together. A post's template is drawn at twice its pixels,
 so it stays sharp when the editor shows it larger or you zoom in to place a
 photo. The text is part of the page's picture in a
-template; to edit the words, take the PowerPoint download.
+template; to edit the words, take the PowerPoint download, which keeps the
+frames as frames too.
 
 ---
 
