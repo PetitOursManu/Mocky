@@ -1,5 +1,5 @@
 ---
-source_hash: 2e581aed39a2
+source_hash: af0dec128bf3
 ---
 
 # Invariants
@@ -12,7 +12,7 @@ Elles étaient citées par numéro dans les commentaires du code — `invariant
 1/2/3/5/8` — sans être rassemblées nulle part. [L'ADR 001](../../adr/001-muse.md) les a
 mises par écrit ; cette page les explique.
 
-Il y a sept séries :
+Il y a huit séries :
 
 - **I1 à I9**, les invariants d'origine, reconstitués à partir du code, et la
   confidentialité des notes d'un écran.
@@ -22,6 +22,7 @@ Il y a sept séries :
 - **D1 à D6**, apportés par le tableau de bord d’administration.
 - **X1 à X7**, apportés par Mocky comme serveur MCP.
 - **F1 à F4**, apportés par le forfait gratuit et les clés personnelles.
+- **V1 à V8**, apportés par les versions, les branches, les liens de validation et les prototypes qui fonctionnent.
 
 Plus deux règles sans numéro qui comptent tout autant : la protection contre le
 SSRF, et la posture « pas de base de données, pas de dépendance native ».
@@ -1168,6 +1169,150 @@ refusé, l'interrupteur), `server/own-text-routes.test.js` (l'appel part là où
 navigateur le dit et aucun fournisseur de l'instance ne l'entend, aucun quota
 dépensé, la clé absente de la liste d'administration et de `users.json`, l'option
 fermée puis rouverte).
+
+---
+
+## Série V — versions, validation et prototypes
+
+Elles sont venues avec les versions et les branches ([leur page](../versions.md))
+et avec les liens de validation ([la leur](../review.md)), puis les
+prototypes qui fonctionnent ([la leur](../flows.md)).
+Chacune porte sur le moment où une copie du projet de quelqu'un est faite,
+gardée ou remise en place.
+
+### V1. Rien ne remplace la copie de travail avant qu'elle soit enregistrée
+
+**La règle.** Une restauration et un changement de branche écrasent tous deux le
+projet du canevas. Chacun enregistre d'abord cette copie de travail comme version
+automatique sur sa branche (`useVersions`, `safetyCopy`), et si cet
+enregistrement échoue, la restauration n'a pas lieu. Le magasin répond
+`unchanged` au lieu d'écrire un double quand l'état est déjà la version la plus
+récente de la branche.
+
+**Ce que ça protège.** L'état dans lequel la personne était. C'est le seul
+endroit de Mocky où un échec ARRÊTE l'action au lieu d'être signalé à côté :
+dégrader ici voudrait dire « remplacer le projet sans la copie », la perte même
+que la fonctionnalité existe pour empêcher.
+
+**Comment c'est vérifié.** `server/versions.test.js` (la réponse `unchanged`, la
+branche à laquelle elle se limite), et les règles de restauration dans
+`src/lib/versions.test.ts`.
+
+### V2. Une version appartient à son propriétaire, et ne se trouve que dans son index
+
+**La règle.** Toutes les routes de versions exigent une session, et le magasin
+cherche une version dans l'index de l'APPELANT (`versions/<compte>/index.json`) :
+l'identifiant d'un autre compte répond 404 exactement comme un identifiant
+inconnu. Les blobs sont par compte, jamais partagés dans l'instance ; supprimer
+un compte supprime son répertoire.
+
+**Ce que ça protège.** Une version est une copie du projet entier de quelqu'un.
+L'identifiant est aléatoire, mais un identifiant n'est pas un secret, et rien
+dans une version ne doit reposer sur le fait que personne n'en devine un.
+
+**Comment c'est vérifié.** `server/versions.test.js` (« whose versions they
+are »).
+
+### V3. Les versions ne voyagent jamais dans le blob des projets
+
+**La règle.** Les versions vivent dans `server/versions.js`, adressées par leur
+contenu, par compte, et comptées dans le budget disque. La copie de travail
+n'en porte qu'un nom — la branche sur laquelle elle est (`Project.branch`) — et
+rien d'autre. Une restauration qui laisse des écrans de côté les MARQUE comme
+supprimés (`removedScreens`), parce que la synchronisation fusionne par union et
+les rendrait.
+
+**Ce que ça protège.** Le budget localStorage que la copie de travail sollicite
+déjà (`reportStorageFailure`) : des versions à l'intérieur feraient de
+l'enregistrement d'une version la première chose à casser tout enregistrement.
+Et la restauration elle-même, qu'une fusion déferait sinon quelques secondes
+plus tard.
+
+**Comment c'est vérifié.** `src/lib/versions.test.ts` (un projet restauré,
+fusionné avec la copie plus ancienne du serveur, garde exactement les écrans
+restaurés).
+
+### V4. Un lien de validation lit une version figée et écrit dans un seul envoi
+
+**La règle.** Un lien de validation (`server/reviews.js`) est une capacité, comme
+un lien de partage : 256 bits aléatoires, stocké, révocable, avec une
+expiration. Les trois routes publiques sous `/api/review/:token` lisent la
+VERSION de l'envoi — enregistrée au moment de l'envoi, jamais le projet vivant —
+et n'écrivent commentaires et décision que dans cet envoi. Un nouvel envoi
+remplace le précédent, qui reste lisible et ne prend plus rien ; une version
+montrée par un lien actif ne peut pas être supprimée (`409`).
+
+**Ce que ça protège.** Le sens d'une approbation. Un client qui a approuvé un
+écran ne doit pas le voir changer sous ses yeux, et sa page ne doit pas casser
+parce que la version derrière a été rangée.
+
+**Comment c'est vérifié.** `server/reviews.test.js`,
+`server/review-routes.test.js` (un identifiant de version volé ne crée rien, la
+version est verrouillée, un lien révoqué répond 404).
+
+### V5. La page du client reçoit une liste blanche de chaque écran
+
+**La règle.** `publicScreen` construit ce que reçoit la page du relecteur, champ
+par champ : identifiant, nom, code, nom du composant, capacités, taille,
+appareil, animations, format de page, liens. Jamais la demande, la direction
+enregistrée, le relevé de qualité ni les notes du propriétaire (I9).
+
+**Ce que ça protège.** Le brief, souvent la partie confidentielle d'un projet,
+et les notes que seul leur auteur lit. Une copie « moins quelques champs »
+laisserait fuir le prochain champ ajouté à `Screen`.
+
+**Comment c'est vérifié.** `server/reviews.test.js` (l'ensemble exact des clés),
+`server/review-routes.test.js` (le brief et une note plantée sont absents de la
+réponse HTTP).
+
+### V6. Le statut d'un projet se lit sur son envoi le plus récent, il n'est jamais stocké
+
+**La règle.** `Brouillon`, `À valider`, `Modifications demandées`, `Approuvé` :
+le statut est celui de l'envoi le plus récent (`statusFor`, `projectStatusOf`),
+et un envoi clos ou l'absence d'envoi donne un brouillon. Rien n'écrit de statut
+dans le blob des projets.
+
+**Ce que ça protège.** Une seule source de vérité pour un fait décidé sur
+l'écran de quelqu'un d'autre. Une copie dans le blob contredirait le serveur la
+première fois qu'un navigateur serait hors ligne au moment où le client répond.
+
+**Comment c'est vérifié.** `server/reviews.test.js` (« a round »),
+`src/lib/review.test.ts`.
+
+### V7. « Parcours » désactivé, une génération est celle d'avant
+
+**La règle.** Le kit de parcours (`snippets/Flow.ts`) n'est jamais choisi à
+partir d'une demande : `runNewScreen` ne l'ajoute que si la requête dit `flows`,
+ce que le composeur n'envoie qu'avec son interrupteur activé ; le contexte d'un
+écran de suite n'est ajouté que s'il existe ; les écrans de suite ne sont créés
+que sous cet interrupteur. Un aperçu ne reçoit d'état de parcours que d'un
+conteneur qui a passé `flow` (la démo, le plateau de validation) — sur le
+canevas, le `MockyFlow.go` d'un écran ne s'adresse à personne.
+
+**Ce que ça protège.** Le coût et la forme de chaque génération pour qui a
+désactivé la fonctionnalité, et le canevas contre un code d'écran qui piloterait
+quoi que ce soit hors de son cadre.
+
+**Comment c'est vérifié.** `tests/flows-off.test.js`.
+
+### V8. Le formulaire d'un aperçu se soumet, et n'envoie rien
+
+**La règle.** Le bac à sable de l'aperçu n'a pas `allow-forms`, et le navigateur
+refuse une soumission AVANT de déclencher l'événement `submit` — aucun
+`<form onSubmit>` généré ne s'exécutait donc jamais. Le cadre redéclenche
+l'événement à la main pour les deux gestes qui soumettent un formulaire (un
+bouton d'envoi, Entrée dans un champ), après la validation du navigateur, en
+phase de remontée pour qu'un bouton dont le gestionnaire empêche l'action par
+défaut garde son sens. L'action par défaut reste empêchée et le bac à sable
+reste tel quel : rien n'est jamais envoyé.
+
+**Ce que ça protège.** Tout prototype qui fonctionne — une connexion qui ne peut
+pas se soumettre n'en est que l'image — sans ouvrir le cadre à une navigation
+(I2).
+
+**Comment c'est vérifié.** L'aller-retour de connexion d'un prototype, dans un
+navigateur ; `tests/preview-sandbox.test.js` épingle toujours le bac à sable à
+`allow-scripts`.
 
 ---
 

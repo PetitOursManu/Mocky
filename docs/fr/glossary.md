@@ -1,5 +1,5 @@
 ---
-source_hash: c6f986d8ec1b
+source_hash: 61c3946daa9f
 ---
 
 # Glossaire
@@ -51,6 +51,22 @@ La taille des pages d’un document : A4, A3 ou US Letter en portrait ou en pays
 ## Câble {#cable}
 
 Un lien entre deux écrans tel que le canevas le dessine : une ligne de l’élément où il a été posé jusqu’à l’écran qu’il ouvre, à la manière d’une carte mentale. Pâle derrière les cadres hors du mode liens ; un contrôle qu’on peut supprimer ou rebrancher dedans.
+
+## Version {#version}
+
+Un état d’un projet, ou d’un seul écran, enregistré exprès ou automatiquement avant d’être remplacé. Les versions sont gardées sur le serveur, comparées côte à côte, restaurées, ou gardées à côté de l’écran actuel. Voir [Versions et branches](versions.md).
+
+## Branche {#branch}
+
+Une autre suite de versions du même projet, pour essayer une autre direction artistique sans risquer celle qu’on avait. La branche principale existe toujours. Voir [Versions et branches](versions.md).
+
+## Tour de validation {#review}
+
+Un envoi d’un projet en validation : une version figée, un lien sans compte, les commentaires épinglés dessus et la décision du client. Le statut du projet — Brouillon, À valider, Modifications demandées, Approuvé — se lit dans ses tours. Voir [Envoyer un projet en validation](review.md).
+
+## Parcours {#flow}
+
+Un chemin dans un prototype qui fonctionne : un formulaire qui connecte et mène à une page de compte, un panier partagé entre les écrans. Un **scénario** de démo lance la démo dans un état donné, par exemple un client connecté avec deux articles dans le panier. Voir [Des prototypes qui fonctionnent](flows.md).
 
 ## MCP {#mcp}
 

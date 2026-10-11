@@ -19,6 +19,8 @@ import DocumentPages from './DocumentPages'
 import DocumentInHand from './DocumentInHand'
 import DocumentInPhone from './DocumentInPhone'
 import { getPageFormat } from '../lib/pageFormats'
+import { newId } from '../lib/project'
+import { cleanFlowState, resolveRoute, SCENARIOS_MAX, SCENARIO_NAME_MAX, type DemoScenario } from '../lib/flows'
 import { useT } from '../i18n'
 
 /**
@@ -40,13 +42,75 @@ export default function DemoPlayer({
   screens,
   startId,
   onExit,
+  scenarios = [],
+  onSaveScenarios,
 }: {
   screens: Screen[]
   startId: string
   onExit: () => void
+  /** The project's ways to start the demo (lib/flows.ts). */
+  scenarios?: DemoScenario[]
+  /** Absent: scenarios can be played but not recorded (a read-only caller). */
+  onSaveScenarios?: (next: DemoScenario[]) => void
 }) {
   const t = useT()
   const [stack, setStack] = useState<string[]>([startId])
+  /*
+   * The prototype's shared data (snippets/Flow.ts): what the screens wrote with
+   * useFlowState — the cart, the signed-in user. Held HERE because each screen
+   * is its own document and this is the one thing that outlives them all; a
+   * page opened next is born with it. Reset by "Restart" to the scenario's own.
+   */
+  const [scenarioId, setScenarioId] = useState<string>('')
+  const scenario = scenarios.find((s) => s.id === scenarioId) ?? null
+  const [flowState, setFlowState] = useState<Record<string, unknown>>({})
+  /** Bumped to start the current frame over with the state as it now is. */
+  const [frameNonce, setFrameNonce] = useState(0)
+  const [flowNotice, setFlowNotice] = useState<string | null>(null)
+  const [showData, setShowData] = useState(false)
+
+  function startScenario(id: string) {
+    const sc = scenarios.find((s) => s.id === id) ?? null
+    setScenarioId(sc ? sc.id : '')
+    setFlowState(sc ? { ...sc.state } : {})
+    const start = sc && screens.some((s) => s.id === sc.startScreenId) ? sc.startScreenId : startId
+    setStack([start])
+    setFrameNonce((n) => n + 1)
+  }
+
+  function restart() {
+    setFlowState(scenario ? { ...scenario.state } : {})
+    setStack([scenario && screens.some((s) => s.id === scenario.startScreenId) ? scenario.startScreenId : startId])
+    setFrameNonce((n) => n + 1)
+  }
+
+  function saveScenario() {
+    if (!onSaveScenarios) return
+    const name = window.prompt(t('canvas.demoScenarioNamePrompt'))?.replace(/\s+/g, ' ').trim().slice(0, SCENARIO_NAME_MAX)
+    if (!name) return
+    const state = cleanFlowState(flowState)
+    if (!state) {
+      setFlowNotice(t('canvas.demoScenarioTooLarge'))
+      return
+    }
+    const sc: DemoScenario = { id: newId(), name, startScreenId: currentId, state, createdAt: Date.now() }
+    onSaveScenarios([...scenarios, sc].slice(-SCENARIOS_MAX))
+    setScenarioId(sc.id)
+  }
+
+  function deleteScenario() {
+    if (!onSaveScenarios || !scenario) return
+    if (!confirm(t('canvas.demoScenarioDeleteConfirm', { name: scenario.name }))) return
+    onSaveScenarios(scenarios.filter((s) => s.id !== scenario.id))
+    setScenarioId('')
+  }
+
+  // A route nobody answers says so, briefly, instead of doing nothing.
+  useEffect(() => {
+    if (!flowNotice) return
+    const id = window.setTimeout(() => setFlowNotice(null), 3500)
+    return () => window.clearTimeout(id)
+  }, [flowNotice])
   const currentId = stack[stack.length - 1]
   const current = screens.find((s) => s.id === currentId) ?? screens.find((s) => s.id === startId) ?? screens[0]
 
@@ -112,6 +176,27 @@ export default function DemoPlayer({
     .filter((h) => h.selector)
     .map((h) => ({ selector: h.selector as string, target: h.target }))
 
+  const flow = {
+    state: flowState,
+    onSet: (key: string, value: unknown) =>
+      setFlowState((prev) => {
+        const next = { ...prev }
+        if (value === null || value === undefined) delete next[key]
+        else next[key] = value
+        return next
+      }),
+    onGo: (route: string) => {
+      const id = resolveRoute(screens, route)
+      if (id) navigate(id)
+      else setFlowNotice(t('canvas.demoNoRoute', { route }))
+    },
+    onReset: () => {
+      setFlowState({})
+      setFrameNonce((n) => n + 1)
+    },
+  }
+  const flowKeys = Object.keys(flowState)
+
   // The device only exists while the frame is on, and it is fitted as a whole
   // — screen, bezel, deck and caption — rather than by the screen alone.
   // A document is paper, not a device. With the frame on, a printed page is
@@ -163,7 +248,7 @@ export default function DemoPlayer({
           <Icon name="chevronLeft" size={15} />
           {t('canvas.demoBack')}
         </Button>
-        <Button size="sm" onClick={() => setStack([startId])}>
+        <Button size="sm" onClick={restart} title={t('canvas.demoRestartTitle')}>
           <Icon name="refresh" size={15} />
           {t('canvas.demoRestart')}
         </Button>
@@ -216,8 +301,67 @@ export default function DemoPlayer({
             <Icon name="chevronRight" size={16} />
           </IconButton>
         </span>
-        <span className="ml-auto hidden text-body-sm text-ink-faint lg:inline">{t('canvas.demoHintSwitch')}</span>
+        <span className="ml-2 hidden text-body-sm text-ink-faint 2xl:inline">{t('canvas.demoHintSwitch')}</span>
+        {/* Scenarios: where the demo starts, and with what data. */}
+        <span className="ml-auto flex min-w-0 items-center gap-1">
+          <Select
+            aria-label={t('canvas.demoScenario')}
+            title={t('canvas.demoScenarioTitle')}
+            value={scenarioId}
+            onChange={(e) => startScenario(e.target.value)}
+            className="min-w-0 max-w-[14rem] truncate"
+          >
+            <option value="">{t('canvas.demoScenarioFree')}</option>
+            {scenarios.map((sc) => (
+              <option key={sc.id} value={sc.id}>
+                {sc.name}
+              </option>
+            ))}
+          </Select>
+          {onSaveScenarios && (
+            <IconButton label={t('canvas.demoScenarioSave')} variant="quiet" onClick={saveScenario}>
+              <Icon name="plus" size={16} />
+            </IconButton>
+          )}
+          {onSaveScenarios && scenario && (
+            <IconButton label={t('canvas.demoScenarioDelete')} variant="quiet" onClick={deleteScenario}>
+              <Icon name="trash" size={16} />
+            </IconButton>
+          )}
+          <Button
+            size="sm"
+            active={showData}
+            aria-pressed={showData}
+            onClick={() => setShowData((v) => !v)}
+            title={t('canvas.demoDataTitle')}
+          >
+            <Icon name="list" size={15} />
+            <span className="hidden sm:inline">{t('canvas.demoData', { count: flowKeys.length })}</span>
+          </Button>
+        </span>
       </div>
+      {flowNotice && (
+        <div role="status" className="border-b border-line bg-raised px-3 py-1.5 text-body-sm text-warn">
+          {flowNotice}
+        </div>
+      )}
+      {showData && (
+        <div className="max-h-48 overflow-auto border-b border-line bg-raised px-3 py-2">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="kicker text-accent-ink">{t('canvas.demoDataHeading')}</span>
+            <Button size="sm" variant="quiet" disabled={!flowKeys.length} onClick={() => flow.onReset()}>
+              {t('canvas.demoDataClear')}
+            </Button>
+          </div>
+          {flowKeys.length === 0 ? (
+            <p className="text-body-sm text-ink-faint">{t('canvas.demoDataEmpty')}</p>
+          ) : (
+            <pre className="whitespace-pre-wrap break-words font-mono text-caption text-ink-muted">
+              {JSON.stringify(flowState, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
 
       <div ref={areaRef} className="relative flex flex-1 items-center justify-center overflow-hidden">
         {framed && frame && frameScale > 0 && (
@@ -231,12 +375,14 @@ export default function DemoPlayer({
               <>
                 <div className="absolute inset-0">
                   <Preview
+                    key={frameNonce}
                     code={current.code}
                     caps={current.caps}
                     demoLinks={demoLinks}
                     onNavigate={navigate}
                     hideScrollbars={hideScrollbars}
                     radius={radius}
+                    flow={flow}
                   />
                 </div>
                 {legacyHotspots}
@@ -258,10 +404,10 @@ export default function DemoPlayer({
             <div className="absolute inset-0">
               {current.device === 'iphone' ? (
                 <DeviceChrome>
-                  <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} hideScrollbars radius={SCREEN_RADIUS} />
+                  <Preview key={frameNonce} code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} hideScrollbars radius={SCREEN_RADIUS} flow={flow} />
                 </DeviceChrome>
               ) : (
-                <Preview code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} />
+                <Preview key={frameNonce} code={current.code} caps={current.caps} demoLinks={demoLinks} onNavigate={navigate} flow={flow} />
               )}
             </div>
             {legacyHotspots}

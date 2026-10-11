@@ -24,7 +24,7 @@ Dockerfile).
 
 | Document | Why |
 |---|---|
-| `docs/architecture/invariants.md` | The rules the code refuses to break. Seven series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys). Each exists because a specific bug happened. |
+| `docs/architecture/invariants.md` | The rules the code refuses to break. Eight series: I1–I9 (core), M1–M8 (Muse), Q1–Q5 (quality), U1–U5 (Motion Ultra), D1–D6 (admin dashboard), X1–X7 (MCP server), F1–F4 (free plan, personal keys), V1–V8 (versions, review, prototypes). Each exists because a specific bug happened. |
 | `docs/architecture/overview.md` | How the pieces fit. |
 | `docs/adr/001-muse.md` | Why Muse is shaped the way it is. A historical record — do not "correct" it when the code moves on. |
 | `docs/DESIGN-SYSTEM.md` | Mocky's own visual language. |
@@ -1214,6 +1214,86 @@ Four things that will bite you:
    must not open the door to a model.
 4. **`/mcp` is in maintenance's `ALWAYS_ALLOWED`** because JSON-RPC is POST for
    reads too. Every tool that WRITES checks `maintenance()` itself.
+
+## Versions and branches
+
+Save a project or a screen, compare two states side by side, restore one, and
+try another art direction on a branch. User doc `docs/versions.md`; invariants
+V1–V3.
+
+```
+server/versions.js            the store: per account, code and designs content-addressed
+src/lib/versions.ts           the calls, and restoreProject / restoreScreenPatch (pure, tested)
+src/lib/useVersions.ts        save, restore, branch, switch — each replacement saved first
+src/components/VersionsPanel.tsx / VersionCompare.tsx / ScreenHistoryDialog.tsx
+```
+
+Three things that will bite you:
+
+1. **A version never goes in the projects blob** (V3). The blob lives in a
+   localStorage budget the working copy already fills; versions are on the
+   server, counted by the disk budget. The working copy only knows its branch
+   (`Project.branch`, absent = main).
+2. **Restore and switch save first, and stop if that save fails** (V1) — the
+   one place where Mocky does not degrade. Do not add a replacement path that
+   skips `safetyCopy`.
+3. **A restore tombstones the screens it leaves out** (`removedScreens`): the
+   sync merges by union, and a screen merely dropped comes back from the
+   server's copy. The project's NAME is not restored; a screen restore keeps the
+   screen's place and its notes, and sets `previousCode` so Revert undoes it.
+   "Keep beside" (`keepBeside`) restores nothing: it adds the version as a COPY
+   right of the screen (`placeBeside`), without links, notes or route.
+
+## Sending a project for approval
+
+An account-free link (`/r/<token>`) where a client pins comments on the screens
+and approves or asks for changes. User doc `docs/review.md`; invariants V4–V6.
+
+```
+server/reviews.js              rounds, comments, decisions; publicScreen — the whitelist
+src/lib/review.ts              both sides' calls, projectStatusOf, threads and pins (pure)
+src/components/ReviewBoard.tsx the board BOTH sides use: screens, pins, threads
+src/components/ReviewPage.tsx  the client's page, mounted before the account gate
+src/components/ReviewPanel.tsx the owner's panel: send, link, decisions, rounds
+```
+
+Three things that will bite you:
+
+1. **A round shows a VERSION, never the live project** (V4): "Send for approval"
+   saves a `review` version first. A version a live link shows cannot be
+   deleted; `removeBranch` is handed the locked set.
+2. **`publicScreen` is a whitelist** (V5). A field added to `Screen` does not
+   reach a client unless it is added there, on purpose.
+3. **The status is read, not stored** (V6): `Project` has no status field, and
+   must not grow one.
+
+## Working prototypes ("Parcours")
+
+Forms, a simulated sign-in, filters and a cart that work in the demo, and the
+screens a flow leads to created automatically. User doc `docs/flows.md`;
+invariants V7–V8.
+
+```
+src/lib/capabilities/snippets/Flow.ts   useFlowState, MockyFlow.go(route), <FlowLink>; FLOW_RULES
+src/lib/flows.ts                         readFlow (Babel, I1), resolveRoute, companionSection, scenarios
+src/lib/pipeline/flowCompanions.ts       the screens a new screen's routes need, through runNewScreen
+src/components/DemoPlayer.tsx            the store between screens, routes, scenarios, Data panel
+```
+
+Four things that will bite you:
+
+1. **The store lives in the HOLDER, not the frame.** Each screen is its own
+   sandboxed document; a page opened next is born with the state in its srcDoc
+   (`window.__mockyFlowInit`), and writes are posted up (`flow-set`). Restarting
+   remounts the frame (`key`) — there is no push into a live frame.
+2. **Read the new screen's code from `NewScreenOutcome.code`**, never from the
+   caller's screens: those are a render behind when `runNewScreen` returns, and
+   the first version of the companions read an empty screen there.
+3. **Companions are bounded** (`MAX_COMPANIONS`, two levels) and run with Muse
+   and Motion Ultra off; each is a full generation.
+4. **Forms submit in the preview because the frame fires `submit` by hand**
+   (V8): the sandbox refuses a submission before the event. Do not "fix" it by
+   adding `allow-forms`.
 
 ## Conventions
 

@@ -1,5 +1,5 @@
 ---
-source_hash: c1abf5904bfd
+source_hash: c4132dfefb70
 ---
 
 # Mocky
@@ -75,6 +75,9 @@ sans interface et écrire des fichiers. Ses étapes vivent donc dans
 - [Moteur d'inspiration](muse/inspiration-engine.md) Suivre Discover, Distill et Dossier en détail.
 - [Animations](muse/animations.md) Comprendre le système d'animations.
 - [Passe de qualité](quality.md) Contrôler un écran généré, et corriger ce que le contrôle trouve.
+- [Versions et branches](versions.md) Enregistrer un état, en comparer deux côte à côte, revenir en arrière, essayer une autre direction sur une branche.
+- [Envoyer un projet en validation](review.md) Envoyer un lien sans compte ; le client commente, puis approuve ou demande des modifications.
+- [Des prototypes qui fonctionnent](flows.md) Formulaires, connexion, filtres et panier qui marchent dans la démo, et les écrans où mène un parcours.
 - [Motion Ultra](video-export.md) Composer un `.mp4` pour un écran à partir d'un catalogue de blocs, et savoir pourquoi son moteur de rendu est livré à part.
 - [Déploiement](deployment.md) Déployer Mocky.
 - [Maintenance et migration](migration.md) Passer l'instance en lecture seule, ou la déplacer vers un autre serveur.

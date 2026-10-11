@@ -5,6 +5,8 @@ import { extractProductName } from './design'
 import { normalizeNotes, type ScreenNote } from './screenNotes'
 import type { SiteRefMode } from './siteReference'
 import { normalizePageFormat, type PageFormatId } from './pageFormats'
+import { normalizeBranch, restoreProject, MAIN_BRANCH, type VersionFull } from './versions'
+import { normalizeScenarios, slugRoute, type DemoScenario } from './flows'
 
 /** A link from an element (or region) of a screen to another screen. */
 export interface Hotspot {
@@ -162,6 +164,13 @@ export interface Screen {
   device: 'iphone' | 'none'
   /** Interaction links to other screens (used by demo mode). */
   links: Hotspot[]
+  /**
+   * The name other screens open this one by in a working prototype —
+   * `MockyFlow.go("cart")` (lib/flows.ts). Set on the screens Mocky creates for
+   * a flow and on the screen that led to them; absent on every other screen,
+   * which the demo then finds by its slugged name instead.
+   */
+  route?: string
 }
 
 /**
@@ -341,6 +350,23 @@ export interface Project {
    * like a project's own tombstone.
    */
   removedScreens?: Record<string, number>
+  /**
+   * The branch this working copy is on (`lib/versions.ts`). Absent means the
+   * main one — what every project made before branches says, and what most
+   * projects keep saying. A NAME, like `folder`: a branch is the versions that
+   * carry it on the server, and nothing here keeps a registry of them.
+   *
+   * On Project for the reason `folder` is: the projects blob travels as an
+   * opaque string and `loadProjects` spreads `...p`.
+   */
+  branch?: string
+  /**
+   * Ways to start the demo (lib/flows.ts): a screen, and the shared data as it
+   * should be — "a visitor", "signed in with two items in the cart". Recorded
+   * from a demo in progress. Small by construction (`SCENARIO_STATE_MAX_BYTES`)
+   * and on Project for the reason `folder` is.
+   */
+  scenarios?: DemoScenario[]
 }
 
 const PROJECTS_KEY = 'mocky.projects.v1'
@@ -416,6 +442,11 @@ export function discardPendingSave(): void {
     clearTimeout(saveTimer)
     saveTimer = null
   }
+}
+
+/** How a screen being added is placed: beside another one, when it is a pair with it. */
+export interface AddScreenOptions {
+  beside?: string
 }
 
 /** Default real frame size for a new screen (in canvas pixels). */
@@ -707,6 +738,25 @@ export function placeScreen(existing: Box[], w: number, h: number): { x: number;
 }
 
 /**
+ * Where to drop a screen that belongs NEXT TO another — a past version kept
+ * beside the present one (lib/versions.ts), so the two read as a pair rather
+ * than as one more screen at the end of the board.
+ *
+ * Right of the anchor first, then below it, each only if that spot touches
+ * nothing; otherwise the ordinary rule, which always finds room.
+ */
+export function placeBeside(existing: Box[], anchor: Box, w: number, h: number): { x: number; y: number } {
+  const boxes = existing.filter((b) => Number.isFinite(b.x) && Number.isFinite(b.y))
+  for (const cand of [
+    { x: anchor.x + anchor.w + GAP_X, y: anchor.y, w, h },
+    { x: anchor.x, y: anchor.y + anchor.h + GAP_Y, w, h },
+  ]) {
+    if (!boxes.some((b) => collides(cand, b))) return { x: cand.x, y: cand.y }
+  }
+  return placeScreen(boxes, w, h)
+}
+
+/**
  * Lay a whole set out again — what the "Arrange" button does.
  *
  * Row height is the tallest screen IN THAT ROW and each column is as wide as it
@@ -785,6 +835,7 @@ export function normalizeScreen(s: Partial<Screen>, index: number): Screen {
     quality: normalizeQuality(s.quality),
     ultra: normalizeUltra(s.ultra),
     userNotes: normalizeNotes(s.userNotes),
+    route: typeof s.route === 'string' && slugRoute(s.route) ? slugRoute(s.route) : undefined,
   }
 }
 
@@ -1069,14 +1120,16 @@ export function useProjects() {
     )
   }, [])
 
-  const addScreen = useCallback((projectId: string, screen: Omit<Screen, 'x' | 'y'>) => {
+  const addScreen = useCallback((projectId: string, screen: Omit<Screen, 'x' | 'y'>, opts?: AddScreenOptions) => {
     setProjects((prev) =>
       prev.map((p) => {
         if (p.id !== projectId) return p
         // Placed against what is actually on the canvas, not against a count.
         const w = typeof screen.w === 'number' ? screen.w : DEFAULT_W
         const h = typeof screen.h === 'number' ? screen.h : DEFAULT_H
-        const full: Screen = { ...screen, ...placeScreen(p.screens, w, h) }
+        const anchor = opts?.beside ? p.screens.find((s) => s.id === opts.beside) : undefined
+        const at = anchor ? placeBeside(p.screens, anchor, w, h) : placeScreen(p.screens, w, h)
+        const full: Screen = { ...screen, ...at }
         return { ...p, screens: [...p.screens, full], updatedAt: Date.now() }
       }),
     )
@@ -1139,6 +1192,47 @@ export function useProjects() {
     )
   }, [])
 
+  /**
+   * Put a project on another branch without touching its screens — what
+   * "New branch" does: the working copy IS the new branch's starting point.
+   */
+  const setProjectBranch = useCallback((projectId: string, branch: string | null) => {
+    const wanted = normalizeBranch(branch)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        if ((normalizeBranch(p.branch) || MAIN_BRANCH) === (wanted || MAIN_BRANCH)) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (wanted && wanted !== MAIN_BRANCH) next.branch = wanted
+        else delete next.branch
+        return next
+      }),
+    )
+  }, [])
+
+  /**
+   * Turn the working copy into a saved version — a restore, or the head of the
+   * branch being switched to. The rules are `restoreProject`'s; the caller has
+   * already saved what was there (`lib/versions.ts`).
+   */
+  const restoreProjectVersion = useCallback((projectId: string, version: VersionFull) => {
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? restoreProject(p, version) : p)))
+  }, [])
+
+  /** Replace a project's demo scenarios (an empty list clears them). */
+  const setProjectScenarios = useCallback((projectId: string, scenarios: DemoScenario[]) => {
+    const clean = normalizeScenarios(scenarios)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p
+        const next = { ...p, updatedAt: Date.now() }
+        if (clean) next.scenarios = clean
+        else delete next.scenarios
+        return next
+      }),
+    )
+  }, [])
+
   return {
     projects,
     createProject,
@@ -1152,5 +1246,8 @@ export function useProjects() {
     updateScreen,
     removeScreen,
     setReferenceScreen,
+    setProjectBranch,
+    restoreProjectVersion,
+    setProjectScenarios,
   }
 }

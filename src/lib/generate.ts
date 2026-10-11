@@ -3,6 +3,7 @@ import { proxyFetch, truncate } from './proxy'
 import type { Capability } from './capabilities/types'
 import { stripForbiddenMotion } from './stripMotion'
 import { ULTRA_CLASSES } from './capabilities/snippets/Ultra'
+import { FLOW_RULES } from './capabilities/snippets/Flow'
 import { DOCUMENT_CAP, DOCUMENT_RULES } from './documentMode'
 
 /**
@@ -356,6 +357,12 @@ function buildCapabilitiesPrompt(caps: Capability[]): string {
    * states" last came back with hover rings. Only a screen carrying the page
    * kit prints it: for every other screen this function is what it was.
    */
+  // A working prototype's rules, wherever the kit is in scope — a repair or a
+  // polish of such a screen must not turn its forms back into pictures of forms.
+  if (caps.some((c) => c.id === 'flow')) {
+    lines.push('')
+    lines.push(FLOW_RULES)
+  }
   if (caps.some((c) => c.id === DOCUMENT_CAP)) {
     lines.push('')
     lines.push(DOCUMENT_RULES)

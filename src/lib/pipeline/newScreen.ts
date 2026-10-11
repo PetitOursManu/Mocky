@@ -166,6 +166,19 @@ export interface NewScreenRequest {
    * prepared, checked and kept exactly as Mocky's would be (X5).
    */
   writer?: ScreenWriter
+  /**
+   * The composer's "Parcours": the screen is part of a working prototype, so
+   * the flow kit is in scope with its rules (snippets/Flow.ts). Absent — the
+   * MCP runner, and the composer with the switch off — builds the prompt it
+   * always built.
+   */
+  flows?: boolean
+  /** A companion screen's place in the flow (`companionSection`), appended to the plan. */
+  flowContext?: string
+  /** The route this screen answers to, for a companion screen. */
+  route?: string
+  /** The screen's name, when the caller knows a better one than the request cut short. */
+  name?: string
 }
 
 /** Everything `generateComponent` would have been given, for a writer that is not Mocky's model. */
@@ -223,6 +236,13 @@ export interface NewScreenHooks {
 
 export interface NewScreenOutcome {
   screenId: string
+  /**
+   * The code the screen was written with. The caller's own copy of the screens
+   * is a render behind the moment this returns — the last `updateScreen` has
+   * not been drawn yet — so a stage that reads the code next (the flow's
+   * companion screens) takes it from here.
+   */
+  code?: string
   /** What the error banner should say, when something about the result needs saying. */
   error?: string
   /** Set when `error` is the placeholder-text advisory, which the polish path reads back. */
@@ -926,6 +946,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     if (provided) planSection = [planSection, buildProvidedPicturesSection(provided)].filter(Boolean).join('\n\n')
     // Last, so on a reproduction it is the final word over the base rules' taste.
     if (siteSection) planSection = [planSection, siteSection, sitePicturesSection].filter(Boolean).join('\n\n')
+    if (req.flowContext) planSection = [planSection, req.flowContext].filter(Boolean).join('\n\n')
     capIds = withAnimations(capIds)
 
     // A sequence exists → the component that plays it must be in scope,
@@ -939,6 +960,9 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     // A document: what cannot live on paper out, the page kit in. Identity
     // for every other screen.
     capIds = pipe.caps(capIds)
+    // A working prototype: the kit and its rules, on a screen (never a page of
+    // a document — paper has no next page to open).
+    if (req.flows && !pipe.document && !capIds.includes('flow')) capIds = [...capIds, 'flow']
 
     hooks.setPhase('generating')
     const caps = resolveCapabilities(capIds)
@@ -946,7 +970,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     newScreenId = screenId
     hooks.addScreen({
       id: screenId,
-      name: deriveName(text),
+      name: req.name?.trim() || deriveName(text),
       prompt: text,
       code: '',
       componentName: 'App',
@@ -983,6 +1007,7 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
       // A document holds still: an entrance whose resting state is
       // opacity 0 prints blank. Undefined — the default — otherwise.
       animations: pipe.animations,
+      ...(req.route ? { route: req.route } : {}),
     })
     if (siteNew) hooks.rememberSiteRef(screenId, { ...site, content: siteContent, pictures: sitePicturesSection })
     // Name the project after its FIRST prompt, so it stops being called
@@ -1184,16 +1209,16 @@ export async function runNewScreen(req: NewScreenRequest, hooks: NewScreenHooks)
     if (result.truncated) {
       // The code is cut mid-token; the preview would only show a cryptic
       // "Unterminated string constant". Say what actually happened.
-      return { screenId, error: t('project.truncated') }
+      return { screenId, code: result.code, error: t('project.truncated') }
     } else {
       // Anti-slop lint (§5.2): flag placeholder text so the user can regenerate.
       const lint = lintSlop(result.code)
       if (!lint.ok) {
         const advisory = t('project.slop', { list: lint.violations.join(', ') })
-        return { screenId, error: advisory, slop: advisory }
+        return { screenId, code: result.code, error: advisory, slop: advisory }
       }
     }
-    return { screenId }
+    return { screenId, code: result.code }
   } catch (err) {
     // A screen that was added but never received a single character is not a
     // draft, it is debris: pressing "Stop" one second in used to leave a blank

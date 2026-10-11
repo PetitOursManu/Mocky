@@ -13,6 +13,8 @@ import { getThumb, pruneThumbs, THUMB_REGION } from '../lib/thumbnails'
 import { thumbFrame } from '../lib/documentMode'
 import { Button, Icon, IconButton, Input, Modal } from '../ui'
 import { useT } from '../i18n'
+import ReviewStatusPill from './ReviewStatusPill'
+import type { ProjectReviewState } from '../lib/review'
 
 /**
  * Key for the unfiled section's folded state.
@@ -182,6 +184,7 @@ export default function ProjectsHome({
   onDelete,
   onSetFolder,
   onRenameFolder,
+  reviewStates = {},
 }: {
   projects: Project[]
   onOpen: (id: string) => void
@@ -189,6 +192,12 @@ export default function ProjectsHome({
   onDelete: (id: string) => void
   onSetFolder: (ids: string[], folder: string | null) => void
   onRenameFolder: (from: string, to: string) => void
+  /**
+   * Each project's approval status (lib/useReviewState.ts). A project absent
+   * from it is a draft, and a draft shows no label: most projects are never
+   * sent to anyone, and a page where every card says "Draft" says nothing.
+   */
+  reviewStates?: Record<string, ProjectReviewState>
 }) {
   const t = useT()
   const timeAgo = useTimeAgo()
@@ -535,6 +544,11 @@ export default function ProjectsHome({
                   </h2>
                 </button>
               </div>
+              {reviewStates[lead.id] && reviewStates[lead.id].status !== 'draft' && (
+                <p className="mt-2">
+                  <ReviewStatusPill status={reviewStates[lead.id].status} unread={reviewStates[lead.id].unread} />
+                </p>
+              )}
               {normalizeFolder(lead.folder) && (
                 <p className="mt-2 font-mono text-caption text-ink-faint">
                   {t('projects.inFolder', { name: normalizeFolder(lead.folder) as string })}
@@ -696,6 +710,11 @@ export default function ProjectsHome({
                           {' · '}
                           {timeAgo(p.updatedAt)}
                         </span>
+                        {reviewStates[p.id] && reviewStates[p.id].status !== 'draft' && (
+                          <span className="mt-1.5 block">
+                            <ReviewStatusPill status={reviewStates[p.id].status} unread={reviewStates[p.id].unread} />
+                          </span>
+                        )}
                       </button>
 
                       {/* Decoration, not a control — the headline already opens

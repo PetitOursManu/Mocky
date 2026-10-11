@@ -36,6 +36,11 @@ const ALLOWED = new Set([
   'src/components/Canvas.tsx', // the badge and the label-bar button
   'src/components/ProjectView.tsx', // the menu item, the dialog, the duplicate that drops them
   'server/mcp/tools.test.js', // plants notes on a screen to prove an assistant never sees them (X4)
+  'server/versions.test.js', // a saved version keeps the notes, for their owner alone (server/versions.js)
+  'src/lib/versions.test.ts', // restoring a screen must not take back the notes written since
+  'server/reviews.test.js', // a client's review page never receives the owner's notes
+  'server/review-routes.test.js', // the same, through real HTTP
+  'src/lib/useVersions.ts', // "Keep beside" makes a copy and leaves the notes behind, like Duplicate
 ])
 
 const MENTION = /\buserNotes\b|\bScreenNote\b|screenNotes['"]/

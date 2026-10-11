@@ -32,6 +32,7 @@ import { MotionFilmSource, MOTIONFILM_EXPORTS } from '../capabilities/snippets/M
 import { UltraSource, ULTRA_EXPORTS } from '../capabilities/snippets/Ultra'
 import { DocumentSource, DOCUMENT_EXPORTS } from '../capabilities/snippets/Document'
 import { ShapeFrameSource, SHAPEFRAME_EXPORTS } from '../capabilities/snippets/ShapeFrame'
+import { FlowSource, FLOW_EXPORTS } from '../capabilities/snippets/Flow'
 import { cnSource } from '../capabilities/snippets/cn'
 
 const MOCKY_HEADER = '/* Vendored by Mocky export — inline, dependency-free. */'
@@ -188,6 +189,18 @@ export function framesJsx(): string {
   return packJsx(ShapeFrameSource, SHAPEFRAME_EXPORTS)
 }
 
+/**
+ * src/components/ui/flow.jsx — `useFlowState`, `MockyFlow`, `<FlowLink>`.
+ *
+ * In an exported project every screen is a component of ONE page, so the
+ * module's own store is already shared between them and nothing has to post
+ * it anywhere; `MockyFlow.go` raises a `mocky:flow-go` event that the exported
+ * App listens for to switch screens.
+ */
+export function flowJsx(): string {
+  return packJsx(FlowSource, FLOW_EXPORTS)
+}
+
 export interface UiFile {
   /** path relative to project root */
   path: string
@@ -222,5 +235,6 @@ export function uiFiles(opts: { three?: boolean } = {}): UiFile[] {
     ...pack('ultra', ultraJsx(), ULTRA_EXPORTS),
     ...pack('document', documentJsx(), DOCUMENT_EXPORTS),
     ...pack('frames', framesJsx(), SHAPEFRAME_EXPORTS),
+    ...pack('flow', flowJsx(), FLOW_EXPORTS),
   ]
 }

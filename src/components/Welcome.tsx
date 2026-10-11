@@ -38,6 +38,9 @@ type Props = {
   onApplyStyle: (markdown: string) => void
   museConfig: MuseConfig
   onMuseChange: (c: MuseConfig) => void
+  /** The composer's "Parcours" (lib/flows.ts), shown here too: the first screen is often the one a flow starts from. */
+  flowsOn?: boolean
+  onToggleFlows?: () => void
   museAvail: boolean | null
   museResult: MuseResult | null
   museImages: GeneratedSlotImage[]
@@ -104,6 +107,8 @@ export default function Welcome({
   onApplyStyle,
   museConfig,
   onMuseChange,
+  flowsOn,
+  onToggleFlows,
   museAvail,
   museResult,
   museImages,
@@ -237,6 +242,20 @@ export default function Welcome({
                   {museConfig.enabled ? t('auth.welcome.museOn') : t('auth.welcome.museOff')}
                 </span>
               </button>
+              {onToggleFlows && (
+                <button
+                  type="button"
+                  onClick={onToggleFlows}
+                  className={`inline-flex items-center gap-1.5 text-body-sm transition ${
+                    flowsOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink'
+                  }`}
+                  title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                  aria-pressed={!!flowsOn}
+                >
+                  <Icon name="cable" size={15} />
+                  {t('flows.toggle')}
+                </button>
+              )}
               {/* The first screen is the one Motion Ultra matters most for: it
                   is usually the landing page, and it sets the tone. */}
               <UltraControl

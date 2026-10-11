@@ -51,6 +51,15 @@ import DemoPlayer from './DemoPlayer'
 import ProposedLinks from './ProposedLinks'
 import CodeView from './CodeView'
 import ShareDialog from './ShareDialog'
+import VersionsPanel from './VersionsPanel'
+import VersionCompare, { type CompareSource } from './VersionCompare'
+import ScreenHistoryDialog from './ScreenHistoryDialog'
+import { useVersions } from '../lib/useVersions'
+import type { AddScreenOptions } from '../lib/project'
+import ReviewPanel from './ReviewPanel'
+import type { ProjectReviewState } from '../lib/review'
+import type { DemoScenario } from '../lib/flows'
+import { currentBranch, type VersionFull } from '../lib/versions'
 import ScreenNotesDialog from './ScreenNotesDialog'
 import { SaveDesignDialog } from './DesignLibrary'
 import DesignSpecSheet from './DesignSpecSheet'
@@ -127,7 +136,15 @@ import { pageScenesIn } from '../lib/video/pageScenes'
 import { themeFromBrief } from '../lib/video/briefTheme'
 import { directionBriefFrom } from '../lib/video/directionBrief'
 import { matchImagesToScreens } from '../lib/imageBackfill'
-import { identityOrLayoutReference as referenceFor, joinSystem, runNewScreen } from '../lib/pipeline/newScreen'
+import {
+  identityOrLayoutReference as referenceFor,
+  joinSystem,
+  runNewScreen,
+  type NewScreenHooks,
+  type NewScreenRequest,
+} from '../lib/pipeline/newScreen'
+import { runFlowCompanions } from '../lib/pipeline/flowCompanions'
+import { flowScreenName, loadFlowsOn, saveFlowsOn } from '../lib/flows'
 import { getLang, useT, type TranslationKey } from '../i18n'
 import { Button, Icon, IconButton, MockyLoader, Modal, Select, type IconName } from '../ui'
 
@@ -222,11 +239,16 @@ export default function ProjectView({
   onRenameProject,
   onSetDesign,
   onSetUltra,
+  onRestoreVersion,
+  onSetBranch,
+  reviewState,
+  onReviewChanged,
+  onSetScenarios,
   initialFocusScreenId,
   plan = 'standard',
 }: {
   project: Project
-  onAddScreen: (screen: Omit<Screen, 'x' | 'y'>) => void
+  onAddScreen: (screen: Omit<Screen, 'x' | 'y'>, opts?: AddScreenOptions) => void
   onUpdateScreen: (screenId: string, patch: Partial<Screen>) => void
   onRemoveScreen: (screenId: string) => void
   onOpenSettings: () => void
@@ -240,6 +262,16 @@ export default function ProjectView({
   onSetDesign: (markdown: string | null) => void
   /** Switch Motion Ultra on for this project (with its picture count), or off with null. */
   onSetUltra: (ultra: ProjectUltra | null) => void
+  /** Replace the working copy with a saved version (lib/versions.ts — it was saved first). */
+  onRestoreVersion: (version: VersionFull) => void
+  /** Put the working copy on another branch, keeping its screens (null = the main one). */
+  onSetBranch: (branch: string | null) => void
+  /** This project's approval status, read off its newest review round (lib/review.ts). */
+  reviewState?: ProjectReviewState
+  /** A round was sent, closed or read: the status badges should ask again. */
+  onReviewChanged?: () => void
+  /** Replace the project's demo scenarios (lib/flows.ts). */
+  onSetScenarios?: (scenarios: DemoScenario[]) => void
   /** A screen to select and centre on when the project opens — a /p/ link named it. */
   initialFocusScreenId?: string
   /** The account's plan (server/plan.js): on `free`, pictures come from the free libraries only. */
@@ -288,6 +320,14 @@ export default function ProjectView({
   const [error, setError] = useState<string | null>(null)
   // --- Muse — optional design-intelligence pass before generation ---
   const [museConfig, setMuseConfig] = useState<MuseConfig>(() => loadMuseConfig())
+  /** The composer's "Parcours": new screens are pages of a working prototype (lib/flows.ts). */
+  const [flowsOn, setFlowsOnState] = useState<boolean>(() => loadFlowsOn())
+  const toggleFlows = useCallback(() => {
+    setFlowsOnState((on) => {
+      saveFlowsOn(!on)
+      return !on
+    })
+  }, [])
   /**
    * Where this browser wants a generation's pictures from — made by the image
    * model, or found in the free libraries. Remembered like Muse's own choices.
@@ -517,6 +557,8 @@ export default function ProjectView({
   const linkMode = rightSlot === 'links'
   const showSystem = rightSlot === 'system'
   const showAudit = rightSlot === 'audit'
+  const showVersions = rightSlot === 'versions'
+  const showReview = rightSlot === 'review'
   const [modifyMode, setModifyMode] = useState(false)
   const [pendingModify, setPendingModify] = useState<{ screenId: string; info: PickInfo } | null>(null)
   const [modifyText, setModifyText] = useState('')
@@ -671,6 +713,29 @@ export default function ProjectView({
   screensRef.current = project.screens
   const updateScreenRef = useRef(onUpdateScreen)
   updateScreenRef.current = onUpdateScreen
+  // Versions read the project through a ref, for the reason screensRef exists:
+  // a restore must save the working copy as it is NOW (lib/useVersions.ts).
+  const projectRef = useRef(project)
+  projectRef.current = project
+  /** The screen whose history is open, and the comparison on screen. */
+  const [historyScreenId, setHistoryScreenId] = useState<string | null>(null)
+  const [compare, setCompare] = useState<{ left: CompareSource; right: CompareSource; screenId?: string } | null>(null)
+  const versions = useVersions({
+    projectId: project.id,
+    getProject: () => projectRef.current,
+    onRestoreProject: onRestoreVersion,
+    onSetBranch,
+    onUpdateScreen,
+    // Shown once added, like any new screen: a version kept beside its present
+    // is the thing the person wants to look at next. `setFocus` is read when it
+    // is called, after this render has declared it.
+    onAddScreen: (screen, opts) => {
+      onAddScreen(screen, opts)
+      setFocus({ screenId: screen.id, nonce: Date.now() })
+    },
+    t,
+    enabled: rightSlot === 'versions' || historyScreenId !== null || compare !== null,
+  })
   useEffect(() => {
     if (backfilledRef.current === project.id) return
     backfilledRef.current = project.id
@@ -698,8 +763,8 @@ export default function ProjectView({
    * the frame shows its progress while it is written.
    */
   const addScreenAndShow = useCallback(
-    (screen: Parameters<typeof onAddScreen>[0]) => {
-      onAddScreen(screen)
+    (screen: Parameters<typeof onAddScreen>[0], opts?: AddScreenOptions) => {
+      onAddScreen(screen, opts)
       setFocus({ screenId: screen.id, nonce: Date.now() })
     },
     [onAddScreen],
@@ -1545,8 +1610,7 @@ export default function ProjectView({
       } else {
         // A new screen: the whole pipeline is lib/pipeline/newScreen.ts, so a
         // caller with no composer (the MCP runner) runs the same stages.
-        const outcome = await runNewScreen(
-          {
+        const request: NewScreenRequest = {
             text,
             settings,
             project,
@@ -1574,8 +1638,11 @@ export default function ProjectView({
             docImageChoice,
             imageGenOk,
             stockImagesUsable,
-          },
-          {
+            // Absent rather than false when off, so the request is the one it
+            // always was (snippets/Flow.ts).
+            ...(flowsOn ? { flows: true } : {}),
+          }
+        const hooks: NewScreenHooks = {
             signal: ac.signal,
             t,
             setPhase,
@@ -1604,10 +1671,32 @@ export default function ProjectView({
             screenWritten: () => setGeneratingIds(new Set()),
             motionStage,
             motionStageDone,
-          },
-        )
+          }
+        const outcome = await runNewScreen(request, hooks)
         if (outcome.slop) setSlopAdvisory(outcome.slop)
         if (outcome.error) setError(outcome.error)
+        /*
+         * The pages the new screen leads to and nobody asked for by name — a
+         * sign-in's account page, a shop's cart (lib/pipeline/flowCompanions.ts).
+         * Not for a document, and not when the run left an error to read: a
+         * screen that came back broken has no flow worth following yet.
+         */
+        if (flowsOn && !outcome.error && !pageFormatId) {
+          try {
+            const made = await runFlowCompanions(request, hooks, outcome.screenId, outcome.code ?? '', {
+              getProject: () => projectRef.current,
+              nameFor: (route) => flowScreenName(route, t),
+            })
+            if (made.length) {
+              setNotice(t('flows.created', { count: made.length, names: made.map((m) => flowScreenName(m.route, t)).join(', ') }))
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err
+            // The screen asked for is made and stays; the pages it leads to are
+            // a bonus, and their failure is said rather than raised (Q1's rule).
+            setNotice(t('flows.failed', { error: err instanceof Error ? err.message : String(err) }))
+          }
+        }
       }
     } catch (err) {
       // A new screen that never received a character has already been removed
@@ -1630,7 +1719,7 @@ export default function ProjectView({
     // list changed — so clicking "No animation" after typing the prompt left the
     // stale 'auto' in the captured closure, and the button did nothing the
     // generation could see.
-  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, addScreenAndShow, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode])
+  }, [prompt, screens, selectedIds, presetId, themeId, pageFormatId, annotations, addScreenAndShow, onUpdateScreen, onRemoveScreen, onRenameProject, onSetDesign, museConfig, museAvail, project, pinnedImages, t, museVision, videoAvail, motionAvail, redesign, ultraActive, ultraCount, effectiveImageSource, runPicturesOff, docPictureSource, docImageChoice, imageGenOk, stockImagesUsable, siteShots, siteMode, flowsOn])
 
   function cancelGenerate() {
     abortRef.current?.abort()
@@ -2656,6 +2745,8 @@ export default function ProjectView({
         onApplyStyle={applyStyleMarkdown}
         museConfig={museConfig}
         onMuseChange={updateMuse}
+        flowsOn={flowsOn}
+        onToggleFlows={toggleFlows}
         museAvail={museAvail}
         museResult={museResult}
         museImages={museImages}
@@ -2778,6 +2869,24 @@ export default function ProjectView({
       // this used to forget: all three want `right-4 top-11`, and it only ever
       // cleared the one whose name was in the same paragraph. See lib/rightSlot.
       onClick: () => setRightSlot((s) => toggleSlot(s, 'audit')),
+    },
+    {
+      id: 'review',
+      icon: 'comment',
+      // The count of what the client wrote since the owner last looked: the one
+      // number on the toolbar that comes from someone else.
+      label: reviewState?.unread ? `${t('review.toolbar')} (${reviewState.unread})` : t('review.toolbar'),
+      title: t('review.toolbarTitle'),
+      active: showReview,
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'review')),
+    },
+    {
+      id: 'versions',
+      icon: 'history',
+      label: t('versions.toolbar'),
+      title: t('versions.toolbarTitle'),
+      active: showVersions,
+      onClick: () => setRightSlot((s) => toggleSlot(s, 'versions')),
     },
     /*
      * Last of the first group — the panels and modes — and not with Démo and
@@ -2948,6 +3057,28 @@ export default function ProjectView({
           onRecolor={recolorToken}
           onClose={() => setRightSlot((s) => closeSlot(s, 'system'))}
           onEdit={onOpenDesign}
+        />
+      )}
+
+      {showReview && (
+        <ReviewPanel
+          getProject={() => projectRef.current}
+          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+          onChanged={() => onReviewChanged?.()}
+          onClose={() => setRightSlot((s) => closeSlot(s, 'review'))}
+        />
+      )}
+
+      {showVersions && (
+        <VersionsPanel
+          api={versions}
+          branch={currentBranch(project)}
+          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+          screenName={(id) => screens.find((x) => x.id === id)?.name ?? null}
+          onCompare={(a, b) =>
+            setCompare(b ? { left: { kind: 'version', id: b }, right: { kind: 'version', id: a } } : { left: { kind: 'current' }, right: { kind: 'version', id: a } })
+          }
+          onClose={() => setRightSlot((s) => closeSlot(s, 'versions'))}
         />
       )}
 
@@ -3533,6 +3664,21 @@ export default function ProjectView({
               <Icon name="sparkle" size={14} className={museHint ? 'muse-sweep-icon' : undefined} />
               <span className={museHint ? 'muse-sweep' : undefined}>{t('muse.title')}</span>
             </button>
+            {/* New screens only: an edit keeps the flow its screen already has. */}
+            {!editing && (
+              <button
+                type="button"
+                onClick={toggleFlows}
+                className={`kicker tap-target inline-flex min-h-8 shrink-0 items-center gap-1 px-2 py-1.5 text-body-sm transition ${
+                  flowsOn ? 'text-accent-ink hover:opacity-80' : 'text-ink-faint hover:text-ink-muted'
+                }`}
+                title={t(flowsOn ? 'flows.toggleOnTitle' : 'flows.toggleOffTitle')}
+                aria-pressed={flowsOn}
+              >
+                <Icon name="cable" size={14} />
+                {t('flows.toggle')}
+              </button>
+            )}
             {/* New screens only: an edit reworks a screen that already is, or
                 is not, Motion Ultra — the pass that builds one is a storyboard
                 and a series of pictures, not an instruction to an edit. */}
@@ -3901,7 +4047,13 @@ export default function ProjectView({
       )}
 
       {demoStartId && (
-        <DemoPlayer screens={screens} startId={demoStartId} onExit={() => setDemoStartId(null)} />
+        <DemoPlayer
+          screens={screens}
+          startId={demoStartId}
+          onExit={() => setDemoStartId(null)}
+          scenarios={project.scenarios}
+          onSaveScenarios={onSetScenarios}
+        />
       )}
 
       {/* A document's download: PDF with fillable fields, slides, pictures. */}
@@ -3981,6 +4133,7 @@ export default function ProjectView({
                   label={s.userNotes?.length ? t('notes.menuCount', { count: s.userNotes.length }) : t('notes.menu')}
                   onClick={() => { close(); setNotesScreenId(s.id) }}
                 />
+                <MenuItem icon="history" label={t('versions.screenMenu')} onClick={() => { close(); setHistoryScreenId(s.id) }} />
                 <MenuItem icon="copy" label={t('canvas.duplicate')} onClick={() => { close(); duplicateScreen(s) }} />
                 <MenuItem icon="link" label={t('share.menu')} onClick={() => { close(); setShareScreenId(s.id) }} />
                 <MenuItem icon="code" label={t('project.showCode')} onClick={() => { close(); setCodeScreen(s) }} />
@@ -4209,6 +4362,36 @@ export default function ProjectView({
             />
           )
         })()}
+
+      {historyScreenId &&
+        (() => {
+          const sc = screens.find((x) => x.id === historyScreenId)
+          if (!sc) return null
+          return (
+            <ScreenHistoryDialog
+              api={versions}
+              screen={sc}
+              busy={busy || generatingIds.has(sc.id) || regeneratingIds.has(sc.id) || fixingIds.has(sc.id)}
+              onCompare={(versionId) => {
+                setHistoryScreenId(null)
+                setCompare({ left: { kind: 'current' }, right: { kind: 'version', id: versionId }, screenId: sc.id })
+              }}
+              onClose={() => setHistoryScreenId(null)}
+            />
+          )
+        })()}
+
+      {compare && (
+        <VersionCompare
+          api={versions}
+          project={project}
+          left={compare.left}
+          right={compare.right}
+          initialScreenId={compare.screenId}
+          busy={busy || generatingIds.size > 0 || regeneratingIds.size > 0 || fixingIds.size > 0}
+          onClose={() => setCompare(null)}
+        />
+      )}
 
       {shareScreenId &&
         (() => {

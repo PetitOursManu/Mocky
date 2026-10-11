@@ -8,7 +8,7 @@ They were referenced by number in code comments — `invariant 1/2/3/5/8` — wi
 being collected anywhere. [ADR 001](../adr/001-muse.md) wrote them down; this page
 explains them.
 
-There are seven series:
+There are eight series:
 
 - **I1 to I9**, the original invariants, reconstructed from the code, and the
   privacy of a screen's notes.
@@ -18,6 +18,7 @@ There are seven series:
 - **D1 to D6**, introduced by the admin dashboard.
 - **X1 to X7**, introduced by Mocky as an MCP server.
 - **F1 to F4**, introduced by the free plan and personal keys.
+- **V1 to V8**, introduced by versions, branches, approval links and working prototypes.
 
 Plus two unnumbered rules that carry just as much weight: the SSRF guard, and the
 "no database, no native dependencies" posture.
@@ -1089,6 +1090,138 @@ model), and that seeing it never means holding someone else's credential.
 switch), `server/own-text-routes.test.js` (the call goes where the browser says
 and neither instance provider hears it, no quota spent, the key absent from the
 admin list and from `users.json`, the option closed and reopened).
+
+---
+
+## Series V — versions, review and prototypes
+
+These came with saved versions and branches ([their page](../versions.md)) and
+with approval links ([theirs](../review.md)), then working prototypes
+([theirs](../flows.md)).
+Each one is about the moment a copy of somebody's project is made, kept or put
+back.
+
+### V1. Nothing replaces the working copy before it is saved
+
+**The rule.** A restore and a branch switch both overwrite the project on the
+canvas. Each first saves that working copy as an automatic version on the branch
+it is on (`useVersions`, `safetyCopy`), and if that save fails the restore does
+not happen. The store answers `unchanged` instead of writing a twin when the
+state is already the branch's newest version.
+
+**What it protects.** The state someone was in. This is the one place in Mocky
+where a failure STOPS the action instead of being noted beside it: degrading
+here would mean "replace the project without the copy", which is the loss the
+feature exists to prevent.
+
+**How it is checked.** `server/versions.test.js` (the `unchanged` answer, the
+branch it is scoped to), and the restore rules in `src/lib/versions.test.ts`.
+
+### V2. A version is its owner's, and found only in its owner's index
+
+**The rule.** Every version route is behind a session, and the store looks a
+version up in the CALLER's own index (`versions/<account>/index.json`), so an id
+from another account answers 404 exactly like an unknown one. Blobs are per
+account, never shared across the instance; deleting an account removes its
+directory.
+
+**What it protects.** A version is a copy of someone's whole project. The id is
+random, but an id is not a credential, and nothing about a version should depend
+on nobody guessing one.
+
+**How it is checked.** `server/versions.test.js` ("whose versions they are").
+
+### V3. Versions never ride in the projects blob
+
+**The rule.** Versions live in `server/versions.js`, content-addressed per
+account and counted by the disk budget. The working copy carries one name — the
+branch it is on (`Project.branch`) — and nothing else about them. A restore that
+leaves screens out TOMBSTONES them (`removedScreens`), because the sync merges by
+union and would hand them back.
+
+**What it protects.** The localStorage budget the working copy already strains
+(`reportStorageFailure`): versions inside it would make saving a version the
+first thing to break saving at all. And the restore itself, which a merge would
+otherwise undo a few seconds later.
+
+**How it is checked.** `src/lib/versions.test.ts` (a restored project merged with
+the server's older copy keeps exactly the restored screens).
+
+### V4. A review link reads one frozen version and writes to one round
+
+**The rule.** A review link (`server/reviews.js`) is a capability like a share
+link: 256 random bits, stored, revocable, expiring. The three public routes under
+`/api/review/:token` read the round's VERSION — saved when it was sent, never the
+live project — and write comments and a decision to that round only. A new
+round supersedes the previous one, which stays readable and takes nothing more;
+a version a live link shows cannot be deleted (`409`).
+
+**What it protects.** What an approval means. A client who approved a screen
+must not see it change under them, and their page must not break because the
+version behind it was tidied away.
+
+**How it is checked.** `server/reviews.test.js`, `server/review-routes.test.js`
+(a stolen version id mints nothing, the version is locked, a revoked link is
+404).
+
+### V5. The client's page receives a whitelist of each screen
+
+**The rule.** `publicScreen` builds what the reviewer's page gets, field by
+field: id, name, code, component name, capabilities, size, device, animations,
+page format, links. Never the prompt, the design record, the quality record or
+the owner's notes (I9).
+
+**What it protects.** The brief, often the confidential part of a project, and
+the notes nobody but their author reads. A copy-minus-some-fields would leak the
+next field somebody adds to `Screen`.
+
+**How it is checked.** `server/reviews.test.js` (the exact key set),
+`server/review-routes.test.js` (the brief and a planted note are absent from the
+HTTP answer).
+
+### V6. A project's status is read off its newest round, never stored
+
+**The rule.** `Draft`, `In review`, `Changes requested`, `Approved`: the status
+is the newest round's (`statusFor`, `projectStatusOf`), and a closed round or no
+round is a draft. Nothing writes a status into the projects blob.
+
+**What it protects.** One source of truth for a fact decided on another person's
+screen. A copy in the blob would disagree with the server the first time a
+browser was offline when the client answered.
+
+**How it is checked.** `server/reviews.test.js` ("a round"), `src/lib/review.test.ts`.
+
+### V7. "Flows" off, a generation is the one it was
+
+**The rule.** The flow kit (`snippets/Flow.ts`) is never chosen from a prompt:
+it is added by `runNewScreen` only when the request says `flows`, which the
+composer sends only with its switch on; a companion's context is appended only
+when there is one; the companion screens are made only under that switch. A
+preview is given flow state only by a holder that passed `flow` (the demo, the
+review board) — on the canvas, a screen's `MockyFlow.go` asks nobody.
+
+**What it protects.** The cost and the shape of every generation for someone who
+switched the feature off, and the canvas from a screen's code steering anything
+outside its frame.
+
+**How it is checked.** `tests/flows-off.test.js`.
+
+### V8. A preview's form submits, and sends nothing
+
+**The rule.** The preview's sandbox has no `allow-forms`, and the browser
+refuses a submission BEFORE firing the `submit` event — so no generated
+`<form onSubmit>` ever ran. The frame re-fires the event by hand for the two
+gestures that submit a form (a submit button, Enter in a field), after the
+browser's own validation, in the bubble phase so a button whose handler
+prevents the default keeps its meaning. The default stays prevented and the
+sandbox stays as it is: nothing is ever sent.
+
+**What it protects.** Every working prototype — a sign-in that cannot submit is
+a picture of one — without opening the frame to a navigation (I2).
+
+**How it is checked.** The sign-in round trip of a working prototype, in a
+browser; `tests/preview-sandbox.test.js` still pins the sandbox to
+`allow-scripts`.
 
 ---
 
