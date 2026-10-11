@@ -43,6 +43,7 @@ This page is generated from the Git history by `npm run changelog`. Commit messa
 
 | Scope | Change | Commit |
 | --- | --- | --- |
+| `docs-site` | barre de défilement du menu fine et discrète | `287f827` |
 | `docexport` | le ruban dans sa propre boîte, la page en arrière-plan de la diapositive (#51) | `7961774` |
 | `docexport` | rien sur le cadre dans le PowerPoint, pour que Canva y dépose une photo (#50) | `6903e47` |
 | `docexport` | l'interlignage hérité reste un multiplicateur dans le rendu image (#48) | `147be99` |
