@@ -1,5 +1,6 @@
 import {
   INHERITED_PROPS,
+  inheritedLineHeight,
   absolutiseCssUrls,
   XHTML_NS,
   carryFormState,
@@ -186,6 +187,29 @@ const WRAPPER_RESET: Record<string, string> = {
 }
 
 /**
+ * The parent's line height as it is inherited (svgRaster's
+ * `inheritedLineHeight` says why the computed value is not that). The probe
+ * lives for one synchronous read: no frame paints it.
+ */
+function lineHeightOf(win: Window, parent: Element, cs: CSSStyleDeclaration): string {
+  const computed = cs.getPropertyValue('line-height')
+  const size = parseFloat(cs.getPropertyValue('font-size'))
+  if (!(size > 0)) return computed
+  let probed: string | null = null
+  const probe = parent.ownerDocument.createElement('span')
+  probe.style.cssText = `position:absolute;visibility:hidden;font-size:${size * 2}px`
+  try {
+    parent.appendChild(probe)
+    probed = win.getComputedStyle(probe).getPropertyValue('line-height')
+  } catch {
+    // A parent that takes no child keeps the computed value, as before.
+  } finally {
+    probe.remove()
+  }
+  return inheritedLineHeight(computed, cs.getPropertyValue('font-size'), probed)
+}
+
+/**
  * The page's ancestors, rebuilt as bare <div>s that keep only what a SELECTOR
  * can see — class, id, dir, lang, data-* — so `.dark .card`, `#root > div` and
  * `[data-mocky-doc] [data-mocky-page]` still match, while none of their boxes
@@ -219,7 +243,7 @@ function buildWrappers(win: Window, doc: Document, page: Element, width: number,
   if (parent) {
     const cs = win.getComputedStyle(parent)
     for (const p of INHERITED_PROPS) {
-      const v = cs.getPropertyValue(p)
+      const v = p === 'line-height' ? lineHeightOf(win, parent, cs) : cs.getPropertyValue(p)
       if (v) inner.style.setProperty(p, v)
     }
     // Custom properties inherit too, and a `:root { --brand }` has no :root to

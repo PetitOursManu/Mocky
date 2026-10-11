@@ -293,6 +293,37 @@ export const INHERITED_PROPS = [
   'color-scheme',
 ] as const
 
+/**
+ * The `line-height` to pin, in the form it is INHERITED in — not the one
+ * getComputedStyle prints.
+ *
+ * Tailwind's preflight says `html { line-height: 1.5 }`: a number, so every
+ * descendant multiplies its OWN font size by it. getComputedStyle answers in
+ * pixels at the parent's size ("24px"), and pinning that made every element
+ * without a `leading-*` class inherit a flat 24 px inside the image: a 28 px
+ * list item drew on a 24 px line while the export measured it on a 42 px one.
+ * The PNG and the PDF came out tighter than the preview, and the .pptx — live
+ * text boxes over that picture — put its words across the separators.
+ *
+ * Which form it is cannot be read off the parent, so the caller asks a probe:
+ * a child of the parent at TWICE its font size, with no line height of its own.
+ * A number inherits as a number and the probe's line is twice the parent's; a
+ * length inherits as itself and it is the same. Anything else keeps the
+ * computed value, which is what was pinned before.
+ */
+export function inheritedLineHeight(parentLineHeight: string, parentFontSize: string, probeLineHeight: string | null): string {
+  const lh = parseFloat(parentLineHeight)
+  const fs = parseFloat(parentFontSize)
+  if (!/px$/.test(parentLineHeight.trim()) || !(lh > 0) || !(fs > 0) || !probeLineHeight) return parentLineHeight
+  const probe = probeLineHeight.trim()
+  // An engine that prints the computed number as it is.
+  if (/^\d*\.?\d+$/.test(probe)) return probe
+  const px = parseFloat(probe)
+  if (!/px$/.test(probe) || !(px > 0)) return parentLineHeight
+  if (Math.abs(px - 2 * lh) <= 0.5) return String(Math.round((lh / fs) * 10000) / 10000)
+  return parentLineHeight
+}
+
 // ── the fallback decision ─────────────────────────────────────────────────
 
 /**
