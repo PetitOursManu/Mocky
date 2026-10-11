@@ -14,6 +14,7 @@ Cette page est produite à partir de l’historique Git par `npm run changelog`.
 
 | Portée | Modification | Commit |
 | --- | --- | --- |
+| — | versions et branches, envoi en validation, prototypes qui fonctionnent (#53) | `659c24e` |
 | `docexport` | PSD et SVG en téléchargement classique, plus de gabarit vide (#52) | `9506663` |
 | `docexport` | les cadres restent des cadres dans le PowerPoint (#49) | `860820a` |
 | `frames` | télécharger un gabarit avec les cadres vides — PNG, SVG, PDF (Canva), PSD (3/3) (#46) | `80658d6` |
