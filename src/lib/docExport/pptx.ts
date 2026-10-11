@@ -12,7 +12,7 @@ import type { FieldBox, FrameOverlay, PageSnapshot, Rgba, RunStyle, TextAlign, T
  * does not reflow — a slide is a canvas of positioned boxes, like the page — and
  * it opens a .pptx from Drive with every text box still a text box. So a page
  * becomes one slide of the page's own size: the page, with its text taken out,
- * as a full-bleed picture (shapes, colours, photographs), and each block of text
+ * as the slide's background picture (shapes, colours, photographs), and each block of text
  * as an editable box at the place it was measured, in its size, weight, colour
  * and face. PowerPoint and Keynote read the same file. A picture in a shape
  * (`<ShapeFrame>`) is a shape of its own over the page, filled with the
@@ -230,7 +230,7 @@ export function fieldBoxXml(f: FieldBox, id: number, lang: string): string | nul
  * path's coordinates are integers): stretched to the shape's size by the
  * reader, like the CSS mask it came from.
  */
-export function custGeomXml(subs: readonly Subpath[]): string {
+export function custGeomXml(subs: readonly Subpath[], w = 100, h = 100): string {
   const pt = ([x, y]: Pt) => `<a:pt x="${Math.round(x * 100)}" y="${Math.round(y * 100)}"/>`
   const path = subs
     .map(
@@ -242,7 +242,7 @@ export function custGeomXml(subs: readonly Subpath[]): string {
     .join('')
   return (
     '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/>' +
-    `<a:pathLst><a:path w="10000" h="10000">${path}</a:path></a:pathLst></a:custGeom>`
+    `<a:pathLst><a:path w="${Math.max(1, Math.round(w * 100))}" h="${Math.max(1, Math.round(h * 100))}">${path}</a:path></a:pathLst></a:custGeom>`
   )
 }
 
@@ -276,10 +276,54 @@ export function frameOverlayXml(o: FrameOverlay, box: FrameBox, id: number, name
   const ink = (c: Rgba) => fillXml({ ...c, a: c.a * o.opacity })
   const fill = o.fill ? ink(o.fill) : '<a:noFill/>'
   const line = o.stroke && o.strokeWidth > 0 ? `<a:ln w="${pxToEmu(o.strokeWidth)}">${ink(o.stroke)}<a:round/></a:ln>` : '<a:ln><a:noFill/></a:ln>'
+  const own = ownBox(subs, box)
+  if (!own) return ''
   return (
     `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${escapeXml(name)}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
-    `<p:spPr>${frameXfrm(box)}${custGeomXml(subs)}${fill}${line}</p:spPr></p:sp>`
+    `<p:spPr>${frameXfrm(own.box)}${custGeomXml(own.subs, own.w, own.h)}${fill}${line}</p:spPr></p:sp>`
   )
+}
+
+/**
+ * A part of a frame's drawing in a box of its OWN: the part's bounds inside the
+ * frame's 0–100 box, placed where the frame's turn takes them, and its path
+ * moved to start at that box's corner.
+ *
+ * An editor's element IS its box, whatever its path draws. A strip of tape
+ * written in the frame's whole box was, to Canva, an element covering the
+ * whole frame — on top of it — and the frame under it took no photo. Bounded
+ * by its control points, which hold the curve.
+ */
+export function ownBox(subs: readonly Subpath[], box: FrameBox): { box: FrameBox; subs: Subpath[]; w: number; h: number } | null {
+  const pts = subs.flatMap((sp) => [sp.start, ...sp.segs.flatMap((g) => (g.type === 'L' ? [g.p] : [g.c1, g.c2, g.p]))])
+  if (!pts.length) return null
+  const x0 = Math.min(...pts.map((p) => p[0]))
+  const y0 = Math.min(...pts.map((p) => p[1]))
+  const w = Math.max(...pts.map((p) => p[0])) - x0
+  const h = Math.max(...pts.map((p) => p[1])) - y0
+  if (!(w > 0 && h > 0)) return null
+  const move = ([x, y]: Pt): Pt => [x - x0, y - y0]
+  const moved = subs.map((sp) => ({
+    start: move(sp.start),
+    segs: sp.segs.map((g) => (g.type === 'L' ? { type: 'L' as const, p: move(g.p) } : { type: 'C' as const, c1: move(g.c1), c2: move(g.c2), p: move(g.p) })),
+  }))
+  // The part's centre, from the frame's centre, unturned, in page px — then turned with the frame.
+  const dx = ((x0 + w / 2) / 100 - 0.5) * box.w
+  const dy = ((y0 + h / 2) / 100 - 0.5) * box.h
+  const a = (box.angle * Math.PI) / 180
+  return {
+    box: {
+      shape: box.shape,
+      cx: box.cx + dx * Math.cos(a) - dy * Math.sin(a),
+      cy: box.cy + dx * Math.sin(a) + dy * Math.cos(a),
+      w: (w / 100) * box.w,
+      h: (h / 100) * box.h,
+      angle: box.angle,
+    },
+    subs: moved,
+    w,
+    h,
+  }
 }
 
 /**
@@ -306,15 +350,15 @@ export function frameStackXml(f: PptxFrame, firstId: number, rel: string): strin
     const name = f.overlayNames?.over ?? f.name
     strips.forEach((sp, k) => out.push(frameOverlayXml(o, f.box, id(), strips.length > 1 ? `${name} ${k + 1}` : name, [sp])))
   }
-  return out
+  return out.filter(Boolean)
 }
 
 /** The relationship id of a page's `j`-th frame picture: rId1 is the layout, rId2 the background. */
 const frameRel = (j: number) => `rId${j + 3}`
 
 export function slideXml(page: PageSnapshot, lang: string, frames: readonly PptxFrame[] = []): string {
-  // Shape ids are unique per slide; 1 is the tree, 2 the background picture.
-  let next = 3
+  // Shape ids are unique per slide; 1 is the tree.
+  let next = 2
   const shapes: string[] = []
   const add = (xml: string | null) => {
     if (!xml) return
@@ -325,13 +369,14 @@ export function slideXml(page: PageSnapshot, lang: string, frames: readonly Pptx
   frames.forEach((f, j) => frameStackXml(f, next, frameRel(j)).forEach(add))
   for (const b of page.blocks) add(textBoxXml(b, next, page.width, lang))
   for (const f of page.fields) add(fieldBoxXml(f, next, lang))
-  const pic =
-    `<p:pic><p:nvPicPr><p:cNvPr id="2" name="Background"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>` +
-    `<p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
-    `<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${pxToEmu(page.width)}" cy="${pxToEmu(page.height)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`
+  // The page is the slide's BACKGROUND, not a picture on it. As a full-slide
+  // picture it was an element like any other: Canva replaced it with the photo
+  // someone meant for a frame and missed by a few pixels, and every editor let
+  // it be dragged while a word was being clicked.
+  const bg = '<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId2"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>'
   return (
     XML_DECL +
-    `<p:sld ${PML_NS}><p:cSld><p:spTree>${GROUP_HEADER}${pic}${shapes.join('')}</p:spTree></p:cSld>` +
+    `<p:sld ${PML_NS}><p:cSld>${bg}<p:spTree>${GROUP_HEADER}${shapes.join('')}</p:spTree></p:cSld>` +
     `<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`
   )
 }

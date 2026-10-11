@@ -1037,7 +1037,11 @@ data: URL of the path. Three things:
    because left in the page they would sit UNDER the photograph. Nothing goes
    OVER the frame's middle (`frameStackXml`): Canva drops a photo on what is on
    top, and a frame with its outline over it took none. The outline goes under,
-   twice as wide; the tape stays over, one shape per strip.
+   twice as wide; the tape stays over, one shape per strip, each in a box of its
+   OWN (`ownBox`) — to an editor an element is its box, and a strip written in
+   the frame's whole box covered the frame all the same. And the page is the
+   slide's BACKGROUND (`<p:bg>`), never a full-slide picture: as an element,
+   Canva replaced it with the photo meant for a frame a few pixels away.
 
 ## Maintenance mode and server migration
 
