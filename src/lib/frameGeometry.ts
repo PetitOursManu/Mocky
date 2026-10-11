@@ -193,13 +193,17 @@ export function frameTransform(box: FrameBox): (p: Pt) => Pt {
   }
 }
 
-/** The frame's hole on the page, in CSS px. */
-export function placeFrame(box: FrameBox): Subpath[] {
-  const f = frameTransform(box)
-  return shapeCubics(box.shape).map((sp) => ({
+/** Every point of a path through `f` — an affine map keeps lines and cubics what they are. */
+export function mapSubpaths(subpaths: readonly Subpath[], f: (p: Pt) => Pt): Subpath[] {
+  return subpaths.map((sp) => ({
     start: f(sp.start),
     segs: sp.segs.map((s) => (s.type === 'L' ? { type: 'L', p: f(s.p) } : { type: 'C', c1: f(s.c1), c2: f(s.c2), p: f(s.p) })),
   }))
+}
+
+/** The frame's hole on the page, in CSS px. */
+export function placeFrame(box: FrameBox): Subpath[] {
+  return mapSubpaths(shapeCubics(box.shape), frameTransform(box))
 }
 
 const n2 = (v: number) => String(Math.round(v * 100) / 100)

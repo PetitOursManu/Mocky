@@ -1,6 +1,7 @@
 /**
  * Translations for downloading a DOCUMENT screen (DocumentDownloadDialog):
- * PDF with fillable fields, .pptx for Google Slides / PowerPoint, PNG pages.
+ * PDF with fillable fields, .pptx for Canva / Google Slides / PowerPoint, PNG
+ * pages, and the page in layers as a PSD and an SVG.
  *
  * Its own area so the export's strings never touch the files the page kit's
  * strings live in. Same rules as every area: identical key sets, keys under
@@ -25,24 +26,16 @@ export const docExport = {
     'docExport.pdf.titleFields': 'PDF — champs à remplir',
     'docExport.pdf.helpFields':
       'Pour imprimer ou envoyer. Les champs du document se remplissent dans n’importe quel lecteur PDF, et le texte reste sélectionnable.',
-    'docExport.pptx.title': 'PowerPoint / Google Slides (.pptx) — textes modifiables',
+    'docExport.pptx.title': 'PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables',
     'docExport.pptx.help':
-      'Pour continuer à modifier : déposez le fichier sur Google Drive, puis « Ouvrir avec Google Slides » — chaque texte reste modifiable, et chaque image dans une forme reste remplaçable (un cadre dans Canva). S’ouvre aussi dans PowerPoint et Keynote.',
+      'Pour continuer à modifier : importez le fichier dans Canva, ou déposez-le sur Google Drive puis « Ouvrir avec Google Slides ». Chaque texte reste modifiable, et chaque image dans une forme est un cadre où glisser une autre photo. S’ouvre aussi dans PowerPoint et Keynote.',
     'docExport.png.title': 'Images PNG',
     'docExport.png.help': 'Pour publier : une image par page, réunies dans un .zip s’il y en a plusieurs.',
-    'docExport.frames.heading': 'Gabarit — cadres vides',
-    'docExport.frames.intro':
-      'Le document tel qu’il est dessiné, avec ses cadres vides, pour y mettre vos propres images dans un autre logiciel. Le texte y est une image : pour modifier les mots, prenez PowerPoint, qui garde aussi les cadres.',
-    'docExport.frames-png.title': 'PNG transparent',
-    'docExport.frames-png.help': 'Les cadres sont des trous transparents : glissez une photo dessous, dans n’importe quel logiciel.',
-    'docExport.frames-svg.title': 'SVG — Figma, Illustrator, Inkscape',
-    'docExport.frames-svg.help': 'Chaque cadre est un masque vectoriel nommé, rempli de gris : remplacez le gris par une image.',
-    'docExport.frames-pdf.title': 'PDF — Canva, Illustrator, Affinity',
-    'docExport.frames-pdf.help':
-      'Chaque cadre est un tracé vectoriel qui découpe une image d’attente. Importé dans Canva, il devient un cadre où glisser une photo.',
-    'docExport.frames-psd.title': 'PSD — Photoshop',
-    'docExport.frames-psd.help':
-      'Un calque pour la page, un calque par cadre. Placez une photo au-dessus d’un cadre, puis Alt + clic entre les deux : c’est un masque d’écrêtage.',
+    'docExport.psd.title': 'PSD — Photoshop, Photopea',
+    'docExport.psd.help':
+      'Un calque pour la page, un calque par image dans une forme. Placez une photo au-dessus, puis Alt + clic entre les deux : elle prend la même forme. Le texte fait partie de la page.',
+    'docExport.svg.title': 'SVG — Figma, Illustrator, Inkscape',
+    'docExport.svg.help': 'Chaque image dans une forme est un masque nommé : remplacez l’image qu’il contient. Le texte fait partie de la page.',
     'docExport.progress.render': 'Mise en page du document…',
     'docExport.progress.page': 'Page {page} sur {total}…',
     'docExport.progress.build': 'Assemblage du fichier…',
@@ -87,23 +80,16 @@ export const docExport = {
     'docExport.pdf.titleFields': 'PDF — fillable fields',
     'docExport.pdf.helpFields':
       'To print or send. The document’s fields can be filled in any PDF reader, and the text stays selectable.',
-    'docExport.pptx.title': 'PowerPoint / Google Slides (.pptx) — editable text',
+    'docExport.pptx.title': 'PowerPoint / Google Slides / Canva (.pptx) — editable text and frames',
     'docExport.pptx.help':
-      'To keep editing: upload the file to Google Drive, then “Open with Google Slides” — every text stays editable, and every picture in a shape stays replaceable (a frame in Canva). Also opens in PowerPoint and Keynote.',
+      'To keep editing: import the file into Canva, or upload it to Google Drive and choose “Open with Google Slides”. Every text stays editable, and every picture in a shape is a frame to drop another photo into. Also opens in PowerPoint and Keynote.',
     'docExport.png.title': 'PNG images',
     'docExport.png.help': 'To post: one image per page, bundled in a .zip when there are several.',
-    'docExport.frames.heading': 'Template — empty frames',
-    'docExport.frames.intro':
-      'The document as designed, with its frames left empty, to put your own pictures in with another tool. Its text is part of the picture: to edit words, take PowerPoint, which keeps the frames too.',
-    'docExport.frames-png.title': 'Transparent PNG',
-    'docExport.frames-png.help': 'The frames are transparent holes: slide a photo under the page, in any tool.',
-    'docExport.frames-svg.title': 'SVG — Figma, Illustrator, Inkscape',
-    'docExport.frames-svg.help': 'Each frame is a named vector mask filled with grey: replace the grey with a picture.',
-    'docExport.frames-pdf.title': 'PDF — Canva, Illustrator, Affinity',
-    'docExport.frames-pdf.help': 'Each frame is a vector path clipping a placeholder picture. Imported into Canva, it becomes a frame to drop a photo into.',
-    'docExport.frames-psd.title': 'PSD — Photoshop',
-    'docExport.frames-psd.help':
-      'One layer for the page, one per frame. Place a photo above a frame, then Alt + click between the two: that is a clipping mask.',
+    'docExport.psd.title': 'PSD — Photoshop, Photopea',
+    'docExport.psd.help':
+      'One layer for the page, one per picture in a shape. Place a photo above one and Alt + click between the two: it takes the same shape. The text is part of the page.',
+    'docExport.svg.title': 'SVG — Figma, Illustrator, Inkscape',
+    'docExport.svg.help': 'Every picture in a shape is a named mask: replace the picture inside it. The text is part of the page.',
     'docExport.progress.render': 'Laying out the document…',
     'docExport.progress.page': 'Page {page} of {total}…',
     'docExport.progress.build': 'Putting the file together…',

@@ -147,8 +147,6 @@ export interface PageSnapshot {
    * turned into text (see `makeTiltTest`). Optional for the same reason.
    */
   tilted?: number
-  /** The page's `<ShapeFrame>`s, measured for the template export only (frames.ts). */
-  frames?: FrameBox[]
 }
 
 /** One page, rasterised and measured. */
@@ -181,7 +179,7 @@ export interface CarriedFrame {
 
 export interface RenderedPage {
   snapshot: PageSnapshot
-  /** The frames the .pptx draws as shapes of their own; the picture no longer has them. */
+  /** The frames the .pptx, the SVG and the PSD carry on their own; the picture no longer has them. */
   frames?: CarriedFrame[]
   /** Encoded picture (JPEG or PNG, per the request). */
   image: Uint8Array

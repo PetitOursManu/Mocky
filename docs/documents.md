@@ -10,7 +10,7 @@ for a viewport and meant to be clicked. A **document** is the other kind of
 thing it can make — a flyer, a report, a résumé, an Instagram carousel — and it
 is not a screen at a different width. It is a stack of pages of a **fixed
 size**, composed one by one like a sheet in a layout program, and it leaves
-Mocky as a file: a PDF, a PowerPoint deck, or images.
+Mocky as a file: a PDF, a PowerPoint deck, images, or a layered PSD or SVG.
 
 This page covers what changes when the thing you are making is a document, and
 the three things you can only do with one: download it, fit it to its page, and
@@ -123,20 +123,24 @@ The social types ask for none: nobody fills in an Instagram post.
 ## Downloading
 
 A document's frame carries a `Download` pill, and the screen context menu a
-`Download…` item. Both open `Download the document`, with three buttons:
+`Download…` item. Both open `Download the document`, with five buttons:
 
-:::hotspots src=assets/ui/download.webp alt="Download the document: PDF, PowerPoint / Google Slides, PNG images"
-- 50,22.4 **The format**: The page format the document was laid out in. The file downloads directly — no print dialog.
-- 50,36.9 **PDF**: To print or send. Text stays selectable; every field becomes a real form field.
-- 50,50 **PowerPoint / Google Slides**: To keep editing: the design as a picture, every text as an editable box. Open it in Google Slides from Drive.
-- 50,81.8 **PNG images**: To post: one image per page, in a `.zip` when there are several. A social post comes out at its exact pixels.
+:::hotspots src=assets/ui/download.webp alt="Download the document: PDF, PowerPoint / Google Slides / Canva, PNG images, PSD, SVG"
+- 50,13.7 **The format**: The page format the document was laid out in. The file downloads directly — no print dialog.
+- 50,22.6 **PDF**: To print or send. Text stays selectable; every field becomes a real form field.
+- 50,39.3 **PowerPoint / Google Slides / Canva**: To keep editing: every text an editable box, every picture in a shape a frame. Import it into Canva, or open it in Google Slides from Drive.
+- 50,57.3 **PNG images**: To post: one image per page, in a `.zip` when there are several. A social post comes out at its exact pixels.
+- 50,72.4 **PSD**: For Photoshop or Photopea: the page as one layer, every picture in a shape as a layer of its own.
+- 50,87.5 **SVG**: For Figma, Illustrator or Inkscape: every picture in a shape is a named mask holding it.
 :::
 
 | Button | What you get | For |
 |---|---|---|
 | `PDF` / `PDF — fillable fields` | The pages as drawn — at print resolution for paper, at twice its pixels for a post so it stays sharp in an editor — with the text still selectable and every field fillable. | Printing, sending. |
-| `PowerPoint / Google Slides (.pptx) — editable text` | One slide per page: the design as the slide's background picture, and every run of text as an editable text box over it. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
+| `PowerPoint / Google Slides / Canva (.pptx) — editable text and frames` | One slide per page: the design as the slide's background picture, and every run of text as an editable text box over it. Each picture in a shape is a shape of its own, filled with its picture: Canva imports it as a frame to drop another photo into, PowerPoint and Google Slides as a picture you can change. Import it into Canva, or upload it to Google Drive and choose "Open with Google Slides". | Keeping on editing. |
 | `PNG images` | One image per page, in a `.zip` when there are several. A social post comes out at exactly its format's pixels. | Posting. |
+| `PSD — Photoshop, Photopea` | One layer for the page, then one per picture in a shape, with its outline, tape and shadow as layers of their own. The text is part of the page. | Finishing in Photoshop. |
+| `SVG — Figma, Illustrator, Inkscape` | The page, and each picture in a shape as a named mask group holding it, with its outline and tape over it. The text is part of the page. | Finishing in Figma or Illustrator. |
 
 The file is built in your browser, page by page, and downloads by itself. A
 `Save “{file}”` link stays in the dialog, because a browser may block a second
@@ -147,31 +151,30 @@ link rather than hiding it: content cut at the page edge, rotated text left in
 the picture of a slide, a page drawn by the fallback renderer, a picture or font
 that could not be embedded.
 
-### The template, with empty frames
+### Pictures in a shape, in the files
 
 :::why
-A post made in Mocky is often finished elsewhere, with the real photographs,
-in the editor the person already uses. Re-drawing the frames there is the work
-the template saves.
+A post made in Mocky is often finished elsewhere, with the real photographs. So
+every picture in a shape leaves as a thing of its own, in its shape: another
+photo takes its place without anyone redrawing the frame.
 :::
 
-When the document has pictures in a shape (see [Pictures in a shape](#pictures-in-a-shape)), the dialog adds
-a `Template — empty frames` section. The page comes out as designed, with every
-frame left empty and named after its shape ("Frame 2 — Polaroid"):
+When the document has pictures in a shape (see [Pictures in a shape](#pictures-in-a-shape)),
+each one is named after its place and its shape ("Frame 2 — Polaroid") and
+travels on its own:
 
-| Button | What you get | Where |
+| File | The picture in a shape is… | To replace it |
 |---|---|---|
-| `Transparent PNG` | The page with each frame cut out as a transparent hole: slide a photo under it. | Any tool. |
-| `SVG — Figma, Illustrator, Inkscape` | The page, and above it each frame as a named vector mask filled with grey: replace the grey with a picture. | Figma, Illustrator, Inkscape. |
-| `PDF — Canva, Illustrator, Affinity` | Each frame is a vector path clipping a placeholder picture. Canva turns a clipped picture in an imported PDF into one of its frames, which a photo is dropped into. | Canva, Illustrator, Affinity. |
-| `PSD — Photoshop` | One layer for the page, one per frame, in the frame's shape. Place a photo above a frame and Alt + click between the two layers: a clipping mask. | Photoshop, Photopea. |
+| PowerPoint / Google Slides / Canva | a shape filled with its picture, over the page | In Canva, drop a photo on it: it is a frame. In PowerPoint or Google Slides, change the picture. |
+| PSD | a layer of the picture, in its shape | Place a photo above that layer, then Alt + click between the two: a clipping mask. |
+| SVG | a named mask group holding the picture | Replace the picture inside the group. |
 
-A document of several pages gives one file per page, in a `.zip`, except the
-PDF, which keeps them together. A post's template is drawn at twice its pixels,
-so it stays sharp when the editor shows it larger or you zoom in to place a
-photo. The text is part of the page's picture in a
-template; to edit the words, take the PowerPoint download, which keeps the
-frames as frames too.
+A frame still waiting for its picture comes out holding a grey placeholder,
+ready to be replaced. A document of several pages gives one PSD or SVG per
+page, in a `.zip`. Like the PDF and the PowerPoint, they are drawn at twice a
+post's pixels, so they stay sharp when an editor shows them larger. In the PSD
+and the SVG the text is part of the page's picture; to edit the words, take the
+PowerPoint download.
 
 ---
 
@@ -183,7 +186,7 @@ edge, Mocky says so — a notice names the document and the page — because on
 paper that content is simply cut.
 
 :::hotspots src=assets/ui/docmenu.webp alt="A document’s context menu"
-- 50,5.8 **Download…**: A document only: PDF with fillable fields, PowerPoint / Google Slides, or PNG images.
+- 50,5.8 **Download…**: A document only: PDF with fillable fields, PowerPoint / Google Slides / Canva, PNG images, PSD or SVG.
 - 50,12.5 **Fit to page**: A document only: when content runs past a page, measures it and asks the model to win the space back. Kept only if it fits better.
 - 50,19.2 **Regenerate**: The same prompt again, for a different design.
 - 50,25.8 **Polish**: Checks the design against named rules and corrects what it finds.

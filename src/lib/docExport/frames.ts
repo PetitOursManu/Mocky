@@ -1,19 +1,19 @@
 /**
- * The frames of a document page: where each `<ShapeFrame>` sits, and the page
- * drawn WITHOUT its picture — for the template export (template.ts), and for
- * the .pptx, which carries each frame as a shape of its own (`carryFrames`).
+ * The frames of a document page: where each `<ShapeFrame>` sits, its picture as
+ * it shows, and what it draws around it — for the files that carry each frame
+ * as a thing of its own (`carryFrames`): the .pptx, the SVG and the PSD.
  *
  * Runs in the parent on the same-origin export frame, like measure.ts, and for
  * the same reason never tests `instanceof`.
  */
-import { pathData, placeFrame, type FrameBox } from '../frameGeometry'
+import type { FrameBox } from '../frameGeometry'
 import { frameShape } from '../frameShapes'
 import { parseCssColor } from './lines'
 import type { CarriedFrame, FrameOverlay } from './types'
 
 /** On a `<ShapeFrame>`'s root: its shape. Written by snippets/ShapeFrame.ts. */
 export const FRAME_ATTR = 'data-mocky-frame'
-/** On the layer that holds its picture — what the template leaves out. */
+/** On the layer that holds its picture. */
 export const FRAME_PHOTO_ATTR = 'data-mocky-frame-photo'
 /** On each drawn layer: `paper` under the picture, `stroke` and `over` above it. */
 export const FRAME_LAYER_ATTR = 'data-mocky-frame-layer'
@@ -29,7 +29,7 @@ export function rotationOf(transform: string | null | undefined): { angle: numbe
 }
 
 /**
- * Every frame on the page, in page px.
+ * A frame's box on the page, in page px.
  *
  * The CENTRE is read off the bounding box, which a rotation about the centre
  * leaves where it was; the SIZE off `offsetWidth/Height`, which is the box
@@ -38,16 +38,6 @@ export function rotationOf(transform: string | null | undefined): { angle: numbe
  * itself (`rotate`), and a model turning a whole card with a frame inside is
  * rare enough to leave the shape square to the page rather than guess.
  */
-export function measureFrames(win: Window, page: Element): FrameBox[] {
-  const origin = page.getBoundingClientRect()
-  const out: FrameBox[] = []
-  page.querySelectorAll(`[${FRAME_ATTR}]`).forEach((el) => {
-    const box = boxOf(win, el, origin)
-    if (box) out.push(box)
-  })
-  return out
-}
-
 function boxOf(win: Window, el: Element, origin: DOMRect): FrameBox | null {
   const shape = el.getAttribute(FRAME_ATTR) || ''
   const r = el.getBoundingClientRect()
@@ -72,12 +62,7 @@ export function hideElements(els: Iterable<Element>): () => void {
   return () => undo.reverse().forEach((u) => u())
 }
 
-/** Hide every frame's picture (its grey placeholder too); the undo shows them again. */
-export function hideFramePhotos(page: Element): () => void {
-  return hideElements(Array.from(page.querySelectorAll(`[${FRAME_PHOTO_ATTR}]`)))
-}
-
-// ── the .pptx: each frame a shape of its own ─────────────────────────────────
+// ── each frame a thing of its own: the .pptx, the SVG, the PSD ───────────────
 
 /**
  * `object-position` as fractions of the free space — what `<ShapeFrame focus>`
@@ -180,10 +165,11 @@ function overlayOf(win: Window, layer: Element): FrameOverlay | null {
 }
 
 /**
- * Every frame of the page the .pptx can carry as a shape of its own, and the
- * layers to take out of the page's picture in exchange: the picture, and what
- * is drawn over it (an outline, tape), which would otherwise sit UNDER the
- * shape that now holds the photograph.
+ * Every frame of the page that can be carried as a thing of its own — a shape
+ * in the .pptx, a mask group in the SVG, a layer in the PSD — and the layers to
+ * take out of the page's picture in exchange: the picture, and what is drawn
+ * over it (an outline, tape), which would otherwise sit UNDER the frame that
+ * now holds the photograph.
  *
  * WHY A SHAPE FILLED WITH A PICTURE. Canva's import of a .pptx was tested with
  * four spellings of one blob: a picture cropped to a free-form shape and to a
@@ -224,20 +210,4 @@ export async function carryFrames(win: Window, page: Element, scale: number): Pr
     hide.push(photo, ...layers)
   }
   return { frames, hide }
-}
-
-/**
- * Cut each frame out of the page's picture: transparent where the photograph
- * goes, so it can be slid UNDER the page in any editor. `scale` is the
- * picture's pixels per page px.
- */
-export function punchFrames(canvas: HTMLCanvasElement, frames: FrameBox[], scale: number): void {
-  if (!frames.length) return
-  const ctx = canvas.getContext('2d')
-  if (!ctx || typeof Path2D !== 'function') return
-  ctx.save()
-  ctx.setTransform(scale, 0, 0, scale, 0, 0)
-  ctx.globalCompositeOperation = 'destination-out'
-  for (const f of frames) ctx.fill(new Path2D(pathData(placeFrame(f))))
-  ctx.restore()
 }

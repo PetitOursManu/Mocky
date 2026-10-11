@@ -7,11 +7,11 @@ import type { Rgba } from './types'
  */
 
 /** What the picture is for. Each wants a different trade between weight and sharpness. */
-export type RasterPurpose = 'pdf' | 'pptx' | 'png' | 'template'
+export type RasterPurpose = 'pdf' | 'pptx' | 'png' | 'layers'
 
 /**
- * A social page drawn to be WORKED ON rather than posted — the PDF, the .pptx
- * and the template with empty frames — is drawn at twice the platform's pixels.
+ * A social page drawn to be WORKED ON rather than posted — the PDF, the .pptx,
+ * the SVG and the PSD — is drawn at twice the platform's pixels.
  * At 1× a 1080-px post imported into Canva was "un peu flou" on the first
  * screen that showed it larger than 1080 px, and zooming in to place a photo in
  * a frame showed it worse. The PNG stays at 1×: that one IS the post.

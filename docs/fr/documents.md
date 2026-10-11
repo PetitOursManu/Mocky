@@ -1,7 +1,7 @@
 ---
 description: Flyers, rapports, CV et posts pour les réseaux — des pages fixes que l’on télécharge en PDF, en présentation ou en images.
 badge: Nouveau
-source_hash: cf44ba6df48e
+source_hash: 9da2de120656
 ---
 
 # Documents et posts pour les réseaux sociaux
@@ -12,7 +12,7 @@ ou de site, mise en page pour une fenêtre et faite pour être cliquée. Un
 un CV, un carrousel Instagram — et ce n’est pas un écran à une autre largeur.
 C’est une pile de pages de **taille fixe**, composées une par une comme une
 feuille dans un logiciel de mise en page, et il sort de Mocky sous forme de
-fichier : un PDF, une présentation PowerPoint ou des images.
+fichier : un PDF, une présentation PowerPoint, des images, ou un PSD ou un SVG en calques.
 
 Cette page décrit ce qui change quand ce que vous fabriquez est un document, et
 les trois choses qu’on ne peut faire qu’avec lui : le télécharger, l’ajuster à
@@ -131,20 +131,24 @@ Instagram.
 
 Le cadre d’un document porte une pastille `Télécharger`, et le menu contextuel de
 l’écran une entrée `Télécharger…`. Les deux ouvrent `Télécharger le document`, avec
-trois boutons :
+cinq boutons :
 
-:::hotspots src=../assets/ui/fr/download.webp alt="Télécharger le document : PDF, PowerPoint / Google Slides, images PNG"
-- 50,22 **Le format**: Le format de page du document. Le fichier se télécharge directement — sans fenêtre d’impression.
-- 50,38.9 **PDF**: Pour imprimer ou envoyer. Le texte reste sélectionnable ; chaque champ devient un vrai champ de formulaire.
-- 50,50 **PowerPoint / Google Slides**: Pour continuer à modifier : le dessin en image, chaque texte en zone modifiable. Ouvrez-le dans Google Slides depuis Drive.
-- 50,82.1 **Images PNG**: Pour publier : une image par page, dans un `.zip` s’il y en a plusieurs. Un post sort à ses pixels exacts.
+:::hotspots src=../assets/ui/fr/download.webp alt="Télécharger le document : PDF, PowerPoint / Google Slides / Canva, images PNG, PSD, SVG"
+- 50,14.2 **Le format**: Le format de page du document. Le fichier se télécharge directement — sans fenêtre d’impression.
+- 50,25.1 **PDF**: Pour imprimer ou envoyer. Le texte reste sélectionnable ; chaque champ devient un vrai champ de formulaire.
+- 50,42.9 **PowerPoint / Google Slides / Canva**: Pour continuer à modifier : chaque texte en zone modifiable, chaque image dans une forme en cadre. Importez-le dans Canva, ou ouvrez-le dans Google Slides depuis Drive.
+- 50,60.7 **Images PNG**: Pour publier : une image par page, dans un `.zip` s’il y en a plusieurs. Un post sort à ses pixels exacts.
+- 50,74.6 **PSD**: Pour Photoshop ou Photopea : la page en un calque, chaque image dans une forme en calque à part.
+- 50,88.5 **SVG**: Pour Figma, Illustrator ou Inkscape : chaque image dans une forme est un masque nommé qui la contient.
 :::
 
 | Bouton | Ce que vous obtenez | Pour |
 |---|---|---|
 | `PDF` / `PDF — champs à remplir` | Les pages telles que dessinées — en résolution d’impression pour le papier, au double de ses pixels pour un post afin qu’il reste net dans un logiciel — avec le texte toujours sélectionnable et chaque champ remplissable. | Imprimer, envoyer. |
-| `PowerPoint / Google Slides (.pptx) — textes modifiables` | Une diapositive par page : le dessin en image d’arrière-plan, et chaque texte en zone de texte modifiable par-dessus. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
+| `PowerPoint / Google Slides / Canva (.pptx) — textes et cadres modifiables` | Une diapositive par page : le dessin en image d’arrière-plan, et chaque texte en zone de texte modifiable par-dessus. Chaque image dans une forme est une forme à part, remplie de son image : Canva l’importe comme un cadre où glisser une autre photo, PowerPoint et Google Slides comme une image à remplacer. Importez-le dans Canva, ou déposez-le sur Google Drive et choisissez « Ouvrir avec Google Slides ». | Continuer à modifier. |
 | `Images PNG` | Une image par page, dans un `.zip` quand il y en a plusieurs. Un post sort exactement aux pixels de son format. | Publier. |
+| `PSD — Photoshop, Photopea` | Un calque pour la page, puis un par image dans une forme, avec son contour, son ruban et son ombre en calques à part. Le texte fait partie de la page. | Terminer dans Photoshop. |
+| `SVG — Figma, Illustrator, Inkscape` | La page, et chaque image dans une forme comme un groupe-masque nommé qui la contient, avec son contour et son ruban par-dessus. Le texte fait partie de la page. | Terminer dans Figma ou Illustrator. |
 
 Le fichier est fabriqué dans votre navigateur, page par page, et se télécharge
 tout seul. Un lien `Enregistrer « {file} »` reste dans la fenêtre, parce qu’un
@@ -155,32 +159,30 @@ le lien plutôt que de le cacher : du contenu coupé au bord de la page, un text
 tourné laissé dans l’image d’une diapositive, une page dessinée par le moteur de
 secours, une image ou une police qui n’a pas pu être intégrée.
 
-### Le gabarit, avec les cadres vides
+### Les images dans une forme, dans les fichiers
 
 :::why
-Un post fait dans Mocky se termine souvent ailleurs, avec les vraies photos,
-dans le logiciel qu'on utilise déjà. Redessiner les cadres là-bas, c'est le
-travail que le gabarit évite.
+Un post fait dans Mocky se termine souvent ailleurs, avec les vraies photos.
+Chaque image dans une forme sort donc comme un élément à part, dans sa forme :
+une autre photo prend sa place sans que personne ne redessine le cadre.
 :::
 
-Quand le document contient des images en forme (voir [Des images dans une forme](#des-images-dans-une-forme)),
-la fenêtre ajoute une section `Gabarit — cadres vides`. La page sort telle
-qu'elle est dessinée, avec chaque cadre vide et nommé d'après sa forme
-(« Cadre 2 — Polaroid ») :
+Quand le document contient des images dans une forme (voir [Des images dans une forme](#des-images-dans-une-forme)),
+chacune est nommée d'après sa place et sa forme (« Cadre 2 — Polaroid ») et
+voyage à part :
 
-| Bouton | Ce que vous obtenez | Où |
+| Fichier | L'image dans une forme est… | Pour la remplacer |
 |---|---|---|
-| `PNG transparent` | La page avec chaque cadre découpé en trou transparent : glissez une photo dessous. | N'importe quel logiciel. |
-| `SVG — Figma, Illustrator, Inkscape` | La page, et au-dessus chaque cadre comme un masque vectoriel nommé, rempli de gris : remplacez le gris par une image. | Figma, Illustrator, Inkscape. |
-| `PDF — Canva, Illustrator, Affinity` | Chaque cadre est un tracé vectoriel qui découpe une image d'attente. Canva transforme une image découpée dans un PDF importé en l'un de ses cadres, où l'on dépose une photo. | Canva, Illustrator, Affinity. |
-| `PSD — Photoshop` | Un calque pour la page, un par cadre, à la forme du cadre. Placez une photo au-dessus d'un cadre, puis Alt + clic entre les deux calques : un masque d'écrêtage. | Photoshop, Photopea. |
+| PowerPoint / Google Slides / Canva | une forme remplie de son image, au-dessus de la page | Dans Canva, déposez une photo dessus : c'est un cadre. Dans PowerPoint ou Google Slides, changez l'image. |
+| PSD | un calque de l'image, dans sa forme | Placez une photo au-dessus de ce calque, puis Alt + clic entre les deux : un masque d'écrêtage. |
+| SVG | un groupe-masque nommé qui contient l'image | Remplacez l'image dans le groupe. |
 
-Un document de plusieurs pages donne un fichier par page, dans un `.zip`, sauf
-le PDF, qui les garde ensemble. Le gabarit d'un post est dessiné au double de ses
-pixels, pour rester net quand le logiciel l'affiche en grand ou que vous zoomez
-pour placer une photo. Dans un gabarit, le texte fait partie de l'image
-de la page ; pour modifier les mots, prenez le téléchargement PowerPoint, qui
-garde aussi les cadres en cadres.
+Un cadre qui attend encore son image sort avec une image d'attente grise, prête
+à être remplacée. Un document de plusieurs pages donne un PSD ou un SVG par
+page, dans un `.zip`. Comme le PDF et le PowerPoint, ils sont dessinés au double
+des pixels d'un post, pour rester nets quand un logiciel les affiche en grand.
+Dans le PSD et le SVG, le texte fait partie de l'image de la page ; pour
+modifier les mots, prenez le téléchargement PowerPoint.
 
 ---
 
@@ -192,7 +194,7 @@ au-delà du bord d’une page, Mocky le dit — une notice nomme le document et 
 — parce que sur papier ce contenu est tout simplement coupé.
 
 :::hotspots src=../assets/ui/fr/docmenu.webp alt="Le menu contextuel d’un document"
-- 50,5.8 **Télécharger…**: Un document seulement : PDF à champs remplissables, PowerPoint / Google Slides, ou images PNG.
+- 50,5.8 **Télécharger…**: Un document seulement : PDF à champs remplissables, PowerPoint / Google Slides / Canva, images PNG, PSD ou SVG.
 - 50,12.5 **Ajuster à la page**: Un document seulement : quand le contenu dépasse d’une page, le mesure et demande au modèle de regagner la place. Gardé seulement s’il tient mieux.
 - 50,19.2 **Régénérer**: La même demande à nouveau, pour un autre design.
 - 50,25.8 **Peaufiner**: Confronte le design à des règles nommées et corrige ce qu’il trouve.
